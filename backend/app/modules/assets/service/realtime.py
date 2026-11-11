@@ -12,17 +12,24 @@ WP-049b s1: consumables and stock go to the tenant channel with the consumable's
 (`assets.consumables_changed`), bookings to the tenant channel, the asset's own channel and the
 booker's personal channel (`assets.bookings_changed`), minimum-stock rules as set-up.
 
+WP-049b s3: an audit's changes go to its own channel (managers and its auditors) and, as IDs,
+to the tenant channel for the audit lists; label jobs to their requester's personal channel;
+scans to the asset's channel (`fields`: scans).
+
 Channels this module decides about:
     t:{tenant}:queue:assets…    the staff list (LiveList), per site
     t:{tenant}:asset:{id}       one asset, for whoever may see it
+    t:{tenant}:asset_audit:{id} one audit, for managers and its named auditors
 """
 
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.assets.infra.models import Asset
-from app.modules.assets.service.assets import ASSETS, VIEW
+from app.modules.assets.infra.models import Asset, AssetAudit
+from app.modules.assets.service.assets import ASSETS, MANAGE, VIEW
+from app.modules.assets.service.audits import is_auditor
 from app.modules.identity_access import authorize_stored
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
@@ -57,7 +64,36 @@ async def _record_channel(request: ChannelRequest) -> ChannelAccess | None:
     return None
 
 
-CHANNELS = [LIST.spec(), ChannelSpec(kind=RECORD_KIND, authorize=_record_channel)]
+# WP-049b s3: an audit's own channel (REQ-AST-043 AC3): progress for every auditor, live.
+AUDIT_KIND = "asset_audit"
+AUDIT_CHANGED = "assets.audit_changed"
+AUDITS_CHANGED = "assets.audits_changed"
+LABELS_CHANGED = "assets.labels_changed"
+SCANS_FIELD = "scans"
+
+
+async def _audit_channel(request: ChannelRequest) -> ChannelAccess | None:
+    """Managers and the audit's named auditors (who hold assets.view) may follow it."""
+    try:
+        audit_id = uuid.UUID(request.channel.key or "")
+    except ValueError:
+        return None
+    subject = request.subject
+    if not subject.holds(VIEW):
+        return None
+    found = await request.session.scalar(select(AssetAudit.id).where(AssetAudit.id == audit_id))
+    if found is None:
+        return None
+    if subject.holds(MANAGE) or await is_auditor(request.session, audit_id, subject.user_id):
+        return ChannelAccess(presence=True)
+    return None
+
+
+CHANNELS = [
+    LIST.spec(),
+    ChannelSpec(kind=RECORD_KIND, authorize=_record_channel),
+    ChannelSpec(kind=AUDIT_KIND, authorize=_audit_channel),
+]
 
 
 async def _catalogue_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -249,7 +285,75 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     )
 
 
+async def _audit_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An audit or one of its items changed: its page (progress, items) and the audit lists."""
+    del session
+    payload = envelope.payload
+    audit_id = uuid.UUID(str(payload["audit_id"]))
+    item = payload.get("item_id")
+    fields = ("items", "progress") if item is not None else tuple(payload.get("changed_fields", ()))
+    ids = (str(audit_id),) if item is None else (str(audit_id), str(item))
+    publications = [
+        Publication(
+            record(envelope.tenant_id, AUDIT_KIND, audit_id),
+            AUDIT_CHANGED,
+            ids=ids,
+            fields=(*fields, "progress") if "progress" not in fields else fields,
+            version=envelope.aggregate_version if item is None else None,
+            actor_id=_actor(envelope),
+        ),
+        # The lists refetch through the API, which checks who may see which audit. IDs only.
+        Publication(broadcast(envelope.tenant_id), AUDITS_CHANGED, ids=(str(audit_id),)),
+    ]
+    asset = payload.get("asset_id")
+    if item is not None and asset is not None and payload.get("action") == "fixed":
+        publications.append(
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, uuid.UUID(str(asset))),
+                ASSET_CHANGED,
+                ids=(str(asset),),
+                fields=("audit",),
+            )
+        )
+    return RealtimeEffects(publications=publications)
+
+
+async def _label_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A label job was asked for or finished: its requester's screens refresh. IDs only."""
+    del session
+    payload = envelope.payload
+    person = uuid.UUID(str(payload["requested_by"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, person), LABELS_CHANGED, ids=(str(payload["job_id"]),)
+            )
+        ]
+    )
+
+
+async def _scan_recorded(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A scan of an asset was recorded: its Scans tab refreshes. IDs only."""
+    del session
+    asset_id = uuid.UUID(str(envelope.payload["asset_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, asset_id),
+                ASSET_CHANGED,
+                ids=(str(asset_id), str(envelope.payload["scan_id"])),
+                fields=(SCANS_FIELD,),
+            )
+        ]
+    )
+
+
 ROUTES = [
+    RealtimeRoute(("assets.audit.changed", "assets.audit.item_changed"), _audit_changed),
+    RealtimeRoute(("assets.label.requested", "assets.label.printed"), _label_changed),
+    RealtimeRoute(("assets.scan.recorded",), _scan_recorded),
+    # The overdue-scan rule is set-up, like the catalogue: the settings screen refetches.
+    RealtimeRoute(("assets.overdue_rule.changed",), _catalogue_changed),
     RealtimeRoute(tuple(_PARTS), _part_changed),
     RealtimeRoute(
         ("assets.consumable.changed", "assets.stock.moved", "assets.stock.low"),

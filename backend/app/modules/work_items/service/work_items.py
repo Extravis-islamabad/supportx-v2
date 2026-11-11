@@ -350,6 +350,24 @@ async def may_edit(
     return await _may(session, subject, wtype, "edit", record_id)
 
 
+async def labels_of(
+    session: AsyncSession, wtype: WorkItemType, record_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[str, str]]:
+    """Display IDs and subjects by record ID, of this type only, trash excluded.
+
+    For another module that names records it has already checked the viewer may see (the
+    workflow overview, WP-048b S5a): one bounded query over those IDs, in the tenant session.
+    """
+    if not record_ids:
+        return {}
+    rows = await session.execute(
+        _rows(wtype)
+        .where(WorkItem.id.in_(list(record_ids)))
+        .with_only_columns(WorkItem.id, WorkItem.display_id, WorkItem.subject)
+    )
+    return {row.id: (row.display_id, row.subject) for row in rows}
+
+
 async def may_view(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> bool:

@@ -38,6 +38,15 @@ export const ar: LabelResource = {
   'errors.asset_acknowledgement_answered': 'لقد أجبت عن هذا بالفعل.',
   'errors.asset_acknowledgement_not_found': 'هذا الإقرار ليس لك أو لم يعد موجودًا.',
   'errors.asset_already_disposed': 'لهذا الأصل سجل تخلّص بالفعل.',
+  'errors.asset_audit_closed': 'هذا التدقيق مغلق ولا يمكن تغييره.',
+  'errors.asset_audit_item_not_found': 'هذا العنصر ليس جزءًا من هذا التدقيق.',
+  'errors.asset_audit_not_auditor': 'يمكن فقط للمدققين المحددين في هذا التدقيق تعليم عناصره.',
+  'errors.asset_audit_not_draft': 'بدأ هذا التدقيق بالفعل.',
+  'errors.asset_audit_not_found': 'هذا التدقيق غير موجود، أو لا يمكنك رؤيته.',
+  'errors.asset_audit_not_running': 'هذا التدقيق غير جارٍ: ابدأه أولًا.',
+  'errors.asset_audit_scope_frozen':
+    'يُثبَّت النطاق بعد بدء التدقيق: يمكن تغيير الاسم والوصف وتاريخ الانتهاء والمدققين فقط.',
+  'errors.asset_audit_too_large': 'يضم هذا النطاق أكثر من {{max}} أصل: ضيّقه.',
   'errors.asset_batch_not_found': 'هذه الدفعة ليست في هذا الموقع.',
   'errors.asset_book_for_yourself': 'في البوابة يمكنك الحجز لنفسك فقط.',
   'errors.asset_booked': '{{asset}} محجوز لجزء من ذلك الوقت.',
@@ -62,6 +71,11 @@ export const ar: LabelResource = {
   'errors.asset_group_name_taken': 'لمجموعة أخرى هذا الاسم بالفعل.',
   'errors.asset_group_not_found': 'هذه المجموعة لم تعد موجودة.',
   'errors.asset_has_components': 'عليه مكوّنات مركّبة ({{count}}): افصلها أو تخلّص منها أيضًا.',
+  'errors.asset_label_job_not_found': 'هذه الملصقات غير موجودة، أو طلبها شخص آخر.',
+  'errors.asset_label_job_not_ready': 'الملصقات غير جاهزة للتنزيل.',
+  'errors.asset_label_print_not_found': 'لم تعد عملية الطباعة هذه في سجل الملصقات.',
+  'errors.asset_labels_failed': 'تعذّر إنشاء الملصقات. حاول مرة أخرى.',
+  'errors.asset_labels_too_large': 'ستُنتج الملصقات ملفًا كبيرًا جدًا: اطبع عددًا أقل في كل مرة.',
   'errors.asset_life_cycle_in_use':
     'لا تزال أنواع منتجات تستخدم دورة الحياة هذه ({{used}}). انقلها إلى دورة أخرى أولًا.',
   'errors.asset_life_cycle_not_found': 'دورة الحياة هذه غير موجودة.',
@@ -226,6 +240,8 @@ export const ar: LabelResource = {
   'errors.field.asset_nested_in_itself': 'لا يمكن تركيب أصل على نفسه أو على أحد أجزائه.',
   'errors.field.asset_not_batch_tracked': 'هذا المستهلك لا يُتتبَّع بالدفعات.',
   'errors.field.asset_not_found': 'هذا الأصل غير موجود أو لا يمكنك رؤيته.',
+  'errors.field.asset_overdue_state_unreachable':
+    'لا تنقل أي دورة حياة لأنواع المنتجات هذه أصلًا إلى هذه الحالة. اختر حالة يمكن الوصول إليها.',
   'errors.field.asset_product_not_consumable': 'اختر منتجًا من نوع مستهلك.',
   'errors.field.asset_product_not_found': 'لم يعد هذا المنتج موجودًا.',
   'errors.field.asset_product_type_cycle':
@@ -836,6 +852,8 @@ export const ar: LabelResource = {
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
   'errors.site_not_found': 'الموقع غير موجود.',
+  'errors.skip_without_next':
+    'لا توجد خطوة تالية واحدة بعد هذه الخطوة، لذا لا يمكن تخطيها؛ أعد محاولتها أو شغّل مسار العمل مجددًا من خطوة تختارها.',
   'errors.sla_fallback_required':
     'لا يمكن حذف السياسة الافتراضية: فهي تُطبَّق عندما لا تنطبق أي سياسة أخرى.',
   'errors.sla_policy_not_found': 'سياسة اتفاقية مستوى الخدمة هذه غير موجودة أو حُذفت.',

@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, onTestFinished } from 'vitest';
 import type { AssetProductType, AssetRecord, AssetState, Vendor } from '@supportx/api-client';
 
 import { App } from '../../App';
+import { fakePermissions } from '@supportx/api-client/testing';
+
 import { consoleApi, fakeSession } from '../../test/api';
 
 // WP-049a s2: the asset list, one asset and vendors.
@@ -1038,5 +1040,32 @@ describe('console: assets polish (QA10-P4-38, P4-39; #307 review)', () => {
       target: { value: 'x'.repeat(201) },
     });
     expect(await within(dialog).findByText('201 / 200')).toBeTruthy();
+  });
+});
+
+describe('the asset list selection for view-only people (WP-049b s3)', () => {
+  it('offers only Print labels; moving, groups and loans stay with assets.manage', async () => {
+    window.history.pushState({}, '', '/assets');
+    const viewOnly = fakeSession(
+      { roles: ['technician'] },
+      { permissions: fakePermissions('technician').filter((p) => p.key !== 'assets.manage') },
+    );
+    const fake = consoleApi({
+      me: viewOnly,
+      routes: {
+        'GET /api/v1/assets': { body: page([asset]) },
+        'GET /api/v1/assets/product-types': { body: [type] },
+        'GET /api/v1/assets/states': { body: [state] },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const row = (await screen.findByTestId(`asset-row-${asset.id}`)).closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByTitle('Select AST-7'));
+    const bar = await screen.findByTestId('assets-selection');
+    expect(within(bar).getByTestId('assets-print-labels')).toBeTruthy();
+    expect(within(bar).queryByTestId('assets-bulk-move-open')).toBeNull();
+    expect(within(bar).queryByTestId('assets-add-to-group')).toBeNull();
+    expect(within(bar).queryByTestId('assets-make-loanable')).toBeNull();
   });
 });

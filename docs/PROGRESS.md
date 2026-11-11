@@ -1508,7 +1508,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-2 built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3 built 2026-11-11)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1568,6 +1568,54 @@ it with no reload (rule c). Not built yet.
   - Guide: docs/guides/asset-financials.md.
   - **Open:** 048's hardware, software, contracts and scan-history tabs (discovery, S3, WP-054);
     049 AC1's `discovery` source (S3); 036 AC2 and 038 AC1 with WP-054.
+- [x] **Session 3 (migrations 0134 and 0135 after 0131, re-pointed at the lane's turn; REQ-AST-039,
+  042, 043, 054, 056; branch backup/wp-049b-s3):**
+  - Shared PDF renderer (agreed with lane C): `app/shared/pdf` holds the bundled fonts, the fetcher
+    that refuses every URL but those fonts, `available()` and `render(html)` with page and byte
+    caps; analytics keeps its report HTML and its `pdf_not_available` code. The fetcher and
+    fonts-only tests moved with `git mv` (history kept); the report-only tests stay in analytics.
+    The worker-test image runs the shared and asset PDF tests too.
+  - Labels (039): QR (segno) and Code 128 (python-barcode; D-141, CLAUDE.md §3) as inline SVG in
+    one PDF per job (up to 500, one label per page; cable and laptop layouts; Arabic right to
+    left), built by the consumers worker (`assets.label.requested` → `assets.label.printed`),
+    downloaded by the person who asked for a week. The QR holds only the console link (AC2).
+    `assets.view` on every asset printed, scoped (404 naming none). Every print and reprint
+    writes an append-only `asset_label_prints` row (SELECT, INSERT only; AC3). Vendor codes print
+    through the same generator. AC1: 100 assets make one 100-page PDF (pdf test).
+  - Audits (042, 043): plan with `assets.manage` (sites, product types with their children,
+    asset groups; dates; named auditors); start freezes the expected items (AC1: exactly the
+    site's assets); named auditors with `assets.view` mark by scan or by hand while it runs;
+    found at another site is the wrong place (043 AC1); unexpected assets added; bulk fixes (move
+    site, change state, assign) each through the asset service in a savepoint, history naming
+    the audit (043 AC2, `automation_ref` kind `asset_audit`); progress live on
+    `t:{tenant}:asset_audit:{id}` (043 AC3); closed is read-only on the server. Self-audits ask
+    each holder again through their acknowledgement (one per holding and audit; accepted =
+    found, disputed = missing with the holder's comment kept on the item and shown in the
+    discrepancy list); a requester sees and answers only their own. View-only people may select
+    assets to print labels; every other bulk action stays assets.manage (server-tested).
+  - Scans (054): `app.modules.assets.record_scan` (the discovery port; nothing calls it yet),
+    the asset's Scans tab, `last_scanned_at`; the daily `assets__scan_cleanup` deletes scans past
+    the asset settings' retention (the existing `scan_retention_months`, Appendix A: 6 months),
+    per tenant, one audit summary each run; assets and history lines stay (AC2).
+  - Overdue rule (056): off by default (`config.assets`), N days, product types, a state or the
+    trash (never a delete), preview count before saving (AC2), the hourly
+    `assets__overdue_scans` job records each run that changed something with its list and names
+    the rule in each history entry (AC1); trashed assets restore with their history (AC3).
+    It follows the life cycle: only reachable target states are accepted
+    (`asset_overdue_state_unreachable`), and an asset whose state cannot move there is skipped,
+    unchanged, and listed in the run with its reason.
+  - Migration 0135: `ix_field_changes_change` (tenant_id, change_id), built and dropped
+    CONCURRENTLY.
+  - Console: Assets › Audits (list) and an audit (record: items, scan box, discrepancies with
+    bulk fixes), Print labels on the asset list selection and the asset page, Labels and Scans
+    tabs, history lines naming the audit or the rule, the overdue rule in Admin › Assets ›
+    Settings. Portal: the self-audit question in My assets. Visual matrix: asset-audits,
+    asset-audit, asset-scans; the showcase has a running audit with marks and two scans.
+  - Guide: docs/guides/asset-labels-and-audits.md.
+  - **Open:** label PDF progress is reported at the end only (the worker renders in one step);
+    the API cannot tell beforehand whether a worker can render PDFs (a job without one fails
+    with `pdf_not_available`); the label designer (040) and mobile scanning (041) are later;
+    discovery calls `record_scan` (WP-050).
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
@@ -1594,7 +1642,7 @@ it with no reload (rule c). Not built yet.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
 
-### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-4 of 5 built, #233)
+### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.
 Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (approval chair).
@@ -1708,8 +1756,36 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
     - the "Book value by cost centre" and "Total cost of ownership" reports (asset money
       measures, listed only for assets.view_financials);
     - the release downtime delete asks first (lane A's #377).
-- [ ] **S5** — the overview screen, versions and migration UI, skip a failed step, the
-  waiting-longer filter, e2e and guides.
+- [x] **S5** — the runs overview, versions and moving runs, skip, waiting longer than, e2e and
+  guides (feat/wp-048b-s5, backup/wp-048b-s5; one PR from main, no migration). Session log:
+  progress-log/2026-11-11-wp-048b-s5-lane-c.md.
+  - **S5d, skip a failed step (REQ-WF-024 AC2):**
+    - goes on through the failed step's "next" output only; a step that decides its own path
+      is refused with skip_without_next;
+    - POST /instances/{id}/skip: If-Match, may_edit, audited (who, step, record);
+    - "Skip this step" on the record panel, behind a confirm.
+  - **S5b, waiting longer than (REQ-WF-025 AC3):** `waiting_over_hours` on the overview. It
+    reads the last step on workflow_steps' tenant-first primary key, backwards (EXPLAIN checked
+    in a test), so no index or migration.
+  - **S5a, Admin › Workflows › Runs (template C):**
+    - filters for state, record type, workflow, step and waiting longer than;
+    - failures in words;
+    - a run's record named and linked only for those who may see it, via a read-only `labels`
+      port that lane A agreed (rule 8);
+    - bulk retry and cancel (with a reason) as jobs, one per workflow, at most 1,000 runs, with
+      live progress; the job's audit keeps its kind, run count and reason.
+  - **S5c, versions and moving runs (REQ-WF-021):**
+    - the designer's Versions tab: who published each version, when, and its live runs;
+    - the move dialog maps each occupied step, then a mandatory dry run, then the move as a job;
+    - new: `versions/{n}/steps` and the overview's `version_number` filter.
+  - **S5e, e2e and guides:**
+    - docs/guides/workflows.md;
+    - e2e/tests/workflows.spec.ts: a workflow built by keyboard and run on an incident, a test
+      run's timer, a failed step skipped;
+    - Visual matrix screens for Runs and the versions dialog.
+    - **Not a journey:** a webhook failing at its receiver needs the consumers worker and a test
+      receiver in the e2e stack. The DB tests cover it (test_workflow_webhooks.py); an e2e
+      journey waits for an e2e receiver (follow-up), never a retry loop (the coordinator).
 - **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the
   `users.preview` test once that permission lands (lane B).
 

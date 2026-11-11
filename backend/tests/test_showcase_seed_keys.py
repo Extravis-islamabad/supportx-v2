@@ -65,3 +65,23 @@ def test_showcase_consumables_are_consumable_have_stable_keys_and_one_runs_low()
     assert any(r.expires_in_days for c in assets.CONSUMABLES for r in c.receipts)
     assert assets.BOOKED in {a.tag for a in assets.ASSETS if a.holder == "loan"}  # loanable
     assert assets.BOOKING_IN_DAYS > assets.LOAN_DAYS  # booked after the loan is due back
+
+
+def test_showcase_audit_and_scans_have_stable_keys_and_show_each_result() -> None:
+    """WP-049b s3: a key per write; the marks cover found, damaged and the wrong place."""
+    keys = [seed.key("asset", "audit", assets.AUDIT)]
+    keys += [seed.key("asset", "audit-scan", assets.AUDIT, tag) for tag, _, _ in assets.AUDIT_MARKS]
+    assert len(set(keys)) == len(keys)
+    tags = {a.tag: a for a in assets.ASSETS}
+    sites = {name for name, _ in seed.SITES}
+    assert assets.AUDIT_SITE in sites
+    for tag, site, _ in assets.AUDIT_MARKS:
+        assert tags[tag].site == assets.AUDIT_SITE  # expected at the audited site
+        assert site in sites
+    # One seen at another site: the wrong place; one damaged; one simply found.
+    assert {(site != assets.AUDIT_SITE, result) for _, site, result in assets.AUDIT_MARKS} == {
+        (False, "found"),
+        (False, "damaged"),
+        (True, "found"),
+    }
+    assert assets.SCANNED in tags

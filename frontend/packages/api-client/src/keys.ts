@@ -107,6 +107,19 @@ export const queryKeys = {
     noteHistory: (id: string) => ['assets', 'note-history', id] as const,
     historyFiltered: (id: string, filters: AssetHistoryFilters) =>
       ['assets', 'history', id, filters] as const,
+    // WP-049b s3: audits, labels, scans and the overdue-scan rule.
+    audits: ['assets', 'audits'] as const,
+    audit: (id: string) => ['assets', 'audit', id] as const,
+    auditItemsAll: (id: string) => ['assets', 'audit-items', id] as const,
+    auditItems: (id: string, discrepancies: boolean) =>
+      ['assets', 'audit-items', id, discrepancies] as const,
+    labelJobs: ['assets', 'label-jobs'] as const,
+    labelPrintsAll: ['assets', 'label-prints'] as const,
+    labelPrints: (assetId: string) => ['assets', 'label-prints', assetId] as const,
+    scans: (id: string) => ['assets', 'scans', id] as const,
+    overdueRule: ['assets', 'overdue-rule'] as const,
+    overdueRuns: ['assets', 'overdue-runs'] as const,
+    overdueStates: (typeIds: string[]) => ['assets', 'overdue-states', typeIds] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here
@@ -231,6 +244,11 @@ export const queryKeys = {
     nodeTypes: (recordType: string) => ['workflows', 'node-types', recordType] as const,
     testRun: (id: string) => ['workflows', 'test-run', id] as const,
     record: (type: string, id: string) => ['workflows', 'record', type, id] as const,
+    runs: (query: object) => ['workflows', 'runs', query] as const,
+    job: (id: string) => ['workflows', 'job', id] as const,
+    versions: (id: string) => ['workflows', 'versions', id] as const,
+    version: (id: string, n: number, part: string) =>
+      ['workflows', 'versions', id, n, part] as const,
   },
   connectors: {
     catalogue: ['connectors', 'catalogue'] as const,
