@@ -124,6 +124,13 @@ class RestartIn(BaseModel):
     node: str | None = Field(default=None, min_length=1, max_length=40)
 
 
+class RecordLabelOut(BaseModel):
+    """A run's record as people name it; only for a record the viewer may see (WP-048b S5a)."""
+
+    display_id: str
+    subject: str
+
+
 class InstanceOut(BaseModel):
     """One run: where it is, and why it stopped if it did (REQ-WF-023, -024)."""
 
@@ -140,23 +147,12 @@ class InstanceOut(BaseModel):
     finished_at: datetime | None
     stopped_reason: str | None = None  # why it was stopped: the person's words, or a code
     version: int
-
-
-class RecordLabelOut(BaseModel):
-    """A run's record as people name it; only for a record the viewer may see (WP-048b S5a)."""
-
-    display_id: str
-    subject: str
-
-
-class OverviewRunOut(InstanceOut):
-    """One run in the overview, with its record named only when the viewer may see it."""
-
+    # The runs overview fills these (WP-048b S5a); added as optional, the contract stays.
     record: RecordLabelOut | None = Field(
-        default=None, description="None: the viewer may not see the record (no ID, no link)."
+        default=None, description="None: not given here, or the viewer may not see the record."
     )
-    workflow_name: str = ""
-    current_nodes: list[str] = Field(default_factory=list, description="Where it is now.")
+    workflow_name: str | None = None
+    current_nodes: list[str] | None = Field(default=None, description="Where it is now.")
 
 
 class StepOut(BaseModel):
@@ -429,7 +425,7 @@ async def overview(
     subject: Manage,
     node: Annotated[str | None, Query(min_length=1, max_length=40)] = None,
     waiting_over_hours: Annotated[int | None, Query(ge=1, le=WAITING_OVER_MAX)] = None,
-) -> Page[OverviewRunOut]:
+) -> Page[InstanceOut]:
     """Runs by workflow, state and age, failed ones with their node and error (REQ-WF-025).
 
     `node=` keeps the runs that have a step there now (a waiting or failed token).
@@ -460,7 +456,7 @@ async def overview(
             latest < cutoff,
         )
     page = await paginate(session, statement, query)
-    return Page[OverviewRunOut](
+    return Page[InstanceOut](
         items=await _named(session, subject, list(page.rows)),
         next_cursor=page.next_cursor,
         has_more=page.has_more,
@@ -470,7 +466,7 @@ async def overview(
 
 async def _named(
     session: TenantSession, subject: Subject, rows: list[WorkflowInstance]
-) -> list[OverviewRunOut]:
+) -> list[InstanceOut]:
     """Each run with its record's name, only where the viewer may see the record.
 
     workflows.manage lists every run of the tenant (ADR-043 §10), but a record's ID and subject
@@ -500,13 +496,14 @@ async def _named(
     for row in rows:
         name = names.get(row.record_id)
         out.append(
-            OverviewRunOut(
-                **_instance(row).model_dump(),
-                workflow_name=flows.get(row.workflow_id, ""),
-                current_nodes=_current(row.state),
-                record=None
-                if name is None
-                else RecordLabelOut(display_id=name[0], subject=name[1]),
+            _instance(row).model_copy(
+                update={
+                    "workflow_name": flows.get(row.workflow_id, ""),
+                    "current_nodes": _current(row.state),
+                    "record": None
+                    if name is None
+                    else RecordLabelOut(display_id=name[0], subject=name[1]),
+                }
             )
         )
     return out

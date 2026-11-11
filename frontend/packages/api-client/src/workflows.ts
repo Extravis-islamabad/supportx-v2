@@ -364,7 +364,8 @@ export function useSkipInstance() {
   });
 }
 
-export type OverviewRunOut = components['schemas']['OverviewRunOut'];
+// The overview's run: an instance with its record's name (only if visible), workflow and place.
+export type OverviewRunOut = components['schemas']['InstanceOut'];
 export type WorkflowJobOut = components['schemas']['JobOut'];
 export type WorkflowJobIn = components['schemas']['JobIn'];
 
