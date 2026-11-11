@@ -126,6 +126,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("automation.workflow_imported", AuditCategory.CONFIGURATION, "automation"),
     ("automation.workflow_exported", AuditCategory.DATA, "automation"),
     ("automation.workflow_deleted", AuditCategory.CONFIGURATION, "automation"),
+    # A role given to or taken from a workflow's run-as identity (ADR-043 §6): access, as for
+    # a person's role.
+    ("automation.workflow_run_as_role_added", AuditCategory.ACCESS, "automation"),
+    ("automation.workflow_run_as_role_removed", AuditCategory.ACCESS, "automation"),
     # A test run's one live call (S3e): who, which node, which record (the route's details).
     ("automation.workflow_test_live_call", AuditCategory.RECORDS, "automation"),
     ("automation.transition_reset", AuditCategory.CONFIGURATION, "automation"),

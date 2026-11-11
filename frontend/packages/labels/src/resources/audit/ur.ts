@@ -107,6 +107,9 @@ export const ur: LabelResource = {
   'audit.action.automation.workflow_job_queued': 'ورک فلو پر بلک کارروائی قطار میں لگی',
   'audit.action.automation.workflow_restarted': 'ریکارڈ پر ورک فلو دوبارہ شروع کیا گیا',
   'audit.action.automation.workflow_retried': 'ریکارڈ پر ورک فلو دوبارہ آزمایا گیا',
+  'audit.action.automation.workflow_run_as_role_added': 'ورک فلو کی رن-ایز شناخت کو کردار دیا گیا',
+  'audit.action.automation.workflow_run_as_role_removed':
+    'ورک فلو کی رن-ایز شناخت سے کردار لیا گیا',
   'audit.action.automation.workflow_skipped': 'ریکارڈ پر ورک فلو کا مرحلہ چھوڑا گیا',
   'audit.action.automation.workflow_stopped': 'ریکارڈ پر ورک فلو روکا گیا',
   'audit.action.automation.workflow_test_live_call': 'ورک فلو ٹیسٹ نے لائیو کال کی',
@@ -864,6 +867,7 @@ export const ur: LabelResource = {
   'event_type.automation.workflow.command_finished': 'ورک فلو کا مرحلہ مکمل ہوا',
   'event_type.automation.workflow.deleted': 'ورک فلو حذف ہوا',
   'event_type.automation.workflow.function_requested': 'ورک فلو نے حسبِ ضرورت فنکشن چلانے کو کہا',
+  'event_type.automation.workflow.run_as_changed': 'ورک فلو کی رن-ایز شناخت کے کردار بدلے',
   'event_type.automation.workflow.webhook_requested': 'ورک فلو نے ویب ہک کال کرنے کو کہا',
   'event_type.automation.workflow_instance.changed': 'ورک فلو آگے بڑھا',
   'event_type.automation.workflow_job.progressed': 'ورک فلو کی جاب آگے بڑھی',

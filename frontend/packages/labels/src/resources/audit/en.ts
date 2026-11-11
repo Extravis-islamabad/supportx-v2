@@ -105,6 +105,10 @@ export const en = {
   'audit.action.automation.workflow_job_queued': 'Bulk workflow action queued',
   'audit.action.automation.workflow_restarted': 'Workflow restarted on a record',
   'audit.action.automation.workflow_retried': 'Workflow retried on a record',
+  'audit.action.automation.workflow_run_as_role_added':
+    "Role given to a workflow's run-as identity",
+  'audit.action.automation.workflow_run_as_role_removed':
+    "Role taken from a workflow's run-as identity",
   'audit.action.automation.workflow_skipped': 'Workflow step skipped on a record',
   'audit.action.automation.workflow_stopped': 'Workflow stopped on a record',
   'audit.action.automation.workflow_test_live_call': 'Workflow test made a live call',
@@ -867,6 +871,7 @@ export const en = {
   'event_type.automation.workflow.command_finished': 'Workflow step finished',
   'event_type.automation.workflow.deleted': 'Workflow deleted',
   'event_type.automation.workflow.function_requested': 'Workflow asked for a custom function',
+  'event_type.automation.workflow.run_as_changed': 'Workflow run-as roles changed',
   'event_type.automation.workflow.webhook_requested': 'Workflow asked for a webhook call',
   'event_type.automation.workflow_instance.changed': 'Workflow moved on',
   'event_type.automation.workflow_job.progressed': 'Workflow job progressed',
