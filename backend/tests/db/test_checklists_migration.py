@@ -43,7 +43,7 @@ async def _tenant_with_a_checklist(url: str) -> None:
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant))
             await conn.execute(
                 "INSERT INTO checklist_library (tenant_id, id, type, name, items)"
-                """ VALUES ($1, $2, 'incident', 'Kept', '[{"title": "x"}]'::jsonb)""",
+                """ VALUES ($1, $2, 'incident', 'Kept', '["Check the cable"]'::jsonb)""",
                 tenant,
                 uuid.uuid4(),
             )
