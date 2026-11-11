@@ -1992,6 +1992,9 @@ class StageMoveOut(BaseModel):
     missing: list[MissingFieldOut] = Field(
         default_factory=list, description="Values the move asks for in its dialog (REQ-REL-018)."
     )
+    lands_in: str = Field(
+        description="The status it ends in, after any automatic advance from a completing one."
+    )
 
 
 class StagePanelOut(BaseModel):
@@ -2034,6 +2037,7 @@ class StagePanelOut(BaseModel):
                     allowed=m.allowed,
                     reason=m.reason,
                     missing=[MissingFieldOut(field=f, code=c) for f, c in m.missing],
+                    lands_in=m.lands_in or m.transition.to_status,
                 )
                 for m in panel.moves
             ],
