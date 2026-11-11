@@ -1608,6 +1608,10 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     freeze_override_reason: Mapped[str | None] = mapped_column(String(500))
     freeze_override_by: Mapped[uuid.UUID | None]
     freeze_override_at: Mapped[datetime | None]
+    # The freezes it passes, by ID: any other blocking freeze still refuses (lane B's review).
+    freeze_override_window_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
 
 
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------

@@ -6,8 +6,9 @@ Expand only, no data step:
   (all empty: the whole tenant; services and CIs are IDs until the CMDB lands); named and
   labelled, versioned for If-Match, soft-deleted.
 - `work_item_change_details`: `freeze_override_reason`, `freeze_override_by`,
-  `freeze_override_at`. A blocking freeze passed for a change by someone allowed to, and why
-  (D-144's pattern; the reason is personal data, as `risk_reason`).
+  `freeze_override_at` and `freeze_override_window_ids`: the blocking freezes passed for a change
+  by someone allowed to, and why (D-144's pattern; only those freezes, never every later one;
+  the reason is personal data, as `risk_reason`).
 
 The downgrade drops them while no window and no override exist; otherwise it stops and keeps the
 data (rule 5h).
@@ -32,7 +33,12 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 WINDOWS, DETAILS = "change_windows", "work_item_change_details"
-OVERRIDE = ("freeze_override_reason", "freeze_override_by", "freeze_override_at")
+OVERRIDE = (
+    "freeze_override_reason",
+    "freeze_override_by",
+    "freeze_override_at",
+    "freeze_override_window_ids",
+)
 GUARD = f"""
 DO $$
 DECLARE t uuid;
@@ -118,6 +124,7 @@ def upgrade() -> None:
     op.add_column(
         DETAILS, sa.Column("freeze_override_at", sa.DateTime(timezone=True), nullable=True)
     )
+    op.add_column(DETAILS, _ids("freeze_override_window_ids"))
 
 
 def downgrade() -> None:

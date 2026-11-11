@@ -1688,6 +1688,7 @@ export const en = {
   'work_item.field.follower_access': 'Can see it by following',
   'work_item.field.follows_id': 'Follows',
   'work_item.field.freeze_override': 'Freeze override',
+  'work_item.field.freeze_override_windows': 'Freezes passed',
   'work_item.field.group_id': 'Group',
   'work_item.field.handed_over_out_of_reach': 'Handed to a team the person who moved it cannot see',
   'work_item.field.impact': 'Impact',

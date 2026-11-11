@@ -258,10 +258,12 @@ class ConflictOut(BaseModel):
 
 
 class ConflictsOut(BaseModel):
-    """A change's conflicts now, and whether someone passed its blocking freezes."""
+    """A change's conflicts now, and the blocking freezes someone passed for it."""
 
     items: list[ConflictOut]
-    overridden: bool
+    passed_window_ids: list[uuid.UUID] = Field(
+        description="Freezes passed for this change; any other blocking freeze still blocks."
+    )
 
 
 class FreezeOverrideIn(BaseModel):
@@ -270,6 +272,11 @@ class FreezeOverrideIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     reason: str = Field(max_length=service.REASON_MAX)
+    window_ids: list[uuid.UUID] = Field(
+        min_length=1,
+        max_length=50,
+        description="The blocking freezes to pass (as the 409 named them); only these.",
+    )
 
 
 ViewChange = Annotated[Subject, Depends(require_permission(CHANGE.permission("view")))]
@@ -287,7 +294,7 @@ async def change_conflicts(
                 kind=c.kind,
                 starts_at=c.starts_at,
                 ends_at=c.ends_at,
-                blocks=c.blocks and not passed,
+                blocks=c.blocks and c.window_id not in passed,
                 window_id=c.window_id,
                 window_name=named[c.window_id].name if c.window_id in named else None,
                 window_labels=named[c.window_id].labels if c.window_id in named else None,
@@ -295,7 +302,7 @@ async def change_conflicts(
             )
             for c in found
         ],
-        overridden=passed,
+        passed_window_ids=sorted(passed),
     )
 
 
@@ -320,15 +327,17 @@ async def freeze_override(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 ) -> dict[str, int]:
     """Needs `changes.override_freeze` at the change's scope, a reason and If-Match.
 
-    The change's blocking freezes are passed from now on; the record's history keeps who and
-    why, and the audit log keeps it with the reason.
+    Only the freezes named are passed for this change; the record's history keeps which, who
+    and why, and the audit log keeps it with the reason.
     """
     note.reason = body.reason
+    note.details = {"window_ids": sorted(str(w) for w in body.window_ids)}
     updated = await service.override_freeze(
         session,
         subject,
         record_id,
         reason=body.reason,
+        window_ids=body.window_ids,
         expected_version=version,
         source=source_of(request),
     )

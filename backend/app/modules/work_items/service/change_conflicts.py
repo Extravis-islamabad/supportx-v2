@@ -196,32 +196,45 @@ async def conflicts(
     return found, {r.id: r for r in rows}
 
 
-async def overridden(session: AsyncSession, record_id: uuid.UUID) -> bool:
-    """Whether someone allowed to has passed the blocking freezes for this change."""
-    at = await session.scalar(
-        select(WorkItemChangeDetails.freeze_override_at).where(
+async def passed_windows(session: AsyncSession, record_id: uuid.UUID) -> frozenset[uuid.UUID]:
+    """The freezes someone allowed to has passed for this change, by ID (none: nothing passed).
+
+    Only these: a different freeze, or one added later, still blocks the change until someone
+    passes it too (lane B's review of #376).
+    """
+    ids = await session.scalar(
+        select(WorkItemChangeDetails.freeze_override_window_ids).where(
             WorkItemChangeDetails.work_item_id == record_id
         )
     )
-    return at is not None
+    return frozenset(ids or ())
+
+
+def still_blocking(
+    found: Sequence[model.Conflict], passed: frozenset[uuid.UUID]
+) -> list[model.Conflict]:
+    """The blocking conflicts no override covers (a maintenance block is never a freeze's)."""
+    return [c for c in found if c.blocks and c.window_id not in passed]
 
 
 async def guard(session: AsyncSession, record: WorkItem, times: Times) -> list[model.Conflict]:
     """On a save that moves the change's time: refuse a blocking conflict, return the others.
 
     The refusal names the first blocking window (its ID and kind, never its text) so the screen
-    can say which and offer the override to those who hold it.
+    can say which and offer the override to those who hold it, for that window.
     """
     found, _ = await conflicts(session, record, times)
-    blocking = [c for c in found if c.blocks]
-    if blocking and not await overridden(session, record.id):
+    blocking = still_blocking(found, await passed_windows(session, record.id))
+    if blocking:
         first = blocking[0]
         raise Conflict(
             code=BLOCKED,
             params={
                 "kind": first.kind.value,
                 "window_id": str(first.window_id) if first.window_id else None,
+                # Every blocking freeze, comma-separated: the override dialog passes these.
+                "window_ids": ",".join(sorted({str(c.window_id) for c in blocking if c.window_id})),
                 "count": len(blocking),
             },
         )
-    return [c for c in found if not c.blocks or blocking]
+    return found

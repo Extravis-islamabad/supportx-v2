@@ -56,8 +56,12 @@ Intervals are half-open, so a change may start the moment a freeze ends.
 
 - `POST /changes/{id}/freeze-override` needs `changes.override_freeze`, decided on that change at
   the scope it was granted (all, its site or its group), a reason and If-Match.
-- It is audited (`change.freeze_override`, refused attempts too) and kept in the record's
-  history. From then on the change's blocking freezes are shown, not enforced.
+- The override **names the blocking freezes it passes** (`window_ids`, as the 409 lists them),
+  and they are stored with the change. Only those are passed: a different freeze, or one added
+  later, still refuses the save until someone allowed passes it too (lane B's review of #376).
+  A maintenance window that blocks is never passed by a freeze override.
+- It is audited (`change.freeze_override`, with the windows; refused attempts too) and kept in
+  the record's history.
 - The change manager holds it. Tenant administrators hold every permission, so they may override
   too, as with D-144. Team leads and technicians never do.
 

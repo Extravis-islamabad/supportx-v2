@@ -1826,6 +1826,7 @@ export const ar: LabelResource = {
   'work_item.field.follower_access': 'يمكنه رؤيته عبر المتابعة',
   'work_item.field.follows_id': 'يتبع',
   'work_item.field.freeze_override': 'تجاوز التجميد',
+  'work_item.field.freeze_override_windows': 'فترات التجميد المتجاوزة',
   'work_item.field.group_id': 'المجموعة',
   'work_item.field.handed_over_out_of_reach': 'سُلّمت إلى فريق لا يراه من نقلها',
   'work_item.field.impact': 'التأثير',

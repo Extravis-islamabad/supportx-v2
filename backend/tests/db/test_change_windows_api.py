@@ -197,7 +197,7 @@ async def test_conflicts_list_the_freeze_the_maintenance_window_and_why(world: W
     shown = await world.call("GET", f"{CHG}/{item['id']}/conflicts", a, a.admin)
     assert shown.status_code == 200, shown.text
     body = shown.json()
-    assert body["overridden"] is False
+    assert body["passed_window_ids"] == []
     assert [(c["kind"], c["blocks"]) for c in body["items"]] == [("outside_maintenance", False)]
 
 
@@ -206,7 +206,7 @@ async def test_the_freeze_override_is_decided_at_its_scope_audited_and_in_histor
 ) -> None:
     """Lane B: a group-scoped holder is refused on another group's change (403 with why)."""
     a = world.a
-    await a_window(
+    freeze = await a_window(
         world,
         a,
         name="Override freeze",
@@ -223,23 +223,50 @@ async def test_the_freeze_override_is_decided_at_its_scope_audited_and_in_histor
     url = f"{CHG}/{item['id']}/freeze-override"
     headers = {"If-Match": f'"{current["version"]}"', **CONSOLE}
     other_group = await world.call(
-        "POST", url, a, a.tech_b, json={"reason": "Vendor window"}, headers=headers
+        "POST",
+        url,
+        a,
+        a.tech_b,
+        json={"reason": "Vendor window", "window_ids": [freeze["id"]]},
+        headers=headers,
     )
     # Tech B (GB) may not even see GA's change: refused either way, never allowed.
     assert problem(other_group)[0] in {403, 404}, other_group.text
     if other_group.status_code == 403:
         assert other_group.json()["params"]["reason"] == "out_of_scope"
-    empty = await world.call("POST", url, a, a.tech_a, json={"reason": "  "}, headers=headers)
+    empty = await world.call(
+        "POST",
+        url,
+        a,
+        a.tech_a,
+        json={"reason": "  ", "window_ids": [freeze["id"]]},
+        headers=headers,
+    )
     assert problem(empty)[0] == 422, empty.text
+    # Only a live blocking freeze can be passed; a made-up one is refused.
+    unknown = await world.call(
+        "POST",
+        url,
+        a,
+        a.tech_a,
+        json={"reason": "Vendor", "window_ids": [str(uuid.uuid4())]},
+        headers=headers,
+    )
+    assert "window_ids" in unknown.text, unknown.text
     passed = await world.call(
-        "POST", url, a, a.tech_a, json={"reason": "Vendor only works then"}, headers=headers
+        "POST",
+        url,
+        a,
+        a.tech_a,
+        json={"reason": "Vendor only works then", "window_ids": [freeze["id"]]},
+        headers=headers,
     )
     assert passed.status_code == 200, passed.text
     in_freeze = SOON + timedelta(days=20, hours=10)
     allowed = await schedule(world, a, item, in_freeze, in_freeze + H)
     assert allowed.status_code == 200, allowed.text
     shown = (await world.call("GET", f"{CHG}/{item['id']}/conflicts", a, a.admin)).json()
-    assert shown["overridden"] is True
+    assert shown["passed_window_ids"] == [freeze["id"]]
     assert [(c["kind"], c["blocks"]) for c in shown["items"]] == [("freeze", False)]
     history = await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)
     fields = {c["field"] for e in history.json()["items"] for c in e["changes"]}
@@ -264,8 +291,61 @@ async def test_a_technician_without_the_permission_cannot_pass_a_freeze(world: W
         f"{CHG}/{item['id']}/freeze-override",
         a,
         a.tech_c,  # GA and GB, a plain technician
-        json={"reason": "Please"},
+        json={"reason": "Please", "window_ids": [str(uuid.uuid4())]},
         headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
     )
     assert problem(refused) == (403, "permission_denied"), refused.text
     assert refused.json()["params"]["reason"] == "no_permission"
+
+
+async def test_an_override_passes_only_its_freezes_never_a_later_one(world: World) -> None:
+    """Lane B's review of #376: passing freeze A at T1 never lets anyone move the change into
+    freeze B at T2; that needs its own override.
+    """
+    a = world.a
+    first = await a_window(
+        world,
+        a,
+        name="First freeze",
+        group_ids=[str(a.ga)],
+        starts_at=_iso(SOON + timedelta(days=30)),
+        ends_at=_iso(SOON + timedelta(days=31)),
+    )
+    item = await a_group_change(world, a)
+    t1 = SOON + timedelta(days=30, hours=2)
+    refused = await schedule(world, a, item, t1, t1 + H)
+    assert problem(refused) == (409, "change_window_blocked"), refused.text
+    assert refused.json()["params"]["window_ids"] == first["id"]
+    current = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    passed = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/freeze-override",
+        a,
+        a.admin,
+        json={"reason": "Board approved", "window_ids": [first["id"]]},
+        headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+    )
+    assert passed.status_code == 200, passed.text
+    assert (await schedule(world, a, item, t1, t1 + H)).status_code == 200
+    # A second freeze, added later: a technician of the change's group moves it there.
+    later = await a_window(
+        world,
+        a,
+        name="Later freeze",
+        group_ids=[str(a.ga)],
+        starts_at=_iso(SOON + timedelta(days=40)),
+        ends_at=_iso(SOON + timedelta(days=41)),
+    )
+    t2 = SOON + timedelta(days=40, hours=2)
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.tech_a)).json()
+    row = next(r for r in rows if r["stage"] == "implementation")
+    moved = await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}/schedule/implementation",
+        a,
+        a.tech_a,
+        json={"scheduled_start": _iso(t2), "scheduled_end": _iso(t2 + H)},
+        headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+    )
+    assert problem(moved) == (409, "change_window_blocked"), moved.text
+    assert moved.json()["params"]["window_ids"] == later["id"]

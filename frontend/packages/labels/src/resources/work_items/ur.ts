@@ -1693,6 +1693,7 @@ export const ur: LabelResource = {
   'work_item.field.follower_access': 'فالو کرنے سے دیکھ سکتا ہے',
   'work_item.field.follows_id': 'اس کے بعد',
   'work_item.field.freeze_override': 'فریز اوور رائیڈ',
+  'work_item.field.freeze_override_windows': 'پار کیے گئے فریز',
   'work_item.field.group_id': 'گروپ',
   'work_item.field.handed_over_out_of_reach':
     'ایسی ٹیم کو دیا گیا جسے منتقل کرنے والا نہیں دیکھ سکتا',

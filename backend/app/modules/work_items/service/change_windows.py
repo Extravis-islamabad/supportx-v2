@@ -12,7 +12,7 @@
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -302,11 +302,11 @@ async def delete_window(
 
 async def change_conflicts_of(
     session: AsyncSession, subject: Subject, record_id: uuid.UUID
-) -> tuple[WorkItem, list[rules.Conflict], dict[uuid.UUID, ChangeWindow], bool]:
-    """A change's conflicts now, the windows they name, and whether its freezes were passed."""
+) -> tuple[WorkItem, list[rules.Conflict], dict[uuid.UUID, ChangeWindow], frozenset[uuid.UUID]]:
+    """A change's conflicts now, the windows they name, and the freezes passed for it."""
     record = await items.visible_record(session, subject, CHANGE, record_id)
     found, named = await change_conflicts.conflicts(session, record)
-    return record, found, named, await change_conflicts.overridden(session, record.id)
+    return record, found, named, await change_conflicts.passed_windows(session, record.id)
 
 
 async def override_freeze(  # noqa: PLR0913 - the change, its version and why, explicit
@@ -315,13 +315,16 @@ async def override_freeze(  # noqa: PLR0913 - the change, its version and why, e
     record_id: uuid.UUID,
     *,
     reason: str,
+    window_ids: Sequence[uuid.UUID],
     expected_version: int,
     source: Source,
 ) -> WorkItem:
-    """Pass the blocking freezes for this change, with a reason (ADR-042; D-144's pattern).
+    """Pass these blocking freezes for this change, with a reason (ADR-042; D-144's pattern).
 
     Decided on this change at the scope it was granted (all, its site or its group): holding it
-    for one group never reaches another group's change (lane B's review). The route audits it.
+    for one group never reaches another group's change (lane B's review). Only the freezes named
+    are passed: a different freeze, or one added later, still blocks until someone passes it too
+    (lane B's review of #376). The route audits it.
     """
     record = await items.visible_record(session, subject, CHANGE, record_id)
     if not await items.may(session, subject, CHANGE, OVERRIDE, record.id):
@@ -340,22 +343,43 @@ async def override_freeze(  # noqa: PLR0913 - the change, its version and why, e
         raise items.field_errors([("reason", "reason_required")])
     if len(text) > REASON_MAX:
         raise items.field_errors([("reason", "value_too_long")])
+    wanted = sorted(set(window_ids))
+    freezes = set(
+        await session.scalars(
+            select(ChangeWindow.id).where(
+                ChangeWindow.id.in_(wanted),
+                ChangeWindow.deleted_at.is_(None),
+                ChangeWindow.kind == rules.WindowKind.FREEZE.value,
+                ChangeWindow.mode == rules.WindowMode.BLOCK.value,
+            )
+        )
+    )
+    if not wanted or freezes != set(wanted):
+        raise items.field_errors([("window_ids", "required" if not wanted else "invalid_value")])
+    # Locked: two overrides of one change apply one after the other (lane B's review).
     details = await session.scalar(
-        select(WorkItemChangeDetails).where(WorkItemChangeDetails.work_item_id == record.id)
+        select(WorkItemChangeDetails)
+        .where(WorkItemChangeDetails.work_item_id == record.id)
+        .with_for_update()
     )
     if details is None:
         details = WorkItemChangeDetails(tenant_id=record.tenant_id, work_item_id=record.id)
         session.add(details)
-    before = details.freeze_override_reason
+    before = sorted(str(w) for w in details.freeze_override_window_ids or [])
+    passed = sorted({*(details.freeze_override_window_ids or []), *wanted})
     details.freeze_override_reason = text
     details.freeze_override_by = subject.user_id
     details.freeze_override_at = datetime.now(UTC)
+    details.freeze_override_window_ids = passed
     await session.flush()
     return await items.save_detail_change(
         session,
         record,
         expected_version,
-        [Change("freeze_override", before, text)],
+        [
+            Change("freeze_override", None, text),
+            Change("freeze_override_windows", before, sorted(str(w) for w in passed)),
+        ],
         source=source,
         reason=text,
     )
