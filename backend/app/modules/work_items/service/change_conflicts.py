@@ -258,8 +258,12 @@ async def _others(  # noqa: PLR0913 - the record, its range and what it may meet
                         WorkItemDowntime.phase == "planned",
                         WorkItemDowntime.deleted_at.is_(None),
                         or_(
-                            WorkItemDowntime.service_ids.overlap(sorted(service_ids)),
-                            WorkItemDowntime.ci_ids.overlap(sorted(ci_ids)),
+                            *(
+                                [WorkItemDowntime.service_ids.overlap(sorted(service_ids))]
+                                if service_ids
+                                else []
+                            ),
+                            *([WorkItemDowntime.ci_ids.overlap(sorted(ci_ids))] if ci_ids else []),
                         ),
                     )
                 )

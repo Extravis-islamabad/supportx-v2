@@ -513,6 +513,7 @@ export const en = {
   'changes.col.path': 'Path',
   'changes.col.risk': 'Risk',
   'changes.conflicts.another_change': 'Another change',
+  'changes.conflicts.another_release': 'Another release',
   'changes.conflicts.blocks': 'Blocks the change',
   'changes.conflicts.title_one': '1 conflict',
   'changes.conflicts.title_other': '{{count}} conflicts',

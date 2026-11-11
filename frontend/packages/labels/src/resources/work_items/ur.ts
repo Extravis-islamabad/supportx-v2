@@ -514,6 +514,7 @@ export const ur: LabelResource = {
   'changes.col.path': 'راستہ',
   'changes.col.risk': 'خطرہ',
   'changes.conflicts.another_change': 'کوئی اور تبدیلی',
+  'changes.conflicts.another_release': 'کوئی اور ریلیز',
   'changes.conflicts.blocks': 'تبدیلی کو روکتا ہے',
   'changes.conflicts.title_one': '1 ٹکراؤ',
   'changes.conflicts.title_other': '{{count}} ٹکراؤ',

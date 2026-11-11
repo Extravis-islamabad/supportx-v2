@@ -549,6 +549,7 @@ export const ar: LabelResource = {
   'changes.col.path': 'المسار',
   'changes.col.risk': 'المخاطر',
   'changes.conflicts.another_change': 'تغيير آخر',
+  'changes.conflicts.another_release': 'إصدار آخر',
   'changes.conflicts.blocks': 'يمنع التغيير',
   'changes.conflicts.title_few': '{{count}} تعارضات',
   'changes.conflicts.title_many': '{{count}} تعارضًا',
