@@ -14,6 +14,7 @@ import pytest
 
 from tests.db import test_incidents_api
 from tests.db.test_asset_holders_api import _asset, _hold
+from tests.db.test_assets_api import _add, _product
 from tests.db.test_incidents_api import World, problem, role
 from tests.db.test_knowledge_api import _match
 
@@ -58,6 +59,26 @@ async def _requesters_asset(world: World, name: str) -> dict[str, Any]:
     held = await _hold(world, asset, "user", world.a.requester)
     assert held.status_code == 200, held.text
     return dict(held.json())
+
+
+async def _component(world: World, name: str) -> dict[str, Any]:
+    """A part nobody holds: a product of the seeded memory module type (kind component)."""
+    a = world.a
+    product = await _product(world, a, "memory_module", f"Part {name}")
+    made = await _add(world, a, {"name": name, "product_id": product})
+    assert made.status_code == 201, made.text
+    return dict(made.json())
+
+
+async def _fit(world: World, user: uuid.UUID, part: dict[str, Any], into: dict[str, Any]) -> Any:  # noqa: ANN401 - httpx response
+    return await world.call(
+        "PUT",
+        f"{ASSETS}/{part['id']}/holder",
+        world.a,
+        user,
+        json={"kind": "asset", "id": into["id"]},
+        headers=_match(part["version"]),
+    )
 
 
 def _refused_field(response: Any) -> str:  # noqa: ANN401 - httpx response
@@ -108,7 +129,7 @@ async def test_a_technician_changes_the_allowed_fields_of_its_tickets_requester_
     assert moved.json()["state_id"] == target["to_state_id"]
     laptop = moved.json()
     # A free part fitted into it, and taken back out.
-    ram = await _asset(world, "D157 memory")
+    ram = await _component(world, "D157 memory")
     fitted = await world.call(
         "PUT",
         f"{ASSETS}/{ram['id']}/holder",
@@ -247,6 +268,57 @@ async def test_someone_elses_ticket_and_a_closed_ticket_grant_nothing(world: Wor
     assert not any(o["allowed"] for o in options.json())
     reach = await world.call("GET", f"{ASSETS}/{laptop['id']}/access", a, a.tech_b)
     assert reach.json() == {"manage": False, "through_ticket": False}, reach.text
+
+
+async def test_only_free_components_are_fitted_through_a_ticket(world: World) -> None:
+    """Lane B review: a free laptop is no part; a part someone holds is not taken from them."""
+    a = world.a
+    laptop = await _requesters_asset(world, "D157 parts laptop")
+    await _ticket(world, laptop, a.tech_a)
+    disk = await _component(world, "D157 free disk")
+    fitted = await _fit(world, a.tech_a, disk, laptop)
+    assert fitted.status_code == 200, fitted.text
+    spare = await _asset(world, "D157 spare laptop")  # kind asset, in stock, nobody's
+    assert problem(await _fit(world, a.tech_a, spare, laptop)) == (403, "asset_not_a_component")
+    assert (await _fresh(world, spare))["parent_asset_id"] is None
+    held = await _component(world, "D157 someone's disk")
+    held = (await _hold(world, held, "user", a.requester2)).json()
+    assert problem(await _fit(world, a.tech_a, held, laptop)) == (403, "permission_denied")
+    # An asset manager is unaffected: they fit anything.
+    assert (await _fit(world, a.admin, spare, laptop)).status_code == 200
+
+
+async def test_a_ticket_never_retires_or_disposes_of_an_asset(world: World) -> None:
+    """Lane B review: end of life (retired, disposed) has its own process; repair is fine."""
+    a = world.a
+    laptop = await _requesters_asset(world, "D157 end of life")
+    await _ticket(world, laptop, a.tech_a)
+    states = {
+        s["id"]: s["category"]
+        for s in (await world.call("GET", f"{ASSETS}/states", a, a.admin)).json()
+    }
+    options = (await world.call("GET", f"{ASSETS}/{laptop['id']}/moves", a, a.tech_a)).json()
+    by_category = {states[o["to_state_id"]]: o for o in options}
+    assert by_category["retired"]["allowed"] is False
+    assert by_category["in_repair"]["allowed"] is True
+
+    async def move(category: str, version: int) -> Any:  # noqa: ANN401 - httpx response
+        return await world.call(
+            "POST",
+            f"{ASSETS}/{laptop['id']}/move",
+            a,
+            a.tech_a,
+            json={"to_state_id": by_category[category]["to_state_id"], "reason": "Broken"},
+            headers=_match(version),
+        )
+
+    refused = await move("retired", laptop["version"])
+    assert problem(refused) == (403, "asset_move_not_allowed_through_ticket"), refused.text
+    repaired = await move("in_repair", laptop["version"])
+    assert repaired.status_code == 200, repaired.text
+    # The admin still retires it.
+    admin = await world.call("GET", f"{ASSETS}/{laptop['id']}/moves", a, a.admin)
+    assert any(states[o["to_state_id"]] == "retired" and o["allowed"] for o in admin.json())
 
 
 # --- money behind assets.view_financials --------------------------------------------------------

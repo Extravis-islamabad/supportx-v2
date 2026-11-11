@@ -22,10 +22,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound, PermissionDenied
-from app.modules.assets.domain.catalogue import Problem
+from app.modules.assets.domain.catalogue import AssetTypeKind, Problem
 from app.modules.assets.domain.ownership import HOLDER_KINDS, would_nest_in_itself
 from app.modules.assets.events import AssetHolderChanged
-from app.modules.assets.infra.models import Asset, AssetAssignment, AssetSettings
+from app.modules.assets.infra.models import (
+    Asset,
+    AssetAssignment,
+    AssetProductType,
+    AssetSettings,
+)
 from app.modules.assets.service.acknowledgements import ask_if_needed
 from app.modules.assets.service.assets import (
     MANAGE,
@@ -45,6 +50,7 @@ from app.shared.history import Change, Source
 from app.shared.history.conflicts import stale_version
 from app.shared.ids import new_id
 
+NOT_A_COMPONENT = "asset_not_a_component"  # D-157: the narrow path fits components only
 _HOLDER = "holder"  # how a refused holder change names the field (D-157)
 _HOLDER_FIELD = {"user": "owner_user_id", "department": "department_id", "asset": "parent_asset_id"}
 
@@ -129,14 +135,42 @@ async def _apply_holder(session: AsyncSession, row: Asset, holder: Holder | None
     return changes
 
 
+async def _is_component(session: AsyncSession, row: Asset) -> bool:
+    """Whether the asset's product type is of kind component (D-141)."""
+    kind = await session.get(AssetProductType, row.product_type_id)
+    return kind is not None and kind.kind == AssetTypeKind.COMPONENT
+
+
+def _part_parent(current: Holder | None, holder: Holder | None) -> uuid.UUID | None:
+    """The asset a part is fitted into (a free part) or taken out of; None for anything else."""
+    if holder is not None and holder.kind == "asset" and current is None:
+        return holder.id  # fitting a free part
+    if holder is None and current is not None and current.kind == "asset":
+        return current.id  # taking a part out
+    return None
+
+
+async def _ticket_parent(
+    session: AsyncSession, subject: Subject, parent_id: uuid.UUID | None
+) -> bool:
+    """Whether the asset a part goes into or out of is one the subject's ticket lets it change."""
+    if parent_id is None:
+        return False
+    try:
+        parent = await _visible(session, subject, parent_id)
+    except (NotFound, PermissionDenied):
+        return False
+    return await ticket_grants(session, subject, parent)
+
+
 async def _writable_holder(
     session: AsyncSession, subject: Subject, asset_id: uuid.UUID, holder: Holder | None
 ) -> Asset:
     """The asset whose holder changes, locked, if the subject may change it (403/404 if not).
 
-    The narrower D-157 path only fits a component that nobody holds into an asset of the
-    technician's ticket, or takes one fitted there back out: the asset of the ticket itself
-    never changes hands that way (`asset_field_not_allowed`, field `holder`).
+    The narrower D-157 path only fits a component (product kind `component`) that nobody holds
+    into an asset of the technician's ticket, or takes one fitted there back out: the asset of
+    the ticket itself never changes hands that way (`asset_field_not_allowed`, field `holder`).
     """
     if subject.holds(MANAGE):
         try:
@@ -146,20 +180,13 @@ async def _writable_holder(
     if not subject.holds(VIEW):
         raise PermissionDenied(params={"permission": MANAGE})
     row = await _visible(session, subject, asset_id)
-    current = holder_of(row)
-    parent_id: uuid.UUID | None = None
-    if holder is not None and holder.kind == "asset" and current is None:
-        parent_id = holder.id  # fitting a free part
-    elif holder is None and current is not None and current.kind == "asset":
-        parent_id = current.id  # taking a part out
-    if parent_id is not None:
-        try:
-            parent = await _visible(session, subject, parent_id)
-        except (NotFound, PermissionDenied):
-            parent = None
-        if parent is not None and await ticket_grants(session, subject, parent):
-            await session.refresh(row, with_for_update=True)
-            return row
+    if await _ticket_parent(session, subject, _part_parent(holder_of(row), holder)):
+        if holder is not None and not await _is_component(session, row):
+            # D-157 (lane B review): only parts are fitted this way; a free laptop fitted into
+            # the requester's asset would in effect be handed to them.
+            raise PermissionDenied(code=NOT_A_COMPONENT)
+        await session.refresh(row, with_for_update=True)
+        return row
     if await ticket_grants(session, subject, row):
         raise refuse_field(_HOLDER)  # the ticket's asset: its state, location, notes, parts
     raise PermissionDenied(params={"permission": MANAGE})

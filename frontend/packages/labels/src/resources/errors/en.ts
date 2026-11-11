@@ -79,10 +79,14 @@ export const en = {
   'errors.asset_link_not_found': 'That link no longer exists.',
   'errors.asset_loan_not_found': 'That loan is closed or no longer exists.',
   'errors.asset_move_not_allowed': "This asset can't move to that state from where it is now.",
+  'errors.asset_move_not_allowed_through_ticket':
+    'Retiring or disposing of an asset is not done through a ticket. Ask an asset manager.',
   'errors.asset_no_default_state':
     'There is no default state to move the asset to. Ask an admin to check the asset states.',
   'errors.asset_no_disposed_state':
     'There is no disposed state to move the asset to. Ask an admin to check the asset states.',
+  'errors.asset_not_a_component':
+    'Only a component that nobody holds can be fitted through your ticket. Ask an asset manager to give out a whole asset.',
   'errors.asset_not_bookable':
     '{{asset}} cannot be booked: only loanable assets that are not retired or disposed can be.',
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",

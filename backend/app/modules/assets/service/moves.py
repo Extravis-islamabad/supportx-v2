@@ -9,7 +9,8 @@
 - **Licence (D-141):** an IT asset leaving `disposed` would take a slot again. The seeded life
   cycle has no way out of disposed, but an admin's may, so the slot is reserved race-safely.
 - **Who (D-157):** `assets.manage` on the asset, or a technician whose own ticket links it while
-  its requester (or the requester's department) holds it (`ticket_access`).
+  its requester (or the requester's department) holds it (`ticket_access`); that path never
+  moves it to a retired or disposed state (`asset_move_not_allowed_through_ticket`).
 - The move is one save of `state_id`: field history with the reason, its event on the outbox,
   If-Match on the version read. Nothing here deletes data.
 """
@@ -23,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, PermissionDenied
 from app.modules.assets.domain.assets import counts_toward_limit
-from app.modules.assets.domain.catalogue import Problem
+from app.modules.assets.domain.catalogue import AssetStateCategory, Problem
 from app.modules.assets.infra.models import (
     Asset,
     AssetLifeCycle,
@@ -46,6 +47,8 @@ from app.shared.history import Change, Source
 from app.shared.history.conflicts import stale_version
 
 REASON_MAX = 1000
+# D-157: the end of an asset's life (retired, disposed) is never reached through a ticket.
+END_OF_LIFE = frozenset({AssetStateCategory.RETIRED, AssetStateCategory.DISPOSED})
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,7 +98,8 @@ async def move_options(
 ) -> list[MoveOption]:
     """The moves the asset's life cycle lists from its state now (for its screen)."""
     row = await _visible(session, subject, asset_id)
-    may_move = subject.holds(MANAGE) or await ticket_grants(session, subject, row)  # D-157
+    full = subject.holds(MANAGE)
+    through_ticket = not full and await ticket_grants(session, subject, row)  # D-157
     states = {
         s.id: s
         for s in await session.scalars(select(AssetState).where(AssetState.deleted_at.is_(None)))
@@ -106,7 +110,10 @@ async def move_options(
             reason_required=move.reason_required or states[move.to_state_id].reason_required,
             required_fields=tuple(move.required_fields or ()),
             permission=move.permission,
-            allowed=may_move and (move.permission is None or subject.holds(move.permission)),
+            allowed=(
+                full or (through_ticket and states[move.to_state_id].category not in END_OF_LIFE)
+            )
+            and (move.permission is None or subject.holds(move.permission)),
         )
         for move in await _moves(session, row)
         if move.to_state_id in states
@@ -139,7 +146,7 @@ async def move_asset(  # noqa: PLR0913 - the asset, where to, why, the If-Match 
     source: Source,
 ) -> Asset:
     """Move the asset to `to_state_id` along its life cycle (with a reason where asked)."""
-    row, _ = await writable(session, subject, asset_id)  # D-157: a technician's ticket too
+    row, through_ticket = await writable(session, subject, asset_id)  # D-157: a ticket too
     if row.version != expected_version:
         raise await stale_version(
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,
@@ -153,6 +160,10 @@ async def move_asset(  # noqa: PLR0913 - the asset, where to, why, the If-Match 
             code="asset_move_not_allowed",
             params={"allowed": len(moves)},  # the screen lists them (GET .../moves)
         )
+    if through_ticket and target.category in END_OF_LIFE:
+        # D-157 (lane B review): retiring or disposing has its own process and money; never
+        # through a technician's ticket.
+        raise PermissionDenied(code="asset_move_not_allowed_through_ticket")
     if move.permission is not None and not subject.holds(move.permission):
         raise PermissionDenied(params={"permission": move.permission})
     text = (reason or "").strip()
