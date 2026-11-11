@@ -22,4 +22,10 @@ Deployment only (deploy/, Makefile, the Cluster workflow, docs); no app code, no
   checks DNS outlives the node; new `deploy/k3d/valkey-node-loss.sh` (`make
   cluster-ha-valkey-node-loss`) runs after ha-smoke in the HA job; failure diagnostics print each
   sentinel's view, the CoreDNS pods and 15 minutes of Valkey and Sentinel logs.
+- **k3s restarts (coordinator's follow-up):** kept the scale-and-patch route. In the pinned
+  k3s (v1.36.5+k3s1) every start rewrites `coredns.yaml` and force-applies it, but as wrangler's
+  three-way merge, which leaves replicas and affinity alone because the manifest sets neither.
+  The `.skip` or `--disable` routes would freeze CoreDNS against k3s upgrades. New
+  `deploy/k3d/dns-after-restart.sh` (`make cluster-ha-dns-restart`), run after the node-loss
+  tests: it restarts the server and fails if k3s reset either.
 - **Not run here:** k3d. The next Cluster dispatch proves it.

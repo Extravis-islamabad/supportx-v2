@@ -399,6 +399,9 @@ cluster-ha-valkey-node-loss: ## Valkey node-loss test: stop the node with the Va
 cluster-ha-node-loss: ## Node-loss test: stop the agent with PostgreSQL's primary; the session keeps writing (WP-014b)
 	@bash deploy/k3d/node-loss.sh
 
+cluster-ha-dns-restart: ## Cluster DNS after a k3s server restart: still two CoreDNS copies on two nodes, anti-affinity kept (WP-014b)
+	@bash deploy/k3d/dns-after-restart.sh
+
 cluster-ha-restore: ## Restore drill: back up, restore into a new cluster to a chosen moment, check the rows (WP-014b)
 	@bash deploy/k3d/restore-drill.sh
 

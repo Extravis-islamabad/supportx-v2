@@ -105,9 +105,15 @@ hex values and never overwrites an existing one (its passwords are already insid
   kubectl -n kube-system rollout status deploy/coredns --timeout=300s
   ```
 
-  and fails unless two ready copies sit on two nodes. k3s's CoreDNS is a plain manifest that k3s
-  re-applies at start, not a Helm chart, so a `HelmChartConfig` does not reach it; the manifest
-  sets neither replicas nor affinity, so a restart keeps both. On a customer-managed cluster (any
+  and fails unless two ready copies sit on two nodes. k3s's CoreDNS is a plain manifest, not a
+  Helm chart, so a `HelmChartConfig` does not reach it. At every start k3s rewrites
+  `server/manifests/coredns.yaml` and applies it again, but as a three-way merge against the last
+  applied copy: fields the manifest never set (it sets neither replicas nor affinity) are left
+  as they are, so a restart keeps both. The HA job proves it on every run (`make
+  cluster-ha-dns-restart` restarts the server and checks). A k3s upgrade whose manifest starts
+  setting either would reset it, hence the re-run after upgrades. We did not take the
+  `coredns.yaml.skip` or `--disable coredns` route: either freezes CoreDNS at our own copy, so k3s
+  upgrades (security fixes included) no longer reach it. On a customer-managed cluster (any
   other distribution), do the same to its DNS deployment: two or more copies with required pod
   anti-affinity (or a `DoNotSchedule` topology spread) on `kubernetes.io/hostname`. kubeadm,
   RKE2 and managed clusters usually run two copies already; check where they run.
@@ -250,7 +256,7 @@ Jaeger, Perses) come with WP-014b.
 | Cluster › `images` | PRs touching `deploy/` or the Makefile, nightly | build both images (not pushed), Trivy gate (fixable HIGH/CRITICAL fail), CycloneDX SBOMs as artifacts |
 | Cluster › `smoke` | same | k3d with the pinned k3s, `make deploy-dev` (incl. `helm test`), public routes through the gateway |
 | Cluster › `e2e` | nightly, on demand | everything above, then every Playwright journey against the cluster |
-| Cluster › `ha-smoke` | nightly, on demand, PRs labelled `full-ci` | a four-node k3d cluster with `values-ha.yaml`. The bring-up gives CoreDNS two copies on different nodes and runs the HA preflight (strict). First the Valkey master is killed (the session survives, no split brain). Then the node with the promoted Valkey master is stopped (`make cluster-ha-valkey-node-loss`): Sentinel promotes again within 60 s, the session writes again, the old master returns as a replica. Then the agent with PostgreSQL's primary is stopped (`make cluster-ha-node-loss`): a standby is promoted, the session writes again, and the node rejoins as a standby |
+| Cluster › `ha-smoke` | nightly, on demand, PRs labelled `full-ci` | a four-node k3d cluster with `values-ha.yaml`. The bring-up gives CoreDNS two copies on different nodes and runs the HA preflight (strict). First the Valkey master is killed (the session survives, no split brain). Then the node with the promoted Valkey master is stopped (`make cluster-ha-valkey-node-loss`): Sentinel promotes again within 60 s, the session writes again, the old master returns as a replica. Then the agent with PostgreSQL's primary is stopped (`make cluster-ha-node-loss`): a standby is promoted, the session writes again, and the node rejoins as a standby. Then the k3s server restarts (`make cluster-ha-dns-restart`): CoreDNS keeps two copies on two nodes and its anti-affinity |
 
 ## Troubleshooting
 

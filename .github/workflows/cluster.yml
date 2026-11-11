@@ -254,6 +254,11 @@ jobs:
       - name: Losing the node with PostgreSQL's primary keeps a signed-in session writing
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-node-loss
+      # k3s re-applies its packaged coredns.yaml at every start: prove it keeps the two copies and
+      # the anti-affinity deploy/k3s/cluster-dns-ha.sh gave it (fails if k3s reset them).
+      - name: Cluster DNS keeps two copies on two nodes through a k3s server restart
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-dns-restart
       - name: Restore drill (a backup restored to a chosen moment)
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-restore
