@@ -1173,6 +1173,10 @@ class WorkItemCatalogueOut(BaseModel):
         default=False,
         description="Changes: outside every maintenance window blocks instead of warns (D-156).",
     )
+    open_stage_tasks_block: bool = Field(
+        default=True,
+        description="Releases: a stage with open tasks cannot be left (REQ-REL-048).",
+    )
     cab_every_match: bool = Field(
         default=False,
         description="Changes: every board the mapping matches reviews, not only the first.",
@@ -1222,6 +1226,7 @@ class WorkItemCatalogueOut(BaseModel):
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
             outside_maintenance_blocks=cat.outside_maintenance_blocks,
+            open_stage_tasks_block=cat.open_stage_tasks_block,
             cab_every_match=cat.cab_every_match,
             reapproval=ReapprovalPolicyIO.model_validate(
                 reapproval_rules.policy_json(reapproval_rules.policy_from(cat.reapproval))
@@ -1355,6 +1360,7 @@ class WorkItemSettingsPatch(BaseModel):
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
     outside_maintenance_blocks: bool | None = Field(default=None, description="Changes only.")
+    open_stage_tasks_block: bool | None = Field(default=None, description="Releases only.")
     cab_every_match: bool | None = Field(default=None, description="Changes only.")
     reapproval: ReapprovalPolicyIO | None = Field(
         default=None, description="Changes only. Null: the shipped policy."

@@ -42,6 +42,9 @@ export const en = {
   'action_reason.relative.requester_manager': "the requester's manager",
   'action_reason.stage_access': 'Only certain groups or roles may do this in this stage.',
   'action_reason.stage_tasks_open': "Finish this stage's tasks first.",
+  'action_reason.stage_tasks_open_named_one': "Finish this stage's open task first: {{task}}.",
+  'action_reason.stage_tasks_open_named_other':
+    "Finish this stage's open tasks first: {{task}} and {{more}} more.",
   'action_reason.sub_releases_not_tested': 'Its sub-releases must pass testing first.',
   'action_reason.system_calendar': 'Every organisation keeps this calendar.',
   'action_reason.window_already_ended': 'The "show until" time has already passed.',

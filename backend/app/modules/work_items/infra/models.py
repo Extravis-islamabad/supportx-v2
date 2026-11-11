@@ -140,6 +140,9 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     portal_show_due_time: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # D-156 (0137), changes only: outside every maintenance window blocks instead of warns.
     outside_maintenance_blocks: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-058b S3 (0142; REQ-REL-048), releases only: a stage with open tasks cannot be left
+    # (off: it can, and the stage tab's counter shows what is open).
+    open_stage_tasks_block: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
     first_response_on: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default="{reply,public_note}"
@@ -1159,6 +1162,8 @@ class WorkItemWorklog(TenantEntity):
     ended_at: Mapped[datetime]
     minutes: Mapped[int] = mapped_column(Integer)
     description: Mapped[str | None] = mapped_column(Text)
+    # WP-058b S3 (0142): the staged record's stage when the time was logged (null otherwise).
+    stage: Mapped[str | None] = mapped_column(String(40))
 
 
 class WorkItemLink(TenantEntity):

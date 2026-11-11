@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.work_items.domain import changes as rules
 from app.modules.work_items.domain.lifecycle import StatusCategory
-from app.modules.work_items.domain.parts import LinkKind, TaskStatus
+from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.stages import Move
 from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import (
@@ -20,9 +20,8 @@ from app.modules.work_items.infra.models import (
     WorkItemChangeDetails,
     WorkItemLink,
     WorkItemStageSchedule,
-    WorkItemTask,
 )
-from app.modules.work_items.service import catalogue, change_conflicts
+from app.modules.work_items.service import catalogue, change_conflicts, stage_tasks
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service.stage_approvals import StagedApprovalGuard
 
@@ -101,22 +100,10 @@ async def _stage_work_refusals(
     if move.target.code == CANCELED:
         return []
     found: list[stage_service.Refusal] = []
-    leaving = move.landed.stage != record.stage
-    if leaving and record.stage is not None:
-        open_tasks = await session.scalar(
-            select(func.count()).where(
-                WorkItemTask.work_item_id == record.id,
-                WorkItemTask.stage == record.stage,
-                WorkItemTask.status.not_in((TaskStatus.DONE.value, TaskStatus.CANCELED.value)),
-                WorkItemTask.deleted_at.is_(None),
-            )
-        )
-        if open_tasks:
-            found.append(
-                stage_service.Refusal(
-                    "stage_tasks_open", {"count": int(open_tasks), "stage": str(record.stage)}
-                )
-            )
+    # Named, shared with releases (WP-058b S3, lane A's OK): the first open task and how many more.
+    held = await stage_tasks.refusal(session, record, move)
+    if held is not None:
+        found.append(held)
     if move.landed.code == rules.CLOSED_STATUS:
         children = await session.scalar(
             select(func.count())

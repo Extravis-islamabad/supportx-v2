@@ -317,8 +317,25 @@ def _definitions(
     return [
         (ChainLink(str(t.id), t.name), t, t.conditions, list(t.actions))
         for t in triggers
-        if happened.event is not None and happened.event.value in t.events
+        if _fires(t.events, happened)
     ]
+
+
+def _fires(events: Sequence[str], happened: RecordEvent) -> bool:
+    """Whether a trigger listening to `events` reacts to this event.
+
+    A stage entry is a status move whose stage changed (WP-058b S3): one event, so a trigger
+    listening to both status_changed and stage_entered still runs once.
+    """
+    if happened.event is None:
+        return False
+    if happened.event.value in events:
+        return True
+    return (
+        TriggerEvent.STAGE_ENTERED.value in events
+        and happened.event == TriggerEvent.STATUS_CHANGED
+        and "stage" in happened.changed
+    )
 
 
 async def _transition_after(

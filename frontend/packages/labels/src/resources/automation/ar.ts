@@ -282,6 +282,7 @@ export const ar: LabelResource = {
   'trigger_event.created': 'عند الإنشاء',
   'trigger_event.note_added': 'عند إضافة ملاحظة',
   'trigger_event.requester_replied': 'عند رد مقدّم الطلب',
+  'trigger_event.stage_entered': 'عند دخوله مرحلة',
   'trigger_event.status_changed': 'عند تغيّر الحالة',
   'trigger_event.updated': 'عند تغيّر الحقول',
   'workflow_failure.approval_invalid': 'تعذّر فتح الموافقة كما ضُبطت.',

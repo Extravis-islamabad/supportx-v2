@@ -278,6 +278,7 @@ export const ur: LabelResource = {
   'trigger_event.created': 'بننے پر',
   'trigger_event.note_added': 'نوٹ شامل ہونے پر',
   'trigger_event.requester_replied': 'درخواست گزار کے جواب پر',
+  'trigger_event.stage_entered': 'جب یہ کسی مرحلے میں داخل ہو',
   'trigger_event.status_changed': 'حالت بدلنے پر',
   'trigger_event.updated': 'فیلڈز بدلنے پر',
   'workflow_failure.approval_invalid': 'منظوری ترتیب کے مطابق نہیں کھل سکی۔',

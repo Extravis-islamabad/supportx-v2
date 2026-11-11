@@ -278,6 +278,7 @@ export const en = {
   'trigger_event.created': 'When created',
   'trigger_event.note_added': 'When a note is added',
   'trigger_event.requester_replied': 'When the requester replies',
+  'trigger_event.stage_entered': 'When it enters a stage',
   'trigger_event.status_changed': 'When the status changes',
   'trigger_event.updated': 'When fields change',
   'workflow_failure.approval_invalid': 'The approval could not be opened as set.',

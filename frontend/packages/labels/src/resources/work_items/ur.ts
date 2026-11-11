@@ -45,6 +45,9 @@ export const ur: LabelResource = {
   'action_reason.relative.requester_manager': 'درخواست گزار کا مینیجر',
   'action_reason.stage_access': 'اس مرحلے میں یہ صرف مخصوص گروپ یا کردار کر سکتے ہیں۔',
   'action_reason.stage_tasks_open': 'پہلے اس مرحلے کے کام مکمل کریں۔',
+  'action_reason.stage_tasks_open_named_one': 'پہلے اس مرحلے کا کھلا کام مکمل کریں: {{task}}۔',
+  'action_reason.stage_tasks_open_named_other':
+    'پہلے اس مرحلے کے کھلے کام مکمل کریں: {{task}} اور {{more}} مزید۔',
   'action_reason.sub_releases_not_tested': 'پہلے اس کی ذیلی ریلیزز کو جانچ میں کامیاب ہونا ہوگا۔',
   'action_reason.system_calendar': 'ہر ادارہ یہ کیلنڈر رکھتا ہے۔',
   'action_reason.window_already_ended': '«دکھانا ختم» کا وقت گزر چکا ہے۔',

@@ -43,6 +43,17 @@ export const ar: LabelResource = {
   'action_reason.relative.requester_manager': 'مدير مقدّم الطلب',
   'action_reason.stage_access': 'يمكن لمجموعات أو أدوار معيّنة فقط القيام بذلك في هذه المرحلة.',
   'action_reason.stage_tasks_open': 'أنهِ مهام هذه المرحلة أولًا.',
+  'action_reason.stage_tasks_open_named_few':
+    'أنهِ مهام هذه المرحلة المفتوحة أولًا: {{task}} و{{more}} مهام أخرى.',
+  'action_reason.stage_tasks_open_named_many':
+    'أنهِ مهام هذه المرحلة المفتوحة أولًا: {{task}} و{{more}} مهمة أخرى.',
+  'action_reason.stage_tasks_open_named_one':
+    'أنهِ المهمة المفتوحة في هذه المرحلة أولًا: {{task}}.',
+  'action_reason.stage_tasks_open_named_other':
+    'أنهِ مهام هذه المرحلة المفتوحة أولًا: {{task}} و{{more}} مهمة أخرى.',
+  'action_reason.stage_tasks_open_named_two':
+    'أنهِ مهمتَي هذه المرحلة المفتوحتين أولًا: {{task}} ومهمة أخرى.',
+  'action_reason.stage_tasks_open_named_zero': 'أنهِ مهام هذه المرحلة أولًا.',
   'action_reason.sub_releases_not_tested': 'يجب أن تجتاز إصداراته الفرعية الاختبار أولًا.',
   'action_reason.system_calendar': 'تحتفظ كل مؤسسة بهذا التقويم.',
   'action_reason.window_already_ended': 'لقد مضى وقت «يظهر حتى» بالفعل.',

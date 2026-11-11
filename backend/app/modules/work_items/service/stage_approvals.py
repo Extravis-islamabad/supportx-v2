@@ -501,8 +501,24 @@ async def _move_on_without_approvers(
     )
 
 
+class ReleaseGuard(StagedApprovalGuard):
+    """The approvals guard, and a stage's open tasks holding the move out (REQ-REL-048 AC1)."""
+
+    async def check(
+        self, session: AsyncSession, record: WorkItem, move: Move
+    ) -> list[stage_service.Refusal]:
+        """The approvals' refusals, then the open tasks' (unless the release setting is off)."""
+        from app.modules.work_items.service import stage_tasks  # noqa: PLC0415 - cycle
+
+        refusals = await super().check(session, record, move)
+        if not (await catalogue.load(session, self.wtype)).open_stage_tasks_block:
+            return refusals
+        held = await stage_tasks.refusal(session, record, move)
+        return [*refusals, held] if held is not None else refusals
+
+
 def register(types: Sequence[WorkItemType]) -> None:
     """Register the guard for every staged type with approvals (releases)."""
     for wtype in types:
         if wtype.stages is not None and wtype.code is WorkItemTypeCode.RELEASE:
-            stage_service.register_guard(wtype.code, StagedApprovalGuard(wtype))
+            stage_service.register_guard(wtype.code, ReleaseGuard(wtype))
