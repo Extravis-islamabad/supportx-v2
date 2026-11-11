@@ -570,6 +570,9 @@ async def history_page(  # noqa: PLR0913 - the record, the page and the filter, 
                 actor_id=row.actor_id,
                 source=row.source,  # type: ignore[arg-type]  # stored from Source
                 reason=row.reason,
+                # What made a person's change on their behalf (an audit's fix, WP-049b s3).
+                automation_ref=row.automation_ref,
+                batch_id=row.batch_id,
             )
         if row.field:
             entry.changes.append(Change(row.field, row.old_value, row.new_value))

@@ -108,6 +108,12 @@ disallow_subclassing_any = false
 module = ["weasyprint", "weasyprint.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# python-barcode (D-141, asset labels) ships no type hints; infra/labels.py wraps it behind the
+# CodeRenderer interface, so its types stop there.
+module = ["barcode", "barcode.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests", "app"]
