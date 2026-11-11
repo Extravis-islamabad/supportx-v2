@@ -246,6 +246,19 @@ async def get_rule(session: AsyncSession) -> AssetOverdueRule:
     return row
 
 
+async def _stored_rule(session: AsyncSession) -> AssetOverdueRule:
+    """The tenant's rule as stored, or its defaults unsaved: a read that never writes (preview).
+
+    The object is never added to the session, so nothing is flushed for it.
+    """
+    row: AssetOverdueRule | None = await session.scalar(select(AssetOverdueRule))
+    if row is not None:
+        return row
+    return AssetOverdueRule(
+        enabled=False, days=60, product_type_ids=[], action="move_state", state_id=None
+    )
+
+
 async def _type_tree(session: AsyncSession, roots: Sequence[uuid.UUID]) -> list[uuid.UUID]:
     parents = dict(
         (await session.execute(select(AssetProductType.id, AssetProductType.parent_id)))
@@ -385,7 +398,9 @@ async def _terms(
 async def preview(session: AsyncSession, subject: Subject, values: Mapping[str, Any]) -> int:
     """How many of the tenant's assets the rule, as sent, would act on now (AC2)."""
     require_configure(subject)
-    terms = await _terms(session, values, await get_rule(session))
+    # Read-only (it is not audited, tests/test_audit_routes.py): the stored rule or its defaults,
+    # never created here.
+    terms = await _terms(session, values, await _stored_rule(session))
     found = await session.scalar(
         select(func.count()).select_from(
             (await _overdue(session, terms, system_clock.now())).subquery()

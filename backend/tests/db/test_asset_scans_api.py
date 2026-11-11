@@ -295,3 +295,29 @@ async def test_056_the_rule_follows_the_life_cycle_and_never_forces_a_move(world
     assert (await _fresh(world, a, free))["state_id"] == states["missing"]
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         assert await scans.run_rule(session) is None  # skipped before: not listed every hour
+
+
+async def test_056_the_preview_only_reads_it_writes_no_row_and_no_event(world: World) -> None:
+    """The preview is not audited (tests/test_audit_routes.py), so it must change nothing.
+
+    On a tenant that never stored its rule, a preview neither creates the rule nor writes an
+    outbox event. Counts filter tenant_id explicitly: the test's database user bypasses RLS.
+    """
+    b = world.b
+
+    async def counts() -> tuple[int, int]:
+        rules = await world.sql(
+            "SELECT count(*) AS n FROM asset_overdue_rules WHERE tenant_id = $1", b.tenant
+        )
+        events = await world.sql(
+            "SELECT count(*) AS n FROM outbox_events WHERE tenant_id = $1", b.tenant
+        )
+        return int(rules[0]["n"]), int(events[0]["n"])
+
+    before = await counts()
+    assert before[0] == 0  # never stored for this tenant
+    previewed = await world.call(
+        "POST", f"{RULE}/preview", b, b.admin, json={"enabled": True, "days": 30, "action": "trash"}
+    )
+    assert previewed.status_code == 200, previewed.text
+    assert await counts() == before
