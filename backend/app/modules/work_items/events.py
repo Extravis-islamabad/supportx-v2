@@ -346,6 +346,9 @@ class WorkItemAssetLinkChanged(DomainEvent):
     work_item_id: uuid.UUID
     asset_id: uuid.UUID
     change: Literal["added", "removed"]
+    # Linked as the record was made, from a form prefilled on the asset page (WP-049b S4):
+    # the asset's history says "INC-n raised from this asset". Additive; false for older events.
+    at_creation: bool = False
 
 
 class WorkItemPartChangedV2(DomainEvent):
