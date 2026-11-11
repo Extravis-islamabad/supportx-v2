@@ -37,6 +37,7 @@ from app.modules.work_items.api.change_window_routes import (
     change_router as change_window_change_router,
 )
 from app.modules.work_items.api.change_window_routes import router as change_window_router
+from app.modules.work_items.api.portal_change_routes import router as portal_change_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
@@ -176,6 +177,7 @@ module = ModuleSpec(
         change_window_change_router,  # WP-045c: a change's conflicts and freeze override
         change_child_router,  # WP-045d S1: child changes and releases
         change_calendar_router,  # WP-045c S3: the change calendar
+        portal_change_router,  # WP-045d S4a: requesters' changes in the portal
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
@@ -189,6 +191,7 @@ module = ModuleSpec(
         CHANGE.feature,  # a change's conflicts and freeze override
         CHANGE.feature,  # child changes and releases
         CHANGE.feature,  # the change calendar
+        CHANGE.feature,  # requesters' changes in the portal
     ],
     events=EVENTS,
     permissions=(

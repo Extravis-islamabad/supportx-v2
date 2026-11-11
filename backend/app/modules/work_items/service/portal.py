@@ -60,6 +60,7 @@ from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemConversation,
     WorkItemLink,
+    WorkItemStageSchedule,
     WorkItemTemplate,
 )
 from app.modules.work_items.service import approval_stage, catalogue, resolution, templates
@@ -68,6 +69,8 @@ from app.modules.work_items.service.conversations import RequesterReply, add_req
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.history import Source
+
+PLANNED_STAGE = "implementation"  # a change's planned window (WP-045d S4a)
 
 VIEW = "requests.view"
 VIEW_DEPARTMENT = "work_items.view_department"
@@ -552,3 +555,21 @@ __all__ = [
     "reply",
     "viewer",
 ]
+
+
+async def planned_window(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID, wtype: WorkItemType
+) -> tuple[datetime | None, datetime | None]:
+    """A staged record's planned window as its requester may see it (WP-045d S4a, REQ-CHG-109).
+
+    The planned stage's scheduled start and end only (a change's implementation), after the
+    same reach check as the record; never the plans, the outcome or anyone's notes.
+    """
+    await get_record(session, subject, record_id, wtype)  # 404 out of reach
+    row = await session.scalar(
+        select(WorkItemStageSchedule).where(
+            WorkItemStageSchedule.work_item_id == record_id,
+            WorkItemStageSchedule.stage == PLANNED_STAGE,
+        )
+    )
+    return (row.scheduled_start, row.scheduled_end) if row is not None else (None, None)
