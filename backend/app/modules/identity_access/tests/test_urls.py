@@ -33,6 +33,13 @@ def test_one_host_with_the_portal_under_a_path() -> None:
         "https://desk.example.com/portal/requests?x=1"
     )
     assert auth.landing("console", "/") == "https://desk.example.com/"
+    # The console's hand-off of a requester-only person (SessionGate: `/?from=console`) lands on
+    # the portal's home, not on the shared host's root, which is the console (nightly roles e2e).
+    assert auth.landing("portal", "/?from=console") == (
+        "https://desk.example.com/portal/?from=console"
+    )
+    assert auth.landing("portal", "/#top") == "https://desk.example.com/portal/#top"
+    assert auth.landing("console", "/?from=portal") == "https://desk.example.com/?from=portal"
 
 
 def test_separate_dev_origins_are_unchanged() -> None:
@@ -40,3 +47,4 @@ def test_separate_dev_origins_are_unchanged() -> None:
     assert auth.allowed_origins == frozenset({"http://localhost:5173", "http://localhost:5174"})
     assert auth.landing("portal", "/") == "http://localhost:5174/"
     assert auth.landing("console", "/users") == "http://localhost:5173/users"
+    assert auth.landing("portal", "/?from=console") == "http://localhost:5174/?from=console"
