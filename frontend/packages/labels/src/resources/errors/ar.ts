@@ -759,6 +759,7 @@ export const ar: LabelResource = {
   'errors.not_a_member': 'أنت لست عضوًا في هذه المؤسسة.',
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
+  'errors.not_cancelable_from_here': 'لا يمكن إلغاؤه من مكانه الحالي.',
   'errors.not_closable_from_here':
     'لا يمكن إغلاقه من مرحلته الحالية. انقله إلى المرحلة التالية أولًا.',
   'errors.not_found': 'العنصر غير موجود.',

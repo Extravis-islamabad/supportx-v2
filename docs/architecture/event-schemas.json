@@ -5756,6 +5756,69 @@
         "type": "object"
       }
     },
+    "work_items.task.assigned": {
+      "1": {
+        "description": "A task was given to someone (WP-046a S1; REQ-INC-076 AC1): its owner is told.\n\nRaised when a task is made with an owner or its owner changes to another person. IDs only;\nthe notification source reads the task and its record at send time.",
+        "properties": {
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "task_id",
+          "owner_id"
+        ],
+        "title": "WorkItemTaskAssigned",
+        "type": "object"
+      }
+    },
+    "work_items.task.reminder_due": {
+      "1": {
+        "description": "A task's reminder is due (WP-046a S1; REQ-INC-073 AC2, -076), claimed once by the sweep.\n\n`kind`: `starts_soon` (its owner's reminder before the scheduled start) or `overdue` (open\npast its due time). `at` is the time it was claimed for: the source re-reads the task at\nsend time and says nothing if that time moved meanwhile. IDs and times only.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "task_id",
+          "kind",
+          "at"
+        ],
+        "title": "WorkItemTaskReminderDue",
+        "type": "object"
+      }
+    },
     "work_items.view.changed": {
       "1": {
         "description": "A saved view was added, changed or removed (WP-020d; the view menus reload).",
