@@ -36,6 +36,7 @@ from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.portal import (
+    PLANNED_STAGE,
     KnownProblem,
     PortalReach,
     PortalStatus,
@@ -69,8 +70,6 @@ from app.modules.work_items.service.conversations import RequesterReply, add_req
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.history import Source
-
-PLANNED_STAGE = "implementation"  # a change's planned window (WP-045d S4a)
 
 VIEW = "requests.view"
 VIEW_DEPARTMENT = "work_items.view_department"

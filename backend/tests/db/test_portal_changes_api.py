@@ -11,9 +11,12 @@ from typing import Any
 
 import pytest
 
+from app.core.database import Database
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_changes_api import CHG, move
+from tests.db.test_conversation_api import events_of
 from tests.db.test_incidents_api import CONSOLE, Org, World
+from tests.db.test_portal_incidents_api import _published
 
 pytestmark = [pytest.mark.db, MODULE_LOOP]
 
@@ -22,6 +25,7 @@ __all__ = ["module_world", "shared_world"]  # the fixture, re-used
 PORTAL = "/portal/changes"
 SECRET_PLAN = "Pull the core switch and restore from the 02:00 image"
 PRIVATE_NOTE = "Vendor contract number 4471, do not share"
+WINDOW = {"scheduled_start": "2026-12-05T20:00:00Z", "scheduled_end": "2026-12-05T22:00:00Z"}
 
 
 async def _raise(world: World, org: Org, user: uuid.UUID) -> dict[str, Any]:
@@ -144,3 +148,47 @@ async def test_req_chg_117_waiting_for_my_approval_counts_and_falls_when_decided
     # Only changes have the change counters.
     incident = (await world.call("GET", "/incidents/counters", a, a.tech_a)).json()
     assert "pending_my_approval" not in {c["counter"] for c in incident}
+
+
+async def test_req_chg_109_the_requester_channel_hears_the_stage_status_and_planned_window(
+    world: World, app_db: Database
+) -> None:
+    """Live (rule 5c): a move and the implementation's schedule reach the requester's channel;
+    another stage's schedule (planning) says nothing there."""
+    a = world.a
+    raised = await _raise(world, a, a.requester)
+    portal = f"t:{a.tenant}:portal_wi:{raised['id']}"
+    fresh = (await world.call("GET", f"{CHG}/{raised['id']}", a, a.admin)).json()
+    assert (await move(world, a, fresh, "submission_awaiting_acceptance")).status_code == 200
+    shown = (await world.call("GET", f"{CHG}/{raised['id']}/schedule", a, a.admin)).json()
+    for stage in ("planning", "implementation"):
+        row = next(s for s in shown if s["stage"] == stage)
+        set_ = await world.call(
+            "PATCH",
+            f"{CHG}/{raised['id']}/schedule/{stage}",
+            a,
+            a.admin,
+            json={
+                "scheduled_start": "2026-12-05T20:00:00Z",
+                "scheduled_end": "2026-12-05T22:00:00Z",
+            },
+            headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+        )
+        assert set_.status_code == 200, (stage, set_.text)
+    mine = [
+        e
+        for e in await events_of(world, "work_item")
+        if e.payload.get("work_item_id") == raised["id"]
+    ]
+    [moved] = [e for e in mine if e.payload.get("to_status") == "submission_awaiting_acceptance"]
+    assert "status" in (await _published(app_db, a, moved))[portal].fields
+    parts = {
+        str(e.payload["part_id"]): e for e in mine if e.event_type == "work_items.part.changed"
+    }
+    record_id = uuid.UUID(raised["id"])
+    planning = await _published(app_db, a, parts[str(uuid.uuid5(record_id, "planning"))])
+    assert portal not in planning
+    window = await _published(app_db, a, parts[str(uuid.uuid5(record_id, "implementation"))])
+    assert window[portal].fields == ("planned_end", "planned_start")
+    seen = (await world.call("GET", f"{PORTAL}/{raised['id']}", a, a.requester)).json()
+    assert seen["planned_start"].startswith("2026-12-05T20:00")

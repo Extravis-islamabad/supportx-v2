@@ -227,6 +227,8 @@ def reaches(viewer: Viewer, record: RecordFacts) -> PortalReach | None:
 # What the requester's live channel may name as changed (field names, never values); the due
 # time is a name only: the API decides whether the tenant shows it (D5).
 LIVE_FIELDS = ALWAYS | TEMPLATE_CONTROLLED | {"resolution_due_at"}
+# The stage whose scheduled window a change's requester sees as its planned window (WP-045d S4a).
+PLANNED_STAGE = "implementation"
 
 
 def portal_changes(
@@ -258,6 +260,7 @@ __all__ = [
     "ALWAYS",
     "FILLABLE",
     "LIVE_FIELDS",
+    "PLANNED_STAGE",
     "STAFF_ONLY",
     "TEMPLATE_CONTROLLED",
     "PortalReach",
