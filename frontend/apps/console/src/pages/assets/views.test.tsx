@@ -172,6 +172,8 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
     expect(computer.getAttribute('tabindex')).toBe('-1');
     expect(computer.getAttribute('aria-expanded')).toBe('true');
     expect(computer.getAttribute('aria-level')).toBe('1');
+    // An open branch is named by its own row, not its children's text too (lane C, #404).
+    expect(within(tree).getByRole('treeitem', { name: 'Computer, 5 assets' })).toBe(computer);
     all.focus();
     fireEvent.keyDown(all, { key: 'ArrowDown' });
     expect(document.activeElement).toBe(computer);

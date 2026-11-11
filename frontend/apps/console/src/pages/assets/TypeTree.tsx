@@ -178,6 +178,9 @@ export function TypeTree({
     if (row === undefined) return null;
     const expandable = row.children.length > 0;
     const chosen = id === selected;
+    // The item is named by its own row ("Laptop, 12 assets"), never by its open children's text
+    // too, which a name from content would take in (lane C's #404 review).
+    const countText = t('assets.tree.count', { count: row.count });
     const Caret = isOpen(id)
       ? CaretDownOutlined
       : direction === 'rtl'
@@ -191,6 +194,7 @@ export function TypeTree({
           else refs.current.set(id, element);
         }}
         role="treeitem"
+        aria-label={`${row.name}, ${countText}`}
         aria-level={row.level}
         aria-setsize={row.setSize}
         aria-posinset={row.position}
@@ -241,9 +245,7 @@ export function TypeTree({
             {row.name}
           </bdi>
           <Typography.Text type="secondary" data-testid={`asset-tree-count-${id || 'all'}`}>
-            {/* Read with the name: "Laptop, 12 assets". */}
-            <span className="sr-only">{', '}</span>
-            {t('assets.tree.count', { count: row.count })}
+            {countText}
           </Typography.Text>
         </div>
         {expandable && isOpen(id) && (
