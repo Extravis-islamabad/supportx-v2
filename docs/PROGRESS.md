@@ -289,6 +289,15 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   every replica connected to it (master); afterwards only the server counts. Tests in
   `backend/tests/ha/test_valkey_failover.py`; the remaining unplanned-crash gap is in
   [deployment.md](deployment.md) (Profiles, "Valkey failover and readiness").
+  **HA cluster DNS fix (2026-11-12, lane B, branch `fix/ha-cluster-dns-valkey`):** Cluster run
+  43082299609 stopped the node with k3s's only CoreDNS copy; for about six minutes nothing
+  resolved, the sentinels kept entering TILT and every later failover aborted
+  (`-failover-abort-no-good-slave`). Now cluster DNS runs two copies on different nodes
+  (`deploy/k3s/cluster-dns-ha.sh`, run by `make cluster-up-ha` and documented for on-prem and
+  customer-managed clusters), `deploy/k3s/ha-preflight.sh` warns about a single copy, Valkey's
+  pods use short lookups of fully qualified names (`dnsConfig`), node-loss.sh waits for Sentinel
+  to settle first, and a new test stops the node with the Valkey master after a failover
+  (`make cluster-ha-valkey-node-loss`). Proven only by the next Cluster dispatch.
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
