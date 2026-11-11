@@ -24,7 +24,6 @@ from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain import change_windows as rules
-from app.modules.work_items.domain.changes import IMPLEMENTATION
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import ChangeWindowChanged
 from app.modules.work_items.infra.models import (
@@ -448,8 +447,7 @@ CALENDAR_LIMIT = 2000  # entries in one range; a month of a busy tenant fits man
 # The stage whose window a type puts on the calendar (WP-058b S1; ADR-042 addendum): a change's
 # implementation, a release's deployment.
 PLANNED_STAGE: dict[WorkItemTypeCode, str] = {
-    WorkItemTypeCode.CHANGE: IMPLEMENTATION,
-    WorkItemTypeCode.RELEASE: "deployment",
+    WorkItemTypeCode(code): stage for code, stage in rules.PLANNED_STAGE.items()
 }
 
 

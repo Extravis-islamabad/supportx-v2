@@ -321,6 +321,7 @@ export const ar: LabelResource = {
   'audit.action.release.category_created': 'أضاف فئة إصدارات',
   'audit.action.release.closed': 'أغلق إصدارًا',
   'audit.action.release.closed_record_edited': 'عدّل إصدارًا مغلقًا',
+  'audit.action.release.conflict_acknowledged': 'أقرّ بتعارض في إصدار',
   'audit.action.release.created': 'أنشأ إصدارًا',
   'audit.action.release.deleted': 'نقل إصدارًا إلى سلة المحذوفات',
   'audit.action.release.downtime_changed': 'غيّر فترة التوقف في إصدار',

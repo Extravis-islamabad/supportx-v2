@@ -322,6 +322,7 @@ export const en = {
   'audit.action.release.category_created': 'Added a release category',
   'audit.action.release.closed': 'Closed a release',
   'audit.action.release.closed_record_edited': 'Edited a closed release',
+  'audit.action.release.conflict_acknowledged': 'Acknowledged a conflict on a release',
   'audit.action.release.created': 'Created a release',
   'audit.action.release.deleted': 'Moved a release to the trash',
   'audit.action.release.downtime_changed': 'Changed the downtime of a release',

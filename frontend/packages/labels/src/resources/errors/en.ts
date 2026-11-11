@@ -328,6 +328,10 @@ export const en = {
   'errors.field.code_taken': 'Another one already uses this code.',
   'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.condition_not_supported': 'Rules are not available for this permission yet.',
+  'errors.field.conflict_blocks':
+    'A blocking conflict cannot be acknowledged. Choose another time, or someone allowed to may let it go ahead with a reason.',
+  'errors.field.conflict_not_found':
+    'This conflict is no longer there. The list shows the conflicts now.',
   'errors.field.country_invalid': 'Choose a country from the list.',
   'errors.field.currency_unknown': 'Choose a currency from the list.',
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",

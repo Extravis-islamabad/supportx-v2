@@ -320,6 +320,7 @@ export const ur: LabelResource = {
   'audit.action.release.category_created': 'ریلیز کا زمرہ شامل کیا',
   'audit.action.release.closed': 'ریلیز کو بند کیا',
   'audit.action.release.closed_record_edited': 'بند ریلیز میں ترمیم کی',
+  'audit.action.release.conflict_acknowledged': 'ریلیز پر ٹکراؤ تسلیم کیا',
   'audit.action.release.created': 'ریلیز کو بنایا',
   'audit.action.release.deleted': 'ریلیز ردی کی ٹوکری میں ڈالی',
   'audit.action.release.downtime_changed': 'ریلیز کا بندش کا وقت بدلا',

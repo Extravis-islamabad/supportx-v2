@@ -26,6 +26,7 @@ from app.modules.work_items.domain.change_windows import ConflictKind, WindowKin
 from app.modules.work_items.domain.types import CHANGE, RELEASE
 from app.modules.work_items.infra.models import ChangeWindow
 from app.modules.work_items.service import change_windows as service
+from app.modules.work_items.service import release_conflicts as acks
 from app.modules.work_items.service.work_items import field_errors
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -279,6 +280,10 @@ class ConflictOut(BaseModel):
     record_id: uuid.UUID | None = Field(
         default=None, description="The other change it overlaps (open it to see whether you may)."
     )
+    record_type: str | None = Field(
+        default=None,
+        description="`change` or `release`: the other record's type (ADR-042 addendum A).",
+    )
 
 
 class ConflictsOut(BaseModel):
@@ -323,6 +328,7 @@ async def change_conflicts(
                 window_name=named[c.window_id].name if c.window_id in named else None,
                 window_labels=named[c.window_id].labels if c.window_id in named else None,
                 record_id=c.record_id,
+                record_type=c.record_type,
             )
             for c in found
         ],
@@ -510,6 +516,130 @@ async def release_freeze_override(  # noqa: PLR0913, PLR0917 - FastAPI dependenc
         expected_version=version,
         source=source_of(request),
         wtype=RELEASE,
+    )
+    set_etag(response, updated.version)
+    return {"version": updated.version}
+
+
+# --- a release's conflicts and their acknowledgements (WP-058b S2; REQ-REL-041) -----------------
+
+
+class ConflictAckOut(BaseModel):
+    """Who acknowledged a warning, when and why."""
+
+    acked_by: uuid.UUID
+    acked_at: datetime
+    reason: str
+
+
+class ReleaseConflictOut(BaseModel):
+    """One conflict of the release's planned time: its key, whether it blocks, its ack."""
+
+    kind: str = Field(
+        description="`freeze`, `outside_maintenance`, `overlap` or `role_booked` "
+        "(labels `change_conflict.*`)."
+    )
+    starts_at: datetime
+    ends_at: datetime
+    blocks: bool = Field(description="A blocking freeze, unless the release's freezes were passed.")
+    window_id: uuid.UUID | None = None
+    window_name: str | None = None
+    window_labels: dict[str, str] | None = None
+    record_id: uuid.UUID | None = Field(
+        default=None, description="The other change or release (open it to see whether you may)."
+    )
+    record_type: str | None = Field(default=None, description="`change` or `release`.")
+    key: str = Field(description="The conflict as it is now; an ack holds for this key only.")
+    ack: ConflictAckOut | None = None
+
+
+class ReleaseConflictsOut(BaseModel):
+    """A release's conflicts now, and the blocking freezes someone passed for it."""
+
+    items: list[ReleaseConflictOut]
+    passed_window_ids: list[uuid.UUID]
+
+
+class ConflictAckIn(BaseModel):
+    """Acknowledge one warning on the release, with a reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(max_length=300, description="The conflict's key, as listed.")
+    reason: str = Field(max_length=acks.REASON_MAX)
+
+
+EditRelease = Annotated[Subject, Depends(require_permission(RELEASE.permission("edit")))]
+
+
+@release_router.get("/{record_id}/conflicts", summary="The release's conflicts")
+async def release_conflicts(
+    record_id: uuid.UUID, session: TenantSession, subject: ViewRelease
+) -> ReleaseConflictsOut:
+    """Freezes, being outside maintenance, overlapping changes and releases, double bookings."""
+    _, rows, named, passed = await acks.shown(session, subject, RELEASE, record_id)
+    return ReleaseConflictsOut(
+        items=[
+            ReleaseConflictOut(
+                kind=r.conflict.kind.value,
+                starts_at=r.conflict.starts_at,
+                ends_at=r.conflict.ends_at,
+                blocks=r.blocks,
+                window_id=r.conflict.window_id,
+                window_name=named[r.conflict.window_id].name
+                if r.conflict.window_id in named
+                else None,
+                window_labels=named[r.conflict.window_id].labels
+                if r.conflict.window_id in named
+                else None,
+                record_id=r.conflict.record_id,
+                record_type=r.conflict.record_type,
+                key=r.key,
+                ack=ConflictAckOut(
+                    acked_by=r.ack.acked_by, acked_at=r.ack.acked_at, reason=r.ack.reason
+                )
+                if r.ack
+                else None,
+            )
+            for r in rows
+        ],
+        passed_window_ids=sorted(passed),
+    )
+
+
+@release_router.post(
+    "/{record_id}/conflicts/acks",
+    summary="Acknowledge a warning, with a reason",
+    responses=CONFLICT,
+)
+async def acknowledge_conflict(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_id: uuid.UUID,
+    body: ConflictAckIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: EditRelease,
+    request: Request,
+    response: Response,
+    note: Annotated[
+        AuditNote,
+        audited("release.conflict_acknowledged", object_type="release", object_param="record_id"),
+    ],
+) -> dict[str, int]:
+    """Needs the right to edit the release, its version (If-Match) and a reason.
+
+    Only a warning that is there now; it holds until the conflict moves or goes.
+    """
+    note.reason = body.reason
+    note.details = {"key": body.key}
+    updated = await acks.acknowledge(
+        session,
+        subject,
+        RELEASE,
+        record_id,
+        key=body.key,
+        reason=body.reason,
+        expected_version=version,
+        source=source_of(request),
     )
     set_etag(response, updated.version)
     return {"version": updated.version}

@@ -68,6 +68,7 @@ from app.modules.organization import (
     users_in_groups,
 )
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
@@ -4223,8 +4224,12 @@ async def _window_guard(  # noqa: PLR0913 - the save and its values, explicit
     merged: Mapping[str, Any],
     changed: Mapping[str, Any],
 ) -> None:
-    """A change's implementation window moved: a blocking freeze refuses it (WP-045c, ADR-042)."""
-    if wtype.code is not WorkItemTypeCode.CHANGE or stage != change_rules.IMPLEMENTATION:
+    """A change's or release's planned window moved: a blocking freeze refuses it.
+
+    The change's implementation (WP-045c, ADR-042), the release's deployment (WP-058b S2,
+    addendum A).
+    """
+    if stage != window_rules.PLANNED_STAGE.get(wtype.code.value):
         return
     if not {"scheduled_start", "scheduled_end"} & set(changed):
         return
@@ -4365,8 +4370,8 @@ async def _downtime_guard(  # noqa: PLR0913 - the save and its values, explicit
     adding: bool,
     changed: Mapping[str, Any],
 ) -> None:
-    """A change's planned downtime is its planned time too: a blocking freeze refuses it."""
-    if wtype.code is not WorkItemTypeCode.CHANGE or merged["phase"] != "planned":
+    """A change's or release's planned downtime is its planned time too: a freeze refuses it."""
+    if wtype.code.value not in window_rules.PLANNED_STAGE or merged["phase"] != "planned":
         return
     if adding or {"starts_at", "ends_at", "phase"} & set(changed):
         await change_conflicts.guard(session, record, [(merged["starts_at"], merged["ends_at"])])

@@ -413,6 +413,9 @@ FIELD_PROBLEMS = frozenset(
         "not_eligible",  # WP-058a s4: a role holder the role does not allow (REQ-REL-024)
         "role_disabled",
         "would_loop",  # WP-058a s5: a release made the parent of its own parent (REQ-REL-037)
+        # WP-058b S2 (REQ-REL-041): an ack names a conflict that is no longer there, or a block.
+        "conflict_not_found",
+        "conflict_blocks",
     }
 )
 
