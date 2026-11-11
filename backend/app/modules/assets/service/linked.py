@@ -11,6 +11,8 @@ The port, as agreed with lane A (the coordinator, 2026-11-11):
   (rows, next_cursor): newest first, keyset on the ID, at most 100.
 - `asset_ids_of(session, work_item_id)` -> the assets a work item is linked to, for live
   updates when its status changes.
+- `repoint_links(session, from_asset_id, to_asset_id, ...)` -> an asset merge moves the links
+  (WP-049b S4b; lane A's `repoint_asset_links`, called as it is).
 All of them see only the records the viewer may see; the counters too (D-158).
 
 `work_items.asset_link.changed` with `at_creation: true` means the work item was raised with the
@@ -34,7 +36,7 @@ from app.modules.assets.infra.models import Asset
 from app.modules.assets.service.assets import RECORD_TYPE, get_asset
 from app.modules.identity_access import Subject
 from app.shared.events import EventEnvelope
-from app.shared.history import Change, record_changes
+from app.shared.history import Change, Source, record_changes
 
 PAGE_DEFAULT, PAGE_MAX = 25, 100
 RAISED_FIELD = "raised_work_item"  # the history line of REQ-AST-045
@@ -78,6 +80,23 @@ class LinkedRecords(Protocol):
 
     async def asset_ids_of(self, session: AsyncSession, work_item_id: uuid.UUID) -> list[uuid.UUID]:
         """The assets the work item is linked to."""
+        ...
+
+    async def repoint_links(  # noqa: PLR0913 - the merge's two assets and their names
+        self,
+        session: AsyncSession,
+        from_asset_id: uuid.UUID,
+        to_asset_id: uuid.UUID,
+        *,
+        from_label: str,
+        to_label: str,
+        source: Source,
+    ) -> int:
+        """An asset merge (REQ-AST-052): every live link to `from_asset_id` moves to the other.
+
+        Lane A's `repoint_asset_links`, as it is: each record touched gets its history line and
+        link events; the count of records touched comes back.
+        """
         ...
 
 
