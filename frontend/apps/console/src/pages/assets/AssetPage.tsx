@@ -26,6 +26,7 @@ import {
   useAssetAccess,
   useAssetHistory,
   useAssetProductTypes,
+  useAssetLinked,
   useAssetRecord,
   useAssetMoves,
   useAssetSettings,
@@ -84,6 +85,9 @@ import { AssetFinancialsTab } from './Financials';
 import { totalShown, useMoney } from './money';
 import { AssetNotes } from './Notes';
 import { LabelHistory, PrintLabelsDialog } from './PrintLabels';
+import { LinkedRecordsPanel } from './LinkedRecords';
+import { RaiseFromAssetDialog } from './RaiseFromAsset';
+import type { RaiseKind } from './raise';
 import { ScansTab } from './Scans';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
@@ -156,6 +160,7 @@ const HISTORY_FIELDS = new Set([
   'cost',
   'note',
   'scan',
+  'raised_work_item',
   'product_id',
   'product_type_id',
   'state_id',
@@ -223,6 +228,9 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const [changedElsewhere, setChangedElsewhere] = useState(false);
   const [dialog, setDialog] = useState<'move' | 'copy' | 'dispose'>();
   const [printing, setPrinting] = useState(false);
+  // WP-049b s4a: the linked work items (REQ-AST-044) and raising one from here (045).
+  const linked = useAssetLinked(asset.id);
+  const [raising, setRaising] = useState<RaiseKind>();
   const viewers = useRecordChannel('asset', asset.id, (event) => {
     // The asset's files (REQ-AST-050), its notes and cost lines (parts, no version of the asset).
     if (event.type === 'files.changed') {
@@ -233,6 +241,12 @@ function AssetView({ asset }: { asset: AssetRecord }) {
     // WP-049b s3: a scan arrived (REQ-AST-054); a fix from an audit changed the asset itself.
     if (parts.includes('scans')) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.assets.scans(asset.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
+      return;
+    }
+    // WP-049b s4a: a work item linked, unlinked or moved on (REQ-AST-044): the counters.
+    if (parts.includes('linked')) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.linked(asset.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
       return;
     }
@@ -487,7 +501,36 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           },
         ]
       : []),
+    // Hidden until work items offer the links (lane A's port; the API says "not available").
+    ...(linked.data?.available === true
+      ? [
+          {
+            key: 'linked',
+            title: t('assets.linked.title'),
+            children: <LinkedRecordsPanel assetId={asset.id} summary={linked.data} />,
+            testId: 'asset-linked-section',
+          },
+        ]
+      : []),
   ];
+  // Raise a work item from the asset (REQ-AST-045): only the kinds the person may create.
+  const raiseActions: RecordAction[] = (
+    [
+      ['incident', 'incidents.create'],
+      ['service_request', 'requests.create'],
+      ['change', 'changes.create'],
+    ] as const
+  )
+    .filter(([, permission]) => access.can(permission))
+    .map(([kind]) => ({
+      key: `raise-${kind}`,
+      label: t(`assets.raise.${kind}`),
+      allowed: true,
+      onClick: () => {
+        setRaising(kind);
+      },
+      testId: `asset-raise-${kind}`,
+    }));
   // The record's actions on one row (D-155): the state change first, then edit and copy; the
   // destructive ones in "More actions", the delete confirmed.
   const ticketActions: RecordAction[] = [
@@ -530,10 +573,12 @@ function AssetView({ asset }: { asset: AssetRecord }) {
     },
     testId: 'asset-labels-open',
   };
+  // A technician through a ticket sees its ticket actions first (D-157); raising a work item
+  // from the asset (REQ-AST-045) follows, in "More actions".
   const actions: RecordAction[] = !manage
     ? throughTicket
-      ? [...ticketActions, labelAction]
-      : [labelAction]
+      ? [...ticketActions, labelAction, ...raiseActions]
+      : [labelAction, ...raiseActions]
     : [
         {
           key: 'move',
@@ -605,6 +650,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           testId: 'asset-trash',
         },
         labelAction,
+        ...raiseActions,
       ];
   const details = editing ? (
     <Flex vertical gap={12} data-testid="asset-edit-form">
@@ -723,6 +769,15 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           setDialog(undefined);
         }}
       />
+      {raising !== undefined && (
+        <RaiseFromAssetDialog
+          asset={asset}
+          kind={raising}
+          onClose={() => {
+            setRaising(undefined);
+          }}
+        />
+      )}
       {/* D-157: the location alone, for a technician through its ticket. */}
       <Modal
         open={locating !== undefined}
@@ -883,6 +938,14 @@ function AssetHistory({ id }: { id: string }) {
       : HISTORY_FIELDS.has(name)
         ? t(`assets.record.${name}`)
         : t('assets.record.other_field');
+  // REQ-AST-045: "INC-42 raised from this asset" (the record's ID when the event named it).
+  const line = (change: { field: string; new?: unknown }) => {
+    if (change.field !== 'raised_work_item') return field(change.field);
+    const raised = (change.new ?? {}) as { display_id?: string | null };
+    return raised.display_id != null && raised.display_id !== ''
+      ? t('assets.record.raised_from', { display_id: raised.display_id })
+      : t('assets.record.raised_from_unnamed');
+  };
   const set = (patch: Partial<AssetHistoryFilters>) => {
     setFilters({ ...filters, ...patch });
   };
@@ -1027,7 +1090,7 @@ function AssetHistory({ id }: { id: string }) {
               <span>
                 {entry.kind === 'created'
                   ? t('assets.record.history_created')
-                  : list([...new Set(entry.changes.map((c) => field(c.field)))])}
+                  : list([...new Set(entry.changes.map((c) => line(c)))])}
               </span>
               {/* What made it (WP-049b s3): an audit's fix names the audit; or the rule. */}
               {entry.origin != null && (

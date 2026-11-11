@@ -77,6 +77,9 @@ export const queryKeys = {
     productTypes: ['assets', 'product-types'] as const,
     products: (query: AssetProductsQuery) => ['assets', 'products', query] as const,
     records: (query: AssetRecordsQuery) => ['assets', 'records', query] as const,
+    // WP-049b s4a: the tree's counts per view, and an asset's linked work items.
+    typeCounts: (view: string) => ['assets', 'records', 'type-counts', view] as const,
+    linked: (id: string) => ['assets', 'record', id, 'linked'] as const,
     record: (id: string) => ['assets', 'record', id] as const,
     history: (id: string) => ['assets', 'history', id] as const,
     moves: (id: string) => ['assets', 'moves', id] as const,

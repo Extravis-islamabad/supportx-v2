@@ -1,18 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  App,
-  Button,
-  Drawer,
-  Flex,
-  Input,
-  Segmented,
-  Select,
-  Table,
-  TreeSelect,
-  Typography,
-} from 'antd';
+import { App, Button, Drawer, Flex, Grid, Input, Select, Table, Typography } from 'antd';
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import {
   queryKeys,
@@ -22,10 +11,19 @@ import {
   useAssetRelations,
   useAssetRecords,
   useAssetStates,
+  useAssetTypeCounts,
   useLoanActions,
+  useStructure,
+  sharedListKeys,
+  listSettingKey,
   type AssetRecord,
 } from '@supportx/api-client';
-import { refreshList, useListChannel, useTenantChannel } from '@supportx/realtime';
+import {
+  refreshList,
+  useListChannel,
+  usePersonalChannel,
+  useTenantChannel,
+} from '@supportx/realtime';
 import {
   CellText,
   EmptyText,
@@ -38,6 +36,7 @@ import {
   ToneTag,
   useAccess,
   useAppearance,
+  useColumnWidths,
   useLabel,
   WriteButton,
 } from '@supportx/ui';
@@ -46,6 +45,11 @@ import { useDebounced } from '../../useDebounced';
 import { Problems } from '../admin/incidents/shared';
 import { nameOf } from '../admin/assets/shared';
 import { typeTree, type TypeNode } from '../admin/assets/tree';
+import { AssetViewPicker, AssetViewsDrawer } from './AssetViews';
+import { TypeTree } from './TypeTree';
+import { ALL_TYPES } from './typeCounts';
+import { isBuiltIn, TRASH, useAssetViewChoices } from './views';
+import { useSiteNames } from './live';
 import { BulkMoveDialog } from './AssetActions';
 import { PrintLabelsButton } from './PrintLabels';
 import { AssetFields } from './AssetForm';
@@ -54,11 +58,34 @@ import { useAssetSaveProblems } from './problems';
 import { SelectPageBox } from '../incidents/list/ColumnChooser';
 
 /**
- * The asset list (WP-049a s2): search by name or any identifier, one product type, the trash.
- * It follows the asset list channel live (and the catalogue broadcast for names), so another
- * person's change shows without a refresh.
+ * The asset list (WP-049a s2; WP-049b s4a, REQ-AST-047): the product type tree beside the list
+ * (a node lists its types and every type below, with counts), built-in views, your saved views
+ * and favourites, search by name or any identifier, the trash. The default columns are the
+ * spec's; each person's widths are kept per view (the shared list-settings store). It follows
+ * the asset list channel live (and the catalogue broadcast for names), so another person's
+ * change shows without a refresh.
  */
 const BULK_MAX = 100; // the API takes up to 100 assets per bulk move
+const LIST_SETTINGS_CHANGED = 'system.list_settings_changed';
+const OWN_WIDTHS: Record<string, number> = { name: 220 };
+
+/** Every product type ID in the branch (the node and below), for a saved view's filter. */
+function branchIds(nodes: TypeNode[], id: string): string[] {
+  for (const node of nodes) {
+    if (node.id === id) {
+      const all: string[] = [];
+      const walk = (n: TypeNode) => {
+        all.push(n.id);
+        (n.children ?? []).forEach(walk);
+      };
+      walk(node);
+      return all;
+    }
+    const inner = branchIds(node.children ?? [], id);
+    if (inner.length > 0) return inner;
+  }
+  return [];
+}
 
 export function AssetsPage() {
   const t = useLabel();
@@ -67,14 +94,41 @@ export function AssetsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const allowed = access.can('assets.view');
+  const screens = Grid.useBreakpoint();
   const [search, setSearch] = useState('');
-  const [typeId, setTypeId] = useState<string>();
-  const [view, setView] = useState<'live' | 'trash'>('live');
+  // The view and the tree node live in the address, so a view can be shared as a link.
+  const [params, setParams] = useSearchParams();
+  const view = params.get('view') ?? 'all';
+  const typeId = params.get('type') ?? undefined;
+  const setParam = (name: 'view' | 'type', value: string | undefined) => {
+    const next = new URLSearchParams(params);
+    if (value === undefined || value === '' || (name === 'view' && value === 'all')) {
+      next.delete(name);
+    } else next.set(name, value);
+    setParams(next, { replace: true });
+  };
+  const trash = view === TRASH;
+  const { choices, saved } = useAssetViewChoices(allowed);
+  const savedView = saved(view);
+  const [viewsOpen, setViewsOpen] = useState(false);
   const debounced = useDebounced(search, 300);
   const list = useAssetRecords(
-    { search: debounced, productTypeId: typeId, trash: view === 'trash' },
+    {
+      search: debounced,
+      productTypeId: typeId,
+      trash,
+      view: isBuiltIn(view) && view !== 'all' ? view : undefined,
+      filter: savedView?.filter == null ? undefined : JSON.stringify(savedView.filter),
+    },
     allowed,
   );
+  const counts = useAssetTypeCounts(isBuiltIn(view) ? view : undefined, allowed && !trash);
+  const ownCounts = useMemo(
+    () => new Map((counts.data?.types ?? []).map((c) => [c.product_type_id, c.count])),
+    [counts.data],
+  );
+  const departments = useStructure('departments', allowed, true);
+  const siteName = useSiteNames();
   const types = useAssetProductTypes(allowed);
   const states = useAssetStates(allowed);
   const change = useAssetRecordChange();
@@ -83,6 +137,14 @@ export function AssetsPage() {
   useListChannel(allowed ? 'assets' : null, () => {
     refreshList(queryClient, [...queryKeys.assets.all, 'records']);
   });
+  // Your views and widths changed in another window of yours (rule 5c): follow them.
+  usePersonalChannel((message) => {
+    if (message.type !== LIST_SETTINGS_CHANGED || !message.ids.includes('assets')) return;
+    void queryClient.invalidateQueries({ queryKey: sharedListKeys.all('assets') });
+    if (message.ids.includes(view)) {
+      void queryClient.invalidateQueries({ queryKey: listSettingKey('assets', view) });
+    }
+  });
   useTenantChannel((message) => {
     if (message.type === 'assets.catalogue_changed' || message.type === 'refresh') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
@@ -90,10 +152,10 @@ export function AssetsPage() {
   });
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
   // Bulk moves (WP-049a s3): pick rows, move them to one state; the server checks each one.
-  const bulkAllowed = view === 'live' && access.can('assets.manage');
+  const bulkAllowed = !trash && access.can('assets.manage');
   // Labels (WP-049b s3, REQ-AST-039) need only assets.view: anyone who sees the list may pick
   // rows to print; the other bulk actions stay with assets.manage.
-  const selectable = view === 'live';
+  const selectable = !trash;
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkOpen, setBulkOpen] = useState(false);
   const groups = useAssetGroups(bulkAllowed);
@@ -106,7 +168,62 @@ export function AssetsPage() {
     [rows, selected],
   );
   const tree = useMemo(() => typeTree(types.data ?? []), [types.data]);
+  const titles: Record<string, string> = {
+    tag: t('assets.record.tag'),
+    name: t('assets.record.name'),
+    user: t('assets.list.user'),
+    department: t('assets.record.department_id'),
+    parent: t('assets.list.parent'),
+    product: t('assets.record.product'),
+    type: t('assets.admin.product_type'),
+    state: t('assets.record.state'),
+    site: t('assets.record.site_id'),
+    serial: t('assets.record.serial_number'),
+  };
+  // Each person's widths per view, kept for them (the shared store; not in the trash).
+  const widths = useColumnWidths({
+    kind: 'assets',
+    viewKey: view,
+    enabled: allowed && !trash,
+    keys: Object.keys(titles),
+    defaults: OWN_WIDTHS,
+    minWidths: { name: 160 },
+    label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
+  });
   if (!allowed) return <NoAccess titleKey="nav.assets" />;
+  const page = list.data?.pages;
+  const nameIn = (pick: 'people' | 'parents' | 'products', id: string | null | undefined) =>
+    id == null ? '' : (page?.map((p) => p[pick]?.[id]).find((n) => n !== undefined) ?? '');
+  const departmentName = (id: string | null | undefined) =>
+    id == null
+      ? ''
+      : (((departments.data ?? []).find((d) => d.id === id) as { name?: string } | undefined)
+          ?.name ?? '');
+  // The list as filtered now, as the list API's filter: what "save as a view" keeps.
+  const currentFilter = (): Record<string, unknown> | null => {
+    const parts: Record<string, unknown>[] = [];
+    if (typeId !== undefined) {
+      parts.push({ field: 'product_type_id', op: 'in', value: branchIds(tree, typeId) });
+    }
+    const text = debounced.trim();
+    if (text !== '') {
+      parts.push({
+        or: ['name', 'tag', 'serial_number'].map((field) => ({
+          field,
+          op: 'contains',
+          value: text,
+        })),
+      });
+    }
+    if (parts.length === 0) return savedView?.filter ?? null;
+    return parts.length === 1 ? (parts[0] ?? null) : { and: parts };
+  };
+  const column = (key: string) => ({
+    key,
+    title: titles[key],
+    width: widths.width(key),
+    onHeaderCell: () => widths.header(key),
+  });
   const typeName = (id: string) => {
     const found = types.data?.find((x) => x.id === id);
     return found === undefined ? '' : nameOf(found.names, locale);
@@ -115,12 +232,6 @@ export function AssetsPage() {
     const found = states.data?.find((x) => x.id === id);
     return found === undefined ? '' : nameOf(found.names, locale);
   };
-  const choices = (nodes: TypeNode[]): object[] =>
-    nodes.map((node) => ({
-      value: node.id,
-      title: nameOf(node.names, locale),
-      children: choices(node.children ?? []),
-    }));
   const save = () => {
     if (adding === undefined) return;
     clear();
@@ -278,19 +389,25 @@ export function AssetsPage() {
           testId="assets-filterbar"
           selection={selectionBar}
           view={
-            access.can('assets.manage') && (
-              <Segmented
-                value={view}
-                onChange={(value) => {
-                  setView(value as 'live' | 'trash');
+            <Flex gap={8} wrap align="center">
+              <AssetViewPicker
+                value={savedView !== undefined || isBuiltIn(view) || trash ? view : 'all'}
+                onChange={(key) => {
+                  setSelected([]);
+                  setParam('view', key);
                 }}
-                options={[
-                  { value: 'live', label: t('assets.record.all') },
-                  { value: 'trash', label: t('assets.record.trash') },
-                ]}
-                data-testid="assets-view"
+                choices={choices}
+                withTrash={access.can('assets.manage')}
               />
-            )
+              <Button
+                onClick={() => {
+                  setViewsOpen(true);
+                }}
+                data-testid="assets-views-open"
+              >
+                {t('assets.views.manage')}
+              </Button>
+            </Flex>
           }
           search={
             <Input.Search
@@ -305,158 +422,231 @@ export function AssetsPage() {
             />
           }
           quick={
-            <TreeSelect
-              aria-label={t('assets.admin.product_type')}
-              allowClear
-              placeholder={t('assets.admin.all_types')}
-              value={typeId}
-              treeData={choices(tree)}
-              onChange={(id: string | undefined) => {
-                setTypeId(id);
-              }}
-              style={{ minWidth: 220 }}
-              data-testid="assets-type-filter"
-            />
+            widths.changed ? (
+              <Button onClick={widths.reset} data-testid="assets-reset-widths">
+                {t('layout.reset_widths')}
+              </Button>
+            ) : undefined
           }
         />
       }
       alerts={
-        view === 'trash' ? (
+        trash ? (
           <ListNotice testId="assets-trash-notice">{t('assets.record.trash_notice')}</ListNotice>
+        ) : view === 'recently_discovered' ? (
+          // Said plainly (the coordinator): discovery does not exist yet, so the view is empty.
+          <ListNotice testId="assets-discovered-notice">
+            {t('assets.views.discovered_notice')}
+          </ListNotice>
         ) : undefined
       }
     >
-      <BulkMoveDialog
-        assets={selectedRows}
-        open={bulkOpen}
+      <AssetViewsDrawer
+        open={viewsOpen}
         onClose={() => {
-          setBulkOpen(false);
-          setSelected([]);
+          setViewsOpen(false);
+        }}
+        choices={choices}
+        current={view}
+        filter={currentFilter()}
+        onSaved={(key) => {
+          setParam('view', key);
         }}
       />
-      <Table<AssetRecord>
-        size="small"
-        rowKey="id"
-        rowSelection={
-          selectable
-            ? {
-                selectedRowKeys: selected,
-                // Labelled boxes; the header one is safe in antd's hidden measure row (axe
-                // label and aria-hidden-focus, found once the showcase had assets).
-                columnTitle: (
-                  <SelectPageBox
-                    checked={rows.length > 0 && selected.length === rows.length}
-                    indeterminate={selected.length > 0 && selected.length < rows.length}
-                    onChange={(checked) => {
-                      setSelected(checked ? rows.map((r) => r.id).slice(0, BULK_MAX) : []);
-                    }}
-                    label={t('assets.bulk_move.select_page')}
-                  />
+      <Flex gap={16} wrap={!screens.md} align="flex-start">
+        {!trash && (
+          <nav
+            aria-label={t('assets.tree.label')}
+            style={{
+              flex: screens.md ? '0 0 240px' : '1 1 100%',
+              maxHeight: screens.md ? '70vh' : 240,
+              overflowY: 'auto',
+              minWidth: 0,
+            }}
+            data-testid="asset-tree-panel"
+          >
+            <TypeTree
+              nodes={tree}
+              counts={ownCounts}
+              total={counts.data?.total}
+              selected={typeId ?? ALL_TYPES}
+              onSelect={(id) => {
+                setSelected([]);
+                setParam('type', id === ALL_TYPES ? undefined : id);
+              }}
+            />
+          </nav>
+        )}
+        <Flex vertical gap={8} style={{ flex: '1 1 480px', minWidth: 0 }}>
+          <BulkMoveDialog
+            assets={selectedRows}
+            open={bulkOpen}
+            onClose={() => {
+              setBulkOpen(false);
+              setSelected([]);
+            }}
+          />
+          <Table<AssetRecord>
+            size="small"
+            rowKey="id"
+            rowSelection={
+              selectable
+                ? {
+                    selectedRowKeys: selected,
+                    // Labelled boxes; the header one is safe in antd's hidden measure row (axe
+                    // label and aria-hidden-focus, found once the showcase had assets).
+                    columnTitle: (
+                      <SelectPageBox
+                        checked={rows.length > 0 && selected.length === rows.length}
+                        indeterminate={selected.length > 0 && selected.length < rows.length}
+                        onChange={(checked) => {
+                          setSelected(checked ? rows.map((r) => r.id).slice(0, BULK_MAX) : []);
+                        }}
+                        label={t('assets.bulk_move.select_page')}
+                      />
+                    ),
+                    onChange: (keys) => {
+                      setSelected(keys.map(String).slice(0, BULK_MAX));
+                    },
+                    getCheckboxProps: (row) => ({
+                      title: t('assets.bulk_move.select_row', { name: row.tag ?? row.name }),
+                    }),
+                  }
+                : undefined
+            }
+            pagination={false}
+            components={widths.components}
+            loading={list.isLoading}
+            dataSource={rows}
+            scroll={{ x: 'max-content' }}
+            locale={{
+              // Nothing to say while the first page loads; a search or type with no match says so.
+              emptyText: list.isLoading ? (
+                <span />
+              ) : (
+                <EmptyText>
+                  {t(
+                    view === 'recently_discovered'
+                      ? 'assets.views.discovered_empty'
+                      : debounced.trim() !== '' || typeId !== undefined || view !== 'all'
+                        ? 'assets.record.no_match'
+                        : 'assets.record.none',
+                  )}
+                </EmptyText>
+              ),
+            }}
+            onRow={(asset) => ({
+              onClick: () => {
+                if (!trash) void navigate(`/assets/${asset.id}`);
+              },
+              style: { cursor: !trash ? 'pointer' : undefined },
+            })}
+            columns={[
+              {
+                ...column('tag'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <bdi dir="ltr" data-testid={`asset-row-${asset.id}`}>
+                    {asset.tag ?? ''}
+                  </bdi>
                 ),
-                onChange: (keys) => {
-                  setSelected(keys.map(String).slice(0, BULK_MAX));
-                },
-                getCheckboxProps: (row) => ({
-                  title: t('assets.bulk_move.select_row', { name: row.tag ?? row.name }),
-                }),
-              }
-            : undefined
-        }
-        pagination={false}
-        loading={list.isLoading}
-        dataSource={rows}
-        scroll={{ x: 'max-content' }}
-        locale={{
-          // Nothing to say while the first page loads; a search or type with no match says so.
-          emptyText: list.isLoading ? (
-            <span />
-          ) : (
-            <EmptyText>
-              {t(
-                debounced.trim() !== '' || typeId !== undefined
-                  ? 'assets.record.no_match'
-                  : 'assets.record.none',
-              )}
-            </EmptyText>
-          ),
-        }}
-        onRow={(asset) => ({
-          onClick: () => {
-            if (view === 'live') void navigate(`/assets/${asset.id}`);
-          },
-          style: { cursor: view === 'live' ? 'pointer' : undefined },
-        })}
-        columns={[
-          {
-            key: 'tag',
-            title: t('assets.record.tag'),
-            render: (_: unknown, asset: AssetRecord) => (
-              <bdi dir="ltr" data-testid={`asset-row-${asset.id}`}>
-                {asset.tag ?? ''}
-              </bdi>
-            ),
-          },
-          {
-            key: 'name',
-            title: t('assets.record.name'),
-            render: (_: unknown, asset: AssetRecord) => (
-              <CellText title={asset.name}>{asset.name}</CellText>
-            ),
-          },
-          {
-            key: 'type',
-            title: t('assets.admin.product_type'),
-            render: (_: unknown, asset: AssetRecord) => (
-              <CellText>{typeName(asset.product_type_id)}</CellText>
-            ),
-          },
-          {
-            key: 'state',
-            title: t('assets.record.state'),
-            render: (_: unknown, asset: AssetRecord) => (
-              <ToneTag tone="default">{stateName(asset.state_id)}</ToneTag>
-            ),
-          },
-          {
-            key: 'serial',
-            title: t('assets.record.serial_number'),
-            render: (_: unknown, asset: AssetRecord) => (
-              <bdi dir="ltr">{asset.serial_number ?? ''}</bdi>
-            ),
-          },
-          ...(view === 'trash'
-            ? [
-                {
-                  key: 'restore',
-                  title: <span className="sr-only">{t('assets.admin.actions')}</span>,
-                  render: (_: unknown, asset: AssetRecord) => (
-                    <WriteButton
-                      type="link"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        change.mutate({ kind: 'restore', id: asset.id }, { onError: reportError });
-                      }}
-                      data-testid={`asset-restore-${asset.id}`}
-                    >
-                      {t('assets.record.restore')}
-                    </WriteButton>
-                  ),
-                },
-              ]
-            : []),
-        ]}
-      />
-      {list.hasNextPage && (
-        <Button
-          onClick={() => {
-            void list.fetchNextPage();
-          }}
-          loading={list.isFetchingNextPage}
-          style={{ alignSelf: 'center' }}
-        >
-          {t('assets.admin.load_more')}
-        </Button>
-      )}
+              },
+              {
+                ...column('name'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <CellText title={asset.name}>{asset.name}</CellText>
+                ),
+              },
+              {
+                ...column('user'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <CellText>
+                    <bdi dir="auto">{nameIn('people', asset.owner_user_id)}</bdi>
+                  </CellText>
+                ),
+              },
+              {
+                ...column('department'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <CellText>
+                    <bdi dir="auto">{departmentName(asset.department_id)}</bdi>
+                  </CellText>
+                ),
+              },
+              {
+                ...column('parent'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <bdi dir="auto">{nameIn('parents', asset.parent_asset_id)}</bdi>
+                ),
+              },
+              {
+                ...column('product'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <CellText>
+                    <bdi dir="auto">{nameIn('products', asset.product_id)}</bdi>
+                  </CellText>
+                ),
+              },
+              {
+                ...column('type'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <CellText>{typeName(asset.product_type_id)}</CellText>
+                ),
+              },
+              {
+                ...column('state'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <ToneTag tone="default">{stateName(asset.state_id)}</ToneTag>
+                ),
+              },
+              {
+                ...column('site'),
+                render: (_: unknown, asset: AssetRecord) =>
+                  asset.site_id == null ? '' : <bdi dir="auto">{siteName(asset.site_id)}</bdi>,
+              },
+              {
+                ...column('serial'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <bdi dir="ltr">{asset.serial_number ?? ''}</bdi>
+                ),
+              },
+              ...(trash
+                ? [
+                    {
+                      key: 'restore',
+                      title: <span className="sr-only">{t('assets.admin.actions')}</span>,
+                      render: (_: unknown, asset: AssetRecord) => (
+                        <WriteButton
+                          type="link"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            change.mutate(
+                              { kind: 'restore', id: asset.id },
+                              { onError: reportError },
+                            );
+                          }}
+                          data-testid={`asset-restore-${asset.id}`}
+                        >
+                          {t('assets.record.restore')}
+                        </WriteButton>
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+          {list.hasNextPage && (
+            <Button
+              onClick={() => {
+                void list.fetchNextPage();
+              }}
+              loading={list.isFetchingNextPage}
+              style={{ alignSelf: 'center' }}
+            >
+              {t('assets.admin.load_more')}
+            </Button>
+          )}
+        </Flex>
+      </Flex>
       <Drawer
         open={adding !== undefined}
         title={t('assets.record.add')}

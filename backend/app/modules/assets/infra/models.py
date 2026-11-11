@@ -282,6 +282,15 @@ class Asset(TenantEntity):
         Index("uq_assets_serial", "tenant_id", text("lower(serial_number)"), unique=True),
         Index("ix_assets_updated", "tenant_id", "updated_at", "id"),
         Index("ix_assets_type", "tenant_id", "product_type_id"),
+        # 0140 (REQ-AST-047 AC1, AC3): a product type tree node's assets, newest change first.
+        Index(
+            "ix_assets_type_updated",
+            "tenant_id",
+            "product_type_id",
+            "updated_at",
+            "id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
         Index("ix_assets_state", "tenant_id", "state_id"),
         Index("ix_assets_vendor", "tenant_id", "vendor_id"),
         Index("ix_assets_site", "tenant_id", "site_id"),

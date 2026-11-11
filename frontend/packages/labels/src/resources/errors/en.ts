@@ -791,6 +791,8 @@ export const en = {
   'errors.link_has_own_route':
     'This link is removed in its own place: unlink the incident, or undo the merge.',
   'errors.link_not_found': 'This link does not exist, or it was removed.',
+  'errors.linked_records_not_available': 'Linked records are not available yet.',
+  'errors.list_not_found': 'This list does not keep settings.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
@@ -922,6 +924,7 @@ export const en = {
   'errors.rule_refused': '{{message}}',
   'errors.saved_search_limit': 'You have reached the limit of saved searches. Delete one first.',
   'errors.saved_search_not_found': 'This saved search does not exist.',
+  'errors.saved_view_not_found': 'This saved view no longer exists, or it is not yours.',
   'errors.scale_value_not_found': 'That value does not exist.',
   'errors.server_busy': 'The mail server was busy.',
   'errors.service_category_in_use':
