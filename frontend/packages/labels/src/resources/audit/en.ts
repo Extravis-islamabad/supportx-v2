@@ -955,6 +955,7 @@ export const en = {
   'event_type.work_items.asset_link.changed': 'Asset linked or unlinked',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
   'event_type.work_items.change.approval_notice': 'Change approval notice',
+  'event_type.work_items.change.reminder_due': 'Change reminder due',
   'event_type.work_items.change_board.changed': 'Change advisory board changed',
   'event_type.work_items.change_window.changed': 'Change window changed',
   'event_type.work_items.conversation.added': 'Reply or note added',

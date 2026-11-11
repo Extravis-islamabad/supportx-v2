@@ -5139,6 +5139,54 @@
         "type": "object"
       }
     },
+    "work_items.change.reminder_due": {
+      "1": {
+        "description": "A change's reminder is due (WP-045d S3; REQ-CHG-091, -105), claimed once by the sweep.\n\n`kind`: `window_start` (an hour before the implementation window), `implementation_overdue`\n(the window ended with implementation not complete), `cab_waiting` (it starts within a day\nand `member_id` has not decided) or `review_due`. `window_start` is the window it was\nclaimed for: the source re-reads the change at send time and says nothing if the window\nmoved meanwhile (lane B). IDs and times only.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Member Id"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Window Start"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "kind"
+        ],
+        "title": "ChangeReminderDue",
+        "type": "object"
+      }
+    },
     "work_items.change_board.changed": {
       "1": {
         "description": "A change advisory board was added, changed or removed (WP-045b S2; settings reload).",
