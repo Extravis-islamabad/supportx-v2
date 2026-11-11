@@ -94,6 +94,7 @@ export const ar: LabelResource = {
   'sla.levels.minutes': 'دقائق عمل',
   'sla.levels.notify': 'إبلاغ الأشخاص',
   'sla.levels.offset': 'المسافة من نقطة البداية',
+  'sla.levels.person_group': 'أي من مجموعاته ينتقل إليها السجل',
   'sla.levels.recipients': 'من يُبلَّغ',
   'sla.levels.remove': 'إزالة هذا المستوى',
   'sla.policies.add': 'إضافة سياسة',

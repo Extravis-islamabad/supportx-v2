@@ -28,7 +28,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules import metadata, service_catalog
+from app.modules import metadata, service_catalog, sla
 from app.modules.automation import (
     TRANSITION_NOT_FOR_YOU as NOT_FOR_YOU,
 )
@@ -707,7 +707,11 @@ def view_predicates(
         "canceled": WorkItem.status_category == StatusCategory.CANCELED,
         # Service requests (WP-030, REQ-SR-009): waiting for approval; approved (or needing
         # none) and still open, i.e. waiting to be fulfilled.
-        "pending_approval": WorkItem.approval_status == ApprovalStatus.PENDING.value,
+        # Changes wait at a stage's approval status instead (WP-045b; the change list's view).
+        "pending_approval": or_(
+            WorkItem.approval_status == ApprovalStatus.PENDING.value,
+            WorkItem.status.in_(CHANGE_AWAITING),
+        ),
         "awaiting_fulfilment": and_(
             _open(),
             WorkItem.approval_status.in_(
@@ -817,7 +821,12 @@ async def view_filters(
         ),
         "closed": _cond("status_category", "eq", StatusCategory.CLOSED.value),
         "canceled": _cond("status_category", "eq", StatusCategory.CANCELED.value),
-        "pending_approval": _cond("approval_status", "eq", ApprovalStatus.PENDING.value),
+        "pending_approval": {
+            "or": [
+                _cond("approval_status", "eq", ApprovalStatus.PENDING.value),
+                _cond("status", "in", list(CHANGE_AWAITING)),
+            ]
+        },
         "awaiting_fulfilment": _all(
             open_,
             {
@@ -894,6 +903,8 @@ def _personal(
     }
 
 
+# The statuses a change waits in for a stage's approval (its stages' `raised_by`).
+CHANGE_AWAITING = tuple(sorted(str(s["raised_by"]) for s in change_rules.STAGE_APPROVALS.values()))
 VIEW_CODES = (
     "open",
     "my_open",
@@ -916,6 +927,8 @@ VIEW_CODES = (
 # Service requests add their approval views (WP-030, REQ-SR-009); incidents never show them.
 SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
 PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
+# Changes: waiting for a stage's approval (acceptance, the plan, the CAB), the change screens.
+CHANGE_VIEW_CODES = ("pending_approval",)
 COUNT_CAP = 1000
 
 
@@ -925,6 +938,8 @@ def view_codes(wtype: WorkItemType) -> tuple[str, ...]:
         return (*VIEW_CODES[:-1], *SR_VIEW_CODES, VIEW_CODES[-1])
     if wtype.code is WorkItemTypeCode.PROBLEM:
         return (*VIEW_CODES[:-1], *PROBLEM_VIEW_CODES, VIEW_CODES[-1])
+    if wtype.code is WorkItemTypeCode.CHANGE:
+        return (*VIEW_CODES[:-1], *CHANGE_VIEW_CODES, VIEW_CODES[-1])
     return VIEW_CODES
 
 
@@ -5032,18 +5047,25 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
         raise _not_found(wtype)
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
+    now = _now()
     record.deleted_at = None
+    record.restored_at = now  # the latest restore; the history keeps each (Haider, 2026-11-10)
     record.version += 1
-    record.updated_at = _now()
+    record.updated_at = now
     record.updated_by = subject.user_id
     await session.flush()
+    # The clock kept running in the trash: the restore says where each target stands, and
+    # whatever fell due meanwhile fires now rather than at the next sweep.
+    standing = await sla.open_clocks(session, record.id, now=now)
     await record_changes(
         session,
         record_type=RECORD_TYPE,
         record_id=record.id,
         version=record.version,
         kind="restored",
-        changes=[],
+        changes=[
+            Change("sla_on_restore", None, f"{c.kind}:{c.state}:{c.seconds}") for c in standing
+        ],
         source=source,
     )
     await record_event(
@@ -5058,6 +5080,9 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    if any(c.state == "overdue" for c in standing):
+        await sla.fire(session, record.id, now=now)
+        await session.refresh(record)
     return await _view(session, subject, wtype, record)
 
 

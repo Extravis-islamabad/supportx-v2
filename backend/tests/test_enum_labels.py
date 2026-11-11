@@ -150,6 +150,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "AuditCategory": "audit_category",
     "AuditClient": "audit_client",
     "AuditOutcome": "audit_outcome",
+    "FingerprintStatus": "audit_fingerprint_status",  # WP-064 S2 (ADR-046)
     "ExportFilter": "audit_export_filter",
     "AuditExportIn.format": "audit_export_format",
     "ReadCategory": "audit_read_category",

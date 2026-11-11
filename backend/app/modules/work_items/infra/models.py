@@ -756,6 +756,8 @@ class WorkItem(TenantEntity):
     first_assigned_at: Mapped[datetime | None]
     first_responded_at: Mapped[datetime | None]
     resolved_at: Mapped[datetime | None]
+    # The latest restore from the trash (Haider, 2026-11-10): SLA reports filter on it.
+    restored_at: Mapped[datetime | None]
     closed_at: Mapped[datetime | None]
     last_reopened_at: Mapped[datetime | None]
     reopen_count: Mapped[int] = mapped_column(Integer, server_default="0")

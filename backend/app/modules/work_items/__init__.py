@@ -59,6 +59,7 @@ from app.modules.work_items.service import (
     report_names,
     request_notifications,
     resolution,
+    rule_step_notifications,
     staff_reply_notifications,
 )
 from app.modules.work_items.service.access import permissions
@@ -139,6 +140,7 @@ report_names.register()
 notifications.register()
 request_notifications.register()
 problem_notifications.register()  # WP-044c D15
+rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()

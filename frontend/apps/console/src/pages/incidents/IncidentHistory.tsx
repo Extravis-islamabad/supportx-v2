@@ -18,7 +18,7 @@ export function IncidentHistory({
 }: {
   id: string;
   /** The record's type prefix: a problem's history uses the same view (WP-044c). */
-  base?: 'incidents' | 'problems';
+  base?: 'incidents' | 'problems' | 'changes';
 }) {
   const t = useLabel();
   const dates = useDateTime();
