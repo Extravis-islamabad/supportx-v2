@@ -97,8 +97,10 @@ def _refusal(wtype: WorkItemType, refused: AppError) -> str:
     record is gone (the coordinator, 2026-11-11: it read "Work Item Not Found"). The code names
     the identity's missing right only: nothing about the record leaks to anyone.
     """
-    record_gone = {"work_item_not_found", f"{wtype.code}_not_found"}
-    if refused.instance_code in record_gone or isinstance(refused, PermissionDenied):
+    # Only the plain "may not": a refusal with its own code (a rule, a state) keeps it, and a
+    # licence refusal is EntitlementRequired, never this (lane B's #416 review).
+    record_gone = {"work_item_not_found", f"{wtype.code}_not_found", PermissionDenied.code}
+    if refused.instance_code in record_gone:
         return "workflow_identity_not_permitted"
     return refused.instance_code
 

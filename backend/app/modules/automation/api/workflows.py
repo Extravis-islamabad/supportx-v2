@@ -1186,9 +1186,8 @@ async def run_as(
     workflow_id: uuid.UUID, session: TenantSession, subject: Manage, policy: Policy
 ) -> ServiceRolesOut:
     """Before the first publish there is no identity yet; its roles are none until given."""
-    del subject
     identity = await workflow_admin.run_as_identity(session, workflow_id)
-    return await service_roles_out(session, policy, identity)
+    return await service_roles_out(session, policy, subject, identity)
 
 
 @router.put(

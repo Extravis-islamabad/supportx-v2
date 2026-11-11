@@ -11,6 +11,7 @@ import uuid
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.service.policy import PolicyService
 from app.modules.identity_access.service.roles import ServiceRole, roles_for_service
 from app.modules.identity_access.service.service_identities import service_identity
@@ -42,10 +43,13 @@ def _out(role: ServiceRole) -> ServiceRoleOut:
 
 
 async def service_roles_out(
-    session: AsyncSession, policy: PolicyService, identity_id: uuid.UUID | None
+    session: AsyncSession,
+    policy: PolicyService,
+    subject: Subject,
+    identity_id: uuid.UUID | None,
 ) -> ServiceRolesOut:
-    """The identity (None: not made yet) with its roles and the roles it may be given."""
-    offered = [_out(r) for r in await roles_for_service(session, policy.catalogue)]
+    """The identity (None: not made yet), its roles, and the roles `subject` may give it."""
+    offered = [_out(r) for r in await roles_for_service(session, policy, subject)]
     if identity_id is None:
         return ServiceRolesOut(made=False, name=None, active=False, roles=[], offered=offered)
     found = await service_identity(session, identity_id)

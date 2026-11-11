@@ -213,3 +213,52 @@ async def test_only_workflow_admins_of_the_same_tenant_reach_it(world: World) ->
     assert tech_gives.status_code == 403
     other_tenant = await world.call("GET", f"{BASE}/{flow['id']}/run-as", b, b.admin)
     assert other_tenant.status_code == 404
+
+
+async def _custom_role(world: World, name: str, grants: list[tuple[str, str]]) -> str:
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/roles",
+        a,
+        a.admin,
+        json={"name": name, "permissions": [{"permission": p, "scope": s} for p, s in grants]},
+    )
+    assert made.status_code == 201, made.text
+    return str(made.json()["id"])
+
+
+async def test_a_role_managing_roles_is_refused_and_never_offered(world: World) -> None:
+    a = world.a
+    flow = await _published(world)
+    managing = await _custom_role(
+        world, f"Role keeper {uuid.uuid4().hex[:6]}", [("roles.manage", "all")]
+    )
+    run_as = (await world.call("GET", f"{BASE}/{flow['id']}/run-as", a, a.admin)).json()
+    assert managing not in {r["id"] for r in run_as["offered"]}
+    refused = await world.call(
+        "PUT", f"{BASE}/{flow['id']}/run-as/roles/{managing}", a, a.admin, headers=CONSOLE
+    )
+    assert problem(refused) == (403, "service_identity_role_not_allowed")
+
+
+async def test_a_workflow_admin_never_gives_more_than_their_own_rights(world: World) -> None:
+    """A technician who may design workflows cannot hand the run-as identity rights over every
+    incident that they do not hold themselves; the picker never offers it either."""
+    a = world.a
+    flow = await _published(world)
+    designer = await _custom_role(
+        world, f"Workflow designer {uuid.uuid4().hex[:6]}", [("workflows.manage", "all")]
+    )
+    granted = await world.call("PUT", f"/users/{a.tech_a}/roles/{designer}", a, a.admin)
+    assert granted.status_code in {200, 204}, granted.text
+    notes = await _notes_role(world)
+    offered = await world.call("GET", f"{BASE}/{flow['id']}/run-as", a, a.tech_a)
+    assert offered.status_code == 200, offered.text
+    assert notes not in {r["id"] for r in offered.json()["offered"]}
+    refused = await world.call(
+        "PUT", f"{BASE}/{flow['id']}/run-as/roles/{notes}", a, a.tech_a, headers=CONSOLE
+    )
+    assert problem(refused) == (403, "privilege_escalation")
+    removed = await world.call("DELETE", f"/users/{a.tech_a}/roles/{designer}", a, a.admin)
+    assert removed.status_code in {200, 204}, removed.text

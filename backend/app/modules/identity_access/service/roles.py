@@ -397,17 +397,26 @@ def _service_role(role: Role) -> ServiceRole:
     return ServiceRole(role.id, role.key, role.name, role.is_system)
 
 
-async def roles_for_service(session: AsyncSession, catalogue: Catalogue) -> list[ServiceRole]:
+async def roles_for_service(
+    session: AsyncSession, policy: PolicyService, subject: Subject | None = None
+) -> list[ServiceRole]:
     """Every role a service identity may hold, by the rule `role_allowed_for_service` applies.
 
     Never tenant administration, nor a role that manages identities, roles or API keys or
-    previews people, so a picker never offers what a save would refuse.
+    previews people; given `subject`, never a role beyond that admin's own rights either (lane
+    B's #416 review), so a picker never offers what a save would refuse.
     """
     allowed = []
     for role, _users in await list_roles(session):
-        detail = await _detail(session, catalogue, role)
-        if not _forbidden_for_service(role, {g.permission for g in detail.grants}):
-            allowed.append(_service_role(role))
+        detail = await _detail(session, policy.catalogue, role)
+        if _forbidden_for_service(role, {g.permission for g in detail.grants}):
+            continue
+        if subject is not None:  # only what this admin may hand out, as a save checks
+            try:
+                await _assignable(session, policy, subject, role.id)
+            except PermissionDenied:
+                continue
+        allowed.append(_service_role(role))
     return allowed
 
 
