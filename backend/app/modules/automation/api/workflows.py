@@ -272,7 +272,12 @@ async def list_workflows(
     return [_out(w).model_copy(update={"running": running.get(w.id, 0)}) for w in rows]
 
 
-@router.post("", summary="Add a workflow", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    summary="Add a workflow",
+    status_code=status.HTTP_201_CREATED,
+    response_model=WorkflowOut,
+)
 async def create_workflow(
     body: WorkflowIn, session: TenantSession, subject: Manage, idempotency: Idempotency
 ) -> Response:
@@ -334,6 +339,7 @@ async def _workflow_file(request: Request) -> WorkflowFileIn:
     "/import",
     summary="Import a workflow file as a new draft",
     status_code=status.HTTP_201_CREATED,
+    response_model=WorkflowOut,
     dependencies=[audited("automation.workflow_imported", object_type="workflow")],
     # The body is read by `_workflow_file` (capped before parsing); its schema stays documented.
     openapi_extra={
@@ -827,6 +833,7 @@ class CopyIn(BaseModel):
     "/{workflow_id}/copy",
     summary="Copy a workflow as a new draft",
     status_code=status.HTTP_201_CREATED,
+    response_model=WorkflowOut,
     dependencies=[
         audited("automation.workflow_copied", object_type="workflow", object_param="workflow_id")
     ],
@@ -931,6 +938,7 @@ def _test(row: WorkflowTestRun) -> TestRunOut:
     "/{workflow_id}/test-runs",
     summary="Test the draft, applying nothing",
     status_code=status.HTTP_201_CREATED,
+    response_model=TestRunOut,
 )
 async def start_test(
     workflow_id: uuid.UUID,

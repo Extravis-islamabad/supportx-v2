@@ -95,3 +95,24 @@ async def test_a_job_s_progress_reaches_the_overview() -> None:
     assert found == {
         f"t:{TENANT}:queue:workflows": {"type": "workflow_jobs.changed", "ids": [str(job)]}
     }
+
+
+async def test_a_saved_or_deleted_workflow_reaches_the_list_with_its_id_and_version() -> None:
+    flow = uuid.uuid4()
+    for event in ("automation.workflow.changed", "automation.workflow.deleted"):
+        found = await _published(
+            event,
+            {
+                "workflow_id": str(flow),
+                "record_type": "incident",
+                "change": "published",
+                "version": 4,
+            },
+        )
+        assert found == {
+            f"t:{TENANT}:queue:workflows": {
+                "type": "workflows.changed",
+                "ids": [str(flow)],
+                "version": 4,
+            }
+        }
