@@ -472,6 +472,8 @@ export const en = {
   'changes.bulk.title.close_other': 'Close {{count}} changes',
   'changes.bulk.title.take_one': 'Take 1 change',
   'changes.bulk.title.take_other': 'Take {{count}} changes',
+  'changes.calendar.conflicts_one': '1 conflict',
+  'changes.calendar.conflicts_other': '{{count}} conflicts',
   'changes.calendar.downtime_of': 'Downtime: {{subject}}',
   'changes.calendar.list': 'Changes list',
   'changes.calendar.mine': 'Only mine',

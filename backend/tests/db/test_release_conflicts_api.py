@@ -299,3 +299,21 @@ async def test_req_rel_041_ac3_an_ack_holds_for_its_conflict_and_lapses_when_it_
     [block] = [c for c in await _conflicts(world, a, mine) if c["window_id"] == freeze["id"]]
     assert block["blocks"] is True
     assert field_codes(await ack(block["key"])) == {("key", "conflict_blocks")}
+
+
+async def test_the_calendar_counts_each_planned_window_s_conflicts(world: World) -> None:
+    """WP-058b S2: chips carry a count, over what the viewer may see, for both calendars."""
+    a = world.a
+    at = datetime(2036, 7, 8, 9, tzinfo=UTC)
+    one = await _release(world, a, group_id=str(a.ga))
+    two = await _release(world, a, group_id=str(a.ga))
+    change = (await new_change(world, a, a.admin, group_id=str(a.ga))).json()
+    assert (await deploy(world, a, one, at, at + 2 * H)).status_code == 200
+    assert (await deploy(world, a, two, at + H, at + 3 * H)).status_code == 200
+    assert (await schedule(world, a, change, at + H, at + 2 * H)).status_code == 200
+    params = {"start": (at - 24 * H).isoformat(), "end": (at + 24 * H).isoformat()}
+    shown = (await world.call("GET", "/release-calendar", a, a.admin, params=params)).json()
+    counted = {e["record_id"]: e["conflicts"] for e in shown if e["kind"] == "window"}
+    assert counted[one["id"]] == 2  # the other release and the change
+    changes = (await world.call("GET", "/change-calendar", a, a.admin, params=params)).json()
+    assert {e["record_id"]: e["conflicts"] for e in changes}[change["id"]] == 2

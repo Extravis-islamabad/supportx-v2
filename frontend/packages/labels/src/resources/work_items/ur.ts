@@ -473,6 +473,8 @@ export const ur: LabelResource = {
   'changes.bulk.title.close_other': '{{count}} تبدیلیاں بند کریں',
   'changes.bulk.title.take_one': '1 تبدیلی لیں',
   'changes.bulk.title.take_other': '{{count}} تبدیلیاں لیں',
+  'changes.calendar.conflicts_one': '1 ٹکراؤ',
+  'changes.calendar.conflicts_other': '{{count}} ٹکراؤ',
   'changes.calendar.downtime_of': 'بندش: {{subject}}',
   'changes.calendar.list': 'تبدیلیوں کی فہرست',
   'changes.calendar.mine': 'صرف میری',

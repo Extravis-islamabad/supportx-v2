@@ -276,3 +276,47 @@ export function ReleaseConflictsPanel({ id }: { id: string }) {
     </>
   );
 }
+
+/**
+ * Go ahead in the freezes that refused a move of this release (the calendar, WP-058b S2): for
+ * those holding `releases.override_freeze`, with a reason, then the move is tried again.
+ */
+export function ReleaseOverride({
+  id,
+  windowIds,
+  onDone,
+  onClose,
+}: {
+  id: string;
+  windowIds: string[];
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const t = useLabel();
+  const release = useRelease(id);
+  const override = useReleaseFreezeOverride();
+  const problem = useFormProblem();
+  return (
+    <ReasonDialog
+      title={t('releases.freeze.override_title')}
+      warning={t('releases.freeze.override_warning', { count: windowIds.length })}
+      okText={t('changes.freeze.override_confirm')}
+      danger
+      saving={override.isPending || release.data === undefined}
+      problem={problem}
+      testId="release-override"
+      onClose={onClose}
+      onOk={(reason) => {
+        override.mutate(
+          { id, version: release.data?.version ?? 0, reason, windowIds },
+          {
+            onSuccess: onDone,
+            onError: (error) => {
+              problem.show(error);
+            },
+          },
+        );
+      }}
+    />
+  );
+}

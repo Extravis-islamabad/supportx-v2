@@ -25,6 +25,7 @@ from app.modules.work_items.api.settings_routes import CONFLICT
 from app.modules.work_items.domain.change_windows import ConflictKind, WindowKind, WindowMode
 from app.modules.work_items.domain.types import CHANGE, RELEASE
 from app.modules.work_items.infra.models import ChangeWindow
+from app.modules.work_items.service import calendar_conflicts
 from app.modules.work_items.service import change_windows as service
 from app.modules.work_items.service import release_conflicts as acks
 from app.modules.work_items.service.work_items import field_errors
@@ -404,9 +405,16 @@ class CalendarEntryOut(BaseModel):
     ends_at: datetime
     part_id: uuid.UUID | None = Field(default=None, description="The downtime, for a downtime.")
     version: int = Field(description="The window's or downtime's own version, for If-Match.")
+    conflicts: int | None = Field(
+        default=None,
+        description="Conflicts of a planned window, counted over what you may see (WP-058b S2).",
+    )
 
 
-def _entries(entries: list[service.CalendarEntry]) -> list[CalendarEntryOut]:
+def _entries(
+    entries: list[service.CalendarEntry], counted: dict[uuid.UUID, int] | None = None
+) -> list[CalendarEntryOut]:
+    counted = counted or {}
     return [
         CalendarEntryOut(
             record_id=e.record.id,
@@ -423,6 +431,7 @@ def _entries(entries: list[service.CalendarEntry]) -> list[CalendarEntryOut]:
             ends_at=e.ends_at,
             part_id=e.part_id,
             version=e.version,
+            conflicts=counted.get(e.record.id) if e.kind == "window" else None,
         )
         for e in entries
     ]
@@ -439,7 +448,9 @@ async def change_calendar(
     """The changes you may see, planned in [start, end) (at most 400 days), by start."""
     if not _range_ok(start, end):
         raise field_errors([("end", "out_of_range")])
-    return _entries(await service.calendar(session, subject, start=start, end=end, mine=mine))
+    entries = await service.calendar(session, subject, start=start, end=end, mine=mine)
+    counted = await calendar_conflicts.counts(session, subject, entries, start=start, end=end)
+    return _entries(entries, counted)
 
 
 # --- the release calendar (WP-058b S1; REQ-REL-038) --------------------------------------------
@@ -469,7 +480,8 @@ async def release_calendar(
     entries = await service.calendar(
         session, subject, start=start, end=end, mine=mine, wtype=RELEASE
     )
-    return _entries(entries)
+    counted = await calendar_conflicts.counts(session, subject, entries, start=start, end=end)
+    return _entries(entries, counted)
 
 
 # --- a release's freeze override (WP-058b S2; REQ-REL-040) --------------------------------------
