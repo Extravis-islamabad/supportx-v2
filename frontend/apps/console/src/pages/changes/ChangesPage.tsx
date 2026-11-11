@@ -29,13 +29,14 @@ import {
 } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
-import { BulkBar, BulkProgress } from '../incidents/list/bulk';
+import { BulkBar, BulkDialog, BulkProgress } from '../incidents/list/bulk';
 import type { Selection } from '../incidents/list/model';
 import { StatusTag } from '../incidents/tags';
 import { listValueName, stageName } from '../staged/labels';
 import { ChangeBulkClose } from './ChangeBulkClose';
 import { EMERGENCY_PATH, riskTone } from './labels';
 
+const CHANGE_BULK: readonly string[] = ['assign', 'take', 'close'];
 const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
 const OWN_WIDTHS = {
   id: 130,
@@ -112,10 +113,12 @@ export function ChangesPage() {
     label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
   });
   const [search, setSearch] = useState('');
-  // Picked rows for bulk close (REQ-CHG-101). Close only: cancel and delete come with lane A's
-  // next migration (the bulk job's action check), so they are not offered here at all.
+  // Picked rows for bulk assign, take and close (REQ-CHG-101). Edit, the CAB agenda, cancel and
+  // delete come later (cancel and delete need the bulk job's action check widened), so they
+  // are not offered here at all.
   const [selection, setSelection] = useState<Selection>({ ids: [], all: false });
   const [closing, setClosing] = useState(false);
+  const [bulkAction, setBulkAction] = useState<'assign' | 'take' | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const canBulk = can('changes.edit');
   const text = useDebounced(search, 300);
@@ -178,10 +181,11 @@ export function ChangesPage() {
             pageCount={rows.length}
             total={null}
             capped={false}
-            onAction={() => {
-              setClosing(true);
+            onAction={(action) => {
+              if (action === 'close') setClosing(true);
+              else if (action === 'assign' || action === 'take') setBulkAction(action);
             }}
-            canEdit={(action) => action === 'close'}
+            canEdit={(action) => CHANGE_BULK.includes(action)}
             noun="changes"
           />
         ) : (
@@ -231,6 +235,20 @@ export function ChangesPage() {
           setClosing(false);
           setSelection({ ids: [], all: false });
           setJobId(id);
+        }}
+      />
+      <BulkDialog
+        base="changes"
+        action={bulkAction}
+        count={selection.ids.length}
+        request={{ recordIds: selection.ids }}
+        onClose={() => {
+          setBulkAction(null);
+        }}
+        onStarted={(job) => {
+          setBulkAction(null);
+          setSelection({ ids: [], all: false });
+          setJobId(job.id);
         }}
       />
       <BulkProgress

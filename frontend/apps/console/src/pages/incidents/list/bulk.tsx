@@ -171,17 +171,23 @@ export function BulkDialog({
   request,
   onClose,
   onStarted,
+  base = 'incidents',
 }: {
   action: BulkAction | null;
   count: number;
   request: Omit<BulkRequest, 'action' | 'changes'>;
   onClose: () => void;
   onStarted: (job: BulkJob) => void;
+  /**
+   * Whose list this is: its bulk route, its assignees and its wording (the change list offers
+   * assign and take, REQ-CHG-101). The incident catalogue is read for incidents only.
+   */
+  base?: BulkBase;
 }) {
   const t = useLabel();
-  const start = useStartBulk();
+  const start = useStartBulk(base);
   const { locale } = useAppearance();
-  const catalogue = useIncidentCatalogue(action !== null);
+  const catalogue = useIncidentCatalogue(action !== null && base === 'incidents');
   const [included, setIncluded] = useState<EditField[]>([]);
   const [values, setValues] = useState<Record<string, string | null>>({});
   const [reason, setReason] = useState('');
@@ -191,7 +197,7 @@ export function BulkDialog({
   const [resolution, setResolution] = useState('');
   const [closureCode, setClosureCode] = useState<string | null>(null);
   const [openWork, setOpenWork] = useState(false);
-  const assignees = useIncidentAssignees(groupId, '', action === 'assign');
+  const assignees = useIncidentAssignees(groupId, '', action === 'assign', base);
   if (action === null) return null;
 
   const set = (name: string, value: string | null) => {
@@ -328,7 +334,7 @@ export function BulkDialog({
   return (
     <Modal
       open
-      title={t(`incidents.bulk.title.${action}`, { count })}
+      title={t(`${base}.bulk.title.${action}`, { count })}
       onCancel={onClose}
       okText={t('incidents.bulk.start')}
       cancelText={t('incidents.bulk.cancel')}
@@ -351,7 +357,7 @@ export function BulkDialog({
       data-testid="inc-bulk-dialog"
     >
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        <Alert type="info" showIcon message={t('incidents.bulk.as_you')} />
+        <Alert type="info" showIcon message={t(`${base}.bulk.as_you`)} />
         {action === 'edit' && (
           <>
             <Typography.Text>{t('incidents.bulk.edit_hint')}</Typography.Text>
@@ -403,11 +409,11 @@ export function BulkDialog({
                 setLoseAccess(event.target.checked);
               }}
             >
-              {t('incidents.bulk.lose_access')}
+              {t(`${base}.bulk.lose_access`)}
             </Checkbox>
           </>
         )}
-        {action === 'take' && <Typography.Text>{t('incidents.bulk.take_hint')}</Typography.Text>}
+        {action === 'take' && <Typography.Text>{t(`${base}.bulk.take_hint`)}</Typography.Text>}
         {action === 'resolve' && (
           <Input.TextArea
             aria-label={t('work_item.field.resolution')}

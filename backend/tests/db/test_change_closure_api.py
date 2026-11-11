@@ -345,7 +345,13 @@ async def test_req_chg_097_a_closed_change_is_locked_with_a_labelled_code(world:
 
 
 async def _bulk(
-    world: World, org: Org, action: str, records: list[dict[str, Any]], **changes: str
+    world: World,
+    org: Org,
+    action: str,
+    records: list[dict[str, Any]],
+    *,
+    user: uuid.UUID | None = None,
+    **changes: str,
 ) -> dict[str, Any]:
     from app.modules.work_items.service.bulk import run_bulk_jobs  # noqa: PLC0415 - the runner
 
@@ -353,12 +359,14 @@ async def _bulk(
         "POST",
         f"{CHG}/bulk",
         org,
-        org.admin,
+        user or org.admin,
         json={"action": action, "changes": changes, "record_ids": [r["id"] for r in records]},
     )
     assert started.status_code == 202, started.text
     await run_bulk_jobs(world.app.state.db, world.app.state.settings)
-    done = await world.call("GET", f"{CHG}/bulk-jobs/{started.json()['id']}", org, org.admin)
+    done = await world.call(
+        "GET", f"{CHG}/bulk-jobs/{started.json()['id']}", org, user or org.admin
+    )
     assert done.status_code == 200, done.text
     return dict(done.json())
 
@@ -473,3 +481,27 @@ async def test_req_chg_098_the_change_list_has_its_own_views(world: World) -> No
     }
     assert filters["awaiting_cab"]["expressible"] is True
     assert filters["in_implementation"]["expressible"] is False
+
+
+async def test_req_chg_101_bulk_assign_and_take_follow_the_group_rule(world: World) -> None:
+    """Assign sets the group and owner where the owner is in it, and skips the rest with why
+    (D-154a); take makes the technician the owner of each change they may take.
+    """
+    a = world.a
+    first, second, third = [await a_change(world, a) for _ in range(3)]
+    job = await _bulk(
+        world, a, "assign", [first, second], group_id=str(a.ga), technician_id=str(a.tech_a)
+    )
+    assert job["done_count"] == 2, job
+    for item in (first, second):
+        now = await fresh(world, a, item)
+        assert (now["group_id"], now["technician_id"]) == (str(a.ga), str(a.tech_a))
+    outside = await _bulk(
+        world, a, "assign", [third], group_id=str(a.ga), technician_id=str(a.tech_b)
+    )
+    result = outside["results"][0]
+    assert (result["outcome"], result["code"]) == ("skipped", "technician_not_in_group"), result
+    assert (await fresh(world, a, third))["technician_id"] is None
+    taken = await _bulk(world, a, "take", [third], user=a.tech_a)
+    assert taken["done_count"] == 1, taken
+    assert (await fresh(world, a, third))["technician_id"] == str(a.tech_a)

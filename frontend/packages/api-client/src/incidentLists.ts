@@ -199,6 +199,13 @@ export function useSaveListSetting(kind: ListKind = 'incidents') {
   });
 }
 
+/** The lists whose bulk jobs a screen follows: each type keeps its own jobs. */
+export type BulkBase = 'incidents' | 'changes';
+
+/** One bulk job's cache key, by the list it was started from. */
+export const bulkJobKey = (base: BulkBase, id: string) =>
+  base === 'incidents' ? queryKeys.incidents.bulkJob(id) : (['changes', 'bulk-jobs', id] as const);
+
 /** What a bulk job is asked for: picked rows, or every record of the list as shown. */
 export interface BulkRequest {
   action: BulkAction;
@@ -210,12 +217,13 @@ export interface BulkRequest {
 }
 
 /** Queue a bulk job; progress arrives on your channel. */
-export function useStartBulk() {
+export function useStartBulk(base: BulkBase = 'incidents') {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: BulkRequest) =>
       call(
-        api.POST('/api/v1/incidents/bulk', {
+        // Every type's bulk route has the incident route's shape; only the prefix differs.
+        api.POST(`/api/v1/${base}/bulk` as '/api/v1/incidents/bulk', {
           params: {
             query:
               request.recordIds === undefined
@@ -238,18 +246,11 @@ export function useStartBulk() {
         }),
       ),
     onSuccess: (job) => {
-      queryClient.setQueryData(queryKeys.incidents.bulkJob(job.id), job);
+      queryClient.setQueryData(bulkJobKey(base, job.id), job);
       void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJobs });
     },
   });
 }
-
-/** The lists whose bulk jobs a screen follows: each type keeps its own jobs. */
-export type BulkBase = 'incidents' | 'changes';
-
-/** One bulk job's cache key, by the list it was started from. */
-export const bulkJobKey = (base: BulkBase, id: string) =>
-  base === 'incidents' ? queryKeys.incidents.bulkJob(id) : (['changes', 'bulk-jobs', id] as const);
 
 /** One of your bulk jobs with its per-record results (incidents' by default; changes' too). */
 export function useBulkJob(id: string | undefined, base: BulkBase = 'incidents') {

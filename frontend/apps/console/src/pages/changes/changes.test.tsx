@@ -231,7 +231,7 @@ describe('console: changes', () => {
     });
   });
 
-  it('REQ-CHG-101: picked changes close together; only Close is offered, and skips say why', async () => {
+  it('REQ-CHG-101: picked changes close together; assign, take and close only, and skips say why', async () => {
     const JOB_ID = '01a1a2b3-0000-7000-8000-0000000c0d01';
     window.history.pushState({}, '', '/changes');
     const fake = api({
@@ -286,8 +286,10 @@ describe('console: changes', () => {
     const row = await screen.findByTestId('change-row-CHG-7');
     fireEvent.click(within(row).getByRole('checkbox'));
     expect((await screen.findByTestId('inc-selected')).textContent).toBe('1 change selected');
-    expect(screen.getByTestId('inc-bulk-close')).toBeTruthy();
-    for (const action of ['cancel', 'delete', 'assign', 'edit']) {
+    for (const action of ['close', 'assign', 'take']) {
+      expect(screen.getByTestId(`inc-bulk-${action}`)).toBeTruthy();
+    }
+    for (const action of ['cancel', 'delete', 'edit', 'resolve']) {
       expect(screen.queryByTestId(`inc-bulk-${action}`)).toBeNull();
     }
     fireEvent.click(screen.getByTestId('inc-bulk-close'));
@@ -310,6 +312,47 @@ describe('console: changes', () => {
     expect(skipped.textContent).toContain('Close or cancel its child changes and releases first.');
     expect(within(skipped).getByRole('link').getAttribute('href')).toBe(`/changes/${CHG_ID}`);
     expect(within(drawer).getByText('1 change was skipped')).toBeTruthy();
+  });
+
+  it('REQ-CHG-101: take runs on the change list’s own bulk route, in change words', async () => {
+    window.history.pushState({}, '', '/changes');
+    const fake = api({
+      'POST /api/v1/changes/bulk': {
+        status: 202,
+        body: {
+          id: 'job-take',
+          action: 'take',
+          status: 'queued',
+          total: 1,
+          processed: 0,
+          done_count: 0,
+          skipped_count: 0,
+          results: [],
+          created_at: '2027-03-01T00:00:00Z',
+          started_at: null,
+          finished_at: null,
+        },
+      },
+    });
+    render(<App />);
+    const row = await screen.findByTestId('change-row-CHG-7');
+    fireEvent.click(within(row).getByRole('checkbox'));
+    fireEvent.click(await screen.findByTestId('inc-bulk-take'));
+    const dialog = await screen.findByTestId('inc-bulk-dialog');
+    expect(dialog.textContent).toContain(
+      'You become the change owner of each change you can take.',
+    );
+    expect(dialog.textContent).toContain('Take 1 change');
+    fireEvent.click(screen.getByTestId('inc-bulk-start'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes/bulk')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/changes/bulk')[0]?.body).toMatchObject({
+      action: 'take',
+      record_ids: [CHG_ID],
+    });
+    // Never the incident settings or routes from the change list.
+    expect(fake.calls.filter((c) => c.path.startsWith('/api/v1/incidents/'))).toEqual([]);
   });
 
   it('template B: a new change from the default template, once, then its risk questionnaire', async () => {
