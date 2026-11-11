@@ -96,7 +96,7 @@ export function ServiceRequestPage() {
     )
     .filter((name) => name !== '');
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 760 }}>
+    <Flex vertical gap={16}>
       {submitted && (
         <Alert
           type="success"
