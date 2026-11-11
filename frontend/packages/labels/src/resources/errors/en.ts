@@ -319,6 +319,7 @@ export const en = {
   'errors.field.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.field.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.field.chair_inactive': 'Choose an active person as the chair.',
+  'errors.field.change_in_other_release': 'This change is already in the open release {{release}}.',
   'errors.field.change_would_loop':
     'A change cannot be part of itself, directly or through others.',
   'errors.field.channel_reserved':
@@ -447,6 +448,7 @@ export const en = {
     'A template for requesters is offered to everyone: it cannot be limited to groups.',
   'errors.field.list_too_long': 'Too many values in this list.',
   'errors.field.logo_required': 'Upload a logo first.',
+  'errors.field.longer_than_a_month': 'A monthly window can be at most 28 days long.',
   'errors.field.longer_than_a_week': 'A weekly window can last a week at most.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
@@ -822,6 +824,7 @@ export const en = {
   'errors.not_a_member': 'You are not a member of that organisation.',
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
+  'errors.not_closable_from_here': 'It cannot be closed from where it is now. Move it on first.',
   'errors.not_found': 'The item was not found.',
   'errors.not_known_error': '{{display_id}} is not a known error.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
@@ -999,6 +1002,7 @@ export const en = {
   'errors.work_item_link_not_found': 'This link no longer exists.',
   'errors.work_item_not_found': 'This record does not exist or you cannot see it.',
   'errors.work_item_task_not_found': 'This task no longer exists.',
+  'errors.work_item_type_not_found': 'There is no such kind of record.',
   'errors.work_item_view_not_found':
     'This saved view no longer exists, or it is not shared with you.',
   'errors.work_item_worklog_not_found': 'This worklog no longer exists.',

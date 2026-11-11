@@ -292,6 +292,8 @@ export const ar: LabelResource = {
   'errors.field.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.field.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.field.chair_inactive': 'اختر شخصًا نشطًا رئيسًا.',
+  'errors.field.change_in_other_release':
+    'هذا التغيير موجود بالفعل في الإصدار المفتوح {{release}}.',
   'errors.field.change_would_loop':
     'لا يمكن أن يكون التغيير جزءًا من نفسه، مباشرة أو عبر تغييرات أخرى.',
   'errors.field.channel_reserved':
@@ -416,6 +418,7 @@ export const ar: LabelResource = {
     'القالب المخصص لمقدمي الطلبات متاح للجميع: لا يمكن قصره على مجموعات.',
   'errors.field.list_too_long': 'هذه القائمة تحتوي على قيم كثيرة جدًا.',
   'errors.field.logo_required': 'حمّل شعارًا أولًا.',
+  'errors.field.longer_than_a_month': 'لا يمكن أن تزيد مدة النافذة الشهرية على 28 يومًا.',
   'errors.field.longer_than_a_week': 'لا يمكن أن تتجاوز النافذة الأسبوعية أسبوعًا واحدًا.',
   'errors.field.mailbox_address_invalid': 'أدخل عنوان البريد الإلكتروني لصندوق البريد.',
   'errors.field.mailbox_auth_model_unsupported': 'غير متاح لهذا النوع من صناديق البريد.',
@@ -758,6 +761,8 @@ export const ar: LabelResource = {
   'errors.not_a_member': 'أنت لست عضوًا في هذه المؤسسة.',
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
+  'errors.not_closable_from_here':
+    'لا يمكن إغلاقه من مرحلته الحالية. انقله إلى المرحلة التالية أولًا.',
   'errors.not_found': 'العنصر غير موجود.',
   'errors.not_known_error': '{{display_id}} ليس خطأً معروفًا.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
@@ -918,6 +923,7 @@ export const ar: LabelResource = {
   'errors.work_item_link_not_found': 'لم يعد هذا الرابط موجودًا.',
   'errors.work_item_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
   'errors.work_item_task_not_found': 'لم تعد هذه المهمة موجودة.',
+  'errors.work_item_type_not_found': 'لا يوجد نوع سجل كهذا.',
   'errors.work_item_view_not_found':
     'طريقة العرض المحفوظة هذه لم تعد موجودة، أو أنها غير مشاركة معك.',
   'errors.work_item_worklog_not_found': 'لم يعد سجل العمل هذا موجودًا.',

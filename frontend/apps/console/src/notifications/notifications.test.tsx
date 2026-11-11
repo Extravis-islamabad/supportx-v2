@@ -232,6 +232,59 @@ describe('Admin › Notifications', () => {
     expect(saved?.body).toMatchObject({ enabled: false, recipients: ['requester'] });
   });
 
+  it('REQ-CHG-103: a change rule fires on the statuses chosen, saved as its condition', async () => {
+    const entered = fakeNotificationRule({
+      event_code: 'change.status_entered',
+      record_type: 'change',
+      category: 'status',
+      enabled: false,
+      condition_fields: ['status', 'status_category'],
+      recipients: ['change_owner'],
+      default_recipients: ['change_owner'],
+    });
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        'GET /api/v1/notifications/rules': { body: [entered] },
+        'GET /api/v1/changes/settings': {
+          body: {
+            statuses: [
+              {
+                code: 'cab_awaiting',
+                category: 'open',
+                colour: '#faad14',
+                labels: null,
+                system: false,
+                disabled: false,
+                resume_on_requester_reply: false,
+              },
+            ],
+            closure_codes: [],
+            own_lists: {},
+          },
+        },
+        'PUT /api/v1/notifications/rules/change.status_entered': {
+          body: { ...entered, is_default: false, version: 1 },
+        },
+      },
+    });
+    window.history.pushState({}, '', '/admin/notifications');
+    render(<App />);
+    const picker = (await screen.findByTestId('rule-status-change.status_entered')).querySelector(
+      '.ant-select-selector',
+    );
+    if (picker === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(picker);
+    fireEvent.click(await screen.findByTitle('Awaiting CAB'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/notifications/rules/change.status_entered')).toHaveLength(1);
+    });
+    const [saved] = fake.find('PUT', '/api/v1/notifications/rules/change.status_entered');
+    expect(saved?.body).toMatchObject({
+      conditions: [{ field: 'status', operator: 'in', values: ['cab_awaiting'] }],
+    });
+  });
+
   it('CHN-01: events are grouped by area and found by name', async () => {
     const assigned = fakeNotificationRule({
       event_code: 'incident.assigned',

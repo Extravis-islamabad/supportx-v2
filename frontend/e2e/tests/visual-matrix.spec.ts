@@ -193,6 +193,23 @@ export const SCREENS: Screen[] = [
     state: { name: 'user-menu', open: click('user-menu') }, // near the right edge (left in RTL)
   },
   { key: 'change-calendar', path: '/changes/calendar', app: 'console' }, // WP-045c S3
+  {
+    // WP-058b S1: the shared staged calendar on releases, and its timeline view (the fifth).
+    key: 'release-calendar',
+    path: '/releases/calendar',
+    app: 'console',
+    state: {
+      name: 'timeline',
+      open: async (page: Page) => {
+        await page
+          .getByTestId('calendar-view')
+          .locator('.ant-segmented-item')
+          .nth(4)
+          .click({ timeout: STATE_TIMEOUT });
+        await page.waitForTimeout(400);
+      },
+    },
+  },
   { key: 'requests', path: '/requests', app: 'console' },
   {
     key: 'request',
@@ -311,6 +328,7 @@ export const SCREENS: Screen[] = [
     key: 'release',
     path: (r) => (r.release ? `/releases/${r.release}` : undefined),
     app: 'console',
+    state: { name: 'changes', open: tab('changes') }, // WP-058b S1: the changes in it
   },
   { key: 'request-new', path: '/requests/new', app: 'console' },
   { key: 'announcement-new', path: '/announcements/new', app: 'console' },

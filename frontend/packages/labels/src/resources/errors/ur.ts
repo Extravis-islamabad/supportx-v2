@@ -320,6 +320,7 @@ export const ur: LabelResource = {
     'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
   'errors.field.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.field.chair_inactive': 'صدر کے طور پر کوئی فعال شخص چنیں۔',
+  'errors.field.change_in_other_release': 'یہ تبدیلی پہلے ہی کھلی ریلیز {{release}} میں ہے۔',
   'errors.field.change_would_loop':
     'کوئی تبدیلی براہ راست یا دوسروں کے ذریعے اپنا ہی حصہ نہیں ہو سکتی۔',
   'errors.field.channel_reserved':
@@ -449,6 +450,7 @@ export const ur: LabelResource = {
     'درخواست گزاروں کا سانچہ سب کے لیے ہے: اسے گروپوں تک محدود نہیں کیا جا سکتا۔',
   'errors.field.list_too_long': 'اس فہرست میں بہت زیادہ قدریں ہیں۔',
   'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
+  'errors.field.longer_than_a_month': 'ماہانہ وقت زیادہ سے زیادہ 28 دن کا ہو سکتا ہے۔',
   'errors.field.longer_than_a_week': 'ہفتہ وار ونڈو زیادہ سے زیادہ ایک ہفتے کی ہو سکتی ہے۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
   'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
@@ -828,6 +830,8 @@ export const ur: LabelResource = {
   'errors.not_a_member': 'آپ اس ادارے کے رکن نہیں ہیں۔',
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
+  'errors.not_closable_from_here':
+    'اسے موجودہ مرحلے سے بند نہیں کیا جا سکتا۔ پہلے اسے آگے بڑھائیں۔',
   'errors.not_found': 'آئٹم نہیں ملا۔',
   'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
@@ -1005,6 +1009,7 @@ export const ur: LabelResource = {
   'errors.work_item_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.work_item_not_found': 'یہ ریکارڈ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.work_item_task_not_found': 'یہ کام اب موجود نہیں۔',
+  'errors.work_item_type_not_found': 'اس قسم کا کوئی ریکارڈ نہیں۔',
   'errors.work_item_view_not_found': 'یہ محفوظ ویو اب موجود نہیں، یا آپ کے ساتھ شیئر نہیں کیا گیا۔',
   'errors.work_item_worklog_not_found': 'یہ ورک لاگ اب موجود نہیں۔',
   'errors.workflow_instance_changed':

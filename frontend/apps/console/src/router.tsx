@@ -119,6 +119,12 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/changes/ChangePage')).ChangePage,
             }),
           },
+          {
+            path: ':id/pack',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangePack')).ChangePack,
+            }),
+          },
         ],
       },
       {
@@ -136,6 +142,13 @@ export const routes: RouteObject[] = [
             path: 'new',
             lazy: async () => ({
               Component: (await import('./pages/releases/NewReleasePage')).NewReleasePage,
+            }),
+          },
+          {
+            // WP-058b S1: the release calendar (the shared staged calendar).
+            path: 'calendar',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleaseCalendarPage')).ReleaseCalendarPage,
             }),
           },
           {

@@ -134,6 +134,8 @@ export const en = {
   'audit.action.change.due_date_changed': 'Changed the due date of a change',
   'audit.action.change.emergency_override': 'Overrode the approval of a change in an emergency',
   'audit.action.change.freeze_override': 'Let a change go ahead in a freeze',
+  'audit.action.change.freeze_passed_by_cab':
+    'Let an emergency change go ahead in a freeze (emergency CAB)',
   'audit.action.change.linked': 'Linked a change to another record',
   'audit.action.change.note_visibility_changed': 'Made a change note public or private',
   'audit.action.change.part_added': 'Added an item to a change',
@@ -952,6 +954,7 @@ export const en = {
   'event_type.work_items.asset_link.changed': 'Asset linked or unlinked',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
   'event_type.work_items.change.approval_notice': 'Change approval notice',
+  'event_type.work_items.change.reminder_due': 'Change reminder due',
   'event_type.work_items.change_board.changed': 'Change advisory board changed',
   'event_type.work_items.change_window.changed': 'Change window changed',
   'event_type.work_items.conversation.added': 'Reply or note added',

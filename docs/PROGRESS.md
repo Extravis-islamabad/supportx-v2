@@ -276,6 +276,14 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** HA install survives the loss of any one node with the e2e suite passing; a
   restore drill (backup → new cluster → smoke test) passes in CI; alerts fire in a fault test.
 - **Depends on:** WP-014
+- [ ] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
+  master that dies within about 10 s of a fresh start, before its sentinels have seen its
+  replicas (Sentinel reads a master's INFO every 10 s), does not fail over until it returns: every
+  attempt aborts with `-failover-abort-no-good-slave`. No data is lost, since #284's guard still
+  refuses to start empty, but the set is unavailable meanwhile. #388 only made the tests wait for
+  the sentinels. Fix: a Valkey pod reports ready only once the sentinels list its replicas (the
+  readiness option), with a test that fails over a master stopped right after a fresh start.
+  In Haider's summary as an FYI.
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -1165,6 +1173,57 @@ it with no reload (rule c). Not built yet.
   - CI and service layers (with the CMDB);
   - full recurrence rules (D-156 (c)).
 
+### [~] WP-045d — Changes: the rest (lane A, 2026-11-11; 4 sessions; migrations 0133, 0137; REQ-CHG-088..117)
+- **S1 (0133, #378):** tasks per stage, the post-implementation review and its date, closure
+  codes and rules per stage, closing waits for child changes and releases, closed changes locked
+  (REQ-CHG-088, 090-097). Lane B reviewed the lock.
+- **S2:** the change list, the record and bulk work:
+  - REQ-CHG-098: type and risk columns; views for the CAB, in implementation now, emergency and
+    due for review.
+  - REQ-CHG-100: the change's conversation and attachments on its record.
+  - REQ-CHG-101: bulk assign (D-154a: the owner must be in the group), take and close, through
+    the shared bulk dialog. Each change follows its own life cycle, and skips say why.
+  - REQ-CHG-102: the CAB pack print view, with the conflict list.
+  - **D-156 (Haider, 2026-11-11; migration 0137, lane B blocks):**
+    - change replies are e-mailed to the requester; notes never are;
+    - monthly windows ("first Sunday", on the tenant's local days); repeat_weekly is kept in
+      step for one release;
+    - a tenant setting makes outside-maintenance block (off by default), on the windows page,
+      audited;
+    - an emergency change in a blocking freeze is saved and marked, never refused. Its work
+      starts only once its emergency CAB passed the freeze (an approval with a reason, which
+      stamps it, is audited and shows in history) or the change manager overrode it. Normal
+      and standard changes are unchanged.
+  - **Open under REQ-CHG-101:** bulk edit fields, add to a CAB agenda, cancel and delete.
+    - Cancel and delete need the `work_item_bulk_jobs` action_code check widened, which is a
+      migration.
+    - All four come with lane A's next migration WP (WP-045d S3/S4 or WP-046a), with DB tests;
+      no migration slot is taken for the check alone (coordinator, 2026-11-11).
+    - Until then the change list doesn't offer them at all.
+- **S3:** change notifications and reminders (REQ-CHG-103..107). No e-mail reply threading
+  unless Haider says yes.
+  - REQ-CHG-104: the ChangeNotifications source with the Appendix A defaults. It replaces the
+    change reply-only source and delegates replies to it (#359).
+  - REQ-CHG-103: a per-status rule ("entered a status", off by default) with a status picker on
+    the rules screen. Holders are resolved when it is sent.
+  - Access (lane B): an approver without `changes.view` is told through their live approval
+    (the public side and their own link); a decided approval gives nothing. Requesters see only
+    their own view.
+  - REQ-CHG-105, -091: a reminder sweep. Each kind is claimed once in `processed_events`, a
+    moved window reminds again, an old claim is never sent late, and cancelled changes are
+    never reminded.
+  - REQ-CHG-106: lane C's Workflows tab (#379).
+  - REQ-CHG-107: business rules on changes work (tested). Changes are an SLA type with no
+    default targets, since Appendix A sets none (nothing seeded). Escalations, the trash rule
+    and the safety net work as for the other types. The change header shows its due time, and
+    the SLA policies tab offers every SLA type (incidents, requests, problems, changes).
+  - **Open:**
+    - the "health check regression" default waits for health checks (REQ-CHG-086, MonetX);
+    - the testing owner is not a change role yet, so it is not a recipient;
+    - the portal has no change page, so public notices link to the portal home (S4).
+- **S4:** the portal (raise, follow, approve), the mobile API audit, report dimensions and
+  personal counters (REQ-CHG-109, 110, 116, 117). Lane B blocks the portal access.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
@@ -1913,6 +1972,39 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   followers are not told; it needs a timer (Temporal or a sweep) to raise "ended" at
   `publish_until`.
 - **Release import (REQ-REL-010)**, from WP-058a S2.
+
+### [~] WP-058b — Releases: changes, calendar, guard, stage work, closure, lists, notices, DevOps (lane C; plan approved 2026-11-11; 7 sessions)
+- [x] Session 1 (2026-11-11): changes in a release and the shared calendar. Migration 0138.
+  - **Changes in a release (REQ-REL-033):**
+    - link kind `in_release`;
+    - GET/POST/DELETE `/releases/{id}/changes`;
+    - a change is in one open release at a time, and adding it to another names the first;
+    - history on both records;
+    - a change the viewer may not see shows only that it is there;
+    - the release page's **Changes** tab.
+  - **Calendar (REQ-REL-038, -039):**
+    - `/release-calendar` uses lane A's `calendar()`, generalised by planned stage (change
+      implementation, release deployment) and scoped by each type's own permission;
+    - the change calendar moved to `pages/staged/ScheduleCalendar` with its behaviour kept
+      (Move…, role=row, the re-approval preview and conflict path, #381's tests); the Move dialog
+      now uses the shared DateField;
+    - new: a timeline view and a quick-view drawer; `/releases/calendar`.
+    - both types on one calendar: "Show changes" / "Show releases" with a legend (REQ-REL-038
+      AC1), each moved by its own stage and rules;
+    - the release's scheduler: `/releases/calendar?focus=<id>` from its Schedule tab, opened on
+      its deployment with only its changes by default (REQ-REL-039 AC1).
+  - Tests: `tests/db/test_release_changes_api.py` (4); Vitest `release-calendar.test.tsx` (3),
+    the Changes tab in `releases.test.tsx` (2). Matrix screens: `release-calendar` (+ timeline)
+    and the release's Changes tab.
+  - **Open:** per-environment guarding (WP-053). A release move has no re-approval preview; the
+    type-neutral guard comes in S2 with the ADR-042 addendum. A change does not yet show its
+    release on its own page (S3, with the page tabs). REQ-REL-033's copy-downtime-on-add and
+    "a change behind its schedule" marker, and REQ-REL-038's service/site/type/group filters
+    and stage colours, go to S5 with the lists.
+- [ ] S2: the guard by planned stage, conflict acks, release freeze override (after lane A's
+  WP-045d S2, 0137). S3: stage on tasks and worklogs, page tabs. S4: closure and rollback.
+  S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
+  S7: DevOps links (after WP-055).
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
