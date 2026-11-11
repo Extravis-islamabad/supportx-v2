@@ -108,3 +108,39 @@ async def test_req_chg_109_ac3_a_requester_approver_decides_from_the_portal(worl
     assert decided.status_code == 200, decided.text
     after = (await world.call("GET", f"{PORTAL}/{raised['id']}", a, a.requester)).json()
     assert after["stage"] != "submission" or after["status"] != "submission_awaiting_acceptance"
+
+
+async def test_req_chg_117_waiting_for_my_approval_counts_and_falls_when_decided(
+    world: World,
+) -> None:
+    """AC1: deciding an approval lowers the approver's "waiting for my approval" counter."""
+    from tests.db.test_approvals_api import manager_of  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)  # tech_a approves, and sees changes
+
+    async def waiting() -> int:
+        found = await world.call("GET", f"{CHG}/counters", a, a.tech_a)
+        assert found.status_code == 200, found.text
+        return int(next(c["count"] for c in found.json() if c["counter"] == "pending_my_approval"))
+
+    before = await waiting()
+    raised = await _raise(world, a, a.requester)
+    fresh = (await world.call("GET", f"{CHG}/{raised['id']}", a, a.admin)).json()
+    assert (await move(world, a, fresh, "submission_awaiting_acceptance")).status_code == 200
+    assert await waiting() == before + 1
+    mine = (await world.call("GET", f"{CHG}/my-approvals", a, a.tech_a)).json()["items"]
+    [entry] = [i for i in mine if i["record_id"] == raised["id"]]
+    decided = await world.call(
+        "POST",
+        f"{CHG}/{raised['id']}/approvals/{entry['approval_id']}/decision",
+        a,
+        a.tech_a,
+        json={"decision": "approve"},
+        headers={"If-Match": f'"{entry["approval_version"]}"'},
+    )
+    assert decided.status_code == 200, decided.text
+    assert await waiting() == before
+    # Only changes have the change counters.
+    incident = (await world.call("GET", "/incidents/counters", a, a.tech_a)).json()
+    assert "pending_my_approval" not in {c["counter"] for c in incident}
