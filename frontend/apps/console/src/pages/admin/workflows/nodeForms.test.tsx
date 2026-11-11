@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { fakeSession } from '@supportx/api-client/testing';
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
@@ -13,18 +13,6 @@ import { consoleApi } from '../../../test/api';
 
 const FLOW_ID = '01a1a2b3-0000-7000-8000-0000000f0101';
 const GROUP_ID = '01a1a2b3-0000-7000-8000-0000000f0201';
-
-beforeAll(() => {
-  if (!('ResizeObserver' in window)) {
-    // jsdom has no layout: React Flow watches its pane's size, which never changes here.
-    class NoResize {
-      observe = () => undefined;
-      unobserve = () => undefined;
-      disconnect = () => undefined;
-    }
-    Object.assign(window, { ResizeObserver: NoResize });
-  }
-});
 
 const node = (id: string, type: string, config: Record<string, unknown> = {}) => ({
   id,

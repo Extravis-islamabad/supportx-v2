@@ -282,3 +282,70 @@ export function useFindRecord() {
     },
   });
 }
+
+export type RecordWorkflowOut = components['schemas']['RecordWorkflowOut'];
+
+/** The workflows on a record, for its panel: each run's diagram, position and log. */
+export function useRecordWorkflows(recordType: string, recordId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.workflows.record(recordType, recordId),
+    queryFn: () =>
+      call(
+        api.GET(`${PATH}/records/{record_type}/{record_id}`, {
+          params: { path: { record_type: recordType, record_id: recordId } },
+        }),
+      ),
+    enabled: enabled && recordId !== '',
+  });
+}
+
+function useRecordRefresh() {
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ['workflows', 'record'] });
+  };
+}
+
+/** Stop a run on a record, with a reason (REQ-WF-026 AC1). */
+export function useStopInstance() {
+  const refresh = useRecordRefresh();
+  return useMutation({
+    mutationFn: ({ id, version, reason }: { id: string; version: number; reason: string }) =>
+      call(
+        api.POST(`${PATH}/instances/{instance_id}/stop`, {
+          params: { path: { instance_id: id }, header: ifMatch(version) },
+          body: { reason },
+        }),
+      ),
+    onSettled: refresh,
+  });
+}
+
+/** Run it again, from the start or a chosen node (REQ-WF-026 AC2). */
+export function useRestartInstance() {
+  const refresh = useRecordRefresh();
+  return useMutation({
+    mutationFn: ({ id, version, node }: { id: string; version: number; node?: string }) =>
+      call(
+        api.POST(`${PATH}/instances/{instance_id}/restart`, {
+          params: { path: { instance_id: id }, header: ifMatch(version) },
+          body: { node: node ?? null },
+        }),
+      ),
+    onSettled: refresh,
+  });
+}
+
+/** Run a failed step again (REQ-WF-024 AC2). */
+export function useRetryInstance() {
+  const refresh = useRecordRefresh();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.POST(`${PATH}/instances/{instance_id}/retry`, {
+          params: { path: { instance_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSettled: refresh,
+  });
+}

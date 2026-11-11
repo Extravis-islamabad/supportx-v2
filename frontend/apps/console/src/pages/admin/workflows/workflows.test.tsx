@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { fakeSession } from '@supportx/api-client/testing';
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
@@ -13,19 +13,6 @@ import { consoleApi } from '../../../test/api';
 const FLOW_ID = '01a1a2b3-0000-7000-8000-0000000f0001';
 const LIVE_ID = '01a1a2b3-0000-7000-8000-0000000f0002';
 const TENANT_CHANNEL = 't:tenant:queue:workflows';
-
-beforeAll(() => {
-  // jsdom has no layout: React Flow watches its pane's size.
-  if (!('ResizeObserver' in window)) {
-    // Nothing to report: the pane never resizes in jsdom.
-    class NoResize {
-      observe = () => undefined;
-      unobserve = () => undefined;
-      disconnect = () => undefined;
-    }
-    Object.assign(window, { ResizeObserver: NoResize });
-  }
-});
 
 const draft = {
   format: 1,

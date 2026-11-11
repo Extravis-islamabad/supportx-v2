@@ -53,3 +53,45 @@ def test_every_workflow_problem_code_has_a_label(language: str) -> None:
         if f"workflow_problem.{code}" not in keys and f"errors.field.{code}" not in keys
     )
     assert missing == [], f"add workflow_problem.<code> labels in {language}"
+
+
+# Why a run stopped (REQ-WF-024): the interpreter's own codes, the owning modules' command
+# errors and a webhook's egress refusals (webhook_<code>). The record's Workflows panel shows
+# workflow_failure.<code> (or the shared errors./workflow_problem. label), never the code.
+RUN_TIME_CODES = (
+    "record_canceled",
+    "command_failed",
+    "output_not_linked",
+    "step_limit",
+    "loop_limit",
+    "join_without_split",
+    "not_found",
+    "command_not_supported",
+    "approval_invalid",
+    "approval_not_offered",
+    "notify_not_offered",
+    "tasks_invalid",
+    "task_canceled",
+    "sub_flow_failed",
+    "function_not_offered",
+    "workflow_identity_missing",
+)
+
+
+def _egress_codes() -> set[str]:
+    from app.shared.egress import client  # noqa: PLC0415 - the module's constants, read here
+
+    names = ("BLOCKED", "UNREACHABLE", "TIMEOUT", "TOO_LARGE", "INSECURE", "TLS", "REDIRECT")
+    return {str(getattr(client, n)) for n in (*names, "HTTP_STATUS", "INVALID")}
+
+
+@pytest.mark.parametrize("language", ["en", "ar", "ur"])
+def test_every_run_time_failure_has_a_label(language: str) -> None:
+    keys = _keys(language)
+    codes = {*RUN_TIME_CODES, *(f"webhook_{c}" for c in _egress_codes())}
+    missing = sorted(
+        c
+        for c in codes
+        if not {f"workflow_failure.{c}", f"errors.{c}", f"workflow_problem.{c}"} & keys
+    )
+    assert missing == [], f"add workflow_failure.<code> labels in {language}"

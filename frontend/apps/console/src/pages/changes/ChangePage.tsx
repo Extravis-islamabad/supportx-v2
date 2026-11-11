@@ -27,6 +27,7 @@ import {
   SPACE,
 } from '@supportx/ui';
 
+import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { IncidentHistory } from '../incidents/IncidentHistory';
 import { personName } from '../incidents/labels';
 import { stageName, statusName } from '../staged/labels';
@@ -53,6 +54,7 @@ const TABS = [
   'plan',
   'schedule',
   'downtime',
+  'workflows',
   'history',
 ] as const;
 // The statuses that raise a stage's approval (acceptance, the plan, the CAB): their move shows
@@ -302,6 +304,15 @@ export function ChangePage() {
             label: t('staged.tab.downtime'),
             children: <DowntimePart id={c.id} />,
           },
+          ...(can('workflows.run') || can('workflows.manage')
+            ? [
+                {
+                  key: 'workflows',
+                  label: t('workflows.record.tab'),
+                  children: <RecordWorkflows recordType="change" recordId={c.id} />,
+                },
+              ]
+            : []),
           {
             key: 'history',
             label: t('changes.tab.history'),

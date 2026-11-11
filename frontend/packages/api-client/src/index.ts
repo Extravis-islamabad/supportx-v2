@@ -624,6 +624,10 @@ export {
   useCreateWorkflow,
   useDeleteWorkflow,
   useEnableWorkflow,
+  useRecordWorkflows,
+  useRestartInstance,
+  useRetryInstance,
+  useStopInstance,
   useExportWorkflow,
   useFindRecord,
   useImportWorkflow,
@@ -642,6 +646,7 @@ export {
   type TestAnswerIn,
   type TestRunIn,
   type TestRunOut,
+  type RecordWorkflowOut,
   type WorkflowOut,
   type WorkflowProblem,
 } from './workflows';
