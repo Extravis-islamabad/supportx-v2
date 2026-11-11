@@ -12,8 +12,8 @@
     (localhost:26379, same auth as `sentinel.sh`): a replica must be synced
     (`master_link_status:up`) and listed by `SENTINEL replicas supportx` as `<SELF>:6379`, not
     down or disconnected; a master needs every `connected_slaveN` host listed the same way. A
-    master with no connected replica is ready without passing, so the gate runs again once
-    replicas connect;
+    master with no connected replica passes at once (lane B review): replicas connecting later
+    pass their own gate, and a ready master never flips to not ready over its sentinel;
   - passing writes `/run/valkey/ready-role` (the role); then only the server counts, so a
     sentinel blip never makes Valkey unready. A different role clears the mark and gates again;
     `valkey.sh` clears it at every container (re)start (the emptyDir outlives the container).

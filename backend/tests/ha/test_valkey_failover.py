@@ -469,6 +469,8 @@ def test_a_master_is_ready_only_once_its_sentinel_lists_its_replicas(valkeys: Va
     valkeys.start(1)
     valkeys.start(2)
     wanted = {f"supportx-valkey-{i}.{HEADLESS}" for i in (1, 2)}
+    # Both replicas connected before pod 0's first probe (nothing here probes on its own): with
+    # none connected it would rightly pass at once.
     _until(lambda: valkeys.connected_replicas(0) == wanted, START_SECONDS)
     assert valkeys.serving(0)
     ready, said = valkeys.ready(0)
@@ -519,8 +521,43 @@ def test_a_replica_restarted_then_the_master_stopped_still_fails_over(valkeys: V
 def test_a_lone_pod_without_replicas_is_ready(lone: Valkeys) -> None:
     _until(lambda: lone.role(0) == "master", START_SECONDS)
     _until(lambda: lone.is_ready(0), START_SECONDS)
+    assert lone.mark(0) == "master"  # passed: never re-gated, so never flips over its sentinel
     assert lone.cli(0, "set", "first", "ok") == "OK"
     assert lone.is_ready(0)
+
+
+def test_a_master_ready_before_its_replicas_stays_ready_without_its_sentinel(
+    valkeys: Valkeys,
+) -> None:
+    """Lane B review, 2026-11-11: a master Ready with no replica yet is marked, so replicas
+    connecting later and then a sentinel outage never turn it not ready (that flip would be the
+    app's Valkey outage). Pods 1 and 2 are bare empty servers, so pod 0 starts as a fresh master
+    with no replica; they become its replicas only after its first probe."""
+    for index in range(3):
+        valkeys.stop(index)
+    for index in (1, 2):
+        valkeys.start_plain(index)
+        _until(lambda i=index: valkeys.cli(i, "ping") == "PONG", START_SECONDS)
+    valkeys.start(0)
+    _until(lambda: valkeys.role(0) == "master" and valkeys.is_ready(0), START_SECONDS)
+    assert valkeys.connected_replicas(0) == set()
+    assert valkeys.mark(0) == "master"
+
+    wanted = {f"supportx-valkey-{i}.{HEADLESS}" for i in (1, 2)}
+    for index in (1, 2):
+        host = f"supportx-valkey-{index}.{HEADLESS}"
+        valkeys.cli(index, "config", "set", "masterauth", valkeys.password)
+        valkeys.cli(index, "config", "set", "replica-announce-ip", host)
+        valkeys.cli(index, "replicaof", f"supportx-valkey-0.{HEADLESS}", "6379")
+    _until(lambda: valkeys.connected_replicas(0) == wanted, START_SECONDS)
+    valkeys.stop_sentinel(0)
+    _until(lambda: not valkeys.sentinel_up(0), 10)
+    for _ in range(3):  # several probe periods
+        ready, said = valkeys.ready(0)
+        assert ready, said
+        assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
+        time.sleep(2)
+    assert valkeys.mark(0) == "master"
 
 
 def test_a_ready_master_stays_ready_and_writable_without_its_sentinel(valkeys: Valkeys) -> None:

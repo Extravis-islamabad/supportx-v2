@@ -149,8 +149,10 @@ data:
     #   - a replica: it is synced (master_link_status up) and the sentinel lists this pod among
     #     the replicas, healthy;
     #   - a master: the sentinel lists, healthy, every replica the master reports connected. A
-    #     master with no connected replica (a lone pod) is ready but has not passed: the gate is
-    #     asked again once replicas connect.
+    #     master with no connected replica (a lone pod, or replicas not connected yet) passes at
+    #     once: a replica connecting later passes its own gate (its sentinel lists it, learned
+    #     from this master's INFO) before a rolling update or drain moves on, and a ready master
+    #     must never turn not-ready over its sentinel.
     # Passing writes $MARK (the role). From then on only the server counts ($WAITING, PING): a
     # sentinel blip must never become a Valkey outage. A promotion or demotion clears the mark and
     # gates again; valkey.sh clears it at every (re)start.
@@ -184,7 +186,10 @@ data:
     else
       # connected_slaves lines: slave0:ip=<announced host>,port=6379,state=online,...
       wanted=$(echo "$info" | sed -n 's/^slave[0-9]*:ip=\([^,]*\),port=\([0-9]*\),.*/\1:\2/p')
-      [ -n "$wanted" ] || exit 0  # no replica connected: ready, the gate is asked again later
+      if [ -z "$wanted" ]; then  # no replica connected: passed (see above)
+        echo master > "$MARK"
+        exit 0
+      fi
     fi
     # SENTINEL replicas prints each replica as flat key/value lines (name, ip, port, ..., flags,
     # ...); "name" starts the next one. A replica counts when it is neither down nor disconnected.
