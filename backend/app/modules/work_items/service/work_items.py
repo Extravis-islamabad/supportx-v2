@@ -5437,6 +5437,7 @@ async def automation_facts(
         **_snapshot(record),
         "status": record.status,
         "status_category": record.status_category,
+        "stage": record.stage,  # WP-058b S3: a staged record's stage (stage_entered triggers)
         **await automation.requester_facts(session, record.requester_id),
     }
 

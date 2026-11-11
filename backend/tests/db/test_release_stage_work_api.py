@@ -151,3 +151,47 @@ async def test_a_worklog_takes_the_stage_of_a_staged_record_only(world: World) -
     )
     assert plain.status_code == 201, plain.text
     assert plain.json()["stage"] is None
+
+
+async def test_req_rel_022_ac1_a_trigger_runs_once_per_stage_entry(world: World) -> None:
+    """A stage_entered trigger runs on entering the stage, once; a move within it runs nothing."""
+    from tests.db.test_automation_triggers_api import drain, note  # noqa: PLC0415 - helpers
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/automation/triggers",
+        a,
+        a.admin,
+        json={
+            "record_type": "release",
+            "name": "Planning starts",
+            "state": "enabled",
+            "events": ["stage_entered"],
+            "conditions": {"field": "stage", "op": "eq", "value": "planning"},
+            "actions": [note("Planning started.")],
+        },
+    )
+    assert made.status_code == 201, made.text
+    try:
+        item = await a_release(world, a)
+        accepted = await move(world, a, await fresh(world, a, item), "submission_accepted")
+        assert accepted.status_code == 200, accepted.text  # within the stage: nothing
+        await drain(world, a)
+        shown = await panel(world, a, await fresh(world, a, item))
+        into = next(m["to_status"] for m in shown["moves"] if m["to_stage"] == "planning")
+        entered = await move(world, a, await fresh(world, a, item), into)
+        assert entered.status_code == 200, entered.text
+        await drain(world, a)
+        log = await world.call("GET", f"{REL}/{item['id']}/automation", a, a.admin)
+        applied = [r for r in log.json() if r["kind"] == "trigger"]
+        assert [r["outcome"] for r in applied] == ["applied"]  # once, on entering planning
+    finally:
+        await world.call(
+            "PATCH",
+            f"/automation/triggers/{made.json()['id']}",
+            a,
+            a.admin,
+            json={"state": "disabled"},
+            headers={"If-Match": f'"{made.json()["version"]}"'},
+        )
