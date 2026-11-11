@@ -39,7 +39,7 @@ from app.modules.assets.events import AssetBulkJobProgressed
 from app.modules.assets.infra.models import Asset, AssetBulkJob
 from app.modules.assets.service import assets as records
 from app.modules.assets.service import moves, ownership
-from app.modules.assets.service.assets import MANAGE, _refuse, _require
+from app.modules.assets.service.assets import MANAGE, _refuse, _require, _visible
 from app.modules.identity_access import Subject, subject_for
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -209,7 +209,7 @@ async def _batch(
     in_batch(session, found.id)
     try:
         for asset_id in asset_ids:
-            tag = await session.scalar(select(Asset.tag).where(Asset.id == asset_id))
+            tag = await _seen_tag(session, subject, asset_id)
             try:
                 async with session.begin_nested():
                     await _apply(session, subject, found, asset_id)
@@ -225,6 +225,18 @@ async def _batch(
     found.results = results
     found.version += 1
     await _progress(session, found)
+
+
+async def _seen_tag(session: AsyncSession, subject: Subject, asset_id: uuid.UUID) -> str | None:
+    """The asset's tag for the results, only when the requester may see the asset.
+
+    A job may name any ID; one outside the person's scope is skipped as not found, and its tag
+    is never written into their results (lane B's review of S4b).
+    """
+    try:
+        return (await _visible(session, subject, asset_id)).tag
+    except AppError:
+        return None
 
 
 def _skipped(asset_id: uuid.UUID, tag: str | None, refused: AppError) -> dict[str, Any]:

@@ -149,6 +149,33 @@ async def test_051_each_asset_is_checked_as_the_requester_and_skipped_with_the_r
     assert rows[0]["n"] >= 2
 
 
+async def test_051_an_asset_out_of_sight_is_skipped_as_not_found_and_never_named(
+    world: World,
+) -> None:
+    """Lane B: a job may name any ID; a hidden asset's tag never reaches the results."""
+    a = world.a
+    made = await role(
+        world, a, "Own-site asset keeper", [("assets.view", "site"), ("assets.manage", "site")]
+    )
+    granted = await world.call("PUT", f"/users/{a.requester2}/roles/{made}", a, a.admin)
+    assert granted.status_code == 204, granted.text
+    hidden = await _asset(
+        world, a, "Bulk hidden", site_id=str(a.s1)
+    )  # requester2 works no asset site
+    started = await _bulk(
+        world, a, a.requester2,
+        {"action": "edit", "asset_ids": [hidden["id"]], "changes": {"location": "Shelf 9"}},
+    )  # fmt: skip
+    assert started.status_code == 202, started.text
+    await _run(world, run_asset_bulk_jobs)
+    done = await world.call("GET", f"{BASE}/bulk-jobs/{started.json()['id']}", a, a.requester2)
+    (skipped,) = done.json()["results"]
+    assert (skipped["outcome"], skipped["code"]) == ("skipped", "asset_not_found")
+    assert skipped["tag"] is None
+    assert hidden["tag"] not in done.text
+    assert (await _fresh(world, a, hidden))["location"] is None
+
+
 async def test_051_move_assign_and_delete_run_through_the_single_asset_rules(
     world: World,
 ) -> None:
