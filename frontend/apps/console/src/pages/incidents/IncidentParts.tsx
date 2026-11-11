@@ -239,6 +239,12 @@ export function IncidentTasks({
               >
                 {task.title}
               </bdi>
+              {task.stage != null && (
+                // A change's task is for one stage, and holds the move out of it (REQ-CHG-094).
+                <Tag data-testid={`inc-task-stage-${String(index)}`}>
+                  {t(`work_item_stage.${task.stage}`)}
+                </Tag>
+              )}
               {task.owner_id !== null && (
                 <Typography.Text type="secondary">
                   {people.get(task.owner_id) ?? t('incidents.unknown_value')}

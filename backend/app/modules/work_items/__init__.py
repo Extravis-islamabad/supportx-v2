@@ -29,6 +29,7 @@ from app.modules.ai import (
 from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.approval_settings_routes import router as approval_settings_router
 from app.modules.work_items.api.change_board_routes import router as change_board_router
+from app.modules.work_items.api.change_child_routes import router as change_child_router
 from app.modules.work_items.api.change_window_routes import (
     calendar_router as change_calendar_router,
 )
@@ -170,6 +171,7 @@ module = ModuleSpec(
         repeat_router,  # WP-044c D16: the problem module's
         change_window_router,  # WP-045c: freeze and maintenance windows (ADR-042)
         change_window_change_router,  # WP-045c: a change's conflicts and freeze override
+        change_child_router,  # WP-045d S1: child changes and releases
         change_calendar_router,  # WP-045c S3: the change calendar
     ],
     router_features=[
@@ -182,6 +184,7 @@ module = ModuleSpec(
         PROBLEM.feature,  # repeat incident rules (D-140 item 5: not in Essentials)
         CHANGE.feature,  # change windows
         CHANGE.feature,  # a change's conflicts and freeze override
+        CHANGE.feature,  # child changes and releases
         CHANGE.feature,  # the change calendar
     ],
     events=EVENTS,

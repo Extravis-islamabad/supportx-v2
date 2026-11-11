@@ -36,6 +36,7 @@ import {
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import {
+  DateTimeField,
   EmptyText,
   FormFooter,
   FormProblem,
@@ -203,6 +204,21 @@ export function DetailsPart({ id }: { id: string }) {
             </Form.Item>
           </Col>
         )}
+      </Row>
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          {/* REQ-CHG-091: when the post-implementation review is due; its reminder goes once. */}
+          <Form.Item label={t('work_item.field.review_due_at')} htmlFor="change-review-due">
+            <DateTimeField
+              id="change-review-due"
+              value={value('review_due_at')}
+              onChange={(v) => {
+                set('review_due_at', v);
+              }}
+              testId="change-review-due"
+            />
+          </Form.Item>
+        </Col>
       </Row>
       {Boolean(d.risk_chosen) && Boolean(d.risk_reason) && (
         <Typography.Paragraph type="secondary" data-testid="change-risk-why">

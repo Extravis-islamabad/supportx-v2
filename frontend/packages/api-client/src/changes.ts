@@ -341,6 +341,20 @@ export function useReapprovalPreview() {
   });
 }
 
+export type ChangeChild = components['schemas']['ChildOut'];
+
+/** The change's child changes and releases (those you may see); closing waits for them. */
+export function useChangeChildren(id: string) {
+  return useQuery({
+    queryKey: keys.part(id, 'children'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/changes/{record_id}/children', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
 export type ChangeConflicts = components['schemas']['ConflictsOut'];
 export type ChangeConflict = components['schemas']['ConflictOut'];
 export type ChangeWindow = components['schemas']['WindowOut'];
@@ -354,6 +368,45 @@ export function useChangeConflicts(id: string) {
         api.GET('/api/v1/changes/{record_id}/conflicts', { params: { path: { record_id: id } } }),
       ),
     enabled: id !== '',
+  });
+}
+
+/** Make a change or a release, found by its number, part of this change. */
+export function useAddChangeChild() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, number }: { id: string; number: string }) => {
+      const value = number.trim().toUpperCase();
+      // A release's number reads REL-…, a change's CHG-…: each type finds its own.
+      const found = value.startsWith('REL')
+        ? await call(api.GET('/api/v1/releases/lookup/{value}', { params: { path: { value } } }))
+        : await call(api.GET('/api/v1/changes/lookup/{value}', { params: { path: { value } } }));
+      return call(
+        api.POST('/api/v1/changes/{record_id}/children', {
+          params: { path: { record_id: id } },
+          body: { child_id: found.id },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'children') });
+    },
+  });
+}
+
+export function useRemoveChangeChild() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, linkId }: { id: string; linkId: string }) => {
+      await call(
+        api.DELETE('/api/v1/changes/{record_id}/children/{link_id}', {
+          params: { path: { record_id: id, link_id: linkId } },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'children') });
+    },
   });
 }
 

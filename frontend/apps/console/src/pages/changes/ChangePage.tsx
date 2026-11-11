@@ -29,10 +29,12 @@ import {
 
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { IncidentHistory } from '../incidents/IncidentHistory';
+import { IncidentTasks } from '../incidents/IncidentParts';
 import { personName } from '../incidents/labels';
 import { stageName, statusName } from '../staged/labels';
 import { StagedMoveDialog } from '../staged/MoveDialog';
 import { ApprovalPreview, ApprovalsPart } from './ChangeApprovals';
+import { ChildrenPart } from './ChangeChildren';
 import { ChangeProperties } from './ChangeProperties';
 import { ChangeScheduleTab } from './ChangeSchedule';
 import { EmergencyOverrideDialog } from './EmergencyOverride';
@@ -46,7 +48,9 @@ const TABS = [
   'approvals',
   'roles',
   'plan',
+  'tasks',
   'schedule',
+  'children',
   'workflows',
   'history',
 ] as const;
@@ -113,6 +117,8 @@ export function ChangePage() {
   const next = positive.find((m) => m.to_stage !== c.stage) ?? positive[0];
   const overflow = [...positive.filter((m) => m !== next), ...allowed.filter(ending)];
   const unavailable = moves.filter((m) => !m.allowed);
+  // Editing as the record allows it (a closed change is read-only, REQ-CHG-097).
+  const mayEdit = c.operations.find((o) => o.action === 'edit')?.allowed === true;
   // D-144: only a change sent back for approval, and only with the permission (the server checks).
   const mayOverride = details?.sent_back === true && can('changes.emergency_override');
   const moveLabel = (m: StageMove) =>
@@ -292,6 +298,17 @@ export function ChangePage() {
             label: t('staged.tab.schedule'),
             children: <ChangeScheduleTab change={c} stages={<SchedulePart id={c.id} />} />,
           },
+          {
+            key: 'tasks',
+            label: t('changes.tab.tasks'),
+            children: <IncidentTasks item={c} canEdit={mayEdit} base="changes" />,
+          },
+          {
+            key: 'children',
+            label: t('changes.tab.children'),
+            children: <ChildrenPart id={c.id} canEdit={mayEdit} />,
+          },
+          // Workflows stays last before History (agreed with lane C, #379).
           ...(can('workflows.run') || can('workflows.manage')
             ? [
                 {
