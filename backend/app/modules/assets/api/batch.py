@@ -199,7 +199,7 @@ async def get_bulk_job(
 # --- merges (REQ-AST-052) ----------------------------------------------------------------------
 
 
-class MergeFieldOut(BaseModel):
+class AssetMergeFieldOut(BaseModel):
     """One field: both values (as text or null) and the suggested side.
 
     Money is hidden (`hidden`, both values null) without assets.view_financials.
@@ -212,13 +212,13 @@ class MergeFieldOut(BaseModel):
     hidden: bool = False
 
 
-class MergePreviewOut(BaseModel):
+class AssetMergePreviewOut(BaseModel):
     """The two assets with the suggested survivor first, and the field-by-field choice."""
 
     survivor: AssetOut
     merged: AssetOut
     swapped: bool = Field(description="The suggestion (discovered, newest scan) swapped them.")
-    fields: list[MergeFieldOut]
+    fields: list[AssetMergeFieldOut]
 
 
 @router.get(
@@ -234,15 +234,15 @@ async def merge_preview(
     second: Annotated[uuid.UUID, Query(description="The other.")],
     session: TenantSession,
     subject: Manage,
-) -> MergePreviewOut:
+) -> AssetMergePreviewOut:
     """assets.manage on both (each within your scope); the suggested survivor comes first."""
     found = await merge.preview(session, subject, first, second)
-    return MergePreviewOut(
+    return AssetMergePreviewOut(
         survivor=AssetOut.of(found.survivor, subject),
         merged=AssetOut.of(found.merged, subject),
         swapped=found.swapped,
         fields=[
-            MergeFieldOut(
+            AssetMergeFieldOut(
                 field=f.field, survivor=f.survivor, merged=f.merged, side=f.side, hidden=f.hidden
             )
             for f in found.fields
@@ -250,7 +250,7 @@ async def merge_preview(
     )
 
 
-class MergeIn(BaseModel):
+class AssetMergeIn(BaseModel):
     """Merge one asset into another, at the versions you saw, with your field choices."""
 
     model_config = ConfigDict(extra="forbid")
@@ -264,19 +264,19 @@ class MergeIn(BaseModel):
     )
 
 
-class MergeMappingOut(BaseModel):
+class AssetMergeMappingOut(BaseModel):
     """Whose value one field kept."""
 
     field: str
     side: MergeSide
 
 
-class MergeOut(BaseModel):
+class AssetMergeOut(BaseModel):
     """The survivor after the merge, the mapping and what moved to it (counts)."""
 
     merge_id: uuid.UUID
     survivor: AssetOut
-    mapping: list[MergeMappingOut]
+    mapping: list[AssetMergeMappingOut]
     moved: dict[str, int]
 
 
@@ -284,7 +284,7 @@ class MergeOut(BaseModel):
     "/merges",
     summary="Merge a duplicate asset into another",
     status_code=status.HTTP_201_CREATED,
-    response_model=MergeOut,
+    response_model=AssetMergeOut,
     responses={
         404: {"model": ProblemDetail, "description": "asset_not_found"},
         409: {"model": ProblemDetail, "description": "version_conflict, asset_merge_on_loan"},
@@ -292,7 +292,7 @@ class MergeOut(BaseModel):
 )
 async def merge_assets(  # noqa: PLR0913 - FastAPI dependencies
     *,
-    body: MergeIn,
+    body: AssetMergeIn,
     session: TenantSession,
     subject: Manage,
     idempotency: Idempotency,
@@ -323,11 +323,11 @@ async def merge_assets(  # noqa: PLR0913 - FastAPI dependencies
             "moved": done.moved,
         }
         return Created(
-            body=MergeOut(
+            body=AssetMergeOut(
                 merge_id=done.merge.id,
                 survivor=AssetOut.of(done.survivor, subject),
                 mapping=[
-                    MergeMappingOut(field=m["field"], side=MergeSide(m["side"]))
+                    AssetMergeMappingOut(field=m["field"], side=MergeSide(m["side"]))
                     for m in done.mapping
                 ],
                 moved=done.moved,
@@ -341,7 +341,7 @@ async def merge_assets(  # noqa: PLR0913 - FastAPI dependencies
 # --- imports (REQ-AST-053) ---------------------------------------------------------------------
 
 
-class ImportProblemOut(BaseModel):
+class AssetImportProblemOut(BaseModel):
     """One refused row: its number in the file, the column and the reason code."""
 
     row: int | None
@@ -365,7 +365,7 @@ class AssetImportOut(BaseModel):
     created_count: int
     updated_count: int
     failed_count: int
-    problems: list[ImportProblemOut]
+    problems: list[AssetImportProblemOut]
     failure: str | None
     failure_detail: str | None
     created_at: datetime
@@ -379,7 +379,7 @@ class AssetImportOut(BaseModel):
         return cls.model_validate(row, from_attributes=True)
 
 
-class ImportTarget(BaseModel):
+class AssetImportTarget(BaseModel):
     """The Idempotency-Key fingerprint of an upload."""
 
     name: str
@@ -421,7 +421,7 @@ async def start_import(  # noqa: PLR0913 - the upload's facts, explicit
         if len(content) > sheets.MAX_FILE_BYTES:
             raise ValidationFailed(code="asset_import_file_too_large", params=imports.FORMAT_WORDS)
     note.skip = True
-    target = ImportTarget(
+    target = AssetImportTarget(
         name=name, kind=kind, mode=mode, match_on=match_on, dry_run=dry_run, size=len(content)
     )
 
