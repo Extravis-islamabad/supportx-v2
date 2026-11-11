@@ -171,6 +171,38 @@ describe('console: a change’s schedule (WP-045c S2)', () => {
     );
   });
 
+  it('ADR-042 addendum A: an overlap with a release says release; an old payload says change', async () => {
+    const overlap = (id: string, recordType?: string) => ({
+      kind: 'overlap',
+      starts_at: '2027-03-06T22:00:00Z',
+      ends_at: '2027-03-07T02:00:00Z',
+      blocks: false,
+      window_id: null,
+      window_name: null,
+      window_labels: null,
+      record_id: id,
+      ...(recordType === undefined ? {} : { record_type: recordType }),
+    });
+    api({
+      [`GET /api/v1/changes/${CHG_ID}/conflicts`]: {
+        body: {
+          items: [
+            overlap('01a1a2b3-0000-7000-8000-00000058b201', 'release'),
+            overlap('01a1a2b3-0000-7000-8000-00000058b202'),
+          ],
+          passed_window_ids: [],
+        },
+      },
+    });
+    await openSchedule();
+    const panel = await screen.findByTestId('change-conflicts');
+    const [release, change] = within(panel).getAllByTestId('conflict-overlap');
+    expect(release?.textContent).toContain('At the same time as another release');
+    expect(release?.textContent).toContain('Another release');
+    expect(change?.textContent).toContain('At the same time as another change');
+    expect(change?.textContent).toContain('Another change');
+  });
+
   it('a window in a blocking freeze is refused, and without the override it only says why', async () => {
     api({ [`PATCH /api/v1/changes/${CHG_ID}/schedule/implementation`]: blocked });
     await openSchedule();

@@ -330,6 +330,13 @@ export const SCREENS: Screen[] = [
     app: 'console',
     state: { name: 'changes', open: tab('changes') }, // WP-058b S1: the changes in it
   },
+  {
+    // WP-058b S2: the Schedule tab, where a release's conflicts, acks and override live.
+    key: 'release-schedule',
+    path: (r) => (r.release ? `/releases/${r.release}` : undefined),
+    app: 'console',
+    state: { name: 'schedule', open: tab('schedule') },
+  },
   { key: 'request-new', path: '/requests/new', app: 'console' },
   { key: 'announcement-new', path: '/announcements/new', app: 'console' },
   {
