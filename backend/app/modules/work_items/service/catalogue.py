@@ -169,6 +169,7 @@ class Catalogue:
     portal_show_due_time: bool  # WP-028 D5: requesters see the expected resolution time
     review_required_priorities: tuple[str, ...]  # WP-044b s4: problems needing a review
     segregation_strict: bool  # WP-045b S3: changes, implementing groups barred too
+    outside_maintenance_blocks: bool  # D-156: changes outside every maintenance window blocked
     cab_every_match: bool  # WP-045b S3: changes go to every matching board
     reapproval: Mapping[str, Any] | None  # WP-045b S4: the stored policy (None: shipped)
     lifecycle: Lifecycle  # the standard one; a record follows `lifecycle_of(record.lifecycle)`
@@ -720,6 +721,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         portal_show_due_time=settings.portal_show_due_time,
         review_required_priorities=tuple(settings.review_required_priorities),
         segregation_strict=settings.segregation_strict,
+        outside_maintenance_blocks=settings.outside_maintenance_blocks,
         cab_every_match=settings.cab_every_match,
         reapproval=settings.reapproval,
         first_response_on=tuple(settings.first_response_on),

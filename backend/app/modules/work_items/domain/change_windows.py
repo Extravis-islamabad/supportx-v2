@@ -202,8 +202,13 @@ def conflicts(  # noqa: PLR0913 - the change's times, place and the world it mee
     windows: Iterable[Window],
     others: Iterable[Planned] = (),
     record_id: uuid.UUID | None = None,
+    outside_blocks: bool = False,
 ) -> list[Conflict]:
-    """Every conflict of the change's planned times, in time order (none for no times)."""
+    """Every conflict of the change's planned times, in time order (none for no times).
+
+    `outside_blocks`: the tenant's setting that being outside every maintenance window blocks,
+    whatever the windows' own mode (D-156; off: each window's mode decides, warn by default).
+    """
     found: list[Conflict] = []
     in_scope = [w for w in windows if w.scope.covers(site_id, group_id)]
     freezes = [w for w in in_scope if w.kind is WindowKind.FREEZE]
@@ -215,7 +220,7 @@ def conflicts(  # noqa: PLR0913 - the change's times, place and the world it mee
             if w.occurrences(start, end)
         )
         if maintenance and not any(w.contains(start, end) for w in maintenance):
-            blocks = any(w.mode is WindowMode.BLOCK for w in maintenance)
+            blocks = outside_blocks or any(w.mode is WindowMode.BLOCK for w in maintenance)
             found.append(Conflict(ConflictKind.OUTSIDE_MAINTENANCE, start, end, blocks))
         for o in others:
             if o.record_id == record_id or not overlaps(start, end, o.starts_at, o.ends_at):

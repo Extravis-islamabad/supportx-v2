@@ -396,3 +396,62 @@ async def test_d156_an_old_client_s_weekly_flag_still_makes_a_weekly_window(worl
         world, world.a, name="Old client", ends_at=_iso(SOON + 2 * H), repeat_weekly=True
     )
     assert (made["repeat"], made["repeat_weekly"]) == ("weekly", True)
+
+
+async def test_d156_the_tenant_can_make_outside_maintenance_block(world: World) -> None:
+    """D-156: off by default (warn); on, a change outside every maintenance window is refused;
+    the switch is audited and only changes have it."""
+    b = world.b  # its own tenant, so the switch never reaches the other tests
+    sunday = SOON + timedelta(days=6, hours=1)
+    await a_window(
+        world,
+        b,
+        kind="maintenance",
+        name="Sunday night",
+        group_ids=[str(b.gb)],
+        starts_at=_iso(sunday),
+        ends_at=_iso(sunday + 4 * H),
+        repeat="weekly",
+    )
+    change = await new_change(world, b, b.admin, group_id=str(b.gb))
+    assert change.status_code == 201, change.text
+    item = change.json()
+    tuesday = SOON + timedelta(days=8, hours=10)
+    warned = await schedule(world, b, item, tuesday, tuesday + H)
+    assert warned.status_code == 200, warned.text  # the default: a warning, not a refusal
+
+    async def switch(path: str, on: bool) -> int:
+        current = (await world.call("GET", f"{path}/settings", b, b.admin)).json()
+        changed = await world.call(
+            "PATCH",
+            f"{path}/settings",
+            b,
+            b.admin,
+            json={"outside_maintenance_blocks": on},
+            headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+        )
+        return changed.status_code
+
+    assert await switch("/incidents", on=True) == 422  # changes only
+    assert await switch(CHG, on=True) == 200
+    try:
+        refused = await schedule(world, b, item, tuesday + timedelta(weeks=1), tuesday + 9 * 24 * H)
+        assert problem(refused) == (409, "change_window_blocked"), refused.text
+        inside = await schedule(
+            world,
+            b,
+            item,
+            sunday + timedelta(weeks=2, hours=1),
+            sunday + timedelta(weeks=2, hours=2),
+        )
+        assert inside.status_code == 200, inside.text
+        async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+            logged = await session.scalar(
+                text(
+                    "SELECT count(*) FROM audit_entries WHERE action = 'change.settings_changed' "
+                    "AND details::text LIKE '%outside_maintenance_blocks%'"
+                )
+            )
+        assert logged == 1
+    finally:
+        assert await switch(CHG, on=False) == 200

@@ -30,6 +30,7 @@ from app.modules.work_items.infra.models import (
     WorkItemChangeDetails,
     WorkItemDowntime,
     WorkItemStageSchedule,
+    WorkItemTypeSettings,
 )
 
 CHANGE = WorkItemTypeCode.CHANGE.value
@@ -47,6 +48,16 @@ async def tenant_zone(session: AsyncSession) -> tzinfo:
         return ZoneInfo(name)
     except (ZoneInfoNotFoundError, ValueError):  # checked when saved; never fail a check
         return UTC
+
+
+async def outside_maintenance_blocks(session: AsyncSession) -> bool:
+    """The tenant's D-156 setting: outside every maintenance window blocks a change."""
+    found = await session.scalar(
+        select(WorkItemTypeSettings.outside_maintenance_blocks).where(
+            WorkItemTypeSettings.type == CHANGE
+        )
+    )
+    return bool(found)
 
 
 def window_of(row: ChangeWindow, zone: tzinfo = UTC) -> model.Window:
@@ -214,6 +225,7 @@ async def conflicts(
         windows=[window_of(r, zone) for r in rows],
         others=await _others(session, record, start, end),
         record_id=record.id,
+        outside_blocks=await outside_maintenance_blocks(session),
     )
     return found, {r.id: r for r in rows}
 
