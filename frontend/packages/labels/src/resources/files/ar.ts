@@ -66,6 +66,8 @@ export const ar: LabelResource = {
   'files.admin.waiting_other': '{{count}} ملف بانتظار الفحص',
   'files.admin.waiting_two': 'ملفان بانتظار الفحص',
   'files.admin.waiting_zero': 'لا ملفات بانتظار الفحص',
+  'files.archive.manifest_heading': 'لم تُضمَّن هذه الملفات في التنزيل:',
+  'files.archive.reason.not_found': 'غير موجود أو غير مرئي لك',
   'files.attach_to_entry': 'ملفات',
   'files.banner.open': 'فتح إعدادات الملفات',
   'files.banner.title': 'فحص الملفات يحتاج إلى انتباه',

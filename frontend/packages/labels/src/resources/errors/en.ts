@@ -43,6 +43,9 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.archive_busy': 'You already have two downloads running. Try again in a minute.',
+  'errors.archive_too_large': 'These files come to more than {{max_mb}} MB. Pick fewer files.',
+  'errors.archive_too_many_files': 'You can download up to {{max}} files at once.',
   'errors.asset_acknowledgement_answered': 'You have already answered this one.',
   'errors.asset_acknowledgement_not_found':
     "That acknowledgement isn't yours, or no longer exists.",

@@ -48,6 +48,8 @@ export const en = {
   'files.admin.used_unlimited': '{{used}} used (no limit)',
   'files.admin.waiting_one': '{{count}} waiting to be checked',
   'files.admin.waiting_other': '{{count}} waiting to be checked',
+  'files.archive.manifest_heading': 'These files were left out of the download:',
+  'files.archive.reason.not_found': 'Not found, or not visible to you',
   'files.attach_to_entry': 'Files',
   'files.banner.open': 'Open file settings',
   'files.banner.title': 'File scanning needs attention',

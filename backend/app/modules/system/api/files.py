@@ -12,6 +12,7 @@
 """
 
 import uuid
+from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import quote
@@ -22,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import Database, TenantSession, get_database
-from app.core.errors import ProblemDetail, ValidationFailed
+from app.core.errors import ProblemDetail, RateLimited, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.audit import AuditNote, audited
 from app.modules.system.service.files import api_services
@@ -34,8 +35,9 @@ from app.shared.files.domain.tokens import Disposition
 from app.shared.files.domain.types import Kind, Sniffed, inline_allowed
 from app.shared.files.infra.models import FileLink, StoredFile
 from app.shared.files.ports import Action, Actor, OwnerType
-from app.shared.files.service import access, admin, scanning, uploads
+from app.shared.files.service import access, admin, archive, archive_slots, scanning, uploads
 from app.shared.files.service.core import FileServices, rules
+from app.shared.labels import label
 
 MANAGE = "files.manage"
 SignedIn = Annotated[Any, Depends(require_signed_in())]
@@ -209,6 +211,92 @@ async def record_files(
     """Every file on a record, its replies and notes that you may see."""
     found = await access.for_record(session, subject, record_type, record_id)
     return [_out(item.file, item.link, files) for item in found]
+
+
+def _reason_key(code: str) -> str:
+    """The label of why a file was left out: its state (`file_state.<state>`) or not found."""
+    return code if code.startswith("file_state.") else f"files.archive.reason.{code}"
+
+
+class ArchiveIn(BaseModel):
+    """The files to download together (REQ-INC-080 AC2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    file_ids: list[uuid.UUID] = Field(min_length=1, max_length=archive.MAX_FILES)
+    # The reader's language for the manifest's words (as report exports take it).
+    language: Literal["en", "ar", "ur"] = "en"
+
+
+@router.post(
+    "/records/{record_type}/{record_id}/archive",
+    response_class=StreamingResponse,
+    dependencies=[Depends(rate_limit("files_archive"))],
+    responses={429: {"model": ProblemDetail, "description": "Two downloads are running."}},
+)
+async def record_archive(  # noqa: PLR0913 - the record, the files and the context, explicit
+    *,
+    record_type: str,
+    record_id: uuid.UUID,
+    body: ArchiveIn,
+    session: TenantSession,
+    subject: SignedIn,
+    files: Files,
+    request: Request,
+    note: Annotated[AuditNote, audited("file.archive_downloaded", object_type="record")],
+) -> StreamingResponse:
+    """Picked files of one record as a zip (WP-046a S2, lane B's rules).
+
+    The record must be yours to see (else 404). Each file is checked again; ones you may not see,
+    not this record's, or not clean are left out and listed by ID in `manifest.txt`. At most 200
+    files and 500 MB; at most two downloads of yours at once (429 with Retry-After). Everything
+    is checked and audited before the first byte, and no database connection is held while the
+    zip streams. A file that fails mid-stream aborts the download, never a cut archive.
+    """
+    settings = request.app.state.settings
+    token = await archive_slots.take(settings, subject.tenant_id, subject.user_id)
+    if token is None:
+        raise RateLimited(
+            code="archive_busy", params={"retry_after_seconds": 60}, headers={"Retry-After": "60"}
+        )
+    try:
+        plan = await archive.plan_archive(
+            session, files, subject, record_type, record_id, body.file_ids
+        )
+    except BaseException:
+        await archive_slots.give_back(settings, subject.tenant_id, subject.user_id, token)
+        raise
+    note.object_id = str(record_id)
+    note.details = {
+        "record_type": record_type,
+        "count": len(plan.entries),
+        "file_ids": [str(e.file_id) for e in plan.entries],
+        "left_out": len(plan.left_out),
+    }
+    storage, _keyring = files.require_storage()
+    heading = label("files.archive.manifest_heading", body.language)
+    plan = archive.ArchivePlan(
+        plan.entries,
+        [(file_id, label(_reason_key(code), body.language)) for file_id, code in plan.left_out],
+    )
+
+    async def body_stream() -> AsyncIterator[bytes]:
+        try:
+            async for piece in archive.stream_archive(storage, plan, heading):
+                yield piece
+        finally:
+            await archive_slots.give_back(settings, subject.tenant_id, subject.user_id, token)
+
+    name = f"{record_type}-files.zip"
+    return StreamingResponse(
+        body_stream(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": _content_disposition(Disposition.ATTACHMENT, name),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/{file_id}")

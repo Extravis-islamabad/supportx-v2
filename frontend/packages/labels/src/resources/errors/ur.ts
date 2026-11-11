@@ -45,6 +45,10 @@ export const ur: LabelResource = {
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_pending': '{{display_id}} پہلے ہی منظوری کا منتظر ہے۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
+  'errors.archive_busy': 'آپ کے دو ڈاؤن لوڈ پہلے سے چل رہے ہیں۔ ایک منٹ بعد دوبارہ کوشش کریں۔',
+  'errors.archive_too_large': 'ان فائلوں کا حجم {{max_mb}} MB سے زیادہ ہے۔ کم فائلیں منتخب کریں۔',
+  'errors.archive_too_many_files':
+    'آپ ایک وقت میں زیادہ سے زیادہ {{max}} فائلیں ڈاؤن لوڈ کر سکتے ہیں۔',
   'errors.asset_acknowledgement_answered': 'آپ اس کا جواب پہلے ہی دے چکے ہیں۔',
   'errors.asset_acknowledgement_not_found': 'یہ تصدیق آپ کی نہیں، یا اب موجود نہیں۔',
   'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',

@@ -50,6 +50,8 @@ export const ur: LabelResource = {
   'files.admin.used_unlimited': '{{used}} استعمال (کوئی حد نہیں)',
   'files.admin.waiting_one': '{{count}} جانچ کی منتظر',
   'files.admin.waiting_other': '{{count}} جانچ کے منتظر',
+  'files.archive.manifest_heading': 'یہ فائلیں ڈاؤن لوڈ میں شامل نہیں کی گئیں:',
+  'files.archive.reason.not_found': 'نہیں ملی، یا آپ کو نظر نہیں آتی',
   'files.attach_to_entry': 'فائلیں',
   'files.banner.open': 'فائل کی ترتیبات کھولیں',
   'files.banner.title': 'فائل اسکیننگ پر توجہ درکار ہے',
