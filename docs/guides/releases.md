@@ -92,6 +92,27 @@ re-approval warning. The change calendar has **Show releases** the same way.
 calendar on its deployment window, marks the release, and shows its own changes. Turn off
 *Only its changes* to see every change.
 
+## Freezes and conflicts
+
+A release's **deployment window** and its **planned downtime** are checked against the freeze and
+maintenance windows (Admin › Change and release windows), as a change's implementation is.
+- **A blocking freeze** refuses the move, on every path, naming the freeze. Someone holding
+  *Let a release go ahead in a freeze* (the release manager and administrators) can pass it with
+  a reason: on the release's Schedule tab, or right away when a calendar move is refused. Only the
+  freezes named are passed; a freeze added later still blocks. The reason is kept in the release's
+  history and the audit log.
+- **Outside every maintenance window** a release is warned, never refused (the change setting that
+  blocks it applies to changes only).
+- **Overlaps:** another change or release planned at the same time in the same group or site, or
+  whose planned downtime names the same service or configuration item. They are named by number
+  and type only; open them to see more if you may.
+- **Booked twice:** the release manager or engineer is on another deployment at the same time.
+
+The Schedule tab lists the conflicts as they are now and updates live. A warning can be
+**acknowledged** with a reason: it stays listed, marked with who and why. If either side moves, the
+conflict is shown again as new. A block is never acknowledged. Calendar chips show how many
+conflicts each planned window has.
+
 ## Plan, schedule, downtime and sub-releases
 
 - **Plan:**

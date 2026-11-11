@@ -40,11 +40,12 @@ function useRefresh(path: StagedPath) {
 }
 
 /** The type's configuration: statuses, closure codes and its own lists. */
-export function useStagedSettings(path: StagedPath) {
+export function useStagedSettings(path: StagedPath, enabled = true) {
   return useQuery({
     queryKey: stagedKeys(path).settings,
     queryFn: () => call(api.GET(at(path, '/api/v1/releases/settings'))),
     staleTime: 60_000,
+    enabled,
   });
 }
 

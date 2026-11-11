@@ -10,16 +10,18 @@ Pure Python, no I/O (architecture.md §6.3). Parity 07 §9:
   way: no float ever touches them, so 1,000 lines add up to the cent (AC3). Everything is in
   the tenant's base currency; nothing is converted (an asset bought in another currency is
   shown as such, never converted).
-- **Depreciation (REQ-AST-037):** straight line, declining balance (150 %), double declining
-  balance (200 %) and the sum of the years' digits, or none. The yearly amounts are worked out
+- **Depreciation (REQ-AST-037, D-157):** straight line (the default), declining balance (the
+  straight-line rate times the product type's factor, 2 unless the type says otherwise), double
+  declining balance (always 200 %, kept for the assets that chose it) and the sum of the years'
+  digits, or none. The yearly amounts are worked out
   to the cent, the last year taking what rounding left over, so the book value ends exactly at
   the salvage value. The declining methods switch to straight line once that writes off more
   (the usual rule, so the salvage value is reached at the end of the useful life). Within a year
   the amount is spread evenly by month: a month counts once its day of the month is reached
   (or the month's last day, for a shorter month).
 - **Settings (AC2):** the asset's own method, life and salvage value win; whatever it leaves
-  empty comes from its product. `none` on the asset means no depreciation, whatever the product
-  says.
+  empty comes from its product, and a method neither names is straight line (D-157). `none` on
+  the asset means no depreciation, whatever the product says.
 """
 
 import calendar
@@ -37,11 +39,14 @@ LIFE_MAX = 100  # years
 COST_DESCRIPTION_MAX = 500
 COST_CENTRE_MAX = 60
 GL_CODE_MAX = 40  # as on products (asset_products.gl_code)
-# Declining balance: the straight-line rate times this factor (the usual 150 % and 200 %).
-FACTORS = {
-    AssetDepreciationMethod.DECLINING_BALANCE: Decimal("1.5"),
-    AssetDepreciationMethod.DOUBLE_DECLINING_BALANCE: Decimal(2),
-}
+# Declining balance: the straight-line rate times the product type's factor (D-157: 2 unless the
+# type sets one, between 0 and 10). Double declining balance stays a fixed 200 %, so an asset
+# that chose it keeps its figures whatever its type's factor.
+DEFAULT_FACTOR = Decimal(2)
+FACTOR_MAX = Decimal(10)
+DOUBLE_FACTOR = Decimal(2)
+# Neither the asset nor its product names a method: straight line (D-157).
+DEFAULT_METHOD = AssetDepreciationMethod.STRAIGHT_LINE
 
 
 class DepreciationChoice(StrEnum):
@@ -72,6 +77,7 @@ class TermsSource(StrEnum):
 
     ASSET = "asset"
     PRODUCT = "product"
+    DEFAULT = "default"  # D-157: the method neither names (straight line)
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +110,7 @@ class Terms:
     starts_on: date | None
     life_years: int | None
     salvage: Decimal = ZERO
+    factor: Decimal = DEFAULT_FACTOR  # declining balance's, from the product type (D-157)
 
     @property
     def depreciates(self) -> bool:
@@ -155,6 +162,8 @@ def resolve(  # noqa: PLR0913 - the asset's three settings and the product's thr
         return None, None
 
     method, method_from = pick(asset_method, product_method)
+    if method is None:
+        method, method_from = DEFAULT_METHOD.value, TermsSource.DEFAULT
     life, life_from = pick(asset_life, product_life)
     salvage, salvage_from = pick(asset_salvage, product_salvage)
     return ResolvedTerms(
@@ -186,7 +195,8 @@ def yearly_amounts(terms: Terms) -> list[Decimal]:
         digits = life * (life + 1) // 2
         amounts = [_cents(base * (life - year) / digits) for year in range(life)]
     else:
-        rate = FACTORS[terms.method] / life
+        double = terms.method == AssetDepreciationMethod.DOUBLE_DECLINING_BALANCE
+        rate = (DOUBLE_FACTOR if double else terms.factor) / life
         book = terms.cost
         for year in range(life):
             remaining = book - terms.salvage
@@ -279,6 +289,15 @@ def terms_problems(
     if salvage is not None and cost is not None and salvage > cost and not problems:
         problems.append(Problem("salvage_value", "asset_salvage_above_cost"))
     return problems
+
+
+def factor_problems(factor: Decimal | None) -> list[Problem]:
+    """A declining balance factor: more than 0, at most 10, two decimals (D-157)."""
+    if factor is None:
+        return [Problem("depreciation_factor", "required")]
+    if not ZERO < factor <= FACTOR_MAX or factor != factor.quantize(CENT):
+        return [Problem("depreciation_factor", "out_of_range", (("min", 0), ("max", 10)))]
+    return []
 
 
 def cost_line_problems(amount: Decimal | None, description: str | None) -> list[Problem]:

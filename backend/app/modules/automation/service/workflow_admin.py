@@ -34,10 +34,12 @@ from app.modules.automation.domain.workflows import (
     NodeType,
     Problem,
     TypeFacts,
+    masked,
     offered,
     parse,
     sub_flows,
     validate,
+    with_kept_secrets,
 )
 from app.modules.automation.events import WorkflowChanged, WorkflowDeleted
 from app.modules.automation.infra.models import Workflow, WorkflowInstance, WorkflowVersion
@@ -98,6 +100,8 @@ class NodeTypeOffer:
     why_not: str | None
     outputs: tuple[str, ...]
     optional: frozenset[str]
+    # An approval's choice of the record's roles, for its settings form (QA F-05: no JSON).
+    roles: tuple[str, ...] = ()
 
 
 async def node_types(session: AsyncSession, record_type: str) -> list[NodeTypeOffer]:
@@ -116,6 +120,7 @@ async def node_types(session: AsyncSession, record_type: str) -> list[NodeTypeOf
                 why_not=None if available or need is None else need[1],
                 outputs=spec.outputs({}),
                 optional=spec.optional({}),
+                roles=tuple(sorted(facts.roles)) if node_type == NodeType.APPROVAL else (),
             )
         )
     return found
@@ -275,6 +280,8 @@ async def save_draft(
     """The draft saves whatever its problems; they come back to be shown on the canvas."""
     workflow = await _get(session, workflow_id)
     _stale(workflow, expected_version)
+    # The designer only ever saw header values masked: the ones sent back masked stay as stored.
+    definition = with_kept_secrets(definition, workflow.draft)
     problems = await problems_of(session, workflow.record_type, definition, workflow.id)
     workflow.draft = dict(definition)
     workflow.draft_problems = len(problems)
@@ -431,7 +438,8 @@ async def export_workflow(session: AsyncSession, workflow_id: uuid.UUID) -> dict
         "record_type": workflow.record_type,
         "name": workflow.name,
         "description": workflow.description,
-        "definition": copy.deepcopy(workflow.draft),
+        # Header values never leave in a file: an import asks for them again (#406).
+        "definition": masked(workflow.draft),
         "start_templates": [str(t) for t in workflow.start_templates],
     }
 

@@ -70,6 +70,8 @@ export const ur: LabelResource = {
   'errors.asset_disposal_not_found': 'اس اثاثے کا کوئی تلفی ریکارڈ نہیں۔',
   'errors.asset_disposed_read_only':
     'یہ اثاثہ تلف ہو چکا ہے، اس لیے صرف پڑھا جا سکتا ہے۔ اسے بدلنے کے لیے تلف شدہ اثاثے بدلنے کی اجازت درکار ہے۔',
+  'errors.asset_field_not_allowed':
+    'اپنے ٹکٹ کے ذریعے آپ اس اثاثے کی صرف حالت، مقام، نوٹس اور لگے ہوئے پرزے بدل سکتے ہیں۔ باقی کسی چیز کے لیے اثاثہ مینیجر سے کہیں۔',
   'errors.asset_group_dynamic':
     'متحرک گروپ کے اراکین اس کے فلٹر سے آتے ہیں؛ اس کی بجائے فلٹر بدلیں۔',
   'errors.asset_group_name_taken': 'کسی اور گروپ کا یہی نام ہے۔',
@@ -92,10 +94,14 @@ export const ur: LabelResource = {
   'errors.asset_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.asset_loan_not_found': 'یہ ادھار بند ہو چکا ہے یا اب موجود نہیں۔',
   'errors.asset_move_not_allowed': 'یہ اثاثہ اپنی موجودہ حالت سے اس حالت میں نہیں جا سکتا۔',
+  'errors.asset_move_not_allowed_through_ticket':
+    'اثاثے کو ریٹائر یا تلف کرنا ٹکٹ کے ذریعے نہیں ہوتا۔ اثاثہ مینیجر سے کہیں۔',
   'errors.asset_no_default_state':
     'اثاثے کو منتقل کرنے کے لیے کوئی طے شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
   'errors.asset_no_disposed_state':
     'اثاثے کو منتقل کرنے کے لیے کوئی تلف شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
+  'errors.asset_not_a_component':
+    'اپنے ٹکٹ کے ذریعے صرف وہ پرزہ لگایا جا سکتا ہے جو کسی کے پاس نہ ہو۔ پورا اثاثہ دینے کے لیے اثاثہ مینیجر سے کہیں۔',
   'errors.asset_not_bookable':
     '{{asset}} بُک نہیں ہو سکتا: صرف ادھار کے قابل اثاثے جو ریٹائر یا تلف نہ ہوں۔',
   'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
@@ -162,7 +168,7 @@ export const ur: LabelResource = {
   'errors.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
   'errors.change_window_blocked':
-    'ایک فریز اس وقت کو روکتا ہے۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ تبدیلی کو آگے بڑھنے دے سکتا ہے۔',
+    'ایک فریز اس وقت کو روکتا ہے۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.command_in_flight':
@@ -329,6 +335,9 @@ export const ur: LabelResource = {
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
   'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
+  'errors.field.conflict_blocks':
+    'روکنے والا ٹکراؤ تسلیم نہیں کیا جا سکتا۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
+  'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
   'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
   'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
   'errors.field.dashboard_not_shared':
@@ -543,6 +552,8 @@ export const ur: LabelResource = {
   'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
   'errors.field.review_date_past': 'آج یا بعد کی تاریخ منتخب کریں۔',
   'errors.field.role_disabled': 'یہ کردار ختم کیا جا چکا ہے: کسی نئے کو نہیں دیا جا سکتا۔',
+  'errors.field.role_held_by_record':
+    'یہ کردار ریکارڈ کے اپنے فیلڈ سے آتا ہے۔ اسے تفصیلات کے پینل میں بدلیں۔',
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',
@@ -786,6 +797,8 @@ export const ur: LabelResource = {
   'errors.link_has_own_route':
     'یہ لنک اپنی جگہ سے ہٹایا جاتا ہے: واقعے کو الگ کریں، یا ضم کرنا واپس لیں۔',
   'errors.link_not_found': 'یہ ربط موجود نہیں، یا ہٹا دیا گیا۔',
+  'errors.linked_records_not_available': 'منسلک ریکارڈ ابھی دستیاب نہیں۔',
+  'errors.list_not_found': 'یہ فہرست ترتیبات محفوظ نہیں کرتی۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
@@ -918,6 +931,7 @@ export const ur: LabelResource = {
   'errors.rule_refused': '{{message_ur}}',
   'errors.saved_search_limit': 'آپ محفوظ تلاشوں کی حد تک پہنچ گئے ہیں۔ پہلے ایک حذف کریں۔',
   'errors.saved_search_not_found': 'یہ محفوظ تلاش موجود نہیں ہے۔',
+  'errors.saved_view_not_found': 'یہ محفوظ منظر اب موجود نہیں، یا یہ آپ کا نہیں۔',
   'errors.scale_value_not_found': 'یہ قدر موجود نہیں۔',
   'errors.server_busy': 'میل سرور مصروف تھا۔',
   'errors.service_category_in_use':

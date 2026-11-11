@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
@@ -25,10 +26,20 @@ from app.modules.assets.domain.financials import (
     LIFE_MAX,
     DepreciationChoice,
 )
-from app.modules.assets.infra.models import Asset, AssetAssignment, AssetDisposal
+from app.modules.assets.domain.views import AssetView
+from app.modules.assets.infra.models import Asset, AssetAssignment, AssetDisposal, AssetProduct
 from app.modules.assets.service import assets as service
-from app.modules.assets.service import bulk, disposals, moves, ownership, relationships
+from app.modules.assets.service import (
+    bulk,
+    disposals,
+    linked,
+    moves,
+    ownership,
+    relationships,
+    views,
+)
 from app.modules.assets.service.catalogue import TEXT_MAX
+from app.modules.assets.service.refs import asset_refs
 from app.modules.audit import RequestFacts, audited
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import Subject, user_names
@@ -66,7 +77,10 @@ AssetsQuery = Annotated[
     ListQuery,
     Depends(
         list_query(
-            service.ASSET_FIELDS, extra_parameters=frozenset({"search"}), fields_for=_custom_filters
+            service.ASSET_FIELDS,
+            # WP-049b s4a: the built-in view and the product type tree node (REQ-AST-047).
+            extra_parameters=frozenset({"search", "view", "product_type"}),
+            fields_for=_custom_filters,
         )
     ),
 ]
@@ -93,9 +107,11 @@ class AssetOut(BaseModel):
     parent_asset_id: uuid.UUID | None = Field(default=None, description="Fitted to this asset.")
     location: str | None
     purchase_order_id: uuid.UUID | None
-    purchase_price: Decimal | None
-    purchase_tax: Decimal | None
-    purchase_total: Decimal | None = Field(description="Price plus tax (D-141), worked out.")
+    purchase_price: Decimal | None = Field(description="Null without assets.view_financials.")
+    purchase_tax: Decimal | None = Field(description="Null without assets.view_financials.")
+    purchase_total: Decimal | None = Field(
+        description="Price plus tax (D-141), worked out. Null without assets.view_financials."
+    )
     currency: str | None
     acquired_on: date | None
     warranty_expires_on: date | None
@@ -110,8 +126,9 @@ class AssetOut(BaseModel):
     version: int
 
     @classmethod
-    def of(cls, row: Asset) -> "AssetOut":
-        """From the row."""
+    def of(cls, row: Asset, subject: Subject) -> "AssetOut":
+        """From the row; the money (price, tax, total) null for those who may not see it."""
+        money = service.sees_money(subject)
         return cls(
             id=row.id,
             name=row.name,
@@ -129,9 +146,9 @@ class AssetOut(BaseModel):
             parent_asset_id=row.parent_asset_id,
             location=row.location,
             purchase_order_id=row.purchase_order_id,
-            purchase_price=row.purchase_price,
-            purchase_tax=row.purchase_tax,
-            purchase_total=service.purchase_total(row),
+            purchase_price=row.purchase_price if money else None,
+            purchase_tax=row.purchase_tax if money else None,
+            purchase_total=service.purchase_total(row) if money else None,
             currency=row.currency,
             acquired_on=row.acquired_on,
             warranty_expires_on=row.warranty_expires_on,
@@ -222,6 +239,10 @@ class AssetChangeOut(BaseModel):
     field: str
     old: Any = None
     new: Any = None
+    hidden: bool = Field(
+        default=False,
+        description="Money without assets.view_financials (D-157): the line stays, values null.",
+    )
 
 
 class AssetChangeOriginOut(BaseModel):
@@ -298,35 +319,101 @@ Search = Annotated[
 ]
 
 
-async def _page(
-    session: AsyncSession, query: ListQuery, subject: Subject, search: str | None, *, trash: bool
-) -> Page[AssetOut]:
-    statement = service.staff_rows(subject, trash=trash)
+ViewParam = Annotated[
+    AssetView | None,
+    Query(description="A built-in view (REQ-AST-047); none: all you may see."),
+]
+TypeParam = Annotated[
+    uuid.UUID | None,
+    Query(description="A product type: that type and every type below it (the tree)."),
+]
+
+
+class AssetListPage(Page[AssetOut]):
+    """A page of assets with the names its columns show (REQ-AST-047's default columns).
+
+    Holders by display name, parent assets by tag or name (one the caller may not see is left
+    out), products by name. Departments and sites come from the organisation's own lists.
+    """
+
+    people: dict[str, str] = Field(default_factory=dict, description="Holder ID -> name.")
+    parents: dict[str, str] = Field(default_factory=dict, description="Parent ID -> tag/name.")
+    products: dict[str, str] = Field(default_factory=dict, description="Product ID -> name.")
+
+
+async def _names(
+    session: AsyncSession, subject: Subject, rows: list[Asset]
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    people = await user_names(
+        session, sorted({str(r.owner_user_id) for r in rows if r.owner_user_id})
+    )
+    parent_ids = sorted({r.parent_asset_id for r in rows if r.parent_asset_id})
+    refs = await asset_refs(session, subject, parent_ids)
+    parents = {str(k): (v.tag or v.name or "") for k, v in refs.items() if v.name is not None}
+    product_ids = sorted({r.product_id for r in rows})
+    products = (
+        {
+            str(i): n
+            for i, n in await session.execute(
+                select(AssetProduct.id, AssetProduct.name).where(AssetProduct.id.in_(product_ids))
+            )
+        }
+        if product_ids
+        else {}
+    )
+    return people, parents, products
+
+
+async def _page(  # noqa: PLR0913 - the list's parts, explicit
+    session: AsyncSession,
+    query: ListQuery,
+    subject: Subject,
+    search: str | None,
+    *,
+    trash: bool,
+    view: AssetView | None = None,
+    product_type: uuid.UUID | None = None,
+) -> AssetListPage:
+    statement = await views.rows(
+        session, subject, view=view, product_type=product_type, trash=trash
+    )
     search = (search or "").strip()
     if search:
         words = await ENGINE.match(session, TEXT, search)
         if words is None:
-            return Page[AssetOut](items=[], next_cursor=None, has_more=False, estimated_total=0)
+            return AssetListPage(items=[], next_cursor=None, has_more=False, estimated_total=0)
         statement = statement.where(words.predicate)
     page = await paginate(session, statement, query)
-    return Page[AssetOut](
-        items=[AssetOut.of(row) for row in page.rows],
+    people, parents, products = await _names(session, subject, list(page.rows))
+    return AssetListPage(
+        items=[AssetOut.of(row, subject) for row in page.rows],
         next_cursor=page.next_cursor,
         has_more=page.has_more,
         estimated_total=page.estimated_total,
+        people=people,
+        parents=parents,
+        products=products,
     )
 
 
 @router.get("", summary="Assets")
-async def list_assets(
-    session: TenantSession, query: AssetsQuery, subject: View, search: Search = None
-) -> Page[AssetOut]:
+async def list_assets(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and filters
+    session: TenantSession,
+    query: AssetsQuery,
+    subject: View,
+    search: Search = None,
+    view: ViewParam = None,
+    product_type: TypeParam = None,
+) -> AssetListPage:
     """The assets you may see: filtered, searched and paged.
 
     Filters: the DSL, `custom.<key>` included. `search`: name, tag, serials, barcode and custom
-    text. Newest change first unless sorted.
+    text. `view`: a built-in view; `product_type`: a tree node and its descendants. Newest change
+    first unless sorted.
     """
-    return await _page(session, query, subject, search, trash=False)
+    return await _page(
+        session, query, subject, search, trash=False, view=view, product_type=product_type
+    )
 
 
 @router.get("/trash", summary="Assets in the trash")
@@ -334,7 +421,41 @@ async def list_trash(
     session: TenantSession, query: AssetsQuery, subject: Manage, search: Search = None
 ) -> Page[AssetOut]:
     """The trashed assets you may restore."""
-    return await _page(session, query, subject, search, trash=True)
+    page = await _page(session, query, subject, search, trash=True)
+    return Page[AssetOut](
+        items=page.items,
+        next_cursor=page.next_cursor,
+        has_more=page.has_more,
+        estimated_total=page.estimated_total,
+    )
+
+
+class AssetTypeCountOut(BaseModel):
+    """Live assets of one product type (that type only: the screen sums a branch)."""
+
+    product_type_id: uuid.UUID
+    count: int
+
+
+class AssetTypeCountsOut(BaseModel):
+    """The tree's counts within a view, and the view's total."""
+
+    view: AssetView
+    total: int
+    types: list[AssetTypeCountOut]
+
+
+@router.get("/type-counts", summary="Assets per product type, for the tree")
+async def type_counts(
+    session: TenantSession, subject: View, view: ViewParam = None
+) -> AssetTypeCountsOut:
+    """Per product type, the live assets you may see in the view (REQ-AST-047 AC1)."""
+    found = await views.type_counts(session, subject, view=view)
+    return AssetTypeCountsOut(
+        view=view or AssetView.ALL,
+        total=sum(found.values()),
+        types=[AssetTypeCountOut(product_type_id=k, count=v) for k, v in found.items()],
+    )
 
 
 @router.post(
@@ -360,7 +481,7 @@ async def create_asset(
         row = await service.create_asset(
             session, subject, body.model_dump(exclude_none=True), source=source_of(request)
         )
-        return Created(body=AssetOut.of(row), headers={"ETag": f'"{row.version}"'})
+        return Created(body=AssetOut.of(row, subject), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -376,7 +497,30 @@ async def get_asset(
     """One asset you may see."""
     row = await service.get_asset(session, subject, asset_id)
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
+
+
+class AssetAccessOut(BaseModel):
+    """What you may change on this asset (its page shows the matching actions)."""
+
+    manage: bool = Field(description="assets.manage on it: everything your other rights allow.")
+    through_ticket: bool = Field(
+        description="D-157: linked to your own ticket and held by its requester or department:"
+        " its state, location, notes and fitted components only."
+    )
+
+
+@router.get(
+    "/{asset_id}/access",
+    summary="What you may change on an asset",
+    responses={404: {"model": ProblemDetail, "description": "asset_not_found"}},
+)
+async def asset_access(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> AssetAccessOut:
+    """Whether you manage it, or may change a few fields through your own ticket (D-157)."""
+    manage, through_ticket = await service.edit_reach(session, subject, asset_id)
+    return AssetAccessOut(manage=manage, through_ticket=through_ticket)
 
 
 _REQUIRED = {"name", "product_id", "tag"}
@@ -392,7 +536,7 @@ async def patch_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     asset_id: uuid.UUID,
     body: AssetPatch,
     session: TenantSession,
-    subject: Manage,
+    subject: View,  # assets.manage, or a technician's ticket (D-157): the service decides
     version: ExpectedVersion,
     response: Response,
     request: Request,
@@ -410,7 +554,7 @@ async def patch_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         reason=body.reason,
     )
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
 
 
 @router.delete(
@@ -449,7 +593,18 @@ async def restore_asset(
     """Back from the trash; an IT asset needs a free slot again."""
     row = await service.restore_asset(session, subject, asset_id, source=source_of(request))
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
+
+
+def _change_out(field: str, old: Any, new: Any, *, money: bool) -> AssetChangeOut:  # noqa: ANN401 - history keeps JSON values
+    """A history line; a money field's values masked for those who may not see money (D-157).
+
+    Masked rather than dropped: the reader still sees that the price changed, and when and by
+    whom, and the pages keep their size.
+    """
+    if not money and field in service.MONEY_FIELDS:
+        return AssetChangeOut(field=field, hidden=True)
+    return AssetChangeOut(field=field, old=old, new=new)
 
 
 @router.get(
@@ -494,6 +649,7 @@ async def asset_history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and fi
         session, service.RECORD_TYPE, asset_id, before_version=cursor, limit=limit, where=where
     )
     names = await user_names(session, [e.actor_id for e in entries if e.actor_id])
+    money = service.sees_money(subject)
     return AssetHistoryOut(
         items=[
             AssetHistoryEntryOut(
@@ -504,7 +660,7 @@ async def asset_history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and fi
                 source=e.source,
                 reason=e.reason,
                 occurred_at=e.occurred_at,
-                changes=[AssetChangeOut(field=c.field, old=c.old, new=c.new) for c in e.changes],
+                changes=[_change_out(c.field, c.old, c.new, money=money) for c in e.changes],
                 origin=_origin(e.automation_ref),
             )
             for e in entries
@@ -565,7 +721,7 @@ async def move_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     asset_id: uuid.UUID,
     body: AssetMoveIn,
     session: TenantSession,
-    subject: Manage,
+    subject: View,  # assets.manage, or a technician's ticket (D-157): the service decides
     version: ExpectedVersion,
     response: Response,
     request: Request,
@@ -581,7 +737,7 @@ async def move_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
 
 
 class AssetCopyIn(BaseModel):
@@ -623,7 +779,7 @@ async def copy_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         made = await bulk.copy_asset(
             session, subject, asset_id, count=body.count, source=source_of(request)
         )
-        return Created(body=AssetCopiesOut(items=[AssetOut.of(row) for row in made]))
+        return Created(body=AssetCopiesOut(items=[AssetOut.of(row, subject) for row in made]))
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -841,7 +997,7 @@ async def set_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     asset_id: uuid.UUID,
     body: AssetHolderIn,
     session: TenantSession,
-    subject: Manage,
+    subject: View,  # assets.manage, or a technician's ticket (D-157): the service decides
     version: ExpectedVersion,
     response: Response,
     request: Request,
@@ -856,7 +1012,7 @@ async def set_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
 
 
 @router.delete(
@@ -868,7 +1024,7 @@ async def set_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 async def clear_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     asset_id: uuid.UUID,
     session: TenantSession,
-    subject: Manage,
+    subject: View,  # assets.manage, or a technician's ticket (D-157): the service decides
     version: ExpectedVersion,
     response: Response,
     request: Request,
@@ -878,7 +1034,7 @@ async def clear_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, asset_id, None, expected_version=version, source=source_of(request)
     )
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
 
 
 @router.get("/{asset_id}/holdings", summary="Who held an asset, and when")
@@ -936,9 +1092,8 @@ async def add_link(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             session, subject, asset_id, body.to_asset_id, body.kind, source=source_of(request)
         )
         other = await service.get_asset(session, subject, body.to_asset_id)
-        return Created(
-            body=AssetLinkOut(id=link.id, kind=link.kind, outgoing=True, other=AssetOut.of(other))
-        )
+        out = AssetOut.of(other, subject)
+        return Created(body=AssetLinkOut(id=link.id, kind=link.kind, outgoing=True, other=out))
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -953,7 +1108,7 @@ async def asset_links(
             id=link.relationship.id,
             kind=link.relationship.kind,
             outgoing=link.outgoing,
-            other=AssetOut.of(link.other),
+            other=AssetOut.of(link.other, subject),
         )
         for link in await relationships.links_of(session, subject, asset_id)
     ]
@@ -976,3 +1131,84 @@ async def remove_link(
     """Kept, marked removed; history on both assets. 404 unless the link is this asset's."""
     await relationships.remove_link(session, subject, asset_id, link_id, source=source_of(request))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- linked records (WP-049b s4a, REQ-AST-044) ---------------------------------------------------
+
+
+class AssetLinkedKindOut(BaseModel):
+    """One kind's counters: still worked (open, paused, resolved and not closed) and total."""
+
+    kind: str = Field(description="incident, service_request, problem, change or release")
+    still_worked: int
+    total: int
+
+
+class AssetLinkedSummaryOut(BaseModel):
+    """The panel's counters; `available` false while work items offer no links (panel hidden)."""
+
+    available: bool
+    kinds: list[AssetLinkedKindOut]
+
+
+class AssetLinkedRecordOut(BaseModel):
+    """A linked work item the caller may see."""
+
+    id: uuid.UUID
+    kind: str
+    display_id: str
+    subject: str
+    status: str
+    still_worked: bool
+    updated_at: datetime
+
+
+class AssetLinkedPageOut(BaseModel):
+    """One page of one kind's linked records, newest first."""
+
+    items: list[AssetLinkedRecordOut]
+    next_cursor: str | None
+
+
+@router.get("/{asset_id}/linked", summary="Counters of the work items linked to an asset")
+async def linked_summary(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> AssetLinkedSummaryOut:
+    """Per kind, only the records you may see are counted (REQ-AST-044)."""
+    found = await linked.linked_summary(session, subject, asset_id)
+    return AssetLinkedSummaryOut(
+        available=found.available,
+        kinds=[
+            AssetLinkedKindOut(kind=k.kind, still_worked=k.still_worked, total=k.total)
+            for k in found.kinds
+        ],
+    )
+
+
+@router.get(
+    "/{asset_id}/linked/{kind}",
+    summary="The work items of one kind linked to an asset",
+    responses={404: {"model": ProblemDetail, "description": "linked_records_not_available"}},
+)
+async def linked_records(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and paging
+    asset_id: uuid.UUID,
+    kind: str,
+    session: TenantSession,
+    subject: View,
+    cursor: Annotated[str | None, Query(max_length=400)] = None,
+    limit: Annotated[int, Query(ge=1, le=linked.PAGE_MAX)] = linked.PAGE_DEFAULT,
+) -> AssetLinkedPageOut:
+    """Newest first; only the records you may see."""
+    rows, next_cursor = await linked.linked_page(
+        session, subject, asset_id, kind, cursor=cursor, limit=limit
+    )
+    return AssetLinkedPageOut(
+        items=[
+            AssetLinkedRecordOut(
+                id=r.id, kind=r.kind, display_id=r.display_id, subject=r.subject,
+                status=r.status, still_worked=r.still_worked, updated_at=r.updated_at,
+            )
+            for r in rows
+        ],
+        next_cursor=next_cursor,
+    )  # fmt: skip

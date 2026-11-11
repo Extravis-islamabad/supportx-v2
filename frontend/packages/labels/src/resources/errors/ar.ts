@@ -66,6 +66,8 @@ export const ar: LabelResource = {
   'errors.asset_disposal_not_found': 'لا يوجد سجل تخلّص لهذا الأصل.',
   'errors.asset_disposed_read_only':
     'تم التخلّص من هذا الأصل، لذا فهو للقراءة فقط. يتطلب تغييره صلاحية تغيير الأصول المتخلَّص منها.',
+  'errors.asset_field_not_allowed':
+    'من خلال تذكرتك يمكنك تغيير حالة هذا الأصل وموقعه وملاحظاته والقطع المركّبة فيه فقط. اطلب أي شيء آخر من مدير الأصول.',
   'errors.asset_group_dynamic':
     'أعضاء المجموعة الديناميكية يأتون من عامل التصفية؛ غيّره بدلًا من ذلك.',
   'errors.asset_group_name_taken': 'لمجموعة أخرى هذا الاسم بالفعل.',
@@ -87,10 +89,14 @@ export const ar: LabelResource = {
   'errors.asset_link_not_found': 'هذا الرابط لم يعد موجودًا.',
   'errors.asset_loan_not_found': 'هذه الإعارة مغلقة أو لم تعد موجودة.',
   'errors.asset_move_not_allowed': 'لا يمكن نقل هذا الأصل إلى تلك الحالة من حالته الحالية.',
+  'errors.asset_move_not_allowed_through_ticket':
+    'لا يتم إيقاف الأصل عن الخدمة أو التخلص منه من خلال تذكرة. اطلب ذلك من مدير الأصول.',
   'errors.asset_no_default_state':
     'لا توجد حالة افتراضية لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
   'errors.asset_no_disposed_state':
     'لا توجد حالة تخلّص لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
+  'errors.asset_not_a_component':
+    'من خلال تذكرتك يمكن تركيب مكوّن لا يحتفظ به أحد فقط. اطلب من مدير الأصول تسليم أصل كامل.',
   'errors.asset_not_bookable':
     'لا يمكن حجز {{asset}}: يُحجز فقط ما يقبل الإعارة ولم يُسحب أو يُتخلَّص منه.',
   'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
@@ -152,7 +158,7 @@ export const ar: LabelResource = {
   'errors.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.change_window_blocked':
-    'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالتغيير مع ذكر السبب.',
+    'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.command_in_flight':
@@ -302,6 +308,9 @@ export const ar: LabelResource = {
   'errors.field.code_taken': 'هذا الرمز مستخدم بالفعل.',
   'errors.field.comment_required': 'أضف تعليقًا: هذا البند يتطلب تعليقًا.',
   'errors.field.condition_not_supported': 'القواعد غير متاحة لهذه الصلاحية بعد.',
+  'errors.field.conflict_blocks':
+    'لا يمكن الإقرار بتعارض مانع. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
+  'errors.field.conflict_not_found': 'لم يعد هذا التعارض موجودًا. تعرض القائمة التعارضات الحالية.',
   'errors.field.country_invalid': 'اختر دولة من القائمة.',
   'errors.field.currency_unknown': 'اختر عملة من القائمة.',
   'errors.field.dashboard_not_shared': 'يمكن أن تكون لوحة البداية لدور لوحة مدمجة أو مشتركة فقط.',
@@ -501,6 +510,7 @@ export const ar: LabelResource = {
   'errors.field.required_to_resolve': 'مطلوب قبل الحل.',
   'errors.field.review_date_past': 'اختر اليوم أو تاريخًا لاحقًا.',
   'errors.field.role_disabled': 'هذا الدور متوقف: لا يمكن منحه لأي شخص جديد.',
+  'errors.field.role_held_by_record': 'يتبع هذا الدور حقلًا في السجل نفسه. غيّره من لوحة التفاصيل.',
   'errors.field.same_folder': 'اختر مجلدًا مختلفًا لتقاريره.',
   'errors.field.schedule_never_runs': 'بهذه التواريخ لن تعمل الجدولة أبدًا.',
   'errors.field.scope_not_allowed': 'هذا النطاق غير متاح لهذه الصلاحية.',
@@ -720,6 +730,8 @@ export const ar: LabelResource = {
   'errors.link_has_own_route':
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
   'errors.link_not_found': 'هذا الرابط غير موجود، أو أُزيل.',
+  'errors.linked_records_not_available': 'السجلات المرتبطة غير متاحة بعد.',
+  'errors.list_not_found': 'هذه القائمة لا تحتفظ بإعدادات.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
@@ -843,6 +855,7 @@ export const ar: LabelResource = {
   'errors.rule_refused': '{{message_ar}}',
   'errors.saved_search_limit': 'وصلت إلى الحد الأقصى لعمليات البحث المحفوظة. احذف واحدة أولًا.',
   'errors.saved_search_not_found': 'عملية البحث المحفوظة هذه غير موجودة.',
+  'errors.saved_view_not_found': 'لم يعد هذا العرض المحفوظ موجودًا، أو أنه ليس لك.',
   'errors.scale_value_not_found': 'هذه القيمة غير موجودة.',
   'errors.server_busy': 'كان خادم البريد مشغولًا.',
   'errors.service_category_in_use':

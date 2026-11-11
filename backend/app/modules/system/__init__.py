@@ -15,7 +15,8 @@ Platform services (architecture.md §6.8) live in `app/shared` and own their tab
 modules are registered, so this module mounts them: files (WP-022, ADR-028, `api/files.py`,
 `service/files.py`): routes, the scan consumer, schedules, events, realtime, the `files.manage`
 permission, the `storage_gb` usage counter and the quota source; action links (WP-030 s3,
-`api/action_links.py`): the peek and use routes.
+`api/action_links.py`): the peek and use routes; the shared list-settings store (WP-049b s4a,
+`api/list_settings.py`): per-person columns, saved views and favourites of registered lists.
 """
 
 from datetime import timedelta
@@ -29,6 +30,7 @@ from app.modules.system.api.action_links import public_router as public_links_ro
 from app.modules.system.api.action_links import router as action_links_router
 from app.modules.system.api.files import MANAGE as FILES_MANAGE
 from app.modules.system.api.files import router as files_router
+from app.modules.system.api.list_settings import router as list_settings_router
 from app.modules.system.api.routes import router
 from app.modules.system.domain.readiness import DependencyProbe
 from app.modules.system.infra.probes import (
@@ -39,7 +41,7 @@ from app.modules.system.infra.probes import (
     ValkeyProbe,
     WorkerHeartbeatProbe,
 )
-from app.modules.system.service import files, mail
+from app.modules.system.service import files, list_settings, mail
 from app.modules.system.service.dev_event_log import DEV_EVENT_LOGGER
 from app.modules.system.service.readiness import ReadinessService
 from app.shared.events import BusNames, ConsumerSpec
@@ -47,6 +49,7 @@ from app.shared.files.events import EVENTS as FILE_EVENTS
 from app.shared.files.events import FileUploaded
 from app.shared.files.ports import register_quota
 from app.shared.files.service.core import FileServices
+from app.shared.list_settings.events import EVENTS as LIST_SETTINGS_EVENTS
 from app.shared.mail.events import EVENTS as MAIL_EVENTS
 from app.shared.mail.events import MailQueued
 from app.shared.schedules import ScheduleSpec
@@ -144,12 +147,12 @@ MAIL_SEND = ConsumerSpec(
 
 module = ModuleSpec(
     name="system",
-    routers=[router, files_router, action_links_router, public_links_router],
+    routers=[router, files_router, action_links_router, public_links_router, list_settings_router],
     on_startup=[_startup],
     consumers=[DEV_EVENT_LOGGER, FILE_SCAN, MAIL_SEND],
-    events=(*FILE_EVENTS, *MAIL_EVENTS),
+    events=(*FILE_EVENTS, *MAIL_EVENTS, *LIST_SETTINGS_EVENTS),
     permissions=[PermissionSpec(FILES_MANAGE)],
-    realtime=files.REALTIME,
+    realtime=[*files.REALTIME, *list_settings.REALTIME],
     schedules=[
         ScheduleSpec("system__files_scan_sweep", 300, files.scan_sweep),
         ScheduleSpec("system__files_purge", 3600, files.purge),

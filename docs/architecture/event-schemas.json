@@ -3734,6 +3734,34 @@
         "type": "object"
       }
     },
+    "notifications.mail.not_sent_summary": {
+      "1": {
+        "description": "One run gave up on e-mails that waited 7 days for outgoing mail to be set up (D-157).\n\nOne per run and tenant, whatever the count: the people who set mail up hear it once, in the\napp (the summary is no e-mail: there is no mail to send it with). Counts and a time only.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "oldest_at": {
+            "format": "date-time",
+            "title": "Oldest At",
+            "type": "string"
+          },
+          "summary_id": {
+            "format": "uuid",
+            "title": "Summary Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary_id",
+          "count",
+          "oldest_at"
+        ],
+        "title": "MailNotSentSummary",
+        "type": "object"
+      }
+    },
     "notifications.notification.created": {
       "1": {
         "description": "A new entry in a person's notification centre (their personal channel shows it live).",
@@ -4852,6 +4880,38 @@
           "version"
         ],
         "title": "FileSettingsUpdated",
+        "type": "object"
+      }
+    },
+    "system.list_settings.changed": {
+      "1": {
+        "description": "A person's settings or saved view of one list changed: their other windows follow.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "list_key": {
+            "title": "List Key",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "view_key": {
+            "title": "View Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "list_key",
+          "view_key",
+          "change"
+        ],
+        "title": "ListSettingsChanged",
         "type": "object"
       }
     },

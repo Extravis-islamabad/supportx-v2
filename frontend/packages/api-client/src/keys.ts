@@ -77,9 +77,14 @@ export const queryKeys = {
     productTypes: ['assets', 'product-types'] as const,
     products: (query: AssetProductsQuery) => ['assets', 'products', query] as const,
     records: (query: AssetRecordsQuery) => ['assets', 'records', query] as const,
+    // WP-049b s4a: the tree's counts per view, and an asset's linked work items.
+    typeCounts: (view: string) => ['assets', 'records', 'type-counts', view] as const,
+    linked: (id: string) => ['assets', 'record', id, 'linked'] as const,
     record: (id: string) => ['assets', 'record', id] as const,
     history: (id: string) => ['assets', 'history', id] as const,
     moves: (id: string) => ['assets', 'moves', id] as const,
+    // Under the record's key: a change to the asset refetches what the person may change (D-157).
+    access: (id: string) => ['assets', 'record', id, 'access'] as const,
     disposal: (id: string) => ['assets', 'disposal', id] as const,
     holdings: (id: string) => ['assets', 'holdings', id] as const,
     links: (id: string) => ['assets', 'links', id] as const,

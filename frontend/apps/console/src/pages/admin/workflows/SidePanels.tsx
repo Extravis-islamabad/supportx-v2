@@ -2,7 +2,7 @@ import { DeleteOutlined } from '@ant-design/icons';
 import { Alert, Button, Collapse, Descriptions, Flex, Form, Input, Select, Typography } from 'antd';
 import { useState } from 'react';
 
-import type { WorkflowEdge, WorkflowNode } from '@supportx/flow';
+import type { WorkflowEdge, WorkflowNode, WorkflowVariable } from '@supportx/flow';
 import { EmptyText, useLabel } from '@supportx/ui';
 
 import { NodeForm } from './NodeForms';
@@ -23,6 +23,7 @@ export interface NodeProblem {
 export function NodeDetails({
   node,
   recordType,
+  variables,
   problems,
   readOnly,
   onConfig,
@@ -30,6 +31,7 @@ export function NodeDetails({
 }: {
   node: WorkflowNode;
   recordType: string;
+  variables: WorkflowVariable[];
   problems: NodeProblem[];
   readOnly: boolean;
   onConfig: (config: Record<string, unknown>) => void;
@@ -101,6 +103,7 @@ export function NodeDetails({
               config={draft}
               onChange={fromForm}
               recordType={recordType}
+              variables={variables}
               readOnly={readOnly}
             />
           )}

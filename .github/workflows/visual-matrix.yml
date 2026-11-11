@@ -37,10 +37,32 @@ jobs:
       fail-fast: false
       matrix:
         shard: ${{ fromJSON(inputs.screens != '' && '[1]' || '[1, 2, 3, 4, 5, 6]') }}
+    env:
+      # The screens step's image, pinned by digest (the multi-arch index of v1.64.1-noble). The
+      # "Playwright version" step fails when its tag and @playwright/test differ.
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Only the screenshot step runs in the official Playwright image, which has Chromium and its
+      # system libraries baked in: GitHub's runners could not fetch Ubuntu apt packages (runs
+      # 43036727839, 43042363216 and 43049547288; azure.archive.ubuntu.com did not resolve and
+      # the public archive failed too), so the job installs nothing with apt. Pulled before the
+      # stack starts, so a registry hiccup fails in a minute, not after the seeds.
+      - name: Playwright image (pulled, retried)
+        run: |
+          wait_s=15
+          for attempt in 1 2 3; do
+            docker pull "$PLAYWRIGHT_IMAGE" && exit 0
+            if (( attempt < 3 )); then
+              echo "::warning::pulling the Playwright image, attempt $attempt of 3 failed; trying again in ${wait_s}s"
+              sleep "$wait_s"
+              wait_s=$(( wait_s * 2 ))
+            fi
+          done
+          echo "::error::the Playwright image could not be pulled after 3 attempts"
+          exit 1
       - name: Generate throwaway .env (with a showcase password for this run only)
         run: |
           make dev-init
@@ -55,6 +77,19 @@ jobs:
       - name: Keycloak identity service account
         run: make keycloak-identity
       - uses: ./.github/actions/setup-frontend
+      # The image's Playwright must be the one in package.json, so a bump of either can never
+      # run a test runner against browsers built for another version.
+      - name: Playwright version (frontend/e2e/package.json against the image)
+        run: |
+          version="$(node -p "require('./frontend/e2e/package.json').devDependencies['@playwright/test']")"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::@playwright/test must be an exact version, got '$version'"; exit 1; }
+          [[ "$PLAYWRIGHT_IMAGE" =~ /playwright:v([0-9]+\.[0-9]+\.[0-9]+)-[a-z]+@sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::PLAYWRIGHT_IMAGE must be playwright:v<version>-<distro>@sha256:<digest>"; exit 1; }
+          if [[ "${BASH_REMATCH[1]}" != "$version" ]]; then
+            echo "::error::@playwright/test is $version but the image is v${BASH_REMATCH[1]}; bump both together"
+            exit 1
+          fi
       - uses: ./.github/actions/generated
         with:
           frontend: "true"
@@ -76,17 +111,46 @@ jobs:
           done
           curl -fsS http://localhost:5173/api/v1/ready
           curl -fsS http://localhost:5174/api/v1/ready
+      # In the Playwright image, on the host's network: the stack, Keycloak's issuer
+      # (http://localhost:28080) and the Vite servers stay on the runner's localhost (GitHub
+      # refuses --network host for job containers, so this is a plain `docker run`). The repo is
+      # mounted at its own path, so the absolute paths in backend/.venv and the e2e package's
+      # REPO resolve unchanged. Node and the browsers are the image's (/ms-playwright); the
+      # test runner and node_modules are the host's pnpm install (setup-frontend). The
+      # global setup and teardown also run backend tools (`uv run python -m tooling.…`, `make
+      # dev-subscription`), which the image lacks: the host's uv and make binaries (same Ubuntu
+      # 24.04 glibc) are mounted read-only on /opt/host-tools, and the venv's Python install at
+      # its own path, with uv told not to sync (the host already did). The image's Node is
+      # newer than .nvmrc's; Playwright transpiles the e2e TypeScript itself.
       - name: Screens (this shard)
-        working-directory: frontend
         timeout-minutes: 75
         env:
           VISUAL_SCREENS: ${{ inputs.screens }} # through env, never into the script text
+          VISUAL_SHARD: ${{ matrix.shard }}/${{ inputs.screens != '' && 1 || 6 }}
         run: |
-          pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
-          SUPPORTX_SHOWCASE_PASSWORD="$(grep '^SHOWCASE_PASSWORD=' ../deploy/compose/.env | cut -d= -f2-)" \
-          VISUAL_MATRIX=1 VISUAL_SHARD="${{ matrix.shard }}/${{ inputs.screens != '' && 1 || 6 }}" \
-          VISUAL_OUT="$PWD/e2e/visual-matrix" \
-            pnpm --filter @supportx/e2e e2e tests/visual-matrix.spec.ts
+          SUPPORTX_SHOWCASE_PASSWORD="$(grep '^SHOWCASE_PASSWORD=' deploy/compose/.env | cut -d= -f2-)"
+          export SUPPORTX_SHOWCASE_PASSWORD
+          export VISUAL_MATRIX=1 VISUAL_OUT="$GITHUB_WORKSPACE/frontend/e2e/visual-matrix"
+          export SUPPORTX_CONSOLE_URL=http://localhost:5173 SUPPORTX_PORTAL_URL=http://localhost:5174
+          # Only the uv-managed Python install (setup-backend), never a system prefix like /usr.
+          python_home="$(dirname "$(dirname "$(readlink -f backend/.venv/bin/python)")")"
+          case "$python_home" in
+            /|/usr|/usr/local) echo "::error::backend/.venv uses a system Python ($python_home)"; exit 1 ;;
+          esac
+          home="$RUNNER_TEMP/playwright-home"
+          mkdir -p "$home" frontend/e2e/visual-matrix
+          docker run --rm --network host --user "$(id -u):$(id -g)" \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE/frontend/e2e" \
+            -v "$home:$home" -e HOME="$home" \
+            -v "$(command -v uv):/opt/host-tools/uv:ro" -v "$(command -v make):/opt/host-tools/make:ro" \
+            -v "$python_home:$python_home:ro" \
+            -e PATH="/opt/host-tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            -e UV_NO_SYNC=1 -e UV_FROZEN=1 -e UV_CACHE_DIR="$home/uv-cache" -e UV_PYTHON_DOWNLOADS=never \
+            -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright -e CI \
+            -e SUPPORTX_SHOWCASE_PASSWORD -e VISUAL_MATRIX -e VISUAL_OUT -e VISUAL_SHARD -e VISUAL_SCREENS \
+            -e SUPPORTX_CONSOLE_URL -e SUPPORTX_PORTAL_URL \
+            "$PLAYWRIGHT_IMAGE" \
+            node node_modules/@playwright/test/cli.js test tests/visual-matrix.spec.ts
       - name: Diagnostics on failure
         if: ${{ failure() }}
         run: |
@@ -112,32 +176,58 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        # A shard that failed in setup uploads nothing; the next step names it and the last
+        # step fails the run, so a download problem is never hidden.
+        continue-on-error: true
         with:
           pattern: visual-shard-*
           path: visual-matrix
           merge-multiple: true
       - name: One index.json for the day
+        id: index
+        env:
+          # Through env, never into the script text.
+          SHARDS: ${{ inputs.screens != '' && 1 || 6 }}
         run: |
+          mkdir -p visual-matrix
           python3 - <<'EOF'
           import glob, json, os
-          shots, skipped, shards = [], set(), []
+          expected = int(os.environ["SHARDS"])
+          shots, skipped, shards, seen = [], set(), [], set()
           for path in sorted(glob.glob("visual-matrix/index-*.json")):
               part = json.load(open(path))
               shards.append(part["shard"])
+              seen.add(int(part["shard"].split("/")[0]))
               shots += part["shots"]
               skipped |= set(part["skipped"])
               os.remove(path)
           shots.sort(key=lambda s: s["file"])
+          missing = [n for n in range(1, expected + 1) if n not in seen]
+          # Additive only (lane C's QA tooling reads this shape): a shard without an index file
+          # is named here instead of silently shrinking the day's set.
+          notes = [f"no shots from shard {n}/{expected} (setup failed)" for n in missing]
+          if not shots:
+              notes.append("no shots at all in this run")
           summary = {
               "shards": shards,
               "shots": len(shots),
               "errors": sum(1 for s in shots if s.get("error")),
               "with_warnings": sum(1 for s in shots if s["warnings"]),
               "with_axe": sum(1 for s in shots if s["axe"]),
+              "missing_shards": missing,
           }
-          json.dump({"summary": summary, "skipped": sorted(skipped), "shots": shots},
+          json.dump({"summary": summary, "skipped": sorted(skipped), "shots": shots,
+                     "notes": notes},
                     open("visual-matrix/index.json", "w"), indent=2)
           print(json.dumps(summary))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write(f"### Visual matrix\n\n{len(shots)} shots from {len(seen)} of "
+                        f"{expected} shards.\n\n")
+              for note in notes:
+                  out.write(f"- **{note}**\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"missing={' '.join(str(n) for n in missing)}\n")
+              out.write(f"shots={len(shots)}\n")
           EOF
           du -sh visual-matrix
       - name: Upload the visual matrix
@@ -146,3 +236,27 @@ jobs:
           name: visual-matrix
           path: visual-matrix
           retention-days: 7
+      # The partial set is uploaded first (still useful), then the run turns red: a failed or
+      # missing shard is never hidden behind a green merge.
+      - name: Every shard delivered
+        env:
+          MISSING: ${{ steps.index.outputs.missing }}
+          SHOTS: ${{ steps.index.outputs.shots }}
+          SHOTS_RESULT: ${{ needs.shots.result }}
+        run: |
+          failed=0
+          if [[ -n "$MISSING" ]]; then
+            for n in $MISSING; do
+              echo "::error::no shots from shard $n (setup failed; see the 'screens $n' job)"
+            done
+            failed=1
+          fi
+          if [[ "${SHOTS:-0}" == "0" ]]; then
+            echo "::error::the merged visual matrix has no shots at all"
+            failed=1
+          fi
+          if [[ "$SHOTS_RESULT" != "success" ]]; then
+            echo "::error::screens jobs finished '$SHOTS_RESULT'; see the failed shards above"
+            failed=1
+          fi
+          exit "$failed"

@@ -54,6 +54,8 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
+    # test helper: a hung test fails and names itself with a thread dump (CI shards; MIT, D-012)
+    "pytest-timeout>=2.4",
     "pytest-xdist>=3.8",
     "ruff>=0.17.1",
     "types-aioboto3[s3]>=15.5.0",
