@@ -1155,6 +1155,29 @@ it with no reload (rule c). Not built yet.
 - **S3:** the calendar at /changes/calendar (month, week, day, timeline; layers; drag to
   reschedule with re-approval and the conflict check), and the windows admin on template E.
 
+### [~] WP-045d — Changes: the rest (lane A, 2026-11-11; 4 sessions; migration 0133; REQ-CHG-088..117)
+- **S1 (0133, #378):** tasks per stage, the post-implementation review and its date, closure
+  codes and rules per stage, closing waits for child changes and releases, closed changes locked
+  (REQ-CHG-088, 090-097). Lane B reviewed the lock.
+- **S2:** the change list, the record and bulk work:
+  - REQ-CHG-098: type and risk columns; views for the CAB, in implementation now, emergency and
+    due for review.
+  - REQ-CHG-100: the change's conversation and attachments on its record.
+  - REQ-CHG-101: bulk assign (D-154a: the owner must be in the group), take and close, through
+    the shared bulk dialog. Each change follows its own life cycle, and skips say why.
+  - REQ-CHG-102: the CAB pack print view.
+  - **Open under REQ-CHG-101:** bulk edit fields, add to a CAB agenda, cancel and delete.
+    - Cancel and delete need the `work_item_bulk_jobs` action_code check widened, which is a
+      migration.
+    - All four come with lane A's next migration WP (WP-045d S3/S4 or WP-046a), with DB tests;
+      no migration slot is taken for the check alone (coordinator, 2026-11-11).
+    - Until then the change list doesn't offer them at all.
+- **S3:** a change notification source with the Appendix A defaults, schedule reminders, the
+  workflow run on the record (lane C's Workflows tab, #379), and rules, triggers and SLAs on
+  changes (REQ-CHG-103..107). No e-mail reply threading unless Haider says yes.
+- **S4:** the portal (raise, follow, approve), the mobile API audit, report dimensions and
+  personal counters (REQ-CHG-109, 110, 116, 117). Lane B blocks the portal access.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
