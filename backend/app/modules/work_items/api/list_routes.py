@@ -4,11 +4,13 @@ Mounted before `/{record_id}`, like the other collection routes.
 """
 
 import uuid
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Request, Response, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
@@ -32,8 +34,9 @@ from app.modules.work_items.infra.models import (
 from app.modules.work_items.service import bulk as bulk_service
 from app.modules.work_items.service import lists as service
 from app.modules.work_items.service import work_items as items
-from app.modules.work_items.service.access import FIELDS
+from app.modules.work_items.service.access import FIELDS, type_fields
 from app.shared.api.concurrency import ExpectedVersion, etag_for, parse_etag, set_etag
+from app.shared.api.filters import FilterField
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, list_query, request_zone
 from app.shared.history import source_of
@@ -230,13 +233,19 @@ class BulkJobOut(BaseModel):
         )
 
 
+async def _own_and_custom(session: AsyncSession, wtype: WorkItemType) -> Mapping[str, FilterField]:
+    custom = await metadata.filter_fields(session, wtype.code.value, "work_items")
+    return {**type_fields(wtype), **custom}
+
+
 def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dependency
     """The list's ListQuery dependency: built-in fields plus custom fields (WP-026)."""
     return list_query(
         FIELDS,
         extra_parameters=frozenset({"view", "tag"}),
         # Custom fields filter as `custom.<key>` (WP-026), typed per tenant.
-        fields_for=lambda session: metadata.filter_fields(session, wtype.code.value, "work_items"),
+        # A type's own fields too (a change's risk, a problem's type): drill-down (REQ-CHG-116).
+        fields_for=lambda session: _own_and_custom(session, wtype),
     )
 
 

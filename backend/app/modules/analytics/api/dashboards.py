@@ -13,15 +13,22 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
+from app.core.entitlements import ENTITLEMENT_GATE_STATE, EntitlementGate
 from app.core.errors import AppError, PermissionDenied, ProblemDetail, ValidationFailed
 from app.core.tenancy import TenantContext, resolve_tenant
 from app.modules.analytics.api.routes import CONFLICT, RESPONSES, _source, _validator, _zone
 from app.modules.analytics.domain.builtin import BUILTIN as BUILTIN_REPORTS
 from app.modules.analytics.domain.dashboard import DashboardBody, Widget
-from app.modules.analytics.domain.widgets import CATALOGUE, SECTIONS, WidgetTemplate
+from app.modules.analytics.domain.widgets import (
+    BUILTIN_ENTITIES,
+    CATALOGUE,
+    SECTIONS,
+    WidgetTemplate,
+)
 from app.modules.analytics.service import dashboards
 from app.modules.analytics.service.compiler import compile_report
 from app.modules.analytics.service.library import VIEW
+from app.modules.analytics.service.runner import resolve_provider
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -156,10 +163,39 @@ class RoleHomeIn(BaseModel):
 # --- routes -------------------------------------------------------------------------------------
 
 
+async def _may_report(
+    request: Request, session: TenantSession, context: TenantContext, subject: Subject, entity: str
+) -> bool:
+    """Whether the viewer may report on `entity` (permission and licence), as `_source` asks."""
+    try:
+        provider = resolve_provider(entity, subject)
+        gate: EntitlementGate | None = getattr(request.app.state, ENTITLEMENT_GATE_STATE, None)
+        if gate is not None:
+            await gate.check_request(
+                context, feature=provider.feature, write=False, session=session
+            )
+    except AppError:
+        return False
+    return True
+
+
 @router.get("", summary="Dashboards you may see")
-async def list_dashboards(session: TenantSession, subject: Viewer) -> DashboardListOut:
-    """Built-in first, then shared and your own; with your favourites and your home."""
-    views = await dashboards.list_dashboards(session, subject)
+async def list_dashboards(
+    session: TenantSession, subject: Viewer, context: Tenant, request: Request
+) -> DashboardListOut:
+    """Built-in first, then shared and your own; with your favourites and your home.
+
+    A built-in dashboard over an entity you may not report on (changes without their licence or
+    `changes.view`) is left out, so nobody opens a page of tiles that cannot load (WP-045d S4c).
+    """
+    allowed: dict[str, bool] = {}
+    for entity in {e for entities in BUILTIN_ENTITIES.values() for e in entities}:
+        allowed[entity] = await _may_report(request, session, context, subject, entity)
+    views = [
+        v
+        for v in await dashboards.list_dashboards(session, subject)
+        if v.builtin is None or all(allowed[e] for e in BUILTIN_ENTITIES.get(v.builtin, ()))
+    ]
     found = await dashboards.home(session, subject)
     return DashboardListOut(
         items=[DashboardOut.of(v) for v in views],
