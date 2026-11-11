@@ -20,6 +20,8 @@ export const ar: LabelResource = {
   'action_reason.condition_not_met': 'دورك يشمل بعض السجلات من هذا النوع فقط.',
   'action_reason.content_missing': 'أضف عنوانًا ورسالة أولًا.',
   'action_reason.four_eyes': 'يجب أن ينشره شخص غير الكاتب أو المالك.',
+  'action_reason.freeze_needs_emergency_cab':
+    'إنه ضمن فترة تجميد: يجب أن يوافق عليه المجلس الطارئ مع ذكر السبب، أو أن يتجاوز مدير التغيير فترة التجميد.',
   'action_reason.group_members': 'أعضاء {{group}}',
   'action_reason.no_permission': 'ليست لديك صلاحية لهذا الإجراء.',
   'action_reason.not_entitled': 'خطة مؤسستك لا تشمل هذا.',
@@ -2108,6 +2110,7 @@ export const ar: LabelResource = {
   'work_item.field.follows_id': 'يتبع',
   'work_item.field.freeze_override': 'تجاوز التجميد',
   'work_item.field.freeze_override_windows': 'فترات التجميد المتجاوزة',
+  'work_item.field.freeze_passed_by_cab': 'تجاوز فترة التجميد (المجلس الطارئ)',
   'work_item.field.group_id': 'المجموعة',
   'work_item.field.handed_over_out_of_reach': 'سُلّمت إلى فريق لا يراه من نقلها',
   'work_item.field.impact': 'التأثير',

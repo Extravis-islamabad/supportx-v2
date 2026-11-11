@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict
 from app.modules.organization import regional_defaults
 from app.modules.work_items.domain import change_windows as model
-from app.modules.work_items.domain.changes import IMPLEMENTATION
+from app.modules.work_items.domain.changes import EMERGENCY_PATH, IMPLEMENTATION
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.types import WorkItemTypeCode
 from app.modules.work_items.infra.models import (
@@ -251,14 +251,27 @@ def still_blocking(
     return [c for c in found if c.blocks and c.window_id not in passed]
 
 
+def frozen_still(
+    found: Sequence[model.Conflict], passed: frozenset[uuid.UUID]
+) -> list[model.Conflict]:
+    """The blocking freezes no override covers (what an emergency change's CAB may pass)."""
+    return [c for c in still_blocking(found, passed) if c.kind is model.ConflictKind.FREEZE]
+
+
 async def guard(session: AsyncSession, record: WorkItem, times: Times) -> list[model.Conflict]:
     """On a save that moves the change's time: refuse a blocking conflict, return the others.
 
     The refusal names the first blocking window (its ID and kind, never its text) so the screen
     can say which and offer the override to those who hold it, for that window.
+
+    D-156: an emergency change's window in a blocking freeze is saved, never refused; the
+    change is marked by the conflict itself, and its move into implementation waits for its
+    emergency CAB or the override (change_guard). A maintenance block still refuses it.
     """
     found, _ = await conflicts(session, record, times)
     blocking = still_blocking(found, await passed_windows(session, record.id))
+    if record.stage_path == EMERGENCY_PATH:
+        blocking = [c for c in blocking if c.kind is not model.ConflictKind.FREEZE]
     if blocking:
         first = blocking[0]
         raise Conflict(

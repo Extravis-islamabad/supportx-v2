@@ -18,6 +18,8 @@ export const en = {
   'action_reason.condition_not_met': 'Your role only covers some records of this kind.',
   'action_reason.content_missing': 'Add a title and a message first.',
   'action_reason.four_eyes': 'Someone other than the author or owner must publish it.',
+  'action_reason.freeze_needs_emergency_cab':
+    'It is in a freeze: its emergency CAB must approve it, with a reason, or the change manager must override the freeze.',
   'action_reason.group_members': 'members of {{group}}',
   'action_reason.no_permission': 'You do not have the permission for this.',
   'action_reason.not_entitled': 'Your organisation’s plan does not include this.',
@@ -1926,6 +1928,7 @@ export const en = {
   'work_item.field.follows_id': 'Follows',
   'work_item.field.freeze_override': 'Freeze override',
   'work_item.field.freeze_override_windows': 'Freezes passed',
+  'work_item.field.freeze_passed_by_cab': 'Passed the freeze (emergency CAB)',
   'work_item.field.group_id': 'Group',
   'work_item.field.handed_over_out_of_reach': 'Handed to a team the person who moved it cannot see',
   'work_item.field.impact': 'Impact',
