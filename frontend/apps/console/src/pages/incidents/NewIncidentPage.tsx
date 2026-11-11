@@ -17,7 +17,7 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import {
   ApiError,
@@ -190,7 +190,11 @@ export function NewIncidentPage() {
   const templates = useIncidentTemplates();
   const customFields = useCustomFields('incident');
   const groups = useUnits('groups');
-  const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: EMPTY });
+  const [params] = useSearchParams();
+  const form = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: { ...EMPTY, requester_id: params.get('requester') ?? EMPTY.requester_id },
+  });
   const problem = useFormProblem();
   // What was typed survives a session timeout in this tab (REQ-INC-019, REQ-SEC-029 AC2).
   const draft = useKeptDraft(form, 'incident-new');
@@ -221,7 +225,9 @@ export function NewIncidentPage() {
   const [another, setAnother] = useState(false);
   const [keepRequester, setKeepRequester] = useState(false);
   const [handover, setHandover] = useState<Values | null>(null);
-  const [chosenId, setChosenId] = useState<string | null>(null);
+  // Raised from an asset (REQ-AST-045, lane B's WP-049b s4a): `?template=`, `?asset=` and
+  // `?requester=` (the asset's holder) start the form; everything stays editable.
+  const [chosenId, setChosenId] = useState<string | null>(() => params.get('template'));
   const [switching, setSwitching] = useState<{ next: IncidentTemplate; lost: string[] } | null>(
     null,
   );
@@ -250,7 +256,10 @@ export function NewIncidentPage() {
   const draftSubject = useDebounced(typedSubject, 600);
   const draftDescription = useDebounced(typedDescription.replace(/<[^>]*>/g, ' '), 600);
   const typedRequester = form.watch('requester_id');
-  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const [assetIds, setAssetIds] = useState<string[]>(() => {
+    const asset = params.get('asset');
+    return asset === null ? [] : [asset];
+  });
   const { has } = useLicence();
   const duplicates = usePossibleDuplicates(
     {
@@ -342,6 +351,12 @@ export function NewIncidentPage() {
     startedCustom.current = starts;
     form.setValue('custom', values);
   };
+  // The asset's holder (REQ-AST-045) brings their department and site, as a picked one does.
+  useEffect(() => {
+    const requester = params.get('requester');
+    if (requester !== null) void placeFromRequester(requester);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the address it opened with
+  }, []);
   // First load: apply the default template once the template, catalogue and tree are known.
   const applied = useRef<string | null>(null);
   const ready =

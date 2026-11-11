@@ -85,11 +85,21 @@ export function useSavedViewChange() {
 }
 
 /** The work-item lists that keep per-user, per-view settings (each type's `/list-settings`). */
-export type ListKind = 'incidents' | 'service-requests' | 'problems' | 'changes' | 'releases';
+export type WorkItemListKind =
+  'incidents' | 'service-requests' | 'problems' | 'changes' | 'releases';
+/**
+ * Lists registered in the shared list-settings store (`/list-settings/{list_key}`, WP-049b s4a):
+ * the same columns, sort and page size per view, plus saved views and favourites.
+ */
+export type SharedListKind = 'assets' | 'asset_consumables';
+export type ListKind = WorkItemListKind | SharedListKind;
+
+const SHARED: ReadonlySet<ListKind> = new Set<ListKind>(['assets', 'asset_consumables']);
+const isShared = (kind: ListKind): kind is SharedListKind => SHARED.has(kind);
 
 // Every type serves the same list-settings contract under its own path (work_items'
 // add_list_routes), so the incidents path's types stand for all of them.
-const settingsPath = (kind: ListKind) =>
+const settingsPath = (kind: WorkItemListKind) =>
   `/api/v1/${kind}/list-settings/{view_key}` as '/api/v1/incidents/list-settings/{view_key}';
 
 /** The cache key of one list's settings for one view. */
@@ -98,11 +108,44 @@ export const listSettingKey = (kind: ListKind, viewKey: string) =>
     ? queryKeys.incidents.listSetting(viewKey)
     : ([kind, 'list-settings', viewKey] as const);
 
+// The shared store answers a superset (name, filter, favourite of a saved view): the widths and
+// column code reads only what both have.
+function getSetting(kind: ListKind, viewKey: string): Promise<ListSetting> {
+  if (isShared(kind)) {
+    return call(
+      api.GET('/api/v1/list-settings/{list_key}/views/{view_key}', {
+        params: { path: { list_key: kind, view_key: viewKey } },
+      }),
+    );
+  }
+  return call(api.GET(settingsPath(kind), { params: { path: { view_key: viewKey } } }));
+}
+
+function putSetting(
+  kind: ListKind,
+  viewKey: string,
+  version: number | null,
+  setting: ListSettingInput,
+): Promise<ListSetting> {
+  const header = version === null ? {} : ifMatch(version);
+  if (isShared(kind)) {
+    return call(
+      api.PUT('/api/v1/list-settings/{list_key}/views/{view_key}', {
+        params: { path: { list_key: kind, view_key: viewKey }, header },
+        body: setting,
+      }),
+    );
+  }
+  return call(
+    api.PUT(settingsPath(kind), { params: { path: { view_key: viewKey }, header }, body: setting }),
+  );
+}
+
 /** Your columns, sort and page size for one view (`version` null: the defaults). */
 export function useListSetting(viewKey: string, enabled = true, kind: ListKind = 'incidents') {
   return useQuery({
     queryKey: listSettingKey(kind, viewKey),
-    queryFn: () => call(api.GET(settingsPath(kind), { params: { path: { view_key: viewKey } } })),
+    queryFn: () => getSetting(kind, viewKey),
     enabled,
   });
 }
@@ -133,15 +176,7 @@ export function useSaveListSetting(kind: ListKind = 'incidents') {
   const queryClient = useQueryClient();
   const keyOf = (viewKey: string) => listSettingKey(kind, viewKey);
   const put = (viewKey: string, version: number | null, setting: ListSettingInput) =>
-    call(
-      api.PUT(settingsPath(kind), {
-        params: {
-          path: { view_key: viewKey },
-          header: version === null ? {} : ifMatch(version),
-        },
-        body: setting,
-      }),
-    );
+    putSetting(kind, viewKey, version, setting);
   const save = async (viewKey: string, setting: ListSettingInput): Promise<ListSetting> => {
     const version = queryClient.getQueryData<ListSetting>(keyOf(viewKey))?.version ?? null;
     try {
@@ -150,9 +185,7 @@ export function useSaveListSetting(kind: ListKind = 'incidents') {
       if (!(error instanceof ApiError) || error.status !== 409) throw error;
       // Another tab of yours saved first: take its version and save what you see now, your
       // latest action (lane A's review), so the other tab's change loses only to a newer one.
-      const fresh = await call(
-        api.GET(settingsPath(kind), { params: { path: { view_key: viewKey } } }),
-      );
+      const fresh = await getSetting(kind, viewKey);
       const shown = queryClient.getQueryData<ListSetting>(keyOf(viewKey));
       const latest: ListSettingInput =
         shown === undefined

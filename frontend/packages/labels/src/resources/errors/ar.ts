@@ -715,6 +715,8 @@ export const ar: LabelResource = {
   'errors.link_has_own_route':
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
   'errors.link_not_found': 'هذا الرابط غير موجود، أو أُزيل.',
+  'errors.linked_records_not_available': 'السجلات المرتبطة غير متاحة بعد.',
+  'errors.list_not_found': 'هذه القائمة لا تحتفظ بإعدادات.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
@@ -836,6 +838,7 @@ export const ar: LabelResource = {
   'errors.rule_refused': '{{message_ar}}',
   'errors.saved_search_limit': 'وصلت إلى الحد الأقصى لعمليات البحث المحفوظة. احذف واحدة أولًا.',
   'errors.saved_search_not_found': 'عملية البحث المحفوظة هذه غير موجودة.',
+  'errors.saved_view_not_found': 'لم يعد هذا العرض المحفوظ موجودًا، أو أنه ليس لك.',
   'errors.scale_value_not_found': 'هذه القيمة غير موجودة.',
   'errors.server_busy': 'كان خادم البريد مشغولًا.',
   'errors.service_category_in_use':

@@ -57,9 +57,13 @@ export function NewRequestPage() {
   const key = useMemo(() => crypto.randomUUID(), []);
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('');
-  const [assetIds, setAssetIds] = useState<string[]>([]);
+  // Raised from an asset (REQ-AST-045): `?asset=` and `?requester=` (its holder) start the form.
+  const [assetIds, setAssetIds] = useState<string[]>(() => {
+    const asset = params.get('asset');
+    return asset === null ? [] : [asset];
+  });
   const hasAssets = useLicence().has('assets');
-  const [requester, setRequester] = useState<string | null>(me);
+  const [requester, setRequester] = useState<string | null>(params.get('requester') ?? me);
   const [answers, setAnswers] = useState<Record<string, QuestionValue> | null>(null);
 
   if (itemId === undefined || item.data === undefined) {
