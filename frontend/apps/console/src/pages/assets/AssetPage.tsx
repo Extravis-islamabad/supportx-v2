@@ -6,6 +6,7 @@ import {
   Card,
   DatePicker,
   Flex,
+  Form,
   Segmented,
   Select,
   Skeleton,
@@ -40,6 +41,8 @@ import {
   ActionBar,
   EditableValue,
   EmptyText,
+  FilterBar,
+  FiltersDrawer,
   NoAccess,
   PresenceAvatars,
   PropertiesPanel,
@@ -73,7 +76,7 @@ import { ageBetween, basisDay } from './age';
 import { DisposalCard, DisposeAssetDialog } from './Disposal';
 import { AssetFields } from './AssetForm';
 import { AssetFinancialsTab } from './Financials';
-import { useMoney } from './money';
+import { totalShown, useMoney } from './money';
 import { AssetNotes } from './Notes';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
@@ -417,7 +420,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
             key: 'tco',
             label: t('assets.financials.total_cost'),
             content: (
-              <span data-testid="asset-panel-total-cost">{inBase(figures.data.total_cost)}</span>
+              <span data-testid="asset-panel-total-cost">{totalShown(inBase, figures.data)}</span>
             ),
             filled: true,
           },
@@ -707,6 +710,7 @@ function AssetHistory({ id }: { id: string }) {
   const dates = useDateTime();
   const { dates: formats } = useAppearance();
   const [filters, setFilters] = useState<AssetHistoryFilters>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const history = useAssetHistory(id, filters);
   const list = useListFormat();
   const entries = history.data?.pages.flatMap((p) => p.items) ?? [];
@@ -721,6 +725,13 @@ function AssetHistory({ id }: { id: string }) {
     setFilters({ ...filters, ...patch });
   };
   const filtered = Object.values(filters).some((v) => v !== undefined && v !== 'all');
+  // The bar holds the sub-view; the rest sit in the drawer, so a phone keeps one row (D-124).
+  const drawerCount = [
+    filters.field,
+    filters.source,
+    filters.actorId,
+    filters.since ?? filters.until,
+  ].filter((v) => v !== undefined).length;
   const range: [Dayjs | null, Dayjs | null] | null =
     filters.since === undefined && filters.until === undefined
       ? null
@@ -730,83 +741,109 @@ function AssetHistory({ id }: { id: string }) {
         ];
   return (
     <Card>
-      <Flex
-        gap={8}
-        wrap
-        align="center"
-        style={{ marginBottom: 16 }}
-        data-testid="asset-history-filters"
+      <div style={{ marginBottom: 16 }}>
+        <FilterBar
+          testId="asset-history-filters"
+          view={
+            <Segmented<NonNullable<AssetHistoryFilters['view']>>
+              value={filters.view ?? 'all'}
+              onChange={(view) => {
+                set({ view: view === 'all' ? undefined : view });
+              }}
+              options={(['all', 'state', 'assignment'] as const).map((v) => ({
+                value: v,
+                label: t(`assets.history.view_${v}`),
+              }))}
+              data-testid="asset-history-view"
+            />
+          }
+          filtersCount={drawerCount}
+          onOpenFilters={() => {
+            setFiltersOpen(true);
+          }}
+          extra={
+            filtered ? (
+              <Button
+                type="link"
+                onClick={() => {
+                  setFilters({});
+                }}
+                data-testid="asset-history-clear"
+              >
+                {t('assets.history.clear')}
+              </Button>
+            ) : undefined
+          }
+        />
+      </div>
+      <FiltersDrawer
+        open={filtersOpen}
+        onClose={() => {
+          setFiltersOpen(false);
+        }}
+        onReset={() => {
+          // The drawer's own filters; the sub-view in the bar stays.
+          setFilters(filters.view === undefined ? {} : { view: filters.view });
+        }}
+        testId="asset-history-drawer"
       >
-        <Segmented<NonNullable<AssetHistoryFilters['view']>>
-          value={filters.view ?? 'all'}
-          onChange={(view) => {
-            set({ view: view === 'all' ? undefined : view });
-          }}
-          options={(['all', 'state', 'assignment'] as const).map((v) => ({
-            value: v,
-            label: t(`assets.history.view_${v}`),
-          }))}
-          data-testid="asset-history-view"
-        />
-        <Select<string>
-          allowClear
-          aria-label={t('assets.history.field')}
-          placeholder={t('assets.history.field')}
-          value={filters.field}
-          onChange={(value: string | undefined) => {
-            set({ field: value });
-          }}
-          options={FILTER_FIELDS.map((f) => ({ value: f, label: field(f) }))}
-          style={{ minWidth: 160 }}
-          data-testid="asset-history-field"
-        />
-        <Select<AssetHistorySource>
-          allowClear
-          aria-label={t('assets.history.source')}
-          placeholder={t('assets.history.source')}
-          value={filters.source}
-          onChange={(value: AssetHistorySource | undefined) => {
-            set({ source: value });
-          }}
-          options={SOURCES.map((s) => ({ value: s, label: t(`change_source.${s}`) }))}
-          style={{ minWidth: 160 }}
-          data-testid="asset-history-source"
-        />
-        <div style={{ minWidth: 200 }}>
-          <UserPicker
-            value={filters.actorId ?? null}
-            onChange={(person) => {
-              set({ actorId: person ?? undefined });
-            }}
-            testId="asset-history-person"
-            ariaLabel={t('assets.history.person')}
-          />
-        </div>
-        <DatePicker.RangePicker
-          allowEmpty={[true, true]}
-          aria-label={t('assets.history.days')}
-          format={pickerFormat(formats, false)}
-          value={range}
-          onChange={(days) => {
-            set({
-              since: days?.[0]?.format('YYYY-MM-DD') ?? undefined,
-              until: days?.[1]?.format('YYYY-MM-DD') ?? undefined,
-            });
-          }}
-          data-testid="asset-history-days"
-        />
-        {filtered && (
-          <Button
-            type="link"
-            onClick={() => {
-              setFilters({});
-            }}
-            data-testid="asset-history-clear"
-          >
-            {t('assets.history.clear')}
-          </Button>
-        )}
-      </Flex>
+        <Form layout="vertical" component="div">
+          <Form.Item label={t('assets.history.field')} htmlFor="asset-history-field">
+            <Select<string>
+              id="asset-history-field"
+              allowClear
+              aria-label={t('assets.history.field')}
+              value={filters.field}
+              onChange={(value: string | undefined) => {
+                set({ field: value });
+              }}
+              options={FILTER_FIELDS.map((f) => ({ value: f, label: field(f) }))}
+              data-testid="asset-history-field"
+            />
+          </Form.Item>
+          <Form.Item label={t('assets.history.source')} htmlFor="asset-history-source">
+            <Select<AssetHistorySource>
+              id="asset-history-source"
+              allowClear
+              aria-label={t('assets.history.source')}
+              value={filters.source}
+              onChange={(value: AssetHistorySource | undefined) => {
+                set({ source: value });
+              }}
+              options={SOURCES.map((s) => ({ value: s, label: t(`change_source.${s}`) }))}
+              data-testid="asset-history-source"
+            />
+          </Form.Item>
+          <Form.Item label={t('assets.history.person')} htmlFor="asset-history-person">
+            <UserPicker
+              id="asset-history-person"
+              value={filters.actorId ?? null}
+              onChange={(person) => {
+                set({ actorId: person ?? undefined });
+              }}
+              testId="asset-history-person"
+              ariaLabel={t('assets.history.person')}
+            />
+          </Form.Item>
+          <Form.Item label={t('assets.history.days')} htmlFor="asset-history-days">
+            <DatePicker.RangePicker
+              id={{ start: 'asset-history-days' }}
+              allowEmpty={[true, true]}
+              aria-label={t('assets.history.days')}
+              format={pickerFormat(formats, false)}
+              value={range}
+              onChange={(days) => {
+                set({
+                  since: days?.[0]?.format('YYYY-MM-DD') ?? undefined,
+                  until: days?.[1]?.format('YYYY-MM-DD') ?? undefined,
+                });
+              }}
+              style={{ width: '100%' }}
+              data-testid="asset-history-days"
+            />
+          </Form.Item>
+        </Form>
+      </FiltersDrawer>
       {entries.length === 0 && !history.isPending && (
         <EmptyText>{t(filtered ? 'assets.history.none_match' : 'assets.history.none')}</EmptyText>
       )}

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Card, Flex, List, Modal, Popconfirm, Typography } from 'antd';
+import { Alert, App, Button, Card, Flex, List, Modal, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -18,9 +18,11 @@ import {
   EmptyText,
   RichTextField,
   RichTextView,
+  RowActions,
   useAccess,
   useDateTime,
   useLabel,
+  useLicence,
   WriteButton,
   type MentionSearch,
 } from '@supportx/ui';
@@ -120,6 +122,29 @@ function NoteItem({
   const { edit, remove } = useAssetNoteActions(asset.id);
   const [editing, setEditing] = useState<string | null>(null);
   const [versions, setVersions] = useState(false);
+  const { modal } = App.useApp();
+  const { writable } = useLicence();
+  // Read-only mode: the note's actions stay, disabled, saying why (D-155).
+  const readOnly = writable ? undefined : t('licence.read_only_action');
+  const confirmDelete = () => {
+    modal.confirm({
+      title: t('assets.notes.delete_confirm'),
+      okText: t('actions.delete'),
+      okButtonProps: { danger: true, 'data-testid': 'asset-note-delete-confirm' },
+      cancelText: t('actions.cancel'),
+      onOk: () => {
+        onProblem(null);
+        remove.mutate(
+          { id: note.id, version: note.version },
+          {
+            onError: (error) => {
+              onProblem(problemText(t, error));
+            },
+          },
+        );
+      },
+    });
+  };
   if (note.deleted_at !== null) {
     return (
       <List.Item key={note.id} data-testid={`asset-note-${note.id}`}>
@@ -158,37 +183,33 @@ function NoteItem({
             )}
           </Typography.Text>
           {note.may_change && editing === null && (
-            <Flex gap={4}>
-              <WriteButton
-                size="small"
-                onClick={() => {
+            <RowActions
+              rowName={t('assets.notes.row', {
+                name: note.author_name ?? t('assets.record.someone'),
+                date: dates.format(note.created_at),
+              })}
+              primary={{
+                key: 'edit',
+                label: t('actions.edit'),
+                disabled: !writable,
+                whyNot: readOnly,
+                onClick: () => {
                   setEditing(note.body ?? '');
-                }}
-                data-testid={`asset-note-edit-${note.id}`}
-              >
-                {t('actions.edit')}
-              </WriteButton>
-              <Popconfirm
-                title={t('assets.notes.delete_confirm')}
-                okText={t('actions.delete')}
-                cancelText={t('actions.cancel')}
-                onConfirm={() => {
-                  onProblem(null);
-                  remove.mutate(
-                    { id: note.id, version: note.version },
-                    {
-                      onError: (error) => {
-                        onProblem(problemText(t, error));
-                      },
-                    },
-                  );
-                }}
-              >
-                <WriteButton size="small" danger data-testid={`asset-note-delete-${note.id}`}>
-                  {t('actions.delete')}
-                </WriteButton>
-              </Popconfirm>
-            </Flex>
+                },
+                testId: `asset-note-edit-${note.id}`,
+              }}
+              more={[
+                {
+                  key: 'delete',
+                  label: t('actions.delete'),
+                  danger: true,
+                  disabled: !writable,
+                  whyNot: readOnly,
+                  onClick: confirmDelete,
+                  testId: `asset-note-delete-${note.id}`,
+                },
+              ]}
+            />
           )}
         </Flex>
         {editing === null ? (

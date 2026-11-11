@@ -224,12 +224,14 @@ export const en = {
   'assets.dispose.open': 'Dispose',
   'assets.dispose.record': 'Disposal',
   'assets.dispose.title': 'Dispose of {{name}}',
+  'assets.financials.actions': 'Actions',
   'assets.financials.add_cost': 'Add cost',
   'assets.financials.amount': 'Amount',
   'assets.financials.amount_needed': 'Enter the amount first.',
   'assets.financials.book_value': 'Book value',
   'assets.financials.closing': 'Closing value',
   'assets.financials.configure': 'Configure depreciation',
+  'assets.financials.cost_row': '{{kind}} cost on {{date}}',
   'assets.financials.costs': 'Costs',
   'assets.financials.currency_differs':
     'This asset was bought in {{currency}}. Totals are in {{base}} and nothing is converted.',
@@ -381,6 +383,7 @@ export const en = {
   'assets.notes.not_told_other':
     'These {{count}} people were not told, as they cannot see this asset:',
   'assets.notes.placeholder': 'Write a note, for example a repair. Type @ to mention someone.',
+  'assets.notes.row': 'Note by {{name}}, {{date}}',
   'assets.notes.tab': 'Notes and files',
   'assets.notes.title': 'Notes',
   'assets.notes.versions': 'Earlier versions',

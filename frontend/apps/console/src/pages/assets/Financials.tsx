@@ -1,20 +1,18 @@
 import {
   Alert,
+  App,
   Card,
-  DatePicker,
   Descriptions,
   Flex,
   Form,
   Input,
   InputNumber,
-  Modal,
-  Popconfirm,
   Select,
   Skeleton,
   Statistic,
   Table,
 } from 'antd';
-import dayjs, { type Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import { useState } from 'react';
 
 import {
@@ -31,18 +29,21 @@ import {
 } from '@supportx/api-client';
 import {
   CellText,
+  DateField,
+  EditDialog,
   EmptyText,
+  FormProblem,
   lengthLimit,
-  pickerFormat,
+  RowActions,
   ToneTag,
-  useAppearance,
   useDateTime,
+  useFormProblem,
   useLabel,
+  useLicence,
   WriteButton,
 } from '@supportx/ui';
 
-import { okFooter } from './dialogOk';
-import { useMoney } from './money';
+import { totalShown, useMoney } from './money';
 import { problemText } from './problemText';
 
 // No disposal kind: the disposal record carries the disposal cost (counted once).
@@ -85,43 +86,39 @@ function DepreciationDialog({
   const [method, setMethod] = useState<AssetDepreciationChoice | null>(own.own_method);
   const [life, setLife] = useState<number | null>(own.own_useful_life_years);
   const [salvage, setSalvage] = useState<string | null>(own.own_salvage_value);
-  const [problem, setProblem] = useState<string | null>(null);
+  const problem = useFormProblem();
+  const dirty =
+    method !== own.own_method ||
+    life !== own.own_useful_life_years ||
+    salvage !== own.own_salvage_value;
   return (
-    <Modal
+    <EditDialog
       open={open}
       title={t('assets.financials.configure')}
-      cancelText={t('actions.cancel')}
+      okText={t('actions.save')}
+      saving={change.isPending}
+      dirty={dirty}
       onCancel={onClose}
-      destroyOnHidden
-      footer={okFooter({
-        okText: t('actions.save'),
-        loading: change.isPending,
-        testId: 'asset-depreciation-save',
-        onOk: () => {
-          setProblem(null);
-          change.mutate(
-            {
-              kind: 'update',
-              id: asset.id,
-              version: asset.version,
-              body: {
-                depreciation_method: method,
-                useful_life_years: life,
-                salvage_value: salvage,
-              },
+      onOk={() => {
+        problem.clear();
+        change.mutate(
+          {
+            kind: 'update',
+            id: asset.id,
+            version: asset.version,
+            body: {
+              depreciation_method: method,
+              useful_life_years: life,
+              salvage_value: salvage,
             },
-            {
-              onSuccess: onClose,
-              onError: (error) => {
-                setProblem(problemText(t, error));
-              },
-            },
-          );
-        },
-      })}
+          },
+          { onSuccess: onClose, onError: problem.show },
+        );
+      }}
+      testId="asset-depreciation-dialog"
     >
       <Form layout="vertical">
-        {problem !== null && <Alert type="error" showIcon message={problem} />}
+        <FormProblem problem={problem} />
         <Form.Item label={t('assets.financials.method')} htmlFor="asset-depreciation-method">
           <Select<AssetDepreciationChoice>
             id="asset-depreciation-method"
@@ -173,7 +170,7 @@ function DepreciationDialog({
           </Form.Item>
         </Flex>
       </Form>
-    </Modal>
+    </EditDialog>
   );
 }
 
@@ -190,60 +187,68 @@ function CostDialog({
   onClose: () => void;
 }) {
   const t = useLabel();
-  const { dates } = useAppearance();
   const { create, update } = useAssetCostActions(assetId);
-  const [kind, setKind] = useState<AssetCostKind>(editing?.kind ?? 'service');
-  const [on, setOn] = useState<Dayjs | null>(
-    editing === null ? dayjs() : dayjs(editing.incurred_on),
-  );
-  const [amount, setAmount] = useState<string | null>(editing?.amount ?? null);
-  const [description, setDescription] = useState(editing?.description ?? '');
+  const initial = {
+    kind: editing?.kind ?? 'service',
+    // A calendar day, no zone (the API's `incurred_on` is a date).
+    on: editing?.incurred_on ?? dayjs().format('YYYY-MM-DD'),
+    amount: editing?.amount ?? null,
+    description: editing?.description ?? '',
+  };
+  const [kind, setKind] = useState<AssetCostKind>(initial.kind);
+  const [on, setOn] = useState<string | null>(initial.on);
+  const [amount, setAmount] = useState<string | null>(initial.amount);
+  const [description, setDescription] = useState(initial.description);
   const [key, setKey] = useState(() => crypto.randomUUID());
-  const [problem, setProblem] = useState<string | null>(null);
+  const problem = useFormProblem();
   const pending = create.isPending || update.isPending;
+  const dirty =
+    kind !== initial.kind ||
+    on !== initial.on ||
+    amount !== initial.amount ||
+    description !== initial.description;
   const failed = (error: unknown) => {
     setKey(crypto.randomUUID());
-    setProblem(problemText(t, error));
+    problem.show(error);
   };
   return (
-    <Modal
+    <EditDialog
       open={open}
       title={t(editing === null ? 'assets.financials.add_cost' : 'assets.financials.edit_cost')}
-      cancelText={t('actions.cancel')}
+      okText={t('actions.save')}
+      saving={pending}
+      okDisabled={amount === null || on === null}
+      okWhyNot={
+        amount === null
+          ? t('assets.financials.amount_needed')
+          : on === null
+            ? t('assets.financials.date_needed')
+            : undefined
+      }
+      dirty={dirty}
       onCancel={onClose}
-      destroyOnHidden
-      footer={okFooter({
-        okText: t('actions.save'),
-        loading: pending,
-        testId: 'asset-cost-save',
-        whyDisabled:
-          amount === null
-            ? t('assets.financials.amount_needed')
-            : on === null
-              ? t('assets.financials.date_needed')
-              : undefined,
-        onOk: () => {
-          if (amount === null || on === null) return;
-          setProblem(null);
-          const body = {
-            kind,
-            incurred_on: on.format('YYYY-MM-DD'),
-            amount,
-            description: description.trim() === '' ? null : description.trim(),
-          };
-          if (editing === null) {
-            create.mutate({ key, body }, { onSuccess: onClose, onError: failed });
-          } else {
-            update.mutate(
-              { id: editing.id, version: editing.version, body },
-              { onSuccess: onClose, onError: failed },
-            );
-          }
-        },
-      })}
+      onOk={() => {
+        if (amount === null || on === null) return;
+        problem.clear();
+        const body = {
+          kind,
+          incurred_on: on,
+          amount,
+          description: description.trim() === '' ? null : description.trim(),
+        };
+        if (editing === null) {
+          create.mutate({ key, body }, { onSuccess: onClose, onError: failed });
+        } else {
+          update.mutate(
+            { id: editing.id, version: editing.version, body },
+            { onSuccess: onClose, onError: failed },
+          );
+        }
+      }}
+      testId="asset-cost-dialog"
     >
       <Form layout="vertical">
-        {problem !== null && <Alert type="error" showIcon message={problem} />}
+        <FormProblem problem={problem} />
         <Flex gap={16} wrap>
           <Form.Item label={t('assets.financials.kind')} htmlFor="asset-cost-kind">
             <Select<AssetCostKind>
@@ -257,14 +262,12 @@ function CostDialog({
             />
           </Form.Item>
           <Form.Item label={t('assets.financials.date')} htmlFor="asset-cost-date" required>
-            <DatePicker
+            <DateField
               id="asset-cost-date"
               value={on}
-              format={pickerFormat(dates, false)}
-              onChange={(value: Dayjs | null) => {
-                setOn(value);
-              }}
-              data-testid="asset-cost-date"
+              onChange={setOn}
+              ariaLabel={t('assets.financials.date')}
+              testId="asset-cost-date"
             />
           </Form.Item>
           <Form.Item label={t('assets.financials.amount')} htmlFor="asset-cost-amount" required>
@@ -296,7 +299,7 @@ function CostDialog({
           />
         </Form.Item>
       </Form>
-    </Modal>
+    </EditDialog>
   );
 }
 
@@ -312,19 +315,50 @@ export function AssetFinancialsTab({ asset, manage }: { asset: AssetRecord; mana
   const dates = useDateTime();
   const found = useAssetFinancials(asset.id);
   const { remove } = useAssetCostActions(asset.id);
+  const { modal } = App.useApp();
+  const { writable } = useLicence();
+  // Read-only mode: the row's actions stay, disabled, saying why (D-155).
+  const readOnly = writable ? undefined : t('licence.read_only_action');
   const [dialog, setDialog] = useState<'depreciation' | 'cost'>();
   const [editing, setEditing] = useState<AssetCost | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const money = useMoney(found.data?.currency);
+  const confirmDelete = (cost: AssetCost) => {
+    modal.confirm({
+      title: t('assets.financials.delete_confirm'),
+      okText: t('actions.delete'),
+      okButtonProps: { danger: true, 'data-testid': 'asset-cost-delete-confirm' },
+      cancelText: t('actions.cancel'),
+      onOk: () => {
+        setProblem(null);
+        remove.mutate(
+          { id: cost.id, version: cost.version },
+          {
+            onError: (error) => {
+              setProblem(problemText(t, error));
+            },
+          },
+        );
+      },
+    });
+  };
   if (found.data === undefined) return <Skeleton active />;
   const data = found.data;
   const shown = (amount: string | null) => money(amount) ?? t('assets.financials.not_known');
   const terms = data.depreciation;
-  const cards: { key: string; label: string; value: string | null }[] = [
-    { key: 'purchase', label: t('assets.financials.purchase'), value: data.purchase },
-    { key: 'book-value', label: t('assets.financials.book_value'), value: data.book_value },
-    { key: 'operational', label: t('assets.financials.operational'), value: data.operational },
-    { key: 'total', label: t('assets.financials.total_cost'), value: data.total_cost },
+  const cards: { key: string; label: string; text: string }[] = [
+    { key: 'purchase', label: t('assets.financials.purchase'), text: shown(data.purchase) },
+    { key: 'book-value', label: t('assets.financials.book_value'), text: shown(data.book_value) },
+    {
+      key: 'operational',
+      label: t('assets.financials.operational'),
+      text: shown(data.operational),
+    },
+    {
+      key: 'total',
+      label: t('assets.financials.total_cost'),
+      text: totalShown(money, data),
+    },
   ];
   return (
     <Flex vertical gap={16} style={{ paddingBottom: 16 }} data-testid="asset-financials">
@@ -344,10 +378,8 @@ export function AssetFinancialsTab({ asset, manage }: { asset: AssetRecord; mana
           <Card key={card.key} size="small" style={{ flex: '1 1 160px', minWidth: 0 }}>
             <Statistic
               title={card.label}
-              value={card.value ?? ''}
-              formatter={() => (
-                <span data-testid={`asset-fin-${card.key}`}>{shown(card.value)}</span>
-              )}
+              value={card.text}
+              formatter={() => <span data-testid={`asset-fin-${card.key}`}>{card.text}</span>}
               valueStyle={{ fontSize: 20 }}
             />
           </Card>
@@ -523,45 +555,40 @@ export function AssetFinancialsTab({ asset, manage }: { asset: AssetRecord; mana
               ? [
                   {
                     key: 'actions',
-                    title: t('assets.loans.actions'),
+                    // Named for screen readers only, as the other row-action tables do.
+                    title: <span className="sr-only">{t('assets.financials.actions')}</span>,
                     fixed: 'right' as const,
                     render: (_: unknown, c: AssetCost) => (
-                      <Flex gap={4}>
-                        <WriteButton
-                          size="small"
-                          onClick={() => {
+                      <RowActions
+                        rowName={t('assets.financials.cost_row', {
+                          kind: t(`asset_cost_kind.${c.kind}`),
+                          date: dates.formatDay(c.incurred_on),
+                        })}
+                        primary={{
+                          key: 'edit',
+                          label: t('actions.edit'),
+                          disabled: !writable,
+                          whyNot: readOnly,
+                          onClick: () => {
                             setEditing(c);
                             setDialog('cost');
-                          }}
-                          data-testid={`asset-cost-edit-${c.id}`}
-                        >
-                          {t('actions.edit')}
-                        </WriteButton>
-                        <Popconfirm
-                          title={t('assets.financials.delete_confirm')}
-                          okText={t('actions.delete')}
-                          cancelText={t('actions.cancel')}
-                          onConfirm={() => {
-                            setProblem(null);
-                            remove.mutate(
-                              { id: c.id, version: c.version },
-                              {
-                                onError: (error) => {
-                                  setProblem(problemText(t, error));
-                                },
-                              },
-                            );
-                          }}
-                        >
-                          <WriteButton
-                            size="small"
-                            danger
-                            data-testid={`asset-cost-delete-${c.id}`}
-                          >
-                            {t('actions.delete')}
-                          </WriteButton>
-                        </Popconfirm>
-                      </Flex>
+                          },
+                          testId: `asset-cost-edit-${c.id}`,
+                        }}
+                        more={[
+                          {
+                            key: 'delete',
+                            label: t('actions.delete'),
+                            danger: true,
+                            disabled: !writable,
+                            whyNot: readOnly,
+                            onClick: () => {
+                              confirmDelete(c);
+                            },
+                            testId: `asset-cost-delete-${c.id}`,
+                          },
+                        ]}
+                      />
                     ),
                   },
                 ]

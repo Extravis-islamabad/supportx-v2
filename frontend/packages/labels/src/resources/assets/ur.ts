@@ -229,12 +229,14 @@ export const ur: LabelResource = {
   'assets.dispose.open': 'تلف کریں',
   'assets.dispose.record': 'تلفی',
   'assets.dispose.title': '{{name}} تلف کریں',
+  'assets.financials.actions': 'کارروائیاں',
   'assets.financials.add_cost': 'لاگت شامل کریں',
   'assets.financials.amount': 'رقم',
   'assets.financials.amount_needed': 'پہلے رقم درج کریں۔',
   'assets.financials.book_value': 'کتابی قدر',
   'assets.financials.closing': 'اختتامی قدر',
   'assets.financials.configure': 'فرسودگی طے کریں',
+  'assets.financials.cost_row': '{{date}} کی {{kind}} لاگت',
   'assets.financials.costs': 'لاگتیں',
   'assets.financials.currency_differs':
     'یہ اثاثہ {{currency}} میں خریدا گیا۔ میزان {{base}} میں ہیں اور کچھ تبدیل نہیں کیا جاتا۔',
@@ -385,6 +387,7 @@ export const ur: LabelResource = {
   'assets.notes.not_told_other':
     'ان {{count}} لوگوں کو اطلاع نہیں دی گئی، کیونکہ وہ یہ اثاثہ نہیں دیکھ سکتے:',
   'assets.notes.placeholder': 'نوٹ لکھیں، مثلاً مرمت۔ کسی کا ذکر کرنے کے لیے @ لکھیں۔',
+  'assets.notes.row': '{{name}} کا نوٹ، {{date}}',
   'assets.notes.tab': 'نوٹس اور فائلیں',
   'assets.notes.title': 'نوٹس',
   'assets.notes.versions': 'پچھلے نسخے',

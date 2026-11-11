@@ -13,3 +13,19 @@ export function useMoney(currency: string | null | undefined) {
     return new Intl.NumberFormat(intlLocale, options).format(Number(amount));
   };
 }
+
+/** The empty value of a money figure in the asset pages: a dash, as the purchase card shows. */
+export const NO_AMOUNT = '—';
+
+/**
+ * The total cost of ownership as shown (lane C's review on #375): a dash, never a blank or a
+ * "0.00", while nothing is known: no total, or no purchase cost and no other cost recorded.
+ */
+export function totalShown(
+  money: (amount: string | null | undefined) => string | null,
+  figures: { total_cost: string | null; purchase: string | null },
+): string {
+  const nothing =
+    figures.total_cost === null || (figures.purchase === null && Number(figures.total_cost) === 0);
+  return nothing ? NO_AMOUNT : (money(figures.total_cost) ?? NO_AMOUNT);
+}

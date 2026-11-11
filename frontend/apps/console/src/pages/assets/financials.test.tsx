@@ -176,29 +176,84 @@ describe('asset financials (REQ-AST-036..038)', () => {
     restore = fake.restore;
     render(<App />);
     fireEvent.click(await screen.findByTestId('asset-cost-add'));
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByTestId('asset-cost-save').hasAttribute('disabled')).toBe(true);
+    // The shared short-form dialog (EditDialog): Save waits for the amount, and says so.
+    const dialog = await screen.findByTestId('asset-cost-dialog');
+    expect(within(dialog).getByTestId('edit-ok').hasAttribute('disabled')).toBe(true);
+    expect(within(dialog).getByLabelText('Save: Enter the amount first.')).toBeTruthy();
+    // The day comes from the shared date field, today by default.
+    expect(within(dialog).getByTestId('asset-cost-date')).toBeTruthy();
     fireEvent.change(within(dialog).getByTestId('asset-cost-amount'), {
       target: { value: '75.50' },
     });
     fireEvent.change(within(dialog).getByTestId('asset-cost-description'), {
       target: { value: 'Courier' },
     });
-    fireEvent.click(within(dialog).getByTestId('asset-cost-save'));
+    fireEvent.click(within(dialog).getByTestId('edit-ok'));
     await waitFor(() => {
       expect(fake.find('POST', `/api/v1/assets/${asset.id}/costs`)).toHaveLength(1);
     });
     const [sent] = fake.find('POST', `/api/v1/assets/${asset.id}/costs`);
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
     expect(sent?.body).toMatchObject({ kind: 'service', amount: '75.5', description: 'Courier' });
-    fireEvent.click(screen.getByTestId('asset-cost-delete-cost-1'));
-    const confirm = await screen.findByRole('tooltip');
-    fireEvent.click(within(confirm).getByRole('button', { name: 'Delete' }));
+    expect(sent?.body).toHaveProperty('incurred_on', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
+    // The row's actions (RowActions): Edit as a link, Delete in the row's "…" menu, confirmed.
+    const costs = screen.getByTestId('asset-costs-table');
+    expect(within(costs).getByRole('button', { name: 'Edit' })).toBeTruthy();
+    fireEvent.click(
+      within(costs).getByRole('button', { name: /^More actions for Service cost on / }),
+    );
+    fireEvent.click(await screen.findByTestId('asset-cost-delete-cost-1'));
+    fireEvent.click(await screen.findByTestId('asset-cost-delete-confirm'));
     await waitFor(() => {
       expect(fake.find('DELETE', `/api/v1/assets/${asset.id}/costs/cost-1`)).toHaveLength(1);
     });
     const [removed] = fake.find('DELETE', `/api/v1/assets/${asset.id}/costs/cost-1`);
     expect(removed?.headers.get('If-Match')).toBe('"2"');
+  });
+
+  it('changes a cost line from its Edit link, with If-Match', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=financials`);
+    const fake = api(['tenant_admin'], {
+      [`PATCH /api/v1/assets/${asset.id}/costs/cost-1`]: {
+        body: { ...money.costs[0], amount: '210.00', version: 3 },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-cost-edit-cost-1'));
+    const dialog = await screen.findByTestId('asset-cost-dialog');
+    expect(within(dialog).getByText('Change cost')).toBeTruthy();
+    fireEvent.change(within(dialog).getByTestId('asset-cost-amount'), {
+      target: { value: '210' },
+    });
+    fireEvent.click(within(dialog).getByTestId('edit-ok'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/assets/${asset.id}/costs/cost-1`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `/api/v1/assets/${asset.id}/costs/cost-1`);
+    expect(sent?.headers.get('If-Match')).toBe('"2"');
+    expect(sent?.body).toMatchObject({ incurred_on: '2026-10-01', amount: '210' });
+  });
+
+  it('shows a dash for the total while nothing is known, in the card and the panel', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=financials`);
+    const fake = api(['tenant_admin'], {
+      [`GET /api/v1/assets/${asset.id}/financials`]: {
+        body: {
+          ...money,
+          purchase: null,
+          book_value: null,
+          operational: '0.00',
+          total_cost: '0.00',
+          costs: [],
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const tab = await screen.findByTestId('asset-financials');
+    expect(within(tab).getByTestId('asset-fin-total').textContent).toBe('—');
+    expect((await screen.findByTestId('asset-panel-total-cost')).textContent).toBe('—');
   });
 
   it('configures depreciation through the asset save, with If-Match', async () => {
@@ -209,11 +264,11 @@ describe('asset financials (REQ-AST-036..038)', () => {
     restore = fake.restore;
     render(<App />);
     fireEvent.click(await screen.findByTestId('asset-depreciation-open'));
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByTestId('asset-depreciation-dialog');
     fireEvent.change(within(dialog).getByTestId('asset-depreciation-salvage'), {
       target: { value: '100' },
     });
-    fireEvent.click(within(dialog).getByTestId('asset-depreciation-save'));
+    fireEvent.click(within(dialog).getByTestId('edit-ok'));
     await waitFor(() => {
       expect(fake.find('PATCH', `/api/v1/assets/${asset.id}`)).toHaveLength(1);
     });
@@ -285,6 +340,63 @@ describe('asset notes and history (REQ-AST-049, 050)', () => {
     fireEvent.click(within(list).getByTestId('asset-note-edited'));
     const versions = await screen.findByTestId('asset-note-versions');
     expect(await within(versions).findByText('Fan noisy')).toBeTruthy();
+  });
+
+  it("edits from the note's Edit link and deletes from its menu, confirmed, with If-Match", async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=notes`);
+    const fake = api(['technician'], {
+      [`DELETE /api/v1/assets/${asset.id}/notes/note-1`]: { status: 204 },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const list = await screen.findByTestId('asset-notes-list');
+    // RowActions: no side-by-side Edit and Delete buttons.
+    expect(within(list).getByRole('button', { name: 'Edit' })).toBeTruthy();
+    expect(within(list).queryByRole('button', { name: 'Delete' })).toBeNull();
+    fireEvent.click(
+      within(list).getByRole('button', { name: /^More actions for Note by Tariq Technician/ }),
+    );
+    fireEvent.click(await screen.findByTestId('asset-note-delete-note-1'));
+    fireEvent.click(await screen.findByTestId('asset-note-delete-confirm'));
+    await waitFor(() => {
+      expect(fake.find('DELETE', `/api/v1/assets/${asset.id}/notes/note-1`)).toHaveLength(1);
+    });
+    const [removed] = fake.find('DELETE', `/api/v1/assets/${asset.id}/notes/note-1`);
+    expect(removed?.headers.get('If-Match')).toBe('"2"');
+    fireEvent.click(within(list).getByTestId('asset-note-edit-note-1'));
+    expect(await screen.findByTestId('asset-note-editor')).toBeTruthy();
+  });
+
+  it('keeps the sub-view in the bar and the other filters in the drawer', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=history`);
+    const fake = api(['technician']);
+    restore = fake.restore;
+    render(<App />);
+    const bar = await screen.findByTestId('asset-history-filters');
+    expect(within(bar).getByTestId('asset-history-view')).toBeTruthy();
+    // Field, source, person and days live in the drawer, not the bar (D-124).
+    expect(screen.queryByTestId('asset-history-field')).toBeNull();
+    expect(screen.queryByTestId('asset-history-source')).toBeNull();
+    fireEvent.click(within(bar).getByTestId('asset-history-filters-filters'));
+    const drawer = await screen.findByTestId('asset-history-drawer');
+    const source = within(drawer).getByTestId('asset-history-source');
+    fireEvent.mouseDown(source.querySelector('.ant-select-selector') ?? source);
+    const option = await waitFor(() => {
+      const found = screen
+        .getAllByText('through the API')
+        .filter((n) => n.closest('.ant-select-item-option') !== null);
+      const last = found.at(-1);
+      if (last === undefined) throw new Error('no option');
+      return last;
+    });
+    fireEvent.click(option);
+    await waitFor(() => {
+      const asked = fake.find('GET', `/api/v1/assets/${asset.id}/history`);
+      expect(asked.some((r) => r.url.searchParams.get('source') === 'api')).toBe(true);
+    });
+    // The bar counts the drawer's filters and offers to clear them.
+    expect(within(bar).getByTestId('asset-history-clear')).toBeTruthy();
+    expect(within(bar).getByText('1')).toBeTruthy();
   });
 
   it('narrows the history to the state sub-view', async () => {
