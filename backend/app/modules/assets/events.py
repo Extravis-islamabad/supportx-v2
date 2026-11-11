@@ -7,6 +7,8 @@ Payloads carry IDs, codes and changed field *names* only, never names, prices or
 import uuid
 from typing import ClassVar, Literal
 
+from pydantic import Field
+
 from app.shared.events import DomainEvent
 
 CatalogueKind = Literal["product_type", "state", "life_cycle", "settings"]
@@ -203,6 +205,37 @@ class AssetBookingChanged(DomainEvent):
     loan_id: uuid.UUID | None = None
 
 
+PartAction = Literal["created", "updated", "deleted"]
+
+
+class AssetCostChanged(DomainEvent):
+    """A cost line of an asset was added, changed or removed (REQ-AST-036). No amounts (§8.2)."""
+
+    event_type: ClassVar[str] = "assets.cost.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_cost"
+
+    asset_id: uuid.UUID
+    cost_id: uuid.UUID
+    action: PartAction
+
+
+class AssetNoteChanged(DomainEvent):
+    """A note on an asset was added, edited or deleted (REQ-AST-050). No text (§8.2).
+
+    `mentioned`: the people newly mentioned who may see the asset; they are told (REQ-INC-063).
+    """
+
+    event_type: ClassVar[str] = "assets.note.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_note"
+
+    asset_id: uuid.UUID
+    note_id: uuid.UUID
+    action: PartAction
+    mentioned: list[uuid.UUID] = Field(default_factory=list)
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     CatalogueChanged,
     ProductChanged,
@@ -217,4 +250,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     StockLow,
     StockRuleChanged,
     AssetBookingChanged,
+    AssetCostChanged,
+    AssetNoteChanged,
 )

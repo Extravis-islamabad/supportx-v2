@@ -337,6 +337,9 @@ export const ar: LabelResource = {
   'permission.assets.reinstate.description': 'إعادة أصل متقاعد إلى المخزون.',
   'permission.assets.view': 'عرض الأصول',
   'permission.assets.view.description': 'رؤية أصول الأجهزة والبرمجيات.',
+  'permission.assets.view_financials': 'عرض تكاليف الأصول وقيمها',
+  'permission.assets.view_financials.description':
+    'الاطلاع على تكاليف الأصل واستهلاكه وقيمته الدفترية، وتغيير بنود تكلفته واستهلاكه حيث يمكنك إدارته.',
   'permission.audit.export': 'تصدير سجل التدقيق',
   'permission.audit.export.description': 'تصدير الإدخالات مع قيم السلسلة للمدققين الخارجيين.',
   'permission.audit.manage': 'إدارة إعدادات التدقيق',

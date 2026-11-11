@@ -49,6 +49,7 @@ from app.modules.organization.service.file_access import FILE_ACCESS
 from app.modules.organization.service.hosts import HostTenant, tenant_for_host, tenant_for_slug
 from app.modules.organization.service.instance import (
     RegionalDefaults,
+    base_currency,
     offered_languages,
     regional_defaults,
 )
@@ -167,6 +168,7 @@ __all__ = [
     "active_groups",
     "active_unit_ids",
     "add_member",
+    "base_currency",
     "calendar_users",
     "default_desk_id",
     "default_site",

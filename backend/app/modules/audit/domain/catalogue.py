@@ -399,6 +399,13 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset_booking.created", AuditCategory.RECORDS, "assets"),
     ("asset_booking.cancelled", AuditCategory.RECORDS, "assets"),
     ("asset_booking.handed_over", AuditCategory.RECORDS, "assets"),
+    # WP-049b s2: an asset's cost lines (REQ-AST-036) and notes (REQ-AST-050).
+    ("asset_cost.created", AuditCategory.RECORDS, "assets"),
+    ("asset_cost.updated", AuditCategory.RECORDS, "assets"),
+    ("asset_cost.deleted", AuditCategory.RECORDS, "assets"),
+    ("asset_note.created", AuditCategory.RECORDS, "assets"),
+    ("asset_note.updated", AuditCategory.RECORDS, "assets"),
+    ("asset_note.deleted", AuditCategory.RECORDS, "assets"),
     ("asset_group.created", AuditCategory.RECORDS, "assets"),
     ("asset_group.updated", AuditCategory.RECORDS, "assets"),
     ("asset_group.deleted", AuditCategory.RECORDS, "assets"),

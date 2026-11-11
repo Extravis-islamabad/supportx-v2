@@ -41,6 +41,12 @@ from app.modules.assets.domain.assets import (
     tag_counter_key,
 )
 from app.modules.assets.domain.catalogue import AssetStateCategory, Problem, amount_problems
+from app.modules.assets.domain.financials import (
+    COST_CENTRE_MAX,
+    GL_CODE_MAX,
+    DepreciationChoice,
+    terms_problems,
+)
 from app.modules.assets.events import AssetAction, AssetChanged
 from app.modules.assets.infra.models import (
     Asset,
@@ -49,7 +55,9 @@ from app.modules.assets.infra.models import (
     AssetSettings,
     AssetState,
 )
+from app.modules.assets.service import valuations
 from app.modules.assets.service.catalogue import TEXT_MAX, ensure_defaults
+from app.modules.assets.service.valuations import VALUED_FIELDS
 from app.modules.identity_access import (
     ResourceType,
     Subject,
@@ -69,6 +77,10 @@ from app.shared.ids import new_id
 VIEW = "assets.view"
 MANAGE = "assets.manage"
 EDIT_DISPOSED = "assets.edit_disposed"  # REQ-AST-017 AC3: changes a disposed asset (with a reason)
+# WP-049b s2: costs, depreciation and book value (REQ-AST-036, 037). The asset's own depreciation
+# settings are set only by those who may see its money (and manage it).
+VIEW_FINANCIALS = "assets.view_financials"
+DEPRECIATION_FIELDS = ("depreciation_method", "useful_life_years", "salvage_value")
 RECORD_TYPE = "asset"
 ENTITY = "asset"  # metadata.CustomFieldEntity.ASSET
 LIMIT_CODE = "asset_limit_reached"
@@ -95,6 +107,9 @@ ASSET_FIELDS = ResourceFields(
         ),
         "created_at": FilterField(Asset.created_at, FieldType.DATETIME, sortable=True),
         "updated_at": FilterField(Asset.updated_at, FieldType.DATETIME, sortable=True),
+        # 0131 (REQ-AST-038): free text, as typed; reports group by it.
+        "cost_centre": FilterField(Asset.cost_centre, FieldType.STRING, sortable=True),
+        "gl_code": FilterField(Asset.gl_code, FieldType.STRING, sortable=True),
     },
     id_column=Asset.id,
     default_sort=("-updated_at",),
@@ -121,7 +136,13 @@ ASSETS = ResourceType(
 )
 
 # The fields a person sets (state: through the life cycle; discovered serial: by discovery).
-_TEXT_FIELDS = {"name": NAME_MAX, "location": LOCATION_MAX, "description": TEXT_MAX}
+_TEXT_FIELDS = {
+    "name": NAME_MAX,
+    "location": LOCATION_MAX,
+    "description": TEXT_MAX,
+    "cost_centre": COST_CENTRE_MAX,
+    "gl_code": GL_CODE_MAX,
+}
 _IDENTIFIERS = ("tag", "serial_number", "barcode")
 _AMOUNTS = ("purchase_price", "purchase_tax")
 _DATES = ("acquired_on", "warranty_expires_on", "expires_on")
@@ -131,6 +152,12 @@ _IDS = ("product_id", "vendor_id", "site_id", "purchase_order_id")
 def _require(subject: Subject, permission: str) -> None:
     if not subject.holds(permission):
         raise PermissionDenied(params={"permission": permission})
+
+
+def _require_financials_for(subject: Subject, values: Mapping[str, Any]) -> None:
+    """Depreciation settings are money (REQ-AST-037): only with `assets.view_financials`."""
+    if any(name in values for name in DEPRECIATION_FIELDS):
+        _require(subject, VIEW_FINANCIALS)
 
 
 def _tenant(session: AsyncSession) -> uuid.UUID:
@@ -186,7 +213,51 @@ def _clean(values: Mapping[str, Any]) -> tuple[dict[str, Any], list[Problem]]:
             problems += amount_problems(name, amount)
             cleaned[name] = amount
     cleaned.update({k: values[k] for k in ("currency", *_DATES, *_IDS) if k in values})
+    problems += _depreciation(values, cleaned)
     return cleaned, problems
+
+
+def _depreciation(values: Mapping[str, Any], cleaned: dict[str, Any]) -> list[Problem]:
+    """The asset's own depreciation settings sent (REQ-AST-037), into `cleaned`; their problems.
+
+    The salvage value is checked against the cost by `_salvage_problems` once the cost is known.
+    """
+    problems: list[Problem] = []
+    if "depreciation_method" in values:
+        method = values["depreciation_method"]
+        if method is not None and method not in set(DepreciationChoice):
+            problems.append(Problem("depreciation_method", "invalid_choice"))
+        else:
+            cleaned["depreciation_method"] = None if method is None else str(method)
+    life = values.get("useful_life_years")
+    salvage = values.get("salvage_value")
+    salvage = None if salvage is None else Decimal(str(salvage))
+    found = terms_problems(life, salvage, None)
+    problems += found
+    if not found:
+        cleaned.update(
+            {
+                k: v
+                for k, v in (("useful_life_years", life), ("salvage_value", salvage))
+                if k in values
+            }
+        )
+    return problems
+
+
+def _salvage_problems(cleaned: Mapping[str, Any], current: Asset | None) -> list[Problem]:
+    """A salvage value above the asset's cost (as it will be after this save) is refused."""
+
+    def after(name: str) -> Any:  # noqa: ANN401 - a column's value
+        return cleaned[name] if name in cleaned else getattr(current, name, None)
+
+    salvage = after("salvage_value")
+    if salvage is None:
+        return []
+    cost = (after("purchase_price") or Decimal(0)) + (after("purchase_tax") or Decimal(0))
+    if after("purchase_price") is None and after("purchase_tax") is None:
+        return []
+    return terms_problems(None, salvage, cost)
 
 
 def _refuse(problems: Sequence[Problem]) -> None:
@@ -358,6 +429,8 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
         aggregate_id=row.id,
         aggregate_version=row.version,
     )
+    if action == "created" or VALUED_FIELDS & {c.field for c in changes}:
+        await valuations.refresh(session, row)  # reports see the new figures at once
 
 
 def staff_rows(subject: Subject, *, trash: bool = False) -> Select[Asset]:
@@ -401,8 +474,10 @@ async def create_asset(
 ) -> Asset:
     """A new asset of a product, in the default in-stock state, with its tag."""
     _require(subject, MANAGE)
+    _require_financials_for(subject, values)
     await ensure_defaults(session)
     cleaned, problems = _clean(values)
+    problems += _salvage_problems(cleaned, None)
     if "name" not in cleaned and not any(p.field == "name" for p in problems):
         problems.append(Problem("name", "required"))
     product = None
@@ -422,6 +497,8 @@ async def create_asset(
         await _reserve(session)
     if cleaned.get("tag") is None:
         cleaned["tag"] = await _next_tag(session, product_type)
+    if "gl_code" not in values and product.gl_code:
+        cleaned["gl_code"] = product.gl_code  # REQ-AST-038: from the product unless typed
     row = Asset(
         id=new_id(),
         tenant_id=_tenant(session),
@@ -487,6 +564,7 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
     and each such change asks for a reason, kept in its history.
     """
     _require(subject, MANAGE)
+    _require_financials_for(subject, values)
     row = await _visible(session, subject, asset_id, permission=MANAGE)
     if row.version != expected_version:
         raise await stale_version(
@@ -504,6 +582,7 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
     if disposed and text is None:
         problems.append(Problem("reason", "required"))
     problems += await _product_change(session, cleaned)
+    problems += _salvage_problems(cleaned, row)
     if "tag" in cleaned and cleaned["tag"] is None:
         problems.append(Problem("tag", "required"))  # a tag, once given, stays (AST-008)
     problems += await _link_problems(session, cleaned, row)

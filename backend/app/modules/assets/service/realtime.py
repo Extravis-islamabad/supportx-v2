@@ -6,6 +6,8 @@
 - An asset change goes to the asset list (the whole list, and its site's) and to the asset's own
   channel, with the ID, the changed field names and the version only (§8.2).
 
+WP-049b s2: cost lines and notes go to the asset's own channel (`fields`: costs or notes).
+
 WP-049b s1: consumables and stock go to the tenant channel with the consumable's ID
 (`assets.consumables_changed`), bookings to the tenant channel, the asset's own channel and the
 booker's personal channel (`assets.bookings_changed`), minimum-stock rules as set-up.
@@ -225,7 +227,30 @@ async def _booking_changed(envelope: EventEnvelope, session: AsyncSession) -> Re
     )
 
 
+# WP-049b s2: a cost line or a note changed. The asset's page refreshes that tab (the changed
+# part's name in `fields`: "costs" or "notes"); IDs only, amounts and text through the API.
+_PARTS = {"assets.cost.changed": ("costs", "cost_id"), "assets.note.changed": ("notes", "note_id")}
+
+
+async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    del session
+    part, key = _PARTS[envelope.event_type]
+    asset_id = uuid.UUID(str(envelope.payload["asset_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, asset_id),
+                ASSET_CHANGED,
+                ids=(str(asset_id), str(envelope.payload[key])),
+                fields=(part,),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
+
+
 ROUTES = [
+    RealtimeRoute(tuple(_PARTS), _part_changed),
     RealtimeRoute(
         ("assets.consumable.changed", "assets.stock.moved", "assets.stock.low"),
         _consumable_changed,
