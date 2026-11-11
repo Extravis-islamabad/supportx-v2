@@ -344,6 +344,9 @@ export const ur: LabelResource = {
   'permission.assets.reinstate.description': 'ریٹائرڈ اثاثہ واپس اسٹاک میں لائیں۔',
   'permission.assets.view': 'اثاثے دیکھیں',
   'permission.assets.view.description': 'ہارڈ ویئر اور سافٹ ویئر اثاثے دیکھیں۔',
+  'permission.assets.view_financials': 'اثاثوں کی لاگت اور قدر دیکھیں',
+  'permission.assets.view_financials.description':
+    'اثاثے کی لاگت، فرسودگی اور کتابی قدر دیکھیں، اور جہاں آپ اسے سنبھال سکیں وہاں اس کی لاگت کی سطریں اور فرسودگی بدلیں۔',
   'permission.audit.export': 'آڈٹ لاگ برآمد کریں',
   'permission.audit.export.description':
     'بیرونی آڈیٹرز کے لیے اندراجات کو ان کی زنجیر کی قدروں کے ساتھ برآمد کریں۔',

@@ -7,6 +7,7 @@ export const en = {
   'errors.action_link_stale': 'The request changed since this link was sent. Open it in the app.',
   'errors.action_link_used': 'This link has already been used.',
   'errors.already_known_error': '{{display_id}} is already a known error.',
+  'errors.already_on_version': 'This run is already on that version.',
   'errors.already_taken': '{{taken_by}} has just taken this. Reload to see it.',
   'errors.already_yours': 'It is already assigned to you.',
   'errors.announcement_not_found': 'This announcement does not exist or is not available to you.',
@@ -55,6 +56,7 @@ export const en = {
     'There are still {{quantity}} in stock. Allocate or adjust them to zero first.',
   'errors.asset_consumable_not_found': 'This consumable no longer exists.',
   'errors.asset_copy_limit': 'Make between 1 and {{max}} copies at once.',
+  'errors.asset_cost_not_found': 'This cost line no longer exists.',
   'errors.asset_disposal_not_found': 'This asset has no disposal record.',
   'errors.asset_disposed_read_only':
     'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
@@ -84,6 +86,7 @@ export const en = {
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
   'errors.asset_not_loanable': "{{asset}} can't be loaned: it isn't loanable, or isn't in stock.",
   'errors.asset_not_on_this_loan': "That asset isn't out on this loan.",
+  'errors.asset_note_not_found': 'This note no longer exists.',
   'errors.asset_on_loan': '{{asset}} is already out on a loan.',
   'errors.asset_portal_booking_off': 'Your organisation does not take bookings in the portal.',
   'errors.asset_product_not_found': 'This product does not exist.',
@@ -148,6 +151,8 @@ export const en = {
     'A freeze blocks this time. Choose another time, or someone allowed to may let the change go ahead with a reason.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
+  'errors.command_in_flight':
+    'This run is waiting on a step that would move to a different kind of step. Let it finish first.',
   'errors.conflict': 'Someone else changed this item. Reload to see the latest version.',
   'errors.console_requester_only': 'This account uses the requester portal, not the console.',
   'errors.contact_editing_off':
@@ -253,6 +258,8 @@ export const en = {
   'errors.field.asset_product_type_not_found': 'Choose a product type from the list.',
   'errors.field.asset_product_type_too_deep': 'The tree can be at most {{max}} levels deep.',
   'errors.field.asset_quantity_positive': 'Enter a quantity above zero.',
+  'errors.field.asset_salvage_above_cost':
+    "The salvage value can't be more than what the asset cost.",
   'errors.field.asset_serial_number_taken': 'Asset {{asset}} already has this serial number.',
   'errors.field.asset_state_code_taken': 'Another state has this code.',
   'errors.field.asset_state_default_needed':
@@ -670,6 +677,11 @@ export const en = {
     'This incident is already linked to {{display_id}}. Move it to confirm.',
   'errors.insert_too_large':
     "The article's images are too large to insert together: at most {{limit_mb}} MB.",
+  'errors.instance_not_failed': 'Only a failed workflow can be retried.',
+  'errors.instance_not_running': 'This workflow is not running, so it cannot be stopped.',
+  'errors.instance_running': 'Stop this workflow before running it again.',
+  'errors.instances_not_in_workflow':
+    'Some of the chosen runs are not runs of this workflow ({{count}}).',
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
@@ -694,6 +706,8 @@ export const en = {
   'errors.invitation_pending': 'This person has an invitation waiting. Send it again instead.',
   'errors.invitation_person_cannot_sign_in':
     'This person is deactivated or not allowed to sign in.',
+  'errors.job_kind_not_available': 'This kind of job is not available yet.',
+  'errors.job_size': 'Choose between 1 and {{max}} runs.',
   'errors.kb_article_not_editable':
     'You cannot edit this article. Its owner or a knowledge manager can.',
   'errors.kb_article_not_found': 'This article does not exist or is not shared with you.',
@@ -780,6 +794,8 @@ export const en = {
     'SupportX cannot be reached right now. Check your connection; we will keep trying.',
   'errors.no_organization':
     'Your account is not linked to any organisation yet. Please contact your administrator.',
+  'errors.node_not_found': 'That step is not in this version of the workflow.',
+  'errors.node_not_mapped': 'A step this run is at has no place in the new version: map it to one.',
   'errors.not_a_member': 'You are not a member of that organisation.',
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
@@ -789,6 +805,7 @@ export const en = {
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
   'errors.nothing_to_override':
     'This change is not waiting for approval again, so there is nothing to override.',
+  'errors.nothing_to_retry': 'There is no failed step to run again.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
@@ -799,6 +816,8 @@ export const en = {
   'errors.order_out_of_date': 'The list changed meanwhile. Reload it and order again.',
   'errors.out_of_range': 'This value is outside the allowed range.',
   'errors.own_profile_only': 'You can only change your own preferences.',
+  'errors.parallel_in_progress':
+    'This run is inside parallel branches and cannot move until they join.',
   'errors.password_policy_not_saved': 'Save the password policy first.',
   'errors.password_policy_platform': 'The platform sets the password policy on this installation.',
   'errors.password_reset_not_signed_in':
@@ -838,6 +857,7 @@ export const en = {
   'errors.recipient_deferred': "The recipient's mail server asked to try later.",
   'errors.recipient_refused': 'The mail server refused the recipient.',
   'errors.record_closed': 'Closed and canceled records cannot be changed.',
+  'errors.record_not_editable': 'You need to be able to edit the record to do this.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
@@ -858,6 +878,7 @@ export const en = {
   'errors.report_timeout':
     'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
   'errors.required': 'This field is required.',
+  'errors.restart_at_end': 'Choose a step to run from, not an end.',
   'errors.role_in_use':
     'This role is still assigned to users. Choose a role to move them to first.',
   'errors.role_not_found': 'This role was not found.',
@@ -955,6 +976,11 @@ export const en = {
   'errors.work_item_view_not_found':
     'This saved view no longer exists, or it is not shared with you.',
   'errors.work_item_worklog_not_found': 'This worklog no longer exists.',
+  'errors.workflow_instance_changed':
+    'This workflow changed since you opened it. Reload and try again.',
+  'errors.workflow_instance_not_found': 'This workflow run was not found.',
+  'errors.workflow_job_not_found': 'This job was not found.',
+  'errors.workflow_version_not_found': 'That version of the workflow was not found.',
   'errors.would_lose_access':
     'After this change you will no longer see {{display_id}}. Confirm to hand it over.',
 } as const;

@@ -6,7 +6,7 @@ match first and `/assets/{asset_id}` only takes an ID. Reading needs `assets.vie
 """
 
 import uuid
-from datetime import date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -19,6 +19,12 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules import metadata
 from app.modules.assets.domain.assets import IDENTIFIER_MAX, LOCATION_MAX, NAME_MAX
+from app.modules.assets.domain.financials import (
+    COST_CENTRE_MAX,
+    GL_CODE_MAX,
+    LIFE_MAX,
+    DepreciationChoice,
+)
 from app.modules.assets.infra.models import Asset, AssetAssignment, AssetDisposal
 from app.modules.assets.service import assets as service
 from app.modules.assets.service import bulk, disposals, moves, ownership, relationships
@@ -31,7 +37,7 @@ from app.shared.api.filters import FilterField
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query, paginate
 from app.shared.api.ratelimit import rate_limit
-from app.shared.history import history_page, source_of
+from app.shared.history import HistoryFilter, Source, history_page, source_of
 from app.shared.search import ENGINE, SearchDocument
 
 router = APIRouter(
@@ -96,6 +102,8 @@ class AssetOut(BaseModel):
     expires_on: date | None
     description: str | None
     loanable: bool = Field(default=False, description="May go out on a loan (REQ-AST-029).")
+    cost_centre: str | None = Field(default=None, description="Free text (REQ-AST-038).")
+    gl_code: str | None = Field(default=None, description="From the product unless typed.")
     custom: dict[str, Any]
     created_at: datetime
     updated_at: datetime
@@ -128,6 +136,8 @@ class AssetOut(BaseModel):
             acquired_on=row.acquired_on,
             warranty_expires_on=row.warranty_expires_on,
             loanable=row.loanable,
+            cost_centre=row.cost_centre,
+            gl_code=row.gl_code,
             expires_on=row.expires_on,
             description=row.description,
             custom=dict(row.custom),
@@ -158,6 +168,13 @@ class AssetIn(BaseModel):
     warranty_expires_on: date | None = None
     expires_on: date | None = None
     description: str | None = Field(default=None, max_length=TEXT_MAX)
+    cost_centre: str | None = Field(default=None, max_length=COST_CENTRE_MAX)
+    gl_code: str | None = Field(default=None, max_length=GL_CODE_MAX)
+    depreciation_method: DepreciationChoice | None = Field(
+        default=None, description="The asset's own (null: the product's). assets.view_financials."
+    )
+    useful_life_years: int | None = Field(default=None, ge=1, le=LIFE_MAX)
+    salvage_value: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     custom: dict[str, Any] | None = Field(default=None, description="Custom field values by key.")
 
 
@@ -182,6 +199,13 @@ class AssetPatch(BaseModel):
     warranty_expires_on: date | None = None
     expires_on: date | None = None
     description: str | None = Field(default=None, max_length=TEXT_MAX)
+    cost_centre: str | None = Field(default=None, max_length=COST_CENTRE_MAX)
+    gl_code: str | None = Field(default=None, max_length=GL_CODE_MAX)
+    depreciation_method: DepreciationChoice | None = Field(
+        default=None, description="The asset's own (null: the product's). assets.view_financials."
+    )
+    useful_life_years: int | None = Field(default=None, ge=1, le=LIFE_MAX)
+    salvage_value: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key; null clears one."
     )
@@ -211,6 +235,15 @@ class AssetHistoryEntryOut(BaseModel):
     reason: str | None
     occurred_at: datetime
     changes: list[AssetChangeOut]
+
+
+HistoryView = Literal["all", "state", "assignment"]
+# REQ-AST-049 sub-views: the fields each shows. Assignment: who holds it (a person, a department
+# or the asset it is fitted to); loans and their returns set and clear those too.
+HISTORY_VIEWS: dict[str, tuple[str, ...]] = {
+    "state": ("state_id",),
+    "assignment": ("owner_user_id", "department_id", "parent_asset_id"),
+}
 
 
 class AssetHistoryOut(BaseModel):
@@ -385,17 +418,41 @@ async def restore_asset(
     summary="An asset's history",
     responses={404: {"model": ProblemDetail, "description": "asset_not_found"}},
 )
-async def asset_history(
+async def asset_history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and filters
     asset_id: uuid.UUID,
     session: TenantSession,
     subject: View,
     cursor: Annotated[int | None, Query(ge=1, description="next_cursor of the last page")] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    view: Annotated[
+        HistoryView,
+        Query(description="state: state moves only; assignment: who holds it (and loans)."),
+    ] = "all",
+    field: Annotated[
+        list[str] | None, Query(max_length=20, description="Only these fields.")
+    ] = None,
+    source: Annotated[
+        list[Source] | None, Query(max_length=20, description="Only from these.")
+    ] = None,
+    actor_id: Annotated[uuid.UUID | None, Query(description="Only this person's changes.")] = None,
+    since: Annotated[date | None, Query(description="From this day (inclusive, UTC).")] = None,
+    until: Annotated[date | None, Query(description="To this day (inclusive, UTC).")] = None,
 ) -> AssetHistoryOut:
-    """Every save, newest first, with who, when, how (UI, API, rule ...) and what changed."""
+    """Every save, newest first, with who, when, how (UI, API, rule ...) and what changed.
+
+    Filters (REQ-AST-049): a sub-view (state, assignment), fields, sources, a person and days.
+    """
     await service.get_asset(session, subject, asset_id)
+    fields = set(field or ()) | set(HISTORY_VIEWS.get(view, ()))
+    where = HistoryFilter(
+        fields=frozenset(fields),
+        sources=frozenset(source or ()),
+        actor_id=None if actor_id is None else str(actor_id),
+        since=None if since is None else datetime.combine(since, time.min, UTC),
+        until=None if until is None else datetime.combine(until + timedelta(days=1), time.min, UTC),
+    )
     entries, next_version = await history_page(
-        session, service.RECORD_TYPE, asset_id, before_version=cursor, limit=limit
+        session, service.RECORD_TYPE, asset_id, before_version=cursor, limit=limit, where=where
     )
     names = await user_names(session, [e.actor_id for e in entries if e.actor_id])
     return AssetHistoryOut(

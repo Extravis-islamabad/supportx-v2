@@ -1104,19 +1104,36 @@ it with no reload (rule c). Not built yet.
   - CIs and services in the snapshot (with the CMDB);
   - the screens (UI pass 3 templates).
 
-### [~] Change screens — taken forward from WP-045d D19 (lane A, 2026-11-11; the coordinator; 4 sessions, 2 PRs)
-- **PR 1 (S1+S2, no migration):** the changes list on template C (path, stage, status, the
+### [x] Change screens — taken forward from WP-045d D19 (lane A, 2026-11-11; the coordinator; 4 sessions, 2 PRs)
+- **PR 1 (S1+S2, no migration, #372, merged):** the changes list on template C (path, stage, status, the
   emergency flag, a Pending approval view); a new change on template B (prefilled when raised
   from another record), opening on its risk questionnaire; the record on template A (stage rail
   and moves, properties, details with a risk override that says why, the questionnaire, roles,
   plans, schedule and downtime read-only, history). The staged parts' hooks by type
   (`api-client/staged.ts`) and one move dialog for staged types (`pages/staged`, lane C's split).
-- **PR 2 (S3+S4, after PR 1):** the CAB and approvals panel (decisions, the SoD preview,
-  changes-since and re-approval, the emergency override), the QA flow 4 e2e, and the advisory
-  board admin on template E (`changes.manage_boards`). Lane B blocks it (D-149).
-- **Not yet:** risk and type columns on the list (not in the list API); conversation and
-  attachments on the record; labels for questions an admin adds to a template's questionnaire
-  (only Appendix A's are labelled); editing schedules and downtime (WP-045c).
+- **PR 2 (S3+S4, no migration):**
+  - the Approvals tab: each approval's board and why, advisory votes, the administrators'
+    fallback, decisions with If-Match, and what changed since approval;
+  - the move that raises a stage shows who would approve and who is left out (the preview now
+    names them);
+  - a new risk that sends approved stages back says so before saving;
+  - the emergency override (D-144), only on a change sent back (`sent_back` on its details);
+  - a stage's outcome on the Schedule tab;
+  - change advisory boards on template E (`/admin/change-boards`, `changes.manage_boards` or
+    `settings.manage`), whose people come named;
+  - QA flow 4 end to end in Playwright, and walked move by move over the API.
+  - **Fix:** a move says where it lands (`lands_in`), so a move that closes a change after
+    an automatic advance ("Review complete") asks for the closure code. Before, a change
+    could not be closed from the console.
+  - Lane B gives the blocking review (D-149).
+- **Not yet:**
+  - risk and type columns on the list (not in the list API);
+  - conversation and attachments on the record;
+  - labels for questions an admin adds to a template's questionnaire (only Appendix A's are
+    labelled);
+  - editing schedules and downtime (WP-045c);
+  - a "failed" outcome's issues text (the server asks for it; the select has no field for it
+    yet).
 
 ### [~] WP-045c — Changes: windows, conflicts, calendar (lane A, 2026-11-11; 3 sessions; ADR-042; migration 0132; D-156 held)
 - **S1 (backend, 0132):**
@@ -1448,7 +1465,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; session 1 built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-2 built 2026-11-11)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1490,6 +1507,24 @@ it with no reload (rule c). Not built yet.
   - **Open:** the request page's own panel for its allocations (lane A's screen, on the API
     above); a calendar screen of availability by product and site (`GET /assets/availability`
     is there, and the portal's picker uses the same query); AC2 of 035 with WP-054.
+- [x] **Session 2 (migration 0131 after 0130; REQ-AST-036, 037, 038, 048, 049, 050; branch
+  backup/wp-049b-s2, its PR after #367 lands):**
+  - Cost lines (move, service, contract, other) in the base currency, the disposal record's cost
+    as the only disposal cost (counted once), and the total cost
+    of ownership, exact decimals (036 AC1, AC3); depreciation as a pure domain (straight line,
+    declining balance 150 %, double declining, sum of the years' digits, none; prorated by month;
+    golden-value tests) with the asset's own settings or its product's (037 AC1-AC3); book value
+    on any day and the schedule by year; "today" is the tenant's local day (its time zone).
+  - Cost centre and GL code (free text; GL from the product) on assets; `asset_valuations` for
+    reports by cost centre (038 AC2), refreshed on save and by a daily sweep. Dimension codes for
+    lane C: `cost_centre`, `gl_code`; money fields `book_value`, `total_cost`.
+  - New right `assets.view_financials` (asset manager, admins) guarding all money in API and UI.
+  - Notes with mentions, edit history and "note deleted" lines; attachments as the asset's files
+    (050). History sub-views (state, assignment) and filters by field, source, person and days
+    (049). The record page gains Financials and Notes and files tabs and the panel's value (048).
+  - Guide: docs/guides/asset-financials.md.
+  - **Open:** 048's hardware, software, contracts and scan-history tabs (discovery, S3, WP-054);
+    049 AC1's `discovery` source (S3); 036 AC2 and 038 AC1 with WP-054.
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
@@ -1516,7 +1551,7 @@ it with no reload (rule c). Not built yet.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
 
-### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 done, #233)
+### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-3 of 5 built, #233)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.
 Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (approval chair).
@@ -1572,8 +1607,26 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
     approvers), the egress use, the function port, NotificationCategory.WORKFLOW.
   - Open: run-time error codes (`webhook_*`, `task_canceled`, …) get labels with S4's
     instance view; a task owner that does not exist is refused by a foreign key, not a code.
-- [ ] **S3** — versions and migrating instances, stop and restart, the overview, copy, export and
-  import, and the test mode.
+- [x] **S3** — built on feat/wp-048b-s3 (backup/wp-048b-s3); one PR from main, opened in 0107's
+  migration turn (after 0130). Session log: progress-log/2026-11-11-wp-048b-s3-lane-c.md.
+  - **S3a, stop, restart, retry (REQ-WF-025 AC2, REQ-WF-026):** on a record, in the workflow domain
+    (`domain/operations.py`), audited. Canceling a record stops its workflows (lane A's hook).
+  - **S3b, the overview and bulk jobs (REQ-WF-025):** runs by workflow, state and node, failures
+    with node and error. Bulk retry and cancel are background jobs (`workflow_jobs`, migration
+    0107): a savepoint per run, each result kept, live on the queue channel.
+  - **S3c, versions and migration (REQ-WF-021, -027):** runs stay on their version. A migration
+    maps occupied nodes; unmapped runs stay and are listed; a dry run changes nothing; the record's
+    history shows the version move. Versions show who published and the live runs per node.
+  - **S3d, copy, export, import, delete (REQ-WF-027):** a copy is an independent draft. Export and
+    import within one tenant give the same definition. Import refuses another tenant's file, other
+    shapes, files over 1 MB and template IDs that aren't here. A workflow with live runs is never
+    deleted.
+  - **S3e, test mode (REQ-WF-022):** the same `advance()` on a record's facts or sample values, in
+    `workflow_test_runs` (0107). Commands are shown and answered by hand; timers fire on the run's
+    own clock. Nothing reaches the record, its history or the outbox. One live call per run, for a
+    webhook or notify node on a record: workflows.manage only, audited with who, node and record.
+  - Cross-tenant import is out of scope (coordinator, 2026-11-11). It needs an ID-mapping step
+    (templates, people, groups) later.
 - [ ] **S4** — the React Flow designer.
 - [ ] **S5** — e2e, guides, and the visual matrix.
 - **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the

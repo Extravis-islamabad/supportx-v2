@@ -75,6 +75,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['config.service_desk', 'all'],
   ['config.organisation', 'all'],
   ['config.assets', 'all'], // WP-049a: the asset catalogue
+  ['assets.view_financials', 'all'], // WP-049b s2: costs, depreciation, book value
   ['vendors.create', 'all'],
   ['vendors.manage', 'all'],
   ['catalog_items.manage', 'all'], // WP-031: the catalog's administration

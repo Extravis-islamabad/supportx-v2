@@ -51,6 +51,8 @@ REQUESTS = (
 ASSETS = (
     PermissionSpec("assets.view", "assets", _ALL),
     PermissionSpec("assets.manage", "assets", ("all", "site", "group")),
+    # WP-049b s2: money (costs, depreciation, book value): asset managers and admins only.
+    PermissionSpec("assets.view_financials", "assets", defaults=(("asset_manager", "all"),)),
 )
 # releases.* moved to work_items too (WP-058a); identity's technician grant still names view.
 RELEASES = (PermissionSpec("releases.view", "release", _ALL),)
@@ -108,6 +110,7 @@ MATRIX = {
     # D-153: a technician only views assets until records link them (problems.*: work_items).
     "assets.manage": (True, False, False),
     "assets.view": (True, True, False),
+    "assets.view_financials": (True, False, False),  # WP-049b s2: the asset manager's too
     # knowledge.* moved to the knowledge module with its own defaults (D-108 (7), WP-033)
 }
 
@@ -119,6 +122,14 @@ def test_system_role_matrix(permission: str) -> None:
         subject_for(role).holds(permission) for role in ("tenant_admin", "technician", "requester")
     )
     assert actual == expected
+
+
+def test_only_asset_managers_and_admins_see_asset_money() -> None:
+    """WP-049b s2: costs, depreciation and book value need assets.view_financials."""
+    assert subject_for("asset_manager").holds("assets.view_financials")
+    for role in ("technician", "requester", "team_lead", "purchase_manager", "site_admin"):
+        assert not subject_for(role).holds("assets.view_financials"), role
+    assert not subject_for("asset_manager", features=frozenset()).holds("assets.view_financials")
 
 
 def test_scopes_of_system_roles() -> None:

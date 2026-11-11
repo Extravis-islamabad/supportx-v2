@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0130"  # 0132's down revision
+BEFORE = "0131"  # 0132's down revision
 
 
 async def _has_table(url: str) -> bool:

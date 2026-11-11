@@ -36,7 +36,7 @@ from app.modules.automation.events import (
     WorkflowWebhookRequested,
 )
 from app.modules.automation.infra.models import Workflow, WorkflowInstance
-from app.modules.automation.service import functions, workflow_runtime
+from app.modules.automation.service import functions, workflow_runtime, workflow_tests
 from app.modules.automation.service.registry import event_reader
 from app.modules.automation.service.registry import record_type as registered
 from app.shared import egress
@@ -44,6 +44,8 @@ from app.shared.clock import system_clock
 from app.shared.events import EventEnvelope, record_event
 
 log = structlog.get_logger(__name__)
+
+RECORD_CANCEL = "cancel"  # the life-cycle action that cancels a record (work items' own code)
 
 # The record events a wait node can listen for, from what the owning modules' readers say.
 # Approval decisions, task completions and worklogs join with session 2's people nodes.
@@ -68,6 +70,11 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
         return
     if happened.event == TriggerEvent.CREATED:
         await _start_from_template(session, happened.record_type, happened.record_id)
+    if happened.event == TriggerEvent.STATUS_CHANGED and happened.action == RECORD_CANCEL:
+        # A cancelled record's workflows stop with it, their logs kept (REQ-WF-026 AC3); undoing
+        # the cancel offers to run them again (the record's workflow panel, S4).
+        await workflow_runtime.stop_for_record(session, happened.record_type, happened.record_id)
+        return
     kind = _WAITS.get(happened.event)
     if kind is None:
         return
@@ -164,17 +171,33 @@ async def on_webhook_requested(envelope: EventEnvelope, session: AsyncSession | 
             tenant_id=tenant_id,
         )
     except egress.EgressError as refused:  # a stable code, never a secret or a body
-        await command_finished(
-            session,
-            instance_id=asked.instance_id,
-            command=asked.command,
-            ok=False,
-            error=f"webhook_{refused.code}",
-        )
+        await _report(session, asked, ok=False, error=f"webhook_{refused.code}", outputs={})
         return
     kept = {asked.status_variable: response.status} if asked.status_variable else {}
+    await _report(session, asked, ok=True, error=None, outputs=kept)
+
+
+async def _report(
+    session: AsyncSession,
+    asked: WorkflowWebhookRequested,
+    *,
+    ok: bool,
+    error: str | None,
+    outputs: dict[str, JsonValue],
+) -> None:
+    """The call's result to the instance, or to the test run that made its one live call."""
+    if asked.test_run:
+        await workflow_tests.apply_live_result(
+            session, asked.instance_id, command=asked.command, ok=ok, error=error, outputs=outputs
+        )
+        return
     await command_finished(
-        session, instance_id=asked.instance_id, command=asked.command, ok=True, outputs=kept
+        session,
+        instance_id=asked.instance_id,
+        command=asked.command,
+        ok=ok,
+        error=error,
+        outputs=outputs,
     )
 
 

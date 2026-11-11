@@ -62,6 +62,9 @@ Intervals are half-open, so a change may start the moment a freeze ends.
   A maintenance window that blocks is never passed by a freeze override.
 - It is audited (`change.freeze_override`, with the windows; refused attempts too) and kept in
   the record's history.
+- Editing a passed freeze's dates later widens what the override covers for that change. This
+  is deliberate: the window is the same decision, and the edit is itself audited
+  (`change.window_changed`) by someone holding `changes.manage_windows` (lane B's review).
 - The change manager holds it. Tenant administrators hold every permission, so they may override
   too, as with D-144. Team leads and technicians never do.
 

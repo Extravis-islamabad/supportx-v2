@@ -24,7 +24,7 @@ import {
 } from '@supportx/ui';
 
 import { UserPicker } from '../incidents/pickers';
-import { listValueName, stageName } from '../releases/labels';
+import { listValueName, stageName } from '../staged/labels';
 import { templateName } from './labels';
 
 /**
@@ -162,7 +162,7 @@ export function NewChangePage() {
           </Row>
           {chosen !== undefined && (
             <Typography.Paragraph type="secondary" data-testid="change-path">
-              {t('releases.path_of_template', {
+              {t('staged.path_of_template', {
                 path: t(`stage_path.${chosen.stage_path ?? 'default'}`),
               })}
             </Typography.Paragraph>

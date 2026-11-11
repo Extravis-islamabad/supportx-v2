@@ -339,6 +339,9 @@ export const en = {
   'permission.assets.reinstate.description': 'Move a retired asset back into stock.',
   'permission.assets.view': 'View assets',
   'permission.assets.view.description': 'See hardware and software assets.',
+  'permission.assets.view_financials': 'View asset costs and values',
+  'permission.assets.view_financials.description':
+    "See an asset's costs, depreciation and book value, and change its cost lines and depreciation where you may manage it.",
   'permission.audit.export': 'Export the audit log',
   'permission.audit.export.description':
     'Export entries with their chain values for outside auditors.',

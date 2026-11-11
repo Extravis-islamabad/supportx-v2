@@ -89,11 +89,14 @@ export function AssetFields({
   const set = (patch: Partial<AssetDraft>) => {
     onChange({ ...draft, ...patch });
   };
-  const text = (field: 'tag' | 'serial_number' | 'barcode' | 'location', max: number) => (
+  const text = (
+    field: 'tag' | 'serial_number' | 'barcode' | 'location' | 'cost_centre' | 'gl_code',
+    max: number,
+  ) => (
     <Form.Item label={t(`assets.record.${field}`)} htmlFor={`asset-${field}`}>
       <Input
         id={`asset-${field}`}
-        dir={field === 'location' ? 'auto' : 'ltr'}
+        dir={field === 'location' || field === 'cost_centre' ? 'auto' : 'ltr'}
         count={lengthLimit(max)}
         placeholder={field === 'tag' && creating ? t('assets.record.tag_auto') : undefined}
         value={draft[field]}
@@ -229,6 +232,11 @@ export function AssetFields({
       <Flex gap={16} wrap>
         {day('acquired_on')}
         {day('warranty_expires_on')}
+      </Flex>
+      {/* REQ-AST-038: the GL code comes from the product when left empty on a new asset. */}
+      <Flex gap={16} wrap>
+        {text('cost_centre', 60)}
+        {text('gl_code', 40)}
       </Flex>
       {text('location', 200)}
       <Form.Item label={t('assets.admin.description')} htmlFor="asset-description">

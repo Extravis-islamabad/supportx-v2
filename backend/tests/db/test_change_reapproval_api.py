@@ -185,6 +185,9 @@ async def test_d144_the_emergency_override_keeps_the_change_going_and_needs_a_re
     await details(world, a, item, item["version"], risk_chosen="high", risk_reason="Core switch")
     sent = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
     assert sent["status"] == "submission_awaiting_acceptance"
+    # The change screens offer the override only on a change that was sent back.
+    shown = (await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)).json()
+    assert shown["sent_back"] is True
     url = f"{CHG}/{item['id']}/emergency-override"
     headers = {"If-Match": f'"{sent["version"]}"', **CONSOLE}
     # A technician without the permission is refused.
@@ -197,6 +200,8 @@ async def test_d144_the_emergency_override_keeps_the_change_going_and_needs_a_re
     assert (done.json()["stage"], done.json()["status"]) == ("planning", "planning_planning")
     rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
     assert "pending" not in {r["state"] for r in rows}  # the re-approval was withdrawn
+    after = (await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)).json()
+    assert after["sent_back"] is False
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         outcomes = {
             row.outcome: row.stage

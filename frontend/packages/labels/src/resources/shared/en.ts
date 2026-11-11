@@ -179,6 +179,7 @@ export const en = {
   'nav.admin_automation': 'Automation',
   'nav.admin_branding': 'Branding',
   'nav.admin_catalog': 'Service catalog',
+  'nav.admin_change_boards': 'Change advisory boards',
   'nav.admin_files': 'Files',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',
@@ -521,6 +522,10 @@ export const en = {
   'setup.page.catalog.description':
     'Categories and items people request: their forms, approval, group, SLA and fulfilment tasks, in every language.',
   'setup.page.catalog.keywords': 'catalog, catalogue, items, forms, service requests, starter',
+  'setup.page.change-boards.description':
+    "Who approves changes: each board's members, chair, rule and which changes it reviews.",
+  'setup.page.change-boards.keywords':
+    'cab, change advisory board, approvals, chair, emergency, change manager',
   'setup.page.files.description': 'Upload limits, allowed file types and malware scanning.',
   'setup.page.files.keywords':
     'files, attachments, uploads, size, storage, malware, virus, scanning',

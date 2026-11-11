@@ -14,7 +14,7 @@ The downgrade drops them while no window and no override exist; otherwise it sto
 data (rule 5h).
 
 Revision ID: 0132
-Revises: 0130
+Revises: 0131
 Created: 2026-11-11
 """
 
@@ -28,7 +28,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0132"
-down_revision: str | None = "0130"
+down_revision: str | None = "0131"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

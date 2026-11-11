@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
+import type { components } from './schema';
 import type { StageMoveInput } from './releases';
 
 // The stage engine's parts every staged type shares (ADR-041): releases and changes serve the
@@ -204,5 +205,70 @@ export function useStagedApprovals(path: StagedPath, id: string) {
     queryFn: () =>
       call(api.GET(at(path, `${RECORD}/approvals`), { params: { path: { record_id: id } } })),
     enabled: id !== '',
+  });
+}
+
+/** Approve or reject with If-Match on the approval's version. */
+export function useDecideStagedApproval(path: StagedPath) {
+  const refresh = useRefresh(path);
+  return useMutation({
+    mutationFn: ({
+      id,
+      approvalId,
+      version,
+      decision,
+      comment,
+      isPrivate,
+    }: {
+      id: string;
+      approvalId: string;
+      version: number;
+      decision: 'approve' | 'reject';
+      comment?: string;
+      isPrivate?: boolean;
+    }) =>
+      call(
+        api.POST(at(path, `${RECORD}/approvals/{approval_id}/decision`), {
+          params: { path: { record_id: id, approval_id: approvalId }, header: ifMatch(version) },
+          body: {
+            decision,
+            comment: comment === undefined || comment === '' ? null : comment,
+            private: isPrivate ?? false,
+          },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}
+
+/** One stage's dates or outcome, with that stage's own If-Match. */
+export function useUpdateStagedSchedule(path: StagedPath) {
+  const queryClient = useQueryClient();
+  const keys = stagedKeys(path);
+  return useMutation({
+    mutationFn: ({
+      id,
+      stage,
+      version,
+      body,
+    }: {
+      id: string;
+      stage: string;
+      version: number;
+      body: components['schemas']['StageScheduleIn'];
+    }) =>
+      call(
+        api.PATCH(at(path, `${RECORD}/schedule/{stage}`), {
+          params: { path: { record_id: id, stage }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    // The schedule and the moves: an outcome unblocks completing the stage.
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'schedule') });
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'stages') });
+    },
   });
 }

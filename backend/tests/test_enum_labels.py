@@ -19,6 +19,11 @@ from tests.test_error_labels import label_keys
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
     "InstanceOut.status": "workflow_instance_status",  # WP-048b
+    "JobIn.kind": "workflow_job_kind",  # WP-048b S3
+    "JobOut.kind": "workflow_job_kind",
+    "JobOut.status": "workflow_job_status",
+    "WaitEvent": "workflow_wait_event",  # S3e: the change a test run hears
+    "TestRunOut.status": "workflow_instance_status",  # S3e: a test run's states are a run's
     "AiSettingsOut.summary_sources[]": "ai_summary_source",
     "DuplicateOut.reasons[]": "duplicate_reason",
     "DuplicatesOut.method": "duplicate_method",
@@ -35,6 +40,10 @@ ENUM_PREFIXES: dict[str, str] = {
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
     "AssetDepreciationMethod": "asset_depreciation",
+    # Asset financials (WP-049b s2)
+    "DepreciationChoice": "asset_depreciation",
+    "CostKind": "asset_cost_kind",
+    "TermsSource": "asset_terms_source",
     "AssetStateCategory": "asset_state_category",
     "AssetDisposalIn.method": "asset_disposal_method",
     "AssetHolderIn.kind": "asset_holder_kind",
