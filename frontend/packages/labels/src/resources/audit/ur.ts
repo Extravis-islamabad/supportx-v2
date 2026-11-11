@@ -947,6 +947,7 @@ export const ur: LabelResource = {
   'event_type.system.file.changed': 'فائل تبدیل ہوئی',
   'event_type.system.file.uploaded': 'فائل اپ لوڈ ہوئی',
   'event_type.system.file_settings.updated': 'فائل کے اصول تبدیل ہوئے',
+  'event_type.system.list_settings.changed': 'فہرست کی ترتیبات تبدیل ہوئیں',
   'event_type.system.mail.queued': 'ای میل قطار میں',
   'event_type.system.mail.state_changed': 'ای میل بھیجی گئی، دوبارہ کوشش ہوئی یا ناکام',
   'event_type.work_items.approval.changed': 'منظوری کھلی یا فیصلہ ہوا',

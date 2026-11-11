@@ -382,6 +382,23 @@ describe('console: changes', () => {
     expect(window.location.search).toBe('?tab=risk');
   });
 
+  it('an unknown ?template= falls back to the default template, quietly (lane A, #404)', async () => {
+    window.history.pushState({}, '', '/changes/new?template=01a1a2b3-0000-7000-8000-0000000dead0');
+    const fake = api();
+    render(<App />);
+    // The default's path shows and the form can be sent, as with no template asked for.
+    expect(await screen.findByTestId('change-path')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('change-subject'), { target: { value: 'Patch' } });
+    expect(screen.getByTestId('change-save')).toHaveProperty('disabled', false);
+    fireEvent.click(screen.getByTestId('change-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/changes')[0]?.body).toMatchObject({
+      template_id: TEMPLATE_ID,
+    });
+  });
+
   it('template A: the rail, one primary move, and a plan the move needs is named, not typed', async () => {
     window.history.pushState({}, '', `/changes/${CHG_ID}`);
     api();
@@ -534,6 +551,8 @@ describe('console: changes', () => {
                 { field: 'risk_version', old: null, new: 1 },
                 { field: 'scheduled_start', old: null, new: '2026-11-17T21:00:00+00:00' },
                 { field: 'change_reason', old: null, new: 'security_fix' },
+                { field: 'stage', old: 'planning', new: 'submission' },
+                { field: 'reapproval_restarted', old: null, new: ['risk'] },
               ],
             },
           ],
@@ -552,6 +571,10 @@ describe('console: changes', () => {
     expect(text).not.toContain('2026-11-17T21:00');
     expect(text).not.toContain('+00:00');
     expect(text).not.toContain('security_fix');
+    // The re-check (2d848b42): a stage by its name, and a send-back as one sentence.
+    expect(text).toContain('from Planning to Submission');
+    expect(text).not.toMatch(/planning to submission|because of to/);
+    expect(text).toContain('Sana Malik sent it back for approval again because Risk changed');
   });
 
   it('QA-2026-11-11 F-01: a form that remounts keeps its Idempotency-Key, so a repeat never duplicates', async () => {

@@ -652,6 +652,8 @@ export const ar: LabelResource = {
     'نافذة الصيانة المحذّرة تُظهر التغيير المخطط خارجها، والمانعة ترفضه.',
   'changes.windows.monthly_on': 'شهريًا: {{day}} {{week}}',
   'changes.windows.name': 'الاسم',
+  'changes.windows.none':
+    'لا توجد فترات تجميد أو صيانة بعد. أضف فترة لمنع أوقات التغيير أو السماح بها.',
   'changes.windows.outside_blocks': 'العمل خارج كل نوافذ الصيانة يمنع التغيير',
   'changes.windows.outside_blocks_help':
     'عند الإيقاف: يُنبَّه على هذا التغيير فقط. عند التشغيل: لا يمكن جدولته خارج نافذة صيانة.',
@@ -2273,6 +2275,8 @@ export const ar: LabelResource = {
   'work_item.history.linked': 'أضاف {{who}} رابطًا ({{kind}})',
   'work_item.history.logged': 'سجّل {{who}} {{duration}} ({{type}})',
   'work_item.history.logged_for': 'سجّل {{who}} {{duration}} ({{type}}) لـ {{person}}',
+  'work_item.history.reapproval_restarted':
+    'أعاد {{who}} إرساله للموافقة مجددًا لأن {{fields}} تغيّر',
   'work_item.history.set': 'عيّن {{who}} {{field}} إلى {{new}}',
   'work_item.history.task_added': 'أضاف {{who}} المهمة «{{title}}»',
   'work_item.history.task_field': '{{field}} للمهمة «{{title}}»',

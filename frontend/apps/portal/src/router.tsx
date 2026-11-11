@@ -3,10 +3,6 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 
 import { PortalLayout } from './PortalLayout';
 
-const comingSoon = async () => ({
-  Component: (await import('./pages/ComingSoonPage')).ComingSoonPage,
-});
-
 /** Lazy, route-level chunks as in the console. */
 export const routes: RouteObject[] = [
   {
@@ -124,7 +120,11 @@ export const routes: RouteObject[] = [
         handle: { titleKey: 'portal.search.title' },
         lazy: async () => ({ Component: (await import('./pages/SearchPage')).SearchPage }),
       },
-      { path: '*', handle: { titleKey: 'shell.not_found' }, lazy: comingSoon },
+      {
+        path: '*',
+        handle: { titleKey: 'shell.not_found' },
+        lazy: async () => ({ Component: (await import('./pages/NotFoundPage')).NotFoundPage }),
+      },
     ],
   },
 ];

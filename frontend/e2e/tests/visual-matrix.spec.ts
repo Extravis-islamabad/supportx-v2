@@ -247,6 +247,33 @@ export const SCREENS: Screen[] = [
   },
   // Assets (WP-049a, D-155 template A; lane B): the list, one asset, vendors, loans, groups.
   { key: 'assets', path: '/assets', app: 'console' },
+  // WP-049b s4a (lane B): the product type tree with a node chosen, the views drawer, and the
+  // honest empty "recently discovered" view (no discovery yet).
+  {
+    key: 'asset-tree',
+    path: '/assets',
+    app: 'console',
+    state: {
+      name: 'node-chosen',
+      open: async (page) => {
+        // The first type after "All types": its branch listed, its row chosen.
+        await page
+          .getByRole('treeitem')
+          .nth(1)
+          .locator('div')
+          .first()
+          .click({ timeout: STATE_TIMEOUT });
+        await page.waitForTimeout(400);
+      },
+    },
+  },
+  {
+    key: 'asset-views-drawer',
+    path: '/assets',
+    app: 'console',
+    state: { name: 'views-drawer', open: click('assets-views-open') },
+  },
+  { key: 'assets-discovered', path: '/assets?view=recently_discovered', app: 'console' },
   {
     key: 'asset',
     path: (r) => (r.asset ? `/assets/${r.asset}` : undefined),

@@ -45,7 +45,7 @@ const OWN_WIDTHS = {
   type: 150,
   risk: 120,
   stage: 170,
-  status: 190,
+  status: 230, // "Awaiting acceptance" whole at 1470 px (QA F-11)
   updated: 170,
 };
 // The engine's built-in views a change list offers (labels `work_item_view.*`); "all" sends none.

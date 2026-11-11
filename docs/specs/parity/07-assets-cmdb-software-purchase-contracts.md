@@ -1026,6 +1026,9 @@ asset, recorded on both records, and counted live.
   3. Each counter opens a list of the linked records the user may see; records they may not
      see are counted but not listed.
 
+  > **D-158 (2026-11-11) overrides AC3:** the counters count only the records the viewer may
+  > see, and list the same ones; a hidden record is neither counted nor listed.
+
 #### REQ-AST-045 — Raise a work item from an asset
 
 From an asset, a user raises an incident, service request or change after picking a
