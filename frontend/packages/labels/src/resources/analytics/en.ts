@@ -244,7 +244,7 @@ export const en = {
     'Average calendar time from creation to the first response, minus time spent waiting, over incidents that have a response.',
   'measure.incident.open_count': 'Open incidents',
   'measure.incident.open_count.help':
-    'Incidents that are open or waiting: not yet resolved, closed or canceled.',
+    'Incidents that are open or waiting: not yet resolved, closed or cancelled.',
   'measure.incident.overdue_count': 'Overdue',
   'measure.incident.overdue_count.help': 'Open records past their resolution due time.',
   'measure.incident.reassigned_count': 'Reassigned incidents',
@@ -308,7 +308,7 @@ export const en = {
   'report.incidents_open_by_site.description': 'Open and waiting incidents, by site.',
   'report.incidents_open_by_status': 'Open incidents by status',
   'report.incidents_open_by_status.description':
-    'Incidents not yet resolved, closed or canceled, by status.',
+    'Incidents not yet resolved, closed or cancelled, by status.',
   'report.incidents_open_by_technician': 'Open incidents by technician',
   'report.incidents_open_by_technician.description':
     'Open and waiting incidents, by assigned technician.',

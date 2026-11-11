@@ -892,7 +892,7 @@ export const en = {
     'Live updates are not set up on this server. Reload the page to see the latest data.',
   'errors.recipient_deferred': "The recipient's mail server asked to try later.",
   'errors.recipient_refused': 'The mail server refused the recipient.',
-  'errors.record_closed': 'Closed and canceled records cannot be changed.',
+  'errors.record_closed': 'Closed and cancelled records cannot be changed.',
   'errors.record_not_editable': 'You need to be able to edit the record to do this.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
