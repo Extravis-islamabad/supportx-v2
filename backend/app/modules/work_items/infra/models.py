@@ -90,6 +90,9 @@ class WorkItemTypeSettings(TenantKeyed, Base):
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
         CheckConstraint(
+            "task_dependency_mode IN ('block', 'warn')", name="task_dependency_mode_code"
+        ),
+        CheckConstraint(
             "on_behalf_scope IN ('same_department', 'same_site', 'all_requesters', 'all_users')",
             name="on_behalf_scope_code",
         ),
@@ -164,6 +167,9 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     reopen_window_days: Mapped[int] = mapped_column(Integer, server_default="7")
     # REQ-INC-072 AC3 (D-112): a task's owner may work on it without access to the record.
     task_owner_access: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-046a S1 (0141, REQ-INC-075): an open predecessor refuses a task's start or completion
+    # ("block", the default) or only warns ("warn").
+    task_dependency_mode: Mapped[str] = mapped_column(String(10), server_default="block")
     # Problems (WP-044b s4, D-140 Q4): priorities whose problems need a review before closing;
     # the major problem template's always do. P1 by default, P2 at the admin's choice.
     review_required_priorities: Mapped[list[str]] = mapped_column(

@@ -9,6 +9,7 @@ Expand only, no data step:
 - `work_item_task_dependencies` (RLS): a task waits for another task of the same record;
 - `work_item_templates.tasks`: the tasks a record template creates, each with an optional
   condition (REQ-INC-040);
+- `work_item_type_settings.task_dependency_mode`: an open predecessor blocks (default) or warns;
 - link kind `caused_by_change` (an incident caused by a change, REQ-CHG-116's "changes that
   caused incidents") and bulk actions `cancel` and `delete` (the change list, REQ-CHG-101).
 
@@ -40,6 +41,7 @@ TASKS, TEMPLATES, DEPENDENCIES = (
     "work_item_task_dependencies",
 )
 RECORD_TEMPLATES = "work_item_templates"
+SETTINGS = "work_item_type_settings"
 TASK_COLUMNS: tuple[tuple[str, Any], ...] = (
     ("task_type", sa.String(40)),
     ("scheduled_start", sa.DateTime(timezone=True)),
@@ -218,6 +220,15 @@ def upgrade() -> None:
             "tasks", postgresql.JSONB(), server_default=sa.text("'[]'::jsonb"), nullable=False
         ),
     )
+    op.add_column(
+        SETTINGS,
+        sa.Column("task_dependency_mode", sa.String(10), server_default="block", nullable=False),
+    )
+    op.create_check_constraint(
+        op.f(f"ck_{SETTINGS}_task_dependency_mode_code"),
+        SETTINGS,
+        "task_dependency_mode IN ('block', 'warn')",
+    )
     for (name, table, column), codes in WIDENED.items():
         now = _codes_now(name)
         _replace(name, table, column, [*now, *(c for c in codes if c not in now)])
@@ -228,6 +239,8 @@ def downgrade() -> None:
     op.execute(GUARD)
     for (name, table, column), codes in WIDENED.items():
         _replace(name, table, column, [c for c in _codes_now(name) if c not in codes])
+    op.drop_constraint(op.f(f"ck_{SETTINGS}_task_dependency_mode_code"), SETTINGS, type_="check")
+    op.drop_column(SETTINGS, "task_dependency_mode")
     op.drop_column(RECORD_TEMPLATES, "tasks")
     op.drop_index("ix_work_item_task_dependencies_tenant_item", table_name=DEPENDENCIES)
     op.drop_index("ix_work_item_task_dependencies_tenant_depends_on", table_name=DEPENDENCIES)
