@@ -12,6 +12,7 @@ keys: the database refuses a link to another tenant's row even though FK checks 
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -23,6 +24,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    Numeric,
     SmallInteger,
     String,
     Text,
@@ -458,6 +460,9 @@ class WorkItemTemplate(TenantEntity):
     # A change template's own risk questionnaire (WP-045b, 0116); none: Appendix A's.
     risk_questionnaire: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     stage_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    # WP-046a S1 (0141, REQ-INC-040): the tasks a record made from this template gets, each with
+    # an optional condition on the new record's fields.
+    tasks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
 
 
 # Description is sanitised HTML: tags and entities become spaces before indexing (migration 0020);
@@ -1103,6 +1108,27 @@ class WorkItemTask(TenantEntity):
             "workflow_command",
             postgresql_where=text("workflow_instance_id IS NOT NULL"),
         ),
+        # WP-046a S1 (0141, REQ-INC-073): an end is never before its start; sane ranges.
+        CheckConstraint(
+            "scheduled_end IS NULL OR scheduled_start IS NULL OR scheduled_end >= scheduled_start",
+            name="scheduled_order",
+        ),
+        CheckConstraint(
+            "actual_end IS NULL OR actual_start IS NULL OR actual_end >= actual_start",
+            name="actual_order",
+        ),
+        CheckConstraint(
+            "estimated_minutes IS NULL OR estimated_minutes BETWEEN 0 AND 525600",
+            name="estimate_range",
+        ),
+        CheckConstraint(
+            "percent_complete IS NULL OR percent_complete BETWEEN 0 AND 100", name="percent_range"
+        ),
+        CheckConstraint("extra_cost IS NULL OR extra_cost >= 0", name="cost_range"),
+        CheckConstraint(
+            "remind_before_minutes IS NULL OR remind_before_minutes BETWEEN 0 AND 10080",
+            name="reminder_range",
+        ),
     )
 
     work_item_id: Mapped[uuid.UUID]
@@ -1128,6 +1154,68 @@ class WorkItemTask(TenantEntity):
     # its tasks are done the node continues.
     workflow_instance_id: Mapped[uuid.UUID | None]
     workflow_command: Mapped[str | None] = mapped_column(String(20))
+    # WP-046a S1 (0141, REQ-INC-073): the task's details. `extra_cost` is money on a record:
+    # shown to those who may edit the record, never to requesters (the coordinator; S3 decides
+    # task and worklog cost visibility once for both).
+    task_type: Mapped[str | None] = mapped_column(String(40))
+    scheduled_start: Mapped[datetime | None]
+    scheduled_end: Mapped[datetime | None]
+    actual_start: Mapped[datetime | None]
+    actual_end: Mapped[datetime | None]
+    estimated_minutes: Mapped[int | None] = mapped_column(Integer)
+    percent_complete: Mapped[int | None] = mapped_column(SmallInteger)
+    extra_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    # A reminder this many minutes before the scheduled start (REQ-INC-073 AC2), sent once.
+    remind_before_minutes: Mapped[int | None] = mapped_column(Integer)
+    reminded_at: Mapped[datetime | None]
+
+
+class WorkItemTaskTemplate(TenantEntity):
+    """An admin's task template for one work item type (REQ-INC-074): one task or a set.
+
+    `tasks` is the ordered list of task specs it adds (title, description, type, priority,
+    owner or group, estimate); a disabled template is not offered.
+    """
+
+    __tablename__ = "work_item_task_templates"
+    __table_args__ = (
+        CheckConstraint(
+            "jsonb_typeof(tasks) = 'array' AND jsonb_array_length(tasks) BETWEEN 1 AND 20",
+            name="tasks_count",
+        ),
+        Index(
+            "ix_work_item_task_templates_tenant_type",
+            "tenant_id",
+            "type",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(String(2000))
+    tasks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    disabled_at: Mapped[datetime | None]
+
+
+class WorkItemTaskDependency(TenantKeyed, Base):
+    """A task waits for another task of the same record to finish (REQ-INC-075)."""
+
+    __tablename__ = "work_item_task_dependencies"
+    __table_args__ = (
+        _work_item_fk("fk_witd_work_item"),
+        CheckConstraint("task_id <> depends_on_id", name="not_self"),
+        Index("ix_work_item_task_dependencies_tenant_depends_on", "tenant_id", "depends_on_id"),
+        Index("ix_work_item_task_dependencies_tenant_item", "tenant_id", "work_item_id"),
+    )
+
+    task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("work_item_tasks.id"), primary_key=True)
+    depends_on_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("work_item_tasks.id"), primary_key=True
+    )
+    work_item_id: Mapped[uuid.UUID]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_by: Mapped[uuid.UUID | None]
 
 
 class WorkItemWorklog(TenantEntity):
