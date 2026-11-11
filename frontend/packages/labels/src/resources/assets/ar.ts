@@ -64,6 +64,7 @@ export const ar: LabelResource = {
   'asset_state_category.in_use': 'قيد الاستخدام',
   'asset_state_category.retired': 'متقاعد',
   'asset_terms_source.asset': 'محدد على هذا الأصل',
+  'asset_terms_source.default': 'الافتراضي (القسط الثابت)',
   'asset_terms_source.product': 'من المنتج',
   'asset_type_category.it': 'تقنية المعلومات',
   'asset_type_category.non_it': 'غير تقني',
@@ -95,6 +96,9 @@ export const ar: LabelResource = {
   'assets.admin.default_life_cycle': 'دورة الحياة الافتراضية',
   'assets.admin.delete_confirm': 'هل تريد حذف {{name}}؟',
   'assets.admin.depreciation': 'طريقة الإهلاك',
+  'assets.admin.depreciation_factor': 'معامل الرصيد المتناقص',
+  'assets.admin.depreciation_factor_help':
+    'يُهلك الرصيد المتناقص كل سنة هذا العدد من أضعاف معدل القسط الثابت (2 هو المعدل المضاعف المعتاد). القسط الثابت هو الطريقة الافتراضية.',
   'assets.admin.description': 'الوصف',
   'assets.admin.edit_life_cycle': 'تعديل دورة الحياة',
   'assets.admin.edit_product': 'تعديل المنتج',
@@ -327,6 +331,7 @@ export const ar: LabelResource = {
   'assets.history.clear': 'مسح عوامل التصفية',
   'assets.history.days': 'الأيام',
   'assets.history.field': 'الحقل',
+  'assets.history.hidden': 'مخفي',
   'assets.history.none': 'لا تغييرات بعد.',
   'assets.history.none_match': 'لا تغييرات تطابق عوامل التصفية هذه.',
   'assets.history.person': 'الشخص',
@@ -436,6 +441,7 @@ export const ar: LabelResource = {
   'assets.record.address': 'العنوان',
   'assets.record.all': 'الأصول',
   'assets.record.barcode': 'قيمة الباركود أو QR',
+  'assets.record.change_location': 'تغيير الموقع',
   'assets.record.changed_elsewhere':
     'عدّل شخص آخر هذا الأصل. يُحفظ تعديلك فقط إن لم يتعارض مع تعديله، وإلا سيُطلب منك إعادة التحميل.',
   'assets.record.contact_person': 'جهة الاتصال',
@@ -494,6 +500,8 @@ export const ar: LabelResource = {
   'assets.record.state_id': 'الحالة',
   'assets.record.tag': 'وسم الأصل',
   'assets.record.tag_auto': 'يُمنح تلقائيًا',
+  'assets.record.through_ticket':
+    'من خلال تذكرتك يمكنك تغيير حالة هذا الأصل وموقعه وملاحظاته والقطع المركّبة فيه.',
   'assets.record.trash': 'المهملات',
   'assets.record.trash_confirm': 'هل تريد نقل هذا الأصل إلى المهملات؟',
   'assets.record.trash_notice': 'أصول في المهملات. استعد أحدها لتستخدمه مجددًا.',

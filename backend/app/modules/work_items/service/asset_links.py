@@ -237,3 +237,32 @@ def linked_asset_ids_select(user_id: uuid.UUID) -> Select[uuid.UUID]:
             WorkItem.status_category.in_(_WORKING),
         )
     )
+
+
+def linked_requester_ids_select(user_id: uuid.UUID, asset_id: uuid.UUID) -> Select[uuid.UUID]:
+    """The requesters of `user_id`'s records still being worked that link `asset_id` (D-157).
+
+    Added for lane B's D-157 (lane A reviews): the assets module lets a technician change a few
+    fields of an asset linked to its own ticket only while the asset is held by that ticket's
+    requester or the requester's department. Same rule for "my tickets" as
+    `linked_asset_ids_select`; assets compares the requesters with the asset's own holder, so
+    it never reads work item tables, nor this module asset tables. Registered at import
+    (work_items/__init__.py) through assets' public `register_ticket_requesters`.
+    """
+    return (
+        select(WorkItem.requester_id)
+        .join(
+            WorkItemAsset,
+            (WorkItemAsset.tenant_id == WorkItem.tenant_id)
+            & (WorkItemAsset.work_item_id == WorkItem.id),
+        )
+        .where(
+            WorkItemAsset.asset_id == asset_id,
+            WorkItemAsset.deleted_at.is_(None),
+            WorkItem.deleted_at.is_(None),
+            WorkItem.technician_id == user_id,
+            WorkItem.status_category.in_(_WORKING),
+            WorkItem.requester_id.is_not(None),
+        )
+        .distinct()
+    )

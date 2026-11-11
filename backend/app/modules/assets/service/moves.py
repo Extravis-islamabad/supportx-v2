@@ -8,6 +8,8 @@
   (Appendix A: back to stock from retired needs `assets.reinstate`).
 - **Licence (D-141):** an IT asset leaving `disposed` would take a slot again. The seeded life
   cycle has no way out of disposed, but an admin's may, so the slot is reserved race-safely.
+- **Who (D-157):** `assets.manage` on the asset, or a technician whose own ticket links it while
+  its requester (or the requester's department) holds it (`ticket_access`).
 - The move is one save of `state_id`: field history with the reason, its event on the outbox,
   If-Match on the version read. Nothing here deletes data.
 """
@@ -33,11 +35,12 @@ from app.modules.assets.service.assets import (
     MANAGE,
     RECORD_TYPE,
     _refuse,
-    _require,
     _reserve,
     _saved,
     _visible,
+    writable,
 )
+from app.modules.assets.service.ticket_access import ticket_grants
 from app.modules.identity_access import Subject
 from app.shared.history import Change, Source
 from app.shared.history.conflicts import stale_version
@@ -92,6 +95,7 @@ async def move_options(
 ) -> list[MoveOption]:
     """The moves the asset's life cycle lists from its state now (for its screen)."""
     row = await _visible(session, subject, asset_id)
+    may_move = subject.holds(MANAGE) or await ticket_grants(session, subject, row)  # D-157
     states = {
         s.id: s
         for s in await session.scalars(select(AssetState).where(AssetState.deleted_at.is_(None)))
@@ -102,8 +106,7 @@ async def move_options(
             reason_required=move.reason_required or states[move.to_state_id].reason_required,
             required_fields=tuple(move.required_fields or ()),
             permission=move.permission,
-            allowed=subject.holds(MANAGE)
-            and (move.permission is None or subject.holds(move.permission)),
+            allowed=may_move and (move.permission is None or subject.holds(move.permission)),
         )
         for move in await _moves(session, row)
         if move.to_state_id in states
@@ -136,8 +139,7 @@ async def move_asset(  # noqa: PLR0913 - the asset, where to, why, the If-Match 
     source: Source,
 ) -> Asset:
     """Move the asset to `to_state_id` along its life cycle (with a reason where asked)."""
-    _require(subject, MANAGE)
-    row = await _visible(session, subject, asset_id, permission=MANAGE)
+    row, _ = await writable(session, subject, asset_id)  # D-157: a technician's ticket too
     if row.version != expected_version:
         raise await stale_version(
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,

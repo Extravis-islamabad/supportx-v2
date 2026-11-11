@@ -476,6 +476,10 @@ class AssetProductTypeOut(BaseModel):
     life_cycle_id: uuid.UUID | None = Field(description="None: the default life cycle.")
     tag_pattern: str | None = Field(description="None: the tenant's pattern.")
     ack_required: bool
+    depreciation_factor: Decimal = Field(
+        default=Decimal(2),
+        description="Declining balance: this factor times the straight-line rate (D-157).",
+    )
     sort: int
     version: int
 
@@ -494,6 +498,7 @@ class AssetProductTypeOut(BaseModel):
             life_cycle_id=row.life_cycle_id,
             tag_pattern=row.tag_pattern,
             ack_required=row.ack_required,
+            depreciation_factor=row.depreciation_factor,
             sort=row.sort,
             version=row.version,
         )
@@ -514,6 +519,14 @@ class AssetProductTypeIn(BaseModel):
     life_cycle_id: uuid.UUID | None = None
     tag_pattern: str | None = Field(default=None, max_length=40)
     ack_required: bool = False
+    depreciation_factor: Decimal | None = Field(
+        default=None,
+        gt=0,
+        le=10,
+        max_digits=4,
+        decimal_places=2,
+        description="Declining balance's factor (D-157); 2 unless sent.",
+    )
 
 
 class AssetProductTypePatch(BaseModel):
@@ -530,6 +543,14 @@ class AssetProductTypePatch(BaseModel):
     life_cycle_id: uuid.UUID | None = None
     tag_pattern: str | None = Field(default=None, max_length=40)
     ack_required: bool | None = None
+    depreciation_factor: Decimal | None = Field(
+        default=None,
+        gt=0,
+        le=10,
+        max_digits=4,
+        decimal_places=2,
+        description="Declining balance's factor (D-157).",
+    )
     sort: int | None = Field(default=None, ge=0, le=10_000)
 
 
@@ -845,7 +866,7 @@ async def held_by(
     """Newest first, within what you may see; `current` keeps only the open holdings."""
     found = await ownership.held_by(session, subject, ownership.Holder(kind, holder_id))
     return [
-        HeldAssetOut(asset=AssetOut.of(asset), holding=AssetHoldingOut.of(holding))
+        HeldAssetOut(asset=AssetOut.of(asset, subject), holding=AssetHoldingOut.of(holding))
         for asset, holding in found
         if not current or holding.ended_at is None
     ]
@@ -1084,7 +1105,7 @@ async def group_assets(
 ) -> list[AssetOut]:
     """The ones you may see, by name (the count above counts the same)."""
     _, rows = await groups.group_assets(session, subject, group_id)
-    return [AssetOut.of(r) for r in rows]
+    return [AssetOut.of(r, subject) for r in rows]
 
 
 @router.post(

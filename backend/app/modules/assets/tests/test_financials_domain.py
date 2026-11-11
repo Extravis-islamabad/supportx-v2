@@ -18,6 +18,7 @@ from app.modules.assets.domain.financials import (
     TermsSource,
     book_value,
     cost_line_problems,
+    factor_problems,
     months_elapsed,
     resolve,
     schedule,
@@ -30,37 +31,75 @@ D = Decimal
 START = date(2025, 1, 15)
 
 
-def _terms(method: M | None, cost: str = "10000", salvage: str = "1000", life: int = 5) -> Terms:
-    return Terms(method=method, cost=D(cost), starts_on=START, life_years=life, salvage=D(salvage))
+def _terms(
+    method: M | None,
+    cost: str = "10000",
+    salvage: str = "1000",
+    life: int = 5,
+    factor: str = "2",
+) -> Terms:
+    return Terms(
+        method=method,
+        cost=D(cost),
+        starts_on=START,
+        life_years=life,
+        salvage=D(salvage),
+        factor=D(factor),
+    )
 
 
 @pytest.mark.parametrize(
-    ("method", "amounts", "closing"),
+    ("method", "factor", "amounts", "closing"),
     [
-        (M.STRAIGHT_LINE, ["1800"] * 5, ["8200", "6400", "4600", "2800", "1000"]),
+        (M.STRAIGHT_LINE, "2", ["1800"] * 5, ["8200", "6400", "4600", "2800", "1000"]),
         (
             M.SUM_OF_YEARS_DIGITS,  # 9,000 x 5/15, 4/15, 3/15, 2/15, 1/15
+            "2",
             ["3000", "2400", "1800", "1200", "600"],
             ["7000", "4600", "2800", "1600", "1000"],
         ),
         (
             M.DOUBLE_DECLINING_BALANCE,  # 40 % of the opening value; the last year to salvage
+            "2",
             ["4000", "2400", "1440", "864", "296"],
             ["6000", "3600", "2160", "1296", "1000"],
         ),
         (
-            # 30 % of the opening value until straight line over what is left writes off more
-            # (year 4: 2,430 / 2 = 1,215 > 30 % of 3,430 = 1,029).
+            # Double declining is always 200 %: the type's factor never changes it (D-157).
+            M.DOUBLE_DECLINING_BALANCE,
+            "1.5",
+            ["4000", "2400", "1440", "864", "296"],
+            ["6000", "3600", "2160", "1296", "1000"],
+        ),
+        (
+            # D-157: declining balance with the default factor 2 is the 200 % example.
             M.DECLINING_BALANCE,
+            "2",
+            ["4000", "2400", "1440", "864", "296"],
+            ["6000", "3600", "2160", "1296", "1000"],
+        ),
+        (
+            # A type's factor of 1.5: 30 % of the opening value until straight line over what is
+            # left writes off more (year 4: 2,430 / 2 = 1,215 > 30 % of 3,430 = 1,029).
+            M.DECLINING_BALANCE,
+            "1.5",
             ["3000", "2100", "1470", "1215", "1215"],
             ["7000", "4900", "3430", "2215", "1000"],
+        ),
+        (
+            # A factor of 3: 60 % of the opening value (6,000, then 2,400); year 3's 960 is
+            # capped at the 600 left above salvage, so years 4 and 5 write off nothing.
+            M.DECLINING_BALANCE,
+            "3",
+            ["6000", "2400", "600", "0", "0"],
+            ["4000", "1600", "1000", "1000", "1000"],
         ),
     ],
 )
 def test_each_method_matches_its_worked_example(
-    method: M, amounts: list[str], closing: list[str]
+    method: M, factor: str, amounts: list[str], closing: list[str]
 ) -> None:
-    terms = _terms(method)
+    terms = _terms(method, factor=factor)
     assert yearly_amounts(terms) == [D(a) for a in amounts]
     rows = schedule(terms)
     assert [r.closing for r in rows] == [D(c) for c in closing]
@@ -153,6 +192,16 @@ def test_ac2_the_assets_own_settings_win_and_the_rest_comes_from_the_product() -
         product_salvage=None,
     )
     assert (off.choice, off.method) == (DepreciationChoice.NONE, None)
+    # D-157: neither names a method: straight line, said to be the default.
+    neither = resolve(
+        asset_method=None,
+        asset_life=3,
+        asset_salvage=None,
+        product_method=None,
+        product_life=None,
+        product_salvage=None,
+    )
+    assert (neither.method, neither.method_from) == (M.STRAIGHT_LINE, TermsSource.DEFAULT)
 
 
 def test_ac1_and_ac3_costs_add_up_exactly() -> None:
@@ -179,3 +228,10 @@ def test_settings_and_lines_are_checked() -> None:
         "value_too_long",
     ]
     assert cost_line_problems(D("19.99"), "Battery") == []
+    # D-157: a declining balance factor above 0, at most 10, in hundredths.
+    assert factor_problems(D(2)) == []
+    assert factor_problems(D(10)) == []
+    assert factor_problems(D("1.25")) == []
+    for wrong in (D(0), D("-1"), D("10.01"), D("1.234")):
+        assert [p.code for p in factor_problems(wrong)] == ["out_of_range"], wrong
+    assert [p.code for p in factor_problems(None)] == ["required"]

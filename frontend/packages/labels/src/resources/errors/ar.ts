@@ -57,6 +57,8 @@ export const ar: LabelResource = {
   'errors.asset_disposal_not_found': 'لا يوجد سجل تخلّص لهذا الأصل.',
   'errors.asset_disposed_read_only':
     'تم التخلّص من هذا الأصل، لذا فهو للقراءة فقط. يتطلب تغييره صلاحية تغيير الأصول المتخلَّص منها.',
+  'errors.asset_field_not_allowed':
+    'من خلال تذكرتك يمكنك تغيير حالة هذا الأصل وموقعه وملاحظاته والقطع المركّبة فيه فقط. اطلب أي شيء آخر من مدير الأصول.',
   'errors.asset_group_dynamic':
     'أعضاء المجموعة الديناميكية يأتون من عامل التصفية؛ غيّره بدلًا من ذلك.',
   'errors.asset_group_name_taken': 'لمجموعة أخرى هذا الاسم بالفعل.',

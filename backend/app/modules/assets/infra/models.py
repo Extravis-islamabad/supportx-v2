@@ -175,6 +175,8 @@ class AssetProductType(TenantEntity):
     tag_pattern: Mapped[str | None] = mapped_column(String(40))
     ack_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
     sort: Mapped[int] = mapped_column(Integer, server_default="0")
+    # 0136 (D-157): declining balance's factor on the straight-line rate for this type's assets.
+    depreciation_factor: Mapped[Decimal] = mapped_column(Numeric(4, 2), server_default="2")
 
 
 class AssetProduct(TenantEntity):

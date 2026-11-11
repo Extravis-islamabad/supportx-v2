@@ -60,6 +60,8 @@ export const en = {
   'errors.asset_disposal_not_found': 'This asset has no disposal record.',
   'errors.asset_disposed_read_only':
     'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
+  'errors.asset_field_not_allowed':
+    "Through your ticket you can change only this asset's state, location, notes and fitted parts. Ask an asset manager for anything else.",
   'errors.asset_group_dynamic':
     "A dynamic group's members come from its filter; change the filter instead.",
   'errors.asset_group_name_taken': 'Another group already has this name.',

@@ -9,6 +9,8 @@
   with `site_id`), every asset they hold moves with them, with history on each. The consumer is
   idempotent by event ID (the claim in processed_events); the person's site comes through
   identity_access's public `person_placement`, never its tables.
+- **Who:** `assets.manage` on the asset; a technician may fit and remove the components of an
+  asset its own ticket lets it change (D-157, `ticket_access`).
 - People and departments are checked through their modules (`active_user_ids`,
   `existing_departments`).
 """
@@ -28,12 +30,13 @@ from app.modules.assets.service.acknowledgements import ask_if_needed
 from app.modules.assets.service.assets import (
     MANAGE,
     RECORD_TYPE,
+    VIEW,
     _refuse,
-    _require,
     _saved,
     _tenant,
     _visible,
 )
+from app.modules.assets.service.ticket_access import refuse_field, ticket_grants
 from app.modules.identity_access import Subject, active_user_ids, person_placement
 from app.modules.organization import existing_departments
 from app.shared.clock import system_clock
@@ -42,6 +45,7 @@ from app.shared.history import Change, Source
 from app.shared.history.conflicts import stale_version
 from app.shared.ids import new_id
 
+_HOLDER = "holder"  # how a refused holder change names the field (D-157)
 _HOLDER_FIELD = {"user": "owner_user_id", "department": "department_id", "asset": "parent_asset_id"}
 
 
@@ -125,6 +129,42 @@ async def _apply_holder(session: AsyncSession, row: Asset, holder: Holder | None
     return changes
 
 
+async def _writable_holder(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID, holder: Holder | None
+) -> Asset:
+    """The asset whose holder changes, locked, if the subject may change it (403/404 if not).
+
+    The narrower D-157 path only fits a component that nobody holds into an asset of the
+    technician's ticket, or takes one fitted there back out: the asset of the ticket itself
+    never changes hands that way (`asset_field_not_allowed`, field `holder`).
+    """
+    if subject.holds(MANAGE):
+        try:
+            return await _visible(session, subject, asset_id, permission=MANAGE)
+        except PermissionDenied:
+            pass  # sees it without managing it: perhaps a component of a ticket's asset
+    if not subject.holds(VIEW):
+        raise PermissionDenied(params={"permission": MANAGE})
+    row = await _visible(session, subject, asset_id)
+    current = holder_of(row)
+    parent_id: uuid.UUID | None = None
+    if holder is not None and holder.kind == "asset" and current is None:
+        parent_id = holder.id  # fitting a free part
+    elif holder is None and current is not None and current.kind == "asset":
+        parent_id = current.id  # taking a part out
+    if parent_id is not None:
+        try:
+            parent = await _visible(session, subject, parent_id)
+        except (NotFound, PermissionDenied):
+            parent = None
+        if parent is not None and await ticket_grants(session, subject, parent):
+            await session.refresh(row, with_for_update=True)
+            return row
+    if await ticket_grants(session, subject, row):
+        raise refuse_field(_HOLDER)  # the ticket's asset: its state, location, notes, parts
+    raise PermissionDenied(params={"permission": MANAGE})
+
+
 async def set_holder(  # noqa: PLR0913 - the asset, the holder, the If-Match and the source
     session: AsyncSession,
     subject: Subject,
@@ -134,9 +174,12 @@ async def set_holder(  # noqa: PLR0913 - the asset, the holder, the If-Match and
     expected_version: int,
     source: Source,
 ) -> Asset:
-    """Give the asset to `holder` (None: back to no one), with history and one holding row."""
-    _require(subject, MANAGE)
-    row = await _visible(session, subject, asset_id, permission=MANAGE)
+    """Give the asset to `holder` (None: back to no one), with history and one holding row.
+
+    `assets.manage` on the asset, or (D-157) a technician fitting a free component into, or
+    taking one out of, an asset its own ticket allows it to change (`_component_write`).
+    """
+    row = await _writable_holder(session, subject, asset_id, holder)
     if row.version != expected_version:
         raise await stale_version(
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,

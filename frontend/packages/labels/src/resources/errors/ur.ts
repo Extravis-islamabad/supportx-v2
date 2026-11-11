@@ -61,6 +61,8 @@ export const ur: LabelResource = {
   'errors.asset_disposal_not_found': 'اس اثاثے کا کوئی تلفی ریکارڈ نہیں۔',
   'errors.asset_disposed_read_only':
     'یہ اثاثہ تلف ہو چکا ہے، اس لیے صرف پڑھا جا سکتا ہے۔ اسے بدلنے کے لیے تلف شدہ اثاثے بدلنے کی اجازت درکار ہے۔',
+  'errors.asset_field_not_allowed':
+    'اپنے ٹکٹ کے ذریعے آپ اس اثاثے کی صرف حالت، مقام، نوٹس اور لگے ہوئے پرزے بدل سکتے ہیں۔ باقی کسی چیز کے لیے اثاثہ مینیجر سے کہیں۔',
   'errors.asset_group_dynamic':
     'متحرک گروپ کے اراکین اس کے فلٹر سے آتے ہیں؛ اس کی بجائے فلٹر بدلیں۔',
   'errors.asset_group_name_taken': 'کسی اور گروپ کا یہی نام ہے۔',

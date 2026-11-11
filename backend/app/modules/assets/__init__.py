@@ -15,7 +15,8 @@
   history with filters.
 
 Licensed with the `assets` feature. Public interface for other modules: `can_see`, `asset_refs`
-and `assets_of` (REQ-AST-025, for work items), and the disposal guard port.
+and `assets_of` (REQ-AST-025, for work items), the disposal guard port, and (D-157) the port
+work items register "the requesters of my tickets that link this asset" with.
 """
 
 from fastapi import FastAPI
@@ -51,6 +52,11 @@ from app.modules.assets.service.refs import (
     assets_of,
     can_see,
     email_includes_assets,
+)
+from app.modules.assets.service.ticket_access import (
+    TicketRequesters,
+    register_ticket_requesters,
+    unregister_ticket_requesters,
 )
 from app.modules.assets.service.valuations import valuation_sweep
 from app.modules.procurement import register_vendor_usage
@@ -130,6 +136,7 @@ notifications.register()
 __all__ = [
     "AssetRef",
     "DraftPurchaseRequests",
+    "TicketRequesters",
     "asset_refs",
     "assets_of",
     "can_see",
@@ -137,6 +144,8 @@ __all__ = [
     "module",
     "register_disposal_guard",
     "register_draft_purchase_requests",
+    "register_ticket_requesters",
     "unregister_disposal_guard",
     "unregister_draft_purchase_requests",
+    "unregister_ticket_requesters",
 ]

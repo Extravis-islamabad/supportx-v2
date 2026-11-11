@@ -64,6 +64,7 @@ export const ur: LabelResource = {
   'asset_state_category.in_use': 'زیرِ استعمال',
   'asset_state_category.retired': 'ریٹائرڈ',
   'asset_terms_source.asset': 'اسی اثاثے پر طے',
+  'asset_terms_source.default': 'طے شدہ (سیدھی لکیر)',
   'asset_terms_source.product': 'پروڈکٹ سے',
   'asset_type_category.it': 'آئی ٹی',
   'asset_type_category.non_it': 'غیر آئی ٹی',
@@ -95,6 +96,9 @@ export const ur: LabelResource = {
   'assets.admin.default_life_cycle': 'طے شدہ لائف سائیکل',
   'assets.admin.delete_confirm': '{{name}} حذف کریں؟',
   'assets.admin.depreciation': 'فرسودگی کا طریقہ',
+  'assets.admin.depreciation_factor': 'گھٹتے بیلنس کا ضارب',
+  'assets.admin.depreciation_factor_help':
+    'گھٹتا بیلنس ہر سال سیدھی لکیر کی شرح کا اتنے گنا لکھتا ہے (2 معمول کی دوگنی شرح ہے)۔ سیدھی لکیر طے شدہ طریقہ ہے۔',
   'assets.admin.description': 'تفصیل',
   'assets.admin.edit_life_cycle': 'لائف سائیکل میں ترمیم کریں',
   'assets.admin.edit_product': 'پروڈکٹ میں ترمیم کریں',
@@ -291,6 +295,7 @@ export const ur: LabelResource = {
   'assets.history.clear': 'فلٹر صاف کریں',
   'assets.history.days': 'دن',
   'assets.history.field': 'فیلڈ',
+  'assets.history.hidden': 'پوشیدہ',
   'assets.history.none': 'ابھی کوئی تبدیلی نہیں۔',
   'assets.history.none_match': 'ان فلٹرز سے کوئی تبدیلی نہیں ملتی۔',
   'assets.history.person': 'شخص',
@@ -398,6 +403,7 @@ export const ur: LabelResource = {
   'assets.record.address': 'پتہ',
   'assets.record.all': 'اثاثے',
   'assets.record.barcode': 'بارکوڈ یا QR قدر',
+  'assets.record.change_location': 'مقام بدلیں',
   'assets.record.changed_elsewhere':
     'کسی اور نے یہ اثاثہ تبدیل کیا ہے۔ آپ کی تبدیلیاں تب ہی محفوظ ہوں گی جب ان سے نہ ٹکرائیں، ورنہ دوبارہ لوڈ کرنے کو کہا جائے گا۔',
   'assets.record.contact_person': 'رابطہ شخص',
@@ -456,6 +462,8 @@ export const ur: LabelResource = {
   'assets.record.state_id': 'حالت',
   'assets.record.tag': 'اثاثے کا ٹیگ',
   'assets.record.tag_auto': 'خودکار طور پر دیا جائے گا',
+  'assets.record.through_ticket':
+    'اپنے ٹکٹ کے ذریعے آپ اس اثاثے کی حالت، مقام، نوٹس اور لگے ہوئے پرزے بدل سکتے ہیں۔',
   'assets.record.trash': 'کوڑے دان',
   'assets.record.trash_confirm': 'یہ اثاثہ کوڑے دان میں ڈالیں؟',
   'assets.record.trash_notice': 'کوڑے دان میں موجود اثاثے۔ دوبارہ استعمال کے لیے کسی کو بحال کریں۔',

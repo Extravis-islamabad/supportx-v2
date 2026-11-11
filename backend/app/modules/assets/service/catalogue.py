@@ -49,6 +49,7 @@ from app.modules.assets.domain.catalogue import (
     tag_pattern_problems,
     would_cycle,
 )
+from app.modules.assets.domain.financials import DEFAULT_FACTOR, factor_problems
 from app.modules.assets.events import (
     CatalogueAction,
     CatalogueChanged,
@@ -761,7 +762,11 @@ async def list_product_types(session: AsyncSession) -> Sequence[AssetProductType
     ).all()
 
 
-async def _type_problems(
+def _factor(raw: object) -> Decimal | None:
+    return None if raw is None else Decimal(str(raw))
+
+
+async def _type_problems(  # noqa: C901 - one rule per field
     session: AsyncSession,
     values: Mapping[str, Any],
     types: Sequence[AssetProductType],
@@ -769,6 +774,8 @@ async def _type_problems(
     type_id: uuid.UUID | None,
 ) -> list[Problem]:
     problems = tag_pattern_problems("tag_pattern", values.get("tag_pattern"))
+    if "depreciation_factor" in values:  # D-157: declining balance's, 0 to 10
+        problems += factor_problems(_factor(values["depreciation_factor"]))
     by_id = {t.id: t for t in types}
     parents = {str(t.id): (str(t.parent_id) if t.parent_id else None) for t in types}
     if "parent_id" in values and values["parent_id"] is not None:
@@ -847,6 +854,7 @@ async def create_product_type(
         life_cycle_id=values.get("life_cycle_id"),
         tag_pattern=values.get("tag_pattern"),
         ack_required=bool(values.get("ack_required", False)),
+        depreciation_factor=_factor(values.get("depreciation_factor")) or DEFAULT_FACTOR,
         sort=max(
             (t.sort for t in types if t.parent_id == (parent.id if parent else None)), default=-1
         )
@@ -866,7 +874,7 @@ async def create_product_type(
     return row
 
 
-async def update_product_type(  # noqa: PLR0913, C901 - the If-Match and the source; one rule per field
+async def update_product_type(  # noqa: PLR0912, PLR0913, C901 - the If-Match and the source; one rule per field
     session: AsyncSession,
     subject: Subject,
     type_id: uuid.UUID,
@@ -889,6 +897,8 @@ async def update_product_type(  # noqa: PLR0913, C901 - the If-Match and the sou
     for field in ("icon", "description", "life_cycle_id", "tag_pattern", "ack_required", "sort"):
         if field in values:
             wanted[field] = values[field]
+    if "depreciation_factor" in values:
+        wanted["depreciation_factor"] = _factor(values["depreciation_factor"])
     new_parent = values.get("parent_id", row.parent_id)
     parent = next((t for t in types if t.id == new_parent), None)
     if "parent_id" in values:
