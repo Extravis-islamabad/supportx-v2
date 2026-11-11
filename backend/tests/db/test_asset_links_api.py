@@ -220,3 +220,69 @@ async def test_a_requester_links_only_assets_they_hold_from_the_portal(world: Wo
     assert made.status_code == 201, made.text
     linked = await _assets_of(world, made.json(), a.admin)
     assert [x["asset_id"] for x in linked] == [mine["id"]]
+
+
+# --- the asset's side (WP-049b S4, lane B's ports) ---------------------------------------------
+
+
+async def test_an_asset_s_linked_records_count_and_page_only_what_you_may_see(
+    world: World,
+) -> None:
+    """The coordinator, 2026-11-11: a record you may not see is neither counted nor listed."""
+    from app.modules.identity_access import subject_for  # noqa: PLC0415 - one use
+
+    a = world.a
+    laptop = await _asset(world, "Counted laptop")
+    seen = await world.create(a, a.admin, group_id=str(a.ga), asset_ids=[laptop["id"]])
+    hidden = await world.create(a, a.admin, group_id=str(a.gb), asset_ids=[laptop["id"]])
+    asset_id = uuid.UUID(laptop["id"])
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        admin = await subject_for(session, a.tenant, a.admin)
+        tech = await subject_for(session, a.tenant, a.tech_a)  # GA's: never GB's records
+        assert (await asset_links.linked_counts(session, admin, asset_id))["incident"] == (2, 2)
+        assert (await asset_links.linked_counts(session, tech, asset_id))["incident"] == (1, 1)
+        page, more = await asset_links.linked_page(session, tech, asset_id, "incident")
+        assert [str(r.id) for r in page] == [seen["id"]]
+        assert more is None
+        first, cursor = await asset_links.linked_page(session, admin, asset_id, "incident", limit=1)
+        assert [str(r.id) for r in first] == [hidden["id"]]  # newest first
+        assert cursor is not None
+        rest, end = await asset_links.linked_page(
+            session, admin, asset_id, "incident", cursor=cursor, limit=1
+        )
+        assert [str(r.id) for r in rest] == [seen["id"]]
+        assert end is None
+        assert [str(i) for i in await asset_links.asset_ids_of(session, uuid.UUID(seen["id"]))] == [
+            laptop["id"]
+        ]
+    # Linked as the record was made: the event says so (the asset's history uses it).
+    events = await _events(world, seen)
+    assert events[0]["at_creation"] is True
+
+
+async def test_a_merge_moves_every_link_once_with_history_and_events(world: World) -> None:
+    a = world.a
+    old = await _asset(world, "Merged away")
+    kept = await _asset(world, "Merged into")
+    only_old = await world.create(a, a.admin, asset_ids=[old["id"]])
+    both = await world.create(a, a.admin, asset_ids=[old["id"], kept["id"]])
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        moved = await asset_links.repoint_asset_links(
+            session,
+            uuid.UUID(old["id"]),
+            uuid.UUID(kept["id"]),
+            from_label="AST-1 Merged away",
+            to_label="AST-2 Merged into",
+        )
+    assert moved == 2
+    assert [x["asset_id"] for x in await _assets_of(world, only_old, a.admin)] == [kept["id"]]
+    assert [x["asset_id"] for x in await _assets_of(world, both, a.admin)] == [kept["id"]]
+    changes = [e["change"] for e in await _events(world, both)]
+    assert changes[-1] == "removed"  # it already held the kept one: no second link
+    lines = [
+        (c["old"], c["new"])
+        for h in await world.history(a, only_old)
+        for c in h["changes"]
+        if c["field"] == "asset"
+    ]
+    assert ("AST-1 Merged away", "AST-2 Merged into") in lines
