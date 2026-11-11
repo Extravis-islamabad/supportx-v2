@@ -43,15 +43,9 @@ import { StagedMoveDialog } from '../staged/MoveDialog';
 import { ApprovalPreview, ApprovalsPart } from './ChangeApprovals';
 import { ChildrenPart } from './ChangeChildren';
 import { ChangeProperties } from './ChangeProperties';
+import { ChangeScheduleTab } from './ChangeSchedule';
 import { EmergencyOverrideDialog } from './EmergencyOverride';
-import {
-  DetailsPart,
-  DowntimePart,
-  PlanPart,
-  RiskPart,
-  RolesPart,
-  SchedulePart,
-} from './ChangeParts';
+import { DetailsPart, PlanPart, RiskPart, RolesPart, SchedulePart } from './ChangeParts';
 import { EMERGENCY_PATH, riskTone } from './labels';
 
 const NO_TYPING: Typing = {};
@@ -66,7 +60,6 @@ const TABS = [
   'plan',
   'tasks',
   'schedule',
-  'downtime',
   'children',
   'history',
 ] as const;
@@ -263,12 +256,7 @@ export function ChangePage() {
     {
       key: 'schedule',
       label: t('staged.tab.schedule'),
-      children: <SchedulePart id={c.id} />,
-    },
-    {
-      key: 'downtime',
-      label: t('staged.tab.downtime'),
-      children: <DowntimePart id={c.id} />,
+      children: <ChangeScheduleTab change={c} stages={<SchedulePart id={c.id} />} />,
     },
     {
       key: 'tasks',

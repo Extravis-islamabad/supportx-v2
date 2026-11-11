@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router';
 
 import {
   useChange,
+  useChangeConflicts,
   useChangeDetails,
   useStagedApprovals,
   useStagedDowntimes,
@@ -26,6 +27,7 @@ import {
 
 import { personName } from '../incidents/labels';
 import { listValueName, stageName, statusName } from '../staged/labels';
+import { ConflictsPanel } from './ChangeSchedule';
 import { riskTone } from './labels';
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -42,7 +44,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 /**
  * The CAB pack (REQ-CHG-102): one page with what a board needs to decide, ready for the
  * browser's print or "Save as PDF". The summary, the risk with its score, the plans, the
- * schedule and downtime (the impact), and the approvals so far, all in the reader's language
+ * schedule, its conflicts, the downtime (the impact), and the approvals so far, all in the reader's language
  * and direction. The app's print rules leave out the navigation and the print button.
  */
 export function ChangePack() {
@@ -57,6 +59,7 @@ export function ChangePack() {
   const downtimes = useStagedDowntimes('changes', id).data ?? [];
   const approvals = useStagedApprovals('changes', id).data;
   const settings = useStagedSettings('changes');
+  const conflicts = useChangeConflicts(id).data?.items ?? [];
   const c = record.data;
   usePageCrumbs([
     { label: t('nav.changes'), path: '/changes' },
@@ -217,6 +220,14 @@ export function ChangePack() {
             },
           ]}
         />
+      </Section>
+
+      <Section id="conflicts" title={t('changes.pack.conflicts')}>
+        {conflicts.length === 0 ? (
+          <EmptyText>{t('changes.pack.no_conflicts')}</EmptyText>
+        ) : (
+          <ConflictsPanel id={c.id} />
+        )}
       </Section>
 
       <Section id="impact" title={t('changes.pack.impact')}>
