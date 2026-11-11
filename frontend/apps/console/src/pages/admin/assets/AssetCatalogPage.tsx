@@ -14,6 +14,7 @@ import { PageHeader, useLabel, useLicence } from '@supportx/ui';
 
 import { LifeCyclesTab } from './LifeCyclesTab';
 import { ProductsTab } from './ProductsTab';
+import { OverdueRuleCard } from './OverdueRuleCard';
 import { SettingsTab } from './SettingsTab';
 import { StatesTab } from './StatesTab';
 import { StockRulesTab } from './StockRulesTab';
@@ -102,7 +103,13 @@ export function AssetCatalogPage() {
           {
             key: 'settings',
             label: t('assets.admin.settings'),
-            children: <SettingsTab settings={settings.data} />,
+            children: (
+              <Flex vertical gap={16}>
+                <SettingsTab settings={settings.data} />
+                {/* WP-049b s3 (REQ-AST-056): the overdue-scan rule, off by default. */}
+                <OverdueRuleCard />
+              </Flex>
+            ),
           },
         ]}
         data-testid="asset-catalogue-tabs"

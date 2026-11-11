@@ -107,6 +107,18 @@ export const queryKeys = {
     noteHistory: (id: string) => ['assets', 'note-history', id] as const,
     historyFiltered: (id: string, filters: AssetHistoryFilters) =>
       ['assets', 'history', id, filters] as const,
+    // WP-049b s3: audits, labels, scans and the overdue-scan rule.
+    audits: ['assets', 'audits'] as const,
+    audit: (id: string) => ['assets', 'audit', id] as const,
+    auditItemsAll: (id: string) => ['assets', 'audit-items', id] as const,
+    auditItems: (id: string, discrepancies: boolean) =>
+      ['assets', 'audit-items', id, discrepancies] as const,
+    labelJobs: ['assets', 'label-jobs'] as const,
+    labelPrintsAll: ['assets', 'label-prints'] as const,
+    labelPrints: (assetId: string) => ['assets', 'label-prints', assetId] as const,
+    scans: (id: string) => ['assets', 'scans', id] as const,
+    overdueRule: ['assets', 'overdue-rule'] as const,
+    overdueRuns: ['assets', 'overdue-runs'] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here

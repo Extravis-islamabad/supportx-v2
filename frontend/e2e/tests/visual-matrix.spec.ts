@@ -52,6 +52,8 @@ type Records = Partial<
     | 'announcement'
     | 'asset'
     | 'consumable'
+    | 'audit'
+    | 'scannedAsset'
     | 'catalogItem',
     string
   >
@@ -241,6 +243,22 @@ export const SCREENS: Screen[] = [
   {
     key: 'asset-history',
     path: (r) => (r.asset ? `/assets/${r.asset}?tab=history` : undefined),
+    app: 'console',
+  },
+  // WP-049b s3 (lane B): asset audits, one running audit (items, progress, discrepancies), and
+  // an asset's scan history (the showcase's scanned laptop, else the first asset).
+  { key: 'asset-audits', path: '/assets/audits', app: 'console' },
+  {
+    key: 'asset-audit',
+    path: (r) => (r.audit ? `/assets/audits/${r.audit}` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'asset-scans',
+    path: (r) => {
+      const id = r.scannedAsset ?? r.asset;
+      return id ? `/assets/${id}?tab=scans` : undefined;
+    },
     app: 'console',
   },
   // WP-049b s1 (lane B): consumables, one consumable (stock, lots, ledger).
@@ -475,6 +493,9 @@ async function findRecords(page: Page): Promise<Records> {
     announcement: await first('/api/v1/announcements?limit=1', firstItem),
     asset: await first('/api/v1/assets?limit=1', firstItem),
     consumable: await first('/api/v1/assets/consumables', firstOfList),
+    // WP-049b s3: the showcase's running audit, and its laptop with scans (SX-LAP-001).
+    audit: await first('/api/v1/assets/audits', firstOfList),
+    scannedAsset: await first('/api/v1/assets?search=SX-LAP-001&limit=1', firstItem),
     catalogItem: await first('/api/v1/catalog/items', firstOfList),
   };
 }

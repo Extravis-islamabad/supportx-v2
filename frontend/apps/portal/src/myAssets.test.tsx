@@ -94,6 +94,43 @@ describe('portal: my assets', () => {
     });
   });
 
+  it('a self-audit asks me to confirm only my own asset, naming the audit and nothing else', async () => {
+    // WP-049b s3 (REQ-AST-042 AC2): the question comes through my own acknowledgement.
+    window.history.pushState({}, '', '/my-assets');
+    const asked = {
+      ...LAPTOP,
+      acknowledgement: {
+        ...LAPTOP.acknowledgement,
+        id: 'k-9',
+        audit_id: 'aud-1',
+        audit_name: 'Q4 count',
+      },
+    };
+    const fake = portal({
+      'GET /api/v1/assets/mine': { body: [asked] },
+      'POST /api/v1/assets/acknowledgements/k-9/answer': {
+        body: { ...asked.acknowledgement, status: 'accepted', channel: 'portal' },
+      },
+    });
+    render(<App />);
+    const row = await screen.findByTestId(`my-asset-${LAPTOP.id}`);
+    expect(within(row).getByTestId(`my-asset-audit-${LAPTOP.id}`).textContent).toBe(
+      'Asked again for the audit Q4 count',
+    );
+    // Only what I hold is listed; the audit's other assets and its progress never reach me.
+    expect(screen.getAllByTestId(/^my-asset-01/)).toHaveLength(1);
+    expect(fake.find('GET', '/api/v1/assets/audits')).toHaveLength(0);
+    fireEvent.click(within(row).getByTestId(`my-asset-accept-${LAPTOP.id}`));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/assets/acknowledgements/k-9/answer')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/assets/acknowledgements/k-9/answer')[0]?.body).toEqual({
+      accept: true,
+      comment: null,
+      channel: 'portal',
+    });
+  });
+
   it('a newly given asset shows without a refresh', async () => {
     const realtime = scriptedRealtime();
     setDefaultClientFactory(realtime.factory);

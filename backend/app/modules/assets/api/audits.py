@@ -491,6 +491,7 @@ class AuditFixesOut(BaseModel):
 @router.post(
     "/{audit_id}/fixes",
     summary="Settle discrepancies",
+    response_model=AuditFixesOut,
     responses=WRITE,
     dependencies=[
         audited("asset_audit.fixes_applied", object_type="asset_audit", object_param="audit_id")
