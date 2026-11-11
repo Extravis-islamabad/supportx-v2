@@ -29,7 +29,7 @@ import {
 
 import { useDebounced } from '../../useDebounced';
 import { StatusTag } from '../incidents/tags';
-import { stageName } from '../releases/labels';
+import { stageName } from '../staged/labels';
 import { EMERGENCY_PATH } from './labels';
 
 const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
@@ -80,7 +80,7 @@ export function ChangesPage() {
     path: t('changes.col.path'),
     stage: t('work_item.field.stage'),
     status: t('work_item.field.status'),
-    updated: t('releases.col.updated'),
+    updated: t('staged.col.updated'),
   };
   const widths = useColumnWidths({
     kind: 'changes',
@@ -145,8 +145,8 @@ export function ChangesPage() {
           search={
             <Input.Search
               allowClear
-              aria-label={t('releases.search')}
-              placeholder={t('releases.search')}
+              aria-label={t('staged.search')}
+              placeholder={t('staged.search')}
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);

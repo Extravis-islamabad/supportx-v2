@@ -6,6 +6,7 @@ import {
   Form,
   Input,
   List,
+  Modal,
   Radio,
   Row,
   Select,
@@ -17,6 +18,7 @@ import { useState } from 'react';
 
 import {
   useAssessChangeRisk,
+  useReapprovalPreview,
   useChangeDetails,
   useChangeRiskQuestionnaire,
   useSetStagedRole,
@@ -27,9 +29,11 @@ import {
   useStagedSchedule,
   useStagedSettings,
   useUpdateChangeDetails,
+  useUpdateStagedSchedule,
   useWriteStagedPlan,
   type ChangeDetailsInput,
   type Downtime,
+  type StageChanges,
   type StageSchedule,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
@@ -48,7 +52,7 @@ import {
 } from '@supportx/ui';
 
 import { labelled } from '../incidents/labels';
-import { listValueName, stageName } from '../releases/labels';
+import { listValueName, stageName } from '../staged/labels';
 import { RISKS, riskTone } from './labels';
 
 /**
@@ -62,8 +66,11 @@ export function DetailsPart({ id }: { id: string }) {
   const details = useChangeDetails(id);
   const settings = useStagedSettings('changes');
   const save = useUpdateChangeDetails();
+  const preview = useReapprovalPreview();
   const problem = useFormProblem();
   const [draft, setDraft] = useState<ChangeDetailsInput>({});
+  // REQ-CHG-053: a new risk may send approved stages back; say which before saving.
+  const [restarts, setRestarts] = useState<StageChanges[]>();
   const d = details.data;
   if (d === undefined) return null;
   const own = (list: string) => (settings.data?.own_lists?.[list] ?? []).filter((v) => !v.disabled);
@@ -77,7 +84,8 @@ export function DetailsPart({ id }: { id: string }) {
   const dirty = Object.entries(draft).some(
     ([k, v]) => v !== (d as unknown as Record<string, unknown>)[k],
   );
-  const submit = () => {
+  const write = () => {
+    setRestarts(undefined);
     save.mutate(
       { id, version: d.version, body: draft },
       {
@@ -90,8 +98,50 @@ export function DetailsPart({ id }: { id: string }) {
       },
     );
   };
+  const submit = () => {
+    if (!overriding) {
+      write();
+      return;
+    }
+    const risk = (draft.risk_chosen ?? d.risk ?? null) as ChangeDetailsInput['risk_chosen'];
+    preview.mutate(
+      { id, body: { risk } },
+      {
+        onSuccess: (found) => {
+          const back = found.filter((s) => s.changes.some((c) => c.effect === 'restart'));
+          if (back.length === 0) write();
+          else setRestarts(back);
+        },
+        onError: (error) => {
+          problem.show(error);
+        },
+      },
+    );
+  };
   return (
     <Form layout="vertical" data-testid="change-details">
+      {restarts && (
+        <Modal
+          open
+          title={t('changes.reapproval.title')}
+          okText={t('changes.reapproval.confirm')}
+          okButtonProps={{ loading: save.isPending, 'data-testid': 'reapproval-ok' }}
+          onOk={write}
+          onCancel={() => {
+            setRestarts(undefined);
+          }}
+          destroyOnHidden
+        >
+          <Flex vertical gap={8} data-testid="reapproval-warning">
+            <Typography.Text>{t('changes.reapproval.warning')}</Typography.Text>
+            {restarts.map((s) => (
+              <Typography.Text key={s.stage} strong>
+                {stageName(t, s.stage)}
+              </Typography.Text>
+            ))}
+          </Flex>
+        </Modal>
+      )}
       <Row gutter={16}>
         {(['change_type', 'change_reason'] as const).map((list) => (
           <Col key={list} xs={24} md={12}>
@@ -143,7 +193,7 @@ export function DetailsPart({ id }: { id: string }) {
         </Col>
         {overriding && (
           <Col xs={24} md={12}>
-            <Form.Item label={t('releases.risk_reason')} required htmlFor="change-risk-reason">
+            <Form.Item label={t('staged.risk_reason')} required htmlFor="change-risk-reason">
               <Input
                 id="change-risk-reason"
                 value={reason}
@@ -180,7 +230,7 @@ export function DetailsPart({ id }: { id: string }) {
             <WriteButton
               type="primary"
               disabled={overriding && reason.trim() === ''}
-              whyDisabled={t('releases.risk_reason_needed')}
+              whyDisabled={t('staged.risk_reason_needed')}
               loading={save.isPending}
               onClick={submit}
               data-testid="change-details-save"
@@ -224,7 +274,7 @@ export function RiskPart({ id }: { id: string }) {
         <Typography.Text>{t('changes.risk.score', { score })}</Typography.Text>
         {complete && band && (
           <ToneTag tone={riskTone(band.level)} testId="change-risk-level">
-            {t('releases.risk_chip', { risk: t(`risk_level.${band.level}`) })}
+            {t('staged.risk_chip', { risk: t(`risk_level.${band.level}`) })}
           </ToneTag>
         )}
       </Flex>
@@ -304,7 +354,7 @@ function RolePicker({
         style={{ minWidth: 260 }}
         aria-label={label}
         value={current}
-        placeholder={t('releases.roles.nobody')}
+        placeholder={t('staged.roles.nobody')}
         onOpenChange={setOpen}
         onSearch={setSearch}
         loading={candidates.isFetching}
@@ -337,7 +387,7 @@ export function RolesPart({ id }: { id: string }) {
   return (
     <List
       data-testid="change-roles"
-      locale={{ emptyText: <EmptyText>{t('releases.roles.none')}</EmptyText> }}
+      locale={{ emptyText: <EmptyText>{t('staged.roles.none')}</EmptyText> }}
       dataSource={view.roles.filter((r) => !r.disabled || r.user_ids.length > 0)}
       renderItem={(r) => {
         const name = labelled(r.labels, locale, () => t(`work_item_role.${r.code}`));
@@ -347,7 +397,7 @@ export function RolesPart({ id }: { id: string }) {
               title={name}
               description={
                 r.group_ids.length > 0
-                  ? t('releases.roles.groups', { count: r.group_ids.length })
+                  ? t('staged.roles.groups', { count: r.group_ids.length })
                   : undefined
               }
             />
@@ -366,7 +416,7 @@ export function RolesPart({ id }: { id: string }) {
                       r.user_ids.map((u) => view.people[u] ?? ''),
                       'conjunction',
                     )
-                  : t('releases.roles.nobody')}
+                  : t('staged.roles.nobody')}
               </Typography.Text>
             )}
           </List.Item>
@@ -404,7 +454,7 @@ function PlanSectionEditor({
         {content ? (
           <RichTextView html={content} />
         ) : (
-          <Typography.Text type="secondary">{t('releases.plan.empty')}</Typography.Text>
+          <Typography.Text type="secondary">{t('staged.plan.empty')}</Typography.Text>
         )}
         <Button
           size="small"
@@ -490,7 +540,7 @@ export function PlanPart({ id }: { id: string }) {
       {empty.length > 0 && (
         <Flex vertical gap={4} align="flex-start" data-testid="change-plan-add">
           {written.length === 0 && (
-            <Typography.Text type="secondary">{t('releases.plan.none_yet')}</Typography.Text>
+            <Typography.Text type="secondary">{t('staged.plan.none_yet')}</Typography.Text>
           )}
           {empty.map((s) => (
             <WriteButton
@@ -512,9 +562,55 @@ export function PlanPart({ id }: { id: string }) {
   );
 }
 
+// The outcomes each stage records (REQ-CHG-031, -032; domain/changes.py STAGE_OUTCOMES).
+const OUTCOMES: Record<string, readonly string[]> = {
+  implementation: ['successful', 'successful_with_issues', 'backed_out', 'failed'],
+  acceptance_testing: ['passed', 'failed'],
+  deployment: ['passed', 'failed', 'partly_done'],
+  review: ['successful', 'successful_with_issues', 'failed'],
+};
+
+function OutcomeSelect({ id, row }: { id: string; row: StageSchedule }) {
+  const t = useLabel();
+  const update = useUpdateStagedSchedule('changes');
+  const problem = useFormProblem();
+  return (
+    <Space direction="vertical">
+      <Select
+        allowClear
+        style={{ minWidth: 220 }}
+        aria-label={t('staged.schedule.outcome_of', { stage: stageName(t, row.stage) })}
+        value={row.outcome}
+        data-testid={`outcome-${row.stage}`}
+        options={(OUTCOMES[row.stage] ?? []).map((c) => ({
+          value: c,
+          label: t(`stage_outcome.${c}`),
+        }))}
+        onChange={(outcome: string | undefined) => {
+          update.mutate(
+            {
+              id,
+              stage: row.stage,
+              version: row.version,
+              body: { outcome: (outcome ?? null) as StageSchedule['outcome'] },
+            },
+            {
+              onError: (error) => {
+                problem.show(error);
+              },
+            },
+          );
+        }}
+      />
+      <FormProblem problem={problem} />
+    </Space>
+  );
+}
+
 /**
- * Each stage's planned and actual dates and its outcome (REQ-CHG-017, -031), read here; the
- * engine sets the actual dates. Planning the windows and the calendar come with WP-045c.
+ * Each stage's planned and actual dates and its outcome (REQ-CHG-017, -031, -032): the engine
+ * sets the actual dates; a stage that records an outcome takes it here, as implementing one
+ * needs it before it completes. Planning the windows and the calendar come with WP-045c.
  */
 export function SchedulePart({ id }: { id: string }) {
   const t = useLabel();
@@ -524,7 +620,7 @@ export function SchedulePart({ id }: { id: string }) {
   return (
     <div
       role="region"
-      aria-label={t('releases.tab.schedule')}
+      aria-label={t('staged.tab.schedule')}
       tabIndex={0}
       style={{ overflowX: 'auto' }}
     >
@@ -542,20 +638,20 @@ export function SchedulePart({ id }: { id: string }) {
           },
           {
             key: 'planned',
-            title: t('releases.schedule.planned'),
+            title: t('staged.schedule.planned'),
             render: (_, r) =>
               [when(r.scheduled_start), when(r.scheduled_end)].filter(Boolean).join(' – '),
           },
           {
             key: 'actual',
-            title: t('releases.schedule.actual'),
+            title: t('staged.schedule.actual'),
             render: (_, r) =>
               [when(r.actual_start), when(r.actual_end)].filter(Boolean).join(' – '),
           },
           {
             key: 'outcome',
-            title: t('releases.schedule.outcome'),
-            render: (_, r) => (r.outcome ? t(`stage_outcome.${r.outcome}`) : ''),
+            title: t('staged.schedule.outcome'),
+            render: (_, r) => (r.stage in OUTCOMES ? <OutcomeSelect id={id} row={r} /> : null),
           },
         ]}
       />
@@ -582,7 +678,7 @@ export function DowntimePart({ id }: { id: string }) {
   return (
     <List<Downtime>
       data-testid="change-downtimes"
-      locale={{ emptyText: <EmptyText>{t('releases.downtime.none')}</EmptyText> }}
+      locale={{ emptyText: <EmptyText>{t('staged.downtime.none')}</EmptyText> }}
       dataSource={downtimes.data ?? []}
       renderItem={(d) => (
         <List.Item key={d.id} data-testid={`downtime-${d.id}`}>
