@@ -91,6 +91,40 @@ hex values and never overwrites an existing one (its passwords are already insid
   losing its node stops the database failover until Kubernetes moves the operator pod, about
   five minutes later.
 
+  **Cluster DNS: at least two copies on different nodes (k3s ships one).** With one copy, losing
+  its node stops every name lookup in the cluster until Kubernetes re-creates the pod, about
+  five minutes later (the 300 s unreachable eviction). Valkey's sentinels find each other and
+  their master by hostname, so meanwhile they keep entering TILT, no quorum forms, and once the
+  replicas' links have been down that long no replica is good enough to promote: Valkey stays
+  down until the node returns (Cluster run 43082299609). On k3s, run
+  `deploy/k3s/cluster-dns-ha.sh` before installing and after every k3s upgrade. It runs
+
+  ```
+  kubectl -n kube-system scale deploy/coredns --replicas=2
+  kubectl -n kube-system patch deploy/coredns --type=strategic -p '{"spec":{"template":{"spec":{"affinity":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"kube-dns"}},"topologyKey":"kubernetes.io/hostname"}]}}}}}}'
+  kubectl -n kube-system rollout status deploy/coredns --timeout=300s
+  ```
+
+  and fails unless two ready copies sit on two nodes. k3s's CoreDNS is a plain manifest that k3s
+  re-applies at start, not a Helm chart, so a `HelmChartConfig` does not reach it; the manifest
+  sets neither replicas nor affinity, so a restart keeps both. On a customer-managed cluster (any
+  other distribution), do the same to its DNS deployment: two or more copies with required pod
+  anti-affinity (or a `DoNotSchedule` topology spread) on `kubernetes.io/hostname`. kubeadm,
+  RKE2 and managed clusters usually run two copies already; check where they run.
+
+  **Preflight.** `deploy/k3s/ha-preflight.sh` checks a cluster for the HA profile, read-only:
+  three or more schedulable nodes, cluster DNS ready on two or more nodes, the CloudNativePG
+  operator ready on two or more nodes. Each unmet requirement prints a WARNING and how to fix
+  it (exit 0; `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make cluster-up-ha` does). Run it
+  before the install and after any cluster upgrade. `helm install` with `values-ha.yaml` also
+  warns in its notes when `kube-system/coredns` runs one copy.
+
+  Valkey's pods look names up with `ndots 1`, a 1 s timeout and 2 attempts (`dnsConfig` in
+  `templates/valkey-ha.yaml`), and name every peer in full
+  (`<pod>.supportx-valkey-headless.<namespace>.svc.<cluster domain>`, the domain read from the
+  pod's own search list): one query per name that fails fast, so a short DNS blip never stalls a
+  sentinel into TILT.
+
   Measured on the k3d HA cluster (node-loss test, 2026-11-04): the agent with the primary is
   stopped; a standby is promoted after about 70 s, and the same signed-in session writes again
   about 30 s after that.

@@ -376,7 +376,7 @@ deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgra
 	$(HELM_TEST)
 
 cluster-up-ha: ## Create the four-node k3d cluster for the HA smoke (WP-014b)
-	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 BACKUP_PLUGIN=1 bash deploy/k3d/up.sh
+	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 BACKUP_PLUGIN=1 HA_CLUSTER=1 bash deploy/k3d/up.sh
 
 deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA profile (small requests) on k3d
 	# --mode direct: with several nodes, the default shared-volume import races (a node deletes the
