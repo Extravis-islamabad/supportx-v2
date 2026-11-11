@@ -1,9 +1,4 @@
-import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-} from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -36,6 +31,7 @@ import {
   EditDrawer,
   EmptyText,
   FormProblem,
+  RowActions,
   SettingsPageHeader,
   ToneTag,
   TranslatedField,
@@ -47,6 +43,8 @@ import {
   useLabel,
   type TranslatedValue,
 } from '@supportx/ui';
+
+import { useTenantChannel } from '@supportx/realtime';
 
 import { GroupPicker, UserPicker } from '../../incidents/pickers';
 import { boardName, RISKS, templateName } from '../../changes/labels';
@@ -408,6 +406,10 @@ export function ChangeBoardsPage() {
   const remove = useRemoveChangeBoard();
   const [editing, setEditing] = useState<ChangeBoard | 'new'>();
   const manage = can('changes.manage_boards') || can('settings.manage');
+  // Another admin's change shows at once (rule c): the boards' broadcast refetches the list.
+  useTenantChannel((m) => {
+    if (m.type === 'work_items.change_boards_changed') void boards.refetch();
+  });
   const rows = [...(boards.data ?? [])].sort((a, b) => a.position - b.position);
   const move = (board: ChangeBoard, by: -1 | 1) => {
     const other = rows[rows.indexOf(board) + by];
@@ -483,55 +485,62 @@ export function ChangeBoardsPage() {
             align: 'end' as const,
             render: (_, b) =>
               manage && (
-                <Space>
-                  <Button
-                    size="small"
-                    icon={<ArrowUpOutlined aria-hidden />}
-                    aria-label={t('changes.boards.move_up', { name: boardName(t, locale, b) })}
-                    disabled={rows.indexOf(b) === 0}
-                    onClick={() => {
-                      move(b, -1);
-                    }}
-                  />
-                  <Button
-                    size="small"
-                    icon={<ArrowDownOutlined aria-hidden />}
-                    aria-label={t('changes.boards.move_down', { name: boardName(t, locale, b) })}
-                    disabled={rows.indexOf(b) === rows.length - 1}
-                    onClick={() => {
-                      move(b, 1);
-                    }}
-                  />
-                  <Button
-                    size="small"
-                    onClick={() => {
+                // Template E's row actions (QA6S-SHELL-10; lane C's review of #373): Edit as the
+                // link, the rest in the row's "…" menu, Delete last and red.
+                <RowActions
+                  rowName={boardName(t, locale, b)}
+                  primary={{
+                    key: 'edit',
+                    label: t('actions.edit'),
+                    onClick: () => {
                       setEditing(b);
-                    }}
-                    data-testid={`board-${b.id}-edit`}
-                  >
-                    {t('actions.edit')}
-                  </Button>
-                  <WriteButton
-                    size="small"
-                    danger
-                    disabled={b.is_default}
-                    whyDisabled={t('changes.boards.why.default')}
-                    onClick={() => {
-                      void modal.confirm({
-                        title: t('changes.boards.remove_title', { name: boardName(t, locale, b) }),
-                        okButtonProps: { danger: true },
-                        okText: t('actions.delete'),
-                        onOk: () =>
-                          remove.mutateAsync({ id: b.id, version: b.version }).then(() => {
-                            void message.success(t('settings.saved'));
+                    },
+                    testId: `board-${b.id}-edit`,
+                  }}
+                  more={[
+                    {
+                      key: 'up',
+                      label: t('changes.boards.move_up', { name: boardName(t, locale, b) }),
+                      disabled: rows.indexOf(b) === 0,
+                      whyNot: t('changes.boards.why.first'),
+                      onClick: () => {
+                        move(b, -1);
+                      },
+                      testId: `board-${b.id}-up`,
+                    },
+                    {
+                      key: 'down',
+                      label: t('changes.boards.move_down', { name: boardName(t, locale, b) }),
+                      disabled: rows.indexOf(b) === rows.length - 1,
+                      whyNot: t('changes.boards.why.last'),
+                      onClick: () => {
+                        move(b, 1);
+                      },
+                      testId: `board-${b.id}-down`,
+                    },
+                    {
+                      key: 'delete',
+                      label: t('actions.delete'),
+                      danger: true,
+                      disabled: b.is_default,
+                      whyNot: t('changes.boards.why.default'),
+                      onClick: () => {
+                        void modal.confirm({
+                          title: t('changes.boards.remove_title', {
+                            name: boardName(t, locale, b),
                           }),
-                      });
-                    }}
-                    data-testid={`board-${b.id}-remove`}
-                  >
-                    {t('actions.delete')}
-                  </WriteButton>
-                </Space>
+                          okButtonProps: { danger: true },
+                          okText: t('actions.delete'),
+                          onOk: () =>
+                            remove.mutateAsync({ id: b.id, version: b.version }).then(() => {
+                              void message.success(t('changes.boards.removed'));
+                            }),
+                        });
+                      },
+                      testId: `board-${b.id}-remove`,
+                    },
+                  ]}
+                />
               ),
           },
         ]}

@@ -1,7 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { fakeIncident, fakeSession } from '@supportx/api-client/testing';
+import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
+import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
@@ -114,6 +116,7 @@ const PERMISSIONS = [
 let restore: () => void = () => undefined;
 afterEach(() => {
   restore();
+  setDefaultClientFactory(inertClientFactory);
 });
 
 type Routes = NonNullable<Parameters<typeof consoleApi>[0]>['routes'];
@@ -333,7 +336,11 @@ describe('console: change advisory boards', () => {
     });
     expect(table.textContent).toContain('Change advisory board');
     expect(screen.getByTestId(`board-${seeded.id}-no-members`)).toBeTruthy();
-    expect(screen.getByTestId(`board-${seeded.id}-remove`)).toHaveProperty('disabled', true);
+    // The default board's "…" menu: Delete is there, disabled, and says why (template E).
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Change advisory board' }));
+    const remove = await screen.findByTestId(`board-${seeded.id}-remove`);
+    expect(remove.closest('li')?.getAttribute('aria-disabled')).toBe('true');
+    expect(remove.textContent).toContain('The default board cannot be deleted.');
     fireEvent.click(screen.getByTestId(`board-${BOARD_ID}-edit`));
     const members = await screen.findByTestId('board-members');
     expect(members.textContent).toContain('Sara Khan');
@@ -358,6 +365,25 @@ describe('console: change advisory boards', () => {
       rule: 'majority_with_chair',
       chair_id: MEMBER,
       members: [{ user_id: MEMBER, optional: false }],
+    });
+  });
+
+  it('rule c: another admin’s change to the boards shows at once', async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    window.history.pushState({}, '', '/admin/change-boards');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('boards-table');
+    await waitFor(() => {
+      expect(realtime.channels().some((name) => name.endsWith(':broadcast'))).toBe(true);
+    });
+    const before = fake.find('GET', '/api/v1/change-boards').length;
+    act(() => {
+      realtime.publish(':broadcast', { type: 'work_items.change_boards_changed', ids: [BOARD_ID] });
+    });
+    await waitFor(() => {
+      expect(fake.find('GET', '/api/v1/change-boards').length).toBeGreaterThan(before);
     });
   });
 });
