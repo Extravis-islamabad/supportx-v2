@@ -41,6 +41,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Only the screenshot step runs in the official Playwright image, which has Chromium and its
+      # system libraries baked in: GitHub's runners could not fetch Ubuntu apt packages (runs
+      # 43036727839, 43042363216 and 43049547288; azure.archive.ubuntu.com did not resolve and
+      # the public archive failed too), so the job installs nothing with apt. Pulled before the
+      # stack starts, so a registry hiccup fails in a minute, not after the seeds.
+      - name: Playwright image (pulled, retried)
+        run: |
+          wait_s=15
+          for attempt in 1 2 3; do
+            docker pull "$PLAYWRIGHT_IMAGE" && exit 0
+            if (( attempt < 3 )); then
+              echo "::warning::pulling the Playwright image, attempt $attempt of 3 failed; trying again in ${wait_s}s"
+              sleep "$wait_s"
+              wait_s=$(( wait_s * 2 ))
+            fi
+          done
+          echo "::error::the Playwright image could not be pulled after 3 attempts"
+          exit 1
       - name: Generate throwaway .env (with a showcase password for this run only)
         run: |
           make dev-init
@@ -55,78 +73,19 @@ jobs:
       - name: Keycloak identity service account
         run: make keycloak-identity
       - uses: ./.github/actions/setup-frontend
-      # Chromium and its system libraries before the stack starts, so a mirror outage fails in
-      # a minute, not after the seeds. Run 43036727839: the runner could not resolve
-      # azure.archive.ubuntu.com and every shard went red inside `install --with-deps`. Not the
-      # Playwright job container (mcr.microsoft.com/playwright): the stack publishes its ports
-      # on the runner host and Keycloak's issuer is http://localhost:28080, which the browser
-      # inside a job container cannot reach (GitHub refuses --network host for job containers).
-      - name: Playwright version (from frontend/e2e/package.json)
-        id: playwright
+      # The image's Playwright must be the one in package.json, so a bump of either can never
+      # run a test runner against browsers built for another version.
+      - name: Playwright version (frontend/e2e/package.json against the image)
         run: |
           version="$(node -p "require('./frontend/e2e/package.json').devDependencies['@playwright/test']")"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
             echo "::error::@playwright/test must be an exact version, got '$version'"; exit 1; }
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-      - name: Chromium (cached by the Playwright version)
-        id: browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - name: Chromium download (cache miss only)
-        if: ${{ steps.browsers.outputs.cache-hit != 'true' }}
-        working-directory: frontend
-        run: |
-          wait_s=20
-          for attempt in 1 2 3; do
-            pnpm --filter @supportx/e2e exec playwright install chromium && exit 0
-            if (( attempt < 3 )); then
-              echo "::warning::Chromium download attempt $attempt of 3 failed; trying again in ${wait_s}s"
-              sleep "$wait_s"
-              wait_s=$(( wait_s * 2 ))
-            fi
-          done
-          echo "::error::Chromium could not be downloaded after 3 attempts"
-          exit 1
-      - name: Chromium system libraries (apt, retried)
-        working-directory: frontend
-        # Never the job's whole budget: a hung apt fails here, named (run 43042363216 spent
-        # 31 min retrying a name that did not resolve).
-        timeout-minutes: 12
-        run: |
-          # The runner's apt sources read `mirror+file:/etc/apt/apt-mirrors.txt`, which names the
-          # Azure mirror; even security.ubuntu.com downloads go through it. When that name does
-          # not resolve (runs 43036727839 and 43042363216), every download fails however often
-          # it is retried. So: short timeouts, the Azure mirror once, then the public archive
-          # written into the mirror list itself (and into the plain sources, for other images).
-          # DPkg::Lock::Timeout: an apt child that outlived `timeout` must not fail the next
-          # attempt on the dpkg lock (lane C's review of #400).
-          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "20";' \
-            'Acquire::https::Timeout "20";' 'DPkg::Lock::Timeout "120";' |
-            sudo tee /etc/apt/apt.conf.d/80-supportx-retries >/dev/null
-          use_public_archive() {
-            echo "::warning::using archive.ubuntu.com and security.ubuntu.com instead of the Azure mirror"
-            if [[ -f /etc/apt/apt-mirrors.txt ]]; then
-              printf 'http://archive.ubuntu.com/ubuntu/\tpriority:1\nhttp://security.ubuntu.com/ubuntu/\tpriority:2\n' |
-                sudo tee /etc/apt/apt-mirrors.txt >/dev/null
-            fi
-            sudo sed -i 's#http://azure\.archive\.ubuntu\.com/#http://archive.ubuntu.com/#g' \
-              /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
-          }
-          wait_s=20
-          for attempt in 1 2 3; do
-            if (( attempt == 2 )); then use_public_archive; fi
-            # Each attempt bounded too, so a hang becomes the next attempt.
-            timeout 300 pnpm --filter @supportx/e2e exec playwright install-deps chromium && exit 0
-            if (( attempt < 3 )); then
-              echo "::warning::Chromium system libraries, attempt $attempt of 3 failed; trying again in ${wait_s}s"
-              sleep "$wait_s"
-              wait_s=$(( wait_s * 2 ))
-            fi
-          done
-          echo "::error::Chromium's system libraries could not be installed after 3 attempts (apt mirror unreachable?)"
-          exit 1
+          [[ "$PLAYWRIGHT_IMAGE" =~ /playwright:v([0-9]+\.[0-9]+\.[0-9]+)-[a-z]+@sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::PLAYWRIGHT_IMAGE must be playwright:v<version>-<distro>@sha256:<digest>"; exit 1; }
+          if [[ "${BASH_REMATCH[1]}" != "$version" ]]; then
+            echo "::error::@playwright/test is $version but the image is v${BASH_REMATCH[1]}; bump both together"
+            exit 1
+          fi
       - uses: ./.github/actions/generated
         with:
           frontend: "true"
@@ -148,16 +107,46 @@ jobs:
           done
           curl -fsS http://localhost:5173/api/v1/ready
           curl -fsS http://localhost:5174/api/v1/ready
+      # In the Playwright image, on the host's network: the stack, Keycloak's issuer
+      # (http://localhost:28080) and the Vite servers stay on the runner's localhost (GitHub
+      # refuses --network host for job containers, so this is a plain `docker run`). The repo is
+      # mounted at its own path, so the absolute paths in backend/.venv and the e2e package's
+      # REPO resolve unchanged. Node and the browsers are the image's (/ms-playwright); the
+      # test runner and node_modules are the host's pnpm install (setup-frontend). The
+      # global setup and teardown also run backend tools (`uv run python -m tooling.…`, `make
+      # dev-subscription`), which the image lacks: the host's uv and make binaries (same Ubuntu
+      # 24.04 glibc) are mounted read-only on /opt/host-tools, and the venv's Python install at
+      # its own path, with uv told not to sync (the host already did). The image's Node is
+      # newer than .nvmrc's; Playwright transpiles the e2e TypeScript itself.
       - name: Screens (this shard)
-        working-directory: frontend
         timeout-minutes: 75
         env:
           VISUAL_SCREENS: ${{ inputs.screens }} # through env, never into the script text
+          VISUAL_SHARD: ${{ matrix.shard }}/${{ inputs.screens != '' && 1 || 6 }}
         run: |
-          SUPPORTX_SHOWCASE_PASSWORD="$(grep '^SHOWCASE_PASSWORD=' ../deploy/compose/.env | cut -d= -f2-)" \
-          VISUAL_MATRIX=1 VISUAL_SHARD="${{ matrix.shard }}/${{ inputs.screens != '' && 1 || 6 }}" \
-          VISUAL_OUT="$PWD/e2e/visual-matrix" \
-            pnpm --filter @supportx/e2e e2e tests/visual-matrix.spec.ts
+          SUPPORTX_SHOWCASE_PASSWORD="$(grep '^SHOWCASE_PASSWORD=' deploy/compose/.env | cut -d= -f2-)"
+          export SUPPORTX_SHOWCASE_PASSWORD
+          export VISUAL_MATRIX=1 VISUAL_OUT="$GITHUB_WORKSPACE/frontend/e2e/visual-matrix"
+          export SUPPORTX_CONSOLE_URL=http://localhost:5173 SUPPORTX_PORTAL_URL=http://localhost:5174
+          # Only the uv-managed Python install (setup-backend), never a system prefix like /usr.
+          python_home="$(dirname "$(dirname "$(readlink -f backend/.venv/bin/python)")")"
+          case "$python_home" in
+            /|/usr|/usr/local) echo "::error::backend/.venv uses a system Python ($python_home)"; exit 1 ;;
+          esac
+          home="$RUNNER_TEMP/playwright-home"
+          mkdir -p "$home" frontend/e2e/visual-matrix
+          docker run --rm --network host --user "$(id -u):$(id -g)" \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE/frontend/e2e" \
+            -v "$home:$home" -e HOME="$home" \
+            -v "$(command -v uv):/opt/host-tools/uv:ro" -v "$(command -v make):/opt/host-tools/make:ro" \
+            -v "$python_home:$python_home:ro" \
+            -e PATH="/opt/host-tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            -e UV_NO_SYNC=1 -e UV_FROZEN=1 -e UV_CACHE_DIR="$home/uv-cache" -e UV_PYTHON_DOWNLOADS=never \
+            -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright -e CI \
+            -e SUPPORTX_SHOWCASE_PASSWORD -e VISUAL_MATRIX -e VISUAL_OUT -e VISUAL_SHARD -e VISUAL_SCREENS \
+            -e SUPPORTX_CONSOLE_URL -e SUPPORTX_PORTAL_URL \
+            "$PLAYWRIGHT_IMAGE" \
+            node node_modules/@playwright/test/cli.js test tests/visual-matrix.spec.ts
       - name: Diagnostics on failure
         if: ${{ failure() }}
         run: |
