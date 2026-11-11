@@ -272,7 +272,10 @@ def test_drafts_skip_the_heavy_jobs() -> None:
 def test_the_backend_check_allows_skipped_shards_on_drafts_only() -> None:
     backend = "\n".join(_all_jobs()["backend"])
     assert f"DRAFT: ${{{{ (github.event_name == 'pull_request' && {DRAFT}) }}}}" in backend
-    assert '[ "$DRAFT" = "true" ] && [ "$TESTS" = "skipped" ]' in backend
+    # A draft, or a PR with no backend change (option A, tested below), and nothing else.
+    assert '[ "$DRAFT" = "true" ] || [ "$NO_BACKEND" = "true" ]; } && [ "$TESTS" = "skipped" ]' in (
+        backend
+    )
 
 
 def test_marking_a_draft_ready_runs_every_pr_workflow_again() -> None:
@@ -305,3 +308,46 @@ def test_a_draft_is_not_red_for_missing_coverage() -> None:
     coverage = text.split("- name: Coverage of all shards together", 1)[1].split("\n", 2)[1]
     assert "needs.backend-tests.result == 'success'" in coverage
     assert "skipped: draft (fast set only)" in text
+
+
+# --- option A (coordinator, 2026-11-11): PRs with no backend change skip the 8 shards ----------
+
+
+def test_the_merge_queue_and_nightly_never_skip_the_shards() -> None:
+    """Only a pull_request run may skip them by path: anything else (the merge queue, nightly,
+    manual) and the full-ci label always run all eight, so every merge is tested in full."""
+    paths = "\n".join(_all_jobs()["backend paths"])
+    tests = next(x for x in paths.splitlines() if x.strip().startswith("tests: "))
+    assert tests.split("tests: ", 1)[1].startswith(
+        "${{ github.event_name != 'pull_request' && 'true' || "
+        "contains(github.event.pull_request.labels.*.name, 'full-ci') && 'true' || "
+    ), tests
+    # The path decision itself only runs on pull requests.
+    assert "if: ${{ github.event_name == 'pull_request' }}" in paths
+    for name in ("shard weights", "backend tests ${{ matrix.shard }}/8"):
+        assert "needs.backend-paths.outputs.tests == 'true'" in _job_if(_all_jobs()[name]), name
+
+
+def test_the_backend_check_accepts_skipped_shards_only_on_a_draft_or_a_clean_no_backend_pr() -> (
+    None
+):
+    """A failed paths job, or any non-PR run, never lets skipped shards pass the required check."""
+    backend = "\n".join(_all_jobs()["backend"])
+    assert (
+        "NO_BACKEND: ${{ github.event_name == 'pull_request' && "
+        "needs.backend-paths.result == 'success' && "
+        "needs.backend-paths.outputs.tests == 'false' }}"
+    ) in backend
+    assert (
+        '{ { [ "$DRAFT" = "true" ] || [ "$NO_BACKEND" = "true" ]; } && [ "$TESTS" = "skipped" ]; }'
+    ) in backend
+
+
+def test_the_label_tests_run_whenever_the_shards_do_not() -> None:
+    """tests/test_*.py (labels, CI guards) run inside the shards; on a draft or a PR with no
+    backend change, backend checks runs them instead, so a label slip shows before ready."""
+    checks = "\n".join(_all_jobs()["backend checks"])
+    step = checks.split("- name: Label and CI guard tests", 1)[1].split("\n      - ", 1)[0]
+    assert DRAFT in step
+    assert "needs.backend-paths.outputs.tests != 'true'" in step
+    assert "uv run pytest tests/test_*.py" in step

@@ -107,11 +107,14 @@ export function ChangePack() {
           <Typography.Title level={1} style={{ fontSize: 24, marginTop: 4 }}>
             <bdi dir="ltr">{c.display_id}</bdi> {c.subject}
           </Typography.Title>
-          <Typography.Text type="secondary">
-            {t('changes.pack.printed', { at: format(new Date().toISOString()) })}
-          </Typography.Text>
-          {/* Read by people in other zones too (lane C's #384 review): the zone, said once. */}
-          <TimeZoneNote />
+          {/* Read by people in other zones too (lane C's #384 review): the zone, said once, on
+              its own line under when it was prepared (QA F-10: never run together). */}
+          <Flex vertical>
+            <Typography.Text type="secondary">
+              {t('changes.pack.printed', { at: format(new Date().toISOString()) })}
+            </Typography.Text>
+            <TimeZoneNote />
+          </Flex>
         </div>
         <Flex gap={8} data-sx-no-print>
           <Link to={`/changes/${c.id}`}>{t('changes.pack.back')}</Link>

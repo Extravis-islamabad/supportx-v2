@@ -1,0 +1,99 @@
+name: Playwright in the pinned image
+description: >-
+  Runs Playwright inside the official Playwright image (Chromium and its system libraries baked
+  in), so no job installs browsers or apt packages: GitHub's runners could not fetch Ubuntu apt
+  packages (runs 43036727839, 43042363216 and 43049547288). Two parts, chosen with `part`:
+  `pull` (first, before the stack starts: checks that the image's tag equals
+  @playwright/test in frontend/e2e/package.json, pulls it with retries and exports
+  PLAYWRIGHT_IMAGE for later steps) and `run` (after setup-backend and setup-frontend: the
+  tests, on the host's network, through run.sh next to this file).
+inputs:
+  part:
+    description: "`pull` (version check and pull; exports PLAYWRIGHT_IMAGE) or `run`."
+    required: true
+  image:
+    description: >-
+      `pull` only. The image, pinned by digest (the multi-arch index of v1.64.1-noble). The
+      only place the image is named: `pull` exports it as PLAYWRIGHT_IMAGE and `run` refuses to
+      start without it. Bump together with @playwright/test (the version check fails otherwise).
+    default: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+  args:
+    description: >-
+      `run` only. The Playwright CLI arguments, one per line (e.g. `test` then each spec file,
+      relative to frontend/e2e). Never word-split, so a line is exactly one argument.
+    default: ""
+  env:
+    description: >-
+      `run` only. Names (one per line) of the host environment variables to pass into the
+      container, each as `-e NAME`: never their values on the command line. An unset name is
+      simply absent in the container.
+    default: ""
+  add-hosts:
+    description: >-
+      `run` only. Extra /etc/hosts entries for the container, one `host:ip` per line (the
+      container shares the host's network, not its /etc/hosts edits).
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Unknown part
+      if: ${{ inputs.part != 'pull' && inputs.part != 'run' }}
+      shell: bash
+      env:
+        PART: ${{ inputs.part }}
+      run: |
+        echo "::error::playwright-in-image: part must be 'pull' or 'run', got '$PART'"
+        exit 1
+    # The image's Playwright must be the one in package.json, so a bump of either can never run
+    # a test runner against browsers built for another version. jq (on every GitHub runner), so
+    # this runs before setup-frontend and a mismatch fails in seconds.
+    - name: Playwright version (frontend/e2e/package.json against the image)
+      if: ${{ inputs.part == 'pull' }}
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        version="$(jq -r '.devDependencies["@playwright/test"]' frontend/e2e/package.json)"
+        [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+          echo "::error::@playwright/test must be an exact version, got '$version'"; exit 1; }
+        [[ "$IMAGE" =~ /playwright:v([0-9]+\.[0-9]+\.[0-9]+)-[a-z]+@sha256:[0-9a-f]{64}$ ]] || {
+          echo "::error::the image must be playwright:v<version>-<distro>@sha256:<digest>, got '$IMAGE'"; exit 1; }
+        if [[ "${BASH_REMATCH[1]}" != "$version" ]]; then
+          echo "::error::@playwright/test is $version but the image is v${BASH_REMATCH[1]}; bump both together"
+          exit 1
+        fi
+    - name: Playwright image (pulled, retried)
+      if: ${{ inputs.part == 'pull' }}
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        wait_s=15
+        for attempt in 1 2 3; do
+          if docker pull "$IMAGE"; then
+            echo "PLAYWRIGHT_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          if (( attempt < 3 )); then
+            echo "::warning::pulling the Playwright image, attempt $attempt of 3 failed; trying again in ${wait_s}s"
+            sleep "$wait_s"
+            wait_s=$(( wait_s * 2 ))
+          fi
+        done
+        echo "::error::the Playwright image could not be pulled after 3 attempts"
+        exit 1
+    - name: Playwright (in the image)
+      if: ${{ inputs.part == 'run' }}
+      shell: bash
+      env:
+        # Through env, never into the script text.
+        PW_ARGS: ${{ inputs.args }}
+        PLAYWRIGHT_ENV_NAMES: ${{ inputs.env }}
+        PLAYWRIGHT_ADD_HOSTS: ${{ inputs.add-hosts }}
+      run: |
+        args=()
+        while IFS= read -r line; do
+          [[ -n "$line" ]] && args+=("$line")
+        done <<< "$PW_ARGS"
+        (( ${#args[@]} > 0 )) || { echo "::error::playwright-in-image: run needs args"; exit 1; }
+        bash "$GITHUB_ACTION_PATH/run.sh" "${args[@]}"

@@ -79,6 +79,8 @@ export const FORM_TYPES = new Set([
   'timer',
   'wait',
   'set_status',
+  'note',
+  'tasks',
   'approval',
   'field_update',
   'webhook',

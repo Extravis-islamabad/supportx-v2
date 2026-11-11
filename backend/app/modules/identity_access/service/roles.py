@@ -369,6 +369,10 @@ async def _service_holds(session: AsyncSession, role_id: uuid.UUID) -> bool:
     return await _service_members(session, [*direct, *members])
 
 
+# The general role route refuses service identities: their roles go through the guarded path.
+SERVICE_IDENTITY_OWN_PATH = "service_identity_roles_elsewhere"
+
+
 def _refuse_for_service() -> PermissionDenied:
     return PermissionDenied(code="service_identity_role_not_allowed")
 
@@ -458,6 +462,9 @@ async def delete_role(  # noqa: PLR0913 - keyword-only options
         if reassign_to == role_id:
             raise ValidationFailed(params={"field": "reassign_to"})
         await _assignable(session, policy, subject, reassign_to)
+        if await _service_members(session, holders):
+            # A service identity holding the deleted role never moves onto a forbidden one.
+            await role_allowed_for_service(session, policy.catalogue, reassign_to)
         for user_id in holders:
             await _assign(session, user_id, reassign_to)
             await _remove(session, user_id, role_id)
@@ -534,17 +541,29 @@ async def _remove(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID)
     return removed
 
 
-async def assign_role(
+async def assign_role(  # noqa: PLR0913 - the request, the two IDs and which route asks
     session: AsyncSession,
     policy: PolicyService,
     subject: Subject,
     user_id: uuid.UUID,
     role_id: uuid.UUID,
+    *,
+    people_only: bool = False,
 ) -> bool:
-    """Give `user_id` the role (idempotent). No escalation, also not for oneself."""
+    """Give `user_id` the role (idempotent). No escalation, also not for oneself.
+
+    A service identity (a connector's or a workflow's) never gets a role it may not hold, by
+    any caller. `people_only` (the general `PUT /users/{id}/roles/{role_id}`) refuses service
+    identities altogether: their roles go through `assign_service_identity_role` only.
+    """
     await _assignable(session, policy, subject, role_id)
-    if await session.scalar(select(User.id).where(User.id == user_id)) is None:
+    user_type = await session.scalar(select(User.user_type).where(User.id == user_id))
+    if user_type is None:
         raise NotFound(code="user_not_found")
+    if user_type == "service":
+        if people_only:
+            raise PermissionDenied(code=SERVICE_IDENTITY_OWN_PATH)
+        await role_allowed_for_service(session, policy.catalogue, role_id)
     added = await _assign(session, user_id, role_id)
     _refresh(session, policy)
     return added

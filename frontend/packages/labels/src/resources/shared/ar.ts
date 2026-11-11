@@ -174,6 +174,8 @@ export const ar: LabelResource = {
   'layout.reset_widths': 'إعادة ضبط العرض',
   'layout.resize_column': 'عرض {{column}}: استخدم مفاتيح الأسهم',
   'layout.star': 'إضافة إلى المفضلة',
+  'layout.tabs_earlier': 'علامات التبويب السابقة',
+  'layout.tabs_later': 'علامات التبويب التالية',
   'layout.unstar': 'إزالة من المفضلة',
   'layout.view': 'عرض',
   'live.changed_by': 'غيّر {{name}} هذا السجل للتو. أعد التحميل لرؤية التغييرات قبل الحفظ.',

@@ -124,9 +124,9 @@ test('REQ-WF-008, -028: a workflow built by keyboard, published, run on an incid
     // The outline: start → note → end, by its selects alone.
     await page.getByRole('tab', { name: 'Outline' }).click();
     let list = await openSelect(page, 'outline-link-start-next');
-    await list.getByTitle('Add a note (note)').click();
+    await list.getByTitle('Add a note').click();
     list = await openSelect(page, 'outline-link-note-next');
-    await list.getByTitle('End (end)').click();
+    await list.getByTitle('End').click();
     await expectAccessible(page, 'the workflow designer');
 
     await page.getByTestId('designer-save').click();

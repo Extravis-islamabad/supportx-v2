@@ -487,6 +487,7 @@ export const en = {
   'changes.calendar.nothing': 'Nothing planned in this period.',
   'changes.calendar.only_linked': 'Only its changes',
   'changes.calendar.open_change': 'Open {{id}} to see why',
+  'changes.calendar.open_day': 'Show {{day}}',
   'changes.calendar.previous': 'Previous',
   'changes.calendar.quick.downtime': 'Planned downtime',
   'changes.calendar.quick.open': 'Open {{id}}',
@@ -602,6 +603,8 @@ export const en = {
     'A maintenance window that warns shows a change planned outside it; one that blocks refuses it.',
   'changes.windows.monthly_on': 'Monthly: {{week}} {{day}}',
   'changes.windows.name': 'Name',
+  'changes.windows.none':
+    'No freeze or maintenance windows yet. Add one to block or allow change times.',
   'changes.windows.outside_blocks': 'Outside every maintenance window blocks a change',
   'changes.windows.outside_blocks_help':
     'Off: such a change is only warned. On: it cannot be scheduled outside a maintenance window.',
@@ -2078,6 +2081,8 @@ export const en = {
   'work_item.history.linked': '{{who}} added a link ({{kind}})',
   'work_item.history.logged': '{{who}} logged {{duration}} ({{type}})',
   'work_item.history.logged_for': '{{who}} logged {{duration}} ({{type}}) for {{person}}',
+  'work_item.history.reapproval_restarted':
+    '{{who}} sent it back for approval again because {{fields}} changed',
   'work_item.history.set': '{{who}} set {{field}} to {{new}}',
   'work_item.history.task_added': '{{who}} added the task “{{title}}”',
   'work_item.history.task_field': '{{field}} of “{{title}}”',

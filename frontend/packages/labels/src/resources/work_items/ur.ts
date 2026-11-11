@@ -488,6 +488,7 @@ export const ur: LabelResource = {
   'changes.calendar.nothing': 'اس مدت میں کچھ منصوبہ بند نہیں۔',
   'changes.calendar.only_linked': 'صرف اس کی تبدیلیاں',
   'changes.calendar.open_change': 'وجہ دیکھنے کے لیے {{id}} کھولیں',
+  'changes.calendar.open_day': '{{day}} دکھائیں',
   'changes.calendar.previous': 'پچھلا',
   'changes.calendar.quick.downtime': 'منصوبہ بند ڈاؤن ٹائم',
   'changes.calendar.quick.open': '{{id}} کھولیں',
@@ -602,6 +603,8 @@ export const ur: LabelResource = {
     'انتباہ والی مینٹیننس ونڈو اس سے باہر منصوبہ بند تبدیلی دکھاتی ہے؛ روکنے والی اسے رد کرتی ہے۔',
   'changes.windows.monthly_on': 'ماہانہ: {{week}} {{day}}',
   'changes.windows.name': 'نام',
+  'changes.windows.none':
+    'ابھی کوئی فریز یا مینٹیننس وقفہ نہیں۔ تبدیلی کے اوقات روکنے یا اجازت دینے کے لیے ایک شامل کریں۔',
   'changes.windows.outside_blocks': 'دیکھ بھال کے ہر وقت سے باہر تبدیلی روک دی جائے',
   'changes.windows.outside_blocks_help':
     'بند: ایسی تبدیلی پر صرف انتباہ ہوتا ہے۔ چالو: اسے دیکھ بھال کے وقت سے باہر شیڈول نہیں کیا جا سکتا۔',
@@ -2083,6 +2086,8 @@ export const ur: LabelResource = {
   'work_item.history.linked': '{{who}} نے ایک ربط شامل کیا ({{kind}})',
   'work_item.history.logged': '{{who}} نے {{duration}} درج کیے ({{type}})',
   'work_item.history.logged_for': '{{who}} نے {{person}} کے لیے {{duration}} درج کیے ({{type}})',
+  'work_item.history.reapproval_restarted':
+    '{{who}} نے اسے دوبارہ منظوری کے لیے بھیجا کیونکہ {{fields}} بدل گیا',
   'work_item.history.set': '{{who}} نے {{field}} {{new}} مقرر کیا',
   'work_item.history.task_added': '{{who}} نے کام “{{title}}” شامل کیا',
   'work_item.history.task_field': 'کام “{{title}}” کا {{field}}',
