@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { readDefinition, type FlowDefinition, type FlowNodeDef } from './definition';
+import { readDefinition, readVariables, type FlowDefinition, type FlowNodeDef } from './definition';
 import { fromGraph, toGraph } from './graph';
 import { COLUMN, ROW, layout, withLayout } from './layout';
 
@@ -143,5 +143,16 @@ describe('automatic layout', () => {
       })),
     };
     expect(layout(chain).get(`n${String(count - 1)}`)?.y).toBe((count - 1) * ROW);
+  });
+});
+
+describe('readVariables', () => {
+  it('reads names and kinds, an unknown kind as text, and drops what is not an object', () => {
+    expect(
+      readVariables([{ name: 'count', kind: 'number' }, { name: 'note', kind: 'blob' }, 'x', null]),
+    ).toEqual([
+      { name: 'count', kind: 'number' },
+      { name: 'note', kind: 'text' },
+    ]);
   });
 });
