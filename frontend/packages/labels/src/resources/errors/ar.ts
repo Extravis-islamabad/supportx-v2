@@ -400,6 +400,7 @@ export const ar: LabelResource = {
     'القالب المخصص لمقدمي الطلبات متاح للجميع: لا يمكن قصره على مجموعات.',
   'errors.field.list_too_long': 'هذه القائمة تحتوي على قيم كثيرة جدًا.',
   'errors.field.logo_required': 'حمّل شعارًا أولًا.',
+  'errors.field.longer_than_a_month': 'لا يمكن أن تزيد مدة النافذة الشهرية على 28 يومًا.',
   'errors.field.longer_than_a_week': 'لا يمكن أن تتجاوز النافذة الأسبوعية أسبوعًا واحدًا.',
   'errors.field.mailbox_address_invalid': 'أدخل عنوان البريد الإلكتروني لصندوق البريد.',
   'errors.field.mailbox_auth_model_unsupported': 'غير متاح لهذا النوع من صناديق البريد.',

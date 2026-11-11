@@ -90,7 +90,7 @@ async def after_cab_vote(
         action_code=AUDIT_ACTION,
         facts=AUDIT_WORKER,
         actor=(AuditActorType.PERSON, decided_by),
-        object_type="work_item",
+        object_type="change",  # as change.freeze_override (labels: audit.object.change)
         object_id=str(record.id),
         details={
             "approval_id": str(row.id),

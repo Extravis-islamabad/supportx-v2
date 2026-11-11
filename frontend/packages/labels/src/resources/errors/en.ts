@@ -431,6 +431,7 @@ export const en = {
     'A template for requesters is offered to everyone: it cannot be limited to groups.',
   'errors.field.list_too_long': 'Too many values in this list.',
   'errors.field.logo_required': 'Upload a logo first.',
+  'errors.field.longer_than_a_month': 'A monthly window can be at most 28 days long.',
   'errors.field.longer_than_a_week': 'A weekly window can last a week at most.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',

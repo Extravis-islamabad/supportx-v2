@@ -433,6 +433,7 @@ export const ur: LabelResource = {
     'درخواست گزاروں کا سانچہ سب کے لیے ہے: اسے گروپوں تک محدود نہیں کیا جا سکتا۔',
   'errors.field.list_too_long': 'اس فہرست میں بہت زیادہ قدریں ہیں۔',
   'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
+  'errors.field.longer_than_a_month': 'ماہانہ وقت زیادہ سے زیادہ 28 دن کا ہو سکتا ہے۔',
   'errors.field.longer_than_a_week': 'ہفتہ وار ونڈو زیادہ سے زیادہ ایک ہفتے کی ہو سکتی ہے۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
   'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
