@@ -357,6 +357,30 @@ describe('Reports', () => {
       expect(screen.getByTestId('report-drill-count').textContent).toBe('Records: 8');
     });
 
+    it('a change report drills down to the change list (WP-045d S4c, REQ-CHG-116 AC2)', async () => {
+      const change = { ...fakeIncident({ display_id: 'CHG-4', subject: 'Core switch firmware' }) };
+      const fake = api({
+        me: fakeSession(),
+        routes: routes({
+          'POST /api/v1/reports/run': { body: { ...RESULT, list_path: 'changes' } },
+          'GET /api/v1/changes': {
+            body: { ...EMPTY_LIST, items: [change], estimated_total: 8, people: [] },
+          },
+        }),
+      });
+      render(<App />);
+      const table = await screen.findByTestId('report-table');
+      fireEvent.click(within(table).getByText('P1 – Critical'));
+      const link = await screen.findByRole('link', { name: /Core switch firmware/ });
+      expect(link.getAttribute('href')).toBe(`/changes/${change.id}`);
+      const drill = fake.find('GET', '/api/v1/changes').at(-1);
+      expect(JSON.parse(drill?.url.searchParams.get('filter') ?? 'null')).toEqual(
+        RESULT.rows[0]?.drill,
+      );
+      expect(fake.find('GET', '/api/v1/incidents')).toHaveLength(0);
+      expect(screen.getByTestId('report-drill-count').textContent).toBe('Records: 8');
+    });
+
     it('exports to a file in the background and lists my exports (REQ-RPT-058)', async () => {
       const ready = {
         id: '01900000-0000-7000-8000-00000000e001',

@@ -91,6 +91,7 @@ from app.modules.work_items.service.reporting import register_sources, unregiste
 from app.modules.work_items.service.sla import register_sla
 from app.modules.work_items.service.stage_approvals import register as register_stage_approvals
 from app.modules.work_items.service.usage import register_record_usage
+from app.modules.work_items.service.work_items import labels_of
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 from app.shared.schedules import ScheduleSpec
 
@@ -230,6 +231,9 @@ __all__ = [
     "OpenWorkKind",
     "RequesterReply",
     "add_requester_reply",
+    # Display IDs and subjects of records another module already checked (lane B's asset history,
+    # WP-049b S4a; the workflow overview).
+    "labels_of",
     "module",
     "register_open_work",
     "register_requester_channel",
