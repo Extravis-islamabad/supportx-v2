@@ -40,6 +40,8 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
         boxShadow: selected ? token.boxShadowSecondary : undefined,
       }}
     >
+      {/* Handles are for the pointer; keyboard and screen readers link through the outline
+          (REQ-WF-028), so they carry no label of their own (axe: aria-prohibited-attr). */}
       {data.nodeType !== 'start' && (
         <Handle
           type="target"
@@ -47,7 +49,6 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
           position={Position.Top}
           // Always visible, large enough to hit (REQ-WF-028: no hover-only dots).
           style={{ width: 12, height: 12, background: token.colorTextSecondary }}
-          aria-label={t('workflows.designer.input_of', { node: id })}
         />
       )}
       <Flex vertical gap={2}>
@@ -78,10 +79,6 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
             height: 12,
             background: token.colorPrimary,
           }}
-          aria-label={t('workflows.designer.output_of', {
-            node: id,
-            port: portName(t, data.nodeType, port),
-          })}
         >
           <span
             style={{

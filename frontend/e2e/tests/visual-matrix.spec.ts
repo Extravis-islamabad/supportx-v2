@@ -374,7 +374,18 @@ function checks(): string[] {
   const width = window.innerWidth;
   for (const el of boxes) {
     const r = el.getBoundingClientRect();
-    if (r.right > width + 1 || r.left < -1) out.push(`off_screen:${name(el)}`);
+    // Inside a strip that scrolls sideways (a wide table, the editor's narrow toolbar) a control
+    // past the edge is scrolled to, not lost (lane B's asset notes, 2026-11-11).
+    let scroller: Element | null = el.parentElement;
+    while (
+      scroller !== null &&
+      !['auto', 'scroll'].includes(getComputedStyle(scroller).overflowX)
+    ) {
+      scroller = scroller.parentElement;
+    }
+    if (scroller === null && (r.right > width + 1 || r.left < -1)) {
+      out.push(`off_screen:${name(el)}`);
+    }
   }
   // A dialog, drawer, menu or popup lies over the page on purpose: only elements of the same
   // layer can overlap (QA9: the open assign dialog and notifications drawer were findings).

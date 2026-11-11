@@ -108,11 +108,14 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
   const t = useLabel();
   const { message } = App.useApp();
   const { token } = theme.useToken();
-  const { direction } = useAppearance();
+  const { direction, mode } = useAppearance();
   const rtl = direction === 'rtl';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Side by side from 1100 px (canvas and details); the palette gets its own pane only from
+  // 1600 px, so the canvas is never squeezed beside the admin menu (the 1280 matrix shot).
   const wide = useMinWidth(1100);
+  const widest = useMinWidth(1600);
   const flow = useReactFlow<WorkflowNode, WorkflowEdge>();
   const types = useNodeTypes(workflow.record_type);
   const ports = useNodePorts();
@@ -649,7 +652,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
         />
       )}
       <Flex gap={16} vertical={!wide} style={{ minWidth: 0 }}>
-        {wide && (
+        {widest && (
           <aside
             style={{
               ...card,
@@ -690,6 +693,11 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
             }}
             deleteKeyCode={['Delete', 'Backspace']}
             fitView
+            colorMode={mode === 'dark' ? 'dark' : 'light'}
+            // Fit again once the pane has its size (a narrow screen lays it out after the nodes).
+            onInit={(instance) => {
+              window.requestAnimationFrame(() => void instance.fitView({ padding: 0.2 }));
+            }}
             minZoom={0.2}
             proOptions={{ hideAttribution: true }}
             aria-label={t('workflows.designer.canvas')}
@@ -744,12 +752,12 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
           }}
         >
           <Tabs
-            activeKey={wide && tab === 'palette' ? 'details' : tab}
+            activeKey={widest && tab === 'palette' ? 'details' : tab}
             onChange={setTab}
             size="small"
             // Narrower, the palette joins the tabs (one row, never tabs inside tabs).
             items={
-              wide
+              widest
                 ? sideItems
                 : [
                     { key: 'palette', label: t('workflows.designer.palette'), children: palette },
