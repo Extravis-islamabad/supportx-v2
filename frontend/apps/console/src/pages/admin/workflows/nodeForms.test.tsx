@@ -31,6 +31,8 @@ const draft = {
     node('pause', 'timer', { seconds: 3600 }),
     node('hold', 'wait', { events: [] }),
     node('move', 'set_status'),
+    node('jot', 'note'),
+    node('todo', 'tasks'),
     node('end', 'end'),
   ],
   links: [],
@@ -197,6 +199,42 @@ describe('console: workflow node forms', () => {
     const details = await open('move', 'Set status');
     await choose(details, 'status-action', 'Resolve');
     expect(await saved(fake, 'move')).toEqual({ action: 'resolve' });
+  });
+
+  it('note: the text in each language, private unless unticked (QA F-05)', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('jot', 'Add a note');
+    fireEvent.change(within(within(details).getByTestId('note-text')).getByRole('textbox'), {
+      target: { value: 'Started by the workflow' },
+    });
+    fireEvent.click(within(details).getByTestId('note-private'));
+    expect(await saved(fake, 'jot')).toEqual({
+      text: { en: 'Started by the workflow' },
+      private: false,
+    });
+  });
+
+  it('tasks: a checklist of titles, an owner group and a due date (QA F-05)', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('todo', 'Tasks');
+    fireEvent.change(within(within(details).getByTestId('task-title-1')).getByRole('textbox'), {
+      target: { value: 'Back up' },
+    });
+    fireEvent.click(within(details).getByTestId('task-add'));
+    fireEvent.change(within(within(details).getByTestId('task-title-2')).getByRole('textbox'), {
+      target: { value: 'Deploy' },
+    });
+    await choose(details, 'task-group', 'Network');
+    fireEvent.change(within(details).getByTestId('task-due'), { target: { value: '3' } });
+    expect(await saved(fake, 'todo')).toMatchObject({
+      titles: [{ en: 'Back up' }, { en: 'Deploy' }],
+      owner_group_id: GROUP_ID,
+      due_days: 3,
+    });
   });
 
   it('a type without a form opens Advanced, its settings as stored', async () => {
