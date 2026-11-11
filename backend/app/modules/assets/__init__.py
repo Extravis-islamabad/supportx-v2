@@ -16,11 +16,15 @@
 - WP-049b session 3: labels (QR codes and Code 128, one PDF per job in the worker, label
   history), asset audits (plan, run, self-audits, discrepancies settled through the asset
   service), scan history with its retention clean-up, and the overdue-scan rule.
+- WP-049b session 4a: the asset list's built-in views and product type tree with counts, saved
+  views and favourites (the shared list-settings store), the paged asset picker, the linked
+  records port (REQ-AST-044) and the "raised from this asset" history line (045).
 
 Licensed with the `assets` feature. Public interface for other modules: `can_see`, `asset_refs`
 and `assets_of` (REQ-AST-025, for work items), the disposal guard port, and `record_scan` with
 its codes (`ScanSource`, `ScanType`, `ScanResult`, `ScanFailure`): the port discovery calls for
-each scan (REQ-AST-054).
+each scan (REQ-AST-054); and `LinkedRecords` with `register_linked_records` (REQ-AST-044), the
+port work items register for the asset's linked records panel (lane A, once their side lands).
 """
 
 from fastapi import FastAPI
@@ -51,6 +55,13 @@ from app.modules.assets.service.consumables import (
 from app.modules.assets.service.disposals import register_disposal_guard, unregister_disposal_guard
 from app.modules.assets.service.file_access import FILE_ACCESS
 from app.modules.assets.service.labels import on_label_requested
+from app.modules.assets.service.linked import (
+    LinkedRecord,
+    LinkedRecords,
+    on_asset_link_changed,
+    register_linked_records,
+    unregister_linked_records,
+)
 from app.modules.assets.service.loans import loan_sweep, on_loan_guard
 from app.modules.assets.service.ownership import OWNER_SITE_CHANGED
 from app.modules.assets.service.realtime import CHANNELS, ROUTES
@@ -63,9 +74,11 @@ from app.modules.assets.service.refs import (
 )
 from app.modules.assets.service.scans import overdue_sweep, record_scan, scan_cleanup_sweep
 from app.modules.assets.service.valuations import valuation_sweep
+from app.modules.assets.service.views import LIST_SPECS
 from app.modules.procurement import register_vendor_usage
 from app.shared.events import ConsumerSpec
 from app.shared.files.ports import register_owner_access, unregister_owner_access
+from app.shared.list_settings import register_list
 from app.shared.schedules import ScheduleSpec
 
 FEATURE = "assets"
@@ -128,6 +141,12 @@ module = ModuleSpec(
             handler=on_label_requested,
             ack_wait_seconds=600,
         ),
+        # REQ-AST-045: a work item raised with an asset adds a line to the asset's history.
+        ConsumerSpec(
+            name="assets__raised_from",
+            event_types=("work_items.asset_link.changed",),
+            handler=on_asset_link_changed,
+        ),
     ],
     # Loan due and overdue, and warranty notices (REQ-AST-059), claimed once per tenant.
     schedules=[
@@ -151,10 +170,16 @@ register_owner_access(FILE_ACCESS)
 register_disposal_guard(on_loan_guard)
 # Acknowledgements notify through the engine (REQ-AST-023): at import, for the workers too.
 notifications.register()
+# Each person's columns, saved views and favourites of the asset list (WP-049b s4a,
+# REQ-AST-047) live in the shared list-settings store.
+for _list in LIST_SPECS:
+    register_list(_list)
 
 __all__ = [
     "AssetRef",
     "DraftPurchaseRequests",
+    "LinkedRecord",
+    "LinkedRecords",
     "ScanFailure",
     "ScanResult",
     "ScanSource",
@@ -167,6 +192,8 @@ __all__ = [
     "record_scan",
     "register_disposal_guard",
     "register_draft_purchase_requests",
+    "register_linked_records",
     "unregister_disposal_guard",
     "unregister_draft_purchase_requests",
+    "unregister_linked_records",
 ]

@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
@@ -25,10 +26,20 @@ from app.modules.assets.domain.financials import (
     LIFE_MAX,
     DepreciationChoice,
 )
-from app.modules.assets.infra.models import Asset, AssetAssignment, AssetDisposal
+from app.modules.assets.domain.views import AssetView
+from app.modules.assets.infra.models import Asset, AssetAssignment, AssetDisposal, AssetProduct
 from app.modules.assets.service import assets as service
-from app.modules.assets.service import bulk, disposals, moves, ownership, relationships
+from app.modules.assets.service import (
+    bulk,
+    disposals,
+    linked,
+    moves,
+    ownership,
+    relationships,
+    views,
+)
 from app.modules.assets.service.catalogue import TEXT_MAX
+from app.modules.assets.service.refs import asset_refs
 from app.modules.audit import RequestFacts, audited
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import Subject, user_names
@@ -66,7 +77,10 @@ AssetsQuery = Annotated[
     ListQuery,
     Depends(
         list_query(
-            service.ASSET_FIELDS, extra_parameters=frozenset({"search"}), fields_for=_custom_filters
+            service.ASSET_FIELDS,
+            # WP-049b s4a: the built-in view and the product type tree node (REQ-AST-047).
+            extra_parameters=frozenset({"search", "view", "product_type"}),
+            fields_for=_custom_filters,
         )
     ),
 ]
@@ -298,35 +312,101 @@ Search = Annotated[
 ]
 
 
-async def _page(
-    session: AsyncSession, query: ListQuery, subject: Subject, search: str | None, *, trash: bool
-) -> Page[AssetOut]:
-    statement = service.staff_rows(subject, trash=trash)
+ViewParam = Annotated[
+    AssetView | None,
+    Query(description="A built-in view (REQ-AST-047); none: all you may see."),
+]
+TypeParam = Annotated[
+    uuid.UUID | None,
+    Query(description="A product type: that type and every type below it (the tree)."),
+]
+
+
+class AssetListPage(Page[AssetOut]):
+    """A page of assets with the names its columns show (REQ-AST-047's default columns).
+
+    Holders by display name, parent assets by tag or name (one the caller may not see is left
+    out), products by name. Departments and sites come from the organisation's own lists.
+    """
+
+    people: dict[str, str] = Field(default_factory=dict, description="Holder ID -> name.")
+    parents: dict[str, str] = Field(default_factory=dict, description="Parent ID -> tag/name.")
+    products: dict[str, str] = Field(default_factory=dict, description="Product ID -> name.")
+
+
+async def _names(
+    session: AsyncSession, subject: Subject, rows: list[Asset]
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    people = await user_names(
+        session, sorted({str(r.owner_user_id) for r in rows if r.owner_user_id})
+    )
+    parent_ids = sorted({r.parent_asset_id for r in rows if r.parent_asset_id})
+    refs = await asset_refs(session, subject, parent_ids)
+    parents = {str(k): (v.tag or v.name or "") for k, v in refs.items() if v.name is not None}
+    product_ids = sorted({r.product_id for r in rows})
+    products = (
+        {
+            str(i): n
+            for i, n in await session.execute(
+                select(AssetProduct.id, AssetProduct.name).where(AssetProduct.id.in_(product_ids))
+            )
+        }
+        if product_ids
+        else {}
+    )
+    return people, parents, products
+
+
+async def _page(  # noqa: PLR0913 - the list's parts, explicit
+    session: AsyncSession,
+    query: ListQuery,
+    subject: Subject,
+    search: str | None,
+    *,
+    trash: bool,
+    view: AssetView | None = None,
+    product_type: uuid.UUID | None = None,
+) -> AssetListPage:
+    statement = await views.rows(
+        session, subject, view=view, product_type=product_type, trash=trash
+    )
     search = (search or "").strip()
     if search:
         words = await ENGINE.match(session, TEXT, search)
         if words is None:
-            return Page[AssetOut](items=[], next_cursor=None, has_more=False, estimated_total=0)
+            return AssetListPage(items=[], next_cursor=None, has_more=False, estimated_total=0)
         statement = statement.where(words.predicate)
     page = await paginate(session, statement, query)
-    return Page[AssetOut](
+    people, parents, products = await _names(session, subject, list(page.rows))
+    return AssetListPage(
         items=[AssetOut.of(row) for row in page.rows],
         next_cursor=page.next_cursor,
         has_more=page.has_more,
         estimated_total=page.estimated_total,
+        people=people,
+        parents=parents,
+        products=products,
     )
 
 
 @router.get("", summary="Assets")
-async def list_assets(
-    session: TenantSession, query: AssetsQuery, subject: View, search: Search = None
-) -> Page[AssetOut]:
+async def list_assets(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and filters
+    session: TenantSession,
+    query: AssetsQuery,
+    subject: View,
+    search: Search = None,
+    view: ViewParam = None,
+    product_type: TypeParam = None,
+) -> AssetListPage:
     """The assets you may see: filtered, searched and paged.
 
     Filters: the DSL, `custom.<key>` included. `search`: name, tag, serials, barcode and custom
-    text. Newest change first unless sorted.
+    text. `view`: a built-in view; `product_type`: a tree node and its descendants. Newest change
+    first unless sorted.
     """
-    return await _page(session, query, subject, search, trash=False)
+    return await _page(
+        session, query, subject, search, trash=False, view=view, product_type=product_type
+    )
 
 
 @router.get("/trash", summary="Assets in the trash")
@@ -334,7 +414,41 @@ async def list_trash(
     session: TenantSession, query: AssetsQuery, subject: Manage, search: Search = None
 ) -> Page[AssetOut]:
     """The trashed assets you may restore."""
-    return await _page(session, query, subject, search, trash=True)
+    page = await _page(session, query, subject, search, trash=True)
+    return Page[AssetOut](
+        items=page.items,
+        next_cursor=page.next_cursor,
+        has_more=page.has_more,
+        estimated_total=page.estimated_total,
+    )
+
+
+class AssetTypeCountOut(BaseModel):
+    """Live assets of one product type (that type only: the screen sums a branch)."""
+
+    product_type_id: uuid.UUID
+    count: int
+
+
+class AssetTypeCountsOut(BaseModel):
+    """The tree's counts within a view, and the view's total."""
+
+    view: AssetView
+    total: int
+    types: list[AssetTypeCountOut]
+
+
+@router.get("/type-counts", summary="Assets per product type, for the tree")
+async def type_counts(
+    session: TenantSession, subject: View, view: ViewParam = None
+) -> AssetTypeCountsOut:
+    """Per product type, the live assets you may see in the view (REQ-AST-047 AC1)."""
+    found = await views.type_counts(session, subject, view=view)
+    return AssetTypeCountsOut(
+        view=view or AssetView.ALL,
+        total=sum(found.values()),
+        types=[AssetTypeCountOut(product_type_id=k, count=v) for k, v in found.items()],
+    )
 
 
 @router.post(
@@ -976,3 +1090,84 @@ async def remove_link(
     """Kept, marked removed; history on both assets. 404 unless the link is this asset's."""
     await relationships.remove_link(session, subject, asset_id, link_id, source=source_of(request))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- linked records (WP-049b s4a, REQ-AST-044) ---------------------------------------------------
+
+
+class AssetLinkedKindOut(BaseModel):
+    """One kind's counters: still worked (open, paused, resolved and not closed) and total."""
+
+    kind: str = Field(description="incident, service_request, problem, change or release")
+    still_worked: int
+    total: int
+
+
+class AssetLinkedSummaryOut(BaseModel):
+    """The panel's counters; `available` false while work items offer no links (panel hidden)."""
+
+    available: bool
+    kinds: list[AssetLinkedKindOut]
+
+
+class AssetLinkedRecordOut(BaseModel):
+    """A linked work item the caller may see."""
+
+    id: uuid.UUID
+    kind: str
+    display_id: str
+    subject: str
+    status: str
+    still_worked: bool
+    updated_at: datetime
+
+
+class AssetLinkedPageOut(BaseModel):
+    """One page of one kind's linked records, newest first."""
+
+    items: list[AssetLinkedRecordOut]
+    next_cursor: str | None
+
+
+@router.get("/{asset_id}/linked", summary="Counters of the work items linked to an asset")
+async def linked_summary(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> AssetLinkedSummaryOut:
+    """Per kind, only the records you may see are counted (REQ-AST-044)."""
+    found = await linked.linked_summary(session, subject, asset_id)
+    return AssetLinkedSummaryOut(
+        available=found.available,
+        kinds=[
+            AssetLinkedKindOut(kind=k.kind, still_worked=k.still_worked, total=k.total)
+            for k in found.kinds
+        ],
+    )
+
+
+@router.get(
+    "/{asset_id}/linked/{kind}",
+    summary="The work items of one kind linked to an asset",
+    responses={404: {"model": ProblemDetail, "description": "linked_records_not_available"}},
+)
+async def linked_records(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and paging
+    asset_id: uuid.UUID,
+    kind: str,
+    session: TenantSession,
+    subject: View,
+    cursor: Annotated[str | None, Query(max_length=400)] = None,
+    limit: Annotated[int, Query(ge=1, le=linked.PAGE_MAX)] = linked.PAGE_DEFAULT,
+) -> AssetLinkedPageOut:
+    """Newest first; only the records you may see."""
+    rows, next_cursor = await linked.linked_page(
+        session, subject, asset_id, kind, cursor=cursor, limit=limit
+    )
+    return AssetLinkedPageOut(
+        items=[
+            AssetLinkedRecordOut(
+                id=r.id, kind=r.kind, display_id=r.display_id, subject=r.subject,
+                status=r.status, still_worked=r.still_worked, updated_at=r.updated_at,
+            )
+            for r in rows
+        ],
+        next_cursor=next_cursor,
+    )  # fmt: skip

@@ -4855,6 +4855,38 @@
         "type": "object"
       }
     },
+    "system.list_settings.changed": {
+      "1": {
+        "description": "A person's settings or saved view of one list changed: their other windows follow.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "list_key": {
+            "title": "List Key",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "view_key": {
+            "title": "View Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "list_key",
+          "view_key",
+          "change"
+        ],
+        "title": "ListSettingsChanged",
+        "type": "object"
+      }
+    },
     "system.mail.queued": {
       "1": {
         "description": "A message was queued; the mail worker sends it.",

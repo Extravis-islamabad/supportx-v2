@@ -42,6 +42,8 @@ ENUM_PREFIXES: dict[str, str] = {
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
     "AssetDepreciationMethod": "asset_depreciation",
+    # The asset list's built-in views (WP-049b s4a)
+    "AssetView": "asset_view",
     # Asset financials (WP-049b s2)
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",

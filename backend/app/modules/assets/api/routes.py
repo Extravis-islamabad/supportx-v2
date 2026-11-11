@@ -1143,21 +1143,64 @@ class PickedAssetOut(BaseModel):
     mine: bool
 
 
+PickerType = Annotated[
+    uuid.UUID | None, Query(description="This product type and the types below it.")
+]
+PickerSite = Annotated[uuid.UUID | None, Query(description="Assets at this site.")]
+
+
 @router.get("/picker", summary="Assets to attach to a record")
-async def asset_picker(
+async def asset_picker(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and filters
     session: TenantSession,
     subject: SignedIn,
     for_user: Annotated[
         uuid.UUID | None, Query(description="Whose assets first (staff only).")
     ] = None,
     q: Annotated[str | None, Query(max_length=200)] = None,
+    product_type_id: PickerType = None,
+    site_id: PickerSite = None,
 ) -> list[PickedAssetOut]:
     """The person's own (and their department's, if shown) first; staff may also search."""
-    found = await refs.picker(session, subject, for_user=for_user, text=q)
-    return [
-        PickedAssetOut(id=r.id, tag=r.tag, name=r.name or "", state_id=r.state_id, mine=r.mine)
-        for r in found
-    ]
+    found = await refs.picker(
+        session, subject, for_user=for_user, text=q, product_type=product_type_id, site=site_id
+    )
+    return [_picked(r) for r in found]
+
+
+def _picked(ref: refs.AssetRef) -> PickedAssetOut:
+    return PickedAssetOut(
+        id=ref.id, tag=ref.tag, name=ref.name or "", state_id=ref.state_id, mine=ref.mine
+    )
+
+
+class PickedAssetPageOut(BaseModel):
+    """One page of the paged picker, by name; `next_cursor` none on the last page."""
+
+    items: list[PickedAssetOut]
+    next_cursor: str | None
+
+
+@router.get("/picker/search", summary="Assets to attach, filtered and paged (REQ-AST-046)")
+async def asset_picker_page(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and filters
+    session: TenantSession,
+    subject: SignedIn,
+    q: Annotated[
+        str | None,
+        Query(
+            max_length=200, description="Part of a name, tag, barcode, serial or discovered serial."
+        ),
+    ] = None,
+    product_type_id: PickerType = None,
+    site_id: PickerSite = None,
+    cursor: Annotated[str | None, Query(max_length=400)] = None,
+    limit: Annotated[int, Query(ge=1, le=refs.PAGED_MAX)] = refs.PAGED_DEFAULT,
+) -> PickedAssetPageOut:
+    """Staff search what their asset scope reaches; anyone else only what they hold."""
+    page = await refs.picker_page(
+        session, subject, text=q, product_type=product_type_id, site=site_id, cursor=cursor,
+        limit=limit,
+    )  # fmt: skip
+    return PickedAssetPageOut(items=[_picked(r) for r in page.items], next_cursor=page.next_cursor)
 
 
 # --- loans (REQ-AST-029, 030, 031) -------------------------------------------------------------
