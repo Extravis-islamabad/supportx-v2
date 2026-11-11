@@ -64,6 +64,9 @@ async def test_req_chg_040_ac1_a_board_without_members_is_refused(world: World) 
     assert made.status_code == 201, made.text
     board = made.json()
     assert len(board["members"]) == 2
+    # The board screen names its people, never an ID; groups are named by the group list.
+    assert set(board["people"]) == {str(a.lead)}
+    assert board["people"][str(a.lead)]["display_name"]
     assert field_codes(await patch(world, a, board, members=[])) == {"members": "required"}
 
 
