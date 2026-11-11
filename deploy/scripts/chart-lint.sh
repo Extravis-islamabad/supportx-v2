@@ -96,6 +96,7 @@ awk '
 echo "HA: every multi-copy component has a PodDisruptionBudget and anti-affinity"
 # Valkey and Sentinel resolve their peers by name: short lookups (dnsConfig) of fully qualified
 # names, so a CoreDNS outage never stalls Sentinel into TILT (Cluster run 43082299609).
+# shellcheck disable=SC2016 # the rendered script's own $DOMAIN, not this shell's
 { grep -q '{name: ndots, value: "1"}' "$OUT/ha.yaml" && grep -q 'supportx-valkey-headless\.\$DOMAIN' "$OUT/ha.yaml"; } ||
   { echo "HA: Valkey needs its dnsConfig (ndots 1) and fully qualified peer names"; exit 1; }
 echo "HA: Valkey resolves fully qualified peer names with short lookups"
