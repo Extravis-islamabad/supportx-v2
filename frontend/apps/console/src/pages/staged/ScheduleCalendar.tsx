@@ -15,7 +15,15 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type DragEvent,
+  type ReactNode,
+} from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import {
@@ -98,6 +106,16 @@ export interface ScheduleKind {
   notMoved: string;
   /** "Show changes" / "Show releases": the other type drawn on this calendar. */
   showOther: string;
+  /**
+   * Going ahead in the freezes that refused a move, in place (releases: the calendar is where
+   * their deployment moves). None: the refusal links to the record, whose own form offers it.
+   */
+  Override?: ComponentType<{
+    id: string;
+    windowIds: string[];
+    onDone: () => void;
+    onClose: () => void;
+  }>;
   testId: string;
 }
 
@@ -227,6 +245,14 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           },
           onError: (error) => {
             const blocked = error instanceof ApiError && error.code === 'change_window_blocked';
+            const ids =
+              blocked && typeof error.params.window_ids === 'string'
+                ? error.params.window_ids.split(',').filter((w) => w !== '')
+                : [];
+            if (k.Override !== undefined && ids.length > 0 && can(`${entry.of}.override_freeze`)) {
+              setPassing({ entry, ids, retry: write });
+              return;
+            }
             void modal.error({
               title: t(blocked ? 'errors.change_window_blocked' : k.notMoved),
               content: (
@@ -276,6 +302,7 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
   // The keyboard's way to reschedule (lane C's #381 review): "Move…" asks for the new day and
   // goes through the same reschedule, conflict check and re-approval as a drag.
   const [moving, setMoving] = useState<Entry>();
+  const [passing, setPassing] = useState<{ entry: Entry; ids: string[]; retry: () => void }>();
   const [moveTo, setMoveTo] = useState<string | null>(null); // a day, YYYY-MM-DD
 
   const onDrop = (event: DragEvent<HTMLDivElement>, target: Day) => {
@@ -332,6 +359,11 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
               : e.subject}
           </span>
         </Button>
+        {(e.conflicts ?? 0) > 0 && (
+          <ToneTag tone="warning" testId={`calendar-conflicts-${e.display_id}`}>
+            {t('changes.calendar.conflicts', { count: e.conflicts ?? 0 })}
+          </ToneTag>
+        )}
         {draggable && (
           <Button
             size="small"
@@ -498,6 +530,25 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
     <ListPage testId={kind.testId} header={header} filters={filters}>
       {quickView}
       {moveDialog}
+      {passing !== undefined &&
+        kinds[passing.entry.of].Override !== undefined &&
+        (() => {
+          const Override = kinds[passing.entry.of].Override;
+          return Override === undefined ? null : (
+            <Override
+              id={passing.entry.record_id}
+              windowIds={passing.ids}
+              onClose={() => {
+                setPassing(undefined);
+              }}
+              onDone={() => {
+                const again = passing.retry;
+                setPassing(undefined);
+                again();
+              }}
+            />
+          );
+        })()}
       {children}
     </ListPage>
   );

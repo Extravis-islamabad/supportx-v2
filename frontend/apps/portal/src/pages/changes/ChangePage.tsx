@@ -61,7 +61,7 @@ export function ChangePage() {
   const when = (at: string) => <time dateTime={at}>{format(at)}</time>;
 
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 760 }}>
+    <Flex vertical gap={16}>
       <Link to="/changes">{t('portal.changes.back')}</Link>
       <Flex vertical gap={4}>
         <Typography.Text type="secondary" dir="ltr" data-testid="portal-change-id">

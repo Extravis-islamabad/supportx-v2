@@ -68,6 +68,7 @@ from app.modules.organization import (
     users_in_groups,
 )
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
@@ -151,6 +152,7 @@ from app.modules.work_items.service import (
     change_types,
     closing,
     followers,
+    record_roles,
     templates,
 )
 from app.modules.work_items.service import catalogue as config
@@ -3599,6 +3601,7 @@ class RoleHolding:
     definition: WorkItemRoleDef
     user_ids: tuple[uuid.UUID, ...]
     group_ids: tuple[uuid.UUID, ...]
+    from_record: bool = False  # the record's own field holds it (F-02): changed there
 
 
 @dataclass(frozen=True)
@@ -3646,9 +3649,14 @@ async def roles_of(
     if not wtype.roles:
         raise _not_found(wtype)
     record = await _visible(session, subject, wtype, record_id)
-    held = await _holders_of(session, record.id)
+    held = await record_roles.role_holders(session, record)
     roles = [
-        RoleHolding(d, tuple(held.get(d.code, ([], []))[0]), tuple(held.get(d.code, ([], []))[1]))
+        RoleHolding(
+            d,
+            tuple(held.get(d.code, ([], []))[0]),
+            tuple(held.get(d.code, ([], []))[1]),
+            from_record=d.code in wtype.record_roles,
+        )
         for d in await _role_defs(session, wtype)
         if d.disabled_at is None or d.code in held
     ]
@@ -3752,6 +3760,8 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
     definition = next((d for d in await _role_defs(session, wtype) if d.code == role), None)
     if definition is None:
         raise NotFound(code="role_not_found")
+    if role in wtype.record_roles:  # the record's own field: changed where that field is
+        raise _errors([("role", "role_held_by_record")])
     users, groups = list(dict.fromkeys(user_ids)), list(dict.fromkeys(group_ids))
     held = (await _holders_of(session, record.id)).get(role, ([], []))
     if definition.disabled_at is not None and (users or groups) and (users, groups) != held:
@@ -4260,8 +4270,12 @@ async def _window_guard(  # noqa: PLR0913 - the save and its values, explicit
     merged: Mapping[str, Any],
     changed: Mapping[str, Any],
 ) -> None:
-    """A change's implementation window moved: a blocking freeze refuses it (WP-045c, ADR-042)."""
-    if wtype.code is not WorkItemTypeCode.CHANGE or stage != change_rules.IMPLEMENTATION:
+    """A change's or release's planned window moved: a blocking freeze refuses it.
+
+    The change's implementation (WP-045c, ADR-042), the release's deployment (WP-058b S2,
+    addendum A).
+    """
+    if stage != window_rules.PLANNED_STAGE.get(wtype.code.value):
         return
     if not {"scheduled_start", "scheduled_end"} & set(changed):
         return
@@ -4402,8 +4416,8 @@ async def _downtime_guard(  # noqa: PLR0913 - the save and its values, explicit
     adding: bool,
     changed: Mapping[str, Any],
 ) -> None:
-    """A change's planned downtime is its planned time too: a blocking freeze refuses it."""
-    if wtype.code is not WorkItemTypeCode.CHANGE or merged["phase"] != "planned":
+    """A change's or release's planned downtime is its planned time too: a freeze refuses it."""
+    if wtype.code.value not in window_rules.PLANNED_STAGE or merged["phase"] != "planned":
         return
     if adding or {"starts_at", "ends_at", "phase"} & set(changed):
         await change_conflicts.guard(session, record, [(merged["starts_at"], merged["ends_at"])])

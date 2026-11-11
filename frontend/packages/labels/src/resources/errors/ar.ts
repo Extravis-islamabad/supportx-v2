@@ -158,7 +158,7 @@ export const ar: LabelResource = {
   'errors.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.change_window_blocked':
-    'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالتغيير مع ذكر السبب.',
+    'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.command_in_flight':
@@ -308,6 +308,9 @@ export const ar: LabelResource = {
   'errors.field.code_taken': 'هذا الرمز مستخدم بالفعل.',
   'errors.field.comment_required': 'أضف تعليقًا: هذا البند يتطلب تعليقًا.',
   'errors.field.condition_not_supported': 'القواعد غير متاحة لهذه الصلاحية بعد.',
+  'errors.field.conflict_blocks':
+    'لا يمكن الإقرار بتعارض مانع. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
+  'errors.field.conflict_not_found': 'لم يعد هذا التعارض موجودًا. تعرض القائمة التعارضات الحالية.',
   'errors.field.country_invalid': 'اختر دولة من القائمة.',
   'errors.field.currency_unknown': 'اختر عملة من القائمة.',
   'errors.field.dashboard_not_shared': 'يمكن أن تكون لوحة البداية لدور لوحة مدمجة أو مشتركة فقط.',
@@ -505,6 +508,7 @@ export const ar: LabelResource = {
   'errors.field.required_to_resolve': 'مطلوب قبل الحل.',
   'errors.field.review_date_past': 'اختر اليوم أو تاريخًا لاحقًا.',
   'errors.field.role_disabled': 'هذا الدور متوقف: لا يمكن منحه لأي شخص جديد.',
+  'errors.field.role_held_by_record': 'يتبع هذا الدور حقلًا في السجل نفسه. غيّره من لوحة التفاصيل.',
   'errors.field.same_folder': 'اختر مجلدًا مختلفًا لتقاريره.',
   'errors.field.schedule_never_runs': 'بهذه التواريخ لن تعمل الجدولة أبدًا.',
   'errors.field.scope_not_allowed': 'هذا النطاق غير متاح لهذه الصلاحية.',

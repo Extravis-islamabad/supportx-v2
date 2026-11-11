@@ -168,7 +168,7 @@ export const ur: LabelResource = {
   'errors.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
   'errors.change_window_blocked':
-    'ایک فریز اس وقت کو روکتا ہے۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ تبدیلی کو آگے بڑھنے دے سکتا ہے۔',
+    'ایک فریز اس وقت کو روکتا ہے۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.command_in_flight':
@@ -335,6 +335,9 @@ export const ur: LabelResource = {
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
   'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
+  'errors.field.conflict_blocks':
+    'روکنے والا ٹکراؤ تسلیم نہیں کیا جا سکتا۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
+  'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
   'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
   'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
   'errors.field.dashboard_not_shared':
@@ -546,6 +549,8 @@ export const ur: LabelResource = {
   'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
   'errors.field.review_date_past': 'آج یا بعد کی تاریخ منتخب کریں۔',
   'errors.field.role_disabled': 'یہ کردار ختم کیا جا چکا ہے: کسی نئے کو نہیں دیا جا سکتا۔',
+  'errors.field.role_held_by_record':
+    'یہ کردار ریکارڈ کے اپنے فیلڈ سے آتا ہے۔ اسے تفصیلات کے پینل میں بدلیں۔',
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',

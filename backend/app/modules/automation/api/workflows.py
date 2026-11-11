@@ -26,6 +26,7 @@ from app.modules.automation.domain.workflows import (
     NodeType,
     Problem,
     WaitEvent,
+    masked,
     ports_of,
 )
 from app.modules.automation.infra.models import (
@@ -176,7 +177,7 @@ def _out(workflow: Workflow, problems: list[Problem] | None = None) -> WorkflowO
         record_type=workflow.record_type,
         name=workflow.name,
         description=workflow.description,
-        draft=dict(workflow.draft),
+        draft=masked(workflow.draft),  # header values are write-only (#406)
         problems=_problems(problems or []),
         enabled=workflow.enabled,
         published_version=workflow.published_version,
@@ -198,6 +199,10 @@ class NodeTypeOut(BaseModel):
     why_not: str | None = Field(description="Why not, as a problem code with its label.")
     outputs: list[str] = Field(description="Its outputs with an empty config.")
     optional: list[str] = Field(description="Outputs it may leave unlinked.")
+    roles: list[str] = Field(
+        default_factory=list,
+        description="An approval's choice of the record's roles (empty for other types).",
+    )
 
 
 @router.get("/node-types", summary="The designer's palette for a record type")
@@ -216,6 +221,7 @@ async def node_types(
             why_not=o.why_not,
             outputs=list(o.outputs),
             optional=sorted(o.optional),
+            roles=list(o.roles),
         )
         for o in await workflow_admin.node_types(session, record_type)
     ]

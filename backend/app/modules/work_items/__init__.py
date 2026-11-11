@@ -40,6 +40,9 @@ from app.modules.work_items.api.change_window_routes import (
 from app.modules.work_items.api.change_window_routes import (
     release_calendar_router,
 )
+from app.modules.work_items.api.change_window_routes import (
+    release_router as release_window_router,
+)
 from app.modules.work_items.api.change_window_routes import router as change_window_router
 from app.modules.work_items.api.portal_change_routes import router as portal_change_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
@@ -187,6 +190,7 @@ module = ModuleSpec(
         change_child_router,  # WP-045d S1: child changes and releases
         change_calendar_router,  # WP-045c S3: the change calendar
         release_calendar_router,  # WP-058b S1: the release calendar (same query)
+        release_window_router,  # WP-058b S2: a release's freeze override
         portal_change_router,  # WP-045d S4a: requesters' changes in the portal
     ],
     router_features=[
@@ -202,6 +206,7 @@ module = ModuleSpec(
         CHANGE.feature,  # child changes and releases
         CHANGE.feature,  # the change calendar
         RELEASE.feature,  # the release calendar
+        RELEASE.feature,  # a release's freeze override
         CHANGE.feature,  # requesters' changes in the portal
     ],
     events=EVENTS,

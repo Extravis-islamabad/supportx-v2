@@ -24,8 +24,20 @@ async function trash(page: Page, id: string): Promise<void> {
   });
 }
 
+/** Open a tab and wait until it is the one shown: a click that lands while a dialog is still
+ * closing is lost, and the next step would wait on the old tab (nightly 42998307635). */
 async function tab(page: Page, name: string): Promise<void> {
-  await page.getByTestId('change-tabs').getByRole('tab', { name, exact: true }).click();
+  const wanted = page.getByTestId('change-tabs').getByRole('tab', { name, exact: true });
+  await expect(async () => {
+    await wanted.click();
+    await expect(wanted).toHaveAttribute('aria-selected', 'true', { timeout: 2_000 });
+  }).toPass(LIVE);
+}
+
+/** Confirm the open move and wait until its dialog has gone: the move is saved, the page free. */
+async function confirmMove(page: Page): Promise<void> {
+  await page.getByTestId('move-ok').click();
+  await expect(page.getByTestId('move-dialog')).toBeHidden(LIVE);
 }
 
 /** The primary move, or one under More, then its dialog's confirm. */
@@ -88,7 +100,7 @@ test('QA flow 4: raise, assess, accept, plan, CAB, implement, review and close a
     await stageIs(page, 'submission');
     await moveTo(page, 'submission_awaiting_acceptance');
     await expect(page.getByTestId('approval-preview')).toBeVisible(LIVE);
-    await page.getByTestId('move-ok').click();
+    await confirmMove(page);
     await expect(page.getByTestId('change-awaiting-approval')).toBeVisible(LIVE);
     await approvePending(page);
     await stageIs(page, 'planning');
@@ -101,7 +113,7 @@ test('QA flow 4: raise, assess, accept, plan, CAB, implement, review and close a
     await page.getByTestId('plan-backout-save').click();
     await expect(page.getByTestId('plan-backout')).toContainText('Restore the saved', LIVE);
     await moveTo(page, 'planning_awaiting_approval');
-    await page.getByTestId('move-ok').click();
+    await confirmMove(page);
     await approvePending(page);
 
     // The plan's approval completes planning and raises the CAB review by itself (ADR-041): the
@@ -114,7 +126,7 @@ test('QA flow 4: raise, assess, accept, plan, CAB, implement, review and close a
     // outcome before it completes (REQ-CHG-032).
     await stageIs(page, 'implementation');
     await moveTo(page, 'implementation_in_progress');
-    await page.getByTestId('move-ok').click();
+    await confirmMove(page);
     await tab(page, 'Schedule');
     await page.getByTestId('outcome-implementation').click();
     await page
@@ -122,7 +134,7 @@ test('QA flow 4: raise, assess, accept, plan, CAB, implement, review and close a
       .getByText('Successful', { exact: true })
       .click();
     await moveTo(page, 'implementation_implemented');
-    await page.getByTestId('move-ok').click();
+    await confirmMove(page);
     await stageIs(page, 'review');
 
     // "Review complete" closes the change in the same move: its dialog asks for the code.
@@ -130,7 +142,7 @@ test('QA flow 4: raise, assess, accept, plan, CAB, implement, review and close a
     const code = page.getByTestId('move-closure-code');
     await code.click();
     await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
-    await page.getByTestId('move-ok').click();
+    await confirmMove(page);
     await stageIs(page, 'closure');
     await expectAccessible(page, 'a closed change');
   } finally {

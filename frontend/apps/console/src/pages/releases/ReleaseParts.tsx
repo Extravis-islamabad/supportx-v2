@@ -59,6 +59,7 @@ import { labelled } from '../incidents/labels';
 import { RISKS, useOwnList } from './lists';
 import { DecisionDialog } from '../requests/DecisionDialog';
 import { listValueName, stageName, statusName } from './labels';
+import { ReleaseConflictsPanel } from './ReleaseConflicts';
 
 const REVIEW_OUTCOMES = ['successful', 'successful_with_issues', 'failed'] as const;
 const WORK_OUTCOMES = ['passed', 'failed', 'partly_done'] as const;
@@ -586,6 +587,8 @@ export function SchedulePart({ id }: { id: string }) {
       tabIndex={0}
       style={{ overflowX: 'auto' }}
     >
+      {/* Its conflicts first (WP-058b S2): blocks, warnings, acks and the override. */}
+      <ReleaseConflictsPanel id={id} />
       {/* The release's scheduler (REQ-REL-039): the calendar on its deployment, its changes. */}
       <Link
         to={`/releases/calendar?focus=${id}`}
