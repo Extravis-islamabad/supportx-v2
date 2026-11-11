@@ -18,7 +18,7 @@ maintenance and no change passed a freeze by its CAB; otherwise it stops and kee
 (rule 5h).
 
 Revision ID: 0137
-Revises: 0133
+Revises: 0135
 Created: 2026-11-11
 """
 
@@ -29,7 +29,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0137"
-down_revision: str | None = "0133"  # re-pointed onto main's head at its turn in the queue
+down_revision: str | None = "0135"  # re-pointed at its turn (ready-first, the coordinator)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

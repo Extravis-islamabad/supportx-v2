@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0133"  # 0137's down revision until it is re-pointed at its turn
+BEFORE = "0135"  # 0137's down revision
 
 
 async def _weekly_window(url: str) -> uuid.UUID:
