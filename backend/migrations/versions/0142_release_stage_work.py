@@ -9,7 +9,7 @@ Expand only, no data step:
 The downgrade stops while any worklog has a stage or any tenant turned the setting off (rule 5h).
 
 Revision ID: 0142
-Revises: 0139
+Revises: 0140
 """
 
 from collections.abc import Sequence
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0142"
-down_revision: str | None = "0139"  # re-pointed at its turn (after 0140, 0141)
+down_revision: str | None = "0140"  # re-pointed at its turn (ready-first with 0141, after 0145)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
