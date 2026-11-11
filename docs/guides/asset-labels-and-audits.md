@@ -27,7 +27,8 @@ REQ-AST-039, 042, 043, 054 and 056).
   the auditors.
 - **Start:** the assets in scope now become the audit's expected items, and the scope can no
   longer change. A self-audit then asks each person holding one of them to confirm it in the
-  portal (My assets); each audit asks again.
+  portal (My assets); each audit asks again. Confirming marks the asset found; saying something
+  is wrong marks it missing, and the discrepancy list shows the person's comment.
 - **Mark:** the named auditors mark items while the audit runs: scan or type a code (the label's
   link, a tag, serial or barcode) with the site where it is, or mark a row found, missing or
   damaged. An asset found at another site than expected is marked **wrong place**. An asset
@@ -55,6 +56,9 @@ REQ-AST-039, 042, 043, 054 and 056).
   older than the number of days is moved to a chosen state, or to the trash, from which it can be
   restored with its history. Nothing is ever deleted. Assets never scanned and disposed assets
   are left alone.
+- The rule follows the asset life cycle: only states a life cycle of the chosen types can move an
+  asset to are offered. An asset whose current state has no move there is skipped, keeps its
+  state, and is listed in the run with the reason.
 - **Show the effect** first says how many assets it would change now; it can be saved only after
   that. The rule runs every hour; each run that changes something is listed with what it changed,
   and each asset's history names the rule.

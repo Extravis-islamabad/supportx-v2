@@ -1527,7 +1527,9 @@ it with no reload (rule c). Not built yet.
     the audit (043 AC2, `automation_ref` kind `asset_audit`); progress live on
     `t:{tenant}:asset_audit:{id}` (043 AC3); closed is read-only on the server. Self-audits ask
     each holder again through their acknowledgement (one per holding and audit; accepted =
-    found, disputed = missing); a requester sees and answers only their own.
+    found, disputed = missing with the holder's comment kept on the item and shown in the
+    discrepancy list); a requester sees and answers only their own. View-only people may select
+    assets to print labels; every other bulk action stays assets.manage (server-tested).
   - Scans (054): `app.modules.assets.record_scan` (the discovery port; nothing calls it yet),
     the asset's Scans tab, `last_scanned_at`; the daily `assets__scan_cleanup` deletes scans past
     the asset settings' retention (the existing `scan_retention_months`, Appendix A: 6 months),
@@ -1536,6 +1538,9 @@ it with no reload (rule c). Not built yet.
     trash (never a delete), preview count before saving (AC2), the hourly
     `assets__overdue_scans` job records each run that changed something with its list and names
     the rule in each history entry (AC1); trashed assets restore with their history (AC3).
+    It follows the life cycle: only reachable target states are accepted
+    (`asset_overdue_state_unreachable`), and an asset whose state cannot move there is skipped,
+    unchanged, and listed in the run with its reason.
   - Migration 0135: `ix_field_changes_change` (tenant_id, change_id), built and dropped
     CONCURRENTLY.
   - Console: Assets › Audits (list) and an audit (record: items, scan box, discrepancies with
