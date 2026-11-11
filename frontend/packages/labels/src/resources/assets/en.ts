@@ -100,7 +100,7 @@ export const en = {
   'asset_import_failure.file_not_readable':
     'The file could not be read. Use a CSV file or an Excel workbook.',
   'asset_import_failure.file_not_utf8': 'Save the CSV file as UTF-8 and try again.',
-  'asset_import_failure.file_too_large': 'The file is larger than 5 MB.',
+  'asset_import_failure.file_too_large': 'The file is larger than {{max_mb}} MB.',
   'asset_import_failure.file_unsafe':
     'The workbook unpacks to far more than its size, so it was not opened.',
   'asset_import_failure.no_header': 'The first row must name the columns.',
@@ -572,7 +572,7 @@ export const en = {
   'assets.import.importing': 'Importing: {{processed}} of {{total}} rows',
   'assets.import.kind': 'What the file holds',
   'assets.import.limits':
-    '{{csv}} or {{xlsx}}, up to 5 MB and {{max_rows}} rows. The first row names the columns.',
+    '{{csv}} or {{xlsx}}, up to {{max_mb}} MB and {{max_rows}} rows. The first row names the columns.',
   'assets.import.match': 'Match existing by',
   'assets.import.mode': 'Rows',
   'assets.import.nothing_changed': 'This was a check: nothing has changed yet.',

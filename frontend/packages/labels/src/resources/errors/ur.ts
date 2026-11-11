@@ -82,7 +82,7 @@ export const ur: LabelResource = {
   'errors.asset_import_exists': 'اس کلید والا ریکارڈ پہلے سے موجود ہے، اور درآمد صرف شامل کرتی ہے۔',
   'errors.asset_import_file_not_readable': 'CSV فائل یا Excel ورک بُک ({{xlsx}}) استعمال کریں۔',
   'errors.asset_import_file_not_utf8': 'CSV فائل کو UTF-8 میں محفوظ کر کے دوبارہ کوشش کریں۔',
-  'errors.asset_import_file_too_large': 'فائل 5 MB سے بڑی ہے۔',
+  'errors.asset_import_file_too_large': 'فائل {{max_mb}} MB سے بڑی ہے۔',
   'errors.asset_import_file_unsafe':
     'ورک بُک کھلنے پر اپنے سائز سے کہیں بڑی ہو جاتی ہے، اس لیے نہیں کھولی گئی۔',
   'errors.asset_import_match_invalid': 'اس قسم کی فائل کو اس طرح نہیں ملایا جا سکتا۔',

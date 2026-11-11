@@ -102,7 +102,7 @@ export const ur: LabelResource = {
   'asset_import_failure.file_not_readable':
     'فائل پڑھی نہ جا سکی۔ CSV فائل یا Excel ورک بُک استعمال کریں۔',
   'asset_import_failure.file_not_utf8': 'CSV فائل کو UTF-8 میں محفوظ کر کے دوبارہ کوشش کریں۔',
-  'asset_import_failure.file_too_large': 'فائل 5 MB سے بڑی ہے۔',
+  'asset_import_failure.file_too_large': 'فائل {{max_mb}} MB سے بڑی ہے۔',
   'asset_import_failure.file_unsafe':
     'ورک بُک کھلنے پر اپنے سائز سے کہیں بڑی ہو جاتی ہے، اس لیے نہیں کھولی گئی۔',
   'asset_import_failure.no_header': 'پہلی قطار میں کالموں کے نام ہونے چاہئیں۔',
@@ -578,7 +578,7 @@ export const ur: LabelResource = {
   'assets.import.importing': 'درآمد جاری: {{total}} میں سے {{processed}} قطاریں',
   'assets.import.kind': 'فائل میں کیا ہے',
   'assets.import.limits':
-    '{{csv}} یا {{xlsx}}، زیادہ سے زیادہ 5 MB اور {{max_rows}} قطاریں۔ پہلی قطار کالموں کے نام بتاتی ہے۔',
+    '{{csv}} یا {{xlsx}}، زیادہ سے زیادہ {{max_mb}} MB اور {{max_rows}} قطاریں۔ پہلی قطار کالموں کے نام بتاتی ہے۔',
   'assets.import.match': 'موجودہ کو اس سے ملائیں',
   'assets.import.mode': 'قطاریں',
   'assets.import.nothing_changed': 'یہ جانچ تھی: ابھی کچھ نہیں بدلا۔',

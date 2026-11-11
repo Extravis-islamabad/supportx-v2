@@ -169,8 +169,16 @@ def merge_choice_problems(choices: Mapping[str, str], *, sees_money: bool) -> li
 
 # --- imports (REQ-AST-053) --------------------------------------------------------------------
 
-MAX_IMPORT_ROWS = 20_000  # the spec's target (AC1); every other limit is WP-021's
-IMPORT_LIMITS = sheets.SheetLimits(max_rows=MAX_IMPORT_ROWS)
+MAX_IMPORT_ROWS = 20_000  # the spec's target (AC1)
+# An interim limit (coordinator, 2026-11-11): 25 MB, below Appendix A's 50 MB with no row cap,
+# so a 20,000-row sheet fits while each import stays one bounded job. WP-021's column, cell,
+# zip-entry and ratio limits stay as they are; the unpacked cap grows with the file (10x).
+MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024
+IMPORT_LIMITS = sheets.SheetLimits(
+    max_rows=MAX_IMPORT_ROWS,
+    max_file_bytes=MAX_IMPORT_FILE_BYTES,
+    max_unpacked_bytes=10 * MAX_IMPORT_FILE_BYTES,
+)
 MAX_IMPORT_PROBLEMS = 5000  # kept on the import (the error file); the counts stay exact beyond
 
 

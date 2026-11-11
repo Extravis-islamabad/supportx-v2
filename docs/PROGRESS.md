@@ -1781,10 +1781,23 @@ it with no reload (rule c). Not built yet.
     real service calls in a savepoint that is rolled back (nothing changes), then
     `POST /imports/{id}/run` (If-Match). Modes add, update, add and update; matching on tag or
     serial (assets), product (consumables), name (vendors). WP-021's reader moved to
-    `app/shared/sheets.py` (same limits and checks; the people import uses it unchanged) with a
+    `app/shared/sheets.py` (same checks; the people import uses it unchanged at 5 MB) with a
     20,000-row cap here. Per-row problems (row, column, code), the file cleared once read.
+    **Interim limit, deliberate (coordinator, 2026-11-11):** asset imports take files up to
+    25 MB and 20,000 rows, below the spec's Appendix A (50 MB, no row cap): a 20,000-row sheet
+    fits while each import stays one bounded background job. WP-021's column, cell, zip-entry
+    and ratio checks are kept; the unpacked cap grows with the file (250 MB). The dialog shows
+    the limits and a larger file gets the labelled `asset_import_file_too_large` (with `max_mb`).
+    The people import keeps 5 MB. Raising it toward Appendix A waits for the batched path.
     Measured: about 50 ms a row for assets on the loaded shared Mac (2,000 rows: dry run 99 s,
     run 101 s), so 20,000 rows run as one job of about 17 minutes each pass, progress streamed.
+    The figure on CI or the stack goes in the PR.
+  - **Follow-up (WP-049b):** batched inserts for imports (rows written in batches, not one
+    savepoint per row). If a 20,000-row run takes more than about 10 minutes on the stack, this
+    is done before the polish round, not after QA (coordinator, 2026-11-11).
+  - **Merge and links:** the merge moves every live work-item link of the duplicate, including
+    records the merging person may not see (only a count comes back to them), inside the
+    merge's own transaction (lane A's note).
   - Export (053): the list's Export button uses the reports export (entity `asset`) with the
     list's filter; built-in views other than All are not exportable (said so). Price, tax, book
     value and total cost only for those with assets.view_financials (D-157; the source gains

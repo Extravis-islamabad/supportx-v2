@@ -36,8 +36,10 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules import procurement
 from app.modules.assets.domain.batch import (
+    IMPORT_LIMITS,
     MATCHES,
     MAX_IMPORT_PROBLEMS,
+    MAX_IMPORT_ROWS,
     AssetImportStatus,
     ImportKind,
     ImportMatch,
@@ -64,7 +66,12 @@ log = get_logger(__name__)
 BATCH = 100
 SOURCE: Literal["import"] = "import"
 # File format names, sent as values so labels isolate them (as the people import does).
-FORMAT_WORDS = {"csv": "CSV (UTF-8)", "xlsx": ".xlsx", "max_rows": "20000"}
+FORMAT_WORDS = {
+    "csv": "CSV (UTF-8)",
+    "xlsx": ".xlsx",
+    "max_rows": str(MAX_IMPORT_ROWS),
+    "max_mb": str(IMPORT_LIMITS.max_file_bytes // 2**20),
+}
 _ASSET_TEXT = (
     "name",
     "tag",
@@ -139,7 +146,7 @@ async def start_import(  # noqa: PLR0913 - the upload's facts, explicit
         raise ValidationFailed(code="asset_import_match_invalid", params={"kind": kind.value})
     try:
         file_format = sheets.file_format(file_name, content)
-        if len(content) > sheets.MAX_FILE_BYTES:
+        if len(content) > IMPORT_LIMITS.max_file_bytes:
             raise sheets.SheetRefused(sheets.FILE_TOO_LARGE)  # noqa: TRY301 - the job's refusal
     except sheets.SheetRefused as refused:
         raise ValidationFailed(code=f"asset_import_{refused.code}", params=FORMAT_WORDS) from None

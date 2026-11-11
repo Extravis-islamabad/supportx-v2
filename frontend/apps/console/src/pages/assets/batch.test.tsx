@@ -192,6 +192,9 @@ describe('console: asset bulk jobs, merges, imports and export (WP-049b S4b)', (
     expect(columnText(t, 'unheard_of')).toBe('Whole row');
     const failed = { failure: 'no_key_column', failure_detail: 'serial_number' } as AssetImport;
     expect(failureText(t, failed)).toBe('The file needs a column to match rows by: Serial number.');
+    // The interim 25 MB cap (coordinator, 2026-11-11), the same number the dialog shows.
+    const big = { failure: 'file_too_large', failure_detail: null } as AssetImport;
+    expect(failureText(t, big)).toBe('The file is larger than 25 MB.');
     const csv = problemsCsv(t, [{ row: 4, field: 'site', code: 'site_not_found' }]);
     expect(csv.charCodeAt(0)).toBe(0xfeff); // Excel opens it as UTF-8
     expect(csv).toContain('"Row","Column","Problem"');
@@ -388,6 +391,8 @@ describe('console: asset bulk jobs, merges, imports and export (WP-049b S4b)', (
     render(<App />);
     fireEvent.click(await screen.findByTestId('assets-import-open'));
     const input = await screen.findByTestId('asset-import-file');
+    // The limits are shown before the person picks a file.
+    expect(document.body.textContent).toContain('up to 25 MB and 20,000 rows');
     fireEvent.change(input, { target: { files: [new File(['1'], 'assets.csv')] } });
     fireEvent.click(screen.getByTestId('asset-import-check'));
     await waitFor(() => {
@@ -410,6 +415,24 @@ describe('console: asset bulk jobs, merges, imports and export (WP-049b S4b)', (
     expect(
       fake.find('POST', `/api/v1/assets/imports/${checked.id}/run`)[0]?.headers.get('If-Match'),
     ).toBe('"4"');
+  });
+
+  it('a file over the 25 MB cap is refused in words before any upload', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi({ routes: { 'GET /api/v1/assets/imports': { body: [] } } });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('assets-import-open'));
+    const huge = new File(['1'], 'huge.csv');
+    Object.defineProperty(huge, 'size', { value: 25 * 1024 * 1024 + 1 });
+    fireEvent.change(await screen.findByTestId('asset-import-file'), {
+      target: { files: [huge] },
+    });
+    fireEvent.click(screen.getByTestId('asset-import-check'));
+    const shown = await screen.findByTestId('asset-import-problem');
+    expect(shown.textContent).toContain('The file is larger than 25 MB.');
+    expect(shown.textContent).not.toContain('{{');
+    expect(fake.find('POST', '/api/v1/assets/imports')).toHaveLength(0);
   });
 
   it('the export sends the list as shown, with money only when the person may see it', async () => {

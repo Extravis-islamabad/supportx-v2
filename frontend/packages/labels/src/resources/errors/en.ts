@@ -81,7 +81,7 @@ export const en = {
   'errors.asset_import_exists': 'A record with this key already exists, and the import only adds.',
   'errors.asset_import_file_not_readable': 'Use a CSV file or an Excel workbook ({{xlsx}}).',
   'errors.asset_import_file_not_utf8': 'Save the CSV file as UTF-8 and try again.',
-  'errors.asset_import_file_too_large': 'The file is larger than 5 MB.',
+  'errors.asset_import_file_too_large': 'The file is larger than {{max_mb}} MB.',
   'errors.asset_import_file_unsafe':
     'The workbook unpacks to far more than its size, so it was not opened.',
   'errors.asset_import_match_invalid': 'This kind of file cannot be matched that way.',

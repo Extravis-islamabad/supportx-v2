@@ -101,7 +101,7 @@ export const ar: LabelResource = {
   'asset_import_failure.file_empty': 'لا يحتوي الملف على صفوف للاستيراد.',
   'asset_import_failure.file_not_readable': 'تعذّرت قراءة الملف. استخدم ملف CSV أو مصنف Excel.',
   'asset_import_failure.file_not_utf8': 'احفظ ملف CSV بترميز UTF-8 وحاول مجددًا.',
-  'asset_import_failure.file_too_large': 'حجم الملف أكبر من 5 ميغابايت.',
+  'asset_import_failure.file_too_large': 'حجم الملف أكبر من {{max_mb}} ميغابايت.',
   'asset_import_failure.file_unsafe': 'يتضخم المصنف إلى حجم يفوق حجمه بكثير، لذا لم يُفتح.',
   'asset_import_failure.no_header': 'يجب أن يسمي الصف الأول الأعمدة.',
   'asset_import_failure.no_key_column': 'يحتاج الملف إلى عمود تُطابَق الصفوف به: {{column}}.',
@@ -611,7 +611,7 @@ export const ar: LabelResource = {
   'assets.import.importing': 'جارٍ الاستيراد: {{processed}} من {{total}} صف',
   'assets.import.kind': 'محتوى الملف',
   'assets.import.limits':
-    '{{csv}} أو {{xlsx}}، حتى 5 ميغابايت و{{max_rows}} صف. يسمي الصف الأول الأعمدة.',
+    '{{csv}} أو {{xlsx}}، حتى {{max_mb}} ميغابايت و{{max_rows}} صف. يسمي الصف الأول الأعمدة.',
   'assets.import.match': 'مطابقة الموجود حسب',
   'assets.import.mode': 'الصفوف',
   'assets.import.nothing_changed': 'كان هذا فحصًا: لم يتغير شيء بعد.',

@@ -69,7 +69,13 @@ export function bulkChanges(
 
 // File format names and the row cap, sent as values so labels isolate them (the people import's
 // rule: "UTF-8" typed into a right-to-left sentence would read "8-UTF").
-export const WORDS = { csv: 'CSV (UTF-8)', xlsx: '.xlsx', utf8: 'UTF-8', max_rows: '20,000' };
+export const WORDS = {
+  csv: 'CSV (UTF-8)',
+  xlsx: '.xlsx',
+  utf8: 'UTF-8',
+  max_rows: '20,000',
+  max_mb: '25',
+};
 
 const BOM = String.fromCharCode(0xfeff); // Excel reads the file as UTF-8 with it
 

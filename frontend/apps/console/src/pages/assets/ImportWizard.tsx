@@ -44,7 +44,7 @@ const MATCHES: Record<AssetImportKind, AssetImportMatch[]> = {
   consumables: ['product'],
   vendors: ['name'],
 };
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = Number(WORDS.max_mb) * 1024 * 1024; // the interim cap the server holds too
 function download(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
@@ -196,7 +196,7 @@ export function ImportWizard({ open, onClose }: { open: boolean; onClose: () => 
     if (file === undefined) return;
     setProblem(null);
     if (file.size > MAX_BYTES) {
-      setProblem(t('errors.asset_import_file_too_large'));
+      setProblem(t('errors.asset_import_file_too_large', WORDS));
       return;
     }
     start.mutate(

@@ -552,8 +552,9 @@ async def test_053_file_limits_a_zip_bomb_and_a_broken_file_are_refused(world: W
         done = await _job(world, a, started.json())
         assert (done["status"], done["failure"]) == ("failed", failure), name
     # Too large is refused at the door, with no import made.
-    big = await _import(world, a, b"x" * (5 * 1024 * 1024 + 1))
+    big = await _import(world, a, b"x" * (25 * 1024 * 1024 + 1))  # the interim 25 MB cap
     assert problem(big) == (422, "asset_import_file_too_large")
+    assert big.json()["params"]["max_mb"] == "25"
     # A real workbook is read (values only).
     book = _xlsx([["Serial number", "Name", "Product"], ["X-1", "From Excel", "nope"]])
     started = await _import(world, a, book, name="ok.xlsx")

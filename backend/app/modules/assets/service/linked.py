@@ -95,7 +95,13 @@ class LinkedRecords(Protocol):
         """An asset merge (REQ-AST-052): every live link to `from_asset_id` moves to the other.
 
         Lane A's `repoint_asset_links`, as it is: each record touched gets its history line and
-        link events; the count of records touched comes back.
+        link events; the count of records touched comes back. It runs inside the merge's own
+        transaction (tenant set), so the links, their history and their outbox events land
+        atomically with the merge.
+
+        Deliberately not filtered by the merging person's visibility: a merge moves EVERY live
+        link of the duplicate, including records they may not see, so no record is left pointing
+        at an asset in the trash. Nothing about those records comes back to them but the count.
         """
         ...
 

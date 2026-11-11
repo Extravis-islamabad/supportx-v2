@@ -52,6 +52,8 @@ class SheetLimits:
 
     max_rows: int
     max_file_bytes: int = MAX_FILE_BYTES
+    # An xlsx's whole unpacked size: grows with the file cap (the entry count and ratio stay).
+    max_unpacked_bytes: int = MAX_UNPACKED_BYTES
     max_columns: int = MAX_COLUMNS
     max_cell_chars: int = MAX_CELL_CHARS
 
@@ -109,7 +111,7 @@ def _csv_rows(content: bytes) -> Iterator[list[str]]:
         raise SheetRefused(FILE_NOT_READABLE) from exc
 
 
-def check_zip(content: bytes) -> None:
+def check_zip(content: bytes, max_unpacked_bytes: int = MAX_UNPACKED_BYTES) -> None:
     """Refuse an xlsx whose zip could unpack to far more than it weighs (a "bomb")."""
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
@@ -121,7 +123,7 @@ def check_zip(content: bytes) -> None:
     total = 0
     for entry in entries:
         total += entry.file_size
-        if total > MAX_UNPACKED_BYTES:
+        if total > max_unpacked_bytes:
             raise SheetRefused(FILE_UNSAFE)
         if (
             entry.file_size > MAX_RATIO * max(entry.compress_size, 1)
@@ -136,7 +138,7 @@ def xlsx_rows(content: bytes, limits: SheetLimits) -> Iterator[list[str]]:
 
 
 def _xlsx_rows(content: bytes, limits: SheetLimits) -> Iterator[list[str]]:
-    check_zip(content)
+    check_zip(content, limits.max_unpacked_bytes)
     from openpyxl import load_workbook  # noqa: PLC0415 - only the import jobs need it
 
     try:

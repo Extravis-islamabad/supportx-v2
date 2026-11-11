@@ -77,7 +77,7 @@ export const ar: LabelResource = {
   'errors.asset_import_exists': 'يوجد سجل بهذا المفتاح، والاستيراد يضيف فقط.',
   'errors.asset_import_file_not_readable': 'استخدم ملف CSV أو مصنف Excel ({{xlsx}}).',
   'errors.asset_import_file_not_utf8': 'احفظ ملف CSV بترميز UTF-8 وحاول مجددًا.',
-  'errors.asset_import_file_too_large': 'حجم الملف أكبر من 5 ميغابايت.',
+  'errors.asset_import_file_too_large': 'حجم الملف أكبر من {{max_mb}} ميغابايت.',
   'errors.asset_import_file_unsafe': 'يتضخم المصنف إلى حجم يفوق حجمه بكثير، لذا لم يُفتح.',
   'errors.asset_import_match_invalid': 'لا يمكن مطابقة هذا النوع من الملفات بهذه الطريقة.',
   'errors.asset_import_no_match': 'لا يطابق هذا الصف أي سجل، والاستيراد يحدّث فقط.',

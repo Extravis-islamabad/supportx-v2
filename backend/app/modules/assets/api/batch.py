@@ -22,6 +22,7 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail, ValidationFailed
 from app.modules.assets.api.records import AssetOut
 from app.modules.assets.domain.batch import (
+    IMPORT_LIMITS,
     MAX_BULK,
     AssetBulkAction,
     AssetBulkOutcome,
@@ -37,7 +38,6 @@ from app.modules.assets.service import assets as asset_service
 from app.modules.assets.service import bulk_jobs, imports, merge
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
-from app.shared import sheets
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -410,7 +410,7 @@ async def start_import(  # noqa: PLR0913 - the upload's facts, explicit
     match_on: Annotated[ImportMatch, Query()] = ImportMatch.TAG,
     dry_run: Annotated[bool, Query(description="Check every row and change nothing.")] = True,
 ) -> Response:
-    """The raw file as the body (up to 5 MB, 20,000 rows); it is read in the background.
+    """The raw file as the body (up to 25 MB, 20,000 rows); it is read in the background.
 
     Assets and consumables need assets.manage; vendors vendors.create (to add) and
     vendors.manage (to update). A dry run (the default) changes nothing.
@@ -418,7 +418,7 @@ async def start_import(  # noqa: PLR0913 - the upload's facts, explicit
     content = bytearray()
     async for piece in request.stream():
         content += piece
-        if len(content) > sheets.MAX_FILE_BYTES:
+        if len(content) > IMPORT_LIMITS.max_file_bytes:
             raise ValidationFailed(code="asset_import_file_too_large", params=imports.FORMAT_WORDS)
     note.skip = True
     target = AssetImportTarget(

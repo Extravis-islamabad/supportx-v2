@@ -8,6 +8,7 @@ from datetime import UTC, date, datetime
 import pytest
 
 from app.modules.assets.domain.batch import (
+    IMPORT_LIMITS,
     MAX_IMPORT_ROWS,
     NO_KEY_COLUMN,
     UNKNOWN_COLUMN,
@@ -126,7 +127,10 @@ def test_twenty_thousand_rows_are_read_and_one_more_is_refused() -> None:
 
 
 def test_wp021_limits_hold_for_imports() -> None:
-    assert sheets.MAX_FILE_BYTES == 5 * 1024 * 1024
+    assert sheets.MAX_FILE_BYTES == 5 * 1024 * 1024  # the people import's own, unchanged
+    # The asset imports' interim file cap (coordinator, 2026-11-11), its unpacked cap with it.
+    assert IMPORT_LIMITS.max_file_bytes == 25 * 1024 * 1024
+    assert IMPORT_LIMITS.max_unpacked_bytes == 250 * 1024 * 1024
     assert (sheets.MAX_COLUMNS, sheets.MAX_CELL_CHARS) == (40, 5000)
     with pytest.raises(ImportRefused) as wide:
         _read((",".join(["Name"] * 41) + "\n").encode())
@@ -135,7 +139,7 @@ def test_wp021_limits_hold_for_imports() -> None:
         _read(b"Serial\n" + b"x" * 5001 + b"\n")
     assert (long_cell.value.code, long_cell.value.detail) == (sheets.CELL_TOO_LONG, "2")
     with pytest.raises(ImportRefused) as large:
-        _read(b"Serial\n" + b"x" * sheets.MAX_FILE_BYTES)
+        _read(b"Serial\n" + b"x" * IMPORT_LIMITS.max_file_bytes)
     assert large.value.code == sheets.FILE_TOO_LARGE
 
 
