@@ -163,6 +163,8 @@ export const ur: LabelResource = {
   'layout.reset_widths': 'چوڑائی دوبارہ طے کریں',
   'layout.resize_column': '{{column}} کی چوڑائی: تیر والی کلیدیں استعمال کریں',
   'layout.star': 'پسندیدہ میں شامل کریں',
+  'layout.tabs_earlier': 'پچھلے ٹیب',
+  'layout.tabs_later': 'اگلے ٹیب',
   'layout.unstar': 'پسندیدہ سے ہٹائیں',
   'layout.view': 'دیکھیں',
   'live.changed_by':

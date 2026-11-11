@@ -162,6 +162,8 @@ export const en = {
   'layout.reset_widths': 'Reset widths',
   'layout.resize_column': 'Width of {{column}}: use the arrow keys',
   'layout.star': 'Add to favourites',
+  'layout.tabs_earlier': 'Earlier tabs',
+  'layout.tabs_later': 'Later tabs',
   'layout.unstar': 'Remove from favourites',
   'layout.view': 'View',
   'live.changed_by':
