@@ -12,6 +12,19 @@ import { consoleApi } from '../../../test/api';
 // config the server receives is the one the definition stores.
 
 const FLOW_ID = '01a1a2b3-0000-7000-8000-0000000f0101';
+const ROLE_DEFS = {
+  body: [
+    {
+      code: 'change_owner',
+      labels: { en: 'Change lead' },
+      description: null,
+      disabled: false,
+      eligibility: null,
+      single: true,
+      built_in: true,
+    },
+  ],
+};
 const CHILD_ID = '01a1a2b3-0000-7000-8000-0000000f0301';
 const GROUP_ID = '01a1a2b3-0000-7000-8000-0000000f0201';
 
@@ -56,7 +69,7 @@ afterEach(() => {
   setDefaultClientFactory(inertClientFactory);
 });
 
-function api(recordType = 'incident') {
+function api(recordType = 'incident', roleDefs: object = ROLE_DEFS) {
   const fake = consoleApi({
     me: fakeSession(
       { roles: ['admin'] },
@@ -99,19 +112,8 @@ function api(recordType = 'incident') {
           },
         ],
       },
-      'GET /api/v1/changes/settings/roles': {
-        body: [
-          {
-            code: 'change_owner',
-            labels: { en: 'Change lead' },
-            description: null,
-            disabled: false,
-            eligibility: null,
-            single: true,
-            built_in: true,
-          },
-        ],
-      },
+      'GET /api/v1/changes/settings/roles': roleDefs,
+      'GET /api/v1/users': { body: { items: [], has_more: false, next_cursor: null } },
       'POST /api/v1/automation/workflows/node-ports': { body: [] },
       'GET /api/v1/automation/workflows': {
         body: [
@@ -379,5 +381,20 @@ describe('console: workflow node forms (QA F-05)', () => {
     const details = await open('move');
     fireEvent.change(within(details).getByTestId('node-retries'), { target: { value: '1' } });
     expect(await saved(fake, 'move')).toMatchObject({ retries: 1 });
+  });
+  it('approval on a change without the roles settings: code labels, and no error shown', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    api('change', { status: 403, body: { status: 403, code: 'permission_denied' } });
+    render(<App />);
+    const details = await open('ok');
+    const box = within(details)
+      .getByTestId('approval-roles')
+      .closest('.ant-select')
+      ?.querySelector('.ant-select-selector');
+    if (box === null || box === undefined) throw new Error('no roles select');
+    fireEvent.mouseDown(box);
+    expect((await screen.findAllByTitle('Change owner')).length).toBeGreaterThan(0);
+    expect(document.querySelector('.ant-message-notice')).toBeNull();
+    expect(document.querySelector('.ant-notification-notice')).toBeNull();
   });
 });

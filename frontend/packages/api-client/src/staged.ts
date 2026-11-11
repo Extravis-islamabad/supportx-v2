@@ -109,6 +109,9 @@ export function useRoleDefs(path: StagedPath | undefined) {
     queryFn: () => call(api.GET(at(path ?? 'changes', '/api/v1/releases/settings/roles'))),
     enabled: path !== undefined,
     retry: false,
+    // A designer without the settings view gets a 403: labels fall back to the codes quietly,
+    // never a global error toast (lane A's #420 review).
+    meta: { silent: true },
   });
 }
 
