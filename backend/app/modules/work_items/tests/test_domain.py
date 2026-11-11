@@ -52,6 +52,7 @@ from app.modules.work_items.domain.types import (
     clean_tags,
     parse_display_id,
 )
+from app.modules.work_items.service.change_windows import FIELD_PROBLEMS as WINDOW_PROBLEMS
 from app.shared.domain import InvalidTransition
 
 S = DefaultStatus
@@ -302,7 +303,8 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     found -= {"category_site", "dismissed", "status_category"}
     # WP-045b: a board mapping's (key, unit kind) pairs and the change-only settings' names.
     found -= {"template", "cab_every_match"}
-    known = FIELD_PROBLEMS | BOARD_PROBLEMS  # the boards' codes are labelled from their own set
+    # The boards' and the change windows' codes are labelled from their own sets.
+    known = FIELD_PROBLEMS | BOARD_PROBLEMS | WINDOW_PROBLEMS
     assert found <= known, sorted(found - known)
 
 

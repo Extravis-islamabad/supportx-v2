@@ -49,6 +49,7 @@ from app.modules.work_items.infra.models import (
     WorkItemWorklog,
 )
 from app.modules.work_items.service import followers
+from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service import work_items as items
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -125,15 +126,23 @@ def _text(value: object, field: str, limit: int, problems: list[tuple[str, str]]
 async def _work_access(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> tuple[WorkItem, bool]:
-    """Tasks and worklogs: (record, full). Full with `edit`; else an investigator (ADR-040)."""
+    """Tasks and worklogs: (record, full). Full with `edit`; else an investigator (ADR-040).
+
+    A closed or canceled change is locked (REQ-CHG-097): no task or worklog is added or changed.
+    """
     try:
-        return await items.record_for_action(session, subject, wtype, "edit", record_id), True
+        record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+        full = True
     except PermissionDenied:
         if subject.holds(wtype.permission("view")) and await followers.is_investigator(
             session, record_id, subject.user_id
         ):
-            return await items.visible_record(session, subject, wtype, record_id), False
-        raise
+            record, full = await items.visible_record(session, subject, wtype, record_id), False
+        else:
+            raise
+    if wtype.code is WorkItemTypeCode.CHANGE and items.is_closed(record):
+        raise Conflict(code=items.RECORD_CLOSED, params={"status": record.status})
+    return record, full
 
 
 async def _for_work(
@@ -190,9 +199,20 @@ async def tasks(
     return await _tasks(session, record_id)
 
 
-def _task_values(values: dict[str, Any], *, creating: bool) -> dict[str, Any]:
+def _task_values(
+    values: dict[str, Any], *, creating: bool, stages: frozenset[str] | None = None
+) -> dict[str, Any]:
     problems: list[tuple[str, str]] = []
     clean: dict[str, Any] = {}
+    # A staged record's task belongs to one of its path's stages (REQ-CHG-088); other types
+    # have none.
+    if "stage" in values and values["stage"] is not None:
+        if stages is None:
+            problems.append(("stage", "not_allowed"))
+        elif values["stage"] not in stages:
+            problems.append(("stage", "invalid_choice"))
+        else:
+            clean["stage"] = values["stage"]
     if "title" in values or creating:
         title = _text(values.get("title"), "title", TITLE_MAX, problems)
         if title is None:
@@ -210,7 +230,17 @@ def _task_values(values: dict[str, Any], *, creating: bool) -> dict[str, Any]:
     return clean
 
 
-_TRACKED = ("title", "status", "owner_id", "group_id", "priority", "due_at", "done_by")
+_TRACKED = ("title", "status", "owner_id", "group_id", "priority", "due_at", "done_by", "stage")
+
+
+async def _stages_of(
+    session: AsyncSession, wtype: WorkItemType, record: WorkItem
+) -> frozenset[str] | None:
+    """The stages of a staged record's path (None: the type has no stages)."""
+    if wtype.stages is None or record.stage_path is None:
+        return None
+    model = await stage_service.load_model(session, wtype, record.lifecycle_version)
+    return frozenset(model.path(str(record.stage_path)).stages)
 
 
 def _snapshot(task: WorkItemTask) -> dict[str, Any]:
@@ -251,7 +281,10 @@ async def create_task(  # noqa: PLR0913 - the record, the task and the source, e
     existing = await _tasks(session, record_id)
     if len(existing) >= MAX_TASKS:
         raise items.field_errors([("title", "too_many_items")], max=MAX_TASKS)
-    clean = _task_values(values, creating=True)
+    stages = await _stages_of(session, wtype, record)
+    clean = _task_values(values, creating=True, stages=stages)
+    if stages is not None and "stage" not in clean:
+        clean["stage"] = record.stage  # the stage it is in now, unless another is named
     status = clean.get("status") or TaskStatus.OPEN.value
     row = await TaskRepository(session).add(
         WorkItemTask(
@@ -291,6 +324,20 @@ async def owner_access(session: AsyncSession, wtype: WorkItemType) -> bool:
 
 
 async def _task_access(
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    task_id: uuid.UUID,
+) -> tuple[WorkItem, WorkItemTask, bool]:
+    """As `_any_task_access`, and a closed or canceled change's tasks are locked (REQ-CHG-097)."""
+    record, task, full = await _any_task_access(session, subject, wtype, record_id, task_id)
+    if wtype.code is WorkItemTypeCode.CHANGE and items.is_closed(record):
+        raise Conflict(code=items.RECORD_CLOSED, params={"status": record.status})
+    return record, task, full
+
+
+async def _any_task_access(
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -348,7 +395,7 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
         raise PermissionDenied(
             params={"permission": wtype.permission("edit"), "reason": "task_owner_status_only"}
         )
-    clean = _task_values(values, creating=False)
+    clean = _task_values(values, creating=False, stages=await _stages_of(session, wtype, record))
     if "status" in clean:
         done = clean["status"] == TaskStatus.DONE
         clean["done_at"] = datetime.now(UTC) if done else None

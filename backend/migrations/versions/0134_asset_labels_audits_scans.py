@@ -22,7 +22,7 @@ The downgrade refuses while any tenant has a row in a new table, an audit acknow
 scanned asset, per tenant with app.tenant_id set (rule 5h).
 
 Revision ID: 0134
-Revises: 0131
+Revises: 0133
 Created: 2026-11-11
 """
 
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 revision: str = "0134"
-down_revision: str | None = "0131"
+down_revision: str | None = "0133"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

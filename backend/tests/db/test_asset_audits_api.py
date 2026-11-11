@@ -167,7 +167,7 @@ async def test_043_ac2_moving_to_site_b_updates_the_asset_and_its_history_names_
     assert [c["field"] for c in latest["changes"]] == ["site_id"]
     assert latest["origin"] == {
         "kind": "asset_audit", "audit_id": audit["id"], "display_id": audit["display_id"],
-        "name": "North",
+        "name": "North", "reason_code": None, "reason_params": {},
     }  # fmt: skip
     (item,) = await _items(world, a, audit)
     assert item["fix"] == "move_site"

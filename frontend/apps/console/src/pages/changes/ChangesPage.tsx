@@ -1,6 +1,6 @@
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Flex, Input, Select, Table, Tag } from 'antd';
+import { Button, Flex, Input, Select, Space, Table, Tag } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -115,16 +115,24 @@ export function ChangesPage() {
           count={total === undefined || total === null ? undefined : String(total)}
           testId="changes-header"
           extra={
-            can('changes.create') && (
-              <WriteButton
-                type="primary"
-                icon={<PlusOutlined />}
-                data-testid="new-change"
-                onClick={() => void navigate('/changes/new')}
+            <Space>
+              <Button
+                onClick={() => void navigate('/changes/calendar')}
+                data-testid="changes-calendar"
               >
-                {t('changes.new')}
-              </WriteButton>
-            )
+                {t('changes.calendar.title')}
+              </Button>
+              {can('changes.create') && (
+                <WriteButton
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  data-testid="new-change"
+                  onClick={() => void navigate('/changes/new')}
+                >
+                  {t('changes.new')}
+                </WriteButton>
+              )}
+            </Space>
           }
         />
       }

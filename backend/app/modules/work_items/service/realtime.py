@@ -441,6 +441,22 @@ async def _view_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
 
 PORTAL_SETTINGS_CHANGED = "work_items.portal_settings_changed"
 CHANGE_BOARDS_CHANGED = "work_items.change_boards_changed"
+CHANGE_WINDOWS_CHANGED = "work_items.change_windows_changed"
+
+
+async def _change_window_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A freeze or maintenance window changed: open calendars and window settings refetch."""
+    del session
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                broadcast(envelope.tenant_id),
+                CHANGE_WINDOWS_CHANGED,
+                ids=(str(envelope.payload["window_id"]),),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
 
 
 async def _change_board_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -613,6 +629,7 @@ ROUTES = [
     RealtimeRoute(("work_items.portal_settings.changed",), _portal_settings_changed),
     RealtimeRoute(("work_items.approval_settings.changed",), _approval_settings_changed),
     RealtimeRoute(("work_items.change_board.changed",), _change_board_changed),
+    RealtimeRoute(("work_items.change_window.changed",), _change_window_changed),
     RealtimeRoute(
         (
             "work_items.conversation.added",

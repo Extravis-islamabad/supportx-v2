@@ -396,6 +396,12 @@ export const en = {
   'permission.changes.manage_followers': 'Manage followers of changes',
   'permission.changes.manage_followers.description':
     'Add and remove the people who follow a change.',
+  'permission.changes.manage_windows': 'Manage freeze and maintenance windows',
+  'permission.changes.manage_windows.description':
+    'Add, change and remove the freeze and maintenance windows changes are checked against.',
+  'permission.changes.override_freeze': 'Let a change go ahead in a freeze',
+  'permission.changes.override_freeze.description':
+    "Pass the blocking freezes for one change, with a reason. It is audited and kept in the change's history.",
   'permission.changes.reopen': 'Reopen changes',
   'permission.changes.reopen.description':
     'Take a resolved or closed change back into investigation.',

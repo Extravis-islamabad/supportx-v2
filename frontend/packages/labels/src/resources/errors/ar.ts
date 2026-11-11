@@ -151,6 +151,8 @@ export const ar: LabelResource = {
   'errors.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
+  'errors.change_window_blocked':
+    'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالتغيير مع ذكر السبب.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.command_in_flight':
@@ -290,6 +292,8 @@ export const ar: LabelResource = {
   'errors.field.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.field.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.field.chair_inactive': 'اختر شخصًا نشطًا رئيسًا.',
+  'errors.field.change_would_loop':
+    'لا يمكن أن يكون التغيير جزءًا من نفسه، مباشرة أو عبر تغييرات أخرى.',
   'errors.field.channel_reserved':
     'يمكن اختيار الهاتف أو الحضور الشخصي فقط؛ تُحدَّد القنوات الأخرى تلقائيًا.',
   'errors.field.choices_required': 'أضف خيارًا واحدًا على الأقل.',
@@ -412,6 +416,7 @@ export const ar: LabelResource = {
     'القالب المخصص لمقدمي الطلبات متاح للجميع: لا يمكن قصره على مجموعات.',
   'errors.field.list_too_long': 'هذه القائمة تحتوي على قيم كثيرة جدًا.',
   'errors.field.logo_required': 'حمّل شعارًا أولًا.',
+  'errors.field.longer_than_a_week': 'لا يمكن أن تتجاوز النافذة الأسبوعية أسبوعًا واحدًا.',
   'errors.field.mailbox_address_invalid': 'أدخل عنوان البريد الإلكتروني لصندوق البريد.',
   'errors.field.mailbox_auth_model_unsupported': 'غير متاح لهذا النوع من صناديق البريد.',
   'errors.field.managed_by_directory': 'يحتفظ الدليل بهذا الحقل. غيّره هناك.',
@@ -709,6 +714,7 @@ export const ar: LabelResource = {
   'errors.limit_reached': 'تم الوصول إلى الحد المسموح به في خطتك. اطلب من المسؤول توسيع الخطة.',
   'errors.link_has_own_route':
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
+  'errors.link_not_found': 'هذا الرابط غير موجود، أو أُزيل.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
@@ -732,6 +738,8 @@ export const ar: LabelResource = {
   'errors.mailbox_sign_in_not_needed': 'لا يحتاج صندوق البريد هذا إلى تسجيل دخول أحد.',
   // WP-040 session 2: directory sync.
   'errors.managed_by_directory': 'يحتفظ الدليل بهذا الحقل. غيّره من هناك.',
+  'errors.measure_not_permitted':
+    'لا يمكنك رؤية هذا الرقم: يحتاج إلى صلاحية الوصول إلى بياناته (لأموال الأصول، صلاحية رؤية البيانات المالية).',
   'errors.message_refused': 'رفض خادم البريد الرسالة.',
   'errors.method_not_allowed': 'هذا الإجراء غير مدعوم هنا.',
   'errors.mfa_enrolment_unavailable':
@@ -898,6 +906,7 @@ export const ar: LabelResource = {
   'errors.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
   'errors.version_conflict':
     'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
+  'errors.window_not_found': 'هذه النافذة غير موجودة، أو أُزيلت.',
   'errors.withdraw_not_allowed': 'يمكن لمقدم الطلب فقط سحب هذا الطلب.',
   'errors.withdraw_not_pending': 'لا يمكن سحب إلا طلب بانتظار الموافقة.',
   'errors.work_item_asset_not_found': 'لم يعد هذا الأصل مرتبطًا بالسجل.',

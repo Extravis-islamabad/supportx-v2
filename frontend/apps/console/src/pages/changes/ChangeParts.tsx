@@ -22,7 +22,6 @@ import {
   useChangeDetails,
   useChangeRiskQuestionnaire,
   useSetStagedRole,
-  useStagedDowntimes,
   useStagedPlan,
   useStagedRoleCandidates,
   useStagedRoles,
@@ -32,12 +31,12 @@ import {
   useUpdateStagedSchedule,
   useWriteStagedPlan,
   type ChangeDetailsInput,
-  type Downtime,
   type StageChanges,
   type StageSchedule,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import {
+  DateTimeField,
   EmptyText,
   FormFooter,
   FormProblem,
@@ -205,6 +204,21 @@ export function DetailsPart({ id }: { id: string }) {
             </Form.Item>
           </Col>
         )}
+      </Row>
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          {/* REQ-CHG-091: when the post-implementation review is due; its reminder goes once. */}
+          <Form.Item label={t('work_item.field.review_due_at')} htmlFor="change-review-due">
+            <DateTimeField
+              id="change-review-due"
+              value={value('review_due_at')}
+              onChange={(v) => {
+                set('review_due_at', v);
+              }}
+              testId="change-review-due"
+            />
+          </Form.Item>
+        </Col>
       </Row>
       {Boolean(d.risk_chosen) && Boolean(d.risk_reason) && (
         <Typography.Paragraph type="secondary" data-testid="change-risk-why">
@@ -656,41 +670,5 @@ export function SchedulePart({ id }: { id: string }) {
         ]}
       />
     </div>
-  );
-}
-
-/** Planned and actual downtime windows (REQ-CHG-018), read here; WP-045c edits them. */
-export function DowntimePart({ id }: { id: string }) {
-  const t = useLabel();
-  const { locale } = useAppearance();
-  const { format } = useDateTime();
-  const settings = useStagedSettings('changes');
-  const downtimes = useStagedDowntimes('changes', id);
-  const kinds = settings.data?.own_lists?.downtime_kind ?? [];
-  const kindName = (code: string | null | undefined) =>
-    listValueName(
-      t,
-      locale,
-      'downtime_kind',
-      kinds.find((k) => k.code === code),
-      code,
-    );
-  return (
-    <List<Downtime>
-      data-testid="change-downtimes"
-      locale={{ emptyText: <EmptyText>{t('staged.downtime.none')}</EmptyText> }}
-      dataSource={downtimes.data ?? []}
-      renderItem={(d) => (
-        <List.Item key={d.id} data-testid={`downtime-${d.id}`}>
-          <Space wrap>
-            <ToneTag tone={d.phase === 'actual' ? 'warning' : 'info'}>
-              {t(`downtime_phase.${d.phase}`)}
-            </ToneTag>
-            {kindName(d.kind) !== '' && <span>{kindName(d.kind)}</span>}
-            <span>{`${format(d.starts_at)} – ${format(d.ends_at)}`}</span>
-          </Space>
-        </List.Item>
-      )}
-    />
   );
 }

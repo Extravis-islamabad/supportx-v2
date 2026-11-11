@@ -5161,6 +5161,28 @@
         "type": "object"
       }
     },
+    "work_items.change_window.changed": {
+      "1": {
+        "description": "A freeze or maintenance window was added, changed or removed (WP-045c; ADR-042).\n\nOpen calendars and settings pages refetch; IDs only, never the window's text (rule 5c).",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "window_id": {
+            "format": "uuid",
+            "title": "Window Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_id",
+          "change"
+        ],
+        "title": "ChangeWindowChanged",
+        "type": "object"
+      }
+    },
     "work_items.conversation.added": {
       "1": {
         "description": "A reply or note was saved (WP-020b). Notifications (WP-023) and email (WP-024) start here.\n\n`mentioned_ids` holds only people who may see the record (REQ-INC-063 AC2); `first_response`\nis true when this entry stamped the record's first response (REQ-INC-065).",

@@ -399,6 +399,20 @@ class ChangeBoardChanged(DomainEvent):
     change: str
 
 
+class ChangeWindowChanged(DomainEvent):
+    """A freeze or maintenance window was added, changed or removed (WP-045c; ADR-042).
+
+    Open calendars and settings pages refetch; IDs only, never the window's text (rule 5c).
+    """
+
+    event_type: ClassVar[str] = "work_items.change_window.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "change_window"
+
+    window_id: uuid.UUID
+    change: str
+
+
 class ChangeApprovalNotice(DomainEvent):
     """Someone must hear about a change's approval (WP-045b; REQ-CHG-040, -053; D-144).
 
@@ -491,6 +505,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPartChangedV2,
     WorkItemApprovalChanged,
     ChangeBoardChanged,
+    ChangeWindowChanged,
     ChangeApprovalNotice,
     ProblemRepeatDetected,
     ProblemRepeatChanged,

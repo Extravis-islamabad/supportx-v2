@@ -107,6 +107,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-045c S3: the change calendar.
+            path: 'calendar',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangeCalendarPage')).ChangeCalendarPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({
               Component: (await import('./pages/changes/ChangePage')).ChangePage,
@@ -413,9 +420,30 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // Visual workflows (WP-048b S4): the list (template C) and the designer.
+            path: 'workflows',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/WorkflowsPage')).WorkflowsPage,
+            }),
+          },
+          {
+            path: 'workflows/:workflowId',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/DesignerPage')).DesignerPage,
+            }),
+          },
+          {
             path: 'automation/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/automation/AutomationPage')).AutomationPage,
+            }),
+          },
+          {
+            // WP-045c: freeze and maintenance windows (template E).
+            path: 'change-windows',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/changes/ChangeWindowsPage'))
+                .ChangeWindowsPage,
             }),
           },
           {

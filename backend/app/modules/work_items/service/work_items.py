@@ -146,6 +146,7 @@ from app.modules.work_items.infra.models import (
 from app.modules.work_items.service import (
     approval_stage,
     automation,
+    change_conflicts,
     change_types,
     closing,
     followers,
@@ -1805,6 +1806,12 @@ def _closed(record: WorkItem) -> bool:
     return StatusCategory(record.status_category) in FINAL_CATEGORIES
 
 
+def _change_locked(wtype: WorkItemType, record: WorkItem) -> None:
+    """A closed or canceled change is read-only (REQ-CHG-097): its schedule and downtime too."""
+    if wtype.code is WorkItemTypeCode.CHANGE and _closed(record):
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status})
+
+
 # --- create ---------------------------------------------------------------------------------------
 
 # What business rules see of a new record's input (with group, technician, priority and custom
@@ -3237,7 +3244,8 @@ DETAILS: Mapping[WorkItemTypeCode, DetailsSpec] = {
     WorkItemTypeCode.CHANGE: DetailsSpec(
         model=WorkItemChangeDetails,
         # The type and reason, and the risk: assessed and overridden (WP-045b S1, 0116).
-        fields=(*change_rules.DETAIL_FIELDS, *risk_rules.RISK_FIELDS),
+        # And the review's date (WP-045d S1, REQ-CHG-091; 0133).
+        fields=(*change_rules.DETAIL_FIELDS, *risk_rules.RISK_FIELDS, "review_due_at"),
         pick_lists=(
             ("change_type", PickList.CHANGE_TYPE),
             ("change_reason", PickList.CHANGE_REASON),
@@ -4113,6 +4121,7 @@ async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, 
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     model = await stage_service.load_model(session, wtype, record.lifecycle_version)
     if stage not in model.path(str(record.stage_path)).stages:
         raise NotFound(code="stage_not_found")
@@ -4131,6 +4140,9 @@ async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, 
         if row is None:
             raise _errors([("values", "required")])
         return row
+    await _window_guard(
+        session, wtype, record, stage=stage, merged={**current, **given}, changed=changed
+    )
     if row is None:
         row = WorkItemStageSchedule(tenant_id=tenant, work_item_id=record.id, stage=stage)
         session.add(row)
@@ -4150,6 +4162,25 @@ async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, 
     await _part_event(session, record, "stage_schedule", _part_id(record.id, stage), "changed")
     await _reapproval(session, record, source)
     return row
+
+
+async def _window_guard(  # noqa: PLR0913 - the save and its values, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    stage: str,
+    merged: Mapping[str, Any],
+    changed: Mapping[str, Any],
+) -> None:
+    """A change's implementation window moved: a blocking freeze refuses it (WP-045c, ADR-042)."""
+    if wtype.code is not WorkItemTypeCode.CHANGE or stage != change_rules.IMPLEMENTATION:
+        return
+    if not {"scheduled_start", "scheduled_end"} & set(changed):
+        return
+    start, end = merged.get("scheduled_start"), merged.get("scheduled_end")
+    if start is not None and end is not None:
+        await change_conflicts.guard(session, record, [(start, end)])
 
 
 def _schedule_problems(
@@ -4224,6 +4255,7 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     row = None
     if downtime_id is not None:
         row = await session.scalar(
@@ -4248,6 +4280,7 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     changed = {n: v for n, v in given.items() if v != current[n]}
     if row is not None and not changed:
         return row
+    await _downtime_guard(session, wtype, record, merged, adding=row is None, changed=changed)
     if row is None:
         row = WorkItemDowntime(
             id=new_id(), tenant_id=config.tenant_of(session), work_item_id=record.id
@@ -4273,6 +4306,22 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     return row
 
 
+async def _downtime_guard(  # noqa: PLR0913 - the save and its values, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    merged: Mapping[str, Any],
+    *,
+    adding: bool,
+    changed: Mapping[str, Any],
+) -> None:
+    """A change's planned downtime is its planned time too: a blocking freeze refuses it."""
+    if wtype.code is not WorkItemTypeCode.CHANGE or merged["phase"] != "planned":
+        return
+    if adding or {"starts_at", "ends_at", "phase"} & set(changed):
+        await change_conflicts.guard(session, record, [(merged["starts_at"], merged["ends_at"])])
+
+
 async def remove_downtime(  # noqa: PLR0913 - the window and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -4287,6 +4336,7 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     row = await session.scalar(
         select(WorkItemDowntime).where(
             WorkItemDowntime.id == downtime_id,
@@ -5129,7 +5179,51 @@ async def record_copied_from(
     )
 
 
+async def save_detail_change(  # noqa: PLR0913 - the save and its history, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    expected_version: int,
+    changes: Sequence[Change],
+    *,
+    source: Source,
+    reason: str | None = None,
+) -> WorkItem:
+    """A change to a type's own fields made by another service (the freeze override, WP-045c).
+
+    A new version of the record (If-Match), its history line and the update event, as a
+    details save makes them, so open screens update live (rule 5c).
+    """
+    audience = _audience(record)
+    updated = await _update(session, record, expected_version, {})
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=list(changes),
+        source=source,
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted({c.field for c in changes}),
+            audience_before=audience,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
 may = _may
+is_closed = _closed
 audience_of = _audience
 now = _now
 field_errors = _errors

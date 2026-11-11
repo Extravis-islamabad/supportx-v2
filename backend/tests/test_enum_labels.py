@@ -24,6 +24,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "JobOut.status": "workflow_job_status",
     "WaitEvent": "workflow_wait_event",  # S3e: the change a test run hears
     "TestRunOut.status": "workflow_instance_status",  # S3e: a test run's states are a run's
+    "NodeType": "workflow_node_type",  # S4: the designer's palette
+    "NodeCategory": "workflow_node_category",
     "AiSettingsOut.summary_sources[]": "ai_summary_source",
     "DuplicateOut.reasons[]": "duplicate_reason",
     "DuplicatesOut.method": "duplicate_method",
@@ -272,6 +274,9 @@ ENUM_PREFIXES: dict[str, str] = {
     "RiskLevel": "risk_level",  # WP-045b (REQ-CHG-056)
     "BoardRule": "change_board_rule",  # WP-045b S2 (REQ-CHG-042)
     "BoardChoice": "change_board_choice",  # WP-045b S3 (REQ-CHG-041)
+    "WindowKind": "change_window_kind",  # WP-045c (REQ-CHG-075, -076)
+    "WindowMode": "change_window_mode",  # WP-045c (REQ-CHG-077)
+    "ConflictKind": "change_conflict",  # WP-045c (REQ-CHG-073, -074)
     "Watched": "reapproval_field",  # WP-045b S4 (REQ-CHG-053)
     "OnChange": "reapproval_effect",
     "StageOutcome": "stage_outcome",

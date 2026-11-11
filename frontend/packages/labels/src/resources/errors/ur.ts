@@ -161,6 +161,8 @@ export const ur: LabelResource = {
   'errors.certificate_unreadable': 'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
   'errors.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
+  'errors.change_window_blocked':
+    'ایک فریز اس وقت کو روکتا ہے۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ تبدیلی کو آگے بڑھنے دے سکتا ہے۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.command_in_flight':
@@ -318,6 +320,8 @@ export const ur: LabelResource = {
     'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
   'errors.field.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.field.chair_inactive': 'صدر کے طور پر کوئی فعال شخص چنیں۔',
+  'errors.field.change_would_loop':
+    'کوئی تبدیلی براہ راست یا دوسروں کے ذریعے اپنا ہی حصہ نہیں ہو سکتی۔',
   'errors.field.channel_reserved':
     'صرف فون یا بالمشافہ چنا جا سکتا ہے؛ دوسرے ذرائع خود بخود طے ہوتے ہیں۔',
   'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',
@@ -445,6 +449,7 @@ export const ur: LabelResource = {
     'درخواست گزاروں کا سانچہ سب کے لیے ہے: اسے گروپوں تک محدود نہیں کیا جا سکتا۔',
   'errors.field.list_too_long': 'اس فہرست میں بہت زیادہ قدریں ہیں۔',
   'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
+  'errors.field.longer_than_a_week': 'ہفتہ وار ونڈو زیادہ سے زیادہ ایک ہفتے کی ہو سکتی ہے۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
   'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
   'errors.field.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
@@ -775,6 +780,7 @@ export const ur: LabelResource = {
     'آپ کے پلان کی اس کے لیے حد پوری ہو چکی ہے۔ پلان بڑھانے کے لیے اپنے منتظم سے کہیں۔',
   'errors.link_has_own_route':
     'یہ لنک اپنی جگہ سے ہٹایا جاتا ہے: واقعے کو الگ کریں، یا ضم کرنا واپس لیں۔',
+  'errors.link_not_found': 'یہ ربط موجود نہیں، یا ہٹا دیا گیا۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
@@ -799,6 +805,8 @@ export const ur: LabelResource = {
   'errors.mailbox_sign_in_not_needed': 'اس میل باکس کے لیے کسی کو سائن اِن کرنے کی ضرورت نہیں۔',
   // WP-040 session 2: directory sync.
   'errors.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
+  'errors.measure_not_permitted':
+    'آپ یہ عدد نہیں دیکھ سکتے: اس کے لیے اس کے ڈیٹا تک رسائی چاہیے (اثاثوں کی رقم کے لیے، مالیات دیکھنے کا حق)۔',
   'errors.message_refused': 'میل سرور نے پیغام رد کر دیا۔',
   'errors.method_not_allowed': 'یہ کارروائی یہاں دستیاب نہیں۔',
   'errors.mfa_enrolment_unavailable':
@@ -985,6 +993,7 @@ export const ur: LabelResource = {
   'errors.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
   'errors.version_conflict':
     'آپ کے کھولنے کے بعد کسی اور نے یہ آئٹم محفوظ کر دیا۔ ان کی تبدیلیاں دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.window_not_found': 'یہ ونڈو موجود نہیں، یا ہٹا دی گئی۔',
   'errors.withdraw_not_allowed': 'صرف درخواست گزار یہ درخواست واپس لے سکتا ہے۔',
   'errors.withdraw_not_pending': 'صرف منظوری کی منتظر درخواست واپس لی جا سکتی ہے۔',
   'errors.work_item_asset_not_found': 'یہ اثاثہ اب ریکارڈ سے منسلک نہیں۔',

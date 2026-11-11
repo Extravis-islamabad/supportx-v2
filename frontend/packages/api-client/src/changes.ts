@@ -340,3 +340,179 @@ export function useReapprovalPreview() {
       ),
   });
 }
+
+export type ChangeChild = components['schemas']['ChildOut'];
+
+/** The change's child changes and releases (those you may see); closing waits for them. */
+export function useChangeChildren(id: string) {
+  return useQuery({
+    queryKey: keys.part(id, 'children'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/changes/{record_id}/children', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+export type ChangeConflicts = components['schemas']['ConflictsOut'];
+export type ChangeConflict = components['schemas']['ConflictOut'];
+export type ChangeWindow = components['schemas']['WindowOut'];
+
+/** A change's conflicts now (freezes, outside maintenance, overlapping changes), each with why. */
+export function useChangeConflicts(id: string) {
+  return useQuery({
+    queryKey: keys.part(id, 'conflicts'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/changes/{record_id}/conflicts', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Make a change or a release, found by its number, part of this change. */
+export function useAddChangeChild() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, number }: { id: string; number: string }) => {
+      const value = number.trim().toUpperCase();
+      // A release's number reads REL-…, a change's CHG-…: each type finds its own.
+      const found = value.startsWith('REL')
+        ? await call(api.GET('/api/v1/releases/lookup/{value}', { params: { path: { value } } }))
+        : await call(api.GET('/api/v1/changes/lookup/{value}', { params: { path: { value } } }));
+      return call(
+        api.POST('/api/v1/changes/{record_id}/children', {
+          params: { path: { record_id: id } },
+          body: { child_id: found.id },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'children') });
+    },
+  });
+}
+
+export function useRemoveChangeChild() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, linkId }: { id: string; linkId: string }) => {
+      await call(
+        api.DELETE('/api/v1/changes/{record_id}/children/{link_id}', {
+          params: { path: { record_id: id, link_id: linkId } },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'children') });
+    },
+  });
+}
+
+/** The freeze and maintenance windows; with a range, only those then (the calendar). */
+export function useChangeWindows(range?: { start: string; end: string }) {
+  return useQuery({
+    queryKey: ['change-windows', range?.start ?? '', range?.end ?? ''],
+    queryFn: () => call(api.GET('/api/v1/change-windows', { params: { query: range ?? {} } })),
+  });
+}
+
+/** Go ahead in these blocking freezes, with a reason (changes.override_freeze; ADR-042). */
+export function useFreezeOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      version,
+      reason,
+      windowIds,
+    }: {
+      id: string;
+      version: number;
+      reason: string;
+      windowIds: string[];
+    }) =>
+      call(
+        api.POST('/api/v1/changes/{record_id}/freeze-override', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { reason, window_ids: windowIds },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.detail(id) });
+    },
+  });
+}
+
+export type CalendarEntry = components['schemas']['CalendarEntryOut'];
+export type ChangeWindowInput = components['schemas']['WindowIn'];
+export type ChangeWindowPatch = components['schemas']['WindowPatch'];
+
+export const calendarKeys = {
+  all: ['change-calendar'] as const,
+  range: (start: string, end: string, mine: boolean) =>
+    ['change-calendar', start, end, mine] as const,
+};
+const windowKeys = { all: ['change-windows'] as const };
+
+/** The changes you may see planned in [start, end): windows and planned downtimes. */
+export function useChangeCalendar(start: string, end: string, mine: boolean) {
+  return useQuery({
+    queryKey: calendarKeys.range(start, end, mine),
+    queryFn: () =>
+      call(api.GET('/api/v1/change-calendar', { params: { query: { start, end, mine } } })),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Add a window (one Idempotency-Key per form). */
+export function useCreateChangeWindow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, key }: { body: ChangeWindowInput; key: string }) =>
+      call(
+        api.POST('/api/v1/change-windows', {
+          params: { header: { 'Idempotency-Key': key } },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+    },
+  });
+}
+
+/** Change a window with its own If-Match. */
+export function useUpdateChangeWindow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version, body }: { id: string; version: number; body: ChangeWindowPatch }) =>
+      call(
+        api.PATCH('/api/v1/change-windows/{window_id}', {
+          params: { path: { window_id: id }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+    },
+  });
+}
+
+/** Remove a window (its history stays). */
+export function useRemoveChangeWindow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, version }: { id: string; version: number }) => {
+      await call(
+        api.DELETE('/api/v1/change-windows/{window_id}', {
+          params: { path: { window_id: id }, header: ifMatch(version) },
+        }),
+      );
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+    },
+  });
+}
