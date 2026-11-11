@@ -77,6 +77,23 @@ function api(locale: 'en' | 'ar' = 'en') {
         ],
       },
       [`GET /api/v1/changes/${CHG_ID}/downtimes`]: { body: [] },
+      [`GET /api/v1/changes/${CHG_ID}/conflicts`]: {
+        body: {
+          items: [
+            {
+              kind: 'freeze',
+              blocks: true,
+              starts_at: '2027-03-01T20:00:00Z',
+              ends_at: '2027-03-02T06:00:00Z',
+              window_id: 'w1',
+              window_name: 'Month-end freeze',
+              window_labels: null,
+              record_id: null,
+            },
+          ],
+          passed_window_ids: [],
+        },
+      },
       [`GET /api/v1/changes/${CHG_ID}/approvals`]: { body: { items: [], people: {} } },
       'GET /api/v1/changes/settings': {
         body: {
@@ -106,6 +123,11 @@ describe('console: the CAB pack (REQ-CHG-102)', () => {
       'Swap the old router back in.',
     );
     expect(screen.queryByTestId('pack-plan-impact')).toBeNull();
+    // AC1: the conflict list, each with what it is.
+    const conflicts = await screen.findByTestId('pack-conflicts');
+    expect((await within(conflicts).findByTestId('conflict-freeze')).textContent).toContain(
+      'Month-end freeze',
+    );
     expect(screen.getByTestId('pack-print').textContent).toBe('Print or save as PDF');
     // The print button is left out of the printed page by the app's print rules.
     expect(screen.getByTestId('pack-print').closest('[data-sx-no-print]')).not.toBeNull();
