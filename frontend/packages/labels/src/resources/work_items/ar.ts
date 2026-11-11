@@ -1967,6 +1967,8 @@ export const ar: LabelResource = {
   'status_category.open': 'مفتوحة',
   'status_category.paused': 'قيد الانتظار',
   'status_category.resolved': 'محلولة',
+  'task_dependency_mode.block': 'منع حتى الاكتمال',
+  'task_dependency_mode.warn': 'تحذير فقط',
   'task_move_direction.down': 'لأسفل',
   'task_move_direction.up': 'لأعلى',
   'task_priority.high': 'عالية',

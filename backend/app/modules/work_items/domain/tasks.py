@@ -23,6 +23,10 @@ MAX_COST = Decimal("9999999999.99")
 MAX_TEMPLATE_TASKS = 20
 MAX_DEPENDENCIES = 20  # predecessors of one task
 TASK_TYPE_MAX = 40
+DETAIL_KEYS = (
+    "task_type",
+    "estimated_minutes",
+)  # the details a template task may set
 # A move into one of these needs the predecessors done (REQ-INC-075 AC1).
 GATED_STATUSES = frozenset({TaskStatus.IN_PROGRESS.value, TaskStatus.DONE.value})
 FINISHED_STATUSES = frozenset({TaskStatus.DONE.value, TaskStatus.CANCELED.value})
@@ -107,16 +111,16 @@ def spec_of(raw: Mapping[str, Any]) -> TaskSpec | list[tuple[str, str]]:
     if not isinstance(title, str) or not title.strip():
         problems.append(("title", "required"))
     elif len(title.strip()) > TITLE_MAX:
-        problems.append(("title", "too_long"))
+        problems.append(("title", "value_too_long"))
     description = raw.get("description")
     if description is not None and (
         not isinstance(description, str) or len(description) > DESCRIPTION_MAX
     ):
-        problems.append(("description", "too_long"))
+        problems.append(("description", "value_too_long"))
     priority = raw.get("priority", TaskPriority.NORMAL.value)
     if priority not in {p.value for p in TaskPriority}:
         problems.append(("priority", "invalid_choice"))
-    problems += detail_problems({k: raw.get(k) for k in ("task_type", "estimated_minutes")})
+    problems += detail_problems({k: raw.get(k) for k in DETAIL_KEYS})
     if problems:
         return problems
     assert isinstance(title, str)  # noqa: S101 - checked above

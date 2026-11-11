@@ -2448,6 +2448,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     await approval_stage.after_submission(  # REQ-SR-021
         session, record, item, source=source, holders=holders
     )
+    if template.tasks:  # REQ-INC-040: the template's tasks whose condition the record matches
+        # Imported here: the task service builds on this module (WP-046a S1).
+        from app.modules.work_items.service import task_templates  # noqa: PLC0415 - see above
+
+        await task_templates.add_template_tasks(
+            session, subject, wtype, record, template.tasks, source=source
+        )
     if change_types.pre_approved(new_change):  # REQ-CHG-006: a standard change, approved now
         record = await _stage_move(
             session,

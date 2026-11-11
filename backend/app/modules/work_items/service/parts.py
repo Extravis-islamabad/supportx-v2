@@ -25,7 +25,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied
-from app.modules import automation
+from app.modules import automation, licensing
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.parts import (
@@ -352,6 +352,42 @@ async def create_task(  # noqa: PLR0913 - the record, the task and the source, e
     return row
 
 
+async def create_template_task(
+    session: AsyncSession,
+    record: WorkItem,
+    values: dict[str, Any],
+    *,
+    source: Source,
+    by: uuid.UUID | None,
+) -> WorkItemTask:
+    """A task the record's template adds as the record is made (REQ-INC-040).
+
+    No permission check of its own: it is part of creating the record, which was checked. The
+    history says the template added it (AC1: "history records their creation by the template").
+    """
+    del by  # the record's creator is the history's actor already
+    existing = await _tasks(session, record.id)
+    clean = _task_values(values, creating=True)
+    row = await TaskRepository(session).add(
+        WorkItemTask(
+            work_item_id=record.id,
+            position=(existing[-1].position + 1) if existing else 0,
+            **{"status": TaskStatus.OPEN.value, "priority": "normal", **clean},
+            stage=record.stage,
+        )
+    )
+    await _recorded(
+        session,
+        record,
+        "task",
+        row.id,
+        "child_added",
+        [*_task_history(None, row), Change("task.from_template", old=None, new=True)],
+        source,
+    )
+    return row
+
+
 async def _task(session: AsyncSession, record_id: uuid.UUID, task_id: uuid.UUID) -> WorkItemTask:
     found: WorkItemTask | None = await session.scalar(
         select(WorkItemTask).where(
@@ -553,6 +589,31 @@ async def move_task(  # noqa: PLR0913 - the task, the direction and the source, 
     return await _tasks(session, record_id)
 
 
+def is_overdue(task: WorkItemTask, now: datetime | None = None) -> bool:
+    """Open and past its due time (REQ-INC-076 AC2: marked overdue in "my tasks" and the list)."""
+    return (
+        task.status in OPEN_TASK_STATUSES
+        and task.due_at is not None
+        and task.due_at < (now or datetime.now(UTC))
+    )
+
+
+async def may_see_money(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """A task's extra cost: for those who may edit the record (the coordinator, WP-046a S1).
+
+    Never for a task-only owner or an investigator without edit; S3 decides task and worklog cost
+    visibility once for both.
+    """
+    return await items.may(session, subject, wtype, "edit", record_id)
+
+
+async def live_tasks(session: AsyncSession, task: WorkItemTask) -> list[WorkItemTask]:
+    """The other tasks of the task's record (for its blocked state)."""
+    return await _tasks(session, task.work_item_id)
+
+
 # --- dependencies (WP-046a S1, REQ-INC-075) -----------------------------------------------------
 
 
@@ -690,6 +751,24 @@ async def my_tasks(
     if not await owner_access(session, wtype):  # without the setting, only records they see
         found = [(t, r) for t, r in found if await items.may(session, subject, wtype, "view", r.id)]
     return found
+
+
+async def all_my_tasks(
+    session: AsyncSession, subject: Subject
+) -> list[tuple[WorkItemTask, WorkItem]]:
+    """Open tasks the subject owns on every type (REQ-INC-076), due first.
+
+    Each type licensed for the tenant, each record through its own rule (the type's view, or
+    its task-owner setting), as the per-type lists do: a task on a record the person can no
+    longer see is not listed (the coordinator, WP-046a S1).
+    """
+    found: list[tuple[WorkItemTask, WorkItem]] = []
+    for wtype in TYPES.values():
+        if not await licensing.has_feature(subject.tenant_id, wtype.feature):
+            continue
+        found += await my_tasks(session, subject, wtype)
+    far = datetime.max.replace(tzinfo=UTC)
+    return sorted(found, key=lambda pair: (pair[0].due_at or far, pair[0].created_at))[:200]
 
 
 async def open_tasks(session: AsyncSession, record: WorkItem) -> list[OpenItem]:

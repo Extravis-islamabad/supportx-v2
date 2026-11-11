@@ -1786,6 +1786,8 @@ export const ur: LabelResource = {
   'status_category.open': 'کھلا',
   'status_category.paused': 'انتظار میں',
   'status_category.resolved': 'حل شدہ',
+  'task_dependency_mode.block': 'مکمل ہونے تک روکیں',
+  'task_dependency_mode.warn': 'صرف خبردار کریں',
   'task_move_direction.down': 'نیچے',
   'task_move_direction.up': 'اوپر',
   'task_priority.high': 'زیادہ',

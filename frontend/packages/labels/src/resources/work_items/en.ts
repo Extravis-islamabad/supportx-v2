@@ -1782,6 +1782,8 @@ export const en = {
   'status_category.open': 'Open',
   'status_category.paused': 'Waiting',
   'status_category.resolved': 'Resolved',
+  'task_dependency_mode.block': 'Block until done',
+  'task_dependency_mode.warn': 'Warn only',
   'task_move_direction.down': 'Down',
   'task_move_direction.up': 'Up',
   'task_priority.high': 'High',

@@ -1027,6 +1027,10 @@ class WorkItemClosureOut(BaseModel):
     task_owner_access: bool = Field(
         description="A task's owner may work on it without access to the record (D-112)."
     )
+    task_dependency_mode: Literal["block", "warn"] = Field(
+        default="block",
+        description="An open predecessor refuses a task's start or completion, or only warns.",
+    )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
     )
@@ -1304,6 +1308,9 @@ class WorkItemCatalogueOut(BaseModel):
                 auto_close_days=cat.closure.auto_close_days,
                 reopen_window_days=cat.closure.reopen_window_days,
                 task_owner_access=cat.closure.task_owner_access,
+                task_dependency_mode=cast(
+                    'Literal["block", "warn"]', cat.closure.task_dependency_mode
+                ),
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1327,6 +1334,7 @@ class WorkItemClosurePatch(BaseModel):
     )
     reopen_window_days: int | None = None
     task_owner_access: bool | None = None
+    task_dependency_mode: Literal["block", "warn"] | None = None
 
 
 # Settings that may be cleared with null (the others ignore a null).
