@@ -349,3 +349,50 @@ async def test_an_override_passes_only_its_freezes_never_a_later_one(world: Worl
     )
     assert problem(moved) == (409, "change_window_blocked"), moved.text
     assert moved.json()["params"]["window_ids"] == later["id"]
+
+
+async def test_the_calendar_lists_the_changes_you_may_see_in_a_range(world: World) -> None:
+    """WP-045c S3: implementation windows and planned downtimes in [start, end), visible only."""
+    a = world.a
+    item = await a_group_change(world, a)
+    at = SOON + timedelta(days=60, hours=9)
+    assert (await schedule(world, a, item, at, at + 2 * H)).status_code == 200
+    downtime = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/downtimes",
+        a,
+        a.admin,
+        json={"starts_at": _iso(at + H), "ends_at": _iso(at + 90 * timedelta(minutes=1))},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert downtime.status_code == 201, downtime.text
+    params = {"start": _iso(SOON + timedelta(days=59)), "end": _iso(SOON + timedelta(days=61))}
+    shown = await world.call("GET", "/change-calendar", a, a.tech_a, params=params)
+    assert shown.status_code == 200, shown.text
+    mine = [e for e in shown.json() if e["record_id"] == item["id"]]
+    assert sorted(e["kind"] for e in mine) == ["downtime", "window"]
+    assert {e["display_id"] for e in mine} == {item["display_id"]}
+    # Without changes.view (a requester) there is no calendar at all.
+    refused = await world.call("GET", "/change-calendar", a, a.requester, params=params)
+    assert problem(refused)[0] == 403, refused.text
+    # "Mine": only the changes you hold (nobody holds this one).
+    held = await world.call(
+        "GET", "/change-calendar", a, a.tech_a, params={**params, "mine": "true"}
+    )
+    assert item["id"] not in {e["record_id"] for e in held.json()}
+    elsewhere = await world.call(
+        "GET",
+        "/change-calendar",
+        a,
+        a.tech_a,
+        params={"start": _iso(SOON + timedelta(days=70)), "end": _iso(SOON + timedelta(days=71))},
+    )
+    assert item["id"] not in {e["record_id"] for e in elsewhere.json()}
+    too_long = await world.call(
+        "GET",
+        "/change-calendar",
+        a,
+        a.tech_a,
+        params={"start": _iso(SOON), "end": _iso(SOON + timedelta(days=500))},
+    )
+    assert problem(too_long)[0] == 422, too_long.text

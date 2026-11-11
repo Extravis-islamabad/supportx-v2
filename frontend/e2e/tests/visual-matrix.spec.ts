@@ -184,6 +184,7 @@ export const SCREENS: Screen[] = [
     app: 'console',
     state: { name: 'user-menu', open: click('user-menu') }, // near the right edge (left in RTL)
   },
+  { key: 'change-calendar', path: '/changes/calendar', app: 'console' }, // WP-045c S3
   { key: 'requests', path: '/requests', app: 'console' },
   {
     key: 'request',
@@ -351,6 +352,7 @@ export const SCREENS: Screen[] = [
     'portal',
     'catalog',
     'workflows',
+    'change-windows', // WP-045c S3 (lane C's #381 review)
   ].map<Screen>((page) => ({
     key: `admin-${page.replace('/', '-')}`,
     path: `/admin/${page}`,
