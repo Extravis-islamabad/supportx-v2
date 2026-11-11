@@ -459,9 +459,27 @@ export const en = {
   'changes.children.remove': 'Remove',
   'changes.children.why_number': 'Enter a change or release number first.',
   'changes.col.path': 'Path',
+  'changes.conflicts.another_change': 'Another change',
+  'changes.conflicts.blocks': 'Blocks the change',
+  'changes.conflicts.title_one': '1 conflict',
+  'changes.conflicts.title_other': '{{count}} conflicts',
   'changes.create': 'Create change',
+  'changes.downtime.announce': 'Announce',
+  'changes.downtime.announce_body':
+    'A planned change will cause downtime from {{start}} to {{end}}.',
+  'changes.downtime.announce_title': 'Planned downtime: {{id}}',
+  'changes.downtime.delete_confirm': 'Delete this downtime?',
+  'changes.downtime.phase': 'Planned or actual',
   'changes.emergency': 'Emergency',
   'changes.empty': 'No changes yet.',
+  'changes.freeze.override': 'Go ahead anyway',
+  'changes.freeze.override_confirm': 'Go ahead',
+  'changes.freeze.override_reason': 'Why it cannot wait',
+  'changes.freeze.override_title': 'Go ahead in a freeze',
+  'changes.freeze.override_warning_one':
+    'This change goes ahead in the freeze that blocks it. Your reason is recorded in its history and the audit log, and only this freeze is passed.',
+  'changes.freeze.override_warning_other':
+    'This change goes ahead in the {{count}} freezes that block it. Your reason is recorded in its history and the audit log, and only these freezes are passed.',
   'changes.new': 'New change',
   'changes.new_help':
     'Describe the change. You assess its risk and write its plans once it is created.',
@@ -500,6 +518,10 @@ export const en = {
   'changes.template': 'Template',
   'changes.why.subject': 'Enter a title first.',
   'changes.why.template': 'Choose a template first.',
+  'changes.window.need_both': 'Choose when it starts and when it ends.',
+  'changes.window.reapproval_warning':
+    'The new window changes what was approved. These stages will need approval again:',
+  'changes.window.title': 'Implementation window',
   'closure_code.confirmed_by_requester': 'Confirmed by requester',
   'closure_code.duplicate': 'Duplicate',
   'closure_code.fixed': 'Fixed',
