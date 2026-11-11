@@ -521,6 +521,10 @@ export const ar: LabelResource = {
   'workflows.record.result': 'النتيجة',
   'workflows.record.retry': 'إعادة محاولة الخطوة',
   'workflows.record.seconds': '{{n}} ث',
+  'workflows.record.skip': 'تخطّي هذه الخطوة',
+  'workflows.record.skip_body':
+    'يتابع مسار العمل إلى الخطوة التالية كأنها نجحت. يُسجَّل ذلك باسمك.',
+  'workflows.record.skip_title': 'تخطّي الخطوة {{node}}؟',
   'workflows.record.started': 'بدأ {{date}}',
   'workflows.record.step': 'الخطوة',
   'workflows.record.stop': 'إيقاف',

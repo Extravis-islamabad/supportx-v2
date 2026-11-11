@@ -523,6 +523,10 @@ export const ur: LabelResource = {
   'workflows.record.result': 'نتیجہ',
   'workflows.record.retry': 'مرحلہ دوبارہ آزمائیں',
   'workflows.record.seconds': '{{n}} سیکنڈ',
+  'workflows.record.skip': 'یہ مرحلہ چھوڑیں',
+  'workflows.record.skip_body':
+    'ورک فلو اگلے مرحلے پر چلا جاتا ہے جیسے یہ کامیاب ہوا ہو۔ یہ آپ کے نام کے ساتھ درج ہوتا ہے۔',
+  'workflows.record.skip_title': 'مرحلہ {{node}} چھوڑیں؟',
   'workflows.record.started': 'شروع {{date}}',
   'workflows.record.step': 'مرحلہ',
   'workflows.record.stop': 'روکیں',

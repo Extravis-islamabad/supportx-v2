@@ -525,6 +525,10 @@ export const en = {
   'workflows.record.result': 'Result',
   'workflows.record.retry': 'Retry the step',
   'workflows.record.seconds': '{{n}} s',
+  'workflows.record.skip': 'Skip this step',
+  'workflows.record.skip_body':
+    'The workflow goes on to the step after it, as if it had worked. This is recorded with your name.',
+  'workflows.record.skip_title': 'Skip the step {{node}}?',
   'workflows.record.started': 'Started {{date}}',
   'workflows.record.step': 'Step',
   'workflows.record.stop': 'Stop',

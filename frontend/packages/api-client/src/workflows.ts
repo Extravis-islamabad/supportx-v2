@@ -349,3 +349,17 @@ export function useRetryInstance() {
     onSettled: refresh,
   });
 }
+
+/** Move a failed run past its failed step, on that step's "next" only (REQ-WF-024 AC2). */
+export function useSkipInstance() {
+  const refresh = useRecordRefresh();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.POST(`${PATH}/instances/{instance_id}/skip`, {
+          params: { path: { instance_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSettled: refresh,
+  });
+}

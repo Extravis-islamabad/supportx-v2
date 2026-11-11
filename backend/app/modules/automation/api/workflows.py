@@ -776,6 +776,38 @@ async def retry_instance(
     return _instance(again)
 
 
+@router.post("/instances/{instance_id}/skip", summary="Skip a failed workflow's failed step")
+async def skip_instance(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    instance_id: uuid.UUID,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Run,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "automation.workflow_skipped",
+            object_type="workflow_instance",
+            object_param="instance_id",
+        ),
+    ],
+) -> InstanceOut:
+    """REQ-WF-024 AC2: on with the failed step's "next" output only.
+
+    Audited with the step and the record; needs the right to edit the record, as retry does.
+    """
+    instance = await _instance_to_act_on(session, subject, instance_id)
+    again, node = await workflow_runtime.skip(session, instance_id, expected_version=version)
+    note.details = {
+        **note.details,
+        "node": node,
+        "record_type": instance.record_type,
+        "record_id": str(instance.record_id),
+    }
+    set_etag(response, again.version)
+    return _instance(again)
+
+
 # --- the overview and bulk jobs (WP-048b S3b; REQ-WF-025) -------------------------------------
 
 

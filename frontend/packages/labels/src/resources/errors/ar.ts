@@ -830,6 +830,8 @@ export const ar: LabelResource = {
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
   'errors.site_not_found': 'الموقع غير موجود.',
+  'errors.skip_without_next':
+    'لا توجد خطوة تالية واحدة بعد هذه الخطوة، لذا لا يمكن تخطيها؛ أعد محاولتها أو شغّل مسار العمل مجددًا من خطوة تختارها.',
   'errors.sla_fallback_required':
     'لا يمكن حذف السياسة الافتراضية: فهي تُطبَّق عندما لا تنطبق أي سياسة أخرى.',
   'errors.sla_policy_not_found': 'سياسة اتفاقية مستوى الخدمة هذه غير موجودة أو حُذفت.',

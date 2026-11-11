@@ -627,6 +627,7 @@ export {
   useRecordWorkflows,
   useRestartInstance,
   useRetryInstance,
+  useSkipInstance,
   useStopInstance,
   useExportWorkflow,
   useFindRecord,

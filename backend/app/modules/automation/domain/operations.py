@@ -101,6 +101,33 @@ def retry(definition: Definition, state: State, *, at: datetime) -> Operated:
     return Operated(retried, [_line(definition, token, "retried", at, code=failed.code)])
 
 
+SKIP_PORT = "next"  # the only output a skip may take (the coordinator: never a guessed branch)
+
+
+def skip(definition: Definition, state: State, *, at: datetime) -> Operated:
+    """Move a failed instance past its failed node, on that node's "next" output (REQ-WF-024 AC2).
+
+    Only "next": a node whose outputs decide the path (yes/no, approved/rejected, a switch's
+    cases) has no right answer to guess, so a skip there is refused; so is one whose "next" is not
+    linked. The variables stay as they were; the step is logged as skipped.
+    """
+    if state.status is not InstanceStatus.FAILED or state.failure is None:
+        raise OperationRefused(code="instance_not_failed", status=state.status.value)
+    failed: Failure = state.failure
+    target = definition.next_of(failed.node, SKIP_PORT)
+    if target is None:
+        raise OperationRefused(code="skip_without_next", node=failed.node)
+    skipped = copy.deepcopy(state)
+    token = next((t for t in skipped.tokens if t.node == failed.node), None)
+    if token is None:  # the failure left no token there (a definition's own fault)
+        raise OperationRefused(code="nothing_to_retry", node=failed.node)
+    line = _line(definition, token, "skipped", at, code=failed.code, to=target)
+    token.node, token.state, token.command, token.wake_at = target, TokenState.READY, None, None
+    token.attempts, token.retrying = 0, False
+    skipped.status, skipped.failure = InstanceStatus.RUNNING, None
+    return Operated(skipped, [line])
+
+
 def migrate(
     old: Definition,
     new: Definition,
