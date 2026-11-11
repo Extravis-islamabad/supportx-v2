@@ -1397,6 +1397,7 @@ export const en = {
   'releases.col.updated': 'Updated',
   'releases.create': 'Create release',
   'releases.downtime.add': 'Add downtime',
+  'releases.downtime.delete_confirm': 'Delete this downtime?',
   'releases.downtime.ends': 'Ends',
   'releases.downtime.kind': 'Kind',
   'releases.downtime.need_both': 'Choose when it starts and when it ends.',
