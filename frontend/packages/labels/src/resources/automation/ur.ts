@@ -419,6 +419,8 @@ export const ur: LabelResource = {
   'workflow_problem.wait_events_invalid': 'چنیں کہ یہ مرحلہ کس کا انتظار کرے۔',
   'workflow_problem.wait_never_finishes':
     'اس انتظار کو ختم کرنے والا کچھ نہیں۔ کوئی شرط یا وقت کی حد شامل کریں۔',
+  'workflow_problem.webhook_header_value_missing':
+    'ہیڈر {{header}} کی قدر دوبارہ درج کریں: محفوظ قدریں کبھی برآمد نہیں ہوتیں۔',
   'workflow_problem.webhook_headers_invalid':
     'سادہ ناموں کے ساتھ زیادہ سے زیادہ {{max}} ہیڈرز؛ Content-Type اور Idempotency-Key پلیٹ فارم خود لگاتا ہے۔',
   'workflow_problem.webhook_url_invalid':
@@ -512,7 +514,9 @@ export const ur: LabelResource = {
   'workflows.form.groups': 'گروپ',
   'workflows.form.header_name': 'ہیڈر {{n}} کا نام',
   'workflows.form.header_name_placeholder': 'نام',
+  'workflows.form.header_twice': 'دو ہیڈرز کا یہی نام ہے؛ صرف آخری بھیجا جاتا ہے۔',
   'workflows.form.header_value': 'ہیڈر {{n}} کی قدر',
+  'workflows.form.header_value_saved': 'محفوظ اور پوشیدہ۔ بدلنے کے لیے لکھیں۔',
   'workflows.form.if_help': 'پوری ہو تو ہاں والا آؤٹ پٹ، ورنہ نہیں والا۔',
   'workflows.form.input_field': 'ان پٹ {{n}} کی فیلڈ',
   'workflows.form.input_name': 'ان پٹ {{n}} کا نام',

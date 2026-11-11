@@ -420,6 +420,8 @@ export const en = {
   'workflow_problem.wait_events_invalid': 'Choose what this step waits for.',
   'workflow_problem.wait_never_finishes':
     'This wait has nothing to finish it. Add a condition or a time limit.',
+  'workflow_problem.webhook_header_value_missing':
+    'Enter the value of the header {{header}} again: saved values are never exported.',
   'workflow_problem.webhook_headers_invalid':
     'Up to {{max}} headers with plain names; the platform sets Content-Type and Idempotency-Key itself.',
   'workflow_problem.webhook_url_invalid':
@@ -515,7 +517,9 @@ export const en = {
   'workflows.form.groups': 'Groups',
   'workflows.form.header_name': 'Header {{n}} name',
   'workflows.form.header_name_placeholder': 'Name',
+  'workflows.form.header_twice': 'Two headers have this name; only the last one is sent.',
   'workflows.form.header_value': 'Header {{n}} value',
+  'workflows.form.header_value_saved': 'Saved, hidden. Type to replace it.',
   'workflows.form.if_help': 'Met: the Yes output. Not met: the No output.',
   'workflows.form.input_field': 'Input {{n}} field',
   'workflows.form.input_name': 'Input {{n}} name',

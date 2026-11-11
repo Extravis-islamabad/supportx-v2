@@ -34,10 +34,12 @@ from app.modules.automation.domain.workflows import (
     NodeType,
     Problem,
     TypeFacts,
+    masked,
     offered,
     parse,
     sub_flows,
     validate,
+    with_kept_secrets,
 )
 from app.modules.automation.events import WorkflowChanged, WorkflowDeleted
 from app.modules.automation.infra.models import Workflow, WorkflowInstance, WorkflowVersion
@@ -278,6 +280,8 @@ async def save_draft(
     """The draft saves whatever its problems; they come back to be shown on the canvas."""
     workflow = await _get(session, workflow_id)
     _stale(workflow, expected_version)
+    # The designer only ever saw header values masked: the ones sent back masked stay as stored.
+    definition = with_kept_secrets(definition, workflow.draft)
     problems = await problems_of(session, workflow.record_type, definition, workflow.id)
     workflow.draft = dict(definition)
     workflow.draft_problems = len(problems)
@@ -434,7 +438,8 @@ async def export_workflow(session: AsyncSession, workflow_id: uuid.UUID) -> dict
         "record_type": workflow.record_type,
         "name": workflow.name,
         "description": workflow.description,
-        "definition": copy.deepcopy(workflow.draft),
+        # Header values never leave in a file: an import asks for them again (#406).
+        "definition": masked(workflow.draft),
         "start_templates": [str(t) for t in workflow.start_templates],
     }
 

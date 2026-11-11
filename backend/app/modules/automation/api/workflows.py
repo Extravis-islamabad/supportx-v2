@@ -26,6 +26,7 @@ from app.modules.automation.domain.workflows import (
     NodeType,
     Problem,
     WaitEvent,
+    masked,
     ports_of,
 )
 from app.modules.automation.infra.models import (
@@ -176,7 +177,7 @@ def _out(workflow: Workflow, problems: list[Problem] | None = None) -> WorkflowO
         record_type=workflow.record_type,
         name=workflow.name,
         description=workflow.description,
-        draft=dict(workflow.draft),
+        draft=masked(workflow.draft),  # header values are write-only (#406)
         problems=_problems(problems or []),
         enabled=workflow.enabled,
         published_version=workflow.published_version,

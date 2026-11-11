@@ -35,6 +35,10 @@ const draft = {
     node('ok', 'approval'),
     node('fill', 'field_update'),
     node('call', 'webhook'),
+    node('hook', 'webhook', {
+      url: 'https://hooks.example.com/y',
+      headers: { Authorization: '•••' },
+    }),
     node('keep', 'set_variable'),
     node('fork', 'split'),
     node('meet', 'join'),
@@ -312,6 +316,30 @@ describe('console: workflow node forms (QA F-05)', () => {
       function: 'score_risk',
       inputs: { due: { field: 'priority' } },
       assign: { code: 'status_code' },
+    });
+  });
+  it('webhook: a saved header value stays hidden and is sent back masked unless replaced', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('hook');
+    const value = within(details).getByTestId('webhook-header-1-value');
+    expect((value as HTMLInputElement).value).toBe('');
+    expect(value.getAttribute('placeholder')).toBe('Saved, hidden. Type to replace it.');
+    expect(value.getAttribute('type')).toBe('password');
+    // Two empty rows can be added (a row being typed has no name yet).
+    fireEvent.click(within(details).getByTestId('webhook-header-add'));
+    fireEvent.click(within(details).getByTestId('webhook-header-add'));
+    expect(within(details).getByTestId('webhook-header-3-name')).toBeTruthy();
+    fireEvent.change(within(details).getByTestId('webhook-header-2-name'), {
+      target: { value: 'X-Team' },
+    });
+    fireEvent.change(within(details).getByTestId('webhook-header-2-value'), {
+      target: { value: 'ops' },
+    });
+    expect(await saved(fake, 'hook')).toEqual({
+      url: 'https://hooks.example.com/y',
+      headers: { Authorization: '•••', 'X-Team': 'ops' },
     });
   });
 });

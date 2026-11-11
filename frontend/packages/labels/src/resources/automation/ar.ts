@@ -416,6 +416,8 @@ export const ar: LabelResource = {
   'workflow_problem.variables_invalid': 'تحتاج المتغيرات إلى أسماء مختلفة ونوع؛ {{max}} كحد أقصى.',
   'workflow_problem.wait_events_invalid': 'اختر ما تنتظره هذه الخطوة.',
   'workflow_problem.wait_never_finishes': 'لا شيء يُنهي هذا الانتظار. أضف شرطًا أو حدًا زمنيًا.',
+  'workflow_problem.webhook_header_value_missing':
+    'أدخل قيمة الترويسة {{header}} مرة أخرى: القيم المحفوظة لا تُصدَّر أبداً.',
   'workflow_problem.webhook_headers_invalid':
     'حتى {{max}} ترويسة بأسماء بسيطة؛ تضبط المنصة Content-Type وIdempotency-Key بنفسها.',
   'workflow_problem.webhook_url_invalid':
@@ -509,7 +511,9 @@ export const ar: LabelResource = {
   'workflows.form.groups': 'المجموعات',
   'workflows.form.header_name': 'اسم الترويسة {{n}}',
   'workflows.form.header_name_placeholder': 'الاسم',
+  'workflows.form.header_twice': 'هناك ترويستان بهذا الاسم؛ تُرسل الأخيرة فقط.',
   'workflows.form.header_value': 'قيمة الترويسة {{n}}',
+  'workflows.form.header_value_saved': 'محفوظة ومخفية. اكتب لاستبدالها.',
   'workflows.form.if_help': 'إذا تحقّق: مخرج نعم. وإلا: مخرج لا.',
   'workflows.form.input_field': 'حقل المدخل {{n}}',
   'workflows.form.input_name': 'اسم المدخل {{n}}',

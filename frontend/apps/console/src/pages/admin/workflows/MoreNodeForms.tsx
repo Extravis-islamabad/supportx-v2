@@ -1,5 +1,17 @@
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Flex, Form, Input, InputNumber, Radio, Select, Switch, Tag } from 'antd';
+import {
+  Button,
+  Flex,
+  Form,
+  Input,
+  InputNumber,
+  Radio,
+  Select,
+  Switch,
+  Tag,
+  Typography,
+} from 'antd';
+import { useState } from 'react';
 
 import { useNodeTypes, useRuleFields, useUnits, useUser } from '@supportx/api-client';
 import { DateTimeField, lengthLimit, useLabel } from '@supportx/ui';
@@ -25,6 +37,8 @@ const WEBHOOK_HEADER_MAX = 1000;
 const MAX_WEBHOOK_FIELDS = 50;
 const VARIABLE_TEXT_MAX = 2000;
 const APPROVAL_RULES = ['any', 'all', 'majority'] as const;
+// What the server shows for a stored header value (domain/workflows.py SECRET_MASK).
+const SECRET_MASK = '•••';
 
 function tree(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -237,12 +251,16 @@ export function WebhookForm({ config, onChange, recordType, variables, readOnly 
   const t = useLabel();
   const fieldName = useFieldName();
   const fields = useRuleFields(recordType);
-  const headers = Object.entries(tree(config.headers)).map(
-    ([k, v]) => [k, typeof v === 'string' ? v : ''] as [string, string],
+  // Rows of their own: a row being typed may have no name yet, or the name of another row,
+  // which the stored object cannot hold (lane B's #406 review). Rows with a name are saved.
+  const [headers, setRows] = useState<[string, string][]>(() =>
+    Object.entries(tree(config.headers)).map(([k, v]) => [k, typeof v === 'string' ? v : '']),
   );
   const setHeaders = (next: [string, string][]) => {
-    onChange({ ...config, headers: Object.fromEntries(next) });
+    setRows(next);
+    onChange({ ...config, headers: Object.fromEntries(next.filter(([k]) => k !== '')) });
   };
+  const twice = (name: string) => name !== '' && headers.filter(([k]) => k === name).length > 1;
   return (
     <>
       <Form.Item label={t('workflows.form.webhook_url')} htmlFor="webhook-url">
@@ -299,6 +317,7 @@ export function WebhookForm({ config, onChange, recordType, variables, readOnly 
                   disabled={readOnly}
                   aria-label={t('workflows.form.header_name', { n })}
                   placeholder={t('workflows.form.header_name_placeholder')}
+                  status={twice(name) ? 'error' : undefined}
                   style={{ flex: '1 1 120px', minWidth: 0 }}
                   onChange={(e) => {
                     setHeaders(
@@ -307,9 +326,16 @@ export function WebhookForm({ config, onChange, recordType, variables, readOnly 
                   }}
                   data-testid={`webhook-header-${String(n)}-name`}
                 />
-                <Input
+                {/* Write-only (the coordinator, #406): a saved value comes back masked and
+                    stays as it is unless something new is typed here. */}
+                <Input.Password
                   dir="ltr"
-                  value={value}
+                  value={value === SECRET_MASK ? '' : value}
+                  placeholder={
+                    value === SECRET_MASK ? t('workflows.form.header_value_saved') : undefined
+                  }
+                  visibilityToggle={false}
+                  autoComplete="new-password"
                   disabled={readOnly}
                   aria-label={t('workflows.form.header_value', { n })}
                   count={lengthLimit(WEBHOOK_HEADER_MAX)}
@@ -329,6 +355,11 @@ export function WebhookForm({ config, onChange, recordType, variables, readOnly 
                   }}
                   data-testid={`webhook-header-${String(n)}-remove`}
                 />
+                {twice(name) && (
+                  <Typography.Text type="danger" style={{ fontSize: 12, flexBasis: '100%' }}>
+                    {t('workflows.form.header_twice')}
+                  </Typography.Text>
+                )}
               </Flex>
             );
           })}
