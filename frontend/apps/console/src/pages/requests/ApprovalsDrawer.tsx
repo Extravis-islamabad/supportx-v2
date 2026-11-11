@@ -27,11 +27,13 @@ export function ApprovalsDrawer() {
   // Problems and releases ask approvals too (QA10-P1-08): listed here, decided on the record.
   const problems = useMyTypeApprovals('problems');
   const releases = useMyTypeApprovals('releases');
+  const changes = useMyTypeApprovals('changes'); // WP-045d S4a, REQ-CHG-117
   const refresh = (type: string) => {
     if (type === MY_APPROVALS_CHANGED) {
       void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.myApprovals });
       void queryClient.invalidateQueries({ queryKey: ['problems', 'my-approvals'] });
       void queryClient.invalidateQueries({ queryKey: ['releases', 'my-approvals'] });
+      void queryClient.invalidateQueries({ queryKey: ['changes', 'my-approvals'] });
     }
   };
   usePersonalChannel((event) => {
@@ -45,6 +47,7 @@ export function ApprovalsDrawer() {
   const others = [
     ...(problems.data?.items ?? []).map((a) => ({ ...a, path: `/problems/${a.record_id}` })),
     ...(releases.data?.items ?? []).map((a) => ({ ...a, path: `/releases/${a.record_id}` })),
+    ...(changes.data?.items ?? []).map((a) => ({ ...a, path: `/changes/${a.record_id}` })),
   ];
   const count = items.length + others.length;
   const [deciding, setDeciding] = useState('');
