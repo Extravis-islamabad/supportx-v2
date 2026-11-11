@@ -26,6 +26,7 @@ from app.modules.ai import (
     unregister_embedding_source,
     unregister_record_access,
 )
+from app.modules.assets import register_linked_records
 from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.approval_settings_routes import router as approval_settings_router
 from app.modules.work_items.api.change_board_routes import router as change_board_router
@@ -78,6 +79,7 @@ from app.modules.work_items.service import (
 )
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
+from app.modules.work_items.service.asset_link_port import PORT as ASSET_LINK_PORT
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.change_guard import register as register_change_guard
@@ -136,6 +138,9 @@ async def _shutdown(app: FastAPI) -> None:
 
 
 register_record_usage()
+# The asset page's linked records (REQ-AST-044, lane B's WP-049b s4a; lane A agreed, rule 8):
+# assets ask through their port, answered by this module's visible-only queries.
+register_linked_records(ASSET_LINK_PORT)
 _register_ai()  # at import too: the consumers worker runs the re-embed sweep without startup
 register_types()
 register_triggers()

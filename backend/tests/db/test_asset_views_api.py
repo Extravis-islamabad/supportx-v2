@@ -297,9 +297,19 @@ async def test_047_ac3_the_first_page_of_50000_assets_opens_in_under_a_second(
         assert elapsed < timing.limit(1.0), f"{params}: {elapsed:.3f}s"
 
 
-async def test_044_without_lane_as_port_the_panel_is_not_available(world: World) -> None:
+async def test_044_without_a_port_the_panel_is_not_available(world: World) -> None:
     a = world.a
     asset = await _asset(world, a, "Linked laptop")
+    registered = linked.linked_port()  # work items register theirs at import
+    linked.unregister_linked_records()
+    try:
+        await _not_available(world, a, asset)
+    finally:
+        if registered is not None:
+            linked.register_linked_records(registered)
+
+
+async def _not_available(world: World, a: Org, asset: dict[str, Any]) -> None:
     found = await world.call("GET", f"{BASE}/{asset['id']}/linked", a, a.admin)
     assert found.status_code == 200, found.text
     assert found.json() == {"available": False, "kinds": []}

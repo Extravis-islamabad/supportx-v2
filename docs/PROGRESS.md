@@ -1642,8 +1642,8 @@ it with no reload (rule c). Not built yet.
     the API cannot tell beforehand whether a worker can render PDFs (a job without one fails
     with `pdf_not_available`); the label designer (040) and mobile scanning (041) are later;
     discovery calls `record_scan` (WP-050).
-- [x] **Session 4a (migration 0140, down revision 0135 at build time, re-pointed at the lane's
-  turn; REQ-AST-044, 045, 046, 047; branch backup/wp-049b-s4a):**
+- [x] **Session 4a (migration 0140, down revision 0138 after the main merge; re-pointed again at
+  the lane's turn if needed; REQ-AST-044, 045, 046, 047; branch backup/wp-049b-s4a):**
   - Shared list-settings store (the coordinator's decision): `app/shared/list_settings` owns the
     `list_settings` table (RLS forced, SELECT/INSERT/UPDATE, soft delete): per person, list and
     view, the columns with widths, sort, page size and a favourite star; a saved view is a row
@@ -1693,9 +1693,13 @@ it with no reload (rule c). Not built yet.
     at the screen width (390 px); a test that work-item lists keep their own `/list-settings`
     and that Reset widths clears the saved widths in both stores.
   - Guide: docs/guides/asset-list-and-views.md.
-  - **Waits for lane A's ports PR (feat/asset-link-ports):** the `register_linked_records(...)`
-    call from work_items/__init__.py (lane A OK'd it, rule 8) lands after that PR merges; until
-    then the panel stays hidden. The `at_creation` flag on the link event comes with it.
+  - **Lane A's ports (#389) are on main:** work_items registers the port from its __init__
+    (`asset_link_port.py`, a thin adapter over lane A's visible-only `linked_counts`,
+    `linked_page` and `asset_ids_of`; no query of its own), so the panel shows. DB test with
+    real incidents: a linked incident of the technician's group is counted and listed, one of
+    another group neither (D-158); the counters follow a new link live; an incident raised with
+    an asset (`at_creation` on the real event) names itself in the asset's history. The display
+    ID still comes through automation's labeler until lane A's `labels_of` export (#396) lands.
   - **Open:** a column chooser for the asset list (the store keeps chosen columns; the screen
     shows the default set), renaming a saved view on screen (the API has it), sharing views with
     groups (REQ-INC-107's sharing; the store is per person), the record forms' pickers adopting

@@ -96,9 +96,12 @@ def _no_db(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
             raise NotFound(code="asset_not_found")
 
     monkeypatch.setattr(linked, "get_asset", visible)
+    registered = linked.linked_port()  # work items' own, once imported: put back afterwards
     unregister_linked_records()
     yield
     unregister_linked_records()
+    if registered is not None:
+        register_linked_records(registered)
 
 
 def _as_subject(viewer: Viewer) -> Any:  # noqa: ANN401 - a stand-in for a Subject

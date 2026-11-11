@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0135"  # 0140's down revision (re-pointed with it)
+BEFORE = "0138"  # 0140's down revision (re-pointed with it)
 
 
 async def _shape(url: str) -> tuple[int, int]:
