@@ -276,6 +276,14 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** HA install survives the loss of any one node with the e2e suite passing; a
   restore drill (backup → new cluster → smoke test) passes in CI; alerts fire in a fault test.
 - **Depends on:** WP-014
+- [ ] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
+  master that dies within about 10 s of a fresh start, before its sentinels have seen its
+  replicas (Sentinel reads a master's INFO every 10 s), does not fail over until it returns: every
+  attempt aborts with `-failover-abort-no-good-slave`. No data is lost, since #284's guard still
+  refuses to start empty, but the set is unavailable meanwhile. #388 only made the tests wait for
+  the sentinels. Fix: a Valkey pod reports ready only once the sentinels list its replicas (the
+  readiness option), with a test that fails over a master stopped right after a fresh start.
+  In Haider's summary as an FYI.
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
