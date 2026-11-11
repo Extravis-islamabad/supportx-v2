@@ -439,6 +439,27 @@ export function useStartChangeBulkClose() {
   });
 }
 
+/** Cancel the picked changes with one reason, or move them to the trash (REQ-CHG-101). */
+export function useStartChangeBulk() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: { action: 'cancel' | 'delete'; recordIds: string[]; reason?: string }) =>
+      call(
+        api.POST('/api/v1/changes/bulk', {
+          body: {
+            action: request.action,
+            changes: request.action === 'cancel' ? { reason_text: request.reason ?? '' } : {},
+            record_ids: request.recordIds,
+            all_matching: false,
+          },
+        }),
+      ),
+    onSuccess: (job) => {
+      queryClient.setQueryData(bulkJobKey('changes', job.id), job);
+    },
+  });
+}
+
 /** The freeze and maintenance windows; with a range, only those then (the calendar). */
 export function useChangeWindows(range?: { start: string; end: string }) {
   return useQuery({

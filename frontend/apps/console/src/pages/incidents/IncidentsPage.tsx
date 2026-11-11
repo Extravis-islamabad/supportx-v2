@@ -315,6 +315,8 @@ export function IncidentsPage() {
   const viewName = saved?.name ?? t(`work_item_view.${view}`);
   const exported = exportFilter(builtIn, viewFilters.data, filter);
   const bulkAllowed = (action: BulkAction) =>
+    action !== 'cancel' &&
+    action !== 'delete' && // the change list's own (REQ-CHG-101)
     can(action === 'resolve' || action === 'close' ? 'incidents.edit' : `incidents.${action}`);
 
   // Rows selected: the selection bar takes the toolbar's place (Haider, 2026-11-10), so the
