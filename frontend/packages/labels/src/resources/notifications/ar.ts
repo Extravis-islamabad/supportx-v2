@@ -674,6 +674,22 @@ export const ar: LabelResource = {
     'سُحب {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'تم السحب: {{ record.display_id }} {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأصبحت المهمة "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" لك الآن.',
+  'notification_template.task.assigned.in_app':
+    '{{ task.title }} على {{ record.display_id }} أصبحت لك',
+  'notification_template.task.assigned.subject':
+    'مهمة لك: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'مرحبًا {{ recipient.name }}،\n\nكان موعد مهمتك "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" في {{ task.due_at }} وما زالت مفتوحة.',
+  'notification_template.task.overdue.in_app': 'كان موعد {{ task.title }} في {{ task.due_at }}',
+  'notification_template.task.overdue.subject':
+    'متأخرة: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'مرحبًا {{ recipient.name }}،\n\nتبدأ مهمتك "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" في {{ task.starts_at }}.',
+  'notification_template.task.starts_soon.in_app': 'تبدأ {{ task.title }} في {{ task.starts_at }}',
+  'notification_template.task.starts_soon.subject':
+    'تبدأ قريبًا: {{ task.title }} ({{ record.display_id }})',
   'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
   'notification_variable.approval.comment': 'تعليق الموافِق',

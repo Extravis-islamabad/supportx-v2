@@ -673,6 +673,23 @@ export const en = {
     '{{ record.display_id }} was withdrawn: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'Withdrawn: {{ record.display_id }} {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'Hello {{ recipient.name }},\n\nThe task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" is now yours.',
+  'notification_template.task.assigned.in_app':
+    '{{ task.title }} on {{ record.display_id }} is yours',
+  'notification_template.task.assigned.subject':
+    'Task for you: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'Hello {{ recipient.name }},\n\nYour task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" was due at {{ task.due_at }} and is still open.',
+  'notification_template.task.overdue.in_app': '{{ task.title }} was due at {{ task.due_at }}',
+  'notification_template.task.overdue.subject':
+    'Overdue: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'Hello {{ recipient.name }},\n\nYour task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" starts at {{ task.starts_at }}.',
+  'notification_template.task.starts_soon.in_app':
+    '{{ task.title }} starts at {{ task.starts_at }}',
+  'notification_template.task.starts_soon.subject':
+    'Starts soon: {{ task.title }} ({{ record.display_id }})',
   'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
   'notification_variable.approval.comment': 'Approval › Comment',

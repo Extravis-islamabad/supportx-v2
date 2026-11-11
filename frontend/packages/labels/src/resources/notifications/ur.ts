@@ -675,6 +675,23 @@ export const ur: LabelResource = {
     '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر کام "{{ task.title }}" اب آپ کا ہے۔',
+  'notification_template.task.assigned.in_app':
+    '{{ record.display_id }} پر {{ task.title }} اب آپ کا ہے',
+  'notification_template.task.assigned.subject':
+    'آپ کے لیے کام: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کے کام "{{ task.title }}" کا وقت {{ task.due_at }} تھا اور یہ ابھی کھلا ہے۔',
+  'notification_template.task.overdue.in_app': '{{ task.title }} کا وقت {{ task.due_at }} تھا',
+  'notification_template.task.overdue.subject':
+    'تاخیر شدہ: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کا کام "{{ task.title }}" {{ task.starts_at }} پر شروع ہوگا۔',
+  'notification_template.task.starts_soon.in_app':
+    '{{ task.title }} {{ task.starts_at }} پر شروع ہوگا',
+  'notification_template.task.starts_soon.subject':
+    'جلد شروع: {{ task.title }} ({{ record.display_id }})',
   'notification_variable.acknowledgement.comment': 'تصدیق › تبصرہ',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
   'notification_variable.approval.comment': 'منظوری دینے والے کا تبصرہ',
