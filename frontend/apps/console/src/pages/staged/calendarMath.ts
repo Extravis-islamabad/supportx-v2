@@ -94,22 +94,103 @@ export function normal(d: Day): Day {
   return { year: n.getUTCFullYear(), month: n.getUTCMonth(), day: n.getUTCDate() };
 }
 
-/** A window's occurrences touching [start, end), as the server reckons them (weekly or once). */
+const MONTH_SPAN_MS = 28 * DAY_MS; // a monthly window is at most this long (the server's)
+const LAST_WEEK = 5; // a monthly window's week 5: the month's last such weekday
+
+/**
+ * The `week`-th `weekday` (0 Monday .. 6 Sunday, as the server counts) of a month (0-11), or its
+ * last for week 5; undefined when the month has no such day (a fifth Monday, say).
+ */
+export function nthWeekday(
+  year: number,
+  month: number,
+  week: number,
+  weekday: number,
+): number | undefined {
+  const sundayFirst = (weekday + 1) % 7; // JavaScript counts from Sunday
+  if (week === LAST_WEEK) {
+    const last = new Date(Date.UTC(year, month + 1, 0));
+    return last.getUTCDate() - ((last.getUTCDay() - sundayFirst + 7) % 7);
+  }
+  const first = new Date(Date.UTC(year, month, 1)).getUTCDay();
+  const day = 1 + ((sundayFirst - first + 7) % 7) + 7 * (week - 1);
+  const length = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return day <= length ? day : undefined;
+}
+
+/**
+ * A monthly window's occurrences touching [from, to): on the Nth weekday of each month at the
+ * first occurrence's local time in the tenant's zone (D-156, lane A's `Window._monthly`), never
+ * before the first, until `repeat_until`.
+ */
+function monthly(
+  window: { starts_at: string; ends_at: string; repeat_until: string | null },
+  week: number,
+  weekday: number,
+  from: number,
+  to: number,
+  zone: string,
+): { starts_at: string; ends_at: string }[] {
+  const s = Date.parse(window.starts_at);
+  const length = Date.parse(window.ends_at) - s;
+  const until = window.repeat_until === null ? Infinity : Date.parse(window.repeat_until);
+  const local = wallTimeIn(window.starts_at, zone);
+  const begin = wallTimeIn(new Date(Math.max(from - MONTH_SPAN_MS, s)).toISOString(), zone);
+  let { year, month } = begin;
+  const found: { starts_at: string; ends_at: string }[] = [];
+  for (let k = 0; k < 520; k += 1) {
+    const day = nthWeekday(year, month, week, weekday);
+    if (day !== undefined) {
+      const at = Date.parse(
+        instantOf({ year, month, day, hour: local.hour, minute: local.minute }, zone),
+      );
+      if (at >= to || at > until) break;
+      if (at >= s && at < to && from < at + length) {
+        found.push({
+          starts_at: new Date(at).toISOString(),
+          ends_at: new Date(at + length).toISOString(),
+        });
+      }
+    }
+    month += 1;
+    if (month === 12) {
+      month = 0;
+      year += 1;
+    }
+  }
+  return found;
+}
+
+/**
+ * A window's occurrences touching [start, end), as the server reckons them: once, weekly, or
+ * monthly on the Nth weekday in the tenant's zone (`zone`).
+ */
 export function occurrences(
   window: {
     starts_at: string;
     ends_at: string;
     repeat_weekly: boolean;
     repeat_until: string | null;
+    repeat?: string | null;
+    repeat_week?: number | null;
+    repeat_weekday?: number | null;
   },
   start: string,
   end: string,
+  zone = 'UTC',
 ): { starts_at: string; ends_at: string }[] {
   const s = Date.parse(window.starts_at);
   const e = Date.parse(window.ends_at);
   const from = Date.parse(start);
   const to = Date.parse(end);
-  if (!window.repeat_weekly)
+  if (window.repeat === 'monthly') {
+    const { repeat_week: week, repeat_weekday: weekday } = window;
+    if (week === null || week === undefined || weekday === null || weekday === undefined) {
+      return [];
+    }
+    return monthly(window, week, weekday, from, to, zone);
+  }
+  if (!window.repeat_weekly && window.repeat !== 'weekly')
     return s < to && from < e ? [{ starts_at: window.starts_at, ends_at: window.ends_at }] : [];
   const until = window.repeat_until === null ? Infinity : Date.parse(window.repeat_until);
   const length = e - s;

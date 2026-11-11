@@ -87,9 +87,15 @@ const click = (testId: string) => async (page: Page) => {
   await page.waitForTimeout(400);
 };
 
-// A record tab by its key (Ant Design's node key: the same in every language).
+// A record tab by its key (Ant Design's node key: the same in every language). At 390 the tab
+// list scrolls sideways (AppearanceProvider hides the "more" menu), and a tab scrolled out of
+// sight could take a pointer click meant for its neighbour (run 42977617899): click it in the DOM.
 const tab = (key: string) => async (page: Page) => {
-  await page.locator(`[data-node-key="${key}"]`).first().click({ timeout: STATE_TIMEOUT });
+  const node = page.locator(`[data-node-key="${key}"] [role="tab"]`).first();
+  await node.waitFor({ state: 'attached', timeout: STATE_TIMEOUT });
+  await node.evaluate((el) => {
+    (el as HTMLElement).click();
+  });
   await page.waitForTimeout(400);
 };
 
@@ -520,10 +526,12 @@ function checks(): string[] {
   if (primary > 1) out.push(`primary_buttons:${String(primary)}`);
   for (const bar of document.querySelectorAll('[data-testid$="actions"], [role="toolbar"]')) {
     if (!shown(bar)) continue;
-    const tops = new Set(
-      [...bar.children].filter(shown).map((c) => Math.round(c.getBoundingClientRect().top)),
-    );
-    if (tops.size > 1) out.push(`toolbar_wraps:${name(bar)}`);
+    // Wrapped = an item starts below another's bottom. Comparing tops alone flagged one row of
+    // centred items of different heights (a 32px select beside 24px buttons; lane C polish).
+    const boxes = [...bar.children].filter(shown).map((c) => c.getBoundingClientRect());
+    const lowestTop = Math.max(...boxes.map((b) => b.top));
+    const highestBottom = Math.min(...boxes.map((b) => b.bottom));
+    if (boxes.length > 1 && lowestTop >= highestBottom - 1) out.push(`toolbar_wraps:${name(bar)}`);
   }
   return [...new Set(out)].slice(0, 40);
 }

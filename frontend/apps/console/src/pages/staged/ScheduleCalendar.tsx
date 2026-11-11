@@ -31,6 +31,7 @@ import {
   useChangeWindows,
   useReapprovalPreview,
   useStagedSchedule,
+  useTenantSettings,
   useUpdateStagedSchedule,
   type CalendarEntry,
   type ChangeWindow,
@@ -157,6 +158,8 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
   const linked = kind.useLinked(focus);
   const focusSchedule = useStagedSchedule(kind.type, focus);
   const windows = useChangeWindows(range);
+  // A monthly window falls on the tenant's local weekday (D-156): its zone, as the server's.
+  const tenantZone = useTenantSettings().data?.time_zone ?? 'UTC';
   const updates = {
     [kind.type]: useUpdateStagedSchedule(kind.type),
     [other.type]: useUpdateStagedSchedule(other.type),
@@ -195,7 +198,9 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
   const colourOf = (of: StagedPath) => (of === kind.type ? token.colorPrimary : token.colorWarning);
   const bands: Occurrence[] = (windows.data ?? [])
     .filter((w) => layers.includes(w.kind))
-    .flatMap((w) => occurrences(w, range.start, range.end).map((o) => ({ window: w, ...o })));
+    .flatMap((w) =>
+      occurrences(w, range.start, range.end, tenantZone).map((o) => ({ window: w, ...o })),
+    );
   const today = dayKey(dayOf(new Date().toISOString(), zone));
   const weekdayName = (d: Day) =>
     new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(
