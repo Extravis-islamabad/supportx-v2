@@ -344,7 +344,6 @@ export function AssetNotes({ asset, manage }: { asset: AssetRecord; manage: bool
           />
           <Flex>
             <WriteButton
-              type="primary"
               loading={create.isPending}
               disabled={draft.replace(/<[^>]*>/g, '').trim() === ''}
               whyDisabled={t('assets.notes.empty')}
