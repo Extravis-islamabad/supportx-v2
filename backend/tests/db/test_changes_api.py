@@ -848,3 +848,80 @@ async def test_the_change_list_s_pending_approval_view_holds_changes_at_a_stage_
     )
     assert found.status_code == 200, found.text
     assert {i["id"] for i in found.json()["items"]} == ids
+
+
+async def _approve_pending(world: World, org: Org, item: dict[str, Any]) -> dict[str, Any]:
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", org, org.admin)).json()
+    [entry] = [r for r in rows["items"] if r["state"] == "pending"]
+    decided = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/approvals/{entry['id']}/decision",
+        org,
+        org.admin,
+        json={"decision": "approve"},
+        headers={"If-Match": f'"{entry["version"]}"', **CONSOLE},
+    )
+    assert decided.status_code == 200, decided.text
+    return dict((await world.call("GET", f"{CHG}/{item['id']}", org, org.admin)).json())
+
+
+async def test_qa_flow_4_a_normal_change_end_to_end(world: World) -> None:
+    """The change screens' journey (QA flow 4), as the console drives it, move by move.
+
+    Raise, accept, plan with a backout plan, the CAB, implement with an outcome, review, close.
+    A completing status moves on by itself (ADR-041), so the plan's approval lands in the CAB's
+    raising status and the CAB's in implementation; the e2e follows exactly these steps.
+    """
+    a = world.a
+    item = await a_change(world, a)
+    assert (item["stage"], item["status"]) == ("submission", "submission_submitted")
+    item = (await move(world, a, item, "submission_awaiting_acceptance")).json()
+    item = await _approve_pending(world, a, item)
+    assert (item["stage"], item["status"]) == ("planning", "planning_planning")
+    wrote = await world.call(
+        "PUT",
+        f"{CHG}/{item['id']}/plan/backout",
+        a,
+        a.admin,
+        json={"content": "<p>Restore the saved switch configuration</p>"},
+        headers={"If-Match": '"0"', **CONSOLE},
+    )
+    assert wrote.status_code == 200, wrote.text
+    item = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    item = (await move(world, a, item, "planning_awaiting_approval")).json()
+    item = await _approve_pending(world, a, item)
+    assert (item["stage"], item["status"]) == ("cab_review", "cab_awaiting")
+    item = await _approve_pending(world, a, item)
+    assert (item["stage"], item["status"]) == ("implementation", "implementation_scheduled")
+    item = (await move(world, a, item, "implementation_in_progress")).json()
+    shown = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.admin)).json()
+    row = next(s for s in shown if s["stage"] == "implementation")
+    set_ = await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}/schedule/implementation",
+        a,
+        a.admin,
+        json={"outcome": "successful"},
+        headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+    )
+    assert set_.status_code == 200, set_.text
+    item = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    done = await move(world, a, item, "implementation_implemented")
+    assert done.status_code == 200, done.text
+    item = done.json()
+    assert (item["stage"], item["status"]) == ("review", "review_in_review")
+    panel = (await world.call("GET", f"{CHG}/{item['id']}/stages", a, a.admin)).json()
+    complete = next(m for m in panel["moves"] if m["to_status"] == "review_complete")
+    # The review completes and closes the change in one move: the dialog asks for the code.
+    assert (complete["allowed"], complete["lands_in"]) == (True, "closure_closed")
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    closed = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/moves",
+        a,
+        a.admin,
+        json={"to_status": "review_complete", "closure_code": codes[0]["code"]},
+        headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
+    )
+    assert closed.status_code == 200, closed.text
+    assert (closed.json()["stage"], closed.json()["status"]) == ("closure", "closure_closed")

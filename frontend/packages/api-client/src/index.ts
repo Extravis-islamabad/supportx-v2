@@ -1100,6 +1100,7 @@ export {
 } from './releases';
 export {
   stagedKeys,
+  useDecideStagedApproval,
   useSetStagedRole,
   useStagedApprovals,
   useStagedDowntimes,
@@ -1110,6 +1111,7 @@ export {
   useStagedRoles,
   useStagedSchedule,
   useStagedSettings,
+  useUpdateStagedSchedule,
   useWriteStagedPlan,
   type StagedPath,
 } from './staged';
@@ -1122,11 +1124,23 @@ export {
   useChangeRiskQuestionnaire,
   useChanges,
   useChangeTemplates,
+  useChangeApprovalPreview,
+  useChangeBoards,
+  useChangesSinceApproval,
   useChangeViews,
   useCreateChange,
+  useCreateChangeBoard,
+  useEmergencyOverride,
+  useReapprovalPreview,
+  useRemoveChangeBoard,
+  useUpdateChangeBoard,
   useEditChange,
   useUpdateChangeDetails,
   type Change,
+  type ChangeApprovalPreview,
+  type ChangeBoard,
+  type ChangeBoardInput,
+  type ChangeBoardPatch,
   type ChangeDetails,
   type ChangeDetailsInput,
   type ChangeInput,
@@ -1136,6 +1150,7 @@ export {
   type ChangesQuery,
   type ChangeTemplate,
   type RiskLevel,
+  type StageChanges,
 } from './changes';
 export {
   recordAssetKeys,

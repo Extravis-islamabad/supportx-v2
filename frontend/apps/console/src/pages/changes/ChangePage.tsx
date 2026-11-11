@@ -17,6 +17,7 @@ import {
   RecordHeader,
   RecordPage,
   StageRail,
+  useAccess,
   ToneTag,
   WriteButton,
   reportError,
@@ -28,9 +29,11 @@ import {
 
 import { IncidentHistory } from '../incidents/IncidentHistory';
 import { personName } from '../incidents/labels';
-import { stageName, statusName } from '../releases/labels';
+import { stageName, statusName } from '../staged/labels';
 import { StagedMoveDialog } from '../staged/MoveDialog';
+import { ApprovalPreview, ApprovalsPart } from './ChangeApprovals';
 import { ChangeProperties } from './ChangeProperties';
+import { EmergencyOverrideDialog } from './EmergencyOverride';
 import {
   DetailsPart,
   DowntimePart,
@@ -42,7 +45,24 @@ import {
 import { EMERGENCY_PATH, riskTone } from './labels';
 
 const CANCELED = 'closure_canceled';
-const TABS = ['details', 'risk', 'roles', 'plan', 'schedule', 'downtime', 'history'] as const;
+const TABS = [
+  'details',
+  'risk',
+  'approvals',
+  'roles',
+  'plan',
+  'schedule',
+  'downtime',
+  'history',
+] as const;
+// The statuses that raise a stage's approval (acceptance, the plan, the CAB): their move shows
+// who would approve and who is left out first (REQ-CHG-039).
+const RAISING = new Set([
+  'submission_awaiting_acceptance',
+  'planning_awaiting_approval',
+  'cab_awaiting',
+]);
+const OVERRIDE = 'emergency_override';
 type Tab = (typeof TABS)[number];
 
 /**
@@ -70,6 +90,8 @@ export function ChangePage() {
   const dates = useDateTime();
   const pending = (approvals.data?.items ?? []).filter((a) => a.state === 'pending').length;
   const [moving, setMoving] = useState<StageMove>();
+  const [overriding, setOverriding] = useState(false);
+  const { can } = useAccess();
   useRecordChannel('wi', id === '' ? undefined : id, () => {
     void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
   });
@@ -96,10 +118,12 @@ export function ChangePage() {
   const next = positive.find((m) => m.to_stage !== c.stage) ?? positive[0];
   const overflow = [...positive.filter((m) => m !== next), ...allowed.filter(ending)];
   const unavailable = moves.filter((m) => !m.allowed);
+  // D-144: only a change sent back for approval, and only with the permission (the server checks).
+  const mayOverride = details?.sent_back === true && can('changes.emergency_override');
   const moveLabel = (m: StageMove) =>
     m.to_stage !== c.stage
-      ? t('releases.move.to_stage', { stage: stageName(t, m.to_stage) })
-      : t('releases.move.to', { status: statusName(t, m.to_status) });
+      ? t('staged.move.to_stage', { stage: stageName(t, m.to_stage) })
+      : t('staged.move.to', { status: statusName(t, m.to_status) });
   const actions = (
     <Flex
       gap={8}
@@ -119,11 +143,27 @@ export function ChangePage() {
           {moveLabel(next)}
         </WriteButton>
       )}
-      {(overflow.length > 0 || unavailable.length > 0) && (
+      {(overflow.length > 0 || unavailable.length > 0 || mayOverride) && (
         <Dropdown
           trigger={['click']}
           menu={{
             items: [
+              ...(mayOverride
+                ? [
+                    {
+                      key: OVERRIDE,
+                      danger: true,
+                      label: (
+                        <span data-testid="change-emergency-override">
+                          {t('changes.override.action')}
+                        </span>
+                      ),
+                      onClick: () => {
+                        setOverriding(true);
+                      },
+                    },
+                  ]
+                : []),
               ...overflow.map((m) => ({
                 key: m.to_status,
                 danger: ending(m),
@@ -137,7 +177,7 @@ export function ChangePage() {
                     {
                       type: 'group' as const,
                       key: 'unavailable',
-                      label: t('releases.move.unavailable'),
+                      label: t('staged.move.unavailable'),
                       children: unavailable.map((m) => ({
                         key: m.to_status,
                         disabled: true,
@@ -185,12 +225,12 @@ export function ChangePage() {
             <Space wrap>
               {details?.risk && (
                 <ToneTag tone={riskTone(details.risk)} testId="change-risk-chip">
-                  {t('releases.risk_chip', { risk: t(`risk_level.${details.risk}`) })}
+                  {t('staged.risk_chip', { risk: t(`risk_level.${details.risk}`) })}
                 </ToneTag>
               )}
               {pending > 0 && (
                 <ToneTag tone="warning" testId="change-awaiting-approval">
-                  {t('releases.awaiting_approval', { count: pending })}
+                  {t('staged.awaiting_approval', { count: pending })}
                 </ToneTag>
               )}
               {c.stage_path === EMERGENCY_PATH && (
@@ -216,8 +256,22 @@ export function ChangePage() {
           recordId={c.id}
           version={c.version}
           move={moving}
+          notice={
+            RAISING.has(moving.to_status) ? (
+              <ApprovalPreview id={c.id} stage={moving.to_stage} />
+            ) : undefined
+          }
           onClose={() => {
             setMoving(undefined);
+          }}
+        />
+      )}
+      {overriding && (
+        <EmergencyOverrideDialog
+          id={c.id}
+          version={c.version}
+          onClose={() => {
+            setOverriding(false);
           }}
         />
       )}
@@ -229,18 +283,23 @@ export function ChangePage() {
           setParams(key === 'details' ? {} : { tab: key }, { replace: true });
         }}
         items={[
-          { key: 'details', label: t('releases.tab.details'), children: <DetailsPart id={c.id} /> },
+          { key: 'details', label: t('staged.tab.details'), children: <DetailsPart id={c.id} /> },
           { key: 'risk', label: t('changes.tab.risk'), children: <RiskPart id={c.id} /> },
-          { key: 'roles', label: t('releases.tab.roles'), children: <RolesPart id={c.id} /> },
+          {
+            key: 'approvals',
+            label: t('staged.tab.approvals'),
+            children: <ApprovalsPart id={c.id} />,
+          },
+          { key: 'roles', label: t('staged.tab.roles'), children: <RolesPart id={c.id} /> },
           { key: 'plan', label: t('changes.tab.plans'), children: <PlanPart id={c.id} /> },
           {
             key: 'schedule',
-            label: t('releases.tab.schedule'),
+            label: t('staged.tab.schedule'),
             children: <SchedulePart id={c.id} />,
           },
           {
             key: 'downtime',
-            label: t('releases.tab.downtime'),
+            label: t('staged.tab.downtime'),
             children: <DowntimePart id={c.id} />,
           },
           {

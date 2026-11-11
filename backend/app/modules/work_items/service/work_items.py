@@ -2838,6 +2838,9 @@ class StageOffer:
     reason: str | None
     # What the move still needs (field, problem code), so the dialog asks for exactly these.
     missing: tuple[tuple[str, str], ...] = ()
+    # Where it lands after any automatic advance (a completing status moves on): the dialog
+    # asks for the closure code when that is the closed status, not only on a direct move.
+    lands_in: str | None = None
 
 
 @dataclass(frozen=True)
@@ -2875,7 +2878,9 @@ async def stage_panel(
             refused = STAGE_ACCESS
         missing = tuple(await _move_missing(session, record, planned))
         # Missing values do not disable the move: the dialog asks for them (REQ-REL-018 AC1).
-        moves.append(StageOffer(t, target.stage, refused is None, refused, missing))
+        moves.append(
+            StageOffer(t, target.stage, refused is None, refused, missing, planned.landed.code)
+        )
     return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves)
 
 
