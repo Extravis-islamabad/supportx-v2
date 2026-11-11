@@ -1430,7 +1430,7 @@ it with no reload (rule c). Not built yet.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
 
-### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 done, #233)
+### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-3 of 5 built, #233)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.
 Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (approval chair).
@@ -1486,8 +1486,26 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
     approvers), the egress use, the function port, NotificationCategory.WORKFLOW.
   - Open: run-time error codes (`webhook_*`, `task_canceled`, …) get labels with S4's
     instance view; a task owner that does not exist is refused by a foreign key, not a code.
-- [ ] **S3** — versions and migrating instances, stop and restart, the overview, copy, export and
-  import, and the test mode.
+- [x] **S3** — built on feat/wp-048b-s3 (backup/wp-048b-s3); one PR from main, opened in 0107's
+  migration turn (after 0130). Session log: progress-log/2026-11-11-wp-048b-s3-lane-c.md.
+  - **S3a, stop, restart, retry (REQ-WF-025 AC2, REQ-WF-026):** on a record, in the workflow domain
+    (`domain/operations.py`), audited. Canceling a record stops its workflows (lane A's hook).
+  - **S3b, the overview and bulk jobs (REQ-WF-025):** runs by workflow, state and node, failures
+    with node and error. Bulk retry and cancel are background jobs (`workflow_jobs`, migration
+    0107): a savepoint per run, each result kept, live on the queue channel.
+  - **S3c, versions and migration (REQ-WF-021, -027):** runs stay on their version. A migration
+    maps occupied nodes; unmapped runs stay and are listed; a dry run changes nothing; the record's
+    history shows the version move. Versions show who published and the live runs per node.
+  - **S3d, copy, export, import, delete (REQ-WF-027):** a copy is an independent draft. Export and
+    import within one tenant give the same definition. Import refuses another tenant's file, other
+    shapes, files over 1 MB and template IDs that aren't here. A workflow with live runs is never
+    deleted.
+  - **S3e, test mode (REQ-WF-022):** the same `advance()` on a record's facts or sample values, in
+    `workflow_test_runs` (0107). Commands are shown and answered by hand; timers fire on the run's
+    own clock. Nothing reaches the record, its history or the outbox. One live call per run, for a
+    webhook or notify node on a record: workflows.manage only, audited with who, node and record.
+  - Cross-tenant import is out of scope (coordinator, 2026-11-11). It needs an ID-mapping step
+    (templates, people, groups) later.
 - [ ] **S4** — the React Flow designer.
 - [ ] **S5** — e2e, guides, and the visual matrix.
 - **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the
