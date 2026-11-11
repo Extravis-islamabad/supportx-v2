@@ -24,10 +24,11 @@ from typing import cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import select, text, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
-from app.core.database import Database
+from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import NotifiablePerson, notifiable_people
@@ -58,8 +59,14 @@ from app.modules.notifications.service import mail_summary
 from app.modules.organization import email_branding, site_defaults, users_in_groups
 from app.shared import action_links
 from app.shared.action_links import LinkRequest
-from app.shared.events import Actor, ConsumerSpec, EventEnvelope, Handler, record_event
-from app.shared.ids import new_id
+from app.shared.events import (
+    Actor,
+    ConsumerSpec,
+    EventEnvelope,
+    Handler,
+    ProcessedEvent,
+    record_event,
+)
 from app.shared.labels import label
 from app.shared.mail import (
     Language,
@@ -858,8 +865,8 @@ async def expire_waiting(
     # D-157: one summary for the people who set mail up, per run (never one per e-mail), in
     # this transaction. The summary's own e-mails (if an admin added that channel) never count.
     counted = [r for r in rows if r.event_code != mail_summary.SUMMARY_EVENT]
-    if counted:
-        summary_id = new_id()
+    if counted and await _claim_summary(session, moment):
+        summary_id = _summary_key(session, moment)
         await record_event(
             session,
             MailNotSentSummary(
@@ -870,6 +877,32 @@ async def expire_waiting(
             aggregate_id=summary_id,
         )
     return len(rows)
+
+
+SUMMARY_CLAIM = "notifications__mail_not_sent_summary"  # the processed_events consumer name
+
+
+def _summary_key(session: AsyncSession, moment: datetime) -> uuid.UUID:
+    """One key per tenant and cut-off minute: a retried run of the same minute shares it."""
+    tenant: uuid.UUID = session.info[SESSION_TENANT_KEY].tenant_id
+    cutoff = (moment - timedelta(days=WAITING_DAYS)).astimezone(UTC)
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"supportx:{SUMMARY_CLAIM}:{tenant}:{cutoff:%Y%m%dT%H%M}")
+
+
+async def _claim_summary(session: AsyncSession, moment: datetime) -> bool:
+    """Claim this run's summary once (processed_events, as consumers do); False: sent already.
+
+    Lane A's review: the schedule runs every minute and a run can be retried, so the summary is
+    keyed by tenant and cut-off minute and inserted with ON CONFLICT DO NOTHING in the run's
+    transaction: a retried run never tells the admins twice.
+    """
+    tenant: uuid.UUID = session.info[SESSION_TENANT_KEY].tenant_id
+    result = await session.execute(
+        insert(ProcessedEvent)
+        .values(tenant_id=tenant, consumer=SUMMARY_CLAIM, event_id=_summary_key(session, moment))
+        .on_conflict_do_nothing()
+    )
+    return bool(getattr(result, "rowcount", 0))
 
 
 async def waiting_schedule(database: Database, settings: Settings) -> None:

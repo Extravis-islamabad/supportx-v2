@@ -8,6 +8,7 @@ mail settings; a run that gives none up sends nothing.
 """
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -26,11 +27,11 @@ world = test_incidents_api.world  # the incident world fixture, reused
 SUMMARY = "notifications.mail.not_sent_summary"
 
 
-async def _expire(world: World, org: Org) -> int:
+async def _expire(world: World, org: Org, now: datetime | None = None) -> int:
     database = Database(create_engine(world.db.app_url, application_name="test"))
     try:
         async with database.tenant_session(TenantContext(org.tenant)) as session:
-            return await expire_waiting(session)
+            return await expire_waiting(session, now)
     finally:
         await database.dispose()
 
@@ -102,3 +103,36 @@ async def test_a_run_that_gives_up_nothing_sends_nothing(world: World) -> None:
     await run_engine(world, b, settings=NO_MAIL)
     assert await _summaries(world, b) == []
     assert await _notices(world, b) == []
+
+
+async def test_a_retried_run_tells_the_admins_once(world: World) -> None:
+    """Lane A: the run's summary is claimed once (tenant + cut-off minute, processed_events)."""
+    a = world.a
+    item = await world.create(a, a.admin, subject="Scanner offline")
+    made = await say(world, a, a.admin, item, kind="reply", body="<p>Looking.</p>")
+    assert made.status_code == 201, made.text
+    await run_engine(world, a, settings=NO_MAIL)
+    waiting = [
+        r["id"]
+        for r in await world.sql(
+            "SELECT id FROM notification_deliveries WHERE tenant_id = $1 AND state = 'waiting'",
+            a.tenant,
+        )
+    ]
+    assert waiting
+
+    async def backdate() -> None:
+        await world.sql(
+            "UPDATE notification_deliveries SET state = 'waiting', reason = NULL,"
+            " created_at = now() - interval '8 days' WHERE id = ANY($1::uuid[])",
+            waiting,
+        )
+
+    moment = datetime.now(UTC)
+    await backdate()
+    assert await _expire(world, a, moment) == len(waiting)
+    await backdate()  # the same run again, as a retry would
+    assert await _expire(world, a, moment) == len(waiting)
+    assert len(await _summaries(world, a)) == 1
+    await run_engine(world, a, settings=NO_MAIL)
+    assert [n["user_id"] for n in await _notices(world, a)] == [a.admin]

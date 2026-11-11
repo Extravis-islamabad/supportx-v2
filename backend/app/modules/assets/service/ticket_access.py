@@ -5,7 +5,8 @@ hold:
 
 - the asset is linked to a ticket assigned to it that is still being worked (open, paused, or
   resolved and not closed: work_items' rule, the coordinator 2026-11-10), and
-- the asset is held by that ticket's requester, or by the requester's department.
+- the asset is held by that ticket's requester or the person it was raised on behalf of, or by
+  one of their departments.
 
 Even then only the asset's state (a life cycle move), its location, its notes (open to anyone
 who sees the asset, REQ-AST-050) and its fitted components change; anything else is refused with
@@ -27,8 +28,9 @@ from app.core.errors import PermissionDenied
 from app.modules.assets.infra.models import Asset
 from app.modules.identity_access import Subject, person_placement
 
-# (technician, asset) -> SELECT of the requesters of its tickets still worked that link the asset.
-TicketRequesters = Callable[[uuid.UUID, uuid.UUID], Select[uuid.UUID]]
+# (technician, asset) -> SELECT of (requester, on behalf of) of its tickets still worked that
+# link the asset.
+TicketRequesters = Callable[[uuid.UUID, uuid.UUID], Select[uuid.UUID, uuid.UUID | None]]
 # What the narrower path may change through the asset's own save (PATCH). The state moves
 # through the life cycle, components through the component's holder, notes through notes.
 LIMITED_FIELDS = frozenset({"location"})
@@ -51,8 +53,9 @@ async def ticket_grants(session: AsyncSession, subject: Subject, row: Asset) -> 
     """Whether the D-157 narrower write applies to `row` for `subject`."""
     if not _ports:
         return False
-    found = await session.scalars(_ports[0](subject.user_id, row.id))
-    requesters = {r for r in found if r is not None}
+    found = await session.execute(_ports[0](subject.user_id, row.id))
+    # The requester and the person a ticket was raised on behalf of both count (lane A).
+    requesters = {person for pair in found.tuples() for person in pair if person is not None}
     if not requesters:
         return False
     if row.owner_user_id is not None and row.owner_user_id in requesters:

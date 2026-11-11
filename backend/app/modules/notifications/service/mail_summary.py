@@ -6,6 +6,11 @@ them up (`engine.expire_waiting`, never sent late). Each run that gives any up r
 each person who may set mail up (`integrations.manage_email`, the tenant admins by default),
 with a link to the mail settings: one notice per run, never one per e-mail.
 
+Lane A's review: the run claims its summary once (`engine._claim_summary`, processed_events
+keyed by tenant and cut-off minute), so a retried run never tells anyone twice; the payload is a
+count and the oldest time, no addresses; recipients are active people only (identity's
+`holders`), at most 200; the event is not required (people may switch it off).
+
 In the app only by default: the summary cannot go by e-mail (there is no mail to send it with).
 An admin who adds e-mail to the rule anyway gets a waiting e-mail like any other, and when it
 is given up in turn it is not counted again (`SUMMARY_EVENT`), so a summary never feeds itself.
@@ -37,7 +42,7 @@ RECORD_TYPE = "outgoing_mail"
 SUMMARY_EVENT = "outgoing_mail.not_sent"
 MAIL_ADMINS = "mail_admins"  # the recipient kind (labelled with the mailbox source's)
 SETS_UP_MAIL = "integrations.manage_email"  # who can set mail up (the mail status card's fixers)
-ADMINS_LIMIT = 200
+ADMINS_LIMIT = 200  # active holders only (holders() skips inactive and service identities)
 LINK = "/admin/mail"
 
 _VARIABLES = (
@@ -60,6 +65,7 @@ class MailSummaryNotifications:
             EventDefault(
                 enabled=True, recipients=(MAIL_ADMINS,), channels=(NotificationChannel.IN_APP,)
             ),
+            required=False,  # people may switch it off (lane A)
         ),
     )
     recipient_kinds: ClassVar[tuple[str, ...]] = (MAIL_ADMINS,)
