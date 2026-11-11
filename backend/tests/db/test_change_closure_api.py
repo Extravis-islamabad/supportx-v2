@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
-from tests.db.test_changes_api import CHG, _approve_pending, a_change, move
+from tests.db.test_changes_api import CHG, _approve_pending, a_change, move, new_change
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 
 pytestmark = MODULE_LOOP
@@ -419,3 +419,57 @@ async def test_req_chg_101_bulk_close_closes_what_may_close_and_says_why_the_res
     assert outcomes[early["id"]] == ("skipped", "not_closable_from_here"), outcomes
     assert (await fresh(world, a, held))["stage"] == "review"
     assert (await fresh(world, a, early))["stage"] == "submission"
+
+
+async def _listed(world: World, org: Org, view: str) -> set[str]:
+    page = await world.call("GET", CHG, org, org.admin, params={"view": view})
+    assert page.status_code == 200, page.text
+    return {i["id"] for i in page.json()["items"]}
+
+
+async def test_req_chg_098_the_change_list_has_its_own_views(world: World) -> None:
+    """In implementation now, emergency changes and due for review list exactly theirs; the CAB's
+    own view is offered too, and those with no filter equivalent say so for export.
+    """
+    a = world.a
+    planned = await a_change(world, a)
+    standard = await new_change(world, a, a.admin, change_type="standard")
+    assert standard.status_code == 201, standard.text
+    moved = await move(world, a, standard.json(), "implementation_in_progress")
+    assert moved.status_code == 200, moved.text
+    implementing = moved.json()
+    made = await new_change(world, a, a.admin, change_type="emergency")
+    assert made.status_code == 201, made.text
+    emergency = made.json()
+    reviewing = await _in_review(world, a)
+    later = await _in_review(world, a)
+    for item, days in ((reviewing, -1), (later, 7)):
+        current = (await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)).json()
+        due = (datetime.now(UTC) + timedelta(days=days)).replace(microsecond=0)
+        saved = await world.call(
+            "PATCH",
+            f"{CHG}/{item['id']}/details",
+            a,
+            a.admin,
+            json={"review_due_at": due.isoformat()},
+            headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+        )
+        assert saved.status_code == 200, saved.text
+    views = [v["view"] for v in (await world.call("GET", f"{CHG}/views", a, a.admin)).json()]
+    for code in ("awaiting_cab", "in_implementation", "emergency", "due_for_review"):
+        assert code in views, views
+    now_implementing = await _listed(world, a, "in_implementation")
+    assert implementing["id"] in now_implementing
+    assert planned["id"] not in now_implementing
+    emergencies = await _listed(world, a, "emergency")
+    assert emergency["id"] in emergencies
+    assert planned["id"] not in emergencies
+    due_now = await _listed(world, a, "due_for_review")
+    assert reviewing["id"] in due_now
+    assert later["id"] not in due_now
+    assert planned["id"] not in await _listed(world, a, "awaiting_cab")
+    filters = {
+        f["view"]: f for f in (await world.call("GET", f"{CHG}/view-filters", a, a.admin)).json()
+    }
+    assert filters["awaiting_cab"]["expressible"] is True
+    assert filters["in_implementation"]["expressible"] is False

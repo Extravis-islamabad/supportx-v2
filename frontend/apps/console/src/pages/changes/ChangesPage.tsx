@@ -48,13 +48,18 @@ const OWN_WIDTHS = {
   updated: 170,
 };
 // The engine's built-in views a change list offers (labels `work_item_view.*`); "all" sends none.
-// Pending approval: changes waiting at a stage's approval (acceptance, the plan, the CAB).
+// Pending approval: changes waiting at a stage's approval (acceptance, the plan, the CAB);
+// then the CAB's own view, in implementation now, emergency and due for review (REQ-CHG-098).
 const VIEWS = [
   'open',
   'my_open',
   'my_groups_open',
   'unassigned',
   'pending_approval',
+  'awaiting_cab',
+  'in_implementation',
+  'emergency',
+  'due_for_review',
   'overdue',
   'closed',
   'canceled',
