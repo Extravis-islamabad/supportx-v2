@@ -148,7 +148,7 @@ export const en = {
   'errors.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.change_window_blocked':
-    'A freeze blocks this time. Choose another time, or someone allowed to may let the change go ahead with a reason.',
+    'A freeze blocks this time. Choose another time, or someone allowed to may let it go ahead with a reason.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
