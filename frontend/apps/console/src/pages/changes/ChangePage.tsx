@@ -37,6 +37,7 @@ import { IncidentFiles } from '../incidents/IncidentFiles';
 import { IncidentHistory } from '../incidents/IncidentHistory';
 import { IncidentTasks } from '../incidents/IncidentParts';
 import { personName } from '../incidents/labels';
+import { SlaTag } from '../incidents/tags';
 import { stageName, statusName } from '../staged/labels';
 import { StagedMoveDialog } from '../staged/MoveDialog';
 import { ApprovalPreview, ApprovalsPart } from './ChangeApprovals';
@@ -316,6 +317,16 @@ export function ChangePage() {
                 <ToneTag tone="warning" testId="change-awaiting-approval">
                   {t('staged.awaiting_approval', { count: pending })}
                 </ToneTag>
+              )}
+              {/* REQ-CHG-107: its SLA's due time, once a policy gives it one. */}
+              {c.resolution_due_at !== null && (
+                <SlaTag
+                  policyId={c.sla_policy_id}
+                  dueAt={c.resolution_due_at}
+                  state={c.resolution_sla_state}
+                  resolvedAt={c.resolved_at}
+                  format={dates.format}
+                />
               )}
               {c.stage_path === EMERGENCY_PATH && (
                 <ToneTag tone="error" icon={<ThunderboltOutlined />} testId="change-emergency">

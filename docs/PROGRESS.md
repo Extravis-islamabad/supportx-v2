@@ -1172,9 +1172,27 @@ it with no reload (rule c). Not built yet.
     - All four come with lane A's next migration WP (WP-045d S3/S4 or WP-046a), with DB tests;
       no migration slot is taken for the check alone (coordinator, 2026-11-11).
     - Until then the change list doesn't offer them at all.
-- **S3:** a change notification source with the Appendix A defaults, schedule reminders, the
-  workflow run on the record (lane C's Workflows tab, #379), and rules, triggers and SLAs on
-  changes (REQ-CHG-103..107). No e-mail reply threading unless Haider says yes.
+- **S3:** change notifications and reminders (REQ-CHG-103..107). No e-mail reply threading
+  unless Haider says yes.
+  - REQ-CHG-104: the ChangeNotifications source with the Appendix A defaults. It replaces the
+    change reply-only source and delegates replies to it (#359).
+  - REQ-CHG-103: a per-status rule ("entered a status", off by default) with a status picker on
+    the rules screen. Holders are resolved when it is sent.
+  - Access (lane B): an approver without `changes.view` is told through their live approval
+    (the public side and their own link); a decided approval gives nothing. Requesters see only
+    their own view.
+  - REQ-CHG-105, -091: a reminder sweep. Each kind is claimed once in `processed_events`, a
+    moved window reminds again, an old claim is never sent late, and cancelled changes are
+    never reminded.
+  - REQ-CHG-106: lane C's Workflows tab (#379).
+  - REQ-CHG-107: business rules on changes work (tested). Changes are an SLA type with no
+    default targets, since Appendix A sets none (nothing seeded). Escalations, the trash rule
+    and the safety net work as for the other types. The change header shows its due time, and
+    the SLA policies tab offers every SLA type (incidents, requests, problems, changes).
+  - **Open:**
+    - the "health check regression" default waits for health checks (REQ-CHG-086, MonetX);
+    - the testing owner is not a change role yet, so it is not a recipient;
+    - the portal has no change page, so public notices link to the portal home (S4).
 - **S4:** the portal (raise, follow, approve), the mobile API audit, report dimensions and
   personal counters (REQ-CHG-109, 110, 116, 117). Lane B blocks the portal access.
 

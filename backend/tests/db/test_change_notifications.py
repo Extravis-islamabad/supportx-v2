@@ -285,3 +285,20 @@ async def test_req_chg_103_a_status_rule_reaches_its_people_but_never_one_who_ca
     reached = {d["user_id"] for d in told if d["state"] != "skipped" and d["reason"] is None}
     assert a.tech_b in reached
     assert a.requester2 not in reached
+
+
+async def test_req_chg_107_a_business_rule_on_changes_sets_the_group_and_names_itself(
+    world: World,
+) -> None:
+    """AC1: a rule on changes that sets the group runs on creation, recorded with its name."""
+    from tests.db.test_automation_api import add_rule, set_  # noqa: PLC0415 - shared helpers
+
+    a = world.a
+    await add_rule(
+        world, a, record_type="change", name="Changes to GA", actions=[set_("group_id", str(a.ga))]
+    )
+    item = await a_change(world, a)
+    assert item["group_id"] == str(a.ga)
+    history = (await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)).json()["items"]
+    ruled = [h for h in history if h.get("source") == "rule"]
+    assert [h["automation"]["rule"] for h in ruled] == ["Changes to GA"]
