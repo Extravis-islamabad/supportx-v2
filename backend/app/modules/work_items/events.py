@@ -373,6 +373,33 @@ class WorkItemPartChangedV2(DomainEvent):
 ApprovalChange = Literal["opened", "decided", "closed"]
 
 
+class WorkItemPartChangedV3(DomainEvent):
+    """As V2, with a record's checklists and personal reminders (WP-046a S2; REQ-INC-077, -082).
+
+    New allowed values retype `part`, so a new schema version (docs/architecture/events.md
+    "Versioning"); v1 and v2 stay registered and keep publishing their parts. A reminder is its
+    owner's only: realtime tells their personal channel, never the record's.
+    """
+
+    event_type: ClassVar[str] = "work_items.part.changed"
+    schema_version: ClassVar[int] = 3
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    part: Literal[
+        "task",
+        "worklog",
+        "link",
+        "plan_section",
+        "stage_schedule",
+        "downtime",
+        "checklist",
+        "reminder",
+    ]
+    part_id: uuid.UUID
+    change: Literal["added", "changed", "removed"]
+
+
 class WorkItemApprovalChanged(DomainEvent):
     """An approval was opened, decided, closed or withdrawn (WP-030 s2, REQ-SR-024).
 
@@ -527,6 +554,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemBulkJobProgressed,
     WorkItemPartChanged,
     WorkItemPartChangedV2,
+    WorkItemPartChangedV3,
     WorkItemApprovalChanged,
     ChangeBoardChanged,
     ChangeWindowChanged,

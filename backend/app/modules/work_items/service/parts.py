@@ -153,6 +153,16 @@ async def _for_work(
     return record
 
 
+async def for_work(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> WorkItem:
+    """The record, if the subject may work on its parts (tasks, checklists).
+
+    `edit`, or an investigator of it; a closed change is locked (REQ-CHG-097).
+    """
+    return await _for_work(session, subject, wtype, record_id)
+
+
 def _own_time_only(wtype: WorkItemType, subject: Subject, owner_id: uuid.UUID | None) -> None:
     """An investigator logs, changes and removes only their own time (lane B, ADR-040).
 
