@@ -438,6 +438,14 @@ function Items({ audit, discrepancies }: { audit: AssetAudit; discrepancies: boo
                   <ToneTag tone={RESULT_TONES[item.result]} testId={`audit-result-${item.id}`}>
                     {t(`asset_audit_result.${item.result}`)}
                   </ToneTag>
+                  {/* Missing because the holder disputed it, in their words (self-audits). */}
+                  {item.dispute_comment !== null && (
+                    <Typography.Text type="secondary" data-testid={`audit-dispute-${item.id}`}>
+                      <bdi dir="auto">
+                        {t('assets.audits.disputed', { comment: item.dispute_comment })}
+                      </bdi>
+                    </Typography.Text>
+                  )}
                   {item.seen_site_id !== null && item.seen_site_id !== item.expected_site_id && (
                     <Typography.Text type="secondary">
                       {t('assets.audits.seen_there', { site: siteName(item.seen_site_id) })}

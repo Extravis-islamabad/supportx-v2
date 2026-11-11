@@ -7,7 +7,8 @@ REQ-AST-039, 042, 043, 054, 056. Expand only, no data step:
 - `asset_audits` (REQ-AST-042): name, technician or self audit, scope (sites, product types,
   asset groups), planned dates, draft -> running -> closed. `asset_audit_auditors`: the named
   auditors. `asset_audit_items` (043): the expected assets, frozen when the audit starts, and the
-  unexpected ones found, each with its result, who marked it, how and where it was seen.
+  unexpected ones found, each with its result, who marked it, how and where it was seen, and
+  a self-audit holder's comment when they disputed it.
 - `asset_acknowledgements.audit_id`: a self-audit asks each holder again through the
   acknowledgement they already answer (WP-049a); one per holding outside audits, one per holding
   and audit inside them.
@@ -298,6 +299,8 @@ def _audits() -> None:
         sa.Column("method", sa.String(10), nullable=True),
         sa.Column("seen_site_id", sa.Uuid(), nullable=True),
         sa.Column("note", sa.String(500), nullable=True),
+        # A self-audit's holder who disputed the asset said why (as on the acknowledgement).
+        sa.Column("dispute_comment", sa.Text(), nullable=True),
         sa.Column("fix", sa.String(14), nullable=True),
         sa.Column("fixed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("fixed_by", sa.Uuid(), nullable=True),
@@ -319,6 +322,10 @@ def _audits() -> None:
         sa.CheckConstraint(
             "note IS NULL OR length(note) BETWEEN 1 AND 500",
             name=op.f("ck_asset_audit_items_note"),
+        ),
+        sa.CheckConstraint(
+            "dispute_comment IS NULL OR length(dispute_comment) BETWEEN 1 AND 2000",
+            name=op.f("ck_asset_audit_items_dispute_comment"),
         ),
         _tenant_fk("asset_audit_items"),
         _audit_fk("asset_audit_items"),

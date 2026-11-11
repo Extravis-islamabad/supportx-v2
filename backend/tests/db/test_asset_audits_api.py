@@ -349,6 +349,19 @@ async def test_042_ac2_a_self_audit_asks_each_holder_to_confirm_only_their_own(
     assert disputed.status_code == 200, disputed.text
     results = {i["name"]: i["result"] for i in await _items(world, a, audit)}
     assert results == {"Requester laptop": "found", "Other laptop": "missing"}
+    # Missing because disputed, with the holder's words: told apart from "not found".
+    (gap,) = await _items(world, a, audit, discrepancies="true")
+    assert (gap["name"], gap["result"], gap["dispute_comment"]) == (
+        "Other laptop",
+        "missing",
+        "Not mine",
+    )
+    assert (
+        next(i for i in await _items(world, a, audit) if i["name"] == "Requester laptop")[
+            "dispute_comment"
+        ]
+        is None
+    )
     # Every audit asks again, through a new question for the same holding.
     again = await _start(
         world, a, await _plan(world, a, name="Self Q1", kind="self", site_ids=[str(a.s1)])

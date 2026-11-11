@@ -314,6 +314,9 @@ class AuditItemOut(BaseModel):
     marked_at: datetime | None
     seen_site_id: uuid.UUID | None
     note: str | None
+    dispute_comment: str | None = Field(
+        description="A self-audit holder disputed it (missing because disputed), and why."
+    )
     fix: AuditFix | None
     fixed_at: datetime | None
     discrepancy: bool
@@ -341,6 +344,7 @@ async def _items_out(session: TenantSession, views: list[service.ItemView]) -> l
             marked_at=v.item.marked_at,
             seen_site_id=v.item.seen_site_id,
             note=v.item.note,
+            dispute_comment=v.item.dispute_comment,
             fix=None if v.item.fix is None else AuditFix(v.item.fix),
             fixed_at=v.item.fixed_at,
             discrepancy=v.discrepancy,

@@ -1099,6 +1099,7 @@ class AssetAuditItem(TenantEntity):
     method: Mapped[str | None] = mapped_column(String(10))  # scanned | manual
     seen_site_id: Mapped[uuid.UUID | None]
     note: Mapped[str | None] = mapped_column(String(500))
+    dispute_comment: Mapped[str | None] = mapped_column(Text)  # a self-audit holder's "why"
     fix: Mapped[str | None] = mapped_column(String(14))  # the last fix applied from the audit
     fixed_at: Mapped[datetime | None]
     fixed_by: Mapped[uuid.UUID | None]

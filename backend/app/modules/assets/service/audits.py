@@ -12,8 +12,8 @@
   An asset scanned that is not expected is added as unexpected (the auditor must see it).
 - **Self-audit (042 AC2):** starting asks each holder of an asset in scope to confirm it,
   through the acknowledgement they already answer in the portal ("My assets"), asked again at
-  every audit. Accepting marks the item found, disputing marks it missing (the comment says
-  why). A holder sees only their own assets.
+  every audit. Accepting marks the item found, disputing marks it missing and keeps the
+  person's comment on the item (the discrepancy list shows it). A holder sees only their own assets.
 - **Fixes (043 AC2):** move site, change state or assign, for many items at once. Each goes
   through the normal asset service (permissions, life cycle, history, events), in its own
   savepoint, and its history names the audit (`automation_ref` kind `asset_audit`).
@@ -853,6 +853,11 @@ async def self_answered(session: AsyncSession, ack: AssetAcknowledgement) -> Non
     changes = _apply_mark(
         item, result, by=ack.user_id, method=AuditMarkMethod.MANUAL, seen_site=None, note=None
     )
+    # Missing because the holder disputed it, with their words: told apart from "not found".
+    comment = ack.comment if ack.status == "disputed" else None
+    if item.dispute_comment != comment:
+        changes.append(Change("dispute_comment", item.dispute_comment, comment))
+        item.dispute_comment = comment
     if changes:
         await _item_saved(session, ack.user_id, item, changes, action="marked", source="portal")
 
