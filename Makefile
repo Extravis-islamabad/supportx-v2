@@ -393,6 +393,9 @@ cluster-ha-smoke: ## HA smoke: the Valkey master dies, a signed-in session survi
 cluster-ha-egress: ## Egress allow-list on the HA cluster: the namespace reachable, the outside blocked (WP-014b)
 	@bash deploy/k3d/egress-check.sh
 
+cluster-ha-valkey-node-loss: ## Valkey node-loss test: stop the node with the Valkey master after a failover; Sentinel promotes, the session keeps writing (WP-014b)
+	@bash deploy/k3d/valkey-node-loss.sh
+
 cluster-ha-node-loss: ## Node-loss test: stop the agent with PostgreSQL's primary; the session keeps writing (WP-014b)
 	@bash deploy/k3d/node-loss.sh
 
