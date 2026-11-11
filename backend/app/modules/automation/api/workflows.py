@@ -21,7 +21,13 @@ from app.core.database import TenantSession
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.interpreter import InstanceStatus
-from app.modules.automation.domain.workflows import Problem, WaitEvent
+from app.modules.automation.domain.workflows import (
+    Category,
+    NodeType,
+    Problem,
+    WaitEvent,
+    ports_of,
+)
 from app.modules.automation.infra.models import (
     Workflow,
     WorkflowInstance,
@@ -168,6 +174,73 @@ def _out(workflow: Workflow, problems: list[Problem] | None = None) -> WorkflowO
 
 def _instance(row: WorkflowInstance) -> InstanceOut:
     return InstanceOut.model_validate(row, from_attributes=True)
+
+
+class NodeTypeOut(BaseModel):
+    """One palette entry (REQ-WF-009 AC3): shown in its group by name, never only an icon."""
+
+    type: NodeType
+    category: Category = Field(description="The palette group (REQ-WF-028).")
+    available: bool = Field(description="False: offered for the type, not usable now.")
+    why_not: str | None = Field(description="Why not, as a problem code with its label.")
+    outputs: list[str] = Field(description="Its outputs with an empty config.")
+    optional: list[str] = Field(description="Outputs it may leave unlinked.")
+
+
+@router.get("/node-types", summary="The designer's palette for a record type")
+async def node_types(
+    session: TenantSession,
+    subject: Manage,
+    record_type: Annotated[str, Query(min_length=1, max_length=20)],
+) -> list[NodeTypeOut]:
+    """Every node type the record type offers, with whether it can be used now (WP-048b S4)."""
+    del subject
+    return [
+        NodeTypeOut(
+            type=o.type,
+            category=o.category,
+            available=o.available,
+            why_not=o.why_not,
+            outputs=list(o.outputs),
+            optional=sorted(o.optional),
+        )
+        for o in await workflow_admin.node_types(session, record_type)
+    ]
+
+
+NODE_PORTS_MAX = 200  # a workflow's node limit (Appendix A)
+
+
+class NodeConfigIn(BaseModel):
+    """A node as the designer holds it: its type and config, not yet saved."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: str = Field(min_length=1, max_length=30)
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class NodePortsIn(BaseModel):
+    """The nodes whose outputs the canvas needs, in order."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nodes: list[NodeConfigIn] = Field(max_length=NODE_PORTS_MAX)
+
+
+class NodePortsOut(BaseModel):
+    """One node's outputs, as validation sees them (a switch's cases, a wait's timeout)."""
+
+    outputs: list[str]
+    optional: list[str]
+
+
+@router.post("/node-ports", summary="The outputs of nodes being designed")
+async def node_ports(body: NodePortsIn, subject: Manage) -> list[NodePortsOut]:
+    """Changes nothing: the same registry as validation, so the canvas offers what saves."""
+    del subject
+    found = [ports_of(n.type, n.config) for n in body.nodes]
+    return [NodePortsOut(outputs=list(o), optional=sorted(opt)) for o, opt in found]
 
 
 @router.get("", summary="Workflows of a record type")

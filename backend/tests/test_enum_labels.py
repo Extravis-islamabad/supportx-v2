@@ -24,6 +24,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "JobOut.status": "workflow_job_status",
     "WaitEvent": "workflow_wait_event",  # S3e: the change a test run hears
     "TestRunOut.status": "workflow_instance_status",  # S3e: a test run's states are a run's
+    "NodeType": "workflow_node_type",  # S4: the designer's palette
+    "NodeCategory": "workflow_node_category",
     "AiSettingsOut.summary_sources[]": "ai_summary_source",
     "DuplicateOut.reasons[]": "duplicate_reason",
     "DuplicatesOut.method": "duplicate_method",
