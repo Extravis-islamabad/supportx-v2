@@ -131,7 +131,7 @@ describe('console: workflow node forms', () => {
     window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
     const fake = api();
     render(<App />);
-    const details = await open('check', 'If (check)');
+    const details = await open('check', 'If');
     fireEvent.click(within(details).getByTestId('condition-add'));
     await choose(details, 'condition-0-field', 'Priority');
     await choose(details, 'condition-0-op', 'is empty');
@@ -142,7 +142,7 @@ describe('console: workflow node forms', () => {
     window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
     const fake = api();
     render(<App />);
-    const details = await open('route', 'Switch (route)');
+    const details = await open('route', 'Switch');
     fireEvent.click(within(details).getByTestId('switch-add-case'));
     fireEvent.change(within(details).getByTestId('switch-case-0-port'), {
       target: { value: 'urgent' },
@@ -154,7 +154,7 @@ describe('console: workflow node forms', () => {
     window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
     const fake = api();
     render(<App />);
-    const details = await open('tell', 'Send a notification (tell)');
+    const details = await open('tell', 'Send a notification');
     fireEvent.click(within(details).getByLabelText('Requester'));
     await choose(details, 'notify-groups', 'Network');
     fireEvent.change(within(within(details).getByTestId('notify-subject')).getByRole('textbox'), {
@@ -170,7 +170,7 @@ describe('console: workflow node forms', () => {
     window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
     const fake = api();
     render(<App />);
-    const details = await open('pause', 'Timer (pause)');
+    const details = await open('pause', 'Timer');
     const amount = within(details).getByTestId('timer-seconds');
     expect((amount as HTMLInputElement).value).toBe('1'); // 3600 s shows as 1 hour
     fireEvent.change(amount, { target: { value: '4' } });
@@ -181,7 +181,7 @@ describe('console: workflow node forms', () => {
     window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
     const fake = api();
     render(<App />);
-    const details = await open('hold', 'Wait for a change (hold)');
+    const details = await open('hold', 'Wait for a change');
     await choose(details, 'wait-events', 'The requester replied');
     fireEvent.click(within(details).getByTestId('wait-has-limit'));
     expect(await saved(fake, 'hold')).toEqual({
@@ -194,7 +194,7 @@ describe('console: workflow node forms', () => {
     window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
     const fake = api();
     render(<App />);
-    const details = await open('move', 'Set status (move)');
+    const details = await open('move', 'Set status');
     await choose(details, 'status-action', 'Resolve');
     expect(await saved(fake, 'move')).toEqual({ action: 'resolve' });
   });
@@ -206,7 +206,7 @@ describe('console: workflow node forms', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Outline' }));
     const outline = await screen.findByTestId('designer-outline');
     fireEvent.click(
-      within(within(outline).getByTestId('outline-end')).getByRole('button', { name: 'End (end)' }),
+      within(within(outline).getByTestId('outline-end')).getByRole('button', { name: 'End' }),
     );
     const details = await screen.findByTestId('designer-node-details');
     expect(within(details).queryByTestId('designer-node-config')).toBeNull(); // the end has none

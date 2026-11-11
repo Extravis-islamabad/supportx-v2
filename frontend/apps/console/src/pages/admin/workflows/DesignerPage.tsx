@@ -514,9 +514,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
     {
       key: 'test',
       label: t('workflows.test.tab'),
-      children: (
-        <TestPanel workflow={workflow} dirty={dirty} typeOf={typeOf} onHighlight={setHighlight} />
-      ),
+      children: <TestPanel workflow={workflow} dirty={dirty} onHighlight={setHighlight} />,
     },
     {
       key: 'versions',

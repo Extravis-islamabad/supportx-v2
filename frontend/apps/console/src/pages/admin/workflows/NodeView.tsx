@@ -7,7 +7,7 @@ import { useAppearance, useLabel } from '@supportx/ui';
 import { CATEGORY_OF, portName } from './nodes';
 
 /**
- * One node on the canvas (REQ-WF-028): its name in words, its id, and its handles always
+ * One node on the canvas (REQ-WF-028): its name in words (never its id), and its handles always
  * visible. Each output is its own labelled handle at the bottom, so a link always says which
  * way it leaves ("Approved", "Timed out"); the input sits at the top. A node with a problem
  * has a red border and says so in words for screen readers.
@@ -59,9 +59,14 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
             {t(`workflow_node_category.${category}`)}
           </Typography.Text>
         )}
-        <Typography.Text strong>{t(`workflow_node_type.${data.nodeType}`)}</Typography.Text>
-        <Typography.Text type="secondary" style={{ fontSize: 12 }} dir="ltr">
-          {id}
+        {/* Its name in words, numbered when its type repeats; never its internal id (QA F-07). */}
+        <Typography.Text strong>
+          {data.n === undefined
+            ? t(`workflow_node_type.${data.nodeType}`)
+            : t('workflows.step_numbered', {
+                type: t(`workflow_node_type.${data.nodeType}`),
+                n: data.n,
+              })}
         </Typography.Text>
         {flagged && (
           <Typography.Text type="danger" style={{ fontSize: 12 }}>

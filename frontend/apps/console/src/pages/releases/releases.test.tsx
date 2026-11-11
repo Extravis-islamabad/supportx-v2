@@ -672,7 +672,7 @@ describe('console: releases', () => {
       render(<App />);
       fireEvent.click(await screen.findByRole('tab', { name: 'Workflows' }));
       const failure = await screen.findByTestId(`record-workflow-failure-${INSTANCE}`);
-      expect(failure.textContent).toContain('Stopped at the step call');
+      expect(failure.textContent).toContain('Stopped at the step Webhook');
       expect(failure.textContent).toContain('The other side took too long to answer.');
       expect(failure.textContent).not.toContain('webhook_timeout'); // never a raw code
       const log = screen.getByTestId(`record-workflow-log-${INSTANCE}`);
@@ -706,7 +706,7 @@ describe('console: releases', () => {
       fireEvent.click(await screen.findByRole('tab', { name: 'Workflows' }));
       fireEvent.click(await screen.findByTestId(`record-workflow-skip-${INSTANCE}`));
       const dialog = await screen.findByRole('dialog');
-      expect(dialog.textContent).toContain('Skip the step call?');
+      expect(dialog.textContent).toContain('Skip the step Webhook?');
       expect(dialog.textContent).toContain('recorded with your name');
       fireEvent.click(within(dialog).getByRole('button', { name: 'Skip this step' }));
       await waitFor(() => {

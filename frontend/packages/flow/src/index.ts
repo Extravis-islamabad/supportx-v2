@@ -19,6 +19,7 @@ export {
   type WorkflowNodeData,
 } from './graph';
 export { COLUMN, ROW, layout, withLayout } from './layout';
+export { stepNames, type StepName } from './names';
 export {
   HISTORY_LIMIT,
   canRedo,
