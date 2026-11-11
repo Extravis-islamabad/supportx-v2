@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeCustomField, fakeIncident, fakeSession } from '@supportx/api-client/testing';
+import { fakeCustomField, fakeIncident, fakeSession, problem } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
@@ -502,6 +502,95 @@ describe('console: releases', () => {
     expect(screen.getByTestId<HTMLButtonElement>('downtime-add').disabled).toBe(true);
     fireEvent.mouseOver(within(tab).getByTestId('disabled-why'));
     expect(await screen.findByText('Choose when it starts and when it ends.')).toBeDefined();
+  });
+
+  describe('the Changes tab (WP-058b S1; REQ-REL-033)', () => {
+    const CHG = '01a1a2b3-0000-7000-8000-00000058b101';
+    const OTHER = '01a1a2b3-0000-7000-8000-00000058b102';
+    const inRelease = [
+      {
+        id: CHG,
+        visible: true,
+        display_id: 'CHG-5',
+        subject: 'Database upgrade',
+        stage: 'implementation',
+        status: 'implementation_scheduled',
+        status_category: 'open',
+      },
+      {
+        id: '01a1a2b3-0000-7000-8000-00000058b103',
+        visible: false,
+        display_id: null,
+        subject: null,
+        stage: null,
+        status: null,
+        status_category: null,
+      },
+    ];
+    const found = {
+      items: [
+        {
+          ...fakeIncident({ id: OTHER, display_id: 'CHG-9', subject: 'Firewall rules' }),
+          type: 'change',
+        },
+      ],
+      next_cursor: null,
+      has_more: false,
+      people: {},
+    };
+
+    it('lists its changes, a hidden one by its existence only; refuses one in another release', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api({
+        [`GET /api/v1/releases/${REL_ID}/changes`]: { body: inRelease },
+        'GET /api/v1/changes': { body: found },
+        [`POST /api/v1/releases/${REL_ID}/changes`]: {
+          status: 422,
+          body: problem(422, 'validation_failed', {
+            errors: [
+              {
+                field: 'change_id',
+                code: 'change_in_other_release',
+                message_key: 'errors.field.change_in_other_release',
+                params: { release: 'REL-3' },
+              },
+            ],
+          }),
+        },
+      });
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Changes' }));
+      const tab = await screen.findByTestId('release-changes');
+      expect(await within(tab).findByText('Database upgrade')).toBeDefined();
+      expect(within(tab).getByText("A change you can't see")).toBeDefined();
+      const box = screen
+        .getByTestId('release-change-add')
+        .closest('.ant-select')
+        ?.querySelector('.ant-select-selector');
+      if (box === null || box === undefined) throw new Error('no select');
+      fireEvent.mouseDown(box);
+      fireEvent.click(await screen.findByTitle('CHG-9 Firewall rules'));
+      await waitFor(() => {
+        expect(fake.find('POST', `/api/v1/releases/${REL_ID}/changes`)).toHaveLength(1);
+      });
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/changes`)[0]?.body).toEqual({
+        change_id: OTHER,
+      });
+      expect(
+        await within(tab).findByText('This change is already in the open release REL-3.'),
+      ).toBeDefined();
+    });
+
+    it('without releases.edit: no add and no take out', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      api({ [`GET /api/v1/releases/${REL_ID}/changes`]: { body: inRelease } }, ['releases.view']);
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Changes' }));
+      const tab = await screen.findByTestId('release-changes');
+      await within(tab).findByText('Database upgrade');
+      expect(screen.queryByTestId('release-change-add')).toBeNull();
+      expect(screen.queryByTestId(`release-change-remove-${CHG}`)).toBeNull();
+    });
   });
 
   it('QA6-REL-04: the tab and the top bar say which release this is', async () => {
