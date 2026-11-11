@@ -1916,8 +1916,28 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     release on its own page (S3, with the page tabs). REQ-REL-033's copy-downtime-on-add and
     "a change behind its schedule" marker, and REQ-REL-038's service/site/type/group filters
     and stage colours, go to S5 with the lists.
-- [ ] S2: the guard by planned stage, conflict acks, release freeze override (after lane A's
-  WP-045d S2, 0137). S3: stage on tasks and worklogs, page tabs. S4: closure and rollback.
+- [x] Session 2 (2026-11-11): the schedule guard for releases, conflicts, acks, the freeze
+  override. Migration 0139. ADR-042 addendum A (lane A's OK; their blocking review in the PR).
+  - **Guard (REQ-REL-040):** one guard by planned stage (`domain/change_windows.PLANNED_STAGE`). A
+    release's deployment window and planned downtimes are refused in a blocking freeze on every
+    path, an emergency release too. Its own override (`releases.override_freeze`: the release
+    manager and admins; a reason, SECURITY audit, history; window IDs only; a closed release
+    refuses) is the only pass. Outside maintenance always warns for a release.
+  - **Conflicts (REQ-REL-041):** changes and releases meet across types on group, site or
+    downtime service/CI IDs, named by ID and type only; `role_booked` for a release manager or
+    engineer on two overlapping deployments. `GET /releases/{id}/conflicts`; acks
+    (`POST …/conflicts/acks`, If-Match, audited) keyed on both sides' versions, so they lapse when
+    either moves. The calendar's chips carry a conflict count (one batch per range).
+  - **Screens:** the release's Schedule tab lists them live, with Acknowledge and the override;
+    a release move refused on the calendar offers the override in place. Lane A's
+    ConflictsPanel names a release as a release (their ask).
+  - **Tests:** test_release_conflicts_api (6), test_release_freeze_override_api (4),
+    test_release_override_acks_migration, the role-matrix pin; Vitest releases.test.tsx (2),
+    release-calendar.test.tsx (2), schedule.test.tsx (1). EXPLAIN of `_others` at 50k schedules
+    in the PR.
+  - **Open:** per-environment guarding (WP-053); a release emergency route would be a new
+    decision; GiST range index not needed (lane A, 7 ms worst case).
+- [ ] S3: stage on tasks and worklogs, page tabs. S4: closure and rollback.
   S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 
