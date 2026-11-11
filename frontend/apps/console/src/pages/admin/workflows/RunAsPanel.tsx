@@ -1,9 +1,7 @@
 import { Alert, Flex, Select, Tag, Typography } from 'antd';
 
 import { useRunAs, useSetRunAsRole, type WorkflowOut } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
 import { EmptyText, reportError, useLabel } from '@supportx/ui';
-import { useQueryClient } from '@tanstack/react-query';
 
 import { named } from './runAs';
 
@@ -14,14 +12,8 @@ import { named } from './runAs';
  */
 export function RunAsPanel({ workflow, readOnly }: { workflow: WorkflowOut; readOnly: boolean }) {
   const t = useLabel();
-  const queryClient = useQueryClient();
   const runAs = useRunAs(workflow.id);
   const set = useSetRunAsRole();
-  useListChannel('workflows', (m) => {
-    if (m.type === 'workflows.changed' && m.ids.includes(workflow.id)) {
-      void queryClient.invalidateQueries({ queryKey: ['workflows', 'run-as', workflow.id] });
-    }
-  });
   const data = runAs.data;
   if (data === undefined) return null;
   const held = new Set(data.roles.map((r) => r.id));

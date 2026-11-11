@@ -205,6 +205,8 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
 
   useListChannel('workflows', (m) => {
     if (m.type !== 'workflows.changed' || !m.ids.includes(workflow.id)) return;
+    // A role given or taken keeps the workflow's version: its run-as refreshes on any change.
+    void queryClient.invalidateQueries({ queryKey: ['workflows', 'run-as', workflow.id] });
     if ((m.version ?? 0) <= workflow.version) return; // our own save, already here
     if (dirty) setStale(true);
     else void queryClient.invalidateQueries({ queryKey: ['workflows', 'detail', workflow.id] });
