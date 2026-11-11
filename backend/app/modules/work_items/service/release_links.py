@@ -84,6 +84,35 @@ async def _ancestors(session: AsyncSession, record_id: uuid.UUID) -> list[uuid.U
     return found
 
 
+# Links whose target holds their source: a sub-release in its parent, a child change or a release
+# in the change it is part of (lane A's 0133), a change in its release (0138).
+CONTAINED_IN = (SUB, LinkKind.PART_OF_CHANGE.value, LinkKind.IN_RELEASE.value)
+CHANGE_WOULD_LOOP = "change_would_loop"  # lane A's code and label (WP-045d)
+
+
+async def _holds(session: AsyncSession, outer: uuid.UUID, inner: uuid.UUID) -> bool:
+    """Whether `outer` already holds `inner`, through any chain of holding links (bounded)."""
+    seen: set[uuid.UUID] = {inner}
+    level = [inner]
+    for _ in range(MAX_DEPTH):
+        if not level:
+            return False
+        ups = set(
+            await session.scalars(
+                select(WorkItemLink.target_id).where(
+                    WorkItemLink.source_id.in_(level),
+                    WorkItemLink.kind.in_(CONTAINED_IN),
+                    WorkItemLink.deleted_at.is_(None),
+                )
+            )
+        )
+        if outer in ups:
+            return True
+        level = list(ups - seen)
+        seen |= ups
+    return False
+
+
 async def sub_releases(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> list[SubRelease]:
@@ -320,6 +349,10 @@ async def add_change(  # noqa: PLR0913 - the change and its context, explicit
     except NotFound as error:
         raise items.field_errors([("change_id", "record_not_found")]) from error
     await session.get(WorkItem, change.id, with_for_update=True)
+    # The change already holds this release (the release is part of it, directly or through
+    # its parents or child changes): putting the change in the release would loop (lane A).
+    if await _holds(session, change.id, release.id):
+        raise items.field_errors([("change_id", CHANGE_WOULD_LOOP)])
     held = await _open_release_of(session, change.id)
     if held is not None:
         if held[1].id == release.id:

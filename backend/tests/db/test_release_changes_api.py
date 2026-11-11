@@ -147,3 +147,33 @@ async def test_req_rel_027_the_release_calendar_shows_deployment_windows(world: 
         params={"start": params["start"], "end": (at + 500 * DAY).isoformat()},
     )
     assert too_long.status_code == 422, too_long.text
+
+
+async def test_a_change_that_holds_the_release_cannot_go_in_it(world: World) -> None:
+    """Lane A's #386 review: release R part of change X (directly, or through R's parent) refuses
+    X in R (would loop); a change that does not hold it still joins."""
+    a = world.a
+    parent, child = await a_release(world, a), await a_release(world, a)
+    holder, other = await _change(world, a), await _change(world, a)
+    made = await world.call(
+        "PUT",
+        f"{REL}/{child['id']}/parent",
+        a,
+        a.admin,
+        json={"parent_id": parent["id"]},
+        headers=CONSOLE,
+    )
+    assert made.status_code in {200, 204}, made.text
+    part = await world.call(
+        "POST",
+        f"/changes/{holder['id']}/children",
+        a,
+        a.admin,
+        json={"child_id": parent["id"]},
+        headers=CONSOLE,
+    )
+    assert part.status_code in {200, 201, 204}, part.text
+    for release in (parent, child):  # directly, and through the sub-release's parent
+        refused = await _add(world, a, release, holder)
+        assert field_codes(refused) == {("change_id", "change_would_loop")}, refused.text
+    assert (await _add(world, a, child, other)).status_code == 204
