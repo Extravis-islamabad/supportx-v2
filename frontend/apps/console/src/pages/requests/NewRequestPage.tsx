@@ -6,6 +6,8 @@ import {
   useCatalogCategories,
   useCatalogItem,
   useCatalogItems,
+  useKnownAsset,
+  useKnownUser,
   useRaiseServiceRequest,
   useSession,
 } from '@supportx/api-client';
@@ -33,6 +35,7 @@ import {
 
 import { useFormKey } from '../formKey';
 import { UserPicker } from '../incidents/pickers';
+import { pickedOf } from '../assets/raise';
 import { AssetPickerField } from '../incidents/RecordAssets';
 import { plainText } from '../incidents/writingText';
 import { deliveryText, itemName } from './items';
@@ -49,8 +52,11 @@ export function NewRequestPage() {
   const { locale } = useAppearance();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const itemId = params.get('item') ?? undefined;
   const items = useCatalogItems();
+  // An item from the address is used only once the catalogue lists it for this person: an
+  // unknown or not-allowed one leaves the library open, with no message (REQ-AST-045).
+  const asked = params.get('item') ?? undefined;
+  const itemId = items.data?.some((i) => i.id === asked) === true ? asked : undefined;
   const categories = useCatalogCategories();
   const item = useCatalogItem(itemId);
   const me = useSession().data?.user.id ?? null;
@@ -58,9 +64,17 @@ export function NewRequestPage() {
   const { key, done } = useFormKey('new-request'); // QA-2026-11-11 F-01: kept across a remount
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('');
-  const [assetIds, setAssetIds] = useState<string[]>([]);
+  // Raised from an asset (REQ-AST-045): `?asset=` and `?requester=` (its holder) fill the form
+  // once each is known to exist for this person; an unknown one leaves its field as it was.
+  const [pickedAssets, setAssetIds] = useState<string[] | null>(null);
   const hasAssets = useLicence().has('assets');
-  const [requester, setRequester] = useState<string | null>(me);
+  const [pickedRequester, setRequester] = useState<string | null | undefined>(undefined);
+  const knownAsset = useKnownAsset(params.get('asset'), hasAssets);
+  const knownRequester = useKnownUser(params.get('requester'));
+  const knownPicked = knownAsset.data === undefined ? [] : [pickedOf(knownAsset.data)];
+  const assetIds = pickedAssets ?? (knownAsset.data === undefined ? [] : [knownAsset.data.id]);
+  const requester =
+    pickedRequester !== undefined ? pickedRequester : (knownRequester.data?.id ?? me);
   const [answers, setAnswers] = useState<Record<string, QuestionValue> | null>(null);
 
   if (itemId === undefined || item.data === undefined) {
@@ -302,6 +316,7 @@ export function NewRequestPage() {
                 onChange={setAssetIds}
                 forUser={requester}
                 testId="sr-assets"
+                known={knownPicked}
               />
             </Form.Item>
           )}

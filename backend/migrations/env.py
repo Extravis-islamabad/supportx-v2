@@ -16,6 +16,7 @@ import app.shared.action_links.infra.models
 import app.shared.api.idempotency
 import app.shared.db.display_ids
 import app.shared.files.infra.models
+import app.shared.list_settings.infra.models
 import app.shared.mail.infra.models  # noqa: F401 - registers the mail tables (WP-039)
 from app.core.config import Settings
 from app.core.database import to_async_url

@@ -6,6 +6,7 @@ import {
   useChangePrefill,
   useChangeTemplates,
   useCreateChange,
+  useKnownUser,
   useSession,
   useStagedSettings,
   type ChangeInput,
@@ -50,18 +51,26 @@ export function NewChangePage() {
   const { key, done } = useFormKey('new-change'); // F-01: kept across a remount
   const offered = (templates.data ?? []).filter((x) => !x.disabled);
   const fallback = offered.find((x) => x.is_default)?.id;
-  const [templateId, setTemplateId] = useState<string>();
-  const chosen = offered.find((x) => x.id === (templateId ?? fallback));
+  // Raised from an asset (REQ-AST-045): `?template=` and `?requester=` (its holder) start it.
+  const [templateId, setTemplateId] = useState<string | undefined>(
+    () => params.get('template') ?? undefined,
+  );
+  // A template from the address counts only while it is offered (unknown, disabled or not the
+  // person's: the default instead, silently), as on a new incident (lane A's #404 review).
+  const chosen = offered.find((x) => x.id === templateId) ?? offered.find((x) => x.id === fallback);
   // Null: not touched, so the prefill (once it arrives) shows; typing takes over from it.
   const [typedSubject, setSubject] = useState<string | null>(null);
   const [typedDescription, setDescription] = useState<string | null>(null);
   const [pickedRequester, setRequester] = useState<string | null>(null);
+  // `?requester=` only once the person is known; an unknown one leaves the field empty, quietly.
+  const knownRequester = useKnownUser(params.get('requester'));
   const [reason, setReason] = useState<string | null>(null);
   const reasons = (settings.data?.own_lists?.change_reason ?? []).filter((v) => !v.disabled);
   const filledFrom = prefill.data;
   const subject = typedSubject ?? filledFrom?.subject ?? '';
   const description = typedDescription ?? filledFrom?.description ?? null;
-  const requester = pickedRequester ?? filledFrom?.requester_id ?? null;
+  // As the prefill from another record: a picked person first, else the one from the address.
+  const requester = pickedRequester ?? knownRequester.data?.id ?? filledFrom?.requester_id ?? null;
   const submit = () => {
     // The awaited result, not mutate's own callback: that one is dropped if the page remounted
     // while the request ran, which left a made change behind a blank form (F-01).
