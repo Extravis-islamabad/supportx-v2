@@ -12,7 +12,7 @@ Expand only: two new tables. The downgrade refuses while any tenant has a job or
 (rule 5h); the tables force RLS, so the check runs per tenant with app.tenant_id set.
 
 Revision ID: 0107
-Revises: 0106
+Revises: 0129
 Created: 2026-11-11
 """
 
@@ -25,7 +25,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0107"
-down_revision: str | None = "0106"
+down_revision: str | None = "0129"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
