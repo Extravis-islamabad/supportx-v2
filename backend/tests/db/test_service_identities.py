@@ -12,12 +12,11 @@ import pytest
 from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
-from app.modules.identity_access import worker_policy
+from app.modules.identity_access import assign_service_identity_role, subject_for, worker_policy
 from app.modules.identity_access.service.users import count_technicians
 from app.modules.integrations.service import fetching, identities
 from app.modules.integrations.service.connections import key_ring
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
-from tests.db.test_connector_catalogue import _role_with
 from tests.db.test_incidents_api import World
 from tests.db.test_mail_inbound import FakeReader
 from tests.db.test_mailboxes_api import BASE, add, with_key_ring
@@ -85,8 +84,28 @@ async def test_it_takes_no_seat_and_is_never_in_people_lists_search_or_holders(
         seats = await count_technicians(session)
     with_key_ring(world)
     identity = await _identity(world, (await add(world)).json()["id"])
-    # Give it a role with a permission, so only the exclusion keeps it out of holders.
-    await _role_with(world, uuid.UUID(str(identity["id"])), "integrations.manage_email")
+    # Give it a role with a permission, so only the exclusion keeps it out of holders. Through
+    # the guarded path: the general role route refuses service identities.
+    made = await world.call(
+        "POST",
+        "/roles",
+        world.a,
+        world.a.admin,
+        json={
+            "name": "Mail identity",
+            "permissions": [{"permission": "integrations.manage_email", "scope": "all"}],
+        },
+    )
+    assert made.status_code == 201, made.text
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        admin = await subject_for(session, world.a.tenant, world.a.admin)
+        assert await assign_service_identity_role(
+            session,
+            worker_policy(),
+            admin,
+            uuid.UUID(str(identity["id"])),
+            uuid.UUID(made.json()["id"]),
+        )
     async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
         assert await count_technicians(session) == seats
         holders = await worker_policy().holders(

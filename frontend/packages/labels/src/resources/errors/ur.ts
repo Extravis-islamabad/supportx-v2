@@ -933,6 +933,8 @@ export const ur: LabelResource = {
   'errors.service_category_not_found': 'یہ کیٹیگری موجود نہیں۔',
   'errors.service_identity_managed':
     'یہ ایک کنیکٹر کی اپنی شناخت ہے۔ اسے ایڈمن › انٹیگریشنز سے تبدیل کریں۔',
+  'errors.service_identity_roles_elsewhere':
+    'ورک فلو یا کنیکٹر کی اپنی شناخت کو کردار اس کی اپنی ترتیبات سے ملتے ہیں، یہاں سے نہیں۔',
   'errors.service_unavailable':
     'سروس عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.session_expired': 'آپ کا سیشن ختم ہو گیا ہے۔ براہِ کرم دوبارہ سائن اِن کریں۔',

@@ -929,6 +929,8 @@ export const en = {
   'errors.service_category_not_found': 'This category does not exist.',
   'errors.service_identity_managed':
     'This is a connector’s own identity. Change it from Admin › Integrations.',
+  'errors.service_identity_roles_elsewhere':
+    'A workflow’s or connector’s own identity gets its roles from its own settings, not here.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
   'errors.session_expired': 'Your session has ended. Please sign in again.',
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
