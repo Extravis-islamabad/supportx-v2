@@ -278,6 +278,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The journeys run in the official Playwright image (Chromium and its system libraries baked
+      # in), so the job installs nothing with apt: an Ubuntu mirror outage broke the browser
+      # install (2026-11-11). Pulled before the cluster starts, so a registry hiccup fails early.
+      - name: Playwright image (version checked, pulled, retried)
+        uses: ./.github/actions/playwright-in-image
+        with:
+          part: pull
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v4.3.1
@@ -298,9 +305,34 @@ jobs:
         # Nightly: timing expectations at their real targets (frontend/e2e/stack.ts timingLimit).
         env:
           SUPPORTX_PERF_STRICT: "1"
+        # deploy/k3d/e2e.sh stays the one place that gathers the cluster's addresses and dev
+        # secrets; it ends with `pnpm --filter @supportx/e2e exec playwright test "$@"`. A pnpm
+        # shim on PATH for this step only turns exactly that call into the Playwright image
+        # (.github/actions/playwright-in-image/run.sh), with every SUPPORTX_* variable e2e.sh
+        # exported passed by name. Any other pnpm call, or a changed last line, fails loudly
+        # instead of running on the host without browsers. The public URL is plain http on
+        # supportx.localhost:8080 (values-dev.yaml): no TLS, so no CA to trust. Chromium resolves
+        # *.localhost itself, but Node and Python in the container (Keycloak admin API through
+        # the gateway) use /etc/hosts, so the name is added there too; the database and the mail
+        # catcher are on 127.0.0.1, shared through --network host.
         run: |
-          (cd frontend && pnpm --filter @supportx/e2e exec playwright install --with-deps chromium)
-          make cluster-e2e
+          shim="$RUNNER_TEMP/playwright-pnpm-shim"
+          mkdir -p "$shim"
+          cat > "$shim/pnpm" <<'SHIM'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if [[ "$#" -lt 5 || "$1 $2 $3 $4 $5" != "--filter @supportx/e2e exec playwright test" ]]; then
+            echo "::error::pnpm shim: expected e2e.sh's 'pnpm --filter @supportx/e2e exec playwright test ...', got 'pnpm $*'" >&2
+            exit 1
+          fi
+          shift 5
+          PLAYWRIGHT_ENV_NAMES="$(compgen -e | grep '^SUPPORTX_' || true)"
+          PLAYWRIGHT_ADD_HOSTS="supportx.localhost:127.0.0.1"
+          export PLAYWRIGHT_ENV_NAMES PLAYWRIGHT_ADD_HOSTS
+          exec bash "$GITHUB_WORKSPACE/.github/actions/playwright-in-image/run.sh" test "$@"
+          SHIM
+          chmod +x "$shim/pnpm"
+          PATH="$shim:$PATH" make cluster-e2e
       - *diagnostics
       - name: Upload Playwright report
         if: ${{ failure() }}
