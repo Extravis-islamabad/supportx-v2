@@ -15,6 +15,7 @@ import {
   useChangeDetails,
   useStagedApprovals,
   useStagedPanel,
+  useStagedSettings,
   type StageMove,
 } from '@supportx/api-client';
 import { useRecordChannel } from '@supportx/realtime';
@@ -96,6 +97,7 @@ export function ChangePage() {
     ...(record.data ? [{ label: record.data.display_id }] : []),
   ]);
   const panel = useStagedPanel('changes', id);
+  const settings = useStagedSettings('changes');
   const approvals = useStagedApprovals('changes', id);
   const details = useChangeDetails(id).data;
   const dates = useDateTime();
@@ -125,8 +127,13 @@ export function ChangePage() {
   // Canceling ends the change: never beside the positive moves, always in "More".
   const ending = (m: StageMove) => m.to_status === CANCELED;
   const positive = allowed.filter((m) => !ending(m));
-  // One clear primary action, the next stage (D-155); every other move is under "More".
-  const next = positive.find((m) => m.to_stage !== c.stage) ?? positive[0];
+  // One clear primary action (D-155): the next stage, else the step forward in this one; a move
+  // into a paused status ("More information needed") is never the primary (QA-2026-11-11 F-09).
+  const paused = new Set(
+    (settings.data?.statuses ?? []).filter((s) => s.category === 'paused').map((s) => s.code),
+  );
+  const forward = positive.filter((m) => !paused.has(m.to_status));
+  const next = positive.find((m) => m.to_stage !== c.stage) ?? forward[0] ?? positive[0];
   const overflow = [...positive.filter((m) => m !== next), ...allowed.filter(ending)];
   const unavailable = moves.filter((m) => !m.allowed);
   // Editing as the record allows it (a closed change is read-only, REQ-CHG-097).
@@ -314,8 +321,10 @@ export function ChangePage() {
                 </ToneTag>
               )}
               {pending > 0 && (
+                // The status's own words ("Awaiting acceptance"), so the chip and the status
+                // never name one state twice (QA-2026-11-11 F-09).
                 <ToneTag tone="warning" testId="change-awaiting-approval">
-                  {t('staged.awaiting_approval', { count: pending })}
+                  {statusName(t, c.status)}
                 </ToneTag>
               )}
               {/* REQ-CHG-107: its SLA's due time, once a policy gives it one. */}
