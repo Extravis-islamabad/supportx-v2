@@ -386,7 +386,7 @@ class AuthService:
             # The console's paths mean nothing in the portal: its home, never return_to.
             log.info("login_sent_to_portal", subject=session.subject, tenant_id=session.tenant_id)
             if mobile is not None:
-                # The mobile app serves both (D-158): it signs in again for a portal session.
+                # The mobile app serves both (D-160): it signs in again for a portal session.
                 # Keycloak's own session stands, so there is no second prompt.
                 return PortalInstead(self._login_again("portal", origin, "/", mobile))
             return PortalInstead(self.landing("portal", "/", origin))
