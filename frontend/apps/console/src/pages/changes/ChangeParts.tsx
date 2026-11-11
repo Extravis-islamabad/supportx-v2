@@ -29,6 +29,7 @@ import {
   useStagedSchedule,
   useStagedSettings,
   useUpdateChangeDetails,
+  useUpdateStagedSchedule,
   useWriteStagedPlan,
   type ChangeDetailsInput,
   type Downtime,
@@ -561,9 +562,55 @@ export function PlanPart({ id }: { id: string }) {
   );
 }
 
+// The outcomes each stage records (REQ-CHG-031, -032; domain/changes.py STAGE_OUTCOMES).
+const OUTCOMES: Record<string, readonly string[]> = {
+  implementation: ['successful', 'successful_with_issues', 'backed_out', 'failed'],
+  acceptance_testing: ['passed', 'failed'],
+  deployment: ['passed', 'failed', 'partly_done'],
+  review: ['successful', 'successful_with_issues', 'failed'],
+};
+
+function OutcomeSelect({ id, row }: { id: string; row: StageSchedule }) {
+  const t = useLabel();
+  const update = useUpdateStagedSchedule('changes');
+  const problem = useFormProblem();
+  return (
+    <Space direction="vertical">
+      <Select
+        allowClear
+        style={{ minWidth: 220 }}
+        aria-label={t('staged.schedule.outcome_of', { stage: stageName(t, row.stage) })}
+        value={row.outcome}
+        data-testid={`outcome-${row.stage}`}
+        options={(OUTCOMES[row.stage] ?? []).map((c) => ({
+          value: c,
+          label: t(`stage_outcome.${c}`),
+        }))}
+        onChange={(outcome: string | undefined) => {
+          update.mutate(
+            {
+              id,
+              stage: row.stage,
+              version: row.version,
+              body: { outcome: (outcome ?? null) as StageSchedule['outcome'] },
+            },
+            {
+              onError: (error) => {
+                problem.show(error);
+              },
+            },
+          );
+        }}
+      />
+      <FormProblem problem={problem} />
+    </Space>
+  );
+}
+
 /**
- * Each stage's planned and actual dates and its outcome (REQ-CHG-017, -031), read here; the
- * engine sets the actual dates. Planning the windows and the calendar come with WP-045c.
+ * Each stage's planned and actual dates and its outcome (REQ-CHG-017, -031, -032): the engine
+ * sets the actual dates; a stage that records an outcome takes it here, as implementing one
+ * needs it before it completes. Planning the windows and the calendar come with WP-045c.
  */
 export function SchedulePart({ id }: { id: string }) {
   const t = useLabel();
@@ -604,7 +651,7 @@ export function SchedulePart({ id }: { id: string }) {
           {
             key: 'outcome',
             title: t('staged.schedule.outcome'),
-            render: (_, r) => (r.outcome ? t(`stage_outcome.${r.outcome}`) : ''),
+            render: (_, r) => (r.stage in OUTCOMES ? <OutcomeSelect id={id} row={r} /> : null),
           },
         ]}
       />

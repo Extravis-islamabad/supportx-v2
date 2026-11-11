@@ -1640,6 +1640,7 @@ export const ur: LabelResource = {
     'اس ریلیز کی قسم کے لیے ابھی کوئی کردار مقرر نہیں۔ منتظم انہیں ریلیز کی ترتیبات میں شامل کر سکتا ہے۔',
   'staged.schedule.actual': 'اصل',
   'staged.schedule.outcome': 'نتیجہ',
+  'staged.schedule.outcome_of': '{{stage}} کا نتیجہ',
   'staged.schedule.planned': 'منصوبہ بند',
   'staged.search': 'نمبر یا عنوان سے تلاش کریں',
   'staged.tab.approvals': 'منظوریاں',

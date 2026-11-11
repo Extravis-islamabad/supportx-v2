@@ -271,6 +271,55 @@ describe('console: change approvals', () => {
   });
 });
 
+describe('console: closing a change', () => {
+  it('a move that lands in closed (Review complete) asks for the closure code', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}`);
+    const fake = api({
+      [`GET /api/v1/changes/${CHG_ID}/stages`]: {
+        body: panel([
+          {
+            to_status: 'review_complete',
+            to_stage: 'review',
+            reason_mode: 'none',
+            reason_list: null,
+            required_fields: [],
+            allowed: true,
+            reason: null,
+            missing: [],
+            lands_in: 'closure_closed',
+          },
+        ]),
+      },
+      'GET /api/v1/changes/settings': {
+        body: {
+          statuses: [],
+          closure_codes: [{ code: 'fixed', labels: null, disabled: false }],
+          own_lists: {},
+        },
+      },
+      [`POST /api/v1/changes/${CHG_ID}/moves`]: {
+        body: { ...change, stage: 'closure', status: 'closure_closed', version: 7 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('move-review_complete'));
+    expect(await screen.findByTestId('move-closure-code')).toBeTruthy();
+    expect(screen.getByTestId('move-ok')).toHaveProperty('disabled', true);
+    const select = screen.getByTestId('move-closure-code').querySelector('.ant-select-selector');
+    if (select === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(select);
+    fireEvent.click(await screen.findByTitle('Fixed'));
+    fireEvent.click(screen.getByTestId('move-ok'));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/changes/${CHG_ID}/moves`)).toHaveLength(1);
+    });
+    expect(fake.find('POST', `/api/v1/changes/${CHG_ID}/moves`)[0]?.body).toMatchObject({
+      to_status: 'review_complete',
+      closure_code: 'fixed',
+    });
+  });
+});
+
 describe('console: change advisory boards', () => {
   it('template E: boards in order; the default one cannot be deleted; an edit carries If-Match', async () => {
     window.history.pushState({}, '', '/admin/change-boards');

@@ -1782,6 +1782,7 @@ export const ar: LabelResource = {
     'لم تُعدّ أدوار لنوع الإصدار هذا بعد. يمكن للمسؤول إضافتها من إعدادات الإصدارات.',
   'staged.schedule.actual': 'الفعلي',
   'staged.schedule.outcome': 'النتيجة',
+  'staged.schedule.outcome_of': 'نتيجة {{stage}}',
   'staged.schedule.planned': 'المخطط',
   'staged.search': 'ابحث بالرقم أو العنوان',
   'staged.tab.approvals': 'الموافقات',

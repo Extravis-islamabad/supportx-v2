@@ -223,7 +223,8 @@ export function StagedMoveDialog({
   const [reason, setReason] = useState('');
   const [fields, setFields] = useState<Record<string, unknown>>({});
   const [closureCode, setClosureCode] = useState<string>();
-  const closing = move.to_status === 'closure_closed';
+  // Where it lands, a completing status moving on by itself ("Review complete" closes a change).
+  const closing = move.lands_in === 'closure_closed';
   const all = move.missing ?? [];
   const plans = all.filter((m) => m.field.startsWith(PLAN));
   const missing = all.filter((m) => !m.field.startsWith(PLAN));

@@ -1048,6 +1048,7 @@ export {
   useStagedRoles,
   useStagedSchedule,
   useStagedSettings,
+  useUpdateStagedSchedule,
   useWriteStagedPlan,
   type StagedPath,
 } from './staged';

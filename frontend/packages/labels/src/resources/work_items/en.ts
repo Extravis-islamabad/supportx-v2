@@ -1636,6 +1636,7 @@ export const en = {
     'This release type has no roles set up yet. An administrator can add them in the release settings.',
   'staged.schedule.actual': 'Actual',
   'staged.schedule.outcome': 'Outcome',
+  'staged.schedule.outcome_of': 'Outcome of {{stage}}',
   'staged.schedule.planned': 'Planned',
   'staged.search': 'Search by number or title',
   'staged.tab.approvals': 'Approvals',
