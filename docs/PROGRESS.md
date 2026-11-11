@@ -1104,19 +1104,36 @@ it with no reload (rule c). Not built yet.
   - CIs and services in the snapshot (with the CMDB);
   - the screens (UI pass 3 templates).
 
-### [~] Change screens — taken forward from WP-045d D19 (lane A, 2026-11-11; the coordinator; 4 sessions, 2 PRs)
-- **PR 1 (S1+S2, no migration):** the changes list on template C (path, stage, status, the
+### [x] Change screens — taken forward from WP-045d D19 (lane A, 2026-11-11; the coordinator; 4 sessions, 2 PRs)
+- **PR 1 (S1+S2, no migration, #372, merged):** the changes list on template C (path, stage, status, the
   emergency flag, a Pending approval view); a new change on template B (prefilled when raised
   from another record), opening on its risk questionnaire; the record on template A (stage rail
   and moves, properties, details with a risk override that says why, the questionnaire, roles,
   plans, schedule and downtime read-only, history). The staged parts' hooks by type
   (`api-client/staged.ts`) and one move dialog for staged types (`pages/staged`, lane C's split).
-- **PR 2 (S3+S4, after PR 1):** the CAB and approvals panel (decisions, the SoD preview,
-  changes-since and re-approval, the emergency override), the QA flow 4 e2e, and the advisory
-  board admin on template E (`changes.manage_boards`). Lane B blocks it (D-149).
-- **Not yet:** risk and type columns on the list (not in the list API); conversation and
-  attachments on the record; labels for questions an admin adds to a template's questionnaire
-  (only Appendix A's are labelled); editing schedules and downtime (WP-045c).
+- **PR 2 (S3+S4, no migration):**
+  - the Approvals tab: each approval's board and why, advisory votes, the administrators'
+    fallback, decisions with If-Match, and what changed since approval;
+  - the move that raises a stage shows who would approve and who is left out (the preview now
+    names them);
+  - a new risk that sends approved stages back says so before saving;
+  - the emergency override (D-144), only on a change sent back (`sent_back` on its details);
+  - a stage's outcome on the Schedule tab;
+  - change advisory boards on template E (`/admin/change-boards`, `changes.manage_boards` or
+    `settings.manage`), whose people come named;
+  - QA flow 4 end to end in Playwright, and walked move by move over the API.
+  - **Fix:** a move says where it lands (`lands_in`), so a move that closes a change after
+    an automatic advance ("Review complete") asks for the closure code. Before, a change
+    could not be closed from the console.
+  - Lane B gives the blocking review (D-149).
+- **Not yet:**
+  - risk and type columns on the list (not in the list API);
+  - conversation and attachments on the record;
+  - labels for questions an admin adds to a template's questionnaire (only Appendix A's are
+    labelled);
+  - editing schedules and downtime (WP-045c);
+  - a "failed" outcome's issues text (the server asks for it; the select has no field for it
+    yet).
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
