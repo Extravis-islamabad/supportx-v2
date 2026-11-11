@@ -40,6 +40,7 @@ import {
   type RecordAction,
 } from '@supportx/ui';
 
+import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
 import { labelled, personName } from '../incidents/labels';
 import { PriorityTag, SlaTag, StatusTag } from '../incidents/tags';
@@ -422,6 +423,16 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
               label: <span data-testid="sr-tab-tasks">{t('requests.tasks')}</span>,
               children: <RequestTasks recordId={r.id} canEdit={can('requests.edit')} />,
             },
+            // WP-048b S4d: the workflows running on it (REQ-WF-023); lane A placed it, 2026-11-11.
+            ...(can('workflows.run') || can('workflows.manage')
+              ? [
+                  {
+                    key: 'workflows',
+                    label: t('workflows.record.tab'),
+                    children: <RecordWorkflows recordType="service_request" recordId={r.id} />,
+                  },
+                ]
+              : []),
           ]}
         />
       </RecordPage>

@@ -786,6 +786,8 @@ export const ur: LabelResource = {
   'errors.mailbox_sign_in_not_needed': 'اس میل باکس کے لیے کسی کو سائن اِن کرنے کی ضرورت نہیں۔',
   // WP-040 session 2: directory sync.
   'errors.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
+  'errors.measure_not_permitted':
+    'آپ یہ عدد نہیں دیکھ سکتے: اس کے لیے اس کے ڈیٹا تک رسائی چاہیے (اثاثوں کی رقم کے لیے، مالیات دیکھنے کا حق)۔',
   'errors.message_refused': 'میل سرور نے پیغام رد کر دیا۔',
   'errors.method_not_allowed': 'یہ کارروائی یہاں دستیاب نہیں۔',
   'errors.mfa_enrolment_unavailable':

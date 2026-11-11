@@ -27,6 +27,7 @@ import {
   SPACE,
 } from '@supportx/ui';
 
+import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { IncidentHistory } from '../incidents/IncidentHistory';
 import { personName } from '../incidents/labels';
 import { stageName, statusName } from '../staged/labels';
@@ -39,7 +40,16 @@ import { DetailsPart, PlanPart, RiskPart, RolesPart, SchedulePart } from './Chan
 import { EMERGENCY_PATH, riskTone } from './labels';
 
 const CANCELED = 'closure_canceled';
-const TABS = ['details', 'risk', 'approvals', 'roles', 'plan', 'schedule', 'history'] as const;
+const TABS = [
+  'details',
+  'risk',
+  'approvals',
+  'roles',
+  'plan',
+  'schedule',
+  'workflows',
+  'history',
+] as const;
 // The statuses that raise a stage's approval (acceptance, the plan, the CAB): their move shows
 // who would approve and who is left out first (REQ-CHG-039).
 const RAISING = new Set([
@@ -282,6 +292,15 @@ export function ChangePage() {
             label: t('staged.tab.schedule'),
             children: <ChangeScheduleTab change={c} stages={<SchedulePart id={c.id} />} />,
           },
+          ...(can('workflows.run') || can('workflows.manage')
+            ? [
+                {
+                  key: 'workflows',
+                  label: t('workflows.record.tab'),
+                  children: <RecordWorkflows recordType="change" recordId={c.id} />,
+                },
+              ]
+            : []),
           {
             key: 'history',
             label: t('changes.tab.history'),

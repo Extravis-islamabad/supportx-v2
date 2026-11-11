@@ -24,6 +24,7 @@ from app.shared.realtime import (
 CHANGED = "automation.changed"
 INSTANCES_CHANGED = "workflow_instances.changed"
 JOBS_CHANGED = "workflow_jobs.changed"
+WORKFLOWS_CHANGED = "workflows.changed"  # the list and an open designer (WP-048b S4)
 WORKFLOWS = LiveList("workflows", "workflows.manage")  # the overview (REQ-WF-025)
 CHANNELS = [WORKFLOWS.spec()]
 
@@ -55,6 +56,23 @@ async def _instance_changed(envelope: EventEnvelope, session: AsyncSession) -> R
     return RealtimeEffects(publications=found)
 
 
+async def _workflow_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A workflow was saved, published, switched or deleted: IDs and its version only."""
+    del session
+    payload = envelope.payload
+    channel = queue(envelope.tenant_id, WORKFLOWS.name)
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                channel,
+                WORKFLOWS_CHANGED,
+                ids=(str(payload["workflow_id"]),),
+                version=int(payload["version"]),
+            )
+        ]
+    )
+
+
 async def _job_progressed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     del session
     job = str(envelope.payload["job_id"])
@@ -74,4 +92,7 @@ ROUTES = [
     ),
     RealtimeRoute(("automation.workflow_instance.changed",), _instance_changed),
     RealtimeRoute(("automation.workflow_job.progressed",), _job_progressed),
+    RealtimeRoute(
+        ("automation.workflow.changed", "automation.workflow.deleted"), _workflow_changed
+    ),
 ]

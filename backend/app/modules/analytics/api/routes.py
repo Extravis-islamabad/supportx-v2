@@ -23,6 +23,7 @@ from app.core.entitlements import ENTITLEMENT_GATE_STATE, EntitlementGate, read_
 from app.core.errors import (
     AppError,
     FieldError,
+    PermissionDenied,
     ProblemDetail,
     ServiceUnavailable,
     ValidationFailed,
@@ -441,8 +442,8 @@ async def get_library(
             continue
         try:
             compile_report(report.definition, source, now=now, zone=zone.key)
-        except ValidationFailed:
-            continue  # its data arrives with a later work package
+        except (ValidationFailed, PermissionDenied):
+            continue  # its data arrives later, or is not this viewer's to see
         builtin.append(
             BuiltinReportOut(code=report.code, folder=report.folder, definition=report.definition)
         )

@@ -74,6 +74,7 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { AssignDialog } from './assign';
@@ -734,6 +735,16 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               label: t('incidents.tab.links'),
               children: <IncidentLinks item={item} canEdit={canEditParts} />,
             },
+            // WP-048b S4d: the workflows running on it (REQ-WF-023); lane A placed it, 2026-11-11.
+            ...(can('workflows.run') || can('workflows.manage')
+              ? [
+                  {
+                    key: 'workflows',
+                    label: t('workflows.record.tab'),
+                    children: <RecordWorkflows recordType="incident" recordId={item.id} />,
+                  },
+                ]
+              : []),
             {
               key: 'history',
               label: t('incidents.tab.history', { count: item.history_count }),

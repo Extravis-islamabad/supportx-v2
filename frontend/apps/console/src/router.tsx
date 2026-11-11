@@ -400,6 +400,19 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // Visual workflows (WP-048b S4): the list (template C) and the designer.
+            path: 'workflows',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/WorkflowsPage')).WorkflowsPage,
+            }),
+          },
+          {
+            path: 'workflows/:workflowId',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/DesignerPage')).DesignerPage,
+            }),
+          },
+          {
             path: 'automation/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/automation/AutomationPage')).AutomationPage,

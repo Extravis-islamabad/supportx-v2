@@ -1,5 +1,18 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Col, Flex, Form, Input, List, Row, Select, Space, Table, Typography } from 'antd';
+import {
+  Button,
+  Col,
+  Flex,
+  Form,
+  Input,
+  List,
+  Row,
+  Select,
+  Space,
+  Table,
+  Typography,
+  Popconfirm,
+} from 'antd';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -654,16 +667,21 @@ export function DowntimePart({ id }: { id: string }) {
               key={d.id}
               data-testid={`downtime-${d.id}`}
               actions={[
-                <WriteButton
+                // Asks first, as the change's downtimes do (lane A's #377).
+                <Popconfirm
                   key="remove"
-                  size="small"
-                  danger
-                  onClick={() => {
+                  title={t('releases.downtime.delete_confirm')}
+                  okText={t('actions.delete')}
+                  okButtonProps={{ danger: true, 'data-testid': `downtime-${d.id}-remove-ok` }}
+                  cancelText={t('actions.cancel')}
+                  onConfirm={() => {
                     remove.mutate({ id, downtimeId: d.id, version: d.version });
                   }}
                 >
-                  {t('actions.delete')}
-                </WriteButton>,
+                  <WriteButton size="small" danger data-testid={`downtime-${d.id}-remove`}>
+                    {t('actions.delete')}
+                  </WriteButton>
+                </Popconfirm>,
               ]}
             >
               <Space wrap>
