@@ -1427,6 +1427,17 @@ class WorkItemFieldChangeOut(BaseModel):
     field: str
     old: Any = None
     new: Any = None
+    hidden: bool = Field(
+        default=False,
+        description="The values are not yours to see (a task's extra cost): only that it changed.",
+    )
+
+    @classmethod
+    def of(cls, change: Any) -> "WorkItemFieldChangeOut":  # noqa: ANN401 - a history Change
+        """One change, masked values as `hidden` with no old or new."""
+        if change.old == service.MASKED and change.new == service.MASKED:
+            return cls(field=change.field, hidden=True)
+        return cls(field=change.field, old=change.old, new=change.new)
 
 
 class WorkItemHistoryEntryOut(BaseModel):
@@ -1473,9 +1484,7 @@ class WorkItemHistoryEntryOut(BaseModel):
             reason=entry.reason,
             automation=entry.automation_ref if isinstance(entry.automation_ref, dict) else None,
             bulk_job_id=entry.batch_id,
-            changes=[
-                WorkItemFieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes
-            ],
+            changes=[WorkItemFieldChangeOut.of(c) for c in entry.changes],
             audit_entry_id=(audit or {}).get(entry.change_id),
         )
 

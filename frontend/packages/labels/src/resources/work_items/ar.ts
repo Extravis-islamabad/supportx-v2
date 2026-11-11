@@ -2298,6 +2298,7 @@ export const ar: LabelResource = {
   'work_item.field.task': 'مهمة',
   'work_item.field.task.done_by': 'أنجز المهمة',
   'work_item.field.task.due_at': 'موعد استحقاق المهمة',
+  'work_item.field.task.from_template': 'مضافة من قالب',
   'work_item.field.task.group_id': 'مجموعة المهمة',
   'work_item.field.task.owner_id': 'مسؤول المهمة',
   'work_item.field.task.position': 'ترتيب المهمة',

@@ -2105,6 +2105,7 @@ export const ur: LabelResource = {
   'work_item.field.task': 'کام',
   'work_item.field.task.done_by': 'کام مکمل کرنے والے',
   'work_item.field.task.due_at': 'کام کا آخری وقت',
+  'work_item.field.task.from_template': 'سانچے سے شامل',
   'work_item.field.task.group_id': 'کام کا گروپ',
   'work_item.field.task.owner_id': 'کام کا ذمہ دار',
   'work_item.field.task.position': 'کام کی ترتیب',

@@ -1120,6 +1120,11 @@ PERSON_FIELDS = frozenset(
 )
 
 
+# History fields whose values only the record's editors read; others see them as MASKED.
+EDITORS_ONLY = frozenset({"task.extra_cost"})
+MASKED: dict[str, bool] = {"masked": True}
+
+
 async def history(  # noqa: PLR0913 - paging options, explicit
     session: AsyncSession,
     subject: Subject,
@@ -1143,6 +1148,21 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     if hidden:  # the root cause stays out of the history too (D-140 Q7)
         entries = [
             replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+        ]
+    # A task's extra cost is for those who may edit the record (WP-046a S1, lane B's #398
+    # review): others keep the line (that it changed, when, by whom) but never the amounts.
+    if any(c.field in EDITORS_ONLY for e in entries for c in e.changes) and not await _may(
+        session, subject, wtype, "edit", record_id
+    ):
+        entries = [
+            replace(
+                e,
+                changes=[
+                    Change(c.field, MASKED, MASKED) if c.field in EDITORS_ONLY else c
+                    for c in e.changes
+                ],
+            )
+            for e in entries
         ]
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {

@@ -53,6 +53,7 @@ import {
   useLabel,
   WriteButton,
 } from '@supportx/ui';
+import { useListFormat } from '@supportx/labels';
 import { useRecordChannel } from '@supportx/realtime';
 
 import { IncidentPicker } from './IncidentPicker';
@@ -114,6 +115,7 @@ export function IncidentTasks({
 }) {
   const t = useLabel();
   const dates = useDateTime();
+  const listFormat = useListFormat();
   const found = useIncidentTasks(item.id, true, base);
   const change = useTaskChange(item.id, base);
   // WP-046a S1: a task's details and dependencies, and the task templates offered (REQ-INC-074).
@@ -277,7 +279,8 @@ export function IncidentTasks({
                 // REQ-INC-075: waiting for these; shown live as each one finishes (AC2).
                 <ToneTag tone="warning" testId={`inc-task-blocked-${String(index)}`}>
                   {t('incidents.tasks.waits_for', {
-                    tasks: (task.blocked_by ?? []).map((id) => titles.get(id) ?? '').join(', '),
+                    // The reader's own list words ("A and B"), never a hand-made comma join.
+                    tasks: listFormat((task.blocked_by ?? []).map((id) => titles.get(id) ?? '')),
                   })}
                 </ToneTag>
               )}

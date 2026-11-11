@@ -551,6 +551,7 @@ describe('console: changes', () => {
                 { field: 'risk_version', old: null, new: 1 },
                 { field: 'scheduled_start', old: null, new: '2026-11-17T21:00:00+00:00' },
                 { field: 'change_reason', old: null, new: 'security_fix' },
+                { field: 'task.extra_cost', old: null, new: null, hidden: true },
               ],
             },
           ],
@@ -569,6 +570,8 @@ describe('console: changes', () => {
     expect(text).not.toContain('2026-11-17T21:00');
     expect(text).not.toContain('+00:00');
     expect(text).not.toContain('security_fix');
+    // A task's extra cost not the reader's to see (lane B's #398 review): only that it changed.
+    expect(text).toContain('Sana Malik changed Extra cost');
   });
 
   it('QA-2026-11-11 F-01: a form that remounts keeps its Idempotency-Key, so a repeat never duplicates', async () => {

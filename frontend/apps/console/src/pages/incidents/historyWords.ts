@@ -59,6 +59,18 @@ const OWN_LISTS = new Set(['change_type', 'change_reason']);
 const INTERNAL = new Set(['risk_version', 'resume_stage', 'resume_status']);
 // An ISO timestamp in any field (a change's schedule, an override's time): the reader's own
 // date format and time zone, never UTC text (F-03).
+// A task's details (WP-046a S1, REQ-INC-073): their history lines use the task form's names.
+const TASK_DETAILS = new Set([
+  'task_type',
+  'scheduled_start',
+  'scheduled_end',
+  'actual_start',
+  'actual_end',
+  'estimated_minutes',
+  'percent_complete',
+  'extra_cost',
+  'remind_before_minutes',
+]);
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const TIMES = new Set([
   'resolved_at',
@@ -133,6 +145,9 @@ export function useHistoryWords(
       ? customFields.data?.find((f) => `custom.${f.key}` === name)
       : undefined;
   const fieldText = (name: string) => {
+    // A task's details (WP-046a S1) are named as on the task form.
+    const detail = name.startsWith('task.') ? name.slice('task.'.length) : '';
+    if (TASK_DETAILS.has(detail)) return t(`task.field.${detail}`);
     if (!name.startsWith('custom.')) return t(`work_item.field.${name}`);
     const found = customField(name);
     return found === undefined ? t('custom_fields.unknown_field') : fieldName(found, locale);
@@ -322,6 +337,15 @@ export function useHistoryWords(
       );
     }
     // A task's own field says which task (its title is the entry's `task` line).
+    // Values that are not the reader's to see (a task's extra cost, lane B's #398 review):
+    // only that the field changed, never "(empty)".
+    if (change.hidden) {
+      const named =
+        change.field.startsWith('task.') && task !== undefined
+          ? t('work_item.history.task_field', { field: fieldText(change.field), title: task })
+          : fieldText(change.field);
+      return t('work_item.history.changed_only', { who, field: named });
+    }
     const field =
       change.field.startsWith('task.') && task !== undefined
         ? t('work_item.history.task_field', { field: fieldText(change.field), title: task })

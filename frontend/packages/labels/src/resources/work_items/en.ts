@@ -2100,6 +2100,7 @@ export const en = {
   'work_item.field.task': 'Task',
   'work_item.field.task.done_by': 'Task done by',
   'work_item.field.task.due_at': 'Task due',
+  'work_item.field.task.from_template': 'Added from a template',
   'work_item.field.task.group_id': 'Task group',
   'work_item.field.task.owner_id': 'Task owner',
   'work_item.field.task.position': 'Task order',
