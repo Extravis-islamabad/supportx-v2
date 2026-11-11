@@ -395,116 +395,107 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
   const typeOf = (id: string) => live.nodes.find((n) => n.id === id)?.data.nodeType ?? '';
   const otherProblems = problems.filter((p) => !p.where.startsWith('node:'));
 
-  const side = (
-    <Tabs
-      activeKey={tab}
-      onChange={setTab}
-      size="small"
-      items={[
-        {
-          key: 'details',
-          label: t('workflows.designer.details'),
-          children:
-            selectedNode !== undefined ? (
-              <NodeDetails
-                // A new node or new settings start the editor afresh (no effect to sync it).
-                key={`${selectedNode.id}:${JSON.stringify(selectedNode.data.config)}`}
-                node={selectedNode}
-                problems={nodeProblems.get(selectedNode.id) ?? []}
-                readOnly={readOnly}
-                onConfig={(config) => {
-                  commit({
-                    ...live,
-                    nodes: live.nodes.map((n) =>
-                      n.id === selectedNode.id ? { ...n, data: { ...n.data, config } } : n,
-                    ),
-                  });
-                }}
-                onDelete={() => {
-                  removeNode(selectedNode.id);
-                }}
-              />
-            ) : selectedEdge !== undefined ? (
-              <LinkDetails
-                edge={selectedEdge}
-                typeOf={typeOf}
-                readOnly={readOnly}
-                onDelete={() => {
-                  removeEdge(selectedEdge.id);
-                }}
-              />
-            ) : (
-              <Typography.Text type="secondary">
-                {t('workflows.designer.select_hint')}
-              </Typography.Text>
-            ),
-        },
-        {
-          key: 'outline',
-          label: t('workflows.designer.outline'),
-          children: (
-            <Outline
-              nodes={live.nodes}
-              edges={live.edges}
-              readOnly={readOnly}
-              onLink={link}
-              onSelect={(id) => {
-                setSelected({ kind: 'node', id });
-                setTab('details');
-              }}
-            />
-          ),
-        },
-        {
-          key: 'problems',
-          label: t('workflows.designer.problems_tab', { count: problems.length }),
-          children:
-            problems.length === 0 ? (
-              <Typography.Text type="secondary" data-testid="designer-no-problems">
-                {t('workflows.designer.no_problems')}
-              </Typography.Text>
-            ) : (
-              <ul style={{ margin: 0, paddingInlineStart: 16 }} data-testid="designer-problems">
-                {problems.map((p, i) => {
-                  const node = p.where.startsWith('node:') ? p.where.slice(5) : undefined;
-                  const text = problemText(t, p.code, p.params ?? {});
-                  return (
-                    <li key={`${p.where}-${p.code}-${String(i)}`}>
-                      {node === undefined ? (
-                        text
-                      ) : (
-                        // Choosing a problem selects its node (ADR-043 §2).
-                        <Button
-                          type="link"
-                          style={{
-                            padding: 0,
-                            height: 'auto',
-                            whiteSpace: 'normal',
-                            textAlign: 'start',
-                          }}
-                          onClick={() => {
-                            setSelected({ kind: 'node', id: node });
-                            setTab('details');
-                            const target = live.nodes.find((n) => n.id === node);
-                            if (target !== undefined) {
-                              void flow.setCenter(target.position.x, target.position.y, {
-                                zoom: 1,
-                              });
-                            }
-                          }}
-                        >
-                          {t('workflows.designer.problem_at', { node, text })}
-                        </Button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            ),
-        },
-      ]}
-    />
-  );
+  const sideItems = [
+    {
+      key: 'details',
+      label: t('workflows.designer.details'),
+      children:
+        selectedNode !== undefined ? (
+          <NodeDetails
+            // A new node or new settings start the editor afresh (no effect to sync it).
+            key={`${selectedNode.id}:${JSON.stringify(selectedNode.data.config)}`}
+            node={selectedNode}
+            problems={nodeProblems.get(selectedNode.id) ?? []}
+            readOnly={readOnly}
+            onConfig={(config) => {
+              commit({
+                ...live,
+                nodes: live.nodes.map((n) =>
+                  n.id === selectedNode.id ? { ...n, data: { ...n.data, config } } : n,
+                ),
+              });
+            }}
+            onDelete={() => {
+              removeNode(selectedNode.id);
+            }}
+          />
+        ) : selectedEdge !== undefined ? (
+          <LinkDetails
+            edge={selectedEdge}
+            typeOf={typeOf}
+            readOnly={readOnly}
+            onDelete={() => {
+              removeEdge(selectedEdge.id);
+            }}
+          />
+        ) : (
+          <Typography.Text type="secondary">{t('workflows.designer.select_hint')}</Typography.Text>
+        ),
+    },
+    {
+      key: 'outline',
+      label: t('workflows.designer.outline'),
+      children: (
+        <Outline
+          nodes={live.nodes}
+          edges={live.edges}
+          readOnly={readOnly}
+          onLink={link}
+          onSelect={(id) => {
+            setSelected({ kind: 'node', id });
+            setTab('details');
+          }}
+        />
+      ),
+    },
+    {
+      key: 'problems',
+      label: t('workflows.designer.problems_tab', { count: problems.length }),
+      children:
+        problems.length === 0 ? (
+          <Typography.Text type="secondary" data-testid="designer-no-problems">
+            {t('workflows.designer.no_problems')}
+          </Typography.Text>
+        ) : (
+          <ul style={{ margin: 0, paddingInlineStart: 16 }} data-testid="designer-problems">
+            {problems.map((p, i) => {
+              const node = p.where.startsWith('node:') ? p.where.slice(5) : undefined;
+              const text = problemText(t, p.code, p.params ?? {});
+              return (
+                <li key={`${p.where}-${p.code}-${String(i)}`}>
+                  {node === undefined ? (
+                    text
+                  ) : (
+                    // Choosing a problem selects its node (ADR-043 §2).
+                    <Button
+                      type="link"
+                      style={{
+                        padding: 0,
+                        height: 'auto',
+                        whiteSpace: 'normal',
+                        textAlign: 'start',
+                      }}
+                      onClick={() => {
+                        setSelected({ kind: 'node', id: node });
+                        setTab('details');
+                        const target = live.nodes.find((n) => n.id === node);
+                        if (target !== undefined) {
+                          void flow.setCenter(target.position.x, target.position.y, {
+                            zoom: 1,
+                          });
+                        }
+                      }}
+                    >
+                      {t('workflows.designer.problem_at', { node, text })}
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ),
+    },
+  ];
 
   const palette = (
     <Palette
@@ -733,17 +724,20 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
             maxHeight: wide ? '70vh' : undefined,
           }}
         >
-          {wide ? (
-            side
-          ) : (
-            <Tabs
-              size="small"
-              items={[
-                { key: 'palette', label: t('workflows.designer.palette'), children: palette },
-                { key: 'side', label: t('workflows.designer.details'), children: side },
-              ]}
-            />
-          )}
+          <Tabs
+            activeKey={wide && tab === 'palette' ? 'details' : tab}
+            onChange={setTab}
+            size="small"
+            // Narrower, the palette joins the tabs (one row, never tabs inside tabs).
+            items={
+              wide
+                ? sideItems
+                : [
+                    { key: 'palette', label: t('workflows.designer.palette'), children: palette },
+                    ...sideItems,
+                  ]
+            }
+          />
         </aside>
       </Flex>
     </Flex>
