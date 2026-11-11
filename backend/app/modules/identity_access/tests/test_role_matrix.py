@@ -22,6 +22,7 @@ from app.modules.identity_access.domain.permissions import (
     SERVICE_DESK_MANAGER,
     SYSTEM_ROLES,
     TEAM_LEAD,
+    TECHNICIAN,
     TENANT_ADMIN,
     Catalogue,
 )
@@ -110,6 +111,8 @@ TENANT_WIDE = frozenset(
         "audit.manage",
         "changes.manage_boards",  # change boards: the change manager and admins only (#327)
         "changes.emergency_override",
+        "changes.manage_windows",  # change windows and the freeze override (WP-045c)
+        "changes.override_freeze",
     }
 )
 
@@ -132,6 +135,28 @@ def test_change_boards_and_the_override_belong_to_the_change_manager() -> None:
     grants = dict(_catalogue().system_grants(CHANGE_MANAGER))
     assert grants.get("changes.manage_boards") == "all"
     assert grants.get("changes.emergency_override") == "all"
+
+
+def test_change_windows_and_the_freeze_override_belong_to_the_change_manager_and_admins() -> None:
+    """WP-045c (lane B's review): the change manager holds both; administrators hold every
+    permission, so they may pass a freeze too, as with the emergency override (D-144); no team
+    lead or technician holds either, whatever the technicians' scope.
+    """
+    catalogue = _catalogue()
+    manager = dict(catalogue.system_grants(CHANGE_MANAGER))
+    assert (manager.get("changes.manage_windows"), manager.get("changes.override_freeze")) == (
+        "all",
+        "all",
+    )
+    admin = dict(catalogue.system_grants(TENANT_ADMIN))
+    assert {"changes.manage_windows", "changes.override_freeze"} <= admin.keys()
+    for role in (TEAM_LEAD, TECHNICIAN):
+        for technician_scope in ("group", "all"):
+            held = dict(catalogue.system_grants(role, technician_scope=technician_scope))
+            assert held.keys().isdisjoint({"changes.manage_windows", "changes.override_freeze"}), (
+                role,
+                technician_scope,
+            )
 
 
 def test_no_role_assigns_outside_a_records_group() -> None:
@@ -167,6 +192,12 @@ def test_a_team_lead_works_its_groups_changes_and_views_the_others() -> None:
         assert working, "a team lead works changes"
         assert set(working.values()) <= {"group", "own"}, working
         assert grants.keys().isdisjoint(
-            {"changes.manage_boards", "changes.emergency_override", "changes.approve"}
+            {
+                "changes.manage_boards",
+                "changes.emergency_override",
+                "changes.approve",
+                "changes.manage_windows",
+                "changes.override_freeze",
+            }
         )
         assert grants.keys().isdisjoint(TENANT_WIDE)

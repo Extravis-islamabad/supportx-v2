@@ -400,6 +400,12 @@ CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     # not by every service desk configurer. Administrators hold it; the change manager role
     # (D-153) gets it with the role model.
     PermissionSpec("changes.manage_boards", "change", ("all",)),
+    # WP-045c (the coordinator, 2026-11-11): freeze and maintenance windows are run by the
+    # change manager and administrators; passing a blocking freeze for a change is the change
+    # manager's, decided at its scope on that change (lane B). Administrators hold every
+    # permission, so they may override too, as with the emergency override (D-144).
+    PermissionSpec("changes.manage_windows", "change", ("all",)),
+    PermissionSpec("changes.override_freeze", "change", ("all", "site", "group")),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (

@@ -61,6 +61,8 @@ CHANGES = (
     PermissionSpec("changes.approve", "change", ("all", "site", "group")),
     # #327 (lane A's work_items, same scopes): boards and the emergency override (D-144).
     PermissionSpec("changes.manage_boards", "change", ("all",)),
+    PermissionSpec("changes.manage_windows", "change", ("all",)),
+    PermissionSpec("changes.override_freeze", "change", ("all", "site", "group")),
     PermissionSpec("changes.emergency_override", "change", ("all", "site", "group")),
 )
 FEATURES = frozenset(
