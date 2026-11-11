@@ -86,8 +86,15 @@ const click = (testId: string) => async (page: Page) => {
 };
 
 // A record tab by its key (Ant Design's node key: the same in every language).
+// At 390 a tab may sit in the tabs' "more" menu: open it and choose the tab there.
 const tab = (key: string) => async (page: Page) => {
-  await page.locator(`[data-node-key="${key}"]`).first().click({ timeout: STATE_TIMEOUT });
+  const node = page.locator(`[data-node-key="${key}"]`).first();
+  if (await node.isVisible()) {
+    await node.click({ timeout: STATE_TIMEOUT });
+  } else {
+    await page.locator('.ant-tabs-nav-more').first().click({ timeout: STATE_TIMEOUT });
+    await page.locator(`[id$="-more-popup-${key}"]`).first().click({ timeout: STATE_TIMEOUT });
+  }
   await page.waitForTimeout(400);
 };
 
