@@ -1731,6 +1731,11 @@ class ChangeDetailsOut(BaseModel):
     risk_version: int | None = None
     risk_chosen: RiskLevel | None = Field(default=None, description="The override, if any.")
     risk_reason: str | None = None
+    sent_back: bool = Field(
+        default=False,
+        description="Sent back for approval by a re-approval restart: an emergency override may "
+        "keep it going (D-144).",
+    )
 
     @classmethod
     def of(cls, view: service.DetailsView) -> "ChangeDetailsOut":
@@ -1742,6 +1747,7 @@ class ChangeDetailsOut(BaseModel):
             **{n: (getattr(row, n) if row is not None else None) for n in CHANGE_DETAIL_FIELDS},
             retrospective=bool(getattr(row, "retrospective", False)),  # a change's row only
             **{n: getattr(row, n, None) for n in risk_rules.RISK_FIELDS},
+            sent_back=getattr(row, "resume_stage", None) is not None,
         )
 
 
