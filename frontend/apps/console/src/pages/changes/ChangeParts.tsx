@@ -6,6 +6,7 @@ import {
   Form,
   Input,
   List,
+  Modal,
   Radio,
   Row,
   Select,
@@ -17,6 +18,7 @@ import { useState } from 'react';
 
 import {
   useAssessChangeRisk,
+  useReapprovalPreview,
   useChangeDetails,
   useChangeRiskQuestionnaire,
   useSetStagedRole,
@@ -30,6 +32,7 @@ import {
   useWriteStagedPlan,
   type ChangeDetailsInput,
   type Downtime,
+  type StageChanges,
   type StageSchedule,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
@@ -48,7 +51,7 @@ import {
 } from '@supportx/ui';
 
 import { labelled } from '../incidents/labels';
-import { listValueName, stageName } from '../releases/labels';
+import { listValueName, stageName } from '../staged/labels';
 import { RISKS, riskTone } from './labels';
 
 /**
@@ -62,8 +65,11 @@ export function DetailsPart({ id }: { id: string }) {
   const details = useChangeDetails(id);
   const settings = useStagedSettings('changes');
   const save = useUpdateChangeDetails();
+  const preview = useReapprovalPreview();
   const problem = useFormProblem();
   const [draft, setDraft] = useState<ChangeDetailsInput>({});
+  // REQ-CHG-053: a new risk may send approved stages back; say which before saving.
+  const [restarts, setRestarts] = useState<StageChanges[]>();
   const d = details.data;
   if (d === undefined) return null;
   const own = (list: string) => (settings.data?.own_lists?.[list] ?? []).filter((v) => !v.disabled);
@@ -77,7 +83,8 @@ export function DetailsPart({ id }: { id: string }) {
   const dirty = Object.entries(draft).some(
     ([k, v]) => v !== (d as unknown as Record<string, unknown>)[k],
   );
-  const submit = () => {
+  const write = () => {
+    setRestarts(undefined);
     save.mutate(
       { id, version: d.version, body: draft },
       {
@@ -90,8 +97,50 @@ export function DetailsPart({ id }: { id: string }) {
       },
     );
   };
+  const submit = () => {
+    if (!overriding) {
+      write();
+      return;
+    }
+    const risk = (draft.risk_chosen ?? d.risk ?? null) as ChangeDetailsInput['risk_chosen'];
+    preview.mutate(
+      { id, body: { risk } },
+      {
+        onSuccess: (found) => {
+          const back = found.filter((s) => s.changes.some((c) => c.effect === 'restart'));
+          if (back.length === 0) write();
+          else setRestarts(back);
+        },
+        onError: (error) => {
+          problem.show(error);
+        },
+      },
+    );
+  };
   return (
     <Form layout="vertical" data-testid="change-details">
+      {restarts && (
+        <Modal
+          open
+          title={t('changes.reapproval.title')}
+          okText={t('changes.reapproval.confirm')}
+          okButtonProps={{ loading: save.isPending, 'data-testid': 'reapproval-ok' }}
+          onOk={write}
+          onCancel={() => {
+            setRestarts(undefined);
+          }}
+          destroyOnHidden
+        >
+          <Flex vertical gap={8} data-testid="reapproval-warning">
+            <Typography.Text>{t('changes.reapproval.warning')}</Typography.Text>
+            {restarts.map((s) => (
+              <Typography.Text key={s.stage} strong>
+                {stageName(t, s.stage)}
+              </Typography.Text>
+            ))}
+          </Flex>
+        </Modal>
+      )}
       <Row gutter={16}>
         {(['change_type', 'change_reason'] as const).map((list) => (
           <Col key={list} xs={24} md={12}>

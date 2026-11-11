@@ -206,3 +206,38 @@ export function useStagedApprovals(path: StagedPath, id: string) {
     enabled: id !== '',
   });
 }
+
+/** Approve or reject with If-Match on the approval's version. */
+export function useDecideStagedApproval(path: StagedPath) {
+  const refresh = useRefresh(path);
+  return useMutation({
+    mutationFn: ({
+      id,
+      approvalId,
+      version,
+      decision,
+      comment,
+      isPrivate,
+    }: {
+      id: string;
+      approvalId: string;
+      version: number;
+      decision: 'approve' | 'reject';
+      comment?: string;
+      isPrivate?: boolean;
+    }) =>
+      call(
+        api.POST(at(path, `${RECORD}/approvals/{approval_id}/decision`), {
+          params: { path: { record_id: id, approval_id: approvalId }, header: ifMatch(version) },
+          body: {
+            decision,
+            comment: comment === undefined || comment === '' ? null : comment,
+            private: isPrivate ?? false,
+          },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}

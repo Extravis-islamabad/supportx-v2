@@ -29,7 +29,7 @@ import {
 
 import { useDebounced } from '../../useDebounced';
 import { StatusTag } from '../incidents/tags';
-import { stageName } from '../releases/labels';
+import { stageName } from '../staged/labels';
 import { EMERGENCY_PATH } from './labels';
 
 const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged

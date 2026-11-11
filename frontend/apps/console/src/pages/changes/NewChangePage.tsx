@@ -24,7 +24,7 @@ import {
 } from '@supportx/ui';
 
 import { UserPicker } from '../incidents/pickers';
-import { listValueName, stageName } from '../releases/labels';
+import { listValueName, stageName } from '../staged/labels';
 import { templateName } from './labels';
 
 /**

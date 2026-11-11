@@ -23,7 +23,7 @@ import {
 import { CustomFieldControl } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { labelled } from '../incidents/labels';
-import { listValueName, statusName } from '../releases/labels';
+import { listValueName, statusName } from '../staged/labels';
 
 const CUSTOM = 'custom.';
 // A plan section a stage needs (`plan.backout`): written on the Plan tab, with its own version
@@ -205,12 +205,15 @@ export function StagedMoveDialog({
   version,
   move,
   onClose,
+  notice,
 }: {
   path: StagedPath;
   recordId: string;
   version: number;
   move: StageMove;
   onClose: () => void;
+  /** What the type says before this move, e.g. who would approve a change's stage. */
+  notice?: ReactNode;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -276,6 +279,7 @@ export function StagedMoveDialog({
       destroyOnHidden
     >
       <Form layout="vertical" data-testid="move-dialog">
+        {notice}
         {plans.map((m) => (
           <Alert
             key={m.field}
