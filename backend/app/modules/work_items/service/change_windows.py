@@ -13,6 +13,7 @@
 
 import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,9 +24,16 @@ from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain import change_windows as rules
+from app.modules.work_items.domain.changes import IMPLEMENTATION
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.events import ChangeWindowChanged
-from app.modules.work_items.infra.models import ChangeWindow, WorkItem, WorkItemChangeDetails
+from app.modules.work_items.infra.models import (
+    ChangeWindow,
+    WorkItem,
+    WorkItemChangeDetails,
+    WorkItemDowntime,
+    WorkItemStageSchedule,
+)
 from app.modules.work_items.service import change_conflicts
 from app.modules.work_items.service import work_items as items
 from app.shared.db.repository import Repository
@@ -383,3 +391,83 @@ async def override_freeze(  # noqa: PLR0913 - the change, its version and why, e
         source=source,
         reason=text,
     )
+
+
+# --- the change calendar (WP-045c S3; ADR-042 §5) -------------------------------------------------
+
+CALENDAR_LIMIT = 2000  # entries in one range; a month of a busy tenant fits many times over
+
+
+@dataclass(frozen=True)
+class CalendarEntry:
+    """A change's planned time on the calendar: its implementation window or a downtime."""
+
+    record: WorkItem
+    kind: str  # "window" (the implementation window) or "downtime"
+    starts_at: datetime
+    ends_at: datetime
+    part_id: uuid.UUID | None = None  # the downtime, for a downtime
+    version: int = 0  # the window's or downtime's own version (If-Match when moved)
+
+
+async def calendar(
+    session: AsyncSession,
+    subject: Subject,
+    *,
+    start: datetime,
+    end: datetime,
+    mine: bool = False,
+) -> list[CalendarEntry]:
+    """The changes you may see planned in [start, end): windows and planned downtimes, by start.
+
+    `mine`: only those you hold (technician). Windows are listed by `windows(start=, end=)`.
+    """
+    visible = items.staff_rows(subject, CHANGE).with_only_columns(WorkItem.id)
+    if mine:
+        visible = visible.where(WorkItem.technician_id == subject.user_id)
+    windows_q = (
+        select(WorkItem, WorkItemStageSchedule)
+        .join(WorkItemStageSchedule, WorkItemStageSchedule.work_item_id == WorkItem.id)
+        .where(
+            WorkItem.id.in_(visible),
+            WorkItemStageSchedule.stage == IMPLEMENTATION,
+            WorkItemStageSchedule.scheduled_start < end,
+            WorkItemStageSchedule.scheduled_end > start,
+        )
+        .limit(CALENDAR_LIMIT)
+    )
+    entries = [
+        CalendarEntry(
+            record=w,
+            kind="window",
+            starts_at=row.scheduled_start,
+            ends_at=row.scheduled_end,
+            version=row.version,
+        )
+        for w, row in await session.execute(windows_q)
+        if row.scheduled_start is not None and row.scheduled_end is not None
+    ]
+    downtimes_q = (
+        select(WorkItem, WorkItemDowntime)
+        .join(WorkItemDowntime, WorkItemDowntime.work_item_id == WorkItem.id)
+        .where(
+            WorkItem.id.in_(visible),
+            WorkItemDowntime.phase == "planned",
+            WorkItemDowntime.deleted_at.is_(None),
+            WorkItemDowntime.starts_at < end,
+            WorkItemDowntime.ends_at > start,
+        )
+        .limit(CALENDAR_LIMIT)
+    )
+    entries += [
+        CalendarEntry(
+            record=w,
+            kind="downtime",
+            starts_at=d.starts_at,
+            ends_at=d.ends_at,
+            part_id=d.id,
+            version=d.version,
+        )
+        for w, d in await session.execute(downtimes_q)
+    ]
+    return sorted(entries, key=lambda e: (e.starts_at, e.record.display_id))
