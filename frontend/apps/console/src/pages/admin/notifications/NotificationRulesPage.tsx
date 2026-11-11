@@ -24,11 +24,13 @@ import {
   type NotificationChannel,
   type NotificationRule,
   type NotificationRuleInput,
+  useStagedSettings,
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
 import { EmptyText, reportError, useDateTime, useLabel } from '@supportx/ui';
 
 import { NotificationsBanner } from '../../../notifications/NotificationsBanner';
+import { statusName } from '../../staged/labels';
 
 const CHANNELS: NotificationChannel[] = ['in_app', 'email'];
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'];
@@ -186,6 +188,26 @@ export function NotificationRulesPage() {
         ) : null,
     },
     {
+      // REQ-CHG-103: a change rule for the statuses it is entered into (the change's own list).
+      key: 'status',
+      title: t('notification_rules.col.status'),
+      render: (_, rule) =>
+        rule.condition_fields.includes('status') ? (
+          <StatusCondition
+            rule={rule}
+            onChange={(values) => {
+              const others = rule.conditions.filter((c) => c.field !== 'status');
+              change(rule, {
+                conditions:
+                  values.length === 0
+                    ? others
+                    : [...others, { field: 'status', operator: 'in', values }],
+              });
+            }}
+          />
+        ) : null,
+    },
+    {
       key: 'reset',
       render: (_, rule) =>
         rule.is_default ? null : (
@@ -249,5 +271,34 @@ export function NotificationRulesPage() {
         />
       )}
     </Flex>
+  );
+}
+
+/** The change statuses a rule fires on; none chosen means every status (REQ-CHG-103). */
+function StatusCondition({
+  rule,
+  onChange,
+}: {
+  rule: NotificationRule;
+  onChange: (values: string[]) => void;
+}) {
+  const t = useLabel();
+  const settings = useStagedSettings('changes');
+  const chosen =
+    rule.conditions.find((c) => c.field === 'status' && c.operator === 'in')?.values ?? [];
+  return (
+    <Select
+      mode="multiple"
+      allowClear
+      style={{ minWidth: 200 }}
+      placeholder={t('notification_rules.any_status')}
+      value={chosen}
+      aria-label={t('notification_rules.col.status')}
+      options={(settings.data?.statuses ?? [])
+        .filter((s) => !s.disabled)
+        .map((s) => ({ value: s.code, label: statusName(t, s.code) }))}
+      onChange={onChange}
+      data-testid={`rule-status-${rule.event_code}`}
+    />
   );
 }
