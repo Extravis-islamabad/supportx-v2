@@ -32,7 +32,9 @@ MetricsExporter = Literal["none", "console", "prometheus"]
 SESSION_KEY_ID_PATTERN = re.compile(r"^[a-z0-9_-]{1,32}$")
 # The ID SUPPORTX_SESSION_SECRET has as a one-key ring (D-162).
 LEGACY_SESSION_KEY_ID = "legacy"
-SESSION_KEY_MIN_LENGTH = 32  # characters, in production
+SESSION_KEY_MIN_LENGTH = 32  # characters, in production (every key, legacy included)
+# Every ring key but "legacy" (the pre-D-162 secret, accepted as it was), in every profile.
+SESSION_KEY_MIN_BYTES = 32
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ENV_FILE = BACKEND_DIR / ".env"
@@ -601,6 +603,9 @@ def _session_key_entry(item: object, legacy: str | None) -> tuple[str, str]:
         return key_id, legacy
     if not isinstance(secret, str) or not secret:
         msg = f"SUPPORTX_SESSION_KEYS: key {key_id!r} needs a secret"
+        raise ValueError(msg)
+    if key_id != LEGACY_SESSION_KEY_ID and len(secret.encode()) < SESSION_KEY_MIN_BYTES:
+        msg = f"SUPPORTX_SESSION_KEYS: the secret of key {key_id!r} needs at least 32 bytes"
         raise ValueError(msg)
     if key_id == LEGACY_SESSION_KEY_ID and legacy is not None and secret != legacy:
         msg = (

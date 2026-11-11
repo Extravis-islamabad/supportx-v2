@@ -9,16 +9,19 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator, Iterator
+from typing import Any
 
 import asyncpg
 import pytest
 import pytest_asyncio
 
-from app.core.database import Database, create_engine
+from app.core.database import SESSION_TENANT_KEY, Database, create_engine
+from app.modules.audit import record
 from app.modules.identity_access.service.session_keys import (
     RETIRED,
     RING,
     ROTATED,
+    announce_pending,
     sync_session_keys,
 )
 from app.shared.crypto import KeyStillInUseError, register_key_user, unregister_key_user
@@ -74,6 +77,11 @@ async def entries(
         await conn.close()
 
 
+async def listed(db: db_testing.ThrowawayDatabase) -> list[str]:
+    """The recorded keys still in use, so a test can add one without retiring the others."""
+    return [key for key, retired in (await recorded(db)).items() if not retired]
+
+
 async def recorded(db: db_testing.ThrowawayDatabase) -> dict[str, bool]:
     conn = await asyncpg.connect(db.admin_url)
     try:
@@ -83,25 +91,33 @@ async def recorded(db: db_testing.ThrowawayDatabase) -> dict[str, bool]:
     return {row["key_id"]: row["retired_at"] is not None for row in rows}
 
 
-async def test_rotation_and_retirement_are_audited_once_across_replicas(
+async def test_rotation_and_retirement_are_claimed_once_and_announced_once_per_tenant(
     ring_db: db_testing.ThrowawayDatabase,
     tenants: tuple[uuid.UUID, uuid.UUID],
     replicas: tuple[Database, Database],
 ) -> None:
     one, two = replicas
-    # First start: the ring as it is, no rotation, no entry.
+    # First start: the ring as it is, no rotation, nothing to announce.
     first = await sync_session_keys(one, ["k1"])
     assert (first.rotated, first.retired) == ([], [])
     assert await recorded(ring_db) == {"k1": False}
-    for tenant in tenants:
-        assert await entries(ring_db, tenant, ROTATED) == []
+    assert await announce_pending(one) == 0
 
-    # A new newest key, two replicas starting at once: exactly one writes the entry.
+    # A new newest key, two replicas starting at once: exactly one claims it.
     results = await asyncio.gather(
         sync_session_keys(one, ["k2", "k1"]), sync_session_keys(two, ["k2", "k1"])
     )
     assert sorted(k for r in results for k in r.rotated) == ["k2"]
     assert await recorded(ring_db) == {"k1": False, "k2": False}
+    # Start-up writes no tenant entry: that is the announcer's job.
+    for tenant in tenants:
+        assert await entries(ring_db, tenant, ROTATED) == []
+    # A tenant created after the change is not told about it.
+    later = await create_tenant(ring_db.migrator_url, "Ring later")
+
+    # Two announcer runs at once: one entry per tenant.
+    written = await asyncio.gather(announce_pending(one), announce_pending(two))
+    assert sum(written) == len(tenants)
     for tenant in tenants:
         found = await entries(ring_db, tenant, ROTATED)
         assert len(found) == 1
@@ -110,20 +126,89 @@ async def test_rotation_and_retirement_are_audited_once_across_replicas(
         assert (entry["actor_type"], entry["actor_id"]) == ("system", None)
         details = json.loads(entry["details"])
         assert details == {"key_id": "k2", "previous_key_id": "k1", "readable_keys": 2}
+    assert await entries(ring_db, later, ROTATED) == []
+    assert await announce_pending(one) == 0  # announced: nothing pending
 
     # Again with the same ring: nothing new.
     again = await sync_session_keys(two, ["k2", "k1"])
     assert (again.rotated, again.retired) == ([], [])
 
-    # The old key leaves the ring: exactly one retired entry.
+    # The old key leaves the ring: exactly one retired entry per tenant.
     results = await asyncio.gather(sync_session_keys(one, ["k2"]), sync_session_keys(two, ["k2"]))
     assert sorted(k for r in results for k in r.retired) == ["k1"]
     assert await recorded(ring_db) == {"k1": True, "k2": False}
+    await asyncio.gather(announce_pending(one), announce_pending(two))
     for tenant in tenants:
         retired = await entries(ring_db, tenant, RETIRED)
         assert len(retired) == 1
         assert retired[0]["object_id"] == "k1"
+        assert json.loads(retired[0]["details"]) == {"key_id": "k1", "readable_keys": 1}
         assert len(await entries(ring_db, tenant, ROTATED)) == 1
+
+
+async def test_a_crash_half_way_neither_loses_nor_repeats_an_entry(
+    ring_db: db_testing.ThrowawayDatabase,
+    tenants: tuple[uuid.UUID, uuid.UUID],
+    replicas: tuple[Database, Database],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    one, _ = replicas
+    await sync_session_keys(one, ["k1"])  # baseline, if this test runs alone
+    await announce_pending(one)
+    await sync_session_keys(one, ["k9", *(await listed(ring_db))])
+    first, second = tenants
+    target = "app.modules.identity_access.service.session_keys.record"
+
+    async def crash_for_second(session: Any, **values: Any) -> uuid.UUID:  # noqa: ANN401 - record()'s
+        if session.info[SESSION_TENANT_KEY].tenant_id == second:
+            msg = "the worker died"
+            raise RuntimeError(msg)
+        return await record(session, **values)
+
+    monkeypatch.setattr(target, crash_for_second)
+    with pytest.raises(RuntimeError, match="worker died"):
+        await announce_pending(one)
+    monkeypatch.setattr(target, record)
+    await announce_pending(one)
+    for tenant in (first, second):
+        found = [e for e in await entries(ring_db, tenant, ROTATED) if e["object_id"] == "k9"]
+        assert len(found) == 1, tenant
+
+
+async def _insert_as(
+    conn: asyncpg.Connection, acting: uuid.UUID, owner: uuid.UUID, event: uuid.UUID
+) -> None:
+    async with conn.transaction():
+        await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(acting))
+        await conn.execute(
+            "INSERT INTO session_key_announcements (tenant_id, event_id, key_id, action)"
+            " VALUES ($1, $2, 'kx', 'security.session_key_rotated')",
+            owner,
+            event,
+        )
+
+
+async def test_announcements_are_isolated_per_tenant(
+    ring_db: db_testing.ThrowawayDatabase, tenants: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    first, second = tenants
+    conn = await asyncpg.connect(ring_db.app_url)
+    try:
+        event = await conn.fetchval("SELECT id FROM session_key_events LIMIT 1")
+        assert event is not None  # the tests above announced to both tenants
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(first))
+            seen = await conn.fetch("SELECT tenant_id FROM session_key_announcements")
+            assert seen
+            assert {row["tenant_id"] for row in seen} == {first}
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await _insert_as(conn, first, second, event)
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await conn.execute("DELETE FROM session_key_announcements")
+        # Without a tenant, nothing is visible.
+        assert await conn.fetchval("SELECT count(*) FROM session_key_announcements") == 0
+    finally:
+        await conn.close()
 
 
 async def test_a_removed_key_still_in_use_refuses_to_start(

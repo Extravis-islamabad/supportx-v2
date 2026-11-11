@@ -50,13 +50,16 @@ def _check_purpose(purpose: str) -> bytes:
 
 
 def _bound_bytes(bound_to: Sequence[str]) -> bytes:
-    """The parts joined by NUL, each part non-empty and NUL-free (else ValueError).
+    """The parts joined by NUL: at least one part, each non-empty and NUL-free (else ValueError).
 
     So ("a", "bc") and ("ab", "c") can never produce the same bytes.
     """
     if isinstance(bound_to, str):
         msg = "bound_to is a sequence of parts, not one string"
         raise TypeError(msg)
+    if not bound_to:
+        msg = "bound_to needs at least one part"
+        raise ValueError(msg)
     encoded: list[bytes] = []
     for part in bound_to:
         if not part or "\x00" in part:

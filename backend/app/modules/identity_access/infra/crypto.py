@@ -16,7 +16,7 @@ from typing import Any
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from app.core.config import LEGACY_SESSION_KEY_ID, Settings
+from app.core.config import LEGACY_SESSION_KEY_ID, SESSION_KEY_MIN_BYTES, Settings
 from app.shared.crypto import KeyMaterial, KeyRing
 
 PURPOSE = "bff-session"
@@ -25,11 +25,20 @@ _NONCE_BYTES = 12
 
 
 def session_ring(settings: Settings) -> KeyRing | None:
-    """The session key ring from SUPPORTX_SESSION_KEYS / SUPPORTX_SESSION_SECRET, or None."""
+    """The session key ring from SUPPORTX_SESSION_KEYS / SUPPORTX_SESSION_SECRET, or None.
+
+    Every key but "legacy" (the secret from before D-162, kept as it was) has at least 32
+    bytes of secret; the settings refuse shorter ones already, this holds for any other caller.
+    """
     entries = settings.session_key_entries()
     if not entries:
         return None
-    return KeyRing.of([KeyMaterial(key_id, secret.encode()) for key_id, secret in entries])
+    keys = [KeyMaterial(key_id, secret.encode()) for key_id, secret in entries]
+    for key in keys:
+        if key.id != LEGACY_SESSION_KEY_ID and len(key.secret) < SESSION_KEY_MIN_BYTES:
+            msg = f"session key {key.id!r} needs at least {SESSION_KEY_MIN_BYTES} bytes of secret"
+            raise ValueError(msg)
+    return KeyRing.of(keys)
 
 
 class SessionCipher:

@@ -67,6 +67,13 @@ def test_empty_parts_or_parts_with_nul_are_refused(parts: list[str]) -> None:
         open_sealed(lookup(NEW), "p", parts, seal(NEW, "p", ["x"], b"v"))
 
 
+def test_bound_to_needs_at_least_one_part() -> None:
+    with pytest.raises(ValueError, match="at least one part"):
+        seal(NEW, "p", [], b"v")
+    with pytest.raises(ValueError, match="at least one part"):
+        open_sealed(lookup(NEW), "p", (), seal(NEW, "p", ["x"], b"v"))
+
+
 def test_a_single_string_is_not_taken_as_its_characters() -> None:
     with pytest.raises(TypeError):
         seal(NEW, "p", "abc", b"v")

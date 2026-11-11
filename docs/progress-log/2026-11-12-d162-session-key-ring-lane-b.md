@@ -12,11 +12,16 @@
   secret. Production refuses `SUPPORTX_SESSION_KEYS` without `SUPPORTX_SESSION_SECRET` unless the
   API-key, cursor and domain-proof secrets are all set. Settings errors no longer echo their
   input.
-- **Audit (migration 0146, `session_key_ids`, platform table):** start-up records new IDs (ON
-  CONFLICT DO NOTHING) and retires missing ones (conditional UPDATE); only the winner writes
-  `security.session_key_rotated` / `_retired` into each tenant's log. The first start records the
-  ring silently. A removed key a registered user still counts refuses start-up
-  (`session_key_still_in_use`). `/ready` warns above three keys.
+- **Audit (migration 0146):** `session_key_ids` and `session_key_events` (platform tables),
+  `session_key_announcements` (tenant table, RLS). Start-up only claims a change (ON CONFLICT DO
+  NOTHING / conditional UPDATE ... RETURNING, the winner records the event); the schedule
+  `identity_access__session_key_announce` writes `security.session_key_rotated` / `_retired`
+  into each tenant's log, the entry and the tenant's announcement row in one transaction, so a
+  crash or two runs at once never lose or repeat one. The first start claims nothing. A removed
+  key a registered user still counts refuses start-up (`session_key_still_in_use`). `/ready`
+  warns above three keys.
+- **Lane C's notes:** every ring key but `legacy` needs 32 bytes (settings and ring builder);
+  `bound_to` needs at least one part. A test proves a refused start-up never prints a secret.
 - **Chart:** `secrets.sessionKeys` lists IDs and Secret keys; values and manifests never hold a
   secret; empty = as before (golden unchanged).
 - **Docs:** ADR-048, D-162, docs/guides/rotating-the-sign-in-key.md, docs/deployment.md.

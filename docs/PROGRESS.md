@@ -95,6 +95,10 @@ decisions D1-D13 (D-038).
 6. **D-162 (lane B, 2026-11-12): rotatable sign-in key ring built** (ADR-048, migration 0146,
    docs/guides/rotating-the-sign-in-key.md). Lane C's WP-057 is to reuse its blob format and
    key-users hook. Migration 0146's `down_revision` is re-pointed at queue time.
+7. **Follow-up: a platform audit log for installation events** (coordinator, #418). Events of
+   the installation rather than a tenant (sign-in key rotations, D-162) are written into every
+   tenant's log today, by a background announcer; a platform log for the operator would hold
+   them once. Needs an ADR (it sits beside ADR-027's per-tenant chain).
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),

@@ -34,9 +34,11 @@ field encryption (WP-057) needs the same things, so the format is decided once h
 3. **Blob v2:** `0x02 | len(key_id) (1 byte) | key_id (ASCII) | 12-byte random nonce |
    AES-256-GCM ciphertext + 16-byte tag`. Key IDs match `^[a-z0-9_-]{1,32}$`, else ValueError.
 4. **Associated data:** b"supportx/" + purpose + b"/v2\x00" + key_id + b"\x00" + bound_to_bytes,
-   where bound_to_bytes is the parts (UTF-8) joined by b"\x00". Every part must be non-empty and
-   contain no NUL, else ValueError, so ("a", "bc") and ("ab", "c") never collide. A single string
-   is refused as `bound_to` (it would be read as its characters).
+   where bound_to_bytes is the parts (UTF-8) joined by b"\x00". `bound_to` needs at least one
+   part (an empty sequence raises ValueError in `seal` and `open_sealed`: every blob is bound to
+   something), and every part must be non-empty and contain no NUL, else ValueError, so
+   ("a", "bc") and ("ab", "c") never collide. A single string is refused as `bound_to` (it would
+   be read as its characters).
 5. **The users hook** (`app/shared/crypto/users.py`): modules register, per ring,
    `async (key_id) -> int`, the number of their stored items that still need a key. At start-up
    the ring's owner asks for every key it recorded before but no longer lists; any count above 0
@@ -47,19 +49,36 @@ field encryption (WP-057) needs the same things, so the format is decided once h
    first; `SUPPORTX_SESSION_SECRET` alone is the one-key ring `legacy`. With both, the ring is
    `SUPPORTX_SESSION_KEYS`, which may list `{"id": "legacy"}` (its secret is then
    `SUPPORTX_SESSION_SECRET`). Purpose `bff-session`, `bound_to` = [the Valkey store key], as the
-   old associated data. Every save re-seals under the newest key.
+   old associated data. Every save re-seals under the newest key. Every ring key except `legacy`
+   has a secret of at least 32 bytes (UTF-8), in every profile: the settings refuse a shorter
+   one, and so does the ring builder (`session_ring`) for any other caller. `legacy` is the
+   secret from before D-162 and is accepted as it was (production still asks 32 characters of
+   `SUPPORTX_SESSION_SECRET`).
 7. **v1 compatibility:** a blob without the 0x02 header (or one whose random first byte happens to
    be 0x02 but does not open as v2) is tried with the old derivation, only while `legacy` is
    listed, read-only. Nothing is ever written as v1 again.
-8. **Recording and audit** (migration 0146): the platform table `session_key_ids` (key ID, first
-   seen, retired; IDs only, RLS forced, the app may select, insert and update, never delete).
-   At API start-up a new ID is inserted with ON CONFLICT DO NOTHING ... RETURNING and a missing
-   one retired with UPDATE ... WHERE retired_at IS NULL RETURNING; only the replica whose
-   statement returned the row writes `security.session_key_rotated` (new key, previous newest,
-   number of readable keys) or `security.session_key_retired`. The audit log is per tenant
-   (ADR-027), so the entry goes into every tenant's log, as the system. The claim's transaction
-   stays open until the entries are written (at least once). The very first start only records
-   the ring: that is no rotation.
+8. **Recording and audit** (migration 0146):
+   - `session_key_ids` (platform table: key ID, first seen, retired; IDs only, RLS forced, the
+     app may select, insert and update, never delete);
+   - `session_key_events` (platform table): each claimed change, waiting to be announced;
+   - `session_key_announcements` (tenant table, RLS, unique per tenant and change, select and
+     insert only): which changes are already in that tenant's audit log.
+
+   API start-up only **claims**: a new ID is inserted with ON CONFLICT DO NOTHING ... RETURNING
+   and a missing one retired with UPDATE ... WHERE retired_at IS NULL RETURNING; only the
+   replica whose statement returned the row adds the change to `session_key_events`, in the same
+   transaction. Start-up never writes a tenant's audit log, so many tenants never slow or fail
+   it. The very first start only records the ring: that is no rotation.
+
+   The audit log is per tenant (ADR-027) and there is no platform audit log yet (a follow-up in
+   PROGRESS.md), so the schedule `identity_access__session_key_announce` (consumers worker)
+   writes each change into every tenant's log, as the system: `security.session_key_rotated`
+   (new key, previous newest, number of readable keys) or `security.session_key_retired`. Per
+   tenant, in one transaction with app.tenant_id set, it inserts the tenant's announcement row
+   (ON CONFLICT DO NOTHING RETURNING) and writes the entry only when that row was returned, so
+   entry and marker commit together: a crash neither loses nor repeats an entry, and two runs at
+   once write one. Tenants created after a change are not told about it. Once every tenant has
+   it, the change is marked announced and no longer looked at.
 9. **The secret's other users are untangled:** the cursor key and the API-key hash key fall back
    only to `SUPPORTX_SESSION_SECRET`, never to the ring, with their old derivations byte for byte;
    domain proofs take `SUPPORTX_DOMAIN_PROOF_SECRET`, else `SUPPORTX_SESSION_SECRET` as before.

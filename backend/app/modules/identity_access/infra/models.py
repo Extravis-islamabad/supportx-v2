@@ -578,3 +578,52 @@ class SessionKeyId(Timestamps, Actors, Base):
     key_id: Mapped[str] = mapped_column(String, primary_key=True)
     first_seen_at: Mapped[datetime]
     retired_at: Mapped[datetime | None]
+
+
+SESSION_KEY_ACTIONS = ("security.session_key_rotated", "security.session_key_retired")
+
+
+class SessionKeyEvent(Timestamps, Actors, Base):
+    """One claimed change of the sign-in key ring, waiting to be announced (D-162; 0146).
+
+    Platform table: written by the start-up that won the claim, read by the announcer, which
+    sets `announced_at` once every tenant has its entry. IDs and counts only, never material.
+    """
+
+    __tablename__ = "session_key_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('security.session_key_rotated', 'security.session_key_retired')",
+            name="action_code",
+        ),
+        Index(
+            "ix_session_key_events_pending",
+            "occurred_at",
+            postgresql_where=text("announced_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    key_id: Mapped[str] = mapped_column(String)
+    action: Mapped[str] = mapped_column(String)
+    previous_key_id: Mapped[str | None] = mapped_column(String)
+    readable_keys: Mapped[int] = mapped_column(SmallInteger)
+    occurred_at: Mapped[datetime]
+    announced_at: Mapped[datetime | None]
+
+
+class SessionKeyAnnouncement(TenantKeyed, Timestamps, Actors, Base):
+    """A key-ring change already written into this tenant's audit log (D-162; 0146).
+
+    Inserted in the same transaction as the audit entry, unique per tenant and change: a crash
+    rolls both back, a second run finds the row and writes nothing. Never edited.
+    """
+
+    __tablename__ = "session_key_announcements"
+    __table_args__ = (
+        ForeignKeyConstraint(["event_id"], ["session_key_events.id"], ondelete="RESTRICT"),
+    )
+
+    event_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    key_id: Mapped[str] = mapped_column(String)
+    action: Mapped[str] = mapped_column(String)

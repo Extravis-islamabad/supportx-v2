@@ -91,6 +91,29 @@ def test_malformed_session_keys_are_refused_without_showing_a_secret(
     assert LEGACY not in str(refused.value)
 
 
+def test_every_ring_key_but_legacy_needs_32_bytes_in_every_profile() -> None:
+    with pytest.raises(ValidationError, match="'k2' needs at least 32 bytes") as refused:
+        make_settings(session_keys=keys({"id": "k2", "secret": "s" * 31}))
+    assert "s" * 31 not in str(refused.value)
+    # Bytes, not characters: 16 two-byte characters are 32 bytes.
+    assert make_settings(session_keys=keys({"id": "k2", "secret": "é" * 16})).session_key_entries()
+    # "legacy" stays as it was before D-162, whatever its length outside production.
+    short_legacy = make_settings(
+        session_secret="old", session_keys=keys({"id": "k2", "secret": NEW}, {"id": "legacy"})
+    )
+    assert dict(short_legacy.session_key_entries())["legacy"] == "old"
+    assert session_ring(short_legacy) is not None
+
+
+def test_the_ring_builder_refuses_a_short_key_too() -> None:
+    def entries() -> tuple[tuple[str, str], ...]:
+        return (("k2", "s" * 31), ("legacy", "old"))
+
+    settings = cast("Settings", SimpleNamespace(session_key_entries=entries))
+    with pytest.raises(ValueError, match="'k2' needs at least 32 bytes"):
+        session_ring(settings)
+
+
 def test_legacy_by_id_needs_the_session_secret() -> None:
     with pytest.raises(ValidationError, match="needs a secret"):
         make_settings(session_keys=keys({"id": "legacy"}))
@@ -101,7 +124,7 @@ def test_production_accepts_a_ring_with_the_legacy_secret(
 ) -> None:
     settings = production_settings(session_keys=keys({"id": "k2", "secret": NEW}))
     assert settings.auth_configured is True
-    with pytest.raises(ValidationError, match="'k2' must be at least 32 characters"):
+    with pytest.raises(ValidationError, match="'k2' needs at least 32 bytes"):
         production_settings(session_keys=keys({"id": "k2", "secret": "short"}))
 
 

@@ -58,6 +58,14 @@ PLATFORM_TABLES: dict[str, tuple[frozenset[str], str]] = {
             "start-up records new IDs and retires missing ones, and nothing ever deletes one."
         ),
     ),
+    "session_key_events": (
+        frozenset({"SELECT", "INSERT", "UPDATE"}),
+        (
+            "Claimed changes of the installation's sign-in key ring (D-162, migration 0146), "
+            "waiting to be written into each tenant's audit log; IDs and counts only, the "
+            "announcer marks them done. Per-tenant progress lives in session_key_announcements."
+        ),
+    ),
 }
 # Not application data at all: never reachable by supportx_app.
 IGNORED_TABLES: dict[str, str] = {

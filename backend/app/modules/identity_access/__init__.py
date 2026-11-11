@@ -136,7 +136,10 @@ from app.modules.identity_access.service.service_identities import (
     remove_service_identity_role,
     set_service_identity_active,
 )
-from app.modules.identity_access.service.session_keys import sync_session_keys
+from app.modules.identity_access.service.session_keys import (
+    announce_session_keys,
+    sync_session_keys,
+)
 from app.modules.identity_access.service.users import count_technicians
 from app.modules.identity_access.service.worker_sessions import (
     TenantSessionEnder,
@@ -397,6 +400,8 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__people_imports", 5, run_people_imports),
         # Past the MFA grace period: Keycloak's enrol actions (WP-039 session 3, REQ-SEC-024).
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
+        # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
+        ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
     ],
 )
 

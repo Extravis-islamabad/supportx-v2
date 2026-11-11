@@ -16,7 +16,7 @@ it).
 
 | Setting | What it is |
 |---|---|
-| `SUPPORTX_SESSION_KEYS` | The key ring, as JSON, **newest first**: `[{"id": "2026-11", "secret": "..."}, {"id": "legacy"}]`. A key ID is 1 to 32 of `a-z`, `0-9`, `_` and `-`; a date such as `2026-11` works well. Each secret is at least 32 characters in production; use random hex (`openssl rand -hex 32`). |
+| `SUPPORTX_SESSION_KEYS` | The key ring, as JSON, **newest first**: `[{"id": "2026-11", "secret": "..."}, {"id": "legacy"}]`. A key ID is 1 to 32 of `a-z`, `0-9`, `_` and `-`; a date such as `2026-11` works well. Each secret is at least 32 bytes (in every profile; `legacy` keeps the length it had); use random hex (`openssl rand -hex 32`). |
 | `SUPPORTX_SESSION_SECRET` | The single key from before. Alone, it is a ring of one key called `legacy`. With `SUPPORTX_SESSION_KEYS` set, list `{"id": "legacy"}` (no secret: it is this one) for as long as sessions saved under it must still be read. It also stays the key behind API keys, list paging and custom-domain proofs (see the upgrade notes). |
 | `SUPPORTX_DOMAIN_PROOF_SECRET` | Optional: the key behind custom-domain verification. Not set: `SUPPORTX_SESSION_SECRET`, as before. |
 
@@ -46,10 +46,12 @@ secrets:
    longest one any organisation uses. After that no live session still needs the old key.
 5. **Retire the old key**: remove it from the list and restart again. Then destroy its secret.
 
-The audit log of every organisation records each step as the system: **A new sign-in key was
-put into use** (with the key ID, the key it follows and how many keys are still accepted) and
-**A sign-in key was retired**. Key material is never logged or audited. Each step is recorded
-once, however many replicas start at the same time.
+The audit log of every organisation records each step as the system, within a minute of the
+start (the background worker writes it): **The installation's sign-in key was rotated** (with
+the key ID, the key it follows and how many keys are still accepted) and **The installation's
+old sign-in key was retired**. Key material is never logged or audited. Each step is recorded
+once per organisation, however many replicas start at the same time. Organisations created
+after a step don't get it.
 
 If you remove a key too early, sessions saved under it end: those people sign in again. Nothing
 else is lost.
