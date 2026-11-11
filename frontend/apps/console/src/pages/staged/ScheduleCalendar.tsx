@@ -210,6 +210,14 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
     new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(
       new Date(Date.UTC(d.year, d.month, d.day)),
     );
+  const weekdayNarrow = (d: Day) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'narrow', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(d.year, d.month, d.day)),
+    );
+  const weekdayLong = (d: Day) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(d.year, d.month, d.day)),
+    );
   const dayName = (d: Day) =>
     new Intl.DateTimeFormat(locale, { day: 'numeric', timeZone: 'UTC' }).format(
       new Date(Date.UTC(d.year, d.month, d.day)),
@@ -886,8 +894,17 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           {view === 'month' && (
             <div role="row" style={{ display: 'contents' }}>
               {heads.map((d) => (
-                <div key={`head-${dayKey(d)}`} role="columnheader" style={{ padding: 6 }}>
-                  <Typography.Text type="secondary">{weekdayName(d)}</Typography.Text>
+                <div
+                  key={`head-${dayKey(d)}`}
+                  role="columnheader"
+                  // A phone's seventh of the width holds a narrow day name, never one broken
+                  // mid-word (the 390 matrix shot: Arabic Thursday); the full name is its title.
+                  title={wide ? undefined : weekdayLong(d)}
+                  style={{ padding: wide ? 6 : 2, textAlign: 'center' }}
+                >
+                  <Typography.Text type="secondary">
+                    {wide ? weekdayName(d) : weekdayNarrow(d)}
+                  </Typography.Text>
                 </div>
               ))}
             </div>
