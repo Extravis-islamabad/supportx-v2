@@ -772,6 +772,7 @@ export const ar: LabelResource = {
   'failure_reason.stale_heartbeat': 'لا توجد نبضة حديثة',
   'failure_reason.stale_signatures': 'تواقيع الفيروسات قديمة',
   'failure_reason.timeout': 'انتهت المهلة',
+  'failure_reason.too_many_keys': 'مفاتيح تسجيل الدخول المُدرجة أكثر من اللازم',
   'failure_reason.unexpected_response': 'استجابة غير متوقعة',
   'failure_reason.unreachable': 'تعذّر الوصول',
   'first_response_action.private_note': 'ملاحظة خاصة',

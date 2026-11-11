@@ -16,10 +16,10 @@ app.core.tenancy; routes declare permissions with app.core.authorization.require
 
 import functools
 import uuid
-from typing import TYPE_CHECKING
 
 import httpx
 from fastapi import FastAPI
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import (
@@ -27,6 +27,7 @@ from app.core.authorization import (
     register_access_invalidator,
     unregister_access_invalidator,
 )
+from app.core.config import Settings
 from app.core.logging import get_logger
 from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
 from app.core.tenancy import SESSION_RESOLVER_STATE
@@ -62,7 +63,7 @@ from app.modules.identity_access.domain.permissions import (
 )
 from app.modules.identity_access.domain.policy import AccessRule, RecordFacts, Subject
 from app.modules.identity_access.events import EVENTS
-from app.modules.identity_access.infra.crypto import SessionCipher
+from app.modules.identity_access.infra.crypto import SessionCipher, session_ring
 from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
@@ -135,6 +136,7 @@ from app.modules.identity_access.service.service_identities import (
     remove_service_identity_role,
     set_service_identity_active,
 )
+from app.modules.identity_access.service.session_keys import sync_session_keys
 from app.modules.identity_access.service.users import count_technicians
 from app.modules.identity_access.service.worker_sessions import (
     TenantSessionEnder,
@@ -164,9 +166,6 @@ from app.shared.realtime import (
 from app.shared.schedules import ScheduleSpec
 
 log = get_logger(__name__)
-
-if TYPE_CHECKING:
-    from app.core.config import Settings
 
 
 def build_catalogue(registry: ModuleRegistry) -> Catalogue:
@@ -274,27 +273,37 @@ def _start_policy(app: FastAPI, settings: "Settings") -> None:
     register_site_people_counter(directory.people_by_site)
 
 
+async def _record_session_keys(app: FastAPI, settings: Settings) -> None:
+    """Record the sign-in key ring and audit its changes once (D-162); refuse a key in use."""
+    database = getattr(app.state, "db", None)
+    ring = session_ring(settings)
+    if database is None or ring is None:
+        return
+    try:
+        await sync_session_keys(database, ring.ids)
+    except (DBAPIError, OSError):
+        # The database is down or not migrated yet: the ring still works, the record waits for
+        # the next start. A key still in use (KeyStillInUseError) is never caught here.
+        log.warning("session_keys_not_recorded", exc_info=True)
+
+
 async def _startup(app: FastAPI) -> None:
     settings: Settings = app.state.settings
     _start_policy(app, settings)
+    await _record_session_keys(app, settings)
     app.state.auth = None
     # Keycloak's admin API as the identity service account (WP-039); None until it is set up.
     app.state.identity_admin = KeycloakAdmin.from_settings(settings)
     if not settings.auth_configured:
         return
-    if (
-        settings.oidc_issuer is None
-        or settings.valkey_url is None
-        or settings.session_secret is None
-    ):
+    cipher = SessionCipher.from_settings(settings)
+    if settings.oidc_issuer is None or settings.valkey_url is None or cipher is None:
         return  # unreachable: auth_configured checked these; narrows the types for mypy
     http = httpx.AsyncClient(timeout=settings.oidc_timeout_seconds, follow_redirects=False)
     kv = valkey_client(settings)
     service = AuthService(
         settings=settings,
-        store=SessionStore(
-            ValkeyKeyValue(kv), SessionCipher(settings.session_secret.get_secret_value())
-        ),
+        store=SessionStore(ValkeyKeyValue(kv), cipher),
         oidc=OidcClient(settings.oidc_issuer, http, settings.oidc_internal_url),
         database=app.state.db,
         clock=system_clock,

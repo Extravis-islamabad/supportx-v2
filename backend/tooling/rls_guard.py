@@ -50,6 +50,14 @@ PLATFORM_TABLES: dict[str, tuple[frozenset[str], str]] = {
             "never change what a tenant is entitled to."
         ),
     ),
+    "session_key_ids": (
+        frozenset({"SELECT", "INSERT", "UPDATE"}),
+        (
+            "The installation's sign-in key IDs (D-162, ADR-048, migration 0146): one ring per "
+            "installation, so no tenant owns a row. IDs and dates only, never key material; "
+            "start-up records new IDs and retires missing ones, and nothing ever deletes one."
+        ),
+    ),
 }
 # Not application data at all: never reachable by supportx_app.
 IGNORED_TABLES: dict[str, str] = {

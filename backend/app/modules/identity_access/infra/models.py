@@ -563,3 +563,18 @@ class Invitation(TenantEntity):
     accepted_at: Mapped[datetime | None]
     revoked_at: Mapped[datetime | None]
     sends: Mapped[int] = mapped_column(server_default="1")
+
+
+class SessionKeyId(Timestamps, Actors, Base):
+    """A sign-in session key ID the installation has listed (D-162, ADR-048; migration 0146).
+
+    Platform table: no tenant_id, the ring is one per installation. IDs only, never key
+    material. Not edited by people (start-up records it), so it carries no version.
+    """
+
+    __tablename__ = "session_key_ids"
+    __table_args__ = (CheckConstraint("key_id ~ '^[a-z0-9_-]{1,32}$'", name="key_id_format"),)
+
+    key_id: Mapped[str] = mapped_column(String, primary_key=True)
+    first_seen_at: Mapped[datetime]
+    retired_at: Mapped[datetime | None]
