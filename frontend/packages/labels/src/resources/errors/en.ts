@@ -57,6 +57,7 @@ export const en = {
   'errors.asset_booking_taken':
     'That time is already taken. The next free day starts {{next_free}}.',
   'errors.asset_bulk_empty': 'Choose at least one asset.',
+  'errors.asset_bulk_job_not_found': 'This bulk change was not found.',
   'errors.asset_bulk_too_many': 'Choose at most {{max}} assets at once.',
   'errors.asset_consumable_batch_tracking_fixed':
     'Batch tracking is chosen when a consumable is added and cannot be switched later. Add the product again as a new consumable instead.',
@@ -77,6 +78,16 @@ export const en = {
   'errors.asset_group_not_found': 'That group no longer exists.',
   'errors.asset_has_components':
     'It has fitted components ({{count}}): detach them or dispose of them too.',
+  'errors.asset_import_exists': 'A record with this key already exists, and the import only adds.',
+  'errors.asset_import_file_not_readable': 'Use a CSV file or an Excel workbook ({{xlsx}}).',
+  'errors.asset_import_file_not_utf8': 'Save the CSV file as UTF-8 and try again.',
+  'errors.asset_import_file_too_large': 'The file is larger than 5 MB.',
+  'errors.asset_import_file_unsafe':
+    'The workbook unpacks to far more than its size, so it was not opened.',
+  'errors.asset_import_match_invalid': 'This kind of file cannot be matched that way.',
+  'errors.asset_import_no_match': 'No record matches this row, and the import only updates.',
+  'errors.asset_import_not_checked': 'Only a checked file can be imported. Check it again.',
+  'errors.asset_import_not_found': 'This import was not found.',
   'errors.asset_label_job_not_found': "These labels don't exist, or someone else asked for them.",
   'errors.asset_label_job_not_ready': 'The labels are not ready to download.',
   'errors.asset_label_print_not_found': 'That print is no longer in the label history.',
@@ -92,6 +103,13 @@ export const en = {
   'errors.asset_link_exists': 'These two assets are already linked that way.',
   'errors.asset_link_not_found': 'That link no longer exists.',
   'errors.asset_loan_not_found': 'That loan is closed or no longer exists.',
+  'errors.asset_merge_booked': '{{asset}} is booked ahead. Cancel the booking before merging.',
+  'errors.asset_merge_nested': 'One of these assets is fitted to the other. Take it out first.',
+  'errors.asset_merge_on_loan': '{{asset}} is on loan. Take it back before merging.',
+  'errors.asset_merge_same': 'Choose two different assets.',
+  'errors.asset_merge_site_not_managed':
+    'You do not manage assets at both sites, so these cannot be merged.',
+  'errors.asset_merged': 'This asset was merged into another one.',
   'errors.asset_move_not_allowed': "This asset can't move to that state from where it is now.",
   'errors.asset_move_not_allowed_through_ticket':
     'Retiring or disposing of an asset is not done through a ticket. Ask an asset manager.',
@@ -109,11 +127,14 @@ export const en = {
   'errors.asset_note_not_found': 'This note no longer exists.',
   'errors.asset_on_loan': '{{asset}} is already out on a loan.',
   'errors.asset_portal_booking_off': 'Your organisation does not take bookings in the portal.',
+  'errors.asset_product_ambiguous': 'More than one product has this name.',
   'errors.asset_product_not_found': 'This product does not exist.',
   'errors.asset_product_type_has_children':
     'Other product types sit under this one ({{used}}). Move or delete them first.',
   'errors.asset_product_type_in_use': 'Products still use this product type ({{used}}).',
   'errors.asset_product_type_not_found': 'This product type does not exist.',
+  'errors.asset_restore_merged':
+    'This asset was merged into {{asset}}. Confirm to restore it on its own.',
   'errors.asset_state_in_use':
     'Moves in life cycles still use this state ({{used}}). Remove them first.',
   'errors.asset_state_not_found': 'This asset state does not exist.',
@@ -715,17 +736,20 @@ export const en = {
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
+  'errors.invalid_date': 'Enter a date such as 2026-11-30.',
   'errors.invalid_etag':
     'The item version sent with this change is not valid. Reload and try again.',
   'errors.invalid_filter': 'The filter could not be applied. Check the highlighted condition.',
   'errors.invalid_idempotency_key': 'The request identifier is not valid.',
   'errors.invalid_login_state': 'This sign-in link has expired. Please start again.',
+  'errors.invalid_number': 'Enter a number.',
   'errors.invalid_page_size': 'Too many rows were requested for one page.',
   'errors.invalid_report': 'This report cannot run as it is. Check the highlighted parts.',
   'errors.invalid_sort': 'The list cannot be sorted this way.',
   'errors.invalid_tenant_id': 'The organisation identifier is not valid.',
   'errors.invalid_transition':
     'This is not possible in the current status. Reload to see the latest.',
+  'errors.invalid_value': 'This value is not valid.',
   'errors.investigator_not_found': 'This person is not an investigator of this problem.',
   'errors.invitation_already_signed_in':
     'This person has signed in already, so there is nothing to invite them to.',
