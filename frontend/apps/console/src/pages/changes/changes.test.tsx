@@ -551,6 +551,8 @@ describe('console: changes', () => {
                 { field: 'risk_version', old: null, new: 1 },
                 { field: 'scheduled_start', old: null, new: '2026-11-17T21:00:00+00:00' },
                 { field: 'change_reason', old: null, new: 'security_fix' },
+                { field: 'stage', old: 'planning', new: 'submission' },
+                { field: 'reapproval_restarted', old: null, new: ['risk'] },
               ],
             },
           ],
@@ -569,6 +571,10 @@ describe('console: changes', () => {
     expect(text).not.toContain('2026-11-17T21:00');
     expect(text).not.toContain('+00:00');
     expect(text).not.toContain('security_fix');
+    // The re-check (2d848b42): a stage by its name, and a send-back as one sentence.
+    expect(text).toContain('from Planning to Submission');
+    expect(text).not.toMatch(/planning to submission|because of to/);
+    expect(text).toContain('Sana Malik sent it back for approval again because Risk changed');
   });
 
   it('QA-2026-11-11 F-01: a form that remounts keeps its Idempotency-Key, so a repeat never duplicates', async () => {
