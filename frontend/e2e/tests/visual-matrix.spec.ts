@@ -52,7 +52,8 @@ type Records = Partial<
     | 'announcement'
     | 'asset'
     | 'consumable'
-    | 'catalogItem',
+    | 'catalogItem'
+    | 'workflow',
     string
   >
 >;
@@ -253,6 +254,20 @@ export const SCREENS: Screen[] = [
     app: 'console',
     sideOnly: true,
   },
+  // WP-048b S4: the designer, "template A header + canvas body"; its outline and problems.
+  {
+    key: 'admin-workflow',
+    path: (r) => (r.workflow ? `/admin/workflows/${r.workflow}` : undefined),
+    app: 'console',
+    sideOnly: true,
+  },
+  {
+    key: 'admin-workflow-outline',
+    path: (r) => (r.workflow ? `/admin/workflows/${r.workflow}` : undefined),
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'outline', open: tab('outline') },
+  },
   // A top-layout shot of a setup page (the admin pages are side-only otherwise).
   { key: 'admin-users-all-layouts', path: '/admin/users', app: 'console' },
   { key: 'announcements', path: '/announcements', app: 'console' },
@@ -293,6 +308,7 @@ export const SCREENS: Screen[] = [
     'requests',
     'portal',
     'catalog',
+    'workflows',
   ].map<Screen>((page) => ({
     key: `admin-${page.replace('/', '-')}`,
     path: `/admin/${page}`,
@@ -459,7 +475,64 @@ async function findRecords(page: Page): Promise<Records> {
     asset: await first('/api/v1/assets?limit=1', firstItem),
     consumable: await first('/api/v1/assets/consumables', firstOfList),
     catalogItem: await first('/api/v1/catalog/items', firstOfList),
+    workflow:
+      (await first('/api/v1/automation/workflows?record_type=incident', firstOfList)) ??
+      (await showcaseWorkflow(page)),
   };
+}
+
+/**
+ * A workflow to shoot when the stack has none (WP-048b S4): REQ-WF-008 AC1's shape, start → if
+ * → notification → set status → end, laid out top to bottom, with one problem left in (the
+ * condition is empty) so the problem chip and marker are in the shot too.
+ */
+async function showcaseWorkflow(page: Page): Promise<string | undefined> {
+  const { csrf } = await me(page);
+  const made = await page.request.post('/api/v1/automation/workflows', {
+    data: { record_type: 'incident', name: 'Major incident follow-up' },
+    headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
+  });
+  if (!made.ok()) return undefined;
+  const flow = (await made.json()) as { id: string; version: number };
+  const at = (x: number, y: number) => ({ x, y });
+  await page.request.put(`/api/v1/automation/workflows/${flow.id}/draft`, {
+    data: {
+      definition: {
+        format: 1,
+        nodes: [
+          { id: 'start', type: 'start', config: {}, position: at(0, 0) },
+          { id: 'is_major', type: 'if', config: {}, position: at(0, 140) },
+          {
+            id: 'tell_team',
+            type: 'notify',
+            config: {
+              audience: { relatives: ['group', 'group_head'] },
+              subject: { en: 'Major incident', ar: 'حادث كبير' },
+              body: { en: 'A major incident needs the team.', ar: 'حادث كبير يحتاج إلى الفريق.' },
+            },
+            position: at(-130, 280),
+          },
+          {
+            id: 'work',
+            type: 'set_status',
+            config: { action: 'start_work' },
+            position: at(-130, 420),
+          },
+          { id: 'end', type: 'end', config: {}, position: at(0, 560) },
+        ],
+        links: [
+          { from: 'start', port: 'next', to: 'is_major' },
+          { from: 'is_major', port: 'yes', to: 'tell_team' },
+          { from: 'is_major', port: 'no', to: 'end' },
+          { from: 'tell_team', port: 'next', to: 'work' },
+          { from: 'work', port: 'next', to: 'end' },
+        ],
+        variables: [],
+      },
+    },
+    headers: { 'If-Match': `"${String(flow.version)}"`, 'X-CSRF-Token': csrf },
+  });
+  return flow.id;
 }
 
 async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
