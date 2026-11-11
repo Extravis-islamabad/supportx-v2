@@ -123,6 +123,9 @@ class WorkItemType:
     roles: tuple[str, ...] = ()
     plan_sections: tuple[str, ...] = ()
     outcome_stages: frozenset[str] = frozenset()
+    # Roles the record's own fields hold (role -> field): shown and resolved from the record,
+    # never from role holders, and changed where the field is (QA-2026-11-11 F-02).
+    record_roles: Mapping[str, str] = field(default_factory=dict)
     # Roles whose holders may never approve the record (segregation of duties, REQ-CHG-039).
     segregated_roles: tuple[str, ...] = ()
     # Each outcome stage's own codes; empty: the release's (domain/releases.outcomes_for).
@@ -243,6 +246,7 @@ CHANGE = WorkItemType(
     fields=COMMON_FIELDS,
     stages=CHANGE_MODEL,
     roles=CHANGE_ROLES,
+    record_roles={"requester": "requester_id", "change_owner": "technician_id"},
     plan_sections=CHANGE_PLAN_SECTIONS,
     outcome_stages=CHANGE_OUTCOME_STAGES,
     stage_outcomes=CHANGE_STAGE_OUTCOMES,

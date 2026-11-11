@@ -541,6 +541,8 @@ export const en = {
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
   'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
+  'errors.field.role_held_by_record':
+    "This role follows the record's own field. Change it in the details panel.",
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
