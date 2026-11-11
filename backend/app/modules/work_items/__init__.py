@@ -35,6 +35,9 @@ from app.modules.work_items.api.change_window_routes import (
 from app.modules.work_items.api.change_window_routes import (
     change_router as change_window_change_router,
 )
+from app.modules.work_items.api.change_window_routes import (
+    release_calendar_router,
+)
 from app.modules.work_items.api.change_window_routes import router as change_window_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
@@ -47,6 +50,7 @@ from app.modules.work_items.domain.types import (
     INCIDENT,
     PERMISSION_TYPES,
     PROBLEM,
+    RELEASE,
     SERVICE_REQUEST,
     TYPES,
 )
@@ -171,6 +175,7 @@ module = ModuleSpec(
         change_window_router,  # WP-045c: freeze and maintenance windows (ADR-042)
         change_window_change_router,  # WP-045c: a change's conflicts and freeze override
         change_calendar_router,  # WP-045c S3: the change calendar
+        release_calendar_router,  # WP-058b S1: the release calendar (same query)
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
@@ -183,6 +188,7 @@ module = ModuleSpec(
         CHANGE.feature,  # change windows
         CHANGE.feature,  # a change's conflicts and freeze override
         CHANGE.feature,  # the change calendar
+        RELEASE.feature,  # the release calendar
     ],
     events=EVENTS,
     permissions=(

@@ -9,6 +9,7 @@ Real PostgreSQL with RLS:
 """
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -22,6 +23,8 @@ from tests.db.test_releases_api import REL, a_release
 pytestmark = MODULE_LOOP
 
 __all__ = ["module_world", "shared_world"]  # the fixture, re-used
+
+HOUR, DAY = timedelta(hours=1), timedelta(days=1)
 
 
 async def _change(world: World, org: Org) -> dict[str, Any]:
@@ -106,3 +109,41 @@ async def test_req_rel_033_ac3_a_change_you_may_not_see_shows_only_that_it_is(
     [shown] = listed.json()
     assert (shown["visible"], shown["display_id"], shown["subject"]) == (False, None, None)
     assert change["subject"] not in listed.text
+
+
+async def test_req_rel_027_the_release_calendar_shows_deployment_windows(world: World) -> None:
+    """WP-058b S1: a release's deployment window on its calendar; the same query as changes'."""
+    a, b = world.a, world.b
+    release = await a_release(world, a)
+    at = datetime(2031, 3, 4, 9, tzinfo=UTC)
+    rows = (await world.call("GET", f"{REL}/{release['id']}/schedule", a, a.admin)).json()
+    row = next(r for r in rows if r["stage"] == "deployment")
+    planned = await world.call(
+        "PATCH",
+        f"{REL}/{release['id']}/schedule/deployment",
+        a,
+        a.admin,
+        json={"scheduled_start": at.isoformat(), "scheduled_end": (at + HOUR).isoformat()},
+        headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+    )
+    assert planned.status_code == 200, planned.text
+    params = {"start": (at - DAY).isoformat(), "end": (at + DAY).isoformat()}
+    shown = await world.call("GET", "/release-calendar", a, a.admin, params=params)
+    assert shown.status_code == 200, shown.text
+    [entry] = [e for e in shown.json() if e["record_id"] == release["id"]]
+    assert (entry["kind"], entry["display_id"]) == ("window", release["display_id"])
+    # Releases never show on the change calendar, and the other tenant sees nothing.
+    changes = await world.call("GET", "/change-calendar", a, a.admin, params=params)
+    assert release["id"] not in {e["record_id"] for e in changes.json()}
+    other = await world.call("GET", "/release-calendar", b, b.admin, params=params)
+    assert release["id"] not in {e["record_id"] for e in other.json()}
+    refused = await world.call("GET", "/release-calendar", a, a.requester, params=params)
+    assert refused.status_code == 403, refused.text
+    too_long = await world.call(
+        "GET",
+        "/release-calendar",
+        a,
+        a.admin,
+        params={"start": params["start"], "end": (at + 500 * DAY).isoformat()},
+    )
+    assert too_long.status_code == 422, too_long.text
