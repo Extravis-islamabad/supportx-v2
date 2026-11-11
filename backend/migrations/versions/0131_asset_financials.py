@@ -20,7 +20,7 @@ using a new column, per tenant with app.tenant_id set (rule 5h). Valuations are 
 dropping them loses nothing.
 
 Revision ID: 0131
-Revises: 0130
+Revises: 0107
 Created: 2026-11-11
 """
 
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 revision: str = "0131"
-down_revision: str | None = "0130"
+down_revision: str | None = "0107"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
