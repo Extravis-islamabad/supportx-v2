@@ -113,6 +113,10 @@ async def _holds(session: AsyncSession, outer: uuid.UUID, inner: uuid.UUID) -> b
     return False
 
 
+# Public for a change's children (lane A, WP-046a S1 PR 2): the same walk refuses a loop there.
+holds = _holds
+
+
 async def sub_releases(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> list[SubRelease]:
