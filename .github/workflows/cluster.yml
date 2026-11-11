@@ -278,6 +278,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The ~2 GB Playwright image joins the cluster's images on this disk (k3s evicts pods for
+      # low ephemeral storage, 2026-11-04): the unused toolchains go first, as in the smoke jobs.
+      - *free-disk
       # The journeys run in the official Playwright image (Chromium and its system libraries baked
       # in), so the job installs nothing with apt: an Ubuntu mirror outage broke the browser
       # install (2026-11-11). Pulled before the cluster starts, so a registry hiccup fails early.
