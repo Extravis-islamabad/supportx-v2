@@ -507,12 +507,13 @@ export const calendarKeys = {
 const windowKeys = { all: ['change-windows'] as const };
 
 /** The changes you may see planned in [start, end): windows and planned downtimes. */
-export function useChangeCalendar(start: string, end: string, mine: boolean) {
+export function useChangeCalendar(start: string, end: string, mine: boolean, enabled = true) {
   return useQuery({
     queryKey: calendarKeys.range(start, end, mine),
     queryFn: () =>
       call(api.GET('/api/v1/change-calendar', { params: { query: { start, end, mine } } })),
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
 

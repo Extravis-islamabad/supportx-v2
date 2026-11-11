@@ -152,6 +152,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-058b S1: the release calendar (the shared staged calendar).
+            path: 'calendar',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleaseCalendarPage')).ReleaseCalendarPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({
               Component: (await import('./pages/releases/ReleasePage')).ReleasePage,

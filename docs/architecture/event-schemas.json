@@ -5011,6 +5011,11 @@
             "title": "Asset Id",
             "type": "string"
           },
+          "at_creation": {
+            "default": false,
+            "title": "At Creation",
+            "type": "boolean"
+          },
           "change": {
             "enum": [
               "added",

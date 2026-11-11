@@ -29,9 +29,16 @@ from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.service import approvals as service
 from app.modules.work_items.service import bulk_approvals
 from app.shared.api.concurrency import ExpectedVersion, set_etag
-from app.shared.history import source_of
+from app.shared.history import CLIENT_HEADER, source_of
 
-CONSOLE = "console"
+# Our staff apps: the console and the mobile app (REQ-CHG-110, REQ-SR-024 AC2). Anything else
+# that decides, the portal included, is recorded as the portal.
+APP_CLIENTS = frozenset({"console", "mobile"})
+
+
+def _channel(request: Request) -> rules.DecisionChannel:
+    client = request.headers.get(CLIENT_HEADER, "").strip().lower()
+    return rules.DecisionChannel.APP if client in APP_CLIENTS else rules.DecisionChannel.PORTAL
 
 
 class BulkApproveItem(BaseModel):
@@ -248,8 +255,7 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: boo
         body: BulkApproveIn, session: TenantSession, subject: SignedIn, request: Request
     ) -> BulkApproveOut:
         """One comment for all, at most 20; each is one decision (audited, live). No rejects."""
-        client = request.headers.get("X-SupportX-Client")
-        channel = rules.DecisionChannel.APP if client == CONSOLE else rules.DecisionChannel.PORTAL
+        channel = _channel(request)
         outcomes = await bulk_approvals.approve_many(
             session,
             subject,
@@ -316,8 +322,7 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: boo
         note: Decided,
     ) -> ApprovalOut:
         """If-Match carries the approval's version; the first decision decides the stage."""
-        client = request.headers.get("X-SupportX-Client")
-        channel = rules.DecisionChannel.APP if client == CONSOLE else rules.DecisionChannel.PORTAL
+        channel = _channel(request)
         view = await service.decide(
             session,
             subject,
