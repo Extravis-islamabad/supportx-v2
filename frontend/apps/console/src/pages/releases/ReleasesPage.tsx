@@ -1,6 +1,6 @@
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Flex, Input, Select, Table, Tag } from 'antd';
+import { Button, Flex, Input, Select, Space, Table, Tag } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -107,16 +107,24 @@ export function ReleasesPage() {
           count={total === undefined || total === null ? undefined : String(total)}
           testId="releases-header"
           extra={
-            can('releases.create') && (
-              <WriteButton
-                type="primary"
-                icon={<PlusOutlined />}
-                data-testid="new-release"
-                onClick={() => void navigate('/releases/new')}
+            <Space>
+              <Button
+                onClick={() => void navigate('/releases/calendar')}
+                data-testid="releases-calendar"
               >
-                {t('releases.new')}
-              </WriteButton>
-            )
+                {t('releases.calendar.title')}
+              </Button>
+              {can('releases.create') && (
+                <WriteButton
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  data-testid="new-release"
+                  onClick={() => void navigate('/releases/new')}
+                >
+                  {t('releases.new')}
+                </WriteButton>
+              )}
+            </Space>
           }
         />
       }

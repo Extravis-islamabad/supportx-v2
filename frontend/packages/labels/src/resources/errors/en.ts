@@ -319,6 +319,7 @@ export const en = {
   'errors.field.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.field.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.field.chair_inactive': 'Choose an active person as the chair.',
+  'errors.field.change_in_other_release': 'This change is already in the open release {{release}}.',
   'errors.field.change_would_loop':
     'A change cannot be part of itself, directly or through others.',
   'errors.field.channel_reserved':

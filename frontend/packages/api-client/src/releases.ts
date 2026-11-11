@@ -456,3 +456,75 @@ export function useSetParentRelease() {
     },
   });
 }
+
+// --- changes in a release and the release calendar (WP-058b S1; REQ-REL-033, -027) ----------
+
+export type ReleaseChange = components['schemas']['ReleaseChangeOut'];
+
+/** The changes in a release; one you may not see shows only that it is there. */
+export function useReleaseChanges(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'changes'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/changes', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Put a change in the release; a change in another open release is refused. */
+export function useAddReleaseChange() {
+  const refresh = useRefreshRecord();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, changeId }: { id: string; changeId: string }) => {
+      await call(
+        api.POST('/api/v1/releases/{record_id}/changes', {
+          params: { path: { record_id: id } },
+          body: { change_id: changeId },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'changes') });
+    },
+  });
+}
+
+/** Take a change out of the release. */
+export function useRemoveReleaseChange() {
+  const refresh = useRefreshRecord();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, changeId }: { id: string; changeId: string }) => {
+      await call(
+        api.DELETE('/api/v1/releases/{record_id}/changes/{change_id}', {
+          params: { path: { record_id: id, change_id: changeId } },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'changes') });
+    },
+  });
+}
+
+export const releaseCalendarKeys = {
+  all: ['release-calendar'] as const,
+  range: (start: string, end: string, mine: boolean) =>
+    ['release-calendar', start, end, mine] as const,
+};
+
+/** The releases you may see planned in [start, end): deployment windows and planned downtimes. */
+export function useReleaseCalendar(start: string, end: string, mine: boolean, enabled = true) {
+  return useQuery({
+    queryKey: releaseCalendarKeys.range(start, end, mine),
+    queryFn: () =>
+      call(api.GET('/api/v1/release-calendar', { params: { query: { start, end, mine } } })),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
