@@ -18,6 +18,7 @@ import { useState, type ReactNode } from 'react';
 
 import {
   useBulkJob,
+  type BulkBase,
   useBulkJobs,
   useIncidentAssignees,
   useIncidentCatalogue,
@@ -59,6 +60,7 @@ export function BulkBar({
   onAction,
   canEdit,
   extra,
+  noun = 'incidents',
 }: {
   selection: Selection;
   onSelection: (selection: Selection) => void;
@@ -69,6 +71,8 @@ export function BulkBar({
   canEdit: (action: BulkAction) => boolean;
   /** Actions on the selection that are not background jobs (a problem from these incidents). */
   extra?: ReactNode;
+  /** Whose rows these are, for "N … selected" (a change list says changes). */
+  noun?: BulkBase;
 }) {
   const t = useLabel();
   const count = selection.all ? (total ?? 0) : selection.ids.length;
@@ -83,7 +87,7 @@ export function BulkBar({
           ? t(capped ? 'incidents.bulk.all_selected_capped' : 'incidents.bulk.all_selected', {
               count: total ?? 0,
             })
-          : t('incidents.bulk.selected', { count })}
+          : t(`${noun}.bulk.selected`, { count })}
       </Typography.Text>
       {pageAll && more && (
         <Button
@@ -445,10 +449,19 @@ export function BulkDialog({
 }
 
 /** One job's progress and results, live from the user's own channel. */
-export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose: () => void }) {
+export function BulkProgress({
+  jobId,
+  onClose,
+  base = 'incidents',
+}: {
+  jobId: string | null;
+  onClose: () => void;
+  /** The list the job was started from (its jobs and its records' pages). */
+  base?: BulkBase;
+}) {
   const t = useLabel();
   const dates = useDateTime();
-  const job = useBulkJob(jobId ?? undefined);
+  const job = useBulkJob(jobId ?? undefined, base);
   // Live wherever it is shown (QA10-P1-09: a problem's follow-up stayed at 0% off the list).
   useBulkLive();
   const data = job.data;
@@ -459,7 +472,7 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
       open={jobId !== null}
       onClose={onClose}
       width={520}
-      title={data ? t(`incidents.bulk.title.${data.action}`, { count: data.total }) : ''}
+      title={data ? t(`${base}.bulk.title.${data.action}`, { count: data.total }) : ''}
       data-testid="inc-bulk-progress"
     >
       {data !== undefined && (
@@ -485,7 +498,7 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
           {skipped.length > 0 && (
             <>
               <Typography.Title level={5}>
-                {t('incidents.bulk.skipped_title', { count: skipped.length })}
+                {t(`${base}.bulk.skipped_title`, { count: skipped.length })}
               </Typography.Title>
               <List
                 size="small"
@@ -494,7 +507,7 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
                 renderItem={(result) => (
                   <List.Item data-testid={`inc-bulk-skipped-${result.display_id ?? result.id}`}>
                     <Space direction="vertical" size={0}>
-                      <Typography.Link href={`/incidents/${result.id}`}>
+                      <Typography.Link href={`/${base}/${result.id}`}>
                         {result.display_id ?? t('incidents.bulk.unknown_record')}
                       </Typography.Link>
                       <Typography.Text type="secondary">{skipReason(t, result)}</Typography.Text>

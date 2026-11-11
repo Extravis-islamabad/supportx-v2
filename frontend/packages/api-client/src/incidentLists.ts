@@ -244,14 +244,25 @@ export function useStartBulk() {
   });
 }
 
-/** One of your bulk jobs with its per-record results. */
-export function useBulkJob(id: string | undefined) {
+/** The lists whose bulk jobs a screen follows: each type keeps its own jobs. */
+export type BulkBase = 'incidents' | 'changes';
+
+/** One bulk job's cache key, by the list it was started from. */
+export const bulkJobKey = (base: BulkBase, id: string) =>
+  base === 'incidents' ? queryKeys.incidents.bulkJob(id) : (['changes', 'bulk-jobs', id] as const);
+
+/** One of your bulk jobs with its per-record results (incidents' by default; changes' too). */
+export function useBulkJob(id: string | undefined, base: BulkBase = 'incidents') {
   return useQuery({
-    queryKey: queryKeys.incidents.bulkJob(id ?? ''),
-    queryFn: () =>
-      call(
-        api.GET('/api/v1/incidents/bulk-jobs/{job_id}', { params: { path: { job_id: id ?? '' } } }),
-      ),
+    queryKey: bulkJobKey(base, id ?? ''),
+    queryFn: () => {
+      const params = { params: { path: { job_id: id ?? '' } } };
+      return call(
+        base === 'incidents'
+          ? api.GET('/api/v1/incidents/bulk-jobs/{job_id}', params)
+          : api.GET('/api/v1/changes/bulk-jobs/{job_id}', params),
+      );
+    },
     enabled: id !== undefined,
     // Live through the personal channel; while it runs, also re-read now and then, so a job
     // that moved before the screen listened never stays at "waiting" (QA10-P1-09, rule 5c).

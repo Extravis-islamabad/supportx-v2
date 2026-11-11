@@ -476,7 +476,7 @@ async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's v
         None,
     )
     if closing_move is None:
-        raise Conflict(code="not_closable_from_here", params={"status": panel.record.status})
+        raise Conflict(code="not_closable_from_here")
     await items.move_status(
         session,
         subject,

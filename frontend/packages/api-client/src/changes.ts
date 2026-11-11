@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { api, call } from './client';
 import { useSingleFlight } from './incidents';
+import { bulkJobKey } from './incidentLists';
 import type { components } from './schema';
 import { stagedKeys } from './staged';
 
@@ -390,6 +391,34 @@ export function useRemoveChangeChild() {
     },
     onSettled: (_data, _error, { id }) => {
       void queryClient.invalidateQueries({ queryKey: keys.part(id, 'children') });
+    },
+  });
+}
+
+/**
+ * Close the picked changes in one background job (REQ-CHG-101): each by its own move to closed,
+ * with the closure code and closing description; any that may not close is skipped, with why.
+ * Progress arrives on your channel (the shared bulk drawer, base "changes").
+ */
+export function useStartChangeBulkClose() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: { recordIds: string[]; closureCode: string; resolution?: string }) =>
+      call(
+        api.POST('/api/v1/changes/bulk', {
+          body: {
+            action: 'close',
+            changes: {
+              closure_code: request.closureCode,
+              ...(request.resolution ? { resolution: request.resolution } : {}),
+            },
+            record_ids: request.recordIds,
+            all_matching: false,
+          },
+        }),
+      ),
+    onSuccess: (job) => {
+      queryClient.setQueryData(bulkJobKey('changes', job.id), job);
     },
   });
 }

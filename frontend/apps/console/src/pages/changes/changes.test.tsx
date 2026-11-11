@@ -153,7 +153,13 @@ function api(extra: Routes = {}) {
     ),
     routes: {
       'GET /api/v1/changes': {
-        body: { items: [change], next_cursor: null, has_more: false, people: {} },
+        body: {
+          items: [change],
+          next_cursor: null,
+          has_more: false,
+          people: {},
+          changes: { [CHG_ID]: { change_type: 'normal', risk: 'high' } },
+        },
       },
       [`GET /api/v1/changes/${CHG_ID}`]: { body: change, headers: { ETag: '"4"' } },
       [`GET /api/v1/changes/${CHG_ID}/stages`]: { body: panel },
@@ -203,7 +209,7 @@ async function choose(testId: string, title: string) {
 }
 
 describe('console: changes', () => {
-  it('template C: lists changes with path, stage, status and the emergency flag; Pending approval is a view', async () => {
+  it('template C: lists changes with path, type, risk, stage, status and the emergency flag; Pending approval is a view', async () => {
     window.history.pushState({}, '', '/changes');
     const fake = api();
     render(<App />);
@@ -213,6 +219,9 @@ describe('console: changes', () => {
     expect(within(row).getByText('Emergency path')).toBeTruthy();
     expect(within(row).getByTestId('change-link-CHG-7').tagName).toBe('A');
     expect(screen.getByTestId('change-emergency-CHG-7').textContent).toContain('Emergency');
+    // REQ-CHG-098: each row carries its type and the risk in force.
+    expect(within(row).getByText('Normal')).toBeTruthy();
+    expect(within(row).getByTestId('change-risk-CHG-7').textContent).toBe('High');
     expect(screen.getByTestId('new-change')).toBeTruthy();
     expect(fake.find('GET', '/api/v1/changes')[0]?.url.searchParams.get('view')).toBe('open');
     await choose('changes-view', 'Pending approval');
@@ -220,6 +229,87 @@ describe('console: changes', () => {
       const last = fake.find('GET', '/api/v1/changes').at(-1);
       expect(last?.url.searchParams.get('view')).toBe('pending_approval');
     });
+  });
+
+  it('REQ-CHG-101: picked changes close together; only Close is offered, and skips say why', async () => {
+    const JOB_ID = '01a1a2b3-0000-7000-8000-0000000c0d01';
+    window.history.pushState({}, '', '/changes');
+    const fake = api({
+      'GET /api/v1/changes/settings': {
+        body: {
+          statuses: [],
+          closure_codes: [{ code: 'fixed', labels: null, disabled: false }],
+          own_lists: {},
+        },
+      },
+      'POST /api/v1/changes/bulk': {
+        status: 202,
+        body: {
+          id: JOB_ID,
+          action: 'close',
+          status: 'queued',
+          total: 1,
+          processed: 0,
+          done_count: 0,
+          skipped_count: 0,
+          results: [],
+          created_at: '2027-03-01T00:00:00Z',
+          started_at: null,
+          finished_at: null,
+        },
+      },
+      [`GET /api/v1/changes/bulk-jobs/${JOB_ID}`]: {
+        body: {
+          id: JOB_ID,
+          action: 'close',
+          status: 'done',
+          total: 1,
+          processed: 1,
+          done_count: 0,
+          skipped_count: 1,
+          results: [
+            {
+              id: CHG_ID,
+              display_id: 'CHG-7',
+              outcome: 'skipped',
+              code: 'stage_move_refused',
+              params: { reason: 'children_open', reasons: 'children_open' },
+            },
+          ],
+          created_at: '2027-03-01T00:00:00Z',
+          started_at: '2027-03-01T00:00:01Z',
+          finished_at: '2027-03-01T00:00:02Z',
+        },
+      },
+    });
+    render(<App />);
+    const row = await screen.findByTestId('change-row-CHG-7');
+    fireEvent.click(within(row).getByRole('checkbox'));
+    expect((await screen.findByTestId('inc-selected')).textContent).toBe('1 change selected');
+    expect(screen.getByTestId('inc-bulk-close')).toBeTruthy();
+    for (const action of ['cancel', 'delete', 'assign', 'edit']) {
+      expect(screen.queryByTestId(`inc-bulk-${action}`)).toBeNull();
+    }
+    fireEvent.click(screen.getByTestId('inc-bulk-close'));
+    await choose('chg-bulk-closure-code', 'Fixed');
+    fireEvent.change(screen.getByTestId('chg-bulk-closing-text'), {
+      target: { value: 'Done in the window.' },
+    });
+    fireEvent.click(screen.getByTestId('chg-bulk-close-ok'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes/bulk')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/changes/bulk')[0]?.body).toEqual({
+      action: 'close',
+      changes: { closure_code: 'fixed', resolution: 'Done in the window.' },
+      record_ids: [CHG_ID],
+      all_matching: false,
+    });
+    const drawer = await screen.findByTestId('inc-bulk-progress');
+    const skipped = await within(drawer).findByTestId('inc-bulk-skipped-CHG-7');
+    expect(skipped.textContent).toContain('Close or cancel its child changes and releases first.');
+    expect(within(skipped).getByRole('link').getAttribute('href')).toBe(`/changes/${CHG_ID}`);
+    expect(within(drawer).getByText('1 change was skipped')).toBeTruthy();
   });
 
   it('template B: a new change from the default template, once, then its risk questionnaire', async () => {
