@@ -202,3 +202,141 @@ export function useAssessChangeRisk() {
     },
   });
 }
+
+export type ChangeApprovalPreview = components['schemas']['ChangeApprovalPreviewOut'];
+export type StageChanges = components['schemas']['StageChangesOut'];
+export type ChangeBoard = components['schemas']['BoardOut'];
+export type ChangeBoardInput = components['schemas']['BoardIn'];
+export type ChangeBoardPatch = components['schemas']['BoardPatch'];
+
+/** Before a submit: who would approve the stage, who is left out and why (REQ-CHG-039). */
+export function useChangeApprovalPreview(id: string, stage: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: [...keys.part(id, 'approval-preview'), stage ?? ''],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/changes/{record_id}/approvals/preview', {
+          params: { path: { record_id: id }, query: { stage: stage ?? undefined } },
+        }),
+      ),
+    enabled: id !== '' && enabled,
+  });
+}
+
+/** Per approved stage, field by field, what changed since and what each change does. */
+export function useChangesSinceApproval(id: string) {
+  return useQuery({
+    queryKey: keys.part(id, 'changes-since'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/changes/{record_id}/approvals/changes-since', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Keep a change going that was sent back for approval: a permission and a reason (D-144). */
+export function useEmergencyOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version, reason }: { id: string; version: number; reason: string }) =>
+      call(
+        api.POST('/api/v1/changes/{record_id}/emergency-override', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { reason },
+        }),
+      ),
+    onSuccess: (moved, { id }) => {
+      queryClient.setQueryData(keys.detail(id), moved);
+    },
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: keys.list });
+    },
+  });
+}
+
+const boardKeys = {
+  all: ['change-boards'] as const,
+  one: (id: string) => ['change-boards', id] as const,
+};
+
+/** The tenant's change advisory boards, in their order (WP-045b S2). */
+export function useChangeBoards() {
+  return useQuery({
+    queryKey: boardKeys.all,
+    queryFn: () => call(api.GET('/api/v1/change-boards')),
+  });
+}
+
+/** Add a board (one Idempotency-Key per form). */
+export function useCreateChangeBoard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, key }: { body: ChangeBoardInput; key: string }) =>
+      call(
+        api.POST('/api/v1/change-boards', {
+          params: { header: { 'Idempotency-Key': key } },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: boardKeys.all });
+    },
+  });
+}
+
+/** Change a board with its own If-Match (members, chair, rule, mapping, order). */
+export function useUpdateChangeBoard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version, body }: { id: string; version: number; body: ChangeBoardPatch }) =>
+      call(
+        api.PATCH('/api/v1/change-boards/{board_id}', {
+          params: { path: { board_id: id }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: boardKeys.all });
+    },
+  });
+}
+
+/** Remove a board (never the default one; the server says why). */
+export function useRemoveChangeBoard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, version }: { id: string; version: number }) => {
+      await call(
+        api.DELETE('/api/v1/change-boards/{board_id}', {
+          params: { path: { board_id: id }, header: ifMatch(version) },
+        }),
+      );
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: boardKeys.all });
+    },
+  });
+}
+
+/** Would this window or risk send the change back for approval? Changes nothing (REQ-CHG-053). */
+export function useReapprovalPreview() {
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: components['schemas']['ReapprovalPreviewIn'];
+    }) =>
+      call(
+        api.POST('/api/v1/changes/{record_id}/approvals/reapproval-preview', {
+          params: { path: { record_id: id } },
+          body,
+        }),
+      ),
+  });
+}

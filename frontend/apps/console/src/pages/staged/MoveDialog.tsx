@@ -23,7 +23,7 @@ import {
 import { CustomFieldControl } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { labelled } from '../incidents/labels';
-import { listValueName, statusName } from '../releases/labels';
+import { listValueName, statusName } from '../staged/labels';
 
 const CUSTOM = 'custom.';
 // A plan section a stage needs (`plan.backout`): written on the Plan tab, with its own version
@@ -205,12 +205,15 @@ export function StagedMoveDialog({
   version,
   move,
   onClose,
+  notice,
 }: {
   path: StagedPath;
   recordId: string;
   version: number;
   move: StageMove;
   onClose: () => void;
+  /** What the type says before this move, e.g. who would approve a change's stage. */
+  notice?: ReactNode;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -220,7 +223,8 @@ export function StagedMoveDialog({
   const [reason, setReason] = useState('');
   const [fields, setFields] = useState<Record<string, unknown>>({});
   const [closureCode, setClosureCode] = useState<string>();
-  const closing = move.to_status === 'closure_closed';
+  // Where it lands, a completing status moving on by itself ("Review complete" closes a change).
+  const closing = move.lands_in === 'closure_closed';
   const all = move.missing ?? [];
   const plans = all.filter((m) => m.field.startsWith(PLAN));
   const missing = all.filter((m) => !m.field.startsWith(PLAN));
@@ -268,14 +272,15 @@ export function StagedMoveDialog({
   return (
     <Modal
       open
-      title={t('releases.move.title', { status: statusName(t, move.to_status) })}
-      okText={t('releases.move.confirm')}
+      title={t('staged.move.title', { status: statusName(t, move.to_status) })}
+      okText={t('staged.move.confirm')}
       okButtonProps={{ disabled: !ready, loading: moving.isPending, 'data-testid': 'move-ok' }}
       onOk={submit}
       onCancel={onClose}
       destroyOnHidden
     >
       <Form layout="vertical" data-testid="move-dialog">
+        {notice}
         {plans.map((m) => (
           <Alert
             key={m.field}
@@ -325,7 +330,7 @@ export function StagedMoveDialog({
           </Form.Item>
         )}
         {move.reason_mode !== 'none' && (
-          <Form.Item label={t('releases.move.reason')} required={needsReason} htmlFor="move-reason">
+          <Form.Item label={t('staged.move.reason')} required={needsReason} htmlFor="move-reason">
             <Input.TextArea
               id="move-reason"
               rows={3}

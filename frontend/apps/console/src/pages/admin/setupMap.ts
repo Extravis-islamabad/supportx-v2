@@ -116,6 +116,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'config.service_desk',
     also: 'settings.manage',
   },
+  // The change screens: change advisory boards. The change manager and admins (Haider).
+  {
+    key: 'change-boards',
+    group: 'service_desk',
+    labelKey: 'nav.admin_change_boards',
+    permission: 'changes.manage_boards',
+    also: 'settings.manage',
+  },
   // WP-031: what people can request (catalog_items.manage; admins hold every permission).
   {
     key: 'catalog',

@@ -8,7 +8,7 @@ import {
 } from '@supportx/ui';
 
 import { personName } from '../incidents/labels';
-import { listValueName, statusName } from '../releases/labels';
+import { listValueName, statusName } from '../staged/labels';
 
 /**
  * The change's properties on the end side (template A): where it is, what kind it is, its risk
