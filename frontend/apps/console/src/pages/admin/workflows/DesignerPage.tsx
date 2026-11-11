@@ -1,6 +1,6 @@
 import { ApartmentOutlined, BranchesOutlined, RedoOutlined, UndoOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Skeleton, Space, Tabs, Typography, theme } from 'antd';
+import { Alert, App, Button, Flex, Skeleton, Space, Typography, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
@@ -57,6 +57,7 @@ import {
   useLabel,
   useMinWidth,
   usePageCrumbs,
+  Tabs,
 } from '@supportx/ui';
 
 import { freeId, problemText } from './nodes';

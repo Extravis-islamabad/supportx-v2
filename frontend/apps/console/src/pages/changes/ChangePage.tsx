@@ -5,7 +5,7 @@ import {
   SwapOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Dropdown, Flex, Result, Skeleton, Space, Tabs, Typography } from 'antd';
+import { Button, Card, Dropdown, Flex, Result, Skeleton, Space, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
@@ -30,6 +30,7 @@ import {
   useLabel,
   usePageCrumbs,
   SPACE,
+  Tabs,
 } from '@supportx/ui';
 
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';

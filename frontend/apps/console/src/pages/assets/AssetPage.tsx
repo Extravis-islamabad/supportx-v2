@@ -12,7 +12,6 @@ import {
   Segmented,
   Select,
   Skeleton,
-  Tabs,
   Timeline,
   Typography,
 } from 'antd';
@@ -66,6 +65,7 @@ import {
   type PropertyItem,
   type RecordAction,
   type Tone,
+  Tabs,
 } from '@supportx/ui';
 
 import { Problems } from '../admin/incidents/shared';
