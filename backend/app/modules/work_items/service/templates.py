@@ -24,6 +24,7 @@ from app.modules.organization import (
     existing_unit_ids,
     memberships,
 )
+from app.modules.work_items.domain.checklists import clean_items, item_problems
 from app.modules.work_items.domain.classification import Impact, Urgency
 from app.modules.work_items.domain.stages import (
     DEFAULT_PATH,
@@ -58,7 +59,9 @@ from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTemplate
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import stages as stage_service
+from app.modules.work_items.service.access import FIELDS
 from app.modules.work_items.service.settings import labels_of
+from app.shared.api.filters import compile_filter
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, ChangeKind, Source, record_changes, stale_version
@@ -409,6 +412,37 @@ PLAN_PREFIX = "plan."  # a plan section as a stage rule's field, e.g. plan.backo
 # --- writes ---------------------------------------------------------------------------------------
 
 
+MAX_TEMPLATE_CHECKLISTS = 10
+
+
+def _template_checklists(raw: Any) -> tuple[list[dict[str, Any]], list[tuple[str, str]]]:  # noqa: ANN401 - JSON
+    """A template's checklists (REQ-INC-040): a title, items, an optional list-filter condition."""
+    if raw in (None, []):
+        return [], []
+    if not isinstance(raw, list) or len(raw) > MAX_TEMPLATE_CHECKLISTS:
+        return [], [("checklists", "too_many_items")]
+    found: list[dict[str, Any]] = []
+    problems: list[tuple[str, str]] = []
+    for index, spec in enumerate(raw):
+        spec = spec if isinstance(spec, dict) else {}  # noqa: PLW2901 - the same entry, typed
+        title = " ".join(str(spec.get("title") or "").split())
+        cleaned = clean_items(spec.get("items") or [])
+        if not title:
+            problems.append((f"checklists.{index}.title", "required"))
+        problems += [(f"checklists.{index}.{f}", c) for f, c in item_problems(cleaned.items, 1000)]
+        condition = spec.get("condition")
+        if condition is not None:
+            try:
+                compile_filter(condition, FIELDS, now=datetime.now(UTC))
+            except ValidationFailed:
+                problems.append((f"checklists.{index}.condition", "invalid_value"))
+        found.append(
+            {"title": title, "items": cleaned.items}
+            | ({"condition": condition} if condition is not None else {})
+        )
+    return found, problems
+
+
 async def _lifecycle(
     session: AsyncSession, wtype: WorkItemType, value: object
 ) -> tuple[str | None, list[tuple[str, str]]]:
@@ -452,6 +486,10 @@ async def create_template(
         session, wtype, values.get("lifecycle", copied_from.lifecycle if copied_from else None)
     )
     problems += codes
+    checklists, codes = _template_checklists(
+        values.get("checklists", copied_from.checklists if copied_from else None)
+    )
+    problems += codes
     if await _name_taken(session, wtype, labels, exclude=None):
         problems.append(("labels", "duplicate_name"))
     stage_columns, codes = await _stage_settings(session, wtype, values, None)
@@ -486,6 +524,7 @@ async def create_template(
         defaults=defaults,
         copied_from_id=copied_from.id if copied_from else None,
         lifecycle=lifecycle,
+        checklists=checklists,
     )
     await TemplateRepository(session).add(template)
     await _changed(
@@ -587,6 +626,9 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
             values.get("limited_group_ids", template.limited_group_ids) or [],
             for_requesters=changes.get("for_requesters", template.for_requesters),
         )
+        problems += codes
+    if "checklists" in values:  # REQ-INC-040: new records only; existing records keep theirs
+        changes["checklists"], codes = _template_checklists(values["checklists"])
         problems += codes
     if "lifecycle" in values:  # new records only: running ones keep theirs (REQ-INC-049 style)
         changes["lifecycle"], codes = await _lifecycle(session, wtype, values["lifecycle"])

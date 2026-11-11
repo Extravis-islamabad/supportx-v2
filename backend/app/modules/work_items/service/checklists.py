@@ -43,6 +43,8 @@ from app.modules.work_items.infra.models import (
 )
 from app.modules.work_items.service import parts
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.access import FIELDS
+from app.shared.api.filters import compile_filter
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
@@ -540,10 +542,24 @@ async def add_template_checklists(
     *,
     source: Source,
 ) -> int:
-    """The template's checklists added to the new record (history says so); how many."""
+    """The template's checklists whose condition the new record matches (history says so)."""
+    added = 0
     for spec in checklists_:
-        await _create(session, wtype, record, dict(spec), source=source)
-    return len(checklists_)
+        condition = spec.get("condition")
+        if condition is not None:
+            matches = await session.scalar(
+                select(WorkItem.id).where(
+                    WorkItem.id == record.id,
+                    compile_filter(condition, FIELDS, now=datetime.now(UTC)),
+                )
+            )
+            if matches is None:
+                continue
+        await _create(
+            session, wtype, record, {"title": spec["title"], "items": spec["items"]}, source=source
+        )
+        added += 1
+    return added
 
 
 __all__ = [

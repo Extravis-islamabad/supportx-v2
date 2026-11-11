@@ -154,3 +154,38 @@ async def test_unticked_items_are_open_work_and_rls_keeps_tenants_apart(world: W
         assert record is not None
         found = await checklists.open_work(session, record)
     assert [o.title for o in found] == ["Close-out: Confirm with the user"]
+
+
+async def test_req_inc_040_a_record_template_adds_its_checklists_when_they_match(
+    world: World,
+) -> None:
+    a = world.a
+    made = await world.call(
+        "POST",
+        f"{BASE}/templates",
+        a,
+        a.admin,
+        json={
+            "labels": {"en": f"Outage {uuid.uuid4().hex[:6]}"},
+            "checklists": [
+                {"title": "Always", "items": ["Tell the owner", ""]},
+                {
+                    "title": "Major only",
+                    "items": ["Open a bridge"],
+                    "condition": {"field": "priority", "op": "eq", "value": "p1"},
+                },
+            ],
+        },
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    template = made.json()
+    assert template["checklists"][0]["items"] == ["Tell the owner"]  # the empty one left out
+
+    async def titles(**fields: str) -> list[str]:
+        item = await world.create(a, a.admin, template_id=template["id"], **fields)
+        listed = await world.call("GET", f"{BASE}/{item['id']}/checklists", a, a.admin)
+        return [c["title"] for c in listed.json()]
+
+    assert await titles(priority="p1", priority_reason="Major") == ["Always", "Major only"]
+    assert await titles(priority="p4", priority_reason="Minor") == ["Always"]

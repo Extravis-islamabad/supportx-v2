@@ -286,6 +286,19 @@ class StageFieldRuleIO(BaseModel):
     read_only: bool = False
 
 
+class TemplateChecklistIO(BaseModel):
+    """A checklist the template adds to each new record, if its condition matches (INC-040)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(max_length=400)
+    items: list[str] = Field(default_factory=list, max_length=1000)
+    condition: Any = Field(
+        default=None,
+        description="A filter over the record's list fields (the list filter DSL); null: always.",
+    )
+
+
 class TemplateOut(BaseModel):
     """A template as admins and the create form see it."""
 
@@ -315,6 +328,9 @@ class TemplateOut(BaseModel):
     stage_path: str | None = Field(default=None, description="Staged types: the path it sets.")
     stage_rules: dict[str, dict[str, StageFieldRuleIO]] | None = Field(
         default=None, description="Staged types: rules per stage (only what differs)."
+    )
+    checklists: list[TemplateChecklistIO] = Field(
+        default_factory=list, description="Checklists each new record gets (REQ-INC-040)."
     )
     version: int
 
@@ -347,6 +363,7 @@ class TemplateOut(BaseModel):
             lifecycle=row.lifecycle or STANDARD_LIFECYCLE,
             stage_path=row.stage_path,
             stage_rules=row.stage_rules,
+            checklists=[TemplateChecklistIO.model_validate(c) for c in row.checklists or []],
             version=row.version,
         )
 
@@ -376,6 +393,12 @@ class TemplateIn(BaseModel):
         description="Staged types, per stage and field (standard, the type's own, custom.<key>):"
         " shown, required to leave the stage, read-only while in it. Replaces all of them.",
     )
+    checklists: list[TemplateChecklistIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
+    )
 
 
 class TemplatePatch(BaseModel):
@@ -404,6 +427,12 @@ class TemplatePatch(BaseModel):
         default=None,
         description="Staged types, per stage and field (standard, the type's own, custom.<key>):"
         " shown, required to leave the stage, read-only while in it. Replaces all of them.",
+    )
+    checklists: list[TemplateChecklistIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
     )
 
 
