@@ -917,7 +917,10 @@ COUNTERS = (
 )
 # REQ-CHG-117 (WP-045d S4a): a change's own counters, beside the ones every type has; "my overdue
 # changes" is `my_overdue` (the change's SLA due time).
-CHANGE_COUNTERS = ("pending_my_approval", "my_starting_today")
+CHANGE_COUNTERS = (
+    "pending_my_approval",
+    "my_starting_today",
+)
 
 
 def counter_codes(wtype: WorkItemType) -> tuple[str, ...]:

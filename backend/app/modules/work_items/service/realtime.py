@@ -586,7 +586,10 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
                 record(envelope.tenant_id, PORTAL_KIND, record_id),
                 PORTAL_CHANGED,
                 ids=(str(record_id),),
-                fields=("planned_end", "planned_start"),
+                fields=(
+                    "planned_end",
+                    "planned_start",
+                ),
             )
         )
     if payload["part"] == "task":
