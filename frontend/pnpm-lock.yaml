@@ -283,6 +283,9 @@ importers:
       '@supportx/charts':
         specifier: workspace:*
         version: link:../../packages/charts
+      '@supportx/flow':
+        specifier: workspace:*
+        version: link:../../packages/flow
       '@supportx/forms':
         specifier: workspace:*
         version: link:../../packages/forms

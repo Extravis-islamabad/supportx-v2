@@ -19,3 +19,15 @@ export {
   type WorkflowNodeData,
 } from './graph';
 export { COLUMN, ROW, layout, withLayout } from './layout';
+export {
+  HISTORY_LIMIT,
+  canRedo,
+  canUndo,
+  record,
+  redo,
+  reset,
+  startHistory,
+  undo,
+  type History,
+} from './history';
+export * from './canvas';

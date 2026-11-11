@@ -236,3 +236,29 @@ export function useLiveCall() {
     },
   });
 }
+
+/** A workflow's file (REQ-WF-027 AC2): the definition and what it needs, naming its tenant. */
+export function useExportWorkflow() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      call(api.GET(`${PATH}/{workflow_id}/export`, { params: { path: { workflow_id: id } } })),
+  });
+}
+
+/** Import a file exported here as a new, disabled draft (same tenant only). */
+export function useImportWorkflow() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: ({ key, file }: { key: string; file: Record<string, unknown> }) =>
+      call(
+        api.POST(`${PATH}/import`, {
+          params: { header: { 'Idempotency-Key': key } },
+          // The server checks the file against its closed schema (and its size) itself.
+          body: file as never,
+        }),
+      ),
+    onSuccess: (saved) => {
+      refresh(saved);
+    },
+  });
+}

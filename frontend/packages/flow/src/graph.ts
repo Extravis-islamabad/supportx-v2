@@ -12,6 +12,10 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   config: Record<string, unknown>;
   /** The node's outputs (links leave by these), from the server's node registry. */
   ports: string[];
+  /** How many problems the last save found on it (the canvas marks it). */
+  problems?: number;
+  /** In an execution or test view: the node a run is at, or one it has passed. */
+  state?: 'current' | 'passed';
 }
 
 export type WorkflowNode = Node<WorkflowNodeData, 'workflow'>;
