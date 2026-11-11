@@ -1568,6 +1568,15 @@ class WorkItemReleaseDetails(TenantKeyed, Timestamps, Actors, Base):
     actual_end: Mapped[datetime | None]
     release_manager_id: Mapped[uuid.UUID | None]
     release_engineer_id: Mapped[uuid.UUID | None]
+    # WP-058b S2 (0139; REQ-REL-040): blocking freezes passed for this release, as a change's
+    # (0132): who, when, why, and which freezes by ID; any other freeze still refuses. The reason
+    # is personal data, as the change's.
+    freeze_override_reason: Mapped[str | None] = mapped_column(String(500))
+    freeze_override_by: Mapped[uuid.UUID | None]
+    freeze_override_at: Mapped[datetime | None]
+    freeze_override_window_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
 
 
 class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
@@ -1788,6 +1797,34 @@ class WorkItemDowntime(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
 
 
 # --- freeze and maintenance windows (WP-045c; REQ-CHG-075..077; ADR-042; 0132) -------------------
+
+
+class WorkItemConflictAck(TenantEntity):
+    """A conflict on a change or release acknowledged with a reason (WP-058b S2; REQ-REL-041).
+
+    `conflict_key` names one conflict as it is now: its kind, what it is with and both sides'
+    versions of their planned times. When either side moves the key changes, so the ack lapses
+    and a new conflict never inherits it (the coordinator's S2 terms). The reason is personal
+    data, as an override's.
+    """
+
+    __tablename__ = "work_item_conflict_acks"
+    __table_args__ = (
+        Index(
+            "uq_work_item_conflict_acks_tenant_item_key",
+            "tenant_id",
+            "work_item_id",
+            "conflict_key",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("work_items.id", ondelete="CASCADE"))
+    conflict_key: Mapped[str] = mapped_column(String(300))
+    reason: Mapped[str] = mapped_column(String(500))
+    acked_by: Mapped[uuid.UUID]
+    acked_at: Mapped[datetime]
 
 
 class ChangeWindow(TenantEntity):

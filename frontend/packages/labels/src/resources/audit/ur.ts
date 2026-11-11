@@ -311,6 +311,7 @@ export const ur: LabelResource = {
   'audit.action.release.deleted': 'ریلیز ردی کی ٹوکری میں ڈالی',
   'audit.action.release.downtime_changed': 'ریلیز کا بندش کا وقت بدلا',
   'audit.action.release.due_date_changed': 'ریلیز کی مقررہ تاریخ تبدیل کی',
+  'audit.action.release.freeze_override': 'فریز کے دوران ریلیز کو آگے بڑھنے دیا',
   'audit.action.release.linked': 'ریلیز کو دوسرے ریکارڈ سے جوڑا',
   'audit.action.release.note_visibility_changed': 'ریلیز کے نوٹ کو عوامی یا نجی بنایا',
   'audit.action.release.part_added': 'ریلیز میں ایک جز شامل کیا',

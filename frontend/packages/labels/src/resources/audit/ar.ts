@@ -311,6 +311,7 @@ export const ar: LabelResource = {
   'audit.action.release.deleted': 'نقل إصدارًا إلى سلة المحذوفات',
   'audit.action.release.downtime_changed': 'غيّر فترة التوقف في إصدار',
   'audit.action.release.due_date_changed': 'غيّر موعد استحقاق إصدار',
+  'audit.action.release.freeze_override': 'سمح بتنفيذ إصدار خلال فترة تجميد',
   'audit.action.release.linked': 'ربط إصدارًا بسجل آخر',
   'audit.action.release.note_visibility_changed': 'جعل ملاحظة إصدار عامة أو خاصة',
   'audit.action.release.part_added': 'أضاف عنصرًا إلى إصدار',

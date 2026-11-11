@@ -312,6 +312,7 @@ export const en = {
   'audit.action.release.deleted': 'Moved a release to the trash',
   'audit.action.release.downtime_changed': 'Changed the downtime of a release',
   'audit.action.release.due_date_changed': 'Changed a release’s due date',
+  'audit.action.release.freeze_override': 'Let a release go ahead in a freeze',
   'audit.action.release.linked': 'Linked a release to another record',
   'audit.action.release.note_visibility_changed': 'Made a release note public or private',
   'audit.action.release.part_added': 'Added an item to a release',

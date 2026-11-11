@@ -445,3 +445,52 @@ async def release_calendar(
         session, subject, start=start, end=end, mine=mine, wtype=RELEASE
     )
     return _entries(entries)
+
+
+# --- a release's freeze override (WP-058b S2; REQ-REL-040) --------------------------------------
+
+release_router = APIRouter(
+    prefix="/releases",
+    tags=["releases"],
+    dependencies=[Depends(rate_limit("work_items"))],
+)
+
+
+@release_router.post(
+    "/{record_id}/freeze-override",
+    summary="Go ahead in a freeze, with a reason",
+    responses=CONFLICT,
+)
+async def release_freeze_override(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_id: uuid.UUID,
+    body: FreezeOverrideIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: ViewRelease,
+    request: Request,
+    response: Response,
+    note: Annotated[
+        AuditNote,
+        # The dependency also logs a refused attempt, as for a change's (lane B).
+        audited("release.freeze_override", object_type="release", object_param="record_id"),
+    ],
+) -> dict[str, int]:
+    """Needs `releases.override_freeze` at the release's scope, a reason and If-Match.
+
+    Only the freezes named are passed for this release; any other blocking freeze, or one added
+    later, still refuses it. History keeps which, who and why; the audit log keeps the reason.
+    """
+    note.reason = body.reason
+    note.details = {"window_ids": sorted(str(w) for w in body.window_ids)}
+    updated = await service.override_freeze(
+        session,
+        subject,
+        record_id,
+        reason=body.reason,
+        window_ids=body.window_ids,
+        expected_version=version,
+        source=source_of(request),
+        wtype=RELEASE,
+    )
+    set_etag(response, updated.version)
+    return {"version": updated.version}
