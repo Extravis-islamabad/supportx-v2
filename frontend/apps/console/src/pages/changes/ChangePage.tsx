@@ -34,6 +34,7 @@ import {
 
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
 import { IncidentFiles } from '../incidents/IncidentFiles';
+import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { IncidentHistory } from '../incidents/IncidentHistory';
 import { IncidentTasks } from '../incidents/IncidentParts';
 import { personName } from '../incidents/labels';
@@ -61,6 +62,7 @@ const TABS = [
   'tasks',
   'schedule',
   'children',
+  'workflows',
   'history',
 ] as const;
 // The statuses that raise a stage's approval (acceptance, the plan, the CAB): their move shows
@@ -268,6 +270,16 @@ export function ChangePage() {
       label: t('changes.tab.children'),
       children: <ChildrenPart id={c.id} canEdit={mayEdit} />,
     },
+    // Workflows stays last before History (agreed with lane C, #379).
+    ...(can('workflows.run') || can('workflows.manage')
+      ? [
+          {
+            key: 'workflows',
+            label: t('workflows.record.tab'),
+            children: <RecordWorkflows recordType="change" recordId={c.id} />,
+          },
+        ]
+      : []),
     {
       key: 'history',
       label: t('changes.tab.history'),

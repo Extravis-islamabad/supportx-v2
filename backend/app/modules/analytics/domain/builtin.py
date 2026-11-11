@@ -255,6 +255,30 @@ BUILTIN_REPORTS += (
     ),
 )
 
+# Assets' money (lane B's #375, WP-049b S2; the coordinator, 2026-11-11): listed only for those
+# who may see money, as their fields exist only for them (the library compiles each built-in for
+# the viewer and leaves out one that does not compile).
+BUILTIN_REPORTS += (
+    _of(
+        "asset",
+        ASSETS,
+        "assets_book_value_by_cost_centre",
+        group_by=[{"field": "cost_centre"}],
+        measures=["book_value_total", "count"],
+        order="value_desc",
+        chart="bar",
+    ),
+    _of(
+        "asset",
+        ASSETS,
+        "assets_total_cost_of_ownership",
+        group_by=[{"field": "product_type_id"}],
+        measures=["total_cost_total", "book_value_total"],
+        order="value_desc",
+        chart="bar",
+    ),
+)
+
 BUILTIN: Mapping[str, BuiltinReport] = MappingProxyType({r.code: r for r in BUILTIN_REPORTS})
 BUILTIN_PREFIX = "builtin:"
 

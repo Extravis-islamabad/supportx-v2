@@ -1169,6 +1169,10 @@ class WorkItemCatalogueOut(BaseModel):
         default=False,
         description="Changes: implementing groups' members may not approve either (REQ-CHG-039).",
     )
+    outside_maintenance_blocks: bool = Field(
+        default=False,
+        description="Changes: outside every maintenance window blocks instead of warns (D-156).",
+    )
     cab_every_match: bool = Field(
         default=False,
         description="Changes: every board the mapping matches reviews, not only the first.",
@@ -1217,6 +1221,7 @@ class WorkItemCatalogueOut(BaseModel):
             first_task_starts_work=cat.first_task_starts_work,
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
+            outside_maintenance_blocks=cat.outside_maintenance_blocks,
             cab_every_match=cat.cab_every_match,
             reapproval=ReapprovalPolicyIO.model_validate(
                 reapproval_rules.policy_json(reapproval_rules.policy_from(cat.reapproval))
@@ -1349,6 +1354,7 @@ class WorkItemSettingsPatch(BaseModel):
     first_task_starts_work: bool | None = None
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
+    outside_maintenance_blocks: bool | None = Field(default=None, description="Changes only.")
     cab_every_match: bool | None = Field(default=None, description="Changes only.")
     reapproval: ReapprovalPolicyIO | None = Field(
         default=None, description="Changes only. Null: the shipped policy."

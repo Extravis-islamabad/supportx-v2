@@ -120,7 +120,7 @@ async def test_req_wf_022_ac2_a_test_run_writes_nothing_and_sends_nothing(world:
 async def test_req_wf_022_ac3_timers_move_on_with_the_run_s_own_clock(world: World) -> None:
     flow = await _workflow(world, TIMER)
     run = await _start_test(world, flow, sample={})
-    assert run["status"] == "waiting"
+    assert (run["status"], run["current_nodes"]) == ("waiting", ["t"])  # the canvas marks it
     early = await _post(world, run, "answer", fast_forward_seconds=30)
     assert early.json()["status"] == "waiting"  # not due yet
     late = await _post(world, early.json(), "answer", fast_forward_seconds=40)

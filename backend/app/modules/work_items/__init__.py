@@ -31,6 +31,9 @@ from app.modules.work_items.api.approval_settings_routes import router as approv
 from app.modules.work_items.api.change_board_routes import router as change_board_router
 from app.modules.work_items.api.change_child_routes import router as change_child_router
 from app.modules.work_items.api.change_window_routes import (
+    calendar_router as change_calendar_router,
+)
+from app.modules.work_items.api.change_window_routes import (
     change_router as change_window_change_router,
 )
 from app.modules.work_items.api.change_window_routes import router as change_window_router
@@ -172,6 +175,7 @@ module = ModuleSpec(
         change_window_router,  # WP-045c: freeze and maintenance windows (ADR-042)
         change_window_change_router,  # WP-045c: a change's conflicts and freeze override
         change_child_router,  # WP-045d S1: child changes and releases
+        change_calendar_router,  # WP-045c S3: the change calendar
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
@@ -184,6 +188,7 @@ module = ModuleSpec(
         CHANGE.feature,  # change windows
         CHANGE.feature,  # a change's conflicts and freeze override
         CHANGE.feature,  # child changes and releases
+        CHANGE.feature,  # the change calendar
     ],
     events=EVENTS,
     permissions=(

@@ -13,6 +13,7 @@
 
 import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,9 +24,16 @@ from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain import change_windows as rules
+from app.modules.work_items.domain.changes import IMPLEMENTATION
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.events import ChangeWindowChanged
-from app.modules.work_items.infra.models import ChangeWindow, WorkItem, WorkItemChangeDetails
+from app.modules.work_items.infra.models import (
+    ChangeWindow,
+    WorkItem,
+    WorkItemChangeDetails,
+    WorkItemDowntime,
+    WorkItemStageSchedule,
+)
 from app.modules.work_items.service import change_conflicts
 from app.modules.work_items.service import work_items as items
 from app.shared.db.repository import Repository
@@ -48,10 +56,14 @@ EDITABLE = (
     "description",
     "starts_at",
     "ends_at",
-    "repeat_weekly",
+    "repeat_weekly",  # kept in step with `repeat` until 0137's contract (D-156)
+    "repeat",
+    "repeat_week",
+    "repeat_weekday",
     "repeat_until",
     *SCOPES,
 )
+REPEATS = ("none", "weekly", "monthly")
 # The field codes a window's checks give (labels: errors.field.*).
 FIELD_PROBLEMS = frozenset(
     {
@@ -62,6 +74,7 @@ FIELD_PROBLEMS = frozenset(
         "too_many_items",
         "end_before_start",
         "longer_than_a_week",
+        "longer_than_a_month",
         "not_allowed",
         "site_not_found",
         "group_not_found",
@@ -98,7 +111,8 @@ async def windows(
     _require_view(subject)
     if start is not None and end is not None:
         rows = await change_conflicts.windows_touching(session, start, end)
-        return [r for r in rows if change_conflicts.window_of(r).occurrences(start, end)]
+        zone = await change_conflicts.tenant_zone(session)
+        return [r for r in rows if change_conflicts.window_of(r, zone).occurrences(start, end)]
     found = await session.scalars(
         select(ChangeWindow)
         .where(ChangeWindow.deleted_at.is_(None))
@@ -178,13 +192,19 @@ async def _check(session: AsyncSession, merged: Mapping[str, Any]) -> dict[str, 
     if description is not None and len(description) > DESCRIPTION_MAX:
         problems.append(("description", "value_too_long"))
     labels = _labels(merged.get("labels"), problems)
-    weekly = bool(merged.get("repeat_weekly"))
+    # `repeat` wins; a client that sends only the old flag still gets a weekly window.
+    repeat = merged.get("repeat") or ("weekly" if merged.get("repeat_weekly") else "none")
+    if repeat not in REPEATS:
+        problems.append(("repeat", "invalid_choice"))
+    weekly = repeat == "weekly"
+    week, weekday = merged.get("repeat_week"), merged.get("repeat_weekday")
     problems.extend(
         rules.window_problems(
             merged.get("starts_at"),
             merged.get("ends_at"),
             repeat_weekly=weekly,
             repeat_until=merged.get("repeat_until"),
+            monthly=(week, weekday) if repeat == "monthly" else None,
         )
     )
     scope = await _scope(session, merged, problems)
@@ -199,6 +219,9 @@ async def _check(session: AsyncSession, merged: Mapping[str, Any]) -> dict[str, 
         "starts_at": merged["starts_at"],
         "ends_at": merged["ends_at"],
         "repeat_weekly": weekly,
+        "repeat": repeat,
+        "repeat_week": week if repeat == "monthly" else None,
+        "repeat_weekday": weekday if repeat == "monthly" else None,
         "repeat_until": merged.get("repeat_until"),
         **scope,
     }
@@ -385,3 +408,83 @@ async def override_freeze(  # noqa: PLR0913 - the change, its version and why, e
         source=source,
         reason=text,
     )
+
+
+# --- the change calendar (WP-045c S3; ADR-042 §5) -------------------------------------------------
+
+CALENDAR_LIMIT = 2000  # entries in one range; a month of a busy tenant fits many times over
+
+
+@dataclass(frozen=True)
+class CalendarEntry:
+    """A change's planned time on the calendar: its implementation window or a downtime."""
+
+    record: WorkItem
+    kind: str  # "window" (the implementation window) or "downtime"
+    starts_at: datetime
+    ends_at: datetime
+    part_id: uuid.UUID | None = None  # the downtime, for a downtime
+    version: int = 0  # the window's or downtime's own version (If-Match when moved)
+
+
+async def calendar(
+    session: AsyncSession,
+    subject: Subject,
+    *,
+    start: datetime,
+    end: datetime,
+    mine: bool = False,
+) -> list[CalendarEntry]:
+    """The changes you may see planned in [start, end): windows and planned downtimes, by start.
+
+    `mine`: only those you hold (technician). Windows are listed by `windows(start=, end=)`.
+    """
+    visible = items.staff_rows(subject, CHANGE).with_only_columns(WorkItem.id)
+    if mine:
+        visible = visible.where(WorkItem.technician_id == subject.user_id)
+    windows_q = (
+        select(WorkItem, WorkItemStageSchedule)
+        .join(WorkItemStageSchedule, WorkItemStageSchedule.work_item_id == WorkItem.id)
+        .where(
+            WorkItem.id.in_(visible),
+            WorkItemStageSchedule.stage == IMPLEMENTATION,
+            WorkItemStageSchedule.scheduled_start < end,
+            WorkItemStageSchedule.scheduled_end > start,
+        )
+        .limit(CALENDAR_LIMIT)
+    )
+    entries = [
+        CalendarEntry(
+            record=w,
+            kind="window",
+            starts_at=row.scheduled_start,
+            ends_at=row.scheduled_end,
+            version=row.version,
+        )
+        for w, row in await session.execute(windows_q)
+        if row.scheduled_start is not None and row.scheduled_end is not None
+    ]
+    downtimes_q = (
+        select(WorkItem, WorkItemDowntime)
+        .join(WorkItemDowntime, WorkItemDowntime.work_item_id == WorkItem.id)
+        .where(
+            WorkItem.id.in_(visible),
+            WorkItemDowntime.phase == "planned",
+            WorkItemDowntime.deleted_at.is_(None),
+            WorkItemDowntime.starts_at < end,
+            WorkItemDowntime.ends_at > start,
+        )
+        .limit(CALENDAR_LIMIT)
+    )
+    entries += [
+        CalendarEntry(
+            record=w,
+            kind="downtime",
+            starts_at=d.starts_at,
+            ends_at=d.ends_at,
+            part_id=d.id,
+            version=d.version,
+        )
+        for w, d in await session.execute(downtimes_q)
+    ]
+    return sorted(entries, key=lambda e: (e.starts_at, e.record.display_id))

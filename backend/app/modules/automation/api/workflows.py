@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
@@ -21,7 +21,13 @@ from app.core.database import TenantSession
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.interpreter import InstanceStatus
-from app.modules.automation.domain.workflows import Problem, WaitEvent
+from app.modules.automation.domain.workflows import (
+    Category,
+    NodeType,
+    Problem,
+    WaitEvent,
+    ports_of,
+)
 from app.modules.automation.infra.models import (
     Workflow,
     WorkflowInstance,
@@ -170,6 +176,73 @@ def _instance(row: WorkflowInstance) -> InstanceOut:
     return InstanceOut.model_validate(row, from_attributes=True)
 
 
+class NodeTypeOut(BaseModel):
+    """One palette entry (REQ-WF-009 AC3): shown in its group by name, never only an icon."""
+
+    type: NodeType
+    category: Category = Field(description="The palette group (REQ-WF-028).")
+    available: bool = Field(description="False: offered for the type, not usable now.")
+    why_not: str | None = Field(description="Why not, as a problem code with its label.")
+    outputs: list[str] = Field(description="Its outputs with an empty config.")
+    optional: list[str] = Field(description="Outputs it may leave unlinked.")
+
+
+@router.get("/node-types", summary="The designer's palette for a record type")
+async def node_types(
+    session: TenantSession,
+    subject: Manage,
+    record_type: Annotated[str, Query(min_length=1, max_length=20)],
+) -> list[NodeTypeOut]:
+    """Every node type the record type offers, with whether it can be used now (WP-048b S4)."""
+    del subject
+    return [
+        NodeTypeOut(
+            type=o.type,
+            category=o.category,
+            available=o.available,
+            why_not=o.why_not,
+            outputs=list(o.outputs),
+            optional=sorted(o.optional),
+        )
+        for o in await workflow_admin.node_types(session, record_type)
+    ]
+
+
+NODE_PORTS_MAX = 200  # a workflow's node limit (Appendix A)
+
+
+class NodeConfigIn(BaseModel):
+    """A node as the designer holds it: its type and config, not yet saved."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: str = Field(min_length=1, max_length=30)
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class NodePortsIn(BaseModel):
+    """The nodes whose outputs the canvas needs, in order."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nodes: list[NodeConfigIn] = Field(max_length=NODE_PORTS_MAX)
+
+
+class NodePortsOut(BaseModel):
+    """One node's outputs, as validation sees them (a switch's cases, a wait's timeout)."""
+
+    outputs: list[str]
+    optional: list[str]
+
+
+@router.post("/node-ports", summary="The outputs of nodes being designed")
+async def node_ports(body: NodePortsIn, subject: Manage) -> list[NodePortsOut]:
+    """Changes nothing: the same registry as validation, so the canvas offers what saves."""
+    del subject
+    found = [ports_of(n.type, n.config) for n in body.nodes]
+    return [NodePortsOut(outputs=list(o), optional=sorted(opt)) for o, opt in found]
+
+
 @router.get("", summary="Workflows of a record type")
 async def list_workflows(
     session: TenantSession,
@@ -199,7 +272,12 @@ async def list_workflows(
     return [_out(w).model_copy(update={"running": running.get(w.id, 0)}) for w in rows]
 
 
-@router.post("", summary="Add a workflow", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    summary="Add a workflow",
+    status_code=status.HTTP_201_CREATED,
+    response_model=WorkflowOut,
+)
 async def create_workflow(
     body: WorkflowIn, session: TenantSession, subject: Manage, idempotency: Idempotency
 ) -> Response:
@@ -261,6 +339,7 @@ async def _workflow_file(request: Request) -> WorkflowFileIn:
     "/import",
     summary="Import a workflow file as a new draft",
     status_code=status.HTTP_201_CREATED,
+    response_model=WorkflowOut,
     dependencies=[audited("automation.workflow_imported", object_type="workflow")],
     # The body is read by `_workflow_file` (capped before parsing); its schema stays documented.
     openapi_extra={
@@ -469,16 +548,128 @@ async def list_instances(
     return [_instance(r) for r in rows]
 
 
-@router.get("/instances/{instance_id}/steps", summary="An instance's log")
-async def steps(instance_id: uuid.UUID, session: TenantSession, subject: Run) -> list[StepOut]:
-    """Every node run with its result and time (REQ-WF-023 AC2)."""
-    del subject
+async def _visible(
+    session: TenantSession, subject: Subject, record_type: str, record_id: uuid.UUID
+) -> None:
+    """A record's workflows are shown only to someone who may see the record (REQ-WF-023 AC3).
+
+    Its type's own view rule decides, as on the record's page; anything else is a 404, so a
+    record that cannot be seen is not even confirmed to exist.
+    """
+    kind = registered(record_type)
+    if (
+        kind is None
+        or kind.may_view is None
+        or not await kind.may_view(session, subject, record_id)
+    ):
+        raise NotFound(code="record_not_found")
+
+
+STEPS_MAX = 500  # a record panel's log: the latest steps of one run
+
+
+async def _steps_of(session: TenantSession, instance_id: uuid.UUID) -> list[StepOut]:
     rows = await session.scalars(
         select(WorkflowStep)
         .where(WorkflowStep.instance_id == instance_id)
-        .order_by(WorkflowStep.seq)
+        .order_by(WorkflowStep.seq.desc())
+        .limit(STEPS_MAX)
     )
-    return [StepOut.model_validate(r, from_attributes=True) for r in rows]
+    return [StepOut.model_validate(r, from_attributes=True) for r in reversed(list(rows))]
+
+
+@router.get("/instances/{instance_id}/steps", summary="An instance's log")
+async def steps(instance_id: uuid.UUID, session: TenantSession, subject: Run) -> list[StepOut]:
+    """Every node run with its result and time (REQ-WF-023 AC2), for those who see the record."""
+    instance = await session.get(WorkflowInstance, instance_id)
+    if instance is None:
+        raise NotFound(code="workflow_instance_not_found")
+    await _visible(session, subject, instance.record_type, instance.record_id)
+    return await _steps_of(session, instance_id)
+
+
+def _diagram(definition: dict[str, Any]) -> dict[str, Any]:
+    """What the record panel draws: steps and links, never their settings (lane B's #379 review).
+
+    A step's settings can hold secrets (a webhook's URL and headers, a function's inputs) that
+    only workflows.manage may read; workflows.run holders see the shape of the run alone.
+    """
+    nodes = definition.get("nodes")
+    links = definition.get("links")
+    return {
+        "format": definition.get("format"),
+        "nodes": [
+            {"id": n.get("id"), "type": n.get("type"), "config": {}, "position": n.get("position")}
+            for n in (nodes if isinstance(nodes, list) else [])
+            if isinstance(n, dict)
+        ],
+        "links": [
+            {"from": li.get("from"), "port": li.get("port"), "to": li.get("to")}
+            for li in (links if isinstance(links, list) else [])
+            if isinstance(li, dict)
+        ],
+        "variables": [],
+    }
+
+
+class RecordWorkflowOut(BaseModel):
+    """One workflow run on a record, everything its panel draws (REQ-WF-023, -024)."""
+
+    instance: InstanceOut
+    workflow_name: str
+    definition: dict[str, Any] = Field(
+        description="The version's steps and links to draw, without their settings."
+    )
+    current_nodes: list[str] = Field(description="Where it is now (marked on the diagram).")
+    steps: list[StepOut] = Field(description=f"Its log, oldest first (the last {STEPS_MAX}).")
+
+
+@router.get(
+    "/records/{record_type}/{record_id}",
+    summary="The workflows on a record, for its Workflows panel",
+)
+async def record_workflows(
+    record_type: Annotated[str, Path(min_length=1, max_length=20)],
+    record_id: uuid.UUID,
+    session: TenantSession,
+    subject: Run,
+) -> list[RecordWorkflowOut]:
+    """Newest first: each run with its diagram, position and log.
+
+    Requesters never get here (workflows.run), and nobody sees the runs of a record they
+    cannot see (404).
+    """
+    await _visible(session, subject, record_type, record_id)
+    rows = list(
+        await session.scalars(
+            select(WorkflowInstance)
+            .where(
+                WorkflowInstance.record_type == record_type,
+                WorkflowInstance.record_id == record_id,
+            )
+            .order_by(WorkflowInstance.started_at.desc())
+            .limit(50)
+        )
+    )
+    found = []
+    for row in rows:
+        flow = await session.get(Workflow, row.workflow_id)
+        version = await session.scalar(
+            select(WorkflowVersion).where(
+                WorkflowVersion.workflow_id == row.workflow_id,
+                WorkflowVersion.number == row.version_number,
+            )
+        )
+        found.append(
+            RecordWorkflowOut(
+                instance=_instance(row),
+                workflow_name=flow.name if flow is not None else "",
+                definition=_diagram(dict(version.definition)) if version is not None else {},
+                current_nodes=_current(row.state),
+                steps=await _steps_of(session, row.id),
+            )
+        )
+    return found
 
 
 async def _editable(
@@ -754,6 +945,7 @@ class CopyIn(BaseModel):
     "/{workflow_id}/copy",
     summary="Copy a workflow as a new draft",
     status_code=status.HTTP_201_CREATED,
+    response_model=WorkflowOut,
     dependencies=[
         audited("automation.workflow_copied", object_type="workflow", object_param="workflow_id")
     ],
@@ -833,9 +1025,21 @@ class TestRunOut(BaseModel):
     variables: dict[str, Any]
     steps: list[dict[str, Any]]
     pending: list[dict[str, Any]]
+    current_nodes: list[str] = Field(
+        default_factory=list,
+        description="Where the run is now: its live tokens' nodes (the canvas marks them).",
+    )
     clock_at: datetime
     live_call: dict[str, Any] | None
     version: int
+
+
+_LIVE_TOKENS = frozenset({"ready", "waiting", "command", "joined"})
+
+
+def _current(state: dict[str, Any]) -> list[str]:
+    nodes = [str(t.get("node")) for t in state.get("tokens", []) if t.get("state") in _LIVE_TOKENS]
+    return sorted(set(nodes))
 
 
 def _test(row: WorkflowTestRun) -> TestRunOut:
@@ -848,6 +1052,7 @@ def _test(row: WorkflowTestRun) -> TestRunOut:
         variables=dict(row.state.get("variables", {})),
         steps=row.steps,
         pending=row.pending,
+        current_nodes=_current(row.state),
         clock_at=row.clock_at,
         live_call=row.live_call,
         version=row.version,
@@ -858,6 +1063,7 @@ def _test(row: WorkflowTestRun) -> TestRunOut:
     "/{workflow_id}/test-runs",
     summary="Test the draft, applying nothing",
     status_code=status.HTTP_201_CREATED,
+    response_model=TestRunOut,
 )
 async def start_test(
     workflow_id: uuid.UUID,

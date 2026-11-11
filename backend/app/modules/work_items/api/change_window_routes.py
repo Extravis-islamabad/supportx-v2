@@ -11,8 +11,8 @@ the change's scope; audited, refused attempts too).
 """
 
 import uuid
-from datetime import datetime
-from typing import Annotated, Self
+from datetime import datetime, timedelta
+from typing import Annotated, Literal, Self
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -49,6 +49,14 @@ Admin = Annotated[Subject, Depends(require_permission(*service.MANAGE))]
 Note = Annotated[AuditNote, audited("change.window_changed", object_type="change_window")]
 
 
+def _range_ok(start: datetime, end: datetime) -> bool:
+    """A range that ends after it starts, and spans at most 400 days."""
+    return start < end and end - start <= timedelta(days=MAX_RANGE_DAYS)
+
+
+WindowRepeat = Literal["none", "weekly", "monthly"]  # D-156 (labels: window_repeat.*)
+
+
 class WindowIn(BaseModel):
     """A new window: its kind, name and times; the mode follows the kind unless given."""
 
@@ -63,7 +71,14 @@ class WindowIn(BaseModel):
     description: str | None = Field(default=None, max_length=service.DESCRIPTION_MAX)
     starts_at: datetime
     ends_at: datetime
-    repeat_weekly: bool = False
+    repeat_weekly: bool = False  # the old flag: still read when `repeat` is not sent
+    repeat: WindowRepeat | None = Field(default=None, description="D-156: none, weekly, monthly.")
+    repeat_week: int | None = Field(
+        default=None, ge=1, le=5, description="A monthly window's week: 1-4, or 5 for the last."
+    )
+    repeat_weekday: int | None = Field(
+        default=None, ge=0, le=6, description="A monthly window's weekday: 0 Monday .. 6 Sunday."
+    )
     repeat_until: datetime | None = None
     site_ids: list[uuid.UUID] = Field(default_factory=list, max_length=service.MAX_IDS)
     group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=service.MAX_IDS)
@@ -84,6 +99,9 @@ class WindowPatch(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     repeat_weekly: bool | None = None
+    repeat: WindowRepeat | None = None
+    repeat_week: int | None = Field(default=None, ge=1, le=5)
+    repeat_weekday: int | None = Field(default=None, ge=0, le=6)
     repeat_until: datetime | None = None
     site_ids: list[uuid.UUID] | None = Field(default=None, max_length=service.MAX_IDS)
     group_ids: list[uuid.UUID] | None = Field(default=None, max_length=service.MAX_IDS)
@@ -103,6 +121,9 @@ class WindowOut(BaseModel):
     starts_at: datetime
     ends_at: datetime
     repeat_weekly: bool
+    repeat: WindowRepeat
+    repeat_week: int | None
+    repeat_weekday: int | None
     repeat_until: datetime | None
     site_ids: list[uuid.UUID]
     group_ids: list[uuid.UUID]
@@ -123,6 +144,9 @@ class WindowOut(BaseModel):
             starts_at=row.starts_at,
             ends_at=row.ends_at,
             repeat_weekly=row.repeat_weekly,
+            repeat=row.repeat,  # type: ignore[arg-type]  # the column's check holds the codes
+            repeat_week=row.repeat_week,
+            repeat_weekday=row.repeat_weekday,
             repeat_until=row.repeat_until,
             site_ids=list(row.site_ids or []),
             group_ids=list(row.group_ids or []),
@@ -144,7 +168,7 @@ async def list_windows(
     The range is at most 400 days; weekly windows are included by their occurrences.
     """
     if (start is None) != (end is None) or (
-        start is not None and end is not None and not (0 < (end - start).days <= MAX_RANGE_DAYS)
+        start is not None and end is not None and not _range_ok(start, end)
     ):
         raise field_errors([("end", "out_of_range")])
     return [WindowOut.of(r) for r in await service.windows(session, subject, start=start, end=end)]
@@ -343,3 +367,65 @@ async def freeze_override(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     )
     set_etag(response, updated.version)
     return {"version": updated.version}
+
+
+# --- the change calendar (WP-045c S3) -------------------------------------------------------------
+
+# Its own prefix: `/changes/calendar` would meet the changes' `/{record_id}` route first.
+calendar_router = APIRouter(
+    prefix="/change-calendar",
+    tags=["changes"],
+    dependencies=[Depends(rate_limit("work_items"))],
+)
+
+
+class CalendarEntryOut(BaseModel):
+    """A change's planned time: its implementation window or a planned downtime."""
+
+    record_id: uuid.UUID
+    display_id: str
+    subject: str
+    stage: str | None
+    status: str
+    stage_path: str | None
+    group_id: uuid.UUID | None
+    site_id: uuid.UUID | None
+    technician_id: uuid.UUID | None
+    kind: str = Field(description="`window` (implementation) or `downtime` (planned).")
+    starts_at: datetime
+    ends_at: datetime
+    part_id: uuid.UUID | None = Field(default=None, description="The downtime, for a downtime.")
+    version: int = Field(description="The window's or downtime's own version, for If-Match.")
+
+
+@calendar_router.get("", summary="Changes planned in a range")
+async def change_calendar(
+    session: TenantSession,
+    subject: ViewChange,
+    start: Annotated[datetime, Query()],
+    end: Annotated[datetime, Query()],
+    mine: Annotated[bool, Query(description="Only the changes you hold.")] = False,  # noqa: FBT002 - a query flag
+) -> list[CalendarEntryOut]:
+    """The changes you may see, planned in [start, end) (at most 400 days), by start."""
+    if not _range_ok(start, end):
+        raise field_errors([("end", "out_of_range")])
+    entries = await service.calendar(session, subject, start=start, end=end, mine=mine)
+    return [
+        CalendarEntryOut(
+            record_id=e.record.id,
+            display_id=e.record.display_id,
+            subject=e.record.subject,
+            stage=e.record.stage,
+            status=e.record.status,
+            stage_path=e.record.stage_path,
+            group_id=e.record.group_id,
+            site_id=e.record.site_id,
+            technician_id=e.record.technician_id,
+            kind=e.kind,
+            starts_at=e.starts_at,
+            ends_at=e.ends_at,
+            part_id=e.part_id,
+            version=e.version,
+        )
+        for e in entries
+    ]

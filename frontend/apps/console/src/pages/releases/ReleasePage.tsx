@@ -22,10 +22,12 @@ import {
   reportError,
   useDateTime,
   useLabel,
+  useAccess,
   usePageCrumbs,
   SPACE,
 } from '@supportx/ui';
 
+import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { personName } from '../incidents/labels';
 
 import { EMERGENCY_PATH, stageName, statusName } from './labels';
@@ -51,6 +53,7 @@ const CANCELED = 'closure_canceled';
  */
 export function ReleasePage() {
   const t = useLabel();
+  const { can } = useAccess();
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
   const record = useRelease(id);
@@ -282,6 +285,16 @@ export function ReleasePage() {
             label: t('releases.tab.sub_releases'),
             children: <SubReleasesPart id={r.id} />,
           },
+          // WP-048b S4d: the workflows running on it (REQ-WF-023), for those who run them.
+          ...(can('workflows.run') || can('workflows.manage')
+            ? [
+                {
+                  key: 'workflows',
+                  label: t('workflows.record.tab'),
+                  children: <RecordWorkflows recordType="release" recordId={r.id} />,
+                },
+              ]
+            : []),
         ]}
       />
     </RecordPage>

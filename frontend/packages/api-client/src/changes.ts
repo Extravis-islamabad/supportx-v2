@@ -473,3 +473,101 @@ export function useFreezeOverride() {
     },
   });
 }
+
+export type CalendarEntry = components['schemas']['CalendarEntryOut'];
+export type ChangeWindowInput = components['schemas']['WindowIn'];
+export type ChangeWindowPatch = components['schemas']['WindowPatch'];
+
+export const calendarKeys = {
+  all: ['change-calendar'] as const,
+  range: (start: string, end: string, mine: boolean) =>
+    ['change-calendar', start, end, mine] as const,
+};
+const windowKeys = { all: ['change-windows'] as const };
+
+/** The changes you may see planned in [start, end): windows and planned downtimes. */
+export function useChangeCalendar(start: string, end: string, mine: boolean) {
+  return useQuery({
+    queryKey: calendarKeys.range(start, end, mine),
+    queryFn: () =>
+      call(api.GET('/api/v1/change-calendar', { params: { query: { start, end, mine } } })),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Add a window (one Idempotency-Key per form). */
+export function useCreateChangeWindow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, key }: { body: ChangeWindowInput; key: string }) =>
+      call(
+        api.POST('/api/v1/change-windows', {
+          params: { header: { 'Idempotency-Key': key } },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+    },
+  });
+}
+
+/** Change a window with its own If-Match. */
+export function useUpdateChangeWindow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version, body }: { id: string; version: number; body: ChangeWindowPatch }) =>
+      call(
+        api.PATCH('/api/v1/change-windows/{window_id}', {
+          params: { path: { window_id: id }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+    },
+  });
+}
+
+/** Remove a window (its history stays). */
+export function useRemoveChangeWindow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, version }: { id: string; version: number }) => {
+      await call(
+        api.DELETE('/api/v1/change-windows/{window_id}', {
+          params: { path: { window_id: id }, header: ifMatch(version) },
+        }),
+      );
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+    },
+  });
+}
+
+/**
+ * Change the change type's settings with the If-Match the screen showed (D-156: whether
+ * outside-maintenance blocks); the answer replaces the cached settings at once.
+ */
+export function useChangeSettingsChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      body,
+      version,
+    }: {
+      body: Partial<components['schemas']['WorkItemSettingsPatch']>;
+      version: number;
+    }) =>
+      call(
+        api.PATCH('/api/v1/changes/settings', {
+          params: { header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(stagedKeys('changes').settings, settings);
+    },
+  });
+}

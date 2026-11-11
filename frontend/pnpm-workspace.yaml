@@ -25,6 +25,9 @@ catalog:
   '@tiptap/extension-image': 3.32.2
   '@tiptap/suggestion': 3.32.2
   '@tanstack/react-query': ^5.105.0
+  # The workflow designer's canvas (§3 "React Flow (xyflow)", WP-048b S4; MIT). Pinned to a
+  # release over two weeks old; its companions are listed in the S4 PR.
+  '@xyflow/react': 12.12.0
   typescript: ~5.9.3
   vite: ^8.3.5
   '@vitejs/plugin-react': ^6.0.0

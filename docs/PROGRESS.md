@@ -1150,12 +1150,22 @@ it with no reload (rule c). Not built yet.
   - live via `work_items.change_windows_changed`.
   - Defaults per D-156 (held): a freeze blocks, a maintenance window warns, weekly repeat only.
   - Lane B gives the blocking review.
-- **S2:** the record. The schedule and downtime become editable, with a conflicts panel and the
-  override dialog; "announce planned downtime" makes an announcement draft.
-- **S3:** the calendar at /changes/calendar (month, week, day, timeline; layers; drag to
-  reschedule with re-approval and the conflict check), and the windows admin on template E.
+- **S2 (built; its PR opens after #376):**
+  - the record's Schedule tab, with the editable implementation window and downtimes and a live
+    conflicts panel;
+  - the override dialog, which passes only the freezes named, then retries the save;
+  - "announce" for a planned downtime, which makes an announcement draft.
+- **S3 (built; its PR opens after S2):**
+  - `GET /change-calendar`, and the calendar at /changes/calendar: month, week, day and agenda;
+    the freeze and maintenance layers; "only mine"; zone days; drag to reschedule with the
+    re-approval warning and the freeze guard;
+  - the windows admin at /admin/change-windows (template E).
+- **Not yet:**
+  - a pixel-time grid in the week and day views (entries are listed by day);
+  - CI and service layers (with the CMDB);
+  - full recurrence rules (D-156 (c)).
 
-### [~] WP-045d — Changes: the rest (lane A, 2026-11-11; 4 sessions; migration 0133; REQ-CHG-088..117)
+### [~] WP-045d — Changes: the rest (lane A, 2026-11-11; 4 sessions; migrations 0133, 0137; REQ-CHG-088..117)
 - **S1 (0133, #378):** tasks per stage, the post-implementation review and its date, closure
   codes and rules per stage, closing waits for child changes and releases, closed changes locked
   (REQ-CHG-088, 090-097). Lane B reviewed the lock.
@@ -1165,7 +1175,17 @@ it with no reload (rule c). Not built yet.
   - REQ-CHG-100: the change's conversation and attachments on its record.
   - REQ-CHG-101: bulk assign (D-154a: the owner must be in the group), take and close, through
     the shared bulk dialog. Each change follows its own life cycle, and skips say why.
-  - REQ-CHG-102: the CAB pack print view.
+  - REQ-CHG-102: the CAB pack print view, with the conflict list.
+  - **D-156 (Haider, 2026-11-11; migration 0137, lane B blocks):**
+    - change replies are e-mailed to the requester; notes never are;
+    - monthly windows ("first Sunday", on the tenant's local days); repeat_weekly is kept in
+      step for one release;
+    - a tenant setting makes outside-maintenance block (off by default), on the windows page,
+      audited;
+    - an emergency change in a blocking freeze is saved and marked, never refused. Its work
+      starts only once its emergency CAB passed the freeze (an approval with a reason, which
+      stamps it, is audited and shows in history) or the change manager overrode it. Normal
+      and standard changes are unchanged.
   - **Open under REQ-CHG-101:** bulk edit fields, add to a CAB agenda, cancel and delete.
     - Cancel and delete need the `work_item_bulk_jobs` action_code check widened, which is a
       migration.
@@ -1592,7 +1612,7 @@ it with no reload (rule c). Not built yet.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
 
-### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-3 of 5 built, #233)
+### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-4 of 5 built, #233)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.
 Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (approval chair).
@@ -1668,8 +1688,46 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
     webhook or notify node on a record: workflows.manage only, audited with who, node and record.
   - Cross-tenant import is out of scope (coordinator, 2026-11-11). It needs an ID-mapping step
     (templates, people, groups) later.
-- [ ] **S4** — the React Flow designer.
-- [ ] **S5** — e2e, guides, and the visual matrix.
+- [x] **S4** — the designer, test mode and the record's Workflows panel (feat/wp-048b-s4, backup
+  branch backup/wp-048b-s4); one PR from main, no migration. Session log:
+  progress-log/2026-11-11-wp-048b-s4-lane-c.md.
+  - **packages/flow:** @xyflow/react 12.12.0 (companions listed in the PR), the definition ↔
+    canvas mapping (a saved definition re-opens to the same diagram, both directions), positions
+    stored left to right and mirrored in RTL, an in-house layered layout (no dagre or elkjs),
+    undo/redo history (100 steps).
+  - **The list** (Admin › Workflows, template C) and **the designer** ("template A header + canvas
+    body"):
+    - palette (drag, or a button that places the step below the selected one);
+    - canvas with labelled, always-visible handles;
+    - details with forms for if, switch, notify, timer, wait and set status, plus "Advanced";
+    - link details with a clear delete;
+    - an outline that builds and unlinks by keyboard (REQ-WF-028 AC1);
+    - problems that select their step;
+    - save, publish, enable;
+    - live on the workflows channel.
+  - **Server:** the palette (`node-types`), outputs from the registry (`node-ports`), workflow
+    changes on the list channel, typed created responses.
+  - **Test mode panel (REQ-WF-022):**
+    - a run on a record (display ID) or on sample values;
+    - each step answered by hand, a described change, the clock moved on;
+    - the path taken and the current step on the canvas (`current_nodes`);
+    - the one live call behind a confirm that says it is audited.
+  - **The record's Workflows panel (REQ-WF-023, -024, -026)** on incidents, requests, problems,
+    changes (placement agreed with lane A) and releases:
+    - the diagram with the path and the current step, and the log to the second;
+    - a failure banner in words;
+    - retry, run again and stop.
+
+    Its endpoint is gated by workflows.run and the record's own view rule (404); the instance
+    log got the same gate. Every run-time failure code has a label (tested).
+  - **Visual matrix:** admin-workflows, admin-workflow (+ outline), incident-workflows; the
+    off_screen check skips controls inside a strip that scrolls sideways.
+  - **Bundled (coordinator):**
+    - the "Book value by cost centre" and "Total cost of ownership" reports (asset money
+      measures, listed only for assets.view_financials);
+    - the release downtime delete asks first (lane A's #377).
+- [ ] **S5** — the overview screen, versions and migration UI, skip a failed step, the
+  waiting-longer filter, e2e and guides.
 - **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the
   `users.preview` test once that permission lands (lane B).
 
