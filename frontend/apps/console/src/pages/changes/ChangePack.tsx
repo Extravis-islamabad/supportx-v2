@@ -1,9 +1,11 @@
 import { PrinterOutlined } from '@ant-design/icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button, Descriptions, Flex, Result, Skeleton, Table, Typography } from 'antd';
 import { useEffect, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
 import {
+  changeKeys,
   useChange,
   useChangeConflicts,
   useChangeDetails,
@@ -14,6 +16,7 @@ import {
   useStagedSettings,
   type StageSchedule,
 } from '@supportx/api-client';
+import { useRecordChannel } from '@supportx/realtime';
 import {
   EmptyText,
   RichTextView,
@@ -53,6 +56,12 @@ export function ChangePack() {
   const { format } = useDateTime();
   const { id = '' } = useParams();
   const record = useChange(id);
+  const queryClient = useQueryClient();
+  // Live (rule 5c, lane C's #384 review): any change to the record or its parts refetches the
+  // pack; the parts' keys sit under the record's detail key.
+  useRecordChannel('wi', id === '' ? undefined : id, () => {
+    void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
+  });
   const details = useChangeDetails(id).data;
   const plan = useStagedPlan('changes', id).data ?? [];
   const schedule = useStagedSchedule('changes', id).data ?? [];

@@ -1,7 +1,9 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { fakeIncident, fakeSession } from '@supportx/api-client/testing';
+import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
+import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
@@ -27,6 +29,7 @@ const change = {
 let restore: () => void = () => undefined;
 afterEach(() => {
   restore();
+  setDefaultClientFactory(inertClientFactory);
 });
 
 function api(locale: 'en' | 'ar' = 'en') {
@@ -143,5 +146,21 @@ describe('console: the CAB pack (REQ-CHG-102)', () => {
     });
     expect(screen.getByTestId('pack-summary').textContent).toContain('الملخص');
     expect(screen.getByTestId('pack-print').textContent).toBe('طباعة أو حفظ بصيغة PDF');
+  });
+
+  it('lane C: the pack follows the change live, with no refresh', async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    window.history.pushState({}, '', `/changes/${CHG_ID}/pack`);
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('pack-risk-score');
+    const before = fake.find('GET', `/api/v1/changes/${CHG_ID}/plan`).length;
+    act(() => {
+      realtime.publish(`:wi:${CHG_ID}`, { type: 'work_items.changed', ids: [CHG_ID] });
+    });
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/changes/${CHG_ID}/plan`).length).toBeGreaterThan(before);
+    });
   });
 });
