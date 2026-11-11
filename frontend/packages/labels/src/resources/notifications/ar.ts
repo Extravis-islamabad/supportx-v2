@@ -64,7 +64,28 @@ export const ar: LabelResource = {
   'notification_event.asset.mentioned': 'إشارة في ملاحظة أصل',
   'notification_event.asset.stock_low': 'المخزون عند حده الأدنى',
   'notification_event.asset.warranty_expiring': 'الضمان ينتهي قريبًا',
+  'notification_event.change.approval_fallback': 'موافقة تغيير بلا من يقرر',
+  'notification_event.change.approval_requested': 'مطلوب موافقة على تغيير',
+  'notification_event.change.approved': 'تغيير مُوافَق عليه',
+  'notification_event.change.assigned': 'تغيير مُسند إليك',
+  'notification_event.change.backed_out': 'تغيير تم التراجع عنه',
+  'notification_event.change.board_empty': 'مجلس التغيير بلا أعضاء',
+  'notification_event.change.cab_reminder': 'التغيير ينتظر قرارك في المجلس',
+  'notification_event.change.clarification': 'التغيير يحتاج إلى معلومات إضافية',
+  'notification_event.change.closed': 'تغيير مُغلَق',
+  'notification_event.change.implementation_failed': 'فشل تنفيذ التغيير',
+  'notification_event.change.implementation_overdue': 'تأخر تنفيذ التغيير',
+  'notification_event.change.implemented': 'تغيير مُنفَّذ',
+  'notification_event.change.mentioned': 'إشارة إليك في تغيير',
+  'notification_event.change.note': 'ملاحظة على تغيير',
+  'notification_event.change.overridden': 'استُخدم تجاوز الطوارئ',
   'notification_event.change.public_reply': 'رد على مقدم الطلب',
+  'notification_event.change.rejected': 'تغيير مرفوض',
+  'notification_event.change.review_due': 'حان موعد مراجعة التغيير',
+  'notification_event.change.sent_back': 'تغيير مُوافَق عليه يحتاج إلى موافقة مجددًا',
+  'notification_event.change.status_entered': 'دخل التغيير حالة',
+  'notification_event.change.submitted': 'تغيير مُقدَّم',
+  'notification_event.change.window_reminder': 'نافذة التغيير تبدأ قريبًا',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.incident.assigned': 'أُسند حادث',
@@ -137,12 +158,18 @@ export const ar: LabelResource = {
   'notification_recipient.assignee': 'الفني المُسند',
   'notification_recipient.author': 'المؤلف',
   'notification_recipient.borrower': 'المستعير',
+  'notification_recipient.cab': 'أعضاء المجلس الاستشاري للتغيير',
+  'notification_recipient.cab_member': 'عضو المجلس الذي لم يقرر بعد',
+  'notification_recipient.change_manager': 'مدير التغيير',
+  'notification_recipient.change_owner': 'مالك التغيير',
   'notification_recipient.connector_admins': 'الأشخاص الذين يُعدّون هذا الموصل',
   'notification_recipient.escalation_recipients': 'مستلمو مستوى التصعيد',
   'notification_recipient.followers': 'المتابعون',
   'notification_recipient.group': 'أعضاء المجموعة',
   'notification_recipient.group_head': 'قائد المجموعة ورئيس القسم',
   'notification_recipient.holder': 'الشخص الذي يحمله',
+  'notification_recipient.implementer': 'المنفِّذ',
+  'notification_recipient.line_manager': 'المدير المباشر',
   'notification_recipient.linked_incident_technicians': 'فنيو الحوادث المرتبطة',
   'notification_recipient.loan_creator': 'من أنشأ الإعارة',
   'notification_recipient.mail_admins': 'من يديرون صناديق البريد',
@@ -153,17 +180,20 @@ export const ar: LabelResource = {
   'notification_recipient.owner': 'مالك المقالة',
   'notification_recipient.previous_assignee': 'الفني السابق',
   'notification_recipient.requester': 'مقدّم الطلب',
+  'notification_recipient.reviewer': 'المراجِع',
   'notification_recipient.step_owner': 'مالك القاعدة (وإلا فمسؤولوها)',
   'notification_recipient.stock_watchers': 'الأشخاص المحددون للحد الأدنى',
   'notification_recipient.topic_owner': 'مالك الموضوع',
   'notification_recipient.workflow_audience': 'الأشخاص الذين يحدّدهم سير العمل',
   'notification_rules.any_priority': 'أي أولوية',
+  'notification_rules.any_status': 'أي حالة',
   'notification_rules.changed': 'غُيّر {{when}}',
   'notification_rules.col.channels': 'كيف',
   'notification_rules.col.event': 'الحدث',
   'notification_rules.col.on': 'مفعّل',
   'notification_rules.col.priority': 'لأولوية فقط',
   'notification_rules.col.recipients': 'من',
+  'notification_rules.col.status': 'فقط للحالة',
   'notification_rules.intro':
     'الأحداث التي تُرسل إشعارات ولمن وكيف. يبدأ كل حدث بإعداد افتراضي مناسب، وتُسجَّل التغييرات في سجل التدقيق.',
   'notification_rules.none': 'لا يوجد حدث مطابق',
@@ -221,12 +251,137 @@ export const ar: LabelResource = {
     'ينتهي ضمان {{ record.display_id }} في {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'الضمان ينتهي: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.approval_fallback.body':
+    'مرحبًا {{ recipient.name }}،\n\nلدى {{ record.display_id }} "{{ record.title }}" موافقة لا يتولاها أحد. يمكن لمسؤول الموافقات أن يقررها.',
+  'notification_template.change.approval_fallback.in_app':
+    'لدى {{ record.display_id }} موافقة بلا موافِق: {{ record.title }}',
+  'notification_template.change.approval_fallback.subject':
+    'لا موافِق: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.approval_requested.body':
+    'مرحبًا {{ recipient.name }}،\n\nينتظر {{ record.display_id }} "{{ record.title }}" موافقتك.\n\nوافق أو ارفض: {{ approval_link }}\n\nيعمل الرابط مرة واحدة، لك وحدك.',
+  'notification_template.change.approval_requested.in_app':
+    'ينتظر {{ record.display_id }} موافقتك: {{ record.title }}',
+  'notification_template.change.approval_requested.subject':
+    'موافقتك: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.approved.body':
+    'مرحبًا {{ recipient.name }}،\n\nتمت الموافقة على {{ record.display_id }} "{{ record.title }}". حالته الآن: {{ record.status }}.',
+  'notification_template.change.approved.in_app':
+    'تمت الموافقة على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.approved.subject':
+    'تمت الموافقة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.assigned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأنت الآن مالك التغيير {{ record.display_id }} "{{ record.title }}".',
+  'notification_template.change.assigned.in_app':
+    'أنت مالك {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.assigned.subject':
+    'أنت مالك {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.backed_out.body':
+    'مرحبًا {{ recipient.name }}،\n\nتم التراجع عن {{ record.display_id }} "{{ record.title }}". حالته الآن: {{ record.status }}.',
+  'notification_template.change.backed_out.in_app':
+    'تم التراجع عن {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.backed_out.subject':
+    'تم التراجع: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.board_empty.body':
+    'مرحبًا {{ recipient.name }}،\n\nينتظر {{ record.display_id }} "{{ record.title }}" مجلس تغيير بلا أعضاء. أضف أعضاء إلى المجلس أو اختر مجلسًا آخر.',
+  'notification_template.change.board_empty.in_app':
+    'ينتظر {{ record.display_id }} مجلسًا بلا أعضاء: {{ record.title }}',
+  'notification_template.change.board_empty.subject':
+    'مجلس بلا أعضاء: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.cab_reminder.body':
+    'مرحبًا {{ recipient.name }}،\n\nيبدأ {{ record.display_id }} "{{ record.title }}" في {{ window.start }} وما زال ينتظر قرارك.\n\nوافق أو ارفض: {{ approval_link }}',
+  'notification_template.change.cab_reminder.in_app':
+    'يبدأ {{ record.display_id }} في {{ window.start }} وينتظرك: {{ record.title }}',
+  'notification_template.change.cab_reminder.subject':
+    'قرارك، يبدأ قريبًا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.clarification.body':
+    'مرحبًا {{ recipient.name }}،\n\nيحتاج {{ record.display_id }} "{{ record.title }}" إلى معلومات إضافية قبل المتابعة. افتحه لترى المطلوب.',
+  'notification_template.change.clarification.in_app':
+    'يحتاج {{ record.display_id }} إلى معلومات إضافية: {{ record.title }}',
+  'notification_template.change.clarification.subject':
+    'مطلوب معلومات إضافية: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.closed.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُغلق {{ record.display_id }} "{{ record.title }}".',
+  'notification_template.change.closed.in_app': 'أُغلق {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.closed.subject':
+    'أُغلق: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.implementation_failed.body':
+    'مرحبًا {{ recipient.name }}،\n\nفشل تنفيذ {{ record.display_id }} "{{ record.title }}". حالته الآن: {{ record.status }}.',
+  'notification_template.change.implementation_failed.in_app':
+    'فشل تنفيذ {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.implementation_failed.subject':
+    'فشل التنفيذ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.implementation_overdue.body':
+    'مرحبًا {{ recipient.name }}،\n\nانتهت نافذة تنفيذ {{ record.display_id }} "{{ record.title }}"، ولم يُنفَّذ التغيير بعد.',
+  'notification_template.change.implementation_overdue.in_app':
+    'انتهت نافذة {{ record.display_id }} ولم يُنفَّذ: {{ record.title }}',
+  'notification_template.change.implementation_overdue.subject':
+    'تأخر التنفيذ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.implemented.body':
+    'مرحبًا {{ recipient.name }}،\n\nنُفِّذ {{ record.display_id }} "{{ record.title }}". حالته الآن: {{ record.status }}.',
+  'notification_template.change.implemented.in_app':
+    'نُفِّذ {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.implemented.subject':
+    'نُفِّذ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.mentioned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأشار إليك {{ conversation.author }} في {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.change.mentioned.in_app':
+    'أشار إليك {{ conversation.author }} في {{ record.display_id }}',
+  'notification_template.change.mentioned.subject':
+    'أُشير إليك في {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.note.body':
+    'مرحبًا {{ recipient.name }}،\n\nأضاف {{ conversation.author }} ملاحظة على {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.change.note.in_app':
+    'أضاف {{ conversation.author }} ملاحظة على {{ record.display_id }}',
+  'notification_template.change.note.subject':
+    'ملاحظة جديدة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.overridden.body':
+    'مرحبًا {{ recipient.name }}،\n\nاستُخدم تجاوز الطوارئ على {{ record.display_id }} "{{ record.title }}". مراجعته الآن إلزامية.',
+  'notification_template.change.overridden.in_app':
+    'استُخدم تجاوز الطوارئ على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.overridden.subject':
+    'تجاوز طارئ: {{ record.display_id }} {{ record.title }}',
   'notification_template.change.public_reply.body':
     'مرحبًا {{ recipient.name }}،\n\nردّ {{ conversation.author }} على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
   'notification_template.change.public_reply.in_app':
     'ردّ {{ conversation.author }} على {{ record.display_id }}',
   'notification_template.change.public_reply.subject':
     'رد جديد على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.rejected.body':
+    'مرحبًا {{ recipient.name }}،\n\nرُفض {{ record.display_id }} "{{ record.title }}". حالته الآن: {{ record.status }}.',
+  'notification_template.change.rejected.in_app':
+    'رُفض {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.rejected.subject':
+    'مرفوض: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.review_due.body':
+    'مرحبًا {{ recipient.name }}،\n\nحان موعد مراجعة ما بعد التنفيذ للتغيير {{ record.display_id }} "{{ record.title }}".',
+  'notification_template.change.review_due.in_app':
+    'حان موعد مراجعة {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.review_due.subject':
+    'حان موعد المراجعة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.sent_back.body':
+    'مرحبًا {{ recipient.name }}،\n\nتغيّر {{ record.display_id }} "{{ record.title }}" بعد الموافقة عليه، لذا يحتاج إلى موافقة مجددًا.',
+  'notification_template.change.sent_back.in_app':
+    'يحتاج {{ record.display_id }} إلى موافقة مجددًا: {{ record.title }}',
+  'notification_template.change.sent_back.subject':
+    'يحتاج إلى موافقة مجددًا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.status_entered.body':
+    'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" الآن: {{ record.status }}.',
+  'notification_template.change.status_entered.in_app':
+    '{{ record.display_id }} الآن {{ record.status }}: {{ record.title }}',
+  'notification_template.change.status_entered.subject':
+    '{{ record.status }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.submitted.body':
+    'مرحبًا {{ recipient.name }}،\n\nقُدِّم {{ record.display_id }} "{{ record.title }}" وينتظر مدير التغيير.',
+  'notification_template.change.submitted.in_app':
+    'قُدِّم {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.submitted.subject':
+    'مُقدَّم: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.window_reminder.body':
+    'مرحبًا {{ recipient.name }}،\n\nتبدأ نافذة تنفيذ {{ record.display_id }} "{{ record.title }}" في {{ window.start }}.',
+  'notification_template.change.window_reminder.in_app':
+    'يبدأ {{ record.display_id }} في {{ window.start }}: {{ record.title }}',
+  'notification_template.change.window_reminder.subject':
+    'يبدأ قريبًا: {{ record.display_id }} {{ record.title }}',
   'notification_template.connector.failing.body':
     'مرحبًا {{ recipient.name }}،\n\nتوقف {{ record.title }} عن العمل: {{ connector.reason }}.\n\nستُبلَّغ مرة واحدة لا عند كل محاولة، ومرة أخرى عندما يعود إلى العمل. افتح الإدارة › التكاملات لرؤيته.',
   'notification_template.connector.failing.in_app':
@@ -550,6 +705,7 @@ export const ar: LabelResource = {
   'notification_variable.unavailable.person': 'غير مُسند › الشخص',
   'notification_variable.unavailable.reason': 'غير مُسند › السبب',
   'notification_variable.warranty.ends_on': 'الضمان › ينتهي في',
+  'notification_variable.window.start': 'بداية النافذة',
   'notifications.banner.no_mail_few':
     'تنتظر {{count}} رسائل لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسل الرسائل عند تشغيل البريد.',
   'notifications.banner.no_mail_many':

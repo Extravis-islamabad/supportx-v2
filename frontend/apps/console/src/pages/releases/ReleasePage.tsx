@@ -41,6 +41,7 @@ import {
   SchedulePart,
   SubReleasesPart,
 } from './ReleaseParts';
+import { ReleaseChangesPart } from './ReleaseChanges';
 import { ReleaseProperties } from './ReleaseProperties';
 
 // Beside "More": the page's 4-action rule (UI pass 2; QA6-REL-01).
@@ -284,6 +285,11 @@ export function ReleasePage() {
             key: 'sub-releases',
             label: t('releases.tab.sub_releases'),
             children: <SubReleasesPart id={r.id} />,
+          },
+          {
+            key: 'changes',
+            label: t('releases.tab.changes'),
+            children: <ReleaseChangesPart id={r.id} />,
           },
           // WP-048b S4d: the workflows running on it (REQ-WF-023), for those who run them.
           ...(can('workflows.run') || can('workflows.manage')

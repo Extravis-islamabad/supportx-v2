@@ -62,6 +62,36 @@ A misspelt stage or field is refused when you save.
 - If nobody can be named (a role nobody holds, for example), the approval administrators get it,
   and the reason is shown.
 
+## Changes in a release
+
+The **Changes** tab lists the changes the release delivers:
+- each with its number, title, stage and status, linked to the change;
+- a change you may not see shows as *A change you can't see*.
+
+To add one, search by number or title (needs *Edit releases*). A change can be in one open
+release at a time: adding it to a second is refused, naming the release it is in. Once that
+release is closed or canceled, the change may join another. **Take out** removes it. Both
+records note the link in their history.
+
+## The release calendar (Releases › Release calendar)
+
+The releases you may see, by their deployment window and planned downtimes. It is the same
+calendar as the change calendar:
+- **views:** month, week, day, agenda and **timeline** (a row per release across the month);
+- **layers:** freeze and maintenance windows;
+- **Only mine:** the releases you hold.
+
+Choosing a release opens a quick view, with a link to the release. **Move…** (or dragging) moves
+a deployment window to another day at the same time of day.
+
+**Show changes** draws changes on the same calendar, each type in its own colour with a legend
+(it needs *View changes*). A change moves by its own rules: its implementation window, with its
+re-approval warning. The change calendar has **Show releases** the same way.
+
+**The release's scheduler:** *Open in the calendar* on a release's Schedule tab opens the
+calendar on its deployment window, marks the release, and shows its own changes. Turn off
+*Only its changes* to see every change.
+
 ## Plan, schedule, downtime and sub-releases
 
 - **Plan:**
