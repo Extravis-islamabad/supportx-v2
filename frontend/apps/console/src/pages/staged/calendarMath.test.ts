@@ -5,6 +5,7 @@ import {
   dayOf,
   daysOf,
   normal,
+  nthWeekday,
   occurrences,
   rangeOf,
   shiftDays,
@@ -74,5 +75,72 @@ describe('change calendar arithmetic', () => {
       month: 1,
       day: 22,
     });
+  });
+});
+
+describe('monthly windows (D-156; lane A’s Window._monthly)', () => {
+  const window = (starts: string, ends: string, week: number, weekday: number, until?: string) => ({
+    starts_at: starts,
+    ends_at: ends,
+    repeat_weekly: false,
+    repeat: 'monthly',
+    repeat_week: week,
+    repeat_weekday: weekday,
+    repeat_until: until ?? null,
+  });
+
+  it('finds the Nth weekday, the last for week 5, and none for a missing fifth', () => {
+    expect(nthWeekday(2027, 2, 1, 6)).toBe(7); // the first Sunday of March 2027
+    expect(nthWeekday(2027, 2, 2, 0)).toBe(8); // the second Monday
+    expect(nthWeekday(2027, 2, 5, 4)).toBe(26); // the last Friday
+    expect(nthWeekday(2027, 1, 5, 6)).toBe(28); // the last Sunday of February
+  });
+
+  it('repeats on the local weekday and time in the tenant zone, from the first, until its end', () => {
+    // The first Sunday at 02:00 in Karachi (UTC+5) is a Saturday in UTC.
+    const first = window(
+      '2027-01-02T21:00:00Z',
+      '2027-01-03T01:00:00Z',
+      1,
+      6,
+      '2027-05-01T00:00:00Z',
+    );
+    const found = occurrences(
+      first,
+      '2026-12-01T00:00:00Z',
+      '2027-07-01T00:00:00Z',
+      'Asia/Karachi',
+    );
+    expect(found.map((o) => o.starts_at)).toEqual([
+      '2027-01-02T21:00:00.000Z', // Sun 3 Jan 02:00 local (never before the first)
+      '2027-02-06T21:00:00.000Z', // Sun 7 Feb
+      '2027-03-06T21:00:00.000Z', // Sun 7 Mar
+      '2027-04-03T21:00:00.000Z', // Sun 4 Apr; May's is after repeat_until
+    ]);
+    expect(found[1]?.ends_at).toBe('2027-02-07T01:00:00.000Z'); // the same length
+  });
+
+  it('keeps the local time across summer time and only lists what touches the range', () => {
+    // The last Friday at 22:00 in Berlin: 21:00 UTC in winter, 20:00 UTC in summer.
+    const last = window('2027-01-29T21:00:00Z', '2027-01-29T23:00:00Z', 5, 4);
+    const april = occurrences(
+      last,
+      '2027-04-01T00:00:00Z',
+      '2027-05-01T00:00:00Z',
+      'Europe/Berlin',
+    );
+    expect(april).toEqual([
+      { starts_at: '2027-04-30T20:00:00.000Z', ends_at: '2027-04-30T22:00:00.000Z' },
+    ]);
+  });
+
+  it('a monthly window without its week or weekday shows nothing', () => {
+    expect(
+      occurrences(
+        { ...window('2027-01-02T21:00:00Z', '2027-01-03T01:00:00Z', 1, 6), repeat_week: null },
+        '2027-01-01T00:00:00Z',
+        '2027-02-01T00:00:00Z',
+      ),
+    ).toEqual([]);
   });
 });

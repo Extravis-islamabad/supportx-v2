@@ -586,6 +586,14 @@ export function SchedulePart({ id }: { id: string }) {
       tabIndex={0}
       style={{ overflowX: 'auto' }}
     >
+      {/* The release's scheduler (REQ-REL-039): the calendar on its deployment, its changes. */}
+      <Link
+        to={`/releases/calendar?focus=${id}`}
+        style={{ display: 'inline-block', marginBottom: 8 }}
+        data-testid="release-open-calendar"
+      >
+        {t('releases.schedule.open_calendar')}
+      </Link>
       <Table<StageSchedule>
         rowKey="stage"
         size="small"
