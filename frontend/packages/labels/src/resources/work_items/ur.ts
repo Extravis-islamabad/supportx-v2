@@ -22,7 +22,7 @@ export const ur: LabelResource = {
   'action_reason.content_missing': 'پہلے عنوان اور پیغام شامل کریں۔',
   'action_reason.four_eyes': 'مصنف یا مالک کے علاوہ کسی اور کو اسے شائع کرنا ہوگا۔',
   'action_reason.freeze_needs_emergency_cab':
-    'یہ منجمد مدت میں ہے: اس کا ہنگامی بورڈ وجہ کے ساتھ اسے منظور کرے، یا تبدیلی مینیجر منجمد مدت سے استثنا دے۔',
+    'یہ فریز میں ہے: اس کا ہنگامی بورڈ وجہ کے ساتھ اسے منظور کرے، یا تبدیلی مینیجر فریز سے استثنا دے۔',
   'action_reason.group_members': '{{group}} کے اراکین',
   'action_reason.no_permission': 'آپ کو اس کی اجازت نہیں ہے۔',
   'action_reason.not_entitled': 'آپ کے پلان میں یہ شامل نہیں ہے۔',
@@ -536,8 +536,7 @@ export const ur: LabelResource = {
   'changes.pack.conflicts': 'ٹکراؤ',
   'changes.pack.impact': 'اثر اور بندش',
   'changes.pack.no_approvals': 'ابھی کوئی منظوری نہیں۔',
-  'changes.pack.no_conflicts':
-    'کسی منجمد مدت، دیکھ بھال کے وقت یا دوسری تبدیلی سے کوئی ٹکراؤ نہیں۔',
+  'changes.pack.no_conflicts': 'کسی فریز، دیکھ بھال کے وقت یا دوسری تبدیلی سے کوئی ٹکراؤ نہیں۔',
   'changes.pack.no_schedule': 'ابھی کوئی شیڈول نہیں۔',
   'changes.pack.not_set': 'طے نہیں',
   'changes.pack.open': 'بورڈ فائل',
@@ -1933,7 +1932,7 @@ export const ur: LabelResource = {
   'work_item.field.follows_id': 'اس کے بعد',
   'work_item.field.freeze_override': 'فریز اوور رائیڈ',
   'work_item.field.freeze_override_windows': 'پار کیے گئے فریز',
-  'work_item.field.freeze_passed_by_cab': 'منجمد مدت سے گزر گئی (ہنگامی بورڈ)',
+  'work_item.field.freeze_passed_by_cab': 'فریز سے گزر گئی (ہنگامی بورڈ)',
   'work_item.field.group_id': 'گروپ',
   'work_item.field.handed_over_out_of_reach':
     'ایسی ٹیم کو دیا گیا جسے منتقل کرنے والا نہیں دیکھ سکتا',
