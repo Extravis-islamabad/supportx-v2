@@ -166,13 +166,60 @@ async def test_a_crash_half_way_neither_loses_nor_repeats_an_entry(
         return await record(session, **values)
 
     monkeypatch.setattr(target, crash_for_second)
-    with pytest.raises(RuntimeError, match="worker died"):
-        await announce_pending(one)
+    # One tenant failing never holds back another (lane A's #418 review): the first still gets
+    # its entry, the failure is logged, and the change stays pending for the next run.
+    await announce_pending(one)
+    k9 = [e for e in await entries(ring_db, first, ROTATED) if e["object_id"] == "k9"]
+    assert len(k9) == 1
+    assert [e for e in await entries(ring_db, second, ROTATED) if e["object_id"] == "k9"] == []
+    assert await pending_events(ring_db, "k9") == 1
     monkeypatch.setattr(target, record)
     await announce_pending(one)
     for tenant in (first, second):
         found = [e for e in await entries(ring_db, tenant, ROTATED) if e["object_id"] == "k9"]
         assert len(found) == 1, tenant
+    assert await pending_events(ring_db, "k9") == 0
+
+
+async def pending_events(db: db_testing.ThrowawayDatabase, key_id: str) -> int:
+    conn = await asyncpg.connect(db.admin_url)
+    try:
+        found = await conn.fetchval(
+            "SELECT count(*) FROM session_key_events WHERE key_id = $1 AND announced_at IS NULL",
+            key_id,
+        )
+    finally:
+        await conn.close()
+    return int(found)
+
+
+@pytest.mark.parametrize(
+    ("key_id", "previous", "readable"),
+    [
+        ("Free text!", None, 1),  # not a key ID
+        ("k1", "<b>hi</b>", 1),  # nor is the previous one
+        ("k1", None, 1000),  # a count out of range
+    ],
+)
+async def test_an_event_can_only_carry_key_ids_and_a_small_count(
+    ring_db: db_testing.ThrowawayDatabase, key_id: str, previous: str | None, readable: int
+) -> None:
+    """The announcer copies events into every tenant's log: the database keeps them to key-ID
+    shape, so even the app role's own INSERT can never carry free text there (lane A, #418)."""
+    conn = await asyncpg.connect(ring_db.app_url)
+    try:
+        with pytest.raises(asyncpg.CheckViolationError):
+            await conn.execute(
+                "INSERT INTO session_key_events (id, key_id, action, previous_key_id,"
+                " readable_keys, occurred_at) VALUES ($1, $2, 'security.session_key_rotated',"
+                " $3, $4, now())",
+                uuid.uuid4(),
+                key_id,
+                previous,
+                readable,
+            )
+    finally:
+        await conn.close()
 
 
 async def _insert_as(

@@ -205,8 +205,18 @@ async def announce_pending(database: Database) -> int:
             (await session.scalars(text("SELECT audit_tenant_ids()"))).all()
         )
     written = 0
+    failed = 0
     for tenant in tenants:
-        written += await _announce_to_tenant(database, tenant, pending)
+        # One tenant that fails never holds back the others (lane A's #418 review): it is
+        # logged, and the change stays pending, so the next run tries that tenant again (the
+        # others already have their marker and write nothing a second time).
+        try:
+            written += await _announce_to_tenant(database, tenant, pending)
+        except Exception:
+            failed += 1
+            log.exception("session_key_announce_failed", tenant_id=str(tenant))
+    if failed:
+        return written
     async with database.platform_session() as session:
         await session.execute(
             update(SessionKeyEvent)

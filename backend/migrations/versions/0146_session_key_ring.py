@@ -104,6 +104,19 @@ def upgrade() -> None:
         sa.Column("announced_at", sa.DateTime(timezone=True), nullable=True),
         *_stamps(),
         sa.CheckConstraint(f"action IN {ACTIONS}", name=op.f("ck_session_key_events_action_code")),
+        # The announcer copies these into every tenant's audit log: the database itself keeps
+        # them to key-ID shape and a small count, so a row can never carry free text there
+        # (lane A's #418 review).
+        sa.CheckConstraint(
+            "key_id ~ '^[a-z0-9_-]{1,32}$'", name=op.f("ck_session_key_events_key_id_format")
+        ),
+        sa.CheckConstraint(
+            "previous_key_id IS NULL OR previous_key_id ~ '^[a-z0-9_-]{1,32}$'",
+            name=op.f("ck_session_key_events_previous_key_id_format"),
+        ),
+        sa.CheckConstraint(
+            "readable_keys BETWEEN 0 AND 64", name=op.f("ck_session_key_events_readable_keys_range")
+        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_session_key_events")),
     )
     op.create_index(

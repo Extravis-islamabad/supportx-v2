@@ -596,6 +596,12 @@ class SessionKeyEvent(Timestamps, Actors, Base):
             "action IN ('security.session_key_rotated', 'security.session_key_retired')",
             name="action_code",
         ),
+        CheckConstraint("key_id ~ '^[a-z0-9_-]{1,32}$'", name="key_id_format"),
+        CheckConstraint(
+            "previous_key_id IS NULL OR previous_key_id ~ '^[a-z0-9_-]{1,32}$'",
+            name="previous_key_id_format",
+        ),
+        CheckConstraint("readable_keys BETWEEN 0 AND 64", name="readable_keys_range"),
         Index(
             "ix_session_key_events_pending",
             "occurred_at",
