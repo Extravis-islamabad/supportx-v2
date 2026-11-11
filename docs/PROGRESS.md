@@ -1220,9 +1220,30 @@ it with no reload (rule c). Not built yet.
   - **Open:**
     - the "health check regression" default waits for health checks (REQ-CHG-086, MonetX);
     - the testing owner is not a change role yet, so it is not a recipient;
-    - the portal has no change page, so public notices link to the portal home (S4).
-- **S4:** the portal (raise, follow, approve), the mobile API audit, report dimensions and
-  personal counters (REQ-CHG-109, 110, 116, 117). Lane B blocks the portal access.
+    - ~~the portal has no change page~~: done in S4a.
+- **S4** (three PRs; REQ-CHG-109, 110, 116, 117):
+  - **S4a, the portal and counters (REQ-CHG-109, -117; no migration; lane B blocks the portal
+    access and approvals):**
+    - `/portal/changes`: list, the forms offered to requesters, raise (Idempotency-Key, staff
+      fields refused), one change with its stage, status and planned window (the
+      implementation's schedule), the public conversation and a reply. Plans, risk, approvals
+      detail, outcome and private notes are not in these responses (AC2). Same reach rules as
+      the portal's incidents and requests.
+    - Portal pages: My changes, a change's page, Raise a change; nav entry behind `change`.
+    - Live: the requester channel hears a change's stage and status, and the implementation's
+      schedule (another stage's schedule says nothing there).
+    - Approvals: a requester-only approver decides a change in the portal's approvals, through
+      the change's own route (AC3). Bulk approve stays with service requests (D-143). The
+      console's approvals drawer lists change approvals too.
+    - Notices: change notices link to the portal change page, approval notices to the portal's
+      approvals (the change page is its requester's only).
+    - Counters (REQ-CHG-117): "waiting for my approval" and "starting today" on changes only.
+    - **Open:** a requester-only approver sees only the number and title in the portal
+      approvals (no read-only summary page); tenant-own status codes show through the label
+      fallback.
+  - **S4b:** the mobile API audit and the push payload and deep-link format (REQ-CHG-110).
+  - **S4c:** change report fields, measures, dashboard and drill-down (REQ-CHG-116; lane C
+    reviews).
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
