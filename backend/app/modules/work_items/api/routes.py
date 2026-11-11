@@ -1427,9 +1427,15 @@ class WorkItemFieldChangeOut(BaseModel):
     field: str
     old: Any = None
     new: Any = None
+    # Additive and only where it applies (#398 CI): an ordinary line stays exactly {field, old,
+    # new} for every reader that compares or stores it; only a masked line says hidden.
     hidden: bool = Field(
         default=False,
-        description="The values are not yours to see (a task's extra cost): only that it changed.",
+        exclude_if=lambda value: not value,
+        description=(
+            "Present (true) only when the values are not yours to see (a task's extra cost): "
+            "only that it changed. Absent on every other line, which keeps its old shape."
+        ),
     )
 
     @classmethod
