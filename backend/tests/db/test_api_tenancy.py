@@ -127,6 +127,7 @@ async def test_production_ignores_the_tenant_header(
     """Production must not trust a client-chosen tenant, even with the dev switch turned on."""
     production = settings_factory(
         profile="production",
+        mobile_redirect_uri="https://sx.example.com/mobile/auth",
         database_url="postgresql://supportx_app:x@127.0.0.1:1/supportx",
         valkey_url="valkey://:p@127.0.0.1:1/0",
         nats_url="nats://127.0.0.1:1",

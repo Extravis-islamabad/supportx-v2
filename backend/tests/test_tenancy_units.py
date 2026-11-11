@@ -38,6 +38,7 @@ def test_header_is_off_by_default(settings_factory: Callable[..., Settings], pro
 def test_header_is_ignored_in_production(settings_factory: Callable[..., Settings]) -> None:
     production = settings_factory(
         profile="production",
+        mobile_redirect_uri="https://sx.example.com/mobile/auth",
         database_url="postgresql://u:p@db/x",
         valkey_url="valkey://:p@kv:6379/0",
         nats_url="nats://bus:4222",

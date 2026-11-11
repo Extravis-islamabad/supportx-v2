@@ -464,6 +464,14 @@ class Settings(BaseSettings):
             if self.session_secret is not None and len(self.session_secret.get_secret_value()) < 32:  # noqa: PLR2004 - minimum key material
                 msg = "SUPPORTX_SESSION_SECRET must be at least 32 characters in production"
                 raise ValueError(msg)
+            if urlsplit(self.mobile_redirect_uri).scheme != "https":
+                # see ADR-044 item 3: a mis-set chart value would send every hand-off code in
+                # clear text, and Universal Link / App Link verification needs https anyway.
+                msg = (
+                    "SUPPORTX_MOBILE_REDIRECT_URI must be https in production (ADR-044 item 3), "
+                    f"not {self.mobile_redirect_uri!r}"
+                )
+                raise ValueError(msg)
         if self.entitlement_provider == "licence_file" and self.licence_file is None:
             msg = "SUPPORTX_ENTITLEMENT_PROVIDER=licence_file requires SUPPORTX_LICENCE_FILE"
             raise ValueError(msg)

@@ -407,7 +407,7 @@ class AuthService:
             subject=session.subject,
             tenant_id=session.tenant_id,
             client=app,
-            mobile=mobile is not None,
+            via_app=mobile is not None,  # not mobile=: SENSITIVE_KEY_PARTS redacts it
         )
         if mobile is not None:
             handoff = secrets.token_urlsafe(32)
