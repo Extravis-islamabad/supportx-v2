@@ -209,6 +209,25 @@ async def test_req_chg_116_ac1_the_changes_dashboard_is_listed_to_who_may_report
     catalogue = await world.call("GET", "/dashboards/widgets", a, a.requester2)
     assert catalogue.status_code == 200, catalogue.text
     assert not [e for e in catalogue.json()["entries"] if e["module"] == "changes"]
+    # Lane C's review: a direct link and a home choice refuse it the same way (404, as unknown).
+    direct = await world.call("GET", "/dashboards/builtin:changes", a, a.requester2)
+    assert direct.status_code == 404, direct.text
+    chosen = await world.call(
+        "PUT", "/dashboards/home", a, a.requester2, json={"dashboard_ref": "builtin:changes"}
+    )
+    assert chosen.status_code == 404, chosen.text
+    # A home chosen while they could see changes falls back to their role's built-in home.
+    await world.sql(
+        "INSERT INTO dashboard_preferences (tenant_id, user_id, home_ref) VALUES ($1, $2, $3)"
+        " ON CONFLICT (tenant_id, user_id) DO UPDATE SET home_ref = EXCLUDED.home_ref",
+        a.tenant,
+        a.requester2,
+        "builtin:changes",
+    )
+    home = await world.call("GET", "/dashboards/home", a, a.requester2)
+    assert home.status_code == 200, home.text
+    assert (home.json()["dashboard_ref"], home.json()["chosen"]) != ("builtin:changes", True)
+    assert home.json()["dashboard_ref"] != "builtin:changes"
 
 
 CHANGE_TABLES = ("work_item_change_details", "work_item_stage_schedules", "work_item_downtimes")

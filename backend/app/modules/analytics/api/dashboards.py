@@ -179,6 +179,16 @@ async def _may_report(
     return True
 
 
+async def _reportable(
+    request: Request, session: TenantSession, context: TenantContext, subject: Subject
+) -> frozenset[str]:
+    """The built-in dashboards' entities the viewer may report on."""
+    needed = {e for entities in BUILTIN_ENTITIES.values() for e in entities}
+    return frozenset(
+        [e for e in sorted(needed) if await _may_report(request, session, context, subject, e)]
+    )
+
+
 @router.get("", summary="Dashboards you may see")
 async def list_dashboards(
     session: TenantSession, subject: Viewer, context: Tenant, request: Request
@@ -188,15 +198,9 @@ async def list_dashboards(
     A built-in dashboard over an entity you may not report on (changes without their licence or
     `changes.view`) is left out, so nobody opens a page of tiles that cannot load (WP-045d S4c).
     """
-    allowed: dict[str, bool] = {}
-    for entity in {e for entities in BUILTIN_ENTITIES.values() for e in entities}:
-        allowed[entity] = await _may_report(request, session, context, subject, entity)
-    views = [
-        v
-        for v in await dashboards.list_dashboards(session, subject)
-        if v.builtin is None or all(allowed[e] for e in BUILTIN_ENTITIES.get(v.builtin, ()))
-    ]
-    found = await dashboards.home(session, subject)
+    reportable = await _reportable(request, session, context, subject)
+    views = await dashboards.list_dashboards(session, subject, reportable)
+    found = await dashboards.home(session, subject, reportable)
     return DashboardListOut(
         items=[DashboardOut.of(v) for v in views],
         favourites=await dashboards.favourites(session, subject),
@@ -207,16 +211,22 @@ async def list_dashboards(
 
 
 @router.get("/home", summary="Your home dashboard")
-async def get_home(session: TenantSession, subject: Viewer) -> HomeOut:
+async def get_home(
+    session: TenantSession, subject: Viewer, context: Tenant, request: Request
+) -> HomeOut:
     """Your choice, else your role's, else the built-in home of your role."""
-    found = await dashboards.home(session, subject)
+    reportable = await _reportable(request, session, context, subject)
+    found = await dashboards.home(session, subject, reportable)
     return HomeOut(dashboard_ref=found.ref, chosen=found.chosen)
 
 
 @router.put("/home", summary="Choose your home dashboard")
-async def put_home(body: HomeIn, session: TenantSession, subject: Viewer) -> HomeOut:
+async def put_home(
+    body: HomeIn, session: TenantSession, subject: Viewer, context: Tenant, request: Request
+) -> HomeOut:
     """A dashboard you can see, or null to go back to your role's home."""
-    found = await dashboards.set_home(session, subject, body.dashboard_ref)
+    reportable = await _reportable(request, session, context, subject)
+    found = await dashboards.set_home(session, subject, body.dashboard_ref, reportable)
     return HomeOut(dashboard_ref=found.ref, chosen=found.chosen)
 
 
@@ -376,11 +386,17 @@ async def widget_catalogue(
 
 
 @router.get("/{ref}", summary="Get a dashboard")
-async def get_dashboard(
-    ref: str, session: TenantSession, subject: Viewer, response: Response
+async def get_dashboard(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    ref: str,
+    session: TenantSession,
+    subject: Viewer,
+    response: Response,
+    context: Tenant,
+    request: Request,
 ) -> DashboardOut:
     """A built-in one, a shared one, or your own; 404 otherwise."""
-    found = await dashboards.get_dashboard(session, subject, ref)
+    reportable = await _reportable(request, session, context, subject)
+    found = await dashboards.get_dashboard(session, subject, ref, reportable)
     out = DashboardOut.of(found)
     set_etag(response, out.version)
     return out
