@@ -41,6 +41,9 @@ const KNOWN_PORTS = new Set([
   'rejected',
 ]);
 
+/** Whether an output has a word of its own (not a name the admin typed, not an internal code). */
+export const isKnownPort = (port: string): boolean => KNOWN_PORTS.has(port);
+
 /** An output's name for people: a known word, or what the admin called it. */
 export function portName(t: Translate, _nodeType: string, port: string): string {
   return KNOWN_PORTS.has(port) ? t(`workflow_port.${port}`) : port;

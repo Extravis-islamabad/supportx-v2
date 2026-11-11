@@ -62,6 +62,7 @@ import { freeId, problemText } from './nodes';
 import { NodeView } from './NodeView';
 import { DRAG_TYPE, Palette } from './Palette';
 import { LinkDetails, NodeDetails, Outline, type NodeProblem } from './SidePanels';
+import { TestPanel, type TestHighlight } from './TestPanel';
 import { WorkflowState } from './WorkflowsPage';
 
 interface Graph {
@@ -142,6 +143,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
   const [selected, setSelected] = useState<{ kind: 'node' | 'edge'; id: string }>();
   const [tab, setTab] = useState('details');
   const [stale, setStale] = useState(false);
+  const [highlight, setHighlight] = useState<TestHighlight | null>(null);
   const definitionOf = useCallback(
     (graph: Graph) => fromGraph(saved, graph.nodes, graph.edges, { rtl }),
     [saved, rtl],
@@ -205,7 +207,16 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
       nodes: live.nodes.map((n) => ({
         ...n,
         selected: selected?.kind === 'node' && selected.id === n.id,
-        data: { ...n.data, problems: nodeProblems.get(n.id)?.length ?? 0 },
+        data: {
+          ...n.data,
+          problems: nodeProblems.get(n.id)?.length ?? 0,
+          // A test run's path and where it is now (REQ-WF-022 AC1: the path taken).
+          state: highlight?.at.has(n.id)
+            ? ('current' as const)
+            : highlight?.passed.has(n.id)
+              ? ('passed' as const)
+              : undefined,
+        },
       })),
       edges: live.edges.map((e) => ({
         ...e,
@@ -213,7 +224,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
         label: undefined,
       })),
     }),
-    [live, nodeProblems, selected],
+    [live, nodeProblems, selected, highlight],
   );
 
   // One edit: what is drawn becomes the next step of the history.
@@ -495,6 +506,13 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
             })}
           </ul>
         ),
+    },
+    {
+      key: 'test',
+      label: t('workflows.test.tab'),
+      children: (
+        <TestPanel workflow={workflow} dirty={dirty} typeOf={typeOf} onHighlight={setHighlight} />
+      ),
     },
   ];
 

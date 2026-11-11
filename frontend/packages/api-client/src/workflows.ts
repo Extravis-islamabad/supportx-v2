@@ -262,3 +262,23 @@ export function useImportWorkflow() {
     },
   });
 }
+
+/** A record of a workflow's type by its display ID (INC-12), for a test run on it. */
+export function useFindRecord() {
+  return useMutation({
+    mutationFn: async ({ type, value }: { type: string; value: string }): Promise<string> => {
+      const path = { params: { path: { value } } };
+      const found =
+        type === 'incident'
+          ? await call(api.GET('/api/v1/incidents/lookup/{value}', path))
+          : type === 'service_request'
+            ? await call(api.GET('/api/v1/service-requests/lookup/{value}', path))
+            : type === 'problem'
+              ? await call(api.GET('/api/v1/problems/lookup/{value}', path))
+              : type === 'change'
+                ? await call(api.GET('/api/v1/changes/lookup/{value}', path))
+                : await call(api.GET('/api/v1/releases/lookup/{value}', path));
+      return found.id;
+    },
+  });
+}

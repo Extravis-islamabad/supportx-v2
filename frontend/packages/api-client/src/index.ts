@@ -625,6 +625,7 @@ export {
   useDeleteWorkflow,
   useEnableWorkflow,
   useExportWorkflow,
+  useFindRecord,
   useImportWorkflow,
   useLiveCall,
   useNodePorts,

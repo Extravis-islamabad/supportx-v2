@@ -913,9 +913,21 @@ class TestRunOut(BaseModel):
     variables: dict[str, Any]
     steps: list[dict[str, Any]]
     pending: list[dict[str, Any]]
+    current_nodes: list[str] = Field(
+        default_factory=list,
+        description="Where the run is now: its live tokens' nodes (the canvas marks them).",
+    )
     clock_at: datetime
     live_call: dict[str, Any] | None
     version: int
+
+
+_LIVE_TOKENS = frozenset({"ready", "waiting", "command", "joined"})
+
+
+def _current(state: dict[str, Any]) -> list[str]:
+    nodes = [str(t.get("node")) for t in state.get("tokens", []) if t.get("state") in _LIVE_TOKENS]
+    return sorted(set(nodes))
 
 
 def _test(row: WorkflowTestRun) -> TestRunOut:
@@ -928,6 +940,7 @@ def _test(row: WorkflowTestRun) -> TestRunOut:
         variables=dict(row.state.get("variables", {})),
         steps=row.steps,
         pending=row.pending,
+        current_nodes=_current(row.state),
         clock_at=row.clock_at,
         live_call=row.live_call,
         version=row.version,
