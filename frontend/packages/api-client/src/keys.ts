@@ -1,5 +1,11 @@
 import type { AnnouncementsQuery } from './announcements';
-import type { AssetProductsQuery, AssetRecordsQuery } from './assets';
+import type { BookingsQuery, ConsumablesQuery } from './assetStock';
+import type {
+  AssetHistoryFilters,
+  AssetLoansQuery,
+  AssetProductsQuery,
+  AssetRecordsQuery,
+} from './assets';
 import type { AuditEntriesQuery } from './audit';
 import type { IncidentSearchQuery, PossibleDuplicatesQuery, IncidentsQuery } from './incidents';
 import type { KnowledgeQuery } from './knowledge';
@@ -75,6 +81,32 @@ export const queryKeys = {
     history: (id: string) => ['assets', 'history', id] as const,
     moves: (id: string) => ['assets', 'moves', id] as const,
     disposal: (id: string) => ['assets', 'disposal', id] as const,
+    holdings: (id: string) => ['assets', 'holdings', id] as const,
+    links: (id: string) => ['assets', 'links', id] as const,
+    components: (id: string) => ['assets', 'components', id] as const,
+    groups: ['assets', 'groups'] as const,
+    groupAssets: (id: string) => ['assets', 'groups', id] as const,
+    mine: ['assets', 'mine'] as const,
+    loans: ['assets', 'loans'] as const,
+    loanList: (query: AssetLoansQuery) => ['assets', 'loans', query] as const,
+    loanable: (q: string) => ['assets', 'loanable', q] as const,
+    // WP-049b s1: consumables, minimum stock, bookings ahead.
+    consumables: (query: ConsumablesQuery) => ['assets', 'consumables', query] as const,
+    consumable: (id: string) => ['assets', 'consumable', id] as const,
+    ledger: (id: string) => ['assets', 'ledger', id] as const,
+    requestAllocations: (id: string) => ['assets', 'request-allocations', id] as const,
+    stockRules: ['assets', 'stock-rules'] as const,
+    bookings: (query: BookingsQuery) => ['assets', 'bookings', query] as const,
+    availability: (query: { productId?: string; siteId?: string; q?: string }) =>
+      ['assets', 'availability', query] as const,
+    myBookings: ['assets', 'my-bookings'] as const,
+    bookable: (q: string) => ['assets', 'bookable', q] as const,
+    // WP-049b s2: money, notes and the filtered history.
+    financials: (id: string) => ['assets', 'financials', id] as const,
+    notes: (id: string) => ['assets', 'notes', id] as const,
+    noteHistory: (id: string) => ['assets', 'note-history', id] as const,
+    historyFiltered: (id: string, filters: AssetHistoryFilters) =>
+      ['assets', 'history', id, filters] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here
@@ -190,6 +222,20 @@ export const queryKeys = {
     triggers: (recordType: string) => ['automation', 'triggers', recordType] as const,
     transitions: (recordType: string) => ['automation', 'transitions', recordType] as const,
     loopStops: ['automation', 'loop-stops'] as const,
+  },
+  // Visual workflows (WP-048b S4): the list, one workflow, the palette, a test run.
+  workflows: {
+    all: ['workflows'] as const,
+    list: (recordType: string) => ['workflows', 'list', recordType] as const,
+    detail: (id: string) => ['workflows', 'detail', id] as const,
+    nodeTypes: (recordType: string) => ['workflows', 'node-types', recordType] as const,
+    testRun: (id: string) => ['workflows', 'test-run', id] as const,
+    record: (type: string, id: string) => ['workflows', 'record', type, id] as const,
+    runs: (query: object) => ['workflows', 'runs', query] as const,
+    job: (id: string) => ['workflows', 'job', id] as const,
+    versions: (id: string) => ['workflows', 'versions', id] as const,
+    version: (id: string, n: number, part: string) =>
+      ['workflows', 'versions', id, n, part] as const,
   },
   connectors: {
     catalogue: ['connectors', 'catalogue'] as const,

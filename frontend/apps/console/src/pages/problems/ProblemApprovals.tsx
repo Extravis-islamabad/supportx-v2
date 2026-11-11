@@ -61,10 +61,13 @@ export function ProblemApprovals({ item }: { item: Problem }) {
           })}
         </Typography.Text>
       )}
+      {/* Start-aligned as the panel's other empty texts, not a list's centred one (QA10V-18). */}
+      {rows.length === 0 && <EmptyText>{t('problems.approvals.none')}</EmptyText>}
       <List
         size="small"
         dataSource={rows}
-        locale={{ emptyText: <EmptyText>{t('problems.approvals.none')}</EmptyText> }}
+        locale={{ emptyText: <span /> }}
+        style={rows.length === 0 ? { display: 'none' } : undefined}
         renderItem={(a) => (
           <List.Item
             key={a.id}

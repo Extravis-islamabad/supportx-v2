@@ -1,3 +1,4 @@
+import { NotificationOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -23,11 +24,13 @@ import {
   useAnnouncementAction,
   useDeleteAnnouncement,
   useSession,
+  useUnits,
   useUpdateAnnouncement,
   type Announcement,
   type AnnouncementAction,
 } from '@supportx/api-client';
 import { applyServerErrors, useForm, zodResolver } from '@supportx/forms';
+import { useListFormat } from '@supportx/labels';
 import { useRecordChannel, useTenantChannel, type PresenceMember } from '@supportx/realtime';
 import {
   useConflictRetry,
@@ -44,6 +47,7 @@ import {
   useConflict,
   useFormProblem,
   useLabel,
+  useAccess,
   useRefetchAfter,
   WriteButton,
   lengthLimit,
@@ -166,6 +170,8 @@ function AnnouncementDetail({
         testId="ann-record"
         header={
           <RecordHeader
+            icon={<NotificationOutlined />}
+            kind="announcement"
             typeLabel={t('announcements.one')}
             displayId={item.display_id}
             title={item.title}
@@ -246,7 +252,7 @@ function AnnouncementDetail({
                       {
                         key: 'audience',
                         label: t('announcement.field.audience'),
-                        content: t(`announcement_audience.${item.audience}`),
+                        content: <Audience item={item} />,
                         filled: true,
                       },
                       {
@@ -308,6 +314,27 @@ function AnnouncementDetail({
         fieldLabel={(field) => t(`announcement.field.${field}`)}
       />
     </>
+  );
+}
+
+/** The audience, naming the chosen sites or groups (QA10-P4-13: "Selected support groups" alone). */
+function Audience({ item }: { item: Announcement }) {
+  const t = useLabel();
+  const list = useListFormat();
+  const { can } = useAccess();
+  const kind = item.audience === 'sites' ? 'sites' : 'groups';
+  const ids = item.audience === 'sites' ? item.site_ids : item.group_ids;
+  const units = useUnits(
+    kind,
+    (item.audience === 'sites' || item.audience === 'groups') && can(`${kind}.view`),
+  );
+  const named = new Map((units.data ?? []).map((unit) => [unit.id, unit.name]));
+  const names = ids.map((id) => named.get(id)).filter((name) => name !== undefined);
+  return (
+    <span data-testid="ann-audience">
+      {t(`announcement_audience.${item.audience}`)}
+      {names.length > 0 && `: ${list(names, 'conjunction')}`}
+    </span>
   );
 }
 
@@ -378,32 +405,36 @@ function StatusActions({ item }: { item: Announcement }) {
   };
   return (
     <Flex gap={8} wrap data-testid="ann-actions">
-      {item.actions.map((state) => {
-        const button = (
-          <WriteButton
-            key={state.action}
-            type={state.action === 'publish' ? 'primary' : 'default'}
-            disabled={!state.allowed}
-            loading={act.isPending && act.variables.action === state.action}
-            data-testid={`ann-action-${state.action}`}
-            onClick={() => {
-              if (REASON_ACTIONS.has(state.action)) setAsking(state.action);
-              else run(state.action);
-            }}
-          >
-            {t(`announcement_action.${state.action}`)}
-          </WriteButton>
-        );
-        return state.allowed || state.reason == null ? (
-          button
-        ) : (
-          <Tooltip key={state.action} title={t(`action_reason.${state.reason}`)}>
-            <span data-testid={`ann-action-${state.action}-reason`} data-reason={state.reason}>
-              {button}
-            </span>
-          </Tooltip>
-        );
-      })}
+      {/* Only the moves its status allows (template A); a greyed one says why, such as who
+          may publish (QA10-P4-13). */}
+      {item.actions
+        .filter((state) => state.allowed || state.reason !== 'not_from_status')
+        .map((state) => {
+          const button = (
+            <WriteButton
+              key={state.action}
+              type={state.action === 'publish' ? 'primary' : 'default'}
+              disabled={!state.allowed}
+              loading={act.isPending && act.variables.action === state.action}
+              data-testid={`ann-action-${state.action}`}
+              onClick={() => {
+                if (REASON_ACTIONS.has(state.action)) setAsking(state.action);
+                else run(state.action);
+              }}
+            >
+              {t(`announcement_action.${state.action}`)}
+            </WriteButton>
+          );
+          return state.allowed || state.reason == null ? (
+            button
+          ) : (
+            <Tooltip key={state.action} title={t(`action_reason.${state.reason}`)}>
+              <span data-testid={`ann-action-${state.action}-reason`} data-reason={state.reason}>
+                {button}
+              </span>
+            </Tooltip>
+          );
+        })}
       <Modal
         open={asking !== null}
         title={asking === null ? '' : t(`announcement_action.${asking}`)}

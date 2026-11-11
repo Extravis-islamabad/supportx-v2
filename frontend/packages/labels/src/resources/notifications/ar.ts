@@ -2,6 +2,9 @@ import type { LabelResource } from '../en';
 
 // notifications labels (see ../README.md).
 export const ar: LabelResource = {
+  'assignee_unavailable.away': 'حالته «غائب»',
+  'assignee_unavailable.inactive': 'لم يعد نشطًا',
+  'assignee_unavailable.not_in_group': 'لم يعد في تلك المجموعة',
   'delivery_reason.authentication_failed': 'رفض خادم البريد تسجيل دخول SupportX',
   'delivery_reason.email_channel_not_configured': 'قناة البريد الإلكتروني غير مُعدّة',
   'delivery_reason.gave_up': 'استمر الفشل بعد كل محاولة',
@@ -29,12 +32,16 @@ export const ar: LabelResource = {
   'event_delivery_state.stalled': 'متوقف',
   'notification.open_record': 'فتح {{id}}',
   'notification_area.announcement': 'الإعلانات',
+  'notification_area.asset': 'الأصول',
+  'notification_area.change': 'التغييرات',
   'notification_area.connector': 'الموصلات',
   'notification_area.incident': 'الحوادث',
   'notification_area.kb_article': 'المعرفة',
   'notification_area.mailbox': 'البريد',
   'notification_area.problem': 'المشكلات',
   'notification_area.problem_repeat': 'المشكلات',
+  'notification_area.release': 'الإصدارات',
+  'notification_area.rule_step': 'القواعد والتصعيدات',
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
@@ -43,12 +50,21 @@ export const ar: LabelResource = {
   'notification_category.following': 'المتابعة',
   'notification_category.mention': 'الإشارات',
   'notification_category.status': 'تغييرات الحالة',
+  'notification_category.workflow': 'رسائل سير العمل',
   'notification_channel.email': 'البريد الإلكتروني',
   'notification_channel.in_app': 'داخل التطبيق',
   'notification_condition_operator.in': 'أحد',
   'notification_condition_operator.not_in': 'ليس أحد',
   'notification_event.announcement.ended': 'انتهاء إعلان تتابعه',
   'notification_event.announcement.updated': 'تحديث إعلان تتابعه',
+  'notification_event.asset.ack_disputed': 'اعترض حامل الأصل عليه',
+  'notification_event.asset.ack_requested': 'أصل سُلّم إليك: يرجى الإقرار به',
+  'notification_event.asset.loan_due': 'موعد إرجاع الإعارة غدًا',
+  'notification_event.asset.loan_overdue': 'الإعارة متأخرة',
+  'notification_event.asset.mentioned': 'إشارة في ملاحظة أصل',
+  'notification_event.asset.stock_low': 'المخزون عند حده الأدنى',
+  'notification_event.asset.warranty_expiring': 'الضمان ينتهي قريبًا',
+  'notification_event.change.public_reply': 'رد على مقدم الطلب',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.incident.assigned': 'أُسند حادث',
@@ -68,6 +84,7 @@ export const ar: LabelResource = {
   'notification_event.incident.sla_escalated': 'تصعيد اتفاقية مستوى الخدمة',
   'notification_event.incident.sla_warning': 'بلوغ نقطة تحذير اتفاقية مستوى الخدمة',
   'notification_event.incident.status_changed': 'تغيّرت الحالة',
+  'notification_event.incident.workflow_notice': 'رسالة من سير عمل',
   'notification_event.kb_article.approved': 'اعتُمدت المقالة',
   'notification_event.kb_article.rejected': 'أُعيدت المقالة',
   'notification_event.kb_article.review_due': 'حان موعد مراجعة المقالة',
@@ -88,10 +105,14 @@ export const ar: LabelResource = {
   'notification_event.problem.target_breached': 'تجاوزت مشكلة موعدها المستهدف',
   'notification_event.problem.target_warning': 'اقترب الموعد المستهدف لمشكلة',
   'notification_event.problem_repeat.detected': 'وُجدت حوادث متكررة',
+  'notification_event.release.public_reply': 'رد على مقدم الطلب',
+  'notification_event.rule_step.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
   'notification_event.service_request.fulfilled': 'تنفيذ الطلب',
+  'notification_event.service_request.public_reply': 'رد على مقدم الطلب',
+  'notification_event.service_request.ready_to_fulfil': 'طلب جاهز للتنفيذ',
   'notification_event.service_request.received': 'استلام الطلب: إشعار',
   'notification_event.service_request.rejected': 'رفض الطلب',
   'notification_event.service_request.withdrawn': 'سحب الطلب',
@@ -111,14 +132,19 @@ export const ar: LabelResource = {
   'notification_recipient.approval_administrators': 'مسؤولو الموافقات',
   'notification_recipient.approver': 'المعتمِد',
   'notification_recipient.approvers': 'المعتمِدون',
+  'notification_recipient.asset_managers': 'مديرو الأصول',
+  'notification_recipient.assigned_by': 'الشخص الذي سلّمه',
   'notification_recipient.assignee': 'الفني المُسند',
   'notification_recipient.author': 'المؤلف',
+  'notification_recipient.borrower': 'المستعير',
   'notification_recipient.connector_admins': 'الأشخاص الذين يُعدّون هذا الموصل',
   'notification_recipient.escalation_recipients': 'مستلمو مستوى التصعيد',
   'notification_recipient.followers': 'المتابعون',
   'notification_recipient.group': 'أعضاء المجموعة',
   'notification_recipient.group_head': 'قائد المجموعة ورئيس القسم',
+  'notification_recipient.holder': 'الشخص الذي يحمله',
   'notification_recipient.linked_incident_technicians': 'فنيو الحوادث المرتبطة',
+  'notification_recipient.loan_creator': 'من أنشأ الإعارة',
   'notification_recipient.mail_admins': 'من يديرون صناديق البريد',
   'notification_recipient.mentioned': 'الأشخاص المُشار إليهم',
   'notification_recipient.new_follower': 'المتابع الجديد',
@@ -127,7 +153,10 @@ export const ar: LabelResource = {
   'notification_recipient.owner': 'مالك المقالة',
   'notification_recipient.previous_assignee': 'الفني السابق',
   'notification_recipient.requester': 'مقدّم الطلب',
+  'notification_recipient.step_owner': 'مالك القاعدة (وإلا فمسؤولوها)',
+  'notification_recipient.stock_watchers': 'الأشخاص المحددون للحد الأدنى',
   'notification_recipient.topic_owner': 'مالك الموضوع',
+  'notification_recipient.workflow_audience': 'الأشخاص الذين يحدّدهم سير العمل',
   'notification_rules.any_priority': 'أي أولوية',
   'notification_rules.changed': 'غُيّر {{when}}',
   'notification_rules.col.channels': 'كيف',
@@ -155,6 +184,49 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nتم تحديث الإعلان "{{ record.title }}" الذي تتابعه.',
   'notification_template.announcement.updated.in_app': 'تم التحديث: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'تم التحديث: {{ record.title }}',
+  'notification_template.asset.ack_disputed.body':
+    'مرحبًا {{ recipient.name }}،\n\nاعترض {{ holder.name }} على {{ record.display_id }} "{{ record.title }}": {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.in_app':
+    'اعترض {{ holder.name }} على {{ record.display_id }}: {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.subject':
+    'اعتراض: {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.ack_requested.body':
+    'مرحبًا {{ recipient.name }}،\n\nسُلّم إليك {{ record.display_id }} "{{ record.title }}". افتح أصولي لقبوله أو لذكر ما فيه من خطأ.',
+  'notification_template.asset.ack_requested.in_app':
+    'يرجى الإقرار بـ {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.ack_requested.subject':
+    'يرجى الإقرار بـ {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.loan_due.body':
+    'مرحبًا {{ recipient.name }}،\n\nموعد إرجاع الأصول المعارة إلى {{ holder.name }} غدًا.',
+  'notification_template.asset.loan_due.in_app': 'موعد إرجاع إعارة {{ holder.name }} غدًا',
+  'notification_template.asset.loan_due.subject': 'موعد إرجاع الأصول المعارة غدًا',
+  'notification_template.asset.loan_overdue.body':
+    'مرحبًا {{ recipient.name }}،\n\nحان موعد إرجاع الأصول المعارة إلى {{ holder.name }} ولم تُرجع بعد.',
+  'notification_template.asset.loan_overdue.in_app': 'إعارة {{ holder.name }} متأخرة',
+  'notification_template.asset.loan_overdue.subject': 'الأصول المعارة متأخرة',
+  'notification_template.asset.mentioned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأشار إليك {{ conversation.author }} في ملاحظة على {{ record.display_id }} "{{ record.title }}".',
+  'notification_template.asset.mentioned.in_app':
+    'أشار إليك {{ conversation.author }} في {{ record.display_id }}',
+  'notification_template.asset.mentioned.subject':
+    'أُشير إليك في {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.stock_low.body':
+    'مرحبًا {{ recipient.name }}،\n\nانخفض مخزون {{ record.title }} إلى {{ stock.quantity }}، عند حده الأدنى {{ stock.minimum }} أو دونه.',
+  'notification_template.asset.stock_low.in_app':
+    'انخفض {{ record.title }} إلى {{ stock.quantity }} (الحد الأدنى {{ stock.minimum }})',
+  'notification_template.asset.stock_low.subject': '{{ record.title }} عند الحد الأدنى للمخزون',
+  'notification_template.asset.warranty_expiring.body':
+    'مرحبًا {{ recipient.name }}،\n\nينتهي ضمان {{ record.display_id }} "{{ record.title }}" في {{ warranty.ends_on }}.',
+  'notification_template.asset.warranty_expiring.in_app':
+    'ينتهي ضمان {{ record.display_id }} في {{ warranty.ends_on }}',
+  'notification_template.asset.warranty_expiring.subject':
+    'الضمان ينتهي: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.public_reply.body':
+    'مرحبًا {{ recipient.name }}،\n\nردّ {{ conversation.author }} على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.change.public_reply.in_app':
+    'ردّ {{ conversation.author }} على {{ record.display_id }}',
+  'notification_template.change.public_reply.subject':
+    'رد جديد على {{ record.display_id }}: {{ record.title }}',
   'notification_template.connector.failing.body':
     'مرحبًا {{ recipient.name }}،\n\nتوقف {{ record.title }} عن العمل: {{ connector.reason }}.\n\nستُبلَّغ مرة واحدة لا عند كل محاولة، ومرة أخرى عندما يعود إلى العمل. افتح الإدارة › التكاملات لرؤيته.',
   'notification_template.connector.failing.in_app':
@@ -262,6 +334,9 @@ export const ar: LabelResource = {
     'أصبح {{ record.display_id }} الآن {{ record.status }}',
   'notification_template.incident.status_changed.subject':
     'أصبح {{ record.display_id }} الآن {{ record.status }}: {{ record.title }}',
+  'notification_template.incident.workflow_notice.body': '{{ notice.body }}',
+  'notification_template.incident.workflow_notice.in_app': '{{ notice.subject }}',
+  'notification_template.incident.workflow_notice.subject': '{{ notice.subject }}',
   'notification_template.kb_article.approved.body':
     'مرحباً {{ recipient.name }}،\n\nاعتمد {{ actor.name }} المقالة {{ record.display_id }} "{{ record.title }}". يراها قرّاؤها الآن.',
   'notification_template.kb_article.approved.in_app':
@@ -374,6 +449,18 @@ export const ar: LabelResource = {
     '{{ incident.count }} حوادث متشابهة: {{ rule.name }}',
   'notification_template.problem_repeat.detected.subject':
     '{{ incident.count }} حوادث متشابهة: {{ rule.name }}',
+  'notification_template.release.public_reply.body':
+    'مرحبًا {{ recipient.name }}،\n\nردّ {{ conversation.author }} على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.release.public_reply.in_app':
+    'ردّ {{ conversation.author }} على {{ record.display_id }}',
+  'notification_template.release.public_reply.subject':
+    'رد جديد على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.rule_step.assignee_unavailable.body':
+    'مرحبًا {{ recipient.name }}،\n\nكان على قاعدة أو تصعيد إسناد {{ record.display_id }} "{{ record.title }}" إلى {{ unavailable.person }}، الذي {{ unavailable.reason }}. انتقل إلى المجموعة دون أن يُسند إلى أحد. يُرجى إسناده إلى شخص ما أو تعديل القاعدة.',
+  'notification_template.rule_step.assignee_unavailable.in_app':
+    'انتقل {{ record.display_id }} إلى مجموعته دون أن يُسند إلى أحد: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.rule_step.assignee_unavailable.subject':
+    'لم يُسند إلى أحد: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -398,6 +485,18 @@ export const ar: LabelResource = {
     'نُفّذ {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'تم التنفيذ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.public_reply.body':
+    'مرحبًا {{ recipient.name }}،\n\nردّ {{ conversation.author }} على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.service_request.public_reply.in_app':
+    'ردّ {{ conversation.author }} على {{ record.display_id }}',
+  'notification_template.service_request.public_reply.subject':
+    'رد جديد على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.ready_to_fulfil.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُنجزت كل مهام {{ record.display_id }} «{{ record.title }}» لكن لا أحد مسند إليه. أسنده إلى أحد أعضاء مجموعتك لتنفيذه.',
+  'notification_template.service_request.ready_to_fulfil.in_app':
+    '{{ record.display_id }} جاهز للتنفيذ: أسنده إلى أحد',
+  'notification_template.service_request.ready_to_fulfil.subject':
+    'جاهز للتنفيذ: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.received.body':
     'مرحبًا {{ recipient.name }}،\n\nاستلمنا طلبك «{{ record.title }}» وسجّلناه برقم {{ record.display_id }}. سنبقيك على اطلاع.',
   'notification_template.service_request.received.in_app':
@@ -416,6 +515,7 @@ export const ar: LabelResource = {
     'سُحب {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'تم السحب: {{ record.display_id }} {{ record.title }}',
+  'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
   'notification_variable.approval.comment': 'تعليق الموافِق',
   'notification_variable.approval_link': 'الموافقة › الرابط',
@@ -428,10 +528,13 @@ export const ar: LabelResource = {
   'notification_variable.connector.reason': 'الموصل › السبب',
   'notification_variable.conversation.author': 'الرد أو الملاحظة › الكاتب',
   'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
+  'notification_variable.holder.name': 'الحامل › الاسم',
   'notification_variable.incident.count': 'عدد الحوادث',
   'notification_variable.mailbox.address': 'صندوق البريد › العنوان',
   'notification_variable.mailbox.expires_at': 'صندوق البريد › تنتهي بيانات الاعتماد',
   'notification_variable.mailbox.reason': 'صندوق البريد › السبب',
+  'notification_variable.notice.body': 'الرسالة › النص',
+  'notification_variable.notice.subject': 'الرسالة › الموضوع',
   'notification_variable.recipient.name': 'المستلم › الاسم',
   'notification_variable.record.display_id': 'السجل › المعرّف',
   'notification_variable.record.link': 'السجل › الرابط',
@@ -442,6 +545,11 @@ export const ar: LabelResource = {
   'notification_variable.rule.name': 'القاعدة',
   'notification_variable.site.name': 'الموقع',
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
+  'notification_variable.stock.minimum': 'المخزون › الحد الأدنى',
+  'notification_variable.stock.quantity': 'المخزون › الكمية',
+  'notification_variable.unavailable.person': 'غير مُسند › الشخص',
+  'notification_variable.unavailable.reason': 'غير مُسند › السبب',
+  'notification_variable.warranty.ends_on': 'الضمان › ينتهي في',
   'notifications.banner.no_mail_few':
     'تنتظر {{count}} رسائل لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسل الرسائل عند تشغيل البريد.',
   'notifications.banner.no_mail_many':

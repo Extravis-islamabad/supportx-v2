@@ -339,6 +339,9 @@ export const en = {
   'permission.assets.reinstate.description': 'Move a retired asset back into stock.',
   'permission.assets.view': 'View assets',
   'permission.assets.view.description': 'See hardware and software assets.',
+  'permission.assets.view_financials': 'View asset costs and values',
+  'permission.assets.view_financials.description':
+    "See an asset's costs, depreciation and book value, and change its cost lines and depreciation where you may manage it.",
   'permission.audit.export': 'Export the audit log',
   'permission.audit.export.description':
     'Export entries with their chain values for outside auditors.',
@@ -368,9 +371,6 @@ export const en = {
   'permission.changes.approve.description': 'Approve or reject change requests.',
   'permission.changes.assign': 'Assign changes',
   'permission.changes.assign.description': 'Choose the group and owner of changes.',
-  'permission.changes.assign_outside_group': 'Assign changes outside the group',
-  'permission.changes.assign_outside_group.description':
-    'Give a change to someone who is not in its group.',
   'permission.changes.cancel': 'Cancel changes',
   'permission.changes.cancel.description': 'Cancel changes with a reason, and undo it.',
   'permission.changes.change_priority': "Change a change's priority by hand",
@@ -387,9 +387,21 @@ export const en = {
   'permission.changes.edit_due_dates': 'Set change target dates by hand',
   'permission.changes.edit_due_dates.description':
     "Set or clear a change's due time by hand, with a reason.",
+  'permission.changes.emergency_override': 'Override the approval of a change in an emergency',
+  'permission.changes.emergency_override.description':
+    'Keep a change going that was sent back for approval, with a reason. It is audited, and the change then needs its review before closing.',
+  'permission.changes.manage_boards': 'Manage change advisory boards',
+  'permission.changes.manage_boards.description':
+    'Add, change and remove the boards that review changes, and who sits on them.',
   'permission.changes.manage_followers': 'Manage followers of changes',
   'permission.changes.manage_followers.description':
     'Add and remove the people who follow a change.',
+  'permission.changes.manage_windows': 'Manage freeze and maintenance windows',
+  'permission.changes.manage_windows.description':
+    'Add, change and remove the freeze and maintenance windows changes are checked against.',
+  'permission.changes.override_freeze': 'Let a change go ahead in a freeze',
+  'permission.changes.override_freeze.description':
+    "Pass the blocking freezes for one change, with a reason. It is audited and kept in the change's history.",
   'permission.changes.reopen': 'Reopen changes',
   'permission.changes.reopen.description':
     'Take a resolved or closed change back into investigation.',
@@ -439,6 +451,9 @@ export const en = {
   'permission.groups.manage': 'Manage support groups',
   'permission.groups.manage.description':
     'Create and rename support groups and change their members.',
+  'permission.groups.manage_own': 'Manage the groups you lead',
+  'permission.groups.manage_own.description':
+    'Members’ availability, assignment, reply templates, saved views and dashboards of the groups you lead; not other groups or tenant settings.',
   'permission.groups.view': 'View support groups',
   'permission.groups.view.description': 'See the support groups and their members.',
   // WP-039 identity: sign-in settings and single sign-on
@@ -450,9 +465,6 @@ export const en = {
   'permission.incidents.add_note.description': 'Write staff-only notes on incidents.',
   'permission.incidents.assign': 'Assign incidents',
   'permission.incidents.assign.description': 'Choose the group and technician of incidents.',
-  'permission.incidents.assign_outside_group': 'Assign outside the group',
-  'permission.incidents.assign_outside_group.description':
-    'Assign a technician who is not a member of the chosen group.',
   'permission.incidents.cancel': 'Cancel incidents',
   'permission.incidents.cancel.description':
     'Cancel incidents with a reason, and undo a cancellation.',
@@ -538,9 +550,6 @@ export const en = {
     'Decide the problem approvals you are named for, such as accepting a known error without a fix.',
   'permission.problems.assign': 'Assign problems',
   'permission.problems.assign.description': 'Choose the group and owner of problems.',
-  'permission.problems.assign_outside_group': 'Assign problems outside the group',
-  'permission.problems.assign_outside_group.description':
-    'Give a problem to someone who is not in its group.',
   'permission.problems.cancel': 'Cancel problems',
   'permission.problems.cancel.description': 'Cancel problems with a reason, and undo it.',
   'permission.problems.change_priority': "Change a problem's priority by hand",
@@ -592,9 +601,6 @@ export const en = {
     'Decide the release stage approvals you are named for.',
   'permission.releases.assign': 'Assign releases',
   'permission.releases.assign.description': 'Assign releases to people and groups.',
-  'permission.releases.assign_outside_group': 'Assign releases outside the group',
-  'permission.releases.assign_outside_group.description':
-    'Assign a person who is not a member of the chosen group to a release.',
   'permission.releases.cancel': 'Cancel releases',
   'permission.releases.cancel.description': 'Cancel releases before closure, with a reason.',
   'permission.releases.change_priority': "Change a release's priority by hand",
@@ -647,9 +653,6 @@ export const en = {
     'Decide the service request approvals you are named for.',
   'permission.requests.assign': 'Assign service requests',
   'permission.requests.assign.description': 'Assign service requests to technicians and groups.',
-  'permission.requests.assign_outside_group': 'Assign requests outside the group',
-  'permission.requests.assign_outside_group.description':
-    'Assign a technician who is not a member of the chosen group to a service request.',
   'permission.requests.cancel': 'Cancel service requests',
   'permission.requests.cancel.description':
     'Cancel service requests with a reason, and undo a cancellation.',
@@ -790,36 +793,69 @@ export const en = {
   'readiness_check.realtime_fanout': 'Live updates',
   'readiness_status.not_ready': 'Not ready',
   'readiness_status.ready': 'Ready',
+  'role.asset_manager': 'Asset manager',
+  'role.asset_manager.description':
+    'Manages assets, the CMDB, software licences and discovery results for the whole organisation.',
+  'role.asset_manager.scope': 'Every asset',
   'role.auditor': 'Auditor',
   'role.auditor.description':
     'Reads, searches, exports and verifies the audit log and reads access settings; changes nothing.',
+  'role.auditor.scope': 'The audit log, read-only',
+  'role.change_manager': 'Change manager',
+  'role.change_manager.description':
+    'Runs changes from request to review and schedules the change advisory board.',
+  'role.change_manager.scope': 'Every change',
+  'role.department_viewer': 'Department viewer',
+  'role.department_viewer.description':
+    'Sees their own department’s requests in the portal, read-only and without technician details.',
+  'role.department_viewer.scope': 'Their own department',
   'role.knowledge_manager': 'Knowledge manager',
   'role.knowledge_manager.description':
     'Writes, reviews and publishes knowledge articles for the whole organisation.',
+  'role.knowledge_manager.scope': 'All knowledge articles',
   'role.problem_manager': 'Problem manager',
   'role.problem_manager.description':
     'Runs problem management: sees, works, assigns, approves and closes every problem, including its root cause and known errors, and reads the incidents they are about.',
+  'role.problem_manager.scope': 'Every problem',
+  'role.purchase_manager': 'Purchase and contract manager',
+  'role.purchase_manager.description': 'Looks after purchases, vendors and contracts.',
+  'role.purchase_manager.scope': 'Every purchase and contract',
+  'role.release_manager': 'Release manager',
+  'role.release_manager.description':
+    'Runs releases through their stages and assigns the stage roles.',
+  'role.release_manager.scope': 'Every release',
   'role.report_viewer': 'Report viewer',
   'role.report_viewer.description':
     'Reads every incident and request and their reports, without changing anything.',
+  'role.report_viewer.scope': 'Every incident and request, read-only',
   'role.requester': 'Requester',
   'role.requester.description':
     'Raises and follows their own requests and reads the knowledge base.',
+  'role.requester.scope': 'Their own requests',
   'role.security_admin': 'Security administrator',
   'role.security_admin.description':
     'Sign-in and security: single sign-on, passwords, MFA, sessions and invitations; no access to records.',
+  'role.security_admin.scope': 'Sign-in and security settings',
   'role.service_desk_manager': 'Service desk manager',
   'role.service_desk_manager.description':
     'Runs the service desk: every incident and request, the desk’s SLAs, automation, reports and announcements.',
+  'role.service_desk_manager.scope': 'Every desk record',
   'role.site_admin': 'Site administrator',
   'role.site_admin.description':
     'Looks after one site: its incidents and requests, people, assets and announcements.',
+  'role.site_admin.scope': 'One site',
+  'role.team_lead': 'Team lead',
+  'role.team_lead.description':
+    'Works the incidents, requests and problems of their groups and manages only the groups they lead; views changes, assets and the CMDB.',
+  'role.team_lead.scope': 'The groups they lead',
   'role.technician': 'Technician',
   'role.technician.description':
     'Works requests, problems, changes and assets; reads the knowledge base.',
+  'role.technician.scope': 'Their groups and their own records',
   'role.tenant_admin': 'Tenant administrator',
   'role.tenant_admin.description':
     'Full access to everything in the plan, including users, roles and settings.',
+  'role.tenant_admin.scope': 'Everything',
   'roles.col.name': 'Role',
   'roles.col.type': 'Type',
   'roles.col.users': 'Users',
@@ -832,7 +868,9 @@ export const en = {
   'roles.compare_same': 'These roles grant the same permissions.',
   'roles.compare_second': 'Second role',
   'roles.copy': 'Copy',
+  'roles.copy_customise': 'Copy and customise',
   'roles.copy_name': 'Copy of {{name}}',
+  'roles.default_scope': 'Reaches: {{scope}}',
   'roles.delete': 'Delete role',
   'roles.delete_confirm': 'Nobody has this role. It will be deleted.',
   'roles.delete_in_use_one':
@@ -842,7 +880,6 @@ export const en = {
   'roles.delete_title': 'Delete {{name}}?',
   'roles.deleted': 'The role was deleted.',
   'roles.description': 'Description',
-  'roles.duplicate': 'Duplicate as a custom role',
   'roles.editor.copy': 'New role from “{{name}}”',
   'roles.editor.edit': 'Role: {{name}}',
   'roles.editor.new': 'New role',
@@ -937,6 +974,7 @@ export const en = {
   'security.password.digits': 'A digit',
   'security.password.expiry': 'Passwords expire after',
   'security.password.expiry_hint': '0: passwords never expire (recommended).',
+  'security.password.fix_first': 'Correct the values marked above first.',
   'security.password.history': 'Refuse the last passwords used',
   'security.password.history_hint':
     'How many earlier passwords cannot be used again. 0 allows any.',

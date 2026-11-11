@@ -8,10 +8,13 @@ It is no longer offered.
 
 from typing import Any
 
-from tests.db.test_incidents_api import World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World
 from tests.db.test_service_requests_api import SR, an_item, raise_request
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 NEEDS_MANAGER = {"approvers": [{"kind": "requested_for_manager"}]}
 

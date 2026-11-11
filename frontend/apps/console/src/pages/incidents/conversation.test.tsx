@@ -63,7 +63,8 @@ const COMMON = {
 
 async function openConversation() {
   render(<App />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Conversation (3)' }));
+  // The description and the three entries (Haider, 2026-11-10: what the tab lists).
+  fireEvent.click(await screen.findByRole('tab', { name: 'Conversation (4)' }));
   return screen.findByTestId('conv-timeline');
 }
 
@@ -75,7 +76,7 @@ describe('Conversation', () => {
     restore();
   });
 
-  it('UI pass 2: automation and status events read as quiet lines among the messages', async () => {
+  it('UI pass 2: automation and status events read as quiet lines, under System', async () => {
     api({
       routes: {
         ...COMMON,
@@ -103,6 +104,16 @@ describe('Conversation', () => {
       },
     });
     const timeline = await openConversation();
+    // By default the tab shows what its count says: the description and the three entries,
+    // no system lines (QA fix round 2026-11-10, C4: "Conversation (0)" over system lines).
+    await within(timeline).findAllByTestId('conv-entry');
+    expect(within(timeline).getAllByTestId('conv-entry')).toHaveLength(3);
+    expect(within(timeline).getByTestId('conv-description')).toBeDefined();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(within(timeline).queryByTestId('conv-event')).toBeNull();
+    fireEvent.click(within(screen.getByTestId('conv-filter')).getByText('System'));
     const event = await within(timeline).findByTestId('conv-event');
     expect(event.textContent).toContain('Priority');
     expect(event.textContent).not.toMatch(/p2\b|priority\b/); // labels, never codes
@@ -223,7 +234,7 @@ describe('Conversation', () => {
   it('QA6-INC-01: no mail warning in the reply composer while outgoing mail is set up', async () => {
     api({ routes: COMMON });
     await openConversation();
-    fireEvent.click(screen.getByTestId('conv-reply').querySelector('button') as HTMLElement);
+    fireEvent.click(screen.getByTestId('inc-op-reply').querySelector('button') as HTMLElement);
     const composer = await screen.findByTestId('conv-composer');
     expect(within(composer).queryByTestId('conv-mail-not-set-up')).toBeNull();
   });
@@ -242,7 +253,7 @@ describe('Conversation', () => {
       },
     });
     await openConversation();
-    fireEvent.click(screen.getByTestId('conv-reply').querySelector('button') as HTMLElement);
+    fireEvent.click(screen.getByTestId('inc-op-reply').querySelector('button') as HTMLElement);
     const warned = await screen.findByTestId('conv-mail-not-set-up');
     expect(warned.textContent).toContain("Outgoing e-mail isn't set up yet");
     expect(warned.textContent).toContain('Aisha Admin can set it up.');
@@ -263,8 +274,13 @@ describe('Conversation', () => {
       },
     });
     await openConversation();
-    const reply = screen.getByTestId('conv-reply').querySelector('button');
-    expect(reply?.disabled).toBe(true);
+    // D-155: Reply is the header's; not possible now, it waits in "More" with its reason
+    // (REQ-WI-010), and the conversation offers no Reply of its own.
+    expect(screen.queryByTestId('inc-op-reply')).toBeNull();
+    expect(screen.queryByTestId('conv-reply')).toBeNull();
+    fireEvent.click(screen.getByTestId('inc-operations-more'));
+    const item = await screen.findByTestId('inc-op-reply-menu');
+    expect(item.closest('li')?.getAttribute('aria-disabled')).toBe('true');
     expect(screen.getByTestId<HTMLButtonElement>('conv-add-note').disabled).toBe(false);
   });
 });

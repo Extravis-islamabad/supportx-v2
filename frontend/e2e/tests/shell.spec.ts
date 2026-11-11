@@ -11,8 +11,9 @@ import {
   signInAs,
 } from './helpers';
 
-// Problems (WP-044a) and releases (WP-058a) have their screens; the rest are still coming.
-const SECTIONS = ['Changes', 'Assets', 'CMDB'];
+// Problems (WP-044a), releases (WP-058a) and assets (#216) have their screens; the rest are
+// still coming.
+const SECTIONS = ['CMDB'];
 
 test('navigation: every section opens a translated coming-soon page; palette and 404 work', async ({
   page,
@@ -28,6 +29,11 @@ test('navigation: every section opens a translated coming-soon page; palette and
   // Service requests is a real page (WP-030), not a coming-soon one.
   await goToSection(page, 'Service requests');
   await expect(page.getByRole('heading', { name: 'Service requests', level: 1 })).toBeVisible();
+  await expect(page.getByText(/being built/)).toHaveCount(0);
+
+  // Changes is a real page (the change screens), not a coming-soon one.
+  await goToSection(page, 'Changes');
+  await expect(page.getByRole('heading', { name: 'Changes', level: 1 })).toBeVisible();
   await expect(page.getByText(/being built/)).toHaveCount(0);
 
   // Releases is a real page (WP-058a), not a coming-soon one.
@@ -96,9 +102,12 @@ test('RTL: the Arabic user gets Arabic labels right-to-left', async ({ page }) =
 test('accessibility: main screens have no serious or critical axe violations', async ({ page }) => {
   await signInAs(page, 'admin');
   await expectAccessible(page, 'home');
-  await page.goto('/changes');
-  await expect(page.getByRole('heading', { name: 'Changes' })).toBeVisible();
+  await page.goto('/cmdb');
+  await expect(page.getByRole('heading', { name: 'CMDB' })).toBeVisible();
   await expectAccessible(page, 'coming soon');
+  await page.goto('/changes');
+  await expect(page.getByTestId('changes-table')).toBeVisible();
+  await expectAccessible(page, 'changes');
   await page.goto('/admin/users');
   await expect(page.getByTestId('users-table').getByText('E2E Scroll 00')).toBeVisible();
   await expectAccessible(page, 'users');

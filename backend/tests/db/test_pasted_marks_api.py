@@ -6,11 +6,12 @@ from a screen pastes the marks too. Search, the display-ID lookup and the picker
 
 import pytest
 
-from tests.db.test_incidents_api import BASE, World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import BASE, World
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 FSI, PDI = "\u2068", "\u2069"
 

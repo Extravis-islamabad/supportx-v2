@@ -66,6 +66,18 @@ class WorkItemStatusChanged(_WorkItemEvent):
     automatic: bool = False
 
 
+class ServiceRequestReadyToFulfil(_WorkItemEvent):
+    """A request's last required task is done and nobody is on it (D-154, "E1 follows d").
+
+    It is not fulfilled by itself; its group is told once, in the app, to assign someone.
+    """
+
+    event_type: ClassVar[str] = "work_items.service_request.ready_to_fulfil"
+    schema_version: ClassVar[int] = 1
+
+    group_id: uuid.UUID | None
+
+
 class WorkItemStageChanged(_WorkItemEvent):
     """A staged record entered another stage (ADR-041 §6), with the status move that did it.
 
@@ -147,6 +159,16 @@ class WorkItemPortalSettingsChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class WorkItemApprovalSettingsChanged(DomainEvent):
+    """The tenant's approval settings changed (the D-146 chair): open settings pages reload."""
+
+    event_type: ClassVar[str] = "work_items.approval_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_approval_settings"
+
+    changed_fields: list[str]
+
+
 class _ConversationEvent(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item_conversation"
 
@@ -220,6 +242,26 @@ class WorkItemFollowerRemoved(_FollowerEvent):
     schema_version: ClassVar[int] = 1
 
 
+class WorkItemWorkflowNotice(DomainEvent):
+    """A workflow's notify node tells people about the record (WP-048b S2, REQ-WF-022).
+
+    The one notification engine sends it (work_items' record source maps it to
+    `<type>.workflow_notice`): access checked at send time, personal preferences, the delivery
+    log. The audience is resolved then; the texts are the node's own, per language.
+    """
+
+    event_type: ClassVar[str] = "work_items.workflow.notice"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    record_id: uuid.UUID
+    type: str
+    instance_id: uuid.UUID
+    audience: dict[str, list[str]]  # relatives, user_ids, group_ids
+    subject: dict[str, str]
+    body: dict[str, str]
+
+
 class WorkItemReplyTemplatesChanged(DomainEvent):
     """A reply template was added, changed or removed (open composers reload the list)."""
 
@@ -290,6 +332,22 @@ class WorkItemPartChanged(DomainEvent):
     task_status: str | None = None
 
 
+class WorkItemAssetLinkChanged(DomainEvent):
+    """An asset was linked to a record or unlinked (REQ-AST-025). IDs only.
+
+    The record's screens refresh its assets; the assets module may hear it too (an asset's
+    "linked to my tickets" scope, D-153).
+    """
+
+    event_type: ClassVar[str] = "work_items.asset_link.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    asset_id: uuid.UUID
+    change: Literal["added", "removed"]
+
+
 class WorkItemPartChangedV2(DomainEvent):
     """As WorkItemPartChanged, with staged records' plan sections, schedules and downtimes.
 
@@ -330,6 +388,51 @@ class WorkItemApprovalChanged(DomainEvent):
     change: ApprovalChange
 
 
+class ChangeBoardChanged(DomainEvent):
+    """A change advisory board was added, changed or removed (WP-045b S2; settings reload)."""
+
+    event_type: ClassVar[str] = "work_items.change_board.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "change_board"
+
+    board_id: uuid.UUID
+    change: str
+
+
+class ChangeWindowChanged(DomainEvent):
+    """A freeze or maintenance window was added, changed or removed (WP-045c; ADR-042).
+
+    Open calendars and settings pages refetch; IDs only, never the window's text (rule 5c).
+    """
+
+    event_type: ClassVar[str] = "work_items.change_window.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "change_window"
+
+    window_id: uuid.UUID
+    change: str
+
+
+class ChangeApprovalNotice(DomainEvent):
+    """Someone must hear about a change's approval (WP-045b; REQ-CHG-040, -053; D-144).
+
+    `notice`: `sent_back` (an approved change needs approval again: the implementer, the owner
+    and the board are told), `overridden` (the emergency override was used) or
+    `board_has_no_members` (the change manager is told). Recorded now; the change
+    notifications (WP-056) send it. IDs only: recipients are worked out when it is sent.
+    """
+
+    event_type: ClassVar[str] = "work_items.change.approval_notice"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    notice: str
+    stage: str | None
+    fields: list[str]
+    board_id: uuid.UUID | None
+
+
 class ProblemRepeatDetected(DomainEvent):
     """A repeat incident rule found a new set (WP-044c D16, REQ-PRB-068): the group is told.
 
@@ -357,8 +460,28 @@ class ProblemRepeatChanged(DomainEvent):
     id: uuid.UUID
 
 
+class WorkItemAssigneeUnavailable(_WorkItemEvent):
+    """A rule or escalation could not put the person it names on the record (D-154 "rules").
+
+    The record went to the step's group with nobody on it; the step's owner (or, with none,
+    the administrators) is told once, in the app. `reason`: inactive, away or not_in_group.
+    """
+
+    event_type: ClassVar[str] = "work_items.work_item.assignee_unavailable"
+    schema_version: ClassVar[int] = 1
+
+    person_id: uuid.UUID
+    reason: str
+    step: str  # the history ref's kind: business_rule, trigger or sla_escalation
+    owner_id: uuid.UUID | None = None
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
+    ServiceRequestReadyToFulfil,
+    WorkItemAssetLinkChanged,
+    WorkItemAssigneeUnavailable,
     WorkItemCreated,
+    WorkItemWorkflowNotice,
     WorkItemUpdated,
     WorkItemStatusChanged,
     WorkItemStageChanged,
@@ -368,6 +491,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemRestored,
     WorkItemSettingsChanged,
     WorkItemPortalSettingsChanged,
+    WorkItemApprovalSettingsChanged,
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
     WorkItemConversationDeliveryChanged,
@@ -380,6 +504,9 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPartChanged,
     WorkItemPartChangedV2,
     WorkItemApprovalChanged,
+    ChangeBoardChanged,
+    ChangeWindowChanged,
+    ChangeApprovalNotice,
     ProblemRepeatDetected,
     ProblemRepeatChanged,
 )

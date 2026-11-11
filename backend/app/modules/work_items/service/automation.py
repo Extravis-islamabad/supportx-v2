@@ -22,6 +22,7 @@ from app.modules.automation import (
     RecordType,
     RuleEvent,
     RuleField,
+    RulesOutcome,
     TraceLine,
     auto_assign,
     refusal_error,
@@ -36,6 +37,7 @@ from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.types import TYPES, Channel, WorkItemType
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service.rule_assignment import place_person
 
 _REFERENCES = (
     "requester_id",
@@ -279,6 +281,42 @@ class Automated:
 EligibleProvider = Callable[[], Awaitable[Sequence[uuid.UUID]]]
 
 
+async def _rule_person_moves_record(
+    session: AsyncSession,
+    outcome: RulesOutcome,
+    after: Mapping[str, Any],
+    current: dict[str, Any],
+    done: Automated,
+) -> None:
+    """A rule that sets a technician moves the record with them (D-154 "rules").
+
+    To the group the rule sets with them, else theirs; someone inactive, Away or out of that
+    group leaves the record with the group only, in an entry naming the rule and why.
+    """
+    person = outcome.values.get("technician_id")
+    if not person:
+        return
+    made_by = outcome.made_by.get("technician_id")
+    group = outcome.values.get("group_id")
+    placement = await place_person(
+        session,
+        uuid.UUID(str(person)),
+        uuid.UUID(str(group)) if group else None,
+        record_group_id=uuid.UUID(str(after["group_id"])) if after.get("group_id") else None,
+    )
+    fix = {k: v for k, v in placement.values.items() if current.get(k) != v}
+    if not fix:
+        return
+    ref: dict[str, Any] = {"kind": "business_rule"}
+    if made_by is not None:
+        ref |= {"rule_id": made_by[0], "rule": made_by[1]}
+    if placement.unavailable is not None:
+        ref |= {"unavailable": placement.unavailable.value, "person_id": str(person)}
+    done.entries.append((ref, [(k, current.get(k), v) for k, v in fix.items()]))
+    current.update(fix)
+    done.values.update(fix)
+
+
 async def automate(  # noqa: PLR0913 - the documented order, one step after the other
     session: AsyncSession,
     wtype: WorkItemType,
@@ -314,6 +352,7 @@ async def automate(  # noqa: PLR0913 - the documented order, one step after the 
     current.update(outcome.values)
     done.values.update(outcome.values)
     done.trace = outcome.trace
+    await _rule_person_moves_record(session, outcome, after, current, done)
     if route:
         choice = await route_record(
             session, wtype.code.value, current, record_id=record_id, entry_group_id=entry_group_id

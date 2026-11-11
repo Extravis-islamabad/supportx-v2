@@ -15,9 +15,16 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.assets.infra.models import AssetProduct, AssetProductType, AssetState
-from app.modules.assets.service.assets import ASSET_FIELDS, VIEW, staff_rows
+from app.modules.assets.infra.models import (
+    Asset,
+    AssetProduct,
+    AssetProductType,
+    AssetState,
+    AssetValuation,
+)
+from app.modules.assets.service.assets import ASSET_FIELDS, VIEW, VIEW_FINANCIALS, staff_rows
 from app.modules.identity_access import Subject
+from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.reporting import (
     Dimension,
     DimensionKind,
@@ -40,7 +47,42 @@ DIMENSIONS: Mapping[str, Dimension] = {
     "acquired_on": Dimension(_D.DATETIME),  # age, by bucket
     "warranty_expires_on": Dimension(_D.DATETIME),  # warranty ending
     "created_at": Dimension(_D.DATETIME),
+    # WP-049b s2 (REQ-AST-038 AC2): free text as typed, each value named as itself.
+    "cost_centre": Dimension(_D.ADMIN_CODE),
+    "gl_code": Dimension(_D.ADMIN_CODE),
 }
+# Money (REQ-AST-036, 037), for those who may see it (`assets.view_financials`) only: each
+# asset's book value today and its total cost of ownership, from its valuation (refreshed on
+# every change and daily). Lane C's measures sum them: `book_value`, `total_cost`.
+_VALUATION = AssetValuation.asset_id == Asset.id
+MONEY_FIELDS = {
+    "book_value": FilterField(
+        select(AssetValuation.book_value).where(_VALUATION).scalar_subquery(),
+        FieldType.DECIMAL,
+    ),
+    "total_cost": FilterField(
+        select(AssetValuation.total_cost).where(_VALUATION).scalar_subquery(),
+        FieldType.DECIMAL,
+    ),
+}
+MONEY_DIMENSIONS: Mapping[str, Dimension] = {
+    "book_value": Dimension(_D.NUMBER),
+    "total_cost": Dimension(_D.NUMBER),
+}
+FREE_TEXT = ("cost_centre", "gl_code")
+
+
+def fields_for(subject: Subject) -> tuple[ResourceFields, Mapping[str, Dimension]]:
+    """The list's fields and dimensions, with the money ones for those who may see money."""
+    if not subject.holds(VIEW_FINANCIALS):
+        return ASSET_FIELDS, DIMENSIONS
+    fields = ResourceFields(
+        name=ASSET_FIELDS.name,
+        fields={**ASSET_FIELDS.fields, **MONEY_FIELDS},
+        id_column=ASSET_FIELDS.id_column,
+        default_sort=ASSET_FIELDS.default_sort,
+    )
+    return fields, {**DIMENSIONS, **MONEY_DIMENSIONS}
 
 
 class AssetSource:
@@ -66,11 +108,12 @@ class AssetSource:
         del session
         if not isinstance(subject, Subject):
             raise TypeError(subject)
+        fields, dimensions = fields_for(subject)
         return ReportingSource(
             entity=ENTITY,
             rows=staff_rows(subject),
-            fields=ASSET_FIELDS,
-            dimensions=DIMENSIONS,
+            fields=fields,
+            dimensions=dimensions,
             list_path="assets",
         )
 
@@ -127,16 +170,32 @@ async def product_names(
     return {str(r.id): r.name for r in rows}
 
 
+async def as_typed(
+    session: AsyncSession, values: Sequence[str], language: str, field: str
+) -> Mapping[str, str]:
+    """Cost centres and GL codes are free text: each is named as it was typed."""
+    del session, language, field
+    return {value: value for value in values}
+
+
 def register() -> None:
     """Make assets reportable and their values nameable (at import)."""
     register_source(AssetSource())
     register_names("asset_state", state_names)
     register_names("asset_product_type", product_type_names)
     register_names("asset_product", product_names)
+    for field in FREE_TEXT:
+        register_names(f"{ENTITY}.{field}", as_typed)
 
 
 def unregister() -> None:
     """Undo `register` (tests)."""
     unregister_source(ENTITY)
-    for kind in ("asset_state", "asset_product_type", "asset_product"):
+    for kind in (
+        "asset_state",
+        "asset_product_type",
+        "asset_product",
+        "asset.cost_centre",
+        "asset.gl_code",
+    ):
         unregister_names(kind)

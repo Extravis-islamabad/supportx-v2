@@ -50,19 +50,25 @@ test('a release is created from its template, moves on its rail, in English and 
     await expect(page.getByTestId('release-page')).toBeVisible(LIVE);
     id = page.url().split('/').at(-1) ?? '';
     await expect(page.getByTestId('rail-submission')).toBeVisible();
-    await expect(page.getByTestId('release-stage')).toContainText('Submission');
+    // The rail shows the stage (the header's stage chip is gone, QA fix-round D2).
+    await expect(page.getByTestId('release-rail')).toHaveAttribute('data-current', 'submission');
     await expectAccessible(page, 'a new release on its rail');
 
     await page.getByTestId('move-submission_accepted').click();
     await page.getByTestId('move-ok').click();
     // Accepted completes submission: the release is in planning at once, without a reload.
-    await expect(page.getByTestId('release-stage')).toContainText('Planning', LIVE);
+    await expect(page.getByTestId('release-rail')).toHaveAttribute(
+      'data-current',
+      'planning',
+      LIVE,
+    );
+    await expect(page.getByTestId('rail-planning')).toContainText('Planning');
     await expect(page.getByTestId('rail-submission-state')).not.toContainText('Not yet');
 
     await language(page, 'ar');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-    await expect(page.getByTestId('release-stage')).toContainText('التخطيط', LIVE);
+    await expect(page.getByTestId('rail-planning')).toContainText('التخطيط', LIVE);
     await expectAccessible(page, 'a release in Arabic');
   } finally {
     await resetLanguage(page);

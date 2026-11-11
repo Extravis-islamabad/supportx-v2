@@ -355,6 +355,38 @@ async def restart(  # noqa: PLR0913 - the record, its new path and why, explicit
     }
 
 
+async def send_back(  # noqa: PLR0913 - the record, where it goes back to and why, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    stage: str,
+    status: str,
+    now: datetime,
+    reason_code: str,
+) -> dict[str, Any]:
+    """Send a record back to `stage` at `status` on its own path, a new round (the system only).
+
+    A change whose approved window or risk changed beyond its policy goes back to that stage's
+    raising status (REQ-CHG-053, Haider 2026-11-10). As in `restart`: the open entry closes, the
+    stage is entered again with `reason_code`, and the caller saves the returned columns.
+    """
+    model = await load_model(session, wtype, record.lifecycle_version)
+    target = next((s for s in model.statuses_of(stage) if s.code == status), None)
+    if target is None:
+        raise Conflict(code="stage_move_not_allowed", params={"to_status": status})
+    await enter(
+        session,
+        record,
+        [stage],
+        now=now,
+        left=None if record.stage is None else str(record.stage),
+        reason_code=reason_code,
+        path=str(record.stage_path),
+    )
+    return {"stage": stage, "status": target.code, "status_category": target.category}
+
+
 async def _stamp_actual(
     session: AsyncSession,
     record: WorkItem,

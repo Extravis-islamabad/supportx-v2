@@ -22,6 +22,7 @@ from app.modules.audit.domain.catalogue import (
     AuditClient,
     AuditOutcome,
 )
+from app.modules.audit.domain.fingerprint import FingerprintStatus
 from app.modules.audit.infra.models import (
     AuditAnchor,
     AuditArchive,
@@ -31,6 +32,7 @@ from app.modules.audit.infra.models import (
     AuditQueueItem,
     AuditVerificationRun,
 )
+from app.modules.audit.service.fingerprints import status_of_entry
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.clock import Clock, system_clock
@@ -42,7 +44,13 @@ ENTRY_FIELDS = ResourceFields(
         "occurred_at": FilterField(
             AuditEntry.occurred_at, FieldType.DATETIME, sortable=True, simple=False
         ),
-        "action": FilterField(AuditEntry.action, FieldType.ENUM, values=frozenset(ACTIONS)),
+        # A route's code also finds the save entries led by another code that list it (WP-064).
+        "action": FilterField(
+            AuditEntry.action,
+            FieldType.ENUM,
+            values=frozenset(ACTIONS),
+            also_in=AuditEntry.events,
+        ),
         "category": FilterField(
             AuditEntry.category, FieldType.ENUM, values=frozenset(c.value for c in AuditCategory)
         ),
@@ -86,6 +94,8 @@ class EntryDetail:
     prev_hash: bytes | None
     sealed_at: datetime | None
     personal: dict[str, dict[str, Any]]  # subject id -> data (erased subjects are absent)
+    # A save's entry checked against record history now (ADR-046); None without a fingerprint
+    fingerprint_status: FingerprintStatus | None = None
 
 
 async def _views(session: AsyncSession, entries: Sequence[AuditEntry]) -> list[EntryView]:
@@ -128,6 +138,7 @@ async def get_entry(session: AsyncSession, entry_id: uuid.UUID) -> EntryDetail:
         link.prev_hash if link else None,
         link.sealed_at if link else None,
         personal,
+        await status_of_entry(session, entry),
     )
 
 

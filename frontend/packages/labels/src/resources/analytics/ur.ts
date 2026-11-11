@@ -144,11 +144,17 @@ export const ur: LabelResource = {
   'dashboards.filter_group_id': 'گروپ',
   'dashboards.filter_site_id': 'سائٹ',
   'dashboards.filtered_by': '{{filters}} کے لحاظ سے فلٹر شدہ',
+  'dashboards.for': 'کس کے لیے',
+  'dashboards.for_me': 'صرف میرے لیے',
   'dashboards.from_report': 'کسی رپورٹ سے',
+  'dashboards.group': 'گروپ',
   'dashboards.group_builtin': 'تیار شدہ',
   'dashboards.group_builtin_empty': 'کوئی تیار ڈیش بورڈ نہیں جسے آپ کھول سکیں۔',
+  'dashboards.group_groups': 'میرے گروپ',
+  'dashboards.group_groups_empty': 'ابھی آپ کے گروپوں کے لیے کوئی ڈیش بورڈ نہیں۔',
   'dashboards.group_mine': 'میرے ڈیش بورڈ',
   'dashboards.group_mine_empty': 'ابھی آپ کا اپنا کوئی ڈیش بورڈ نہیں۔',
+  'dashboards.group_removed': 'گروپ ہٹا دیا گیا',
   'dashboards.group_shared': 'میرے ساتھ شیئر شدہ',
   'dashboards.group_shared_empty': 'ابھی کسی نے آپ کے ساتھ ڈیش بورڈ شیئر نہیں کیا۔',
   'dashboards.is_home': 'آپ کا ہوم',
@@ -205,8 +211,14 @@ export const ur: LabelResource = {
   'dashboards.widget_unavailable': 'اس وجیٹ کے پیچھے کی رپورٹ آپ کے لیے دستیاب نہیں۔',
   'dashboards.your_home': 'آپ کا ہوم',
   'errors.pdf_not_available': 'اس سرور پر PDF ایکسپورٹ دستیاب نہیں۔',
+  'measure.asset.book_value_total': 'کتابی قیمت',
+  'measure.asset.book_value_total.help':
+    'فرسودگی کے بعد آج اثاثوں کی مجموعی قیمت، بنیادی کرنسی میں۔',
   'measure.asset.count': 'اثاثے',
-  'measure.asset.count.help': 'ہر وہ اثاثہ جو فلٹرز سے ملتا ہو اور جسے آپ دیکھ سکتے ہوں۔',
+  'measure.asset.count.help': 'ہر وہ اثاثہ جو فلٹرز سے میل کھاتا ہے اور آپ دیکھ سکتے ہیں۔',
+  'measure.asset.total_cost_total': 'ملکیت کی کل لاگت',
+  'measure.asset.total_cost_total.help':
+    'اثاثے خریدنے اور رکھنے کی مجموعی لاگت (سروس، منتقلی، معاہدے اور دیگر)، بنیادی کرنسی میں۔',
   'measure.incident.average_reassignments': 'دوبارہ تفویض کی اوسط تعداد',
   'measure.incident.average_reassignments.help':
     'کسی واقعے کے دوسرے گروپ یا ٹیکنیشن کو منتقل ہونے کی اوسط تعداد۔',
@@ -256,6 +268,9 @@ export const ur: LabelResource = {
   'measure.service_request.count': 'سروس درخواستیں',
   'measure.service_request.count.help':
     'ہر وہ سروس درخواست جو فلٹرز سے ملتی ہو اور جسے آپ دیکھ سکتے ہوں۔',
+  'report.assets_book_value_by_cost_centre': 'لاگت مرکز کے لحاظ سے کتابی قیمت',
+  'report.assets_book_value_by_cost_centre.description':
+    'ہر لاگت مرکز کے اثاثوں کی آج کی قیمت، سب سے بڑی پہلے۔',
   'report.assets_by_age': 'عمر کے مطابق اثاثے',
   'report.assets_by_age.description': 'ہر اثاثہ کتنا عرصہ پہلے حاصل کیا گیا۔',
   'report.assets_by_product_type': 'پروڈکٹ کی قسم کے مطابق اثاثے',
@@ -263,9 +278,12 @@ export const ur: LabelResource = {
     'ہر وہ اثاثہ جو آپ دیکھ سکتے ہیں، اس کی پروڈکٹ کی قسم کے مطابق۔',
   'report.assets_by_state': 'حالت کے مطابق اثاثے',
   'report.assets_by_state.description': 'ہر وہ اثاثہ جو آپ دیکھ سکتے ہیں، اس کی حالت کے مطابق۔',
-  'report.assets_warranty_ending': 'ختم ہونے کے مہینے کے مطابق وارنٹیاں',
+  'report.assets_total_cost_of_ownership': 'ملکیت کی کل لاگت',
+  'report.assets_total_cost_of_ownership.description':
+    'ہر قسم کے اثاثے کو خریدنے اور رکھنے کی لاگت، اس کی آج کی قیمت کے ساتھ۔',
+  'report.assets_warranty_ending': 'اگلے 90 دنوں میں ختم ہونے والی وارنٹیاں',
   'report.assets_warranty_ending.description':
-    'وارنٹی والے اثاثے، وارنٹی ختم ہونے کے مہینے کے مطابق۔',
+    'وہ اثاثے جن کی وارنٹی 90 دنوں میں ختم ہو رہی ہے، ختم ہونے کے مہینے کے مطابق۔',
   'report.incidents_all': 'تمام واقعات',
   'report.incidents_all.description': 'مدت میں بننے والا ہر واقعہ، حیثیت کے مطابق۔',
   'report.incidents_by_status': 'حیثیت کے مطابق واقعات',

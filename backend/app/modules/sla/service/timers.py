@@ -30,7 +30,7 @@ from app.modules.sla.domain.policy import TargetKind, TargetState
 from app.modules.sla.events import SlaBreached, SlaEscalated, SlaWarning
 from app.modules.sla.infra.models import SlaEscalationRun, SlaTarget
 from app.modules.sla.service.clock import breach_if_overdue, current_clocks, stamp_of
-from app.modules.sla.service.registry import Fired, record_type
+from app.modules.sla.service.registry import Fired, RecordState, record_type
 from app.shared.clock import system_clock
 from app.shared.events import record_event
 
@@ -38,6 +38,10 @@ log = structlog.get_logger(__name__)
 
 # The safety net fires what is this late (D-115 D5): the waker normally comes at the moment.
 SAFETY_NET_GRACE = timedelta(minutes=2)
+# Targets still counting: running, paused, or past due and not yet met (REQ-SLA-020).
+OPEN_STATES = frozenset(
+    {TargetState.RUNNING.value, TargetState.PAUSED.value, TargetState.BREACHED.value}
+)
 SAFETY_NET_BATCH = 500  # records per tenant per sweep; the next sweep takes the rest
 
 
@@ -121,6 +125,16 @@ async def fire(session: AsyncSession, record_id: uuid.UUID, *, now: datetime) ->
     rtype = record_type(code) if code is not None else None
     if code is None or rtype is None:
         return result
+    state = (
+        RecordState.LIVE
+        if rtype.record_state is None
+        else await rtype.record_state(session, record_id)
+    )
+    if state is RecordState.TRASHED:
+        return result  # restored as it was: its clocks fire then
+    if state is RecordState.GONE:
+        await _stop_gone(session, record_id, now=now)
+        return result
     if rtype.lock_record is not None:
         await rtype.lock_record(session, record_id)  # the record first (registry.LockHook)
     application, current = await current_clocks(session, record_id, lock=True)
@@ -143,6 +157,62 @@ async def fire(session: AsyncSession, record_id: uuid.UUID, *, now: datetime) ->
         await rtype.on_fired(session, record_id, stamp.columns(), result.fired, now=now)
     result.next_wake = await next_wake(session, record_id)
     return result
+
+
+@dataclass(frozen=True)
+class OpenClock:
+    """Where one open target stands (the restore warning, Haider 2026-11-10)."""
+
+    kind: str  # first_response | resolution
+    state: str  # overdue | left | paused
+    seconds: int  # how far past due, or how much is left; 0 when paused
+
+
+async def open_clocks(
+    session: AsyncSession, record_id: uuid.UUID, *, now: datetime
+) -> list[OpenClock]:
+    """The record's open targets now: overdue by, time left, or paused (first response first).
+
+    The clock keeps running while a record is in the trash (Haider): a restore says where each
+    target stands, on screen and in the history.
+    """
+    _application, current = await current_clocks(session, record_id)
+    found: list[OpenClock] = []
+    for kind in (TargetKind.FIRST_RESPONSE, TargetKind.RESOLUTION):
+        entry = current.get(kind)
+        row = entry.row if entry is not None else None
+        if row is None or row.state not in OPEN_STATES:
+            continue
+        if row.state == TargetState.PAUSED.value or row.due_at is None:
+            found.append(OpenClock(kind.value, "paused", 0))
+            continue
+        left = int((row.due_at - now).total_seconds())
+        found.append(OpenClock(kind.value, "left" if left > 0 else "overdue", abs(left)))
+    return found
+
+
+async def _stop_gone(session: AsyncSession, record_id: uuid.UUID, *, now: datetime) -> None:
+    """Stop the clocks of a record that is no longer there, once (never fired again)."""
+    stopped = await session.execute(
+        update(SlaTarget)
+        .where(
+            SlaTarget.record_id == record_id,
+            SlaTarget.state.in_([TargetState.RUNNING.value, TargetState.PAUSED.value]),
+        )
+        .values(state=TargetState.STOPPED.value, version=SlaTarget.version + 1)
+        .returning(SlaTarget.id)
+    )
+    targets = list(stopped.scalars())
+    if targets:
+        await session.execute(
+            update(SlaEscalationRun)
+            .where(
+                SlaEscalationRun.target_id.in_(targets),
+                SlaEscalationRun.state == RunState.WAITING.value,
+            )
+            .values(state=RunState.CANCELLED.value, version=SlaEscalationRun.version + 1)
+        )
+        log.warning("sla_record_gone", record_id=str(record_id), stopped=len(targets), at=str(now))
 
 
 async def _run_level(  # noqa: PLR0913 - the run and its record, explicit
@@ -228,9 +298,17 @@ async def next_wake(session: AsyncSession, record_id: uuid.UUID) -> datetime | N
 
 
 async def overdue_records(
-    session: AsyncSession, before: datetime, *, limit: int = SAFETY_NET_BATCH
+    session: AsyncSession,
+    before: datetime,
+    *,
+    limit: int = SAFETY_NET_BATCH,
+    after: uuid.UUID | None = None,
 ) -> list[uuid.UUID]:
-    """Records of the session's tenant with something due before `before` (the safety net)."""
+    """Records of the session's tenant with something due before `before` (the safety net).
+
+    In record order from `after`, so a sweep pages through all of them: records that are
+    skipped (in the trash) never crowd out the others behind a fixed first page.
+    """
     late = union_all(
         select(SlaTarget.record_id.label("record_id")).where(
             SlaTarget.state == TargetState.RUNNING.value,
@@ -247,7 +325,10 @@ async def overdue_records(
             SlaEscalationRun.due_at <= before,
         ),
     ).subquery()
-    rows = await session.scalars(select(late.c.record_id).distinct().limit(limit))
+    query = select(late.c.record_id).distinct().order_by(late.c.record_id).limit(limit)
+    if after is not None:
+        query = query.where(late.c.record_id > after)
+    rows = await session.scalars(query)
     return list(rows)
 
 
@@ -262,11 +343,32 @@ async def safety_net(database: Database, settings: Settings) -> None:
     async with database.platform_session() as platform:
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
     for tenant in tenants:
+        try:  # one tenant never stops the others either
+            await _sweep(database, tenant, now)
+        except Exception:
+            log.exception("sla_safety_net_tenant_failed", tenant_id=str(tenant))
+
+
+async def _sweep(database: Database, tenant: uuid.UUID, now: datetime) -> None:
+    """One tenant's late records, page by page, each in its own transaction."""
+    after: uuid.UUID | None = None
+    while True:
         async with database.tenant_session(TenantContext(tenant)) as session:
-            late = await overdue_records(session, now - SAFETY_NET_GRACE)
+            late = await overdue_records(session, now - SAFETY_NET_GRACE, after=after)
+        if not late:
+            return
+        after = late[-1]
         for record_id in late:
-            async with database.tenant_session(TenantContext(tenant)) as session:
-                result = await fire(session, record_id, now=system_clock.now())
+            # One record never stops the others (lane B, 2026-11-10): each fires in its own
+            # transaction, and a failure is logged and left for the next run.
+            try:
+                async with database.tenant_session(TenantContext(tenant)) as session:
+                    result = await fire(session, record_id, now=system_clock.now())
+            except Exception:
+                log.exception(
+                    "sla_safety_net_record_failed", tenant_id=str(tenant), record_id=str(record_id)
+                )
+                continue
             if result.fired:
                 log.warning(
                     "sla_fired_late",

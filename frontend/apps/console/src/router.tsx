@@ -44,8 +44,67 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-049a s5 (REQ-AST-030, 031): the loan register.
+            path: 'loans',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/LoansPage')).LoansPage,
+            }),
+          },
+          {
+            // WP-049b s1 (REQ-AST-033, 034): consumable stock, its lots and ledger.
+            path: 'consumables',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/ConsumablesPage')).ConsumablesPage,
+            }),
+          },
+          {
+            path: 'consumables/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/ConsumablePage')).ConsumablePage,
+            }),
+          },
+          {
+            // WP-049a s4 (REQ-AST-028): static and dynamic groups.
+            path: 'groups',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/GroupsPage')).GroupsPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({ Component: (await import('./pages/assets/AssetPage')).AssetPage }),
+          },
+        ],
+      },
+      {
+        // The change screens (WP-045d D19, taken forward): the list, a new change, the record.
+        path: 'changes',
+        handle: { section: 'changes' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangesPage')).ChangesPage,
+            }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/NewChangePage')).NewChangePage,
+            }),
+          },
+          {
+            // WP-045c S3: the change calendar.
+            path: 'calendar',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangeCalendarPage')).ChangeCalendarPage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangePage')).ChangePage,
+            }),
           },
         ],
       },
@@ -348,9 +407,44 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // Visual workflows (WP-048b S4): the list (template C) and the designer.
+            path: 'workflows',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/WorkflowsPage')).WorkflowsPage,
+            }),
+          },
+          {
+            // WP-048b S5a: every run, the second tab of Admin › Workflows.
+            path: 'workflows/runs',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/RunsPage')).RunsPage,
+            }),
+          },
+          {
+            path: 'workflows/:workflowId',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/DesignerPage')).DesignerPage,
+            }),
+          },
+          {
             path: 'automation/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/automation/AutomationPage')).AutomationPage,
+            }),
+          },
+          {
+            // WP-045c: freeze and maintenance windows (template E).
+            path: 'change-windows',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/changes/ChangeWindowsPage'))
+                .ChangeWindowsPage,
+            }),
+          },
+          {
+            // The change screens' S4: change advisory boards (template E).
+            path: 'change-boards',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/changes/ChangeBoardsPage')).ChangeBoardsPage,
             }),
           },
           {

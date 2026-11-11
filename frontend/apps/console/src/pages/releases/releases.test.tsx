@@ -119,12 +119,19 @@ afterEach(() => {
   restore();
 });
 
-function api() {
+function api(
+  extra: Parameters<typeof consoleApi>[0] extends infer A
+    ? A extends { routes?: infer R }
+      ? R
+      : never
+    : never = {},
+  permissions: string[] = ['releases.view', 'releases.create', 'releases.edit'],
+) {
   const fake = consoleApi({
     me: fakeSession(
       { roles: ['tenant_admin'] },
       {
-        permissions: ['releases.view', 'releases.create', 'releases.edit'].map((key) => ({
+        permissions: permissions.map((key) => ({
           key,
           scope: 'all' as const,
           scopes: ['all' as const],
@@ -156,8 +163,27 @@ function api() {
           release_engineer_id: null,
         },
       },
+      'GET /api/v1/releases/list-settings/open': {
+        body: { view_key: 'open', columns: [], sort: null, page_size: 50, version: null },
+      },
+      'PUT /api/v1/releases/list-settings/open': (call: { body: unknown }) => ({
+        body: { view_key: 'open', version: 1, ...(call.body as object) },
+        headers: { ETag: '"1"' },
+      }),
       'GET /api/v1/releases/settings': {
         body: {
+          // The type's statuses, as the API sends them: the list's status dot (QA10V-06).
+          statuses: [
+            {
+              code: 'build_in_progress',
+              category: 'open',
+              colour: '#1677ff',
+              labels: null,
+              system: false,
+              disabled: false,
+              resume_on_requester_reply: false,
+            },
+          ],
           closure_codes: [],
           own_lists: { release_type: [{ code: 'major', labels: null, disabled: false }] },
         },
@@ -172,6 +198,7 @@ function api() {
       [`POST /api/v1/releases/${REL_ID}/approvals/${APPROVAL_ID}/decision`]: {
         body: { ...approval, state: 'rejected', version: 3 },
       },
+      ...extra,
     },
   });
   restore = fake.restore;
@@ -195,14 +222,21 @@ describe('console: releases', () => {
     window.history.pushState({}, '', '/releases');
     const fake = api();
     render(<App />);
-    await screen.findByTestId('release-row-REL-1');
+    const row = await screen.findByTestId('release-row-REL-1');
+    // The ID is a link and the status a dot chip (QA10V-06).
+    expect(within(row).getByTestId('release-link-REL-1').tagName).toBe('A');
+    expect(within(row).getByTestId('inc-status').querySelector('.ant-badge')).not.toBeNull();
     const bar = screen.getByTestId('releases-filters');
     expect(within(bar).getByTestId('releases-view')).toBeTruthy();
     expect(within(bar).getByTestId('releases-search')).toBeTruthy();
     const first = fake.find('GET', '/api/v1/releases')[0];
     expect(first?.url.searchParams.get('view')).toBe('open');
     expect(first?.url.searchParams.get('include_total')).toBe('true');
-    fireEvent.click(within(bar).getByText('All'));
+    // The view select, as on every list (QA10V-06; it was segmented tabs).
+    const selector = within(bar).getByTestId('releases-view').querySelector('.ant-select-selector');
+    if (selector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(selector);
+    fireEvent.click(await screen.findByTitle('All'));
     fireEvent.change(within(bar).getByRole('searchbox'), { target: { value: 'rel-1' } });
     await waitFor(() => {
       const last = fake.find('GET', '/api/v1/releases').at(-1);
@@ -213,6 +247,36 @@ describe('console: releases', () => {
           { field: 'display_id', op: 'eq', value: 'REL-1' },
         ],
       });
+    });
+  });
+
+  it('Haider 2026-11-10: a column resized by keyboard is kept per view; Reset widths clears it', async () => {
+    window.history.pushState({}, '', '/releases');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('release-row-REL-1');
+    expect(screen.queryByTestId('releases-reset-widths')).toBeNull(); // nothing to reset yet
+    const [subject] = screen.getAllByRole('separator', { name: /Subject/ });
+    if (subject === undefined) throw new Error('no resize handle on the subject');
+    expect(subject.getAttribute('aria-valuemin')).toBe('180');
+    fireEvent.keyDown(subject, { key: 'ArrowRight' });
+    const last = () =>
+      fake.find('PUT', '/api/v1/releases/list-settings/open').at(-1)?.body as {
+        columns: { key: string; width: number | null }[];
+      };
+    await waitFor(() => {
+      expect(last().columns.find((c) => c.key === 'subject')?.width).toBeGreaterThanOrEqual(180);
+    });
+    expect(last().columns.map((c) => c.key)).toEqual([
+      'id',
+      'subject',
+      'stage',
+      'status',
+      'updated',
+    ]);
+    fireEvent.click(await screen.findByTestId('releases-reset-widths'));
+    await waitFor(() => {
+      expect(last().columns.every((c) => c.width === null)).toBe(true);
     });
   });
 
@@ -242,6 +306,10 @@ describe('console: releases', () => {
       b.getAttribute('data-testid'),
     );
     expect(buttons).toEqual(['release-cancel', 'release-save']);
+    // QA10-P4-16: a template with no path of its own still names the path it takes.
+    expect((await screen.findByTestId('release-path')).textContent).toBe(
+      'This template takes the Standard path.',
+    );
     expect(
       screen.getByTestId('release-section').querySelector('button[data-testid="release-save"]'),
     ).toBeNull();
@@ -280,6 +348,8 @@ describe('console: releases', () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     const fake = api();
     render(<App />);
+    // D-155: the next stage's move is the one button; a move within the stage is under More.
+    fireEvent.click(await screen.findByTestId('release-more'));
     fireEvent.click(await screen.findByTestId('move-build_completed'));
     const field = await screen.findByTestId('move-field-release_version');
     expect(screen.queryByTestId('move-reason')).toBeNull(); // this move asks for no reason
@@ -326,9 +396,9 @@ describe('console: releases', () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     api();
     render(<App />);
-    // The Details tab with nothing changed: its Save is not a second primary action.
-    const save = await screen.findByTestId('release-details-save');
-    expect(save.className).not.toContain('ant-btn-primary');
+    // The Details tab with nothing changed: no footer, so no second primary action (D-155).
+    await screen.findByTestId('release-details');
+    expect(screen.queryByTestId('release-details-save')).toBeNull();
     fireEvent.click(screen.getByTestId('move-testing_in_progress'));
     const dialog = await screen.findByTestId('move-dialog');
     // The custom field reads by its name, never its key (rule d).
@@ -353,6 +423,87 @@ describe('console: releases', () => {
     expect(visible.length).toBeLessThanOrEqual(3); // beside More: the 4-action rule
   });
 
+  it("D-155: one primary, the next stage's move; the key facts, no chip repeating the stage bar; no empty schedule card", async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    const moves = await screen.findByTestId('release-moves');
+    const buttons = within(moves)
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('data-testid') !== 'release-more');
+    expect(buttons.map((b) => b.getAttribute('data-testid'))).toEqual(['move-testing_in_progress']);
+    expect(buttons[0]?.textContent).toBe('Move to Testing');
+    // A1 on every record: the stage chip and the key facts; never the status twice.
+    // No stage chip: the stage bar always shows the stage (QA fix-round D2).
+    expect(screen.queryByTestId('release-stage')).toBeNull();
+    expect(screen.queryByTestId('release-status')).toBeNull();
+    // Worded as every record's menu (QA10V-10: "⋮ More").
+    expect(screen.getByTestId('release-more').textContent).toContain('More actions');
+    expect(screen.getByTestId('release-people').textContent).toMatch(/^Requested by /);
+    expect(screen.getByTestId('record-kind-tile').getAttribute('data-kind')).toBe('release');
+  });
+
+  it('D-155: the plan shows the sections of this stage; empty ones are one compact Add list', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const section = (code: string, content: string | null) => ({
+      section: code,
+      content,
+      version: 1,
+    });
+    api({
+      [`GET /api/v1/releases/${REL_ID}/plan`]: {
+        body: [
+          section('impact', '<p>Mail is down for ten minutes.</p>'),
+          section('rollout', null),
+          section('backout', null),
+          section('review_findings', null),
+          section('review_went_well', null),
+          section('review_went_badly', null),
+        ],
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Plan' }));
+    expect(await screen.findByTestId('plan-impact')).toBeDefined(); // written: shown
+    const adds = within(screen.getByTestId('release-plan-add')).getAllByRole('button');
+    expect(adds.map((b) => b.textContent)).toEqual(['Add rollout plan', 'Add backout plan']);
+    expect(screen.queryByTestId('plan-review_findings-add')).toBeNull(); // the build stage
+    fireEvent.click(screen.getByTestId('plan-rollout-add'));
+    expect(await screen.findByTestId('plan-rollout-editor')).toBeDefined();
+  });
+
+  it('D-155: Details shows its footer only with a change; Save says what is missing; zone once', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    const details = await screen.findByTestId('release-details');
+    expect(within(details).getAllByText(/^Times are in /)).toHaveLength(1);
+    expect(within(details).getAllByText('Choose…').length).toBeGreaterThanOrEqual(2);
+    fireEvent.change(within(details).getByTestId('release-version'), { target: { value: '5.4' } });
+    const footer = await screen.findByTestId('release-details-footer');
+    const buttons = within(footer)
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    expect(buttons).toEqual(['Cancel', 'Save']);
+    fireEvent.click(within(footer).getByTestId('release-details-cancel'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('release-details-footer')).toBeNull();
+    });
+  });
+
+  it('D-155: downtime on one baseline, the zone said once, and Add says what is missing', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api({ [`GET /api/v1/releases/${REL_ID}/downtimes`]: { body: [] } });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Downtime' }));
+    const tab = await screen.findByTestId('release-downtimes');
+    expect(await within(tab).findByText('No downtime planned.')).toBeDefined();
+    expect(within(tab).getAllByText(/^Times are in /)).toHaveLength(1);
+    expect(screen.getByTestId<HTMLButtonElement>('downtime-add').disabled).toBe(true);
+    fireEvent.mouseOver(within(tab).getByTestId('disabled-why'));
+    expect(await screen.findByText('Choose when it starts and when it ends.')).toBeDefined();
+  });
+
   it('QA6-REL-04: the tab and the top bar say which release this is', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     api();
@@ -362,5 +513,131 @@ describe('console: releases', () => {
       expect(document.title).toContain('REL-1');
     });
     expect(document.title).toContain('Releases');
+  });
+
+  describe('the Workflows tab (WP-048b S4d; REQ-WF-023, -024)', () => {
+    const INSTANCE = '01a1a2b3-0000-7000-8000-0000000e0f01';
+    const PERMS = ['releases.view', 'releases.edit', 'workflows.run'];
+    const failedRun = {
+      instance: {
+        id: INSTANCE,
+        workflow_id: '01a1a2b3-0000-7000-8000-0000000e0f02',
+        version_number: 1,
+        record_type: 'release',
+        record_id: REL_ID,
+        status: 'failed',
+        failure: { node: 'call', code: 'webhook_timeout', params: {} },
+        wake_at: null,
+        started_how: 'trigger',
+        started_at: '2026-11-11T10:00:00Z',
+        finished_at: null,
+        stopped_reason: null,
+        version: 4,
+      },
+      workflow_name: 'Release go-live',
+      definition: {
+        format: 1,
+        nodes: [
+          { id: 'start', type: 'start', config: {}, position: { x: 0, y: 0 } },
+          { id: 'call', type: 'webhook', config: {}, position: { x: 0, y: 140 } },
+          { id: 'end', type: 'end', config: {}, position: { x: 0, y: 280 } },
+        ],
+        links: [
+          { from: 'start', port: 'next', to: 'call' },
+          { from: 'call', port: 'next', to: 'end' },
+        ],
+        variables: [],
+      },
+      current_nodes: ['call'],
+      steps: [
+        {
+          seq: 1,
+          node: 'start',
+          node_type: 'start',
+          result: 'next',
+          at: '2026-11-11T10:00:00Z',
+          detail: null,
+        },
+        {
+          seq: 2,
+          node: 'call',
+          node_type: 'webhook',
+          result: 'set:retried',
+          at: '2026-11-11T10:00:07Z',
+          detail: null,
+        },
+      ],
+    };
+
+    it('shows the run: the failure in words, the path, and the log to the second; Retry carries the If-Match', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(
+        {
+          [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] },
+          [`POST /api/v1/automation/workflows/instances/${INSTANCE}/retry`]: {
+            body: { ...failedRun.instance, status: 'running', version: 5 },
+          },
+        },
+        PERMS,
+      );
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Workflows' }));
+      const failure = await screen.findByTestId(`record-workflow-failure-${INSTANCE}`);
+      expect(failure.textContent).toContain('Stopped at the step call');
+      expect(failure.textContent).toContain('The other side took too long to answer.');
+      expect(failure.textContent).not.toContain('webhook_timeout'); // never a raw code
+      const log = screen.getByTestId(`record-workflow-log-${INSTANCE}`);
+      expect(log.textContent).toContain('7 s'); // start → call, to the second
+      expect(log.textContent).not.toContain('set:retried');
+      fireEvent.click(screen.getByTestId(`record-workflow-retry-${INSTANCE}`));
+      await waitFor(() => {
+        expect(
+          fake.find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/retry`),
+        ).toHaveLength(1);
+      });
+      expect(
+        fake
+          .find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/retry`)[0]
+          ?.headers.get('If-Match'),
+      ).toBe('"4"');
+    });
+
+    it('REQ-WF-024 AC2: Skip asks first, then goes with the run’s If-Match', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(
+        {
+          [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] },
+          [`POST /api/v1/automation/workflows/instances/${INSTANCE}/skip`]: {
+            body: { ...failedRun.instance, status: 'finished', version: 5 },
+          },
+        },
+        PERMS,
+      );
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Workflows' }));
+      fireEvent.click(await screen.findByTestId(`record-workflow-skip-${INSTANCE}`));
+      const dialog = await screen.findByRole('dialog');
+      expect(dialog.textContent).toContain('Skip the step call?');
+      expect(dialog.textContent).toContain('recorded with your name');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Skip this step' }));
+      await waitFor(() => {
+        expect(
+          fake.find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/skip`),
+        ).toHaveLength(1);
+      });
+      expect(
+        fake
+          .find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/skip`)[0]
+          ?.headers.get('If-Match'),
+      ).toBe('"4"');
+    });
+
+    it('REQ-WF-023 AC3: no Workflows tab without workflows.run', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      api({}, ['releases.view', 'releases.edit']);
+      render(<App />);
+      await screen.findByRole('tab', { name: 'Details' });
+      expect(screen.queryByRole('tab', { name: 'Workflows' })).toBeNull();
+    });
   });
 });

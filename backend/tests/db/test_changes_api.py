@@ -12,9 +12,12 @@ from typing import Any
 import httpx
 import pytest
 
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 CHG = "/changes"
 
@@ -760,3 +763,165 @@ async def test_req_chg_017_an_implementation_past_its_window_shows_overdue(world
     assert set_.status_code == 200, set_.text
     shown = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.admin)).json()
     assert next(s for s in shown if s["stage"] == "implementation")["overdue"] is True
+
+
+NINE = {
+    "affected": "organisation",
+    "done_before": "once_or_twice",
+    "backout_plan": "untested",
+    "outage": "none",
+    "critical": "no",
+    "cis_changed": "more_than_five",
+}
+
+
+async def test_req_chg_057_060_assess_the_risk_then_override_it_with_a_reason(
+    world: World,
+) -> None:
+    from tests.db.test_release_templates_api import field_codes  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    item = await a_change(world, a)
+    asked = (await world.call("GET", f"{CHG}/{item['id']}/risk/questionnaire", a, a.admin)).json()
+    assert (asked["version"], len(asked["questions"])) == (1, 6)  # Appendix A's
+
+    async def assess(answers: dict[str, str], version: int) -> httpx.Response:
+        return await world.call(
+            "PUT",
+            f"{CHG}/{item['id']}/risk/assessment",
+            a,
+            a.admin,
+            json={"answers": answers},
+            headers={"If-Match": f'"{version}"', **CONSOLE},
+        )
+
+    wrong = await assess({**NINE, "critical": "maybe"}, item["version"])
+    assert field_codes(wrong) == {("risk_answers.critical", "invalid_choice")}
+    scored = await assess(NINE, item["version"])
+    assert scored.status_code == 200, scored.text
+    shown = scored.json()
+    assert (shown["risk"], shown["risk_score"], shown["risk_version"]) == ("high", 9, 1)  # AC1
+    history = (await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)).json()
+    lines = {c["field"]: c["new"] for e in history["items"] for c in e["changes"]}
+    assert lines["risk"] == "high"
+    # An override without a reason is refused; with one, both levels are kept (REQ-CHG-060).
+    bare = await details(world, a, item, shown["version"], risk_chosen="low")
+    assert field_codes(bare) == {("risk_reason", "reason_required")}
+    chosen = await details(
+        world, a, item, shown["version"], risk_chosen="low", risk_reason="Done weekly, no issue"
+    )
+    assert chosen.status_code == 200, chosen.text
+    assert (chosen.json()["risk"], chosen.json()["risk_chosen"]) == ("high", "low")
+
+
+async def test_the_change_list_s_pending_approval_view_holds_changes_at_a_stage_approval(
+    world: World,
+) -> None:
+    """The change screens' "Pending approval" view: changes waiting at a stage's approval.
+
+    Stage approvals never set the record's approval status, so the view also matches the
+    stages' raising statuses; the list's DSL equivalent (for export) says the same.
+    """
+    a = world.a
+    waiting = await a_change(world, a)
+    other = await a_change(world, a)
+    raised = await move(world, a, waiting, "submission_awaiting_acceptance")
+    assert raised.status_code == 200, raised.text
+    views = await world.call("GET", f"{CHG}/views", a, a.admin)
+    assert views.status_code == 200, views.text
+    assert "pending_approval" in [v["view"] for v in views.json()]
+    listed = await world.call(
+        "GET", CHG, a, a.admin, params={"view": "pending_approval", "include_total": "true"}
+    )
+    assert listed.status_code == 200, listed.text
+    ids = {i["id"] for i in listed.json()["items"]}
+    assert waiting["id"] in ids
+    assert other["id"] not in ids
+    filters = (await world.call("GET", f"{CHG}/view-filters", a, a.admin)).json()
+    as_filter = next(f for f in filters if f["view"] == "pending_approval")
+    found = await world.call(
+        "GET",
+        CHG,
+        a,
+        a.admin,
+        params={"filter": __import__("json").dumps(as_filter["filter"])},
+    )
+    assert found.status_code == 200, found.text
+    assert {i["id"] for i in found.json()["items"]} == ids
+
+
+async def _approve_pending(world: World, org: Org, item: dict[str, Any]) -> dict[str, Any]:
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", org, org.admin)).json()
+    [entry] = [r for r in rows["items"] if r["state"] == "pending"]
+    decided = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/approvals/{entry['id']}/decision",
+        org,
+        org.admin,
+        json={"decision": "approve"},
+        headers={"If-Match": f'"{entry["version"]}"', **CONSOLE},
+    )
+    assert decided.status_code == 200, decided.text
+    return dict((await world.call("GET", f"{CHG}/{item['id']}", org, org.admin)).json())
+
+
+async def test_qa_flow_4_a_normal_change_end_to_end(world: World) -> None:
+    """The change screens' journey (QA flow 4), as the console drives it, move by move.
+
+    Raise, accept, plan with a backout plan, the CAB, implement with an outcome, review, close.
+    A completing status moves on by itself (ADR-041), so the plan's approval lands in the CAB's
+    raising status and the CAB's in implementation; the e2e follows exactly these steps.
+    """
+    a = world.a
+    item = await a_change(world, a)
+    assert (item["stage"], item["status"]) == ("submission", "submission_submitted")
+    item = (await move(world, a, item, "submission_awaiting_acceptance")).json()
+    item = await _approve_pending(world, a, item)
+    assert (item["stage"], item["status"]) == ("planning", "planning_planning")
+    wrote = await world.call(
+        "PUT",
+        f"{CHG}/{item['id']}/plan/backout",
+        a,
+        a.admin,
+        json={"content": "<p>Restore the saved switch configuration</p>"},
+        headers={"If-Match": '"0"', **CONSOLE},
+    )
+    assert wrote.status_code == 200, wrote.text
+    item = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    item = (await move(world, a, item, "planning_awaiting_approval")).json()
+    item = await _approve_pending(world, a, item)
+    assert (item["stage"], item["status"]) == ("cab_review", "cab_awaiting")
+    item = await _approve_pending(world, a, item)
+    assert (item["stage"], item["status"]) == ("implementation", "implementation_scheduled")
+    item = (await move(world, a, item, "implementation_in_progress")).json()
+    shown = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.admin)).json()
+    row = next(s for s in shown if s["stage"] == "implementation")
+    set_ = await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}/schedule/implementation",
+        a,
+        a.admin,
+        json={"outcome": "successful"},
+        headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+    )
+    assert set_.status_code == 200, set_.text
+    item = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    done = await move(world, a, item, "implementation_implemented")
+    assert done.status_code == 200, done.text
+    item = done.json()
+    assert (item["stage"], item["status"]) == ("review", "review_in_review")
+    panel = (await world.call("GET", f"{CHG}/{item['id']}/stages", a, a.admin)).json()
+    complete = next(m for m in panel["moves"] if m["to_status"] == "review_complete")
+    # The review completes and closes the change in one move: the dialog asks for the code.
+    assert (complete["allowed"], complete["lands_in"]) == (True, "closure_closed")
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    closed = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/moves",
+        a,
+        a.admin,
+        json={"to_status": "review_complete", "closure_code": codes[0]["code"]},
+        headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
+    )
+    assert closed.status_code == 200, closed.text
+    assert (closed.json()["stage"], closed.json()["status"]) == ("closure", "closure_closed")

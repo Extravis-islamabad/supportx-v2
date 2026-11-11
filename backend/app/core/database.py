@@ -46,8 +46,15 @@ from app.core.tenancy import TenantContext, resolve_tenant
 TENANT_SETTING = "app.tenant_id"
 USER_SETTING = "app.user_id"
 SESSION_TENANT_KEY = "supportx.tenant"
+# The running app's (or worker's) Settings on each tenant session, so code deciding on
+# configuration (is outgoing mail set up?) follows the process it runs in, never the
+# developer's backend/.env (lane B, cfb44245).
+SESSION_SETTINGS_KEY = "supportx.settings"
 SESSION_PLATFORM_KEY = "supportx.platform"
 AFTER_COMMIT_KEY = "supportx.after_commit"
+# The HTTP request a request-scoped session serves, so code that writes in its transaction
+# without a Request parameter (the audit entry of a save, WP-064) can still name its client.
+SESSION_REQUEST_KEY = "supportx.request"
 # Report transactions (WP-035, ADR-033): the statement time limit in milliseconds.
 SESSION_REPORT_KEY = "supportx.report_timeout_ms"
 REPORT_ROLE = "supportx_report"
@@ -177,8 +184,9 @@ def _apply_context(
 class Database:
     """Engine plus session factories for one process."""
 
-    def __init__(self, engine: AsyncEngine) -> None:
+    def __init__(self, engine: AsyncEngine, settings: Settings | None = None) -> None:
         self.engine = engine
+        self.settings = settings
         self._sessions = async_sessionmaker(
             engine, expire_on_commit=False, sync_session_class=TenantAwareSession
         )
@@ -197,13 +205,17 @@ class Database:
                 pool_timeout=settings.db_pool_timeout_seconds,
                 connect_timeout=settings.db_connect_timeout_seconds,
                 command_timeout=settings.db_command_timeout_seconds,
-            )
+            ),
+            settings,
         )
 
     @asynccontextmanager
     async def tenant_session(self, context: TenantContext) -> AsyncIterator[AsyncSession]:
         """One unit of work for one tenant: commits on success, rolls back on any exception."""
-        async with self._sessions(info={SESSION_TENANT_KEY: context}) as session, session.begin():
+        info: dict[str, object] = {SESSION_TENANT_KEY: context}
+        if self.settings is not None:
+            info[SESSION_SETTINGS_KEY] = self.settings
+        async with self._sessions(info=info) as session, session.begin():
             yield session
 
     @asynccontextmanager
@@ -268,6 +280,7 @@ async def tenant_unit_of_work(
     """
     async with database.tenant_session(tenant) as session:
         setattr(request.state, REQUEST_SESSION_STATE, session)
+        session.info[SESSION_REQUEST_KEY] = request
         try:
             yield session
         finally:

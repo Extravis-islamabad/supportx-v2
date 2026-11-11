@@ -20,7 +20,7 @@ import { useRecordChannel } from '@supportx/realtime';
 import {
   ActionBar,
   PropertiesPanel,
-  PropertyRow,
+  PropertyList,
   RecordHeader,
   RecordPage,
   RichTextView,
@@ -30,8 +30,10 @@ import {
   useLabel,
   usePageCrumbs,
   type RecordAction,
+  useAccess,
 } from '@supportx/ui';
 
+import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { labelled, personName } from '../incidents/labels';
 import { useStatusActions } from '../incidents/StatusActions';
 import { PriorityTag, StatusTag } from '../incidents/tags';
@@ -197,6 +199,7 @@ function ProblemView({
   reload: () => Promise<unknown>;
 }) {
   const t = useLabel();
+  const { can } = useAccess();
   const catalogue = useProblemCatalogue();
   const act = useProblemAction(item.id);
   const status = useStatusActions(item, catalogue.data, act);
@@ -297,6 +300,7 @@ function ProblemView({
         header={
           <RecordHeader
             icon={<BugOutlined />}
+            kind="problem"
             typeLabel={t('problems.record_type')}
             displayId={item.display_id}
             title={item.subject}
@@ -342,25 +346,46 @@ function ProblemView({
               {
                 key: 'properties',
                 title: t('problems.properties'),
+                // Template A (QA10V-09): the fields with a value, then "Add details (n)" for
+                // the empty ones; never an empty "Problem type" row.
                 children: (
-                  <>
-                    <PropertyRow label={t('problems.owner')}>
-                      {personName(item.people, item.technician_id)}
-                    </PropertyRow>
-                    <PropertyRow label={t('work_item.field.problem_type')}>
-                      {problemType === undefined
-                        ? ''
-                        : labelled(problemType.labels, locale, () =>
-                            t(`problem_type.${problemType.code}`),
-                          )}
-                    </PropertyRow>
-                    <PropertyRow label={t('problems.target_date')}>
-                      {item.resolution_due_at === null ? '' : dates.format(item.resolution_due_at)}
-                    </PropertyRow>
-                    <PropertyRow label={t('problems.lifecycle')}>
-                      {t(`lifecycle.${item.lifecycle}`)}
-                    </PropertyRow>
-                  </>
+                  <PropertyList
+                    testId="prb-properties"
+                    items={[
+                      {
+                        key: 'owner',
+                        label: t('problems.owner'),
+                        content: personName(item.people, item.technician_id),
+                        filled: item.technician_id !== null,
+                      },
+                      {
+                        key: 'problem_type',
+                        label: t('work_item.field.problem_type'),
+                        content:
+                          problemType === undefined
+                            ? ''
+                            : labelled(problemType.labels, locale, () =>
+                                t(`problem_type.${problemType.code}`),
+                              ),
+                        filled: problemType !== undefined,
+                      },
+                      {
+                        key: 'target_date',
+                        label: t('problems.target_date'),
+                        content:
+                          item.resolution_due_at === null
+                            ? ''
+                            : dates.format(item.resolution_due_at),
+                        filled: item.resolution_due_at !== null,
+                      },
+                      {
+                        key: 'lifecycle',
+                        label: t('problems.lifecycle'),
+                        content: t(`lifecycle.${item.lifecycle}`),
+                        filled: true,
+                      },
+                    ]}
+                  />
                 ),
               },
               {
@@ -388,7 +413,8 @@ function ProblemView({
           />
         }
       >
-        <Flex vertical gap={16} style={{ padding: 16 }}>
+        {/* No inset of its own: the tabs line up with the incident's and request's (QA10V-18). */}
+        <Flex vertical gap={16}>
           <MergedBanner item={item} />
           {item.lifecycle === 'guided_analysis' && <GuidedSteps record={item} />}
           <Tabs
@@ -422,6 +448,15 @@ function ProblemView({
                 label: <span data-testid="prb-tab-worklogs">{t('incidents.tab.worklogs')}</span>,
                 children: <IncidentWorklogs item={item} canEdit={canEdit} base="problems" />,
               },
+              ...(can('workflows.run') || can('workflows.manage')
+                ? [
+                    {
+                      key: 'workflows',
+                      label: t('workflows.record.tab'),
+                      children: <RecordWorkflows recordType="problem" recordId={item.id} />,
+                    },
+                  ]
+                : []),
               {
                 key: 'history',
                 label: (

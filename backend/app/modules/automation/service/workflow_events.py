@@ -9,27 +9,43 @@
   new (ADR-043 §5).
 """
 
+import json
 import uuid
+from collections.abc import Mapping
 
 import structlog
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings
-from app.core.database import Database
+from app.core.config import Settings, get_settings
+from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict
 from app.core.tenancy import TenantContext
-from app.modules.automation.domain.interpreter import InstanceStatus, RecordChanged, TimerFired
+from app.modules.automation.domain.interpreter import (
+    CommandDone,
+    InstanceStatus,
+    RecordChanged,
+    TimerFired,
+)
+from app.modules.automation.domain.rules import JsonValue
 from app.modules.automation.domain.triggers import TriggerEvent
 from app.modules.automation.domain.workflows import WaitEvent
+from app.modules.automation.events import (
+    WorkflowCommandFinished,
+    WorkflowFunctionRequested,
+    WorkflowWebhookRequested,
+)
 from app.modules.automation.infra.models import Workflow, WorkflowInstance
-from app.modules.automation.service import workflow_runtime
+from app.modules.automation.service import functions, workflow_runtime, workflow_tests
 from app.modules.automation.service.registry import event_reader
 from app.modules.automation.service.registry import record_type as registered
+from app.shared import egress
 from app.shared.clock import system_clock
-from app.shared.events import EventEnvelope
+from app.shared.events import EventEnvelope, record_event
 
 log = structlog.get_logger(__name__)
+
+RECORD_CANCEL = "cancel"  # the life-cycle action that cancels a record (work items' own code)
 
 # The record events a wait node can listen for, from what the owning modules' readers say.
 # Approval decisions, task completions and worklogs join with session 2's people nodes.
@@ -54,6 +70,11 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
         return
     if happened.event == TriggerEvent.CREATED:
         await _start_from_template(session, happened.record_type, happened.record_id)
+    if happened.event == TriggerEvent.STATUS_CHANGED and happened.action == RECORD_CANCEL:
+        # A cancelled record's workflows stop with it, their logs kept (REQ-WF-026 AC3); undoing
+        # the cancel offers to run them again (the record's workflow panel, S4).
+        await workflow_runtime.stop_for_record(session, happened.record_type, happened.record_id)
+        return
     kind = _WAITS.get(happened.event)
     if kind is None:
         return
@@ -68,6 +89,158 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
     )
     for instance_id in waiting:
         await workflow_runtime.run(session, instance_id, RecordChanged(kind))
+
+
+async def command_finished(  # noqa: PLR0913 - the result, explicit
+    session: AsyncSession,
+    *,
+    instance_id: uuid.UUID,
+    command: str,
+    ok: bool,
+    port: str | None = None,
+    error: str | None = None,
+    outputs: Mapping[str, JsonValue] | None = None,
+) -> None:
+    """An owning module's later result for a workflow command, in its own transaction (rule b).
+
+    The approval node's decision: the outbox carries it, and `on_command_finished` continues the
+    instance after the commit, so a decision never runs a workflow inside the person's request.
+    """
+    await record_event(
+        session,
+        WorkflowCommandFinished(
+            instance_id=instance_id,
+            command=command,
+            ok=ok,
+            port=port,
+            error=error,
+            outputs=dict(outputs or {}),
+        ),
+        aggregate_id=instance_id,
+    )
+
+
+async def on_command_finished(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer: the waiting node hears its result; one seen twice changes nothing."""
+    if session is None:  # transactional consumer: the registry always gives one
+        msg = "workflow command results need the consumer's session"
+        raise RuntimeError(msg)
+    done = WorkflowCommandFinished.model_validate(envelope.payload)
+    # The interpreter ignores a result for a command no token waits on (activities run at least
+    # once): a redelivered event is a no-op.
+    await workflow_runtime.run(
+        session,
+        done.instance_id,
+        CommandDone(done.command, done.ok, error=done.error, outputs=done.outputs, port=done.port),
+    )
+
+
+async def on_webhook_requested(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer (a worker): make the node's one guarded call and report how it went.
+
+    At least once, like every consumer: the call carries `Idempotency-Key: <instance>:<command>`
+    so a receiver that sees it twice can tell. The record's fields are read now, as the call goes.
+    """
+    if session is None:  # transactional consumer: the registry always gives one
+        msg = "workflow webhooks need the consumer's session"
+        raise RuntimeError(msg)
+    asked = WorkflowWebhookRequested.model_validate(envelope.payload)
+    tenant_id = session.info[SESSION_TENANT_KEY].tenant_id
+    kind = registered(asked.record_type)
+    facts = await kind.facts(session, asked.record_id) if kind and kind.facts else None
+    body = {
+        "record": {"type": asked.record_type, "id": str(asked.record_id)},
+        "fields": {name: (facts or {}).get(name) for name in asked.fields},
+        "workflow": {"instance_id": str(asked.instance_id)},
+    }
+    request = egress.OutboundRequest(
+        method=asked.method,
+        url=asked.url,
+        headers={
+            **asked.headers,
+            "Content-Type": "application/json",
+            "Idempotency-Key": f"{asked.instance_id}:{asked.command}",
+        },
+        body=json.dumps(body, default=str, separators=(",", ":")).encode(),
+    )
+    try:
+        response = await egress.send(
+            request,
+            allowance=egress.installation_allowance(get_settings()),
+            module="automation",
+            tenant_id=tenant_id,
+        )
+    except egress.EgressError as refused:  # a stable code, never a secret or a body
+        await _report(session, asked, ok=False, error=f"webhook_{refused.code}", outputs={})
+        return
+    kept = {asked.status_variable: response.status} if asked.status_variable else {}
+    await _report(session, asked, ok=True, error=None, outputs=kept)
+
+
+async def _report(
+    session: AsyncSession,
+    asked: WorkflowWebhookRequested,
+    *,
+    ok: bool,
+    error: str | None,
+    outputs: dict[str, JsonValue],
+) -> None:
+    """The call's result to the instance, or to the test run that made its one live call."""
+    if asked.test_run:
+        await workflow_tests.apply_live_result(
+            session, asked.instance_id, command=asked.command, ok=ok, error=error, outputs=outputs
+        )
+        return
+    await command_finished(
+        session,
+        instance_id=asked.instance_id,
+        command=asked.command,
+        ok=ok,
+        error=error,
+        outputs=outputs,
+    )
+
+
+async def on_function_requested(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer (a worker, never the API, §6.7): run the node's function, report its result."""
+    if session is None:  # transactional consumer: the registry always gives one
+        msg = "workflow functions need the consumer's session"
+        raise RuntimeError(msg)
+    asked = WorkflowFunctionRequested.model_validate(envelope.payload)
+    tenant_id = session.info[SESSION_TENANT_KEY].tenant_id
+    runner = functions.function_runner()
+    if runner is None or not await functions.offered(tenant_id):
+        await command_finished(
+            session,
+            instance_id=asked.instance_id,
+            command=asked.command,
+            ok=False,
+            error=functions.NOT_OFFERED,
+        )
+        return
+    kind = registered(asked.record_type)
+    facts = await kind.facts(session, asked.record_id) if kind and kind.facts else None
+    inputs = {
+        name: (facts or {}).get(str(value["field"]))
+        if isinstance(value, dict) and "field" in value
+        else (value.get("value") if isinstance(value, dict) else value)
+        for name, value in asked.inputs.items()
+    }
+    outcome = await runner.run(
+        tenant_id=tenant_id,
+        function=asked.function,
+        inputs=inputs,
+        timeout_seconds=asked.timeout_seconds,
+    )
+    await command_finished(
+        session,
+        instance_id=asked.instance_id,
+        command=asked.command,
+        ok=outcome.ok,
+        error=outcome.error,
+        # Only the outputs the node keeps, as its variables (by the names it chose).
+        outputs={variable: outcome.outputs.get(name) for name, variable in asked.assign.items()},
+    )
 
 
 async def _start_from_template(

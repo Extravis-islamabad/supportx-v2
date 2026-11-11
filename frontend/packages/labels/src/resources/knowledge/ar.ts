@@ -168,6 +168,7 @@ export const ar: LabelResource = {
   'knowledge.flag.review_due': 'حان موعد المراجعة',
   'knowledge.flag.withdrawn': 'مسحوبة',
   'knowledge.history.by': '{{name}}، {{when}}',
+  'knowledge.history.set': '{{field}}: {{value}}',
   'knowledge.history.version_published': 'إصدار {{language}}: منشور',
   'knowledge.history.version_status': 'إصدار {{language}}: الحالة',
   'knowledge.history_for_editors': 'السجل متاح لمن يعملون على هذه المقالة.',

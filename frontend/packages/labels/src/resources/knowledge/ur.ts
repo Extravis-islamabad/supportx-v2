@@ -166,6 +166,7 @@ export const ur: LabelResource = {
   'knowledge.flag.review_due': 'جائزے کا وقت',
   'knowledge.flag.withdrawn': 'واپس لیا گیا',
   'knowledge.history.by': '{{name}}، {{when}}',
+  'knowledge.history.set': '{{field}}: {{value}}',
   'knowledge.history.version_published': '{{language}} ورژن: شائع',
   'knowledge.history.version_status': '{{language}} ورژن: حیثیت',
   'knowledge.history_for_editors': 'تاریخ ان لوگوں کے لیے ہے جو اس مضمون پر کام کرتے ہیں۔',

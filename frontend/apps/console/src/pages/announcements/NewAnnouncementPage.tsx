@@ -1,6 +1,6 @@
 import { App, Button } from 'antd';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import { useCreateAnnouncement, useSession } from '@supportx/api-client';
 import { applyServerErrors, useForm, zodResolver } from '@supportx/forms';
@@ -17,6 +17,17 @@ import {
 import { AnnouncementFields } from './AnnouncementForm';
 import { bodyOf, EMPTY, FIELDS, schema, type Values } from './form';
 
+/**
+ * What another screen may start the form with (router state, never the URL: the body is HTML),
+ * e.g. a change's planned downtime announced from the change (WP-045c). Still only a draft.
+ */
+export interface AnnouncementPrefill {
+  title?: string;
+  body?: string;
+  severity?: Values['severity'];
+  publish_until?: string | null;
+}
+
 /** A new announcement, saved as a draft (publishing is a separate, explicit step). */
 export function NewAnnouncementPage() {
   const t = useLabel();
@@ -26,9 +37,10 @@ export function NewAnnouncementPage() {
   const create = useCreateAnnouncement();
   // The author owns it unless they pick someone else (the picker shows their name).
   const me = useSession().data?.user.id ?? null;
+  const prefill = (useLocation().state as { prefill?: AnnouncementPrefill } | null)?.prefill ?? {};
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { ...EMPTY, owner_id: me },
+    defaultValues: { ...EMPTY, ...prefill, owner_id: me },
   });
   // One key per form: a retried save (timeout, double click) creates one announcement, not two.
   const [key, setKey] = useState(() => crypto.randomUUID());

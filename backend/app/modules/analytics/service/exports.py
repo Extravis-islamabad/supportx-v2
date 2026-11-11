@@ -31,7 +31,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import Database
-from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
+from app.core.errors import AppError, Conflict, NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.analytics.domain.definition import ReportDefinition
@@ -46,6 +46,7 @@ from app.modules.analytics.service.runner import resolve_provider
 from app.modules.audit import WORKER, AuditActorType, record
 from app.modules.identity_access import Subject
 from app.shared.events import record_event
+from app.shared.export_dates import wall_clock, zoned_header
 from app.shared.ids import new_id
 from app.shared.labels import RTL_LANGUAGES, plain_label
 from app.shared.reporting import DimensionKind, ReportingSource
@@ -283,9 +284,15 @@ class _Job:
     def record_columns(self) -> list[Column]:
         """Their headers and kinds."""
         return [
-            Column(field_label(n, self.language, self.custom_names), _record_kind(self.source, n))
+            Column(self._record_header(n), _record_kind(self.source, n))
             for n in self.record_names()
         ]
+
+    def _record_header(self, name: str) -> str:
+        header = field_label(name, self.language, self.custom_names)
+        if _record_kind(self.source, name) == CellKind.DATETIME:
+            return zoned_header(header, str(self.namer.zone))  # D-155: the zone in the header
+        return header
 
     async def records(self, limit: int) -> AsyncIterator[list[Value]]:
         """One row per record behind the report, in grouping order, at most `limit`."""
@@ -323,7 +330,7 @@ class _Job:
         dimension = self.source.dimensions.get(name)
         if isinstance(value, datetime):
             # Spreadsheets have no zones: the wall-clock time of the export's zone.
-            return value.astimezone(self.namer.zone).replace(tzinfo=None)
+            return wall_clock(value, self.namer.zone)
         if dimension is None or dimension.kind == DimensionKind.DATETIME:
             return value if isinstance(value, str | int | float) or value is None else str(value)
         return self.namer.name(name, dimension, value, None)
@@ -456,9 +463,14 @@ async def _job(session: AsyncSession, row: FileSpec, worker: Worker) -> "_Job | 
     source = await provider.source(session, subject)
     zone = ZoneInfo(row.time_zone)
     now = datetime.now(zone)
-    compiled = compile_report(
-        definition, source, now=now, zone=zone.key, week_start=worker.week_start
-    )
+    try:
+        compiled = compile_report(
+            definition, source, now=now, zone=zone.key, week_start=worker.week_start
+        )
+    except (PermissionDenied, ValidationFailed):
+        # Built with this person's rights: a report they may not run (assets' money without
+        # view_financials) is theirs alone to miss; a schedule's other recipients still get it.
+        return "report_not_allowed"
     namer = Namer(session, source.entity, row.language, zone)
     header = _header_lines(row, now, zone)
     # The reporting transaction is opened by build_export; rs is set there.

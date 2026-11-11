@@ -108,7 +108,7 @@ async function openComposer(kind: 'reply' | 'note') {
   fireEvent.click(await screen.findByRole('tab', { name: /Conversation/ }));
   await screen.findByTestId('conv-timeline');
   if (kind === 'reply') {
-    const reply = screen.getByTestId('conv-reply').querySelector('button');
+    const reply = screen.getByTestId('inc-op-reply').querySelector('button');
     if (reply === null) throw new Error('no reply button');
     fireEvent.click(reply);
   } else {

@@ -31,6 +31,13 @@
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
 
+### Known gaps
+
+- **Bulk actions on service requests** (QA10V-05, the coordinator, 2026-11-10). REQ-SR-002 gives
+  requests the engine's bulk actions, but the API has no bulk route for them and the requests
+  list has no row checkboxes or selection bar. It is built in **WP-047a** (SR V1, lane A). Until
+  then the list shows no checkboxes at all, rather than dead ones.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -1064,6 +1071,100 @@ it with no reload (rule c). Not built yet.
     - Problem-specific closure codes (REQ-PRB-056) use the shared closure code list for now.
     - The tenant defaults for the follow-up (notify, copy as a note) beyond Q1's resolve.
 
+### [~] WP-045b — Changes: risk, advisory boards, approvals, re-approval (lane A, 2026-11-10; 4 sessions; backend; PR after #299)
+- **Plan:** ~/Desktop/wp-045-plan.md D8-D11, approved by the coordinator. Migrations 0116-0118.
+  Haider's decisions of 2026-11-10 (SoD default, optional members, sending back) and D-144.
+- **S1 risk (0116):** levels low to very high; a scored questionnaire per template (Appendix A by
+  default, versioned); rules may raise it; a person's override always needs a reason.
+- **S2 advisory boards (0117):** `/api/v1/change-boards`, with two seeded boards per tenant
+  (default, emergency) and no members. An admin's board needs at least one member, and the
+  default board can't be removed. Each board has a mapping (types, risk levels, sites,
+  templates), an order and a rule (any, all, majority, majority with the chair). Tenant
+  isolation is tested for both tables.
+- **S3 approvals:**
+  - a level may name the mapped board or a specific one; the rows record which board and why;
+  - a board with no members goes to the approval administrators (`board_has_no_members`);
+  - strict segregation of duties is a tenant setting (audited);
+  - a submit-time preview names who is left out;
+  - every fallback is audited (`change.approval_rerouted`);
+  - admin guide: docs/guides/change-approvals.md.
+- **S4 re-approval (0118):**
+  - each approved stage's window, risk and plans are kept; `changes-since` lists, field by
+    field, what changed since approval;
+  - the tenant policy (restart, notify or ignore, with a tolerance) decides;
+  - a restart sends the change back to the stage's raising status by an audited system move,
+    with a warning preview first;
+  - optional members' votes are advisory and never counted;
+  - the emergency override (D-144) needs a permission and a reason, is audited, and makes the
+    review mandatory;
+  - notices are recorded in the outbox for WP-056.
+- **Not yet:**
+  - sending the notices (WP-056);
+  - the chair's tie-break (lane C's WP-048b S2 wires `chair=`);
+  - CIs and services in the snapshot (with the CMDB);
+  - the screens (UI pass 3 templates).
+
+### [x] Change screens — taken forward from WP-045d D19 (lane A, 2026-11-11; the coordinator; 4 sessions, 2 PRs)
+- **PR 1 (S1+S2, no migration, #372, merged):** the changes list on template C (path, stage, status, the
+  emergency flag, a Pending approval view); a new change on template B (prefilled when raised
+  from another record), opening on its risk questionnaire; the record on template A (stage rail
+  and moves, properties, details with a risk override that says why, the questionnaire, roles,
+  plans, schedule and downtime read-only, history). The staged parts' hooks by type
+  (`api-client/staged.ts`) and one move dialog for staged types (`pages/staged`, lane C's split).
+- **PR 2 (S3+S4, no migration):**
+  - the Approvals tab: each approval's board and why, advisory votes, the administrators'
+    fallback, decisions with If-Match, and what changed since approval;
+  - the move that raises a stage shows who would approve and who is left out (the preview now
+    names them);
+  - a new risk that sends approved stages back says so before saving;
+  - the emergency override (D-144), only on a change sent back (`sent_back` on its details);
+  - a stage's outcome on the Schedule tab;
+  - change advisory boards on template E (`/admin/change-boards`, `changes.manage_boards` or
+    `settings.manage`), whose people come named;
+  - QA flow 4 end to end in Playwright, and walked move by move over the API.
+  - **Fix:** a move says where it lands (`lands_in`), so a move that closes a change after
+    an automatic advance ("Review complete") asks for the closure code. Before, a change
+    could not be closed from the console.
+  - Lane B gives the blocking review (D-149).
+- **Not yet:**
+  - risk and type columns on the list (not in the list API);
+  - conversation and attachments on the record;
+  - labels for questions an admin adds to a template's questionnaire (only Appendix A's are
+    labelled);
+  - editing schedules and downtime (WP-045c);
+  - a "failed" outcome's issues text (the server asks for it; the select has no field for it
+    yet).
+
+### [~] WP-045c — Changes: windows, conflicts, calendar (lane A, 2026-11-11; 3 sessions; ADR-042; migration 0132; D-156 held)
+- **S1 (backend, 0132):**
+  - freeze and maintenance windows, `/api/v1/change-windows`, with block/warn, a weekly repeat
+    and a site/group/service/CI scope;
+  - one pure conflict check (freeze, outside maintenance, overlapping changes in the same group
+    or at the same site);
+  - a guard on every save of a change's implementation window or planned downtime
+    (409 `change_window_blocked`);
+  - `GET /changes/{id}/conflicts`;
+  - the freeze override (`POST /changes/{id}/freeze-override`: `changes.override_freeze` at the
+    change's scope, a reason, audited, in history);
+  - `changes.manage_windows` (the change manager and admins);
+  - live via `work_items.change_windows_changed`.
+  - Defaults per D-156 (held): a freeze blocks, a maintenance window warns, weekly repeat only.
+  - Lane B gives the blocking review.
+- **S2 (built; its PR opens after #376):**
+  - the record's Schedule tab, with the editable implementation window and downtimes and a live
+    conflicts panel;
+  - the override dialog, which passes only the freezes named, then retries the save;
+  - "announce" for a planned downtime, which makes an announcement draft.
+- **S3 (built; its PR opens after S2):**
+  - `GET /change-calendar`, and the calendar at /changes/calendar: month, week, day and agenda;
+    the freeze and maintenance layers; "only mine"; zone days; drag to reschedule with the
+    re-approval warning and the freeze guard;
+  - the windows admin at /admin/change-windows (template E).
+- **Not yet:**
+  - a pixel-time grid in the week and day views (entries are listed by day);
+  - CI and service layers (with the CMDB);
+  - full recurrence rules (D-156 (c)).
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
@@ -1339,15 +1440,128 @@ it with no reload (rule c). Not built yet.
 - **Two PRs (coordinator, 2026-11-06):** #216 holds sessions 1-3 (it passed 14k lines); sessions
   4-5 go on a new PR from main after #216 merges. Session 4 has migrations 0111 (ownership,
   assignments, relationships), 0112 (acknowledgements) and 0113 (asset groups).
-- [ ] Session 4: ownership, acknowledgement, components, groups, relationships (REQ-AST-018,
-  019, 020 for assets, 023, 024, 026, 027, 028). Deferred: 021/022 with discovery (WP-050),
-  020's consumables and licences with WP-052; 025 is lane A's forms on the assets picker API
-  (`GET /assets/picker`, `can_see`, `asset_refs`, `assets_of`, agreed 2026-11-06).
-- [ ] Session 5: loans, warranty, notifications, e2e.
+- [x] Session 4: ownership, acknowledgement, components, groups, relationships (migrations
+  0111-0113; REQ-AST-018, 019, 020 for assets, 023, 024, 025's interfaces, 026, 027, 028).
+  - Holders (a person, a department or a parent asset) with the holding history; never fitted
+    inside itself; assets follow their owner's site (a consumer of identity's user.updated,
+    idempotent); held-by lookups within scope.
+  - Acknowledgements (pending, accepted, disputed with a comment; a dispute never touches the
+    holding) with an `asset` notification source; My assets in the portal, live.
+  - Components (fitted assets; disposing asks to detach or dispose them) and typed links shown
+    from both ends with history on both.
+  - Static and dynamic groups (the shared filter DSL), counts matching their lists, live.
+  - The picker and `can_see` / `asset_refs` / `assets_of` for lane A's work-item forms.
+  - Console: "Holder and links" tab, groups page, add-to-group from the list's selection.
+  - **Deferred:** 021/022 (auto-assign, workstation mapping) with discovery (WP-050); 020's
+    consumables and licences with WP-052; 024 AC2 "report a problem" and 025's forms are lane
+    A's, on the picker.
+- [x] Session 5: loans, warranty, notifications, e2e (migration 0114; REQ-AST-029, 030, 031,
+  059; the PR with session 4 opens from main after #216 merges).
+  - Loanable assets (bulk from the list); loans of loanable, in-stock assets to a person until a
+    due time, moving them in use and to the borrower; one open loan per asset is a unique
+    partial index, so two loans racing for one asset never both win (race test).
+  - Returns of some or all assets, to stock or to repair (a comment needed); the last return
+    closes the loan; an asset on loan is not disposed of (the disposal guard port).
+  - Due and overdue notices to the borrower and the loan's creator, and warranty-ending notices
+    to the asset managers within the tenant's notice days (Appendix A: 30, a setting), each
+    claimed once by one UPDATE ... RETURNING (two-worker test), from a scheduled sweep.
+  - Console loan register (/assets/loans) with New loan and Take back; the portal's My assets
+    shows when a loaned asset is due back, red once overdue; all live (loans_changed, and the
+    borrower's own channel). Shared page parts only, ready for the UI pass 3 list template.
+  - e2e: tests/asset-loans.spec.ts (loanable in bulk, lent, due in the portal, taken back).
+  - **Open:** REQ-AST-017 AC4 (a disposal certificate file) waits for the file link of WP-022's
+    record attachments on assets; REQ-AST-030's display ID, department borrower, site and
+    filters, and REQ-AST-032 (booking ahead), go to WP-049b.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 done, #233)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-2 built 2026-11-11)
+
+- [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
+  leftovers, 032, 033, 034, 035):**
+  - Consumables (033): a product of a consumable type (D-141) kept in stock with barcode, vendor,
+    unit cost and comment; batch tracking chosen when made, a switch refused with the reason
+    (AC3). Stock per product and site (one row each, "no site" included); receiving raises only
+    that site's (AC1); lots with lot number, reference, made and expiry dates, an expired lot
+    flagged (AC2).
+  - Allocations (034) to a person, a department or an asset, with a date and optionally the
+    request (an ID only, rule e). One conditional `UPDATE ... WHERE quantity >= n RETURNING`:
+    more than there is is refused with the amount available (AC1); of two people taking the
+    last unit one wins, the other is told it ran out (AC3, race test); a CHECK keeps stock at
+    zero or more. The request's side reads `GET /assets/consumable-allocations?work_item_id=`
+    and the `assets.stock.moved` event names the request (AC2).
+  - The ledger (receive, allocate, adjust, return) with who, when, why and the balance after;
+    append-only (the app role may only SELECT and INSERT; tested).
+  - Minimum stock (035) per product type or product and per site or every site, the most
+    specific rule winning, with the people told: one notice when stock falls to or below it,
+    re-armed only above it (`low_alerted_at`, claimed by one conditional UPDATE; AC1). New
+    notification event `asset.stock_low` (en/ar/ur templates). AC2's draft purchase request is
+    the `DraftPurchaseRequests` port for procurement (WP-054); until it is registered none is
+    made (logged, never faked).
+  - Bookings (032) of one specific loanable asset: the asset row is locked, then the period is
+    checked against its bookings and its open loan; a clash is refused with the next free day
+    (AC1, race test); a loan over a booked time is refused (`asset_booked`); handing over makes
+    a loan with the booking's dates (AC2); requesters book in the portal only while
+    `asset_settings.portal_booking` is on (default off; AC3).
+  - Loans (030's leftovers): display ID `LN-n` on new loans (older loans keep none), a
+    department borrower (the department holds the assets, the borrower collects them), a site,
+    and register filters by status (open, overdue, closed) and site.
+  - Console: `/assets/consumables` and `/assets/consumables/:id` (stock, lots, ledger; receive,
+    allocate, adjust, take back; `?allocate_for=<request>` links an allocation), the asset's
+    Bookings tab (book, cancel, hand over, take the suggested day), the loan register's columns
+    and filters, Admin > Assets "Minimum stock" and the portal-booking setting. Portal: My
+    bookings on My assets while booking is on. All live (`assets.consumables_changed`,
+    `assets.bookings_changed`); labels en/ar/ur; both new screens in the visual matrix.
+  - Permissions reused: `assets.view`, `assets.manage`, `config.assets` (no new rights, no role
+    matrix change).
+  - **Open:** the request page's own panel for its allocations (lane A's screen, on the API
+    above); a calendar screen of availability by product and site (`GET /assets/availability`
+    is there, and the portal's picker uses the same query); AC2 of 035 with WP-054.
+- [x] **Session 2 (migration 0131 after 0130; REQ-AST-036, 037, 038, 048, 049, 050; branch
+  backup/wp-049b-s2, its PR after #367 lands):**
+  - Cost lines (move, service, contract, other) in the base currency, the disposal record's cost
+    as the only disposal cost (counted once), and the total cost
+    of ownership, exact decimals (036 AC1, AC3); depreciation as a pure domain (straight line,
+    declining balance 150 %, double declining, sum of the years' digits, none; prorated by month;
+    golden-value tests) with the asset's own settings or its product's (037 AC1-AC3); book value
+    on any day and the schedule by year; "today" is the tenant's local day (its time zone).
+  - Cost centre and GL code (free text; GL from the product) on assets; `asset_valuations` for
+    reports by cost centre (038 AC2), refreshed on save and by a daily sweep. Dimension codes for
+    lane C: `cost_centre`, `gl_code`; money fields `book_value`, `total_cost`.
+  - New right `assets.view_financials` (asset manager, admins) guarding all money in API and UI.
+  - Notes with mentions, edit history and "note deleted" lines; attachments as the asset's files
+    (050). History sub-views (state, assignment) and filters by field, source, person and days
+    (049). The record page gains Financials and Notes and files tabs and the panel's value (048).
+  - Guide: docs/guides/asset-financials.md.
+  - **Open:** 048's hardware, software, contracts and scan-history tabs (discovery, S3, WP-054);
+    049 AC1's `discovery` source (S3); 036 AC2 and 038 AC1 with WP-054.
+
+### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
+
+- [x] S1: the audit sink port in `app/shared/history.record_changes` and the audit module's sink;
+  one entry per save listing all its events (route's code first, merged with the route's entry
+  in the same transaction); `events` inside the entry hash only when set (migration 0122, GIN;
+  older entries hash as before); the action filter, saved searches and exports match events;
+  event tables for assets and the five work-item types (lane A reviewed the field lists;
+  statuses by category through work_items' annotator, never stored in history); the subtype
+  resolver; catalogue and en/ar/ur labels; tests (unit, DB, the history guard).
+- [x] S2 (ADR-046, migration 0129): each save's entry holds two `fp1:` commitments to its
+  values in record history (never the values), inside the entry hash only when set: the
+  ordinary fields unsalted (they always verify, so an erasure never hides a change to them)
+  and the personal fields salted; the canonical
+  encoding fixed in ADR-046 with a golden vector; personal fields per record type in
+  `audit/domain/lifecycle.py` (work items: free text and save reasons, subjects = requester and on-behalf
+  person; assets none; people later) for lanes A and C to review; per-subject salts in
+  `audit_subject_salts` (no app rights, definer functions only); the verifier reports
+  verified / mismatch / erased on request (runs and the entry view; erased only when the
+  ordinary half matches); erasure blanks the
+  person's free text in history and destroys the salt; labels en/ar/ur.
+- [ ] S3: per-category retention and legal hold (0120), sealing to about 2,000/s, the 10M run,
+  the save-latency check.
+- [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
+  file events in a record's list), e2e, docs.
+
+### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.
 Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (approval chair).
@@ -1381,13 +1595,116 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
 - **Two PRs (coordinator, 2026-11-06):** S1 lands alone on #233, so lane B's chart (#268) can
   follow; S2-S5 go on a new PR from main after #233 merges. Within S2, the guarded HTTP client is
   its own commit for lane B's review; the function node is the runner port only (§6.7).
-- [ ] **S2** — the approval node (with D-146's chair), task and checklist nodes, notification,
-  webhook (the shared guarded HTTP client) and function (runner port) nodes, variables, retries
-  and error outputs, sub-flows.
-- [ ] **S3** — versions and migrating instances, stop and restart, the overview, copy, export and
-  import, and the test mode.
-- [ ] **S4** — the React Flow designer.
-- [ ] **S5** — e2e, guides, and the visual matrix.
+- [x] **S2** — built on backup/wp-048b-s2; the PR opens in 0106's migration turn (after 0123).
+  - Variables, retries and error outputs, sub-flows (S2a); D-146's chair in the shared level
+    outcome and the approval settings (S2b); the guarded HTTP client, reviewed by lane B (S2e).
+  - **Approval node:** one level on the record (purpose `workflow`, naming the instance and
+    the command); people, groups or roles; administrators when nobody can be named; the chair
+    breaks a tie. The decision continues the node through the outbox
+    (`automation.command_finished`). Offered on SRs, releases, problems and changes.
+  - **Task node:** a checklist of 1-20 tasks with an owner and a due date in working days;
+    all done continues it, a canceled or removed task takes its error output.
+  - **Function node:** the runner port only, run by a worker (§6.7); offered with SANDBOX and
+    CUSTOM_FUNCTIONS and a registered runner (no runner ships: ADR-011).
+  - **Webhook node:** one call through the guarded client from a worker, with an idempotency
+    key; the status can be kept as a variable.
+  - **Notify node:** through the one notification engine (lane A's design): a
+    `workflow_audience` resolved at send time, access checked per recipient, the node's own
+    words; incidents first (lane A adds SRs and problems after).
+  - 0106 adds `work_item_approvals.workflow_command` and the task pair; the downgrade refuses
+    while any are set (rule 5h).
+  - For lane B's security review: named workflow approvers decide by being named (as stage
+    approvers), the egress use, the function port, NotificationCategory.WORKFLOW.
+  - Open: run-time error codes (`webhook_*`, `task_canceled`, …) get labels with S4's
+    instance view; a task owner that does not exist is refused by a foreign key, not a code.
+- [x] **S3** — built on feat/wp-048b-s3 (backup/wp-048b-s3); one PR from main, opened in 0107's
+  migration turn (after 0130). Session log: progress-log/2026-11-11-wp-048b-s3-lane-c.md.
+  - **S3a, stop, restart, retry (REQ-WF-025 AC2, REQ-WF-026):** on a record, in the workflow domain
+    (`domain/operations.py`), audited. Canceling a record stops its workflows (lane A's hook).
+  - **S3b, the overview and bulk jobs (REQ-WF-025):** runs by workflow, state and node, failures
+    with node and error. Bulk retry and cancel are background jobs (`workflow_jobs`, migration
+    0107): a savepoint per run, each result kept, live on the queue channel.
+  - **S3c, versions and migration (REQ-WF-021, -027):** runs stay on their version. A migration
+    maps occupied nodes; unmapped runs stay and are listed; a dry run changes nothing; the record's
+    history shows the version move. Versions show who published and the live runs per node.
+  - **S3d, copy, export, import, delete (REQ-WF-027):** a copy is an independent draft. Export and
+    import within one tenant give the same definition. Import refuses another tenant's file, other
+    shapes, files over 1 MB and template IDs that aren't here. A workflow with live runs is never
+    deleted.
+  - **S3e, test mode (REQ-WF-022):** the same `advance()` on a record's facts or sample values, in
+    `workflow_test_runs` (0107). Commands are shown and answered by hand; timers fire on the run's
+    own clock. Nothing reaches the record, its history or the outbox. One live call per run, for a
+    webhook or notify node on a record: workflows.manage only, audited with who, node and record.
+  - Cross-tenant import is out of scope (coordinator, 2026-11-11). It needs an ID-mapping step
+    (templates, people, groups) later.
+- [x] **S4** — the designer, test mode and the record's Workflows panel (feat/wp-048b-s4, backup
+  branch backup/wp-048b-s4); one PR from main, no migration. Session log:
+  progress-log/2026-11-11-wp-048b-s4-lane-c.md.
+  - **packages/flow:** @xyflow/react 12.12.0 (companions listed in the PR), the definition ↔
+    canvas mapping (a saved definition re-opens to the same diagram, both directions), positions
+    stored left to right and mirrored in RTL, an in-house layered layout (no dagre or elkjs),
+    undo/redo history (100 steps).
+  - **The list** (Admin › Workflows, template C) and **the designer** ("template A header + canvas
+    body"):
+    - palette (drag, or a button that places the step below the selected one);
+    - canvas with labelled, always-visible handles;
+    - details with forms for if, switch, notify, timer, wait and set status, plus "Advanced";
+    - link details with a clear delete;
+    - an outline that builds and unlinks by keyboard (REQ-WF-028 AC1);
+    - problems that select their step;
+    - save, publish, enable;
+    - live on the workflows channel.
+  - **Server:** the palette (`node-types`), outputs from the registry (`node-ports`), workflow
+    changes on the list channel, typed created responses.
+  - **Test mode panel (REQ-WF-022):**
+    - a run on a record (display ID) or on sample values;
+    - each step answered by hand, a described change, the clock moved on;
+    - the path taken and the current step on the canvas (`current_nodes`);
+    - the one live call behind a confirm that says it is audited.
+  - **The record's Workflows panel (REQ-WF-023, -024, -026)** on incidents, requests, problems,
+    changes (placement agreed with lane A) and releases:
+    - the diagram with the path and the current step, and the log to the second;
+    - a failure banner in words;
+    - retry, run again and stop.
+
+    Its endpoint is gated by workflows.run and the record's own view rule (404); the instance
+    log got the same gate. Every run-time failure code has a label (tested).
+  - **Visual matrix:** admin-workflows, admin-workflow (+ outline), incident-workflows; the
+    off_screen check skips controls inside a strip that scrolls sideways.
+  - **Bundled (coordinator):**
+    - the "Book value by cost centre" and "Total cost of ownership" reports (asset money
+      measures, listed only for assets.view_financials);
+    - the release downtime delete asks first (lane A's #377).
+- [x] **S5** — the runs overview, versions and moving runs, skip, waiting longer than, e2e and
+  guides (feat/wp-048b-s5, backup/wp-048b-s5; one PR from main, no migration). Session log:
+  progress-log/2026-11-11-wp-048b-s5-lane-c.md.
+  - **S5d, skip a failed step (REQ-WF-024 AC2):**
+    - goes on through the failed step's "next" output only; a step that decides its own path
+      is refused with skip_without_next;
+    - POST /instances/{id}/skip: If-Match, may_edit, audited (who, step, record);
+    - "Skip this step" on the record panel, behind a confirm.
+  - **S5b, waiting longer than (REQ-WF-025 AC3):** `waiting_over_hours` on the overview. It
+    reads the last step on workflow_steps' tenant-first primary key, backwards (EXPLAIN checked
+    in a test), so no index or migration.
+  - **S5a, Admin › Workflows › Runs (template C):**
+    - filters for state, record type, workflow, step and waiting longer than;
+    - failures in words;
+    - a run's record named and linked only for those who may see it, via a read-only `labels`
+      port that lane A agreed (rule 8);
+    - bulk retry and cancel (with a reason) as jobs, one per workflow, at most 1,000 runs, with
+      live progress; the job's audit keeps its kind, run count and reason.
+  - **S5c, versions and moving runs (REQ-WF-021):**
+    - the designer's Versions tab: who published each version, when, and its live runs;
+    - the move dialog maps each occupied step, then a mandatory dry run, then the move as a job;
+    - new: `versions/{n}/steps` and the overview's `version_number` filter.
+  - **S5e, e2e and guides:**
+    - docs/guides/workflows.md;
+    - e2e/tests/workflows.spec.ts: a workflow built by keyboard and run on an incident, a test
+      run's timer, a failed step skipped;
+    - Visual matrix screens for Runs and the versions dialog.
+    - **Not a journey:** a webhook failing at its receiver needs the consumers worker and a test
+      receiver in the e2e stack. The DB tests cover it (test_workflow_webhooks.py); an e2e
+      journey waits for an e2e receiver (follow-up), never a retry loop (the coordinator).
 - **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the
   `users.preview` test once that permission lands (lane B).
 

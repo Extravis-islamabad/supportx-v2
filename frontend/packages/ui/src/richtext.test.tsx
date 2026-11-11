@@ -162,3 +162,25 @@ describe('The rich-text editor (WP-020b)', () => {
     expect(screen.queryByTestId('rt-callout')).toBeNull();
   });
 });
+
+describe('QA10-P4-05: opening the editor is not a change', () => {
+  it('does not call onChange until the user edits', async () => {
+    for (const disabled of [false, true]) {
+      const onChange = vi.fn();
+      const view = renderUi(
+        <RichTextField
+          label="Body"
+          value="<p>Hello <strong>world</strong></p>"
+          onChange={onChange}
+          disabled={disabled}
+          testId="mount-body"
+        />,
+      );
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      expect(onChange).not.toHaveBeenCalled();
+      view.unmount();
+    }
+  });
+});

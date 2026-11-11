@@ -22,12 +22,15 @@ from app.shared.events import EventEnvelope
 from app.shared.files.events import FileUploaded
 from app.shared.files.ports import Action, OwnerType
 from app.shared.files.service.core import FileServices
+from tests.db.per_test_world import MODULE_LOOP, module_world, shared_world  # has sync tests
 from tests.db.test_audit_exports import storage
 from tests.db.test_conversation_api import say, timeline
 from tests.db.test_files_api import files, record_files, scan_waiting, upload
-from tests.db.test_incidents_api import BASE, Org, World, problem, world
+from tests.db.test_incidents_api import BASE, Org, World, problem
 
-__all__ = ["files", "storage", "world"]  # the fixtures, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["files", "module_world", "shared_world", "storage"]  # the fixtures, re-used
 
 PORTAL = {"X-SupportX-Client": "portal"}
 

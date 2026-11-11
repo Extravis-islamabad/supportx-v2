@@ -4,21 +4,23 @@ Widgets carry report definitions; the console runs each through `POST /reports/r
 dashboard's filters added), so a widget counts exactly what the viewer could list.
 """
 
+import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.errors import AppError, ProblemDetail
+from app.core.errors import AppError, PermissionDenied, ProblemDetail, ValidationFailed
 from app.core.tenancy import TenantContext, resolve_tenant
-from app.modules.analytics.api.routes import CONFLICT, RESPONSES, _source, _validator
+from app.modules.analytics.api.routes import CONFLICT, RESPONSES, _source, _validator, _zone
 from app.modules.analytics.domain.builtin import BUILTIN as BUILTIN_REPORTS
 from app.modules.analytics.domain.dashboard import DashboardBody, Widget
 from app.modules.analytics.domain.widgets import CATALOGUE, SECTIONS, WidgetTemplate
 from app.modules.analytics.service import dashboards
+from app.modules.analytics.service.compiler import compile_report
 from app.modules.analytics.service.library import VIEW
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
@@ -26,6 +28,9 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
+
+if TYPE_CHECKING:
+    from app.shared.reporting import ReportingSource
 
 router = APIRouter(
     prefix="/dashboards",
@@ -52,6 +57,10 @@ class DashboardOut(BaseModel):
     description: str | None
     owner_id: str | None
     shared: bool
+    group_id: str | None = Field(description="The support group it belongs to (D-152).")
+    group_removed: bool = Field(
+        description="Its group was deleted: its owner's private dashboard again (D-152)."
+    )
     copied_from: str | None
     body: DashboardBody
     version: int
@@ -70,6 +79,8 @@ class DashboardOut(BaseModel):
             description=record.description if record else None,
             owner_id=str(record.owner_id) if record else None,
             shared=found.shared,
+            group_id=str(record.group_id) if record and record.group_id else None,
+            group_removed=found.group_removed,
             copied_from=record.copied_from if record else None,
             body=found.body,
             version=record.version if record else 1,
@@ -83,12 +94,15 @@ class DashboardListOut(BaseModel):
 
     items: list[DashboardOut]
     favourites: list[str]
+    group_choices: list[str] | None = Field(
+        description="Groups you may make dashboards for (D-152); null: any group."
+    )
     home: str
     home_chosen: bool = Field(description="True: your own choice; False: your role's home.")
 
 
 class DashboardIn(BaseModel):
-    """A new dashboard (private unless `shared`, which needs `dashboards.share`)."""
+    """A new dashboard: private, `shared` (`dashboards.share`) or a group's (D-152)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -96,6 +110,9 @@ class DashboardIn(BaseModel):
     names: dict[Literal["en", "ar", "ur"], str] = Field(default_factory=dict)
     description: str | None = Field(default=None, max_length=1000)
     shared: bool = False
+    group_id: uuid.UUID | None = Field(
+        default=None, description="A group's dashboard: its lead or dashboards.manage_defaults."
+    )
     body: DashboardBody = Field(default_factory=DashboardBody)
     copied_from: str | None = Field(default=None, max_length=100)
 
@@ -109,6 +126,7 @@ class DashboardPatch(BaseModel):
     names: dict[Literal["en", "ar", "ur"], str] | None = None
     description: str | None = Field(default=None, max_length=1000)
     shared: bool | None = None
+    group_id: uuid.UUID | None = Field(default=None, description="Null takes it out of its group.")
     body: DashboardBody | None = None
 
 
@@ -146,6 +164,7 @@ async def list_dashboards(session: TenantSession, subject: Viewer) -> DashboardL
     return DashboardListOut(
         items=[DashboardOut.of(v) for v in views],
         favourites=await dashboards.favourites(session, subject),
+        group_choices=await dashboards.group_choices(session, subject),
         home=found.ref,
         home_chosen=found.chosen,
     )
@@ -222,6 +241,7 @@ async def create_dashboard(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             names={str(k): v for k, v in body.names.items()},
             description=body.description,
             shared=body.shared,
+            group_id=body.group_id,
             body=body.body,
             copied_from=body.copied_from,
             validate=_validator(request, session, context, subject),
@@ -274,18 +294,37 @@ async def widget_catalogue(
     Only widgets over entities you may report on (permission and licence); each still shows only
     the records you may see.
     """
-    allowed: dict[str, bool] = {}
+    sources: dict[str, ReportingSource | None] = {}
     entries: list[WidgetCatalogueEntryOut] = []
+    zone = _zone(request)
+    now = datetime.now(zone)
     for template in CATALOGUE.values():
         entity = _entity(template)
-        if entity not in allowed:
+        if entity not in sources:
             try:
-                await _source(request, session, context, subject, entity)
-                allowed[entity] = True
+                sources[entity] = await _source(request, session, context, subject, entity)
             except AppError:
-                allowed[entity] = False
-        if not allowed[entity]:
+                sources[entity] = None
+        source = sources[entity]
+        if source is None:
             continue
+        ref = str(template.source.get("report_ref", ""))
+        if ref:
+            # As the report library: a built-in report the viewer cannot run (its fields or
+            # measures are not in their source, e.g. assets' money without view_financials)
+            # is not offered as a widget either.
+            report = BUILTIN_REPORTS.get(ref.removeprefix("builtin:"))
+            if report is None:  # a ref the catalogue no longer has: never a 500 for all
+                continue
+            try:
+                compile_report(
+                    report.definition,
+                    source,
+                    now=now,
+                    zone=zone.key,
+                )
+            except (ValidationFailed, PermissionDenied):
+                continue
         widget = template.widget(template.code[:40].rstrip("_-"), 0, 0)
         entries.append(
             WidgetCatalogueEntryOut(

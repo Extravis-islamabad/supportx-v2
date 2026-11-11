@@ -4,16 +4,46 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useAppearance } from '../appearance';
 import { PANEL_WIDTH, SPACE, TYPE } from '../density';
 import { clampLineHeight } from '../fonts/fonts';
+import { DEV, sectionsBeforeProperties } from './panelOrder';
+
+/** The record types with a tile of their own (D-155: one header for every type). */
+export type RecordKind =
+  | 'incident'
+  | 'service_request'
+  | 'problem'
+  | 'change'
+  | 'release'
+  | 'asset'
+  | 'announcement'
+  | 'article';
+
+// Each type's tint: icon colour and its pale tile, at least 4.5:1 for the icon on its tile in
+// both themes (the same measure as the channel looks).
+const KIND_TINTS: Record<RecordKind, { fg: string; bg: string; dark: { fg: string; bg: string } }> =
+  {
+    incident: { fg: '#B42318', bg: '#FEF3F2', dark: { fg: '#FDA29B', bg: '#55160C' } },
+    service_request: { fg: '#175CD3', bg: '#EFF8FF', dark: { fg: '#84CAFF', bg: '#102A56' } },
+    problem: { fg: '#B54708', bg: '#FFFAEB', dark: { fg: '#FEC84B', bg: '#4E1D09' } },
+    change: { fg: '#5925DC', bg: '#F4F3FF', dark: { fg: '#BDB4FE', bg: '#27115F' } },
+    release: { fg: '#067647', bg: '#ECFDF3', dark: { fg: '#75E0A7', bg: '#053321' } },
+    asset: { fg: '#0E7090', bg: '#ECFDFF', dark: { fg: '#67E3F9', bg: '#0D2D3A' } },
+    announcement: { fg: '#C11574', bg: '#FDF2FA', dark: { fg: '#FAA7E0', bg: '#4E0D30' } },
+    article: { fg: '#3538CD', bg: '#EEF4FF', dark: { fg: '#A4BCFD', bg: '#1F235B' } },
+  };
 
 export interface RecordHeaderProps {
-  /** The record type's icon (decorative). */
+  /** The record type's icon (decorative), drawn in the type's tinted tile when `kind` is set. */
   icon?: ReactNode;
-  /** A meaningful badge before everything (the channel it came from); named by itself. */
+  /** The record's type: its tile's tint (D-155). */
+  kind?: RecordKind;
+  /** A meaningful chip first in the chips row (the channel it came from); named by itself. */
   badge?: ReactNode;
   /** The record type's name beside the ID ("Incident"). */
   typeLabel?: string;
   /** The human ID (INC-1042), copyable. */
   displayId: string;
+  /** False when `displayId` is a stand-in ("No tag"), not an ID worth copying. */
+  copyable?: boolean;
   /** The subject; what people typed reads in its own direction. */
   title: string;
   /** Status, priority and similar compact tags. */
@@ -38,9 +68,11 @@ export interface RecordHeaderProps {
  */
 export function RecordHeader({
   icon,
+  kind,
   badge,
   typeLabel,
   displayId,
+  copyable = true,
   title,
   tags,
   meta = [],
@@ -50,20 +82,43 @@ export function RecordHeader({
   renderTitle = (shown) => shown,
 }: RecordHeaderProps) {
   const { token } = theme.useToken();
-  const { urduScript } = useAppearance();
+  const { urduScript, mode } = useAppearance();
+  const tint = kind === undefined ? undefined : KIND_TINTS[kind];
+  const colours = tint === undefined ? undefined : mode === 'dark' ? tint.dark : tint;
   return (
     <Flex gap={SPACE.md} align="flex-start" data-testid={testId} style={{ minWidth: 0 }}>
-      {badge}
-      {badge === undefined && icon !== undefined && (
-        <span aria-hidden style={{ color: token.colorTextSecondary, fontSize: TYPE.section }}>
-          {icon}
-        </span>
-      )}
+      {icon !== undefined &&
+        (colours === undefined ? (
+          <span aria-hidden style={{ color: token.colorTextSecondary, fontSize: TYPE.section }}>
+            {icon}
+          </span>
+        ) : (
+          // The type's tile (D-155): the same place and size on every record.
+          <span
+            aria-hidden
+            data-testid="record-kind-tile"
+            data-kind={kind}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              width: 44,
+              height: 44,
+              borderRadius: 10,
+              background: colours.bg,
+              color: colours.fg,
+              fontSize: 22,
+            }}
+          >
+            {icon}
+          </span>
+        ))}
       <Flex vertical gap={6} style={{ minWidth: 0, flex: 1 }}>
         <Flex align="center" gap={SPACE.xs} wrap style={{ fontSize: TYPE.meta }}>
           <Typography.Text
             strong
-            copyable
+            copyable={copyable}
             style={{ fontSize: TYPE.meta, whiteSpace: 'nowrap' }}
             data-testid={testIds.id}
           >
@@ -98,19 +153,27 @@ export function RecordHeader({
             </Typography.Title>
           </Tooltip>,
         )}
-        <Flex gap={SPACE.xs} wrap align="center">
-          {tags}
-          {meta.length > 0 && (
-            <Typography.Text type="secondary" style={{ fontSize: TYPE.data }}>
-              {meta.map((part, index) => (
-                <span key={index}>
-                  {index > 0 && ' · '}
-                  {part}
-                </span>
-              ))}
-            </Typography.Text>
-          )}
-        </Flex>
+        {(badge !== undefined || tags !== undefined) && (
+          <Flex gap={SPACE.xs} wrap align="center" data-testid="record-chips">
+            {badge}
+            {tags}
+          </Flex>
+        )}
+        {/* One line of key facts under the chips (D-155): requester, created. */}
+        {meta.length > 0 && (
+          <Typography.Text
+            type="secondary"
+            style={{ fontSize: TYPE.data }}
+            data-testid="record-facts"
+          >
+            {meta.map((part, index) => (
+              <span key={index}>
+                {index > 0 && ' · '}
+                {part}
+              </span>
+            ))}
+          </Typography.Text>
+        )}
       </Flex>
     </Flex>
   );
@@ -140,6 +203,15 @@ export function PropertiesPanel({
   testId?: string;
 }) {
   const { token } = theme.useToken();
+  if (DEV) {
+    const early = sectionsBeforeProperties(sections);
+    if (early.length > 0) {
+      // A developer's note in dev builds, never shown to users.
+      console.warn(
+        `PropertiesPanel${testId === undefined ? '' : ` (${testId})`}: ${JSON.stringify(early)} before properties; fold it into Properties (D-147 template A).`,
+      );
+    }
+  }
   return (
     <aside
       data-testid={testId}

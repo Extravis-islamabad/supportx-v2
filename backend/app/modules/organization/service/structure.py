@@ -19,6 +19,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import access_changed
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.modules.licensing import LimitKey, reserve_capacity
@@ -647,6 +648,9 @@ async def save_department(  # noqa: C901, PLR0912 - one rule per setting, flat
         if "code" in cause:
             raise _problems([("code", "code_taken")]) from exc
         raise _problems([("name", "name_taken")]) from exc
+    if {"head_id", "disabled_at"} & set(changes):
+        # A department's head views its requests (D-152): the old and new head's rights change.
+        access_changed(session)
     await record_event(
         session,
         DepartmentChanged(department_id=row.id, changed_fields=sorted(changes)),
@@ -654,6 +658,20 @@ async def save_department(  # noqa: C901, PLR0912 - one rule per setting, flat
         aggregate_version=row.version,
     )
     return row
+
+
+async def heads_department(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Whether the person heads a live department (D-152: they view its portal requests)."""
+    found = await session.scalar(
+        select(Department.id)
+        .where(
+            Department.head_id == user_id,
+            Department.deleted_at.is_(None),
+            Department.disabled_at.is_(None),
+        )
+        .limit(1)
+    )
+    return found is not None
 
 
 async def find_department(session: AsyncSession, value: str) -> uuid.UUID | None:
@@ -770,6 +788,7 @@ async def remove_unit(
         event = SupportGroupChanged(group_id=unit_id, changed_fields=["deleted"])
     else:
         event = DepartmentChanged(department_id=unit_id, changed_fields=["deleted"])
+        access_changed(session)  # its head no longer views its requests (D-152)
     await record_event(session, event, aggregate_id=unit_id, aggregate_version=removed.version)
 
 

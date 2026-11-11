@@ -27,3 +27,10 @@ def test_measurements_go_to_the_report_when_asked(
     assert report.read_text().count('"p95_ms"') == 1
     monkeypatch.delenv("SUPPORTX_PERF_REPORT")
     timing.record("c", 3)  # nothing asked: nothing written, no error
+
+
+def test_volume_tests_run_in_full_only_at_night(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SUPPORTX_PERF_STRICT", raising=False)
+    assert timing.volume(100_000, 1_000) == 1_000  # a pull request: the smoke run
+    monkeypatch.setenv("SUPPORTX_PERF_STRICT", "1")
+    assert timing.volume(100_000, 1_000) == 100_000  # perf.yml: all of them

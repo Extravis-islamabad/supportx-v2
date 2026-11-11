@@ -325,3 +325,49 @@ async def test_req_rpt_056_a_worker_missing_a_service_records_a_failed_run(
         0,
     )
     assert item["last_run_at"] is not None
+
+
+async def test_a_money_report_is_never_mailed_to_someone_who_may_not_see_money(
+    mailing: tuple[World, Settings], migrated_db: ThrowawayDatabase
+) -> None:
+    """Assets' money (WP-048b S4 bundle): each recipient's file is built with their rights, so
+    a technician without assets.view_financials gets nothing; the admin still gets theirs, and
+    the run says one recipient could not be sent to (lane B's #379 review)."""
+    world, settings = mailing
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/reports/schedules",
+        a,
+        a.admin,
+        json=_body(
+            a,
+            title="Book value",
+            report_ref="builtin:assets_book_value_by_cost_centre",
+            recipient_users=[str(a.admin), str(a.tech_a)],
+            recipient_groups=[],
+        ),
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    await _run_due(world, migrated_db, a, settings)
+    mails = await world.sql(
+        "SELECT m.recipients FROM mail_messages m"
+        " WHERE m.tenant_id = $1 AND m.kind = 'report' AND m.subject LIKE '%Book value%'",
+        a.tenant,
+    )
+    emails = {
+        r["id"]: r["email"]
+        for r in await world.sql(
+            "SELECT id, email FROM users WHERE id = ANY($1::uuid[])", [a.admin, a.tech_a]
+        )
+    }
+    sent_to = {m["recipients"][0] for m in mails}
+    assert emails[a.admin] in sent_to
+    assert emails[a.tech_a] not in sent_to
+    item = next(
+        i
+        for i in (await world.call("GET", "/reports/schedules", a, a.admin)).json()["items"]
+        if i["title"] == "Book value"
+    )
+    assert (item["last_sent"], item["last_failed"]) == (1, 1)

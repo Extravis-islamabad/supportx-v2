@@ -237,7 +237,9 @@ async def ensure_service_requests(  # noqa: PLR0913 - the seed's sign-ins and lo
         if not await _decide((approver, admin), record["id"], decision) or state == "rejected":
             continue
         fresh = await admin.call("GET", f"{SR}/{record['id']}")
-        if fresh["status"] == "new":
+        # Someone fulfils it (D-154 "E1 follows d"): assigned whenever nobody is on it yet,
+        # not only while it is New (a rule may have given it to a group alone).
+        if fresh.get("technician_id") is None:
             await admin.call(
                 "POST",
                 f"{SR}/{record['id']}/assign",

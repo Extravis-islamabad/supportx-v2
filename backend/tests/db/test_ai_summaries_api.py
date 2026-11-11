@@ -21,10 +21,13 @@ from app.modules.ai.service.erasure import on_status_changed
 from app.modules.ai.service.realtime import ROUTES as AI_ROUTES
 from app.modules.ai.service.summaries import on_conversation_changed
 from app.shared.events import EventEnvelope
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import events_of, say
-from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, problem, world
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 PUBLIC_REPLY = "<p>Outlook keeps asking for the password since Monday.</p>"
 PRIVATE_NOTE = "<p>Suspect the expired certificate on mail-gw-2.</p>"

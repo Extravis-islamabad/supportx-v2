@@ -6,6 +6,8 @@ import {
   ApiError,
   useAssignIncident,
   useAssignProblem,
+  useAssignServiceRequest,
+  useServiceRequestCatalogue,
   useIncidentCatalogue,
   useProblemCatalogue,
   useUnits,
@@ -52,7 +54,7 @@ export function AssignDialog({
   /** Re-read the record (the dialog opens on the latest assignment). */
   refresh: () => Promise<unknown>;
   /** The record type's prefix (WP-044c: a problem's group and owner, the same dialog). */
-  base?: 'incidents' | 'problems';
+  base?: 'incidents' | 'problems' | 'service-requests';
 }) {
   if (!open) return null;
   return <AssignBody item={item} onClose={onClose} refresh={refresh} base={base} />;
@@ -72,7 +74,7 @@ function AssignBody({
   item: Incident;
   onClose: () => void;
   refresh: () => Promise<unknown>;
-  base: 'incidents' | 'problems';
+  base: 'incidents' | 'problems' | 'service-requests';
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -81,16 +83,32 @@ function AssignBody({
   // Both types' hooks are called (hooks never depend on a condition); the type's own is used.
   const incidentCatalogue = useIncidentCatalogue(base === 'incidents');
   const problemCatalogue = useProblemCatalogue(base === 'problems');
-  const catalogue = base === 'problems' ? problemCatalogue : incidentCatalogue;
+  const requestCatalogue = useServiceRequestCatalogue(base === 'service-requests');
+  const catalogue =
+    base === 'problems'
+      ? problemCatalogue
+      : base === 'service-requests'
+        ? requestCatalogue
+        : incidentCatalogue;
   const groups = useUnits('groups');
   const assignIncident = useAssignIncident(item.id);
   const assignProblem = useAssignProblem(item.id);
-  const assign = base === 'problems' ? assignProblem : assignIncident;
+  const assignRequest = useAssignServiceRequest(item.id);
+  const assign =
+    base === 'problems'
+      ? assignProblem
+      : base === 'service-requests'
+        ? assignRequest
+        : assignIncident;
   const [groupChoice, setGroupChoice] = useState<Choice>({ touched: false, value: null });
   const [techChoice, setTechChoice] = useState<Choice>({ touched: false, value: null });
   const [reasonCode, setReasonCode] = useState<string>();
   const [reasonText, setReasonText] = useState('');
   const [handover, setHandover] = useState(false);
+  // D-154a: the person picked and their groups; someone outside the chosen group is assigned
+  // by moving the record to their group (picked here when they are in several).
+  const [person, setPerson] = useState<{ id: string; name: string; groupIds: string[] }>();
+  const [targetGroup, setTargetGroup] = useState<string>();
   // A refusal (a rule, a limit) is shown in the open dialog, once (QA WP-029 BUG-02).
   const problem = useFormProblem();
   // The version the user's first change was made on; until then, the latest one.
@@ -105,7 +123,25 @@ function AssignBody({
   useEffect(() => {
     void reread.current();
   }, []);
-  const group = groupChoice.touched ? groupChoice.value : item.group_id;
+  const chosenGroup = groupChoice.touched ? groupChoice.value : item.group_id;
+  const outsider =
+    person !== undefined &&
+    techChoice.touched &&
+    techChoice.value === person.id &&
+    chosenGroup !== null &&
+    !person.groupIds.includes(chosenGroup)
+      ? person
+      : undefined;
+  // Their only group, or the one picked among several; none yet when they are in several.
+  const moveTo =
+    outsider === undefined
+      ? undefined
+      : outsider.groupIds.length === 1
+        ? outsider.groupIds[0]
+        : targetGroup !== undefined && outsider.groupIds.includes(targetGroup)
+          ? targetGroup
+          : undefined;
+  const group = outsider === undefined ? chosenGroup : (moveTo ?? chosenGroup);
   const technician = techChoice.touched
     ? techChoice.value
     : groupChoice.touched && groupChoice.value !== item.group_id
@@ -114,7 +150,14 @@ function AssignBody({
   const touch = () => {
     basedOn.current ??= item.version;
     setOpened((was) => was ?? item);
+    edited();
   };
+  // A refusal is about what was sent: any change clears it (QA 2026-11-10: "This field is
+  // required." stayed after a reason was picked, and pushed the buttons down under the click).
+  function edited() {
+    if (assign.isError) assign.reset();
+    problem.clear();
+  }
   const movingGroups = item.group_id !== null && group !== item.group_id;
   const reasons = (catalogue.data?.reasons ?? [])
     .filter((r) => r.list === 'reassign' && !r.disabled)
@@ -134,7 +177,9 @@ function AssignBody({
           name: item.people[item.technician_id]?.display_name ?? '',
           email: item.people[item.technician_id]?.email ?? '',
         };
-  const groupName = groups.data?.find((g) => g.id === group)?.name ?? t('incidents.no_group');
+  const nameOf = (id: string | null | undefined) =>
+    groups.data?.find((g) => g.id === id)?.name ?? t('incidents.no_group');
+  const groupName = nameOf(group);
   const close = () => {
     assign.reset();
     onClose();
@@ -165,7 +210,8 @@ function AssignBody({
             void message.success(
               t('incidents.handed_over', { id: item.display_id, group: groupName }),
             );
-            void navigate(`/${base}`);
+            // The console lists requests at /requests (its API is /service-requests).
+            void navigate(base === 'service-requests' ? '/requests' : `/${base}`);
           }
         },
         onError: (error) => {
@@ -193,14 +239,23 @@ function AssignBody({
       <Modal
         open={!handover}
         title={t('work_item_operation.assign')}
-        okText={t('work_item_operation.assign')}
+        okText={
+          // Until their group is picked the button stays "Assign"; the notice above asks.
+          outsider === undefined || moveTo === undefined
+            ? t('work_item_operation.assign')
+            : t('incidents.move_and_assign', { group: nameOf(moveTo), person: outsider.name })
+        }
         cancelText={t('actions.cancel')}
         confirmLoading={assign.isPending}
         onCancel={close}
         onOk={() => {
           send(false);
         }}
-        okButtonProps={{ 'data-testid': 'inc-assign-confirm' }}
+        okButtonProps={{
+          'data-testid': 'inc-assign-confirm',
+          // Someone in several groups: the group to move to is picked first (said below).
+          disabled: outsider !== undefined && moveTo === undefined,
+        }}
         destroyOnHidden
       >
         <Space direction="vertical" style={{ width: '100%' }}>
@@ -210,11 +265,13 @@ function AssignBody({
           </label>
           <GroupPicker
             id="inc-assign-group"
-            value={group}
+            value={chosenGroup}
             onChange={(next) => {
               touch();
               setGroupChoice({ touched: true, value: next });
               setTechChoice({ touched: true, value: null }); // the list depends on the group
+              setPerson(undefined);
+              setTargetGroup(undefined);
             }}
             testId="inc-assign-group"
             ariaLabel={t('work_item.field.group_id')}
@@ -224,17 +281,58 @@ function AssignBody({
           </label>
           <TechnicianPicker
             id="inc-assign-technician"
-            groupId={group}
+            groupId={chosenGroup}
+            everyone
             value={technician}
             current={technician === item.technician_id ? current : null}
             onChange={(next) => {
               touch();
               setTechChoice({ touched: true, value: next });
             }}
+            onPerson={(picked) => {
+              setPerson(picked ?? undefined);
+              setTargetGroup(undefined);
+            }}
             testId="inc-assign-technician"
             base={base}
             ariaLabel={t('work_item.field.technician_id')}
           />
+          {outsider !== undefined && (
+            <Alert
+              type="info"
+              showIcon
+              role="status"
+              data-testid="inc-assign-outside"
+              message={t('incidents.assign_outside_group', {
+                person: outsider.name,
+                group: nameOf(chosenGroup),
+              })}
+              description={
+                outsider.groupIds.length > 1 ? (
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <label htmlFor="inc-assign-move-to">
+                      <Typography.Text>{t('incidents.move_to_which_group')}</Typography.Text>
+                    </label>
+                    <Select
+                      id="inc-assign-move-to"
+                      value={moveTo}
+                      onChange={(next: string) => {
+                        setTargetGroup(next);
+                        edited();
+                      }}
+                      options={outsider.groupIds.map((id) => ({
+                        value: id,
+                        label: nameOf(id),
+                        'aria-label': nameOf(id),
+                      }))}
+                      style={{ width: '100%' }}
+                      data-testid="inc-assign-move-to"
+                    />
+                  </Space>
+                ) : undefined
+              }
+            />
+          )}
           {movingGroups && (
             <>
               <label htmlFor="inc-assign-reason">
@@ -243,7 +341,10 @@ function AssignBody({
               <Select
                 id="inc-assign-reason"
                 value={reasonCode}
-                onChange={setReasonCode}
+                onChange={(next: string) => {
+                  setReasonCode(next);
+                  edited();
+                }}
                 options={reasons}
                 style={{ width: '100%' }}
                 data-testid="inc-assign-reason"
@@ -257,6 +358,7 @@ function AssignBody({
                 value={reasonText}
                 onChange={(event) => {
                   setReasonText(event.target.value);
+                  edited();
                 }}
                 data-testid="inc-assign-reason-text"
               />
@@ -298,6 +400,8 @@ function AssignBody({
           setOpened(undefined);
           setTried(undefined);
           setGroupChoice({ touched: false, value: null });
+          setPerson(undefined);
+          setTargetGroup(undefined);
           setTechChoice({ touched: false, value: null });
           setReasonCode(undefined);
           setReasonText('');

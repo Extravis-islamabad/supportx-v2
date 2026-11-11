@@ -25,7 +25,8 @@ from typing import Any, Protocol
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
+from app.core.database import SESSION_SETTINGS_KEY
 from app.core.errors import NotFound, PermissionDenied
 from app.modules.identity_access import Subject, authorize_stored, user_contacts
 from app.modules.work_items.domain.conversation import (
@@ -101,8 +102,9 @@ async def email_channel_configured(session: AsyncSession) -> bool:
     The notification engine moves the reply on from there (sent, retrying, failed), so the
     timeline never pretends a reply was sent (REQ-INC-059, REQ-INC-060).
     """
-    del session
-    return mail_configured(get_settings())
+    # The running process's settings (the app's, a worker's); the global only for a bare script.
+    found = session.info.get(SESSION_SETTINGS_KEY)
+    return mail_configured(found if isinstance(found, Settings) else get_settings())
 
 
 # --- reading --------------------------------------------------------------------------------------

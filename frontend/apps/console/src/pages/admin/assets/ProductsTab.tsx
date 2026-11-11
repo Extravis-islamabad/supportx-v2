@@ -22,7 +22,7 @@ import {
   type AssetProductInput,
   type AssetProductType,
 } from '@supportx/api-client';
-import { lengthLimit, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import { EmptyText, lengthLimit, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { Problems } from '../incidents/shared';
 import { nameOf, useCatalogueSave } from './shared';
@@ -173,6 +173,7 @@ export function ProductsTab({ types }: { types: AssetProductType[] }) {
       extra={
         <WriteButton
           disabled={types.length === 0}
+          whyDisabled={t('assets.admin.types_needed')}
           onClick={() => {
             open('new');
           }}
@@ -207,7 +208,7 @@ export function ProductsTab({ types }: { types: AssetProductType[] }) {
           loading={products.isLoading}
           dataSource={rows}
           scroll={{ x: 'max-content' }}
-          locale={{ emptyText: t('assets.admin.no_products') }}
+          locale={{ emptyText: <EmptyText>{t('assets.admin.no_products')}</EmptyText> }}
           columns={[
             {
               key: 'name',

@@ -1710,6 +1710,8 @@ system entries. New entries appear live.
 
 #### REQ-INC-058 — Reply, reply to all, forward
 
+- **Changed by D-155 (2026-11-10):** one Reply, in the record header, with reply to all and forward in its dropdown; the conversation toolbar has Add note only.
+
 Technicians reply to the requester, reply to all participants or forward to someone from the
 incident. The composer has To and CC, reply templates, attachments (including files already on
 the incident), the technician's signature in their language, and a preview. Sent messages are
@@ -2733,6 +2735,8 @@ an archive view, and can be restored.
 ## 17. Bulk actions
 
 #### REQ-INC-119 — Select across pages
+
+- **Changed by D-155 (2026-11-10):** the selection bar appears only while rows are selected, in place of the toolbar; AC2's "disabled until something is selected" no longer applies.
 
 Users can select rows on one page, all rows on the page, or every incident matching the view
 ("all N"). The selection count is always visible. Actions that need a selection are disabled

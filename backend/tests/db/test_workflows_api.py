@@ -8,9 +8,12 @@ switched on, started on an incident (twice: the second refused), and its log rea
 import uuid
 from typing import Any
 
-from tests.db.test_incidents_api import CONSOLE, World, problem, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, World, problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 BASE = "/automation/workflows"
 

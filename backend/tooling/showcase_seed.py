@@ -53,13 +53,13 @@ import uuid
 from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import asyncpg
 import httpx
 from fastapi import FastAPI, Request
-from sqlalchemy import update
+from sqlalchemy import text, update
 
 from app.core.config import Settings
 from app.core.database import Database, create_engine
@@ -79,6 +79,7 @@ from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
 from app.modules.service_catalog.service.starter import seed_empty_catalog
 from app.modules.work_items.service.work_items import apply_sla_from_creation
 from app.shared.api.idempotency import REPLAYED_HEADER
+from tooling import showcase_assets as assets
 from tooling import showcase_lane_a as lane_a
 from tooling.keycloak_theme import admin_token
 
@@ -406,30 +407,47 @@ async def backdate(migrator_url: str, made: Sequence[uuid.UUID]) -> int:
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
             await conn.execute(_BACKDATE_DELTAS, TENANT_ID, BACKDATE_DAYS, list(made))
             await conn.execute("DELETE FROM showcase_shift WHERE delta = interval '0'")
-            moved: int = await conn.fetchval("SELECT count(*) FROM showcase_shift")
-            if moved == 0:
-                return 0
-            for table, link in _BACKDATE_TARGETS:
-                columns = [
-                    row["column_name"]
-                    for row in await conn.fetch(
-                        "SELECT column_name FROM information_schema.columns"
-                        " WHERE table_schema = 'public' AND table_name = $1"
-                        " AND data_type = 'timestamp with time zone' ORDER BY column_name",
-                        table,
-                    )
-                ]
-                if not columns:
-                    continue
-                shift = ", ".join(f"{c} = t.{c} + s.delta" for c in columns)
-                await conn.execute(
-                    f"UPDATE {table} t SET {shift} FROM showcase_shift s"  # noqa: S608 - names from the fixed list above and the catalogue
-                    f" WHERE t.tenant_id = $1 AND {link}",
-                    TENANT_ID,
-                )
-            return moved
+            return await _shift(conn)
     finally:
         await conn.close()
+
+
+async def _shift(conn: asyncpg.Connection, cap: datetime | None = None) -> int:
+    """Move each record in `showcase_shift` by its delta: every timestamp of it and of its rows.
+
+    One delta per record keeps the order of its own times; append-only tables (audit, outbox,
+    events) are never in the list. With `cap` (step 7), a time that would land after it lands
+    at it instead, so nothing reads as in the future (an empty time stays empty). Returns how
+    many records moved.
+    """
+    moved: int = await conn.fetchval("SELECT count(*) FROM showcase_shift")
+    if moved == 0:
+        return 0
+    for table, link in _BACKDATE_TARGETS:
+        columns = [
+            row["column_name"]
+            for row in await conn.fetch(
+                "SELECT column_name FROM information_schema.columns"
+                " WHERE table_schema = 'public' AND table_name = $1"
+                " AND data_type = 'timestamp with time zone' ORDER BY column_name",
+                table,
+            )
+        ]
+        if not columns:
+            continue
+        # LEAST skips a NULL, so an empty time is kept empty by hand.
+        moved_to = (
+            "CASE WHEN t.{c} IS NULL THEN NULL ELSE least(t.{c} + s.delta, $2::timestamptz) END"
+            if cap
+            else "t.{c} + s.delta"
+        )
+        shift = ", ".join(f"{c} = " + moved_to.format(c=c) for c in columns)
+        await conn.execute(
+            f"UPDATE {table} t SET {shift} FROM showcase_shift s"  # noqa: S608 - names from the fixed list above and the catalogue
+            f" WHERE t.tenant_id = $1 AND {link}",
+            *((TENANT_ID, cap) if cap else (TENANT_ID,)),
+        )
+    return moved
 
 
 async def ensure_tenant(migrator_url: str) -> list[str]:
@@ -1367,7 +1385,10 @@ class Report:
     catalog_published: int = 0
     articles: int = 0
     releases: int = 0
+    assets: int = 0  # products, assets, holders, a loan and a group (showcase_assets)
+    stock: int = 0  # consumables, their stock, movements and minimum, a booking (WP-049b)
     backdated: int = 0
+    freshened: int = 0  # step 7: seed records moved to read as of today
     # Between the steps only: step 6's candidates and who acts.
     without_sla: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
     admin_id: uuid.UUID | None = field(default=None, repr=False, compare=False)
@@ -1408,6 +1429,10 @@ async def fill(
         author = admin.as_user(signed_in[TECHNICIAN.email])
         report.articles = await ensure_knowledge(admin, author)
         report.releases = await ensure_releases(admin, str(signed_in[ADMIN.email]))
+        report.assets = await assets.ensure_assets(
+            admin, key, sites, signed_in[REQUESTER.email], signed_in[NEW_STARTER.email]
+        )
+        report.stock = await assets.ensure_stock(admin, key, sites, signed_in[REQUESTER.email])
         report.admin_id = signed_in[ADMIN.email]
         # Only the seed's own incidents (lane C's shared definition), never others; step 6 also
         # checks each was made by the seed's admin.
@@ -1458,6 +1483,7 @@ async def run(settings: Settings, keycloak: KeycloakTarget) -> Report:
     report.sla_from_creation = await sla_from_creation(
         settings, TENANT_ID, report.admin_id, report.without_sla
     )
+    report.freshened = await freshen(settings, TENANT_ID, now=datetime.now(UTC))
     return report
 
 
@@ -1511,6 +1537,161 @@ async def sla_from_creation(
     return changed
 
 
+# --- 7. Fresh dates (Haider, 2026-11-10) ------------------------------------------------------
+
+# A move shorter than this is no move: a re-run the same day changes nothing.
+FRESHEN_MIN = timedelta(hours=12)
+DONE_CATEGORIES = ("resolved", "closed", "canceled")
+
+
+def freshened_created(display_number: int, status_category: str, now: datetime) -> datetime:
+    """Where a seed record's creation lands: open ones recent, done ones spread out.
+
+    Open and paused records: 30 minutes to 20 hours ago, so most are running or at risk and
+    only those with the shortest targets are past due. Resolved, closed and canceled: 3 to 30
+    days ago. By display number, so each record lands in the same place on every re-seed.
+    """
+    if status_category in DONE_CATEGORIES:
+        return now - timedelta(days=3 + (display_number * 5) % 27, hours=display_number % 9)
+    return now - timedelta(minutes=30 + (display_number * 47) % 1170)
+
+
+async def _seed_owned(conn: asyncpg.Connection) -> list[asyncpg.Record]:
+    """The seed's own records, untouched by anyone else (lane C's rule for step 7).
+
+    Defined by the seed (`is_seed_incident`; lane A's request and problem subjects), made by
+    one of its sign-ins, and with no history written by any other person. Never a release.
+    """
+    people = {
+        r["email"]: str(r["id"])
+        for r in await conn.fetch(
+            "SELECT email, id FROM users WHERE tenant_id = $1 AND email = ANY($2::text[])",
+            TENANT_ID,
+            [p.email for p in PEOPLE],
+        )
+    }
+    sign_ins = [
+        r["id"]
+        for r in await conn.fetch(
+            "SELECT id FROM users WHERE tenant_id = $1 AND email = ANY($2::text[])",
+            TENANT_ID,
+            [s.email for s in SIGN_INS],
+        )
+    ]
+    requests = {s for s, *_ in (*lane_a.REQUESTS, *lane_a.LOCAL_REQUESTS)} | lane_a.FIRST_SUBJECTS
+    problems = {p[0] for p in lane_a.PROBLEMS}
+    rows = await conn.fetch(
+        "SELECT w.id, w.type, w.subject, w.requester_id, w.display_number, w.status_category,"
+        "       w.created_at"
+        "  FROM work_items w"
+        " WHERE w.tenant_id = $1 AND w.type <> 'release' AND w.deleted_at IS NULL"
+        "   AND w.created_by = ANY($2::uuid[])"
+        "   AND NOT EXISTS (SELECT 1 FROM field_changes f"
+        "                    WHERE f.tenant_id = $1 AND f.record_type = 'work_item'"
+        "                      AND f.record_id = w.id AND f.actor_id IS NOT NULL"
+        # field_changes.actor_id is text (a person, or a service's id): compared as text.
+        "                      AND NOT (f.actor_id = ANY($2::uuid[]::text[])))",
+        TENANT_ID,
+        sign_ins,
+    )
+
+    def defined(row: asyncpg.Record) -> bool:
+        if row["type"] == "incident":
+            return len(people) == len(PEOPLE) and is_seed_incident(
+                {"subject": row["subject"], "requester_id": str(row["requester_id"])}, people
+            )
+        if row["type"] == "service_request":
+            return row["subject"] in requests
+        if row["type"] == "problem":
+            return row["subject"] in problems
+        return False
+
+    return [row for row in rows if defined(row)]
+
+
+async def freshen(settings: Settings, tenant_id: uuid.UUID, *, now: datetime) -> int:
+    """Step 7: the seed's own records move so the demo reads as of today; how many moved.
+
+    Each record moves as a whole by one delta (step 5's shift: every timestamp of it and of
+    its rows), its creation landing where `freshened_created` says; a later time (the seed's
+    own SLA stamps of today) is held at now, never moved into the future. Then its SLA clocks are
+    set right through the sla module (`rebase`: due moments from their start on their
+    calendars, the state from now, silently) and stamped on the record. The showcase tenant
+    only, in its own RLS context; audit, outbox and events are never touched.
+    """
+    if tenant_id != TENANT_ID:  # the showcase tenant only, whatever a caller passes
+        msg = f"fresh dates are only for the showcase tenant, not {tenant_id}"
+        raise SeedError(msg)
+    migrator = settings.migration_database_url
+    if migrator is None:
+        msg = "SUPPORTX_MIGRATION_DATABASE_URL is not set"
+        raise SeedError(msg)
+    moves: list[tuple[uuid.UUID, str, timedelta]] = []
+    owned: list[tuple[uuid.UUID, str]] = []
+    moved = 0
+    conn = await asyncpg.connect(migrator.get_secret_value())
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
+            for row in await _seed_owned(conn):
+                owned.append((row["id"], row["type"]))
+                land = freshened_created(row["display_number"], row["status_category"], now)
+                delta = land - row["created_at"]
+                if abs(delta) >= FRESHEN_MIN:
+                    moves.append((row["id"], row["type"], delta))
+        if moves:
+            async with conn.transaction():
+                await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
+                await conn.execute(
+                    "CREATE TEMP TABLE showcase_shift (id uuid PRIMARY KEY, delta interval)"
+                    " ON COMMIT DROP"
+                )
+                await conn.executemany(
+                    "INSERT INTO showcase_shift (id, delta) VALUES ($1, $2)",
+                    [(record_id, delta) for record_id, _, delta in moves],
+                )
+                moved = await _shift(conn, cap=now)
+    finally:
+        await conn.close()
+    database = Database.from_settings(settings)
+    if database is None:
+        msg = "SUPPORTX_DATABASE_URL is not set"
+        raise SeedError(msg)
+    try:
+        async with database.tenant_session(TenantContext(TENANT_ID)) as session:
+            # Every seed record, moved now or not (lanes B and C): a rebase that failed after
+            # an earlier move is finished by the next run; on clocks already right it changes
+            # nothing.
+            for record_id, code in owned:
+                stamp = await sla.rebase(session, code, record_id, now=now)
+                await session.execute(
+                    text(
+                        "UPDATE work_items SET first_response_due_at = :frd,"
+                        " resolution_due_at = :rd, first_response_sla_state = :frs,"
+                        " resolution_sla_state = :rs, first_response_breached = :frb,"
+                        " resolution_breached = :rb, updated_at = :now, version = version + 1"
+                        " WHERE tenant_id = :t AND id = :id"
+                        " AND (first_response_due_at, resolution_due_at, first_response_sla_state,"
+                        "      resolution_sla_state, first_response_breached, resolution_breached)"
+                        "     IS DISTINCT FROM (:frd, :rd, :frs, :rs, :frb, :rb)"
+                    ),
+                    {
+                        "frd": stamp.first_response_due_at,
+                        "rd": stamp.resolution_due_at,
+                        "frs": stamp.first_response_sla_state,
+                        "rs": stamp.resolution_sla_state,
+                        "frb": stamp.first_response_breached,
+                        "rb": stamp.resolution_breached,
+                        "now": now,  # stamped again now (QA WP-029 BUG-05: every write)
+                        "t": TENANT_ID,
+                        "id": record_id,
+                    },
+                )
+    finally:
+        await database.dispose()
+    return moved
+
+
 def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the tested steps
     """`python -m tooling.showcase_seed showcase`."""
     settings = Settings.load(service_name="supportx-showcase-seed")
@@ -1546,6 +1727,8 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"  made now: {', '.join(report.tenant + report.keycloak) or 'nothing (all present)'}\n"
         f"  incidents made now: {report.incidents}; dashboard made now: {report.dashboard}\n"
         f"  articles made now: {report.articles}; releases made now: {report.releases}\n"
+        f"  assets made now (products, assets, holders, a loan, a group): {report.assets}\n"
+        f"  stock made now (consumables, movements, a minimum, a booking): {report.stock}\n"
         f"  service requests made now: {report.service_requests}; problems made now:"
         f" {report.problems}; rules made now: {report.rules}; managers set now:"
         f" {report.managers}; catalog items featured now: {report.featured}\n"

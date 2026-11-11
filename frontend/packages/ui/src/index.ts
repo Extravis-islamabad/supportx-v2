@@ -14,6 +14,7 @@ export * from './brand';
 export * from './dates';
 export { AppearanceControls } from './AppearanceControls';
 export { EmptyText } from './EmptyText';
+export { loadedEmpty } from './loadedEmpty';
 export { ToneTag } from './ToneTag';
 export { contrastRatio, TAG_TONES, TONES, type Tone } from './tones';
 export { PresenceAvatars, type PresenceAvatarsProps } from './PresenceAvatars';
@@ -47,6 +48,7 @@ export {
 } from './theme';
 export { lengthLimit } from './lengthLimit';
 export * from './layout';
+export { StageRail } from './stages/StageRail';
 export * from './settings';
 export {
   CONTROL_HEIGHT,
@@ -57,6 +59,6 @@ export {
   TYPE,
   type Density,
 } from './density';
-export { ChannelIcon, type ChannelIconProps } from './workItems/ChannelIcon';
+export { ChannelIcon, ChannelTag, type ChannelIconProps } from './workItems/ChannelIcon';
 export { CHANNEL_LOOKS } from './workItems/channelLooks';
 export * from './catalog';

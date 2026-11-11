@@ -28,7 +28,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules import metadata, service_catalog
+from app.modules import metadata, service_catalog, sla
 from app.modules.automation import (
     TRANSITION_NOT_FOR_YOU as NOT_FOR_YOU,
 )
@@ -38,6 +38,7 @@ from app.modules.automation import (
     RuleEvent,
     log_trace,
     record_runs,
+    step_owner,
     transition_audience,
     transition_refusal,
     transition_settings,
@@ -66,6 +67,7 @@ from app.modules.organization import (
     unit_heads,
     users_in_groups,
 )
+from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
@@ -117,6 +119,7 @@ from app.modules.work_items.domain.types import (
 from app.modules.work_items.events import (
     Audience,
     WorkItemAssigned,
+    WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemDeleted,
     WorkItemPartChangedV2,
@@ -143,6 +146,7 @@ from app.modules.work_items.infra.models import (
 from app.modules.work_items.service import (
     approval_stage,
     automation,
+    change_conflicts,
     change_types,
     closing,
     followers,
@@ -328,6 +332,56 @@ async def _may(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, action: str, record_id: uuid.UUID
 ) -> bool:
     return await _reason_for(session, subject, wtype, action, record_id) is None
+
+
+async def may_edit(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may edit the record (its type's edit permission, in scope).
+
+    For other modules that act on a record for a person: running, stopping or restarting a
+    workflow on it (ADR-043 §10). A record in the trash (or gone) is never editable (lane A).
+    """
+    live = await session.scalar(
+        _rows(wtype).where(WorkItem.id == record_id).with_only_columns(WorkItem.id)
+    )
+    if live is None:
+        return False
+    return await _may(session, subject, wtype, "edit", record_id)
+
+
+async def labels_of(
+    session: AsyncSession, wtype: WorkItemType, record_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[str, str]]:
+    """Display IDs and subjects by record ID, of this type only, trash excluded.
+
+    For another module that names records it has already checked the viewer may see (the
+    workflow overview, WP-048b S5a): one bounded query over those IDs, in the tenant session.
+    """
+    if not record_ids:
+        return {}
+    rows = await session.execute(
+        _rows(wtype)
+        .where(WorkItem.id.in_(list(record_ids)))
+        .with_only_columns(WorkItem.id, WorkItem.display_id, WorkItem.subject)
+    )
+    return {row.id: (row.display_id, row.subject) for row in rows}
+
+
+async def may_view(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may see the record (its type's view permission, in scope).
+
+    For other modules that show a record's values to a person: a workflow test run on it
+    (REQ-WF-022). A record in the trash (or gone) is never shown.
+    """
+    live = await session.scalar(
+        _rows(wtype).where(WorkItem.id == record_id).with_only_columns(WorkItem.id)
+    )
+    if live is None:
+        return False
+    return await _may(session, subject, wtype, "view", record_id)
 
 
 async def _reason_for(  # noqa: PLR0913 - the check and its optional stage rule, explicit
@@ -688,7 +742,11 @@ def view_predicates(
         "canceled": WorkItem.status_category == StatusCategory.CANCELED,
         # Service requests (WP-030, REQ-SR-009): waiting for approval; approved (or needing
         # none) and still open, i.e. waiting to be fulfilled.
-        "pending_approval": WorkItem.approval_status == ApprovalStatus.PENDING.value,
+        # Changes wait at a stage's approval status instead (WP-045b; the change list's view).
+        "pending_approval": or_(
+            WorkItem.approval_status == ApprovalStatus.PENDING.value,
+            WorkItem.status.in_(CHANGE_AWAITING),
+        ),
         "awaiting_fulfilment": and_(
             _open(),
             WorkItem.approval_status.in_(
@@ -798,7 +856,12 @@ async def view_filters(
         ),
         "closed": _cond("status_category", "eq", StatusCategory.CLOSED.value),
         "canceled": _cond("status_category", "eq", StatusCategory.CANCELED.value),
-        "pending_approval": _cond("approval_status", "eq", ApprovalStatus.PENDING.value),
+        "pending_approval": {
+            "or": [
+                _cond("approval_status", "eq", ApprovalStatus.PENDING.value),
+                _cond("status", "in", list(CHANGE_AWAITING)),
+            ]
+        },
         "awaiting_fulfilment": _all(
             open_,
             {
@@ -875,6 +938,8 @@ def _personal(
     }
 
 
+# The statuses a change waits in for a stage's approval (its stages' `raised_by`).
+CHANGE_AWAITING = tuple(sorted(str(s["raised_by"]) for s in change_rules.STAGE_APPROVALS.values()))
 VIEW_CODES = (
     "open",
     "my_open",
@@ -897,6 +962,8 @@ VIEW_CODES = (
 # Service requests add their approval views (WP-030, REQ-SR-009); incidents never show them.
 SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
 PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
+# Changes: waiting for a stage's approval (acceptance, the plan, the CAB), the change screens.
+CHANGE_VIEW_CODES = ("pending_approval",)
 COUNT_CAP = 1000
 
 
@@ -906,6 +973,8 @@ def view_codes(wtype: WorkItemType) -> tuple[str, ...]:
         return (*VIEW_CODES[:-1], *SR_VIEW_CODES, VIEW_CODES[-1])
     if wtype.code is WorkItemTypeCode.PROBLEM:
         return (*VIEW_CODES[:-1], *PROBLEM_VIEW_CODES, VIEW_CODES[-1])
+    if wtype.code is WorkItemTypeCode.CHANGE:
+        return (*VIEW_CODES[:-1], *CHANGE_VIEW_CODES, VIEW_CODES[-1])
     return VIEW_CODES
 
 
@@ -1040,10 +1109,11 @@ async def assignees(  # noqa: PLR0913 - search options, explicit
     group_id: uuid.UUID | None,
     search: str | None,
     limit: int,
-) -> list[tuple[uuid.UUID, str, str, int]]:
+) -> list[tuple[uuid.UUID, str, str, int, frozenset[uuid.UUID]]]:
     """Who may be assigned: members of `group_id` (or anyone) who can work on the type.
 
-    Each with their number of open records of the type (REQ-INC-053 AC2).
+    Each with their number of open records of the type (REQ-INC-053 AC2) and their groups: a
+    person of another group is assigned by moving the record to one of them (D-154a).
     """
     if not subject.holds(wtype.permission("assign")) and not subject.holds(
         wtype.permission("take")
@@ -1073,7 +1143,8 @@ async def assignees(  # noqa: PLR0913 - search options, explicit
         )
         loads = {row[0]: int(row[1]) for row in rows if row[0] is not None}
     contacts = await user_contacts(session, [str(u) for u in ids])
-    return [(u, n, contacts.get(str(u), (n, ""))[1], loads.get(u, 0)) for u, n in found]
+    groups = {u: (await memberships(session, u)).group_ids for u in ids}  # at most `limit`
+    return [(u, n, contacts.get(str(u), (n, ""))[1], loads.get(u, 0), groups[u]) for u, n in found]
 
 
 # --- validation -----------------------------------------------------------------------------------
@@ -1230,7 +1301,10 @@ async def _check_assignment(  # noqa: PLR0913 - the assignment and who makes it,
         session, subject.tenant_id, technician_id, wtype.permission("edit")
     ):
         return [("technician_id", "technician_not_allowed")]
-    if group_id is not None and not subject.holds(wtype.permission("assign_outside_group")):
+    # D-154a (Haider, 2026-11-10), for everyone and all work-item types: the technician is in
+    # the record's group. Someone of another group is assigned by moving the record to their
+    # group in the same request, never past it (no role may skip this any more).
+    if group_id is not None:
         members = set(await session.scalars(users_in_groups(frozenset({group_id}))))
         if technician_id not in members:
             return [("technician_id", "technician_not_in_group")]
@@ -1750,6 +1824,12 @@ def _closed(record: WorkItem) -> bool:
     return StatusCategory(record.status_category) in FINAL_CATEGORIES
 
 
+def _change_locked(wtype: WorkItemType, record: WorkItem) -> None:
+    """A closed or canceled change is read-only (REQ-CHG-097): its schedule and downtime too."""
+    if wtype.code is WorkItemTypeCode.CHANGE and _closed(record):
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status})
+
+
 # --- create ---------------------------------------------------------------------------------------
 
 # What business rules see of a new record's input (with group, technician, priority and custom
@@ -1882,7 +1962,31 @@ async def _record_automation(
             source="rule",
             automation_ref=ref,
         )
+        await tell_unavailable(session, record, ref)
     await log_trace(session, record.type, record.id, automated.trace)
+
+
+async def tell_unavailable(session: AsyncSession, record: WorkItem, ref: Mapping[str, Any]) -> None:
+    """A step that left its person out (D-154 "rules") tells its owner: one event per save."""
+    reason = ref.get("unavailable")
+    if not reason or not ref.get("person_id"):
+        return
+    await record_event(
+        session,
+        WorkItemAssigneeUnavailable(
+            work_item_id=record.id,
+            type=record.type,
+            display_id=record.display_id,
+            status=record.status,
+            status_category=record.status_category,
+            person_id=uuid.UUID(str(ref["person_id"])),
+            reason=str(reason),
+            step=str(ref.get("kind") or ""),
+            owner_id=await step_owner(session, ref),
+        ),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
 
 
 async def _place(session: AsyncSession, cleaned: dict[str, Any]) -> None:
@@ -2759,6 +2863,9 @@ class StageOffer:
     reason: str | None
     # What the move still needs (field, problem code), so the dialog asks for exactly these.
     missing: tuple[tuple[str, str], ...] = ()
+    # Where it lands after any automatic advance (a completing status moves on): the dialog
+    # asks for the closure code when that is the closed status, not only on a direct move.
+    lands_in: str | None = None
 
 
 @dataclass(frozen=True)
@@ -2796,7 +2903,9 @@ async def stage_panel(
             refused = STAGE_ACCESS
         missing = tuple(await _move_missing(session, record, planned))
         # Missing values do not disable the move: the dialog asks for them (REQ-REL-018 AC1).
-        moves.append(StageOffer(t, target.stage, refused is None, refused, missing))
+        moves.append(
+            StageOffer(t, target.stage, refused is None, refused, missing, planned.landed.code)
+        )
     return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves)
 
 
@@ -3152,11 +3261,14 @@ DETAILS: Mapping[WorkItemTypeCode, DetailsSpec] = {
     ),
     WorkItemTypeCode.CHANGE: DetailsSpec(
         model=WorkItemChangeDetails,
-        fields=change_rules.DETAIL_FIELDS,
+        # The type and reason, and the risk: assessed and overridden (WP-045b S1, 0116).
+        # And the review's date (WP-045d S1, REQ-CHG-091; 0133).
+        fields=(*change_rules.DETAIL_FIELDS, *risk_rules.RISK_FIELDS, "review_due_at"),
         pick_lists=(
             ("change_type", PickList.CHANGE_TYPE),
             ("change_reason", PickList.CHANGE_REASON),
         ),
+        problems=risk_rules.details_problems,
     ),
 }
 
@@ -3237,8 +3349,14 @@ async def _detail_problems(  # noqa: PLR0913, PLR0917 - the change and its conte
     if people:
         found = await user_names(session, [str(v) for v in people.values()])
         problems += [(n, "user_not_found") for n, v in people.items() if str(v) not in found]
-    # REQ-REL-004 AC3: a risk set by hand says why, in history.
-    if "risk" in given and given["risk"] != current.get("risk") and not risk_reason:
+    # REQ-REL-004 AC3: a release's risk set by hand says why, in history. A change's own risk
+    # is assessed (the questionnaire) or overridden with its own reason (risk_reason, REQ-CHG-060).
+    if (
+        spec.risk_from_type
+        and "risk" in given
+        and given["risk"] != current.get("risk")
+        and not risk_reason
+    ):
         problems.append(("risk_reason", "reason_required"))
     return problems
 
@@ -3395,6 +3513,7 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
         aggregate_id=updated.id,
         aggregate_version=updated.version,
     )
+    updated = await _reapproval(session, updated, source)
     return DetailsView(updated, row)
 
 
@@ -3800,6 +3919,7 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
     await session.flush()
     await _part_history(session, record, [Change(f"plan.{section}", before, text)], source=source)
     await _part_event(session, record, "plan_section", _part_id(record.id, section), "changed")
+    await _reapproval(session, record, source)
     return row
 
 
@@ -3847,6 +3967,33 @@ async def _unlock_standard(  # noqa: PLR0913 - the record, the field and the per
         now=now,
         reason_code="standard_converted",
     )
+    return await _save_system_entry(
+        session,
+        record,
+        columns,
+        now=now,
+        before=before,
+        from_stage=from_stage,
+        extra=[
+            Change("change_type", was_type, normal),
+            Change("standard_converted", None, field),
+        ],
+        source=source,
+    )
+
+
+async def _save_system_entry(  # noqa: PLR0913 - the entry, its context and its history
+    session: AsyncSession,
+    record: WorkItem,
+    columns: Mapping[str, Any],
+    *,
+    now: datetime,
+    before: Mapping[str, Any],
+    from_stage: str,
+    extra: Sequence[Change],
+    source: Source,
+) -> WorkItem:
+    """Save a stage entry the system made (a restart or a send-back), with history and events."""
     clock = move_pause_clock(
         PauseClock(record.paused_since, record.paused_seconds),
         old=StatusCategory(record.status_category),
@@ -3875,8 +4022,7 @@ async def _unlock_standard(  # noqa: PLR0913 - the record, the field and the per
         kind="status",
         changes=[
             *(Change(n, before[n], v) for n, v in after.items() if before[n] != v),
-            Change("change_type", was_type, normal),
-            Change("standard_converted", None, field),
+            *extra,
         ],
         source=source,
     )
@@ -3916,6 +4062,20 @@ async def _unlock_standard(  # noqa: PLR0913 - the record, the field and the per
         aggregate_version=updated.version,
     )
     return updated
+
+
+save_system_entry = _save_system_entry  # re-approval's send-back (WP-045b S4)
+snapshot_of = _snapshot
+
+
+async def _reapproval(session: AsyncSession, record: WorkItem, source: Source) -> WorkItem:
+    """A change's approved stage whose window, risk or plan changed may need approval again."""
+    if record.type != WorkItemTypeCode.CHANGE:
+        return record
+    # Imported here: re-approval builds on this module.
+    from app.modules.work_items.service import reapproval  # noqa: PLC0415 - see above
+
+    return await reapproval.after_save(session, record, source=source)
 
 
 def schedule_overdue(row: WorkItemStageSchedule | None, now: datetime | None = None) -> bool:
@@ -3979,6 +4139,7 @@ async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, 
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     model = await stage_service.load_model(session, wtype, record.lifecycle_version)
     if stage not in model.path(str(record.stage_path)).stages:
         raise NotFound(code="stage_not_found")
@@ -3997,6 +4158,9 @@ async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, 
         if row is None:
             raise _errors([("values", "required")])
         return row
+    await _window_guard(
+        session, wtype, record, stage=stage, merged={**current, **given}, changed=changed
+    )
     if row is None:
         row = WorkItemStageSchedule(tenant_id=tenant, work_item_id=record.id, stage=stage)
         session.add(row)
@@ -4014,7 +4178,27 @@ async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, 
         reason=text,
     )
     await _part_event(session, record, "stage_schedule", _part_id(record.id, stage), "changed")
+    await _reapproval(session, record, source)
     return row
+
+
+async def _window_guard(  # noqa: PLR0913 - the save and its values, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    stage: str,
+    merged: Mapping[str, Any],
+    changed: Mapping[str, Any],
+) -> None:
+    """A change's implementation window moved: a blocking freeze refuses it (WP-045c, ADR-042)."""
+    if wtype.code is not WorkItemTypeCode.CHANGE or stage != change_rules.IMPLEMENTATION:
+        return
+    if not {"scheduled_start", "scheduled_end"} & set(changed):
+        return
+    start, end = merged.get("scheduled_start"), merged.get("scheduled_end")
+    if start is not None and end is not None:
+        await change_conflicts.guard(session, record, [(start, end)])
 
 
 def _schedule_problems(
@@ -4089,6 +4273,7 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     row = None
     if downtime_id is not None:
         row = await session.scalar(
@@ -4113,6 +4298,7 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     changed = {n: v for n, v in given.items() if v != current[n]}
     if row is not None and not changed:
         return row
+    await _downtime_guard(session, wtype, record, merged, adding=row is None, changed=changed)
     if row is None:
         row = WorkItemDowntime(
             id=new_id(), tenant_id=config.tenant_of(session), work_item_id=record.id
@@ -4138,6 +4324,22 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     return row
 
 
+async def _downtime_guard(  # noqa: PLR0913 - the save and its values, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    merged: Mapping[str, Any],
+    *,
+    adding: bool,
+    changed: Mapping[str, Any],
+) -> None:
+    """A change's planned downtime is its planned time too: a blocking freeze refuses it."""
+    if wtype.code is not WorkItemTypeCode.CHANGE or merged["phase"] != "planned":
+        return
+    if adding or {"starts_at", "ends_at", "phase"} & set(changed):
+        await change_conflicts.guard(session, record, [(merged["starts_at"], merged["ends_at"])])
+
+
 async def remove_downtime(  # noqa: PLR0913 - the window and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -4152,6 +4354,7 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     row = await session.scalar(
         select(WorkItemDowntime).where(
             WorkItemDowntime.id == downtime_id,
@@ -4809,8 +5012,8 @@ async def sla_fired(
     """
     del now
     record = await session.scalar(select(WorkItem).where(WorkItem.id == record_id))
-    if record is None:
-        return
+    if record is None or record.deleted_at is not None:
+        return  # gone or in the trash: sla's `record_state` normally keeps it from here
     changed = {k: v for k, v in columns.items() if getattr(record, k) != v}
     lines = sla_glue.fired_changes(record, changed, list(fired))
     if not lines:
@@ -4933,18 +5136,25 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
         raise _not_found(wtype)
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
+    now = _now()
     record.deleted_at = None
+    record.restored_at = now  # the latest restore; the history keeps each (Haider, 2026-11-10)
     record.version += 1
-    record.updated_at = _now()
+    record.updated_at = now
     record.updated_by = subject.user_id
     await session.flush()
+    # The clock kept running in the trash: the restore says where each target stands, and
+    # whatever fell due meanwhile fires now rather than at the next sweep.
+    standing = await sla.open_clocks(session, record.id, now=now)
     await record_changes(
         session,
         record_type=RECORD_TYPE,
         record_id=record.id,
         version=record.version,
         kind="restored",
-        changes=[],
+        changes=[
+            Change("sla_on_restore", None, f"{c.kind}:{c.state}:{c.seconds}") for c in standing
+        ],
         source=source,
     )
     await record_event(
@@ -4959,6 +5169,9 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    if any(c.state == "overdue" for c in standing):
+        await sla.fire(session, record.id, now=now)
+        await session.refresh(record)
     return await _view(session, subject, wtype, record)
 
 
@@ -4984,7 +5197,51 @@ async def record_copied_from(
     )
 
 
+async def save_detail_change(  # noqa: PLR0913 - the save and its history, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    expected_version: int,
+    changes: Sequence[Change],
+    *,
+    source: Source,
+    reason: str | None = None,
+) -> WorkItem:
+    """A change to a type's own fields made by another service (the freeze override, WP-045c).
+
+    A new version of the record (If-Match), its history line and the update event, as a
+    details save makes them, so open screens update live (rule 5c).
+    """
+    audience = _audience(record)
+    updated = await _update(session, record, expected_version, {})
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=list(changes),
+        source=source,
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted({c.field for c in changes}),
+            audience_before=audience,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
 may = _may
+is_closed = _closed
 audience_of = _audience
 now = _now
 field_errors = _errors
@@ -5066,6 +5323,7 @@ async def automated_update(  # noqa: PLR0913 - the record, the values and who ma
             source=source,
             automation_ref=dict(ref),
         )
+        await tell_unavailable(session, updated, ref)
     await _record_automation(session, updated, automated)
     await record_event(
         session,

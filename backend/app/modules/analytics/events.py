@@ -147,6 +147,9 @@ class DashboardSaved(DomainEvent):
     owner_id: uuid.UUID
     shared: bool
     was_shared: bool
+    # D-152: a group dashboard (or one just moved out of a group); its members must hear of it.
+    group_id: uuid.UUID | None = None
+    was_group: bool = False
     created: bool
     changed_fields: list[str]
 
@@ -161,6 +164,7 @@ class DashboardDeleted(DomainEvent):
     dashboard_id: uuid.UUID
     owner_id: uuid.UUID
     shared: bool
+    group_id: uuid.UUID | None = None  # D-152: its group's members must see it go
 
 
 class DashboardHomeChanged(DomainEvent):

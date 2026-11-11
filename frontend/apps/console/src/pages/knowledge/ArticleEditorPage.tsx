@@ -182,6 +182,8 @@ export function NewArticlePage() {
         <Form<NewArticleForm>
           form={form}
           layout="vertical"
+          // A missing title is shown where it is, in view and focused (QA10-P4-08).
+          scrollToFirstError={{ block: 'center', focus: true }}
           initialValues={{
             topic_id: params.get('topic') ?? undefined,
             type_code: 'how_to',
@@ -374,6 +376,8 @@ function DraftEditor({
   }, [values, state]); // eslint-disable-line react-hooks/exhaustive-deps -- save/conflict are stable mutation helpers
 
   const change = (patch: Partial<typeof values>) => {
+    // A version in review cannot change, so nothing is ever unsaved there (QA10-P4-09).
+    if (locked) return;
     setValues((current) => ({ ...current, ...patch }));
     setState('unsaved');
   };

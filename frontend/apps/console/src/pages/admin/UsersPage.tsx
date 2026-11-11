@@ -17,6 +17,7 @@ import { NoAccess, PageHeader, ToneTag, useAccess, useAppearance, useLabel } fro
 import { UserAccessDrawer } from './UserAccessDrawer';
 import { ImportDrawer } from './people/ImportDrawer';
 import { PersonDrawer } from './people/PersonDrawer';
+import { TableRegion } from '../../TableRegion';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 
 const SORTS = ['display_name', '-display_name', '-last_login_at', '-created_at'] as const;
@@ -216,73 +217,84 @@ export function UsersPage() {
           prefix={`${t('users.sort')}:`}
         />
       </Flex>
-      <Table<UserDetail>
-        rowKey="id"
-        data-testid="users-table"
-        loading={users.isPending && users.fetchStatus === 'fetching'}
-        dataSource={rows}
-        pagination={false}
-        onRow={(user) => ({
-          onClick: () => {
-            if (manage) setEditing(user.id);
-            else setOpened(user);
-          },
-          style: { cursor: 'pointer' },
-          'data-testid': `user-row-${user.email ?? user.id}`,
-        })}
-        columns={[
-          {
-            key: 'name',
-            title: t('users.col.name'),
-            render: (_, user) => (
-              <Flex gap={6} wrap align="center">
-                <span>{user.display_name}</span>
-                {user.vip && <ToneTag tone="purple">{t('people.vip')}</ToneTag>}
-                {!user.can_sign_in && <ToneTag tone="default">{t('people.contact')}</ToneTag>}
-              </Flex>
-            ),
-          },
-          {
-            key: 'email',
-            title: t('users.col.email'),
-            render: (_, user) => <bdi>{user.email ?? '—'}</bdi>,
-          },
-          {
-            key: 'site',
-            title: t('people.field.site'),
-            render: (_, user) => (user.site_id === null ? '' : (siteName.get(user.site_id) ?? '')),
-          },
-          {
-            key: 'department',
-            title: t('people.field.department'),
-            render: (_, user) =>
-              user.department_id === null ? '' : (departmentName.get(user.department_id) ?? ''),
-          },
-          {
-            key: 'type',
-            title: t('users.col.type'),
-            render: (_, user) => t(`user_type.${user.user_type}`),
-          },
-          {
-            key: 'status',
-            title: t('users.col.status'),
-            render: (_, user) => (
-              <Badge
-                status={user.status === 'active' ? 'success' : 'default'}
-                text={t(`user_status.${user.status}`)}
-              />
-            ),
-          },
-          {
-            key: 'last_login',
-            title: t('users.col.last_login'),
-            render: (_, user) =>
-              user.last_login_at === null
-                ? t('users.never')
-                : dateFormat.format(new Date(user.last_login_at)),
-          },
-        ]}
-      />
+      <TableRegion label={t('people.title')}>
+        <Table<UserDetail>
+          rowKey="id"
+          data-testid="users-table"
+          loading={users.isPending && users.fetchStatus === 'fetching'}
+          dataSource={rows}
+          pagination={false}
+          onRow={(user) => ({
+            onClick: () => {
+              if (manage) setEditing(user.id);
+              else setOpened(user);
+            },
+            style: { cursor: 'pointer' },
+            'data-testid': `user-row-${user.email ?? user.id}`,
+          })}
+          columns={[
+            {
+              key: 'name',
+              title: t('users.col.name'),
+              render: (_, user) => (
+                // One line per person (QA6 ADM-02): the chips keep their size beside the name and
+                // never push it onto a second line; a name too long for the cell is cut off.
+                <Flex gap={6} wrap={false} align="center" data-testid={`user-name-${user.id}`}>
+                  <span className="sx-cell-text" style={{ minWidth: 0 }} title={user.display_name}>
+                    {user.display_name}
+                  </span>
+                  {(user.vip || !user.can_sign_in) && (
+                    <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+                      {user.vip && <ToneTag tone="purple">{t('people.vip')}</ToneTag>}
+                      {!user.can_sign_in && <ToneTag tone="default">{t('people.contact')}</ToneTag>}
+                    </span>
+                  )}
+                </Flex>
+              ),
+            },
+            {
+              key: 'email',
+              title: t('users.col.email'),
+              render: (_, user) => <bdi>{user.email ?? '—'}</bdi>,
+            },
+            {
+              key: 'site',
+              title: t('people.field.site'),
+              render: (_, user) =>
+                user.site_id === null ? '' : (siteName.get(user.site_id) ?? ''),
+            },
+            {
+              key: 'department',
+              title: t('people.field.department'),
+              render: (_, user) =>
+                user.department_id === null ? '' : (departmentName.get(user.department_id) ?? ''),
+            },
+            {
+              key: 'type',
+              title: t('users.col.type'),
+              render: (_, user) => t(`user_type.${user.user_type}`),
+            },
+            {
+              key: 'status',
+              title: t('users.col.status'),
+              render: (_, user) => (
+                <Badge
+                  status={user.status === 'active' ? 'success' : 'default'}
+                  text={t(`user_status.${user.status}`)}
+                />
+              ),
+            },
+            {
+              key: 'last_login',
+              title: t('users.col.last_login'),
+              render: (_, user) =>
+                user.last_login_at === null
+                  ? t('users.never')
+                  : dateFormat.format(new Date(user.last_login_at)),
+            },
+          ]}
+        />
+      </TableRegion>
       <UserAccessDrawer
         user={opened}
         onClose={() => {

@@ -3,14 +3,15 @@
 import json
 import time
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from typing import Any
 
 import pytest
-from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table, Uuid
+from sqlalchemy import Column, Date, DateTime, Integer, MetaData, String, Table, Uuid
 from sqlalchemy.dialects import postgresql
 
 from app.core.errors import ValidationFailed
+from app.shared.api.filter_eval import evaluate
 from app.shared.api.filters import (
     FieldType,
     FilterField,
@@ -20,6 +21,7 @@ from app.shared.api.filters import (
     compile_filter,
     compile_simple,
     parse_filter_json,
+    relative_day_range,
     relative_range,
 )
 from tooling import timing
@@ -33,6 +35,7 @@ table = Table(
     Column("owner_id", Uuid),
     Column("priority", Integer),
     Column("created_at", DateTime(timezone=True)),
+    Column("due_on", Date),
 )
 c = table.c
 THINGS = ResourceFields(
@@ -43,6 +46,7 @@ THINGS = ResourceFields(
         "owner_id": FilterField(c.owner_id, FieldType.UUID),
         "priority": FilterField(c.priority, FieldType.INTEGER, sortable=True),
         "created_at": FilterField(c.created_at, FieldType.DATETIME, sortable=True, simple=False),
+        "due_on": FilterField(c.due_on, FieldType.DATE),
     },
     id_column=c.id,
 )
@@ -177,6 +181,98 @@ def test_last_month_in_january_wraps_to_december() -> None:
         datetime(2026, 12, 1, tzinfo=UTC),
         datetime(2027, 1, 1, tzinfo=UTC),
     )
+
+
+# --- relative ranges on DATE fields (lane C, #320) ------------------------------------------------
+
+TODAY = NOW.date()  # 2026-10-23, a Friday
+
+
+@pytest.mark.parametrize(
+    ("op", "days", "start", "end"),
+    [
+        (Op.TODAY, None, date(2026, 10, 23), date(2026, 10, 24)),
+        (Op.YESTERDAY, None, date(2026, 10, 22), date(2026, 10, 23)),
+        (Op.THIS_WEEK, None, date(2026, 10, 19), date(2026, 10, 26)),
+        (Op.LAST_WEEK, None, date(2026, 10, 12), date(2026, 10, 19)),
+        (Op.THIS_MONTH, None, date(2026, 10, 1), date(2026, 11, 1)),
+        (Op.LAST_MONTH, None, date(2026, 9, 1), date(2026, 10, 1)),
+        (Op.LAST_N_DAYS, 7, date(2026, 10, 16), date(2026, 10, 24)),
+        (Op.NEXT_N_DAYS, 2, date(2026, 10, 23), date(2026, 10, 26)),
+        (Op.BEFORE_NOW, None, None, date(2026, 10, 23)),
+        (Op.AFTER_NOW, None, date(2026, 10, 24), None),
+    ],
+)
+def test_relative_ranges_on_a_date_field_are_whole_days(
+    op: Op, days: int | None, start: date | None, end: date | None
+) -> None:
+    assert relative_day_range(op, NOW, days) == (start, end)
+    text, params = sql(cond("due_on", op.value, days))
+    # Bound as calendar dates (never instants), half-open: >= start, < end.
+    assert not any(isinstance(v, datetime) for v in params.values())
+    assert (start in params.values()) is (start is not None)
+    assert (end in params.values()) is (end is not None)
+    assert ("things.due_on >=" in text) is (start is not None)
+    assert ("things.due_on <" in text) is (end is not None)
+
+
+def _matches(op: Op, day: date, days: int | None = None, now: datetime = NOW) -> bool:
+    return evaluate(cond("due_on", op.value, days), THINGS, {"due_on": day}, now=now)
+
+
+@pytest.mark.parametrize(
+    ("op", "days", "inside", "outside"),
+    [
+        # last 7 days: 7 days ago up to and including today.
+        (Op.LAST_N_DAYS, 7, [-7, -1, 0], [-8, 1]),
+        (Op.LAST_N_DAYS, 1, [-1, 0], [-2, 1]),
+        # next 2 days: today up to and including 2 days from now.
+        (Op.NEXT_N_DAYS, 2, [0, 1, 2], [-1, 3]),
+        (Op.TODAY, None, [0], [-1, 1]),
+        (Op.YESTERDAY, None, [-1], [-2, 0]),
+        # this week is Monday 19th to Sunday 25th.
+        (Op.THIS_WEEK, None, [-4, 0, 2], [-5, 3]),
+        (Op.LAST_WEEK, None, [-11, -5], [-12, -4]),
+        # this month is October: the 1st (-22) to the 31st (+8).
+        (Op.THIS_MONTH, None, [-22, 8], [-23, 9]),
+        (Op.LAST_MONTH, None, [-52, -23], [-53, -22]),
+        # today is neither before nor after now.
+        (Op.BEFORE_NOW, None, [-1, -400], [0, 1]),
+        (Op.AFTER_NOW, None, [1, 400], [0, -1]),
+    ],
+)
+def test_date_field_relative_boundaries(
+    op: Op, days: int | None, inside: list[int], outside: list[int]
+) -> None:
+    for offset in inside:
+        assert _matches(op, TODAY + timedelta(days=offset), days), (op, offset)
+    for offset in outside:
+        assert not _matches(op, TODAY + timedelta(days=offset), days), (op, offset)
+    # A missing date matches no relative range.
+    assert not evaluate(cond("due_on", op.value, days), THINGS, {"due_on": None}, now=NOW)
+
+
+def test_date_field_today_is_the_day_where_now_is() -> None:
+    # 01:00 on the 24th in UTC+5 is still the 23rd in UTC: "today" follows `now`'s zone.
+    east = datetime(2026, 10, 24, 1, 0, tzinfo=timezone(timedelta(hours=5)))
+    assert relative_day_range(Op.TODAY, east) == (date(2026, 10, 24), date(2026, 10, 25))
+    assert _matches(Op.TODAY, date(2026, 10, 24), now=east)
+    assert not _matches(Op.TODAY, date(2026, 10, 23), now=east)
+
+
+def test_date_field_n_days_still_needs_a_day_count() -> None:
+    assert problem(cond("due_on", "last_n_days")) == (
+        "filter.value",
+        "invalid_value",
+        {"expected": "days", "max": 3650},
+    )
+    assert problem(cond("due_on", "today", 3))[1] == "value_not_allowed"
+
+
+def test_datetime_relative_ranges_are_unchanged_by_the_date_ones() -> None:
+    _, params = sql(cond("created_at", "last_n_days", 7))
+    assert datetime(2026, 10, 16, 15, 30, tzinfo=UTC) in params.values()
+    assert NOW in params.values()
 
 
 def test_naive_datetimes_are_utc() -> None:

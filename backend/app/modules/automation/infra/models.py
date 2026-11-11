@@ -347,9 +347,27 @@ class WorkflowInstance(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Version
             "wake_at",
             postgresql_where=text("wake_at IS NOT NULL"),
         ),
+        # A sub-flow's child names its parent and the command waiting for it (0106, REQ-WF-017).
+        ForeignKeyConstraint(
+            ["tenant_id", "parent_instance_id"],
+            ["workflow_instances.tenant_id", "workflow_instances.id"],
+            name="fk_workflow_instances_parent",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "(parent_instance_id IS NULL) = (parent_command IS NULL)", name="parent_pair"
+        ),
+        Index(
+            "ix_workflow_instances_tenant_parent",
+            "tenant_id",
+            "parent_instance_id",
+            postgresql_where=text("parent_instance_id IS NOT NULL"),
+        ),
     )
 
     workflow_id: Mapped[uuid.UUID]
+    parent_instance_id: Mapped[uuid.UUID | None]
+    parent_command: Mapped[str | None] = mapped_column(String(20))
     version_number: Mapped[int] = mapped_column(Integer)
     record_type: Mapped[str] = mapped_column(String(20))
     record_id: Mapped[uuid.UUID]
@@ -387,3 +405,85 @@ class WorkflowStep(TenantKeyed, Base):
     at: Mapped[datetime]
     actor_id: Mapped[uuid.UUID | None]
     detail: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+
+
+class WorkflowJob(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Versioned, Base):
+    """A bulk retry, cancel or migration of a workflow's instances (WP-048b S3; migration 0107).
+
+    The worker runs it in batches, as the admin who asked, and keeps each instance's result.
+    """
+
+    __tablename__ = "workflow_jobs"
+    __table_args__ = (
+        CheckConstraint("kind IN ('retry', 'cancel', 'migrate')", name="kind_code"),
+        CheckConstraint("status IN ('queued', 'running', 'done', 'failed')", name="status_code"),
+        CheckConstraint("cardinality(instance_ids) BETWEEN 1 AND 1000", name="instance_limit"),
+        CheckConstraint("processed BETWEEN 0 AND total", name="processed_range"),
+        ForeignKeyConstraint(
+            ["tenant_id", "workflow_id"],
+            ["workflows.tenant_id", "workflows.id"],
+            name="fk_workflow_jobs_workflow",
+            ondelete="RESTRICT",
+        ),
+        Index("ix_workflow_jobs_tenant_workflow_created", "tenant_id", "workflow_id", "created_at"),
+        Index(
+            "ix_workflow_jobs_tenant_pending",
+            "tenant_id",
+            "created_at",
+            postgresql_where=text("status IN ('queued', 'running')"),
+        ),
+    )
+
+    workflow_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(20))
+    instance_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid))
+    options: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    dry_run: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    status: Mapped[str] = mapped_column(String(20))
+    total: Mapped[int] = mapped_column(Integer)
+    processed: Mapped[int] = mapped_column(Integer, server_default="0")
+    done_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    skipped_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    results: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+
+
+class WorkflowTestRun(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Versioned, Base):
+    """A test run of a workflow (WP-048b S3e; REQ-WF-022; migration 0107).
+
+    Apart from instances: it never touches a record. Its facts are read once from a record, or
+    sample values; its commands are shown and answered by hand; its clock is virtual.
+    """
+
+    __tablename__ = "workflow_test_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('running', 'waiting', 'failed', 'finished', 'cancelled')",
+            name="status_code",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "workflow_id"],
+            ["workflows.tenant_id", "workflows.id"],
+            name="fk_workflow_test_runs_workflow",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_workflow_test_runs_tenant_workflow_created",
+            "tenant_id",
+            "workflow_id",
+            "created_at",
+        ),
+    )
+
+    workflow_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(20))
+    record_id: Mapped[uuid.UUID | None]
+    definition: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    facts: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    state: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(20))
+    steps: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    pending: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    clock_at: Mapped[datetime]
+    live_call: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))

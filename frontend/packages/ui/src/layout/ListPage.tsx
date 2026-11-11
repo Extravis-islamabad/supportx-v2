@@ -1,6 +1,6 @@
-import { FilterOutlined } from '@ant-design/icons';
+import { CloseOutlined, FilterOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Badge, Button, Card, Drawer, Flex, Space, Typography, theme } from 'antd';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { useLabel } from '../appearance';
 import { SPACE, TYPE } from '../density';
@@ -17,6 +17,11 @@ export interface FilterBarProps {
   onOpenFilters?: () => void;
   /** Controls on the end side (columns, sort, per page). */
   extra?: ReactNode;
+  /**
+   * The selection bar (Haider, 2026-11-10): while rows are selected it takes the toolbar's
+   * place, so the list never shows two control rows. Pass it only when something is selected.
+   */
+  selection?: ReactNode;
   testId?: string;
 }
 
@@ -28,17 +33,25 @@ export function FilterBar({
   filtersCount = 0,
   onOpenFilters,
   extra,
+  selection,
   testId,
 }: FilterBarProps) {
   const t = useLabel();
+  if (selection !== undefined && selection !== null && selection !== false) {
+    return (
+      <Flex
+        gap={SPACE.xs}
+        wrap
+        align="center"
+        className="sx-list-toolbar"
+        data-testid={testId === undefined ? undefined : `${testId}-selection`}
+      >
+        {selection}
+      </Flex>
+    );
+  }
   return (
-    <Flex
-      gap={SPACE.xs}
-      wrap
-      align="center"
-      data-testid={testId}
-      style={{ marginBottom: SPACE.xs }}
-    >
+    <Flex gap={SPACE.xs} wrap align="center" className="sx-list-toolbar" data-testid={testId}>
       {view}
       {search !== undefined && <div style={{ flex: '1 1 220px', maxWidth: 360 }}>{search}</div>}
       {quick}
@@ -110,17 +123,109 @@ export interface ListPageProps {
   testId?: string;
 }
 
-/** The list page every module uses (D-124): header, KPIs, filter bar, alerts, then the table. */
+/**
+ * The list page every module uses (D-124): header, KPIs, filter bar, alerts, then the table.
+ *
+ * One spacing scale (Haider, 2026-11-10): 16 px between the page's sections (header, KPI
+ * tiles, the list block), 12 px between the toolbar, its notice line and the table, 8 px
+ * between the controls inside the toolbar (FilterBar).
+ */
 export function ListPage({ header, kpis, filters, alerts, children, testId }: ListPageProps) {
   return (
-    <div data-testid={testId}>
+    <Flex vertical gap={SPACE.md} className="sx-list-page" data-testid={testId}>
       {header}
-      {kpis !== undefined && <div style={{ marginBottom: SPACE.sm }}>{kpis}</div>}
-      {filters}
-      {alerts}
-      {children}
-    </div>
+      {kpis}
+      <Flex vertical gap={SPACE.sm}>
+        {filters}
+        {alerts}
+        {children}
+      </Flex>
+    </Flex>
   );
+}
+
+export interface ListNoticeProps {
+  /** One short line, e.g. "All open: 42 shown, 7 not in this view". */
+  children: ReactNode;
+  /** One link-style action, e.g. "Show all". */
+  action?: ReactNode;
+  /**
+   * Kept closed for the browser session under this key (with the text, so a new count shows
+   * again). Without it the line cannot be closed.
+   */
+  dismissKey?: string;
+  testId?: string;
+}
+
+/**
+ * A list's notice as one small line under the toolbar, never a full-width band (Haider,
+ * 2026-11-10): an info icon, the text, an action, and a close button.
+ */
+export function ListNotice({ children, action, dismissKey, testId }: ListNoticeProps) {
+  const t = useLabel();
+  const { token } = theme.useToken();
+  const key = dismissKey === undefined ? undefined : `${dismissKey}|${textOf(children)}`;
+  const [closed, setClosed] = useState(() => key !== undefined && readClosed().has(key));
+  if (closed) return null;
+  return (
+    // One sentence that wraps as text (QA10V-26: at 390 px the icon, the text and "Show
+    // everything" each took a line of their own): the icon stays beside the first line and the
+    // action follows the text.
+    <Flex
+      align="flex-start"
+      gap={SPACE.xs}
+      role="status"
+      data-testid={testId}
+      style={{ fontSize: TYPE.meta, color: token.colorTextSecondary, minHeight: 24 }}
+    >
+      <InfoCircleOutlined
+        aria-hidden
+        style={{ color: token.colorInfo, flex: 'none', lineHeight: 1, marginBlockStart: 3 }}
+      />
+      <span style={{ flex: '1 1 auto', minWidth: 0 }}>
+        {children}
+        {action !== undefined && action !== null && action !== false && <> {action}</>}
+      </span>
+      {key !== undefined && (
+        <Button
+          type="text"
+          size="small"
+          icon={<CloseOutlined />}
+          aria-label={t('layout.dismiss')}
+          data-testid={testId === undefined ? undefined : `${testId}-close`}
+          onClick={() => {
+            setClosed(true);
+            writeClosed(key);
+          }}
+        />
+      )}
+    </Flex>
+  );
+}
+
+const CLOSED_KEY = 'supportx.list-notices.closed';
+
+function textOf(node: ReactNode): string {
+  return typeof node === 'string' || typeof node === 'number' ? String(node) : '';
+}
+
+function readClosed(): Set<string> {
+  try {
+    const raw = window.sessionStorage.getItem(CLOSED_KEY);
+    const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : []);
+  } catch {
+    return new Set(); // storage blocked: the line simply shows again
+  }
+}
+
+function writeClosed(key: string) {
+  try {
+    const keys = [...readClosed(), key].slice(-50);
+    window.sessionStorage.setItem(CLOSED_KEY, JSON.stringify(keys));
+  } catch {
+    // storage blocked: closed for this page view only
+  }
 }
 
 export interface KpiTileProps {
