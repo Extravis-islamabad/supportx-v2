@@ -147,6 +147,39 @@ describe('console: the change calendar (WP-045c S3)', () => {
     });
   });
 
+  it('lane C: the keyboard moves a change through the same reschedule as a drag', async () => {
+    window.history.pushState({}, '', '/changes/calendar');
+    const fake = api();
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('calendar-move-CHG-20'));
+    const input = await screen.findByTestId('calendar-move-day');
+    fireEvent.mouseDown(input);
+    fireEvent.change(input, { target: { value: '12 Mar 2027' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    fireEvent.click(screen.getByTestId('calendar-move-ok'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/changes/${CHG_ID}/schedule/implementation`)).toHaveLength(
+        1,
+      );
+    });
+    const [moved] = fake.find('PATCH', `/api/v1/changes/${CHG_ID}/schedule/implementation`);
+    expect(moved?.body).toEqual({
+      scheduled_start: '2027-03-12T09:00:00.000Z',
+      scheduled_end: '2027-03-12T11:00:00.000Z',
+    });
+  });
+
+  it('lane C: every grid cell sits in a row (axe aria-required-children)', async () => {
+    window.history.pushState({}, '', '/changes/calendar');
+    api();
+    render(<App />);
+    const grid = await screen.findByTestId('calendar-month');
+    for (const cell of grid.querySelectorAll('[role="gridcell"], [role="columnheader"]')) {
+      expect(cell.parentElement?.getAttribute('role')).toBe('row');
+    }
+    expect(grid.querySelectorAll('[role="row"]').length).toBeGreaterThan(4);
+  });
+
   it('the agenda lists only the days with something on them', async () => {
     window.history.pushState({}, '', '/changes/calendar');
     api();

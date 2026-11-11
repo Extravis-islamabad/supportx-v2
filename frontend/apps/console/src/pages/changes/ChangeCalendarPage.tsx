@@ -1,6 +1,20 @@
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { App, Button, Checkbox, Flex, Segmented, Space, Switch, Typography, theme } from 'antd';
+import {
+  App,
+  Button,
+  Checkbox,
+  DatePicker,
+  Flex,
+  Form,
+  Modal,
+  Segmented,
+  Space,
+  Switch,
+  Typography,
+  theme,
+} from 'antd';
+import type { Dayjs } from 'dayjs';
 import { useMemo, useState, type DragEvent } from 'react';
 import { Link } from 'react-router';
 
@@ -21,6 +35,7 @@ import {
   PageHeader,
   ToneTag,
   useAccess,
+  pickerFormat,
   useAppearance,
   useDateTime,
   useLabel,
@@ -180,6 +195,11 @@ export function ChangeCalendarPage() {
     );
   };
 
+  // The keyboard's way to reschedule (lane C's #381 review): "Move…" asks for the new day and
+  // goes through the same reschedule, conflict check and re-approval as a drag.
+  const [moving, setMoving] = useState<CalendarEntry>();
+  const [moveTo, setMoveTo] = useState<Dayjs | null>(null);
+
   const onDrop = (event: DragEvent<HTMLDivElement>, target: Day) => {
     event.preventDefault();
     const raw = event.dataTransfer.getData(DRAG_TYPE);
@@ -220,6 +240,21 @@ export function ChangeCalendarPage() {
             ? t('changes.calendar.downtime_of', { subject: e.subject })
             : e.subject}
         </Link>
+        {draggable && (
+          <Button
+            size="small"
+            type="link"
+            style={{ paddingInline: 4, height: 'auto' }}
+            onClick={() => {
+              setMoving(e);
+              setMoveTo(null);
+            }}
+            aria-label={t('changes.calendar.move_of', { id: e.display_id })}
+            data-testid={`calendar-move-${e.display_id}`}
+          >
+            {t('changes.calendar.move')}
+          </Button>
+        )}
       </div>
     );
   };
@@ -257,8 +292,14 @@ export function ChangeCalendarPage() {
           minHeight: compact ? 110 : 320,
           padding: 6,
           border: `1px solid ${token.colorBorderSecondary}`,
-          background: key === today ? token.colorPrimaryBg : token.colorBgContainer,
-          opacity: outside ? 0.6 : 1,
+          // Out of the month: a quieter background and secondary text, never opacity, so its
+          // chips keep their contrast (lane C's #381 review).
+          background:
+            key === today
+              ? token.colorPrimaryBg
+              : outside
+                ? token.colorFillQuaternary
+                : token.colorBgContainer,
           minWidth: 0,
         }}
       >
@@ -397,6 +438,35 @@ export function ChangeCalendarPage() {
   const heads = days.slice(0, columns);
   return (
     <ListPage testId="change-calendar" header={header} filters={filters}>
+      <Modal
+        open={moving !== undefined}
+        title={moving ? t('changes.calendar.move_title', { id: moving.display_id }) : ''}
+        okText={t('changes.calendar.move_ok')}
+        okButtonProps={{ disabled: moveTo === null, 'data-testid': 'calendar-move-ok' }}
+        onCancel={() => {
+          setMoving(undefined);
+        }}
+        onOk={() => {
+          if (moving !== undefined && moveTo !== null) {
+            reschedule(moving, { year: moveTo.year(), month: moveTo.month(), day: moveTo.date() });
+          }
+          setMoving(undefined);
+        }}
+        data-testid="calendar-move"
+      >
+        <Form layout="vertical">
+          <Form.Item label={t('changes.calendar.move_day')} htmlFor="calendar-move-day">
+            <DatePicker
+              id="calendar-move-day"
+              value={moveTo}
+              onChange={setMoveTo}
+              format={pickerFormat(dates, false)}
+              style={{ width: '100%' }}
+              data-testid="calendar-move-day"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
       <div
         role="region"
         aria-label={t('changes.calendar.title')}
@@ -413,13 +483,24 @@ export function ChangeCalendarPage() {
             minWidth: columns === 7 ? 770 : undefined,
           }}
         >
-          {view === 'month' &&
-            heads.map((d) => (
-              <div key={`head-${dayKey(d)}`} role="columnheader" style={{ padding: 6 }}>
-                <Typography.Text type="secondary">{weekdayName(d)}</Typography.Text>
-              </div>
-            ))}
-          {days.map((d) => dayCell(d, view === 'month'))}
+          {/* Rows for the grid's roles (axe: aria-required-children); `display: contents`
+              keeps the CSS grid (lane C's #381 review). */}
+          {view === 'month' && (
+            <div role="row" style={{ display: 'contents' }}>
+              {heads.map((d) => (
+                <div key={`head-${dayKey(d)}`} role="columnheader" style={{ padding: 6 }}>
+                  <Typography.Text type="secondary">{weekdayName(d)}</Typography.Text>
+                </div>
+              ))}
+            </div>
+          )}
+          {Array.from({ length: Math.ceil(days.length / columns) }, (_, week) => (
+            <div key={`row-${String(week)}`} role="row" style={{ display: 'contents' }}>
+              {days
+                .slice(week * columns, (week + 1) * columns)
+                .map((d) => dayCell(d, view === 'month'))}
+            </div>
+          ))}
         </div>
       </div>
     </ListPage>
