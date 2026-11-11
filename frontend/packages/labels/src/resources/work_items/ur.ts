@@ -484,6 +484,7 @@ export const ur: LabelResource = {
   'changes.calendar.nothing': 'اس مدت میں کچھ منصوبہ بند نہیں۔',
   'changes.calendar.only_linked': 'صرف اس کی تبدیلیاں',
   'changes.calendar.open_change': 'وجہ دیکھنے کے لیے {{id}} کھولیں',
+  'changes.calendar.open_day': '{{day}} دکھائیں',
   'changes.calendar.previous': 'پچھلا',
   'changes.calendar.quick.downtime': 'منصوبہ بند ڈاؤن ٹائم',
   'changes.calendar.quick.open': '{{id}} کھولیں',

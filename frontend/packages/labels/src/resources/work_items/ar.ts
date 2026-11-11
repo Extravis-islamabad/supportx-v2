@@ -515,6 +515,7 @@ export const ar: LabelResource = {
   'changes.calendar.nothing': 'لا شيء مخطط في هذه الفترة.',
   'changes.calendar.only_linked': 'تغييراته فقط',
   'changes.calendar.open_change': 'افتح {{id}} لمعرفة السبب',
+  'changes.calendar.open_day': 'عرض {{day}}',
   'changes.calendar.previous': 'السابق',
   'changes.calendar.quick.downtime': 'التوقف المخطط',
   'changes.calendar.quick.open': 'فتح {{id}}',

@@ -483,6 +483,7 @@ export const en = {
   'changes.calendar.nothing': 'Nothing planned in this period.',
   'changes.calendar.only_linked': 'Only its changes',
   'changes.calendar.open_change': 'Open {{id}} to see why',
+  'changes.calendar.open_day': 'Show {{day}}',
   'changes.calendar.previous': 'Previous',
   'changes.calendar.quick.downtime': 'Planned downtime',
   'changes.calendar.quick.open': 'Open {{id}}',
