@@ -3,6 +3,7 @@
 from typing import Any
 
 from app.core.config import Settings
+from app.modules.identity_access.domain.identity import safe_return_to
 from app.modules.identity_access.service.auth import AuthService
 from app.shared.clock import system_clock
 
@@ -40,6 +41,20 @@ def test_one_host_with_the_portal_under_a_path() -> None:
     )
     assert auth.landing("portal", "/#top") == "https://desk.example.com/portal/#top"
     assert auth.landing("console", "/?from=portal") == "https://desk.example.com/?from=portal"
+    # Which UI is never read from the query: only the named app (`app=console|portal`, set by the
+    # caller) picks the base path, so a console root with any query stays on the console.
+    assert auth.landing("console", "/?tab=x") == "https://desk.example.com/?tab=x"
+    assert auth.landing("console", "/?from=console") == "https://desk.example.com/?from=console"
+
+
+def test_landing_never_leaves_the_host() -> None:
+    """The stored return path went through safe_return_to; landing adds no way out either."""
+    auth = service(
+        console_url="https://desk.example.com", portal_url="https://desk.example.com/portal"
+    )
+    for sneaky in ("//evil.example/", "/\\evil.example", "https://evil.example/", "/%2F%2Fevil"):
+        landed = auth.landing("portal", safe_return_to(sneaky))
+        assert landed == "https://desk.example.com/portal/", (sneaky, landed)
 
 
 def test_separate_dev_origins_are_unchanged() -> None:
