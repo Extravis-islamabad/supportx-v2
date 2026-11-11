@@ -223,6 +223,8 @@ export function StagedMoveDialog({
   const [reason, setReason] = useState('');
   const [fields, setFields] = useState<Record<string, unknown>>({});
   const [closureCode, setClosureCode] = useState<string>();
+  // A change's closing description (REQ-CHG-095), saved as the record's outcome text.
+  const [closingText, setClosingText] = useState('');
   // Where it lands, a completing status moving on by itself ("Review complete" closes a change).
   const closing = move.lands_in === 'closure_closed';
   const all = move.missing ?? [];
@@ -259,6 +261,9 @@ export function StagedMoveDialog({
           fields: missing.length > 0 ? fields : null,
           confirm_open_work: false,
           closure_code: closing ? (closureCode ?? null) : null,
+          ...(closing && path === 'changes' && closingText.trim() !== ''
+            ? { resolution: closingText.trim() }
+            : {}),
         },
       },
       {
@@ -326,6 +331,20 @@ export function StagedMoveDialog({
                   value: c.code,
                   label: labelled(c.labels, locale, () => t(`closure_code.${c.code}`)),
                 }))}
+            />
+          </Form.Item>
+        )}
+        {closing && path === 'changes' && (
+          <Form.Item label={t('staged.move.closing_description')} htmlFor="move-closing-text">
+            <Input.TextArea
+              id="move-closing-text"
+              rows={3}
+              count={lengthLimit(2000)}
+              value={closingText}
+              onChange={(e) => {
+                setClosingText(e.target.value);
+              }}
+              data-testid="move-closing-text"
             />
           </Form.Item>
         )}
