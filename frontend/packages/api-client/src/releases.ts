@@ -528,3 +528,74 @@ export function useReleaseCalendar(start: string, end: string, mine: boolean, en
     enabled,
   });
 }
+
+// --- a release's conflicts, acks and freeze override (WP-058b S2; REQ-REL-040, -041) --------
+
+export type ReleaseConflicts = components['schemas']['ReleaseConflictsOut'];
+export type ReleaseConflict = components['schemas']['ReleaseConflictOut'];
+
+/** A release's conflicts now, each with its key, whether it blocks and its ack. */
+export function useReleaseConflicts(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'conflicts'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/conflicts', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Acknowledge one warning with a reason (If-Match on the release). */
+export function useAckReleaseConflict() {
+  const refresh = useRefreshRecord();
+  return useMutation({
+    mutationFn: ({
+      id,
+      version,
+      key,
+      reason,
+    }: {
+      id: string;
+      version: number;
+      key: string;
+      reason: string;
+    }) =>
+      call(
+        api.POST('/api/v1/releases/{record_id}/conflicts/acks', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { key, reason },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}
+
+/** Go ahead in these blocking freezes, with a reason (releases.override_freeze; If-Match). */
+export function useReleaseFreezeOverride() {
+  const refresh = useRefreshRecord();
+  return useMutation({
+    mutationFn: ({
+      id,
+      version,
+      reason,
+      windowIds,
+    }: {
+      id: string;
+      version: number;
+      reason: string;
+      windowIds: string[];
+    }) =>
+      call(
+        api.POST('/api/v1/releases/{record_id}/freeze-override', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { reason, window_ids: windowIds },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}

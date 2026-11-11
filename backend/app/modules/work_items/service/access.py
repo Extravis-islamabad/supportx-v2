@@ -386,6 +386,15 @@ RELEASE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
         ("all",),
         defaults=(*_role_defaults("approve"), (RELEASE_MANAGER, "all")),
     ),
+    # WP-058b S2 (the coordinator, 2026-11-11; as changes.override_freeze): passing a blocking
+    # freeze for a release is the release manager's, decided at its scope on that release, with
+    # a reason, audited. Administrators hold every permission; no technician or team lead does.
+    PermissionSpec(
+        "releases.override_freeze",
+        "release",
+        ("all", "site", "group"),
+        defaults=((RELEASE_MANAGER, "all"),),
+    ),
 )
 # changes.approve keeps identity's scopes (not own) and grants (WP-045a).
 CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
