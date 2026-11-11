@@ -53,7 +53,8 @@ type Records = Partial<
     | 'asset'
     | 'consumable'
     | 'catalogItem'
-    | 'workflow',
+    | 'workflow'
+    | 'workflowRun',
     string
   >
 >;
@@ -253,6 +254,13 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.catalogItem ? `/admin/catalog/items/${r.catalogItem}` : undefined),
     app: 'console',
     sideOnly: true,
+  },
+  // WP-048b S4d: a record's Workflows tab, with a run waiting on it (template A's tabs).
+  {
+    key: 'incident-workflows',
+    path: (r) => (r.workflowRun ? `/incidents/${r.workflowRun}` : undefined),
+    app: 'console',
+    state: { name: 'workflows', open: tab('workflows') },
   },
   // WP-048b S4: the designer, "template A header + canvas body"; its outline and problems.
   {
@@ -470,10 +478,12 @@ async function findRecords(page: Page): Promise<Records> {
   // Some lists are a plain array (knowledge articles, catalog items: QA9 matrix fix).
   const firstOfList = (body: unknown) =>
     (Array.isArray(body) ? (body as { id: string }[]) : [])[0]?.id;
+  const incident =
+    (await first('/api/v1/incidents/lookup/INC-30', (b) => (b as { id?: string }).id)) ??
+    (await first('/api/v1/incidents?limit=1', firstItem));
   return {
-    incident:
-      (await first('/api/v1/incidents/lookup/INC-30', (b) => (b as { id?: string }).id)) ??
-      (await first('/api/v1/incidents?limit=1', firstItem)),
+    incident,
+    workflowRun: await showcaseRun(page, incident),
     request: await first('/api/v1/service-requests?limit=1', firstItem),
     article: await first('/api/v1/knowledge/articles', firstOfList),
     dashboard: await first(
@@ -490,6 +500,61 @@ async function findRecords(page: Page): Promise<Records> {
       (await first('/api/v1/automation/workflows?record_type=incident', firstOfList)) ??
       (await showcaseWorkflow(page)),
   };
+}
+
+/**
+ * A workflow run on an incident for its Workflows tab (WP-048b S4d): start → wait for a change
+ * → end, published, switched on and started on the incident, so the tab shows a run waiting.
+ * Returns the incident's ID; a stack that refuses any step simply has no such shot.
+ */
+async function showcaseRun(page: Page, incident: string | undefined): Promise<string | undefined> {
+  if (incident === undefined) return undefined;
+  const { csrf } = await me(page);
+  const write = { 'X-CSRF-Token': csrf };
+  const made = await page.request.post('/api/v1/automation/workflows', {
+    data: { record_type: 'incident', name: 'Wait for the requester' },
+    headers: { ...write, 'Idempotency-Key': crypto.randomUUID() },
+  });
+  if (!made.ok()) return undefined;
+  let flow = (await made.json()) as { id: string; version: number };
+  const step = async (method: 'put' | 'post', path: string, data?: unknown) => {
+    const response = await page.request[method](`/api/v1/automation/workflows/${flow.id}${path}`, {
+      data,
+      headers: { ...write, 'If-Match': `"${String(flow.version)}"` },
+    });
+    if (!response.ok()) return false;
+    flow = (await response.json()) as typeof flow;
+    return true;
+  };
+  const at = (x: number, y: number) => ({ x, y });
+  const definition = {
+    format: 1,
+    nodes: [
+      { id: 'start', type: 'start', config: {}, position: at(0, 0) },
+      {
+        id: 'reply',
+        type: 'wait',
+        config: { events: ['requester_replied'], limit_seconds: 86_400 },
+        position: at(0, 140),
+      },
+      { id: 'end', type: 'end', config: {}, position: at(0, 280) },
+    ],
+    links: [
+      { from: 'start', port: 'next', to: 'reply' },
+      { from: 'reply', port: 'next', to: 'end' },
+      { from: 'reply', port: 'overtaken', to: 'end' },
+      { from: 'reply', port: 'timeout', to: 'end' },
+    ],
+    variables: [],
+  };
+  if (!(await step('put', '/draft', { definition }))) return undefined;
+  if (!(await step('post', '/publish'))) return undefined;
+  if (!(await step('put', '/enabled', { enabled: true }))) return undefined;
+  const started = await page.request.post(`/api/v1/automation/workflows/${flow.id}/instances`, {
+    data: { record_id: incident },
+    headers: { ...write, 'Idempotency-Key': crypto.randomUUID() },
+  });
+  return started.ok() ? incident : undefined;
 }
 
 /**

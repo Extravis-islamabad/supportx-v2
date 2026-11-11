@@ -669,7 +669,9 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
         <div
           style={{
             ...card,
-            flex: 1,
+            // Stacked, the canvas keeps its own height: a growing item in a column has none to
+            // give React Flow, which then draws nothing (the 390 matrix shot).
+            flex: wide ? 1 : 'none',
             minWidth: 0,
             height: wide ? '70vh' : '60vh',
             minHeight: 420,
@@ -704,7 +706,12 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
           >
             <Background gap={20} />
             <Controls position={rtl ? 'bottom-right' : 'bottom-left'} />
-            <MiniMap position={rtl ? 'bottom-left' : 'bottom-right'} pannable zoomable />
+            <MiniMap
+              position={rtl ? 'bottom-left' : 'bottom-right'}
+              pannable
+              zoomable
+              style={{ width: 120, height: 80 }}
+            />
             <Panel position={rtl ? 'top-right' : 'top-left'}>
               <Space wrap>
                 <Button

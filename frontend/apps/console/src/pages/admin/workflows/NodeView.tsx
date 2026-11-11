@@ -2,7 +2,7 @@ import { Flex, Typography, theme } from 'antd';
 import { memo } from 'react';
 
 import { Handle, INPUT, Position, type NodeProps, type WorkflowNode } from '@supportx/flow';
-import { useLabel } from '@supportx/ui';
+import { useAppearance, useLabel } from '@supportx/ui';
 
 import { CATEGORY_OF, portName } from './nodes';
 
@@ -15,6 +15,7 @@ import { CATEGORY_OF, portName } from './nodes';
 export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps<WorkflowNode>) {
   const t = useLabel();
   const { token } = theme.useToken();
+  const rtl = useAppearance().direction === 'rtl';
   const flagged = data.problems !== undefined && data.problems > 0;
   const current = data.state === 'current';
   const passed = data.state === 'passed';
@@ -74,7 +75,8 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
           id={port}
           position={Position.Bottom}
           style={{
-            left: `${String(((i + 1) / (data.ports.length + 1)) * 100)}%`,
+            // In RTL the outputs read right to left too, as the mirrored diagram does.
+            left: `${String(((rtl ? data.ports.length - i : i + 1) / (data.ports.length + 1)) * 100)}%`,
             width: 12,
             height: 12,
             background: token.colorPrimary,
