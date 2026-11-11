@@ -1,9 +1,9 @@
 import { instantOf, wallTimeIn } from '@supportx/ui';
 
-// The change calendar's date arithmetic (WP-045c S3; ADR-042 §5), in the person's time zone:
+// The staged types' calendar date arithmetic (WP-045c S3, shared in WP-058b S1; ADR-042 §5), in the person's time zone:
 // a "day" is a wall-clock day there, never the browser's or UTC's. Pure, so it is tested alone.
 
-export type CalendarView = 'month' | 'week' | 'day' | 'agenda';
+export type CalendarView = 'month' | 'week' | 'day' | 'agenda' | 'timeline';
 
 /** A wall-clock day: year, month (0-11) and day of the month. */
 export interface Day {
@@ -51,6 +51,12 @@ export function daysOf(view: CalendarView, anchor: Day, firstDay: number): Day[]
     return Array.from({ length: 7 }, (_, i) => addDays(first, i));
   }
   if (view === 'agenda') return Array.from({ length: 30 }, (_, i) => addDays(anchor, i));
+  if (view === 'timeline') {
+    // The month's own days, the 1st to the last (WP-058b S1): a row per record across them.
+    const first = { ...anchor, day: 1 };
+    const last = addDays(normal({ year: anchor.year, month: anchor.month + 1, day: 1 }), -1);
+    return Array.from({ length: last.day }, (_, i) => addDays(first, i));
+  }
   // A month: the whole weeks from the one holding the 1st to the one holding the last day.
   const first = weekStart({ ...anchor, day: 1 }, firstDay);
   const last = addDays(normal({ year: anchor.year, month: anchor.month + 1, day: 1 }), -1);
@@ -75,7 +81,8 @@ export function touches(start: string, end: string, d: Day, zone: string): boole
 
 /** The view a step moves by, and where "today" is within it. */
 export function step(view: CalendarView, anchor: Day, direction: 1 | -1): Day {
-  if (view === 'month') return { year: anchor.year, month: anchor.month + direction, day: 1 };
+  if (view === 'month' || view === 'timeline')
+    return { year: anchor.year, month: anchor.month + direction, day: 1 };
   if (view === 'week') return addDays(anchor, 7 * direction);
   if (view === 'agenda') return addDays(anchor, 30 * direction);
   return addDays(anchor, direction);
