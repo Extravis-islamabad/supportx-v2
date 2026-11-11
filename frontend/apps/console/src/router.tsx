@@ -94,6 +94,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-045c S3: the change calendar.
+            path: 'calendar',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangeCalendarPage')).ChangeCalendarPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({
               Component: (await import('./pages/changes/ChangePage')).ChangePage,
