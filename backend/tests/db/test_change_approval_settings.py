@@ -112,12 +112,17 @@ async def test_req_chg_039_the_submit_warning_names_who_is_left_out(world: World
         "GET", f"{CHG}/{item['id']}/approvals/preview", a, a.admin, params={"stage": "submission"}
     )
     assert shown.status_code == 200, shown.text
-    assert shown.json() == {
+    body = shown.json()
+    people = body.pop("people")
+    assert body == {
         "stage": "submission",
         "approver_ids": [str(a.tech_a)],
         "barred": [],
         "fallback_reason": None,
     }
+    # The change screens name them: the approvers' (and the left-out people's) names come along.
+    assert set(people) == {str(a.tech_a)}
+    assert people[str(a.tech_a)]["display_name"]
     fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
     set_ = await world.call(
         "PUT",
@@ -135,6 +140,7 @@ async def test_req_chg_039_the_submit_warning_names_who_is_left_out(world: World
         {"user_id": str(a.tech_a), "reason": "segregation_of_duties"}
     ]
     assert warned.json()["fallback_reason"] == "segregation_of_duties"
+    assert str(a.tech_a) in warned.json()["people"]  # the left-out person is named too
     # Nothing was opened by looking.
     listed = await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)
     assert listed.json()["items"] == []

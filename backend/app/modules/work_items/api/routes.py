@@ -1703,11 +1703,17 @@ class ChangeApprovalPreviewOut(BaseModel):
     fallback_reason: RouteReason | None = Field(
         description="Set: the approval administrators decide as well, for this reason."
     )
+    people: dict[str, PersonOut] = Field(
+        default_factory=dict, description="The approvers and the people left out, by user ID."
+    )
 
     @classmethod
-    def of(cls, found: "board_service.Preview") -> "ChangeApprovalPreviewOut":
+    def of(
+        cls, found: "board_service.Preview", people: dict[str, PersonOut] | None = None
+    ) -> "ChangeApprovalPreviewOut":
         """From the service's preview."""
         return cls(
+            people=people or {},
             stage=found.stage,
             approver_ids=list(found.named),
             barred=[
@@ -3083,7 +3089,11 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             approval. Changes nothing.
             """
             found = await board_service.preview(session, subject, record_id, stage)
-            return ChangeApprovalPreviewOut.of(found) if found else None
+            if found is None:
+                return None
+            ids = {*found.named, *(u for u, _ in found.barred)}
+            people = people_out(await user_contacts(session, sorted(str(u) for u in ids)))
+            return ChangeApprovalPreviewOut.of(found, people)
 
         @router.get("/{record_id}/risk/questionnaire", summary="The change's risk questionnaire")
         async def risk_questionnaire(
