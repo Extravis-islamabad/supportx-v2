@@ -530,7 +530,9 @@ jobs:
     needs: [mobile]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Lint, types and Vitest take about 15 min now (Vitest alone about 9.5 min, run 42951809015),
+    # so 15 cut off the production builds twice on #378; splitting Vitest into shards is the follow-up.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
