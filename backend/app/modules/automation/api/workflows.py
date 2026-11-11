@@ -142,6 +142,21 @@ class InstanceOut(BaseModel):
     version: int
 
 
+class RecordLabelOut(BaseModel):
+    """A run's record as people name it; only for a record the viewer may see (WP-048b S5a)."""
+
+    display_id: str
+    subject: str
+
+
+class OverviewRunOut(InstanceOut):
+    """One run in the overview, with its record named only when the viewer may see it."""
+
+    record: RecordLabelOut | None = Field(
+        default=None, description="None: the viewer may not see the record (no ID, no link)."
+    )
+
+
 class StepOut(BaseModel):
     """One line of an instance's log (REQ-WF-023 AC2)."""
 
@@ -410,7 +425,7 @@ async def overview(
     subject: Manage,
     node: Annotated[str | None, Query(min_length=1, max_length=40)] = None,
     waiting_over_hours: Annotated[int | None, Query(ge=1, le=WAITING_OVER_MAX)] = None,
-) -> Page[InstanceOut]:
+) -> Page[OverviewRunOut]:
     """Runs by workflow, state and age, failed ones with their node and error (REQ-WF-025).
 
     `node=` keeps the runs that have a step there now (a waiting or failed token).
@@ -418,7 +433,6 @@ async def overview(
     latest step is older. The latest step is read on the steps' primary key (tenant_id,
     instance_id, seq) backwards, one row per run, so no index is added.
     """
-    del subject
     statement = select(WorkflowInstance)
     if node is not None:
         statement = statement.where(WorkflowInstance.state["tokens"].contains([{"node": node}]))
@@ -442,12 +456,48 @@ async def overview(
             latest < cutoff,
         )
     page = await paginate(session, statement, query)
-    return Page[InstanceOut](
-        items=[_instance(row) for row in page.rows],
+    return Page[OverviewRunOut](
+        items=await _named(session, subject, list(page.rows)),
         next_cursor=page.next_cursor,
         has_more=page.has_more,
         estimated_total=page.estimated_total,
     )
+
+
+async def _named(
+    session: TenantSession, subject: Subject, rows: list[WorkflowInstance]
+) -> list[OverviewRunOut]:
+    """Each run with its record's name, only where the viewer may see the record.
+
+    workflows.manage lists every run of the tenant (ADR-043 §10), but a record's ID and subject
+    are the record's own data: they follow the record type's view rule (the coordinator, S5).
+    """
+    visible: dict[str, set[uuid.UUID]] = {}
+    for row in rows:
+        kind = registered(row.record_type)
+        if (
+            kind is not None
+            and kind.may_view is not None
+            and await kind.may_view(session, subject, row.record_id)
+        ):
+            visible.setdefault(row.record_type, set()).add(row.record_id)
+    names: dict[uuid.UUID, tuple[str, str]] = {}
+    for record_type, ids in visible.items():
+        kind = registered(record_type)
+        if kind is not None and kind.labels is not None:
+            names.update(await kind.labels(session, sorted(ids)))
+    out = []
+    for row in rows:
+        name = names.get(row.record_id)
+        out.append(
+            OverviewRunOut(
+                **_instance(row).model_dump(),
+                record=None
+                if name is None
+                else RecordLabelOut(display_id=name[0], subject=name[1]),
+            )
+        )
+    return out
 
 
 @router.get("/{workflow_id}", summary="One workflow, with its draft's problems")
@@ -885,21 +935,33 @@ def _job(row: WorkflowJob) -> JobOut:
     "/{workflow_id}/jobs",
     summary="Retry or cancel many runs, as a background job",
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[
-        audited(
-            "automation.workflow_job_queued", object_type="workflow", object_param="workflow_id"
-        )
-    ],
 )
-async def queue_job(
+async def queue_job(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     workflow_id: uuid.UUID,
     body: JobIn,
     session: TenantSession,
     subject: Manage,
     idempotency: Idempotency,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "automation.workflow_job_queued", object_type="workflow", object_param="workflow_id"
+        ),
+    ],
 ) -> Response:
-    """The worker runs it in batches; its progress reaches the overview live."""
+    """The worker runs it in batches; its progress reaches the overview live.
+
+    Audited with what it does to how many runs and, for a cancel, why (the coordinator, S5).
+    """
     del subject
+    note.details = {
+        **note.details,
+        "kind": body.kind,
+        "runs": len(body.instance_ids),
+        "dry_run": body.dry_run,
+        "to_version": body.to_version,
+        "reason": (body.reason or "").strip() or None,
+    }
     if body.kind == "migrate" and body.to_version is None:
         raise ValidationFailed(
             errors=[
