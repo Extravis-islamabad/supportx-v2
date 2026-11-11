@@ -309,6 +309,8 @@ export const en = {
   'workflow_failure.webhook_unreachable': 'The address could not be reached.',
   'workflow_failure.workflow_identity_missing':
     "The workflow's own sign-in is missing; switch it off and on again.",
+  'workflow_failure.workflow_identity_not_permitted':
+    "The workflow's run-as identity has no right to do this step. Give it a role under Runs as.",
   'workflow_instance_status.cancelled': 'Cancelled',
   'workflow_instance_status.failed': 'Failed',
   'workflow_instance_status.finished': 'Finished',
@@ -607,6 +609,21 @@ export const en = {
   'workflows.record.tab': 'Workflows',
   'workflows.record.took': 'Took',
   'workflows.record_type': 'Record type',
+  'workflows.run_as.add': 'Give a role',
+  'workflows.run_as.help':
+    "Steps that change the record (set status, field update, note) act as this workflow's own identity, with only the roles you give it here.",
+  'workflows.run_as.inactive': 'Inactive while the workflow is switched off.',
+  'workflows.run_as.no_roles': 'No role yet: its steps that change the record will fail.',
+  'workflows.run_as.none_offered': 'No role you can give fits a workflow.',
+  'workflows.run_as.not_made': 'Made when the workflow is first published.',
+  'workflows.run_as.publish_anyway': 'Publish anyway',
+  'workflows.run_as.publish_title': 'Publish without a role?',
+  'workflows.run_as.remove': 'Take the role {{name}}',
+  'workflows.run_as.scope_help':
+    'Give it a role that reaches every record of this type: a role limited to its own groups reaches none, as this identity belongs to no group.',
+  'workflows.run_as.tab': 'Runs as',
+  'workflows.run_as.warning':
+    "This workflow can't change records yet: give its run-as identity a role under Runs as.",
   'workflows.running': 'Live runs',
   'workflows.runs.all': 'All states',
   'workflows.runs.any_workflow': 'Any workflow',

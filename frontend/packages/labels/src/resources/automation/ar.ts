@@ -310,6 +310,8 @@ export const ar: LabelResource = {
   'workflow_failure.webhook_too_large': 'كان الرد كبيرًا جدًا.',
   'workflow_failure.webhook_unreachable': 'تعذّر الوصول إلى العنوان.',
   'workflow_failure.workflow_identity_missing': 'هوية مسار العمل مفقودة؛ أوقفه ثم شغّله مجددًا.',
+  'workflow_failure.workflow_identity_not_permitted':
+    'ليس لهوية تشغيل سير العمل حق تنفيذ هذه الخطوة. امنحها دوراً في «يعمل باسم».',
   'workflow_instance_status.cancelled': 'أُلغي',
   'workflow_instance_status.failed': 'فشل',
   'workflow_instance_status.finished': 'انتهى',
@@ -600,6 +602,21 @@ export const ar: LabelResource = {
   'workflows.record.tab': 'مسارات العمل',
   'workflows.record.took': 'المدة',
   'workflows.record_type': 'نوع السجل',
+  'workflows.run_as.add': 'امنح دوراً',
+  'workflows.run_as.help':
+    'الخطوات التي تغيّر السجل (تعيين الحالة، تحديث حقل، ملاحظة) تعمل باسم هوية سير العمل نفسه، وبالأدوار التي تمنحها هنا فقط.',
+  'workflows.run_as.inactive': 'غير نشطة ما دام سير العمل متوقفاً.',
+  'workflows.run_as.no_roles': 'لا دور بعد: ستفشل خطواته التي تغيّر السجل.',
+  'workflows.run_as.none_offered': 'لا يوجد دور يمكنك منحه يناسب سير العمل.',
+  'workflows.run_as.not_made': 'تُنشأ عند نشر سير العمل لأول مرة.',
+  'workflows.run_as.publish_anyway': 'انشر على أي حال',
+  'workflows.run_as.publish_title': 'النشر دون دور؟',
+  'workflows.run_as.remove': 'اسحب الدور {{name}}',
+  'workflows.run_as.scope_help':
+    'امنحها دوراً يصل إلى كل سجلات هذا النوع: الدور المقصور على مجموعاته لا يصل إلى أي سجل، لأن هذه الهوية لا تنتمي إلى أي مجموعة.',
+  'workflows.run_as.tab': 'يعمل باسم',
+  'workflows.run_as.warning':
+    'لا يستطيع سير العمل هذا تغيير السجلات بعد: امنح هوية تشغيله دوراً في «يعمل باسم».',
   'workflows.running': 'عمليات التشغيل الجارية',
   'workflows.runs.all': 'كل الحالات',
   'workflows.runs.any_workflow': 'أي مسار عمل',

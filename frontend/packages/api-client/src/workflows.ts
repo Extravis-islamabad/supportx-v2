@@ -15,6 +15,8 @@ export type NodeConfigIn = components['schemas']['NodeConfigIn'];
 export type TestRunOut = components['schemas']['TestRunOut'];
 export type TestRunIn = components['schemas']['TestRunIn'];
 export type TestAnswerIn = components['schemas']['AnswerIn'];
+export type RunAsOut = components['schemas']['RunAsOut'];
+export type RunAsRoleOut = components['schemas']['RunAsRoleOut'];
 
 const PATH = '/api/v1/automation/workflows';
 
@@ -481,5 +483,43 @@ export function useVersionSteps(id: string, number: number | undefined) {
         }),
       ),
     enabled: id !== '' && number !== undefined,
+  });
+}
+
+/**
+ * Who a workflow's steps act as, the roles given to it, and the roles it may be given (the
+ * server's rule). Before the first publish there is no identity yet (`made` false).
+ */
+export function useRunAs(workflowId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.workflows.runAs(workflowId),
+    queryFn: () =>
+      call(
+        api.GET(`${PATH}/{workflow_id}/run-as`, { params: { path: { workflow_id: workflowId } } }),
+      ),
+    enabled,
+  });
+}
+
+/** Give or take one role of the run-as identity (only roles it may hold; never above yours). */
+export function useSetRunAsRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      workflowId,
+      roleId,
+      held,
+    }: {
+      workflowId: string;
+      roleId: string;
+      held: boolean;
+    }) => {
+      const params = { params: { path: { workflow_id: workflowId, role_id: roleId } } };
+      if (held) await call(api.PUT(`${PATH}/{workflow_id}/run-as/roles/{role_id}`, params));
+      else await call(api.DELETE(`${PATH}/{workflow_id}/run-as/roles/{role_id}`, params));
+    },
+    onSettled: (_out, _error, { workflowId }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workflows.runAs(workflowId) });
+    },
   });
 }

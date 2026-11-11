@@ -44,7 +44,7 @@ from app.modules.automation.service import (
     workflow_tests,
 )
 from app.modules.automation.service.registry import record_type as registered
-from app.modules.identity_access import Subject
+from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.idempotency import Created, Idempotency
@@ -53,6 +53,7 @@ from app.shared.api.listing import ListQuery, Page, list_query, paginate
 router = APIRouter(prefix="/automation/workflows", tags=["automation"])
 Manage = Annotated[Subject, Depends(require_permission("workflows.manage"))]
 Run = Annotated[Subject, Depends(require_permission("workflows.run"))]
+Policy = Annotated[PolicyService, Depends(get_policy)]
 
 
 class WorkflowIn(BaseModel):
@@ -1168,6 +1169,107 @@ async def delete_workflow(
     """409 workflow_has_running_instances while runs are live: disable it instead (AC3)."""
     del subject
     await workflow_admin.delete_workflow(session, workflow_id, expected_version=version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- the run-as identity (ADR-043 §6; the coordinator's plan, 2026-11-11) -----------------------
+
+
+class RunAsRoleOut(BaseModel):
+    """A role as the "Runs as" section names it: system roles by key (labelled), others by name."""
+
+    id: uuid.UUID
+    key: str
+    name: str
+    system: bool
+
+
+class RunAsOut(BaseModel):
+    """Who a workflow's steps act as, and the roles it may be given (REQ-WF-010, ADR-043 §6)."""
+
+    made: bool = Field(description="False until the first publish makes the identity.")
+    name: str | None
+    active: bool
+    roles: list[RunAsRoleOut] = Field(description="The roles given to it; none by default.")
+    offered: list[RunAsRoleOut] = Field(
+        description="Roles a run-as identity may hold (the server's rule), for the picker."
+    )
+
+
+def _role(role: Any) -> RunAsRoleOut:  # noqa: ANN401 - identity_access's ServiceRole
+    return RunAsRoleOut(id=role.id, key=role.key, name=role.name, system=role.system)
+
+
+@router.get("/{workflow_id}/run-as", summary="Who the workflow acts as, and its roles")
+async def run_as(
+    workflow_id: uuid.UUID, session: TenantSession, subject: Manage, policy: Policy
+) -> RunAsOut:
+    """Before the first publish there is no identity yet; its roles are none until given."""
+    del subject
+    found = await workflow_admin.run_as(session, workflow_id)
+    offered = [_role(r) for r in await workflow_admin.run_as_offered(session, policy)]
+    if found is None:
+        return RunAsOut(made=False, name=None, active=False, roles=[], offered=offered)
+    return RunAsOut(
+        made=True,
+        name=found.name,
+        active=found.active,
+        roles=[_role(r) for r in found.roles],
+        offered=offered,
+    )
+
+
+@router.put(
+    "/{workflow_id}/run-as/roles/{role_id}",
+    summary="Give the run-as identity a role",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "automation.workflow_run_as_role_added",
+            object_type="workflow",
+            object_param="workflow_id",
+            detail_params=("role_id",),
+        )
+    ],
+)
+async def add_run_as_role(
+    workflow_id: uuid.UUID,
+    role_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    policy: Policy,
+) -> Response:
+    """Idempotent, and only roles a run-as identity may hold.
+
+    Never tenant administration, a role managing identities, roles or API keys, or more than
+    your own rights (403 with the reason); 409 workflow_not_published before the first publish.
+    """
+    await workflow_admin.set_run_as_role(session, policy, subject, workflow_id, role_id, held=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/{workflow_id}/run-as/roles/{role_id}",
+    summary="Take a role from the run-as identity",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "automation.workflow_run_as_role_removed",
+            object_type="workflow",
+            object_param="workflow_id",
+            detail_params=("role_id",),
+        )
+    ],
+)
+async def remove_run_as_role(
+    workflow_id: uuid.UUID,
+    role_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    policy: Policy,
+) -> Response:
+    """Idempotent; through the same guarded path."""
+    await workflow_admin.set_run_as_role(session, policy, subject, workflow_id, role_id, held=False)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

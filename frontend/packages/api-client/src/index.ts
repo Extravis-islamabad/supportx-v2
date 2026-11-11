@@ -628,6 +628,8 @@ export {
   useEnableWorkflow,
   useQueueJob,
   useWorkflowJob,
+  useRunAs,
+  useSetRunAsRole,
   useWorkflowRuns,
   useVersionOccupancy,
   useVersionSteps,
@@ -663,6 +665,8 @@ export {
   type VersionStepOut,
   type WorkflowVersionOut,
   type WorkflowOut,
+  type RunAsOut,
+  type RunAsRoleOut,
   type WorkflowProblem,
 } from './workflows';
 export {

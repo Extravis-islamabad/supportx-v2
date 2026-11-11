@@ -107,6 +107,9 @@ export const ur: LabelResource = {
   'audit.action.automation.workflow_job_queued': 'ورک فلو پر بلک کارروائی قطار میں لگی',
   'audit.action.automation.workflow_restarted': 'ریکارڈ پر ورک فلو دوبارہ شروع کیا گیا',
   'audit.action.automation.workflow_retried': 'ریکارڈ پر ورک فلو دوبارہ آزمایا گیا',
+  'audit.action.automation.workflow_run_as_role_added': 'ورک فلو کی رن-ایز شناخت کو کردار دیا گیا',
+  'audit.action.automation.workflow_run_as_role_removed':
+    'ورک فلو کی رن-ایز شناخت سے کردار لیا گیا',
   'audit.action.automation.workflow_skipped': 'ریکارڈ پر ورک فلو کا مرحلہ چھوڑا گیا',
   'audit.action.automation.workflow_stopped': 'ریکارڈ پر ورک فلو روکا گیا',
   'audit.action.automation.workflow_test_live_call': 'ورک فلو ٹیسٹ نے لائیو کال کی',

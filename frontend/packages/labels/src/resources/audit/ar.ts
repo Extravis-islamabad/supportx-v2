@@ -107,6 +107,8 @@ export const ar: LabelResource = {
   'audit.action.automation.workflow_job_queued': 'أُدرج إجراء جماعي على سير عمل',
   'audit.action.automation.workflow_restarted': 'أُعيد تشغيل سير عمل على سجل',
   'audit.action.automation.workflow_retried': 'أُعيدت محاولة سير عمل على سجل',
+  'audit.action.automation.workflow_run_as_role_added': 'مُنح دور لهوية تشغيل سير العمل',
+  'audit.action.automation.workflow_run_as_role_removed': 'سُحب دور من هوية تشغيل سير العمل',
   'audit.action.automation.workflow_skipped': 'تُخطّيت خطوة مسار عمل على سجل',
   'audit.action.automation.workflow_stopped': 'أُوقف سير عمل على سجل',
   'audit.action.automation.workflow_test_live_call': 'أجرى اختبار سير عمل استدعاءً حيًا',
