@@ -7,7 +7,7 @@ Drafts answer with their problems, each naming the node or link it is about (REQ
 
 import json
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
@@ -395,8 +395,12 @@ INSTANCE_FIELDS = ResourceFields(
     default_sort=("-started_at",),
 )
 InstancesQuery = Annotated[
-    ListQuery, Depends(list_query(INSTANCE_FIELDS, extra_parameters=frozenset({"node"})))
+    ListQuery,
+    Depends(
+        list_query(INSTANCE_FIELDS, extra_parameters=frozenset({"node", "waiting_over_hours"}))
+    ),
 ]
+WAITING_OVER_MAX = 24 * 366  # a year, in hours
 
 
 @router.get("/instances", summary="Every workflow run: the overview")
@@ -405,15 +409,38 @@ async def overview(
     query: InstancesQuery,
     subject: Manage,
     node: Annotated[str | None, Query(min_length=1, max_length=40)] = None,
+    waiting_over_hours: Annotated[int | None, Query(ge=1, le=WAITING_OVER_MAX)] = None,
 ) -> Page[InstanceOut]:
     """Runs by workflow, state and age, failed ones with their node and error (REQ-WF-025).
 
     `node=` keeps the runs that have a step there now (a waiting or failed token).
+    `waiting_over_hours=` keeps the live runs that have not moved for that long (AC3): their
+    latest step is older. The latest step is read on the steps' primary key (tenant_id,
+    instance_id, seq) backwards, one row per run, so no index is added.
     """
     del subject
     statement = select(WorkflowInstance)
     if node is not None:
         statement = statement.where(WorkflowInstance.state["tokens"].contains([{"node": node}]))
+    if waiting_over_hours is not None:
+        latest = (
+            select(WorkflowStep.at)
+            .where(
+                WorkflowStep.tenant_id == WorkflowInstance.tenant_id,
+                WorkflowStep.instance_id == WorkflowInstance.id,
+            )
+            .order_by(WorkflowStep.seq.desc())
+            .limit(1)
+            .correlate(WorkflowInstance)
+            .scalar_subquery()
+        )
+        cutoff = datetime.now(UTC) - timedelta(hours=waiting_over_hours)
+        statement = statement.where(
+            WorkflowInstance.status.in_(
+                (InstanceStatus.RUNNING.value, InstanceStatus.WAITING.value)
+            ),
+            latest < cutoff,
+        )
     page = await paginate(session, statement, query)
     return Page[InstanceOut](
         items=[_instance(row) for row in page.rows],
