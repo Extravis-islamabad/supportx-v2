@@ -1535,6 +1535,20 @@ it with no reload (rule c). Not built yet.
   - Guide: docs/guides/asset-financials.md.
   - **Open:** 048's hardware, software, contracts and scan-history tabs (discovery, S3, WP-054);
     049 AC1's `discovery` source (S3); 036 AC2 and 038 AC1 with WP-054.
+- [x] **D-157 follow-up (lane B, 2026-11-11; migration 0136 after 0132, to re-point onto 0135;
+  branch backup/d157):**
+  - A technician changes an asset linked to its own ticket still being worked and held by the
+    ticket's requester or department: state, location, notes and fitted parts only
+    (`asset_field_not_allowed` otherwise); `GET /assets/{id}/access`; work_items'
+    `linked_requester_ids_select` port (additive; lane A reviews).
+  - Price, tax and total behind `assets.view_financials` in responses, history (masked) and
+    writes.
+  - Straight line by default; declining balance with the product type's factor
+    (`depreciation_factor`, default 2); double declining stays 200 %.
+  - One in-app notice per run to the people who set mail up when e-mails are given up after 7
+    days without mail (`outgoing_mail.not_sent`).
+  - **Open:** product (catalogue) prices and depreciation defaults are still shown to every
+    asset viewer (a question for the coordinator); the e2e journey for the technician's path.
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
