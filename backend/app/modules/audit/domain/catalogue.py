@@ -320,6 +320,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("change.emergency_override", AuditCategory.SECURITY, "work_items"),  # D-144
     ("change.window_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-045c
     ("change.freeze_override", AuditCategory.SECURITY, "work_items"),  # WP-045c, as D-144
+    ("change.freeze_passed_by_cab", AuditCategory.SECURITY, "work_items"),  # D-156
     ("change.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("change.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.template_created", AuditCategory.CONFIGURATION, "work_items"),

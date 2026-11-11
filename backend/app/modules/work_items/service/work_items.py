@@ -742,6 +742,20 @@ def view_predicates(
         "accepted_due_review": and_(
             WorkItem.accepted_at.is_not(None), WorkItem.accept_review_at <= now
         ),
+        # Changes (WP-045d S2, REQ-CHG-098): at the CAB now, in implementation now, on the
+        # emergency path (open), and closed past their review date with the review still open.
+        "awaiting_cab": WorkItem.status == CHANGE_AT_CAB,
+        "in_implementation": and_(_open(), WorkItem.stage == "implementation"),
+        "emergency": and_(_open(), WorkItem.stage_path == "emergency"),
+        "due_for_review": and_(
+            _open(),
+            WorkItem.stage == "review",
+            WorkItem.id.in_(
+                select(WorkItemChangeDetails.work_item_id).where(
+                    WorkItemChangeDetails.review_due_at <= now
+                )
+            ),
+        ),
         "all": WorkItem.id.is_not(None),
         **_personal(subject, now=now, today_end=tomorrow),
     }
@@ -852,6 +866,10 @@ async def view_filters(
                 "value": [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value],
             },
         ),
+        "awaiting_cab": _cond("status", "eq", CHANGE_AT_CAB),
+        "in_implementation": NOT_EXPRESSIBLE,  # the stage fields are not in the DSL yet
+        "emergency": NOT_EXPRESSIBLE,
+        "due_for_review": NOT_EXPRESSIBLE,  # the review date is a change detail
         "known_errors": NOT_EXPRESSIBLE,  # the known error fields are not in the DSL yet
         "accepted_due_review": NOT_EXPRESSIBLE,
         "all": None,
@@ -922,6 +940,7 @@ def _personal(
 
 # The statuses a change waits in for a stage's approval (its stages' `raised_by`).
 CHANGE_AWAITING = tuple(sorted(str(s["raised_by"]) for s in change_rules.STAGE_APPROVALS.values()))
+CHANGE_AT_CAB = str(change_rules.STAGE_APPROVALS["cab_review"]["raised_by"])
 VIEW_CODES = (
     "open",
     "my_open",
@@ -945,7 +964,14 @@ VIEW_CODES = (
 SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
 PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
 # Changes: waiting for a stage's approval (acceptance, the plan, the CAB), the change screens.
-CHANGE_VIEW_CODES = ("pending_approval",)
+# WP-045d S2 adds the CAB's own view and the change states people look for (REQ-CHG-098).
+CHANGE_VIEW_CODES = (
+    "pending_approval",
+    "awaiting_cab",
+    "in_implementation",
+    "emergency",
+    "due_for_review",
+)
 COUNT_CAP = 1000
 
 
@@ -5220,6 +5246,21 @@ async def save_detail_change(  # noqa: PLR0913 - the save and its history, expli
         aggregate_version=updated.version,
     )
     return updated
+
+
+async def change_list_facts(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[str | None, str | None]]:
+    """Each listed change's type and its effective risk (chosen, else assessed)."""
+    rows = await session.execute(
+        select(
+            WorkItemChangeDetails.work_item_id,
+            WorkItemChangeDetails.change_type,
+            WorkItemChangeDetails.risk_chosen,
+            WorkItemChangeDetails.risk,
+        ).where(WorkItemChangeDetails.work_item_id.in_(list(ids)))
+    )
+    return {r.work_item_id: (r.change_type, r.risk_chosen or r.risk) for r in rows}
 
 
 may = _may

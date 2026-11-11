@@ -38,7 +38,12 @@ from app.modules.work_items.domain.types import (
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import catalogue as config
-from app.modules.work_items.service import fulfilment, stage_approvals, workflow_approvals
+from app.modules.work_items.service import (
+    change_freeze,
+    fulfilment,
+    stage_approvals,
+    workflow_approvals,
+)
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import APPROVE, APPROVE_ANY
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
@@ -266,6 +271,11 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
         decision, comment, comments_required=row.comments_required
     ):
         raise items.field_errors(problems)
+    approving = decision is rules.Decision.APPROVE
+    if not (comment or "").strip() and await change_freeze.reason_needed(
+        session, record, row, approving=approving
+    ):  # D-156: the emergency CAB passing a freeze says why
+        raise items.field_errors([("comment", "reason_required")])
     approved = decision is rules.Decision.APPROVE
     state = rules.ApprovalState.APPROVED if approved else rules.ApprovalState.REJECTED
     now = items.now()
@@ -280,6 +290,11 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     await approval_event(session, record, row, "decided")
     await action_links.revoke_for(session, LINK_OBJECT, row.id)  # decided another way
     await _after_vote(session, wtype, record, row, approved=approved, source=source)
+    if approved:
+        await session.refresh(record)
+        await change_freeze.after_cab_vote(
+            session, record, row, decided_by=subject.user_id, source=source
+        )
     return _shown(subject, wtype, record, row)
 
 

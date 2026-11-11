@@ -351,6 +351,112 @@ async def test_an_override_passes_only_its_freezes_never_a_later_one(world: Worl
     assert moved.json()["params"]["window_ids"] == later["id"]
 
 
+async def test_d156_a_first_sunday_freeze_blocks_that_sunday_every_month(world: World) -> None:
+    """Monthly windows (D-156): "first Sunday, 02:00-06:00" blocks the first Sunday of every
+    month and no other Sunday."""
+    from app.modules.work_items.domain.change_windows import nth_weekday  # noqa: PLC0415
+
+    a = world.a
+    later = SOON + timedelta(days=200)  # far from the other tests' times
+    day = nth_weekday(later.year, later.month, 1, 6)
+    assert day is not None
+    first = datetime(day.year, day.month, day.day, 2, 0, tzinfo=UTC)
+    made = await a_window(
+        world,
+        a,
+        name="First Sunday",
+        group_ids=[str(a.gb)],
+        starts_at=_iso(first),
+        ends_at=_iso(first + 4 * H),
+        repeat="monthly",
+        repeat_week=1,
+        repeat_weekday=6,
+    )
+    assert (made["repeat"], made["repeat_week"], made["repeat_weekday"]) == ("monthly", 1, 6)
+    assert made["repeat_weekly"] is False
+    change = await new_change(world, a, a.admin, group_id=str(a.gb))
+    assert change.status_code == 201, change.text
+    item = change.json()
+    three_on = first.month + 3
+    year, month = first.year + (three_on - 1) // 12, (three_on - 1) % 12 + 1
+    sunday = nth_weekday(year, month, 1, 6)
+    second = nth_weekday(year, month, 2, 6)
+    assert sunday is not None
+    assert second is not None
+    at = datetime(sunday.year, sunday.month, sunday.day, 3, 0, tzinfo=UTC)
+    refused = await schedule(world, a, item, at, at + H)
+    assert problem(refused) == (409, "change_window_blocked"), refused.text
+    other = datetime(second.year, second.month, second.day, 3, 0, tzinfo=UTC)
+    fine = await schedule(world, a, item, other, other + H)
+    assert fine.status_code == 200, fine.text
+
+
+async def test_d156_an_old_client_s_weekly_flag_still_makes_a_weekly_window(world: World) -> None:
+    made = await a_window(
+        world, world.a, name="Old client", ends_at=_iso(SOON + 2 * H), repeat_weekly=True
+    )
+    assert (made["repeat"], made["repeat_weekly"]) == ("weekly", True)
+
+
+async def test_d156_the_tenant_can_make_outside_maintenance_block(world: World) -> None:
+    """D-156: off by default (warn); on, a change outside every maintenance window is refused;
+    the switch is audited and only changes have it."""
+    b = world.b  # its own tenant, so the switch never reaches the other tests
+    sunday = SOON + timedelta(days=6, hours=1)
+    await a_window(
+        world,
+        b,
+        kind="maintenance",
+        name="Sunday night",
+        group_ids=[str(b.gb)],
+        starts_at=_iso(sunday),
+        ends_at=_iso(sunday + 4 * H),
+        repeat="weekly",
+    )
+    change = await new_change(world, b, b.admin, group_id=str(b.gb))
+    assert change.status_code == 201, change.text
+    item = change.json()
+    tuesday = SOON + timedelta(days=8, hours=10)
+    warned = await schedule(world, b, item, tuesday, tuesday + H)
+    assert warned.status_code == 200, warned.text  # the default: a warning, not a refusal
+
+    async def switch(path: str, *, on: bool) -> int:
+        current = (await world.call("GET", f"{path}/settings", b, b.admin)).json()
+        changed = await world.call(
+            "PATCH",
+            f"{path}/settings",
+            b,
+            b.admin,
+            json={"outside_maintenance_blocks": on},
+            headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+        )
+        return changed.status_code
+
+    assert await switch("/incidents", on=True) == 422  # changes only
+    assert await switch(CHG, on=True) == 200
+    try:
+        refused = await schedule(world, b, item, tuesday + timedelta(weeks=1), tuesday + 9 * 24 * H)
+        assert problem(refused) == (409, "change_window_blocked"), refused.text
+        inside = await schedule(
+            world,
+            b,
+            item,
+            sunday + timedelta(weeks=2, hours=1),
+            sunday + timedelta(weeks=2, hours=2),
+        )
+        assert inside.status_code == 200, inside.text
+        async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+            logged = await session.scalar(
+                text(
+                    "SELECT count(*) FROM audit_entries WHERE action = 'change.settings_changed' "
+                    "AND details::text LIKE '%outside_maintenance_blocks%'"
+                )
+            )
+        assert logged == 1
+    finally:
+        assert await switch(CHG, on=False) == 200
+
+
 async def test_the_calendar_lists_the_changes_you_may_see_in_a_range(world: World) -> None:
     """WP-045c S3: implementation windows and planned downtimes in [start, end), visible only."""
     a = world.a
@@ -396,3 +502,147 @@ async def test_the_calendar_lists_the_changes_you_may_see_in_a_range(world: Worl
         params={"start": _iso(SOON), "end": _iso(SOON + timedelta(days=500))},
     )
     assert problem(too_long)[0] == 422, too_long.text
+
+
+# --- D-156: an emergency change in a freeze goes through its emergency CAB ----------------------
+
+
+async def _emergency(world: World, org: Org) -> dict[str, Any]:
+    made = await new_change(world, org, org.admin, change_type="emergency", group_id=str(org.gb))
+    assert made.status_code == 201, made.text
+    return dict(made.json())
+
+
+async def _to_cab(world: World, org: Org, item: dict[str, Any]) -> dict[str, Any]:
+    from tests.db.test_changes_api import _approve_pending, move  # noqa: PLC0415 - helpers
+
+    raised = await move(
+        world, org, await _fresh(world, org, item), "submission_awaiting_acceptance"
+    )
+    assert raised.status_code == 200, raised.text
+    at_cab = await _approve_pending(world, org, raised.json())
+    assert at_cab["status"] == "cab_awaiting", at_cab
+    return at_cab
+
+
+async def _fresh(world: World, org: Org, item: dict[str, Any]) -> dict[str, Any]:
+    return dict((await world.call("GET", f"{CHG}/{item['id']}", org, org.admin)).json())
+
+
+async def _cab_decision(
+    world: World, org: Org, item: dict[str, Any], comment: str | None
+) -> httpx.Response:
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", org, org.admin)).json()
+    [entry] = [r for r in rows["items"] if r["state"] == "pending"]
+    return await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/approvals/{entry['id']}/decision",
+        org,
+        org.admin,
+        json={"decision": "approve", **({"comment": comment} if comment else {})},
+        headers={"If-Match": f'"{entry["version"]}"', **CONSOLE},
+    )
+
+
+async def _start(world: World, org: Org, item: dict[str, Any]) -> httpx.Response:
+    from tests.db.test_changes_api import move  # noqa: PLC0415 - shared helper
+
+    return await move(world, org, await _fresh(world, org, item), "implementation_in_progress")
+
+
+FROZEN = SOON + timedelta(days=300)  # far from the other tests' times
+
+
+async def _freeze_gb(world: World, org: Org, name: str, start: datetime) -> dict[str, Any]:
+    return await a_window(
+        world,
+        org,
+        name=name,
+        group_ids=[str(org.gb)],
+        starts_at=_iso(start),
+        ends_at=_iso(start + 48 * H),
+    )
+
+
+async def test_d156_an_emergency_change_in_a_freeze_is_saved_and_its_cab_passes_it(
+    world: World,
+) -> None:
+    """Saved, not refused; the emergency CAB approving it needs a reason, which stamps the
+    change (audited, in its history); then its work may start."""
+    a = world.a
+    start = FROZEN
+    await _freeze_gb(world, a, "Year end (emergency)", start)
+    item = await _emergency(world, a)
+    saved = await schedule(world, a, item, start + H, start + 3 * H)
+    assert saved.status_code == 200, saved.text  # marked, never refused
+    conflicts = (await world.call("GET", f"{CHG}/{item['id']}/conflicts", a, a.admin)).json()
+    assert [c["kind"] for c in conflicts["items"] if c["blocks"]] == ["freeze"]
+    at_cab = await _to_cab(world, a, item)
+    bare = await _cab_decision(world, a, at_cab, None)
+    assert bare.status_code == 422, bare.text
+    assert ("body.comment", "reason_required") in {
+        (e["field"], e["code"]) for e in bare.json()["errors"]
+    }
+    passed = await _cab_decision(world, a, at_cab, "Outage fix: the bank's cut-over")
+    assert passed.status_code == 200, passed.text
+    now = await _fresh(world, a, item)
+    assert now["stage"] == "implementation", now
+    (row,) = await world.sql(
+        "SELECT freeze_cab_passed_at, freeze_cab_passed_by FROM work_item_change_details"
+        " WHERE work_item_id = $1",
+        uuid.UUID(item["id"]),
+    )
+    assert row["freeze_cab_passed_at"] is not None
+    assert row["freeze_cab_passed_by"] == a.admin
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        logged = await session.scalar(
+            text(
+                "SELECT count(*) FROM audit_entries WHERE action = 'change.freeze_passed_by_cab'"
+                " AND object_id = :id"
+            ),
+            {"id": item["id"]},
+        )
+    assert logged == 1
+    history = (await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)).json()
+    assert any(c["field"] == "freeze_passed_by_cab" for h in history["items"] for c in h["changes"])
+    started = await _start(world, a, item)
+    assert started.status_code == 200, started.text
+
+
+async def test_d156_without_its_cab_s_pass_an_emergency_change_does_not_start_in_a_freeze(
+    world: World,
+) -> None:
+    """Approved before the freeze came: starting the work in it is refused, with why, until
+    the change manager's override lets it go."""
+    a = world.a
+    start = FROZEN + timedelta(days=10)
+    item = await _emergency(world, a)
+    assert (await schedule(world, a, item, start + H, start + 3 * H)).status_code == 200
+    at_cab = await _to_cab(world, a, item)
+    assert (await _cab_decision(world, a, at_cab, None)).status_code == 200  # no freeze yet
+    freeze = await _freeze_gb(world, a, "Late freeze", start)
+    refused = await _start(world, a, item)
+    assert problem(refused) == (409, "stage_move_refused"), refused.text
+    assert refused.json()["params"]["reason"] == "freeze_needs_emergency_cab"
+    now = await _fresh(world, a, item)
+    overridden = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/freeze-override",
+        a,
+        a.admin,
+        json={"reason": "Signed off by the director", "window_ids": [freeze["id"]]},
+        headers={"If-Match": f'"{now["version"]}"', **CONSOLE},
+    )
+    assert overridden.status_code == 200, overridden.text
+    started = await _start(world, a, item)
+    assert started.status_code == 200, started.text
+
+
+async def test_d156_a_normal_change_in_a_freeze_is_still_refused(world: World) -> None:
+    a = world.a
+    start = FROZEN + timedelta(days=20)
+    await _freeze_gb(world, a, "Normal freeze", start)
+    made = await new_change(world, a, a.admin, group_id=str(a.gb))
+    assert made.status_code == 201, made.text
+    refused = await schedule(world, a, made.json(), start + H, start + 3 * H)
+    assert problem(refused) == (409, "change_window_blocked"), refused.text
