@@ -36,12 +36,14 @@ ADMIN_PERMISSIONS = frozenset(
 # Record actions of REQ-WI-021 that are privileged whoever holds the permission.
 RECORD_ACTIONS = (("DELETE", "/{record_id}"), ("POST", "/{record_id}/restore"))
 # POSTs with an administrative permission that are deliberately not audited: the role editor's
-# duty previews (REQ-REL-024 AC2) only read, so nothing changes to record. The change the
-# admin then saves is audited on its own route.
+# duty previews (REQ-REL-024 AC2) and the overdue-scan rule's preview count (REQ-AST-056 AC2)
+# only read, so nothing changes to record. The change the admin then saves is audited on its
+# own route.
 NOT_AUDITED: frozenset[str] = frozenset(
     {
         "POST /api/v1/roles/{role_id}/change-preview",
         "POST /api/v1/users/{user_id}/role-preview",
+        "POST /api/v1/assets/overdue-rule/preview",
     }
 )
 

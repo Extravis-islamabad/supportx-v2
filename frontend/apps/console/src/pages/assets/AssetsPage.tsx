@@ -47,6 +47,7 @@ import { Problems } from '../admin/incidents/shared';
 import { nameOf } from '../admin/assets/shared';
 import { typeTree, type TypeNode } from '../admin/assets/tree';
 import { BulkMoveDialog } from './AssetActions';
+import { PrintLabelsButton } from './PrintLabels';
 import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
@@ -90,6 +91,9 @@ export function AssetsPage() {
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
   // Bulk moves (WP-049a s3): pick rows, move them to one state; the server checks each one.
   const bulkAllowed = view === 'live' && access.can('assets.manage');
+  // Labels (WP-049b s3, REQ-AST-039) need only assets.view: anyone who sees the list may pick
+  // rows to print; the other bulk actions stay with assets.manage.
+  const selectable = view === 'live';
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkOpen, setBulkOpen] = useState(false);
   const groups = useAssetGroups(bulkAllowed);
@@ -158,59 +162,64 @@ export function AssetsPage() {
   // Rows selected: the selection bar takes the toolbar's place (D-155), so the list keeps one
   // control row; it goes once nothing is selected.
   const selectionBar =
-    bulkAllowed && selected.length > 0 ? (
+    selectable && selected.length > 0 ? (
       <Flex gap={8} wrap align="center" data-testid="assets-selection">
         <Typography.Text strong>
           {t('assets.bulk_move.selected', { count: selected.length })}
         </Typography.Text>
-        <WriteButton
-          onClick={() => {
-            setBulkOpen(true);
-          }}
-          data-testid="assets-bulk-move-open"
-        >
-          {t('assets.bulk_move.open')}
-        </WriteButton>
-        {/* REQ-AST-028 AC2: a static group is filled from the selection in one step. */}
-        <Select
-          placeholder={t('assets.groups.add_selected')}
-          aria-label={t('assets.groups.add_selected')}
-          style={{ minWidth: 200 }}
-          value={null}
-          options={(staticGroups ?? []).map((g) => ({ value: g.id, label: g.name }))}
-          onChange={(groupId: string) => {
-            addMembers.mutate(
-              { groupId, assetIds: selected },
-              {
-                onSuccess: (answer) => {
-                  void message.success(t('assets.groups.added', { count: answer.added }));
-                  setSelected([]);
-                },
-                onError: reportError,
-              },
-            );
-          }}
-          data-testid="assets-add-to-group"
-        />
-        {/* REQ-AST-029: the selection goes on loans from now on. */}
-        <WriteButton
-          loading={setLoanable.isPending}
-          onClick={() => {
-            setLoanable.mutate(
-              { assetIds: selected, loanable: true },
-              {
-                onSuccess: () => {
-                  void message.success(t('assets.loanable.done'));
-                  setSelected([]);
-                },
-                onError: reportError,
-              },
-            );
-          }}
-          data-testid="assets-make-loanable"
-        >
-          {t('assets.loanable.make')}
-        </WriteButton>
+        <PrintLabelsButton assetIds={selected} testId="assets-print-labels" />
+        {bulkAllowed && (
+          <>
+            <WriteButton
+              onClick={() => {
+                setBulkOpen(true);
+              }}
+              data-testid="assets-bulk-move-open"
+            >
+              {t('assets.bulk_move.open')}
+            </WriteButton>
+            {/* REQ-AST-028 AC2: a static group is filled from the selection in one step. */}
+            <Select
+              placeholder={t('assets.groups.add_selected')}
+              aria-label={t('assets.groups.add_selected')}
+              style={{ minWidth: 200 }}
+              value={null}
+              options={(staticGroups ?? []).map((g) => ({ value: g.id, label: g.name }))}
+              onChange={(groupId: string) => {
+                addMembers.mutate(
+                  { groupId, assetIds: selected },
+                  {
+                    onSuccess: (answer) => {
+                      void message.success(t('assets.groups.added', { count: answer.added }));
+                      setSelected([]);
+                    },
+                    onError: reportError,
+                  },
+                );
+              }}
+              data-testid="assets-add-to-group"
+            />
+            {/* REQ-AST-029: the selection goes on loans from now on. */}
+            <WriteButton
+              loading={setLoanable.isPending}
+              onClick={() => {
+                setLoanable.mutate(
+                  { assetIds: selected, loanable: true },
+                  {
+                    onSuccess: () => {
+                      void message.success(t('assets.loanable.done'));
+                      setSelected([]);
+                    },
+                    onError: reportError,
+                  },
+                );
+              }}
+              data-testid="assets-make-loanable"
+            >
+              {t('assets.loanable.make')}
+            </WriteButton>
+          </>
+        )}
         <Button
           type="link"
           onClick={() => {
@@ -244,6 +253,9 @@ export function AssetsPage() {
               </Link>
               <Link to="/assets/consumables" data-testid="assets-consumables-link">
                 {t('assets.stock.title')}
+              </Link>
+              <Link to="/assets/audits" data-testid="assets-audits-link">
+                {t('assets.audits.title')}
               </Link>
               {access.can('assets.manage') && (
                 <WriteButton
@@ -326,7 +338,7 @@ export function AssetsPage() {
         size="small"
         rowKey="id"
         rowSelection={
-          bulkAllowed
+          selectable
             ? {
                 selectedRowKeys: selected,
                 // Labelled boxes; the header one is safe in antd's hidden measure row (axe

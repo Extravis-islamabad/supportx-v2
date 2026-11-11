@@ -79,7 +79,7 @@ COPY --from=build-pdf-test /opt/venv /opt/venv
 COPY --chown=root:root backend/pyproject.toml ./
 USER 10001:10001
 ENV SUPPORTX_REQUIRE_PDF_TESTS=1
-CMD ["python", "-m", "pytest", "-m", "pdf", "--no-cov", "-p", "no:cacheprovider", "-q", "app/modules/analytics/tests"]
+CMD ["python", "-m", "pytest", "-m", "pdf", "--no-cov", "-p", "no:cacheprovider", "-q", "app/modules/analytics/tests", "app/shared/tests", "app/modules/assets/tests"]
 
 FROM ${PYTHON_IMAGE} AS runtime
 ARG VERSION=0.0.0-dev
