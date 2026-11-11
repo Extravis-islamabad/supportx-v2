@@ -55,6 +55,20 @@ async def take(settings: Settings, tenant_id: uuid.UUID, user_id: uuid.UUID) -> 
     return token
 
 
+async def keep(settings: Settings, tenant_id: uuid.UUID, user_id: uuid.UUID, token: str) -> None:
+    """Push a running download's slot expiry out again, while it streams.
+
+    Lane B: a slow 500 MB download must not lose its slot mid-stream. Safe to retry: ZADD XX of
+    the same token only moves its score, and never adds a slot that was given back.
+    """
+    client = _client(settings)
+    if client is None or token == NO_CAP:
+        return
+    key = _key(settings, tenant_id, user_id)
+    await client.zadd(key, {token: time.time() + SLOT_SECONDS}, xx=True)
+    await client.expire(key, SLOT_SECONDS)
+
+
 async def give_back(
     settings: Settings, tenant_id: uuid.UUID, user_id: uuid.UUID, token: str
 ) -> None:
@@ -65,4 +79,4 @@ async def give_back(
     await client.zrem(_key(settings, tenant_id, user_id), token)
 
 
-__all__ = ["MAX_RUNNING", "give_back", "take"]
+__all__ = ["MAX_RUNNING", "give_back", "keep", "take"]

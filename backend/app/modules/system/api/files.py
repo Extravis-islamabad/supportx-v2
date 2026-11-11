@@ -11,6 +11,7 @@
 - Admin (`files.manage`): rules, usage, scanning status (never silent about missing scanning).
 """
 
+import time
 import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime
@@ -43,6 +44,9 @@ MANAGE = "files.manage"
 SignedIn = Annotated[Any, Depends(require_signed_in())]
 Manage = Annotated[Any, Depends(require_permission(MANAGE))]
 Files = Annotated[FileServices, Depends(api_services)]
+
+# How often a running archive download pushes its slot's expiry out (archive_slots.keep).
+KEEP_SLOT_EVERY = 60.0
 
 router = APIRouter(
     prefix="/files",
@@ -281,9 +285,14 @@ async def record_archive(  # noqa: PLR0913 - the record, the files and the conte
     )
 
     async def body_stream() -> AsyncIterator[bytes]:
+        kept = time.monotonic()
         try:
             async for piece in archive.stream_archive(storage, plan, heading):
                 yield piece
+                # A long download keeps its slot: pushed out once a minute while it streams.
+                if time.monotonic() - kept > KEEP_SLOT_EVERY:
+                    kept = time.monotonic()
+                    await archive_slots.keep(settings, subject.tenant_id, subject.user_id, token)
         finally:
             await archive_slots.give_back(settings, subject.tenant_id, subject.user_id, token)
 

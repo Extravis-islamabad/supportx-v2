@@ -9,12 +9,15 @@ by name; the zip is audited as a bulk export.
 import io
 import uuid
 import zipfile
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
 import pytest
 
+from app.shared.files.infra import blobs
 from app.shared.files.infra.scanner import EICAR
+from app.shared.files.service import archive_slots
 from app.shared.files.service.core import FileServices
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import say
@@ -122,3 +125,76 @@ async def test_a_requester_never_sees_a_private_note_s_files_not_even_by_name(
         assert "pay.txt" not in archive.read("manifest.txt").decode()
     else:
         assert zipped.status_code == 404, zipped.text
+
+
+async def test_a_third_download_at_once_waits_and_another_person_is_unaffected(
+    world: World, files: FileServices
+) -> None:
+    """Lane B: at most two archive downloads per person at once; 429 `archive_busy` past them.
+
+    The test transport buffers each response, so two downloads are held running by taking
+    their slots directly; the route then sees them as running.
+    """
+    del files
+    a = world.a
+    settings = world.app.state.settings
+    item, ids = await _record_with_files(world, a)
+    tokens = [await archive_slots.take(settings, a.tenant, a.admin) for _ in range(2)]
+    assert all(t is not None for t in tokens)
+    busy = await _archive(world, a, a.admin, item, ids)
+    assert problem(busy) == (429, "archive_busy"), busy.text
+    assert busy.headers["retry-after"] == "60"
+    assert "content-disposition" not in busy.headers
+    other = await _archive(world, a, a.tech_a, item, ids)  # tech_a works GA: unaffected
+    assert other.status_code == 200, other.text
+    first = tokens[0]
+    assert first is not None
+    await archive_slots.give_back(settings, a.tenant, a.admin, first)
+    freed = await _archive(world, a, a.admin, item, ids)
+    assert freed.status_code == 200, freed.text
+    # The finished download gave its slot back: only the one still held remains.
+    assert await _running(world, a.tenant, a.admin) == 1
+    second = tokens[1]
+    assert second is not None
+    await archive_slots.give_back(settings, a.tenant, a.admin, second)
+    # Keeping a slot alive never brings back one given back (ZADD XX).
+    await archive_slots.keep(settings, a.tenant, a.admin, second)
+    assert await _running(world, a.tenant, a.admin) == 0
+
+
+async def test_a_read_failing_mid_stream_never_ends_as_a_whole_zip_and_frees_the_slot(
+    world: World, files: FileServices, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane B: fail closed. The second file's read fails: the body is no valid zip."""
+    del files
+    a = world.a
+    item, ids = await _record_with_files(world, a)
+    real = blobs.read
+    calls = {"n": 0}
+
+    def failing(*args: Any, **kwargs: Any) -> AsyncIterator[bytes]:  # noqa: ANN401 - passthrough
+        calls["n"] += 1
+        if calls["n"] == 1:
+            first: AsyncIterator[bytes] = real(*args, **kwargs)
+            return first
+
+        async def broken() -> AsyncIterator[bytes]:
+            yield b"partial"
+            gone = "storage went away"
+            raise OSError(gone)
+
+        return broken()
+
+    monkeypatch.setattr(blobs, "read", failing)  # the archive service reads through it
+    got = await _archive(world, a, a.admin, item, ids)
+    with pytest.raises(zipfile.BadZipFile):
+        zipfile.ZipFile(io.BytesIO(got.content))
+    assert calls["n"] == 2
+    assert await _running(world, a.tenant, a.admin) == 0
+
+
+async def _running(world: World, tenant: uuid.UUID, user: uuid.UUID) -> int:
+    """Downloads holding a slot for the person now (archive_slots' sorted set)."""
+    settings = world.app.state.settings
+    client = archive_slots._client(settings)  # noqa: SLF001 - the module's own client, read only
+    return int(await client.zcard(archive_slots._key(settings, tenant, user)))  # noqa: SLF001
