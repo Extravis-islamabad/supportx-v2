@@ -998,6 +998,7 @@ export const en = {
   'errors.work_item_link_not_found': 'This link no longer exists.',
   'errors.work_item_not_found': 'This record does not exist or you cannot see it.',
   'errors.work_item_task_not_found': 'This task no longer exists.',
+  'errors.work_item_type_not_found': 'There is no such kind of record.',
   'errors.work_item_view_not_found':
     'This saved view no longer exists, or it is not shared with you.',
   'errors.work_item_worklog_not_found': 'This worklog no longer exists.',
