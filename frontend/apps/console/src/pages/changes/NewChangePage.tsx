@@ -54,7 +54,9 @@ export function NewChangePage() {
   const [templateId, setTemplateId] = useState<string | undefined>(
     () => params.get('template') ?? undefined,
   );
-  const chosen = offered.find((x) => x.id === (templateId ?? fallback));
+  // A template from the address counts only while it is offered (unknown, disabled or not the
+  // person's: the default instead, silently), as on a new incident (lane A's #404 review).
+  const chosen = offered.find((x) => x.id === templateId) ?? offered.find((x) => x.id === fallback);
   // Null: not touched, so the prefill (once it arrives) shows; typing takes over from it.
   const [typedSubject, setSubject] = useState<string | null>(null);
   const [typedDescription, setDescription] = useState<string | null>(null);
