@@ -25,6 +25,7 @@ const type: AssetProductType = {
   life_cycle_id: null,
   tag_pattern: null,
   ack_required: false,
+  depreciation_factor: '2.00',
   sort: 0,
   version: 1,
 };
@@ -288,6 +289,54 @@ describe('console: assets', () => {
     });
     const [sent] = fake.find('PATCH', `/api/v1/assets/${asset.id}`);
     expect(sent?.body).toEqual({ location: 'Floor 3' });
+    expect(sent?.headers.get('If-Match')).toBe('"3"');
+  });
+
+  it('D-157: through its ticket a technician changes the location only, and sees no money', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const masked = { ...asset, purchase_price: null, purchase_tax: null, purchase_total: null };
+    const fake = consoleApi({
+      // A technician: views assets, no assets.manage, no assets.view_financials.
+      me: fakeSession(
+        {},
+        {
+          permissions: ['assets.view'].map((key) => ({
+            key,
+            scope: 'all' as const,
+            scopes: ['all' as const],
+            conditional: false,
+          })),
+        },
+      ),
+      routes: {
+        'GET /api/v1/assets/product-types': { body: [type] },
+        'GET /api/v1/assets/states': { body: [state] },
+        [`GET /api/v1/assets/${asset.id}`]: { body: masked, headers: { ETag: '"3"' } },
+        [`GET /api/v1/assets/${asset.id}/history`]: { body: { items: [], next_cursor: null } },
+        [`GET /api/v1/assets/${asset.id}/access`]: {
+          body: { manage: false, through_ticket: true },
+        },
+        [`GET /api/v1/assets/${asset.id}/moves`]: { body: [] },
+        [`PATCH /api/v1/assets/${asset.id}`]: {
+          body: { ...masked, location: 'Desk 4', version: 4 },
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByTestId('asset-through-ticket')).toBeTruthy();
+    expect(screen.queryByTestId('asset-total')).toBeNull();
+    expect(screen.queryByTestId('asset-edit')).toBeNull(); // no full edit
+    fireEvent.click(screen.getByTestId('asset-location-open'));
+    fireEvent.change(await screen.findByTestId('asset-location-only'), {
+      target: { value: 'Desk 4' },
+    });
+    fireEvent.click(screen.getByTestId('asset-location-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/assets/${asset.id}`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `/api/v1/assets/${asset.id}`);
+    expect(sent?.body).toEqual({ location: 'Desk 4' });
     expect(sent?.headers.get('If-Match')).toBe('"3"');
   });
 
