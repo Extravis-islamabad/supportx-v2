@@ -416,6 +416,7 @@ FIELD_PROBLEMS = frozenset(
         "required_to_leave_stage",  # WP-058a s3 (REQ-REL-018)
         "not_eligible",  # WP-058a s4: a role holder the role does not allow (REQ-REL-024)
         "role_disabled",
+        "role_held_by_record",  # QA-2026-11-11 F-02: a change's requester and owner
         "would_loop",  # WP-058a s5: a release made the parent of its own parent (REQ-REL-037)
     }
 )
