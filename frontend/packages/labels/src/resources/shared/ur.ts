@@ -179,6 +179,7 @@ export const ur: LabelResource = {
   'nav.admin_automation': 'آٹومیشن',
   'nav.admin_branding': 'برانڈنگ',
   'nav.admin_catalog': 'سروس کیٹلاگ',
+  'nav.admin_change_boards': 'تبدیلی مشاورتی بورڈ',
   'nav.admin_files': 'فائلیں',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'واقعات',
@@ -521,6 +522,10 @@ export const ur: LabelResource = {
   'setup.page.catalog.description':
     'وہ کیٹیگریز اور آئٹمز جو لوگ مانگتے ہیں: ان کے فارم، منظوری، گروپ، ایس ایل اے اور تکمیل کے کام، ہر زبان میں۔',
   'setup.page.catalog.keywords': 'کیٹلاگ، آئٹمز، فارم، سروس درخواستیں',
+  'setup.page.change-boards.description':
+    'تبدیلیاں کون منظور کرتا ہے: ہر بورڈ کے اراکین، چیئر، اصول اور جن تبدیلیوں کا وہ جائزہ لیتا ہے۔',
+  'setup.page.change-boards.keywords':
+    'cab, تبدیلی مشاورتی بورڈ, منظوری, چیئر, ہنگامی, تبدیلی مینیجر',
   'setup.page.files.description': 'اپ لوڈ کی حدیں، اجازت یافتہ فائل اقسام اور میلویئر اسکیننگ۔',
   'setup.page.files.keywords': 'فائلیں، منسلکات، اپ لوڈ، سائز، اسٹوریج، میلویئر، وائرس، اسکیننگ',
   'setup.page.incidents.description': 'واقعات کے لیول، زمرے، سانچے، بندش کوڈ اور وجوہات۔',

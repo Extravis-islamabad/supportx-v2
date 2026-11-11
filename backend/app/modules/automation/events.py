@@ -90,6 +90,24 @@ class WorkflowInstanceChanged(DomainEvent):
     version: int
 
 
+class WorkflowJobProgressed(DomainEvent):
+    """A bulk retry, cancel or migration moved on or ended (WP-048b S3; REQ-WF-021, -025).
+
+    The overview shows its progress live; IDs, counts and codes only.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow_job.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_job"
+
+    job_id: uuid.UUID
+    workflow_id: uuid.UUID
+    kind: Literal["retry", "cancel", "migrate"]
+    status: Literal["queued", "running", "done", "failed"]
+    processed: int
+    total: int
+
+
 class WorkflowChanged(DomainEvent):
     """A workflow was made, its draft saved, published, enabled or disabled (WP-048b).
 
@@ -103,6 +121,21 @@ class WorkflowChanged(DomainEvent):
     workflow_id: uuid.UUID
     record_type: str
     change: Literal["created", "draft_saved", "published", "enabled", "disabled"]
+    version: int
+
+
+class WorkflowDeleted(DomainEvent):
+    """A workflow without live runs was deleted (soft, WP-048b S3d; REQ-WF-027 AC3).
+
+    Its own event, so `automation.workflow.changed` v1 keeps its contract. IDs only.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.deleted"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow"
+
+    workflow_id: uuid.UUID
+    record_type: str
     version: int
 
 
@@ -170,6 +203,8 @@ class WorkflowWebhookRequested(DomainEvent):
     headers: dict[str, str]
     fields: list[str]
     status_variable: str | None = None
+    # A test run's one live call (S3e): `instance_id` names the test run, which takes the result.
+    test_run: bool = False
 
 
 EVENTS: tuple[type[DomainEvent], ...] = (
@@ -178,6 +213,8 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkflowFunctionRequested,
     WorkflowCommandFinished,
     WorkflowInstanceChanged,
+    WorkflowJobProgressed,
+    WorkflowDeleted,
     AutomationChanged,
     AvailabilityChanged,
     AssignmentWaiting,

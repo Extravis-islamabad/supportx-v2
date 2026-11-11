@@ -333,6 +333,38 @@ async def _may(
     return await _reason_for(session, subject, wtype, action, record_id) is None
 
 
+async def may_edit(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may edit the record (its type's edit permission, in scope).
+
+    For other modules that act on a record for a person: running, stopping or restarting a
+    workflow on it (ADR-043 §10). A record in the trash (or gone) is never editable (lane A).
+    """
+    live = await session.scalar(
+        _rows(wtype).where(WorkItem.id == record_id).with_only_columns(WorkItem.id)
+    )
+    if live is None:
+        return False
+    return await _may(session, subject, wtype, "edit", record_id)
+
+
+async def may_view(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may see the record (its type's view permission, in scope).
+
+    For other modules that show a record's values to a person: a workflow test run on it
+    (REQ-WF-022). A record in the trash (or gone) is never shown.
+    """
+    live = await session.scalar(
+        _rows(wtype).where(WorkItem.id == record_id).with_only_columns(WorkItem.id)
+    )
+    if live is None:
+        return False
+    return await _may(session, subject, wtype, "view", record_id)
+
+
 async def _reason_for(  # noqa: PLR0913 - the check and its optional stage rule, explicit
     session: AsyncSession,
     subject: Subject,
@@ -2806,6 +2838,9 @@ class StageOffer:
     reason: str | None
     # What the move still needs (field, problem code), so the dialog asks for exactly these.
     missing: tuple[tuple[str, str], ...] = ()
+    # Where it lands after any automatic advance (a completing status moves on): the dialog
+    # asks for the closure code when that is the closed status, not only on a direct move.
+    lands_in: str | None = None
 
 
 @dataclass(frozen=True)
@@ -2843,7 +2878,9 @@ async def stage_panel(
             refused = STAGE_ACCESS
         missing = tuple(await _move_missing(session, record, planned))
         # Missing values do not disable the move: the dialog asks for them (REQ-REL-018 AC1).
-        moves.append(StageOffer(t, target.stage, refused is None, refused, missing))
+        moves.append(
+            StageOffer(t, target.stage, refused is None, refused, missing, planned.landed.code)
+        )
     return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves)
 
 

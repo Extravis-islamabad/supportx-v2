@@ -26,6 +26,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, Conflict, NotFound
+from app.modules.automation.domain import operations
 from app.modules.automation.domain.interpreter import (
     Clock,
     Command,
@@ -138,6 +139,11 @@ async def _clock(session: AsyncSession, definition: Definition, record_id: uuid.
         return start + timedelta(seconds=seconds)
 
     return clock
+
+
+async def subject_of(session: AsyncSession, workflow: Workflow) -> Subject | None:
+    """The workflow's own identity as a subject (its commands run as it, ADR-043 §6)."""
+    return await _subject(session, workflow)
 
 
 async def _subject(session: AsyncSession, workflow: Workflow) -> Subject | None:
@@ -471,3 +477,190 @@ async def _save(  # noqa: PLR0913 - the instance and everything a run produced, 
 
 def _detail(detail: Mapping[str, JsonValue]) -> dict[str, JsonValue] | None:
     return dict(detail) if detail else None
+
+
+# --- What an admin does to an instance (WP-048b S3a; REQ-WF-025, -026) ---------------------------
+
+STOP_REASON_MAX = 500
+RECORD_CANCELED = "record_canceled"  # the reason when the record itself was cancelled
+
+
+async def _locked(
+    session: AsyncSession, instance_id: uuid.UUID, expected_version: int | None
+) -> tuple[WorkflowInstance, Definition]:
+    instance = await session.get(WorkflowInstance, instance_id, with_for_update=True)
+    if instance is None:
+        raise NotFound(code="workflow_instance_not_found")
+    if expected_version is not None and instance.version != expected_version:
+        raise Conflict(code="workflow_instance_changed", params={"version": instance.version})
+    version = await session.get(
+        WorkflowVersion, (instance.tenant_id, instance.workflow_id, instance.version_number)
+    )
+    if version is None:  # the foreign keys forbid it
+        msg = f"workflow instance {instance.id} without its version"
+        raise RuntimeError(msg)
+    return instance, _definition(version)
+
+
+def _refused(error: operations.OperationRefused) -> Conflict:
+    return Conflict(code=error.code, params=dict(error.params))
+
+
+async def stop(
+    session: AsyncSession,
+    instance_id: uuid.UUID,
+    *,
+    reason: str,
+    expected_version: int | None,
+    now: datetime | None = None,
+) -> WorkflowInstance:
+    """Stop a running or waiting instance with its reason; its log stays (REQ-WF-026 AC1)."""
+    moment = now or datetime.now(UTC)
+    instance, definition = await _locked(session, instance_id, expected_version)
+    state = load(instance.state, instance.status, instance.failure)
+    try:
+        done = operations.stop(definition, state, at=moment)
+    except operations.OperationRefused as error:
+        raise _refused(error) from error
+    await _save(
+        session, instance, done.state, steps=done.steps, wake=None, now=moment, reason=reason
+    )
+    kind = registered(instance.record_type)
+    if kind is not None and kind.close_workflow is not None:
+        await kind.close_workflow(session, instance.record_id, instance.id)
+    return instance
+
+
+async def restart(
+    session: AsyncSession,
+    instance_id: uuid.UUID,
+    *,
+    node: str | None,
+    expected_version: int | None,
+    now: datetime | None = None,
+) -> WorkflowInstance:
+    """Run a stopped, failed or finished instance again, from the start or from `node`."""
+    moment = now or datetime.now(UTC)
+    instance, definition = await _locked(session, instance_id, expected_version)
+    state = load(instance.state, instance.status, instance.failure)
+    try:
+        done = operations.restart(definition, state, at=moment, node=node)
+    except operations.OperationRefused as error:
+        raise _refused(error) from error
+    return await _again(session, instance, done, moment)
+
+
+async def retry(
+    session: AsyncSession,
+    instance_id: uuid.UUID,
+    *,
+    expected_version: int | None,
+    now: datetime | None = None,
+) -> WorkflowInstance:
+    """Run a failed instance's failed node again (REQ-WF-025 AC2)."""
+    moment = now or datetime.now(UTC)
+    instance, definition = await _locked(session, instance_id, expected_version)
+    state = load(instance.state, instance.status, instance.failure)
+    try:
+        done = operations.retry(definition, state, at=moment)
+    except operations.OperationRefused as error:
+        raise _refused(error) from error
+    return await _again(session, instance, done, moment)
+
+
+async def _again(
+    session: AsyncSession,
+    instance: WorkflowInstance,
+    done: operations.Operated,
+    moment: datetime,
+) -> WorkflowInstance:
+    """Save the instance as running again, then carry it as far as it goes."""
+    instance.finished_at, instance.stopped_reason = None, None
+    await _save(session, instance, done.state, steps=done.steps, wake=None, now=moment)
+    ran = await run(session, instance.id, None, now=moment)
+    return ran or instance
+
+
+async def stop_for_record(
+    session: AsyncSession, record_type: str, record_id: uuid.UUID, *, now: datetime | None = None
+) -> list[uuid.UUID]:
+    """A cancelled record's live instances stop with it (REQ-WF-026 AC3); returns them."""
+    live = list(
+        await session.scalars(
+            select(WorkflowInstance.id).where(
+                WorkflowInstance.record_type == record_type,
+                WorkflowInstance.record_id == record_id,
+                WorkflowInstance.status.in_(
+                    (InstanceStatus.RUNNING.value, InstanceStatus.WAITING.value)
+                ),
+            )
+        )
+    )
+    for instance_id in live:
+        await stop(session, instance_id, reason=RECORD_CANCELED, expected_version=None, now=now)
+    return live
+
+
+async def migrate(  # noqa: PLR0913 - the move and its choices, explicit
+    session: AsyncSession,
+    instance_id: uuid.UUID,
+    *,
+    to_version: int,
+    mapping: Mapping[str, str],
+    dry_run: bool,
+    now: datetime | None = None,
+) -> WorkflowInstance:
+    """Move a running or waiting instance onto `to_version` through `mapping` (REQ-WF-021).
+
+    A dry run checks everything and changes nothing (AC3). A move writes its log line and a
+    history line on the record naming the workflow (AC2). Refusals leave the run where it is.
+    """
+    moment = now or datetime.now(UTC)
+    instance, old = await _locked(session, instance_id, None)
+    if instance.version_number == to_version:
+        raise Conflict(code="already_on_version", params={"version": to_version})
+    target = await session.get(
+        WorkflowVersion, (instance.tenant_id, instance.workflow_id, to_version)
+    )
+    if target is None:
+        raise NotFound(code="workflow_version_not_found")
+    state = load(instance.state, instance.status, instance.failure)
+    try:
+        done = operations.migrate(old, _definition(target), state, mapping, at=moment)
+    except operations.OperationRefused as error:
+        raise _refused(error) from error
+    if dry_run:
+        return instance
+    left = instance.version_number
+    instance.version_number = to_version
+    await _save(session, instance, done.state, steps=done.steps, wake=None, now=moment)
+    kind = registered(instance.record_type)
+    if kind is not None and kind.record_migration is not None:
+        ref = {
+            "kind": "workflow",
+            "workflow_id": str(instance.workflow_id),
+            "instance_id": str(instance.id),
+        }
+        await kind.record_migration(session, instance.record_id, ref, left, to_version)
+    ran = await run(session, instance.id, None, now=moment)  # a token now ready runs on
+    return ran or instance
+
+
+async def occupancy(
+    session: AsyncSession, workflow_id: uuid.UUID, version_number: int
+) -> dict[str, int]:
+    """How many live runs of one version sit at each node (the migration's preview)."""
+    rows = await session.scalars(
+        select(WorkflowInstance.state).where(
+            WorkflowInstance.workflow_id == workflow_id,
+            WorkflowInstance.version_number == version_number,
+            WorkflowInstance.status.in_(
+                (InstanceStatus.RUNNING.value, InstanceStatus.WAITING.value)
+            ),
+        )
+    )
+    counts: dict[str, int] = {}
+    for state in rows:
+        for node in {str(t["node"]) for t in state.get("tokens", [])}:
+            counts[node] = counts.get(node, 0) + 1
+    return counts

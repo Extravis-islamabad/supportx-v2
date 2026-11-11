@@ -190,6 +190,7 @@ export const ar: LabelResource = {
   'nav.admin_automation': 'الأتمتة',
   'nav.admin_branding': 'العلامة التجارية',
   'nav.admin_catalog': 'كتالوج الخدمات',
+  'nav.admin_change_boards': 'مجالس استشارات التغيير',
   'nav.admin_files': 'الملفات',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'الحوادث',
@@ -536,6 +537,10 @@ export const ar: LabelResource = {
   'setup.page.catalog.description':
     'الفئات والعناصر التي يطلبها الناس: نماذجها واعتمادها ومجموعتها واتفاقية الخدمة ومهام تنفيذها، بكل اللغات.',
   'setup.page.catalog.keywords': 'كتالوج، عناصر، نماذج، طلبات الخدمة',
+  'setup.page.change-boards.description':
+    'من يوافق على التغييرات: أعضاء كل مجلس ورئيسه وقاعدته والتغييرات التي يراجعها.',
+  'setup.page.change-boards.keywords':
+    'cab, مجلس استشارات التغيير, موافقات, رئيس, طارئ, مدير التغيير',
   'setup.page.files.description': 'حدود الرفع وأنواع الملفات المسموح بها وفحص البرامج الضارة.',
   'setup.page.files.keywords': 'ملفات، مرفقات، رفع، حجم، تخزين، برامج ضارة، فيروسات، فحص',
   'setup.page.incidents.description': 'المستويات والفئات والقوالب ورموز الإغلاق والأسباب للحوادث.',

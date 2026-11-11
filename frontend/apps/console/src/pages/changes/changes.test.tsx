@@ -294,6 +294,8 @@ describe('console: changes', () => {
       [`PATCH /api/v1/changes/${CHG_ID}/details`]: {
         body: { ...details, version: 4, risk: 'high', risk_chosen: 'high' },
       },
+      // Nothing approved yet: the new risk sends no stage back.
+      [`POST /api/v1/changes/${CHG_ID}/approvals/reapproval-preview`]: { body: [] },
     });
     render(<App />);
     await screen.findByTestId('change-details');
@@ -310,5 +312,39 @@ describe('console: changes', () => {
     const [sent] = fake.find('PATCH', `/api/v1/changes/${CHG_ID}/details`);
     expect(sent?.headers.get('If-Match')).toBe('"3"');
     expect(sent?.body).toEqual({ risk_chosen: 'high', risk_reason: 'Touches the payment core' });
+  });
+
+  it('REQ-CHG-053: a new risk that sends an approved stage back says so before saving', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}`);
+    const fake = api({
+      [`POST /api/v1/changes/${CHG_ID}/approvals/reapproval-preview`]: {
+        body: [
+          {
+            stage: 'cab_review',
+            changes: [{ field: 'risk', before: 'low', after: 'high', effect: 'restart' }],
+          },
+        ],
+      },
+      [`PATCH /api/v1/changes/${CHG_ID}/details`]: {
+        body: { ...details, version: 4, risk: 'high', risk_chosen: 'high' },
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('change-details');
+    await choose('change-risk-chosen', 'High');
+    fireEvent.change(await screen.findByTestId('change-risk-reason'), {
+      target: { value: 'Touches the payment core' },
+    });
+    fireEvent.click(screen.getByTestId('change-details-save'));
+    const warning = await screen.findByTestId('reapproval-warning');
+    expect(warning.textContent).toContain('CAB review');
+    expect(fake.find('PATCH', `/api/v1/changes/${CHG_ID}/details`)).toHaveLength(0);
+    expect(
+      fake.find('POST', `/api/v1/changes/${CHG_ID}/approvals/reapproval-preview`)[0]?.body,
+    ).toEqual({ risk: 'high' });
+    fireEvent.click(screen.getByTestId('reapproval-ok'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/changes/${CHG_ID}/details`)).toHaveLength(1);
+    });
   });
 });

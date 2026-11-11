@@ -406,6 +406,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // The change screens' S4: change advisory boards (template E).
+            path: 'change-boards',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/changes/ChangeBoardsPage')).ChangeBoardsPage,
+            }),
+          },
+          {
             path: 'sla/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/sla/SlaPage')).SlaPage,

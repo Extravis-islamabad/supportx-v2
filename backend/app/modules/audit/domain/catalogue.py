@@ -116,6 +116,17 @@ ACTIONS: dict[str, Action] = _actions(
     ("automation.trigger_deleted", AuditCategory.CONFIGURATION, "automation"),
     ("automation.triggers_reordered", AuditCategory.CONFIGURATION, "automation"),
     ("automation.transition_saved", AuditCategory.CONFIGURATION, "automation"),
+    # workflows on a record (WP-048b S3a; REQ-WF-026)
+    ("automation.workflow_stopped", AuditCategory.RECORDS, "automation"),
+    ("automation.workflow_restarted", AuditCategory.RECORDS, "automation"),
+    ("automation.workflow_retried", AuditCategory.RECORDS, "automation"),
+    ("automation.workflow_job_queued", AuditCategory.RECORDS, "automation"),  # bulk (S3b)
+    ("automation.workflow_copied", AuditCategory.CONFIGURATION, "automation"),  # S3d
+    ("automation.workflow_imported", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.workflow_exported", AuditCategory.DATA, "automation"),
+    ("automation.workflow_deleted", AuditCategory.CONFIGURATION, "automation"),
+    # A test run's one live call (S3e): who, which node, which record (the route's details).
+    ("automation.workflow_test_live_call", AuditCategory.RECORDS, "automation"),
     ("automation.transition_reset", AuditCategory.CONFIGURATION, "automation"),
     ("automation.routing_created", AuditCategory.CONFIGURATION, "automation"),
     ("automation.routing_changed", AuditCategory.CONFIGURATION, "automation"),

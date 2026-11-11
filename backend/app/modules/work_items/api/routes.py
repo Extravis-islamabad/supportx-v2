@@ -1703,11 +1703,17 @@ class ChangeApprovalPreviewOut(BaseModel):
     fallback_reason: RouteReason | None = Field(
         description="Set: the approval administrators decide as well, for this reason."
     )
+    people: dict[str, PersonOut] = Field(
+        default_factory=dict, description="The approvers and the people left out, by user ID."
+    )
 
     @classmethod
-    def of(cls, found: "board_service.Preview") -> "ChangeApprovalPreviewOut":
+    def of(
+        cls, found: "board_service.Preview", people: dict[str, PersonOut] | None = None
+    ) -> "ChangeApprovalPreviewOut":
         """From the service's preview."""
         return cls(
+            people=people or {},
             stage=found.stage,
             approver_ids=list(found.named),
             barred=[
@@ -1731,6 +1737,11 @@ class ChangeDetailsOut(BaseModel):
     risk_version: int | None = None
     risk_chosen: RiskLevel | None = Field(default=None, description="The override, if any.")
     risk_reason: str | None = None
+    sent_back: bool = Field(
+        default=False,
+        description="Sent back for approval by a re-approval restart: an emergency override may "
+        "keep it going (D-144).",
+    )
 
     @classmethod
     def of(cls, view: service.DetailsView) -> "ChangeDetailsOut":
@@ -1742,6 +1753,7 @@ class ChangeDetailsOut(BaseModel):
             **{n: (getattr(row, n) if row is not None else None) for n in CHANGE_DETAIL_FIELDS},
             retrospective=bool(getattr(row, "retrospective", False)),  # a change's row only
             **{n: getattr(row, n, None) for n in risk_rules.RISK_FIELDS},
+            sent_back=getattr(row, "resume_stage", None) is not None,
         )
 
 
@@ -1980,6 +1992,9 @@ class StageMoveOut(BaseModel):
     missing: list[MissingFieldOut] = Field(
         default_factory=list, description="Values the move asks for in its dialog (REQ-REL-018)."
     )
+    lands_in: str = Field(
+        description="The status it ends in, after any automatic advance from a completing one."
+    )
 
 
 class StagePanelOut(BaseModel):
@@ -2022,6 +2037,7 @@ class StagePanelOut(BaseModel):
                     allowed=m.allowed,
                     reason=m.reason,
                     missing=[MissingFieldOut(field=f, code=c) for f, c in m.missing],
+                    lands_in=m.lands_in or m.transition.to_status,
                 )
                 for m in panel.moves
             ],
@@ -3077,7 +3093,11 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             approval. Changes nothing.
             """
             found = await board_service.preview(session, subject, record_id, stage)
-            return ChangeApprovalPreviewOut.of(found) if found else None
+            if found is None:
+                return None
+            ids = {*found.named, *(u for u, _ in found.barred)}
+            people = people_out(await user_contacts(session, sorted(str(u) for u in ids)))
+            return ChangeApprovalPreviewOut.of(found, people)
 
         @router.get("/{record_id}/risk/questionnaire", summary="The change's risk questionnaire")
         async def risk_questionnaire(

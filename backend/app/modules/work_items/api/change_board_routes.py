@@ -11,11 +11,13 @@ from typing import Annotated, Any, Self
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.modules.audit import AuditNote, audited
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, user_contacts
+from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.settings_routes import CONFLICT
 from app.modules.work_items.domain.change_boards import BoardRule
 from app.modules.work_items.domain.change_risk import RiskLevel
@@ -124,12 +126,16 @@ class BoardOut(BaseModel):
     is_default: bool
     members: list[MemberOut]
     version: int
+    people: dict[str, PersonOut] = Field(
+        default_factory=dict, description="The chair and the members who are people, by user ID."
+    )
 
     @classmethod
-    def of(cls, board: service.Board) -> Self:
+    def of(cls, board: service.Board, people: dict[str, PersonOut] | None = None) -> Self:
         """From the service's board."""
         row = board.row
         return cls(
+            people=people or {},
             id=row.id,
             code=row.code,
             name=row.name,
@@ -148,6 +154,22 @@ class BoardOut(BaseModel):
         )
 
 
+async def _out(session: AsyncSession, boards: list[service.Board]) -> list[BoardOut]:
+    """Boards with the names of their people (the board screen names them, never an ID)."""
+    ids = {
+        str(u)
+        for b in boards
+        for u in (b.row.chair_id, *(m.user_id for m in b.members))
+        if u is not None
+    }
+    people = people_out(await user_contacts(session, sorted(ids))) if ids else {}
+    out = []
+    for b in boards:
+        own = {str(u) for u in (b.row.chair_id, *(m.user_id for m in b.members)) if u is not None}
+        out.append(BoardOut.of(b, {k: v for k, v in people.items() if k in own}))
+    return out
+
+
 def _values(body: BaseModel, *, only_set: bool) -> dict[str, Any]:
     raw = body.model_dump(mode="json", include=body.model_fields_set if only_set else None)
     if raw.get("mapping"):
@@ -158,7 +180,7 @@ def _values(body: BaseModel, *, only_set: bool) -> dict[str, Any]:
 @router.get("", summary="Change advisory boards")
 async def list_boards(session: TenantSession, subject: View) -> list[BoardOut]:
     """Every board in order, the two seeded ones included (REQ-CHG-040)."""
-    return [BoardOut.of(b) for b in await service.boards(session, subject)]
+    return await _out(session, list(await service.boards(session, subject)))
 
 
 @router.get("/{board_id}", summary="A change advisory board")
@@ -168,7 +190,7 @@ async def get_board(
     """One board with its members; ETag is its version."""
     found = await service.board(session, subject, board_id)
     set_etag(response, found.row.version)
-    return BoardOut.of(found)
+    return (await _out(session, [found]))[0]
 
 
 @router.post(
@@ -192,7 +214,7 @@ async def add_board(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             session, subject, _values(body, only_set=False), source=source_of(request)
         )
         note.details = {"board": str(made.row.id), "change": "added"}
-        out = BoardOut.of(made)
+        out = (await _out(session, [made]))[0]
         return Created(
             body=out,
             headers={"Location": f"{LOCATION}/{out.id}", "ETag": f'"{out.version}"'},
@@ -223,7 +245,7 @@ async def patch_board(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, changed.row.version)
-    return BoardOut.of(changed)
+    return (await _out(session, [changed]))[0]
 
 
 @router.delete(

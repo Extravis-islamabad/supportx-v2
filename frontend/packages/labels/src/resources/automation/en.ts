@@ -197,19 +197,40 @@ export const en = {
   'automation_outcome.own_change': 'Not run on its own change',
   'automation_outcome.partial': 'Partly done',
   'automation_outcome.per_minute': 'Stopped: too many changes a minute',
+  'errors.command_not_pending': 'That step is not waiting for an answer.',
+  'errors.fast_forward_range': 'Move the clock on by between 1 second and {{max}} seconds.',
+  'errors.live_call_needs_record':
+    'A live call needs a test run on a record, not on sample values.',
+  'errors.live_call_not_allowed': 'Only a webhook or notify step can make a live call from a test.',
+  'errors.live_call_used': 'This test run has already made its one live call.',
   'errors.name_invalid': 'Give it a name of up to 200 characters.',
   'errors.not_a_service_identity':
     'Only a workflow’s or connector’s own identity can be changed here.',
+  'errors.record_not_found': 'That record was not found, or you cannot see it.',
+  'errors.sample_too_large': 'Use at most {{max}} sample values.',
   'errors.service_identity_role_not_allowed':
     'A workflow or connector cannot hold this role: it would let it change who may do what.',
+  'errors.templates_not_found':
+    'Some of the templates are not templates of this record type here ({{count}}).',
+  'errors.test_answer_one_of': 'Answer one thing at a time: a step, a change or the clock.',
   'errors.workflow_already_running': 'This workflow is already running on this record.',
   'errors.workflow_disabled': 'This workflow is switched off, so it cannot start.',
+  'errors.workflow_file_other_tenant':
+    'This file comes from another organisation, so the people, groups and templates it names are not yours. Import it where it was exported.',
+  'errors.workflow_file_too_large': 'This file is too large (the limit is {{max}} bytes).',
   'errors.workflow_has_problems': 'Fix the workflow’s problems before publishing it.',
+  'errors.workflow_has_running_instances':
+    'This workflow still has live runs ({{count}}). Disable it instead, or stop them first.',
   'errors.workflow_move_without_action':
     'This workflow step moves the record but names no status move. Choose one in the workflow.',
   'errors.workflow_name_taken': 'A workflow with this name already exists for this record type.',
   'errors.workflow_not_found': 'The workflow was not found.',
   'errors.workflow_not_published': 'Publish the workflow first.',
+  'errors.workflow_test_run_changed':
+    'This test run moved on since you opened it. Reload and try again.',
+  'errors.workflow_test_run_not_found': 'This test run was not found.',
+  'errors.workflow_unreadable':
+    'This draft cannot be read as a workflow yet. Fix its problems first.',
   'errors.workflow_wrong_record_type': 'This workflow is for another kind of record.',
   'loop_stop.depth': 'Chain too long',
   'loop_stop.own_change': 'Its own change',
@@ -259,6 +280,13 @@ export const en = {
   'workflow_instance_status.finished': 'Finished',
   'workflow_instance_status.running': 'Running',
   'workflow_instance_status.waiting': 'Waiting',
+  'workflow_job_kind.cancel': 'Cancel',
+  'workflow_job_kind.migrate': 'Move to a version',
+  'workflow_job_kind.retry': 'Retry',
+  'workflow_job_status.done': 'Done',
+  'workflow_job_status.failed': 'Failed',
+  'workflow_job_status.queued': 'Queued',
+  'workflow_job_status.running': 'Running',
   'workflow_problem.approval_not_offered': 'This kind of record has no approvals.',
   'workflow_problem.approval_role_unknown': 'This record has no role {{role}}.',
   'workflow_problem.approval_without_approvers': 'Choose who approves: people, groups or roles.',
@@ -329,4 +357,11 @@ export const en = {
     'Give the address to call, starting with https:// (at most {{max}} characters).',
   'workflow_problem.workflow_not_found': 'Choose a workflow that exists.',
   'workflow_problem.workflow_wrong_record_type': 'This workflow is for another kind of record.',
+  'workflow_wait_event.approval_decided': 'An approval was decided',
+  'workflow_wait_event.field_changed': 'A field changed',
+  'workflow_wait_event.note_added': 'A note was added',
+  'workflow_wait_event.requester_replied': 'The requester replied',
+  'workflow_wait_event.status_changed': 'The status changed',
+  'workflow_wait_event.task_completed': 'A task was completed',
+  'workflow_wait_event.worklog_added': 'Time was logged',
 } as const;

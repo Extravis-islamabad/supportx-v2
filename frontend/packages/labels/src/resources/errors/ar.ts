@@ -9,6 +9,7 @@ export const ar: LabelResource = {
   'errors.action_link_stale': 'تغيّر الطلب منذ إرسال هذا الرابط. افتحه في التطبيق.',
   'errors.action_link_used': 'تم استخدام هذا الرابط من قبل.',
   'errors.already_known_error': '{{display_id}} خطأ معروف بالفعل.',
+  'errors.already_on_version': 'هذا التشغيل على هذا الإصدار بالفعل.',
   'errors.already_taken': 'تولّى {{taken_by}} هذا للتو. أعد التحميل لرؤيته.',
   'errors.already_yours': 'إنها مسندة إليك بالفعل.',
   'errors.announcement_not_found': 'هذا الإعلان غير موجود أو غير متاح لك.',
@@ -138,6 +139,8 @@ export const ar: LabelResource = {
   'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
+  'errors.command_in_flight':
+    'هذا التشغيل ينتظر خطوة ستنتقل إلى نوع آخر من الخطوات. دعها تنتهي أولًا.',
   'errors.conflict': 'قام شخص آخر بتعديل هذا العنصر. أعد التحميل لعرض أحدث إصدار.',
   'errors.console_requester_only': 'يستخدم هذا الحساب بوابة مقدمي الطلبات، وليس وحدة التحكم.',
   'errors.contact_editing_off': 'لا تسمح مؤسستك بتغيير بيانات الاتصال هنا. اسأل مكتب الخدمة.',
@@ -621,6 +624,11 @@ export const ar: LabelResource = {
   'errors.identity_provider_unavailable': 'تسجيل الدخول غير متاح مؤقتًا. يرجى المحاولة بعد قليل.',
   'errors.incident_has_problem': 'هذه الحادثة مرتبطة بالفعل بـ {{display_id}}. انقلها للتأكيد.',
   'errors.insert_too_large': 'صور المقالة أكبر من أن تُدرج معًا: {{limit_mb}} ميغابايت على الأكثر.',
+  'errors.instance_not_failed': 'لا يمكن إعادة محاولة سير عمل إلا إذا فشل.',
+  'errors.instance_not_running': 'سير العمل هذا لا يعمل، لذا لا يمكن إيقافه.',
+  'errors.instance_running': 'أوقف سير العمل هذا قبل تشغيله مرة أخرى.',
+  'errors.instances_not_in_workflow':
+    'بعض عمليات التشغيل المختارة ليست من سير العمل هذا ({{count}}).',
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
   'errors.invalid_cursor': 'رابط هذه الصفحة لم يعد صالحًا. يرجى إعادة تحميل القائمة.',
@@ -640,6 +648,8 @@ export const ar: LabelResource = {
   'errors.invitation_not_pending': 'لم تعد هذه الدعوة بانتظار القبول: قُبلت أو سُحبت.',
   'errors.invitation_pending': 'لدى هذا الشخص دعوة بانتظار القبول. أرسلها مجددًا بدلًا من ذلك.',
   'errors.invitation_person_cannot_sign_in': 'هذا الشخص معطّل أو غير مسموح له بتسجيل الدخول.',
+  'errors.job_kind_not_available': 'هذا النوع من المهام غير متاح بعد.',
+  'errors.job_size': 'اختر بين 1 و{{max}} من عمليات التشغيل.',
   'errors.kb_article_not_editable':
     'لا يمكنك تعديل هذه المقالة. يمكن لمالكها أو لمدير المعرفة ذلك.',
   'errors.kb_article_not_found': 'هذه المقالة غير موجودة أو غير مشتركة معك.',
@@ -716,6 +726,9 @@ export const ar: LabelResource = {
   'errors.name_taken': 'هذا الاسم مستخدم بالفعل.',
   'errors.network_error': 'تعذّر الوصول إلى SupportX حاليًا. تحقّق من اتصالك؛ سنواصل المحاولة.',
   'errors.no_organization': 'حسابك غير مرتبط بأي مؤسسة بعد. يرجى التواصل مع المسؤول.',
+  'errors.node_not_found': 'هذه الخطوة ليست في هذا الإصدار من سير العمل.',
+  'errors.node_not_mapped':
+    'خطوة يقف عندها هذا التشغيل ليس لها مكان في الإصدار الجديد: اربطها بخطوة.',
   'errors.not_a_member': 'أنت لست عضوًا في هذه المؤسسة.',
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
@@ -724,6 +737,7 @@ export const ar: LabelResource = {
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
   'errors.not_resolved': 'لم يعد هذا بانتظار ردّك: لم يعد محلولًا الآن.',
   'errors.nothing_to_override': 'هذا التغيير لا ينتظر الموافقة مجددًا، فلا يوجد ما يُتجاوز.',
+  'errors.nothing_to_retry': 'لا توجد خطوة فاشلة لتشغيلها مرة أخرى.',
   'errors.notification_event_not_found': 'حدث الإشعار هذا غير موجود.',
   'errors.notification_not_found': 'هذا الإشعار غير موجود أو ليس لك.',
   'errors.notification_record_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
@@ -733,6 +747,7 @@ export const ar: LabelResource = {
   'errors.order_out_of_date': 'تغيّرت القائمة في الأثناء. أعد تحميلها ورتّبها مجددًا.',
   'errors.out_of_range': 'هذه القيمة خارج النطاق المسموح.',
   'errors.own_profile_only': 'يمكنك تغيير تفضيلاتك أنت فقط.',
+  'errors.parallel_in_progress': 'هذا التشغيل داخل فروع متوازية ولا يمكن نقله حتى تلتقي.',
   'errors.password_policy_not_saved': 'احفظ سياسة كلمات المرور أولًا.',
   'errors.password_policy_platform': 'تحدد المنصة سياسة كلمات المرور في هذا التثبيت.',
   'errors.password_reset_not_signed_in':
@@ -769,6 +784,7 @@ export const ar: LabelResource = {
   'errors.recipient_deferred': 'طلب خادم بريد المستلم المحاولة لاحقًا.',
   'errors.recipient_refused': 'رفض خادم البريد المستلم.',
   'errors.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
+  'errors.record_not_editable': 'يجب أن تتمكن من تعديل السجل للقيام بذلك.',
   'errors.reference_copied': 'تم نسخ المرجع',
   'errors.reference_is': 'المرجع: {{reference}}',
   'errors.repeat_hit_not_found': 'لم تعد مجموعة الحوادث المتكررة هذه موجودة.',
@@ -789,6 +805,7 @@ export const ar: LabelResource = {
   'errors.report_timeout':
     'استغرق التقرير أكثر من {{seconds}} ثانية فتم إيقافه. ضيّق نطاق التاريخ أو عوامل التصفية ثم حاول مرة أخرى.',
   'errors.required': 'هذا الحقل مطلوب.',
+  'errors.restart_at_end': 'اختر خطوة للتشغيل منها، لا نهاية.',
   'errors.role_in_use': 'هذا الدور ما زال مسندًا إلى مستخدمين. اختر دورًا لنقلهم إليه أولًا.',
   'errors.role_not_found': 'لم يُعثر على هذا الدور.',
   'errors.rule_not_found': 'لم تعد هذه القاعدة موجودة.',
@@ -874,5 +891,9 @@ export const ar: LabelResource = {
   'errors.work_item_view_not_found':
     'طريقة العرض المحفوظة هذه لم تعد موجودة، أو أنها غير مشاركة معك.',
   'errors.work_item_worklog_not_found': 'لم يعد سجل العمل هذا موجودًا.',
+  'errors.workflow_instance_changed': 'تغيّر سير العمل هذا منذ فتحته. أعد التحميل وحاول مرة أخرى.',
+  'errors.workflow_instance_not_found': 'لم يُعثر على تشغيل سير العمل هذا.',
+  'errors.workflow_job_not_found': 'لم يُعثر على هذه المهمة.',
+  'errors.workflow_version_not_found': 'لم يُعثر على هذا الإصدار من سير العمل.',
   'errors.would_lose_access': 'بعد هذا التغيير لن ترى {{display_id}} بعد الآن. أكّد لتسليمه.',
 };

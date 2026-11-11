@@ -20,7 +20,14 @@ pytestmark = MODULE_LOOP
 
 __all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
-TABLES = ("workflows", "workflow_versions", "workflow_instances", "workflow_steps")
+TABLES = (
+    "workflows",
+    "workflow_versions",
+    "workflow_instances",
+    "workflow_steps",
+    "workflow_jobs",  # WP-048b S3, migration 0107
+    "workflow_test_runs",  # WP-048b S3e, migration 0107
+)
 
 
 async def _seed(world: World) -> dict[str, uuid.UUID]:
@@ -56,6 +63,21 @@ async def _seed(world: World) -> dict[str, uuid.UUID]:
             ),
             {"i": ids["instance"], "t": world.a.tenant},
         )
+        await session.execute(
+            text(
+                "INSERT INTO workflow_jobs (id, tenant_id, workflow_id, kind, instance_ids, "
+                "status, total) VALUES (:j, :t, :w, 'retry', ARRAY[CAST(:i AS uuid)], 'queued', 1)"
+            ),
+            {"j": uuid.uuid4(), "t": world.a.tenant, "w": ids["workflow"], "i": ids["instance"]},
+        )
+        await session.execute(
+            text(
+                "INSERT INTO workflow_test_runs (id, tenant_id, workflow_id, record_type, "
+                "definition, facts, state, status, clock_at) "
+                "VALUES (:x, :t, :w, 'incident', '{}', '{}', '{}', 'running', now())"
+            ),
+            {"x": uuid.uuid4(), "t": world.a.tenant, "w": ids["workflow"]},
+        )
     return ids
 
 
@@ -71,7 +93,12 @@ async def test_workflow_tables_are_isolated_by_rls(world: World, table: str) -> 
             {"a": a.tenant},
         )
         assert seen.scalar_one() == 0
-    if table in {"workflows", "workflow_instances"}:  # the others are insert-only
+    if table in {
+        "workflows",
+        "workflow_instances",
+        "workflow_jobs",
+        "workflow_test_runs",
+    }:  # the others: insert-only
         async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
             changed = await session.execute(
                 text(f"UPDATE {table} SET tenant_id = tenant_id WHERE tenant_id = :a"),  # noqa: S608 - fixed table names
@@ -117,3 +144,23 @@ async def test_versions_and_steps_are_insert_only_for_the_app(world: World, tabl
     with pytest.raises(DBAPIError):
         async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
             await session.execute(text(f"UPDATE {table} SET tenant_id = tenant_id"))  # noqa: S608 - fixed table names
+
+
+async def test_tenant_b_cannot_queue_a_job_on_tenant_a_s_workflow(world: World) -> None:
+    """A job names a workflow of its own tenant: RLS refuses another tenant's row."""
+    ids = await _seed(world)
+    with pytest.raises(DBAPIError):
+        async with world.app.state.db.tenant_session(TenantContext(world.b.tenant)) as session:
+            await session.execute(
+                text(
+                    "INSERT INTO workflow_jobs (id, tenant_id, workflow_id, kind, instance_ids, "
+                    "status, total) VALUES (:j, :t, :w, 'cancel', ARRAY[CAST(:i AS uuid)], "
+                    "'queued', 1)"
+                ),
+                {
+                    "j": uuid.uuid4(),
+                    "t": world.a.tenant,
+                    "w": ids["workflow"],
+                    "i": ids["instance"],
+                },
+            )

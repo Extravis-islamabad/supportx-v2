@@ -1954,6 +1954,33 @@
         "type": "object"
       }
     },
+    "automation.workflow.deleted": {
+      "1": {
+        "description": "A workflow without live runs was deleted (soft, WP-048b S3d; REQ-WF-027 AC3).\n\nIts own event, so `automation.workflow.changed` v1 keeps its contract. IDs only.",
+        "properties": {
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "record_type",
+          "version"
+        ],
+        "title": "WorkflowDeleted",
+        "type": "object"
+      }
+    },
     "automation.workflow.function_requested": {
       "1": {
         "description": "A function node asks the worker to run a custom function (WP-048b S2; §6.7).\n\nNever run in the API process: the worker's consumer calls the installation's runner and\nreports back as `WorkflowCommandFinished`. The inputs are the node's own values and the\nnames of record fields, read by the worker; `assign` maps outputs to variables.",
@@ -2063,6 +2090,11 @@
             "default": null,
             "title": "Status Variable"
           },
+          "test_run": {
+            "default": false,
+            "title": "Test Run",
+            "type": "boolean"
+          },
           "url": {
             "title": "Url",
             "type": "string"
@@ -2130,6 +2162,60 @@
           "version"
         ],
         "title": "WorkflowInstanceChanged",
+        "type": "object"
+      }
+    },
+    "automation.workflow_job.progressed": {
+      "1": {
+        "description": "A bulk retry, cancel or migration moved on or ended (WP-048b S3; REQ-WF-021, -025).\n\nThe overview shows its progress live; IDs, counts and codes only.",
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "retry",
+              "cancel",
+              "migrate"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "workflow_id",
+          "kind",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "WorkflowJobProgressed",
         "type": "object"
       }
     },

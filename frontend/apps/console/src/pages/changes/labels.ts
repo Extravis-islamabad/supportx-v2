@@ -1,4 +1,4 @@
-import type { ChangeTemplate } from '@supportx/api-client';
+import type { ChangeBoard, ChangeTemplate } from '@supportx/api-client';
 
 import { labelled } from '../incidents/labels';
 
@@ -15,3 +15,10 @@ export const EMERGENCY_PATH = 'emergency';
 export const RISKS = ['low', 'medium', 'high', 'very_high'] as const;
 export const riskTone = (risk: string): 'error' | 'warning' | 'default' =>
   risk === 'high' || risk === 'very_high' ? 'error' : risk === 'medium' ? 'warning' : 'default';
+
+/** A board by its seeded code, its own labels, or the name an admin gave it. */
+export function boardName(t: Translate, locale: string, board: ChangeBoard): string {
+  return labelled(board.labels, locale, () =>
+    board.code ? t(`change_board.${board.code}`) : board.name,
+  );
+}

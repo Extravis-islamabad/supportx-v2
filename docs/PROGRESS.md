@@ -1104,19 +1104,36 @@ it with no reload (rule c). Not built yet.
   - CIs and services in the snapshot (with the CMDB);
   - the screens (UI pass 3 templates).
 
-### [~] Change screens — taken forward from WP-045d D19 (lane A, 2026-11-11; the coordinator; 4 sessions, 2 PRs)
-- **PR 1 (S1+S2, no migration):** the changes list on template C (path, stage, status, the
+### [x] Change screens — taken forward from WP-045d D19 (lane A, 2026-11-11; the coordinator; 4 sessions, 2 PRs)
+- **PR 1 (S1+S2, no migration, #372, merged):** the changes list on template C (path, stage, status, the
   emergency flag, a Pending approval view); a new change on template B (prefilled when raised
   from another record), opening on its risk questionnaire; the record on template A (stage rail
   and moves, properties, details with a risk override that says why, the questionnaire, roles,
   plans, schedule and downtime read-only, history). The staged parts' hooks by type
   (`api-client/staged.ts`) and one move dialog for staged types (`pages/staged`, lane C's split).
-- **PR 2 (S3+S4, after PR 1):** the CAB and approvals panel (decisions, the SoD preview,
-  changes-since and re-approval, the emergency override), the QA flow 4 e2e, and the advisory
-  board admin on template E (`changes.manage_boards`). Lane B blocks it (D-149).
-- **Not yet:** risk and type columns on the list (not in the list API); conversation and
-  attachments on the record; labels for questions an admin adds to a template's questionnaire
-  (only Appendix A's are labelled); editing schedules and downtime (WP-045c).
+- **PR 2 (S3+S4, no migration):**
+  - the Approvals tab: each approval's board and why, advisory votes, the administrators'
+    fallback, decisions with If-Match, and what changed since approval;
+  - the move that raises a stage shows who would approve and who is left out (the preview now
+    names them);
+  - a new risk that sends approved stages back says so before saving;
+  - the emergency override (D-144), only on a change sent back (`sent_back` on its details);
+  - a stage's outcome on the Schedule tab;
+  - change advisory boards on template E (`/admin/change-boards`, `changes.manage_boards` or
+    `settings.manage`), whose people come named;
+  - QA flow 4 end to end in Playwright, and walked move by move over the API.
+  - **Fix:** a move says where it lands (`lands_in`), so a move that closes a change after
+    an automatic advance ("Review complete") asks for the closure code. Before, a change
+    could not be closed from the console.
+  - Lane B gives the blocking review (D-149).
+- **Not yet:**
+  - risk and type columns on the list (not in the list API);
+  - conversation and attachments on the record;
+  - labels for questions an admin adds to a template's questionnaire (only Appendix A's are
+    labelled);
+  - editing schedules and downtime (WP-045c);
+  - a "failed" outcome's issues text (the server asks for it; the select has no field for it
+    yet).
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
@@ -1514,7 +1531,7 @@ it with no reload (rule c). Not built yet.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
 
-### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 done, #233)
+### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-3 of 5 built, #233)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.
 Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (approval chair).
@@ -1570,8 +1587,26 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
     approvers), the egress use, the function port, NotificationCategory.WORKFLOW.
   - Open: run-time error codes (`webhook_*`, `task_canceled`, …) get labels with S4's
     instance view; a task owner that does not exist is refused by a foreign key, not a code.
-- [ ] **S3** — versions and migrating instances, stop and restart, the overview, copy, export and
-  import, and the test mode.
+- [x] **S3** — built on feat/wp-048b-s3 (backup/wp-048b-s3); one PR from main, opened in 0107's
+  migration turn (after 0130). Session log: progress-log/2026-11-11-wp-048b-s3-lane-c.md.
+  - **S3a, stop, restart, retry (REQ-WF-025 AC2, REQ-WF-026):** on a record, in the workflow domain
+    (`domain/operations.py`), audited. Canceling a record stops its workflows (lane A's hook).
+  - **S3b, the overview and bulk jobs (REQ-WF-025):** runs by workflow, state and node, failures
+    with node and error. Bulk retry and cancel are background jobs (`workflow_jobs`, migration
+    0107): a savepoint per run, each result kept, live on the queue channel.
+  - **S3c, versions and migration (REQ-WF-021, -027):** runs stay on their version. A migration
+    maps occupied nodes; unmapped runs stay and are listed; a dry run changes nothing; the record's
+    history shows the version move. Versions show who published and the live runs per node.
+  - **S3d, copy, export, import, delete (REQ-WF-027):** a copy is an independent draft. Export and
+    import within one tenant give the same definition. Import refuses another tenant's file, other
+    shapes, files over 1 MB and template IDs that aren't here. A workflow with live runs is never
+    deleted.
+  - **S3e, test mode (REQ-WF-022):** the same `advance()` on a record's facts or sample values, in
+    `workflow_test_runs` (0107). Commands are shown and answered by hand; timers fire on the run's
+    own clock. Nothing reaches the record, its history or the outbox. One live call per run, for a
+    webhook or notify node on a record: workflows.manage only, audited with who, node and record.
+  - Cross-tenant import is out of scope (coordinator, 2026-11-11). It needs an ID-mapping step
+    (templates, people, groups) later.
 - [ ] **S4** — the React Flow designer.
 - [ ] **S5** — e2e, guides, and the visual matrix.
 - **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the
