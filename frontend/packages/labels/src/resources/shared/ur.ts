@@ -180,6 +180,7 @@ export const ur: LabelResource = {
   'nav.admin_branding': 'برانڈنگ',
   'nav.admin_catalog': 'سروس کیٹلاگ',
   'nav.admin_change_boards': 'تبدیلی مشاورتی بورڈ',
+  'nav.admin_change_windows': 'فریز اور مینٹیننس ونڈوز',
   'nav.admin_files': 'فائلیں',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'واقعات',
@@ -526,6 +527,9 @@ export const ur: LabelResource = {
     'تبدیلیاں کون منظور کرتا ہے: ہر بورڈ کے اراکین، چیئر، اصول اور جن تبدیلیوں کا وہ جائزہ لیتا ہے۔',
   'setup.page.change-boards.keywords':
     'cab, تبدیلی مشاورتی بورڈ, منظوری, چیئر, ہنگامی, تبدیلی مینیجر',
+  'setup.page.change-windows.description':
+    'کب تبدیلیاں نہیں ہونی چاہئیں اور کب ہونی چاہئیں: فریز اور مینٹیننس ونڈوز، سب کے لیے یا کچھ سائٹس اور گروپس کے لیے۔',
+  'setup.page.change-windows.keywords': 'فریز, تبدیلی فریز, مینٹیننس ونڈو, تبدیلیوں کا کیلنڈر',
   'setup.page.files.description': 'اپ لوڈ کی حدیں، اجازت یافتہ فائل اقسام اور میلویئر اسکیننگ۔',
   'setup.page.files.keywords': 'فائلیں، منسلکات، اپ لوڈ، سائز، اسٹوریج، میلویئر، وائرس، اسکیننگ',
   'setup.page.incidents.description': 'واقعات کے لیول، زمرے، سانچے، بندش کوڈ اور وجوہات۔',
