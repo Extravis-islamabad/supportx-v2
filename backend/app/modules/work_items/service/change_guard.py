@@ -78,15 +78,16 @@ async def _freeze_refusals(
     if move.target.code != START_WORK or record.stage_path != rules.EMERGENCY_PATH:
         return []
     details = await session.get(WorkItemChangeDetails, (catalogue.tenant_of(session), record.id))
-    if details is not None and details.freeze_cab_passed_at is not None:
-        return []
+    # The freezes passed, each by ID: the override's and the CAB's (lane B's #384 review). A
+    # freeze added or moved onto the change afterwards still holds it.
+    cab = frozenset(details.freeze_cab_window_ids or ()) if details is not None else frozenset()
+    passed = await change_conflicts.passed_windows(session, record.id) | cab
     found, _ = await change_conflicts.conflicts(session, record)
-    left = change_conflicts.frozen_still(
-        found, await change_conflicts.passed_windows(session, record.id)
-    )
+    left = change_conflicts.frozen_still(found, passed)
     if not left:
         return []
-    return [stage_service.Refusal(FREEZE_NEEDS_CAB, {"count": len(left)})]
+    named = ",".join(sorted({str(c.window_id) for c in left if c.window_id}))
+    return [stage_service.Refusal(FREEZE_NEEDS_CAB, {"count": len(left), "window_ids": named})]
 
 
 async def _stage_work_refusals(

@@ -2996,6 +2996,12 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
         raise Conflict(
             code="stage_move_refused",
             params={
+                # The first refusal's own params too (which freezes, D-156), never over these.
+                **{
+                    k: v
+                    for k, v in (refusals[0].params or {}).items()
+                    if k not in {"reason", "reasons", "count"}
+                },
                 "reason": refusals[0].code,
                 "reasons": ",".join(r.code for r in refusals),
                 "count": len(refusals),

@@ -7,9 +7,10 @@ Number 0137 (the coordinator, 2026-11-11). Expand only:
   (expand/contract, architecture.md §14.3) and is kept in step by the service meanwhile.
 - `work_item_type_settings.outside_maintenance_blocks`: a change outside every maintenance window
   is refused instead of warned (default off: warn).
-- `work_item_change_details.freeze_cab_passed_at`, `freeze_cab_passed_by`: when the emergency CAB
-  let an emergency change in a blocking freeze go ahead, and who decided last (the reason is
-  the approval's own comment).
+- `work_item_change_details.freeze_cab_passed_at`, `freeze_cab_passed_by` and
+  `freeze_cab_window_ids`: when the emergency CAB let an emergency change in a blocking freeze go
+  ahead, who decided last, and exactly which freezes it passed (lane B's #384 review: a freeze
+  added or moved onto the change later still holds it). The reason is the approval's comment.
 
 The data step runs per tenant with app.tenant_id set, as business tables force RLS (see 0023).
 The downgrade drops the columns while no window repeats monthly, no tenant blocks outside
@@ -25,6 +26,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0137"
 down_revision: str | None = "0133"  # re-pointed onto main's head at its turn in the queue
@@ -87,12 +89,22 @@ def upgrade() -> None:
         DETAILS, sa.Column("freeze_cab_passed_at", sa.DateTime(timezone=True), nullable=True)
     )
     op.add_column(DETAILS, sa.Column("freeze_cab_passed_by", sa.Uuid(), nullable=True))
+    op.add_column(
+        DETAILS,
+        sa.Column(
+            "freeze_cab_window_ids",
+            postgresql.ARRAY(sa.Uuid()),
+            nullable=False,
+            server_default="{}",
+        ),
+    )
     op.execute(FILL)
 
 
 def downgrade() -> None:
     """Drop them again while nothing uses them; refuse (and keep the data) otherwise."""
     op.execute(GUARD)
+    op.drop_column(DETAILS, "freeze_cab_window_ids")
     op.drop_column(DETAILS, "freeze_cab_passed_by")
     op.drop_column(DETAILS, "freeze_cab_passed_at")
     op.drop_column(SETTINGS, "outside_maintenance_blocks")

@@ -1624,6 +1624,10 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     # D-156 (0137): the emergency CAB let this emergency change go ahead in a blocking freeze.
     freeze_cab_passed_at: Mapped[datetime | None]
     freeze_cab_passed_by: Mapped[uuid.UUID | None]
+    # Exactly the freezes the CAB passed: any other still holds the change (lane B's review).
+    freeze_cab_window_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
 
 
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------

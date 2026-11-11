@@ -74,10 +74,16 @@ async def after_cab_vote(
     details = await session.get(WorkItemChangeDetails, (catalogue.tenant_of(session), record.id))
     if details is None:
         return False
-    if not await in_freeze(session, record):
+    found, _ = await change_conflicts.conflicts(session, record)
+    passed = await change_conflicts.passed_windows(session, record.id)
+    frozen = sorted(
+        {c.window_id for c in change_conflicts.frozen_still(found, passed) if c.window_id}
+    )
+    if not frozen:
         return False
     details.freeze_cab_passed_at = datetime.now(UTC)
     details.freeze_cab_passed_by = decided_by
+    details.freeze_cab_window_ids = frozen  # only these; a later freeze still holds it
     await session.flush()
     await record_audit(
         session,
@@ -86,7 +92,11 @@ async def after_cab_vote(
         actor=(AuditActorType.PERSON, decided_by),
         object_type="work_item",
         object_id=str(record.id),
-        details={"approval_id": str(row.id), "stage": CAB_STAGE},
+        details={
+            "approval_id": str(row.id),
+            "stage": CAB_STAGE,
+            "window_ids": [str(w) for w in frozen],
+        },
         reason=row.comment,
     )
     await record_changes(

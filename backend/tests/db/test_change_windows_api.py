@@ -646,3 +646,37 @@ async def test_d156_a_normal_change_in_a_freeze_is_still_refused(world: World) -
     assert made.status_code == 201, made.text
     refused = await schedule(world, a, made.json(), start + H, start + 3 * H)
     assert problem(refused) == (409, "change_window_blocked"), refused.text
+
+
+async def test_d156_a_freeze_added_after_the_cab_passed_another_still_holds_the_change(
+    world: World,
+) -> None:
+    """Lane B's #384 review: the CAB passes exactly the freezes then in force. A freeze added
+    onto the change afterwards still refuses starting the work, naming it."""
+    a = world.a
+    start = FROZEN + timedelta(days=30)
+    first = await _freeze_gb(world, a, "Freeze A", start)
+    item = await _emergency(world, a)
+    assert (await schedule(world, a, item, start + H, start + 3 * H)).status_code == 200
+    at_cab = await _to_cab(world, a, item)
+    passed = await _cab_decision(world, a, at_cab, "Fix the payment outage")
+    assert passed.status_code == 200, passed.text
+    (row,) = await world.sql(
+        "SELECT freeze_cab_window_ids FROM work_item_change_details WHERE work_item_id = $1",
+        uuid.UUID(item["id"]),
+    )
+    assert [str(w) for w in row["freeze_cab_window_ids"]] == [first["id"]]
+    second = await a_window(
+        world,
+        a,
+        name="Freeze B",
+        group_ids=[str(a.gb)],
+        starts_at=_iso(start + 2 * H),
+        ends_at=_iso(start + 30 * H),
+    )
+    refused = await _start(world, a, item)
+    assert problem(refused) == (409, "stage_move_refused"), refused.text
+    params = refused.json()["params"]
+    assert params["reason"] == "freeze_needs_emergency_cab"
+    assert second["id"] in refused.text
+    assert first["id"] not in refused.text
