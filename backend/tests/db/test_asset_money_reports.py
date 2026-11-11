@@ -3,8 +3,8 @@
 - "Book value by cost centre" and "Total cost of ownership" sum each asset's valuation, the
   same numbers the asset's Financials tab shows.
 - Only for those who may see money (assets.view_financials): for anyone else the library leaves
-  them out and a run of their definition is refused, because the money fields do not exist in
-  that person's reporting source.
+  them out (and the "Add widget" catalogue too), and a run of their definition is refused as
+  measure_not_permitted (403), because the money fields do not exist in their reporting source.
 """
 
 import uuid
@@ -57,5 +57,9 @@ async def test_the_money_reports_are_only_for_those_who_see_money(world: World) 
     listed = {r["code"] for r in tech.json()["builtin"]}
     assert "assets_by_state" in listed  # assets, yes
     assert not set(MONEY) & listed  # their money, no
+    # Asked for directly (a widget's data is a run of its definition): a labelled refusal that
+    # says why, never "unknown measure" (the coordinator, #379).
     for code in MONEY:
-        assert (await _run(world, a.tech_a, code)).status_code == 422
+        refused = await _run(world, a.tech_a, code)
+        assert refused.status_code == 403, refused.text
+        assert refused.json()["code"] == "measure_not_permitted"

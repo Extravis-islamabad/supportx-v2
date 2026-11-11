@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.errors import AppError, ProblemDetail, ValidationFailed
+from app.core.errors import AppError, PermissionDenied, ProblemDetail, ValidationFailed
 from app.core.tenancy import TenantContext, resolve_tenant
 from app.modules.analytics.api.routes import CONFLICT, RESPONSES, _source, _validator, _zone
 from app.modules.analytics.domain.builtin import BUILTIN as BUILTIN_REPORTS
@@ -313,14 +313,17 @@ async def widget_catalogue(
             # As the report library: a built-in report the viewer cannot run (its fields or
             # measures are not in their source, e.g. assets' money without view_financials)
             # is not offered as a widget either.
+            report = BUILTIN_REPORTS.get(ref.removeprefix("builtin:"))
+            if report is None:  # a ref the catalogue no longer has: never a 500 for all
+                continue
             try:
                 compile_report(
-                    BUILTIN_REPORTS[ref.removeprefix("builtin:")].definition,
+                    report.definition,
                     source,
                     now=now,
                     zone=zone.key,
                 )
-            except ValidationFailed:
+            except (ValidationFailed, PermissionDenied):
                 continue
         widget = template.widget(template.code[:40].rstrip("_-"), 0, 0)
         entries.append(
