@@ -66,14 +66,17 @@ async def test_req_chg_107_ac2_a_change_sla_escalates_at_its_time_and_says_so(
     assert await _targets(world, before) == {}  # no targets anywhere: no clock
     await _give_targets(world, b)
     item = await a_change(world, b)
-    due = (await _targets(world, item))["resolution:1"]["due_at"]
+    target = (await _targets(world, item))["resolution:1"]
+    due = target["due_at"]
+    # Business hours: measured from the target's own moments, never a wall-clock guess.
+    before_any = (target["warning_at"] or due) - timedelta(minutes=1)
     # The safety net finds a late change, as it does any other record.
     from app.modules.sla.service.timers import overdue_records  # noqa: PLC0415 - the net
 
     async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
-        assert uuid.UUID(item["id"]) not in await overdue_records(session, due - timedelta(hours=7))
+        assert uuid.UUID(item["id"]) not in await overdue_records(session, before_any)
         assert uuid.UUID(item["id"]) in await overdue_records(session, due + timedelta(seconds=1))
-    early = await _fire(world, b, item, due - timedelta(minutes=5))
+    early = await _fire(world, b, item, before_any)
     assert not [f for f in early if f.startswith("escalated")]  # the warning only, at 75 %
     fired = await _fire(world, b, item, due + timedelta(seconds=5))
     assert "escalated:resolution:1" in fired
