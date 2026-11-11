@@ -98,7 +98,8 @@ export function AssetViewsDrawer({
       open={open}
       onClose={onClose}
       title={t('assets.views.title')}
-      width={420}
+      // Never wider than a phone's screen (the visual matrix's 390 px).
+      width="min(420px, 100vw)"
       data-testid="assets-views-drawer"
     >
       <Flex vertical gap={16}>

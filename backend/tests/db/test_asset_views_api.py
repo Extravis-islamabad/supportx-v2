@@ -327,20 +327,30 @@ async def test_045_a_work_item_raised_with_an_asset_adds_a_history_line_and_coun
 ) -> None:
     a = world.a
     asset = await _asset(world, a, "Raised from")
-    work_item = uuid.uuid4()
+    incident = await world.create(a, a.admin, subject="Raised with an asset")
+    # As lane A's event will carry it: no display ID, the type left out.
     raised = await _envelope(
         world, a, "work_items.asset_link.changed",
-        {"work_item_id": str(work_item), "asset_id": asset["id"], "change": "added",
-         "at_creation": True, "display_id": "INC-42", "type": "incident"},
+        {"work_item_id": incident["id"], "asset_id": asset["id"], "change": "added",
+         "at_creation": True},
     )  # fmt: skip
     later = raised.model_copy(update={"payload": {**raised.payload, "at_creation": False}})
+    gone = raised.model_copy(
+        update={"payload": {**raised.payload, "work_item_id": str(uuid.uuid4())}}
+    )
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         await linked.on_asset_link_changed(raised, session)
         await linked.on_asset_link_changed(later, session)  # a later link: the panel's only
+        await linked.on_asset_link_changed(gone, session)  # a record already gone
     history = (await world.call("GET", f"{BASE}/{asset['id']}/history", a, a.admin)).json()
     lines = [c for e in history["items"] for c in e["changes"] if c["field"] == linked.RAISED_FIELD]
-    assert len(lines) == 1
-    assert lines[0]["new"]["display_id"] == "INC-42"
+    assert len(lines) == 2
+    named = [c["new"] for c in lines if c["new"]["display_id"] is not None]
+    # Looked up at write time: the record's own display ID and type (REQ-AST-045 AC1).
+    assert named == [
+        {"work_item_id": incident["id"], "display_id": incident["display_id"], "type": "incident"}
+    ]
+    assert [c["new"]["display_id"] for c in lines].count(None) == 1  # the generic line
     # The panel follows live: the link names the asset (IDs and the field only).
     route = next(r for r in ROUTES if raised.event_type in r.event_types)
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:

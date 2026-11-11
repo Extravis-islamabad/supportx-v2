@@ -6,7 +6,7 @@ import type { AssetProductType, AssetRecord, AssetState } from '@supportx/api-cl
 import { App } from '../../App';
 import { consoleApi, fakeSession } from '../../test/api';
 import { raisePath } from './raise';
-import { branchCounts } from './typeCounts';
+import { branchCounts, startsWith } from './typeCounts';
 
 // WP-049b s4a: the product type tree (keyboard, counts, a node and its types), built-in and
 // saved views with favourites, widths kept per view, the linked records panel, raising a work
@@ -197,6 +197,42 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
       ).toBe(true);
     });
     expect(computer.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('typeahead: a key moves to the next row starting with it, wrapping; quick keys make a prefix', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = viewsApi();
+    restore = fake.restore;
+    render(<App />);
+    const tree = await screen.findByRole('tree', { name: 'Product types' });
+    const row = (id: string) => within(tree).getByTestId(`asset-tree-${id}`);
+    await waitFor(() => {
+      expect(row(PHONE)).toBeTruthy();
+    });
+    const all = row('all');
+    all.focus();
+    fireEvent.keyDown(all, { key: 'L' }); // any case
+    expect(document.activeElement).toBe(row(LAPTOP));
+    await new Promise((done) => setTimeout(done, 600)); // past the prefix window
+    fireEvent.keyDown(row(LAPTOP), { key: 'c' }); // wraps past the end to Computer
+    expect(document.activeElement).toBe(row(COMPUTER));
+    await new Promise((done) => setTimeout(done, 600));
+    fireEvent.keyDown(row(COMPUTER), { key: 'p' });
+    fireEvent.keyDown(row(PHONE), { key: 'h' }); // "ph": still Phone
+    expect(document.activeElement).toBe(row(PHONE));
+    await new Promise((done) => setTimeout(done, 600));
+    fireEvent.keyDown(row(PHONE), { key: 'z' }); // nothing starts with it: focus stays
+    expect(document.activeElement).toBe(row(PHONE));
+  });
+
+  it("typeahead matches in the person's language: Arabic and Urdu by their first letter", () => {
+    expect(startsWith('Laptop', 'LA', 'en')).toBe(true);
+    expect(startsWith('Écran', 'é', 'fr')).toBe(true);
+    expect(startsWith('Laptop', 'lb', 'en')).toBe(false);
+    expect(startsWith('حاسوب محمول', 'ح', 'ar')).toBe(true);
+    expect(startsWith('حاسوب محمول', 'حز', 'ar')).toBe(true); // first letter only
+    expect(startsWith('لیپ ٹاپ', 'ل', 'ur')).toBe(true);
+    expect(startsWith('لیپ ٹاپ', 'ح', 'ur')).toBe(false);
   });
 
   it('shows the default columns with names, and favourites first in the view picker', async () => {

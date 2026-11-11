@@ -80,7 +80,8 @@ function LinkedDrawer({
     <Drawer
       open={kind !== undefined}
       onClose={onClose}
-      width={460}
+      // Never wider than a phone's screen (the visual matrix's 390 px).
+      width="min(460px, 100vw)"
       title={kind === undefined ? '' : t(`work_item_type.${kind}`)}
       data-testid="asset-linked-drawer"
     >

@@ -6,6 +6,7 @@ import {
   useChangePrefill,
   useChangeTemplates,
   useCreateChange,
+  useKnownUser,
   useSession,
   useStagedSettings,
   type ChangeInput,
@@ -57,13 +58,16 @@ export function NewChangePage() {
   // Null: not touched, so the prefill (once it arrives) shows; typing takes over from it.
   const [typedSubject, setSubject] = useState<string | null>(null);
   const [typedDescription, setDescription] = useState<string | null>(null);
-  const [pickedRequester, setRequester] = useState<string | null>(() => params.get('requester'));
+  const [pickedRequester, setRequester] = useState<string | null>(null);
+  // `?requester=` only once the person is known; an unknown one leaves the field empty, quietly.
+  const knownRequester = useKnownUser(params.get('requester'));
   const [reason, setReason] = useState<string | null>(null);
   const reasons = (settings.data?.own_lists?.change_reason ?? []).filter((v) => !v.disabled);
   const filledFrom = prefill.data;
   const subject = typedSubject ?? filledFrom?.subject ?? '';
   const description = typedDescription ?? filledFrom?.description ?? null;
-  const requester = pickedRequester ?? filledFrom?.requester_id ?? null;
+  // As the prefill from another record: a picked person first, else the one from the address.
+  const requester = pickedRequester ?? knownRequester.data?.id ?? filledFrom?.requester_id ?? null;
   const submit = () => {
     create.mutate(
       {

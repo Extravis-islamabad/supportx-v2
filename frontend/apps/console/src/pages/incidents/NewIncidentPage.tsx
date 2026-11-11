@@ -27,6 +27,8 @@ import {
   useIncidentCatalogue,
   useIncidentCategories,
   useIncidentTemplates,
+  useKnownAsset,
+  useKnownUser,
   useKbSettings,
   useLinkKbArticle,
   usePossibleDuplicates,
@@ -82,6 +84,7 @@ import { listValueLabel, scaleLabel, templateLabel } from './labels';
 import { DepartmentPicker, GroupPicker, SitePicker, TechnicianPicker, UserPicker } from './pickers';
 import { PriorityTag } from './tags';
 import { TagsInput } from './TagsInput';
+import { pickedOf } from '../assets/raise';
 import { AssetPickerField } from './RecordAssets';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
@@ -191,10 +194,7 @@ export function NewIncidentPage() {
   const customFields = useCustomFields('incident');
   const groups = useUnits('groups');
   const [params] = useSearchParams();
-  const form = useForm<Values>({
-    resolver: zodResolver(schema),
-    defaultValues: { ...EMPTY, requester_id: params.get('requester') ?? EMPTY.requester_id },
-  });
+  const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: EMPTY });
   const problem = useFormProblem();
   // What was typed survives a session timeout in this tab (REQ-INC-019, REQ-SEC-029 AC2).
   const draft = useKeptDraft(form, 'incident-new');
@@ -227,7 +227,7 @@ export function NewIncidentPage() {
   const [handover, setHandover] = useState<Values | null>(null);
   // Raised from an asset (REQ-AST-045, lane B's WP-049b s4a): `?template=`, `?asset=` and
   // `?requester=` (the asset's holder) start the form; everything stays editable.
-  const [chosenId, setChosenId] = useState<string | null>(() => params.get('template'));
+  const [picked, setChosenId] = useState<string | null>(null);
   const [switching, setSwitching] = useState<{ next: IncidentTemplate; lost: string[] } | null>(
     null,
   );
@@ -239,6 +239,12 @@ export function NewIncidentPage() {
   const fallback = offered.find((x) => x.is_default) ?? offered[0];
   // A template disabled while the form is open: keep it until the user picks another (the
   // server refuses it on save and says so), rather than switching fields under their hands.
+  // A template from the address counts only while it is offered (unknown, disabled or not
+  // for this person: the default, quietly); the person's own pick always wins.
+  const fromAddress = params.get('template');
+  const chosenId =
+    picked ??
+    (fromAddress !== null && offered.some((x) => x.id === fromAddress) ? fromAddress : null);
   const template =
     (templates.data ?? []).find((x) => x.id === chosenId) ??
     (chosenId === null ? fallback : undefined);
@@ -256,11 +262,15 @@ export function NewIncidentPage() {
   const draftSubject = useDebounced(typedSubject, 600);
   const draftDescription = useDebounced(typedDescription.replace(/<[^>]*>/g, ' '), 600);
   const typedRequester = form.watch('requester_id');
-  const [assetIds, setAssetIds] = useState<string[]>(() => {
-    const asset = params.get('asset');
-    return asset === null ? [] : [asset];
-  });
+  const [pickedAssets, setAssetIds] = useState<string[] | null>(null);
   const { has } = useLicence();
+  // Each ID from the address is checked quietly first: one that is unknown or not the
+  // person's to see leaves its field empty, with no message (lane A's condition). The server
+  // checks everything again on submit, as for any typed value.
+  const knownAsset = useKnownAsset(params.get('asset'), has('assets'));
+  const knownRequester = useKnownUser(params.get('requester'));
+  const knownPicked = knownAsset.data === undefined ? [] : [pickedOf(knownAsset.data)];
+  const assetIds = pickedAssets ?? (knownAsset.data === undefined ? [] : [knownAsset.data.id]);
   const duplicates = usePossibleDuplicates(
     {
       title: draftSubject,
@@ -351,12 +361,14 @@ export function NewIncidentPage() {
     startedCustom.current = starts;
     form.setValue('custom', values);
   };
-  // The asset's holder (REQ-AST-045) brings their department and site, as a picked one does.
+  // The asset's holder (REQ-AST-045), once known, as if picked: their department and site too.
   useEffect(() => {
-    const requester = params.get('requester');
-    if (requester !== null) void placeFromRequester(requester);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the address it opened with
-  }, []);
+    const found = knownRequester.data?.id;
+    if (found === undefined || form.getValues('requester_id') !== null) return;
+    form.setValue('requester_id', found);
+    void placeFromRequester(found);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once the person is known
+  }, [knownRequester.data?.id]);
   // First load: apply the default template once the template, catalogue and tree are known.
   const applied = useRef<string | null>(null);
   const ready =
@@ -865,6 +877,7 @@ export function NewIncidentPage() {
                     onChange={setAssetIds}
                     forUser={typedRequester ?? null}
                     testId="inc-assets"
+                    known={knownPicked}
                   />
                 </Form.Item>
               </Col>

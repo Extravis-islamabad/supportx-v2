@@ -1,4 +1,4 @@
-import type { AssetRecord } from '@supportx/api-client';
+import type { AssetRecord, PickedAsset } from '@supportx/api-client';
 
 export type RaiseKind = 'incident' | 'service_request' | 'change';
 
@@ -14,4 +14,9 @@ export function raisePath(kind: RaiseKind, template: string, asset: AssetRecord)
     change: '/changes/new',
   };
   return `${base[kind]}?${params.toString()}`;
+}
+
+/** A prefilled asset as the form's picker names it (tag and name, never its ID). */
+export function pickedOf(asset: AssetRecord): PickedAsset {
+  return { id: asset.id, tag: asset.tag, name: asset.name, state_id: asset.state_id, mine: false };
 }

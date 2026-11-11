@@ -14,7 +14,8 @@ The port, as agreed with lane A (the coordinator, 2026-11-11):
 All of them see only the records the viewer may see; the counters too (D-158).
 
 `work_items.asset_link.changed` with `at_creation: true` means the work item was raised with the
-asset (REQ-AST-045): the asset's history then says "INC-n raised from this asset".
+asset (REQ-AST-045): the asset's history then says "INC-n raised from this asset", the display
+ID read at write time through the labeler work items register with automation.
 """
 
 import re
@@ -28,6 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import FieldError, NotFound, ValidationFailed
+from app.modules import automation
 from app.modules.assets.infra.models import Asset
 from app.modules.assets.service.assets import RECORD_TYPE, get_asset
 from app.modules.identity_access import Subject
@@ -170,12 +172,35 @@ async def assets_of_work_item(session: AsyncSession, work_item_id: uuid.UUID) ->
     return [] if port is None else await port.asset_ids_of(session, work_item_id)
 
 
+# The work-item types that link assets (or may), tried in turn when the event names none.
+WORK_ITEM_KINDS = ("incident", "service_request", "problem", "change", "release")
+
+
+async def _display_id(
+    session: AsyncSession, work_item_id: uuid.UUID, kind: object
+) -> tuple[str | None, str | None]:
+    """The work item's display ID and type, read now; (None, None) when gone or in the trash.
+
+    Through the record types work items register with automation (their public labeler).
+    """
+    kinds = (str(kind),) if kind else WORK_ITEM_KINDS
+    for code in kinds:
+        spec = automation.record_type(code)
+        if spec is None or spec.labels is None:
+            continue
+        found = await spec.labels(session, [work_item_id])
+        if work_item_id in found:
+            return found[work_item_id][0], code
+    return None, None
+
+
 async def on_asset_link_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
     """REQ-AST-045: a work item raised with this asset adds a line to the asset's history.
 
-    Only for `at_creation` links (lane A's new flag); a link made later is the panel's, not the
-    history's. Idempotent: the consumer runs each event once (its claim), and a line is written
-    only when the asset still exists.
+    Only for `at_creation` links (lane A's flag); a link made later is the panel's, not the
+    history's. The record's display ID is looked up now, so the line reads "INC-1042 raised
+    from this asset"; a record already gone gives the generic line. Idempotent: the consumer
+    runs each event once (its claim), and a line is written only when the asset still exists.
     """
     assert session is not None  # noqa: S101 - transactional consumer
     payload = envelope.payload
@@ -186,6 +211,8 @@ async def on_asset_link_changed(envelope: EventEnvelope, session: AsyncSession |
     )
     if asset is None:
         return
+    work_item = uuid.UUID(str(payload["work_item_id"]))
+    display_id, kind = await _display_id(session, work_item, payload.get("type"))
     await record_changes(
         session,
         record_type=RECORD_TYPE,
@@ -196,12 +223,7 @@ async def on_asset_link_changed(envelope: EventEnvelope, session: AsyncSession |
             Change(
                 RAISED_FIELD,
                 None,
-                {
-                    "work_item_id": str(payload["work_item_id"]),
-                    # Lane A may add these to the event; the line names the record when it can.
-                    "display_id": payload.get("display_id"),
-                    "type": payload.get("type"),
-                },
+                {"work_item_id": str(work_item), "display_id": display_id, "type": kind},
             )
         ],
         source="system",

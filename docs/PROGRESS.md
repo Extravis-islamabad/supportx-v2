@@ -1620,15 +1620,23 @@ it with no reload (rule c). Not built yet.
   - Raise from an asset (045): Raise an incident, service request or change on the asset page,
     a template (or catalogue item) picker listing only what the person may use, then the normal
     create form with the asset and its holder filled in (`?template=`/`?item=`, `?asset=`,
-    `?requester=`; small console-only additions to lane A's three create forms, rule 8). The
-    history line "INC-n raised from this asset" is written by the `assets__raised_from` consumer
-    from `work_items.asset_link.changed` with `at_creation: true`.
+    `?requester=`; small console-only additions to lane A's three create forms, agreed with
+    their conditions). Each ID is checked quietly first: an unknown or not-allowed template,
+    item, asset or person leaves its field empty (the form's default template), with no banner
+    or toast; a known asset shows by tag and name; the server re-checks on submit. The history
+    line "INC-1042 raised from this asset" is written by the `assets__raised_from` consumer from
+    `work_items.asset_link.changed` with `at_creation: true`, the display ID read at write time
+    through the labeler work items register with automation (their public `labels_of`); a record
+    already gone gives the generic line.
+  - Lane C's checklist: typeahead in the type tree (a printable key moves to the next matching
+    row, wrapping; keys within 500 ms form a prefix; locale lower-casing; Arabic and Urdu by the
+    first letter), the row's focus ring from the theme's focus colour and width, drawers capped
+    at the screen width (390 px); a test that work-item lists keep their own `/list-settings`
+    and that Reset widths clears the saved widths in both stores.
   - Guide: docs/guides/asset-list-and-views.md.
   - **Waits for lane A's ports PR (feat/asset-link-ports):** the `register_linked_records(...)`
     call from work_items/__init__.py (lane A OK'd it, rule 8) lands after that PR merges; until
-    then the panel stays hidden. The `at_creation` flag and, ideally, `display_id` on the link
-    event come with it (without `display_id` the line reads "A record was raised from this
-    asset").
+    then the panel stays hidden. The `at_creation` flag on the link event comes with it.
   - **Open:** a column chooser for the asset list (the store keeps chosen columns; the screen
     shows the default set), renaming a saved view on screen (the API has it), sharing views with
     groups (REQ-INC-107's sharing; the store is per person), the record forms' pickers adopting

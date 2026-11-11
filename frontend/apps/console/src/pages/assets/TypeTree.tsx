@@ -6,7 +6,7 @@ import { useAppearance, useLabel } from '@supportx/ui';
 
 import { nameOf } from '../admin/assets/shared';
 import type { TypeNode } from '../admin/assets/tree';
-import { ALL_TYPES, branchCounts } from './typeCounts';
+import { ALL_TYPES, branchCounts, startsWith, TYPEAHEAD_MS } from './typeCounts';
 
 interface Row {
   id: string;
@@ -109,6 +109,31 @@ export function TypeTree({
       return next;
     });
   };
+  // Typeahead (WAI-ARIA tree pattern): a printable key moves to the next visible row whose name
+  // starts with it, wrapping; keys typed within TYPEAHEAD_MS form a prefix.
+  const typed = useRef({ text: '', at: 0 });
+  const typeahead = (event: KeyboardEvent<HTMLLIElement>, id: string): boolean => {
+    if (
+      event.key.length !== 1 ||
+      event.key === ' ' ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey
+    ) {
+      return false;
+    }
+    const now = event.timeStamp;
+    const text =
+      now - typed.current.at <= TYPEAHEAD_MS ? typed.current.text + event.key : event.key;
+    typed.current = { text, at: now };
+    const at = visible.indexOf(id);
+    // A longer prefix may still match the current row; a fresh key looks from the next one.
+    const start = text.length > 1 ? at : at + 1;
+    const order = [...visible.slice(start), ...visible.slice(0, start)];
+    const found = order.find((key) => startsWith(rows.get(key)?.name ?? '', text, locale));
+    if (found !== undefined) focus(found);
+    return true;
+  };
   const onKeyDown = (event: KeyboardEvent<HTMLLIElement>, id: string) => {
     const row = rows.get(id);
     if (row === undefined) return;
@@ -143,7 +168,7 @@ export function TypeTree({
         onSelect(id);
         break;
       default:
-        return;
+        if (!typeahead(event, id)) return;
     }
     event.preventDefault();
     event.stopPropagation();
@@ -179,9 +204,11 @@ export function TypeTree({
           if (event.target === event.currentTarget) setFocused(id);
         }}
         data-testid={`asset-tree-${id === ALL_TYPES ? 'all' : id}`}
-        style={{ listStyle: 'none', outlineOffset: -2 }}
+        className="sx-type-tree-item"
+        style={{ listStyle: 'none', outline: 'none' }}
       >
         <div
+          className="sx-type-tree-row"
           onClick={() => {
             setFocused(id);
             onSelect(id);
@@ -228,14 +255,23 @@ export function TypeTree({
     );
   };
   return (
-    <ul
-      role="tree"
-      aria-label={t('assets.tree.label')}
-      style={{ margin: 0, padding: 0 }}
-      data-testid="asset-tree"
-    >
-      {render(ALL_TYPES)}
-      {nodes.map((n) => render(n.id))}
-    </ul>
+    <>
+      {/* Focus shows on the row (not the whole branch), in the theme's own focus colour and
+          width, so it is visible in light, dark and high contrast alike. */}
+      <style>
+        {`.sx-type-tree-item:focus-visible > .sx-type-tree-row { outline: ${String(
+          token.lineWidthFocus,
+        )}px solid ${token.colorPrimary}; outline-offset: -${String(token.lineWidthFocus)}px; }`}
+      </style>
+      <ul
+        role="tree"
+        aria-label={t('assets.tree.label')}
+        style={{ margin: 0, padding: 0 }}
+        data-testid="asset-tree"
+      >
+        {render(ALL_TYPES)}
+        {nodes.map((n) => render(n.id))}
+      </ul>
+    </>
   );
 }
