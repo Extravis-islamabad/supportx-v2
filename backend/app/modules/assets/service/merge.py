@@ -31,6 +31,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, PermissionDenied
+from app.core.logging import get_logger
 from app.modules.assets.domain.batch import (
     MERGE_FIELDS,
     MONEY_CHOICES,
@@ -70,6 +71,8 @@ from app.modules.identity_access import Subject
 from app.shared.history import Change, Source
 from app.shared.history.conflicts import stale_version
 from app.shared.ids import new_id
+
+log = get_logger(__name__)
 
 MERGED_INTO = "merged_into"  # the merged asset's history line
 MERGED_FROM = "merged_from"  # the survivor's
@@ -236,6 +239,8 @@ async def merge(  # noqa: PLR0913 - the two assets, their versions, the choices 
         )  # fmt: skip
     moved = await _move_parts(session, subject, survivor, merged, source)
     port = linked_port()
+    if port is None:  # work items registers it at start-up; without it no link moves (lane A)
+        log.warning("asset_merge_without_linked_port", merged_id=str(merged.id))
     moved["work_items"] = (
         await port.repoint_links(
             session, merged.id, survivor.id, from_label=label(merged), to_label=label(survivor),
