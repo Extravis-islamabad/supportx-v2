@@ -132,7 +132,7 @@ def upgrade() -> None:
         ),
         checks=[
             ("text_length", "length(btrim(text)) BETWEEN 1 AND 500"),
-            ("done_pair", "(done_at IS NULL) = (done_by IS NULL)"),
+            ("done_pair", "done_by IS NULL OR done_at IS NOT NULL"),  # system ticks: no person
         ],
     )
     op.create_index(

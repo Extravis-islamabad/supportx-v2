@@ -62,6 +62,7 @@ from app.modules.work_items.service import (
     bulk,
     change_notifications,
     change_reminders,
+    checklists,
     inbound_mail,
     notifications,
     parts,
@@ -108,6 +109,8 @@ def _register_parts() -> None:
     test unregistered it).
     """
     register_open_work(OpenWorkKind.TASKS, parts.open_tasks, parts.complete_tasks)
+    # WP-046a S2 (REQ-INC-077): unticked checklist items are open work too.
+    register_open_work(OpenWorkKind.CHECKLISTS, checklists.open_work, checklists.complete_work)
 
 
 _register_parts()

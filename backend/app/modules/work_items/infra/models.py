@@ -1096,7 +1096,8 @@ class WorkItemChecklistItem(TenantEntity):
     __table_args__ = (
         _work_item_fk("fk_wicli_work_item"),
         CheckConstraint("length(btrim(text)) BETWEEN 1 AND 500", name="text_length"),
-        CheckConstraint("(done_at IS NULL) = (done_by IS NULL)", name="done_pair"),
+        # Ticked by someone, or by the system on close (no person); never a person without a time.
+        CheckConstraint("done_by IS NULL OR done_at IS NOT NULL", name="done_pair"),
         Index(
             "ix_wicli_tenant_checklist_position",
             "tenant_id",

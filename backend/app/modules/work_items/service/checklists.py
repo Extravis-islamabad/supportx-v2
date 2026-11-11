@@ -31,6 +31,7 @@ from app.modules.work_items.domain.checklists import (
     item_problems,
     parse_items_csv,
 )
+from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.events import WorkItemPartChangedV3
 from app.modules.work_items.infra.models import (
@@ -407,6 +408,39 @@ async def remove_checklist(  # noqa: PLR0913 - the checklist, its version and th
     await _signal(
         session, record, removed.id, "removed", [Change("checklist", removed.title, None)], source
     )
+
+
+# --- open work at close (WP-020f port) -----------------------------------------------------------
+
+
+async def open_work(session: AsyncSession, record: WorkItem) -> list[OpenItem]:
+    """Unticked items of the record's checklists, named as "checklist: item"."""
+    return [
+        OpenItem(OpenWorkKind.CHECKLISTS, f"{view.checklist.title}: {item.text}")
+        for view in await _views(session, record.id)
+        for item in view.items
+        if item.done_at is None
+    ]
+
+
+async def complete_work(session: AsyncSession, record: WorkItem) -> None:
+    """The "complete open work on close" setting: every unticked item is ticked by the system."""
+    now = datetime.now(UTC)
+    repo = ItemRepository(session)
+    for view in await _views(session, record.id):
+        open_ones = [i for i in view.items if i.done_at is None]
+        for item in open_ones:
+            # The system ticks it on close: no person is named (done_by stays empty).
+            await repo.update(item.id, expected_version=item.version, changes={"done_at": now})
+        if open_ones:
+            await _signal(
+                session,
+                record,
+                view.checklist.id,
+                "changed",
+                [Change("checklist.completed", len(open_ones), 0)],
+                "system",
+            )
 
 
 # --- the library (REQ-INC-078) -------------------------------------------------------------------
