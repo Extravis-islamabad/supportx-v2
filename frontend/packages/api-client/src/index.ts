@@ -354,6 +354,7 @@ export {
   type ApiKeyScope,
 } from './apiKeys';
 export {
+  bulkJobKey,
   useBulkJob,
   useBulkJobs,
   useIncidentListFields,
@@ -367,6 +368,7 @@ export {
   useStartBulk,
   type BulkAction,
   type BulkJob,
+  type BulkBase,
   type BulkRequest,
   type BulkResult,
   type IncidentListField,
@@ -1203,6 +1205,7 @@ export {
   useChangePrefill,
   useChangeRiskQuestionnaire,
   useChanges,
+  useStartChangeBulkClose,
   useChangeTemplates,
   useChangeApprovalPreview,
   useAddChangeChild,
@@ -1211,6 +1214,7 @@ export {
   calendarKeys,
   useChangeCalendar,
   useChangeConflicts,
+  useChangeSettingsChange,
   useCreateChangeWindow,
   useRemoveChangeWindow,
   useUpdateChangeWindow,

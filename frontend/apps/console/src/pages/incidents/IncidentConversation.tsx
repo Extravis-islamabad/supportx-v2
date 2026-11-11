@@ -118,6 +118,7 @@ const BaseContext = createContext<ConversationBase>('incidents');
 const RECORD_TYPE: Record<ConversationBase, string> = {
   incidents: 'incident',
   'service-requests': 'service_request',
+  changes: 'change',
 };
 
 export function IncidentConversation({

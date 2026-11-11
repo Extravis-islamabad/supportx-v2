@@ -22,7 +22,7 @@ from app.modules.work_items.infra.models import (
     WorkItemStageSchedule,
     WorkItemTask,
 )
-from app.modules.work_items.service import catalogue
+from app.modules.work_items.service import catalogue, change_conflicts
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service.stage_approvals import StagedApprovalGuard
 
@@ -37,6 +37,7 @@ class ChangeGuard(StagedApprovalGuard):
         # The parent's sub-release check runs too: a no-op for changes (no release children).
         refusals = await super().check(session, record, move)
         refusals = [*refusals, *await _stage_work_refusals(session, record, move)]
+        refusals = [*refusals, *await _freeze_refusals(session, record, move)]
         # Closing, not canceling: a change may always be canceled.
         if move.target.code == rules.CLOSED_STATUS and record.stage != rules.REVIEW:
             details = await session.get(
@@ -59,6 +60,34 @@ class ChangeGuard(StagedApprovalGuard):
 
 
 CANCELED = "closure_canceled"
+FREEZE_NEEDS_CAB = "freeze_needs_emergency_cab"
+START_WORK = "implementation_in_progress"  # the move that starts the work
+
+
+async def _freeze_refusals(
+    session: AsyncSession, record: WorkItem, move: Move
+) -> list[stage_service.Refusal]:
+    """D-156: an emergency change in a freeze starts its work only once it may.
+
+    That is, once its emergency CAB passed the freeze (approving with a reason, which stamps the
+    change) or the change manager overrode it. Its window was saved, never refused
+    (change_conflicts.guard); starting the implementation is where it waits, so a freeze added
+    or moved onto it after the CAB approved holds it too. Other paths never get here in a
+    freeze: their window save is refused.
+    """
+    if move.target.code != START_WORK or record.stage_path != rules.EMERGENCY_PATH:
+        return []
+    details = await session.get(WorkItemChangeDetails, (catalogue.tenant_of(session), record.id))
+    # The freezes passed, each by ID: the override's and the CAB's (lane B's #384 review). A
+    # freeze added or moved onto the change afterwards still holds it.
+    cab = frozenset(details.freeze_cab_window_ids or ()) if details is not None else frozenset()
+    passed = await change_conflicts.passed_windows(session, record.id) | cab
+    found, _ = await change_conflicts.conflicts(session, record)
+    left = change_conflicts.frozen_still(found, passed)
+    if not left:
+        return []
+    named = ",".join(sorted({str(c.window_id) for c in left if c.window_id}))
+    return [stage_service.Refusal(FREEZE_NEEDS_CAB, {"count": len(left), "window_ids": named})]
 
 
 async def _stage_work_refusals(
