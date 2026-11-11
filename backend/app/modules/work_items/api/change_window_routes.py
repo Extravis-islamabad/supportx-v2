@@ -23,7 +23,7 @@ from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.work_items.api.settings_routes import CONFLICT
 from app.modules.work_items.domain.change_windows import ConflictKind, WindowKind, WindowMode
-from app.modules.work_items.domain.types import CHANGE
+from app.modules.work_items.domain.types import CHANGE, RELEASE
 from app.modules.work_items.infra.models import ChangeWindow
 from app.modules.work_items.service import change_windows as service
 from app.modules.work_items.service.work_items import field_errors
@@ -391,25 +391,16 @@ class CalendarEntryOut(BaseModel):
     group_id: uuid.UUID | None
     site_id: uuid.UUID | None
     technician_id: uuid.UUID | None
-    kind: str = Field(description="`window` (implementation) or `downtime` (planned).")
+    kind: str = Field(
+        description="`window` (implementation, or a release's deployment) or `downtime` (planned)."
+    )
     starts_at: datetime
     ends_at: datetime
     part_id: uuid.UUID | None = Field(default=None, description="The downtime, for a downtime.")
     version: int = Field(description="The window's or downtime's own version, for If-Match.")
 
 
-@calendar_router.get("", summary="Changes planned in a range")
-async def change_calendar(
-    session: TenantSession,
-    subject: ViewChange,
-    start: Annotated[datetime, Query()],
-    end: Annotated[datetime, Query()],
-    mine: Annotated[bool, Query(description="Only the changes you hold.")] = False,  # noqa: FBT002 - a query flag
-) -> list[CalendarEntryOut]:
-    """The changes you may see, planned in [start, end) (at most 400 days), by start."""
-    if not _range_ok(start, end):
-        raise field_errors([("end", "out_of_range")])
-    entries = await service.calendar(session, subject, start=start, end=end, mine=mine)
+def _entries(entries: list[service.CalendarEntry]) -> list[CalendarEntryOut]:
     return [
         CalendarEntryOut(
             record_id=e.record.id,
@@ -429,3 +420,47 @@ async def change_calendar(
         )
         for e in entries
     ]
+
+
+@calendar_router.get("", summary="Changes planned in a range")
+async def change_calendar(
+    session: TenantSession,
+    subject: ViewChange,
+    start: Annotated[datetime, Query()],
+    end: Annotated[datetime, Query()],
+    mine: Annotated[bool, Query(description="Only the changes you hold.")] = False,  # noqa: FBT002 - a query flag
+) -> list[CalendarEntryOut]:
+    """The changes you may see, planned in [start, end) (at most 400 days), by start."""
+    if not _range_ok(start, end):
+        raise field_errors([("end", "out_of_range")])
+    return _entries(await service.calendar(session, subject, start=start, end=end, mine=mine))
+
+
+# --- the release calendar (WP-058b S1; REQ-REL-038) --------------------------------------------
+
+release_calendar_router = APIRouter(
+    prefix="/release-calendar",
+    tags=["releases"],
+    dependencies=[Depends(rate_limit("work_items"))],
+)
+ViewRelease = Annotated[Subject, Depends(require_permission(RELEASE.permission("view")))]
+
+
+@release_calendar_router.get("", summary="Releases planned in a range")
+async def release_calendar(
+    session: TenantSession,
+    subject: ViewRelease,
+    start: Annotated[datetime, Query()],
+    end: Annotated[datetime, Query()],
+    mine: Annotated[bool, Query(description="Only the releases you hold.")] = False,  # noqa: FBT002 - a query flag
+) -> list[CalendarEntryOut]:
+    """The releases you may see, planned in [start, end) (at most 400 days), by start.
+
+    Each one's deployment window and its planned downtimes.
+    """
+    if not _range_ok(start, end):
+        raise field_errors([("end", "out_of_range")])
+    entries = await service.calendar(
+        session, subject, start=start, end=end, mine=mine, wtype=RELEASE
+    )
+    return _entries(entries)
