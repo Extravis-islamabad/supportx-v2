@@ -1791,6 +1791,10 @@ class RoleHoldingOut(BaseModel):
     disabled: bool
     user_ids: list[uuid.UUID]
     group_ids: list[uuid.UUID]
+    from_record: bool = Field(
+        default=False,
+        description="Held by the record's own field (a change's requester or owner): set there.",
+    )
 
 
 class RolesOut(BaseModel):
@@ -1814,6 +1818,7 @@ class RolesOut(BaseModel):
                     disabled=r.definition.disabled_at is not None,
                     user_ids=list(r.user_ids),
                     group_ids=list(r.group_ids),
+                    from_record=r.from_record,
                 )
                 for r in view.roles
             ],

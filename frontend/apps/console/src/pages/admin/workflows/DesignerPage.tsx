@@ -28,6 +28,7 @@ import {
   canUndo,
   fromGraph,
   readDefinition,
+  readVariables,
   record,
   redo,
   startHistory,
@@ -38,6 +39,7 @@ import {
   type Connection,
   type EdgeChange,
   type FlowDefinition,
+  type WorkflowVariable,
   type History,
   type NodeChange,
   type WorkflowEdge,
@@ -63,12 +65,15 @@ import { NodeView } from './NodeView';
 import { DRAG_TYPE, Palette } from './Palette';
 import { LinkDetails, NodeDetails, Outline, type NodeProblem } from './SidePanels';
 import { TestPanel, type TestHighlight } from './TestPanel';
+import { VariablesPanel } from './VariablesPanel';
 import { VersionsPanel } from './Versions';
 import { WorkflowState } from './WorkflowsPage';
 
 interface Graph {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
+  // The workflow's own variables: edited beside the steps, undone with them (QA F-05).
+  variables: WorkflowVariable[];
 }
 
 const NODE_TYPES = { workflow: NodeView };
@@ -138,8 +143,10 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
   );
   const saved = useMemo(() => readDefinition(workflow.draft), [workflow.draft]);
   const graphOf = useCallback(
-    (definition: FlowDefinition): Graph =>
-      toGraph(definition, { ports: (n) => staticPorts(n.type), rtl }),
+    (definition: FlowDefinition): Graph => ({
+      ...toGraph(definition, { ports: (n) => staticPorts(n.type), rtl }),
+      variables: readVariables(definition.variables),
+    }),
     [rtl, staticPorts],
   );
   const [history, setHistory] = useState<History<Graph>>(() => startHistory(graphOf(saved)));
@@ -149,7 +156,10 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
   const [stale, setStale] = useState(false);
   const [highlight, setHighlight] = useState<TestHighlight | null>(null);
   const definitionOf = useCallback(
-    (graph: Graph) => fromGraph(saved, graph.nodes, graph.edges, { rtl }),
+    (graph: Graph) => ({
+      ...fromGraph(saved, graph.nodes, graph.edges, { rtl }),
+      variables: graph.variables.map((v) => ({ name: v.name, kind: v.kind })),
+    }),
     [saved, rtl],
   );
   const dirty = JSON.stringify(definitionOf(live)) !== JSON.stringify(saved);
@@ -208,6 +218,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
   }, [problems]);
   const shown: Graph = useMemo(
     () => ({
+      ...live,
       nodes: live.nodes.map((n) => ({
         ...n,
         selected: selected?.kind === 'node' && selected.id === n.id,
@@ -286,6 +297,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
   };
   const removeNode = (id: string) => {
     commit({
+      ...live,
       nodes: live.nodes.filter((n) => n.id !== id),
       edges: live.edges.filter((e) => e.source !== id && e.target !== id),
     });
@@ -306,6 +318,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
     if (removed.has('start')) return; // the start stays: a workflow always has one
     const nodes = applyNodeChanges(kept, live.nodes);
     const next = {
+      ...live,
       nodes,
       edges:
         removed.size === 0
@@ -421,6 +434,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
             key={`${selectedNode.id}:${JSON.stringify(selectedNode.data.config)}`}
             node={selectedNode}
             recordType={workflow.record_type}
+            variables={live.variables}
             problems={nodeProblems.get(selectedNode.id) ?? []}
             readOnly={readOnly}
             onConfig={(config) => {
@@ -460,6 +474,19 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
           onSelect={(id) => {
             setSelected({ kind: 'node', id });
             setTab('details');
+          }}
+        />
+      ),
+    },
+    {
+      key: 'variables',
+      label: t('workflows.variables.tab'),
+      children: (
+        <VariablesPanel
+          variables={live.variables}
+          readOnly={readOnly}
+          onChange={(variables) => {
+            commit({ ...live, variables });
           }}
         />
       ),

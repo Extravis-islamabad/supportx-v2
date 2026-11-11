@@ -1,5 +1,5 @@
 import { Button, Form, Input, Tag, Typography } from 'antd';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import {
@@ -33,6 +33,7 @@ import {
   useLicence,
 } from '@supportx/ui';
 
+import { useFormKey } from '../formKey';
 import { UserPicker } from '../incidents/pickers';
 import { pickedOf } from '../assets/raise';
 import { AssetPickerField } from '../incidents/RecordAssets';
@@ -60,7 +61,7 @@ export function NewRequestPage() {
   const item = useCatalogItem(itemId);
   const me = useSession().data?.user.id ?? null;
   const raise = useRaiseServiceRequest();
-  const key = useMemo(() => crypto.randomUUID(), []);
+  const { key, done } = useFormKey('new-request'); // QA-2026-11-11 F-01: kept across a remount
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('');
   // Raised from an asset (REQ-AST-045): `?asset=` and `?requester=` (its holder) fill the form
@@ -193,8 +194,8 @@ export function NewRequestPage() {
   const onBehalf = requester !== null && requester !== me;
   const send = () => {
     if (!ready) return;
-    raise.mutate(
-      {
+    raise
+      .mutateAsync({
         key,
         body: {
           subject: subject.trim(),
@@ -204,12 +205,10 @@ export function NewRequestPage() {
           confirm_lose_access: false,
           ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
         },
-      },
-      {
-        onSuccess: (made) => void navigate(`/requests/${made.id}`, { replace: true }),
-        onError: reportError,
-      },
-    );
+      })
+      .then((made) => {
+        done(`/requests/${made.id}`, { replace: true });
+      }, reportError);
   };
   return (
     // Template B (D-147, Haider 2026-11-10): the item's context, the request, its questions;
