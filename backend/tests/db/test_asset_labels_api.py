@@ -219,3 +219,38 @@ async def test_label_tables_are_isolated_by_rls(
                 {"t": a.tenant, "i": uuid.uuid4(), "j": job_id},
             )
     assert (await world.call("GET", f"{BASE}/prints", b, b.admin)).json() == []
+
+
+async def test_view_only_people_may_select_to_print_but_every_other_bulk_action_is_refused(
+    printing: tuple[World, MemoryStorage, FakeRenderer],
+) -> None:
+    """The asset list's selection is offered with assets.view (to print labels); moving many,
+    adding to a group and making loanable still need assets.manage, on the server."""
+    world, _, _ = printing
+    a = world.a
+    assets = [await _asset(world, a, f"Picked {n}") for n in range(2)]
+    ids = [x["id"] for x in assets]
+    group = await world.call(
+        "POST",
+        "/assets/groups",
+        a,
+        a.admin,
+        headers=_new(),
+        json={"name": "Picked", "kind": "static"},
+    )
+    assert group.status_code == 201, group.text
+    states = (await world.call("GET", "/assets/states", a, a.admin)).json()
+    in_use = next(s["id"] for s in states if s["code"] == "in_use")
+    viewer = a.tech_a  # D-153: a technician only views assets
+    assert (await _print(world, a, viewer, asset_ids=ids)).status_code == 202  # print: yes
+    for method, path, body in (
+        ("POST", "/assets/bulk-moves", {
+            "items": [{"asset_id": x["id"], "version": x["version"]} for x in assets],
+            "to_state_id": in_use,
+        }),
+        ("POST", f"/assets/groups/{group.json()['id']}/members", {"asset_ids": ids}),
+        ("POST", "/assets/loanable", {"asset_ids": ids, "loanable": True}),
+    ):  # fmt: skip
+        refused = await world.call(method, path, a, viewer, json=body, headers=_new())
+        assert problem(refused) == (403, "permission_denied"), path
+        assert refused.json()["params"]["permission"] == "assets.manage"

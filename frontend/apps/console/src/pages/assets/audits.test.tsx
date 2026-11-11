@@ -63,6 +63,7 @@ const wrong: AssetAuditItem = {
   marked_at: '2026-11-10T09:00:00Z',
   seen_site_id: SITE_B,
   note: null,
+  dispute_comment: null,
   fix: null,
   fixed_at: null,
   discrepancy: true,
@@ -89,7 +90,7 @@ const sites = [
 
 function api(roles: string[], routes = {}) {
   return consoleApi({
-    me: fakeSession({ roles, user: { id: ME } }),
+    me: fakeSession({ roles, id: ME }),
     routes: {
       'GET /api/v1/assets/audits': { body: [audit] },
       [`GET /api/v1/assets/audits/${audit.id}`]: { body: audit, headers: { ETag: '"2"' } },
@@ -211,6 +212,26 @@ describe('asset audits (REQ-AST-042, 043)', () => {
     expect(sent?.body).toMatchObject({ fix: 'move_site', item_ids: ['item-1'], site_id: SITE_B });
   });
 
+  it("a holder's dispute shows with their comment: missing because disputed", async () => {
+    window.history.pushState({}, '', `/assets/audits/${audit.id}`);
+    const disputed = {
+      ...open,
+      result: 'missing' as const,
+      method: 'manual' as const,
+      marked_at: '2026-11-10T10:00:00Z',
+      dispute_comment: 'Returned it to IT last month',
+      discrepancy: true,
+    };
+    const fake = api(['tenant_admin'], {
+      [`GET /api/v1/assets/audits/${audit.id}/items`]: { body: [disputed] },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect((await screen.findByTestId('audit-dispute-item-2')).textContent).toBe(
+      'Disputed by the holder: Returned it to IT last month',
+    );
+  });
+
   it('a closed audit is read-only: no marking, no scanning, no fixes', async () => {
     window.history.pushState({}, '', `/assets/audits/${audit.id}`);
     const closed = {
@@ -314,7 +335,7 @@ const scans: AssetScan[] = [
 
 function assetApi(roles: string[], routes = {}) {
   return consoleApi({
-    me: fakeSession({ roles, user: { id: ME } }),
+    me: fakeSession({ roles, id: ME }),
     routes: {
       [`GET /api/v1/assets/${asset.id}`]: { body: asset, headers: { ETag: '"3"' } },
       [`GET /api/v1/assets/${asset.id}/history`]: {
@@ -446,6 +467,7 @@ describe('the overdue-scan rule (056)', () => {
         'GET /api/v1/assets/stock-rules': { body: [] },
         'GET /api/v1/assets/overdue-rule': { body: rule },
         'GET /api/v1/assets/overdue-rule/runs': { body: [] },
+        'GET /api/v1/assets/overdue-rule/states': { body: { state_ids: [] } },
         'POST /api/v1/assets/overdue-rule/preview': { body: { count: 3 } },
         'PATCH /api/v1/assets/overdue-rule': {
           body: { ...rule, action: 'trash', enabled: true, version: 2 },
