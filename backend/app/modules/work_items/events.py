@@ -7,6 +7,7 @@ from a viewer's audience as well as add it where it arrived.
 """
 
 import uuid
+from datetime import datetime
 from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
@@ -436,6 +437,26 @@ class ChangeApprovalNotice(DomainEvent):
     board_id: uuid.UUID | None
 
 
+class ChangeReminderDue(DomainEvent):
+    """A change's reminder is due (WP-045d S3; REQ-CHG-091, -105), claimed once by the sweep.
+
+    `kind`: `window_start` (an hour before the implementation window), `implementation_overdue`
+    (the window ended with implementation not complete), `cab_waiting` (it starts within a day
+    and `member_id` has not decided) or `review_due`. `window_start` is the window it was
+    claimed for: the source re-reads the change at send time and says nothing if the window
+    moved meanwhile (lane B). IDs and times only.
+    """
+
+    event_type: ClassVar[str] = "work_items.change.reminder_due"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    kind: str
+    window_start: datetime | None = None
+    member_id: uuid.UUID | None = None
+
+
 class ProblemRepeatDetected(DomainEvent):
     """A repeat incident rule found a new set (WP-044c D16, REQ-PRB-068): the group is told.
 
@@ -510,6 +531,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     ChangeBoardChanged,
     ChangeWindowChanged,
     ChangeApprovalNotice,
+    ChangeReminderDue,
     ProblemRepeatDetected,
     ProblemRepeatChanged,
 )
