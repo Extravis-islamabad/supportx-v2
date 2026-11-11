@@ -1,8 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { DownOutlined, SwapOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  DownOutlined,
+  PrinterOutlined,
+  SwapOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import { Button, Card, Dropdown, Flex, Result, Skeleton, Space, Tabs, Typography } from 'antd';
 import { useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   changeKeys,
@@ -84,6 +89,7 @@ type Tab = (typeof TABS)[number];
 export function ChangePage() {
   const t = useLabel();
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const asked = params.get('tab');
   const tab: Tab = TABS.includes(asked as Tab) ? (asked as Tab) : 'details';
@@ -212,6 +218,14 @@ export function ChangePage() {
           </Button>
         </Dropdown>
       )}
+      {/* The CAB pack (REQ-CHG-102): a printable page for the board, saved as PDF by the browser. */}
+      <Button
+        icon={<PrinterOutlined aria-hidden />}
+        onClick={() => void navigate(`/changes/${c.id}/pack`)}
+        data-testid="change-pack-link"
+      >
+        {t('changes.pack.open')}
+      </Button>
     </Flex>
   );
   // The tabs this person sees; an address naming one they don't (a tab gated on a permission)

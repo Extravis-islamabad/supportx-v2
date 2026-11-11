@@ -493,6 +493,18 @@ export const ur: LabelResource = {
   'changes.override.title': 'ہنگامی اوور رائیڈ',
   'changes.override.warning':
     'تبدیلی نئی منظوری کے بغیر وہیں واپس جاتی ہے جہاں تھی۔ یہ آپ کی وجہ کے ساتھ درج ہوتا ہے، اور عمل درآمد کے بعد کا جائزہ لازمی ہو جاتا ہے۔',
+  'changes.pack.back': 'تبدیلی پر واپس',
+  'changes.pack.impact': 'اثر اور بندش',
+  'changes.pack.no_approvals': 'ابھی کوئی منظوری نہیں۔',
+  'changes.pack.no_schedule': 'ابھی کوئی شیڈول نہیں۔',
+  'changes.pack.not_set': 'طے نہیں',
+  'changes.pack.open': 'بورڈ فائل',
+  'changes.pack.print': 'پرنٹ کریں یا PDF محفوظ کریں',
+  'changes.pack.printed': 'تیار کردہ {{at}}',
+  'changes.pack.risk': 'خطرہ',
+  'changes.pack.risk_reason': 'خطرہ ہاتھ سے طے کیا گیا: {{reason}}',
+  'changes.pack.summary': 'خلاصہ',
+  'changes.pack.title': 'تبدیلی بورڈ کی فائل',
   'changes.properties': 'تبدیلی',
   'changes.raised_from':
     'کسی دوسرے ریکارڈ سے بنائی گئی: اس کی تفصیلات بھر دی گئی ہیں اور دونوں جوڑ دیے جائیں گے۔',

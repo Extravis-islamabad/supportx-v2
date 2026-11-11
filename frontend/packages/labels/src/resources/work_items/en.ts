@@ -493,6 +493,18 @@ export const en = {
   'changes.override.title': 'Emergency override',
   'changes.override.warning':
     'The change goes back to where it was without the new approval. This is recorded with your reason, and the post-implementation review becomes mandatory.',
+  'changes.pack.back': 'Back to the change',
+  'changes.pack.impact': 'Impact and downtime',
+  'changes.pack.no_approvals': 'No approvals yet.',
+  'changes.pack.no_schedule': 'No schedule yet.',
+  'changes.pack.not_set': 'Not set',
+  'changes.pack.open': 'CAB pack',
+  'changes.pack.print': 'Print or save as PDF',
+  'changes.pack.printed': 'Prepared {{at}}',
+  'changes.pack.risk': 'Risk',
+  'changes.pack.risk_reason': 'Risk set by hand: {{reason}}',
+  'changes.pack.summary': 'Summary',
+  'changes.pack.title': 'CAB pack',
   'changes.properties': 'Change',
   'changes.raised_from':
     'Raised from another record: its details are filled in and the two will be linked.',
