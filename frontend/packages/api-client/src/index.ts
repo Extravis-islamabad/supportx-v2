@@ -1061,6 +1061,7 @@ export {
   useAssetOverdueRule,
   useAssetOverdueRuleActions,
   useAssetOverdueRuns,
+  useAssetOverdueStates,
   useAssetScans,
   type AssetAudit,
   type AssetAuditFix,

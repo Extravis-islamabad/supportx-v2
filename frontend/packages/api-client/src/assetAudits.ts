@@ -286,6 +286,20 @@ export function useAssetOverdueRuns(enabled = true) {
   });
 }
 
+/** The states the rule may move these product types' assets to (their life cycles reach). */
+export function useAssetOverdueStates(productTypeIds: string[], enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.overdueStates(productTypeIds),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/overdue-rule/states', {
+          params: { query: { product_type_ids: productTypeIds } },
+        }),
+      ),
+    enabled,
+  });
+}
+
 /** Preview and save the rule (If-Match). */
 export function useAssetOverdueRuleActions() {
   const queryClient = useQueryClient();

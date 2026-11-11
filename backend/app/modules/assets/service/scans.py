@@ -14,8 +14,12 @@
   chosen state or to the trash (restorable, never deleted). Assets never scanned and disposed
   assets are left alone. Saving shows how many assets it affects now (AC2). It runs from a
   scheduled job per tenant; each run that changes something is recorded with what it changed
-  and each asset's history names the rule (AC1). Moves bypass the life cycle: the rule is the
-  admin's own decision, and its history entry says so.
+  and each asset's history names the rule (AC1). Moves follow the life cycle (the
+  coordinator, 2026-11-11): the rule accepts only a state some life cycle of its product types
+  can reach, and an asset whose own state has no move there (or whose move needs a permission
+  or fields it lacks) is skipped, never forced, and listed in the run with its reason. A state's
+  "reason required" is met by the rule itself, which its history names. The trash stays
+  allowed (restorable).
 """
 
 import uuid
@@ -51,6 +55,8 @@ from app.modules.assets.domain.scans import (
 from app.modules.assets.events import OverdueRuleChanged, ScanRecorded
 from app.modules.assets.infra.models import (
     Asset,
+    AssetLifeCycle,
+    AssetLifeCycleTransition,
     AssetOverdueRule,
     AssetOverdueRun,
     AssetProductType,
@@ -69,6 +75,7 @@ from app.modules.assets.service.assets import (
     _visible,
 )
 from app.modules.assets.service.catalogue import SETTINGS_RECORD, _fresh, require_configure
+from app.modules.assets.service.moves import _life_cycle_id, _missing, _moves
 from app.modules.audit import WORKER, AuditActorType, record
 from app.modules.identity_access import Subject
 from app.shared.clock import system_clock
@@ -287,6 +294,44 @@ async def _overdue(session: AsyncSession, terms: RuleTerms, now: datetime) -> Se
     return statement
 
 
+async def _reachable(session: AsyncSession, type_ids: Sequence[uuid.UUID]) -> set[uuid.UUID]:
+    """States some life cycle of these product types (all life cycles when none) moves into."""
+    if type_ids:
+        cycles = {
+            c
+            for t in await _type_tree(session, type_ids)
+            if (c := await _life_cycle_id(session, t)) is not None
+        }
+    else:
+        cycles = set(
+            await session.scalars(
+                select(AssetLifeCycle.id).where(AssetLifeCycle.deleted_at.is_(None))
+            )
+        )
+    if not cycles:
+        return set()
+    return set(
+        await session.scalars(
+            select(AssetLifeCycleTransition.to_state_id).where(
+                AssetLifeCycleTransition.life_cycle_id.in_(cycles)
+            )
+        )
+    )
+
+
+async def target_states(
+    session: AsyncSession, subject: Subject, type_ids: Sequence[uuid.UUID]
+) -> list[uuid.UUID]:
+    """The states the rule may move these product types' assets to (the settings' choices)."""
+    require_configure(subject)
+    disposed = set(
+        await session.scalars(
+            select(AssetState.id).where(AssetState.category == AssetStateCategory.DISPOSED)
+        )
+    )
+    return sorted((await _reachable(session, type_ids)) - disposed)
+
+
 async def _terms(
     session: AsyncSession, values: Mapping[str, Any], row: AssetOverdueRule
 ) -> RuleTerms:
@@ -313,6 +358,9 @@ async def _terms(
             problems.append(Problem("state_id", "asset_state_not_found"))
         elif found.category == AssetStateCategory.DISPOSED:
             problems.append(Problem("state_id", "value_not_allowed"))
+        elif action is OverdueAction.MOVE_STATE and state not in await _reachable(session, types):
+            # No life cycle of these types moves an asset there: never forced (the coordinator).
+            problems.append(Problem("state_id", "asset_overdue_state_unreachable"))
     if types:
         known = set(
             await session.scalars(
@@ -426,6 +474,23 @@ async def _act(session: AsyncSession, row: Asset, terms: RuleTerms) -> dict[str,
         )  # fmt: skip
         return {"asset_id": str(row.id), "action": "trash", "from_state_id": str(before_state)}
     assert terms.state_id is not None  # noqa: S101 - rule_problems refused it otherwise
+    move = {m.to_state_id: m for m in await _moves(session, row)}.get(terms.state_id)
+    why = (
+        "transition_not_allowed"
+        if move is None
+        else "permission_required"
+        if move.permission is not None
+        else "fields_required"
+        if _missing(row, tuple(move.required_fields or ()))
+        else None
+    )
+    if why is not None:  # its own state has no move there it may make: skipped, never forced
+        return {
+            "asset_id": str(row.id),
+            "action": "skipped",
+            "reason": why,
+            "from_state_id": str(before_state),
+        }
     target = await session.get(AssetState, terms.state_id)
     before = await session.get(AssetState, before_state)
     kind = await session.get(AssetProductType, row.product_type_id)
@@ -447,6 +512,15 @@ async def _act(session: AsyncSession, row: Asset, terms: RuleTerms) -> dict[str,
         "from_state_id": str(before_state),
         "to_state_id": str(target.id),
     }
+
+
+async def _skipped_last_time(session: AsyncSession) -> set[str | None]:
+    last = await session.scalar(
+        select(AssetOverdueRun).order_by(AssetOverdueRun.ran_at.desc()).limit(1)
+    )
+    if last is None:
+        return set()
+    return {c.get("asset_id") for c in last.changed if c.get("action") == "skipped"}
 
 
 async def run_rule(session: AsyncSession, *, now: datetime | None = None) -> AssetOverdueRun | None:
@@ -474,8 +548,10 @@ async def run_rule(session: AsyncSession, *, now: datetime | None = None) -> Ass
                     changed.append(await _act(session, row, terms))
         except AppError as error:  # e.g. the plan's asset limit: left for the next run
             log.warning("asset_overdue_skipped", asset_id=str(row.id), code=error.code)
-    if not changed:
-        return None
+    applied = [c for c in changed if c["action"] != "skipped"]
+    skipped = {c["asset_id"] for c in changed if c["action"] == "skipped"}
+    if not applied and skipped <= await _skipped_last_time(session):
+        return None  # nothing new: an asset skipped before is not listed again every hour
     run = AssetOverdueRun(
         id=new_id(),
         tenant_id=rule.tenant_id,
@@ -483,7 +559,7 @@ async def run_rule(session: AsyncSession, *, now: datetime | None = None) -> Ass
         days=rule.days,
         action=rule.action,
         state_id=rule.state_id,
-        changed_count=len(changed),
+        changed_count=len(applied),
         changed=changed,
     )
     session.add(run)
@@ -495,11 +571,16 @@ async def run_rule(session: AsyncSession, *, now: datetime | None = None) -> Ass
         actor=(AuditActorType.AUTOMATION, None),
         object_type="asset_overdue_run",
         object_id=run.id,
-        details={"changed": len(changed), "action": rule.action, "days": rule.days},
+        details={
+            "changed": len(applied),
+            "skipped": len(skipped),
+            "action": rule.action,
+            "days": rule.days,
+        },
     )
     await record_event(
         session,
-        OverdueRuleChanged(action="ran", run_id=run.id, changed_count=len(changed)),
+        OverdueRuleChanged(action="ran", run_id=run.id, changed_count=len(applied)),
         aggregate_id=run.id,
     )
     return run

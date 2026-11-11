@@ -16,6 +16,7 @@ import {
   useAssetOverdueRule,
   useAssetOverdueRuleActions,
   useAssetOverdueRuns,
+  useAssetOverdueStates,
   useAssetProductTypes,
   useAssetStates,
   type AssetOverdueRule,
@@ -87,6 +88,27 @@ function Runs() {
           title: t('assets.overdue.changed'),
           render: (_, run) => t('assets.overdue.changed_count', { count: run.changed_count }),
         },
+        {
+          // Never forced (the life cycle): each skipped asset is kept in the run with why.
+          key: 'skipped',
+          title: t('assets.overdue.skipped'),
+          render: (_, run) => {
+            const skipped = run.changed.filter((c) => c.action === 'skipped');
+            const reasons = [...new Set(skipped.map((c) => c.reason ?? 'transition_not_allowed'))];
+            return skipped.length === 0 ? (
+              ''
+            ) : (
+              <Flex vertical gap={0} data-testid={`asset-overdue-skipped-${run.id}`}>
+                {t('assets.overdue.skipped_count', { count: skipped.length })}
+                {reasons.map((r) => (
+                  <Typography.Text key={r} type="secondary">
+                    {t(`asset_overdue_skip.${r}`)}
+                  </Typography.Text>
+                ))}
+              </Flex>
+            );
+          },
+        },
       ]}
     />
   );
@@ -103,9 +125,11 @@ export function OverdueRuleCard() {
   const [draft, setDraft] = useState<Draft>();
   const [count, setCount] = useState<number>();
   const tree = useMemo(() => typeTree(types.data ?? []), [types.data]);
-  if (rule.data === undefined) return null;
+  const current = draft ?? (rule.data === undefined ? undefined : draftOf(rule.data));
+  // Only the states the life cycle of the chosen types reaches (the server refuses others).
+  const reachable = useAssetOverdueStates(current?.product_type_ids ?? [], current !== undefined);
+  if (rule.data === undefined || current === undefined) return null;
   const saved = rule.data;
-  const current = draft ?? draftOf(saved);
   const set = (patch: Partial<Draft>) => {
     setDraft({ ...current, ...patch });
     setCount(undefined);
@@ -149,6 +173,9 @@ export function OverdueRuleCard() {
       <Flex vertical gap={16} style={{ maxWidth: 640 }}>
         <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
           {t('assets.overdue.help')}
+        </Typography.Paragraph>
+        <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+          {t('assets.overdue.lifecycle_note')}
         </Typography.Paragraph>
         <FormProblem problem={problem} />
         <Form layout="vertical">
@@ -210,7 +237,7 @@ export function OverdueRuleCard() {
                   set({ state_id: state });
                 }}
                 options={(states.data ?? [])
-                  .filter((s) => s.category !== 'disposed')
+                  .filter((s) => reachable.data?.state_ids.includes(s.id) === true)
                   .map((s) => ({ value: s.id, label: nameOf(s.names, locale) }))}
                 data-testid="asset-overdue-state"
               />

@@ -262,6 +262,8 @@ export const en = {
     "An asset can't be fitted to itself or to one of its own parts.",
   'errors.field.asset_not_batch_tracked': 'This consumable is not tracked in batches.',
   'errors.field.asset_not_found': 'This asset does not exist or you may not see it.',
+  'errors.field.asset_overdue_state_unreachable':
+    'No life cycle of these product types moves an asset to this state. Choose one it can reach.',
   'errors.field.asset_product_not_consumable': 'Choose a product of a consumable type.',
   'errors.field.asset_product_not_found': 'This product no longer exists.',
   'errors.field.asset_product_type_cycle':

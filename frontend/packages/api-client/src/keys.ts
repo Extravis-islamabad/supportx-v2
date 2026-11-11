@@ -119,6 +119,7 @@ export const queryKeys = {
     scans: (id: string) => ['assets', 'scans', id] as const,
     overdueRule: ['assets', 'overdue-rule'] as const,
     overdueRuns: ['assets', 'overdue-runs'] as const,
+    overdueStates: (typeIds: string[]) => ['assets', 'overdue-states', typeIds] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here

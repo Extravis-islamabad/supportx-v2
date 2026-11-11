@@ -22,7 +22,7 @@ from tests.db.test_asset_audits_api import _asset
 from tests.db.test_asset_financials_api import _events, _fresh
 from tests.db.test_asset_moves_api import _states
 from tests.db.test_assets_api import _types
-from tests.db.test_incidents_api import Org, World, problem
+from tests.db.test_incidents_api import Org, World, field_codes, problem
 from tests.db.test_knowledge_api import _match, _new
 
 pytestmark = pytest.mark.db
@@ -241,3 +241,51 @@ async def test_scan_and_rule_tables_are_isolated_by_rls(world: World) -> None:
             async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
                 await session.execute(text(statement))
     assert (await _rule(world, b))["enabled"] is False
+
+
+async def test_056_the_rule_follows_the_life_cycle_and_never_forces_a_move(world: World) -> None:
+    """A target no life cycle reaches is refused; an asset whose state has no move there is
+    skipped, listed with its reason, and keeps its state (the coordinator, 2026-11-11)."""
+    a = world.a
+    states = await _states(world, a)
+    made = await world.call(
+        "POST", "/assets/states", a, a.admin, headers=_new(),
+        json={"code": "with_courier", "names": {"en": "With courier"}, "category": "in_use"},
+    )  # fmt: skip
+    assert made.status_code == 201, made.text
+    rule = await _rule(world, a)
+    offered = (await world.call("GET", f"{RULE}/states", a, a.admin)).json()["state_ids"]
+    assert states["missing"] in offered
+    assert made.json()["id"] not in offered
+    assert states["disposed"] not in offered
+    refused = await world.call(
+        "PATCH", RULE, a, a.admin, headers=_match(rule["version"]),
+        json={"enabled": True, "days": 60, "action": "move_state", "state_id": made.json()["id"]},
+    )  # fmt: skip
+    assert refused.status_code == 422
+    assert field_codes(refused) == {"state_id": "asset_overdue_state_unreachable"}
+    # In repair has no move to missing: that asset is skipped, the one in stock is moved.
+    stuck = await _asset(world, a, "In the workshop")
+    moved = await world.call(
+        "POST", f"/assets/{stuck['id']}/move", a, a.admin, headers=_match(stuck["version"]),
+        json={"to_state_id": states["in_repair"], "reason": "Fan replaced"},
+    )  # fmt: skip
+    assert moved.status_code == 200, moved.text
+    free = await _asset(world, a, "On the shelf")
+    for asset in (stuck, free):
+        await _scan(a, world, asset, 61)
+    saved = await world.call(
+        "PATCH", RULE, a, a.admin, headers=_match(rule["version"]),
+        json={"enabled": True, "days": 60, "action": "move_state", "state_id": states["missing"]},
+    )  # fmt: skip
+    assert saved.status_code == 200, saved.text
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        run = await scans.run_rule(session)
+        assert run is not None
+        assert run.changed_count == 1
+        assert {"asset_id": stuck["id"], "action": "skipped", "reason": "transition_not_allowed",
+                "from_state_id": states["in_repair"]} in run.changed  # fmt: skip
+    assert (await _fresh(world, a, stuck))["state_id"] == states["in_repair"]  # never forced
+    assert (await _fresh(world, a, free))["state_id"] == states["missing"]
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await scans.run_rule(session) is None  # skipped before: not listed every hour

@@ -238,6 +238,8 @@ export const ar: LabelResource = {
   'errors.field.asset_nested_in_itself': 'لا يمكن تركيب أصل على نفسه أو على أحد أجزائه.',
   'errors.field.asset_not_batch_tracked': 'هذا المستهلك لا يُتتبَّع بالدفعات.',
   'errors.field.asset_not_found': 'هذا الأصل غير موجود أو لا يمكنك رؤيته.',
+  'errors.field.asset_overdue_state_unreachable':
+    'لا تنقل أي دورة حياة لأنواع المنتجات هذه أصلًا إلى هذه الحالة. اختر حالة يمكن الوصول إليها.',
   'errors.field.asset_product_not_consumable': 'اختر منتجًا من نوع مستهلك.',
   'errors.field.asset_product_not_found': 'لم يعد هذا المنتج موجودًا.',
   'errors.field.asset_product_type_cycle':

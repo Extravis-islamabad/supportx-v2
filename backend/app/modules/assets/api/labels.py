@@ -350,7 +350,10 @@ async def get_overdue_rule(
 @router.patch(
     "/overdue-rule",
     summary="Change the overdue-scan rule",
-    responses={409: {"model": ProblemDetail, "description": "version_conflict"}},
+    responses={
+        409: {"model": ProblemDetail, "description": "version_conflict"},
+        422: {"model": ProblemDetail, "description": "asset_overdue_state_unreachable"},
+    },
     dependencies=[audited("asset_overdue_rule.changed", object_type="asset_overdue_rule")],
 )
 async def patch_overdue_rule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -367,6 +370,26 @@ async def patch_overdue_rule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     )
     set_etag(response, row.version)
     return OverdueRuleOut.of(row)
+
+
+class OverdueStatesOut(BaseModel):
+    """The states the rule may move to: those a life cycle of the product types reaches."""
+
+    state_ids: list[uuid.UUID]
+
+
+@router.get("/overdue-rule/states", summary="States the overdue-scan rule may move to")
+async def overdue_rule_states(
+    session: TenantSession,
+    subject: Configure,
+    product_type_ids: Annotated[
+        list[uuid.UUID] | None, Query(max_length=100, description="The rule's product types.")
+    ] = None,
+) -> OverdueStatesOut:
+    """Only states the asset life cycle allows (never disposed); the settings offer these."""
+    return OverdueStatesOut(
+        state_ids=await scans.target_states(session, subject, product_type_ids or [])
+    )
 
 
 class OverduePreviewOut(BaseModel):

@@ -88,6 +88,10 @@ export const ur: LabelResource = {
   'asset_movement_kind.return': 'واپس آیا',
   'asset_overdue_action.move_state': 'کسی حالت میں منتقل کریں',
   'asset_overdue_action.trash': 'کوڑے دان میں منتقل کریں (واپس لایا جا سکتا ہے)',
+  'asset_overdue_skip.fields_required': 'چھوڑ دیا: منتقلی کو ایسی تفصیلات چاہییں جو اثاثے میں نہیں',
+  'asset_overdue_skip.permission_required': 'چھوڑ دیا: منتقلی کے لیے اجازت درکار ہے',
+  'asset_overdue_skip.transition_not_allowed':
+    'چھوڑ دیا: اس کا لائف سائیکل اس حالت سے وہاں منتقلی کی اجازت نہیں دیتا',
   'asset_recipient_kind.asset': 'اثاثہ',
   'asset_recipient_kind.department': 'شعبہ',
   'asset_recipient_kind.user': 'فرد',
@@ -245,6 +249,7 @@ export const ur: LabelResource = {
   'assets.audits.closed_read_only': 'یہ آڈٹ بند ہے: اب بدلا نہیں جا سکتا۔',
   'assets.audits.description': 'تفصیل',
   'assets.audits.discrepancies': 'فرق',
+  'assets.audits.disputed': 'رکھنے والے نے اعتراض کیا: {{comment}}',
   'assets.audits.draft_note':
     'دائرے کے اثاثوں کی فہرست کے لیے آڈٹ شروع کریں۔ تب تک اس کا منصوبہ بدل سکتا ہے۔',
   'assets.audits.edit': 'آڈٹ میں ترمیم',
@@ -556,11 +561,16 @@ export const ur: LabelResource = {
   'assets.overdue.enabled': 'دیر سے اسکین نہ ہونے والے اثاثوں پر کارروائی کریں',
   'assets.overdue.help':
     'پہلے سے بند۔ کبھی اسکین نہ ہونے والے اور تلف شدہ اثاثے چھوڑ دیے جاتے ہیں۔ سب سے سخت کارروائی کوڑے دان ہے، جہاں سے اثاثہ واپس لایا جا سکتا ہے۔',
+  'assets.overdue.lifecycle_note':
+    'صرف وہ حالتیں دکھائی جاتی ہیں جہاں اثاثے کا لائف سائیکل پہنچتا ہے؛ جس اثاثے کی حالت سے وہاں منتقلی نہ ہو اسے وجہ کے ساتھ چھوڑ کر درج کیا جاتا ہے۔',
   'assets.overdue.no_runs': 'اصول نے ابھی کچھ نہیں بدلا۔',
   'assets.overdue.preview_count_one': 'اسی طرح محفوظ کرنے پر ابھی 1 اثاثہ بدلے گا۔',
   'assets.overdue.preview_count_other': 'اسی طرح محفوظ کرنے پر ابھی {{count}} اثاثے بدلیں گے۔',
   'assets.overdue.ran_at': 'چلا',
   'assets.overdue.runs': 'اصول نے کیا بدلا',
+  'assets.overdue.skipped': 'چھوڑ دیے',
+  'assets.overdue.skipped_count_one': '1 اثاثہ',
+  'assets.overdue.skipped_count_other': '{{count}} اثاثے',
   'assets.overdue.state': 'اس حالت میں منتقل کریں',
   'assets.overdue.state_first': 'پہلے وہ حالت چنیں جس میں منتقل کرنا ہے۔',
   'assets.overdue.title': 'دیر سے اسکین نہ ہونے والے اثاثے',

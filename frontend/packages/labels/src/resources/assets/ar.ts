@@ -88,6 +88,10 @@ export const ar: LabelResource = {
   'asset_movement_kind.return': 'أُعيد',
   'asset_overdue_action.move_state': 'نقل إلى حالة',
   'asset_overdue_action.trash': 'نقل إلى سلة المحذوفات (يمكن استعادته)',
+  'asset_overdue_skip.fields_required': 'تُخطّي: يحتاج النقل إلى تفاصيل لا يملكها الأصل',
+  'asset_overdue_skip.permission_required': 'تُخطّي: يحتاج النقل إلى صلاحية',
+  'asset_overdue_skip.transition_not_allowed':
+    'تُخطّي: لا تسمح دورة حياته بالنقل إلى هناك من حالته',
   'asset_recipient_kind.asset': 'أصل',
   'asset_recipient_kind.department': 'قسم',
   'asset_recipient_kind.user': 'شخص',
@@ -254,6 +258,7 @@ export const ar: LabelResource = {
   'assets.audits.closed_read_only': 'هذا التدقيق مغلق: لا يمكن تغييره بعد الآن.',
   'assets.audits.description': 'الوصف',
   'assets.audits.discrepancies': 'الفروقات',
+  'assets.audits.disputed': 'اعترض عليه الحائز: {{comment}}',
   'assets.audits.draft_note':
     'ابدأ التدقيق لإدراج الأصول ضمن نطاقه. حتى ذلك الحين يمكن تغيير خطته.',
   'assets.audits.edit': 'تعديل التدقيق',
@@ -608,6 +613,8 @@ export const ar: LabelResource = {
   'assets.overdue.enabled': 'اتخذ إجراء بشأن الأصول غير الممسوحة منذ مدة طويلة',
   'assets.overdue.help':
     'معطّل افتراضيًا. تُترك الأصول التي لم تُمسح قط والأصول المُتخلَّص منها. أقوى إجراء هو سلة المحذوفات، ويمكن استعادة الأصل منها.',
+  'assets.overdue.lifecycle_note':
+    'تُعرض فقط الحالات التي تصل إليها دورة حياة الأصل؛ ويُتخطّى الأصل الذي لا يمكن نقله إليها من حالته ويُدرج مع السبب.',
   'assets.overdue.no_runs': 'لم تغيّر القاعدة شيئًا بعد.',
   'assets.overdue.preview_count_few': 'إذا حُفظت هكذا فستغيّر {{count}} أصول الآن.',
   'assets.overdue.preview_count_many': 'إذا حُفظت هكذا فستغيّر {{count}} أصلًا الآن.',
@@ -617,6 +624,13 @@ export const ar: LabelResource = {
   'assets.overdue.preview_count_zero': 'إذا حُفظت هكذا فلن تغيّر أي أصل الآن.',
   'assets.overdue.ran_at': 'شُغّلت',
   'assets.overdue.runs': 'ما غيّرته القاعدة',
+  'assets.overdue.skipped': 'تُخطّي',
+  'assets.overdue.skipped_count_few': '{{count}} أصول',
+  'assets.overdue.skipped_count_many': '{{count}} أصلًا',
+  'assets.overdue.skipped_count_one': 'أصل واحد',
+  'assets.overdue.skipped_count_other': '{{count}} أصل',
+  'assets.overdue.skipped_count_two': 'أصلان',
+  'assets.overdue.skipped_count_zero': 'لا أصول',
   'assets.overdue.state': 'النقل إلى الحالة',
   'assets.overdue.state_first': 'اختر الحالة المراد النقل إليها أولًا.',
   'assets.overdue.title': 'أصول لم تُمسح منذ مدة طويلة',

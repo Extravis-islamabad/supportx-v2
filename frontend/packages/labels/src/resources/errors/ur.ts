@@ -260,6 +260,8 @@ export const ur: LabelResource = {
   'errors.field.asset_nested_in_itself': 'اثاثہ خود پر یا اپنے کسی حصے پر نہیں لگایا جا سکتا۔',
   'errors.field.asset_not_batch_tracked': 'یہ شے بیچ کے ساتھ ٹریک نہیں ہوتی۔',
   'errors.field.asset_not_found': 'یہ اثاثہ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.field.asset_overdue_state_unreachable':
+    'ان پروڈکٹ اقسام کا کوئی لائف سائیکل اثاثے کو اس حالت میں نہیں لاتا۔ ایسی حالت چنیں جہاں پہنچا جا سکے۔',
   'errors.field.asset_product_not_consumable': 'قابلِ صرف قسم کی پروڈکٹ منتخب کریں۔',
   'errors.field.asset_product_not_found': 'یہ پروڈکٹ اب موجود نہیں۔',
   'errors.field.asset_product_type_cycle':

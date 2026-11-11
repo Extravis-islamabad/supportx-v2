@@ -86,6 +86,10 @@ export const en = {
   'asset_movement_kind.return': 'Returned',
   'asset_overdue_action.move_state': 'Move to a state',
   'asset_overdue_action.trash': 'Move to the trash (can be restored)',
+  'asset_overdue_skip.fields_required': 'Skipped: the move needs details the asset lacks',
+  'asset_overdue_skip.permission_required': 'Skipped: the move needs a permission',
+  'asset_overdue_skip.transition_not_allowed':
+    'Skipped: its life cycle has no move there from its state',
   'asset_recipient_kind.asset': 'Asset',
   'asset_recipient_kind.department': 'Department',
   'asset_recipient_kind.user': 'Person',
@@ -241,6 +245,7 @@ export const en = {
   'assets.audits.closed_read_only': 'This audit is closed: it can no longer change.',
   'assets.audits.description': 'Description',
   'assets.audits.discrepancies': 'Discrepancies',
+  'assets.audits.disputed': 'Disputed by the holder: {{comment}}',
   'assets.audits.draft_note':
     'Start the audit to list the assets in its scope. Until then its plan can change.',
   'assets.audits.edit': 'Edit audit',
@@ -553,11 +558,16 @@ export const en = {
   'assets.overdue.enabled': 'Act on assets not scanned for too long',
   'assets.overdue.help':
     'Off by default. Assets never scanned and disposed assets are left alone. The strongest action is the trash, from which an asset can be restored.',
+  'assets.overdue.lifecycle_note':
+    'Only states the asset life cycle reaches are offered; an asset whose state has no move there is skipped and listed with the reason.',
   'assets.overdue.no_runs': 'The rule has not changed anything yet.',
   'assets.overdue.preview_count_one': 'Saved like this, it would change 1 asset now.',
   'assets.overdue.preview_count_other': 'Saved like this, it would change {{count}} assets now.',
   'assets.overdue.ran_at': 'Ran',
   'assets.overdue.runs': 'What the rule changed',
+  'assets.overdue.skipped': 'Skipped',
+  'assets.overdue.skipped_count_one': '1 asset',
+  'assets.overdue.skipped_count_other': '{{count}} assets',
   'assets.overdue.state': 'Move to state',
   'assets.overdue.state_first': 'Choose the state to move them to first.',
   'assets.overdue.title': 'Assets not scanned for too long',
