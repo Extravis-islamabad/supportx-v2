@@ -90,8 +90,11 @@ CONTAINED_IN = (SUB, LinkKind.PART_OF_CHANGE.value, LinkKind.IN_RELEASE.value)
 CHANGE_WOULD_LOOP = "change_would_loop"  # lane A's code and label (WP-045d)
 
 
-async def _holds(session: AsyncSession, outer: uuid.UUID, inner: uuid.UUID) -> bool:
-    """Whether `outer` already holds `inner`, through any chain of holding links (bounded)."""
+async def holds(session: AsyncSession, outer: uuid.UUID, inner: uuid.UUID) -> bool:
+    """Whether `outer` already holds `inner`, through any chain of holding links (bounded).
+
+    Shared with change_links.add_child (lane A, WP-046a S1 PR 2), which refuses the same loops.
+    """
     seen: set[uuid.UUID] = {inner}
     level = [inner]
     for _ in range(MAX_DEPTH):
@@ -111,10 +114,6 @@ async def _holds(session: AsyncSession, outer: uuid.UUID, inner: uuid.UUID) -> b
         level = list(ups - seen)
         seen |= ups
     return False
-
-
-# Public for a change's children (lane A, WP-046a S1 PR 2): the same walk refuses a loop there.
-holds = _holds
 
 
 async def sub_releases(
@@ -355,7 +354,7 @@ async def add_change(  # noqa: PLR0913 - the change and its context, explicit
     await session.get(WorkItem, change.id, with_for_update=True)
     # The change already holds this release (the release is part of it, directly or through
     # its parents or child changes): putting the change in the release would loop (lane A).
-    if await _holds(session, change.id, release.id):
+    if await holds(session, change.id, release.id):
         raise items.field_errors([("change_id", CHANGE_WOULD_LOOP)])
     held = await _open_release_of(session, change.id)
     if held is not None:
