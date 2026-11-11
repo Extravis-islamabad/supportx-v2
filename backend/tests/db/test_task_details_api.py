@@ -333,3 +333,34 @@ async def test_req_inc_040_a_record_template_adds_its_tasks_when_they_match(worl
         "Open a bridge call",
     ]
     assert await tasks_of(priority="p4", priority_reason="Minor") == ["Tell the service owner"]
+
+
+async def test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage(
+    world: World,
+) -> None:
+    """Lane C's ask: a task added from a template on a release is created in its stage."""
+    from tests.db.test_releases_api import REL, a_release  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        f"{REL}/task-templates",
+        a,
+        a.admin,
+        json={"name": f"Deploy {uuid.uuid4().hex[:6]}", "tasks": [{"title": "Smoke test"}]},
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    release = await a_release(world, a)
+    added = await world.call(
+        "POST",
+        f"{REL}/{release['id']}/tasks/from-template",
+        a,
+        a.admin,
+        json={"template_id": made.json()["id"]},
+        headers=CONSOLE,
+    )
+    assert added.status_code == 201, added.text
+    [smoke] = [t for t in added.json()["items"] if t["title"] == "Smoke test"]
+    assert smoke["stage"] == release["stage"]
+    assert smoke["stage"] is not None
