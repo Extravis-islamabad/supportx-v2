@@ -191,6 +191,7 @@ export const ar: LabelResource = {
   'nav.admin_branding': 'العلامة التجارية',
   'nav.admin_catalog': 'كتالوج الخدمات',
   'nav.admin_change_boards': 'مجالس استشارات التغيير',
+  'nav.admin_change_windows': 'نوافذ التجميد والصيانة',
   'nav.admin_files': 'الملفات',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'الحوادث',
@@ -541,6 +542,9 @@ export const ar: LabelResource = {
     'من يوافق على التغييرات: أعضاء كل مجلس ورئيسه وقاعدته والتغييرات التي يراجعها.',
   'setup.page.change-boards.keywords':
     'cab, مجلس استشارات التغيير, موافقات, رئيس, طارئ, مدير التغيير',
+  'setup.page.change-windows.description':
+    'متى يُمنع التغيير ومتى يُفضَّل: فترات التجميد ونوافذ الصيانة، للجميع أو لبعض المواقع والمجموعات.',
+  'setup.page.change-windows.keywords': 'تجميد, تجميد التغييرات, نافذة صيانة, تقويم التغييرات',
   'setup.page.files.description': 'حدود الرفع وأنواع الملفات المسموح بها وفحص البرامج الضارة.',
   'setup.page.files.keywords': 'ملفات، مرفقات، رفع، حجم، تخزين، برامج ضارة، فيروسات، فحص',
   'setup.page.incidents.description': 'المستويات والفئات والقوالب ورموز الإغلاق والأسباب للحوادث.',

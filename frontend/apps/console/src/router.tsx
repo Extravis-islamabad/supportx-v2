@@ -413,6 +413,14 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-045c: freeze and maintenance windows (template E).
+            path: 'change-windows',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/changes/ChangeWindowsPage'))
+                .ChangeWindowsPage,
+            }),
+          },
+          {
             // The change screens' S4: change advisory boards (template E).
             path: 'change-boards',
             lazy: async () => ({
