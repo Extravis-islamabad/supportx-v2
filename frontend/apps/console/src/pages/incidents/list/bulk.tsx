@@ -18,6 +18,7 @@ import { useState, type ReactNode } from 'react';
 
 import {
   useBulkJob,
+  type BulkBase,
   useBulkJobs,
   useIncidentAssignees,
   useIncidentCatalogue,
@@ -59,6 +60,7 @@ export function BulkBar({
   onAction,
   canEdit,
   extra,
+  noun = 'incidents',
 }: {
   selection: Selection;
   onSelection: (selection: Selection) => void;
@@ -69,6 +71,8 @@ export function BulkBar({
   canEdit: (action: BulkAction) => boolean;
   /** Actions on the selection that are not background jobs (a problem from these incidents). */
   extra?: ReactNode;
+  /** Whose rows these are, for "N … selected" (a change list says changes). */
+  noun?: BulkBase;
 }) {
   const t = useLabel();
   const count = selection.all ? (total ?? 0) : selection.ids.length;
@@ -83,7 +87,7 @@ export function BulkBar({
           ? t(capped ? 'incidents.bulk.all_selected_capped' : 'incidents.bulk.all_selected', {
               count: total ?? 0,
             })
-          : t('incidents.bulk.selected', { count })}
+          : t(`${noun}.bulk.selected`, { count })}
       </Typography.Text>
       {pageAll && more && (
         <Button
@@ -167,17 +171,23 @@ export function BulkDialog({
   request,
   onClose,
   onStarted,
+  base = 'incidents',
 }: {
   action: BulkAction | null;
   count: number;
   request: Omit<BulkRequest, 'action' | 'changes'>;
   onClose: () => void;
   onStarted: (job: BulkJob) => void;
+  /**
+   * Whose list this is: its bulk route, its assignees and its wording (the change list offers
+   * assign and take, REQ-CHG-101). The incident catalogue is read for incidents only.
+   */
+  base?: BulkBase;
 }) {
   const t = useLabel();
-  const start = useStartBulk();
+  const start = useStartBulk(base);
   const { locale } = useAppearance();
-  const catalogue = useIncidentCatalogue(action !== null);
+  const catalogue = useIncidentCatalogue(action !== null && base === 'incidents');
   const [included, setIncluded] = useState<EditField[]>([]);
   const [values, setValues] = useState<Record<string, string | null>>({});
   const [reason, setReason] = useState('');
@@ -187,7 +197,7 @@ export function BulkDialog({
   const [resolution, setResolution] = useState('');
   const [closureCode, setClosureCode] = useState<string | null>(null);
   const [openWork, setOpenWork] = useState(false);
-  const assignees = useIncidentAssignees(groupId, '', action === 'assign');
+  const assignees = useIncidentAssignees(groupId, '', action === 'assign', base);
   if (action === null) return null;
 
   const set = (name: string, value: string | null) => {
@@ -324,7 +334,7 @@ export function BulkDialog({
   return (
     <Modal
       open
-      title={t(`incidents.bulk.title.${action}`, { count })}
+      title={t(`${base}.bulk.title.${action}`, { count })}
       onCancel={onClose}
       okText={t('incidents.bulk.start')}
       cancelText={t('incidents.bulk.cancel')}
@@ -347,7 +357,7 @@ export function BulkDialog({
       data-testid="inc-bulk-dialog"
     >
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        <Alert type="info" showIcon message={t('incidents.bulk.as_you')} />
+        <Alert type="info" showIcon message={t(`${base}.bulk.as_you`)} />
         {action === 'edit' && (
           <>
             <Typography.Text>{t('incidents.bulk.edit_hint')}</Typography.Text>
@@ -399,11 +409,11 @@ export function BulkDialog({
                 setLoseAccess(event.target.checked);
               }}
             >
-              {t('incidents.bulk.lose_access')}
+              {t(`${base}.bulk.lose_access`)}
             </Checkbox>
           </>
         )}
-        {action === 'take' && <Typography.Text>{t('incidents.bulk.take_hint')}</Typography.Text>}
+        {action === 'take' && <Typography.Text>{t(`${base}.bulk.take_hint`)}</Typography.Text>}
         {action === 'resolve' && (
           <Input.TextArea
             aria-label={t('work_item.field.resolution')}
@@ -445,10 +455,19 @@ export function BulkDialog({
 }
 
 /** One job's progress and results, live from the user's own channel. */
-export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose: () => void }) {
+export function BulkProgress({
+  jobId,
+  onClose,
+  base = 'incidents',
+}: {
+  jobId: string | null;
+  onClose: () => void;
+  /** The list the job was started from (its jobs and its records' pages). */
+  base?: BulkBase;
+}) {
   const t = useLabel();
   const dates = useDateTime();
-  const job = useBulkJob(jobId ?? undefined);
+  const job = useBulkJob(jobId ?? undefined, base);
   // Live wherever it is shown (QA10-P1-09: a problem's follow-up stayed at 0% off the list).
   useBulkLive();
   const data = job.data;
@@ -459,7 +478,7 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
       open={jobId !== null}
       onClose={onClose}
       width={520}
-      title={data ? t(`incidents.bulk.title.${data.action}`, { count: data.total }) : ''}
+      title={data ? t(`${base}.bulk.title.${data.action}`, { count: data.total }) : ''}
       data-testid="inc-bulk-progress"
     >
       {data !== undefined && (
@@ -485,7 +504,7 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
           {skipped.length > 0 && (
             <>
               <Typography.Title level={5}>
-                {t('incidents.bulk.skipped_title', { count: skipped.length })}
+                {t(`${base}.bulk.skipped_title`, { count: skipped.length })}
               </Typography.Title>
               <List
                 size="small"
@@ -494,7 +513,7 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
                 renderItem={(result) => (
                   <List.Item data-testid={`inc-bulk-skipped-${result.display_id ?? result.id}`}>
                     <Space direction="vertical" size={0}>
-                      <Typography.Link href={`/incidents/${result.id}`}>
+                      <Typography.Link href={`/${base}/${result.id}`}>
                         {result.display_id ?? t('incidents.bulk.unknown_record')}
                       </Typography.Link>
                       <Typography.Text type="secondary">{skipReason(t, result)}</Typography.Text>

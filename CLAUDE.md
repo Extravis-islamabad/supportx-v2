@@ -151,6 +151,9 @@ TanStack Query, Zustand, i18next/react-i18next, `centrifuge` and `openapi-fetch`
 Subject to the licence check (`make licence-check`). **Condition: no Expo cloud**: no EAS cloud
 builds, no over-the-air updates through Expo's servers, no Expo push service, Expo telemetry off.
 
+**Approved additions (D-141, WP-049b S3):** `segno` (BSD) and `python-barcode` (MIT): asset QR codes
+and barcodes; the label PDF sits behind a small interface so either can be swapped.
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

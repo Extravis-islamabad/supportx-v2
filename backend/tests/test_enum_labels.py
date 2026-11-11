@@ -46,6 +46,27 @@ ENUM_PREFIXES: dict[str, str] = {
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",
     "TermsSource": "asset_terms_source",
+    # Labels, audits, scans and the overdue rule (WP-049b s3)
+    "AssetChangeOriginOut.kind": "asset_change_origin",
+    "AssetChangeOriginOut.reason_code": "asset_change_reason",
+    "AuditFix": "asset_audit_fix",
+    "AuditItemKind": "asset_audit_item_kind",
+    "AuditItemResult": "asset_audit_result",
+    "AuditKind": "asset_audit_kind",
+    "AuditMarkMethod": "asset_audit_method",
+    "AuditScanIn.result": "asset_audit_result",
+    "AuditState": "asset_audit_state",
+    "AuditHolderIn.kind": "asset_holder_kind",
+    "LabelJobStatus": "asset_label_job_status",
+    "LabelLayout": "asset_label_layout",
+    "LabelTarget": "asset_label_target",
+    "LabelsIn.language": "locale",
+    "OverdueAction": "asset_overdue_action",
+    "ScanFailure": "asset_scan_failure",
+    "ScanResult": "asset_scan_result",
+    "ScanSource": "asset_scan_source",
+    "ScanType": "asset_scan_type",
+    "Symbology": "asset_label_symbology",
     "AssetStateCategory": "asset_state_category",
     "AssetDisposalIn.method": "asset_disposal_method",
     "AssetHolderIn.kind": "asset_holder_kind",
@@ -255,6 +276,9 @@ ENUM_PREFIXES: dict[str, str] = {
     "BoardChoice": "change_board_choice",  # WP-045b S3 (REQ-CHG-041)
     "WindowKind": "change_window_kind",  # WP-045c (REQ-CHG-075, -076)
     "WindowMode": "change_window_mode",  # WP-045c (REQ-CHG-077)
+    "WindowOut.repeat": "window_repeat",  # D-156: none, weekly, monthly
+    "WindowIn.repeat": "window_repeat",
+    "WindowPatch.repeat": "window_repeat",
     "ConflictKind": "change_conflict",  # WP-045c (REQ-CHG-073, -074)
     "Watched": "reapproval_field",  # WP-045b S4 (REQ-CHG-053)
     "OnChange": "reapproval_effect",

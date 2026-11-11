@@ -52,6 +52,8 @@ type Records = Partial<
     | 'announcement'
     | 'asset'
     | 'consumable'
+    | 'audit'
+    | 'scannedAsset'
     | 'catalogItem'
     | 'workflow'
     | 'workflowRun'
@@ -85,9 +87,15 @@ const click = (testId: string) => async (page: Page) => {
   await page.waitForTimeout(400);
 };
 
-// A record tab by its key (Ant Design's node key: the same in every language).
+// A record tab by its key (Ant Design's node key: the same in every language). At 390 the tab
+// list scrolls sideways (AppearanceProvider hides the "more" menu), and a tab scrolled out of
+// sight could take a pointer click meant for its neighbour (run 42977617899): click it in the DOM.
 const tab = (key: string) => async (page: Page) => {
-  await page.locator(`[data-node-key="${key}"]`).first().click({ timeout: STATE_TIMEOUT });
+  const node = page.locator(`[data-node-key="${key}"] [role="tab"]`).first();
+  await node.waitFor({ state: 'attached', timeout: STATE_TIMEOUT });
+  await node.evaluate((el) => {
+    (el as HTMLElement).click();
+  });
   await page.waitForTimeout(400);
 };
 
@@ -262,6 +270,22 @@ export const SCREENS: Screen[] = [
   {
     key: 'asset-history',
     path: (r) => (r.asset ? `/assets/${r.asset}?tab=history` : undefined),
+    app: 'console',
+  },
+  // WP-049b s3 (lane B): asset audits, one running audit (items, progress, discrepancies), and
+  // an asset's scan history (the showcase's scanned laptop, else the first asset).
+  { key: 'asset-audits', path: '/assets/audits', app: 'console' },
+  {
+    key: 'asset-audit',
+    path: (r) => (r.audit ? `/assets/audits/${r.audit}` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'asset-scans',
+    path: (r) => {
+      const id = r.scannedAsset ?? r.asset;
+      return id ? `/assets/${id}?tab=scans` : undefined;
+    },
     app: 'console',
   },
   // WP-049b s1 (lane B): consumables, one consumable (stock, lots, ledger).
@@ -495,10 +519,12 @@ function checks(): string[] {
   if (primary > 1) out.push(`primary_buttons:${String(primary)}`);
   for (const bar of document.querySelectorAll('[data-testid$="actions"], [role="toolbar"]')) {
     if (!shown(bar)) continue;
-    const tops = new Set(
-      [...bar.children].filter(shown).map((c) => Math.round(c.getBoundingClientRect().top)),
-    );
-    if (tops.size > 1) out.push(`toolbar_wraps:${name(bar)}`);
+    // Wrapped = an item starts below another's bottom. Comparing tops alone flagged one row of
+    // centred items of different heights (a 32px select beside 24px buttons; lane C polish).
+    const boxes = [...bar.children].filter(shown).map((c) => c.getBoundingClientRect());
+    const lowestTop = Math.max(...boxes.map((b) => b.top));
+    const highestBottom = Math.min(...boxes.map((b) => b.bottom));
+    if (boxes.length > 1 && lowestTop >= highestBottom - 1) out.push(`toolbar_wraps:${name(bar)}`);
   }
   return [...new Set(out)].slice(0, 40);
 }
@@ -551,6 +577,9 @@ async function findRecords(page: Page): Promise<Records> {
     announcement: await first('/api/v1/announcements?limit=1', firstItem),
     asset: await first('/api/v1/assets?limit=1', firstItem),
     consumable: await first('/api/v1/assets/consumables', firstOfList),
+    // WP-049b s3: the showcase's running audit, and its laptop with scans (SX-LAP-001).
+    audit: await first('/api/v1/assets/audits', firstOfList),
+    scannedAsset: await first('/api/v1/assets?search=SX-LAP-001&limit=1', firstItem),
     catalogItem: await first('/api/v1/catalog/items', firstOfList),
     workflow:
       (await first('/api/v1/automation/workflows?record_type=incident', firstOfList)) ??

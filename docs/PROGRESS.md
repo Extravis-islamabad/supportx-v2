@@ -1165,6 +1165,39 @@ it with no reload (rule c). Not built yet.
   - CI and service layers (with the CMDB);
   - full recurrence rules (D-156 (c)).
 
+### [~] WP-045d — Changes: the rest (lane A, 2026-11-11; 4 sessions; migrations 0133, 0137; REQ-CHG-088..117)
+- **S1 (0133, #378):** tasks per stage, the post-implementation review and its date, closure
+  codes and rules per stage, closing waits for child changes and releases, closed changes locked
+  (REQ-CHG-088, 090-097). Lane B reviewed the lock.
+- **S2:** the change list, the record and bulk work:
+  - REQ-CHG-098: type and risk columns; views for the CAB, in implementation now, emergency and
+    due for review.
+  - REQ-CHG-100: the change's conversation and attachments on its record.
+  - REQ-CHG-101: bulk assign (D-154a: the owner must be in the group), take and close, through
+    the shared bulk dialog. Each change follows its own life cycle, and skips say why.
+  - REQ-CHG-102: the CAB pack print view, with the conflict list.
+  - **D-156 (Haider, 2026-11-11; migration 0137, lane B blocks):**
+    - change replies are e-mailed to the requester; notes never are;
+    - monthly windows ("first Sunday", on the tenant's local days); repeat_weekly is kept in
+      step for one release;
+    - a tenant setting makes outside-maintenance block (off by default), on the windows page,
+      audited;
+    - an emergency change in a blocking freeze is saved and marked, never refused. Its work
+      starts only once its emergency CAB passed the freeze (an approval with a reason, which
+      stamps it, is audited and shows in history) or the change manager overrode it. Normal
+      and standard changes are unchanged.
+  - **Open under REQ-CHG-101:** bulk edit fields, add to a CAB agenda, cancel and delete.
+    - Cancel and delete need the `work_item_bulk_jobs` action_code check widened, which is a
+      migration.
+    - All four come with lane A's next migration WP (WP-045d S3/S4 or WP-046a), with DB tests;
+      no migration slot is taken for the check alone (coordinator, 2026-11-11).
+    - Until then the change list doesn't offer them at all.
+- **S3:** a change notification source with the Appendix A defaults, schedule reminders, the
+  workflow run on the record (lane C's Workflows tab, #379), and rules, triggers and SLAs on
+  changes (REQ-CHG-103..107). No e-mail reply threading unless Haider says yes.
+- **S4:** the portal (raise, follow, approve), the mobile API audit, report dimensions and
+  personal counters (REQ-CHG-109, 110, 116, 117). Lane B blocks the portal access.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
@@ -1475,7 +1508,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-2 built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3 built 2026-11-11)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1535,6 +1568,54 @@ it with no reload (rule c). Not built yet.
   - Guide: docs/guides/asset-financials.md.
   - **Open:** 048's hardware, software, contracts and scan-history tabs (discovery, S3, WP-054);
     049 AC1's `discovery` source (S3); 036 AC2 and 038 AC1 with WP-054.
+- [x] **Session 3 (migrations 0134 and 0135 after 0131, re-pointed at the lane's turn; REQ-AST-039,
+  042, 043, 054, 056; branch backup/wp-049b-s3):**
+  - Shared PDF renderer (agreed with lane C): `app/shared/pdf` holds the bundled fonts, the fetcher
+    that refuses every URL but those fonts, `available()` and `render(html)` with page and byte
+    caps; analytics keeps its report HTML and its `pdf_not_available` code. The fetcher and
+    fonts-only tests moved with `git mv` (history kept); the report-only tests stay in analytics.
+    The worker-test image runs the shared and asset PDF tests too.
+  - Labels (039): QR (segno) and Code 128 (python-barcode; D-141, CLAUDE.md §3) as inline SVG in
+    one PDF per job (up to 500, one label per page; cable and laptop layouts; Arabic right to
+    left), built by the consumers worker (`assets.label.requested` → `assets.label.printed`),
+    downloaded by the person who asked for a week. The QR holds only the console link (AC2).
+    `assets.view` on every asset printed, scoped (404 naming none). Every print and reprint
+    writes an append-only `asset_label_prints` row (SELECT, INSERT only; AC3). Vendor codes print
+    through the same generator. AC1: 100 assets make one 100-page PDF (pdf test).
+  - Audits (042, 043): plan with `assets.manage` (sites, product types with their children,
+    asset groups; dates; named auditors); start freezes the expected items (AC1: exactly the
+    site's assets); named auditors with `assets.view` mark by scan or by hand while it runs;
+    found at another site is the wrong place (043 AC1); unexpected assets added; bulk fixes (move
+    site, change state, assign) each through the asset service in a savepoint, history naming
+    the audit (043 AC2, `automation_ref` kind `asset_audit`); progress live on
+    `t:{tenant}:asset_audit:{id}` (043 AC3); closed is read-only on the server. Self-audits ask
+    each holder again through their acknowledgement (one per holding and audit; accepted =
+    found, disputed = missing with the holder's comment kept on the item and shown in the
+    discrepancy list); a requester sees and answers only their own. View-only people may select
+    assets to print labels; every other bulk action stays assets.manage (server-tested).
+  - Scans (054): `app.modules.assets.record_scan` (the discovery port; nothing calls it yet),
+    the asset's Scans tab, `last_scanned_at`; the daily `assets__scan_cleanup` deletes scans past
+    the asset settings' retention (the existing `scan_retention_months`, Appendix A: 6 months),
+    per tenant, one audit summary each run; assets and history lines stay (AC2).
+  - Overdue rule (056): off by default (`config.assets`), N days, product types, a state or the
+    trash (never a delete), preview count before saving (AC2), the hourly
+    `assets__overdue_scans` job records each run that changed something with its list and names
+    the rule in each history entry (AC1); trashed assets restore with their history (AC3).
+    It follows the life cycle: only reachable target states are accepted
+    (`asset_overdue_state_unreachable`), and an asset whose state cannot move there is skipped,
+    unchanged, and listed in the run with its reason.
+  - Migration 0135: `ix_field_changes_change` (tenant_id, change_id), built and dropped
+    CONCURRENTLY.
+  - Console: Assets › Audits (list) and an audit (record: items, scan box, discrepancies with
+    bulk fixes), Print labels on the asset list selection and the asset page, Labels and Scans
+    tabs, history lines naming the audit or the rule, the overdue rule in Admin › Assets ›
+    Settings. Portal: the self-audit question in My assets. Visual matrix: asset-audits,
+    asset-audit, asset-scans; the showcase has a running audit with marks and two scans.
+  - Guide: docs/guides/asset-labels-and-audits.md.
+  - **Open:** label PDF progress is reported at the end only (the worker renders in one step);
+    the API cannot tell beforehand whether a worker can render PDFs (a job without one fails
+    with `pdf_not_available`); the label designer (040) and mobile scanning (041) are later;
+    discovery calls `record_scan` (WP-050).
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
