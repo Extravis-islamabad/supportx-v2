@@ -60,6 +60,8 @@ class LinkKind(StrEnum):
     SUB_RELEASE_OF = "sub_release_of"  # a sub-release of a parent release
     # A change raised for an incident, request, problem or release (WP-045a, REQ-CHG-002; 0115).
     CHANGE_FOR = "change_for"
+    # A child change or a release -> the change it is part of (WP-045d, REQ-CHG-096; 0133).
+    PART_OF_CHANGE = "part_of_change"
 
 
 class WorklogProblem(StrEnum):

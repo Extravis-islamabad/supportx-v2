@@ -27,6 +27,16 @@ from app.modules.ai import (
     unregister_record_access,
 )
 from app.modules.identity_access import SERVICE_DESK_MANAGER
+from app.modules.work_items.api.approval_settings_routes import router as approval_settings_router
+from app.modules.work_items.api.change_board_routes import router as change_board_router
+from app.modules.work_items.api.change_child_routes import router as change_child_router
+from app.modules.work_items.api.change_window_routes import (
+    calendar_router as change_calendar_router,
+)
+from app.modules.work_items.api.change_window_routes import (
+    change_router as change_window_change_router,
+)
+from app.modules.work_items.api.change_window_routes import router as change_window_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
@@ -34,6 +44,7 @@ from app.modules.work_items.api.repeat_routes import router as repeat_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import (
+    CHANGE,
     INCIDENT,
     PERMISSION_TYPES,
     PROBLEM,
@@ -43,6 +54,7 @@ from app.modules.work_items.domain.types import (
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     ai_sources,
+    audit_subtype,
     bulk,
     inbound_mail,
     notifications,
@@ -55,6 +67,8 @@ from app.modules.work_items.service import (
     report_names,
     request_notifications,
     resolution,
+    rule_step_notifications,
+    staff_reply_notifications,
 )
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
@@ -134,8 +148,12 @@ report_names.register()
 notifications.register()
 request_notifications.register()
 problem_notifications.register()  # WP-044c D15
+rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
+staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
+# Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
+audit_subtype.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
 inbound_mail.register()
 # Who may reach work item files: at import too, since mail attachments upload in the worker.
@@ -148,14 +166,26 @@ module = ModuleSpec(
         portal_router,
         portal_request_router,  # WP-030 D9
         portal_home_router,  # WP-032 D1
+        approval_settings_router,  # D-146: the approval chair (WP-048b S2)
+        change_board_router,  # WP-045b S2
         repeat_router,  # WP-044c D16: the problem module's
+        change_window_router,  # WP-045c: freeze and maintenance windows (ADR-042)
+        change_window_change_router,  # WP-045c: a change's conflicts and freeze override
+        change_child_router,  # WP-045d S1: child changes and releases
+        change_calendar_router,  # WP-045c S3: the change calendar
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
         INCIDENT.feature,
         SERVICE_REQUEST.feature,
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
+        None,  # approval settings: the engine is core, every type with approvals uses them
+        CHANGE.feature,  # change advisory boards
         PROBLEM.feature,  # repeat incident rules (D-140 item 5: not in Essentials)
+        CHANGE.feature,  # change windows
+        CHANGE.feature,  # a change's conflicts and freeze override
+        CHANGE.feature,  # child changes and releases
+        CHANGE.feature,  # the change calendar
     ],
     events=EVENTS,
     permissions=(

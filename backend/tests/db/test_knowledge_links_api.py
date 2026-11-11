@@ -19,6 +19,7 @@ from app.shared.files.ports import register_quota
 from app.shared.files.service.copies import CopyIntegrityError
 from app.shared.files.service.core import FileServices
 from app.shared.records.ports import BATCH_MAX, record_facts
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import say
 from tests.db.test_files_api import (
     _photo_with_gps,
@@ -29,12 +30,12 @@ from tests.db.test_files_api import (
     upload,
     use,
 )
-from tests.db.test_incidents_api import Org, World, problem, role, world
+from tests.db.test_incidents_api import Org, World, problem, role
 from tests.db.test_knowledge_api import _article, _new, _topic
 from tests.db.test_knowledge_review_api import _approve, _submit
 
-__all__ = ["files", "storage", "world"]  # fixtures, re-used
-pytestmark = [pytest.mark.db]
+__all__ = ["files", "module_world", "shared_world", "storage"]  # fixtures, re-used
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 64
 

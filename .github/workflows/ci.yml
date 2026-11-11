@@ -31,7 +31,7 @@ env:
 jobs:
   # The backend gate runs as three jobs (product owner, 2026-10-27: under 15 minutes; one job
   # reached 38). `backend-checks` lints, type-checks and migrates; `backend-tests` runs the suite
-  # in SHARDS parallel jobs, each with its own services and pytest-xdist inside
+  # in SHARDS (8) parallel jobs, each with its own services and pytest-xdist inside
   # (tooling/pytest_shards.py balances the files); `backend` (the required check) combines their
   # coverage and enforces the threshold. Opt-in slow tests (the audit volume test) run nightly
   # only (audit-scale.yml).
@@ -249,20 +249,20 @@ jobs:
           if-no-files-found: ignore
 
   backend-tests:
-    name: backend tests ${{ matrix.shard }}/6
+    name: backend tests ${{ matrix.shard }}/8
     needs: [shard-weights]
     if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) }} # drafts: the fast set only (see shard-weights)
     runs-on: ubuntu-24.04
-    # The backstop, 25 since 2026-11-09 (coordinator): six shards hold about 12.5 min of tests each
-    # plus about 4 min of set-up, and a slow runner reached 20 (#216, #240, #276 cancelled). The
-    # aim stays 12 min or less; a nightly shard past 20 regularly means a seventh (coordinator).
-    timeout-minutes: 25
+    # Eight shards and a 35-minute backstop since 2026-11-10 (Haider, via the coordinator): six
+    # shards had grown to 20-25 min on slow runners and cancelled #307 three times. The backstop
+    # only stops a hung shard; the aim stays about 12 min a shard (the suite profile follows).
+    timeout-minutes: 35
     strategy:
       fail-fast: false # every shard reports its failures in one run
       matrix:
         # Six since 2026-11-05 (coordinator): with four, shards ran 17-20 min of the 20 min
         # limit as the suite grew (WP-044, 049, 058); four since 2026-11-04, three before.
-        shard: [1, 2, 3, 4, 5, 6] # keep in step with SUPPORTX_TEST_SHARD below
+        shard: [1, 2, 3, 4, 5, 6, 7, 8] # keep in step with SUPPORTX_TEST_SHARD below
     # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
     # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
     # NATS JetStream is started as a step below (service containers cannot pass `-js`).
@@ -302,7 +302,7 @@ jobs:
           --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 5s
           --health-retries 20
     env:
-      SUPPORTX_TEST_SHARD: ${{ matrix.shard }}/6
+      SUPPORTX_TEST_SHARD: ${{ matrix.shard }}/8
       SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
       SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
       SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
@@ -385,7 +385,7 @@ jobs:
           # Each file's seconds, to refresh tests/shard_weights.json from CI (tooling/pytest_shards.py).
           SUPPORTX_TEST_TIMINGS: ${{ runner.temp }}/timings.json
           SUPPORTX_TEMPORAL_TEST_SERVER_DIR: ${{ runner.temp }}/temporal-test-server  # cached above
-        run: uv run pytest -n 4 --dist loadgroup --cov-report= --cov-fail-under=0 --durations=15
+        run: uv run pytest -n 4 --dist loadfile --cov-report= --cov-fail-under=0 --durations=15
       - name: Event bus latency and throughput (job summary)
         if: ${{ steps.changes.outputs.run == 'true' && (!cancelled()) }}
         run: |
@@ -467,8 +467,9 @@ jobs:
           uv run coverage combine .coverage.shard*
           uv run coverage report --skip-covered --sort=cover
       # Fresh shard weights every night: every shard's file timings in one file, ready to commit
-      # as backend/tests/shard_weights.json (`make backend-shard-weights RUN=<this run>`). The
-      # shards warn when more than 10% of the test files have no weight.
+      # as backend/tests/shard_weights.json (`make backend-shard-weights RUN=<this run>`). A
+      # test file without a weight counts as a heavy one (90th percentile of its kind), is dealt
+      # round-robin across the shards, and every shard's summary names it, so it gets a weight.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: ${{ github.event_name == 'schedule' && steps.changes.outputs.run == 'true' }}
         with:
@@ -535,7 +536,9 @@ jobs:
     needs: [mobile]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Lint, types and Vitest take about 15 min now (Vitest alone about 9.5 min, run 42951809015),
+    # so 15 cut off the production builds twice on #378; splitting Vitest into shards is the follow-up.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

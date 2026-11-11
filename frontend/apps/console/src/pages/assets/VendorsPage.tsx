@@ -1,15 +1,19 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Checkbox, Flex, Form, Input, Modal, Popconfirm, Table, Tag } from 'antd';
+import { Button, Checkbox, Flex, Form, Input, Modal, Popconfirm, Table } from 'antd';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import { queryKeys, useVendorChange, useVendors, type Vendor } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
 import {
+  CellText,
   EmptyText,
+  ListPage,
   NoAccess,
   PageHeader,
   lengthLimit,
   reportError,
+  ToneTag,
   useAccess,
   useLabel,
   WriteButton,
@@ -31,6 +35,13 @@ const FIELDS = [
 ] as const;
 type Field = (typeof FIELDS)[number][0];
 type Draft = Record<Field, string> & { is_active: boolean };
+// `checked`: a save was tried, so a missing name is marked under its field (QA10-P4-39).
+interface Editing {
+  vendor: Vendor | null;
+  draft: Draft;
+  key: string;
+  checked?: boolean;
+}
 
 const draftOf = (vendor: Vendor | null): Draft => ({
   name: vendor?.name ?? '',
@@ -52,13 +63,14 @@ const draftOf = (vendor: Vendor | null): Draft => ({
  */
 export function VendorsPage() {
   const t = useLabel();
+  const navigate = useNavigate();
   const access = useAccess();
   const queryClient = useQueryClient();
   const allowed = access.can('vendors.view');
   const vendors = useVendors(false, allowed);
   const change = useVendorChange();
   const { problems, show, clear } = useAssetSaveProblems();
-  const [editing, setEditing] = useState<{ vendor: Vendor | null; draft: Draft; key: string }>();
+  const [editing, setEditing] = useState<Editing>();
   useTenantChannel((message) => {
     if (message.type === 'procurement.vendors_changed' || message.type === 'refresh') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.vendors.all });
@@ -74,6 +86,11 @@ export function VendorsPage() {
   };
   const save = () => {
     if (editing === undefined) return;
+    // The name is checked here before sending; the server still refuses an empty one.
+    if (editing.draft.name.trim() === '') {
+      setEditing({ ...editing, checked: true });
+      return;
+    }
     const blank = (v: string) => (v.trim() === '' ? null : v.trim());
     const all: Record<string, unknown> = Object.fromEntries(
       FIELDS.map(([field]) => [
@@ -105,24 +122,35 @@ export function VendorsPage() {
       { onSuccess: close, onError: show },
     );
   };
+  // The server's count when it gives one, else the rows when they are all loaded.
+  const total =
+    vendors.data === undefined
+      ? undefined
+      : (vendors.data.pages[0]?.estimated_total ?? (vendors.hasNextPage ? undefined : rows.length));
   return (
-    <Flex vertical gap={16}>
-      <PageHeader
-        title={t('assets.record.vendors')}
-        extra={
-          canAdd && (
-            <WriteButton
-              type="primary"
-              onClick={() => {
-                open(null);
-              }}
-              data-testid="vendor-add"
-            >
-              {t('actions.add')}
-            </WriteButton>
-          )
-        }
-      />
+    <ListPage
+      testId="vendors-page"
+      header={
+        <PageHeader
+          title={t('assets.record.vendors')}
+          back={{ label: t('nav.assets'), onClick: () => void navigate('/assets') }}
+          count={total === undefined ? undefined : String(total)}
+          extra={
+            canAdd && (
+              <WriteButton
+                type="primary"
+                onClick={() => {
+                  open(null);
+                }}
+                data-testid="vendor-add"
+              >
+                {t('actions.add')}
+              </WriteButton>
+            )
+          }
+        />
+      }
+    >
       <Table<Vendor>
         size="small"
         rowKey="id"
@@ -137,10 +165,12 @@ export function VendorsPage() {
             title: t('settings.name'),
             render: (_: unknown, vendor: Vendor) => (
               <Flex gap={8} align="center">
-                <bdi dir="auto" data-testid={`vendor-name-${vendor.id}`}>
-                  {vendor.name}
-                </bdi>
-                {!vendor.is_active && <Tag>{t('assets.record.inactive')}</Tag>}
+                <span data-testid={`vendor-name-${vendor.id}`}>
+                  <CellText title={vendor.name}>{vendor.name}</CellText>
+                </span>
+                {!vendor.is_active && (
+                  <ToneTag tone="default">{t('assets.record.inactive')}</ToneTag>
+                )}
               </Flex>
             ),
           },
@@ -148,7 +178,7 @@ export function VendorsPage() {
             key: 'contact',
             title: t('assets.record.contact_person'),
             render: (_: unknown, vendor: Vendor) => (
-              <bdi dir="auto">{vendor.contact_person ?? ''}</bdi>
+              <CellText>{vendor.contact_person ?? ''}</CellText>
             ),
           },
           {
@@ -221,6 +251,18 @@ export function VendorsPage() {
                 label={t(`assets.record.${field === 'name' ? 'vendor_name' : field}`)}
                 htmlFor={`vendor-${field}`}
                 required={field === 'name'}
+                {...(field === 'name' &&
+                editing.checked === true &&
+                editing.draft.name.trim() === ''
+                  ? {
+                      validateStatus: 'error' as const,
+                      help: (
+                        <span data-testid="vendor-name-needed">
+                          {t('errors.field.name_required')}
+                        </span>
+                      ),
+                    }
+                  : {})}
               >
                 {field === 'address' || field === 'description' ? (
                   <Input.TextArea
@@ -275,6 +317,6 @@ export function VendorsPage() {
           </Form>
         )}
       </Modal>
-    </Flex>
+    </ListPage>
   );
 }

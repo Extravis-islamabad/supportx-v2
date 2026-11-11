@@ -80,10 +80,10 @@ describe('console shell', () => {
   });
 
   it('shows a translated "coming soon" page per section', async () => {
-    at('/changes'); // problems have screens now (WP-044a)
+    at('/cmdb'); // problems, then changes, have screens now (WP-044a; the change screens)
     api();
     render(<App />);
-    expect(await screen.findByRole('heading', { name: 'Changes' })).toBeDefined();
+    expect(await screen.findByRole('heading', { name: 'CMDB' })).toBeDefined();
     expect(screen.getByText(/being built/)).toBeDefined();
   });
 

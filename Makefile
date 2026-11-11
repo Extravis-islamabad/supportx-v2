@@ -247,7 +247,7 @@ backend-test: generated-backend
 	$(BACKEND) uv run pytest
 
 backend-test-timings: ## Time every backend test file, to refresh the CI shard weights (tests/shard_weights.json)
-	$(BACKEND) SUPPORTX_TEST_TIMINGS=tests/shard_weights.json uv run pytest -n 4 --dist loadgroup --no-cov
+	$(BACKEND) SUPPORTX_TEST_TIMINGS=tests/shard_weights.json uv run pytest -n 4 --dist loadfile --no-cov
 
 # CI's own file timings are the ones to balance on (a laptop is several times faster than CI's
 # runners, and not evenly so). RUN defaults to the latest successful CI run on main.

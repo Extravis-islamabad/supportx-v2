@@ -55,8 +55,25 @@ export function useDateTime(): DateTimeFormatter {
     hour12,
     timeZone: zone,
   });
+  // D-155: unless the person picked a numeric form, the day is written out ("10 Nov 2026"),
+  // which no reader takes for 11 October. English uses day-month-year order.
+  const mediumLocale = locale.startsWith('en-') ? locale.replace(/^en-/, 'en-GB-') : locale;
+  const medium = new Intl.DateTimeFormat(mediumLocale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: zone,
+  });
+  const mediumUtc = new Intl.DateTimeFormat(mediumLocale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
   const dayIn = (formatter: Intl.DateTimeFormat, date: Date) =>
-    ordered(formatter.formatToParts(date), dates.dateFormat);
+    dates.dateFormat === 'medium'
+      ? (formatter.resolvedOptions().timeZone === 'UTC' ? mediumUtc : medium).format(date)
+      : ordered(formatter.formatToParts(date), dates.dateFormat);
   const absolute = {
     format: (date: Date) => `${dayIn(numeric, date)}, ${clock.format(date)}`,
   };
@@ -115,6 +132,7 @@ function ordered(parts: Intl.DateTimeFormatPart[], pattern: DateFormat): string 
 /** The pickers' dayjs format for the chosen date (and time) format. */
 export function pickerFormat(dates: DatePreferences, withTime: boolean): string {
   const day = {
+    medium: 'D MMM YYYY',
     'dd/mm/yyyy': 'DD/MM/YYYY',
     'mm/dd/yyyy': 'MM/DD/YYYY',
     'yyyy-mm-dd': 'YYYY-MM-DD',

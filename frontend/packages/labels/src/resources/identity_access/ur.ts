@@ -344,6 +344,9 @@ export const ur: LabelResource = {
   'permission.assets.reinstate.description': 'ریٹائرڈ اثاثہ واپس اسٹاک میں لائیں۔',
   'permission.assets.view': 'اثاثے دیکھیں',
   'permission.assets.view.description': 'ہارڈ ویئر اور سافٹ ویئر اثاثے دیکھیں۔',
+  'permission.assets.view_financials': 'اثاثوں کی لاگت اور قدر دیکھیں',
+  'permission.assets.view_financials.description':
+    'اثاثے کی لاگت، فرسودگی اور کتابی قدر دیکھیں، اور جہاں آپ اسے سنبھال سکیں وہاں اس کی لاگت کی سطریں اور فرسودگی بدلیں۔',
   'permission.audit.export': 'آڈٹ لاگ برآمد کریں',
   'permission.audit.export.description':
     'بیرونی آڈیٹرز کے لیے اندراجات کو ان کی زنجیر کی قدروں کے ساتھ برآمد کریں۔',
@@ -373,9 +376,6 @@ export const ur: LabelResource = {
   'permission.changes.approve.description': 'تبدیلی کی درخواستیں منظور یا مسترد کریں۔',
   'permission.changes.assign': 'تبدیلیاں تفویض کریں',
   'permission.changes.assign.description': 'تبدیلیاں کا گروپ اور مالک منتخب کریں۔',
-  'permission.changes.assign_outside_group': 'تبدیلیاں گروپ سے باہر تفویض کریں',
-  'permission.changes.assign_outside_group.description':
-    'تبدیلی کسی ایسے فرد کو دیں جو اس کے گروپ میں نہ ہو۔',
   'permission.changes.cancel': 'تبدیلیاں منسوخ کریں',
   'permission.changes.cancel.description': 'تبدیلیاں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
   'permission.changes.change_priority': 'تبدیلی کی ترجیح ہاتھ سے بدلیں',
@@ -390,9 +390,21 @@ export const ur: LabelResource = {
   'permission.changes.edit.description': 'تبدیلیاں کی تفصیلات، ان کا تجزیہ اور ان کے کام بدلیں۔',
   'permission.changes.edit_due_dates': 'تبدیلیاں کی ہدف تاریخ ہاتھ سے مقرر کریں',
   'permission.changes.edit_due_dates.description': 'تبدیلی کی ہدف تاریخ پالیسی کے بجائے خود بدلیں۔',
+  'permission.changes.emergency_override': 'ہنگامی حالت میں تبدیلی کی منظوری کو نظر انداز کریں',
+  'permission.changes.emergency_override.description':
+    'منظوری کے لیے واپس بھیجی گئی تبدیلی کو وجہ بتا کر جاری رکھیں۔ یہ آڈٹ ہوتا ہے، اور پھر بند کرنے سے پہلے تبدیلی کا جائزہ ضروری ہے۔',
+  'permission.changes.manage_boards': 'تبدیلی کے مشاورتی بورڈز کا انتظام',
+  'permission.changes.manage_boards.description':
+    'تبدیلیوں کا جائزہ لینے والے بورڈز شامل کریں، بدلیں اور ہٹائیں، اور ان کے ارکان طے کریں۔',
   'permission.changes.manage_followers': 'تبدیلیاں کے فالوورز کا انتظام',
   'permission.changes.manage_followers.description':
     'تبدیلی کو فالو کرنے والے لوگ شامل کریں اور ہٹائیں۔',
+  'permission.changes.manage_windows': 'فریز اور مینٹیننس ونڈوز کا انتظام',
+  'permission.changes.manage_windows.description':
+    'وہ فریز اور مینٹیننس ونڈوز شامل کریں، بدلیں اور ہٹائیں جن کے مقابل تبدیلیاں جانچی جاتی ہیں۔',
+  'permission.changes.override_freeze': 'فریز کے دوران تبدیلی کو آگے بڑھنے دینا',
+  'permission.changes.override_freeze.description':
+    'ایک تبدیلی کے لیے روکنے والے فریز کو وجہ کے ساتھ پار کریں۔ یہ آڈٹ ہوتا ہے اور تبدیلی کی تاریخ میں رہتا ہے۔',
   'permission.changes.reopen': 'تبدیلیاں دوبارہ کھولیں',
   'permission.changes.reopen.description': 'حل شدہ یا بند تبدیلی دوبارہ تحقیق میں لائیں۔',
   'permission.changes.reply': 'تبدیلیاں پر عوامی نوٹس شامل کریں',
@@ -441,6 +453,9 @@ export const ur: LabelResource = {
   'permission.groups.manage': 'سپورٹ گروپس کا انتظام کریں',
   'permission.groups.manage.description':
     'سپورٹ گروپس بنائیں، ان کے نام بدلیں اور ارکان تبدیل کریں۔',
+  'permission.groups.manage_own': 'اپنی قیادت والے گروپس کا انتظام',
+  'permission.groups.manage_own.description':
+    'جن گروپس کی آپ قیادت کرتے ہیں ان کے ارکان کی دستیابی، تفویض، جوابی سانچے، محفوظ مناظر اور ڈیش بورڈز؛ دوسرے گروپس یا تنظیم کی ترتیبات نہیں۔',
   'permission.groups.view': 'سپورٹ گروپس دیکھیں',
   'permission.groups.view.description': 'سپورٹ گروپس اور ان کے ارکان دیکھیں۔',
   // WP-039 identity: sign-in settings and single sign-on
@@ -452,9 +467,6 @@ export const ur: LabelResource = {
   'permission.incidents.add_note.description': 'واقعات پر صرف عملے کے لیے نوٹس لکھیں۔',
   'permission.incidents.assign': 'واقعات تفویض کریں',
   'permission.incidents.assign.description': 'واقعات کا گروپ اور ٹیکنیشن چنیں۔',
-  'permission.incidents.assign_outside_group': 'گروپ سے باہر تفویض',
-  'permission.incidents.assign_outside_group.description':
-    'ایسا ٹیکنیشن تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.incidents.cancel': 'واقعات منسوخ کریں',
   'permission.incidents.cancel.description':
     'واقعات کو وجہ کے ساتھ منسوخ کریں اور منسوخی واپس لیں۔',
@@ -538,9 +550,6 @@ export const ur: LabelResource = {
     'ان مسئلہ منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں، جیسے معلوم خرابی کو حل کے بغیر قبول کرنا۔',
   'permission.problems.assign': 'مسائل تفویض کریں',
   'permission.problems.assign.description': 'مسائل کا گروپ اور مالک منتخب کریں۔',
-  'permission.problems.assign_outside_group': 'مسائل گروپ سے باہر تفویض کریں',
-  'permission.problems.assign_outside_group.description':
-    'مسئلہ کسی ایسے فرد کو دیں جو اس کے گروپ میں نہ ہو۔',
   'permission.problems.cancel': 'مسائل منسوخ کریں',
   'permission.problems.cancel.description': 'مسائل وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
   'permission.problems.change_priority': 'مسئلے کی ترجیح ہاتھ سے بدلیں',
@@ -588,9 +597,6 @@ export const ur: LabelResource = {
     'ریلیز کے ان مراحل کی منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
   'permission.releases.assign': 'ریلیزز تفویض کریں',
   'permission.releases.assign.description': 'ریلیزز لوگوں اور گروپوں کو تفویض کریں۔',
-  'permission.releases.assign_outside_group': 'گروپ سے باہر ریلیزز تفویض کریں',
-  'permission.releases.assign_outside_group.description':
-    'ریلیز کسی ایسے شخص کو تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.releases.cancel': 'ریلیزز منسوخ کریں',
   'permission.releases.cancel.description': 'بندش سے پہلے ریلیزز وجہ کے ساتھ منسوخ کریں۔',
   'permission.releases.change_priority': 'ریلیز کی ترجیح ہاتھ سے بدلیں',
@@ -643,9 +649,6 @@ export const ur: LabelResource = {
     'ان سروس درخواستوں کی منظوری کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
   'permission.requests.assign': 'سروس درخواستیں تفویض کریں',
   'permission.requests.assign.description': 'سروس درخواستیں ٹیکنیشنز اور گروپوں کو تفویض کریں۔',
-  'permission.requests.assign_outside_group': 'درخواستیں گروپ سے باہر تفویض کریں',
-  'permission.requests.assign_outside_group.description':
-    'ایسے ٹیکنیشن کو سروس درخواست تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.requests.cancel': 'سروس درخواستیں منسوخ کریں',
   'permission.requests.cancel.description':
     'سروس درخواستیں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
@@ -787,36 +790,69 @@ export const ur: LabelResource = {
   'readiness_check.realtime_fanout': 'براہ راست اپ ڈیٹس',
   'readiness_status.not_ready': 'تیار نہیں',
   'readiness_status.ready': 'تیار',
+  'role.asset_manager': 'اثاثہ مینیجر',
+  'role.asset_manager.description':
+    'پوری تنظیم کے اثاثوں، CMDB، سافٹ ویئر لائسنسوں اور دریافت کے نتائج کا انتظام کرتا ہے۔',
+  'role.asset_manager.scope': 'تمام اثاثے',
   'role.auditor': 'آڈیٹر',
   'role.auditor.description':
     'آڈٹ لاگ پڑھتا، تلاش کرتا، برآمد کرتا اور اس کی تصدیق کرتا ہے اور رسائی کی ترتیبات پڑھتا ہے؛ کچھ تبدیل نہیں کرتا۔',
+  'role.auditor.scope': 'آڈٹ لاگ، صرف پڑھنے کے لیے',
+  'role.change_manager': 'تبدیلی مینیجر',
+  'role.change_manager.description':
+    'تبدیلیوں کو درخواست سے جائزے تک چلاتا ہے اور تبدیلی کے مشاورتی بورڈ کا شیڈول بناتا ہے۔',
+  'role.change_manager.scope': 'تمام تبدیلیاں',
+  'role.department_viewer': 'شعبہ ناظر',
+  'role.department_viewer.description':
+    'پورٹل میں اپنے شعبے کی درخواستیں صرف پڑھنے کے لیے اور تکنیکی تفصیلات کے بغیر دیکھتا ہے۔',
+  'role.department_viewer.scope': 'صرف اپنا شعبہ',
   'role.knowledge_manager': 'نالج مینیجر',
   'role.knowledge_manager.description':
     'پوری تنظیم کے لیے نالج کے مضامین لکھتا، ان کا جائزہ لیتا اور انہیں شائع کرتا ہے۔',
+  'role.knowledge_manager.scope': 'تمام علمی مضامین',
   'role.problem_manager': 'مسائل کا منتظم',
   'role.problem_manager.description':
     'مسائل کا انتظام چلاتا ہے: ہر مسئلہ دیکھتا، اس پر کام کرتا، تفویض کرتا، منظور اور بند کرتا ہے، بشمول بنیادی وجہ اور معلوم خرابیاں، اور متعلقہ واقعات پڑھتا ہے۔',
+  'role.problem_manager.scope': 'تمام مسائل',
+  'role.purchase_manager': 'خریداری اور معاہدہ مینیجر',
+  'role.purchase_manager.description': 'خریداریوں، فروشندگان اور معاہدوں کی دیکھ بھال کرتا ہے۔',
+  'role.purchase_manager.scope': 'تمام خریداریاں اور معاہدے',
+  'role.release_manager': 'ریلیز مینیجر',
+  'role.release_manager.description':
+    'ریلیزز کو ان کے مراحل سے گزارتا ہے اور مراحل کے کردار تفویض کرتا ہے۔',
+  'role.release_manager.scope': 'تمام ریلیزز',
   'role.report_viewer': 'رپورٹ دیکھنے والا',
   'role.report_viewer.description':
     'ہر واقعہ اور درخواست اور ان کی رپورٹس پڑھتا ہے، بغیر کچھ بدلے۔',
+  'role.report_viewer.scope': 'تمام واقعات اور درخواستیں، صرف پڑھنے کے لیے',
   'role.requester': 'درخواست گزار',
   'role.requester.description':
     'اپنی درخواستیں درج کرتا اور ان پر نظر رکھتا ہے، اور علمی ذخیرہ پڑھتا ہے۔',
+  'role.requester.scope': 'اپنی درخواستیں',
   'role.security_admin': 'سکیورٹی ایڈمنسٹریٹر',
   'role.security_admin.description':
     'سائن اِن اور سکیورٹی: سنگل سائن آن، پاس ورڈ، ایم ایف اے، سیشن اور دعوت نامے؛ ریکارڈز تک رسائی نہیں۔',
+  'role.security_admin.scope': 'سائن اِن اور سیکیورٹی کی ترتیبات',
   'role.service_desk_manager': 'سروس ڈیسک مینیجر',
   'role.service_desk_manager.description':
     'سروس ڈیسک چلاتا ہے: ہر واقعہ اور درخواست، ڈیسک کے SLA، آٹومیشن، رپورٹس اور اعلانات۔',
+  'role.service_desk_manager.scope': 'سروس ڈیسک کے تمام ریکارڈ',
   'role.site_admin': 'سائٹ ایڈمنسٹریٹر',
   'role.site_admin.description':
     'ایک سائٹ کی دیکھ بھال کرتا ہے: اس کے واقعات اور درخواستیں، لوگ، اثاثے اور اعلانات۔',
+  'role.site_admin.scope': 'ایک سائٹ',
+  'role.team_lead': 'ٹیم لیڈ',
+  'role.team_lead.description':
+    'اپنے گروپس کے واقعات، درخواستوں اور مسائل پر کام کرتا ہے اور صرف انہی گروپس کا انتظام کرتا ہے جن کی وہ قیادت کرتا ہے؛ تبدیلیاں، اثاثے اور CMDB دیکھتا ہے۔',
+  'role.team_lead.scope': 'وہ گروپس جن کی وہ قیادت کرتا ہے',
   'role.technician': 'ٹیکنیشن',
   'role.technician.description':
     'درخواستوں، مسائل، تبدیلیوں اور اثاثوں پر کام کرتا ہے؛ علمی ذخیرہ پڑھتا ہے۔',
+  'role.technician.scope': 'اپنے گروپس اور اپنے ریکارڈ',
   'role.tenant_admin': 'ادارہ منتظم',
   'role.tenant_admin.description':
     'پلان میں موجود ہر چیز تک مکمل رسائی، بشمول صارفین، کردار اور ترتیبات۔',
+  'role.tenant_admin.scope': 'سب کچھ',
   'roles.col.name': 'کردار',
   'roles.col.type': 'قسم',
   'roles.col.users': 'صارفین',
@@ -829,7 +865,9 @@ export const ur: LabelResource = {
   'roles.compare_same': 'یہ کردار ایک جیسی اجازتیں دیتے ہیں۔',
   'roles.compare_second': 'دوسرا کردار',
   'roles.copy': 'کاپی کریں',
+  'roles.copy_customise': 'نقل بنائیں اور اپنی مرضی کے مطابق کریں',
   'roles.copy_name': '{{name}} کی کاپی',
+  'roles.default_scope': 'دائرہ: {{scope}}',
   'roles.delete': 'کردار حذف کریں',
   'roles.delete_confirm': 'یہ کردار کسی کے پاس نہیں۔ اسے حذف کر دیا جائے گا۔',
   'roles.delete_in_use_one':
@@ -839,7 +877,6 @@ export const ur: LabelResource = {
   'roles.delete_title': '{{name}} حذف کریں؟',
   'roles.deleted': 'کردار حذف ہو گیا۔',
   'roles.description': 'تفصیل',
-  'roles.duplicate': 'اپنے کردار کے طور پر نقل بنائیں',
   'roles.editor.copy': '“{{name}}” سے نیا کردار',
   'roles.editor.edit': 'کردار: {{name}}',
   'roles.editor.new': 'نیا کردار',
@@ -935,6 +972,7 @@ export const ur: LabelResource = {
   'security.password.digits': 'ایک ہندسہ',
   'security.password.expiry': 'پاس ورڈ کی میعاد ختم ہوتی ہے',
   'security.password.expiry_hint': '0: پاس ورڈ کی میعاد کبھی ختم نہیں ہوتی (تجویز کردہ)۔',
+  'security.password.fix_first': 'پہلے اوپر نشان زدہ قدریں درست کریں۔',
   'security.password.history': 'پچھلے استعمال شدہ پاس ورڈ رد کریں',
   'security.password.history_hint':
     'کتنے پچھلے پاس ورڈ دوبارہ استعمال نہیں ہو سکتے۔ 0 ہر ایک کی اجازت دیتا ہے۔',

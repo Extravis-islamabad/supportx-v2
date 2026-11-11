@@ -9,12 +9,17 @@ import { useCatalogueSave } from './shared';
 
 const AGE_BASES: AssetAgeBasis[] = ['acquisition_date', 'created_date'];
 type Toggle =
-  'cost_includes_tax' | 'site_follows_owner' | 'portal_own_assets_only' | 'email_include_assets';
+  | 'cost_includes_tax'
+  | 'site_follows_owner'
+  | 'portal_own_assets_only'
+  | 'email_include_assets'
+  | 'portal_booking';
 const TOGGLES: Toggle[] = [
   'cost_includes_tax',
   'site_follows_owner',
   'portal_own_assets_only',
   'email_include_assets',
+  'portal_booking', // WP-049b s1, REQ-AST-032 AC3: off by default
 ];
 
 /**
@@ -104,6 +109,19 @@ export function SettingsTab({ settings }: { settings: AssetSettings }) {
                 if (next !== null) edit({ scan_retention_months: next });
               }}
               data-testid="asset-scan-retention"
+            />
+          </Form.Item>
+          {/* REQ-AST-059 AC2: how far ahead the managers hear a warranty is ending (Appendix A). */}
+          <Form.Item label={t('assets.admin.warranty_notice')} htmlFor="asset-warranty-notice">
+            <InputNumber
+              id="asset-warranty-notice"
+              min={1}
+              max={365}
+              value={value('warranty_notice_days')}
+              onChange={(next) => {
+                if (next !== null) edit({ warranty_notice_days: next });
+              }}
+              data-testid="asset-warranty-notice"
             />
           </Form.Item>
         </Flex>

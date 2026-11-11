@@ -5,8 +5,7 @@ list, the record and its actions work for any client of the same API (P2), never
 screen-only route.
 """
 
-from app.main import create_app
-from conftest import make_settings
+from typing import Any
 
 NEEDED = {
     ("get", "/api/v1/problems"),
@@ -30,7 +29,9 @@ NEEDED = {
 }
 
 
-def test_d17_every_problem_operation_is_in_the_public_api() -> None:
-    paths = create_app(make_settings()).openapi()["paths"]
+def test_d17_every_problem_operation_is_in_the_public_api(
+    openapi_contract: dict[str, Any],
+) -> None:
+    paths = openapi_contract["paths"]  # the shard's one build (conftest.openapi_contract)
     published = {(method, path) for path, ops in paths.items() for method in ops}
     assert sorted(NEEDED - published) == []

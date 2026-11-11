@@ -1,0 +1,2810 @@
+{
+ "asset_manager@all": {
+  "assets.manage": [
+   "all"
+  ],
+  "assets.view": [
+   "all"
+  ],
+  "assets.view_financials": [
+   "all"
+  ],
+  "cmdb.manage": [
+   "all"
+  ],
+  "cmdb.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "asset_manager@group": {
+  "assets.manage": [
+   "all"
+  ],
+  "assets.view": [
+   "all"
+  ],
+  "assets.view_financials": [
+   "all"
+  ],
+  "cmdb.manage": [
+   "all"
+  ],
+  "cmdb.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "auditor@all": {
+  "audit.export": [
+   "all"
+  ],
+  "audit.verify": [
+   "all"
+  ],
+  "audit.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "roles.view": [
+   "all"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "auditor@group": {
+  "audit.export": [
+   "all"
+  ],
+  "audit.verify": [
+   "all"
+  ],
+  "audit.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "roles.view": [
+   "all"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "change_manager@all": {
+  "changes.approve": [
+   "all"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.emergency_override": [
+   "all"
+  ],
+  "changes.manage_boards": [
+   "all"
+  ],
+  "changes.manage_windows": [
+   "all"
+  ],
+  "changes.override_freeze": [
+   "all"
+  ],
+  "changes.view": [
+   "all"
+  ],
+  "cmdb.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "change_manager@group": {
+  "changes.approve": [
+   "all"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.emergency_override": [
+   "all"
+  ],
+  "changes.manage_boards": [
+   "all"
+  ],
+  "changes.manage_windows": [
+   "all"
+  ],
+  "changes.override_freeze": [
+   "all"
+  ],
+  "changes.view": [
+   "all"
+  ],
+  "cmdb.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "department_viewer@all": {
+  "profile.edit": [
+   "own"
+  ],
+  "work_items.view_department": [
+   "all"
+  ]
+ },
+ "department_viewer@group": {
+  "profile.edit": [
+   "own"
+  ],
+  "work_items.view_department": [
+   "all"
+  ]
+ },
+ "knowledge_manager@all": {
+  "knowledge.approve": [
+   "all"
+  ],
+  "knowledge.create": [
+   "all"
+  ],
+  "knowledge.delete": [
+   "all"
+  ],
+  "knowledge.edit_any": [
+   "all"
+  ],
+  "knowledge.edit_own": [
+   "own"
+  ],
+  "knowledge.manage_settings": [
+   "all"
+  ],
+  "knowledge.manage_topics": [
+   "all"
+  ],
+  "knowledge.manage_types": [
+   "all"
+  ],
+  "knowledge.submit": [
+   "own"
+  ],
+  "knowledge.view": [
+   "all"
+  ],
+  "knowledge.withdraw": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ]
+ },
+ "knowledge_manager@group": {
+  "knowledge.approve": [
+   "all"
+  ],
+  "knowledge.create": [
+   "all"
+  ],
+  "knowledge.delete": [
+   "all"
+  ],
+  "knowledge.edit_any": [
+   "all"
+  ],
+  "knowledge.edit_own": [
+   "own"
+  ],
+  "knowledge.manage_settings": [
+   "all"
+  ],
+  "knowledge.manage_topics": [
+   "all"
+  ],
+  "knowledge.manage_types": [
+   "all"
+  ],
+  "knowledge.submit": [
+   "own"
+  ],
+  "knowledge.view": [
+   "all"
+  ],
+  "knowledge.withdraw": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ]
+ },
+ "problem_manager@all": {
+  "groups.view": [
+   "all"
+  ],
+  "incidents.view": [
+   "all"
+  ],
+  "problems.add_note": [
+   "all"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "all"
+  ],
+  "problems.cancel": [
+   "all"
+  ],
+  "problems.change_priority": [
+   "all"
+  ],
+  "problems.close": [
+   "all"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.delete": [
+   "all"
+  ],
+  "problems.edit": [
+   "all"
+  ],
+  "problems.edit_analysis": [
+   "all"
+  ],
+  "problems.edit_due_dates": [
+   "all"
+  ],
+  "problems.edit_solution": [
+   "all"
+  ],
+  "problems.manage_followers": [
+   "all"
+  ],
+  "problems.mark_known_error": [
+   "all"
+  ],
+  "problems.reopen": [
+   "all"
+  ],
+  "problems.reply": [
+   "all"
+  ],
+  "problems.resolve": [
+   "all"
+  ],
+  "problems.take": [
+   "all"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "problems.view_root_cause": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "problem_manager@group": {
+  "groups.view": [
+   "all"
+  ],
+  "incidents.view": [
+   "all"
+  ],
+  "problems.add_note": [
+   "all"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "all"
+  ],
+  "problems.cancel": [
+   "all"
+  ],
+  "problems.change_priority": [
+   "all"
+  ],
+  "problems.close": [
+   "all"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.delete": [
+   "all"
+  ],
+  "problems.edit": [
+   "all"
+  ],
+  "problems.edit_analysis": [
+   "all"
+  ],
+  "problems.edit_due_dates": [
+   "all"
+  ],
+  "problems.edit_solution": [
+   "all"
+  ],
+  "problems.manage_followers": [
+   "all"
+  ],
+  "problems.mark_known_error": [
+   "all"
+  ],
+  "problems.reopen": [
+   "all"
+  ],
+  "problems.reply": [
+   "all"
+  ],
+  "problems.resolve": [
+   "all"
+  ],
+  "problems.take": [
+   "all"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "problems.view_root_cause": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "purchase_manager@all": {
+  "assets.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "purchase_manager@group": {
+  "assets.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "release_manager@all": {
+  "changes.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.add_note": [
+   "all"
+  ],
+  "releases.approve": [
+   "all"
+  ],
+  "releases.assign": [
+   "all"
+  ],
+  "releases.cancel": [
+   "all"
+  ],
+  "releases.change_priority": [
+   "all"
+  ],
+  "releases.close": [
+   "all"
+  ],
+  "releases.create": [
+   "all"
+  ],
+  "releases.edit": [
+   "all"
+  ],
+  "releases.edit_due_dates": [
+   "all"
+  ],
+  "releases.manage_followers": [
+   "all"
+  ],
+  "releases.reopen": [
+   "all"
+  ],
+  "releases.reply": [
+   "all"
+  ],
+  "releases.resolve": [
+   "all"
+  ],
+  "releases.take": [
+   "all"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "release_manager@group": {
+  "changes.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.add_note": [
+   "all"
+  ],
+  "releases.approve": [
+   "all"
+  ],
+  "releases.assign": [
+   "all"
+  ],
+  "releases.cancel": [
+   "all"
+  ],
+  "releases.change_priority": [
+   "all"
+  ],
+  "releases.close": [
+   "all"
+  ],
+  "releases.create": [
+   "all"
+  ],
+  "releases.edit": [
+   "all"
+  ],
+  "releases.edit_due_dates": [
+   "all"
+  ],
+  "releases.manage_followers": [
+   "all"
+  ],
+  "releases.reopen": [
+   "all"
+  ],
+  "releases.reply": [
+   "all"
+  ],
+  "releases.resolve": [
+   "all"
+  ],
+  "releases.take": [
+   "all"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "report_viewer@all": {
+  "changes.view": [
+   "all"
+  ],
+  "incidents.view": [
+   "all"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "reports.export": [
+   "all"
+  ],
+  "reports.view": [
+   "all"
+  ],
+  "requests.view": [
+   "all"
+  ]
+ },
+ "report_viewer@group": {
+  "changes.view": [
+   "all"
+  ],
+  "incidents.view": [
+   "all"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "reports.export": [
+   "all"
+  ],
+  "reports.view": [
+   "all"
+  ],
+  "requests.view": [
+   "all"
+  ]
+ },
+ "requester@all": {
+  "knowledge.view": [
+   "own"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "requests.approve": [
+   "all"
+  ],
+  "requests.close": [
+   "own"
+  ],
+  "requests.create": [
+   "all"
+  ],
+  "requests.view": [
+   "own"
+  ]
+ },
+ "requester@group": {
+  "knowledge.view": [
+   "own"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "requests.approve": [
+   "all"
+  ],
+  "requests.close": [
+   "own"
+  ],
+  "requests.create": [
+   "all"
+  ],
+  "requests.view": [
+   "own"
+  ]
+ },
+ "security_admin@all": {
+  "api_keys.manage": [
+   "all"
+  ],
+  "identity.manage": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "roles.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "security_admin@group": {
+  "api_keys.manage": [
+   "all"
+  ],
+  "identity.manage": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "roles.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "service_desk_manager@all": {
+  "announcements.manage": [
+   "all"
+  ],
+  "announcements.publish": [
+   "all"
+  ],
+  "announcements.view": [
+   "all"
+  ],
+  "automation.manage": [
+   "all"
+  ],
+  "automation.view": [
+   "all"
+  ],
+  "changes.add_note": [
+   "all"
+  ],
+  "changes.approve": [
+   "all"
+  ],
+  "changes.assign": [
+   "all"
+  ],
+  "changes.cancel": [
+   "all"
+  ],
+  "changes.change_priority": [
+   "all"
+  ],
+  "changes.close": [
+   "all"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.delete": [
+   "all"
+  ],
+  "changes.edit": [
+   "all"
+  ],
+  "changes.edit_due_dates": [
+   "all"
+  ],
+  "changes.manage_followers": [
+   "all"
+  ],
+  "changes.reopen": [
+   "all"
+  ],
+  "changes.reply": [
+   "all"
+  ],
+  "changes.resolve": [
+   "all"
+  ],
+  "changes.take": [
+   "all"
+  ],
+  "changes.view": [
+   "all"
+  ],
+  "config.announcements": [
+   "all"
+  ],
+  "config.service_desk": [
+   "all"
+  ],
+  "dashboards.create": [
+   "own"
+  ],
+  "dashboards.share": [
+   "all"
+  ],
+  "departments.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "incidents.add_note": [
+   "all"
+  ],
+  "incidents.assign": [
+   "all"
+  ],
+  "incidents.cancel": [
+   "all"
+  ],
+  "incidents.change_priority": [
+   "all"
+  ],
+  "incidents.close": [
+   "all"
+  ],
+  "incidents.create": [
+   "all"
+  ],
+  "incidents.delete": [
+   "all"
+  ],
+  "incidents.edit": [
+   "all"
+  ],
+  "incidents.edit_due_dates": [
+   "all"
+  ],
+  "incidents.manage_followers": [
+   "all"
+  ],
+  "incidents.reopen": [
+   "all"
+  ],
+  "incidents.reply": [
+   "all"
+  ],
+  "incidents.resolve": [
+   "all"
+  ],
+  "incidents.take": [
+   "all"
+  ],
+  "incidents.view": [
+   "all"
+  ],
+  "integrations.view": [
+   "all"
+  ],
+  "knowledge.view": [
+   "all"
+  ],
+  "problems.add_note": [
+   "all"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "all"
+  ],
+  "problems.cancel": [
+   "all"
+  ],
+  "problems.change_priority": [
+   "all"
+  ],
+  "problems.close": [
+   "all"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.delete": [
+   "all"
+  ],
+  "problems.edit": [
+   "all"
+  ],
+  "problems.edit_analysis": [
+   "all"
+  ],
+  "problems.edit_due_dates": [
+   "all"
+  ],
+  "problems.edit_solution": [
+   "all"
+  ],
+  "problems.manage_followers": [
+   "all"
+  ],
+  "problems.mark_known_error": [
+   "all"
+  ],
+  "problems.reopen": [
+   "all"
+  ],
+  "problems.reply": [
+   "all"
+  ],
+  "problems.resolve": [
+   "all"
+  ],
+  "problems.take": [
+   "all"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "problems.view_root_cause": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.add_note": [
+   "all"
+  ],
+  "releases.approve": [
+   "all"
+  ],
+  "releases.assign": [
+   "all"
+  ],
+  "releases.cancel": [
+   "all"
+  ],
+  "releases.change_priority": [
+   "all"
+  ],
+  "releases.close": [
+   "all"
+  ],
+  "releases.create": [
+   "all"
+  ],
+  "releases.delete": [
+   "all"
+  ],
+  "releases.edit": [
+   "all"
+  ],
+  "releases.edit_due_dates": [
+   "all"
+  ],
+  "releases.manage_followers": [
+   "all"
+  ],
+  "releases.reopen": [
+   "all"
+  ],
+  "releases.reply": [
+   "all"
+  ],
+  "releases.resolve": [
+   "all"
+  ],
+  "releases.take": [
+   "all"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "reports.create": [
+   "own"
+  ],
+  "reports.export": [
+   "all"
+  ],
+  "reports.schedule": [
+   "all"
+  ],
+  "reports.view": [
+   "all"
+  ],
+  "requests.add_note": [
+   "all"
+  ],
+  "requests.assign": [
+   "all"
+  ],
+  "requests.cancel": [
+   "all"
+  ],
+  "requests.change_priority": [
+   "all"
+  ],
+  "requests.close": [
+   "all"
+  ],
+  "requests.create": [
+   "all"
+  ],
+  "requests.delete": [
+   "all"
+  ],
+  "requests.edit": [
+   "all"
+  ],
+  "requests.edit_due_dates": [
+   "all"
+  ],
+  "requests.manage_followers": [
+   "all"
+  ],
+  "requests.reopen": [
+   "all"
+  ],
+  "requests.reply": [
+   "all"
+  ],
+  "requests.resolve": [
+   "all"
+  ],
+  "requests.take": [
+   "all"
+  ],
+  "requests.view": [
+   "all"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "sla.manage": [
+   "all"
+  ],
+  "sla.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ],
+  "workflows.manage": [
+   "all"
+  ],
+  "workflows.run": [
+   "all"
+  ]
+ },
+ "service_desk_manager@group": {
+  "announcements.manage": [
+   "all"
+  ],
+  "announcements.publish": [
+   "all"
+  ],
+  "announcements.view": [
+   "all"
+  ],
+  "automation.manage": [
+   "all"
+  ],
+  "automation.view": [
+   "all"
+  ],
+  "changes.add_note": [
+   "all"
+  ],
+  "changes.approve": [
+   "all"
+  ],
+  "changes.assign": [
+   "all"
+  ],
+  "changes.cancel": [
+   "all"
+  ],
+  "changes.change_priority": [
+   "all"
+  ],
+  "changes.close": [
+   "all"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.delete": [
+   "all"
+  ],
+  "changes.edit": [
+   "all"
+  ],
+  "changes.edit_due_dates": [
+   "all"
+  ],
+  "changes.manage_followers": [
+   "all"
+  ],
+  "changes.reopen": [
+   "all"
+  ],
+  "changes.reply": [
+   "all"
+  ],
+  "changes.resolve": [
+   "all"
+  ],
+  "changes.take": [
+   "all"
+  ],
+  "changes.view": [
+   "all"
+  ],
+  "config.announcements": [
+   "all"
+  ],
+  "config.service_desk": [
+   "all"
+  ],
+  "dashboards.create": [
+   "own"
+  ],
+  "dashboards.share": [
+   "all"
+  ],
+  "departments.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "incidents.add_note": [
+   "all"
+  ],
+  "incidents.assign": [
+   "all"
+  ],
+  "incidents.cancel": [
+   "all"
+  ],
+  "incidents.change_priority": [
+   "all"
+  ],
+  "incidents.close": [
+   "all"
+  ],
+  "incidents.create": [
+   "all"
+  ],
+  "incidents.delete": [
+   "all"
+  ],
+  "incidents.edit": [
+   "all"
+  ],
+  "incidents.edit_due_dates": [
+   "all"
+  ],
+  "incidents.manage_followers": [
+   "all"
+  ],
+  "incidents.reopen": [
+   "all"
+  ],
+  "incidents.reply": [
+   "all"
+  ],
+  "incidents.resolve": [
+   "all"
+  ],
+  "incidents.take": [
+   "all"
+  ],
+  "incidents.view": [
+   "all"
+  ],
+  "integrations.view": [
+   "all"
+  ],
+  "knowledge.view": [
+   "all"
+  ],
+  "problems.add_note": [
+   "all"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "all"
+  ],
+  "problems.cancel": [
+   "all"
+  ],
+  "problems.change_priority": [
+   "all"
+  ],
+  "problems.close": [
+   "all"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.delete": [
+   "all"
+  ],
+  "problems.edit": [
+   "all"
+  ],
+  "problems.edit_analysis": [
+   "all"
+  ],
+  "problems.edit_due_dates": [
+   "all"
+  ],
+  "problems.edit_solution": [
+   "all"
+  ],
+  "problems.manage_followers": [
+   "all"
+  ],
+  "problems.mark_known_error": [
+   "all"
+  ],
+  "problems.reopen": [
+   "all"
+  ],
+  "problems.reply": [
+   "all"
+  ],
+  "problems.resolve": [
+   "all"
+  ],
+  "problems.take": [
+   "all"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "problems.view_root_cause": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.add_note": [
+   "all"
+  ],
+  "releases.approve": [
+   "all"
+  ],
+  "releases.assign": [
+   "all"
+  ],
+  "releases.cancel": [
+   "all"
+  ],
+  "releases.change_priority": [
+   "all"
+  ],
+  "releases.close": [
+   "all"
+  ],
+  "releases.create": [
+   "all"
+  ],
+  "releases.delete": [
+   "all"
+  ],
+  "releases.edit": [
+   "all"
+  ],
+  "releases.edit_due_dates": [
+   "all"
+  ],
+  "releases.manage_followers": [
+   "all"
+  ],
+  "releases.reopen": [
+   "all"
+  ],
+  "releases.reply": [
+   "all"
+  ],
+  "releases.resolve": [
+   "all"
+  ],
+  "releases.take": [
+   "all"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "reports.create": [
+   "own"
+  ],
+  "reports.export": [
+   "all"
+  ],
+  "reports.schedule": [
+   "all"
+  ],
+  "reports.view": [
+   "all"
+  ],
+  "requests.add_note": [
+   "all"
+  ],
+  "requests.assign": [
+   "all"
+  ],
+  "requests.cancel": [
+   "all"
+  ],
+  "requests.change_priority": [
+   "all"
+  ],
+  "requests.close": [
+   "all"
+  ],
+  "requests.create": [
+   "all"
+  ],
+  "requests.delete": [
+   "all"
+  ],
+  "requests.edit": [
+   "all"
+  ],
+  "requests.edit_due_dates": [
+   "all"
+  ],
+  "requests.manage_followers": [
+   "all"
+  ],
+  "requests.reopen": [
+   "all"
+  ],
+  "requests.reply": [
+   "all"
+  ],
+  "requests.resolve": [
+   "all"
+  ],
+  "requests.take": [
+   "all"
+  ],
+  "requests.view": [
+   "all"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "sla.manage": [
+   "all"
+  ],
+  "sla.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ],
+  "workflows.manage": [
+   "all"
+  ],
+  "workflows.run": [
+   "all"
+  ]
+ },
+ "site_admin@all": {
+  "announcements.manage": [
+   "site"
+  ],
+  "announcements.view": [
+   "site"
+  ],
+  "assets.manage": [
+   "site"
+  ],
+  "assets.view": [
+   "site"
+  ],
+  "changes.add_note": [
+   "site"
+  ],
+  "changes.assign": [
+   "site"
+  ],
+  "changes.cancel": [
+   "site"
+  ],
+  "changes.change_priority": [
+   "site"
+  ],
+  "changes.close": [
+   "site"
+  ],
+  "changes.edit": [
+   "site"
+  ],
+  "changes.manage_followers": [
+   "site"
+  ],
+  "changes.reopen": [
+   "site"
+  ],
+  "changes.reply": [
+   "site"
+  ],
+  "changes.resolve": [
+   "site"
+  ],
+  "changes.take": [
+   "site"
+  ],
+  "changes.view": [
+   "site"
+  ],
+  "departments.view": [
+   "all"
+  ],
+  "incidents.add_note": [
+   "site"
+  ],
+  "incidents.assign": [
+   "site"
+  ],
+  "incidents.cancel": [
+   "site"
+  ],
+  "incidents.change_priority": [
+   "site"
+  ],
+  "incidents.close": [
+   "site"
+  ],
+  "incidents.edit": [
+   "site"
+  ],
+  "incidents.manage_followers": [
+   "site"
+  ],
+  "incidents.reopen": [
+   "site"
+  ],
+  "incidents.reply": [
+   "site"
+  ],
+  "incidents.resolve": [
+   "site"
+  ],
+  "incidents.take": [
+   "site"
+  ],
+  "incidents.view": [
+   "site"
+  ],
+  "problems.add_note": [
+   "site"
+  ],
+  "problems.assign": [
+   "site"
+  ],
+  "problems.cancel": [
+   "site"
+  ],
+  "problems.change_priority": [
+   "site"
+  ],
+  "problems.close": [
+   "site"
+  ],
+  "problems.edit": [
+   "site"
+  ],
+  "problems.manage_followers": [
+   "site"
+  ],
+  "problems.reopen": [
+   "site"
+  ],
+  "problems.reply": [
+   "site"
+  ],
+  "problems.resolve": [
+   "site"
+  ],
+  "problems.take": [
+   "site"
+  ],
+  "problems.view": [
+   "site"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.add_note": [
+   "site"
+  ],
+  "releases.assign": [
+   "site"
+  ],
+  "releases.cancel": [
+   "site"
+  ],
+  "releases.change_priority": [
+   "site"
+  ],
+  "releases.close": [
+   "site"
+  ],
+  "releases.edit": [
+   "site"
+  ],
+  "releases.manage_followers": [
+   "site"
+  ],
+  "releases.reopen": [
+   "site"
+  ],
+  "releases.reply": [
+   "site"
+  ],
+  "releases.resolve": [
+   "site"
+  ],
+  "releases.take": [
+   "site"
+  ],
+  "releases.view": [
+   "site"
+  ],
+  "reports.view": [
+   "site"
+  ],
+  "requests.add_note": [
+   "site"
+  ],
+  "requests.assign": [
+   "site"
+  ],
+  "requests.cancel": [
+   "site"
+  ],
+  "requests.change_priority": [
+   "site"
+  ],
+  "requests.close": [
+   "site"
+  ],
+  "requests.edit": [
+   "site"
+  ],
+  "requests.manage_followers": [
+   "site"
+  ],
+  "requests.reopen": [
+   "site"
+  ],
+  "requests.reply": [
+   "site"
+  ],
+  "requests.resolve": [
+   "site"
+  ],
+  "requests.take": [
+   "site"
+  ],
+  "requests.view": [
+   "site"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "site"
+  ]
+ },
+ "site_admin@group": {
+  "announcements.manage": [
+   "site"
+  ],
+  "announcements.view": [
+   "site"
+  ],
+  "assets.manage": [
+   "site"
+  ],
+  "assets.view": [
+   "site"
+  ],
+  "changes.add_note": [
+   "site"
+  ],
+  "changes.assign": [
+   "site"
+  ],
+  "changes.cancel": [
+   "site"
+  ],
+  "changes.change_priority": [
+   "site"
+  ],
+  "changes.close": [
+   "site"
+  ],
+  "changes.edit": [
+   "site"
+  ],
+  "changes.manage_followers": [
+   "site"
+  ],
+  "changes.reopen": [
+   "site"
+  ],
+  "changes.reply": [
+   "site"
+  ],
+  "changes.resolve": [
+   "site"
+  ],
+  "changes.take": [
+   "site"
+  ],
+  "changes.view": [
+   "site"
+  ],
+  "departments.view": [
+   "all"
+  ],
+  "incidents.add_note": [
+   "site"
+  ],
+  "incidents.assign": [
+   "site"
+  ],
+  "incidents.cancel": [
+   "site"
+  ],
+  "incidents.change_priority": [
+   "site"
+  ],
+  "incidents.close": [
+   "site"
+  ],
+  "incidents.edit": [
+   "site"
+  ],
+  "incidents.manage_followers": [
+   "site"
+  ],
+  "incidents.reopen": [
+   "site"
+  ],
+  "incidents.reply": [
+   "site"
+  ],
+  "incidents.resolve": [
+   "site"
+  ],
+  "incidents.take": [
+   "site"
+  ],
+  "incidents.view": [
+   "site"
+  ],
+  "problems.add_note": [
+   "site"
+  ],
+  "problems.assign": [
+   "site"
+  ],
+  "problems.cancel": [
+   "site"
+  ],
+  "problems.change_priority": [
+   "site"
+  ],
+  "problems.close": [
+   "site"
+  ],
+  "problems.edit": [
+   "site"
+  ],
+  "problems.manage_followers": [
+   "site"
+  ],
+  "problems.reopen": [
+   "site"
+  ],
+  "problems.reply": [
+   "site"
+  ],
+  "problems.resolve": [
+   "site"
+  ],
+  "problems.take": [
+   "site"
+  ],
+  "problems.view": [
+   "site"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.add_note": [
+   "site"
+  ],
+  "releases.assign": [
+   "site"
+  ],
+  "releases.cancel": [
+   "site"
+  ],
+  "releases.change_priority": [
+   "site"
+  ],
+  "releases.close": [
+   "site"
+  ],
+  "releases.edit": [
+   "site"
+  ],
+  "releases.manage_followers": [
+   "site"
+  ],
+  "releases.reopen": [
+   "site"
+  ],
+  "releases.reply": [
+   "site"
+  ],
+  "releases.resolve": [
+   "site"
+  ],
+  "releases.take": [
+   "site"
+  ],
+  "releases.view": [
+   "site"
+  ],
+  "reports.view": [
+   "site"
+  ],
+  "requests.add_note": [
+   "site"
+  ],
+  "requests.assign": [
+   "site"
+  ],
+  "requests.cancel": [
+   "site"
+  ],
+  "requests.change_priority": [
+   "site"
+  ],
+  "requests.close": [
+   "site"
+  ],
+  "requests.edit": [
+   "site"
+  ],
+  "requests.manage_followers": [
+   "site"
+  ],
+  "requests.reopen": [
+   "site"
+  ],
+  "requests.reply": [
+   "site"
+  ],
+  "requests.resolve": [
+   "site"
+  ],
+  "requests.take": [
+   "site"
+  ],
+  "requests.view": [
+   "site"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "site"
+  ]
+ },
+ "team_lead@all": {
+  "announcements.manage": [
+   "own"
+  ],
+  "announcements.view": [
+   "all"
+  ],
+  "assets.view": [
+   "all"
+  ],
+  "changes.add_note": [
+   "group"
+  ],
+  "changes.assign": [
+   "group"
+  ],
+  "changes.cancel": [
+   "group"
+  ],
+  "changes.change_priority": [
+   "group"
+  ],
+  "changes.close": [
+   "group"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.edit": [
+   "group"
+  ],
+  "changes.manage_followers": [
+   "group"
+  ],
+  "changes.reopen": [
+   "group"
+  ],
+  "changes.reply": [
+   "group"
+  ],
+  "changes.resolve": [
+   "group"
+  ],
+  "changes.take": [
+   "group"
+  ],
+  "changes.view": [
+   "all"
+  ],
+  "cmdb.view": [
+   "all"
+  ],
+  "dashboards.create": [
+   "own"
+  ],
+  "departments.view": [
+   "all"
+  ],
+  "groups.manage_own": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "incidents.add_note": [
+   "group",
+   "own"
+  ],
+  "incidents.assign": [
+   "group",
+   "own"
+  ],
+  "incidents.cancel": [
+   "group",
+   "own"
+  ],
+  "incidents.change_priority": [
+   "group",
+   "own"
+  ],
+  "incidents.close": [
+   "group",
+   "own"
+  ],
+  "incidents.create": [
+   "all"
+  ],
+  "incidents.edit": [
+   "group",
+   "own"
+  ],
+  "incidents.manage_followers": [
+   "group",
+   "own"
+  ],
+  "incidents.reopen": [
+   "group",
+   "own"
+  ],
+  "incidents.reply": [
+   "group",
+   "own"
+  ],
+  "incidents.resolve": [
+   "group",
+   "own"
+  ],
+  "incidents.take": [
+   "group"
+  ],
+  "incidents.view": [
+   "group",
+   "own"
+  ],
+  "integrations.view": [
+   "all"
+  ],
+  "knowledge.create": [
+   "group"
+  ],
+  "knowledge.edit_own": [
+   "own"
+  ],
+  "knowledge.submit": [
+   "own"
+  ],
+  "knowledge.view": [
+   "group"
+  ],
+  "problems.add_note": [
+   "group"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "group"
+  ],
+  "problems.cancel": [
+   "group"
+  ],
+  "problems.change_priority": [
+   "group"
+  ],
+  "problems.close": [
+   "group"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.edit": [
+   "group"
+  ],
+  "problems.edit_analysis": [
+   "group"
+  ],
+  "problems.edit_solution": [
+   "group"
+  ],
+  "problems.manage_followers": [
+   "group"
+  ],
+  "problems.mark_known_error": [
+   "group"
+  ],
+  "problems.reopen": [
+   "group"
+  ],
+  "problems.reply": [
+   "group"
+  ],
+  "problems.resolve": [
+   "group"
+  ],
+  "problems.take": [
+   "group"
+  ],
+  "problems.view": [
+   "group"
+  ],
+  "problems.view_root_cause": [
+   "group"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "reports.create": [
+   "own"
+  ],
+  "reports.export": [
+   "all"
+  ],
+  "reports.view": [
+   "all"
+  ],
+  "requests.add_note": [
+   "group",
+   "own"
+  ],
+  "requests.approve": [
+   "all"
+  ],
+  "requests.assign": [
+   "group"
+  ],
+  "requests.cancel": [
+   "group",
+   "own"
+  ],
+  "requests.change_priority": [
+   "group",
+   "own"
+  ],
+  "requests.close": [
+   "group"
+  ],
+  "requests.create": [
+   "all"
+  ],
+  "requests.edit": [
+   "group"
+  ],
+  "requests.manage_followers": [
+   "group",
+   "own"
+  ],
+  "requests.reopen": [
+   "group",
+   "own"
+  ],
+  "requests.reply": [
+   "group",
+   "own"
+  ],
+  "requests.resolve": [
+   "group",
+   "own"
+  ],
+  "requests.take": [
+   "group"
+  ],
+  "requests.view": [
+   "group"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "sla.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ],
+  "vendors.view": [
+   "all"
+  ],
+  "workflows.run": [
+   "all"
+  ]
+ },
+ "team_lead@group": {
+  "announcements.manage": [
+   "own"
+  ],
+  "announcements.view": [
+   "all"
+  ],
+  "assets.view": [
+   "all"
+  ],
+  "changes.add_note": [
+   "group"
+  ],
+  "changes.assign": [
+   "group"
+  ],
+  "changes.cancel": [
+   "group"
+  ],
+  "changes.change_priority": [
+   "group"
+  ],
+  "changes.close": [
+   "group"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.edit": [
+   "group"
+  ],
+  "changes.manage_followers": [
+   "group"
+  ],
+  "changes.reopen": [
+   "group"
+  ],
+  "changes.reply": [
+   "group"
+  ],
+  "changes.resolve": [
+   "group"
+  ],
+  "changes.take": [
+   "group"
+  ],
+  "changes.view": [
+   "all"
+  ],
+  "cmdb.view": [
+   "all"
+  ],
+  "dashboards.create": [
+   "own"
+  ],
+  "departments.view": [
+   "all"
+  ],
+  "groups.manage_own": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "incidents.add_note": [
+   "group",
+   "own"
+  ],
+  "incidents.assign": [
+   "group",
+   "own"
+  ],
+  "incidents.cancel": [
+   "group",
+   "own"
+  ],
+  "incidents.change_priority": [
+   "group",
+   "own"
+  ],
+  "incidents.close": [
+   "group",
+   "own"
+  ],
+  "incidents.create": [
+   "all"
+  ],
+  "incidents.edit": [
+   "group",
+   "own"
+  ],
+  "incidents.manage_followers": [
+   "group",
+   "own"
+  ],
+  "incidents.reopen": [
+   "group",
+   "own"
+  ],
+  "incidents.reply": [
+   "group",
+   "own"
+  ],
+  "incidents.resolve": [
+   "group",
+   "own"
+  ],
+  "incidents.take": [
+   "group"
+  ],
+  "incidents.view": [
+   "group",
+   "own"
+  ],
+  "integrations.view": [
+   "all"
+  ],
+  "knowledge.create": [
+   "group"
+  ],
+  "knowledge.edit_own": [
+   "own"
+  ],
+  "knowledge.submit": [
+   "own"
+  ],
+  "knowledge.view": [
+   "group"
+  ],
+  "problems.add_note": [
+   "group"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "group"
+  ],
+  "problems.cancel": [
+   "group"
+  ],
+  "problems.change_priority": [
+   "group"
+  ],
+  "problems.close": [
+   "group"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.edit": [
+   "group"
+  ],
+  "problems.edit_analysis": [
+   "group"
+  ],
+  "problems.edit_solution": [
+   "group"
+  ],
+  "problems.manage_followers": [
+   "group"
+  ],
+  "problems.mark_known_error": [
+   "group"
+  ],
+  "problems.reopen": [
+   "group"
+  ],
+  "problems.reply": [
+   "group"
+  ],
+  "problems.resolve": [
+   "group"
+  ],
+  "problems.take": [
+   "group"
+  ],
+  "problems.view": [
+   "group"
+  ],
+  "problems.view_root_cause": [
+   "group"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "reports.create": [
+   "own"
+  ],
+  "reports.export": [
+   "all"
+  ],
+  "reports.view": [
+   "all"
+  ],
+  "requests.add_note": [
+   "group",
+   "own"
+  ],
+  "requests.approve": [
+   "all"
+  ],
+  "requests.assign": [
+   "group"
+  ],
+  "requests.cancel": [
+   "group",
+   "own"
+  ],
+  "requests.change_priority": [
+   "group",
+   "own"
+  ],
+  "requests.close": [
+   "group"
+  ],
+  "requests.create": [
+   "all"
+  ],
+  "requests.edit": [
+   "group"
+  ],
+  "requests.manage_followers": [
+   "group",
+   "own"
+  ],
+  "requests.reopen": [
+   "group",
+   "own"
+  ],
+  "requests.reply": [
+   "group",
+   "own"
+  ],
+  "requests.resolve": [
+   "group",
+   "own"
+  ],
+  "requests.take": [
+   "group"
+  ],
+  "requests.view": [
+   "group"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "sla.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ],
+  "vendors.view": [
+   "all"
+  ],
+  "workflows.run": [
+   "all"
+  ]
+ },
+ "technician@all": {
+  "announcements.manage": [
+   "own"
+  ],
+  "announcements.view": [
+   "all"
+  ],
+  "assets.view": [
+   "all"
+  ],
+  "changes.add_note": [
+   "all"
+  ],
+  "changes.assign": [
+   "all"
+  ],
+  "changes.cancel": [
+   "all"
+  ],
+  "changes.change_priority": [
+   "all"
+  ],
+  "changes.close": [
+   "all"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.edit": [
+   "all"
+  ],
+  "changes.manage_followers": [
+   "all"
+  ],
+  "changes.reopen": [
+   "all"
+  ],
+  "changes.reply": [
+   "all"
+  ],
+  "changes.resolve": [
+   "all"
+  ],
+  "changes.take": [
+   "all"
+  ],
+  "changes.view": [
+   "all"
+  ],
+  "cmdb.view": [
+   "all"
+  ],
+  "dashboards.create": [
+   "own"
+  ],
+  "departments.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "incidents.add_note": [
+   "all",
+   "own"
+  ],
+  "incidents.assign": [
+   "all",
+   "own"
+  ],
+  "incidents.cancel": [
+   "all",
+   "own"
+  ],
+  "incidents.change_priority": [
+   "all",
+   "own"
+  ],
+  "incidents.close": [
+   "all",
+   "own"
+  ],
+  "incidents.create": [
+   "all"
+  ],
+  "incidents.edit": [
+   "all",
+   "own"
+  ],
+  "incidents.manage_followers": [
+   "all",
+   "own"
+  ],
+  "incidents.reopen": [
+   "all",
+   "own"
+  ],
+  "incidents.reply": [
+   "all",
+   "own"
+  ],
+  "incidents.resolve": [
+   "all",
+   "own"
+  ],
+  "incidents.take": [
+   "all"
+  ],
+  "incidents.view": [
+   "all",
+   "own"
+  ],
+  "integrations.view": [
+   "all"
+  ],
+  "knowledge.create": [
+   "all"
+  ],
+  "knowledge.edit_own": [
+   "own"
+  ],
+  "knowledge.submit": [
+   "own"
+  ],
+  "knowledge.view": [
+   "all"
+  ],
+  "problems.add_note": [
+   "all"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "all"
+  ],
+  "problems.cancel": [
+   "all"
+  ],
+  "problems.change_priority": [
+   "all"
+  ],
+  "problems.close": [
+   "all"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.edit": [
+   "all"
+  ],
+  "problems.edit_analysis": [
+   "all"
+  ],
+  "problems.edit_solution": [
+   "all"
+  ],
+  "problems.manage_followers": [
+   "all"
+  ],
+  "problems.mark_known_error": [
+   "all"
+  ],
+  "problems.reopen": [
+   "all"
+  ],
+  "problems.reply": [
+   "all"
+  ],
+  "problems.resolve": [
+   "all"
+  ],
+  "problems.take": [
+   "all"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "problems.view_root_cause": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "reports.create": [
+   "own"
+  ],
+  "reports.export": [
+   "all"
+  ],
+  "reports.view": [
+   "all"
+  ],
+  "requests.add_note": [
+   "all",
+   "own"
+  ],
+  "requests.approve": [
+   "all"
+  ],
+  "requests.assign": [
+   "all"
+  ],
+  "requests.cancel": [
+   "all",
+   "own"
+  ],
+  "requests.change_priority": [
+   "all",
+   "own"
+  ],
+  "requests.close": [
+   "all"
+  ],
+  "requests.create": [
+   "all"
+  ],
+  "requests.edit": [
+   "all"
+  ],
+  "requests.manage_followers": [
+   "all",
+   "own"
+  ],
+  "requests.reopen": [
+   "all",
+   "own"
+  ],
+  "requests.reply": [
+   "all",
+   "own"
+  ],
+  "requests.resolve": [
+   "all",
+   "own"
+  ],
+  "requests.take": [
+   "all"
+  ],
+  "requests.view": [
+   "all"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "sla.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ],
+  "vendors.view": [
+   "all"
+  ],
+  "workflows.run": [
+   "all"
+  ]
+ },
+ "technician@group": {
+  "announcements.manage": [
+   "own"
+  ],
+  "announcements.view": [
+   "all"
+  ],
+  "assets.view": [
+   "all"
+  ],
+  "changes.add_note": [
+   "group"
+  ],
+  "changes.assign": [
+   "group"
+  ],
+  "changes.cancel": [
+   "group"
+  ],
+  "changes.change_priority": [
+   "group"
+  ],
+  "changes.close": [
+   "group"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.edit": [
+   "group"
+  ],
+  "changes.manage_followers": [
+   "group"
+  ],
+  "changes.reopen": [
+   "group"
+  ],
+  "changes.reply": [
+   "group"
+  ],
+  "changes.resolve": [
+   "group"
+  ],
+  "changes.take": [
+   "group"
+  ],
+  "changes.view": [
+   "all"
+  ],
+  "cmdb.view": [
+   "all"
+  ],
+  "dashboards.create": [
+   "own"
+  ],
+  "departments.view": [
+   "all"
+  ],
+  "groups.view": [
+   "all"
+  ],
+  "incidents.add_note": [
+   "group",
+   "own"
+  ],
+  "incidents.assign": [
+   "group",
+   "own"
+  ],
+  "incidents.cancel": [
+   "group",
+   "own"
+  ],
+  "incidents.change_priority": [
+   "group",
+   "own"
+  ],
+  "incidents.close": [
+   "group",
+   "own"
+  ],
+  "incidents.create": [
+   "all"
+  ],
+  "incidents.edit": [
+   "group",
+   "own"
+  ],
+  "incidents.manage_followers": [
+   "group",
+   "own"
+  ],
+  "incidents.reopen": [
+   "group",
+   "own"
+  ],
+  "incidents.reply": [
+   "group",
+   "own"
+  ],
+  "incidents.resolve": [
+   "group",
+   "own"
+  ],
+  "incidents.take": [
+   "group"
+  ],
+  "incidents.view": [
+   "group",
+   "own"
+  ],
+  "integrations.view": [
+   "all"
+  ],
+  "knowledge.create": [
+   "group"
+  ],
+  "knowledge.edit_own": [
+   "own"
+  ],
+  "knowledge.submit": [
+   "own"
+  ],
+  "knowledge.view": [
+   "group"
+  ],
+  "problems.add_note": [
+   "group"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "group"
+  ],
+  "problems.cancel": [
+   "group"
+  ],
+  "problems.change_priority": [
+   "group"
+  ],
+  "problems.close": [
+   "group"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.edit": [
+   "group"
+  ],
+  "problems.edit_analysis": [
+   "group"
+  ],
+  "problems.edit_solution": [
+   "group"
+  ],
+  "problems.manage_followers": [
+   "group"
+  ],
+  "problems.mark_known_error": [
+   "group"
+  ],
+  "problems.reopen": [
+   "group"
+  ],
+  "problems.reply": [
+   "group"
+  ],
+  "problems.resolve": [
+   "group"
+  ],
+  "problems.take": [
+   "group"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "problems.view_root_cause": [
+   "group"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "releases.view": [
+   "all"
+  ],
+  "reports.create": [
+   "own"
+  ],
+  "reports.export": [
+   "all"
+  ],
+  "reports.view": [
+   "all"
+  ],
+  "requests.add_note": [
+   "group",
+   "own"
+  ],
+  "requests.approve": [
+   "all"
+  ],
+  "requests.assign": [
+   "all"
+  ],
+  "requests.cancel": [
+   "group",
+   "own"
+  ],
+  "requests.change_priority": [
+   "group",
+   "own"
+  ],
+  "requests.close": [
+   "all"
+  ],
+  "requests.create": [
+   "all"
+  ],
+  "requests.edit": [
+   "all"
+  ],
+  "requests.manage_followers": [
+   "group",
+   "own"
+  ],
+  "requests.reopen": [
+   "group",
+   "own"
+  ],
+  "requests.reply": [
+   "group",
+   "own"
+  ],
+  "requests.resolve": [
+   "group",
+   "own"
+  ],
+  "requests.take": [
+   "group"
+  ],
+  "requests.view": [
+   "all"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "sla.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ],
+  "vendors.view": [
+   "all"
+  ],
+  "workflows.run": [
+   "all"
+  ]
+ }
+}

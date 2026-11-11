@@ -197,11 +197,18 @@ SINGLE_ROLES = frozenset({"requester", "change_owner"})
 # requester through the approvals' self-approval rule, the implementer's holders here.
 SEGREGATED_ROLES = ("implementer",)
 # The plan sections (REQ-CHG-013, -016, -017) on #219's plan sections, each with its history.
-PLAN_SECTIONS = ("impact", "rollout", "backout", "test")
+# The plans approvals are given on, and watched for changes since (REQ-CHG-053).
+APPROVED_PLAN_SECTIONS = ("impact", "rollout", "backout", "test")
+# The post-implementation review's findings (REQ-CHG-090; WP-045d), written in the review stage:
+# never a reason to approve again.
+REVIEW_SECTIONS = ("review_findings", "review_went_well", "review_went_badly")
+PLAN_SECTIONS = (*APPROVED_PLAN_SECTIONS, *REVIEW_SECTIONS)
 # Stages that record an outcome (REQ-CHG-031, -032), and the outcomes each takes: the
 # implementation successful, successful with issues, backed out or failed; tests passed or
 # failed; a deployment as a release's; the review's overall result.
 IMPLEMENTATION = "implementation"
+REVIEW, CLOSURE = "review", "closure"
+CLOSED_STATUS = "closure_closed"
 STAGE_OUTCOMES: Mapping[str, frozenset[str]] = {
     IMPLEMENTATION: frozenset({"successful", "successful_with_issues", "backed_out", "failed"}),
     "acceptance_testing": frozenset({"passed", "failed"}),

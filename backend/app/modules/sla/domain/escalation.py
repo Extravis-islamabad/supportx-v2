@@ -92,10 +92,18 @@ class Action:
     kind: ActionKind
     target_id: str | None = None  # the group or person for a reassign
     text: str | None = None  # the note
+    # D-154 (Haider, 2026-11-10): a person is reassigned together with one of their groups,
+    # chosen when the level is saved (never guessed at run time).
+    group_id: str | None = None
 
     def as_json(self) -> dict[str, Any]:
         """As stored in the level and its snapshot."""
-        return {"kind": self.kind.value, "target_id": self.target_id, "text": self.text}
+        return {
+            "kind": self.kind.value,
+            "target_id": self.target_id,
+            "text": self.text,
+            "group_id": self.group_id,
+        }
 
 
 @dataclass(frozen=True)
@@ -145,7 +153,7 @@ def level_of(value: Mapping[str, Any]) -> Level:
         recipients=tuple(_recipient(r) for r in value.get("recipients", ())),
         fallback=tuple(_recipient(r) for r in value.get("fallback", ())),
         actions=tuple(
-            Action(ActionKind(a["kind"]), a.get("target_id"), a.get("text"))
+            Action(ActionKind(a["kind"]), a.get("target_id"), a.get("text"), a.get("group_id"))
             for a in value.get("actions", ())
         ),
         notify=bool(value.get("notify", True)),

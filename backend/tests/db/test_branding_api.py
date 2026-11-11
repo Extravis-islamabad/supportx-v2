@@ -16,12 +16,13 @@ from app.core.tenancy import TenantContext
 from app.modules.organization import email_branding, header_html
 from app.shared.files.service.core import FileServices
 from tests.app_state import set_state
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_files_api import audit_actions, files, scan_waiting, storage, upload
-from tests.db.test_incidents_api import World, problem, world
+from tests.db.test_incidents_api import World, problem
 
-__all__ = ["files", "storage", "world"]  # fixtures, re-used
+__all__ = ["files", "module_world", "shared_world", "storage"]  # fixtures, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 SETTINGS = "/organization/branding/settings"
 

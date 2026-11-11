@@ -22,6 +22,25 @@ FieldsProvider = Callable[[AsyncSession], Awaitable[Mapping[str, RuleField]]]
 ValueChecker = Callable[[AsyncSession, Mapping[str, JsonValue]], Awaitable[Mapping[str, str]]]
 
 
+# The owning module's own access check, as the person (one policy layer, §11.2).
+RecordEditCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
+# Whether a person may see the record (its type's own view rule): a test run reads its facts.
+RecordViewCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
+# Records' display IDs and subjects by ID (the overview names a run's record, WP-048b S5a). Only
+# ever shown for records the viewer may see (RecordViewCheck first).
+RecordLabeler = Callable[
+    [AsyncSession, Sequence[uuid.UUID]], Awaitable[Mapping[uuid.UUID, tuple[str, str]]]
+]
+# The record and the stopped instance.
+WorkflowCloser = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[None]]
+# The IDs among these that are live templates of the type, in the session's tenant.
+TemplateCheck = Callable[[AsyncSession, Sequence[uuid.UUID]], Awaitable[set[uuid.UUID]]]
+# The record, the workflow's history ref, and the version it left and the one it is on now.
+MigrationRecorder = Callable[
+    [AsyncSession, uuid.UUID, Mapping[str, Any], int, int], Awaitable[None]
+]
+
+
 @dataclass(frozen=True)
 class RecordType:
     """What automation needs to know about one record type."""
@@ -40,6 +59,22 @@ class RecordType:
     # Workflow nodes' commands (WP-048b, ADR-043 §6): carried out through the owning module's
     # public services as the workflow's own identity, checked like a person's.
     run_command: "CommandRunner | None" = None
+    # The approval node (REQ-WF-014): None when the type's approvals cannot be decided; else
+    # the record roles an approval may name (empty: people and groups only).
+    approval_roles: tuple[str, ...] | None = None
+    notices: bool = False  # its notification source sends a workflow's notice (REQ-WF-022)
+    # Whether a person may edit one record (ADR-043 §10): running, stopping or restarting a
+    # workflow on it needs workflows.run and this. None: nobody may (the type has no workflows).
+    may_edit: "RecordEditCheck | None" = None
+    # A test run on a record shows its facts: only to someone who may see it (lane B, #374).
+    may_view: "RecordViewCheck | None" = None
+    labels: "RecordLabeler | None" = None  # the overview's record names (WP-048b S5a)
+    # A stopped workflow's open parts on the record (its pending approvals) close (REQ-WF-026).
+    close_workflow: "WorkflowCloser | None" = None
+    # A run moved to another version: the record's history says so, naming it (REQ-WF-021 AC2).
+    record_migration: "MigrationRecorder | None" = None
+    # Which of these IDs are the type's templates, here (a workflow's start templates).
+    known_templates: "TemplateCheck | None" = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +102,9 @@ class CommandResult:
     ok: bool
     error: str | None = None
     outputs: Mapping[str, JsonValue] = field(default_factory=dict)
+    # Accepted, decided later (an approval node): the node waits; the owning module's event
+    # continues it with the result (REQ-WF-014).
+    pending: bool = False
 
 
 # (session, the workflow's subject, record, command kind, payload, automation_ref) -> result.

@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { expectAccessible, signInAs } from './helpers';
+import { editProperty, expectAccessible, signInAs } from './helpers';
 
 /**
  * WP-026 end to end (REQ-INC-014 AC1–AC4): an admin adds a pick-list field; it reaches a
@@ -122,7 +122,7 @@ test('a custom pick list: added live, required by a template, filled, filtered, 
     // the technician's open record follows live.
     await admin.page.goto(`/incidents/${id}`);
     await admin.page.getByRole('tab', { name: 'Details' }).click();
-    await admin.page.getByTestId(`inc-edit-custom.${key}`).click();
+    await editProperty(admin.page, `inc-edit-custom.${key}`);
     await pick(admin.page, `inc-input-custom.${key}`, 'Ground');
     await admin.page.getByTestId(`inc-save-custom.${key}`).click();
     await expect(admin.page.getByTestId(`inc-prop-custom.${key}`)).toHaveText('Ground');

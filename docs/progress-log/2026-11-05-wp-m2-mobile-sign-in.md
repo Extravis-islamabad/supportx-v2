@@ -1,6 +1,6 @@
-### 2026-11-05 — WP-M2 mobile sign-in (ADR-044, D-155)
+### 2026-11-05 — WP-M2 mobile sign-in (ADR-044, D-158)
 
-- **Prototype adopted (D-155):** the "SupportX Mobile Prototype" canvas (technician and requester
+- **Prototype adopted (D-158):** the "SupportX Mobile Prototype" canvas (technician and requester
   screens) becomes one role-based app. Sign-in comes first, so that every later screen uses real
   data. Work packages renumbered to WP-M3..M7 (mobile.md, PROGRESS.md).
 - **Backend (identity_access):**
@@ -19,7 +19,7 @@
 - **API client:** `setSessionId()` / `onSessionId()`; the session header goes on every call; a
   new ID from the server is kept.
 - **App:**
-  - Sign-in through the system browser (`expo-web-browser`, approved in D-154) with an
+  - Sign-in through the system browser (`expo-web-browser`, approved in D-157) with an
     `expo-crypto` verifier. The session is kept in SecureStore and forgotten on a 401, on
     sign-out and on a server change.
   - Home by side (technician or requester), and Me: organisation switch, language, server status

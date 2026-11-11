@@ -21,6 +21,7 @@ afterEach(() => {
 
 const settings: AssetSettings = {
   tag_pattern: 'AST-{n}',
+  warranty_notice_days: 30,
   age_basis: 'acquisition_date',
   cost_includes_tax: true,
   copy_limit: 50,
@@ -28,6 +29,7 @@ const settings: AssetSettings = {
   portal_own_assets_only: true,
   email_include_assets: false,
   scan_retention_months: 12,
+  portal_booking: false,
   version: 3,
 };
 const states: AssetState[] = [
@@ -169,6 +171,16 @@ describe('console: asset catalogue', () => {
     const [sent] = fake.find('PATCH', '/api/v1/assets/settings');
     expect(sent?.body).toEqual({ cost_includes_tax: false });
     expect(sent?.headers.get('If-Match')).toBe('"3"');
+  });
+
+  it('?tab=products opens the Products tab (the asset form links there when there are none)', async () => {
+    window.history.pushState({}, '', '/admin/assets?tab=products');
+    const fake = catalogueApi();
+    restore = fake.restore;
+    render(<App />);
+    const tab = await screen.findByRole('tab', { name: 'Products' });
+    expect(tab.getAttribute('aria-selected')).toBe('true');
+    expect(await screen.findByTestId('asset-products')).toBeTruthy();
   });
 
   // While the plan loads the licence context assumes nothing is missing (its rule), so this

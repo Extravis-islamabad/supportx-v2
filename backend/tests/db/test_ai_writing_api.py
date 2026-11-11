@@ -9,15 +9,18 @@
 
 from typing import Any
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_ai_summaries_api import (
     PRIVATE_NOTE,
     PUBLIC_REPLY,
     ai_settings,
     incident_with_talk,
 )
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 ALL_SOURCES = ["description", "replies", "public_notes", "private_notes"]
 

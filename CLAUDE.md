@@ -132,6 +132,11 @@ MIT.
 `@fontsource/noto-nastaliq-urdu` (SIL OFL fonts, MIT packaging): bundled, subset woff2, never
 loaded from Google's servers.
 
+**Approved additions (D-148, WP-048b):** `httpcore` (BSD-3-Clause), httpx's
+own transport, as a direct dependency pinned `>=1.0.9,<2` (what httpx 0.28 needs): the guarded
+outbound HTTP client (`app/shared/egress`, ADR-043 §8) pins each connection to its checked IP
+through an httpcore network backend.
+
 **Approved additions (D-134):** PostgreSQL's pg_trgm extension (trigram similarity; created by
 migration 0020).
 

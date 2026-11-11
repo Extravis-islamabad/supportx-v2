@@ -80,6 +80,8 @@ export function NewReleasePage() {
         <WriteButton
           type="primary"
           disabled={subject.trim() === '' || chosen === undefined}
+          // What is still missing (D-155 A8; the QA fix-round's "Create release").
+          whyDisabled={t(chosen === undefined ? 'releases.why.template' : 'releases.why.subject')}
           loading={create.isPending}
           onClick={submit}
           data-testid="release-save"
@@ -96,13 +98,19 @@ export function NewReleasePage() {
               value={chosen?.id}
               onChange={setTemplateId}
               loading={templates.isPending}
+              // Never an empty box while the templates load (QA10-P4-16).
+              placeholder={templates.isPending ? t('shell.loading') : undefined}
               data-testid="release-template"
               options={offered.map((x) => ({ value: x.id, label: templateName(t, locale, x) }))}
             />
           </Form.Item>
-          {chosen?.stage_path && (
+          {chosen !== undefined && (
             <Typography.Paragraph type="secondary" data-testid="release-path">
-              {t('releases.path_of_template', { path: t(`stage_path.${chosen.stage_path}`) })}
+              {/* A template with no path of its own (older tenants' Standard one) takes the
+                  default path, so the note always shows (QA10-P4-16). */}
+              {t('releases.path_of_template', {
+                path: t(`stage_path.${chosen.stage_path ?? 'default'}`),
+              })}
             </Typography.Paragraph>
           )}
           <Form.Item label={t('work_item.field.subject')} required htmlFor="release-subject">

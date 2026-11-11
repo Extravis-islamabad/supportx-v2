@@ -84,6 +84,12 @@ export function RolesPage() {
                 <Typography.Text type="secondary">
                   {role.is_system ? t(`role.${role.key}.description`) : (role.description ?? '')}
                 </Typography.Text>
+                {/* D-153: what a built-in role reaches by default, in words. */}
+                {role.is_system && (
+                  <Typography.Text type="secondary" data-testid={`role-scope-${role.key}`}>
+                    {t('roles.default_scope', { scope: t(`role.${role.key}.scope`) })}
+                  </Typography.Text>
+                )}
               </Flex>
             ),
           },

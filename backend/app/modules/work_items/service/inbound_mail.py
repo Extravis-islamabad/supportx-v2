@@ -26,7 +26,7 @@ from app.core.tenancy import TenantContext
 from app.modules.identity_access import mail_recipients, subject_for, worker_policy
 from app.modules.work_items.domain.types import INCIDENT, SUBJECT_MAX, Channel, parse_display_id
 from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service import catalogue
+from app.modules.work_items.service import asset_links, catalogue
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.conversations import add_requester_reply
 from app.shared.labels import label
@@ -173,6 +173,8 @@ class IncidentsFromMail:
                 channel=Channel.EMAIL,
                 entry_group_id=group_id,
             )
+        # REQ-AST-025 AC2: the requester's asset when the tenant says so and they hold one.
+        await asset_links.attach_emailed(session, made.record)
         return CreatedRecord(RECORD_TYPE, made.record.id, made.record.display_id)
 
     async def reply_from_mail(  # noqa: PLR0913 - the port's fields, explicit

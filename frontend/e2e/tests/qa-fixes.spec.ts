@@ -248,9 +248,10 @@ test('C1, C2, C5: counter clear of the buttons; Arabic in a Naskh face; nothing 
     const { fonts } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId });
     expect(fonts.map((f) => f.familyName).join(', ')).not.toMatch(/Nastaliq|Nastaleeq/);
     // C2: the site's help line never runs into the label under it.
-    const help = await settledBox(
-      page.locator('#field-site_id_help, .ant-form-item-explain').first(),
-    );
+    // A hint is the field's `extra` since QA10V-22 (it was `help`, which drops the gap).
+    const hint = page.locator('#field-site_id_extra, .ant-form-item-extra').first();
+    await expect(hint).toBeVisible();
+    const help = await settledBox(hint);
     const technician = await settledBox(page.getByText('الفني', { exact: true }).first());
     if (help !== null && technician !== null && technician.y > help.y) {
       expect(help.y + help.height).toBeLessThanOrEqual(technician.y + 1);

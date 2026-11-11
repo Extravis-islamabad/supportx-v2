@@ -38,7 +38,7 @@ export type ClientFactory = (getToken: () => Promise<string>) => Centrifuge;
 
 /** WebSocket first; HTTP streaming, then SSE when a proxy blocks WebSockets (§8.3). */
 export const defaultClientFactory: ClientFactory = (getToken) => {
-  // The mobile app talks to a server chosen at run time (D-154); the web to its own page.
+  // The mobile app talks to a server chosen at run time (D-157); the web to its own page.
   const { location } = globalThis as { location?: { origin?: string } };
   const origin = currentApiOrigin() ?? location?.origin ?? '';
   const ws = origin.replace(/^http/, 'ws');

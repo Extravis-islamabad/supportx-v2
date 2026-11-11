@@ -1,8 +1,8 @@
-import { Button, Empty, List, Modal, Space, Typography } from 'antd';
+import { Button, List, Modal, Space, Typography } from 'antd';
 import { useState } from 'react';
 
 import { useApprovals, type Approval } from '@supportx/api-client';
-import { ToneTag, useDateTime, useLabel, WriteButton } from '@supportx/ui';
+import { EmptyText, ToneTag, useDateTime, useLabel, WriteButton } from '@supportx/ui';
 
 import { useDecision } from './useDecision';
 type Tone = 'info' | 'success' | 'warning' | 'error';
@@ -37,7 +37,7 @@ export function ApprovalsPanel({ recordId }: { recordId: string }) {
         bordered
         dataSource={items}
         data-testid="sr-approvals"
-        locale={{ emptyText: <Empty description={t('requests.no_approvals')} /> }}
+        locale={{ emptyText: <EmptyText>{t('requests.no_approvals')}</EmptyText> }}
         renderItem={(a) => (
           <List.Item
             key={a.id}

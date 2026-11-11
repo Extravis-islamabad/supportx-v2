@@ -7,14 +7,15 @@ Reading the catalogue needs `assets.view` (the asset form uses it); changing it 
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any, Literal, cast
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.authorization import require_permission
+from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.modules.assets.api.records import AssetHoldingOut, AssetOut, HeldAssetOut
 from app.modules.assets.domain.catalogue import (
     AssetAgeBasis,
     AssetDepreciationMethod,
@@ -22,13 +23,17 @@ from app.modules.assets.domain.catalogue import (
     AssetTypeCategory,
     AssetTypeKind,
 )
+from app.modules.assets.domain.loans import loan_status
 from app.modules.assets.infra.models import (
+    AssetAcknowledgement,
     AssetLifeCycleTransition,
+    AssetLoan,
     AssetProduct,
     AssetProductType,
     AssetSettings,
     AssetState,
 )
+from app.modules.assets.service import acknowledgements, groups, loans, ownership, refs
 from app.modules.assets.service import catalogue as service
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
@@ -36,6 +41,7 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query, paginate
 from app.shared.api.ratelimit import rate_limit
+from app.shared.clock import system_clock
 from app.shared.history import source_of
 
 Responses = dict[int | str, dict[str, object]]
@@ -75,7 +81,13 @@ class AssetSettingsOut(BaseModel):
     site_follows_owner: bool
     portal_own_assets_only: bool
     email_include_assets: bool
+    warranty_notice_days: int = Field(
+        description="Days before a warranty ends that managers hear of it."
+    )
     scan_retention_months: int
+    portal_booking: bool = Field(
+        default=False, description="Requesters may book loanable assets from the portal."
+    )
     version: int
 
     @classmethod
@@ -89,7 +101,9 @@ class AssetSettingsOut(BaseModel):
             site_follows_owner=row.site_follows_owner,
             portal_own_assets_only=row.portal_own_assets_only,
             email_include_assets=row.email_include_assets,
+            warranty_notice_days=row.warranty_notice_days,
             scan_retention_months=row.scan_retention_months,
+            portal_booking=row.portal_booking,
             version=row.version,
         )
 
@@ -106,7 +120,9 @@ class AssetSettingsIn(BaseModel):
     site_follows_owner: bool | None = None
     portal_own_assets_only: bool | None = None
     email_include_assets: bool | None = None
+    warranty_notice_days: int | None = Field(default=None, ge=1, le=365)
     scan_retention_months: int | None = Field(default=None, ge=1, le=60)
+    portal_booking: bool | None = None
 
 
 @router.get("/settings", summary="Asset settings")
@@ -812,3 +828,521 @@ async def delete_product(
     await service.delete_product(
         session, subject, product_id, expected_version=version, source=source_of(request)
     )
+
+
+# --- what a person or department holds (REQ-AST-019 AC2, 020) -------------------------------
+# A fixed path, so here: the records router's /assets/{asset_id} would take it otherwise.
+
+
+@router.get("/held-by", summary="The assets a person or department holds, or held")
+async def held_by(
+    session: TenantSession,
+    subject: Annotated[Subject, Depends(require_permission("assets.view"))],
+    kind: Annotated[Literal["user", "department"], Query()],
+    holder_id: Annotated[uuid.UUID, Query(alias="id")],
+    current: Annotated[bool, Query(description="Only what they hold now.")] = False,  # noqa: FBT002 - a query flag (FastAPI)
+) -> list[HeldAssetOut]:
+    """Newest first, within what you may see; `current` keeps only the open holdings."""
+    found = await ownership.held_by(session, subject, ownership.Holder(kind, holder_id))
+    return [
+        HeldAssetOut(asset=AssetOut.of(asset), holding=AssetHoldingOut.of(holding))
+        for asset, holding in found
+        if not current or holding.ended_at is None
+    ]
+
+
+# --- my assets and acknowledgements (REQ-AST-023, 024) ---------------------------------------
+# For whoever is signed in, requesters included: what they hold needs no asset permission.
+
+SignedIn = Annotated[Subject, Depends(require_signed_in())]
+
+
+class AcknowledgementOut(BaseModel):
+    """A person's acknowledgement of an asset given to them."""
+
+    id: uuid.UUID
+    status: Literal["pending", "accepted", "disputed"]
+    comment: str | None
+    channel: str | None
+    answered_at: datetime | None
+    asked_at: datetime
+
+
+class MyAssetOut(BaseModel):
+    """An asset the person holds, or their department does (`through_department`)."""
+
+    id: uuid.UUID
+    tag: str | None
+    name: str
+    product_type_id: uuid.UUID
+    state_id: uuid.UUID
+    through_department: bool
+    acknowledgement: AcknowledgementOut | None
+    loan_due_at: datetime | None = Field(description="When it is due back, while out on a loan.")
+    loan_overdue: bool = Field(default=False, description="Out on a loan past its due time.")
+
+
+class AcknowledgementAnswerIn(BaseModel):
+    """Accept, or dispute with a comment saying what is wrong."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    accept: bool
+    comment: str | None = Field(default=None, max_length=2000)
+    channel: Literal["portal", "console"] = "portal"
+
+
+def _ack_out(row: AssetAcknowledgement) -> AcknowledgementOut:
+    return AcknowledgementOut(
+        id=row.id,
+        # The table's check holds it to these three.
+        status=cast("Literal['pending', 'accepted', 'disputed']", row.status),
+        comment=row.comment,
+        channel=row.channel,
+        answered_at=row.answered_at,
+        asked_at=row.created_at,
+    )
+
+
+@router.get("/mine", summary="The assets I hold")
+async def my_assets(session: TenantSession, subject: SignedIn) -> list[MyAssetOut]:
+    """Mine, and my department's when the organisation shows them; live (REQ-AST-024)."""
+    held = await acknowledgements.mine(session, subject)
+    due = await loans.due_dates(session, [m.asset.id for m in held])
+    now = system_clock.now()
+    return [
+        MyAssetOut(
+            id=m.asset.id,
+            tag=m.asset.tag,
+            name=m.asset.name,
+            product_type_id=m.asset.product_type_id,
+            state_id=m.asset.state_id,
+            through_department=m.through_department,
+            acknowledgement=None if m.acknowledgement is None else _ack_out(m.acknowledgement),
+            loan_due_at=due.get(m.asset.id),
+            loan_overdue=m.asset.id in due and due[m.asset.id] <= now,
+        )
+        for m in held
+    ]
+
+
+@router.post(
+    "/acknowledgements/{acknowledgement_id}/answer",
+    summary="Accept or dispute an asset given to me",
+    responses={
+        404: {"model": ProblemDetail, "description": "asset_acknowledgement_not_found"},
+        409: {"model": ProblemDetail, "description": "asset_acknowledgement_answered"},
+    },
+)
+async def answer_acknowledgement(
+    acknowledgement_id: uuid.UUID,
+    body: AcknowledgementAnswerIn,
+    session: TenantSession,
+    subject: SignedIn,
+) -> AcknowledgementOut:
+    """Only my own, only once. A dispute tells the person who gave it to me (AC3)."""
+    row = await acknowledgements.answer(
+        session,
+        subject,
+        acknowledgement_id,
+        accept=body.accept,
+        comment=body.comment,
+        channel=body.channel,
+    )
+    return _ack_out(row)
+
+
+# --- groups (REQ-AST-028) --------------------------------------------------------------------
+
+AssetsView = Annotated[Subject, Depends(require_permission("assets.view"))]
+AssetsManage = Annotated[Subject, Depends(require_permission("assets.manage"))]
+
+
+class AssetGroupIn(BaseModel):
+    """A static group, or a dynamic one with its filter (the asset list's filter DSL)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    kind: Literal["static", "dynamic"]
+    # Any: a filter DSL tree, compiled (and refused with its path) when saved.
+    filter: Any | None = None
+
+
+class AssetGroupPatch(BaseModel):
+    """Rename, describe, or change a dynamic group's filter."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    filter: Any | None = None  # Any: as above
+
+
+class AssetGroupOut(BaseModel):
+    """A group with how many of its assets you may see (matches its list, AC3)."""
+
+    id: uuid.UUID
+    name: str
+    description: str | None
+    kind: Literal["static", "dynamic"]
+    filter: Any | None  # Any: as above
+    count: int
+    version: int
+
+
+class AssetGroupMembersIn(BaseModel):
+    """Assets to add to a static group in one step (the list's selection)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+
+
+def _group_out(view: groups.GroupView) -> AssetGroupOut:
+    row = view.row
+    return AssetGroupOut(
+        id=row.id,
+        name=row.name,
+        description=row.description,
+        kind=cast("Literal['static', 'dynamic']", row.kind),  # the table's check holds it
+        filter=row.filter,
+        count=view.count,
+        version=row.version,
+    )
+
+
+@router.get("/groups", summary="Asset groups")
+async def list_groups(session: TenantSession, subject: AssetsView) -> list[AssetGroupOut]:
+    """By name, each with its count."""
+    return [_group_out(v) for v in await groups.list_groups(session, subject)]
+
+
+@router.post(
+    "/groups",
+    summary="Add an asset group",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AssetGroupOut,
+    dependencies=[audited("asset_group.created", object_type="asset_group")],
+)
+async def create_group(
+    body: AssetGroupIn, session: TenantSession, subject: AssetsManage, idempotency: Idempotency
+) -> Response:
+    """Idempotency-Key. A dynamic group's filter is checked now (422 invalid_filter)."""
+
+    async def run() -> Created:
+        row = await groups.create_group(session, subject, body.model_dump())
+        view = groups.GroupView(row, await groups.count_members(session, subject, row))
+        return Created(body=_group_out(view), headers={"ETag": f'"{row.version}"'})
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+
+@router.patch(
+    "/groups/{group_id}",
+    summary="Change an asset group",
+    dependencies=[
+        audited("asset_group.updated", object_type="asset_group", object_param="group_id")
+    ],
+)
+async def update_group(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    group_id: uuid.UUID,
+    body: AssetGroupPatch,
+    session: TenantSession,
+    subject: AssetsManage,
+    version: ExpectedVersion,
+    response: Response,
+) -> AssetGroupOut:
+    """If-Match. The kind never changes."""
+    row = await groups.update_group(
+        session, subject, group_id, body.model_dump(exclude_unset=True), expected_version=version
+    )
+    set_etag(response, row.version)
+    return _group_out(groups.GroupView(row, await groups.count_members(session, subject, row)))
+
+
+@router.delete(
+    "/groups/{group_id}",
+    summary="Remove an asset group",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited("asset_group.deleted", object_type="asset_group", object_param="group_id")
+    ],
+)
+async def delete_group(
+    group_id: uuid.UUID, session: TenantSession, subject: AssetsManage, version: ExpectedVersion
+) -> Response:
+    """If-Match. Its assets are untouched."""
+    await groups.delete_group(session, subject, group_id, expected_version=version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/groups/{group_id}/assets", summary="An asset group's assets")
+async def group_assets(
+    group_id: uuid.UUID, session: TenantSession, subject: AssetsView
+) -> list[AssetOut]:
+    """The ones you may see, by name (the count above counts the same)."""
+    _, rows = await groups.group_assets(session, subject, group_id)
+    return [AssetOut.of(r) for r in rows]
+
+
+@router.post(
+    "/groups/{group_id}/members",
+    summary="Add assets to a static group",
+    dependencies=[
+        audited("asset_group.members_added", object_type="asset_group", object_param="group_id")
+    ],
+)
+async def add_group_members(
+    group_id: uuid.UUID, body: AssetGroupMembersIn, session: TenantSession, subject: AssetsManage
+) -> dict[str, int]:
+    """In one step; assets already in it are left as they are. `added`: how many were new."""
+    return {"added": await groups.add_members(session, subject, group_id, body.asset_ids)}
+
+
+@router.delete(
+    "/groups/{group_id}/members/{asset_id}",
+    summary="Take an asset out of a static group",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited("asset_group.member_removed", object_type="asset_group", object_param="group_id")
+    ],
+)
+async def remove_group_member(
+    group_id: uuid.UUID, asset_id: uuid.UUID, session: TenantSession, subject: AssetsManage
+) -> Response:
+    """The asset itself is untouched."""
+    await groups.remove_member(session, subject, group_id, asset_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- the asset picker on records (REQ-AST-025) -----------------------------------------------
+
+
+class PickedAssetOut(BaseModel):
+    """An asset offered by the picker; `mine`: the person's own (listed first)."""
+
+    id: uuid.UUID
+    tag: str | None
+    name: str
+    state_id: uuid.UUID | None
+    mine: bool
+
+
+@router.get("/picker", summary="Assets to attach to a record")
+async def asset_picker(
+    session: TenantSession,
+    subject: SignedIn,
+    for_user: Annotated[
+        uuid.UUID | None, Query(description="Whose assets first (staff only).")
+    ] = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+) -> list[PickedAssetOut]:
+    """The person's own (and their department's, if shown) first; staff may also search."""
+    found = await refs.picker(session, subject, for_user=for_user, text=q)
+    return [
+        PickedAssetOut(id=r.id, tag=r.tag, name=r.name or "", state_id=r.state_id, mine=r.mine)
+        for r in found
+    ]
+
+
+# --- loans (REQ-AST-029, 030, 031) -------------------------------------------------------------
+
+
+class LoanableIn(BaseModel):
+    """Mark the selected assets loanable or not (up to 50)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+    loanable: bool
+
+
+class LoanIn(BaseModel):
+    """Loan loanable, in-stock assets to a person, or a department, until a date."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    borrower_id: uuid.UUID = Field(description="Who takes them (for a department: who collects).")
+    asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+    due_at: datetime
+    comment: str | None = Field(default=None, max_length=2000)
+    department_id: uuid.UUID | None = Field(
+        default=None, description="Lent to this department, which then holds the assets."
+    )
+    site_id: uuid.UUID | None = Field(default=None, description="The loan's site.")
+
+
+class LoanReturnIn(BaseModel):
+    """Some or all of a loan's assets come back: to stock, or to repair with what is wrong."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+    outcome: Literal["in_stock", "in_repair"] = "in_stock"
+    comment: str | None = Field(default=None, max_length=2000)
+
+
+class LoanAssetOut(BaseModel):
+    """An asset of a loan: what it is, and when and how it came back (None while out)."""
+
+    id: uuid.UUID
+    tag: str | None
+    name: str
+    returned_at: datetime | None
+    outcome: Literal["in_stock", "in_repair"] | None
+
+
+class LoanOut(BaseModel):
+    """A loan: who, until when, its status (overdue computed now) and what is still out."""
+
+    id: uuid.UUID
+    display_id: str | None = Field(default=None, description="LN-1; loans before 0130 have none.")
+    borrower_id: uuid.UUID
+    department_id: uuid.UUID | None = None
+    site_id: uuid.UUID | None = None
+    booking_id: uuid.UUID | None = Field(default=None, description="The booking handed over.")
+    starts_at: datetime
+    due_at: datetime
+    closed_at: datetime | None
+    comment: str | None
+    status: Literal["open", "overdue", "closed"]
+    outstanding: list[uuid.UUID]
+    assets: list[LoanAssetOut] = Field(description="Every asset of the loan, by tag.")
+    version: int
+
+
+async def _loan_out(
+    session: TenantSession, row: AssetLoan, items: list[loans.LoanAsset] | None = None
+) -> LoanOut:
+    if items is None:
+        items = (await loans.loan_assets(session, [row.id]))[row.id]
+    out = [a.id for a in items if a.returned_at is None]
+    status = loan_status(due_at=row.due_at, outstanding=len(out), now=system_clock.now())
+    return LoanOut(
+        id=row.id,
+        display_id=row.display_id,
+        borrower_id=row.borrower_id,
+        department_id=row.department_id,
+        site_id=row.site_id,
+        booking_id=row.booking_id,
+        starts_at=row.starts_at,
+        due_at=row.due_at,
+        closed_at=row.closed_at,
+        comment=row.comment,
+        status=cast("Literal['open', 'overdue', 'closed']", status),  # loan_status's three
+        outstanding=out,
+        assets=[
+            LoanAssetOut(
+                id=a.id,
+                tag=a.tag,
+                name=a.name,
+                returned_at=a.returned_at,
+                outcome=cast("Literal['in_stock', 'in_repair'] | None", a.outcome),  # 0114's check
+            )
+            for a in items
+        ],
+        version=row.version,
+    )
+
+
+@router.post(
+    "/loanable",
+    summary="Mark assets loanable or not",
+    dependencies=[audited("asset.loanable_set", object_type="asset")],
+)
+async def set_loanable(
+    body: LoanableIn, session: TenantSession, subject: AssetsManage, request: Request
+) -> dict[str, int]:
+    """With history on each; `changed`: how many changed."""
+    changed = await loans.set_loanable(
+        session, subject, body.asset_ids, loanable=body.loanable, source=source_of(request)
+    )
+    return {"changed": changed}
+
+
+class LoanableAssetOut(BaseModel):
+    """An asset that can go on a new loan now."""
+
+    id: uuid.UUID
+    tag: str | None
+    name: str
+
+
+@router.get("/loanable", summary="Assets that can go on a new loan now")
+async def loanable_assets(
+    session: TenantSession, subject: AssetsManage, q: str | None = None
+) -> list[LoanableAssetOut]:
+    """Loanable, in stock and not out on a loan; `q` searches tag, serial or name (50 at most)."""
+    rows = await loans.available(session, subject, text_=q)
+    return [LoanableAssetOut(id=r.id, tag=r.tag, name=r.name) for r in rows]
+
+
+@router.get("/loans", summary="The loan register: open loans, overdue first, or by status")
+async def list_loans(
+    session: TenantSession,
+    subject: AssetsView,
+    wanted: Annotated[
+        Literal["open", "overdue", "closed"] | None,
+        Query(
+            alias="status", description="One status; none: every loan still out (open, overdue)."
+        ),
+    ] = None,
+    site_id: Annotated[uuid.UUID | None, Query(description="That site's loans only.")] = None,
+) -> list[LoanOut]:
+    """Loans still out, those past due first; or one status (closed: latest first, 200 at most)."""
+    rows = await loans.open_loans(session, subject, status=wanted, site_id=site_id)
+    items = await loans.loan_assets(session, [r.id for r in rows])
+    return [await _loan_out(session, r, items[r.id]) for r in rows]
+
+
+@router.post(
+    "/loans",
+    summary="Loan assets to a person",
+    status_code=status.HTTP_201_CREATED,
+    response_model=LoanOut,
+    responses={
+        409: {
+            "model": ProblemDetail,
+            "description": "asset_not_loanable, asset_on_loan, asset_booked",
+        }
+    },
+    dependencies=[audited("asset_loan.created", object_type="asset_loan")],
+)
+async def create_loan(
+    body: LoanIn,
+    session: TenantSession,
+    subject: AssetsManage,
+    idempotency: Idempotency,
+    request: Request,
+) -> Response:
+    """Idempotency-Key. Each asset moves to in use and is given to the borrower."""
+
+    async def run() -> Created:
+        row = await loans.create_loan(
+            session, subject, borrower_id=body.borrower_id, asset_ids=body.asset_ids,
+            due_at=body.due_at, comment=body.comment, source=source_of(request),
+            department_id=body.department_id, site_id=body.site_id,
+        )  # fmt: skip
+        return Created(body=await _loan_out(session, row))
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+
+@router.post(
+    "/loans/{loan_id}/returns",
+    summary="Return some or all of a loan's assets",
+    responses={404: {"model": ProblemDetail, "description": "asset_loan_not_found"}},
+    dependencies=[audited("asset_loan.returned", object_type="asset_loan", object_param="loan_id")],
+)
+async def return_loan_items(
+    loan_id: uuid.UUID, body: LoanReturnIn, session: TenantSession, subject: AssetsManage,
+    request: Request,
+) -> LoanOut:  # fmt: skip
+    """The last return closes the loan; to repair needs a comment."""
+    row = await loans.return_items(
+        session, subject, loan_id, body.asset_ids, outcome=body.outcome, comment=body.comment,
+        source=source_of(request),
+    )  # fmt: skip
+    return await _loan_out(session, row)

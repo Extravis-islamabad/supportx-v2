@@ -37,7 +37,7 @@ import {
 import {
   ConflictDialog,
   useConflictRetry,
-  EmptyText,
+  loadedEmpty,
   NoAccess,
   reportError,
   useAccess,
@@ -48,9 +48,11 @@ import {
   WriteButton,
   FilterBar,
   FiltersDrawer,
+  ListNotice,
   ListPage,
   HeaderActions,
   PageHeader,
+  ResizableHeader,
   useMinWidth,
 } from '@supportx/ui';
 
@@ -62,7 +64,7 @@ import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
 import { MyExportsButton } from '../reports/exports';
 import { BulkBar, BulkDialog, BulkJobsButton, BulkProgress } from './list/bulk';
-import { ColumnChooser, ResizableHeader, SelectPageBox } from './list/ColumnChooser';
+import { ColumnChooser, SelectPageBox } from './list/ColumnChooser';
 import {
   chosenColumns,
   columnCatalogue,
@@ -87,6 +89,7 @@ import { ActiveRange, TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 import { searchOf } from './searchOf';
+import { restoredStanding } from './slaWords';
 
 const SORTS = ['-updated_at', '-created_at', 'priority', 'display_number', 'subject'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
@@ -221,6 +224,8 @@ export function IncidentsPage() {
           : (c.width ?? columnSpecs.get(c.key)?.width ?? 0)),
       0,
     );
+  // A column being dragged shows its new width at once; the save follows on release.
+  const [dragged, setDragged] = useState<{ key: string; width: number } | null>(null);
   const sort = stored?.sort ?? saved?.sort ?? '-updated_at';
   const pageSize = stored?.page_size ?? 50;
   const saveSettings = (change: { columns?: ListColumn[]; sort?: string; page_size?: number }) => {
@@ -312,6 +317,49 @@ export function IncidentsPage() {
   const bulkAllowed = (action: BulkAction) =>
     can(action === 'resolve' || action === 'close' ? 'incidents.edit' : `incidents.${action}`);
 
+  // Rows selected: the selection bar takes the toolbar's place (Haider, 2026-11-10), so the
+  // list keeps one control row; it goes once nothing is selected.
+  const selected = !trash && (selection.all || selection.ids.length > 0);
+  const bulkBar = selected ? (
+    <BulkBar
+      selection={selection}
+      onSelection={setSelection}
+      pageCount={rows.length}
+      total={total}
+      capped={total !== null && total >= 1000 && list.hasNextPage}
+      onAction={setBulkAction}
+      canEdit={bulkAllowed}
+      extra={
+        // One problem from the chosen incidents (REQ-PRB-011 AC1, WP-044c S1): the new-problem
+        // form starts from them. Chosen rows only, as their IDs travel in the address.
+        has('problem') && can('problems.create') ? (
+          <Tooltip
+            title={
+              selection.all || selection.ids.length === 0
+                ? t('incidents.bulk.select_first')
+                : selection.ids.length > PROBLEM_FROM_MAX
+                  ? t('incidents.bulk.too_many', { max: PROBLEM_FROM_MAX })
+                  : undefined
+            }
+          >
+            <span>
+              <Button
+                disabled={
+                  selection.all ||
+                  selection.ids.length === 0 ||
+                  selection.ids.length > PROBLEM_FROM_MAX
+                }
+                onClick={() => void navigate(`/problems/new?incidents=${selection.ids.join(',')}`)}
+                data-testid="inc-bulk-create-problem"
+              >
+                {t('problems.create_from_incident')}
+              </Button>
+            </span>
+          </Tooltip>
+        ) : undefined
+      }
+    />
+  ) : undefined;
   return (
     <ListPage
       testId="inc-list"
@@ -434,6 +482,7 @@ export function IncidentsPage() {
       )}
       <FilterBar
         testId="inc-filterbar"
+        selection={bulkBar}
         view={
           <>
             {!trash && (
@@ -712,48 +761,6 @@ export function IncidentsPage() {
           }}
         />
       )}
-      {!trash && (
-        <BulkBar
-          selection={selection}
-          onSelection={setSelection}
-          pageCount={rows.length}
-          total={total}
-          capped={total !== null && total >= 1000 && list.hasNextPage}
-          onAction={setBulkAction}
-          canEdit={bulkAllowed}
-          extra={
-            // One problem from the chosen incidents (REQ-PRB-011 AC1, WP-044c S1): the new-problem
-            // form starts from them. Chosen rows only, as their IDs travel in the address.
-            has('problem') && can('problems.create') ? (
-              <Tooltip
-                title={
-                  selection.all || selection.ids.length === 0
-                    ? t('incidents.bulk.select_first')
-                    : selection.ids.length > PROBLEM_FROM_MAX
-                      ? t('incidents.bulk.too_many', { max: PROBLEM_FROM_MAX })
-                      : undefined
-                }
-              >
-                <span>
-                  <Button
-                    disabled={
-                      selection.all ||
-                      selection.ids.length === 0 ||
-                      selection.ids.length > PROBLEM_FROM_MAX
-                    }
-                    onClick={() =>
-                      void navigate(`/problems/new?incidents=${selection.ids.join(',')}`)
-                    }
-                    data-testid="inc-bulk-create-problem"
-                  >
-                    {t('problems.create_from_incident')}
-                  </Button>
-                </span>
-              </Tooltip>
-            ) : undefined
-          }
-        />
-      )}
       <Table<IncidentListItem>
         rowKey="id"
         data-testid="inc-table"
@@ -796,8 +803,9 @@ export function IncidentsPage() {
               }
         }
         locale={{
-          emptyText: (
-            <EmptyText>{t(trash ? 'incidents.trash_empty' : 'incidents.empty')}</EmptyText>
+          emptyText: loadedEmpty(
+            list.isPending,
+            t(trash ? 'incidents.trash_empty' : 'incidents.empty'),
           ),
         }}
         onChange={(_pagination, _filters, sorter) => {
@@ -825,13 +833,14 @@ export function IncidentsPage() {
           ...columns.flatMap((column) => {
             const spec = columnSpecs.get(column.key);
             if (spec === undefined) return [];
-            const width = column.width ?? spec.width;
+            const own = column.width ?? spec.width;
+            const width = dragged?.key === column.key ? dragged.width : own;
             return [
               {
                 key: spec.key,
                 title: spec.title(context),
                 // The subject takes what is left over; the others keep their width.
-                width: spec.key === 'subject' ? undefined : width,
+                width: spec.key === 'subject' && dragged?.key !== 'subject' ? undefined : width,
                 // Text that does not fit ends in an ellipsis; the cell's own tooltip holds it all.
                 ellipsis: ELLIPSIS.has(spec.key) ? { showTitle: spec.key !== 'subject' } : false,
                 fixed: STICKY.has(spec.key) ? ('left' as const) : undefined,
@@ -846,8 +855,14 @@ export function IncidentsPage() {
                 render: (_: unknown, row: IncidentListItem) => spec.render(row, context),
                 onHeaderCell: () =>
                   ({
-                    width,
+                    width: own,
+                    defaultWidth: spec.width,
+                    // The subject never gets too narrow to read (Haider, 2026-11-10).
+                    minWidth: spec.key === 'subject' ? SUBJECT_MIN : undefined,
                     resizeLabel: t('incidents.columns.resize', { column: spec.title(context) }),
+                    onPreview: (next: number | null) => {
+                      setDragged(next === null ? null : { key: column.key, width: next });
+                    },
                     onResize: (next: number) => {
                       saveSettings({
                         columns: columns.map((c) =>
@@ -962,27 +977,33 @@ function ViewNotice({
       }),
     );
   }
+  // One small line under the toolbar, closable for the session (Haider, 2026-11-10).
   return (
-    <Alert
-      type="info"
-      showIcon
-      role="status"
-      data-testid="inc-view-notice"
-      data-hidden={hidden}
-      message={parts.join(' ')}
+    <ListNotice
+      testId="inc-view-notice"
+      dismissKey={`incidents.view.${view}`}
       action={
         view !== 'all' && hidden > 0 ? (
-          <Button size="small" onClick={onShowAll} data-testid="inc-show-all">
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, height: 'auto' }}
+            onClick={onShowAll}
+            data-testid="inc-show-all"
+          >
             {t('incidents.show_all')}
           </Button>
         ) : undefined
       }
-    />
+    >
+      <span data-hidden={hidden}>{parts.join(' ')}</span>
+    </ListNotice>
   );
 }
 
 function RestoreButton({ row }: { row: IncidentListItem }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { message } = App.useApp();
   const restore = useRestoreIncident();
   // Changed by someone after the list showed it (409): the shared dialog (QA WP-029 BUG-05).
@@ -992,7 +1013,17 @@ function RestoreButton({ row }: { row: IncidentListItem }) {
     restore.mutate(
       { id: row.id, version },
       {
-        onSuccess: () => void message.success(t('incidents.restored')),
+        onSuccess: (saved) => {
+          // The clock kept running in the trash (Haider, 2026-11-10): say where it stands.
+          const standing = restoredStanding(t, saved, Date.now());
+          if (standing.length === 0) {
+            void message.success(t('incidents.restored'));
+          } else {
+            void message.warning(
+              t('incidents.restored_sla_warning', { states: listFormat(standing, 'unit') }),
+            );
+          }
+        },
         onError: (error) => {
           if (!conflict.take(error, run)) reportError(error);
         },

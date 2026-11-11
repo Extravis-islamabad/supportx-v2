@@ -148,6 +148,11 @@ class StageApproverIO(BaseModel):
     user_id: uuid.UUID | None = None
     group_id: uuid.UUID | None = None
     role: str | None = Field(default=None, max_length=40)
+    board: str | None = Field(
+        default=None,
+        max_length=36,
+        description='Changes: "mapped" (the board the change\'s mapping chooses) or a board ID.',
+    )
 
 
 class ApprovalLevelIO(BaseModel):

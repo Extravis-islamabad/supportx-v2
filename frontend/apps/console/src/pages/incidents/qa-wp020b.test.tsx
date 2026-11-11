@@ -297,7 +297,7 @@ describe('QA WP-020b on the incident screens', () => {
   it('BUG-10: the reply menu opens on click, not hover, and closes after a choice', async () => {
     api({ routes: COMMON });
     await openConversation();
-    const arrow = screen.getByTestId('conv-reply-more').querySelector('button');
+    const arrow = screen.getByTestId('inc-op-reply-more').querySelector('button');
     if (arrow === null) throw new Error('no arrow');
     fireEvent.mouseEnter(arrow);
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -311,6 +311,22 @@ describe('QA WP-020b on the incident screens', () => {
         (d) => !d.className.includes('hidden') && !d.className.includes('-leave'),
       );
       expect(open).toHaveLength(0);
+    });
+  });
+
+  it("lane A's #338 review: Forward chosen in the header while a reply is open turns it into a forward", async () => {
+    api({ routes: COMMON });
+    await openConversation();
+    const main = screen.getByTestId('inc-op-reply').querySelector('button');
+    if (main === null) throw new Error('no reply button');
+    fireEvent.click(main);
+    expect((await screen.findByTestId('conv-composer')).textContent).toContain('Reply');
+    const arrow = screen.getByTestId('inc-op-reply-more').querySelector('button');
+    if (arrow === null) throw new Error('no arrow');
+    fireEvent.click(arrow);
+    fireEvent.click(await screen.findByText('Forward'));
+    await waitFor(() => {
+      expect(screen.getByTestId('conv-composer').textContent).toContain('Forward');
     });
   });
 

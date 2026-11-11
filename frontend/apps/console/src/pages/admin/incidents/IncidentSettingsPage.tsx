@@ -133,7 +133,13 @@ export function IncidentSettingsPage() {
       case 'closing':
         return <ClosingTab catalogue={cat} />;
       case 'repeat-rules':
-        return <RepeatRulesTab entitled={repeats === 'on'} />;
+        // While the plan loads, `has` says yes to everything: wait for it, so the rules are never
+        // asked for on a plan without problems (lane B's flake report, #375's CI).
+        return licence.entitlements === null ? (
+          <Skeleton active />
+        ) : (
+          <RepeatRulesTab entitled={repeats === 'on'} />
+        );
       default:
         return null;
     }

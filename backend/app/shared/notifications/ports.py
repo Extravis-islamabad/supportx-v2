@@ -54,6 +54,7 @@ class NotificationCategory(StrEnum):
     MENTION = "mention"
     FOLLOWING = "following"
     APPROVAL = "approval"  # WP-030 s3: an approval waits for you (required: never switched off)
+    WORKFLOW = "workflow"  # WP-048b S2: a workflow's notify node (people may mute it)
 
 
 @dataclass(frozen=True)

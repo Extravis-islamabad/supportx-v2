@@ -26,17 +26,18 @@ from app.shared.files.ports import QuotaSource, register_quota
 from app.shared.files.service.cleanup import purge_record
 from app.shared.files.service.core import FileServices, rewrap_data_keys, rotate_data_key
 from app.shared.storage import S3Storage
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_audit_exports import storage
 from tests.db.test_conversation_api import say
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role
 from tooling import files_keys
 
 if TYPE_CHECKING:
     from app.core.database import Database
 
-__all__ = ["storage", "world"]  # fixtures, re-used
+__all__ = ["module_world", "shared_world", "storage"]  # fixtures, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 
 # One key ring for the module: tenants' data keys outlive a single test.

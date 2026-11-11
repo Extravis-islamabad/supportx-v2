@@ -9,9 +9,11 @@ Pure functions, no I/O. The same byte layout is computed in three places and mus
 Golden tests pin all three to the same bytes.
 
 Entry hash
-    SHA-256 of the canonical JSON of the entry's content (`ENTRY_FIELDS`). Canonical JSON: keys
-    sorted, no whitespace, UTF-8, strings and integers only (no floats), times as
-    `YYYY-MM-DDTHH:MM:SS.ffffffZ` in UTC, UUIDs as lowercase strings.
+    SHA-256 of the canonical JSON of the entry's content (`ENTRY_FIELDS`, plus `events` when an
+    entry has them: ADR-045; plus `fingerprint`, `fingerprint_saves` and `personal_subjects`
+    when it has a fingerprint, and `personal_fingerprint` when that is set: ADR-046).
+    Canonical JSON: keys sorted, no whitespace, UTF-8, strings and integers only (no floats),
+    times as `YYYY-MM-DDTHH:MM:SS.ffffffZ` in UTC, UUIDs as lowercase strings.
 
 Chain hash
     `SHA-256(b"sx-audit-v1" ‖ tenant UUID (16 bytes) ‖ seq (8 bytes, big-endian) ‖ previous chain
@@ -116,6 +118,23 @@ def entry_content(row: Mapping[str, Any]) -> dict[str, Any]:
     content = {name: row.get(name) for name in ENTRY_FIELDS}
     content["details"] = content["details"] or {}
     content["personal_commitments"] = content["personal_commitments"] or {}
+    # A save's lifecycle events (WP-064, ADR-045): hashed when present, so editing the list is
+    # caught; absent (NULL) on older entries and on non-save entries, which hash exactly as before.
+    events = row.get("events")
+    if events is not None:
+        content["events"] = list(events)
+    # A save's change-set fingerprint (WP-064 S2, ADR-046): the three are hashed together when
+    # the entry has one, so changing the fingerprint, the saves it covers or whose salts it uses
+    # is caught; absent on every older entry, which hashes exactly as before.
+    fingerprint = row.get("fingerprint")
+    if fingerprint is not None:
+        content["fingerprint"] = fingerprint
+        content["fingerprint_saves"] = list(row.get("fingerprint_saves") or ())
+        content["personal_subjects"] = list(row.get("personal_subjects") or ())
+        # The salted half, only when the saves changed a personal field (same rule).
+        personal = row.get("personal_fingerprint")
+        if personal is not None:
+            content["personal_fingerprint"] = personal
     return plain(content)  # type: ignore[no-any-return]  # a dict in, a dict out
 
 
@@ -153,6 +172,8 @@ class Problem(StrEnum):
     ANCHOR_MISMATCH = "anchor_mismatch"  # an anchor names a hash the chain no longer has
     ANCHOR_SIGNATURE = "anchor_signature"  # an anchor's signature or key is not trusted
     ANCHOR_BEYOND_CHAIN = "anchor_beyond_chain"  # entries after an anchor were removed
+    # Record history no longer matches a save's fingerprint (WP-064 S2, ADR-046)
+    FINGERPRINT_MISMATCH = "fingerprint_mismatch"
 
 
 @dataclass(frozen=True)

@@ -5,6 +5,7 @@ export const en = {
   'file_kind.image': 'Image',
   'file_kind.other': 'File',
   'file_kind.pdf': 'PDF',
+  'file_owner_type.asset': 'Asset',
   'file_owner_type.asset_disposal': 'Disposal certificate',
   'file_owner_type.branding': 'Branding',
   'file_owner_type.conversation_entry': 'Reply or note',

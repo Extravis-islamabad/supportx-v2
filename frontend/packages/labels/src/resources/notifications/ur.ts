@@ -2,6 +2,9 @@ import type { LabelResource } from '../en';
 
 // notifications labels (see ../README.md).
 export const ur: LabelResource = {
+  'assignee_unavailable.away': 'غیر حاضر پر ہیں',
+  'assignee_unavailable.inactive': 'اب فعال نہیں',
+  'assignee_unavailable.not_in_group': 'اب اس گروپ میں نہیں',
   'delivery_reason.authentication_failed': 'میل سرور نے SupportX کا سائن اِن رد کر دیا',
   'delivery_reason.email_channel_not_configured': 'ای میل چینل ترتیب نہیں دیا گیا',
   'delivery_reason.gave_up': 'ہر کوشش کے بعد بھی ناکام',
@@ -29,12 +32,16 @@ export const ur: LabelResource = {
   'event_delivery_state.stalled': 'رکی ہوئی',
   'notification.open_record': '{{id}} کھولیں',
   'notification_area.announcement': 'اعلانات',
+  'notification_area.asset': 'اثاثے',
+  'notification_area.change': 'تبدیلیاں',
   'notification_area.connector': 'کنیکٹرز',
   'notification_area.incident': 'واقعات',
   'notification_area.kb_article': 'علمی ذخیرہ',
   'notification_area.mailbox': 'میل',
   'notification_area.problem': 'مسائل',
   'notification_area.problem_repeat': 'مسائل',
+  'notification_area.release': 'ریلیزز',
+  'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
@@ -43,12 +50,21 @@ export const ur: LabelResource = {
   'notification_category.following': 'فالو کرنا',
   'notification_category.mention': 'تذکرے',
   'notification_category.status': 'حالت کی تبدیلیاں',
+  'notification_category.workflow': 'ورک فلو پیغامات',
   'notification_channel.email': 'ای میل',
   'notification_channel.in_app': 'ایپ میں',
   'notification_condition_operator.in': 'ان میں سے ایک ہے',
   'notification_condition_operator.not_in': 'ان میں سے کوئی نہیں',
   'notification_event.announcement.ended': 'آپ کا فالو کردہ اعلان ختم ہوا',
   'notification_event.announcement.updated': 'آپ کا فالو کردہ اعلان اپ ڈیٹ ہوا',
+  'notification_event.asset.ack_disputed': 'اثاثے کے حامل نے اعتراض کیا',
+  'notification_event.asset.ack_requested': 'آپ کو اثاثہ دیا گیا: براہ کرم تصدیق کریں',
+  'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
+  'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
+  'notification_event.asset.mentioned': 'اثاثے کے نوٹ میں ذکر',
+  'notification_event.asset.stock_low': 'اسٹاک کم از کم پر',
+  'notification_event.asset.warranty_expiring': 'وارنٹی جلد ختم ہو رہی ہے',
+  'notification_event.change.public_reply': 'درخواست گزار کو جواب',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
@@ -68,6 +84,7 @@ export const ur: LabelResource = {
   'notification_event.incident.sla_escalated': 'ایس ایل اے ایسکلیشن',
   'notification_event.incident.sla_warning': 'ایس ایل اے کی انتباہی حد آ گئی',
   'notification_event.incident.status_changed': 'حالت بدلی',
+  'notification_event.incident.workflow_notice': 'ورک فلو کا پیغام',
   'notification_event.kb_article.approved': 'مضمون منظور ہوا',
   'notification_event.kb_article.rejected': 'مضمون واپس بھیجا گیا',
   'notification_event.kb_article.review_due': 'مضمون کے جائزے کا وقت',
@@ -88,10 +105,14 @@ export const ur: LabelResource = {
   'notification_event.problem.target_breached': 'مسئلے کی ہدف تاریخ گزر گئی',
   'notification_event.problem.target_warning': 'مسئلے کی ہدف تاریخ قریب',
   'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
+  'notification_event.release.public_reply': 'درخواست گزار کو جواب',
+  'notification_event.rule_step.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
   'notification_event.service_request.fulfilled': 'درخواست مکمل',
+  'notification_event.service_request.public_reply': 'درخواست گزار کو جواب',
+  'notification_event.service_request.ready_to_fulfil': 'درخواست تکمیل کے لیے تیار',
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
@@ -112,14 +133,19 @@ export const ur: LabelResource = {
   'notification_recipient.approval_administrators': 'منظوری کے منتظمین',
   'notification_recipient.approver': 'منظوری دینے والا',
   'notification_recipient.approvers': 'منظور کنندگان',
+  'notification_recipient.asset_managers': 'اثاثوں کے منتظمین',
+  'notification_recipient.assigned_by': 'جس نے یہ دیا',
   'notification_recipient.assignee': 'تفویض شدہ تکنیکی ماہر',
   'notification_recipient.author': 'مصنف',
+  'notification_recipient.borrower': 'ادھار لینے والا',
   'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
   'notification_recipient.escalation_recipients': 'ایسکلیشن درجے کے وصول کنندگان',
   'notification_recipient.followers': 'فالوورز',
   'notification_recipient.group': 'گروپ کے اراکین',
   'notification_recipient.group_head': 'گروپ لیڈ اور شعبے کا سربراہ',
+  'notification_recipient.holder': 'جس کے پاس یہ ہے',
   'notification_recipient.linked_incident_technicians': 'منسلک واقعات کے تکنیکی ماہرین',
+  'notification_recipient.loan_creator': 'جس نے ادھار دیا',
   'notification_recipient.mail_admins': 'میل باکس سنبھالنے والے افراد',
   'notification_recipient.mentioned': 'جن کا ذکر ہوا',
   'notification_recipient.new_follower': 'نیا فالوور',
@@ -128,7 +154,10 @@ export const ur: LabelResource = {
   'notification_recipient.owner': 'مضمون کا مالک',
   'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
   'notification_recipient.requester': 'درخواست گزار',
+  'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
+  'notification_recipient.stock_watchers': 'کم از کم حد کے نامزد لوگ',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
+  'notification_recipient.workflow_audience': 'ورک فلو میں نامزد افراد',
   'notification_rules.any_priority': 'کوئی بھی ترجیح',
   'notification_rules.changed': '{{when}} کو تبدیل ہوا',
   'notification_rules.col.channels': 'کیسے',
@@ -156,6 +185,49 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\nآپ کا فالو کردہ اعلان "{{ record.title }}" اپ ڈیٹ ہو گیا ہے۔',
   'notification_template.announcement.updated.in_app': 'اپ ڈیٹ: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'اپ ڈیٹ: {{ record.title }}',
+  'notification_template.asset.ack_disputed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} نے {{ record.display_id }} "{{ record.title }}" پر اعتراض کیا: {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.in_app':
+    '{{ holder.name }} نے {{ record.display_id }} پر اعتراض کیا: {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.subject':
+    'اعتراض: {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.ack_requested.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کو {{ record.display_id }} "{{ record.title }}" دیا گیا ہے۔ اسے قبول کرنے یا مسئلہ بتانے کے لیے میرے اثاثے کھولیں۔',
+  'notification_template.asset.ack_requested.in_app':
+    'براہ کرم تصدیق کریں {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.ack_requested.subject':
+    'براہ کرم {{ record.display_id }} {{ record.title }} کی تصدیق کریں',
+  'notification_template.asset.loan_due.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} کو ادھار دیے گئے اثاثے کل واپس کرنے ہیں۔',
+  'notification_template.asset.loan_due.in_app': '{{ holder.name }} کا ادھار کل واپس کرنا ہے',
+  'notification_template.asset.loan_due.subject': 'ادھار اثاثے کل واپس کرنے ہیں',
+  'notification_template.asset.loan_overdue.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} کو ادھار دیے گئے اثاثوں کی واپسی کا وقت گزر گیا اور وہ ابھی واپس نہیں آئے۔',
+  'notification_template.asset.loan_overdue.in_app': '{{ holder.name }} کے ادھار کی مدت گزر گئی',
+  'notification_template.asset.loan_overdue.subject': 'ادھار اثاثوں کی مدت گزر گئی',
+  'notification_template.asset.mentioned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" کے ایک نوٹ میں آپ کا ذکر کیا۔',
+  'notification_template.asset.mentioned.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر آپ کا ذکر کیا',
+  'notification_template.asset.mentioned.subject':
+    '{{ record.display_id }} پر آپ کا ذکر ہوا: {{ record.title }}',
+  'notification_template.asset.stock_low.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} کا اسٹاک {{ stock.quantity }} تک گر گیا ہے، جو اس کی کم از کم حد {{ stock.minimum }} کے برابر یا اس سے کم ہے۔',
+  'notification_template.asset.stock_low.in_app':
+    '{{ record.title }} {{ stock.quantity }} تک رہ گیا (کم از کم {{ stock.minimum }})',
+  'notification_template.asset.stock_low.subject': '{{ record.title }} کم از کم اسٹاک پر ہے',
+  'notification_template.asset.warranty_expiring.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی وارنٹی {{ warranty.ends_on }} کو ختم ہو رہی ہے۔',
+  'notification_template.asset.warranty_expiring.in_app':
+    '{{ record.display_id }} کی وارنٹی {{ warranty.ends_on }} کو ختم',
+  'notification_template.asset.warranty_expiring.subject':
+    'وارنٹی ختم ہو رہی ہے: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.change.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.change.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
   'notification_template.connector.failing.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
   'notification_template.connector.failing.in_app':
@@ -263,6 +335,9 @@ export const ur: LabelResource = {
     '{{ record.display_id }} اب {{ record.status }} ہے',
   'notification_template.incident.status_changed.subject':
     '{{ record.display_id }} اب {{ record.status }} ہے: {{ record.title }}',
+  'notification_template.incident.workflow_notice.body': '{{ notice.body }}',
+  'notification_template.incident.workflow_notice.in_app': '{{ notice.subject }}',
+  'notification_template.incident.workflow_notice.subject': '{{ notice.subject }}',
   'notification_template.kb_article.approved.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ actor.name }} نے مضمون {{ record.display_id }} "{{ record.title }}" منظور کر دیا۔ اب اس کے قارئین اسے دیکھ سکتے ہیں۔',
   'notification_template.kb_article.approved.in_app':
@@ -375,6 +450,18 @@ export const ur: LabelResource = {
     '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
   'notification_template.problem_repeat.detected.subject':
     '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
+  'notification_template.release.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.release.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.release.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
+  'notification_template.rule_step.assignee_unavailable.body':
+    'السلام علیکم {{ recipient.name }}،\n\nایک قاعدے یا ایسکلیشن کو {{ record.display_id }} "{{ record.title }}" کو {{ unavailable.person }} کے سپرد کرنا تھا، جو {{ unavailable.reason }}۔ یہ کسی کو تفویض کیے بغیر گروپ میں چلا گیا۔ براہ کرم کسی کو تفویض کریں یا قاعدہ بدلیں۔',
+  'notification_template.rule_step.assignee_unavailable.in_app':
+    '{{ record.display_id }} کسی کو تفویض کیے بغیر اپنے گروپ میں چلا گیا: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.rule_step.assignee_unavailable.subject':
+    'کسی کو تفویض نہیں: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
@@ -399,6 +486,18 @@ export const ur: LabelResource = {
     '{{ record.display_id }} مکمل ہو گئی: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'مکمل: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.service_request.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.service_request.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
+  'notification_template.service_request.ready_to_fulfil.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کے سب کام ہو گئے، مگر یہ کسی کو تفویض نہیں۔ اپنے گروپ کے کسی فرد کو تفویض کریں تاکہ وہ اسے مکمل کرے۔',
+  'notification_template.service_request.ready_to_fulfil.in_app':
+    '{{ record.display_id }} تکمیل کے لیے تیار ہے: کسی کو تفویض کریں',
+  'notification_template.service_request.ready_to_fulfil.subject':
+    'تکمیل کے لیے تیار: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.received.body':
     'السلام علیکم {{ recipient.name }}،\n\nہمیں آپ کی درخواست «{{ record.title }}» موصول ہوئی اور اسے {{ record.display_id }} کے طور پر درج کر لیا گیا۔ ہم آپ کو باخبر رکھیں گے۔',
   'notification_template.service_request.received.in_app':
@@ -417,6 +516,7 @@ export const ur: LabelResource = {
     '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
+  'notification_variable.acknowledgement.comment': 'تصدیق › تبصرہ',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
   'notification_variable.approval.comment': 'منظوری دینے والے کا تبصرہ',
   'notification_variable.approval_link': 'منظوری › لنک',
@@ -429,10 +529,13 @@ export const ur: LabelResource = {
   'notification_variable.connector.reason': 'کنیکٹر › وجہ',
   'notification_variable.conversation.author': 'جواب یا نوٹ › مصنف',
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
+  'notification_variable.holder.name': 'حامل › نام',
   'notification_variable.incident.count': 'واقعات کی تعداد',
   'notification_variable.mailbox.address': 'میل باکس › پتہ',
   'notification_variable.mailbox.expires_at': 'میل باکس › اسناد کی میعاد',
   'notification_variable.mailbox.reason': 'میل باکس › وجہ',
+  'notification_variable.notice.body': 'پیغام › متن',
+  'notification_variable.notice.subject': 'پیغام › موضوع',
   'notification_variable.recipient.name': 'وصول کنندہ › نام',
   'notification_variable.record.display_id': 'ریکارڈ › شناخت',
   'notification_variable.record.link': 'ریکارڈ › لنک',
@@ -443,6 +546,11 @@ export const ur: LabelResource = {
   'notification_variable.rule.name': 'اصول',
   'notification_variable.site.name': 'مقام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
+  'notification_variable.stock.minimum': 'اسٹاک › کم از کم',
+  'notification_variable.stock.quantity': 'اسٹاک › مقدار',
+  'notification_variable.unavailable.person': 'غیر تفویض › فرد',
+  'notification_variable.unavailable.reason': 'غیر تفویض › وجہ',
+  'notification_variable.warranty.ends_on': 'وارنٹی › ختم ہونے کی تاریخ',
   'notifications.banner.no_mail_one':
     '{{count}} ای میل انتظار میں ہے کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میل بھیج دی جائے گی۔',
   'notifications.banner.no_mail_other':

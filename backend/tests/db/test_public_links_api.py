@@ -20,11 +20,14 @@ from app.modules.work_items.infra.models import WorkItemApproval
 from app.modules.work_items.service.approvals import issue_links
 from app.shared.action_links.domain import MAX_FAILED_USES
 from tests.app_state import set_state
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import approvals, decide, fresh, manager_of, waiting
 from tests.db.test_branding_api import slug_of
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 PUBLIC = "/api/v1/public/action-links"
 BASE = "links.test"

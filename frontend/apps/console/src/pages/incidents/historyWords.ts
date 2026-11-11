@@ -27,6 +27,7 @@ import {
   templateLabel,
 } from './labels';
 import { plainText } from './writingText';
+import { slaStanding } from './slaWords';
 
 // The words of an incident's history (REQ-WI-003/004), shared by the History tab and the
 // conversation timeline's quiet event lines (UI pass 2): field names, values as labels, names
@@ -79,6 +80,7 @@ const PEOPLE = new Set([
   'follower',
   'follower_access',
   'task.owner_id',
+  'task.done_by', // D-154d
 ]);
 // Flags: "not set" reads "No", not "(empty)".
 const FLAGS = new Set(['handed_over_out_of_reach']);
@@ -89,7 +91,7 @@ export type HistoryActors = 'all' | 'people' | 'automation';
 export function useHistoryWords(
   id: string,
   actors: HistoryActors = 'all',
-  base: 'incidents' | 'problems' = 'incidents',
+  base: 'incidents' | 'problems' | 'changes' = 'incidents',
   enabled = true,
 ) {
   const t = useLabel();
@@ -176,6 +178,11 @@ export function useHistoryWords(
       const found = templates.data?.find((x) => x.id === value);
       return found === undefined ? t('history.changed') : templateLabel(t, found, locale);
     }
+    // Haider, 2026-11-10: where a target stood when the record was restored ("resolution:overdue:10800").
+    if (change.field === 'sla_on_restore' && typeof value === 'string') {
+      const [kind = '', state = '', seconds = '0'] = value.split(':');
+      return slaStanding(t, kind, state, Number(seconds));
+    }
     // WP-025: an escalation level that ran ("resolution:2").
     if (change.field === 'sla_escalation' && typeof value === 'string') {
       const [target = '', level = ''] = value.split(':');
@@ -250,5 +257,86 @@ export function useHistoryWords(
     }
     return t('history.change', { field: fieldText(change.field), old, new: now });
   };
-  return { history, entries, people, fieldText, valueText, changeText, whyText };
+  const empty = (value: unknown) => value === null || value === undefined || value === '';
+  const minutesText = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return hours > 0
+      ? t('incidents.worklogs.hours_minutes', { hours, minutes: rest })
+      : t('incidents.worklogs.minutes', { minutes: rest });
+  };
+  /**
+   * One change as a sentence with who did it (Haider, 2026-11-10): "Omar Farooq logged 30 min
+   * (Fix)", "Omar Farooq changed Status from New to Assigned"; never a raw "Worklog: (empty) → …".
+   * Null for a line that says nothing on its own (a task's title repeated for its changes).
+   */
+  const sentence = (change: Change, who: string, task?: string): string | null => {
+    if (change.field === 'worklog') {
+      const log = (change.new ?? change.old) as {
+        owner_id?: string;
+        worklog_type?: string;
+        minutes?: number;
+      } | null;
+      const type = t(`worklog_type.${log?.worklog_type ?? 'other'}`);
+      const duration = minutesText(log?.minutes ?? 0);
+      if (change.new == null) return t('work_item.history.unlogged', { who, duration, type });
+      const owner = people[log?.owner_id ?? '']?.display_name;
+      return owner === undefined || owner === who
+        ? t('work_item.history.logged', { who, duration, type })
+        : t('work_item.history.logged_for', { who, duration, type, person: owner });
+    }
+    if (change.field === 'link') {
+      const kind = valueText(change, change.new ?? change.old);
+      return t(change.new == null ? 'work_item.history.unlinked' : 'work_item.history.linked', {
+        who,
+        kind,
+      });
+    }
+    if (change.field === 'task') {
+      if (change.old === change.new) return null; // the task named, its changes follow
+      const named = change.new ?? change.old;
+      const title = typeof named === 'string' ? named : '';
+      return t(
+        change.new == null ? 'work_item.history.task_removed' : 'work_item.history.task_added',
+        { who, title },
+      );
+    }
+    // A task's own field says which task (its title is the entry's `task` line).
+    const field =
+      change.field.startsWith('task.') && task !== undefined
+        ? t('work_item.history.task_field', { field: fieldText(change.field), title: task })
+        : fieldText(change.field);
+    const old = valueText(change, change.old);
+    const now = valueText(change, change.new);
+    const vague = t('history.changed');
+    if (old === vague && now === vague) return t('work_item.history.changed_only', { who, field });
+    if (empty(change.old) && !FLAGS.has(change.field)) {
+      return t('work_item.history.set', { who, field, new: now });
+    }
+    if (empty(change.new) && !FLAGS.has(change.field)) {
+      return t('work_item.history.cleared', { who, field });
+    }
+    return t('work_item.history.changed', { who, field, old, new: now });
+  };
+  /** Every change of one entry as sentences, the task they are about named where it matters. */
+  const sentences = (entry: IncidentHistoryEntry, changes: Change[] = entry.changes): string[] => {
+    const who = entry.actor_name ?? t(`actor_type.${entry.actor_type}`);
+    const named = entry.changes.find((c) => c.field === 'task' && c.old === c.new);
+    const task = typeof named?.new === 'string' ? named.new : undefined;
+    return changes
+      .filter((c) => c.field !== REQUESTER_ACTION)
+      .map((c) => sentence(c, who, task))
+      .filter((line): line is string => line !== null);
+  };
+  return {
+    history,
+    entries,
+    people,
+    fieldText,
+    valueText,
+    changeText,
+    sentence,
+    sentences,
+    whyText,
+  };
 }

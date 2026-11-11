@@ -17,12 +17,13 @@ from app.modules.identity_access import FederationFailed
 from app.modules.integrations.service import directories, ldap_directories, ldap_people
 from app.shared.files.keyring import KeyRing
 from tests.app_state import set_state
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_files_api import audit_actions
-from tests.db.test_incidents_api import World, world
+from tests.db.test_incidents_api import World
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 BIND_PASSWORD = stdlib_secrets.token_urlsafe(18)  # made at run time: never a literal secret
 BODY: dict[str, Any] = {

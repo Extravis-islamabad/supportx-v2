@@ -7,18 +7,23 @@ events. Automation never reads work item tables itself (CLAUDE.md rule e).
 
 import dataclasses
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import automation
+from app.modules.identity_access import Subject
+from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.types import TYPES, WorkItemType
-from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service import conversations, workflow_commands
+from app.modules.work_items.infra.models import WorkItem, WorkItemTemplate
+from app.modules.work_items.service import conversations, workflow_approvals, workflow_commands
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.audit_subtype import status_category
+from app.modules.work_items.service.rule_assignment import place_person
 from app.shared.events import EventEnvelope
+from app.shared.history import Change, record_changes
 
 _RECORD_EVENTS = {
     "work_items.work_item.created": automation.TriggerEvent.CREATED,
@@ -27,6 +32,7 @@ _RECORD_EVENTS = {
     "work_items.work_item.assigned": automation.TriggerEvent.ASSIGNED,
 }
 _CONVERSATION = "work_items.conversation.added"
+CANCEL = "cancel"  # the life-cycle action automation stops a record's workflows on
 
 
 async def read_event(
@@ -49,6 +55,12 @@ async def read_event(
         changed = ["status", "status_category"]
         known = {"status": payload.get("from_status")}
         action = payload.get("action")
+        if action != CANCEL and status_category(payload.get("type"), payload.get("to_status")) == (
+            StatusCategory.CANCELED.value
+        ):
+            # A staged type cancels by a stage move into its canceled status (releases, changes):
+            # its workflows stop as an incident's do (lane A's review of #374, REQ-WF-026 AC3).
+            action = CANCEL
     elif event == automation.TriggerEvent.ASSIGNED:
         changed = ["group_id", "technician_id"]
     return automation.RecordEvent(
@@ -106,11 +118,43 @@ def _apply(wtype: WorkItemType) -> automation.Applier:
         values: Mapping[str, Any],
         change: automation.AutomatedChange,
     ) -> list[str]:
+        values, ref = await _with_group(session, record_id, values, change.ref)
         return await items.automated_update(
-            session, wtype, record_id, values, ref=change.ref, cause_id=change.cause_id
+            session, wtype, record_id, values, ref=ref, cause_id=change.cause_id
         )
 
     return apply
+
+
+async def _with_group(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    values: Mapping[str, Any],
+    ref: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """A trigger that sets a technician moves the record with them (D-154 "rules").
+
+    The trigger's own group for them when it sets one, else theirs; someone inactive, Away or
+    out of that group leaves the record with the group only, and the ref says why.
+    """
+    person = values.get("technician_id")
+    if not person:
+        return dict(values), dict(ref)
+    current = await session.scalar(select(WorkItem.group_id).where(WorkItem.id == record_id))
+    group = values.get("group_id")
+    placement = await place_person(
+        session,
+        uuid.UUID(str(person)),
+        uuid.UUID(str(group)) if group else None,
+        record_group_id=current,
+    )
+    if placement.unavailable is None:
+        return {**values, **placement.values}, dict(ref)
+    return {**values, **placement.values}, {
+        **ref,
+        "unavailable": placement.unavailable.value,
+        "person_id": str(person),
+    }
 
 
 def _note(wtype: WorkItemType) -> automation.Noter:
@@ -122,6 +166,69 @@ def _note(wtype: WorkItemType) -> automation.Noter:
         )
 
     return note
+
+
+async def _record_migration(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    ref: Mapping[str, Any],
+    old_version: int,
+    new_version: int,
+) -> None:
+    """A workflow run on the record moved to another version: one history line naming it."""
+    record = await session.get(WorkItem, record_id)
+    if record is None:
+        return
+    await record_changes(
+        session,
+        record_type=items.RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=[Change("workflow_version", old_version, new_version)],
+        source="workflow",
+        automation_ref=dict(ref),
+        subtype=record.type,
+    )
+
+
+def _known_templates(wtype: WorkItemType) -> automation.TemplateCheck:
+    async def check(session: AsyncSession, ids: Sequence[uuid.UUID]) -> set[uuid.UUID]:
+        if not ids:
+            return set()
+        found = await session.scalars(
+            select(WorkItemTemplate.id).where(
+                WorkItemTemplate.id.in_(list(ids)),
+                WorkItemTemplate.type == wtype.code.value,
+                WorkItemTemplate.deleted_at.is_(None),
+            )
+        )
+        return set(found)
+
+    return check
+
+
+def _may_edit(wtype: WorkItemType) -> automation.RecordEditCheck:
+    async def check(session: AsyncSession, subject: Subject, record_id: uuid.UUID) -> bool:
+        return await items.may_edit(session, subject, wtype, record_id)
+
+    return check
+
+
+def _may_view(wtype: WorkItemType) -> automation.RecordViewCheck:
+    async def check(session: AsyncSession, subject: Subject, record_id: uuid.UUID) -> bool:
+        return await items.may_view(session, subject, wtype, record_id)
+
+    return check
+
+
+def _labels(wtype: WorkItemType) -> automation.RecordLabeler:
+    async def labels(
+        session: AsyncSession, record_ids: Sequence[uuid.UUID]
+    ) -> Mapping[uuid.UUID, tuple[str, str]]:
+        return await items.labels_of(session, wtype, record_ids)
+
+    return labels
 
 
 def register_triggers() -> None:
@@ -138,6 +245,16 @@ def register_triggers() -> None:
                 add_note=_note(wtype),
                 run_command=workflow_commands.runner(wtype),  # WP-048b, ADR-043 §6
                 transition_actions=tuple(a.value for a in items.ACTION_PERMISSION),
+                approval_roles=(
+                    wtype.roles if wtype.code in workflow_approvals.APPROVAL_TYPES else None
+                ),
+                notices=wtype.code.value in workflow_commands.NOTICE_TYPES,
+                may_edit=_may_edit(wtype),  # ADR-043 §10: run, stop, restart on the record
+                may_view=_may_view(wtype),  # a test run shows the record's facts (REQ-WF-022)
+                labels=_labels(wtype),  # the workflow overview's record names (S5a)
+                close_workflow=workflow_approvals.close_for_instance,  # REQ-WF-026
+                record_migration=_record_migration,  # REQ-WF-021 AC2
+                known_templates=_known_templates(wtype),  # REQ-WF-010, -027
             )
         )
     automation.register_event_reader((*_RECORD_EVENTS, _CONVERSATION), read_event)

@@ -82,6 +82,8 @@ describe('the conversation summary card', () => {
     });
     render(<App />);
     expect((await screen.findByTestId('ai-summary-empty')).textContent).toContain('No summary yet');
+    // D-155: nothing summarised yet is one quiet line, not an empty card.
+    expect(screen.getByTestId('ai-summary').getAttribute('data-collapsed')).toBe('true');
     fireEvent.click(screen.getByTestId('ai-summary-refresh'));
     await waitFor(() => {
       expect(screen.getByTestId('ai-summary-text').textContent).toContain('Outlook asks');
@@ -99,10 +101,13 @@ describe('the conversation summary card', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('ai-summary-refresh'));
-    expect((await screen.findByTestId('ai-summary-refused')).textContent).toContain(
-      'nothing to summarise yet',
-    );
+    // Click once the first summary read is in: before it, the card is the loading one and the
+    // quiet line replaces it as the click lands (a race under CI load, lane B's report on #342).
+    await screen.findByTestId('ai-summary-empty');
+    fireEvent.click(screen.getByTestId('ai-summary-refresh'));
+    expect(
+      (await screen.findByTestId('ai-summary-refused', {}, { timeout: 5000 })).textContent,
+    ).toContain('nothing to summarise yet');
     expect(screen.getByTestId('ai-summary-empty')).toBeDefined();
   });
 

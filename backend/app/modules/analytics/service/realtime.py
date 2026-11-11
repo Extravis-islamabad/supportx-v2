@@ -85,7 +85,8 @@ DASHBOARDS_CHANGED = "dashboards.changed"
 async def _dashboard_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """Who hears that a dashboard changed.
 
-    A private dashboard: its owner. A shared one (or one just un-shared): everyone hears
+    A private dashboard: its owner. A shared or group one (or one just un-shared or moved out of
+    its group): everyone hears
     "dashboards changed" with its id, and screens refetch it through the API, which answers 404
     to anyone who may no longer see it (REQ-DSH-028 AC2). No names or widget definitions travel
     (rule c).
@@ -94,7 +95,14 @@ async def _dashboard_changed(envelope: EventEnvelope, session: AsyncSession) -> 
     tenant = envelope.tenant_id
     payload = envelope.payload
     dashboard = str(payload["dashboard_id"])
-    if payload.get("shared") or payload.get("was_shared"):
+    # A group dashboard (D-152): its members are found by the API, not here, so everyone hears
+    # the id and refetches; those outside the group get 404, as for un-shared ones.
+    if (
+        payload.get("shared")
+        or payload.get("was_shared")
+        or payload.get("group_id")
+        or payload.get("was_group")
+    ):
         return RealtimeEffects(
             publications=[Publication(broadcast(tenant), DASHBOARDS_CHANGED, ids=(dashboard,))]
         )

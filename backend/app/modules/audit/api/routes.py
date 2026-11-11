@@ -32,6 +32,7 @@ from app.modules.audit.domain.catalogue import (
     AuditOutcome,
     ReadCategory,
 )
+from app.modules.audit.domain.fingerprint import FingerprintStatus
 from app.modules.audit.events import AuditVerificationRequested
 from app.modules.audit.infra.models import AuditVerificationRun
 from app.modules.audit.service import exports, queries, retention, saved
@@ -145,6 +146,12 @@ class AuditEntryDetailOut(AuditEntryOut):
     chain_hash: str | None
     sealed_at: datetime | None
     personal: list[AuditPersonalOut]
+    fingerprint_status: FingerprintStatus | None = Field(
+        description=(
+            "A save's entry checked against record history now (ADR-046): verified, mismatch "
+            "or erased_on_request; null for entries without a fingerprint."
+        )
+    )
     names: dict[str, str] = Field(
         description="Names of the people this entry mentions (by user ID), looked up now."
     )
@@ -170,6 +177,11 @@ class AuditRunOut(BaseModel):
     requested_by: uuid.UUID | None
     started_at: datetime
     finished_at: datetime | None
+    fingerprints_verified: int = Field(description="Saves whose record history still matches.")
+    fingerprints_erased: int = Field(description="Saves with personal values erased on request.")
+    fingerprint_mismatches: int = Field(
+        description="Saves whose record history no longer matches (the run fails)."
+    )
 
 
 class AuditRunIn(BaseModel):
@@ -472,6 +484,7 @@ async def get_entry(
             AuditPersonalOut(subject_id=uuid.UUID(subject_id), **data)
             for subject_id, data in sorted(detail.personal.items())
         ],
+        fingerprint_status=detail.fingerprint_status,
         names=names,
     )
 
