@@ -18,20 +18,23 @@ for (const size of [
     await signInAs(page, 'admin', '/announcements/new');
     const footer = page.locator('[data-sticky-footer]').first();
     await expect(footer).toBeVisible();
-    // The last field of the form, focused the way Tab focuses it (the browser scrolls it in).
-    // Ant Design puts the test ID on the input or on its wrapper, by version: either way.
-    const last = page
-      .locator('input[data-testid="ann-until"], [data-testid="ann-until"] input')
-      .first();
-    await last.focus();
+    // The last field of the form, reached by a real Tab from the field before it: the bug was
+    // on the keyboard path (lane B's #421 review).
+    const input = (testId: string) =>
+      page.locator(`input[data-testid="${testId}"], [data-testid="${testId}"] input`).first();
+    const last = input('ann-until');
+    await input('ann-from').focus();
+    await page.keyboard.press('Tab');
     await expect(last).toBeFocused();
-    const field = await last.boundingBox();
-    const bar = await footer.boundingBox();
-    expect(field).not.toBeNull();
-    expect(bar).not.toBeNull();
-    if (field === null || bar === null) return;
-    // Fully in the window and above the bar.
-    expect(field.y).toBeGreaterThanOrEqual(0);
-    expect(field.y + field.height).toBeLessThanOrEqual(bar.y);
+    // Measured once the scroll and the bar's size watcher have settled (slow runners).
+    await expect
+      .poll(async () => {
+        const field = await last.boundingBox();
+        const bar = await footer.boundingBox();
+        if (field === null || bar === null) return 'not laid out';
+        if (field.y < 0) return 'above the window';
+        return field.y + field.height <= bar.y ? 'clear' : 'behind the bar';
+      })
+      .toBe('clear');
   });
 }
