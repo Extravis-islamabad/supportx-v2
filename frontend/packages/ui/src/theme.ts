@@ -307,7 +307,13 @@ function modeTheme(
         horizontalItemHoverColor: primaryText,
         subMenuItemSelectedColor: primaryText, // "More" when the current section is inside it
       },
-      Tabs: { itemSelectedColor: primaryText, itemActiveColor: primaryText },
+      // Hover too: the default (the darkened brand) read below 4.5:1 on a dark card (matrix
+      // run 42977617899, a hovered release tab).
+      Tabs: {
+        itemSelectedColor: primaryText,
+        itemActiveColor: primaryText,
+        itemHoverColor: primaryText,
+      },
     },
   };
 }
