@@ -32,6 +32,7 @@ import {
   useLinkChange,
   useSession,
   useTaskChange,
+  useTaskTemplates,
   useUsers,
   useWorklogChange,
   type Incident,
@@ -56,6 +57,7 @@ import { useRecordChannel } from '@supportx/realtime';
 
 import { IncidentPicker } from './IncidentPicker';
 import { UserPicker } from './pickers';
+import { TaskDetails } from './TaskDetails';
 
 // Tasks, worklogs and links of an incident (WP-020e; REQ-INC-067, 072, 084). Each list follows
 // the record's channel (`work_items.part_changed`), so two windows see the same thing live.
@@ -114,10 +116,15 @@ export function IncidentTasks({
   const dates = useDateTime();
   const found = useIncidentTasks(item.id, true, base);
   const change = useTaskChange(item.id, base);
+  // WP-046a S1: a task's details and dependencies, and the task templates offered (REQ-INC-074).
+  const [opened, setOpened] = useState<string | null>(null);
+  const templates = useTaskTemplates(base, canEdit);
   const [title, setTitle] = useState('');
   const [owner, setOwner] = useState<string | null>(null);
   const [due, setDue] = useState<string | null>(null);
   const rows = found.data?.items ?? [];
+  const titles = new Map(rows.map((r) => [r.id, r.title]));
+  const openedTask = rows.find((r) => r.id === opened);
   const people = usePeople(rows.flatMap((r) => [r.owner_id, r.done_by ?? null]));
   const add = () => {
     change.mutate(
@@ -261,6 +268,30 @@ export function IncidentTasks({
               {task.due_at !== null && (
                 <Tag>{t('incidents.tasks.due', { at: dates.format(task.due_at) })}</Tag>
               )}
+              {task.overdue && (
+                <ToneTag tone="error" testId={`inc-task-overdue-${String(index)}`}>
+                  {t('incidents.tasks.overdue')}
+                </ToneTag>
+              )}
+              {(task.blocked_by ?? []).length > 0 && (
+                // REQ-INC-075: waiting for these; shown live as each one finishes (AC2).
+                <ToneTag tone="warning" testId={`inc-task-blocked-${String(index)}`}>
+                  {t('incidents.tasks.waits_for', {
+                    tasks: (task.blocked_by ?? []).map((id) => titles.get(id) ?? '').join(', '),
+                  })}
+                </ToneTag>
+              )}
+              <Button
+                size="small"
+                type="link"
+                onClick={() => {
+                  setOpened(task.id);
+                }}
+                aria-label={t('incidents.tasks.details_of', { title: task.title })}
+                data-testid={`inc-task-details-${String(index)}`}
+              >
+                {t('incidents.tasks.details')}
+              </Button>
             </Flex>
           </List.Item>
         )}
@@ -300,7 +331,32 @@ export function IncidentTasks({
           >
             {t('incidents.tasks.add')}
           </WriteButton>
+          {(templates.data ?? []).length > 0 && (
+            <Select<string>
+              aria-label={t('incidents.tasks.from_template')}
+              placeholder={t('incidents.tasks.from_template')}
+              value={null}
+              onChange={(templateId) => {
+                change.mutate({ kind: 'fromTemplate', templateId }, { onError: reportError });
+              }}
+              options={(templates.data ?? []).map((tpl) => ({ value: tpl.id, label: tpl.name }))}
+              style={{ minWidth: 200 }}
+              data-testid="inc-task-from-template"
+            />
+          )}
         </Flex>
+      )}
+      {openedTask !== undefined && (
+        <TaskDetails
+          task={openedTask}
+          siblings={rows}
+          base={base}
+          recordId={item.id}
+          money={canEdit}
+          onClose={() => {
+            setOpened(null);
+          }}
+        />
       )}
     </Space>
   );

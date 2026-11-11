@@ -47,6 +47,8 @@ interface Draft {
   openWork: Record<string, string>;
   complete: boolean;
   taskOwners: boolean;
+  /** REQ-INC-075 (WP-046a S1): an open predecessor blocks a task, or only warns. */
+  waitBlocks: boolean;
   autoClose: boolean;
   autoCloseDays: number | null;
   reopenDays: number | null;
@@ -69,6 +71,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     openWork: { ...OPEN_WORK_DEFAULTS, ...closure.open_work },
     complete: closure.complete_open_work,
     taskOwners: closure.task_owner_access,
+    waitBlocks: closure.task_dependency_mode === 'block',
     autoClose: closure.auto_close_days !== null,
     autoCloseDays: closure.auto_close_days ?? AUTO_CLOSE_DEFAULT,
     reopenDays: closure.reopen_window_days,
@@ -107,6 +110,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       open_work: draft.openWork,
       complete_open_work: draft.complete,
       task_owner_access: draft.taskOwners,
+      task_dependency_mode: draft.waitBlocks ? 'block' : 'warn',
       reopen_window_days: draft.reopenDays,
     };
     // Only sent when it changes: the server refuses switching it on without a channel.
@@ -218,6 +222,25 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                 <br />
                 <Typography.Text type="secondary">
                   {t('settings.closing.task_owner_access_help')}
+                </Typography.Text>
+              </label>
+            </Flex>
+            <Flex gap={12} align="start">
+              <Switch
+                id="settings-task-dependency-mode"
+                checked={draft.waitBlocks}
+                onChange={(checked) => {
+                  edit({ ...draft, waitBlocks: checked });
+                }}
+                data-testid="settings-task-dependency-mode"
+              />
+              <label htmlFor="settings-task-dependency-mode">
+                <Typography.Text strong>
+                  {t('settings.closing.task_dependency_mode')}
+                </Typography.Text>
+                <br />
+                <Typography.Text type="secondary">
+                  {t('settings.closing.task_dependency_mode_help')}
                 </Typography.Text>
               </label>
             </Flex>
