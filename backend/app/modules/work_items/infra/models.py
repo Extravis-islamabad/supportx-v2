@@ -1108,6 +1108,8 @@ class WorkItemTask(TenantEntity):
     owner_id: Mapped[uuid.UUID | None]
     group_id: Mapped[uuid.UUID | None]
     status: Mapped[str] = mapped_column(String(20), server_default="open")
+    # WP-045d (0133): the stage of a staged record the task belongs to (REQ-CHG-088).
+    stage: Mapped[str | None] = mapped_column(String(40))
     priority: Mapped[str] = mapped_column(String(10), server_default="normal")
     due_at: Mapped[datetime | None]
     position: Mapped[int] = mapped_column(Integer)
@@ -1612,6 +1614,10 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     freeze_override_window_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(UUID(as_uuid=True)), server_default="{}"
     )
+    # WP-045d (0133): the review's date (REQ-CHG-091) and when each reminder went, once.
+    review_due_at: Mapped[datetime | None]
+    review_reminded_at: Mapped[datetime | None]
+    schedule_reminded_at: Mapped[datetime | None]
 
 
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------
