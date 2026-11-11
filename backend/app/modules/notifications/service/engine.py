@@ -43,17 +43,23 @@ from app.modules.notifications.domain.rules import (
     recipients,
 )
 from app.modules.notifications.domain.templates import Rendered, html_body, render
-from app.modules.notifications.events import DeliveryRecorded, NotificationCreated
+from app.modules.notifications.events import (
+    DeliveryRecorded,
+    MailNotSentSummary,
+    NotificationCreated,
+)
 from app.modules.notifications.infra.models import (
     Notification,
     NotificationDelivery,
     NotificationPreference,
     NotificationRule,
 )
+from app.modules.notifications.service import mail_summary
 from app.modules.organization import email_branding, site_defaults, users_in_groups
 from app.shared import action_links
 from app.shared.action_links import LinkRequest
 from app.shared.events import Actor, ConsumerSpec, EventEnvelope, Handler, record_event
+from app.shared.ids import new_id
 from app.shared.labels import label
 from app.shared.mail import (
     Language,
@@ -849,6 +855,20 @@ async def expire_waiting(
                 reason=NOT_SENT_IN_TIME,
                 at=moment,
             )
+    # D-157: one summary for the people who set mail up, per run (never one per e-mail), in
+    # this transaction. The summary's own e-mails (if an admin added that channel) never count.
+    counted = [r for r in rows if r.event_code != mail_summary.SUMMARY_EVENT]
+    if counted:
+        summary_id = new_id()
+        await record_event(
+            session,
+            MailNotSentSummary(
+                summary_id=summary_id,
+                count=len(counted),
+                oldest_at=min(r.created_at for r in counted),
+            ),
+            aggregate_id=summary_id,
+        )
     return len(rows)
 
 

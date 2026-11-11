@@ -877,6 +877,7 @@ export const ur: LabelResource = {
   'event_type.licensing.entitlement.changed': 'پلان یا لائسنس تبدیل ہوا',
   'event_type.metadata.custom_field.changed': 'اپنی مرضی کا خانہ تبدیل ہوا',
   'event_type.notifications.delivery.recorded': 'اطلاع کی ترسیل درج ہوئی',
+  'event_type.notifications.mail.not_sent_summary': 'ای میلز چھوڑ دی گئیں: میل سیٹ اپ نہیں',
   // WP-023 notifications
   'event_type.notifications.notification.created': 'اطلاع بنائی گئی',
   'event_type.notifications.notification.read': 'اطلاعات پڑھ لی گئیں',
