@@ -370,6 +370,7 @@ FIELD_PROBLEMS = frozenset(
         "end_or_duration_required",
         "duration_mismatch",
         "already_linked",
+        "change_would_loop",  # WP-045d S1: a change cannot become part of its own child
         "cannot_link_itself",
         "cannot_merge_itself",
         "required_for_known_error",

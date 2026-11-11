@@ -67,6 +67,7 @@ from app.core.modules import ModuleRegistry, discover_modules
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
 from app.modules import sla
+from app.modules.assets import ScanFailure, ScanResult, ScanSource, ScanType, record_scan
 from app.modules.audit import RequestFacts
 from app.modules.audit import record as record_audit
 from app.modules.audit.domain.catalogue import AuditClient
@@ -1387,6 +1388,8 @@ class Report:
     releases: int = 0
     assets: int = 0  # products, assets, holders, a loan and a group (showcase_assets)
     stock: int = 0  # consumables, their stock, movements and minimum, a booking (WP-049b)
+    audit: int = 0  # a running audit, started, with its marks (WP-049b s3)
+    scans: int = 0  # scans of one asset through the discovery port (WP-049b s3)
     backdated: int = 0
     freshened: int = 0  # step 7: seed records moved to read as of today
     # Between the steps only: step 6's candidates and who acts.
@@ -1394,6 +1397,33 @@ class Report:
     admin_id: uuid.UUID | None = field(default=None, repr=False, compare=False)
     # Between the steps only: the records step 4 made now, which step 5 may move.
     made: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
+
+
+async def _ensure_scans(settings: Settings, admin: Api) -> int:
+    """Scans have no API (discovery calls the assets port): written in this tenant's session."""
+    database = Database.from_settings(settings)
+    if database is None:
+        return 0
+
+    async def record(asset_id: str, days_ago: int, **scan: Any) -> None:  # noqa: ANN401 - scan
+        async with database.tenant_session(TenantContext(TENANT_ID)) as session:
+            await record_scan(
+                session,
+                asset_id=uuid.UUID(asset_id),
+                scanned_at=datetime.now(UTC) - timedelta(days=days_ago),
+                source=ScanSource.AGENT,
+                result=ScanResult(scan["result"]),
+                scan_type=None if scan.get("scan_type") is None else ScanType(scan["scan_type"]),
+                failure_reason=None
+                if scan.get("failure_reason") is None
+                else ScanFailure(scan["failure_reason"]),
+                changes=scan.get("changes", ()),
+            )
+
+    try:
+        return await assets.ensure_scans(admin, record)
+    finally:
+        await database.dispose()
 
 
 async def fill(
@@ -1433,6 +1463,9 @@ async def fill(
             admin, key, sites, signed_in[REQUESTER.email], signed_in[NEW_STARTER.email]
         )
         report.stock = await assets.ensure_stock(admin, key, sites, signed_in[REQUESTER.email])
+        # WP-049b s3: a running audit with marks, and scans through the discovery port.
+        report.audit = await assets.ensure_audit(admin, key, sites, signed_in[TECHNICIAN.email])
+        report.scans = await _ensure_scans(settings, admin)
         report.admin_id = signed_in[ADMIN.email]
         # Only the seed's own incidents (lane C's shared definition), never others; step 6 also
         # checks each was made by the seed's admin.

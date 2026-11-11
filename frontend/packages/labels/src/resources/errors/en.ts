@@ -40,6 +40,15 @@ export const en = {
   'errors.asset_acknowledgement_not_found':
     "That acknowledgement isn't yours, or no longer exists.",
   'errors.asset_already_disposed': 'This asset already has a disposal record.',
+  'errors.asset_audit_closed': 'This audit is closed and can no longer change.',
+  'errors.asset_audit_item_not_found': 'That item is not part of this audit.',
+  'errors.asset_audit_not_auditor': 'Only the auditors named on this audit can mark its items.',
+  'errors.asset_audit_not_draft': 'This audit has already started.',
+  'errors.asset_audit_not_found': "This audit does not exist, or you can't see it.",
+  'errors.asset_audit_not_running': 'This audit is not running: start it first.',
+  'errors.asset_audit_scope_frozen':
+    'The scope is fixed once an audit starts: only the name, description, end date and auditors can change.',
+  'errors.asset_audit_too_large': 'This scope holds more than {{max}} assets: narrow it down.',
   'errors.asset_batch_not_found': 'That batch is not at this site.',
   'errors.asset_book_for_yourself': 'In the portal you can book only for yourself.',
   'errors.asset_booked': '{{asset}} is booked for part of that time.',
@@ -68,6 +77,11 @@ export const en = {
   'errors.asset_group_not_found': 'That group no longer exists.',
   'errors.asset_has_components':
     'It has fitted components ({{count}}): detach them or dispose of them too.',
+  'errors.asset_label_job_not_found': "These labels don't exist, or someone else asked for them.",
+  'errors.asset_label_job_not_ready': 'The labels are not ready to download.',
+  'errors.asset_label_print_not_found': 'That print is no longer in the label history.',
+  'errors.asset_labels_failed': 'The labels could not be made. Try again.',
+  'errors.asset_labels_too_large': 'The labels would make too large a file: print fewer at once.',
   'errors.asset_life_cycle_in_use':
     'Product types still use this life cycle ({{used}}). Move them to another one first.',
   'errors.asset_life_cycle_not_found': 'This life cycle does not exist.',
@@ -256,6 +270,8 @@ export const en = {
     "An asset can't be fitted to itself or to one of its own parts.",
   'errors.field.asset_not_batch_tracked': 'This consumable is not tracked in batches.',
   'errors.field.asset_not_found': 'This asset does not exist or you may not see it.',
+  'errors.field.asset_overdue_state_unreachable':
+    'No life cycle of these product types moves an asset to this state. Choose one it can reach.',
   'errors.field.asset_product_not_consumable': 'Choose a product of a consumable type.',
   'errors.field.asset_product_not_found': 'This product no longer exists.',
   'errors.field.asset_product_type_cycle':
@@ -309,6 +325,8 @@ export const en = {
   'errors.field.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.field.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.field.chair_inactive': 'Choose an active person as the chair.',
+  'errors.field.change_would_loop':
+    'A change cannot be part of itself, directly or through others.',
   'errors.field.channel_reserved':
     'Only phone or walk-up can be chosen; other channels are set automatically.',
   'errors.field.choices_required': 'Add at least one choice.',
@@ -435,6 +453,7 @@ export const en = {
     'A template for requesters is offered to everyone: it cannot be limited to groups.',
   'errors.field.list_too_long': 'Too many values in this list.',
   'errors.field.logo_required': 'Upload a logo first.',
+  'errors.field.longer_than_a_month': 'A monthly window can be at most 28 days long.',
   'errors.field.longer_than_a_week': 'A weekly window can last a week at most.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
@@ -764,6 +783,7 @@ export const en = {
     'Your plan’s limit for this has been reached. Ask your administrator to extend the plan.',
   'errors.link_has_own_route':
     'This link is removed in its own place: unlink the incident, or undo the merge.',
+  'errors.link_not_found': 'This link does not exist, or it was removed.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
@@ -807,6 +827,7 @@ export const en = {
   'errors.not_a_member': 'You are not a member of that organisation.',
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
+  'errors.not_closable_from_here': 'It cannot be closed from where it is now. Move it on first.',
   'errors.not_found': 'The item was not found.',
   'errors.not_known_error': '{{display_id}} is not a known error.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
@@ -908,6 +929,8 @@ export const en = {
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
   'errors.site_not_found': 'The site was not found.',
+  'errors.skip_without_next':
+    'This step has no single next step to move on to, so it cannot be skipped; retry it or run the workflow again from a chosen step.',
   'errors.sla_fallback_required':
     'The default policy cannot be deleted: it applies when no other policy does.',
   'errors.sla_policy_not_found': 'This SLA policy does not exist or was deleted.',

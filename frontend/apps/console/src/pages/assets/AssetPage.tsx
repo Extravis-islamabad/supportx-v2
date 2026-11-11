@@ -83,13 +83,24 @@ import { AssetFields } from './AssetForm';
 import { AssetFinancialsTab } from './Financials';
 import { totalShown, useMoney } from './money';
 import { AssetNotes } from './Notes';
+import { LabelHistory, PrintLabelsDialog } from './PrintLabels';
+import { ScansTab } from './Scans';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
 
 // The record's tabs, always in this order (REQ-AST-001 AC3, REQ-AST-048): later sessions add
 // theirs here (hardware, software and scan history with discovery; contracts with WP-054).
 // Financials only for people who may see money (assets.view_financials).
-const TABS = ['details', 'relations', 'bookings', 'financials', 'notes', 'history'] as const;
+const TABS = [
+  'details',
+  'relations',
+  'bookings',
+  'financials',
+  'notes',
+  'scans',
+  'labels',
+  'history',
+] as const;
 type TabKey = (typeof TABS)[number];
 // The state chip's tone by the state's category (D-155: what needs attention stands out).
 const STATE_TONES: Record<AssetState['category'], Tone> = {
@@ -144,6 +155,7 @@ const HISTORY_FIELDS = new Set([
   'salvage_value',
   'cost',
   'note',
+  'scan',
   'product_id',
   'product_type_id',
   'state_id',
@@ -210,6 +222,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const [editing, setEditing] = useState<{ draft: AssetDraft; base: number }>();
   const [changedElsewhere, setChangedElsewhere] = useState(false);
   const [dialog, setDialog] = useState<'move' | 'copy' | 'dispose'>();
+  const [printing, setPrinting] = useState(false);
   const viewers = useRecordChannel('asset', asset.id, (event) => {
     // The asset's files (REQ-AST-050), its notes and cost lines (parts, no version of the asset).
     if (event.type === 'files.changed') {
@@ -217,6 +230,12 @@ function AssetView({ asset }: { asset: AssetRecord }) {
       return;
     }
     const parts = event.fields ?? [];
+    // WP-049b s3: a scan arrived (REQ-AST-054); a fix from an audit changed the asset itself.
+    if (parts.includes('scans')) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.scans(asset.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
+      return;
+    }
     if (parts.includes('notes') || parts.includes('costs')) {
       if (parts.includes('notes')) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.assets.notes(asset.id) });
@@ -497,10 +516,24 @@ function AssetView({ asset }: { asset: AssetRecord }) {
       testId: 'asset-location-open',
     },
   ];
+  // Labels (REQ-AST-039) for everyone who may see the asset: its QR code or barcode.
+  const labelAction: RecordAction = {
+    key: 'labels',
+    label: t('assets.labels.print_action'),
+    allowed: true,
+    // A button for those who only view (their one action); in "More actions" for managers and
+    // for a technician working through its ticket (D-157), whose own actions come first.
+    primary: !manage && !throughTicket,
+    rank: 4,
+    onClick: () => {
+      setPrinting(true);
+    },
+    testId: 'asset-labels-open',
+  };
   const actions: RecordAction[] = !manage
     ? throughTicket
-      ? ticketActions
-      : []
+      ? [...ticketActions, labelAction]
+      : [labelAction]
     : [
         {
           key: 'move',
@@ -571,6 +604,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           },
           testId: 'asset-trash',
         },
+        labelAction,
       ];
   const details = editing ? (
     <Flex vertical gap={12} data-testid="asset-edit-form">
@@ -739,6 +773,15 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           </Form.Item>
         </Form>
       </Modal>
+      {printing && (
+        <PrintLabelsDialog
+          assetIds={[asset.id]}
+          open={printing}
+          onClose={() => {
+            setPrinting(false);
+          }}
+        />
+      )}
       <Tabs
         activeKey={tab}
         onChange={(key) => {
@@ -793,6 +836,18 @@ function AssetView({ asset }: { asset: AssetRecord }) {
             key: 'notes',
             label: t('assets.notes.tab'),
             children: <AssetNotes asset={asset} manage={manage} />,
+          },
+          {
+            // WP-049b s3 (REQ-AST-054): scan history, kept as the asset settings say.
+            key: 'scans',
+            label: t('assets.scans.tab'),
+            children: <ScansTab assetId={asset.id} />,
+          },
+          {
+            // WP-049b s3 (REQ-AST-039 AC3): every print and reprint of its label.
+            key: 'labels',
+            label: t('assets.labels.tab'),
+            children: <LabelHistory assetId={asset.id} />,
           },
           {
             key: 'history',
@@ -974,6 +1029,21 @@ function AssetHistory({ id }: { id: string }) {
                   ? t('assets.record.history_created')
                   : list([...new Set(entry.changes.map((c) => field(c.field)))])}
               </span>
+              {/* What made it (WP-049b s3): an audit's fix names the audit; or the rule. */}
+              {entry.origin != null && (
+                <Typography.Text type="secondary" data-testid="asset-history-origin">
+                  <bdi dir="auto">
+                    {entry.origin.reason_code != null
+                      ? t(`asset_change_reason.${entry.origin.reason_code}`, {
+                          ...entry.origin.reason_params,
+                        })
+                      : t(`asset_change_origin.${entry.origin.kind}`, {
+                          display_id: entry.origin.display_id ?? '',
+                          name: entry.origin.name ?? '',
+                        })}
+                  </bdi>
+                </Typography.Text>
+              )}
             </Flex>
           ),
         }))}

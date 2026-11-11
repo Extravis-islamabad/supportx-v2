@@ -10,7 +10,7 @@ The downgrade drops it only while every tenant's types keep the default factor; 
 stops, per tenant with app.tenant_id set (RLS FORCE), and keeps the data (rule 5h).
 
 Revision ID: 0136
-Revises: 0132
+Revises: 0137
 Created: 2026-11-11
 """
 
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0136"
-down_revision: str | None = "0132"
+down_revision: str | None = "0137"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -38,6 +38,15 @@ export const ar: LabelResource = {
   'errors.asset_acknowledgement_answered': 'لقد أجبت عن هذا بالفعل.',
   'errors.asset_acknowledgement_not_found': 'هذا الإقرار ليس لك أو لم يعد موجودًا.',
   'errors.asset_already_disposed': 'لهذا الأصل سجل تخلّص بالفعل.',
+  'errors.asset_audit_closed': 'هذا التدقيق مغلق ولا يمكن تغييره.',
+  'errors.asset_audit_item_not_found': 'هذا العنصر ليس جزءًا من هذا التدقيق.',
+  'errors.asset_audit_not_auditor': 'يمكن فقط للمدققين المحددين في هذا التدقيق تعليم عناصره.',
+  'errors.asset_audit_not_draft': 'بدأ هذا التدقيق بالفعل.',
+  'errors.asset_audit_not_found': 'هذا التدقيق غير موجود، أو لا يمكنك رؤيته.',
+  'errors.asset_audit_not_running': 'هذا التدقيق غير جارٍ: ابدأه أولًا.',
+  'errors.asset_audit_scope_frozen':
+    'يُثبَّت النطاق بعد بدء التدقيق: يمكن تغيير الاسم والوصف وتاريخ الانتهاء والمدققين فقط.',
+  'errors.asset_audit_too_large': 'يضم هذا النطاق أكثر من {{max}} أصل: ضيّقه.',
   'errors.asset_batch_not_found': 'هذه الدفعة ليست في هذا الموقع.',
   'errors.asset_book_for_yourself': 'في البوابة يمكنك الحجز لنفسك فقط.',
   'errors.asset_booked': '{{asset}} محجوز لجزء من ذلك الوقت.',
@@ -64,6 +73,11 @@ export const ar: LabelResource = {
   'errors.asset_group_name_taken': 'لمجموعة أخرى هذا الاسم بالفعل.',
   'errors.asset_group_not_found': 'هذه المجموعة لم تعد موجودة.',
   'errors.asset_has_components': 'عليه مكوّنات مركّبة ({{count}}): افصلها أو تخلّص منها أيضًا.',
+  'errors.asset_label_job_not_found': 'هذه الملصقات غير موجودة، أو طلبها شخص آخر.',
+  'errors.asset_label_job_not_ready': 'الملصقات غير جاهزة للتنزيل.',
+  'errors.asset_label_print_not_found': 'لم تعد عملية الطباعة هذه في سجل الملصقات.',
+  'errors.asset_labels_failed': 'تعذّر إنشاء الملصقات. حاول مرة أخرى.',
+  'errors.asset_labels_too_large': 'ستُنتج الملصقات ملفًا كبيرًا جدًا: اطبع عددًا أقل في كل مرة.',
   'errors.asset_life_cycle_in_use':
     'لا تزال أنواع منتجات تستخدم دورة الحياة هذه ({{used}}). انقلها إلى دورة أخرى أولًا.',
   'errors.asset_life_cycle_not_found': 'دورة الحياة هذه غير موجودة.',
@@ -232,6 +246,8 @@ export const ar: LabelResource = {
   'errors.field.asset_nested_in_itself': 'لا يمكن تركيب أصل على نفسه أو على أحد أجزائه.',
   'errors.field.asset_not_batch_tracked': 'هذا المستهلك لا يُتتبَّع بالدفعات.',
   'errors.field.asset_not_found': 'هذا الأصل غير موجود أو لا يمكنك رؤيته.',
+  'errors.field.asset_overdue_state_unreachable':
+    'لا تنقل أي دورة حياة لأنواع المنتجات هذه أصلًا إلى هذه الحالة. اختر حالة يمكن الوصول إليها.',
   'errors.field.asset_product_not_consumable': 'اختر منتجًا من نوع مستهلك.',
   'errors.field.asset_product_not_found': 'لم يعد هذا المنتج موجودًا.',
   'errors.field.asset_product_type_cycle':
@@ -282,6 +298,8 @@ export const ar: LabelResource = {
   'errors.field.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.field.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.field.chair_inactive': 'اختر شخصًا نشطًا رئيسًا.',
+  'errors.field.change_would_loop':
+    'لا يمكن أن يكون التغيير جزءًا من نفسه، مباشرة أو عبر تغييرات أخرى.',
   'errors.field.channel_reserved':
     'يمكن اختيار الهاتف أو الحضور الشخصي فقط؛ تُحدَّد القنوات الأخرى تلقائيًا.',
   'errors.field.choices_required': 'أضف خيارًا واحدًا على الأقل.',
@@ -404,6 +422,7 @@ export const ar: LabelResource = {
     'القالب المخصص لمقدمي الطلبات متاح للجميع: لا يمكن قصره على مجموعات.',
   'errors.field.list_too_long': 'هذه القائمة تحتوي على قيم كثيرة جدًا.',
   'errors.field.logo_required': 'حمّل شعارًا أولًا.',
+  'errors.field.longer_than_a_month': 'لا يمكن أن تزيد مدة النافذة الشهرية على 28 يومًا.',
   'errors.field.longer_than_a_week': 'لا يمكن أن تتجاوز النافذة الأسبوعية أسبوعًا واحدًا.',
   'errors.field.mailbox_address_invalid': 'أدخل عنوان البريد الإلكتروني لصندوق البريد.',
   'errors.field.mailbox_auth_model_unsupported': 'غير متاح لهذا النوع من صناديق البريد.',
@@ -702,6 +721,7 @@ export const ar: LabelResource = {
   'errors.limit_reached': 'تم الوصول إلى الحد المسموح به في خطتك. اطلب من المسؤول توسيع الخطة.',
   'errors.link_has_own_route':
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
+  'errors.link_not_found': 'هذا الرابط غير موجود، أو أُزيل.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
@@ -743,6 +763,8 @@ export const ar: LabelResource = {
   'errors.not_a_member': 'أنت لست عضوًا في هذه المؤسسة.',
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
+  'errors.not_closable_from_here':
+    'لا يمكن إغلاقه من مرحلته الحالية. انقله إلى المرحلة التالية أولًا.',
   'errors.not_found': 'العنصر غير موجود.',
   'errors.not_known_error': '{{display_id}} ليس خطأً معروفًا.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
@@ -836,6 +858,8 @@ export const ar: LabelResource = {
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
   'errors.site_not_found': 'الموقع غير موجود.',
+  'errors.skip_without_next':
+    'لا توجد خطوة تالية واحدة بعد هذه الخطوة، لذا لا يمكن تخطيها؛ أعد محاولتها أو شغّل مسار العمل مجددًا من خطوة تختارها.',
   'errors.sla_fallback_required':
     'لا يمكن حذف السياسة الافتراضية: فهي تُطبَّق عندما لا تنطبق أي سياسة أخرى.',
   'errors.sla_policy_not_found': 'سياسة اتفاقية مستوى الخدمة هذه غير موجودة أو حُذفت.',

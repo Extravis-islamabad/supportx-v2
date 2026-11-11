@@ -1,7 +1,7 @@
-# Fonts for PDF exports (WP-035, D-100 D8)
+# Fonts for PDFs: report exports and asset labels (WP-035, WP-049b s3, D-100 D8)
 
 Bundled so PDF exports work offline and air-gapped; WeasyPrint loads them only through the
-report URL fetcher (app/modules/analytics/infra/pdf.py), never from the network.
+URL fetcher (app/shared/pdf, shared by report exports and asset labels), never from the network.
 
 | File | Font | Licence |
 |---|---|---|

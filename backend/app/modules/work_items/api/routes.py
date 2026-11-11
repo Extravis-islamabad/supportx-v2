@@ -896,10 +896,21 @@ class WorkItemListItem(BaseModel):
     custom: dict[str, Any] = Field(default_factory=dict, description="Custom values by key.")
 
 
+class ListChangeFactsOut(BaseModel):
+    """A change's type and risk for its list row (REQ-CHG-098)."""
+
+    change_type: str | None
+    risk: RiskLevel | None
+
+
 class WorkItemPage(Page[WorkItemListItem]):
     """One page of a list, with the display names of the people on it."""
 
     people: dict[str, PersonOut] = Field(default_factory=dict)
+    changes: dict[str, ListChangeFactsOut] = Field(
+        default_factory=dict,
+        description="Changes only: each row's type and risk (the effective one), by record ID.",
+    )
 
 
 class CausingProblemOut(BaseModel):
@@ -1158,6 +1169,10 @@ class WorkItemCatalogueOut(BaseModel):
         default=False,
         description="Changes: implementing groups' members may not approve either (REQ-CHG-039).",
     )
+    outside_maintenance_blocks: bool = Field(
+        default=False,
+        description="Changes: outside every maintenance window blocks instead of warns (D-156).",
+    )
     cab_every_match: bool = Field(
         default=False,
         description="Changes: every board the mapping matches reviews, not only the first.",
@@ -1206,6 +1221,7 @@ class WorkItemCatalogueOut(BaseModel):
             first_task_starts_work=cat.first_task_starts_work,
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
+            outside_maintenance_blocks=cat.outside_maintenance_blocks,
             cab_every_match=cat.cab_every_match,
             reapproval=ReapprovalPolicyIO.model_validate(
                 reapproval_rules.policy_json(reapproval_rules.policy_from(cat.reapproval))
@@ -1338,6 +1354,7 @@ class WorkItemSettingsPatch(BaseModel):
     first_task_starts_work: bool | None = None
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
+    outside_maintenance_blocks: bool | None = Field(default=None, description="Changes only.")
     cab_every_match: bool | None = Field(default=None, description="Changes only.")
     reapproval: ReapprovalPolicyIO | None = Field(
         default=None, description="Changes only. Null: the shipped policy."
@@ -1591,6 +1608,9 @@ class ChangeDetailsIn(BaseModel):
         default=None,
         description="Override the calculated risk (REQ-CHG-060): needs risk_reason. Null: none.",
     )
+    review_due_at: datetime | None = Field(
+        default=None, description="The post-implementation review's date (REQ-CHG-091)."
+    )
     risk_reason: str | None = Field(default=None, max_length=500)
 
 
@@ -1737,6 +1757,9 @@ class ChangeDetailsOut(BaseModel):
     risk_version: int | None = None
     risk_chosen: RiskLevel | None = Field(default=None, description="The override, if any.")
     risk_reason: str | None = None
+    review_due_at: datetime | None = Field(
+        default=None, description="The post-implementation review's date (REQ-CHG-091)."
+    )
     sent_back: bool = Field(
         default=False,
         description="Sent back for approval by a re-approval restart: an emergency override may "
@@ -1754,6 +1777,7 @@ class ChangeDetailsOut(BaseModel):
             retrospective=bool(getattr(row, "retrospective", False)),  # a change's row only
             **{n: getattr(row, n, None) for n in risk_rules.RISK_FIELDS},
             sent_back=getattr(row, "resume_stage", None) is not None,
+            review_due_at=getattr(row, "review_due_at", None),
         )
 
 
@@ -2061,6 +2085,19 @@ async def _audit_reapproval(
         )
 
 
+async def _change_facts(
+    session: AsyncSession, wtype: WorkItemType, ids: list[uuid.UUID]
+) -> dict[str, ListChangeFactsOut]:
+    """A change list's type and risk per row: one read for the page (REQ-CHG-098)."""
+    if wtype.code is not WorkItemTypeCode.CHANGE or not ids:
+        return {}
+    facts = await service.change_list_facts(session, ids)
+    return {
+        str(i): ListChangeFactsOut(change_type=t, risk=RiskLevel(r) if r else None)
+        for i, (t, r) in facts.items()
+    }
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -2101,6 +2138,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             has_more=page.has_more,
             estimated_total=page.estimated_total,
             people=_people(await user_contacts(session, people)),
+            changes=await _change_facts(session, wtype, [r.id for r in page.rows]),
         )
 
     @router.get("", summary=f"List {wtype.path}")

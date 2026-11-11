@@ -120,6 +120,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("automation.workflow_stopped", AuditCategory.RECORDS, "automation"),
     ("automation.workflow_restarted", AuditCategory.RECORDS, "automation"),
     ("automation.workflow_retried", AuditCategory.RECORDS, "automation"),
+    ("automation.workflow_skipped", AuditCategory.RECORDS, "automation"),  # WP-048b S5
     ("automation.workflow_job_queued", AuditCategory.RECORDS, "automation"),  # bulk (S3b)
     ("automation.workflow_copied", AuditCategory.CONFIGURATION, "automation"),  # S3d
     ("automation.workflow_imported", AuditCategory.CONFIGURATION, "automation"),
@@ -320,6 +321,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("change.emergency_override", AuditCategory.SECURITY, "work_items"),  # D-144
     ("change.window_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-045c
     ("change.freeze_override", AuditCategory.SECURITY, "work_items"),  # WP-045c, as D-144
+    ("change.freeze_passed_by_cab", AuditCategory.SECURITY, "work_items"),  # D-156
     ("change.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("change.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.template_created", AuditCategory.CONFIGURATION, "work_items"),
@@ -408,6 +410,19 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset_note.created", AuditCategory.RECORDS, "assets"),
     ("asset_note.updated", AuditCategory.RECORDS, "assets"),
     ("asset_note.deleted", AuditCategory.RECORDS, "assets"),
+    # WP-049b s3: labels (REQ-AST-039), audits (042, 043), scan history (054), the overdue rule
+    ("asset_label.requested", AuditCategory.RECORDS, "assets"),
+    ("asset_label.reprinted", AuditCategory.RECORDS, "assets"),
+    ("asset_label.downloaded", AuditCategory.DATA, "assets"),
+    ("asset_audit.created", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.updated", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.started", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.closed", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.item_marked", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.fixes_applied", AuditCategory.RECORDS, "assets"),
+    ("asset_overdue_rule.changed", AuditCategory.CONFIGURATION, "assets"),
+    ("asset_overdue_rule.ran", AuditCategory.RECORDS, "assets"),
+    ("asset_scan.cleaned_up", AuditCategory.DATA, "assets"),
     ("asset_group.created", AuditCategory.RECORDS, "assets"),
     ("asset_group.updated", AuditCategory.RECORDS, "assets"),
     ("asset_group.deleted", AuditCategory.RECORDS, "assets"),

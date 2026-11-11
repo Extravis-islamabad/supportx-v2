@@ -41,6 +41,15 @@ export const ur: LabelResource = {
   'errors.asset_acknowledgement_answered': 'آپ اس کا جواب پہلے ہی دے چکے ہیں۔',
   'errors.asset_acknowledgement_not_found': 'یہ تصدیق آپ کی نہیں، یا اب موجود نہیں۔',
   'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',
+  'errors.asset_audit_closed': 'یہ آڈٹ بند ہے اور اب بدلا نہیں جا سکتا۔',
+  'errors.asset_audit_item_not_found': 'یہ آئٹم اس آڈٹ کا حصہ نہیں۔',
+  'errors.asset_audit_not_auditor': 'صرف اس آڈٹ کے نامزد آڈیٹر اس کے آئٹم نشان زد کر سکتے ہیں۔',
+  'errors.asset_audit_not_draft': 'یہ آڈٹ پہلے ہی شروع ہو چکا ہے۔',
+  'errors.asset_audit_not_found': 'یہ آڈٹ موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.asset_audit_not_running': 'یہ آڈٹ جاری نہیں: پہلے اسے شروع کریں۔',
+  'errors.asset_audit_scope_frozen':
+    'آڈٹ شروع ہونے کے بعد دائرہ مقرر ہو جاتا ہے: صرف نام، تفصیل، اختتامی تاریخ اور آڈیٹر بدلے جا سکتے ہیں۔',
+  'errors.asset_audit_too_large': 'اس دائرے میں {{max}} سے زیادہ اثاثے ہیں: اسے محدود کریں۔',
   'errors.asset_batch_not_found': 'یہ بیچ اس سائٹ پر نہیں ہے۔',
   'errors.asset_book_for_yourself': 'پورٹل میں آپ صرف اپنے لیے بُک کر سکتے ہیں۔',
   'errors.asset_booked': '{{asset}} اس وقت کے کچھ حصے کے لیے بُک ہے۔',
@@ -69,6 +78,11 @@ export const ur: LabelResource = {
   'errors.asset_group_not_found': 'یہ گروپ اب موجود نہیں۔',
   'errors.asset_has_components':
     'اس پر پرزے لگے ہیں ({{count}}): انہیں الگ کریں یا انہیں بھی تلف کریں۔',
+  'errors.asset_label_job_not_found': 'یہ لیبل موجود نہیں، یا کسی اور نے مانگے تھے۔',
+  'errors.asset_label_job_not_ready': 'لیبل ڈاؤن لوڈ کے لیے تیار نہیں۔',
+  'errors.asset_label_print_not_found': 'یہ پرنٹ اب لیبل کی تاریخ میں نہیں۔',
+  'errors.asset_labels_failed': 'لیبل نہیں بن سکے۔ دوبارہ کوشش کریں۔',
+  'errors.asset_labels_too_large': 'لیبلوں سے بہت بڑی فائل بنے گی: ایک بار میں کم پرنٹ کریں۔',
   'errors.asset_life_cycle_in_use':
     'پروڈکٹ اقسام ابھی یہ لائف سائیکل استعمال کرتی ہیں ({{used}})۔ پہلے انہیں کسی اور پر منتقل کریں۔',
   'errors.asset_life_cycle_not_found': 'یہ لائف سائیکل موجود نہیں۔',
@@ -254,6 +268,8 @@ export const ur: LabelResource = {
   'errors.field.asset_nested_in_itself': 'اثاثہ خود پر یا اپنے کسی حصے پر نہیں لگایا جا سکتا۔',
   'errors.field.asset_not_batch_tracked': 'یہ شے بیچ کے ساتھ ٹریک نہیں ہوتی۔',
   'errors.field.asset_not_found': 'یہ اثاثہ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.field.asset_overdue_state_unreachable':
+    'ان پروڈکٹ اقسام کا کوئی لائف سائیکل اثاثے کو اس حالت میں نہیں لاتا۔ ایسی حالت چنیں جہاں پہنچا جا سکے۔',
   'errors.field.asset_product_not_consumable': 'قابلِ صرف قسم کی پروڈکٹ منتخب کریں۔',
   'errors.field.asset_product_not_found': 'یہ پروڈکٹ اب موجود نہیں۔',
   'errors.field.asset_product_type_cycle':
@@ -310,6 +326,8 @@ export const ur: LabelResource = {
     'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
   'errors.field.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.field.chair_inactive': 'صدر کے طور پر کوئی فعال شخص چنیں۔',
+  'errors.field.change_would_loop':
+    'کوئی تبدیلی براہ راست یا دوسروں کے ذریعے اپنا ہی حصہ نہیں ہو سکتی۔',
   'errors.field.channel_reserved':
     'صرف فون یا بالمشافہ چنا جا سکتا ہے؛ دوسرے ذرائع خود بخود طے ہوتے ہیں۔',
   'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',
@@ -437,6 +455,7 @@ export const ur: LabelResource = {
     'درخواست گزاروں کا سانچہ سب کے لیے ہے: اسے گروپوں تک محدود نہیں کیا جا سکتا۔',
   'errors.field.list_too_long': 'اس فہرست میں بہت زیادہ قدریں ہیں۔',
   'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
+  'errors.field.longer_than_a_month': 'ماہانہ وقت زیادہ سے زیادہ 28 دن کا ہو سکتا ہے۔',
   'errors.field.longer_than_a_week': 'ہفتہ وار ونڈو زیادہ سے زیادہ ایک ہفتے کی ہو سکتی ہے۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
   'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
@@ -768,6 +787,7 @@ export const ur: LabelResource = {
     'آپ کے پلان کی اس کے لیے حد پوری ہو چکی ہے۔ پلان بڑھانے کے لیے اپنے منتظم سے کہیں۔',
   'errors.link_has_own_route':
     'یہ لنک اپنی جگہ سے ہٹایا جاتا ہے: واقعے کو الگ کریں، یا ضم کرنا واپس لیں۔',
+  'errors.link_not_found': 'یہ ربط موجود نہیں، یا ہٹا دیا گیا۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
@@ -813,6 +833,8 @@ export const ur: LabelResource = {
   'errors.not_a_member': 'آپ اس ادارے کے رکن نہیں ہیں۔',
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
+  'errors.not_closable_from_here':
+    'اسے موجودہ مرحلے سے بند نہیں کیا جا سکتا۔ پہلے اسے آگے بڑھائیں۔',
   'errors.not_found': 'آئٹم نہیں ملا۔',
   'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
@@ -913,6 +935,8 @@ export const ur: LabelResource = {
   'errors.sign_in_unknown_person':
     'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
   'errors.site_not_found': 'سائٹ نہیں ملی۔',
+  'errors.skip_without_next':
+    'اس مرحلے کے بعد کوئی ایک اگلا مرحلہ نہیں، اس لیے اسے چھوڑا نہیں جا سکتا؛ اسے دوبارہ آزمائیں یا کسی منتخب مرحلے سے ورک فلو دوبارہ چلائیں۔',
   'errors.sla_fallback_required':
     'ڈیفالٹ پالیسی حذف نہیں ہو سکتی: یہ تب لاگو ہوتی ہے جب کوئی اور پالیسی لاگو نہ ہو۔',
   'errors.sla_policy_not_found': 'یہ ایس ایل اے پالیسی موجود نہیں یا حذف کر دی گئی ہے۔',

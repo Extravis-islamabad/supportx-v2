@@ -52,9 +52,12 @@ type Records = Partial<
     | 'announcement'
     | 'asset'
     | 'consumable'
+    | 'audit'
+    | 'scannedAsset'
     | 'catalogItem'
     | 'workflow'
-    | 'workflowRun',
+    | 'workflowRun'
+    | 'workflowRunFlow',
     string
   >
 >;
@@ -84,9 +87,15 @@ const click = (testId: string) => async (page: Page) => {
   await page.waitForTimeout(400);
 };
 
-// A record tab by its key (Ant Design's node key: the same in every language).
+// A record tab by its key (Ant Design's node key: the same in every language). At 390 the tab
+// list scrolls sideways (AppearanceProvider hides the "more" menu), and a tab scrolled out of
+// sight could take a pointer click meant for its neighbour (run 42977617899): click it in the DOM.
 const tab = (key: string) => async (page: Page) => {
-  await page.locator(`[data-node-key="${key}"]`).first().click({ timeout: STATE_TIMEOUT });
+  const node = page.locator(`[data-node-key="${key}"] [role="tab"]`).first();
+  await node.waitFor({ state: 'attached', timeout: STATE_TIMEOUT });
+  await node.evaluate((el) => {
+    (el as HTMLElement).click();
+  });
   await page.waitForTimeout(400);
 };
 
@@ -246,6 +255,22 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.asset ? `/assets/${r.asset}?tab=history` : undefined),
     app: 'console',
   },
+  // WP-049b s3 (lane B): asset audits, one running audit (items, progress, discrepancies), and
+  // an asset's scan history (the showcase's scanned laptop, else the first asset).
+  { key: 'asset-audits', path: '/assets/audits', app: 'console' },
+  {
+    key: 'asset-audit',
+    path: (r) => (r.audit ? `/assets/audits/${r.audit}` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'asset-scans',
+    path: (r) => {
+      const id = r.scannedAsset ?? r.asset;
+      return id ? `/assets/${id}?tab=scans` : undefined;
+    },
+    app: 'console',
+  },
   // WP-049b s1 (lane B): consumables, one consumable (stock, lots, ledger).
   { key: 'consumables', path: '/assets/consumables', app: 'console' },
   {
@@ -272,6 +297,22 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.catalogItem ? `/admin/catalog/items/${r.catalogItem}` : undefined),
     app: 'console',
     sideOnly: true,
+  },
+  // WP-048b S5: the runs overview (template C) and the designer's versions.
+  { key: 'admin-workflows-runs', path: '/admin/workflows/runs', app: 'console', sideOnly: true },
+  {
+    key: 'admin-workflow-versions',
+    path: (r) => (r.workflowRunFlow ? `/admin/workflows/${r.workflowRunFlow}` : undefined),
+    app: 'console',
+    sideOnly: true,
+    // The move dialog over version 1, whose run is still live after version 2 was published.
+    state: {
+      name: 'move',
+      open: async (page) => {
+        await tab('versions')(page);
+        await click('version-1-move')(page);
+      },
+    },
   },
   // WP-048b S4d: a record's Workflows tab, with a run waiting on it (template A's tabs).
   {
@@ -460,10 +501,12 @@ function checks(): string[] {
   if (primary > 1) out.push(`primary_buttons:${String(primary)}`);
   for (const bar of document.querySelectorAll('[data-testid$="actions"], [role="toolbar"]')) {
     if (!shown(bar)) continue;
-    const tops = new Set(
-      [...bar.children].filter(shown).map((c) => Math.round(c.getBoundingClientRect().top)),
-    );
-    if (tops.size > 1) out.push(`toolbar_wraps:${name(bar)}`);
+    // Wrapped = an item starts below another's bottom. Comparing tops alone flagged one row of
+    // centred items of different heights (a 32px select beside 24px buttons; lane C polish).
+    const boxes = [...bar.children].filter(shown).map((c) => c.getBoundingClientRect());
+    const lowestTop = Math.max(...boxes.map((b) => b.top));
+    const highestBottom = Math.min(...boxes.map((b) => b.bottom));
+    if (boxes.length > 1 && lowestTop >= highestBottom - 1) out.push(`toolbar_wraps:${name(bar)}`);
   }
   return [...new Set(out)].slice(0, 40);
 }
@@ -502,7 +545,9 @@ async function findRecords(page: Page): Promise<Records> {
     (await first('/api/v1/incidents?limit=1', firstItem));
   return {
     incident,
-    workflowRun: await showcaseRun(page, incident),
+    ...(await showcaseRun(page, incident).then((made) =>
+      made === undefined ? {} : { workflowRun: made.incident, workflowRunFlow: made.flow },
+    )),
     request: await first('/api/v1/service-requests?limit=1', firstItem),
     article: await first('/api/v1/knowledge/articles', firstOfList),
     dashboard: await first(
@@ -514,6 +559,9 @@ async function findRecords(page: Page): Promise<Records> {
     announcement: await first('/api/v1/announcements?limit=1', firstItem),
     asset: await first('/api/v1/assets?limit=1', firstItem),
     consumable: await first('/api/v1/assets/consumables', firstOfList),
+    // WP-049b s3: the showcase's running audit, and its laptop with scans (SX-LAP-001).
+    audit: await first('/api/v1/assets/audits', firstOfList),
+    scannedAsset: await first('/api/v1/assets?search=SX-LAP-001&limit=1', firstItem),
     catalogItem: await first('/api/v1/catalog/items', firstOfList),
     workflow:
       (await first('/api/v1/automation/workflows?record_type=incident', firstOfList)) ??
@@ -526,7 +574,10 @@ async function findRecords(page: Page): Promise<Records> {
  * → end, published, switched on and started on the incident, so the tab shows a run waiting.
  * Returns the incident's ID; a stack that refuses any step simply has no such shot.
  */
-async function showcaseRun(page: Page, incident: string | undefined): Promise<string | undefined> {
+async function showcaseRun(
+  page: Page,
+  incident: string | undefined,
+): Promise<{ incident: string; flow: string } | undefined> {
   if (incident === undefined) return undefined;
   const { csrf } = await me(page);
   const write = { 'X-CSRF-Token': csrf };
@@ -573,7 +624,11 @@ async function showcaseRun(page: Page, incident: string | undefined): Promise<st
     data: { record_id: incident },
     headers: { ...write, 'Idempotency-Key': crypto.randomUUID() },
   });
-  return started.ok() ? incident : undefined;
+  if (!started.ok()) return undefined;
+  // Version 2 (the same steps): the run stays on version 1, so the Versions tab can move it.
+  if (!(await step('put', '/draft', { definition }))) return { incident, flow: flow.id };
+  await step('post', '/publish');
+  return { incident, flow: flow.id };
 }
 
 /**

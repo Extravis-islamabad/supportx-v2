@@ -350,6 +350,24 @@ async def may_edit(
     return await _may(session, subject, wtype, "edit", record_id)
 
 
+async def labels_of(
+    session: AsyncSession, wtype: WorkItemType, record_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[str, str]]:
+    """Display IDs and subjects by record ID, of this type only, trash excluded.
+
+    For another module that names records it has already checked the viewer may see (the
+    workflow overview, WP-048b S5a): one bounded query over those IDs, in the tenant session.
+    """
+    if not record_ids:
+        return {}
+    rows = await session.execute(
+        _rows(wtype)
+        .where(WorkItem.id.in_(list(record_ids)))
+        .with_only_columns(WorkItem.id, WorkItem.display_id, WorkItem.subject)
+    )
+    return {row.id: (row.display_id, row.subject) for row in rows}
+
+
 async def may_view(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> bool:
@@ -742,6 +760,20 @@ def view_predicates(
         "accepted_due_review": and_(
             WorkItem.accepted_at.is_not(None), WorkItem.accept_review_at <= now
         ),
+        # Changes (WP-045d S2, REQ-CHG-098): at the CAB now, in implementation now, on the
+        # emergency path (open), and closed past their review date with the review still open.
+        "awaiting_cab": WorkItem.status == CHANGE_AT_CAB,
+        "in_implementation": and_(_open(), WorkItem.stage == "implementation"),
+        "emergency": and_(_open(), WorkItem.stage_path == "emergency"),
+        "due_for_review": and_(
+            _open(),
+            WorkItem.stage == "review",
+            WorkItem.id.in_(
+                select(WorkItemChangeDetails.work_item_id).where(
+                    WorkItemChangeDetails.review_due_at <= now
+                )
+            ),
+        ),
         "all": WorkItem.id.is_not(None),
         **_personal(subject, now=now, today_end=tomorrow),
     }
@@ -852,6 +884,10 @@ async def view_filters(
                 "value": [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value],
             },
         ),
+        "awaiting_cab": _cond("status", "eq", CHANGE_AT_CAB),
+        "in_implementation": NOT_EXPRESSIBLE,  # the stage fields are not in the DSL yet
+        "emergency": NOT_EXPRESSIBLE,
+        "due_for_review": NOT_EXPRESSIBLE,  # the review date is a change detail
         "known_errors": NOT_EXPRESSIBLE,  # the known error fields are not in the DSL yet
         "accepted_due_review": NOT_EXPRESSIBLE,
         "all": None,
@@ -922,6 +958,7 @@ def _personal(
 
 # The statuses a change waits in for a stage's approval (its stages' `raised_by`).
 CHANGE_AWAITING = tuple(sorted(str(s["raised_by"]) for s in change_rules.STAGE_APPROVALS.values()))
+CHANGE_AT_CAB = str(change_rules.STAGE_APPROVALS["cab_review"]["raised_by"])
 VIEW_CODES = (
     "open",
     "my_open",
@@ -945,7 +982,14 @@ VIEW_CODES = (
 SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
 PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
 # Changes: waiting for a stage's approval (acceptance, the plan, the CAB), the change screens.
-CHANGE_VIEW_CODES = ("pending_approval",)
+# WP-045d S2 adds the CAB's own view and the change states people look for (REQ-CHG-098).
+CHANGE_VIEW_CODES = (
+    "pending_approval",
+    "awaiting_cab",
+    "in_implementation",
+    "emergency",
+    "due_for_review",
+)
 COUNT_CAP = 1000
 
 
@@ -1804,6 +1848,12 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
 
 def _closed(record: WorkItem) -> bool:
     return StatusCategory(record.status_category) in FINAL_CATEGORIES
+
+
+def _change_locked(wtype: WorkItemType, record: WorkItem) -> None:
+    """A closed or canceled change is read-only (REQ-CHG-097): its schedule and downtime too."""
+    if wtype.code is WorkItemTypeCode.CHANGE and _closed(record):
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status})
 
 
 # --- create ---------------------------------------------------------------------------------------
@@ -2964,6 +3014,12 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
         raise Conflict(
             code="stage_move_refused",
             params={
+                # The first refusal's own params too (which freezes, D-156), never over these.
+                **{
+                    k: v
+                    for k, v in (refusals[0].params or {}).items()
+                    if k not in {"reason", "reasons", "count"}
+                },
                 "reason": refusals[0].code,
                 "reasons": ",".join(r.code for r in refusals),
                 "count": len(refusals),
@@ -3238,7 +3294,8 @@ DETAILS: Mapping[WorkItemTypeCode, DetailsSpec] = {
     WorkItemTypeCode.CHANGE: DetailsSpec(
         model=WorkItemChangeDetails,
         # The type and reason, and the risk: assessed and overridden (WP-045b S1, 0116).
-        fields=(*change_rules.DETAIL_FIELDS, *risk_rules.RISK_FIELDS),
+        # And the review's date (WP-045d S1, REQ-CHG-091; 0133).
+        fields=(*change_rules.DETAIL_FIELDS, *risk_rules.RISK_FIELDS, "review_due_at"),
         pick_lists=(
             ("change_type", PickList.CHANGE_TYPE),
             ("change_reason", PickList.CHANGE_REASON),
@@ -4114,6 +4171,7 @@ async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, 
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     model = await stage_service.load_model(session, wtype, record.lifecycle_version)
     if stage not in model.path(str(record.stage_path)).stages:
         raise NotFound(code="stage_not_found")
@@ -4247,6 +4305,7 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     row = None
     if downtime_id is not None:
         row = await session.scalar(
@@ -4327,6 +4386,7 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     row = await session.scalar(
         select(WorkItemDowntime).where(
             WorkItemDowntime.id == downtime_id,
@@ -5212,7 +5272,23 @@ async def save_detail_change(  # noqa: PLR0913 - the save and its history, expli
     return updated
 
 
+async def change_list_facts(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[str | None, str | None]]:
+    """Each listed change's type and its effective risk (chosen, else assessed)."""
+    rows = await session.execute(
+        select(
+            WorkItemChangeDetails.work_item_id,
+            WorkItemChangeDetails.change_type,
+            WorkItemChangeDetails.risk_chosen,
+            WorkItemChangeDetails.risk,
+        ).where(WorkItemChangeDetails.work_item_id.in_(list(ids)))
+    )
+    return {r.work_item_id: (r.change_type, r.risk_chosen or r.risk) for r in rows}
+
+
 may = _may
+is_closed = _closed
 audience_of = _audience
 now = _now
 field_errors = _errors

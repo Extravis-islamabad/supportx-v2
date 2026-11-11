@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, PermissionDenied
 from app.modules.identity_access import Subject
+from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain import reapproval as rules
 from app.modules.work_items.domain.change_risk import RiskLevel
 from app.modules.work_items.domain.changes import IMPLEMENTATION
@@ -54,7 +55,11 @@ async def snapshot_now(session: AsyncSession, record: WorkItem) -> rules.Snapsho
     plans = {
         s.section: s.version
         for s in await session.scalars(
-            select(WorkItemPlanSection).where(WorkItemPlanSection.work_item_id == record.id)
+            select(WorkItemPlanSection).where(
+                WorkItemPlanSection.work_item_id == record.id,
+                # The review's sections come after every approval: never a reason to re-approve.
+                WorkItemPlanSection.section.in_(change_rules.APPROVED_PLAN_SECTIONS),
+            )
         )
     }
     return rules.Snapshot(

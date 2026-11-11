@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { api, call } from './client';
 import { useSingleFlight } from './incidents';
+import { bulkJobKey } from './incidentLists';
 import type { components } from './schema';
 import { stagedKeys } from './staged';
 
@@ -341,6 +342,20 @@ export function useReapprovalPreview() {
   });
 }
 
+export type ChangeChild = components['schemas']['ChildOut'];
+
+/** The change's child changes and releases (those you may see); closing waits for them. */
+export function useChangeChildren(id: string) {
+  return useQuery({
+    queryKey: keys.part(id, 'children'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/changes/{record_id}/children', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
 export type ChangeConflicts = components['schemas']['ConflictsOut'];
 export type ChangeConflict = components['schemas']['ConflictOut'];
 export type ChangeWindow = components['schemas']['WindowOut'];
@@ -354,6 +369,73 @@ export function useChangeConflicts(id: string) {
         api.GET('/api/v1/changes/{record_id}/conflicts', { params: { path: { record_id: id } } }),
       ),
     enabled: id !== '',
+  });
+}
+
+/** Make a change or a release, found by its number, part of this change. */
+export function useAddChangeChild() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, number }: { id: string; number: string }) => {
+      const value = number.trim().toUpperCase();
+      // A release's number reads REL-…, a change's CHG-…: each type finds its own.
+      const found = value.startsWith('REL')
+        ? await call(api.GET('/api/v1/releases/lookup/{value}', { params: { path: { value } } }))
+        : await call(api.GET('/api/v1/changes/lookup/{value}', { params: { path: { value } } }));
+      return call(
+        api.POST('/api/v1/changes/{record_id}/children', {
+          params: { path: { record_id: id } },
+          body: { child_id: found.id },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'children') });
+    },
+  });
+}
+
+export function useRemoveChangeChild() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, linkId }: { id: string; linkId: string }) => {
+      await call(
+        api.DELETE('/api/v1/changes/{record_id}/children/{link_id}', {
+          params: { path: { record_id: id, link_id: linkId } },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'children') });
+    },
+  });
+}
+
+/**
+ * Close the picked changes in one background job (REQ-CHG-101): each by its own move to closed,
+ * with the closure code and closing description; any that may not close is skipped, with why.
+ * Progress arrives on your channel (the shared bulk drawer, base "changes").
+ */
+export function useStartChangeBulkClose() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: { recordIds: string[]; closureCode: string; resolution?: string }) =>
+      call(
+        api.POST('/api/v1/changes/bulk', {
+          body: {
+            action: 'close',
+            changes: {
+              closure_code: request.closureCode,
+              ...(request.resolution ? { resolution: request.resolution } : {}),
+            },
+            record_ids: request.recordIds,
+            all_matching: false,
+          },
+        }),
+      ),
+    onSuccess: (job) => {
+      queryClient.setQueryData(bulkJobKey('changes', job.id), job);
+    },
   });
 }
 
@@ -460,6 +542,32 @@ export function useRemoveChangeWindow() {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+    },
+  });
+}
+
+/**
+ * Change the change type's settings with the If-Match the screen showed (D-156: whether
+ * outside-maintenance blocks); the answer replaces the cached settings at once.
+ */
+export function useChangeSettingsChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      body,
+      version,
+    }: {
+      body: Partial<components['schemas']['WorkItemSettingsPatch']>;
+      version: number;
+    }) =>
+      call(
+        api.PATCH('/api/v1/changes/settings', {
+          params: { header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(stagedKeys('changes').settings, settings);
     },
   });
 }

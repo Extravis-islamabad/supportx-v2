@@ -44,6 +44,9 @@ class WorkItemTaskIn(BaseModel):
     status: TaskStatus = TaskStatus.OPEN
     priority: TaskPriority = TaskPriority.NORMAL
     due_at: datetime | None = None
+    stage: str | None = Field(
+        default=None, max_length=40, description="Staged types: its stage (default: the current)."
+    )
 
 
 class WorkItemTaskPatch(BaseModel):
@@ -56,6 +59,7 @@ class WorkItemTaskPatch(BaseModel):
     status: TaskStatus | None = None
     priority: TaskPriority | None = None
     due_at: datetime | None = None
+    stage: str | None = Field(default=None, max_length=40)
 
 
 class WorkItemTaskOut(BaseModel):
@@ -72,6 +76,7 @@ class WorkItemTaskOut(BaseModel):
     due_at: datetime | None
     done_at: datetime | None
     done_by: uuid.UUID | None = Field(default=None, description="Who ticked it done (D-154d).")
+    stage: str | None = Field(default=None, description="Staged types: the stage it is for.")
     position: int
     # WP-030 s3: made by the catalog item's fulfilment plan; required to fulfil; internal.
     from_plan: bool = False

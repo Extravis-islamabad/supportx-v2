@@ -35,7 +35,14 @@ import { StarterKit } from '@tiptap/starter-kit';
 import { Button, Divider, Dropdown, Flex, Input, Modal, Select, Tooltip } from 'antd';
 import type { EditorView } from '@tiptap/pm/view';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 
 import { queryKeys, useFileRules, type FileRules } from '@supportx/api-client';
 import { usePersonalChannel } from '@supportx/realtime';
@@ -293,9 +300,6 @@ function Tool({
 
 const Gap = () => <Divider type="vertical" style={{ marginInline: 2, height: 20 }} />;
 
-const COMPACT_BELOW = 900;
-const NARROW_BELOW = 560;
-
 interface ToolSpec {
   title: string;
   icon: ReactNode;
@@ -393,22 +397,44 @@ function Toolbar({
   const { direction } = useAppearance();
   const [linking, setLinking] = useState(false);
   const [href, setHref] = useState('');
-  // The toolbar's own width (0 before layout and in tests: the full toolbar).
+  // How much of the toolbar fits on one row, measured rather than guessed from fixed widths: a
+  // composer in a 700-900 px column wrapped the full toolbar onto two rows (every composer in the
+  // Visual matrix, lane C's polish). The toolbar never wraps; when its tools overflow the row it
+  // steps down, full → compact (groups fold into menus) → narrow (it scrolls sideways), and
+  // steps back up when the row grows past where it stepped down. Before layout, and in jsdom
+  // (no sizes), nothing overflows: the full toolbar.
   const bar = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const [level, setLevel] = useState<'full' | 'compact' | 'narrow'>('full');
+  const steppedAt = useRef<number[]>([]);
+  // After every render on purpose: the tools' width changes with the language and the editor's
+  // state, not only with the row. It ends: the level only steps down, and stops at narrow.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- see the two lines above
+  useLayoutEffect(() => {
+    const element = bar.current;
+    if (element === null || level === 'narrow') return;
+    if (element.scrollWidth > element.clientWidth + 1) {
+      steppedAt.current = [...steppedAt.current, element.clientWidth];
+      setLevel(level === 'full' ? 'compact' : 'narrow');
+    }
+  });
   useEffect(() => {
     const element = bar.current;
     if (element === null || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
-      setWidth(element.clientWidth);
+      const last = steppedAt.current.at(-1);
+      // Wider than where it last stepped down: try the fuller form again (measured above).
+      if (last !== undefined && element.clientWidth > last + 24) {
+        steppedAt.current = [];
+        setLevel('full');
+      }
     });
     observer.observe(element);
     return () => {
       observer.disconnect();
     };
   }, []);
-  const compact = width > 0 && width < COMPACT_BELOW;
-  const narrow = width > 0 && width < NARROW_BELOW;
+  const compact = level !== 'full';
+  const narrow = level === 'narrow';
   // Re-render the toolbar when the selection or the content changes (active states).
   const state = useEditorState({
     editor,
@@ -449,8 +475,8 @@ function Toolbar({
       .setAlignment(state.align === value ? null : value)
       .run();
   };
-  // Below about 900 px the toolbar no longer fits one row (QA10V-21): alignment and indent, and
-  // the block tools, fold into a menu each; below 560 px it also scrolls sideways in one row.
+  // When the toolbar does not fit one row (QA10V-21; measured above), alignment and indent, and
+  // the block tools, fold into a menu each; if even that does not fit, it scrolls sideways.
   const aligning: ToolSpec[] = [
     {
       title: t('richtext.align.start'),
@@ -533,9 +559,11 @@ function Toolbar({
     <Flex
       ref={bar}
       gap={2}
-      wrap={!narrow}
+      wrap={false}
       align="center"
-      style={narrow ? { overflowX: 'auto', scrollbarWidth: 'thin' } : undefined}
+      // Hidden while measuring the full and compact forms (an overflow steps down at once);
+      // narrow scrolls sideways in one row.
+      style={narrow ? { overflowX: 'auto', scrollbarWidth: 'thin' } : { overflowX: 'hidden' }}
       className="sx-richtext-toolbar"
       role="toolbar"
       aria-label={t('richtext.toolbar')}

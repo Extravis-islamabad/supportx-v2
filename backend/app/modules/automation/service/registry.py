@@ -26,6 +26,11 @@ ValueChecker = Callable[[AsyncSession, Mapping[str, JsonValue]], Awaitable[Mappi
 RecordEditCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
 # Whether a person may see the record (its type's own view rule): a test run reads its facts.
 RecordViewCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
+# Records' display IDs and subjects by ID (the overview names a run's record, WP-048b S5a). Only
+# ever shown for records the viewer may see (RecordViewCheck first).
+RecordLabeler = Callable[
+    [AsyncSession, Sequence[uuid.UUID]], Awaitable[Mapping[uuid.UUID, tuple[str, str]]]
+]
 # The record and the stopped instance.
 WorkflowCloser = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[None]]
 # The IDs among these that are live templates of the type, in the session's tenant.
@@ -63,6 +68,7 @@ class RecordType:
     may_edit: "RecordEditCheck | None" = None
     # A test run on a record shows its facts: only to someone who may see it (lane B, #374).
     may_view: "RecordViewCheck | None" = None
+    labels: "RecordLabeler | None" = None  # the overview's record names (WP-048b S5a)
     # A stopped workflow's open parts on the record (its pending approvals) close (REQ-WF-026).
     close_workflow: "WorkflowCloser | None" = None
     # A run moved to another version: the record's history says so, naming it (REQ-WF-021 AC2).

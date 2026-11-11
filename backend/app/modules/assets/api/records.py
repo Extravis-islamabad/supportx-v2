@@ -231,6 +231,41 @@ class AssetChangeOut(BaseModel):
     )
 
 
+class AssetChangeOriginOut(BaseModel):
+    """An audit fix (its display ID and name) or the overdue-scan rule (WP-049b s3)."""
+
+    kind: Literal["asset_audit", "asset_overdue_rule"]
+    audit_id: uuid.UUID | None = None
+    display_id: str | None = None
+    name: str | None = None
+    reason_code: Literal["overdue_scan_rule"] | None = Field(
+        default=None, description="The change's reason as a code; labelled with its params."
+    )
+    reason_params: dict[str, int] = Field(default_factory=dict)
+
+
+def _origin(ref: object) -> AssetChangeOriginOut | None:
+    if not isinstance(ref, dict):
+        return None
+    if ref.get("kind") == "asset_audit":
+        return AssetChangeOriginOut(
+            kind="asset_audit",
+            audit_id=uuid.UUID(str(ref["id"])),
+            display_id=str(ref.get("display_id") or ""),
+            name=str(ref.get("name") or ""),
+        )
+    if ref.get("kind") == "asset_overdue_rule":
+        params = ref.get("params")
+        return AssetChangeOriginOut(
+            kind="asset_overdue_rule",
+            reason_code="overdue_scan_rule" if ref.get("reason") == "overdue_scan_rule" else None,
+            reason_params={k: v for k, v in (params or {}).items() if isinstance(v, int)}
+            if isinstance(params, dict)
+            else {},
+        )
+    return None
+
+
 class AssetHistoryEntryOut(BaseModel):
     """One save of an asset: who, when, how, what changed."""
 
@@ -242,6 +277,10 @@ class AssetHistoryEntryOut(BaseModel):
     reason: str | None
     occurred_at: datetime
     changes: list[AssetChangeOut]
+    origin: AssetChangeOriginOut | None = Field(
+        default=None,
+        description="What made the change on a person's behalf: an audit's fix, or a rule.",
+    )
 
 
 HistoryView = Literal["all", "state", "assignment"]
@@ -508,6 +547,7 @@ async def asset_history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and fi
                 reason=e.reason,
                 occurred_at=e.occurred_at,
                 changes=[_change_out(c.field, c.old, c.new, money=money) for c in e.changes],
+                origin=_origin(e.automation_ref),
             )
             for e in entries
         ],

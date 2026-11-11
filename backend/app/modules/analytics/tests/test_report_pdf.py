@@ -1,4 +1,6 @@
-"""PDF exports (REQ-RPT-058, REQ-DSH-046) and the D-100 D8 conditions.
+"""PDF exports of reports (REQ-RPT-058, REQ-DSH-046) and the D-100 D8 conditions.
+
+The report-only tests, split from the shared renderer's (app/shared/tests/test_pdf.py, WP-049b s3).
 
 Needs WeasyPrint and Pango: `uv sync --group pdf` locally (macOS: `make backend-test-pdf` sets the
 Homebrew library path), the worker image in CI. Skipped where they are missing, unless
@@ -77,23 +79,6 @@ def test_req_dsh_046_arabic_pdf_is_shaped_right_to_left_with_the_bundled_font() 
     assert "10" in text
 
 
-def test_d100_the_fetcher_serves_only_the_bundled_fonts() -> None:
-    pdf = _pdf_module()
-    fetcher = pdf.report_fetcher()
-    for url in (
-        "http://169.254.169.254/latest/meta-data/",  # cloud metadata
-        "http://127.0.0.1:8000/api/v1/users",  # the API itself
-        "https://example.com/logo.png",
-        "file:///etc/passwd",
-        (pdf.FONTS / ".." / "pdf.py").resolve().as_uri(),  # outside the fonts folder
-        "data:text/html,<script>alert(1)</script>",
-    ):
-        with pytest.raises(ValueError, match="refused"):
-            fetcher.fetch(url)
-    font = fetcher.fetch((pdf.FONTS / "NotoSans-Regular.ttf").as_uri())
-    assert font.read(4) in {b"\x00\x01\x00\x00", b"true"}  # a TrueType file
-
-
 def test_d100_report_content_never_makes_the_pdf_fetch_anything() -> None:
     pdf = _pdf_module()
     hostile = (
@@ -104,18 +89,6 @@ def test_d100_report_content_never_makes_the_pdf_fetch_anything() -> None:
     data = pdf.render_pdf(_input(rtl=False, title=hostile), fetcher)
     assert fetcher.refused == []  # escaped text: nothing even asked for
     assert "169.254.169.254" in _text(data)  # shown as text, harmlessly
-
-
-def test_d100_a_url_in_markup_is_refused_by_the_fetcher_not_fetched() -> None:
-    pdf = _pdf_module()
-    from weasyprint import HTML  # noqa: PLC0415 - optional dependency
-
-    fetcher = pdf.report_fetcher()
-    HTML(
-        string='<img src="http://169.254.169.254/x"><img src="file:///etc/hosts">',
-        url_fetcher=fetcher,
-    ).write_pdf()
-    assert set(fetcher.refused) == {"http://169.254.169.254/x", "file:///etc/hosts"}
 
 
 def test_svg_chart_escapes_labels_and_mirrors_for_rtl() -> None:

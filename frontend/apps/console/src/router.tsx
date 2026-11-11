@@ -64,6 +64,19 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-049b s3 (REQ-AST-042, 043): asset audits, and one audit.
+            path: 'audits',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/AuditsPage')).AuditsPage,
+            }),
+          },
+          {
+            path: 'audits/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/AuditPage')).AuditPage,
+            }),
+          },
+          {
             // WP-049a s4 (REQ-AST-028): static and dynamic groups.
             path: 'groups',
             lazy: async () => ({
@@ -104,6 +117,12 @@ export const routes: RouteObject[] = [
             path: ':id',
             lazy: async () => ({
               Component: (await import('./pages/changes/ChangePage')).ChangePage,
+            }),
+          },
+          {
+            path: ':id/pack',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangePack')).ChangePack,
             }),
           },
         ],
@@ -411,6 +430,13 @@ export const routes: RouteObject[] = [
             path: 'workflows',
             lazy: async () => ({
               Component: (await import('./pages/admin/workflows/WorkflowsPage')).WorkflowsPage,
+            }),
+          },
+          {
+            // WP-048b S5a: every run, the second tab of Admin › Workflows.
+            path: 'workflows/runs',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/RunsPage')).RunsPage,
             }),
           },
           {
