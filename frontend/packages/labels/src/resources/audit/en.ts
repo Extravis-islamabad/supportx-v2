@@ -953,6 +953,7 @@ export const en = {
   'event_type.system.file.changed': 'File changed',
   'event_type.system.file.uploaded': 'File uploaded',
   'event_type.system.file_settings.updated': 'File rules changed',
+  'event_type.system.list_settings.changed': 'List settings changed',
   'event_type.system.mail.queued': 'Email queued',
   'event_type.system.mail.state_changed': 'Email sent, retried or failed',
   'event_type.work_items.approval.changed': 'Approval opened or decided',

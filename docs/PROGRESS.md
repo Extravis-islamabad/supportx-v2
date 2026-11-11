@@ -1560,7 +1560,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3 built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3 and 4a built 2026-11-11)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1687,6 +1687,69 @@ it with no reload (rule c). Not built yet.
   - The Purchase manager role will need catalogue prices when procurement is built (WP-054);
     granting it then is Haider's call, not granted now.
   - **Open:** the e2e journey for the technician's path.
+- [x] **Session 4a (migration 0140, down revision 0136 after the second main merge; it moves
+  to 0139 at the lane's turn; REQ-AST-044, 045, 046, 047; branch backup/wp-049b-s4a):**
+  - Shared list-settings store (the coordinator's decision): `app/shared/list_settings` owns the
+    `list_settings` table (RLS forced, SELECT/INSERT/UPDATE, soft delete): per person, list and
+    view, the columns with widths, sort, page size and a favourite star; a saved view is a row
+    keyed `custom:<id>` with a name and the list's own filter (checked as the list checks it).
+    Lists register a `ListSpec` (permission, built-in views, fields, licence feature); the system
+    module mounts `/api/v1/list-settings/{list_key}` (views, saved views; If-Match, an
+    Idempotency-Key on create) and sends `system.list_settings.changed` (IDs and keys only) to the
+    person's own channel. Assets (`assets`, `asset_consumables`) use it; work-item lists keep
+    their own store until lane A chooses to move (rule 8: the lane tells lane A).
+  - Asset list (047): the product type tree beside the list (a node lists its types and every
+    type below, with counts per branch from `GET /assets/type-counts`; AC1), its own WAI-ARIA tree
+    (roving tabindex, arrows mirrored in right to left, Home/End, Enter/Space; AC2), built-in
+    views (all, mine, scan failures, loanable, in stock, warranty ending soon, recently
+    discovered: empty until discovery, said so on screen), saved views and favourites (favourites
+    first in the picker), the spec's default columns (holder, department, parent asset and
+    product named by the list page; additive fields), widths kept per person and view through
+    `useColumnWidths` with the new shared kinds (#367's local hook removed; lane C reviews).
+    AC3: `ix_assets_type_updated` (tenant_id, product_type_id, updated_at, id; live rows); the
+    EXPLAIN test over 50,000 assets shows index scans only (ix_assets_updated for the default
+    sort and a large branch, ix_assets_type_updated for a 5,000-asset node), first page well under
+    1 s through the API.
+  - Picker (046): `GET /assets/picker/search` (filters by product type with its children and by
+    site; part of a name, tag, barcode, serial or discovered serial anywhere in it; pages by
+    cursor; staff within their asset scope, others only what they hold). The classic
+    `/assets/picker` takes the same two filters. Tests: a partial serial (AC1), an asset outside
+    the scope (AC2).
+  - Linked records (044, **D-158**: the counters count only the records the viewer may see,
+    overriding AC3): the assets-side port `LinkedRecords` (`linked_counts`, `linked_page`,
+    `asset_ids_of`) with `register_linked_records`; `GET /assets/{id}/linked` ("not available"
+    while no port is registered, and the panel hides) and `/linked/{kind}`; live through the
+    asset's channel on `work_items.asset_link.changed` and `work_items.work_item.status_changed`.
+    Unit-tested with a fake port (a record the viewer may not see is neither counted nor listed).
+  - Raise from an asset (045): Raise an incident, service request or change on the asset page,
+    a template (or catalogue item) picker listing only what the person may use, then the normal
+    create form with the asset and its holder filled in (`?template=`/`?item=`, `?asset=`,
+    `?requester=`; small console-only additions to lane A's three create forms, agreed with
+    their conditions). Each ID is checked quietly first: an unknown or not-allowed template,
+    item, asset or person leaves its field empty (the form's default template), with no banner
+    or toast; a known asset shows by tag and name; the server re-checks on submit. The history
+    line "INC-1042 raised from this asset" is written by the `assets__raised_from` consumer from
+    `work_items.asset_link.changed` with `at_creation: true`, the display ID read at write time
+    through the labeler work items register with automation (their public `labels_of`); a record
+    already gone gives the generic line.
+  - Lane C's checklist: typeahead in the type tree (a printable key moves to the next matching
+    row, wrapping; keys within 500 ms form a prefix; locale lower-casing; Arabic and Urdu by the
+    first letter), the row's focus ring from the theme's focus colour and width, drawers capped
+    at the screen width (390 px); a test that work-item lists keep their own `/list-settings`
+    and that Reset widths clears the saved widths in both stores.
+  - Guide: docs/guides/asset-list-and-views.md.
+  - **Lane A's ports (#389) are on main:** work_items registers the port from its __init__
+    (`asset_link_port.py`, a thin adapter over lane A's visible-only `linked_counts`,
+    `linked_page` and `asset_ids_of`; no query of its own), so the panel shows. DB test with
+    real incidents: a linked incident of the technician's group is counted and listed, one of
+    another group neither (D-158); the counters follow a new link live; an incident raised with
+    an asset (`at_creation` on the real event) names itself in the asset's history. The display
+    ID still comes through automation's labeler until lane A's `labels_of` export (#396) lands.
+  - **Open:** a column chooser for the asset list (the store keeps chosen columns; the screen
+    shows the default set), renaming a saved view on screen (the API has it), sharing views with
+    groups (REQ-INC-107's sharing; the store is per person), the record forms' pickers adopting
+    the paged picker (lane A's screens), a change's asset on its create form (changes take no
+    asset on create yet).
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
