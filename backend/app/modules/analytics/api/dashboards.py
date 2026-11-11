@@ -6,20 +6,21 @@ dashboard's filters added), so a widget counts exactly what the viewer could lis
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.errors import AppError, ProblemDetail
+from app.core.errors import AppError, PermissionDenied, ProblemDetail, ValidationFailed
 from app.core.tenancy import TenantContext, resolve_tenant
-from app.modules.analytics.api.routes import CONFLICT, RESPONSES, _source, _validator
+from app.modules.analytics.api.routes import CONFLICT, RESPONSES, _source, _validator, _zone
 from app.modules.analytics.domain.builtin import BUILTIN as BUILTIN_REPORTS
 from app.modules.analytics.domain.dashboard import DashboardBody, Widget
 from app.modules.analytics.domain.widgets import CATALOGUE, SECTIONS, WidgetTemplate
 from app.modules.analytics.service import dashboards
+from app.modules.analytics.service.compiler import compile_report
 from app.modules.analytics.service.library import VIEW
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
@@ -27,6 +28,9 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
+
+if TYPE_CHECKING:
+    from app.shared.reporting import ReportingSource
 
 router = APIRouter(
     prefix="/dashboards",
@@ -290,18 +294,37 @@ async def widget_catalogue(
     Only widgets over entities you may report on (permission and licence); each still shows only
     the records you may see.
     """
-    allowed: dict[str, bool] = {}
+    sources: dict[str, ReportingSource | None] = {}
     entries: list[WidgetCatalogueEntryOut] = []
+    zone = _zone(request)
+    now = datetime.now(zone)
     for template in CATALOGUE.values():
         entity = _entity(template)
-        if entity not in allowed:
+        if entity not in sources:
             try:
-                await _source(request, session, context, subject, entity)
-                allowed[entity] = True
+                sources[entity] = await _source(request, session, context, subject, entity)
             except AppError:
-                allowed[entity] = False
-        if not allowed[entity]:
+                sources[entity] = None
+        source = sources[entity]
+        if source is None:
             continue
+        ref = str(template.source.get("report_ref", ""))
+        if ref:
+            # As the report library: a built-in report the viewer cannot run (its fields or
+            # measures are not in their source, e.g. assets' money without view_financials)
+            # is not offered as a widget either.
+            report = BUILTIN_REPORTS.get(ref.removeprefix("builtin:"))
+            if report is None:  # a ref the catalogue no longer has: never a 500 for all
+                continue
+            try:
+                compile_report(
+                    report.definition,
+                    source,
+                    now=now,
+                    zone=zone.key,
+                )
+            except (ValidationFailed, PermissionDenied):
+                continue
         widget = template.widget(template.code[:40].rstrip("_-"), 0, 0)
         entries.append(
             WidgetCatalogueEntryOut(

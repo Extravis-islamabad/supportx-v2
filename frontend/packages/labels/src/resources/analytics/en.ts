@@ -210,8 +210,14 @@ export const en = {
   'dashboards.widget_unavailable': 'The report behind this widget is not available to you.',
   'dashboards.your_home': 'Your home',
   'errors.pdf_not_available': 'PDF export is not available on this server.',
+  'measure.asset.book_value_total': 'Book value',
+  'measure.asset.book_value_total.help':
+    "The assets' value today after depreciation, added up, in the base currency.",
   'measure.asset.count': 'Assets',
   'measure.asset.count.help': 'Every asset that matches the filters and that you may see.',
+  'measure.asset.total_cost_total': 'Total cost of ownership',
+  'measure.asset.total_cost_total.help':
+    'What the assets cost to buy and keep (service, moves, contracts and other costs), added up, in the base currency.',
   'measure.incident.average_reassignments': 'Average reassignments',
   'measure.incident.average_reassignments.help':
     'Average number of times an incident moved to another group or technician.',
@@ -261,12 +267,18 @@ export const en = {
   'measure.service_request.count': 'Service requests',
   'measure.service_request.count.help':
     'Every service request that matches the filters and that you may see.',
+  'report.assets_book_value_by_cost_centre': 'Book value by cost centre',
+  'report.assets_book_value_by_cost_centre.description':
+    'What the assets are worth today, per cost centre, largest first.',
   'report.assets_by_age': 'Assets by age',
   'report.assets_by_age.description': 'How long ago each asset was acquired.',
   'report.assets_by_product_type': 'Assets by product type',
   'report.assets_by_product_type.description': 'Every asset you may see, by its product type.',
   'report.assets_by_state': 'Assets by state',
   'report.assets_by_state.description': 'Every asset you may see, by its state.',
+  'report.assets_total_cost_of_ownership': 'Total cost of ownership',
+  'report.assets_total_cost_of_ownership.description':
+    'What each kind of asset costs to buy and keep, beside what it is worth today.',
   'report.assets_warranty_ending': 'Warranties ending in the next 90 days',
   'report.assets_warranty_ending.description':
     'Assets whose warranty ends within 90 days, by the month it ends.',

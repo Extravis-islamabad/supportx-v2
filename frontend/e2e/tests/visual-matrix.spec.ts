@@ -52,7 +52,9 @@ type Records = Partial<
     | 'announcement'
     | 'asset'
     | 'consumable'
-    | 'catalogItem',
+    | 'catalogItem'
+    | 'workflow'
+    | 'workflowRun',
     string
   >
 >;
@@ -181,6 +183,7 @@ export const SCREENS: Screen[] = [
     app: 'console',
     state: { name: 'user-menu', open: click('user-menu') }, // near the right edge (left in RTL)
   },
+  { key: 'change-calendar', path: '/changes/calendar', app: 'console' }, // WP-045c S3
   { key: 'requests', path: '/requests', app: 'console' },
   {
     key: 'request',
@@ -270,6 +273,27 @@ export const SCREENS: Screen[] = [
     app: 'console',
     sideOnly: true,
   },
+  // WP-048b S4d: a record's Workflows tab, with a run waiting on it (template A's tabs).
+  {
+    key: 'incident-workflows',
+    path: (r) => (r.workflowRun ? `/incidents/${r.workflowRun}` : undefined),
+    app: 'console',
+    state: { name: 'workflows', open: tab('workflows') },
+  },
+  // WP-048b S4: the designer, "template A header + canvas body"; its outline and problems.
+  {
+    key: 'admin-workflow',
+    path: (r) => (r.workflow ? `/admin/workflows/${r.workflow}` : undefined),
+    app: 'console',
+    sideOnly: true,
+  },
+  {
+    key: 'admin-workflow-outline',
+    path: (r) => (r.workflow ? `/admin/workflows/${r.workflow}` : undefined),
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'outline', open: tab('outline') },
+  },
   // A top-layout shot of a setup page (the admin pages are side-only otherwise).
   { key: 'admin-users-all-layouts', path: '/admin/users', app: 'console' },
   { key: 'announcements', path: '/announcements', app: 'console' },
@@ -310,6 +334,8 @@ export const SCREENS: Screen[] = [
     'requests',
     'portal',
     'catalog',
+    'workflows',
+    'change-windows', // WP-045c S3 (lane C's #381 review)
   ].map<Screen>((page) => ({
     key: `admin-${page.replace('/', '-')}`,
     path: `/admin/${page}`,
@@ -375,7 +401,18 @@ function checks(): string[] {
   const width = window.innerWidth;
   for (const el of boxes) {
     const r = el.getBoundingClientRect();
-    if (r.right > width + 1 || r.left < -1) out.push(`off_screen:${name(el)}`);
+    // Inside a strip that scrolls sideways (a wide table, the editor's narrow toolbar) a control
+    // past the edge is scrolled to, not lost (lane B's asset notes, 2026-11-11).
+    let scroller: Element | null = el.parentElement;
+    while (
+      scroller !== null &&
+      !['auto', 'scroll'].includes(getComputedStyle(scroller).overflowX)
+    ) {
+      scroller = scroller.parentElement;
+    }
+    if (scroller === null && (r.right > width + 1 || r.left < -1)) {
+      out.push(`off_screen:${name(el)}`);
+    }
   }
   // A dialog, drawer, menu or popup lies over the page on purpose: only elements of the same
   // layer can overlap (QA9: the open assign dialog and notifications drawer were findings).
@@ -460,10 +497,12 @@ async function findRecords(page: Page): Promise<Records> {
   // Some lists are a plain array (knowledge articles, catalog items: QA9 matrix fix).
   const firstOfList = (body: unknown) =>
     (Array.isArray(body) ? (body as { id: string }[]) : [])[0]?.id;
+  const incident =
+    (await first('/api/v1/incidents/lookup/INC-30', (b) => (b as { id?: string }).id)) ??
+    (await first('/api/v1/incidents?limit=1', firstItem));
   return {
-    incident:
-      (await first('/api/v1/incidents/lookup/INC-30', (b) => (b as { id?: string }).id)) ??
-      (await first('/api/v1/incidents?limit=1', firstItem)),
+    incident,
+    workflowRun: await showcaseRun(page, incident),
     request: await first('/api/v1/service-requests?limit=1', firstItem),
     article: await first('/api/v1/knowledge/articles', firstOfList),
     dashboard: await first(
@@ -476,7 +515,119 @@ async function findRecords(page: Page): Promise<Records> {
     asset: await first('/api/v1/assets?limit=1', firstItem),
     consumable: await first('/api/v1/assets/consumables', firstOfList),
     catalogItem: await first('/api/v1/catalog/items', firstOfList),
+    workflow:
+      (await first('/api/v1/automation/workflows?record_type=incident', firstOfList)) ??
+      (await showcaseWorkflow(page)),
   };
+}
+
+/**
+ * A workflow run on an incident for its Workflows tab (WP-048b S4d): start → wait for a change
+ * → end, published, switched on and started on the incident, so the tab shows a run waiting.
+ * Returns the incident's ID; a stack that refuses any step simply has no such shot.
+ */
+async function showcaseRun(page: Page, incident: string | undefined): Promise<string | undefined> {
+  if (incident === undefined) return undefined;
+  const { csrf } = await me(page);
+  const write = { 'X-CSRF-Token': csrf };
+  const made = await page.request.post('/api/v1/automation/workflows', {
+    data: { record_type: 'incident', name: 'Wait for the requester' },
+    headers: { ...write, 'Idempotency-Key': crypto.randomUUID() },
+  });
+  if (!made.ok()) return undefined;
+  let flow = (await made.json()) as { id: string; version: number };
+  const step = async (method: 'put' | 'post', path: string, data?: unknown) => {
+    const response = await page.request[method](`/api/v1/automation/workflows/${flow.id}${path}`, {
+      data,
+      headers: { ...write, 'If-Match': `"${String(flow.version)}"` },
+    });
+    if (!response.ok()) return false;
+    flow = (await response.json()) as typeof flow;
+    return true;
+  };
+  const at = (x: number, y: number) => ({ x, y });
+  const definition = {
+    format: 1,
+    nodes: [
+      { id: 'start', type: 'start', config: {}, position: at(0, 0) },
+      {
+        id: 'reply',
+        type: 'wait',
+        config: { events: ['requester_replied'], limit_seconds: 86_400 },
+        position: at(0, 140),
+      },
+      { id: 'end', type: 'end', config: {}, position: at(0, 280) },
+    ],
+    links: [
+      { from: 'start', port: 'next', to: 'reply' },
+      { from: 'reply', port: 'next', to: 'end' },
+      { from: 'reply', port: 'overtaken', to: 'end' },
+      { from: 'reply', port: 'timeout', to: 'end' },
+    ],
+    variables: [],
+  };
+  if (!(await step('put', '/draft', { definition }))) return undefined;
+  if (!(await step('post', '/publish'))) return undefined;
+  if (!(await step('put', '/enabled', { enabled: true }))) return undefined;
+  const started = await page.request.post(`/api/v1/automation/workflows/${flow.id}/instances`, {
+    data: { record_id: incident },
+    headers: { ...write, 'Idempotency-Key': crypto.randomUUID() },
+  });
+  return started.ok() ? incident : undefined;
+}
+
+/**
+ * A workflow to shoot when the stack has none (WP-048b S4): REQ-WF-008 AC1's shape, start → if
+ * → notification → set status → end, laid out top to bottom, with one problem left in (the
+ * condition is empty) so the problem chip and marker are in the shot too.
+ */
+async function showcaseWorkflow(page: Page): Promise<string | undefined> {
+  const { csrf } = await me(page);
+  const made = await page.request.post('/api/v1/automation/workflows', {
+    data: { record_type: 'incident', name: 'Major incident follow-up' },
+    headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
+  });
+  if (!made.ok()) return undefined;
+  const flow = (await made.json()) as { id: string; version: number };
+  const at = (x: number, y: number) => ({ x, y });
+  await page.request.put(`/api/v1/automation/workflows/${flow.id}/draft`, {
+    data: {
+      definition: {
+        format: 1,
+        nodes: [
+          { id: 'start', type: 'start', config: {}, position: at(0, 0) },
+          { id: 'is_major', type: 'if', config: {}, position: at(0, 140) },
+          {
+            id: 'tell_team',
+            type: 'notify',
+            config: {
+              audience: { relatives: ['group', 'group_head'] },
+              subject: { en: 'Major incident', ar: 'حادث كبير' },
+              body: { en: 'A major incident needs the team.', ar: 'حادث كبير يحتاج إلى الفريق.' },
+            },
+            position: at(-130, 280),
+          },
+          {
+            id: 'work',
+            type: 'set_status',
+            config: { action: 'start_work' },
+            position: at(-130, 420),
+          },
+          { id: 'end', type: 'end', config: {}, position: at(0, 560) },
+        ],
+        links: [
+          { from: 'start', port: 'next', to: 'is_major' },
+          { from: 'is_major', port: 'yes', to: 'tell_team' },
+          { from: 'is_major', port: 'no', to: 'end' },
+          { from: 'tell_team', port: 'next', to: 'work' },
+          { from: 'work', port: 'next', to: 'end' },
+        ],
+        variables: [],
+      },
+    },
+    headers: { 'If-Match': `"${String(flow.version)}"`, 'X-CSRF-Token': csrf },
+  });
+  return flow.id;
 }
 
 async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {

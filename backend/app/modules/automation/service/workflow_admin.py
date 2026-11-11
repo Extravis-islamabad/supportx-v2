@@ -16,6 +16,7 @@ life-cycle actions), never the owning module's tables (rule e).
 import copy
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -27,10 +28,13 @@ from app.core.errors import Conflict, NotFound, ValidationFailed
 from app.modules.automation.domain.rules import FieldKind
 from app.modules.automation.domain.workflows import (
     FORMAT,
+    REGISTRY,
+    Category,
     Definition,
     NodeType,
     Problem,
     TypeFacts,
+    offered,
     parse,
     sub_flows,
     validate,
@@ -74,6 +78,47 @@ async def type_facts(session: AsyncSession, record_type: str) -> TypeFacts:
         functions=await functions.offered(session.info[SESSION_TENANT_KEY].tenant_id),
         roles=frozenset(kind.approval_roles or ()),
     )
+
+
+# Why a node type the record type has is not offered now (a licence, or the type's module).
+_NEEDS: dict[NodeType, tuple[str, str]] = {
+    NodeType.APPROVAL: ("approvals", "approval_not_offered"),
+    NodeType.FUNCTION: ("functions", "function_not_offered"),
+    NodeType.NOTIFY: ("notices", "notify_not_offered"),
+}
+
+
+@dataclass(frozen=True)
+class NodeTypeOffer:
+    """A palette entry: the type, its group, and whether it can be used now (and why not)."""
+
+    type: NodeType
+    category: Category
+    available: bool
+    why_not: str | None
+    outputs: tuple[str, ...]
+    optional: frozenset[str]
+
+
+async def node_types(session: AsyncSession, record_type: str) -> list[NodeTypeOffer]:
+    """The designer's palette for a record type (REQ-WF-009 AC3), from the one registry."""
+    facts = await type_facts(session, record_type)
+    found = []
+    for node_type in offered(record_type):
+        spec = REGISTRY[node_type]
+        need = _NEEDS.get(node_type)
+        available = need is None or bool(getattr(facts, need[0]))
+        found.append(
+            NodeTypeOffer(
+                type=node_type,
+                category=spec.category,
+                available=available,
+                why_not=None if available or need is None else need[1],
+                outputs=spec.outputs({}),
+                optional=spec.optional({}),
+            )
+        )
+    return found
 
 
 async def problems_of(

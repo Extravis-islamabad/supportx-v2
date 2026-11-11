@@ -44,6 +44,17 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 });
 
+// jsdom has no ResizeObserver; React Flow (the workflow designer and the record's workflow
+// diagram) watches its pane's size, which never changes in jsdom.
+if (!('ResizeObserver' in window)) {
+  class NoResize {
+    observe = () => undefined;
+    unobserve = () => undefined;
+    disconnect = () => undefined;
+  }
+  Object.assign(window, { ResizeObserver: NoResize });
+}
+
 // No realtime gateway in unit tests: the realtime package has its own tests with a fake client.
 setDefaultClientFactory(inertClientFactory);
 

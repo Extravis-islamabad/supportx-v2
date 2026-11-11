@@ -31,7 +31,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import Database
-from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
+from app.core.errors import AppError, Conflict, NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.analytics.domain.definition import ReportDefinition
@@ -463,9 +463,14 @@ async def _job(session: AsyncSession, row: FileSpec, worker: Worker) -> "_Job | 
     source = await provider.source(session, subject)
     zone = ZoneInfo(row.time_zone)
     now = datetime.now(zone)
-    compiled = compile_report(
-        definition, source, now=now, zone=zone.key, week_start=worker.week_start
-    )
+    try:
+        compiled = compile_report(
+            definition, source, now=now, zone=zone.key, week_start=worker.week_start
+        )
+    except (PermissionDenied, ValidationFailed):
+        # Built with this person's rights: a report they may not run (assets' money without
+        # view_financials) is theirs alone to miss; a schedule's other recipients still get it.
+        return "report_not_allowed"
     namer = Namer(session, source.entity, row.language, zone)
     header = _header_lines(row, now, zone)
     # The reporting transaction is opened by build_export; rs is set there.

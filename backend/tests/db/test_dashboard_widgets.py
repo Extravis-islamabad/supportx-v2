@@ -199,11 +199,16 @@ async def _catalogue(world: World, org: Org, user: uuid.UUID) -> dict[str, Any]:
 async def test_d114_catalogue_lists_every_builtin_report_and_widget(reports: World) -> None:
     world = reports
     a = world.a
+    # Assets' money is only for those who may see it (assets.view_financials): a technician
+    # gets every widget but those; the admin gets every one (lane C's WP-048b S4 bundle).
+    money = {"report_assets_book_value_by_cost_centre", "report_assets_total_cost_of_ownership"}
     catalogue = await _catalogue(world, a, a.tech_a)
     assert catalogue["sections"] == list(SECTIONS)
     codes = {e["code"] for e in catalogue["entries"]}
-    assert codes == set(CATALOGUE)
-    assert {f"report_{code}" for code in BUILTIN} <= codes  # every built-in report
+    assert codes == set(CATALOGUE) - money
+    everything = {e["code"] for e in (await _catalogue(world, a, a.admin))["entries"]}
+    assert everything == set(CATALOGUE)
+    assert {f"report_{code}" for code in BUILTIN} <= everything  # every built-in report
     later = {e["code"]: e["coming_with"] for e in catalogue["entries"] if e["coming_with"]}
     assert later == {
         "sla_breached": "sla",

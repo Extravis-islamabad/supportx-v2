@@ -124,6 +124,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'changes.manage_boards',
     also: 'settings.manage',
   },
+  // WP-045c: freeze and maintenance windows. The change manager and admins (the coordinator).
+  {
+    key: 'change-windows',
+    group: 'service_desk',
+    labelKey: 'nav.admin_change_windows',
+    permission: 'changes.manage_windows',
+    also: 'settings.manage',
+  },
   // WP-031: what people can request (catalog_items.manage; admins hold every permission).
   {
     key: 'catalog',
@@ -152,6 +160,12 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     group: 'automation_sla',
     labelKey: 'nav.admin_automation',
     permission: 'automation.view',
+  },
+  {
+    key: 'workflows',
+    group: 'automation_sla',
+    labelKey: 'nav.admin_workflows',
+    permission: 'workflows.manage',
   },
   { key: 'ai', group: 'automation_sla', labelKey: 'nav.admin_ai', permission: 'ai.manage' },
   {
