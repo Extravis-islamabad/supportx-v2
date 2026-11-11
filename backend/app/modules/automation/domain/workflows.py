@@ -58,7 +58,7 @@ VARIABLE_KINDS = frozenset(
 Problem = tuple[str, str, dict[str, JsonValue]]
 
 
-class Category(StrEnum):
+class NodeCategory(StrEnum):
     """The palette's groups, shown with text, never only an icon (REQ-WF-028)."""
 
     FLOW = "flow"
@@ -66,6 +66,9 @@ class Category(StrEnum):
     PEOPLE = "people"
     ACTIONS = "actions"
     STRUCTURE = "structure"
+
+
+Category = NodeCategory  # the name the registry below uses; the API's schema is NodeCategory
 
 
 class NodeType(StrEnum):
@@ -806,6 +809,19 @@ def offered(record_type: str) -> tuple[NodeType, ...]:
         for t, spec in REGISTRY.items()
         if spec.record_types is None or record_type in spec.record_types
     )
+
+
+def ports_of(node_type: str, config: Mapping[str, Any]) -> tuple[tuple[str, ...], frozenset[str]]:
+    """A node's outputs and those it may leave unlinked, for the designer (WP-048b S4).
+
+    The same registry validation uses, so the canvas never offers an output the server
+    refuses. An unknown type has none.
+    """
+    try:
+        spec = REGISTRY[NodeType(node_type)]
+    except ValueError:
+        return (), frozenset()
+    return spec.outputs(config), spec.optional(config)
 
 
 def _valid_id(value: str) -> bool:

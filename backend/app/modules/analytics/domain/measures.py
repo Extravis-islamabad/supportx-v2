@@ -182,12 +182,23 @@ FLOW: Mapping[str, MeasureSpec] = MappingProxyType({m.code: m for m in FLOW_MEAS
 # reports); their own measures (fulfilment time, change success ...) come with their modules.
 COUNT_ONLY: tuple[MeasureSpec, ...] = (MeasureSpec("count", MeasureKind.COUNT, Unit.COUNT),)
 
+# Assets' money (WP-049b S2, REQ-AST-036..038): the sum of each asset's book value today and of
+# its total cost of ownership. Their fields exist only for those who may see money
+# (assets.view_financials), so the measures, and the reports using them, are offered to them
+# alone: `available_measures` drops a measure whose field the source does not have.
+ASSET_MEASURES: tuple[MeasureSpec, ...] = (
+    *COUNT_ONLY,
+    MeasureSpec("book_value_total", MeasureKind.TOTAL, Unit.NUMBER, field="book_value"),
+    MeasureSpec("total_cost_total", MeasureKind.TOTAL, Unit.NUMBER, field="total_cost"),
+)
+
 MEASURES: Mapping[str, Mapping[str, MeasureSpec]] = MappingProxyType(
     {
         "incident": MappingProxyType({m.code: m for m in INCIDENT_MEASURES}),
+        "asset": MappingProxyType({m.code: m for m in ASSET_MEASURES}),
         **{
             entity: MappingProxyType({m.code: m for m in COUNT_ONLY})
-            for entity in ("service_request", "problem", "release", "asset")
+            for entity in ("service_request", "problem", "release")
         },
     }
 )

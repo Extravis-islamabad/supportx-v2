@@ -1592,6 +1592,7 @@ export const ar: LabelResource = {
   'releases.col.updated': 'آخر تحديث',
   'releases.create': 'إنشاء الإصدار',
   'releases.downtime.add': 'إضافة توقف',
+  'releases.downtime.delete_confirm': 'حذف فترة التوقف هذه؟',
   'releases.downtime.ends': 'ينتهي',
   'releases.downtime.kind': 'النوع',
   'releases.downtime.need_both': 'اختر وقت البدء ووقت الانتهاء.',

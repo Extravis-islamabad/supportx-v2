@@ -223,6 +223,15 @@ export const queryKeys = {
     transitions: (recordType: string) => ['automation', 'transitions', recordType] as const,
     loopStops: ['automation', 'loop-stops'] as const,
   },
+  // Visual workflows (WP-048b S4): the list, one workflow, the palette, a test run.
+  workflows: {
+    all: ['workflows'] as const,
+    list: (recordType: string) => ['workflows', 'list', recordType] as const,
+    detail: (id: string) => ['workflows', 'detail', id] as const,
+    nodeTypes: (recordType: string) => ['workflows', 'node-types', recordType] as const,
+    testRun: (id: string) => ['workflows', 'test-run', id] as const,
+    record: (type: string, id: string) => ['workflows', 'record', type, id] as const,
+  },
   connectors: {
     catalogue: ['connectors', 'catalogue'] as const,
     settings: ['connectors', 'settings'] as const, // D-041: the tenant's connector defaults

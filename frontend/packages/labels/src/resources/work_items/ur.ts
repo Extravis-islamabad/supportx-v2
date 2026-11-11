@@ -1469,6 +1469,7 @@ export const ur: LabelResource = {
   'releases.col.updated': 'تازہ کاری',
   'releases.create': 'ریلیز بنائیں',
   'releases.downtime.add': 'بندش شامل کریں',
+  'releases.downtime.delete_confirm': 'یہ ڈاؤن ٹائم حذف کریں؟',
   'releases.downtime.ends': 'ختم',
   'releases.downtime.kind': 'قسم',
   'releases.downtime.need_both': 'شروع اور ختم ہونے کا وقت منتخب کریں۔',

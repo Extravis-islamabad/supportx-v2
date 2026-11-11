@@ -782,6 +782,8 @@ export const en = {
   'errors.mailbox_sign_in_not_needed': 'This mailbox does not need anyone to sign in.',
   // WP-040 session 2: directory sync.
   'errors.managed_by_directory': 'Your directory keeps this field. Change it there.',
+  'errors.measure_not_permitted':
+    'You may not see this figure: it needs access to its data (for asset money, the right to see financials).',
   'errors.message_refused': 'The mail server refused the message.',
   'errors.method_not_allowed': 'This action is not supported here.',
   'errors.mfa_enrolment_unavailable':
