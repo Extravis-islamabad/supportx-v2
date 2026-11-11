@@ -374,6 +374,38 @@ async def _seed_stock(url: str) -> SeedStock:
     )
 
 
+async def _seed_audit(url: str) -> tuple[str, int, list[str], int]:
+    """The seed's audit (state, marked items, their results) and the laptop's scans."""
+    conn = await asyncpg.connect(url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
+            state = await conn.fetchval(
+                "SELECT state FROM asset_audits WHERE name = $1", assets.AUDIT
+            )
+            results = await conn.fetch(
+                "SELECT i.result FROM asset_audit_items i JOIN asset_audits a ON a.id = i.audit_id"
+                " WHERE a.name = $1 AND i.result IS NOT NULL ORDER BY i.result",
+                assets.AUDIT,
+            )
+            scans = await conn.fetchval(
+                "SELECT count(*) FROM asset_scans s JOIN assets a ON a.id = s.asset_id"
+                " WHERE a.tag = $1",
+                assets.SCANNED,
+            )
+    finally:
+        await conn.close()
+    return str(state), len(results), [r["result"] for r in results], int(scans)
+
+
+def _first_audit(first: seed.Report, database: db_testing.ThrowawayDatabase) -> Any:  # noqa: ANN401 - the row
+    """WP-049b s3: a running audit (made, started, three marks) and two scans to show."""
+    assert (first.audit, first.scans) == (2 + len(assets.AUDIT_MARKS), 2)
+    audit = asyncio.run(_seed_audit(database.migrator_url))
+    assert audit == ("running", 3, ["damaged", "found", "wrong_place"], 2)
+    return audit
+
+
 async def _consumables_listed(database: db_testing.ThrowawayDatabase) -> list[dict[str, Any]]:
     """The consumables list as the console (and the visual matrix's lookup) gets it."""
     conn = await asyncpg.connect(database.migrator_url)
@@ -641,6 +673,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     assert first.releases == len(seed.RELEASES) == 2
     found = asyncio.run(_first_assets(first, database.migrator_url))
     stock = asyncio.run(_first_stock(first, database))
+    audit = _first_audit(first, database)
     assert first.backdated == 75  # spread over the past 30 days (choice (b)); not releases
     assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
@@ -702,7 +735,10 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.featured,
         second.sla_policies,
         second.sla_from_creation,
-    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        second.audit,
+        second.scans,
+    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    assert asyncio.run(_seed_audit(database.migrator_url)) == audit
     assert second.backdated == 0  # nothing made now, so nothing moved
     assert asyncio.run(_seed_assets(database.migrator_url)) == found
     assert asyncio.run(_seed_stock(database.migrator_url)) == stock

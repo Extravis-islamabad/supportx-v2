@@ -74,6 +74,8 @@ class FieldChange(UuidPrimaryKey, TenantScoped, Base):
             "occurred_at",
             "change_id",
         ),
+        # All the rows of one save, by its change ID (migration 0135, built CONCURRENTLY).
+        Index("ix_field_changes_change", "tenant_id", "change_id"),
         # Reports (lane C, WP-035): backlog over time and time in status.
         Index(
             "ix_field_changes_tenant_type_field_time",
@@ -570,6 +572,9 @@ async def history_page(  # noqa: PLR0913 - the record, the page and the filter, 
                 actor_id=row.actor_id,
                 source=row.source,  # type: ignore[arg-type]  # stored from Source
                 reason=row.reason,
+                # What made a person's change on their behalf (an audit's fix, WP-049b s3).
+                automation_ref=row.automation_ref,
+                batch_id=row.batch_id,
             )
         if row.field:
             entry.changes.append(Change(row.field, row.old_value, row.new_value))

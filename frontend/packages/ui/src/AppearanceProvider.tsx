@@ -21,6 +21,7 @@ import {
 } from './appearance';
 import type { Density } from './density';
 import { useDropdownFit } from './dropdownFit';
+import { useSelectAria } from './selectAria';
 import { buildTheme, DEFAULT_BRANDING, type Branding, type ThemeMode } from './theme';
 import { MODE_STORAGE_KEY, storedMode, systemMode } from './themeMode';
 
@@ -189,6 +190,7 @@ export function AppearanceProvider({
 
   useFavicon(brand);
   useDropdownFit();
+  useSelectAria();
   const appearance = useMemo<Appearance>(
     () => ({
       mode,
