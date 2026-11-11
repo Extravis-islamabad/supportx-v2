@@ -519,11 +519,22 @@ export function useAssetGroupAssets(id: string | undefined) {
   });
 }
 
-/** Open loans, the earliest due first (REQ-AST-030). */
-export function useAssetLoans(enabled = true) {
+/** The loan register's filters (REQ-AST-030): one status, one site. */
+export interface AssetLoansQuery {
+  status?: AssetLoan['status'];
+  siteId?: string;
+}
+
+/** The loan register: loans still out, earliest due first, or one status and site. */
+export function useAssetLoans(query: AssetLoansQuery = {}, enabled = true) {
   return useQuery({
-    queryKey: queryKeys.assets.loans,
-    queryFn: () => call(api.GET('/api/v1/assets/loans')),
+    queryKey: queryKeys.assets.loanList(query),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/loans', {
+          params: { query: { status: query.status, site_id: query.siteId } },
+        }),
+      ),
     enabled,
   });
 }
@@ -551,6 +562,8 @@ export function useLoanActions() {
       assetIds: string[];
       dueAt: string;
       comment?: string;
+      departmentId?: string | null;
+      siteId?: string | null;
       key: string;
     }) =>
       call(
@@ -561,6 +574,8 @@ export function useLoanActions() {
             asset_ids: input.assetIds,
             due_at: input.dueAt,
             comment: input.comment ?? null,
+            department_id: input.departmentId ?? null,
+            site_id: input.siteId ?? null,
           },
         }),
       ),

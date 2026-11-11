@@ -1428,6 +1428,49 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; session 1 built 2026-11-11)
+
+- [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
+  leftovers, 032, 033, 034, 035):**
+  - Consumables (033): a product of a consumable type (D-141) kept in stock with barcode, vendor,
+    unit cost and comment; batch tracking chosen when made, a switch refused with the reason
+    (AC3). Stock per product and site (one row each, "no site" included); receiving raises only
+    that site's (AC1); lots with lot number, reference, made and expiry dates, an expired lot
+    flagged (AC2).
+  - Allocations (034) to a person, a department or an asset, with a date and optionally the
+    request (an ID only, rule e). One conditional `UPDATE ... WHERE quantity >= n RETURNING`:
+    more than there is is refused with the amount available (AC1); of two people taking the
+    last unit one wins, the other is told it ran out (AC3, race test); a CHECK keeps stock at
+    zero or more. The request's side reads `GET /assets/consumable-allocations?work_item_id=`
+    and the `assets.stock.moved` event names the request (AC2).
+  - The ledger (receive, allocate, adjust, return) with who, when, why and the balance after;
+    append-only (the app role may only SELECT and INSERT; tested).
+  - Minimum stock (035) per product type or product and per site or every site, the most
+    specific rule winning, with the people told: one notice when stock falls to or below it,
+    re-armed only above it (`low_alerted_at`, claimed by one conditional UPDATE; AC1). New
+    notification event `asset.stock_low` (en/ar/ur templates). AC2's draft purchase request is
+    the `DraftPurchaseRequests` port for procurement (WP-054); until it is registered none is
+    made (logged, never faked).
+  - Bookings (032) of one specific loanable asset: the asset row is locked, then the period is
+    checked against its bookings and its open loan; a clash is refused with the next free day
+    (AC1, race test); a loan over a booked time is refused (`asset_booked`); handing over makes
+    a loan with the booking's dates (AC2); requesters book in the portal only while
+    `asset_settings.portal_booking` is on (default off; AC3).
+  - Loans (030's leftovers): display ID `LN-n` on new loans (older loans keep none), a
+    department borrower (the department holds the assets, the borrower collects them), a site,
+    and register filters by status (open, overdue, closed) and site.
+  - Console: `/assets/consumables` and `/assets/consumables/:id` (stock, lots, ledger; receive,
+    allocate, adjust, take back; `?allocate_for=<request>` links an allocation), the asset's
+    Bookings tab (book, cancel, hand over, take the suggested day), the loan register's columns
+    and filters, Admin > Assets "Minimum stock" and the portal-booking setting. Portal: My
+    bookings on My assets while booking is on. All live (`assets.consumables_changed`,
+    `assets.bookings_changed`); labels en/ar/ur; both new screens in the visual matrix.
+  - Permissions reused: `assets.view`, `assets.manage`, `config.assets` (no new rights, no role
+    matrix change).
+  - **Open:** the request page's own panel for its allocations (lane A's screen, on the API
+    above); a calendar screen of availability by product and site (`GET /assets/availability`
+    is there, and the portal's picker uses the same query); AC2 of 035 with WP-054.
+
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
 - [x] S1: the audit sink port in `app/shared/history.record_changes` and the audit module's sink;

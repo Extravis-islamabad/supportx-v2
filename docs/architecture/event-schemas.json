@@ -896,6 +896,58 @@
         "type": "object"
       }
     },
+    "assets.booking.changed": {
+      "1": {
+        "description": "A booking ahead was made, cancelled or handed over as a loan (REQ-AST-032).",
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "booking_id": {
+            "format": "uuid",
+            "title": "Booking Id",
+            "type": "string"
+          },
+          "borrower_id": {
+            "format": "uuid",
+            "title": "Borrower Id",
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "created",
+              "cancelled",
+              "handed_over"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "loan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Loan Id"
+          }
+        },
+        "required": [
+          "booking_id",
+          "asset_id",
+          "borrower_id",
+          "change"
+        ],
+        "title": "AssetBookingChanged",
+        "type": "object"
+      }
+    },
     "assets.catalogue.changed": {
       "1": {
         "description": "A product type, state, life cycle or the asset settings changed (admin set-up).",
@@ -946,6 +998,41 @@
           "changed_fields"
         ],
         "title": "CatalogueChanged",
+        "type": "object"
+      }
+    },
+    "assets.consumable.changed": {
+      "1": {
+        "description": "A consumable was added, changed or removed (REQ-AST-033).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "consumable_id": {
+            "format": "uuid",
+            "title": "Consumable Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "consumable_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "ConsumableChanged",
         "type": "object"
       }
     },
@@ -1035,10 +1122,36 @@
             ],
             "title": "Created By"
           },
+          "department_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Department Id"
+          },
           "loan_id": {
             "format": "uuid",
             "title": "Loan Id",
             "type": "string"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Site Id"
           }
         },
         "required": [
@@ -1089,6 +1202,141 @@
           "changed_fields"
         ],
         "title": "ProductChanged",
+        "type": "object"
+      }
+    },
+    "assets.stock.low": {
+      "1": {
+        "description": "Stock fell to or below its minimum (REQ-AST-035 AC1): once, until it rises above again.",
+        "properties": {
+          "consumable_id": {
+            "format": "uuid",
+            "title": "Consumable Id",
+            "type": "string"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Site Id"
+          },
+          "stock_id": {
+            "format": "uuid",
+            "title": "Stock Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "consumable_id",
+          "stock_id",
+          "rule_id"
+        ],
+        "title": "StockLow",
+        "type": "object"
+      }
+    },
+    "assets.stock.moved": {
+      "1": {
+        "description": "Stock of a consumable at a site moved: received, allocated, adjusted or returned.\n\n`work_item_id`: the request it was allocated from (REQ-AST-034 AC2), an ID only, so the\nrequest's side can show it too. No quantities (§8.2): readers ask the API.",
+        "properties": {
+          "consumable_id": {
+            "format": "uuid",
+            "title": "Consumable Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "receive",
+              "allocate",
+              "adjust",
+              "return"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "movement_id": {
+            "format": "uuid",
+            "title": "Movement Id",
+            "type": "string"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Site Id"
+          },
+          "stock_id": {
+            "format": "uuid",
+            "title": "Stock Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Work Item Id"
+          }
+        },
+        "required": [
+          "consumable_id",
+          "stock_id",
+          "movement_id",
+          "kind"
+        ],
+        "title": "StockMoved",
+        "type": "object"
+      }
+    },
+    "assets.stock_rule.changed": {
+      "1": {
+        "description": "A minimum-stock rule was added, changed or removed (REQ-AST-035; admin set-up).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "action"
+        ],
+        "title": "StockRuleChanged",
         "type": "object"
       }
     },

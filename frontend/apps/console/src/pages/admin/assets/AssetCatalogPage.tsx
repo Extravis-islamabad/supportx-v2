@@ -16,9 +16,10 @@ import { LifeCyclesTab } from './LifeCyclesTab';
 import { ProductsTab } from './ProductsTab';
 import { SettingsTab } from './SettingsTab';
 import { StatesTab } from './StatesTab';
+import { StockRulesTab } from './StockRulesTab';
 import { TypesTab } from './TypesTab';
 
-const TAB_KEYS = ['types', 'products', 'states', 'life_cycles', 'settings'];
+const TAB_KEYS = ['types', 'products', 'states', 'life_cycles', 'stock_rules', 'settings'];
 
 /**
  * The asset catalogue (WP-049a, D-141): product types, products, states, life cycles and the
@@ -91,6 +92,12 @@ export function AssetCatalogPage() {
             key: 'life_cycles',
             label: t('assets.admin.life_cycles'),
             children: <LifeCyclesTab lifeCycles={lifeCycles.data} states={states.data} />,
+          },
+          {
+            // WP-049b s1 (REQ-AST-035): minimum stock and who hears of it.
+            key: 'stock_rules',
+            label: t('assets.rules.title'),
+            children: <StockRulesTab types={types.data} />,
           },
           {
             key: 'settings',

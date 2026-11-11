@@ -41,8 +41,21 @@ export const ur: LabelResource = {
   'errors.asset_acknowledgement_answered': 'آپ اس کا جواب پہلے ہی دے چکے ہیں۔',
   'errors.asset_acknowledgement_not_found': 'یہ تصدیق آپ کی نہیں، یا اب موجود نہیں۔',
   'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',
+  'errors.asset_batch_not_found': 'یہ بیچ اس سائٹ پر نہیں ہے۔',
+  'errors.asset_book_for_yourself': 'پورٹل میں آپ صرف اپنے لیے بُک کر سکتے ہیں۔',
+  'errors.asset_booked': '{{asset}} اس وقت کے کچھ حصے کے لیے بُک ہے۔',
+  'errors.asset_booking_not_found': 'یہ بکنگ اب موجود نہیں۔',
+  'errors.asset_booking_not_open': 'یہ بکنگ پہلے ہی حوالے یا منسوخ ہو چکی ہے۔',
+  'errors.asset_booking_taken':
+    'یہ وقت پہلے سے لیا جا چکا ہے۔ اگلا خالی دن {{next_free}} سے شروع ہوتا ہے۔',
   'errors.asset_bulk_empty': 'کم از کم ایک اثاثہ منتخب کریں۔',
   'errors.asset_bulk_too_many': 'ایک بار میں زیادہ سے زیادہ {{max}} اثاثے منتخب کریں۔',
+  'errors.asset_consumable_batch_tracking_fixed':
+    'بیچ ٹریکنگ قابلِ صرف شے شامل کرتے وقت طے ہوتی ہے اور بعد میں نہیں بدلتی۔ اس کے بجائے پروڈکٹ کو نئی شے کے طور پر شامل کریں۔',
+  'errors.asset_consumable_exists': 'یہ پروڈکٹ پہلے سے قابلِ صرف شے کے طور پر رکھی ہے۔',
+  'errors.asset_consumable_has_stock':
+    'اسٹاک میں ابھی {{quantity}} باقی ہیں۔ پہلے انہیں جاری یا صفر تک درست کریں۔',
+  'errors.asset_consumable_not_found': 'یہ قابلِ صرف شے اب موجود نہیں۔',
   'errors.asset_copy_limit': 'ایک بار میں 1 سے {{max}} تک نقول بنائیں۔',
   'errors.asset_disposal_not_found': 'اس اثاثے کا کوئی تلفی ریکارڈ نہیں۔',
   'errors.asset_disposed_read_only':
@@ -68,11 +81,14 @@ export const ur: LabelResource = {
     'اثاثے کو منتقل کرنے کے لیے کوئی طے شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
   'errors.asset_no_disposed_state':
     'اثاثے کو منتقل کرنے کے لیے کوئی تلف شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
+  'errors.asset_not_bookable':
+    '{{asset}} بُک نہیں ہو سکتا: صرف ادھار کے قابل اثاثے جو ریٹائر یا تلف نہ ہوں۔',
   'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.asset_not_loanable':
     '{{asset}} ادھار نہیں دیا جا سکتا: یہ ادھار کے قابل نہیں یا اسٹاک میں نہیں۔',
   'errors.asset_not_on_this_loan': 'یہ اثاثہ اس ادھار میں نہیں۔',
   'errors.asset_on_loan': '{{asset}} پہلے ہی ادھار پر ہے۔',
+  'errors.asset_portal_booking_off': 'آپ کا ادارہ پورٹل سے بکنگ نہیں لیتا۔',
   'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
   'errors.asset_product_type_has_children':
     'اس کے نیچے دوسری پروڈکٹ اقسام ہیں ({{used}})۔ پہلے انہیں منتقل یا حذف کریں۔',
@@ -83,6 +99,11 @@ export const ur: LabelResource = {
   'errors.asset_state_not_found': 'اثاثے کی یہ حالت موجود نہیں۔',
   'errors.asset_state_protected':
     'یہ حالت ادھار، تلفی یا اپنی کیٹیگری کی طے شدہ حالت کے طور پر استعمال ہوتی ہے، اس لیے حذف نہیں ہو سکتی۔',
+  'errors.asset_stock_not_found': 'یہ اسٹاک اب موجود نہیں۔',
+  'errors.asset_stock_ran_out': 'اسٹاک ختم ہو گیا: کسی اور نے آخری مقدار لے لی۔',
+  'errors.asset_stock_rule_exists': 'اس کے اور اس سائٹ کے لیے پہلے سے کم از کم حد موجود ہے۔',
+  'errors.asset_stock_rule_not_found': 'یہ کم از کم حد اب موجود نہیں۔',
+  'errors.asset_stock_short': 'اسٹاک کافی نہیں: صرف {{available}} دستیاب ہیں۔',
   'errors.audit_archive_missing': 'آرکائیو فائل اب اسٹوریج میں موجود نہیں ہے۔',
   'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
   'errors.audit_archive_not_ready': 'صرف تصدیق شدہ آرکائیو بحال کیا جا سکتا ہے۔',
@@ -205,6 +226,10 @@ export const ur: LabelResource = {
   'errors.field.approver_not_eligible':
     'نامزد افراد میں سے کوئی یہ مسئلہ منظور نہیں کر سکتا (غیر فعال، یا اختیار کے بغیر)۔',
   'errors.field.asset_api_name_taken': 'پروڈکٹ کی کوئی اور قسم یہ API نام رکھتی ہے۔',
+  'errors.field.asset_batch_expires_before_made': 'میعاد کی تاریخ تیاری کی تاریخ سے پہلے ہے۔',
+  'errors.field.asset_batch_required': 'یہ شے بیچ کے ساتھ ٹریک ہوتی ہے: بیچ بتائیں۔',
+  'errors.field.asset_booking_ends_before_start': 'اختتام آغاز کے بعد ہونا چاہیے۔',
+  'errors.field.asset_booking_too_long': 'بکنگ زیادہ سے زیادہ {{days}} دن کی ہو سکتی ہے۔',
   'errors.field.asset_group_static': 'صرف متحرک گروپ کا فلٹر ہوتا ہے۔',
   'errors.field.asset_holder_not_found':
     'کوئی فعال فرد، شعبہ یا ایسا اثاثہ چنیں جو آپ دیکھ سکتے ہیں۔',
@@ -217,13 +242,16 @@ export const ur: LabelResource = {
   'errors.field.asset_link_to_itself': 'اثاثہ خود سے نہیں جوڑا جا سکتا۔',
   'errors.field.asset_move_duplicate': 'یہ منتقلی پہلے سے فہرست میں ہے، یا اسی حالت میں جاتی ہے۔',
   'errors.field.asset_nested_in_itself': 'اثاثہ خود پر یا اپنے کسی حصے پر نہیں لگایا جا سکتا۔',
+  'errors.field.asset_not_batch_tracked': 'یہ شے بیچ کے ساتھ ٹریک نہیں ہوتی۔',
   'errors.field.asset_not_found': 'یہ اثاثہ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.field.asset_product_not_consumable': 'قابلِ صرف قسم کی پروڈکٹ منتخب کریں۔',
   'errors.field.asset_product_not_found': 'یہ پروڈکٹ اب موجود نہیں۔',
   'errors.field.asset_product_type_cycle':
     'پروڈکٹ کی قسم خود اپنے یا اپنی ذیلی قسم کے نیچے نہیں آ سکتی۔',
   'errors.field.asset_product_type_inherited': 'یہ والدین قسم سے آتا ہے۔ اسے وہاں تبدیل کریں۔',
   'errors.field.asset_product_type_not_found': 'فہرست سے پروڈکٹ کی قسم منتخب کریں۔',
   'errors.field.asset_product_type_too_deep': 'درخت زیادہ سے زیادہ {{max}} درجے گہرا ہو سکتا ہے۔',
+  'errors.field.asset_quantity_positive': 'صفر سے زیادہ مقدار درج کریں۔',
   'errors.field.asset_serial_number_taken': 'اثاثہ {{asset}} کے پاس پہلے سے یہ سیریل نمبر ہے۔',
   'errors.field.asset_state_code_taken': 'کوئی اور حالت یہ کوڈ رکھتی ہے۔',
   'errors.field.asset_state_default_needed':
@@ -231,9 +259,11 @@ export const ur: LabelResource = {
   'errors.field.asset_state_not_found': 'فہرست سے حالتیں منتخب کریں۔',
   'errors.field.asset_state_system':
     'ادھار اور تلفی اس حالت پر انحصار کرتے ہیں، اس لیے اس کی کیٹیگری برقرار رہتی ہے۔',
+  'errors.field.asset_stock_rule_target': 'یا تو پروڈکٹ کی قسم منتخب کریں یا پروڈکٹ۔',
   'errors.field.asset_tag_pattern_invalid':
     'کاؤنٹر {n} ایک بار، اس کے ساتھ کچھ متن کے ساتھ استعمال کریں، مثلاً AST-{n}۔',
   'errors.field.asset_tag_taken': 'اثاثہ {{asset}} کے پاس پہلے سے یہ ٹیگ ہے۔',
+  'errors.field.asset_type_not_consumable': 'قابلِ صرف پروڈکٹ کی قسم منتخب کریں۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
   'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',

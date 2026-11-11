@@ -6,6 +6,10 @@
 - An asset change goes to the asset list (the whole list, and its site's) and to the asset's own
   channel, with the ID, the changed field names and the version only (§8.2).
 
+WP-049b s1: consumables and stock go to the tenant channel with the consumable's ID
+(`assets.consumables_changed`), bookings to the tenant channel, the asset's own channel and the
+booker's personal channel (`assets.bookings_changed`), minimum-stock rules as set-up.
+
 Channels this module decides about:
     t:{tenant}:queue:assets…    the staff list (LiveList), per site
     t:{tenant}:asset:{id}       one asset, for whoever may see it
@@ -170,7 +174,65 @@ async def _loan_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     )
 
 
+CONSUMABLES_CHANGED = "assets.consumables_changed"
+
+
+async def _consumable_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """Stock and consumables (REQ-AST-033..035): every open consumables screen refreshes.
+
+    The consumable's ID only; quantities are read through the API, which checks permissions.
+    """
+    del session
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                broadcast(envelope.tenant_id),
+                CONSUMABLES_CHANGED,
+                ids=(str(envelope.payload["consumable_id"]),),
+                version=envelope.aggregate_version,
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
+
+
+BOOKINGS_CHANGED = "assets.bookings_changed"
+
+
+async def _booking_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A booking (REQ-AST-032) changed: who shows it hears of it. IDs only.
+
+    The calendar and loan screens, the asset's page, and the booker's own list in the portal.
+    """
+    del session
+    payload = envelope.payload
+    booking_id = str(payload["booking_id"])
+    asset_id = uuid.UUID(str(payload["asset_id"]))
+    borrower = uuid.UUID(str(payload["borrower_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                broadcast(envelope.tenant_id), BOOKINGS_CHANGED, ids=(booking_id, str(asset_id))
+            ),
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, asset_id),
+                ASSET_CHANGED,
+                ids=(str(asset_id),),
+                fields=("booking",),
+            ),
+            Publication(personal(envelope.tenant_id, borrower), MINE_CHANGED, ids=(booking_id,)),
+        ]
+    )
+
+
 ROUTES = [
+    RealtimeRoute(
+        ("assets.consumable.changed", "assets.stock.moved", "assets.stock.low"),
+        _consumable_changed,
+    ),
+    RealtimeRoute(("assets.booking.changed",), _booking_changed),
+    # Minimum-stock rules are set-up, like the catalogue: every asset screen refetches.
+    RealtimeRoute(("assets.stock_rule.changed",), _catalogue_changed),
     RealtimeRoute(("assets.loan.changed",), _loan_changed),
     RealtimeRoute(("assets.group.changed",), _group_changed),
     RealtimeRoute(("assets.catalogue.changed", "assets.product.changed"), _catalogue_changed),

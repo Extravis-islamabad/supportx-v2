@@ -40,8 +40,21 @@ export const en = {
   'errors.asset_acknowledgement_not_found':
     "That acknowledgement isn't yours, or no longer exists.",
   'errors.asset_already_disposed': 'This asset already has a disposal record.',
+  'errors.asset_batch_not_found': 'That batch is not at this site.',
+  'errors.asset_book_for_yourself': 'In the portal you can book only for yourself.',
+  'errors.asset_booked': '{{asset}} is booked for part of that time.',
+  'errors.asset_booking_not_found': 'This booking no longer exists.',
+  'errors.asset_booking_not_open': 'This booking was already handed over or cancelled.',
+  'errors.asset_booking_taken':
+    'That time is already taken. The next free day starts {{next_free}}.',
   'errors.asset_bulk_empty': 'Choose at least one asset.',
   'errors.asset_bulk_too_many': 'Choose at most {{max}} assets at once.',
+  'errors.asset_consumable_batch_tracking_fixed':
+    'Batch tracking is chosen when a consumable is added and cannot be switched later. Add the product again as a new consumable instead.',
+  'errors.asset_consumable_exists': 'This product is already kept as a consumable.',
+  'errors.asset_consumable_has_stock':
+    'There are still {{quantity}} in stock. Allocate or adjust them to zero first.',
+  'errors.asset_consumable_not_found': 'This consumable no longer exists.',
   'errors.asset_copy_limit': 'Make between 1 and {{max}} copies at once.',
   'errors.asset_disposal_not_found': 'This asset has no disposal record.',
   'errors.asset_disposed_read_only':
@@ -67,10 +80,13 @@ export const en = {
     'There is no default state to move the asset to. Ask an admin to check the asset states.',
   'errors.asset_no_disposed_state':
     'There is no disposed state to move the asset to. Ask an admin to check the asset states.',
+  'errors.asset_not_bookable':
+    '{{asset}} cannot be booked: only loanable assets that are not retired or disposed can be.',
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
   'errors.asset_not_loanable': "{{asset}} can't be loaned: it isn't loanable, or isn't in stock.",
   'errors.asset_not_on_this_loan': "That asset isn't out on this loan.",
   'errors.asset_on_loan': '{{asset}} is already out on a loan.',
+  'errors.asset_portal_booking_off': 'Your organisation does not take bookings in the portal.',
   'errors.asset_product_not_found': 'This product does not exist.',
   'errors.asset_product_type_has_children':
     'Other product types sit under this one ({{used}}). Move or delete them first.',
@@ -81,6 +97,11 @@ export const en = {
   'errors.asset_state_not_found': 'This asset state does not exist.',
   'errors.asset_state_protected':
     "This state is used by loans, disposal or as its category's default, so it can't be deleted.",
+  'errors.asset_stock_not_found': 'That stock no longer exists.',
+  'errors.asset_stock_ran_out': 'Stock ran out: someone else took the last of it.',
+  'errors.asset_stock_rule_exists': 'There is already a minimum for this and this site.',
+  'errors.asset_stock_rule_not_found': 'This minimum no longer exists.',
+  'errors.asset_stock_short': 'Not enough in stock: only {{available}} available.',
   'errors.audit_archive_missing': 'The archive file is no longer in storage.',
   'errors.audit_archive_not_found': 'This archive does not exist.',
   'errors.audit_archive_not_ready': 'Only a verified archive can be restored.',
@@ -205,6 +226,10 @@ export const en = {
   'errors.field.approver_not_eligible':
     'Someone named cannot approve this problem (inactive, or without the right).',
   'errors.field.asset_api_name_taken': 'Another product type has this API name.',
+  'errors.field.asset_batch_expires_before_made': 'The expiry date is before the date it was made.',
+  'errors.field.asset_batch_required': 'This consumable is tracked in batches: name the batch.',
+  'errors.field.asset_booking_ends_before_start': 'The end must be after the start.',
+  'errors.field.asset_booking_too_long': 'A booking can last at most {{days}} days.',
   'errors.field.asset_group_static': 'Only a dynamic group has a filter.',
   'errors.field.asset_holder_not_found':
     'Choose an active person, a department or an asset you can see.',
@@ -219,13 +244,16 @@ export const en = {
     'This move is already in the list, or goes to the same state.',
   'errors.field.asset_nested_in_itself':
     "An asset can't be fitted to itself or to one of its own parts.",
+  'errors.field.asset_not_batch_tracked': 'This consumable is not tracked in batches.',
   'errors.field.asset_not_found': 'This asset does not exist or you may not see it.',
+  'errors.field.asset_product_not_consumable': 'Choose a product of a consumable type.',
   'errors.field.asset_product_not_found': 'This product no longer exists.',
   'errors.field.asset_product_type_cycle':
     "A product type can't sit under itself or one of its own types.",
   'errors.field.asset_product_type_inherited': 'This comes from the parent type. Change it there.',
   'errors.field.asset_product_type_not_found': 'Choose a product type from the list.',
   'errors.field.asset_product_type_too_deep': 'The tree can be at most {{max}} levels deep.',
+  'errors.field.asset_quantity_positive': 'Enter a quantity above zero.',
   'errors.field.asset_serial_number_taken': 'Asset {{asset}} already has this serial number.',
   'errors.field.asset_state_code_taken': 'Another state has this code.',
   'errors.field.asset_state_default_needed':
@@ -233,9 +261,11 @@ export const en = {
   'errors.field.asset_state_not_found': 'Choose states from the list.',
   'errors.field.asset_state_system':
     'Loans and disposal rely on this state, so its category stays.',
+  'errors.field.asset_stock_rule_target': 'Choose either a product type or a product.',
   'errors.field.asset_tag_pattern_invalid':
     'Use the counter {n} once, with some text around it, e.g. AST-{n}.',
   'errors.field.asset_tag_taken': 'Asset {{asset}} already has this tag.',
+  'errors.field.asset_type_not_consumable': 'Choose a consumable product type.',
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
   'errors.field.before_publish': 'Retiring must come after publishing.',

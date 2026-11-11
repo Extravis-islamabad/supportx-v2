@@ -221,6 +221,8 @@ class AssetSettings(TenantKeyed, Base):
     # Days before a warranty ends that its managers hear of it (0114; Appendix A: 30).
     warranty_notice_days: Mapped[int] = mapped_column(Integer, server_default="30")
     scan_retention_months: Mapped[int] = mapped_column(Integer, server_default="6")
+    # Requesters may book loanable assets from the portal (0130; REQ-AST-032 AC3; off by default).
+    portal_booking: Mapped[bool] = mapped_column(Boolean, server_default="false")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     created_by: Mapped[uuid.UUID | None] = mapped_column()
@@ -515,7 +517,11 @@ class AssetGroupMember(TenantKeyed, Base):
 
 
 class AssetLoan(TenantEntity):
-    """A loan of one or more assets to a person (migration 0114; REQ-AST-030)."""
+    """A loan of one or more assets to a person (migration 0114; REQ-AST-030).
+
+    0130: its display ID (LN-1; loans made before have none), the department it is lent to (the
+    borrower collects it for them), its site, and the booking it was handed over from.
+    """
 
     __tablename__ = "asset_loans"
     __table_args__ = (
@@ -532,9 +538,21 @@ class AssetLoan(TenantEntity):
             postgresql_where=text("closed_at IS NULL AND deleted_at IS NULL"),
         ),
         Index("ix_asset_loans_borrower", "tenant_id", "borrower_id"),
+        Index(
+            "uq_asset_loans_display_id",
+            "tenant_id",
+            "display_id",
+            unique=True,
+            postgresql_where=text("display_id IS NOT NULL"),
+        ),
+        Index("ix_asset_loans_site_id", "tenant_id", "site_id"),
     )
 
     borrower_id: Mapped[uuid.UUID]
+    display_id: Mapped[str | None] = mapped_column(String(20))
+    department_id: Mapped[uuid.UUID | None]
+    site_id: Mapped[uuid.UUID | None]
+    booking_id: Mapped[uuid.UUID | None]
     starts_at: Mapped[datetime]
     due_at: Mapped[datetime]
     closed_at: Mapped[datetime | None]
@@ -576,3 +594,239 @@ class AssetLoanItem(TenantEntity):
     returned_at: Mapped[datetime | None]
     outcome: Mapped[str | None] = mapped_column(String(20))
     return_comment: Mapped[str | None] = mapped_column(Text)
+
+
+# --- consumables, minimum stock, bookings (migration 0130; WP-049b s1) ------------------------
+
+
+class AssetConsumable(TenantEntity):
+    """A consumable product kept in stock (REQ-AST-033): its batch tracking is fixed when made."""
+
+    __tablename__ = "asset_consumables"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_asset_consumables_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "product_id"],
+            ["asset_products.tenant_id", "asset_products.id"],
+            name="fk_asset_consumables_product",
+        ),
+        Index(
+            "uq_asset_consumables_product",
+            "tenant_id",
+            "product_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_asset_consumables_updated", "tenant_id", "updated_at", "id"),
+    )
+
+    product_id: Mapped[uuid.UUID]
+    batch_tracked: Mapped[bool] = mapped_column(Boolean)
+    barcode: Mapped[str | None] = mapped_column(String(120))
+    vendor_id: Mapped[uuid.UUID | None]  # procurement's vendor, checked through its interface
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))  # base currency
+    comment: Mapped[str | None] = mapped_column(Text)
+
+
+class AssetConsumableStock(TenantEntity):
+    """How many of a consumable a site holds (REQ-AST-033); never below zero (REQ-AST-034)."""
+
+    __tablename__ = "asset_consumable_stocks"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_asset_consumable_stocks_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "consumable_id"],
+            ["asset_consumables.tenant_id", "asset_consumables.id"],
+            name="fk_asset_consumable_stocks_consumable",
+        ),
+        Index(
+            "uq_asset_consumable_stocks_site",
+            "tenant_id",
+            "consumable_id",
+            "site_id",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
+        ),
+        Index("ix_asset_consumable_stocks_site_id", "tenant_id", "site_id"),
+    )
+
+    consumable_id: Mapped[uuid.UUID]
+    site_id: Mapped[uuid.UUID | None]
+    location: Mapped[str | None] = mapped_column(String(200))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), server_default="0")
+    low_alerted_at: Mapped[datetime | None]
+
+
+class AssetConsumableBatch(TenantEntity):
+    """A lot of a batch-tracked consumable at one site (REQ-AST-033 AC2)."""
+
+    __tablename__ = "asset_consumable_batches"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_asset_consumable_batches_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "consumable_id"],
+            ["asset_consumables.tenant_id", "asset_consumables.id"],
+            name="fk_asset_consumable_batches_consumable",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "stock_id"],
+            ["asset_consumable_stocks.tenant_id", "asset_consumable_stocks.id"],
+            name="fk_asset_consumable_batches_stock",
+        ),
+        Index(
+            "uq_asset_consumable_batches_lot",
+            "tenant_id",
+            "stock_id",
+            text("lower(lot_number)"),
+            unique=True,
+        ),
+        Index("ix_asset_consumable_batches_expiry", "tenant_id", "consumable_id", "expires_on"),
+    )
+
+    consumable_id: Mapped[uuid.UUID]
+    stock_id: Mapped[uuid.UUID]
+    lot_number: Mapped[str] = mapped_column(String(120))
+    reference: Mapped[str | None] = mapped_column(String(120))
+    manufactured_on: Mapped[date | None] = mapped_column(Date)
+    expires_on: Mapped[date | None] = mapped_column(Date)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), server_default="0")
+
+
+class AssetConsumableMovement(Base):
+    """One line of the stock ledger (REQ-AST-033, 034): append-only, never changed.
+
+    The application role may only read and add rows (0130's grant), so there is no version or
+    soft delete. `work_item_id` is the request it was allocated from: only an ID (rule e).
+    """
+
+    __tablename__ = "asset_consumable_movements"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "consumable_id"],
+            ["asset_consumables.tenant_id", "asset_consumables.id"],
+            name="fk_asset_consumable_movements_consumable",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "stock_id"],
+            ["asset_consumable_stocks.tenant_id", "asset_consumable_stocks.id"],
+            name="fk_asset_consumable_movements_stock",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "batch_id"],
+            ["asset_consumable_batches.tenant_id", "asset_consumable_batches.id"],
+            name="fk_asset_consumable_movements_batch",
+        ),
+        Index(
+            "ix_asset_consumable_movements_consumable", "tenant_id", "consumable_id", "created_at"
+        ),
+        Index(
+            "ix_asset_consumable_movements_work_item",
+            "tenant_id",
+            "work_item_id",
+            postgresql_where=text("work_item_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_asset_consumable_movements_recipient", "tenant_id", "recipient_kind", "recipient_id"
+        ),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="RESTRICT"), sort_order=-90
+    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=utc_now
+    )  # append-only (no UPDATE grant); the shared rule still holds
+    created_by: Mapped[uuid.UUID | None] = mapped_column()
+    updated_by: Mapped[uuid.UUID | None] = mapped_column()
+    consumable_id: Mapped[uuid.UUID] = mapped_column()
+    stock_id: Mapped[uuid.UUID] = mapped_column()
+    batch_id: Mapped[uuid.UUID | None] = mapped_column()
+    kind: Mapped[str] = mapped_column(String(12))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    balance_after: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    happened_on: Mapped[date] = mapped_column(Date)
+    recipient_kind: Mapped[str | None] = mapped_column(String(20))
+    recipient_id: Mapped[uuid.UUID | None] = mapped_column()
+    work_item_id: Mapped[uuid.UUID | None] = mapped_column()
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    comment: Mapped[str | None] = mapped_column(Text)
+
+
+class AssetStockRule(TenantEntity):
+    """A minimum stock per product type or product, and per site or all sites (REQ-AST-035)."""
+
+    __tablename__ = "asset_stock_rules"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "product_type_id"],
+            ["asset_product_types.tenant_id", "asset_product_types.id"],
+            name="fk_asset_stock_rules_product_type",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "product_id"],
+            ["asset_products.tenant_id", "asset_products.id"],
+            name="fk_asset_stock_rules_product",
+        ),
+        Index(
+            "uq_asset_stock_rules_target",
+            "tenant_id",
+            "product_type_id",
+            "product_id",
+            "site_id",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    product_type_id: Mapped[uuid.UUID | None]
+    product_id: Mapped[uuid.UUID | None]
+    site_id: Mapped[uuid.UUID | None]
+    min_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    # Any: a JSON array of user IDs (strings), checked by the service when saved.
+    notify_user_ids: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
+    create_purchase_request: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    reorder_quantity: Mapped[Decimal | None] = mapped_column(Numeric(14, 3))
+
+
+class AssetBooking(TenantEntity):
+    """One asset held ahead for a person, for a period (REQ-AST-032)."""
+
+    __tablename__ = "asset_bookings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_bookings_asset",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "borrower_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_asset_bookings_borrower",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "loan_id"],
+            ["asset_loans.tenant_id", "asset_loans.id"],
+            name="fk_asset_bookings_loan",
+        ),
+        Index(
+            "ix_asset_bookings_asset_open",
+            "tenant_id",
+            "asset_id",
+            "starts_at",
+            postgresql_where=text("status = 'booked' AND deleted_at IS NULL"),
+        ),
+        Index("ix_asset_bookings_borrower", "tenant_id", "borrower_id"),
+    )
+
+    asset_id: Mapped[uuid.UUID]
+    borrower_id: Mapped[uuid.UUID]
+    department_id: Mapped[uuid.UUID | None]
+    starts_at: Mapped[datetime]
+    ends_at: Mapped[datetime]
+    status: Mapped[str] = mapped_column(String(20), server_default="booked")
+    loan_id: Mapped[uuid.UUID | None]
+    channel: Mapped[str] = mapped_column(String(20), server_default="console")
+    comment: Mapped[str | None] = mapped_column(Text)

@@ -49,6 +49,11 @@ ENUM_PREFIXES: dict[str, str] = {
     "AssetGroupIn.kind": "asset_group_kind",
     "LoanOut.status": "asset_loan_status",
     "LoanReturnIn.outcome": "asset_return_outcome",
+    # WP-049b s1: the stock ledger and bookings ahead
+    "AssetMovementOut.kind": "asset_movement_kind",
+    "AssetAllocationIn.recipient_kind": "asset_recipient_kind",
+    "AssetBookingOut.status": "asset_booking_status",
+    "AssetBookingOut.channel": "asset_booking_channel",
     "AssetGroupOut.kind": "asset_group_kind",
     "AcknowledgementAnswerIn.channel": "asset_ack_channel",
     "AssetTypeCategory": "asset_type_category",

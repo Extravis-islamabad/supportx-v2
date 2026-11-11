@@ -242,6 +242,9 @@ export function AssetsPage() {
               <Link to="/assets/loans" data-testid="assets-loans-link">
                 {t('assets.loans.title')}
               </Link>
+              <Link to="/assets/consumables" data-testid="assets-consumables-link">
+                {t('assets.stock.title')}
+              </Link>
               {access.can('assets.manage') && (
                 <WriteButton
                   type="primary"
