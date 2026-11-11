@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
-from tests.db.test_changes_api import CHG, _approve_pending, a_change, move
+from tests.db.test_changes_api import CHG, _approve_pending, a_change, move, new_change
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 
 pytestmark = MODULE_LOOP
@@ -342,3 +342,166 @@ async def test_req_chg_097_a_closed_change_is_locked_with_a_labelled_code(world:
         headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
     )
     assert problem(late) == (409, "record_closed"), late.text
+
+
+async def _bulk(
+    world: World,
+    org: Org,
+    action: str,
+    records: list[dict[str, Any]],
+    *,
+    user: uuid.UUID | None = None,
+    **changes: str,
+) -> dict[str, Any]:
+    from app.modules.work_items.service.bulk import run_bulk_jobs  # noqa: PLC0415 - the runner
+
+    started = await world.call(
+        "POST",
+        f"{CHG}/bulk",
+        org,
+        user or org.admin,
+        json={"action": action, "changes": changes, "record_ids": [r["id"] for r in records]},
+    )
+    assert started.status_code == 202, started.text
+    await run_bulk_jobs(world.app.state.db, world.app.state.settings)
+    done = await world.call(
+        "GET", f"{CHG}/bulk-jobs/{started.json()['id']}", org, user or org.admin
+    )
+    assert done.status_code == 200, done.text
+    return dict(done.json())
+
+
+async def _in_review(world: World, org: Org) -> dict[str, Any]:
+    made = await world.call(
+        "POST",
+        CHG,
+        org,
+        org.admin,
+        json={"subject": "Bulk", "requester_id": str(org.requester), "change_type": "standard"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    item = made.json()
+    item = (await move(world, org, item, "implementation_in_progress")).json()
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/schedule", org, org.admin)).json()
+    row = next(r for r in rows if r["stage"] == "implementation")
+    await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}/schedule/implementation",
+        org,
+        org.admin,
+        json={"outcome": "successful"},
+        headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+    )
+    return dict(
+        (await move(world, org, await fresh(world, org, item), "implementation_implemented")).json()
+    )
+
+
+async def test_req_chg_101_bulk_close_closes_what_may_close_and_says_why_the_rest_did_not(
+    world: World,
+) -> None:
+    """AC1: of three changes in review, the one with an open child is skipped, with why; a change
+    still in submission has no move to closed and is skipped too. Nothing leaves its life cycle.
+    """
+    a = world.a
+    ready = [await _in_review(world, a), await _in_review(world, a)]
+    held = await _in_review(world, a)
+    child = await a_change(world, a)
+    added = await world.call(
+        "POST",
+        f"{CHG}/{held['id']}/children",
+        a,
+        a.admin,
+        json={"child_id": child["id"]},
+        headers=CONSOLE,
+    )
+    assert added.status_code == 201, added.text
+    early = await a_change(world, a)
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    job = await _bulk(world, a, "close", [*ready, held, early], closure_code=codes[0]["code"])
+    outcomes = {r["id"]: (r["outcome"], r["code"]) for r in job["results"]}
+    for r in ready:
+        assert outcomes[r["id"]][0] == "done", outcomes
+        assert (await fresh(world, a, r))["status"] == "closure_closed"
+    assert outcomes[held["id"]][0] == "skipped", outcomes
+    assert outcomes[early["id"]] == ("skipped", "not_closable_from_here"), outcomes
+    assert (await fresh(world, a, held))["stage"] == "review"
+    assert (await fresh(world, a, early))["stage"] == "submission"
+
+
+async def _listed(world: World, org: Org, view: str) -> set[str]:
+    page = await world.call("GET", CHG, org, org.admin, params={"view": view})
+    assert page.status_code == 200, page.text
+    return {i["id"] for i in page.json()["items"]}
+
+
+async def test_req_chg_098_the_change_list_has_its_own_views(world: World) -> None:
+    """In implementation now, emergency changes and due for review list exactly theirs; the CAB's
+    own view is offered too, and those with no filter equivalent say so for export.
+    """
+    a = world.a
+    planned = await a_change(world, a)
+    standard = await new_change(world, a, a.admin, change_type="standard")
+    assert standard.status_code == 201, standard.text
+    moved = await move(world, a, standard.json(), "implementation_in_progress")
+    assert moved.status_code == 200, moved.text
+    implementing = moved.json()
+    made = await new_change(world, a, a.admin, change_type="emergency")
+    assert made.status_code == 201, made.text
+    emergency = made.json()
+    reviewing = await _in_review(world, a)
+    later = await _in_review(world, a)
+    for item, days in ((reviewing, -1), (later, 7)):
+        current = (await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)).json()
+        due = (datetime.now(UTC) + timedelta(days=days)).replace(microsecond=0)
+        saved = await world.call(
+            "PATCH",
+            f"{CHG}/{item['id']}/details",
+            a,
+            a.admin,
+            json={"review_due_at": due.isoformat()},
+            headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+        )
+        assert saved.status_code == 200, saved.text
+    views = [v["view"] for v in (await world.call("GET", f"{CHG}/views", a, a.admin)).json()]
+    for code in ("awaiting_cab", "in_implementation", "emergency", "due_for_review"):
+        assert code in views, views
+    now_implementing = await _listed(world, a, "in_implementation")
+    assert implementing["id"] in now_implementing
+    assert planned["id"] not in now_implementing
+    emergencies = await _listed(world, a, "emergency")
+    assert emergency["id"] in emergencies
+    assert planned["id"] not in emergencies
+    due_now = await _listed(world, a, "due_for_review")
+    assert reviewing["id"] in due_now
+    assert later["id"] not in due_now
+    assert planned["id"] not in await _listed(world, a, "awaiting_cab")
+    filters = {
+        f["view"]: f for f in (await world.call("GET", f"{CHG}/view-filters", a, a.admin)).json()
+    }
+    assert filters["awaiting_cab"]["expressible"] is True
+    assert filters["in_implementation"]["expressible"] is False
+
+
+async def test_req_chg_101_bulk_assign_and_take_follow_the_group_rule(world: World) -> None:
+    """Assign sets the group and owner where the owner is in it, and skips the rest with why
+    (D-154a); take makes the technician the owner of each change they may take.
+    """
+    a = world.a
+    first, second, third = [await a_change(world, a) for _ in range(3)]
+    job = await _bulk(
+        world, a, "assign", [first, second], group_id=str(a.ga), technician_id=str(a.tech_a)
+    )
+    assert job["done_count"] == 2, job
+    for item in (first, second):
+        now = await fresh(world, a, item)
+        assert (now["group_id"], now["technician_id"]) == (str(a.ga), str(a.tech_a))
+    outside = await _bulk(
+        world, a, "assign", [third], group_id=str(a.ga), technician_id=str(a.tech_b)
+    )
+    result = outside["results"][0]
+    assert (result["outcome"], result["code"]) == ("skipped", "technician_not_in_group"), result
+    assert (await fresh(world, a, third))["technician_id"] is None
+    taken = await _bulk(world, a, "take", [third], user=a.tech_a)
+    assert taken["done_count"] == 1, taken
+    assert (await fresh(world, a, third))["technician_id"] == str(a.tech_a)

@@ -23,6 +23,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -137,6 +138,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     first_task_starts_work: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # REQ-INC-147 (WP-028 D5): requesters see the expected resolution time; off by default.
     portal_show_due_time: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # D-156 (0137), changes only: outside every maintenance window blocks instead of warns.
+    outside_maintenance_blocks: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
     first_response_on: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default="{reply,public_note}"
@@ -1627,6 +1630,13 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     review_due_at: Mapped[datetime | None]
     review_reminded_at: Mapped[datetime | None]
     schedule_reminded_at: Mapped[datetime | None]
+    # D-156 (0137): the emergency CAB let this emergency change go ahead in a blocking freeze.
+    freeze_cab_passed_at: Mapped[datetime | None]
+    freeze_cab_passed_by: Mapped[uuid.UUID | None]
+    # Exactly the freezes the CAB passed: any other still holds the change (lane B's review).
+    freeze_cab_window_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
 
 
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------
@@ -1839,6 +1849,14 @@ class ChangeWindow(TenantEntity):
         CheckConstraint("kind IN ('freeze', 'maintenance')", name="kind_code"),
         CheckConstraint("mode IN ('block', 'warn')", name="mode_code"),
         CheckConstraint("ends_at > starts_at", name="order"),
+        # D-156 (0137): weekly or monthly ("first Sunday"); week 5 is the month's last.
+        CheckConstraint("repeat IN ('none', 'weekly', 'monthly')", name="repeat_code"),
+        CheckConstraint(
+            "(repeat = 'monthly') = (repeat_week IS NOT NULL AND repeat_weekday IS NOT NULL)"
+            " AND (repeat_week IS NULL OR repeat_week BETWEEN 1 AND 5)"
+            " AND (repeat_weekday IS NULL OR repeat_weekday BETWEEN 0 AND 6)",
+            name="repeat_monthly_shape",
+        ),
         Index(
             "ix_change_windows_tenant_kind_start",
             "tenant_id",
@@ -1855,7 +1873,12 @@ class ChangeWindow(TenantEntity):
     description: Mapped[str | None] = mapped_column(String(2000))
     starts_at: Mapped[datetime]
     ends_at: Mapped[datetime]
-    repeat_weekly: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    repeat_weekly: Mapped[bool] = mapped_column(
+        Boolean, server_default="false"
+    )  # until 0137's contract
+    repeat: Mapped[str] = mapped_column(String(10), server_default="none")
+    repeat_week: Mapped[int | None] = mapped_column(SmallInteger)
+    repeat_weekday: Mapped[int | None] = mapped_column(SmallInteger)
     repeat_until: Mapped[datetime | None]
     site_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(UUID(as_uuid=True)), server_default="{}"

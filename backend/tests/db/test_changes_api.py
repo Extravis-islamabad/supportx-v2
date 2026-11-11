@@ -925,3 +925,22 @@ async def test_qa_flow_4_a_normal_change_end_to_end(world: World) -> None:
     )
     assert closed.status_code == 200, closed.text
     assert (closed.json()["stage"], closed.json()["status"]) == ("closure", "closure_closed")
+
+
+async def test_req_chg_098_the_change_list_carries_each_row_s_type_and_risk(world: World) -> None:
+    """The list's type and risk columns: one side map per page, the effective risk."""
+    a = world.a
+    item = await a_change(world, a)
+    current = (await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)).json()
+    set_ = await details(
+        world, a, item, current["version"], risk_chosen="high", risk_reason="Core switch"
+    )
+    assert set_.status_code == 200, set_.text
+    listed = await world.call("GET", CHG, a, a.admin, params={"view": "open", "limit": "100"})
+    assert listed.status_code == 200, listed.text
+    facts = listed.json()["changes"][item["id"]]
+    assert facts["risk"] == "high"
+    assert facts["change_type"] == current["change_type"]
+    # Other types never carry it.
+    incidents = (await world.call("GET", "/incidents", a, a.admin)).json()
+    assert incidents["changes"] == {}

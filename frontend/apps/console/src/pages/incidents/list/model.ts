@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import {
   allOf,
+  bulkJobKey,
   queryKeys,
   type BulkAction,
   type BulkResult,
@@ -258,6 +259,10 @@ export function skipReason(
       problem: t(`errors.field.${result.code ?? 'invalid'}`, params),
     });
   }
+  // A staged record's guard names its first reason (a change's open children or tasks): say that.
+  if (result.code === 'stage_move_refused' && params.reason) {
+    return t(`action_reason.${params.reason}`, params);
+  }
   return t(`errors.${result.code ?? 'internal_error'}`, params);
 }
 
@@ -268,6 +273,7 @@ export function useBulkLive() {
     if (message.type !== PROGRESS) return;
     for (const id of message.ids) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJob(id) });
+      void queryClient.invalidateQueries({ queryKey: bulkJobKey('changes', id) });
     }
     void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJobs });
   });

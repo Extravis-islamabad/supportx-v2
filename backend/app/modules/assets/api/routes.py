@@ -866,6 +866,10 @@ class AcknowledgementOut(BaseModel):
     channel: str | None
     answered_at: datetime | None
     asked_at: datetime
+    audit_id: uuid.UUID | None = Field(
+        default=None, description="Asked by this self-audit (WP-049b s3): confirm it again."
+    )
+    audit_name: str | None = None
 
 
 class MyAssetOut(BaseModel):
@@ -892,8 +896,12 @@ class AcknowledgementAnswerIn(BaseModel):
     channel: Literal["portal", "console"] = "portal"
 
 
-def _ack_out(row: AssetAcknowledgement) -> AcknowledgementOut:
+def _ack_out(
+    row: AssetAcknowledgement, audits: dict[uuid.UUID, str] | None = None
+) -> AcknowledgementOut:
     return AcknowledgementOut(
+        audit_id=row.audit_id,
+        audit_name=None if row.audit_id is None else (audits or {}).get(row.audit_id),
         id=row.id,
         # The table's check holds it to these three.
         status=cast("Literal['pending', 'accepted', 'disputed']", row.status),
@@ -909,6 +917,9 @@ async def my_assets(session: TenantSession, subject: SignedIn) -> list[MyAssetOu
     """Mine, and my department's when the organisation shows them; live (REQ-AST-024)."""
     held = await acknowledgements.mine(session, subject)
     due = await loans.due_dates(session, [m.asset.id for m in held])
+    audits = await acknowledgements.audit_names(
+        session, [m.acknowledgement.audit_id for m in held if m.acknowledgement is not None]
+    )
     now = system_clock.now()
     return [
         MyAssetOut(
@@ -918,7 +929,9 @@ async def my_assets(session: TenantSession, subject: SignedIn) -> list[MyAssetOu
             product_type_id=m.asset.product_type_id,
             state_id=m.asset.state_id,
             through_department=m.through_department,
-            acknowledgement=None if m.acknowledgement is None else _ack_out(m.acknowledgement),
+            acknowledgement=None
+            if m.acknowledgement is None
+            else _ack_out(m.acknowledgement, audits),
             loan_due_at=due.get(m.asset.id),
             loan_overdue=m.asset.id in due and due[m.asset.id] <= now,
         )

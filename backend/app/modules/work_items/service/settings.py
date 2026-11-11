@@ -95,7 +95,7 @@ async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue
 
 
 # Settings only changes have (WP-045b S3); audited with the type's settings_changed.
-CHANGE_ONLY = ("segregation_strict", "cab_every_match")
+CHANGE_ONLY = ("segregation_strict", "cab_every_match", "outside_maintenance_blocks")  # D-156
 
 
 async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
@@ -197,6 +197,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "first_task_starts_work": current.first_task_starts_work,
         "review_required_priorities": list(current.review_required_priorities),
         "segregation_strict": current.segregation_strict,
+        "outside_maintenance_blocks": current.outside_maintenance_blocks,
         "cab_every_match": current.cab_every_match,
         "reapproval": current.reapproval,
         "first_response_on": list(current.first_response_on),
