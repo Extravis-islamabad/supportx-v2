@@ -141,6 +141,11 @@ async def _clock(session: AsyncSession, definition: Definition, record_id: uuid.
     return clock
 
 
+async def subject_of(session: AsyncSession, workflow: Workflow) -> Subject | None:
+    """The workflow's own identity as a subject (its commands run as it, ADR-043 §6)."""
+    return await _subject(session, workflow)
+
+
 async def _subject(session: AsyncSession, workflow: Workflow) -> Subject | None:
     if workflow.service_identity_id is None:
         return None

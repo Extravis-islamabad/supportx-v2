@@ -26,6 +26,7 @@ TABLES = (
     "workflow_instances",
     "workflow_steps",
     "workflow_jobs",  # WP-048b S3, migration 0107
+    "workflow_test_runs",  # WP-048b S3e, migration 0107
 )
 
 
@@ -69,6 +70,14 @@ async def _seed(world: World) -> dict[str, uuid.UUID]:
             ),
             {"j": uuid.uuid4(), "t": world.a.tenant, "w": ids["workflow"], "i": ids["instance"]},
         )
+        await session.execute(
+            text(
+                "INSERT INTO workflow_test_runs (id, tenant_id, workflow_id, record_type, "
+                "definition, facts, state, status, clock_at) "
+                "VALUES (:x, :t, :w, 'incident', '{}', '{}', '{}', 'running', now())"
+            ),
+            {"x": uuid.uuid4(), "t": world.a.tenant, "w": ids["workflow"]},
+        )
     return ids
 
 
@@ -84,7 +93,12 @@ async def test_workflow_tables_are_isolated_by_rls(world: World, table: str) -> 
             {"a": a.tenant},
         )
         assert seen.scalar_one() == 0
-    if table in {"workflows", "workflow_instances", "workflow_jobs"}:  # the others: insert-only
+    if table in {
+        "workflows",
+        "workflow_instances",
+        "workflow_jobs",
+        "workflow_test_runs",
+    }:  # the others: insert-only
         async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
             changed = await session.execute(
                 text(f"UPDATE {table} SET tenant_id = tenant_id WHERE tenant_id = :a"),  # noqa: S608 - fixed table names

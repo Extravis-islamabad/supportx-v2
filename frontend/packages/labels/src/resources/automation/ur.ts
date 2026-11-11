@@ -201,11 +201,19 @@ export const ur: LabelResource = {
   'automation_outcome.own_change': 'اپنی تبدیلی پر نہیں چلا',
   'automation_outcome.partial': 'جزوی طور پر ہوا',
   'automation_outcome.per_minute': 'روکا گیا: فی منٹ بہت زیادہ تبدیلیاں',
+  'errors.command_not_pending': 'یہ مرحلہ کسی جواب کا انتظار نہیں کر رہا۔',
+  'errors.fast_forward_range': 'گھڑی کو 1 سیکنڈ سے {{max}} سیکنڈ تک آگے کریں۔',
+  'errors.live_call_needs_record': 'لائیو کال کے لیے ریکارڈ پر ٹیسٹ رن چاہیے، نمونہ قدروں پر نہیں۔',
+  'errors.live_call_not_allowed': 'ٹیسٹ سے لائیو کال صرف ویب ہک یا اطلاع کا مرحلہ کر سکتا ہے۔',
+  'errors.live_call_used': 'یہ ٹیسٹ رن اپنی واحد لائیو کال پہلے ہی کر چکا ہے۔',
   'errors.name_invalid': '200 حروف تک کا نام دیں۔',
   'errors.not_a_service_identity': 'یہاں صرف ورک فلو یا کنیکٹر کی اپنی شناخت بدلی جا سکتی ہے۔',
+  'errors.record_not_found': 'یہ ریکارڈ نہیں ملا، یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.sample_too_large': 'زیادہ سے زیادہ {{max}} نمونہ قدریں استعمال کریں۔',
   'errors.service_identity_role_not_allowed':
     'ورک فلو یا کنیکٹر یہ کردار نہیں رکھ سکتا: اس سے وہ بدل سکے گا کہ کون کیا کر سکتا ہے۔',
   'errors.templates_not_found': 'کچھ ٹیمپلیٹس یہاں اس قسم کے ریکارڈ کے ٹیمپلیٹس نہیں ({{count}})۔',
+  'errors.test_answer_one_of': 'ایک وقت میں ایک چیز کا جواب دیں: مرحلہ، تبدیلی یا گھڑی۔',
   'errors.workflow_already_running': 'یہ ورک فلو اس ریکارڈ پر پہلے سے چل رہا ہے۔',
   'errors.workflow_disabled': 'یہ ورک فلو بند ہے، اس لیے شروع نہیں ہو سکتا۔',
   'errors.workflow_file_other_tenant':
@@ -219,6 +227,11 @@ export const ur: LabelResource = {
   'errors.workflow_name_taken': 'اس ریکارڈ کی قسم کے لیے اس نام کا ورک فلو پہلے سے موجود ہے۔',
   'errors.workflow_not_found': 'ورک فلو نہیں ملا۔',
   'errors.workflow_not_published': 'پہلے ورک فلو شائع کریں۔',
+  'errors.workflow_test_run_changed':
+    'آپ کے کھولنے کے بعد یہ ٹیسٹ رن آگے بڑھ گیا۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
+  'errors.workflow_test_run_not_found': 'یہ ٹیسٹ رن نہیں ملا۔',
+  'errors.workflow_unreadable':
+    'یہ مسودہ ابھی ورک فلو کے طور پر پڑھا نہیں جا سکتا۔ پہلے اس کے مسائل درست کریں۔',
   'errors.workflow_wrong_record_type': 'یہ ورک فلو کسی اور قسم کے ریکارڈ کے لیے ہے۔',
   'loop_stop.depth': 'سلسلہ بہت لمبا',
   'loop_stop.own_change': 'اپنی تبدیلی',
@@ -346,4 +359,11 @@ export const ur: LabelResource = {
     'کال کرنے کا پتہ دیں، جو https:// سے شروع ہو (زیادہ سے زیادہ {{max}} حروف)۔',
   'workflow_problem.workflow_not_found': 'ایسا ورک فلو چنیں جو موجود ہو۔',
   'workflow_problem.workflow_wrong_record_type': 'یہ ورک فلو کسی اور قسم کے ریکارڈ کے لیے ہے۔',
+  'workflow_wait_event.approval_decided': 'منظوری کا فیصلہ ہوا',
+  'workflow_wait_event.field_changed': 'کوئی فیلڈ بدلی',
+  'workflow_wait_event.note_added': 'نوٹ شامل کیا گیا',
+  'workflow_wait_event.requester_replied': 'درخواست گزار نے جواب دیا',
+  'workflow_wait_event.status_changed': 'حالت بدلی',
+  'workflow_wait_event.task_completed': 'کام مکمل ہوا',
+  'workflow_wait_event.worklog_added': 'وقت درج کیا گیا',
 };

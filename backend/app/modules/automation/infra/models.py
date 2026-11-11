@@ -447,3 +447,43 @@ class WorkflowJob(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Versioned, B
     results: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
+
+
+class WorkflowTestRun(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Versioned, Base):
+    """A test run of a workflow (WP-048b S3e; REQ-WF-022; migration 0107).
+
+    Apart from instances: it never touches a record. Its facts are read once from a record, or
+    sample values; its commands are shown and answered by hand; its clock is virtual.
+    """
+
+    __tablename__ = "workflow_test_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('running', 'waiting', 'failed', 'finished', 'cancelled')",
+            name="status_code",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "workflow_id"],
+            ["workflows.tenant_id", "workflows.id"],
+            name="fk_workflow_test_runs_workflow",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_workflow_test_runs_tenant_workflow_created",
+            "tenant_id",
+            "workflow_id",
+            "created_at",
+        ),
+    )
+
+    workflow_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(20))
+    record_id: Mapped[uuid.UUID | None]
+    definition: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    facts: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    state: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(20))
+    steps: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    pending: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    clock_at: Mapped[datetime]
+    live_call: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))

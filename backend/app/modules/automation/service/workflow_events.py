@@ -36,7 +36,7 @@ from app.modules.automation.events import (
     WorkflowWebhookRequested,
 )
 from app.modules.automation.infra.models import Workflow, WorkflowInstance
-from app.modules.automation.service import functions, workflow_runtime
+from app.modules.automation.service import functions, workflow_runtime, workflow_tests
 from app.modules.automation.service.registry import event_reader
 from app.modules.automation.service.registry import record_type as registered
 from app.shared import egress
@@ -171,17 +171,33 @@ async def on_webhook_requested(envelope: EventEnvelope, session: AsyncSession | 
             tenant_id=tenant_id,
         )
     except egress.EgressError as refused:  # a stable code, never a secret or a body
-        await command_finished(
-            session,
-            instance_id=asked.instance_id,
-            command=asked.command,
-            ok=False,
-            error=f"webhook_{refused.code}",
-        )
+        await _report(session, asked, ok=False, error=f"webhook_{refused.code}", outputs={})
         return
     kept = {asked.status_variable: response.status} if asked.status_variable else {}
+    await _report(session, asked, ok=True, error=None, outputs=kept)
+
+
+async def _report(
+    session: AsyncSession,
+    asked: WorkflowWebhookRequested,
+    *,
+    ok: bool,
+    error: str | None,
+    outputs: dict[str, JsonValue],
+) -> None:
+    """The call's result to the instance, or to the test run that made its one live call."""
+    if asked.test_run:
+        await workflow_tests.apply_live_result(
+            session, asked.instance_id, command=asked.command, ok=ok, error=error, outputs=outputs
+        )
+        return
     await command_finished(
-        session, instance_id=asked.instance_id, command=asked.command, ok=True, outputs=kept
+        session,
+        instance_id=asked.instance_id,
+        command=asked.command,
+        ok=ok,
+        error=error,
+        outputs=outputs,
     )
 
 

@@ -205,11 +205,20 @@ export const ar: LabelResource = {
   'automation_outcome.own_change': 'لم يُشغّل على تغييره الذاتي',
   'automation_outcome.partial': 'تم جزئيًا',
   'automation_outcome.per_minute': 'أُوقف: تغييرات كثيرة جدًا في الدقيقة',
+  'errors.command_not_pending': 'هذه الخطوة لا تنتظر إجابة.',
+  'errors.fast_forward_range': 'قدّم الساعة بين ثانية واحدة و{{max}} ثانية.',
+  'errors.live_call_needs_record':
+    'يحتاج الاستدعاء الحي إلى تشغيل اختبار على سجل، لا على قيم تجريبية.',
+  'errors.live_call_not_allowed': 'لا يمكن إجراء استدعاء حي من اختبار إلا لخطوة خطاف ويب أو إشعار.',
+  'errors.live_call_used': 'أجرى تشغيل الاختبار هذا استدعاءه الحي الوحيد بالفعل.',
   'errors.name_invalid': 'أدخل اسمًا لا يزيد على 200 حرف.',
   'errors.not_a_service_identity': 'يمكن تغيير هوية سير العمل أو الموصل فقط هنا.',
+  'errors.record_not_found': 'لم يُعثر على هذا السجل، أو لا يمكنك رؤيته.',
+  'errors.sample_too_large': 'استخدم {{max}} من القيم التجريبية على الأكثر.',
   'errors.service_identity_role_not_allowed':
     'لا يمكن لسير عمل أو موصل حمل هذا الدور: سيتيح له تغيير من يحق له ماذا.',
   'errors.templates_not_found': 'بعض القوالب ليست قوالب لهذا النوع من السجلات هنا ({{count}}).',
+  'errors.test_answer_one_of': 'أجب عن أمر واحد في كل مرة: خطوة أو تغيير أو الساعة.',
   'errors.workflow_already_running': 'سير العمل هذا قيد التشغيل بالفعل على هذا السجل.',
   'errors.workflow_disabled': 'سير العمل هذا متوقف، لذا لا يمكن بدؤه.',
   'errors.workflow_file_other_tenant':
@@ -223,6 +232,10 @@ export const ar: LabelResource = {
   'errors.workflow_name_taken': 'يوجد سير عمل بهذا الاسم لهذا النوع من السجلات.',
   'errors.workflow_not_found': 'لم يُعثر على سير العمل.',
   'errors.workflow_not_published': 'انشر سير العمل أولًا.',
+  'errors.workflow_test_run_changed':
+    'تقدّم تشغيل الاختبار هذا منذ فتحته. أعد التحميل وحاول مرة أخرى.',
+  'errors.workflow_test_run_not_found': 'لم يُعثر على تشغيل الاختبار هذا.',
+  'errors.workflow_unreadable': 'لا يمكن قراءة هذه المسودة كسير عمل بعد. أصلح مشكلاتها أولًا.',
   'errors.workflow_wrong_record_type': 'سير العمل هذا لنوع آخر من السجلات.',
   'loop_stop.depth': 'سلسلة طويلة جدًا',
   'loop_stop.own_change': 'تغييره الذاتي',
@@ -344,4 +357,11 @@ export const ar: LabelResource = {
     'أدخل العنوان المطلوب استدعاؤه، ويبدأ بـ https:// (حتى {{max}} حرفًا).',
   'workflow_problem.workflow_not_found': 'اختر سير عمل موجودًا.',
   'workflow_problem.workflow_wrong_record_type': 'سير العمل هذا لنوع آخر من السجلات.',
+  'workflow_wait_event.approval_decided': 'بُتّ في موافقة',
+  'workflow_wait_event.field_changed': 'تغيّر حقل',
+  'workflow_wait_event.note_added': 'أُضيفت ملاحظة',
+  'workflow_wait_event.requester_replied': 'ردّ مقدّم الطلب',
+  'workflow_wait_event.status_changed': 'تغيّرت الحالة',
+  'workflow_wait_event.task_completed': 'اكتملت مهمة',
+  'workflow_wait_event.worklog_added': 'سُجّل وقت',
 };

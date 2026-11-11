@@ -188,6 +188,8 @@ class WorkflowWebhookRequested(DomainEvent):
     headers: dict[str, str]
     fields: list[str]
     status_variable: str | None = None
+    # A test run's one live call (S3e): `instance_id` names the test run, which takes the result.
+    test_run: bool = False
 
 
 EVENTS: tuple[type[DomainEvent], ...] = (

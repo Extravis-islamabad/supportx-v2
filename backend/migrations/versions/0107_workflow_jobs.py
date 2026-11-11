@@ -1,11 +1,15 @@
-"""Workflow jobs: bulk retry, cancel and migration of instances (WP-048b S3; REQ-WF-021, -025).
+"""Workflow jobs and test runs (WP-048b S3; REQ-WF-021, -022, -025).
 
 One row per job: the admin's choice of instances (at most 1,000, ADR-043 §9), what to do with
 them, and its progress, run by the worker in batches with the progress streamed. A migration's
 node mapping and target version ride in `options`.
 
-Expand only: a new table. The downgrade refuses while any tenant has a job (rule 5h); the table
-forces RLS, so the check runs per tenant with app.tenant_id set.
+A test run (REQ-WF-022) is stored apart from instances and never touches a record: its own
+facts (read once from a record, or sample values), state, log, the commands it showed, and a
+virtual clock the admin moves forward. At most one live call is allowed per run (`live_call`).
+
+Expand only: two new tables. The downgrade refuses while any tenant has a job or a test run
+(rule 5h); the tables force RLS, so the check runs per tenant with app.tenant_id set.
 
 Revision ID: 0107
 Revises: 0106
@@ -26,10 +30,11 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 JOBS = "workflow_jobs"
+TESTS = "workflow_test_runs"
 
 
 def upgrade() -> None:
-    """The jobs table, its checks and indexes, RLS and the app's grants."""
+    """The jobs and test-runs tables, their checks and indexes, RLS and the app's grants."""
     op.create_table(
         JOBS,
         sa.Column("id", sa.UUID(), nullable=False),
@@ -108,6 +113,70 @@ def upgrade() -> None:
     enable_tenant_rls(JOBS)
     enable_actor_audit(JOBS)
     grant_app(JOBS, ("SELECT", "INSERT", "UPDATE"))
+    _test_runs()
+
+
+def _test_runs() -> None:
+    op.create_table(
+        TESTS,
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("tenant_id", sa.UUID(), nullable=False),
+        sa.Column("workflow_id", sa.UUID(), nullable=False),
+        sa.Column("record_type", sa.String(length=20), nullable=False),
+        sa.Column("record_id", sa.UUID(), nullable=True),
+        sa.Column("definition", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("facts", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("state", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column(
+            "steps", postgresql.JSONB(astext_type=sa.Text()), server_default="[]", nullable=False
+        ),
+        sa.Column(
+            "pending", postgresql.JSONB(astext_type=sa.Text()), server_default="[]", nullable=False
+        ),
+        sa.Column("clock_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("live_call", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("created_by", sa.UUID(), nullable=True),
+        sa.Column("updated_by", sa.UUID(), nullable=True),
+        sa.Column("version", sa.BigInteger(), server_default="1", nullable=False),
+        sa.CheckConstraint(
+            "status IN ('running', 'waiting', 'failed', 'finished', 'cancelled')",
+            name=op.f("ck_workflow_test_runs_status_code"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id"],
+            ["tenants.id"],
+            name=op.f("fk_workflow_test_runs_tenant_id_tenants"),
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "workflow_id"],
+            ["workflows.tenant_id", "workflows.id"],
+            name="fk_workflow_test_runs_workflow",
+            ondelete="RESTRICT",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_workflow_test_runs")),
+    )
+    op.create_index(
+        "ix_workflow_test_runs_tenant_workflow_created",
+        TESTS,
+        ["tenant_id", "workflow_id", "created_at"],
+    )
+    enable_tenant_rls(TESTS)
+    enable_actor_audit(TESTS)
+    grant_app(TESTS, ("SELECT", "INSERT", "UPDATE"))
 
 
 _REFUSE_IF_ANY = """
@@ -116,8 +185,8 @@ DECLARE t uuid;
 BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
-        IF EXISTS (SELECT 1 FROM workflow_jobs) THEN
-            RAISE EXCEPTION 'downgrade refused: tenant % has workflow jobs', t;
+        IF EXISTS (SELECT 1 FROM workflow_jobs) OR EXISTS (SELECT 1 FROM workflow_test_runs) THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has workflow jobs or test runs', t;
         END IF;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
@@ -126,6 +195,7 @@ END $$;
 
 
 def downgrade() -> None:
-    """Drop the jobs table, refused while any tenant has a job (rule 5h)."""
+    """Drop both tables, refused while any tenant has a job or a test run (rule 5h)."""
     op.execute(_REFUSE_IF_ANY)
+    op.drop_table(TESTS)
     op.drop_table(JOBS)

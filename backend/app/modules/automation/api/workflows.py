@@ -17,17 +17,23 @@ from sqlalchemy import func, select
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules.audit import audited
+from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.interpreter import InstanceStatus
-from app.modules.automation.domain.workflows import Problem
+from app.modules.automation.domain.workflows import Problem, WaitEvent
 from app.modules.automation.infra.models import (
     Workflow,
     WorkflowInstance,
     WorkflowJob,
     WorkflowStep,
+    WorkflowTestRun,
     WorkflowVersion,
 )
-from app.modules.automation.service import workflow_admin, workflow_jobs, workflow_runtime
+from app.modules.automation.service import (
+    workflow_admin,
+    workflow_jobs,
+    workflow_runtime,
+    workflow_tests,
+)
 from app.modules.automation.service.registry import record_type as registered
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -774,3 +780,168 @@ async def delete_workflow(
     del subject
     await workflow_admin.delete_workflow(session, workflow_id, expected_version=version)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- test mode (WP-048b S3e; REQ-WF-022) -------------------------------------------------------
+
+
+class TestRunIn(BaseModel):
+    """Test the draft on a record (its facts read once) or on sample values."""
+
+    record_id: uuid.UUID | None = None
+    sample: dict[str, Any] | None = Field(default=None, max_length=workflow_tests.SAMPLE_MAX_FIELDS)
+
+
+class TestRunOut(BaseModel):
+    """Where the test run is, what it did, and the commands waiting for an answer."""
+
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    record_id: uuid.UUID | None
+    status: Literal["running", "waiting", "failed", "finished", "cancelled"]
+    facts: dict[str, Any]
+    variables: dict[str, Any]
+    steps: list[dict[str, Any]]
+    pending: list[dict[str, Any]]
+    clock_at: datetime
+    live_call: dict[str, Any] | None
+    version: int
+
+
+def _test(row: WorkflowTestRun) -> TestRunOut:
+    return TestRunOut(
+        id=row.id,
+        workflow_id=row.workflow_id,
+        record_id=row.record_id,
+        status=row.status,  # type: ignore[arg-type]  # checked by the table's status_code
+        facts=row.facts,
+        variables=dict(row.state.get("variables", {})),
+        steps=row.steps,
+        pending=row.pending,
+        clock_at=row.clock_at,
+        live_call=row.live_call,
+        version=row.version,
+    )
+
+
+@router.post(
+    "/{workflow_id}/test-runs",
+    summary="Test the draft, applying nothing",
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_test(
+    workflow_id: uuid.UUID,
+    body: TestRunIn,
+    session: TenantSession,
+    subject: Manage,
+    idempotency: Idempotency,
+) -> Response:
+    """Its commands are shown, never applied; it never writes to the record (REQ-WF-022 AC2)."""
+    del subject
+
+    async def operation() -> Created:
+        run = await workflow_tests.start(
+            session, workflow_id, record_id=body.record_id, sample=body.sample
+        )
+        return Created(_test(run), {"ETag": f'"{run.version}"'})
+
+    return await idempotency.run(body, operation)
+
+
+@router.get("/test-runs/{run_id}", summary="A test run")
+async def get_test(run_id: uuid.UUID, session: TenantSession, subject: Manage) -> TestRunOut:
+    """Its path so far, its variables and decisions, and what waits for an answer."""
+    del subject
+    run = await session.get(WorkflowTestRun, run_id)
+    if run is None:
+        raise NotFound(code="workflow_test_run_not_found")
+    return _test(run)
+
+
+class AnswerIn(BaseModel):
+    """The admin's answer to one shown command, or a change, or time moving on."""
+
+    command_id: str | None = Field(default=None, min_length=1, max_length=20)
+    ok: bool = True
+    port: str | None = Field(default=None, min_length=1, max_length=40)
+    record_changed: WaitEvent | None = None
+    facts: dict[str, Any] = Field(default_factory=dict, max_length=workflow_tests.SAMPLE_MAX_FIELDS)
+    fast_forward_seconds: int | None = Field(default=None, ge=1, le=workflow_tests.FAST_FORWARD_MAX)
+
+
+@router.post("/test-runs/{run_id}/answer", summary="Answer a test run")
+async def answer_test(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    run_id: uuid.UUID,
+    body: AnswerIn,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+) -> TestRunOut:
+    """One of: a command's answer (approved / rejected, done / failed), a change, time."""
+    del subject
+    given = [
+        body.command_id is not None,
+        body.record_changed is not None,
+        body.fast_forward_seconds is not None,
+    ]
+    if sum(given) != 1:
+        raise ValidationFailed(code="test_answer_one_of")
+    if body.command_id is not None:
+        run = await workflow_tests.answer(
+            session,
+            run_id,
+            expected_version=version,
+            command_id=body.command_id,
+            ok=body.ok,
+            port=body.port,
+        )
+    elif body.record_changed is not None:
+        run = await workflow_tests.record_changed(
+            session, run_id, expected_version=version, kind=body.record_changed, facts=body.facts
+        )
+    else:
+        run = await workflow_tests.fast_forward(
+            session, run_id, expected_version=version, seconds=int(body.fast_forward_seconds or 0)
+        )
+    set_etag(response, run.version)
+    return _test(run)
+
+
+class LiveCallIn(BaseModel):
+    """The one live call of the run: a webhook or notify node's command."""
+
+    command_id: str = Field(min_length=1, max_length=20)
+
+
+@router.post("/test-runs/{run_id}/live-call", summary="Make the test run's one live call")
+async def live_call(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    run_id: uuid.UUID,
+    body: LiveCallIn,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "automation.workflow_test_live_call",
+            object_type="workflow_test_run",
+            object_param="run_id",
+        ),
+    ],
+) -> TestRunOut:
+    """Webhook or notify only, once a run, on its record; audited with the node and record."""
+    run = await workflow_tests.live_call(
+        session, run_id, expected_version=version, command_id=body.command_id, by=subject.user_id
+    )
+    called = run.live_call or {}
+    note.details = {
+        **note.details,
+        "node": called.get("node"),
+        "kind": called.get("kind"),
+        "record_type": run.record_type,
+        "record_id": str(run.record_id) if run.record_id else None,
+    }
+    set_etag(response, run.version)
+    return _test(run)

@@ -5,15 +5,30 @@ progress the overview's. IDs (and the record's version) only, never names or val
 """
 
 import uuid
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any
 
-import app.modules.work_items  # noqa: F401 - registers the record types' channel kinds
+import pytest
+
 from app.modules.automation.service.realtime import ROUTES
+from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.shared.events import EventEnvelope
-from app.shared.files.ports import record_channel_kind
+from app.shared.files.ports import (
+    record_channel_kind,
+    register_owner_access,
+    unregister_owner_access,
+)
 
 TENANT = uuid.uuid4()
+
+
+@pytest.fixture(autouse=True)
+def _record_channels() -> Iterator[None]:
+    """The record types' channel kinds, as at startup: an app test's shutdown clears them."""
+    register_owner_access(FILE_ACCESS)
+    yield
+    unregister_owner_access(FILE_ACCESS.owner_types)
 
 
 def _envelope(event_type: str, payload: dict[str, Any]) -> EventEnvelope:

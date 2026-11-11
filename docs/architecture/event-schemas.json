@@ -1742,6 +1742,11 @@
             "default": null,
             "title": "Status Variable"
           },
+          "test_run": {
+            "default": false,
+            "title": "Test Run",
+            "type": "boolean"
+          },
           "url": {
             "title": "Url",
             "type": "string"
