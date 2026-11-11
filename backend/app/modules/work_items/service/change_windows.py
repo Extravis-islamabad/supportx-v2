@@ -335,6 +335,8 @@ async def override_freeze(  # noqa: PLR0913 - the change, its version and why, e
     (lane B's review of #376). The route audits it.
     """
     record = await items.visible_record(session, subject, CHANGE, record_id)
+    if items.is_closed(record):  # a closed or canceled change is locked (REQ-CHG-097)
+        raise Conflict(code=items.RECORD_CLOSED, params={"status": record.status})
     if not await items.may(session, subject, CHANGE, OVERRIDE, record.id):
         raise PermissionDenied(
             params={

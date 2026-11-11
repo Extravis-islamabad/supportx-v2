@@ -14,6 +14,7 @@ from app.modules.automation.domain.operations import (
     migrate,
     restart,
     retry,
+    skip,
     stop,
 )
 from app.modules.automation.tests.test_interpreter_domain import NOW, flow, node, step
@@ -112,6 +113,37 @@ def test_retry_runs_the_failed_node_again() -> None:
     with pytest.raises(OperationRefused) as refused:
         retry(FLOW, _waiting(), at=NOW)
     assert refused.value.code == "instance_not_failed"
+
+
+def test_req_wf_024_ac2_skip_moves_past_the_failed_step_on_its_next_output() -> None:
+    skipped = skip(DIRECT, _failed(), at=NOW)
+    assert (skipped.state.status, skipped.state.failure) == (InstanceStatus.RUNNING, None)
+    assert [(s.node, s.result, dict(s.detail)) for s in skipped.steps] == [
+        ("set", "skipped", {"code": "command_failed", "to": "e"})
+    ]
+    ran = step(DIRECT, skipped.state)
+    assert ran.state.status is InstanceStatus.FINISHED  # the field step was not asked again
+    assert [c.kind for c in ran.commands] == []
+
+
+# An approval decides its path (approved / rejected): a skip has no "next" to take there.
+DECIDED = flow(
+    [node("s", "start"), node("ask", "approval", approvers={"user_ids": []}), node("e", "end")],
+    [("s", "next", "ask"), ("ask", "approved", "e"), ("ask", "rejected", "e")],
+)
+
+
+def test_skip_never_guesses_a_branch() -> None:
+    at_ask = step(DECIDED, State.start(DECIDED))
+    [command] = at_ask.commands
+    failed = step(DECIDED, at_ask.state, event=CommandDone(command.id, ok=False)).state
+    assert failed.status is InstanceStatus.FAILED
+    with pytest.raises(OperationRefused) as refused:
+        skip(DECIDED, failed, at=NOW)
+    assert (refused.value.code, refused.value.params) == ("skip_without_next", {"node": "ask"})
+    with pytest.raises(OperationRefused) as running:
+        skip(FLOW, _waiting(), at=NOW)
+    assert running.value.code == "instance_not_failed"
 
 
 # Version 2: the wait is renamed and a note step comes after it.

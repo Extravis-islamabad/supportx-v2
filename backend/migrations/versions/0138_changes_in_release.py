@@ -11,7 +11,7 @@ The downgrade narrows the check back; while an `in_release` link exists the narr
 and the downgrade stops, keeping the data (rule 5h).
 
 Revision ID: 0138
-Revises: 0132
+Revises: 0133
 Created: 2026-11-11
 """
 
@@ -22,7 +22,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0138"
-down_revision: str | None = "0132"
+down_revision: str | None = "0133"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

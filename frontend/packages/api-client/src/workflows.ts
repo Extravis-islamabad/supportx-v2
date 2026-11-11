@@ -349,3 +349,137 @@ export function useRetryInstance() {
     onSettled: refresh,
   });
 }
+
+/** Move a failed run past its failed step, on that step's "next" only (REQ-WF-024 AC2). */
+export function useSkipInstance() {
+  const refresh = useRecordRefresh();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.POST(`${PATH}/instances/{instance_id}/skip`, {
+          params: { path: { instance_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSettled: refresh,
+  });
+}
+
+// The overview's run: an instance with its record's name (only if visible), workflow and place.
+export type OverviewRunOut = components['schemas']['InstanceOut'];
+export type WorkflowJobOut = components['schemas']['JobOut'];
+export type WorkflowJobIn = components['schemas']['JobIn'];
+
+export interface RunsQuery {
+  status?: string;
+  workflowId?: string;
+  versionNumber?: number;
+  node?: string;
+  waitingOverHours?: number;
+}
+
+/** The runs overview (REQ-WF-025): newest first; each record named only if you may see it. */
+export function useWorkflowRuns(query: RunsQuery, enabled = true) {
+  const terms = [
+    ...(query.status ? [{ field: 'status', op: 'eq', value: query.status }] : []),
+    ...(query.workflowId ? [{ field: 'workflow_id', op: 'eq', value: query.workflowId }] : []),
+    ...(query.versionNumber === undefined
+      ? []
+      : [{ field: 'version_number', op: 'eq', value: query.versionNumber }]),
+  ];
+  const filter =
+    terms.length === 0 ? undefined : JSON.stringify(terms.length === 1 ? terms[0] : { and: terms });
+  return useQuery({
+    queryKey: queryKeys.workflows.runs(query),
+    queryFn: () =>
+      call(
+        api.GET(`${PATH}/instances`, {
+          params: {
+            query: {
+              filter,
+              node: query.node === '' ? undefined : query.node,
+              waiting_over_hours: query.waitingOverHours,
+              sort: '-started_at',
+              limit: 200,
+              include_total: true,
+            },
+          },
+        }),
+      ),
+    enabled,
+  });
+}
+
+/** Retry, cancel or move many runs of one workflow, as a background job (1,000 at most). */
+export function useQueueJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      workflowId,
+      key,
+      body,
+    }: {
+      workflowId: string;
+      key: string;
+      body: WorkflowJobIn;
+    }) =>
+      call(
+        api.POST(`${PATH}/{workflow_id}/jobs`, {
+          params: { path: { workflow_id: workflowId }, header: { 'Idempotency-Key': key } },
+          body,
+        }),
+      ),
+    onSuccess: (job) => {
+      queryClient.setQueryData(queryKeys.workflows.job(job.id), job);
+    },
+  });
+}
+
+/** One job's progress and results (live: the overview refetches it on the queue channel). */
+export function useWorkflowJob(id: string) {
+  return useQuery({
+    queryKey: queryKeys.workflows.job(id),
+    queryFn: () => call(api.GET(`${PATH}/jobs/{job_id}`, { params: { path: { job_id: id } } })),
+    enabled: id !== '',
+  });
+}
+
+export type WorkflowVersionOut = components['schemas']['WorkflowVersionOut'];
+export type VersionStepOut = components['schemas']['VersionStepOut'];
+
+/** A workflow's published versions, newest first: who, when, and its live runs (REQ-WF-021). */
+export function useWorkflowVersions(id: string) {
+  return useQuery({
+    queryKey: queryKeys.workflows.versions(id),
+    queryFn: () =>
+      call(api.GET(`${PATH}/{workflow_id}/versions`, { params: { path: { workflow_id: id } } })),
+    enabled: id !== '',
+  });
+}
+
+/** Where a version's live runs are, step by step (the move's preview). */
+export function useVersionOccupancy(id: string, number: number | undefined) {
+  return useQuery({
+    queryKey: queryKeys.workflows.version(id, number ?? 0, 'occupancy'),
+    queryFn: () =>
+      call(
+        api.GET(`${PATH}/{workflow_id}/versions/{number}/occupancy`, {
+          params: { path: { workflow_id: id, number: number ?? 0 } },
+        }),
+      ),
+    enabled: id !== '' && number !== undefined,
+  });
+}
+
+/** A version's steps: what a run's step can be moved onto. */
+export function useVersionSteps(id: string, number: number | undefined) {
+  return useQuery({
+    queryKey: queryKeys.workflows.version(id, number ?? 0, 'steps'),
+    queryFn: () =>
+      call(
+        api.GET(`${PATH}/{workflow_id}/versions/{number}/steps`, {
+          params: { path: { workflow_id: id, number: number ?? 0 } },
+        }),
+      ),
+    enabled: id !== '' && number !== undefined,
+  });
+}

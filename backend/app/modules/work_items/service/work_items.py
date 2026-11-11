@@ -350,6 +350,24 @@ async def may_edit(
     return await _may(session, subject, wtype, "edit", record_id)
 
 
+async def labels_of(
+    session: AsyncSession, wtype: WorkItemType, record_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[str, str]]:
+    """Display IDs and subjects by record ID, of this type only, trash excluded.
+
+    For another module that names records it has already checked the viewer may see (the
+    workflow overview, WP-048b S5a): one bounded query over those IDs, in the tenant session.
+    """
+    if not record_ids:
+        return {}
+    rows = await session.execute(
+        _rows(wtype)
+        .where(WorkItem.id.in_(list(record_ids)))
+        .with_only_columns(WorkItem.id, WorkItem.display_id, WorkItem.subject)
+    )
+    return {row.id: (row.display_id, row.subject) for row in rows}
+
+
 async def may_view(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> bool:
@@ -1806,6 +1824,12 @@ def _closed(record: WorkItem) -> bool:
     return StatusCategory(record.status_category) in FINAL_CATEGORIES
 
 
+def _change_locked(wtype: WorkItemType, record: WorkItem) -> None:
+    """A closed or canceled change is read-only (REQ-CHG-097): its schedule and downtime too."""
+    if wtype.code is WorkItemTypeCode.CHANGE and _closed(record):
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status})
+
+
 # --- create ---------------------------------------------------------------------------------------
 
 # What business rules see of a new record's input (with group, technician, priority and custom
@@ -3238,7 +3262,8 @@ DETAILS: Mapping[WorkItemTypeCode, DetailsSpec] = {
     WorkItemTypeCode.CHANGE: DetailsSpec(
         model=WorkItemChangeDetails,
         # The type and reason, and the risk: assessed and overridden (WP-045b S1, 0116).
-        fields=(*change_rules.DETAIL_FIELDS, *risk_rules.RISK_FIELDS),
+        # And the review's date (WP-045d S1, REQ-CHG-091; 0133).
+        fields=(*change_rules.DETAIL_FIELDS, *risk_rules.RISK_FIELDS, "review_due_at"),
         pick_lists=(
             ("change_type", PickList.CHANGE_TYPE),
             ("change_reason", PickList.CHANGE_REASON),
@@ -4114,6 +4139,7 @@ async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, 
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     model = await stage_service.load_model(session, wtype, record.lifecycle_version)
     if stage not in model.path(str(record.stage_path)).stages:
         raise NotFound(code="stage_not_found")
@@ -4247,6 +4273,7 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     row = None
     if downtime_id is not None:
         row = await session.scalar(
@@ -4327,6 +4354,7 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    _change_locked(wtype, record)
     row = await session.scalar(
         select(WorkItemDowntime).where(
             WorkItemDowntime.id == downtime_id,
@@ -5213,6 +5241,7 @@ async def save_detail_change(  # noqa: PLR0913 - the save and its history, expli
 
 
 may = _may
+is_closed = _closed
 audience_of = _audience
 now = _now
 field_errors = _errors

@@ -1,6 +1,6 @@
 import { PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { App, Form, Input, Select, Table } from 'antd';
+import { App, Flex, Form, Input, Select, Table } from 'antd';
 import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -33,6 +33,7 @@ import {
   usePageCrumbs,
 } from '@supportx/ui';
 
+import { WorkflowsNav } from './RunsPage';
 import { WORKFLOW_TYPES, type WorkflowType } from './types';
 
 /** Enabled, disabled or never published: the state an admin needs at a glance. */
@@ -213,47 +214,50 @@ export function WorkflowsPage() {
     <ListPage
       testId="workflows-list"
       header={
-        <PageHeader
-          title={t('nav.admin_workflows')}
-          count={list.data === undefined ? undefined : String(rows.length)}
-          testId="workflows-header"
-          extra={
-            <>
-              <WriteButton
-                icon={<UploadOutlined />}
-                loading={importing.isPending}
-                onClick={() => fileInput.current?.click()}
-                data-testid="workflows-import"
-              >
-                {t('workflows.import')}
-              </WriteButton>
-              <WriteButton
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setDialog('add');
-                }}
-                data-testid="workflows-add"
-              >
-                {t('workflows.add')}
-              </WriteButton>
-              <input
-                ref={fileInput}
-                type="file"
-                accept="application/json,.json"
-                hidden
-                aria-hidden
-                tabIndex={-1}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = '';
-                  if (file !== undefined) onFile(file);
-                }}
-                data-testid="workflows-import-file"
-              />
-            </>
-          }
-        />
+        <Flex vertical gap={8}>
+          <PageHeader
+            title={t('nav.admin_workflows')}
+            count={list.data === undefined ? undefined : String(rows.length)}
+            testId="workflows-header"
+            extra={
+              <>
+                <WriteButton
+                  icon={<UploadOutlined />}
+                  loading={importing.isPending}
+                  onClick={() => fileInput.current?.click()}
+                  data-testid="workflows-import"
+                >
+                  {t('workflows.import')}
+                </WriteButton>
+                <WriteButton
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    setDialog('add');
+                  }}
+                  data-testid="workflows-add"
+                >
+                  {t('workflows.add')}
+                </WriteButton>
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept="application/json,.json"
+                  hidden
+                  aria-hidden
+                  tabIndex={-1}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file !== undefined) onFile(file);
+                  }}
+                  data-testid="workflows-import-file"
+                />
+              </>
+            }
+          />
+          <WorkflowsNav active="list" />
+        </Flex>
       }
       filters={
         <FilterBar

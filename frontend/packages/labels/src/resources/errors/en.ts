@@ -304,6 +304,8 @@ export const en = {
   'errors.field.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.field.chair_inactive': 'Choose an active person as the chair.',
   'errors.field.change_in_other_release': 'This change is already in the open release {{release}}.',
+  'errors.field.change_would_loop':
+    'A change cannot be part of itself, directly or through others.',
   'errors.field.channel_reserved':
     'Only phone or walk-up can be chosen; other channels are set automatically.',
   'errors.field.choices_required': 'Add at least one choice.',
@@ -759,6 +761,7 @@ export const en = {
     'Your plan’s limit for this has been reached. Ask your administrator to extend the plan.',
   'errors.link_has_own_route':
     'This link is removed in its own place: unlink the incident, or undo the merge.',
+  'errors.link_not_found': 'This link does not exist, or it was removed.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
@@ -903,6 +906,8 @@ export const en = {
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
   'errors.site_not_found': 'The site was not found.',
+  'errors.skip_without_next':
+    'This step has no single next step to move on to, so it cannot be skipped; retry it or run the workflow again from a chosen step.',
   'errors.sla_fallback_required':
     'The default policy cannot be deleted: it applies when no other policy does.',
   'errors.sla_policy_not_found': 'This SLA policy does not exist or was deleted.',

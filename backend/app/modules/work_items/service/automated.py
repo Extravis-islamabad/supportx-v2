@@ -222,6 +222,15 @@ def _may_view(wtype: WorkItemType) -> automation.RecordViewCheck:
     return check
 
 
+def _labels(wtype: WorkItemType) -> automation.RecordLabeler:
+    async def labels(
+        session: AsyncSession, record_ids: Sequence[uuid.UUID]
+    ) -> Mapping[uuid.UUID, tuple[str, str]]:
+        return await items.labels_of(session, wtype, record_ids)
+
+    return labels
+
+
 def register_triggers() -> None:
     """Give every registered work item type its trigger hooks (module import, after types)."""
     for wtype in TYPES.values():
@@ -242,6 +251,7 @@ def register_triggers() -> None:
                 notices=wtype.code.value in workflow_commands.NOTICE_TYPES,
                 may_edit=_may_edit(wtype),  # ADR-043 §10: run, stop, restart on the record
                 may_view=_may_view(wtype),  # a test run shows the record's facts (REQ-WF-022)
+                labels=_labels(wtype),  # the workflow overview's record names (S5a)
                 close_workflow=workflow_approvals.close_for_instance,  # REQ-WF-026
                 record_migration=_record_migration,  # REQ-WF-021 AC2
                 known_templates=_known_templates(wtype),  # REQ-WF-010, -027

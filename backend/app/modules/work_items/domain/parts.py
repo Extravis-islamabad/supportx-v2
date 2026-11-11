@@ -62,6 +62,8 @@ class LinkKind(StrEnum):
     CHANGE_FOR = "change_for"
     # A change that is part of a release (WP-058b S1, REQ-REL-033; 0138): change -> release.
     IN_RELEASE = "in_release"
+    # A child change or a release -> the change it is part of (WP-045d, REQ-CHG-096; 0133).
+    PART_OF_CHANGE = "part_of_change"
 
 
 class WorklogProblem(StrEnum):

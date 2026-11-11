@@ -568,6 +568,28 @@ async def retry(
     return await _again(session, instance, done, moment)
 
 
+async def skip(
+    session: AsyncSession,
+    instance_id: uuid.UUID,
+    *,
+    expected_version: int | None,
+    now: datetime | None = None,
+) -> tuple[WorkflowInstance, str]:
+    """Move a failed instance past its failed step on that step's "next" (REQ-WF-024 AC2).
+
+    Returns the instance and the node it skipped, for the audit entry.
+    """
+    moment = now or datetime.now(UTC)
+    instance, definition = await _locked(session, instance_id, expected_version)
+    state = load(instance.state, instance.status, instance.failure)
+    node = state.failure.node if state.failure is not None else ""
+    try:
+        done = operations.skip(definition, state, at=moment)
+    except operations.OperationRefused as error:
+        raise _refused(error) from error
+    return await _again(session, instance, done, moment), node
+
+
 async def _again(
     session: AsyncSession,
     instance: WorkflowInstance,

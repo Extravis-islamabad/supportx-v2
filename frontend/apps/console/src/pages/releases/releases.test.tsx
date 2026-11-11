@@ -691,6 +691,36 @@ describe('console: releases', () => {
       ).toBe('"4"');
     });
 
+    it('REQ-WF-024 AC2: Skip asks first, then goes with the run’s If-Match', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(
+        {
+          [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] },
+          [`POST /api/v1/automation/workflows/instances/${INSTANCE}/skip`]: {
+            body: { ...failedRun.instance, status: 'finished', version: 5 },
+          },
+        },
+        PERMS,
+      );
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Workflows' }));
+      fireEvent.click(await screen.findByTestId(`record-workflow-skip-${INSTANCE}`));
+      const dialog = await screen.findByRole('dialog');
+      expect(dialog.textContent).toContain('Skip the step call?');
+      expect(dialog.textContent).toContain('recorded with your name');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Skip this step' }));
+      await waitFor(() => {
+        expect(
+          fake.find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/skip`),
+        ).toHaveLength(1);
+      });
+      expect(
+        fake
+          .find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/skip`)[0]
+          ?.headers.get('If-Match'),
+      ).toBe('"4"');
+    });
+
     it('REQ-WF-023 AC3: no Workflows tab without workflows.run', async () => {
       window.history.pushState({}, '', `/releases/${REL_ID}`);
       api({}, ['releases.view', 'releases.edit']);

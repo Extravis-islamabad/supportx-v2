@@ -1591,6 +1591,9 @@ class ChangeDetailsIn(BaseModel):
         default=None,
         description="Override the calculated risk (REQ-CHG-060): needs risk_reason. Null: none.",
     )
+    review_due_at: datetime | None = Field(
+        default=None, description="The post-implementation review's date (REQ-CHG-091)."
+    )
     risk_reason: str | None = Field(default=None, max_length=500)
 
 
@@ -1737,6 +1740,9 @@ class ChangeDetailsOut(BaseModel):
     risk_version: int | None = None
     risk_chosen: RiskLevel | None = Field(default=None, description="The override, if any.")
     risk_reason: str | None = None
+    review_due_at: datetime | None = Field(
+        default=None, description="The post-implementation review's date (REQ-CHG-091)."
+    )
     sent_back: bool = Field(
         default=False,
         description="Sent back for approval by a re-approval restart: an emergency override may "
@@ -1754,6 +1760,7 @@ class ChangeDetailsOut(BaseModel):
             retrospective=bool(getattr(row, "retrospective", False)),  # a change's row only
             **{n: getattr(row, n, None) for n in risk_rules.RISK_FIELDS},
             sent_back=getattr(row, "resume_stage", None) is not None,
+            review_due_at=getattr(row, "review_due_at", None),
         )
 
 
