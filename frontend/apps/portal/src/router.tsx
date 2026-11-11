@@ -82,6 +82,28 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        // WP-045d S4a: the requester's changes, one change, and the form to raise one.
+        path: 'changes',
+        handle: { titleKey: 'portal.changes.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/changes/ChangesPage')).ChangesPage,
+        }),
+      },
+      {
+        path: 'changes/new',
+        handle: { titleKey: 'portal.changes.raise' },
+        lazy: async () => ({
+          Component: (await import('./pages/changes/RaiseChangePage')).RaiseChangePage,
+        }),
+      },
+      {
+        path: 'changes/:id',
+        handle: { titleKey: 'portal.changes.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/changes/ChangePage')).ChangePage,
+        }),
+      },
+      {
         // WP-031: the catalog for requesters, and one item's request form.
         path: 'catalog',
         handle: { titleKey: 'nav.catalog' },

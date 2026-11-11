@@ -192,7 +192,7 @@ export function useMyApprovals() {
  * the service requests'. Optional: a plan without the type answers with an error, and the drawer
  * then simply has none of them, never a toast.
  */
-export function useMyTypeApprovals(type: 'problems' | 'releases') {
+export function useMyTypeApprovals(type: 'problems' | 'releases' | 'changes') {
   return useQuery({
     queryKey: [type, 'my-approvals'] as const,
     meta: { silent: true },
@@ -201,7 +201,9 @@ export function useMyTypeApprovals(type: 'problems' | 'releases') {
       call(
         type === 'problems'
           ? api.GET('/api/v1/problems/my-approvals')
-          : api.GET('/api/v1/releases/my-approvals'),
+          : type === 'releases'
+            ? api.GET('/api/v1/releases/my-approvals')
+            : api.GET('/api/v1/changes/my-approvals'),
       ),
   });
 }
@@ -229,7 +231,11 @@ export function useApproveMany() {
   });
 }
 
-/** Approve or reject with If-Match on the approval's version; the first decision decides. */
+/**
+ * Approve or reject with If-Match on the approval's version; the first decision decides. A
+ * change's approver decides through the change's own route (`type: 'changes'`, REQ-CHG-109
+ * AC3), the same engine and body.
+ */
 export function useDecideApproval() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -238,22 +244,35 @@ export function useDecideApproval() {
       approvalId,
       version,
       body,
+      type = 'service-requests',
     }: {
       recordId: string;
       approvalId: string;
       version: number;
       body: ApprovalDecision;
-    }) =>
-      call(
-        api.POST('/api/v1/service-requests/{record_id}/approvals/{approval_id}/decision', {
-          params: {
-            path: { record_id: recordId, approval_id: approvalId },
-            header: { 'If-Match': `"${String(version)}"` },
-          },
-          body,
-        }),
-      ),
-    onSettled: (_data, _error, { recordId }) => {
+      type?: 'service-requests' | 'changes';
+    }) => {
+      const params = {
+        path: { record_id: recordId, approval_id: approvalId },
+        header: { 'If-Match': `"${String(version)}"` },
+      };
+      return call(
+        type === 'changes'
+          ? api.POST('/api/v1/changes/{record_id}/approvals/{approval_id}/decision', {
+              params,
+              body,
+            })
+          : api.POST('/api/v1/service-requests/{record_id}/approvals/{approval_id}/decision', {
+              params,
+              body,
+            }),
+      );
+    },
+    onSettled: (_data, _error, { recordId, type }) => {
+      if (type === 'changes') {
+        void queryClient.invalidateQueries({ queryKey: ['changes', 'my-approvals'] });
+        return;
+      }
       void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(recordId) });
       void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.myApprovals });
     },

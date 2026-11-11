@@ -131,6 +131,7 @@ from app.modules.work_items.events import (
 )
 from app.modules.work_items.infra.models import (
     WorkItem,
+    WorkItemApproval,
     WorkItemCategory,
     WorkItemChangeDetails,
     WorkItemConversation,
@@ -894,6 +895,9 @@ async def view_filters(
         "my_overdue": _all(mine, open_, _cond("resolution_due_at", op="before_now")),
         "my_due_today": _all(mine, due_today),
         "waiting_on_me": _all(mine, _cond("status_category", "eq", StatusCategory.OPEN.value)),
+        # WP-045d S4a: approvals and the schedule are not in the DSL.
+        "pending_my_approval": NOT_EXPRESSIBLE,
+        "my_starting_today": NOT_EXPRESSIBLE,
         "updated_by_others": NOT_EXPRESSIBLE,  # "changed or written by someone else" needs SQL
         "unassigned_in_my_groups": both(
             _all(open_, _cond("technician_id", op="is_null")), in_groups
@@ -911,6 +915,19 @@ COUNTERS = (
     "updated_by_others",
     "unassigned_in_my_groups",
 )
+# REQ-CHG-117 (WP-045d S4a): a change's own counters, beside the ones every type has; "my overdue
+# changes" is `my_overdue` (the change's SLA due time).
+CHANGE_COUNTERS = (
+    "pending_my_approval",
+    "my_starting_today",
+)
+
+
+def counter_codes(wtype: WorkItemType) -> tuple[str, ...]:
+    """The type's personal counters, in their fixed order."""
+    return (*COUNTERS, *CHANGE_COUNTERS) if wtype.code is WorkItemTypeCode.CHANGE else COUNTERS
+
+
 RECENT = timedelta(hours=24)
 
 
@@ -953,6 +970,26 @@ def _personal(
         )
         if groups
         else WorkItem.id.is_(None),
+        # REQ-CHG-117: an approval waiting for this person (theirs, still pending), and their
+        # changes whose implementation window starts today (in the zone of the request).
+        "pending_my_approval": WorkItem.id.in_(
+            select(WorkItemApproval.work_item_id).where(
+                WorkItemApproval.approver_id == subject.user_id,
+                WorkItemApproval.state == "pending",
+                WorkItemApproval.deleted_at.is_(None),
+            )
+        ),
+        "my_starting_today": and_(
+            mine,
+            active,
+            WorkItem.id.in_(
+                select(WorkItemStageSchedule.work_item_id).where(
+                    WorkItemStageSchedule.stage == change_rules.IMPLEMENTATION,
+                    WorkItemStageSchedule.scheduled_start >= today_end - timedelta(days=1),
+                    WorkItemStageSchedule.scheduled_start < today_end,
+                )
+            ),
+        ),
     }
 
 
