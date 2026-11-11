@@ -1190,3 +1190,128 @@ class AssetOverdueRun(Base):
     changed_count: Mapped[int] = mapped_column(Integer)
     # Any: [{"asset_id": ..., "from_state_id": ..., "to_state_id": ...}] (IDs only).
     changed: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+
+
+# --- bulk jobs, merges and imports (migration 0145; WP-049b S4b) ------------------------------
+
+
+class AssetBulkJob(TenantEntity):
+    """A bulk action on up to 1,000 assets (REQ-AST-051), run by the consumers worker.
+
+    The assets are frozen when the job is asked for (`asset_ids`); each runs as the requester
+    (`created_by`) through the single-asset service call, with its own permission and scope
+    checks. `results` holds one entry per finished asset: {"id", "tag", "outcome", "code",
+    "field", "params"} (codes only; the screen words them).
+    """
+
+    __tablename__ = "asset_bulk_jobs"
+    __table_args__ = (
+        Index("ix_asset_bulk_jobs_requested", "tenant_id", "created_by", "created_at"),
+        Index(
+            "ix_asset_bulk_jobs_pending",
+            "tenant_id",
+            "created_at",
+            postgresql_where=text("status IN ('queued', 'running') AND deleted_at IS NULL"),
+        ),
+    )
+
+    action: Mapped[str] = mapped_column(String(20))
+    # Edit: the fields to set; move: the state and reason; assign: the holder. IDs and codes.
+    changes: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    source: Mapped[str] = mapped_column(String(20))  # history source of the request (ui, api)
+    asset_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid))
+    status: Mapped[str] = mapped_column(String(20), server_default="queued")
+    total: Mapped[int] = mapped_column(Integer)
+    processed: Mapped[int] = mapped_column(Integer, server_default="0")
+    done_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    skipped_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    results: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+
+
+class AssetMerge(TenantEntity):
+    """One asset merged into another (REQ-AST-052), and the alias it leaves.
+
+    The merged asset is in the trash; its tag, serial and barcode stay on it (unique, trash
+    included) and are copied here, so they still find the survivor. `mapping` is the field-by-
+    field choice ([{"field", "side"}], codes only; the values are in each asset's history).
+    A restore of the merged asset ends the alias (`restored_at`); it never undoes the merge.
+    """
+
+    __tablename__ = "asset_merges"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "survivor_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_merges_survivor",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "merged_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_merges_merged",
+        ),
+        Index(
+            "uq_asset_merges_merged",
+            "tenant_id",
+            "merged_id",
+            unique=True,
+            postgresql_where=text("restored_at IS NULL AND deleted_at IS NULL"),
+        ),
+        Index("ix_asset_merges_survivor", "tenant_id", "survivor_id"),
+        Index("ix_asset_merges_tag", "tenant_id", text("lower(merged_tag)")),
+        Index("ix_asset_merges_serial", "tenant_id", text("lower(merged_serial)")),
+        Index("ix_asset_merges_barcode", "tenant_id", text("lower(merged_barcode)")),
+    )
+
+    survivor_id: Mapped[uuid.UUID]
+    merged_id: Mapped[uuid.UUID]
+    merged_tag: Mapped[str | None] = mapped_column(String(120))
+    merged_serial: Mapped[str | None] = mapped_column(String(120))
+    merged_barcode: Mapped[str | None] = mapped_column(String(120))
+    # Any: [{"field": "name", "side": "survivor"}, ...] (codes only).
+    mapping: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    restored_at: Mapped[datetime | None]
+    restored_by: Mapped[uuid.UUID | None]
+
+
+class AssetImport(TenantEntity):
+    """One CSV or Excel file of assets, consumables or vendors (REQ-AST-053), in the background.
+
+    A dry run reads and checks every row inside savepoints it rolls back, so nothing changes;
+    it ends `checked`, keeping the file for the real run. The file is cleared once the real run
+    has read it. Results keep counts and per-row problems (row, field, code), never values.
+    """
+
+    __tablename__ = "asset_imports"
+    __table_args__ = (
+        Index("ix_asset_imports_requested", "tenant_id", "created_by", "created_at"),
+        Index(
+            "ix_asset_imports_pending",
+            "tenant_id",
+            "created_at",
+            postgresql_where=text("status IN ('queued', 'running') AND deleted_at IS NULL"),
+        ),
+    )
+
+    kind: Mapped[str] = mapped_column(String(20))
+    mode: Mapped[str] = mapped_column(String(20))
+    match_on: Mapped[str] = mapped_column(String(20))
+    dry_run: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    file_name: Mapped[str] = mapped_column(String(255))
+    file_format: Mapped[str] = mapped_column(String(10))
+    content: Mapped[bytes | None]
+    status: Mapped[str] = mapped_column(String(20), server_default="queued")
+    total: Mapped[int] = mapped_column(Integer, server_default="0")
+    processed: Mapped[int] = mapped_column(Integer, server_default="0")
+    created_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    updated_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    failed_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    # Any: [{"row": 12, "field": "site", "code": "site_not_found"}, ...] (codes only).
+    problems: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )
+    failure: Mapped[str | None] = mapped_column(String(50))
+    failure_detail: Mapped[str | None] = mapped_column(String(100))
+    checked_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]

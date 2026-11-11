@@ -17,6 +17,7 @@ from app.modules.identity_access import Subject
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import asset_links
+from app.shared.history import Source
 
 # "Still worked" as lane A counts it (D-153): open, paused or resolved; not closed or canceled.
 _WORKED = frozenset(
@@ -70,6 +71,22 @@ class WorkItemLinkedRecords:
     async def asset_ids_of(self, session: AsyncSession, work_item_id: uuid.UUID) -> list[uuid.UUID]:
         """The assets the record links now."""
         return await asset_links.asset_ids_of(session, work_item_id)
+
+    async def repoint_links(  # noqa: PLR0913 - the port's agreed signature
+        self,
+        session: AsyncSession,
+        from_asset_id: uuid.UUID,
+        to_asset_id: uuid.UUID,
+        *,
+        from_label: str,
+        to_label: str,
+        source: Source,
+    ) -> int:
+        """An asset merge (WP-049b S4b): lane A's `repoint_asset_links`, called as it is."""
+        return await asset_links.repoint_asset_links(
+            session, from_asset_id, to_asset_id, from_label=from_label, to_label=to_label,
+            source=source,
+        )  # fmt: skip
 
 
 PORT = WorkItemLinkedRecords()

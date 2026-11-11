@@ -435,6 +435,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset_group.members_added", AuditCategory.RECORDS, "assets"),
     ("asset_group.member_removed", AuditCategory.RECORDS, "assets"),
     ("asset.copied", AuditCategory.RECORDS, "assets"),
+    # WP-049b S4b: bulk jobs (REQ-AST-051), merges (052), imports (053).
+    ("asset.bulk_started", AuditCategory.RECORDS, "assets"),
+    ("asset.merged", AuditCategory.RECORDS, "assets"),
+    ("asset_import.started", AuditCategory.DATA, "assets"),
+    ("asset_import.run", AuditCategory.DATA, "assets"),
     # a save's lifecycle events that no route names (WP-064, domain/lifecycle.py)
     ("asset.relocated", AuditCategory.RECORDS, "assets"),
     ("asset.product_changed", AuditCategory.RECORDS, "assets"),
