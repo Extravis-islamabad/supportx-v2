@@ -316,6 +316,17 @@ async def test_req_chg_097_a_closed_change_is_locked_with_a_labelled_code(world:
             {"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
         ),
     ]
+    other = await a_change(world, a)
+    writes += [
+        # Lane B's review of #378: children and the freeze override are locked too.
+        ("POST", f"{CHG}/{item['id']}/children", {"child_id": other["id"]}, CONSOLE),
+        (
+            "POST",
+            f"{CHG}/{item['id']}/freeze-override",
+            {"reason": "Too late", "window_ids": [str(uuid.uuid4())]},
+            version,
+        ),
+    ]
     for method, url, body, headers in writes:
         refused = await world.call(method, url, a, a.admin, json=body, headers=headers)
         assert refused.status_code == 409, (method, url, refused.status_code, refused.text)

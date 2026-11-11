@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound
+from app.core.errors import Conflict, NotFound
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.changes import REVIEW_SECTIONS
 from app.modules.work_items.domain.parts import LinkKind
@@ -146,6 +146,12 @@ CHILD_TYPES = frozenset({WorkItemTypeCode.CHANGE, WorkItemTypeCode.RELEASE})
 CHANGE = TYPES[WorkItemTypeCode.CHANGE]
 
 
+def _not_closed(change: WorkItem) -> None:
+    """A closed or canceled change is locked (REQ-CHG-097): its children stay as they are."""
+    if items.is_closed(change):
+        raise Conflict(code=items.RECORD_CLOSED, params={"status": change.status})
+
+
 async def _parent_of(session: AsyncSession, record_id: uuid.UUID) -> uuid.UUID | None:
     return await session.scalar(
         select(WorkItemLink.target_id).where(
@@ -198,6 +204,7 @@ async def add_child(
     change then waits for it (the guard, REQ-CHG-096).
     """
     change = await items.record_for_action(session, subject, CHANGE, "edit", change_id)
+    _not_closed(change)
     found = await session.get(WorkItem, child_id)
     code = WorkItemTypeCode(found.type) if found is not None else None
     if found is None or code not in CHILD_TYPES or found.deleted_at is not None:
@@ -234,6 +241,7 @@ async def remove_child(
 ) -> None:
     """Take a child off the change (kept as history; the link is soft-deleted)."""
     change = await items.record_for_action(session, subject, CHANGE, "edit", change_id)
+    _not_closed(change)
     link = await session.scalar(
         select(WorkItemLink).where(
             WorkItemLink.id == link_id,
