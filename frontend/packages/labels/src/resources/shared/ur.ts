@@ -334,6 +334,22 @@ export const ur: LabelResource = {
     'زمرہ، ذیلی زمرہ اور آئٹم۔ ریٹائرڈ اندراجات نئے واقعات پر پیش نہیں ہوتے لیکن انہیں استعمال کرنے والے واقعات پر نظر آتے رہتے ہیں۔',
   'settings.changed_elsewhere':
     'کسی اور نے ابھی یہ ترتیبات بدلی ہیں۔ تازہ ترین ورژن دکھایا گیا ہے؛ براہِ کرم اپنی تبدیلی دوبارہ کریں۔',
+  'settings.checklists.add': 'نئی لائبریری چیک لسٹ',
+  'settings.checklists.enabled_named': '{{name}} پیش کریں',
+  'settings.checklists.help':
+    'تیار چیک لسٹس جو ٹیکنیشن کسی واقعے میں شامل کر سکتا ہے۔ واقعے کو اپنی نقل ملتی ہے: یہاں تبدیلی ان واقعات کو نہیں بدلتی جن میں یہ پہلے سے ہے۔',
+  'settings.checklists.import': 'CSV فائل سے آئٹمز شامل کریں',
+  'settings.checklists.imported':
+    '{{items}} آئٹمز پڑھے گئے، {{rejected}} قطاریں شامل نہیں ہوئیں۔ جائزہ لیں، پھر محفوظ کریں۔',
+  'settings.checklists.items': 'آئٹمز',
+  'settings.checklists.items_count_one': '{{count}} آئٹم',
+  'settings.checklists.items_count_other': '{{count}} آئٹمز',
+  'settings.checklists.items_help': 'ہر سطر میں ایک آئٹم۔ خالی سطریں شامل نہیں ہوتیں۔',
+  'settings.checklists.name': 'نام',
+  'settings.checklists.none': 'لائبریری میں ابھی کوئی چیک لسٹ نہیں۔',
+  'settings.checklists.rejected_row': 'قطار {{row}}: {{reason}}',
+  'settings.checklists.title': 'چیک لسٹ لائبریری',
+  'settings.checklists.why.name': 'پہلے چیک لسٹ کا نام دیں۔',
   'settings.closing.auto_close': 'حل شدہ واقعات خودکار طور پر بند کریں',
   'settings.closing.auto_close_days': 'خودکار بندش سے پہلے کاروباری دن',
   'settings.closing.auto_close_help':
@@ -462,6 +478,7 @@ export const ur: LabelResource = {
     'اسے کتنی جلدی ٹھیک کرنا ہے۔ چار قدریں مقرر ہیں؛ آپ ان کا نام بدل سکتے ہیں۔',
   'settings.section.business-rules': 'کاروباری اصول',
   'settings.section.categories': 'زمرے',
+  'settings.section.checklists': 'چیک لسٹس',
   'settings.section.closing': 'بندش',
   'settings.section.closure-codes': 'بندش کے کوڈ',
   'settings.section.custom-fields': 'اپنی مرضی کے خانے',
