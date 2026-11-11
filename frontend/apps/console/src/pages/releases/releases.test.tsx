@@ -1,7 +1,13 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeCustomField, fakeIncident, fakeSession, problem } from '@supportx/api-client/testing';
+import {
+  fakeCustomField,
+  fakeIncident,
+  fakeSession,
+  fakeUser,
+  problem,
+} from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
@@ -590,6 +596,116 @@ describe('console: releases', () => {
       await within(tab).findByText('Database upgrade');
       expect(screen.queryByTestId('release-change-add')).toBeNull();
       expect(screen.queryByTestId(`release-change-remove-${CHG}`)).toBeNull();
+    });
+  });
+
+  describe('conflicts on the Schedule tab (WP-058b S2; REQ-REL-040, -041)', () => {
+    const FREEZE = '01a1a2b3-0000-7000-8000-00000058c001';
+    const OTHER = '01a1a2b3-0000-7000-8000-00000058c002';
+    const MANAGER = '01a1a2b3-0000-7000-8000-00000058c003';
+    const base = {
+      starts_at: '2027-03-06T22:00:00Z',
+      ends_at: '2027-03-07T02:00:00Z',
+      window_id: null,
+      window_name: null,
+      window_labels: null,
+      record_id: null,
+      record_type: null,
+      ack: null,
+    };
+    const conflicts = {
+      items: [
+        {
+          ...base,
+          kind: 'freeze',
+          blocks: true,
+          window_id: FREEZE,
+          window_name: 'Quarter close',
+          key: 'freeze:f',
+        },
+        {
+          ...base,
+          kind: 'overlap',
+          blocks: false,
+          record_id: OTHER,
+          record_type: 'release',
+          key: 'overlap:o',
+        },
+        {
+          ...base,
+          kind: 'role_booked',
+          blocks: false,
+          record_id: OTHER,
+          record_type: 'release',
+          key: 'role_booked:r',
+          ack: {
+            acked_by: MANAGER,
+            acked_at: '2027-03-01T08:00:00Z',
+            reason: 'Two engineers on call',
+          },
+        },
+      ],
+      passed_window_ids: [],
+    };
+    const routes = {
+      [`GET /api/v1/releases/${REL_ID}/schedule`]: { body: [] },
+      [`GET /api/v1/releases/${REL_ID}/conflicts`]: { body: conflicts },
+      [`POST /api/v1/releases/${REL_ID}/conflicts/acks`]: { body: { version: 8 } },
+      [`POST /api/v1/releases/${REL_ID}/freeze-override`]: { body: { version: 8 } },
+      [`GET /api/v1/users/${MANAGER}`]: {
+        body: fakeUser({ id: MANAGER, display_name: 'Rania Khan' }),
+      },
+    };
+
+    it('names another release by type, says who acknowledged what, and acknowledges with a reason', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(routes, ['releases.view', 'releases.edit']);
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Schedule' }));
+      const panel = await screen.findByTestId('release-conflicts');
+      const overlap = within(panel).getByTestId('release-conflict-overlap');
+      expect(overlap.textContent).toContain('At the same time as another release');
+      expect(overlap.textContent).toContain('Another release');
+      expect(await within(panel).findByText('Rania Khan')).toBeDefined();
+      expect(within(panel).getByTestId('release-conflict-acked').textContent).toContain(
+        'Two engineers on call',
+      );
+      // No override without releases.override_freeze; a block is never acknowledged.
+      expect(screen.queryByTestId('release-freeze-override')).toBeNull();
+      expect(screen.queryByTestId('release-conflict-ack-freeze')).toBeNull();
+      fireEvent.click(within(overlap).getByTestId('release-conflict-ack-overlap'));
+      fireEvent.change(await screen.findByTestId('release-ack-reason'), {
+        target: { value: 'Same team, agreed' },
+      });
+      fireEvent.click(screen.getByTestId('release-ack-ok'));
+      await waitFor(() => {
+        expect(fake.find('POST', `/api/v1/releases/${REL_ID}/conflicts/acks`)).toHaveLength(1);
+      });
+      const [sent] = fake.find('POST', `/api/v1/releases/${REL_ID}/conflicts/acks`);
+      expect(sent?.body).toEqual({ key: 'overlap:o', reason: 'Same team, agreed' });
+      expect(sent?.headers.get('If-Match')).toBe('"7"');
+    });
+
+    it('with releases.override_freeze: passes only the blocking freezes, with a reason', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(routes, ['releases.view', 'releases.edit', 'releases.override_freeze']);
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Schedule' }));
+      fireEvent.click(await screen.findByTestId('release-freeze-override'));
+      expect((await screen.findByTestId('release-override')).textContent).toContain(
+        'only this freeze is passed',
+      );
+      fireEvent.change(screen.getByTestId('release-override-reason'), {
+        target: { value: 'Payroll must go out' },
+      });
+      fireEvent.click(screen.getByTestId('release-override-ok'));
+      await waitFor(() => {
+        expect(fake.find('POST', `/api/v1/releases/${REL_ID}/freeze-override`)).toHaveLength(1);
+      });
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/freeze-override`)[0]?.body).toEqual({
+        reason: 'Payroll must go out',
+        window_ids: [FREEZE],
+      });
     });
   });
 

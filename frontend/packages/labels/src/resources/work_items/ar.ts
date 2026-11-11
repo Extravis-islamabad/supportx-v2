@@ -1701,6 +1701,13 @@ export const ar: LabelResource = {
   'releases.changes.search': 'البحث بالرقم أو العنوان',
   'releases.col.id': 'الرقم',
   'releases.col.updated': 'آخر تحديث',
+  'releases.conflicts.ack': 'إقرار',
+  'releases.conflicts.ack_title': 'الإقرار بهذا التعارض',
+  'releases.conflicts.ack_warning':
+    'يبقى التعارض ظاهرًا مع اسمك وسببك. إذا تغيّر موعد أيٍّ من الطرفين، يظهر من جديد كتعارض جديد.',
+  'releases.conflicts.acked': 'أقرّ به',
+  'releases.conflicts.blocks': 'يمنع الإصدار',
+  'releases.conflicts.reason': 'السبب',
   'releases.create': 'إنشاء الإصدار',
   'releases.downtime.add': 'إضافة توقف',
   'releases.downtime.delete_confirm': 'حذف فترة التوقف هذه؟',
@@ -1713,6 +1720,19 @@ export const ar: LabelResource = {
   'releases.downtime.starts': 'يبدأ',
   'releases.emergency': 'طارئ',
   'releases.empty': 'لا توجد إصدارات بعد.',
+  'releases.freeze.override_title': 'المتابعة خلال فترة تجميد',
+  'releases.freeze.override_warning_few':
+    'يتابع هذا الإصدار رغم {{count}} فترات تجميد تمنعه. يُسجَّل سببك في سجله وفي سجل التدقيق، ولا تُتجاوز إلا هذه الفترات.',
+  'releases.freeze.override_warning_many':
+    'يتابع هذا الإصدار رغم {{count}} فترة تجميد تمنعه. يُسجَّل سببك في سجله وفي سجل التدقيق، ولا تُتجاوز إلا هذه الفترات.',
+  'releases.freeze.override_warning_one':
+    'يتابع هذا الإصدار رغم فترة التجميد التي تمنعه. يُسجَّل سببك في سجله وفي سجل التدقيق، ولا تُتجاوز إلا هذه الفترة.',
+  'releases.freeze.override_warning_other':
+    'يتابع هذا الإصدار رغم {{count}} فترة تجميد تمنعه. يُسجَّل سببك في سجله وفي سجل التدقيق، ولا تُتجاوز إلا هذه الفترات.',
+  'releases.freeze.override_warning_two':
+    'يتابع هذا الإصدار رغم فترتَي التجميد اللتين تمنعانه. يُسجَّل سببك في سجله وفي سجل التدقيق، ولا تُتجاوز إلا هاتان الفترتان.',
+  'releases.freeze.override_warning_zero':
+    'يتابع هذا الإصدار رغم فترات التجميد التي تمنعه. يُسجَّل سببك في سجله وفي سجل التدقيق، ولا تُتجاوز إلا هذه الفترات.',
   'releases.move.confirm': 'نقل',
   'releases.move.reason': 'السبب',
   'releases.move.title': 'النقل إلى {{status}}',

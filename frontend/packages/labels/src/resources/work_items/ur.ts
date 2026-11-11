@@ -1551,6 +1551,13 @@ export const ur: LabelResource = {
   'releases.changes.search': 'نمبر یا عنوان سے تلاش کریں',
   'releases.col.id': 'نمبر',
   'releases.col.updated': 'تازہ کاری',
+  'releases.conflicts.ack': 'تسلیم کریں',
+  'releases.conflicts.ack_title': 'یہ ٹکراؤ تسلیم کریں',
+  'releases.conflicts.ack_warning':
+    'ٹکراؤ آپ کے نام اور وجہ کے ساتھ فہرست میں رہتا ہے۔ اگر کسی بھی طرف کا وقت بدلے تو یہ نئے سرے سے دکھایا جاتا ہے۔',
+  'releases.conflicts.acked': 'تسلیم کیا:',
+  'releases.conflicts.blocks': 'ریلیز کو روکتا ہے',
+  'releases.conflicts.reason': 'وجہ',
   'releases.create': 'ریلیز بنائیں',
   'releases.downtime.add': 'بندش شامل کریں',
   'releases.downtime.delete_confirm': 'یہ ڈاؤن ٹائم حذف کریں؟',
@@ -1563,6 +1570,11 @@ export const ur: LabelResource = {
   'releases.downtime.starts': 'شروع',
   'releases.emergency': 'ہنگامی',
   'releases.empty': 'ابھی کوئی ریلیز نہیں۔',
+  'releases.freeze.override_title': 'فریز کے دوران آگے بڑھیں',
+  'releases.freeze.override_warning_one':
+    'یہ ریلیز اسے روکنے والے فریز کے دوران آگے بڑھتی ہے۔ آپ کی وجہ اس کی تاریخ اور آڈٹ لاگ میں درج ہوتی ہے، اور صرف یہی فریز پار ہوتا ہے۔',
+  'releases.freeze.override_warning_other':
+    'یہ ریلیز اسے روکنے والے {{count}} فریز کے دوران آگے بڑھتی ہے۔ آپ کی وجہ اس کی تاریخ اور آڈٹ لاگ میں درج ہوتی ہے، اور صرف یہی فریز پار ہوتے ہیں۔',
   'releases.move.confirm': 'منتقل کریں',
   'releases.move.reason': 'وجہ',
   'releases.move.title': '{{status}} پر منتقل کریں',

@@ -1547,6 +1547,13 @@ export const en = {
   'releases.changes.search': 'Search by number or title',
   'releases.col.id': 'Number',
   'releases.col.updated': 'Updated',
+  'releases.conflicts.ack': 'Acknowledge',
+  'releases.conflicts.ack_title': 'Acknowledge this conflict',
+  'releases.conflicts.ack_warning':
+    'The conflict stays listed, marked with your name and reason. If either side moves, it shows again as new.',
+  'releases.conflicts.acked': 'Acknowledged by',
+  'releases.conflicts.blocks': 'Blocks the release',
+  'releases.conflicts.reason': 'Why',
   'releases.create': 'Create release',
   'releases.downtime.add': 'Add downtime',
   'releases.downtime.delete_confirm': 'Delete this downtime?',
@@ -1559,6 +1566,11 @@ export const en = {
   'releases.downtime.starts': 'Starts',
   'releases.emergency': 'Emergency',
   'releases.empty': 'No releases yet.',
+  'releases.freeze.override_title': 'Go ahead in a freeze',
+  'releases.freeze.override_warning_one':
+    'This release goes ahead in the freeze that blocks it. Your reason is recorded in its history and the audit log, and only this freeze is passed.',
+  'releases.freeze.override_warning_other':
+    'This release goes ahead in the {{count}} freezes that block it. Your reason is recorded in its history and the audit log, and only these freezes are passed.',
   'releases.move.confirm': 'Move',
   'releases.move.reason': 'Reason',
   'releases.move.title': 'Move to {{status}}',
