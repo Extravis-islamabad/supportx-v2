@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
@@ -548,16 +548,102 @@ async def list_instances(
     return [_instance(r) for r in rows]
 
 
-@router.get("/instances/{instance_id}/steps", summary="An instance's log")
-async def steps(instance_id: uuid.UUID, session: TenantSession, subject: Run) -> list[StepOut]:
-    """Every node run with its result and time (REQ-WF-023 AC2)."""
-    del subject
+async def _visible(
+    session: TenantSession, subject: Subject, record_type: str, record_id: uuid.UUID
+) -> None:
+    """A record's workflows are shown only to someone who may see the record (REQ-WF-023 AC3).
+
+    Its type's own view rule decides, as on the record's page; anything else is a 404, so a
+    record that cannot be seen is not even confirmed to exist.
+    """
+    kind = registered(record_type)
+    if (
+        kind is None
+        or kind.may_view is None
+        or not await kind.may_view(session, subject, record_id)
+    ):
+        raise NotFound(code="record_not_found")
+
+
+STEPS_MAX = 500  # a record panel's log: the latest steps of one run
+
+
+async def _steps_of(session: TenantSession, instance_id: uuid.UUID) -> list[StepOut]:
     rows = await session.scalars(
         select(WorkflowStep)
         .where(WorkflowStep.instance_id == instance_id)
-        .order_by(WorkflowStep.seq)
+        .order_by(WorkflowStep.seq.desc())
+        .limit(STEPS_MAX)
     )
-    return [StepOut.model_validate(r, from_attributes=True) for r in rows]
+    return [StepOut.model_validate(r, from_attributes=True) for r in reversed(list(rows))]
+
+
+@router.get("/instances/{instance_id}/steps", summary="An instance's log")
+async def steps(instance_id: uuid.UUID, session: TenantSession, subject: Run) -> list[StepOut]:
+    """Every node run with its result and time (REQ-WF-023 AC2), for those who see the record."""
+    instance = await session.get(WorkflowInstance, instance_id)
+    if instance is None:
+        raise NotFound(code="workflow_instance_not_found")
+    await _visible(session, subject, instance.record_type, instance.record_id)
+    return await _steps_of(session, instance_id)
+
+
+class RecordWorkflowOut(BaseModel):
+    """One workflow run on a record, everything its panel draws (REQ-WF-023, -024)."""
+
+    instance: InstanceOut
+    workflow_name: str
+    definition: dict[str, Any] = Field(description="The version it runs, to draw its diagram.")
+    current_nodes: list[str] = Field(description="Where it is now (marked on the diagram).")
+    steps: list[StepOut] = Field(description=f"Its log, oldest first (the last {STEPS_MAX}).")
+
+
+@router.get(
+    "/records/{record_type}/{record_id}",
+    summary="The workflows on a record, for its Workflows panel",
+)
+async def record_workflows(
+    record_type: Annotated[str, Path(min_length=1, max_length=20)],
+    record_id: uuid.UUID,
+    session: TenantSession,
+    subject: Run,
+) -> list[RecordWorkflowOut]:
+    """Newest first: each run with its diagram, position and log.
+
+    Requesters never get here (workflows.run), and nobody sees the runs of a record they
+    cannot see (404).
+    """
+    await _visible(session, subject, record_type, record_id)
+    rows = list(
+        await session.scalars(
+            select(WorkflowInstance)
+            .where(
+                WorkflowInstance.record_type == record_type,
+                WorkflowInstance.record_id == record_id,
+            )
+            .order_by(WorkflowInstance.started_at.desc())
+            .limit(50)
+        )
+    )
+    found = []
+    for row in rows:
+        flow = await session.get(Workflow, row.workflow_id)
+        version = await session.scalar(
+            select(WorkflowVersion).where(
+                WorkflowVersion.workflow_id == row.workflow_id,
+                WorkflowVersion.number == row.version_number,
+            )
+        )
+        found.append(
+            RecordWorkflowOut(
+                instance=_instance(row),
+                workflow_name=flow.name if flow is not None else "",
+                definition=dict(version.definition) if version is not None else {},
+                current_nodes=_current(row.state),
+                steps=await _steps_of(session, row.id),
+            )
+        )
+    return found
 
 
 async def _editable(
