@@ -9,9 +9,12 @@ import { useLabel } from '../appearance';
  * overflow menu puts its button inside the tab list, which may hold only tabs (axe
  * aria-required-children), so it stays hidden (AppearanceProvider) and the row scrolls
  * instead. A row that scrolls with no visible control could not be reached by a mouse
- * (the designer's Test and Versions tabs), so these sit beside the list, outside it, on the
- * side there is more to see. The keyboard moves through the tabs with the arrow keys; the
- * focused tab is scrolled into view.
+ * (the designer's Test and Versions tabs), so these sit beside the list, outside it. While the
+ * row overflows, its scrolling part is narrowed by a button's width on each side and the
+ * buttons sit in that room: they never cover a tab, so a click on a tab is never taken by a
+ * button (the #402 smoke run: Test could not be clicked under "Later tabs"). Each is disabled
+ * when there is nothing more that way. The keyboard moves through the tabs with the arrow
+ * keys; the focused tab is scrolled into view.
  */
 const WIDTH = 32;
 
@@ -20,7 +23,7 @@ function ScrollButtons() {
   const { token } = theme.useToken();
   const anchor = useRef<HTMLSpanElement>(null);
   const [wrap, setWrap] = useState<HTMLElement | null>(null);
-  const [can, setCan] = useState({ back: false, on: false });
+  const [can, setCan] = useState({ over: false, back: false, on: false });
   // Where the row's scrolling part is, inside the tabs box: the buttons sit on its two ends,
   // never over the content beside the row (tabBarExtraContent).
   const [box, setBox] = useState({ top: 0, height: 0, left: 0, right: 0 });
@@ -41,7 +44,12 @@ function ScrollButtons() {
     // In RTL scrollLeft runs from 0 to negative: the distance from the start is its size.
     const from = Math.abs(wrap.scrollLeft);
     const room = wrap.scrollWidth - wrap.clientWidth;
-    setCan({ back: from > 1, on: room - from > 1 });
+    // The room the buttons take counts back in, so the row stops overflowing (and the buttons
+    // go) only once it fits without them.
+    const narrowed = wrap.style.marginInline !== '' ? 2 * WIDTH : 0;
+    const over = room - narrowed > 1 || (narrowed === 0 && room > 1);
+    wrap.style.marginInline = over ? `${String(WIDTH)}px` : '';
+    setCan({ over, back: over && from > 1, on: over && room - from > 1 });
     const outer = wrap.closest('.ant-tabs')?.getBoundingClientRect();
     const inner = wrap.getBoundingClientRect();
     if (outer !== undefined) {
@@ -69,6 +77,7 @@ function ScrollButtons() {
     const list = wrap.querySelector('.ant-tabs-nav-list');
     if (list !== null) watch?.observe(list);
     return () => {
+      wrap.style.marginInline = '';
       wrap.removeEventListener('scroll', measure);
       wrap.removeEventListener('focusin', onFocus);
       watch?.disconnect();
@@ -87,6 +96,7 @@ function ScrollButtons() {
       className="sx-tabs-scroll"
       aria-label={t(towardsEnd ? 'layout.tabs_later' : 'layout.tabs_earlier')}
       title={t(towardsEnd ? 'layout.tabs_later' : 'layout.tabs_earlier')}
+      disabled={towardsEnd ? !can.on : !can.back}
       onClick={() => {
         go(towardsEnd);
       }}
@@ -95,18 +105,18 @@ function ScrollButtons() {
         position: 'absolute',
         top: box.top,
         height: box.height,
-        // Physical places: the box was measured on screen. The end is on the left in RTL.
-        left: towardsEnd !== rtl ? box.right - WIDTH : box.left,
+        // In the room beside the scrolling part, never over it. Physical places: the box was
+        // measured on screen, and the end is on the left in RTL.
+        left: towardsEnd !== rtl ? box.right : box.left - WIDTH,
         zIndex: 2,
         width: WIDTH,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         border: 'none',
-        cursor: 'pointer',
-        color: token.colorText,
+        cursor: (towardsEnd ? can.on : can.back) ? 'pointer' : 'default',
+        color: (towardsEnd ? can.on : can.back) ? token.colorText : token.colorTextDisabled,
         background: token.colorBgContainer,
-        boxShadow: `${towardsEnd !== rtl ? '-' : ''}6px 0 6px -4px ${token.colorBorder}`,
       }}
     >
       {/* The arrow points the way the row moves on screen, mirrored in RTL. */}
@@ -115,8 +125,8 @@ function ScrollButtons() {
   );
   return (
     <span ref={anchor} style={{ display: 'contents' }}>
-      {can.back && button(false)}
-      {can.on && button(true)}
+      {can.over && button(false)}
+      {can.over && button(true)}
     </span>
   );
 }

@@ -25,7 +25,7 @@ function overflowing(scrollLeft: number) {
 }
 
 describe('Tabs', () => {
-  it('shows only the way there is more to see, outside the tab list, and scrolls on a click', () => {
+  it('shows its buttons beside the row, outside the tab list, and scrolls on a click', () => {
     overflowing(0);
     const scrollBy = vi.fn();
     HTMLElement.prototype.scrollBy = scrollBy;
@@ -35,14 +35,19 @@ describe('Tabs', () => {
       </AppearanceProvider>,
     );
     const later = screen.getByTestId('tabs-scroll-later');
-    expect(screen.queryByTestId('tabs-scroll-earlier')).toBeNull();
+    // Both show while the row overflows; the way with nothing more is disabled.
+    expect(screen.getByTestId('tabs-scroll-earlier').hasAttribute('disabled')).toBe(true);
+    expect(later.hasAttribute('disabled')).toBe(false);
     expect(later.closest('[role="tablist"]')).toBeNull();
+    // The scrolling part is narrowed so the buttons sit beside it, never over a tab.
+    const wrap = document.querySelector<HTMLElement>('.ant-tabs-nav-wrap');
+    expect(wrap?.style.marginInline).toBe('32px');
     expect(later.getAttribute('aria-label')).toBe('Later tabs');
     fireEvent.click(later);
     expect(scrollBy).toHaveBeenCalledWith({ left: 210, behavior: 'smooth' });
   });
 
-  it('at the end of the row only the way back is offered', () => {
+  it('at the end of the row only the way back can be used', () => {
     overflowing(600);
     render(
       <AppearanceProvider initialMode="light">
@@ -52,8 +57,8 @@ describe('Tabs', () => {
     act(() => {
       document.querySelector('.ant-tabs-nav-wrap')?.dispatchEvent(new Event('scroll'));
     });
-    expect(screen.getByTestId('tabs-scroll-earlier')).toBeTruthy();
-    expect(screen.queryByTestId('tabs-scroll-later')).toBeNull();
+    expect(screen.getByTestId('tabs-scroll-earlier').hasAttribute('disabled')).toBe(false);
+    expect(screen.getByTestId('tabs-scroll-later').hasAttribute('disabled')).toBe(true);
   });
 
   it('a row that fits has no buttons', () => {
