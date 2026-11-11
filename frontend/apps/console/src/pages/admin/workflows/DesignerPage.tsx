@@ -706,12 +706,14 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
           >
             <Background gap={20} />
             <Controls position={rtl ? 'bottom-right' : 'bottom-left'} />
-            <MiniMap
-              position={rtl ? 'bottom-left' : 'bottom-right'}
-              pannable
-              zoomable
-              style={{ width: 120, height: 80 }}
-            />
+            {wide && (
+              <MiniMap
+                position={rtl ? 'bottom-left' : 'bottom-right'}
+                pannable
+                zoomable
+                style={{ width: 120, height: 80 }}
+              />
+            )}
             <Panel position={rtl ? 'top-right' : 'top-left'}>
               <Space wrap>
                 <Button

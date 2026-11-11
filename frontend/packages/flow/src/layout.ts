@@ -8,7 +8,7 @@ import type { FlowDefinition, FlowPosition } from './definition';
 //   4. rows are centred on x = 0, so the diagram mirrors cleanly in RTL.
 // It is deterministic: the same definition always lays out the same way.
 
-export const COLUMN = 260;
+export const COLUMN = 320; // a node is up to ~300 px wide (three outputs side by side)
 export const ROW = 140;
 
 export function layout(definition: FlowDefinition): Map<string, FlowPosition> {

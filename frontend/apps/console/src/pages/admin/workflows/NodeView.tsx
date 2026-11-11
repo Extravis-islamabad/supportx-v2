@@ -32,8 +32,9 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
       data-testid={`node-${id}`}
       data-state={data.state}
       style={{
-        minWidth: 180,
-        maxWidth: 240,
+        // Wide enough for each output's name side by side (three on a wait: the 390 shot).
+        minWidth: Math.max(180, data.ports.length * 100),
+        maxWidth: Math.max(240, data.ports.length * 110),
         background: passed ? token.colorSuccessBg : token.colorBgContainer,
         border: `${String(current || selected || flagged ? 2 : 1)}px solid ${border}`,
         borderRadius: token.borderRadiusLG,
