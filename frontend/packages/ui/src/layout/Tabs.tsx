@@ -65,10 +65,19 @@ function ScrollButtons() {
   useEffect(() => {
     if (wrap === null) return undefined;
     measure();
+    // Keyboard focus only: a tab focused by the pointer's press must not move before the press
+    // ends, or the click never lands and the tab is not chosen (the #402 smoke run: the
+    // designer's Test tab and an incident's Automation tab took focus but stayed unselected).
     const onFocus = (event: FocusEvent) => {
-      if (event.target instanceof HTMLElement) {
-        event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const tab = event.target;
+      if (!(tab instanceof HTMLElement)) return;
+      let keyboard: boolean;
+      try {
+        keyboard = tab.matches(':focus-visible');
+      } catch {
+        keyboard = false; // an engine without :focus-visible: never move on focus
       }
+      if (keyboard) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     };
     wrap.addEventListener('scroll', measure, { passive: true });
     wrap.addEventListener('focusin', onFocus);
