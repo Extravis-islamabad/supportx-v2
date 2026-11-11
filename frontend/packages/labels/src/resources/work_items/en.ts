@@ -619,9 +619,8 @@ export const en = {
   'checklists.add': 'Add checklist',
   'checklists.add_item': 'Add item',
   'checklists.done_on_close': 'Ticked when the record closed, {{at}}',
-  'checklists.dropped_one': '{{count}} item was left out: the record has reached its item limit.',
-  'checklists.dropped_other':
-    '{{count}} items were left out: the record has reached its item limit.',
+  'checklists.dropped_one': '{{count}} empty item was left out.',
+  'checklists.dropped_other': '{{count}} empty items were left out.',
   'checklists.from_library': 'From the library',
   'checklists.item_placeholder': 'New item',
   'checklists.no_items': 'No items yet.',

@@ -33,7 +33,7 @@ from app.modules.work_items.domain.checklists import (
 )
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import WorkItemType
-from app.modules.work_items.events import WorkItemPartChangedV3
+from app.modules.work_items.events import WorkItemPartChangedV3, WorkItemSettingsChanged
 from app.modules.work_items.infra.models import (
     ChecklistLibrary,
     WorkItem,
@@ -41,6 +41,7 @@ from app.modules.work_items.infra.models import (
     WorkItemChecklistItem,
     WorkItemTypeSettings,
 )
+from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import parts
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import FIELDS
@@ -501,6 +502,12 @@ async def save_library(
     if problems:
         raise _problems(problems)
     repo = LibraryRepository(session)
+    # Every open settings screen and record picker hears of it (rule c): the type's settings event.
+    await record_event(
+        session,
+        WorkItemSettingsChanged(type=wtype.code, changed_fields=["checklist_library"]),
+        aggregate_id=config.settings_record_id(wtype.code),
+    )
     if library_id is None:
         return await repo.add(ChecklistLibrary(type=wtype.code, **changes))
     found: ChecklistLibrary | None = await session.scalar(

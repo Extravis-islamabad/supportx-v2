@@ -124,6 +124,7 @@ class ClosureSettings:
     auto_close_days: int | None
     reopen_window_days: int
     task_owner_access: bool = False  # WP-020e (D-112)
+    checklist_item_max: int = 100  # WP-046a S2: items per record, all its checklists
 
 
 @dataclass(frozen=True)
@@ -764,6 +765,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             auto_close_days=settings.auto_close_days,
             reopen_window_days=settings.reopen_window_days,
             task_owner_access=settings.task_owner_access,
+            checklist_item_max=settings.checklist_item_max,
         ),
         last_number=await last_number(session, wtype.counter_key),
     )

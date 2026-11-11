@@ -354,6 +354,9 @@ export const ar: LabelResource = {
   'settings.closing.auto_close_needs_notifications':
     'يتطلب إشعارات مقدّمي الطلبات: يبقى الإغلاق التلقائي متوقفًا حتى تتوفر قناة (البريد الإلكتروني أو البوابة) تُبلغ مقدّمي الطلبات بالحل. لا تُغلق أي حادثة لمقدّم طلب لم يُبلَّغ.',
   'settings.closing.channel_state': '{{channel}}: {{reason}}.',
+  'settings.closing.checklist_item_max': 'عناصر قوائم التحقق لكل سجل',
+  'settings.closing.checklist_item_max_help':
+    'كل قوائم التحقق في السجل معًا، من {{min}} إلى {{max}}. تُرفض القائمة الأطول ولا تُقتطع.',
   'settings.closing.close_requires': 'مطلوب قبل الإغلاق',
   'settings.closing.close_requires_help': 'الحقول التي يجب ملؤها قبل إغلاق الحادثة.',
   'settings.closing.complete_open_work': 'إكمال العمل المفتوح عند الإغلاق',

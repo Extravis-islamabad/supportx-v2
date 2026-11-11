@@ -343,6 +343,9 @@ export const en = {
   'settings.closing.auto_close_needs_notifications':
     'Requires requester notifications: auto-close stays off until a channel (e-mail or the portal) can tell requesters of a resolution. An incident is never closed for a requester who was never told.',
   'settings.closing.channel_state': '{{channel}}: {{reason}}.',
+  'settings.closing.checklist_item_max': 'Checklist items per record',
+  'settings.closing.checklist_item_max_help':
+    "All of a record's checklists together, {{min}} to {{max}}. A longer list is refused, never cut.",
   'settings.closing.close_requires': 'Needed before closing',
   'settings.closing.close_requires_help':
     'Fields that must be filled before an incident can be closed.',

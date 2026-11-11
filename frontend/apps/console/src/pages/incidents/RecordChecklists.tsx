@@ -61,7 +61,7 @@ export function RecordChecklists({
   const [fromLibrary, setFromLibrary] = useState<string | null>(null);
   const lists = found.data ?? [];
   const sayDropped = (dropped: number) => {
-    // The record's item limit (closing settings) left some out: say how many, never silently.
+    // Empty lines are left out: say how many, never silently.
     if (dropped > 0) void message.warning(t('checklists.dropped', { count: dropped }));
   };
   const add = () => {

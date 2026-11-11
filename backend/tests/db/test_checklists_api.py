@@ -189,3 +189,25 @@ async def test_req_inc_040_a_record_template_adds_its_checklists_when_they_match
 
     assert await titles(priority="p1", priority_reason="Major") == ["Always", "Major only"]
     assert await titles(priority="p4", priority_reason="Minor") == ["Always"]
+
+
+async def test_the_item_limit_is_a_closing_setting_and_a_list_past_it_is_refused(
+    world: World,
+) -> None:
+    """`checklist_item_max` in the closing settings (1..1000); past it, the list is refused."""
+    from tests.db.test_closing_api import change_closure, settings  # noqa: PLC0415 - shared helpers
+
+    b = world.b
+    refused = await change_closure(world, b, checklist_item_max=0)
+    assert problem(refused)[0] == 422, refused.text
+    assert (await change_closure(world, b, checklist_item_max=3)).status_code == 200
+    try:
+        assert (await settings(world, b))["closure"]["checklist_item_max"] == 3
+        item = await world.create(b, b.admin)
+        over = await _add(world, b, item, title="Steps", items=["a", "b", "c", "d"])
+        assert problem(over)[0] == 422, over.text  # refused whole, the limit named
+        assert over.json()["errors"][0]["params"] == {"max": 3}
+        made = await _add(world, b, item, title="Steps", items=["a", "b", "c"])
+        assert made.status_code == 201, made.text
+    finally:
+        assert (await change_closure(world, b, checklist_item_max=100)).status_code == 200
