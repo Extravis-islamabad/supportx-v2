@@ -1150,10 +1150,20 @@ it with no reload (rule c). Not built yet.
   - live via `work_items.change_windows_changed`.
   - Defaults per D-156 (held): a freeze blocks, a maintenance window warns, weekly repeat only.
   - Lane B gives the blocking review.
-- **S2:** the record. The schedule and downtime become editable, with a conflicts panel and the
-  override dialog; "announce planned downtime" makes an announcement draft.
-- **S3:** the calendar at /changes/calendar (month, week, day, timeline; layers; drag to
-  reschedule with re-approval and the conflict check), and the windows admin on template E.
+- **S2 (built; its PR opens after #376):**
+  - the record's Schedule tab, with the editable implementation window and downtimes and a live
+    conflicts panel;
+  - the override dialog, which passes only the freezes named, then retries the save;
+  - "announce" for a planned downtime, which makes an announcement draft.
+- **S3 (built; its PR opens after S2):**
+  - `GET /change-calendar`, and the calendar at /changes/calendar: month, week, day and agenda;
+    the freeze and maintenance layers; "only mine"; zone days; drag to reschedule with the
+    re-approval warning and the freeze guard;
+  - the windows admin at /admin/change-windows (template E).
+- **Not yet:**
+  - a pixel-time grid in the week and day views (entries are listed by day);
+  - CI and service layers (with the CMDB);
+  - full recurrence rules (D-156 (c)).
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
