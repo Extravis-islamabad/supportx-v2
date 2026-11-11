@@ -85,16 +85,15 @@ const click = (testId: string) => async (page: Page) => {
   await page.waitForTimeout(400);
 };
 
-// A record tab by its key (Ant Design's node key: the same in every language).
-// At 390 a tab may sit in the tabs' "more" menu: open it and choose the tab there.
+// A record tab by its key (Ant Design's node key: the same in every language). At 390 the tab
+// list scrolls sideways (AppearanceProvider hides the "more" menu), and a tab scrolled out of
+// sight could take a pointer click meant for its neighbour (run 42977617899): click it in the DOM.
 const tab = (key: string) => async (page: Page) => {
-  const node = page.locator(`[data-node-key="${key}"]`).first();
-  if (await node.isVisible()) {
-    await node.click({ timeout: STATE_TIMEOUT });
-  } else {
-    await page.locator('.ant-tabs-nav-more').first().click({ timeout: STATE_TIMEOUT });
-    await page.locator(`[id$="-more-popup-${key}"]`).first().click({ timeout: STATE_TIMEOUT });
-  }
+  const node = page.locator(`[data-node-key="${key}"] [role="tab"]`).first();
+  await node.waitFor({ state: 'attached', timeout: STATE_TIMEOUT });
+  await node.evaluate((el) => {
+    (el as HTMLElement).click();
+  });
   await page.waitForTimeout(400);
 };
 
