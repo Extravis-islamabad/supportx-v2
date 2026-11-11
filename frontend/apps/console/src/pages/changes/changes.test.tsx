@@ -551,6 +551,8 @@ describe('console: changes', () => {
                 { field: 'risk_version', old: null, new: 1 },
                 { field: 'scheduled_start', old: null, new: '2026-11-17T21:00:00+00:00' },
                 { field: 'change_reason', old: null, new: 'security_fix' },
+                { field: 'stage', old: 'planning', new: 'submission' },
+                { field: 'reapproval_restarted', old: null, new: ['risk'] },
                 { field: 'task.extra_cost', old: null, new: null, hidden: true },
               ],
             },
@@ -570,6 +572,10 @@ describe('console: changes', () => {
     expect(text).not.toContain('2026-11-17T21:00');
     expect(text).not.toContain('+00:00');
     expect(text).not.toContain('security_fix');
+    // The re-check (2d848b42): a stage by its name, and a send-back as one sentence.
+    expect(text).toContain('from Planning to Submission');
+    expect(text).not.toMatch(/planning to submission|because of to/);
+    expect(text).toContain('Sana Malik sent it back for approval again because Risk changed');
     // A task's extra cost not the reader's to see (lane B's #398 review): only that it changed.
     expect(text).toContain('Sana Malik changed Extra cost');
   });

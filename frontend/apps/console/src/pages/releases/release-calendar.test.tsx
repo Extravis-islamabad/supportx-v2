@@ -227,49 +227,69 @@ describe('console: the release calendar (WP-058b S1)', () => {
     expect(badge?.textContent).toBe('2 conflicts');
   });
 
-  it('REQ-REL-040 AC2: a move refused by a freeze offers the override in place, then moves', async () => {
-    const FREEZE = '01a1a2b3-0000-7000-8000-00000058c101';
-    window.history.pushState({}, '', '/releases/calendar');
-    let tries = 0;
-    const fake = api(['releases.view', 'releases.edit', 'releases.override_freeze'], {
-      [`PATCH /api/v1/releases/${REL_ID}/schedule/deployment`]: () => {
-        tries += 1;
-        return tries === 1
-          ? {
-              status: 409,
-              body: problem(409, 'change_window_blocked', {
-                params: { kind: 'freeze', window_id: FREEZE, window_ids: FREEZE, count: 1 },
-              }),
-            }
-          : { body: { stage: 'deployment', version: 3 } };
-      },
-      [`GET /api/v1/releases/${REL_ID}`]: {
-        body: { ...fakeIncident({ id: REL_ID, display_id: 'REL-7' }), type: 'release', version: 9 },
-        headers: { ETag: '"9"' },
-      },
-      [`POST /api/v1/releases/${REL_ID}/freeze-override`]: { body: { version: 10 } },
-    });
-    render(<App />);
-    const [first] = await screen.findAllByTestId('calendar-move-REL-7');
-    if (first === undefined) throw new Error('no move button');
-    fireEvent.click(first);
-    const input = await screen.findByTestId('calendar-move-day');
-    fireEvent.mouseDown(input);
-    fireEvent.change(input, { target: { value: '12 Mar 2027' } });
-    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
-    fireEvent.click(screen.getByTestId('calendar-move-ok'));
-    fireEvent.change(await screen.findByTestId('release-override-reason'), {
-      target: { value: 'Payroll must go out' },
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId('release-override-ok').hasAttribute('disabled')).toBe(false);
-    });
-    fireEvent.click(screen.getByTestId('release-override-ok'));
-    await waitFor(() => {
-      expect(fake.find('PATCH', `/api/v1/releases/${REL_ID}/schedule/deployment`)).toHaveLength(2);
-    });
-    const [passed] = fake.find('POST', `/api/v1/releases/${REL_ID}/freeze-override`);
-    expect(passed?.body).toEqual({ reason: 'Payroll must go out', window_ids: [FREEZE] });
-    expect(passed?.headers.get('If-Match')).toBe('"9"');
-  });
+  it(
+    'REQ-REL-040 AC2: a move refused by a freeze offers the override in place, then moves',
+    { timeout: 60_000 },
+    async () => {
+      const FREEZE = '01a1a2b3-0000-7000-8000-00000058c101';
+      window.history.pushState({}, '', '/releases/calendar');
+      let tries = 0;
+      const fake = api(['releases.view', 'releases.edit', 'releases.override_freeze'], {
+        [`PATCH /api/v1/releases/${REL_ID}/schedule/deployment`]: () => {
+          tries += 1;
+          return tries === 1
+            ? {
+                status: 409,
+                body: problem(409, 'change_window_blocked', {
+                  params: { kind: 'freeze', window_id: FREEZE, window_ids: FREEZE, count: 1 },
+                }),
+              }
+            : { body: { stage: 'deployment', version: 3 } };
+        },
+        [`GET /api/v1/releases/${REL_ID}`]: {
+          body: {
+            ...fakeIncident({ id: REL_ID, display_id: 'REL-7' }),
+            type: 'release',
+            version: 9,
+          },
+          headers: { ETag: '"9"' },
+        },
+        [`POST /api/v1/releases/${REL_ID}/freeze-override`]: { body: { version: 10 } },
+      });
+      render(<App />);
+      const [first] = await screen.findAllByTestId('calendar-move-REL-7');
+      if (first === undefined) throw new Error('no move button');
+      fireEvent.click(first);
+      const input = await screen.findByTestId('calendar-move-day');
+      fireEvent.mouseDown(input);
+      fireEvent.change(input, { target: { value: '12 Mar 2027' } });
+      fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+      fireEvent.click(screen.getByTestId('calendar-move-ok'));
+      fireEvent.change(await screen.findByTestId('release-override-reason'), {
+        target: { value: 'Payroll must go out' },
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('release-override-ok').hasAttribute('disabled')).toBe(false);
+      });
+      fireEvent.click(screen.getByTestId('release-override-ok'));
+      // Wait on each state in turn, never on how long it takes: the override is granted, its
+      // dialog closes, then the move is sent again. Under CI load the chain took over the default
+      // 5 s (lane B's #404, run 43055376792), so each step gets its own wider ceiling.
+      const LOADED = { timeout: 15_000 };
+      await waitFor(() => {
+        expect(fake.find('POST', `/api/v1/releases/${REL_ID}/freeze-override`)).toHaveLength(1);
+      }, LOADED);
+      await waitFor(() => {
+        expect(screen.queryByTestId('release-override-ok')).toBeNull();
+      }, LOADED);
+      await waitFor(() => {
+        expect(fake.find('PATCH', `/api/v1/releases/${REL_ID}/schedule/deployment`)).toHaveLength(
+          2,
+        );
+      }, LOADED);
+      const [passed] = fake.find('POST', `/api/v1/releases/${REL_ID}/freeze-override`);
+      expect(passed?.body).toEqual({ reason: 'Payroll must go out', window_ids: [FREEZE] });
+      expect(passed?.headers.get('If-Match')).toBe('"9"');
+    },
+  );
 });

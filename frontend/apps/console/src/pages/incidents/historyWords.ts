@@ -17,7 +17,7 @@ import { useListFormat } from '@supportx/labels';
 import { useAccess, useAppearance, useDateTime, useLabel } from '@supportx/ui';
 
 import { fieldName, useCustomValueText } from '../customFields/values';
-import { listValueName } from '../staged/labels';
+import { listValueName, stageName } from '../staged/labels';
 import { useAutomationWhy, useRequesterActionWhy } from './automationWhy';
 import {
   categoryPath,
@@ -222,6 +222,12 @@ export function useHistoryWords(
     }
     const prefix = CODED[change.field];
     if (prefix !== undefined && typeof value === 'string') return t(`${prefix}.${value}`);
+    // A staged record's stage, by its name (QA-2026-11-11 re-check), never its code.
+    if (change.field === 'stage' && typeof value === 'string') return stageName(t, value);
+    // The fields whose change sent it back for approval again: their names, in a list.
+    if (change.field === 'reapproval_restarted' && Array.isArray(value)) {
+      return listFormat(value.map((name) => fieldText(String(name))));
+    }
     if (OWN_LISTS.has(change.field) && typeof value === 'string') {
       const list = change.field;
       const found = changeSettings.data?.own_lists?.[list]?.find((v) => v.code === value);
@@ -319,6 +325,13 @@ export function useHistoryWords(
       return owner === undefined || owner === who
         ? t('work_item.history.logged', { who, duration, type })
         : t('work_item.history.logged_for', { who, duration, type, person: owner });
+    }
+    // Sent back for approval again (REQ-CHG-053): one sentence, naming what changed.
+    if (change.field === 'reapproval_restarted') {
+      return t('work_item.history.reapproval_restarted', {
+        who,
+        fields: valueText(change, change.new),
+      });
     }
     if (change.field === 'link') {
       const kind = valueText(change, change.new ?? change.old);
