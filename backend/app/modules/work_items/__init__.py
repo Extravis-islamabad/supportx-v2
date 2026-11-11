@@ -56,6 +56,8 @@ from app.modules.work_items.service import (
     ai_sources,
     audit_subtype,
     bulk,
+    change_notifications,
+    change_reminders,
     inbound_mail,
     notifications,
     parts,
@@ -150,6 +152,7 @@ request_notifications.register()
 problem_notifications.register()  # WP-044c D15
 rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
+change_notifications.register()  # WP-045d S3: replaces the change reply-only source
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
@@ -212,6 +215,12 @@ module = ModuleSpec(
         ScheduleSpec("work_items__bulk_jobs", 5, bulk.run_bulk_jobs),
         # WP-044c D16 (REQ-PRB-068): repeat incident rules, every 15 minutes, without AI.
         ScheduleSpec("work_items__repeat_incidents", 900, repeat_rules.repeat_schedule),
+        # WP-045d S3 (REQ-CHG-091, -105): change reminders, each raised once.
+        ScheduleSpec(
+            "work_items__change_reminders",
+            change_reminders.EVERY_SECONDS,
+            change_reminders.reminders_schedule,
+        ),
     ],
 )
 

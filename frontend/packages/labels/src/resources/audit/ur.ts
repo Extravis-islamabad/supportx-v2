@@ -136,7 +136,7 @@ export const ur: LabelResource = {
   'audit.action.change.due_date_changed': 'تبدیلی کی مقررہ تاریخ تبدیل کی',
   'audit.action.change.emergency_override': 'ہنگامی حالت میں تبدیلی کی منظوری کو نظر انداز کیا',
   'audit.action.change.freeze_override': 'فریز کے دوران تبدیلی کو آگے بڑھنے دیا',
-  'audit.action.change.freeze_passed_by_cab': 'منجمد مدت میں ہنگامی تبدیلی کی اجازت (ہنگامی بورڈ)',
+  'audit.action.change.freeze_passed_by_cab': 'فریز میں ہنگامی تبدیلی کی اجازت (ہنگامی بورڈ)',
   'audit.action.change.linked': 'تبدیلی کو دوسرے ریکارڈ سے جوڑا',
   'audit.action.change.note_visibility_changed': 'تبدیلی کے نوٹ کو عوامی یا نجی بنایا',
   'audit.action.change.part_added': 'تبدیلی میں ایک جز شامل کیا',

@@ -60,7 +60,10 @@ type Kind = SlaTargetRow['kind'];
 type Unit = SlaTargetRow['unit'];
 type Source = SlaTargetRow['source'];
 
-const RECORD_TYPE = 'incident';
+const RECORD_TYPE = 'incident'; // the settings tab's type (its own choice comes later)
+// Every type with SLAs (WP-045d S3, the coordinator): their policies are made here.
+const POLICY_TYPES = ['incident', 'service_request', 'problem', 'change'] as const;
+type PolicyType = (typeof POLICY_TYPES)[number];
 const KINDS: Kind[] = ['first_response', 'resolution'];
 const UNITS: Unit[] = ['minutes', 'hours', 'business_days'];
 const SOURCES: Source[] = ['site', 'group', 'fixed', 'around_the_clock'];
@@ -99,9 +102,10 @@ function amountText(t: Translate, row: SlaTargetRow): string {
 export function PoliciesTab({ editable }: { editable: boolean }) {
   const t = useLabel();
   const { message } = App.useApp();
+  const [recordType, setRecordType] = useState<PolicyType>('incident');
   // Live: changes arrive as `sla.setup.changed` on the tenant channel (ConsoleLayout).
-  const policies = useSlaPolicies(RECORD_TYPE);
-  const { remove, reorder } = useSlaPolicyChange(RECORD_TYPE);
+  const policies = useSlaPolicies(recordType);
+  const { remove, reorder } = useSlaPolicyChange(recordType);
   const [editing, setEditing] = useState<SlaPolicy | 'new'>();
   const rows = policies.data ?? [];
   const movable = rows.filter((p) => !p.fallback);
@@ -119,8 +123,27 @@ export function PoliciesTab({ editable }: { editable: boolean }) {
     });
   };
 
+  // No target anywhere (a new tenant's changes: Appendix A sets none): say so in plain words.
+  const untargeted =
+    policies.data !== undefined &&
+    rows.every((p) => p.targets.every((r) => r.amount === null || r.amount === undefined));
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Select<PolicyType>
+        style={{ minWidth: 220, alignSelf: 'flex-start' }}
+        prefix={`${t('sla.policies.record_type')}:`}
+        aria-label={t('sla.policies.record_type')}
+        value={recordType}
+        onChange={(value) => {
+          setRecordType(value);
+          setEditing(undefined);
+        }}
+        options={POLICY_TYPES.map((code) => ({
+          value: code,
+          label: t(`work_item_type.${code}`),
+        }))}
+        data-testid="sla-policy-type"
+      />
       <Flex justify="space-between" align="baseline" wrap gap={8}>
         <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
           {t('sla.policies.explain')}
@@ -138,6 +161,14 @@ export function PoliciesTab({ editable }: { editable: boolean }) {
           </Button>
         )}
       </Flex>
+      {untargeted && (
+        <Alert
+          type="info"
+          showIcon
+          message={t('sla.policies.no_targets', { type: t(`work_item_type.${recordType}`) })}
+          data-testid="sla-policies-no-targets"
+        />
+      )}
       <Table<SlaPolicy>
         rowKey="id"
         loading={policies.isPending}
@@ -255,6 +286,7 @@ export function PoliciesTab({ editable }: { editable: boolean }) {
       />
       {editing !== undefined && (
         <PolicyEditor
+          recordType={recordType}
           row={editing === 'new' ? undefined : editing}
           latest={live}
           onClose={() => {
@@ -283,17 +315,19 @@ function fieldProblems(error: ApiError, t: Translate): Record<string, string> {
 }
 
 function PolicyEditor({
+  recordType,
   row,
   latest,
   onClose,
 }: {
+  recordType: PolicyType;
   row: SlaPolicy | undefined;
   latest: SlaPolicy | undefined;
   onClose: () => void;
 }) {
   const t = useLabel();
   const { message } = App.useApp();
-  const { create, update } = useSlaPolicyChange(RECORD_TYPE);
+  const { create, update } = useSlaPolicyChange(recordType);
   const calendars = useSlaCalendars();
   const listFields = useIncidentListFields(true);
   const words = useReportWords();
