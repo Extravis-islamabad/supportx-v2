@@ -23,7 +23,7 @@ from functools import partial
 from typing import cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -862,16 +862,17 @@ async def expire_waiting(
                 reason=NOT_SENT_IN_TIME,
                 at=moment,
             )
-    # D-157: one summary for the people who set mail up, per run (never one per e-mail), in
-    # this transaction. The summary's own e-mails (if an admin added that channel) never count.
+    # D-157: one summary for the people who set mail up, at most once a day per tenant (never one
+    # per e-mail or per run), in this transaction. The summary's own e-mails never count.
     counted = [r for r in rows if r.event_code != mail_summary.SUMMARY_EVENT]
     if counted and await _claim_summary(session, moment):
         summary_id = _summary_key(session, moment)
+        given_up_today = await _given_up_since(session, _day_start(moment))
         await record_event(
             session,
             MailNotSentSummary(
                 summary_id=summary_id,
-                count=len(counted),
+                count=max(given_up_today, len(counted)),  # "N so far today"
                 oldest_at=min(r.created_at for r in counted),
             ),
             aggregate_id=summary_id,
@@ -882,19 +883,39 @@ async def expire_waiting(
 SUMMARY_CLAIM = "notifications__mail_not_sent_summary"  # the processed_events consumer name
 
 
+def _day_start(moment: datetime) -> datetime:
+    """The start of the moment's day (UTC): the summary's period."""
+    return moment.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def _summary_key(session: AsyncSession, moment: datetime) -> uuid.UUID:
-    """One key per tenant and cut-off minute: a retried run of the same minute shares it."""
+    """One key per tenant and day (UTC): every run of that day, and every retry, shares it."""
     tenant: uuid.UUID = session.info[SESSION_TENANT_KEY].tenant_id
-    cutoff = (moment - timedelta(days=WAITING_DAYS)).astimezone(UTC)
-    return uuid.uuid5(uuid.NAMESPACE_URL, f"supportx:{SUMMARY_CLAIM}:{tenant}:{cutoff:%Y%m%dT%H%M}")
+    day = _day_start(moment)
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"supportx:{SUMMARY_CLAIM}:{tenant}:{day:%Y%m%d}")
+
+
+async def _given_up_since(session: AsyncSession, since: datetime) -> int:
+    """How many e-mails were given up for want of mail since `since` (the summary's own aside)."""
+    found = await session.scalar(
+        select(func.count()).where(
+            NotificationDelivery.state == DeliveryState.FAILED.value,
+            NotificationDelivery.reason == NOT_SENT_IN_TIME,
+            NotificationDelivery.updated_at >= since,
+            NotificationDelivery.event_code != mail_summary.SUMMARY_EVENT,
+        )
+    )
+    return int(found or 0)
 
 
 async def _claim_summary(session: AsyncSession, moment: datetime) -> bool:
-    """Claim this run's summary once (processed_events, as consumers do); False: sent already.
+    """Claim the day's summary once (processed_events, as consumers do); False: told already.
 
-    Lane A's review: the schedule runs every minute and a run can be retried, so the summary is
-    keyed by tenant and cut-off minute and inserted with ON CONFLICT DO NOTHING in the run's
-    transaction: a retried run never tells the admins twice.
+    Lane A's review of #390: the schedule runs every minute, so a steady trickle of e-mails
+    reaching 7 days would tell the admins every minute if keyed per run. The claim is keyed by
+    tenant and day and inserted with ON CONFLICT DO NOTHING in the run's transaction: the first
+    run of the day that gives any up sends one notice ("N so far"); later runs and retries that
+    day send none. processed_events keeps claims 7 days, longer than the day they cover.
     """
     tenant: uuid.UUID = session.info[SESSION_TENANT_KEY].tenant_id
     result = await session.execute(
@@ -922,8 +943,6 @@ async def waiting_schedule(database: Database, settings: Settings) -> None:
 
 async def waiting_count(session: AsyncSession) -> int:
     """E-mails waiting for outgoing mail (the admins' banner, REQ-NTF-020 AC3)."""
-    from sqlalchemy import func  # noqa: PLC0415 - one query, kept beside its use
-
     return int(
         await session.scalar(
             select(func.count())

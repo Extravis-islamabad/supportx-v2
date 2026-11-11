@@ -8,7 +8,7 @@ mail settings; a run that gives none up sends nothing.
 """
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -106,7 +106,7 @@ async def test_a_run_that_gives_up_nothing_sends_nothing(world: World) -> None:
 
 
 async def test_a_retried_run_tells_the_admins_once(world: World) -> None:
-    """Lane A: the run's summary is claimed once (tenant + cut-off minute, processed_events)."""
+    """Lane A: the summary is claimed once per tenant and day (processed_events)."""
     a = world.a
     item = await world.create(a, a.admin, subject="Scanner offline")
     made = await say(world, a, a.admin, item, kind="reply", body="<p>Looking.</p>")
@@ -136,3 +136,35 @@ async def test_a_retried_run_tells_the_admins_once(world: World) -> None:
     assert len(await _summaries(world, a)) == 1
     await run_engine(world, a, settings=NO_MAIL)
     assert [n["user_id"] for n in await _notices(world, a)] == [a.admin]
+
+
+async def test_a_trickle_over_many_runs_tells_the_admins_once_a_day(world: World) -> None:
+    """Lane A's review of #390: runs every minute while mail stays unset give ONE notice a day.
+
+    E-mails reaching 7 days one run after another would otherwise tell the admins every minute.
+    The first run of the day that gives any up sends the summary ("N so far"); later runs that
+    day send none; the next day's first run sends the next one.
+    """
+    a = world.a
+    item = await world.create(a, a.admin, subject="Printer jam")
+
+    async def one_waiting_and_expire(moment: datetime) -> None:
+        made = await say(world, a, a.admin, item, kind="reply", body="<p>On it.</p>")
+        assert made.status_code == 201, made.text
+        await run_engine(world, a, settings=NO_MAIL)
+        await world.sql(
+            "UPDATE notification_deliveries SET created_at = $2::timestamptz - interval '8 days'"
+            " WHERE tenant_id = $1 AND state = 'waiting'",
+            a.tenant,
+            moment,
+        )
+        assert await _expire(world, a, moment) >= 1
+
+    day = datetime.now(UTC).replace(hour=9, minute=0, second=0, microsecond=0)
+    for minute in (0, 1, 2, 7):  # four runs of one morning, each giving some up
+        await one_waiting_and_expire(day.replace(minute=minute))
+    first = await _summaries(world, a)
+    assert len(first) == 1  # one notice for the day, not one per run
+    assert first[0]["count"] >= 1
+    await one_waiting_and_expire(day + timedelta(days=1))
+    assert len(await _summaries(world, a)) == 2  # the next day tells them again, once

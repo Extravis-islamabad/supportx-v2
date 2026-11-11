@@ -1,13 +1,14 @@
 """The people who set mail up hear when e-mails were given up for want of it (D-157 item 4).
 
 While outgoing mail is not set up, e-mails wait (D-116); after 7 days the waiting schedule gives
-them up (`engine.expire_waiting`, never sent late). Each run that gives any up records one
-`MailNotSentSummary` (how many, the oldest), and this source turns it into ONE in-app notice for
-each person who may set mail up (`integrations.manage_email`, the tenant admins by default),
-with a link to the mail settings: one notice per run, never one per e-mail.
+them up (`engine.expire_waiting`, never sent late). The first run of a day that gives any
+up records one `MailNotSentSummary` (how many so far that day, the oldest), and this source turns
+it into ONE in-app notice for each person who may set mail up (`integrations.manage_email`, the
+tenant admins by default), with a link to the mail settings: one notice a day, never one per
+e-mail or per run.
 
-Lane A's review: the run claims its summary once (`engine._claim_summary`, processed_events
-keyed by tenant and cut-off minute), so a retried run never tells anyone twice; the payload is a
+Lane A's reviews: the summary is claimed once per tenant and day (`engine._claim_summary`,
+processed_events), so neither later runs nor retries that day tell anyone again; the payload is a
 count and the oldest time, no addresses; recipients are active people only (identity's
 `holders`), at most 200; the event is not required (people may switch it off).
 
