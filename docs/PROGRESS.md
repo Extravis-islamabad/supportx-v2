@@ -276,6 +276,19 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** HA install survives the loss of any one node with the e2e suite passing; a
   restore drill (backup → new cluster → smoke test) passes in CI; alerts fire in a fault test.
 - **Depends on:** WP-014
+- [x] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
+  master that dies within about 10 s of a fresh start, before its sentinels have seen its
+  replicas (Sentinel reads a master's INFO every 10 s), does not fail over until it returns: every
+  attempt aborts with `-failover-abort-no-good-slave`. No data is lost, since #284's guard still
+  refuses to start empty, but the set is unavailable meanwhile. #388 only made the tests wait for
+  the sentinels. Fix: a Valkey pod reports ready only once the sentinels list its replicas (the
+  readiness option), with a test that fails over a master stopped right after a fresh start.
+  In Haider's summary as an FYI. **Done (2026-11-11, branch `feat/valkey-ready-sentinels`):** the
+  valkey container's readiness probe is the chart's `ready.sh` (`templates/valkey-ha.yaml`): until
+  a pod's first readiness in its role, its own sentinel must list it (replica, once synced) or
+  every replica connected to it (master); afterwards only the server counts. Tests in
+  `backend/tests/ha/test_valkey_failover.py`; the remaining unplanned-crash gap is in
+  [deployment.md](deployment.md) (Profiles, "Valkey failover and readiness").
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -1192,11 +1205,50 @@ it with no reload (rule c). Not built yet.
     - All four come with lane A's next migration WP (WP-045d S3/S4 or WP-046a), with DB tests;
       no migration slot is taken for the check alone (coordinator, 2026-11-11).
     - Until then the change list doesn't offer them at all.
-- **S3:** a change notification source with the Appendix A defaults, schedule reminders, the
-  workflow run on the record (lane C's Workflows tab, #379), and rules, triggers and SLAs on
-  changes (REQ-CHG-103..107). No e-mail reply threading unless Haider says yes.
-- **S4:** the portal (raise, follow, approve), the mobile API audit, report dimensions and
-  personal counters (REQ-CHG-109, 110, 116, 117). Lane B blocks the portal access.
+- **S3:** change notifications and reminders (REQ-CHG-103..107). No e-mail reply threading
+  unless Haider says yes.
+  - REQ-CHG-104: the ChangeNotifications source with the Appendix A defaults. It replaces the
+    change reply-only source and delegates replies to it (#359).
+  - REQ-CHG-103: a per-status rule ("entered a status", off by default) with a status picker on
+    the rules screen. Holders are resolved when it is sent.
+  - Access (lane B): an approver without `changes.view` is told through their live approval
+    (the public side and their own link); a decided approval gives nothing. Requesters see only
+    their own view.
+  - REQ-CHG-105, -091: a reminder sweep. Each kind is claimed once in `processed_events`, a
+    moved window reminds again, an old claim is never sent late, and cancelled changes are
+    never reminded.
+  - REQ-CHG-106: lane C's Workflows tab (#379).
+  - REQ-CHG-107: business rules on changes work (tested). Changes are an SLA type with no
+    default targets, since Appendix A sets none (nothing seeded). Escalations, the trash rule
+    and the safety net work as for the other types. The change header shows its due time, and
+    the SLA policies tab offers every SLA type (incidents, requests, problems, changes).
+  - **Open:**
+    - the "health check regression" default waits for health checks (REQ-CHG-086, MonetX);
+    - the testing owner is not a change role yet, so it is not a recipient;
+    - ~~the portal has no change page~~: done in S4a.
+- **S4** (three PRs; REQ-CHG-109, 110, 116, 117):
+  - **S4a, the portal and counters (REQ-CHG-109, -117; no migration; lane B blocks the portal
+    access and approvals):**
+    - `/portal/changes`: list, the forms offered to requesters, raise (Idempotency-Key, staff
+      fields refused), one change with its stage, status and planned window (the
+      implementation's schedule), the public conversation and a reply. Plans, risk, approvals
+      detail, outcome and private notes are not in these responses (AC2). Same reach rules as
+      the portal's incidents and requests.
+    - Portal pages: My changes, a change's page, Raise a change; nav entry behind `change`.
+    - Live: the requester channel hears a change's stage and status, and the implementation's
+      schedule (another stage's schedule says nothing there).
+    - Approvals: a requester-only approver decides a change in the portal's approvals, through
+      the change's own route (AC3). Bulk approve stays with service requests (D-143). The
+      console's approvals drawer lists change approvals too.
+    - Notices: change notices link to the portal change page, approval notices to the portal's
+      approvals (the change page is its requester's only).
+    - Counters (REQ-CHG-117): "waiting for my approval" and "starting today" on changes only.
+    - **Open:** a requester-only approver sees only the number and title in the portal
+      approvals (no read-only summary page); tenant-own status codes show through the label
+      fallback.
+  - **S4b:** the mobile API audit and the push payload and deep-link format (REQ-CHG-110).
+  - **S4c:** change report fields, measures, dashboard and drill-down (REQ-CHG-116; lane C
+    reviews).
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
@@ -1616,6 +1668,25 @@ it with no reload (rule c). Not built yet.
     the API cannot tell beforehand whether a worker can render PDFs (a job without one fails
     with `pdf_not_available`); the label designer (040) and mobile scanning (041) are later;
     discovery calls `record_scan` (WP-050).
+- [x] **D-157 follow-up (lane B, 2026-11-11; migration 0136 after 0137;
+  branch backup/d157):**
+  - A technician changes an asset linked to its own ticket still being worked and held by the
+    ticket's requester or department: state, location, notes and fitted parts only
+    (`asset_field_not_allowed` otherwise); `GET /assets/{id}/access`; work_items'
+    `linked_requester_ids_select` port (additive; lane A reviews).
+  - Price, tax and total behind `assets.view_financials` in responses, history (masked) and
+    writes.
+  - Straight line by default; declining balance with the product type's factor
+    (`depreciation_factor`, default 2); double declining stays 200 %.
+  - One in-app notice per run to the people who set mail up when e-mails are given up after 7
+    days without mail (`outgoing_mail.not_sent`).
+  - Review fixes: the ticket path fits only free components and never retires or disposes;
+    the on-behalf person counts as a holder (lane A); the mail summary is claimed once per run.
+  - 2b: catalogue prices and default depreciation behind `assets.view_financials` (masked in
+    product responses, needed to write them).
+  - The Purchase manager role will need catalogue prices when procurement is built (WP-054);
+    granting it then is Haider's call, not granted now.
+  - **Open:** the e2e journey for the technician's path.
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 

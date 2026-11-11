@@ -1,7 +1,11 @@
 """The asset record (WP-049a session 2; parity 07 §3: REQ-AST-001, 002, 004, 007, 008).
 
 - **Who:** `assets.view` reads (scoped: all, or the assets at your sites); `assets.manage` adds,
-  changes and moves assets to the trash, within its scope.
+  changes and moves assets to the trash, within its scope. A technician without it may change
+  the location of an asset its own ticket links while the ticket's requester or department
+  holds it (D-157, `ticket_access`; also its state and fitted parts, in moves and ownership).
+- **Money (D-157):** price, tax, total and depreciation settings are read and written only with
+  `assets.view_financials`; the API shows others nulls and masks those history lines.
 - **Licence (REQ-AST-002, D-141):** an IT asset (an IT type of kind asset) that is not disposed
   uses a slot of the plan's asset limit. Adding one, or turning an asset into one (a product
   change, a restore), reserves the slot race-safely; the limit is only read through the
@@ -55,7 +59,8 @@ from app.modules.assets.infra.models import (
     AssetSettings,
     AssetState,
 )
-from app.modules.assets.service import valuations
+from app.modules.assets.service import catalogue as catalogue_money
+from app.modules.assets.service import ticket_access, valuations
 from app.modules.assets.service.catalogue import TEXT_MAX, ensure_defaults
 from app.modules.assets.service.valuations import VALUED_FIELDS
 from app.modules.identity_access import (
@@ -79,8 +84,11 @@ MANAGE = "assets.manage"
 EDIT_DISPOSED = "assets.edit_disposed"  # REQ-AST-017 AC3: changes a disposed asset (with a reason)
 # WP-049b s2: costs, depreciation and book value (REQ-AST-036, 037). The asset's own depreciation
 # settings are set only by those who may see its money (and manage it).
-VIEW_FINANCIALS = "assets.view_financials"
+VIEW_FINANCIALS = catalogue_money.VIEW_FINANCIALS  # one name for the right (catalogue)
 DEPRECIATION_FIELDS = ("depreciation_method", "useful_life_years", "salvage_value")
+# D-157: the purchase price and tax are money too; with the depreciation settings, nobody
+# without `assets.view_financials` reads (API, list, history) or writes them.
+MONEY_FIELDS = ("purchase_price", "purchase_tax", "purchase_total", *DEPRECIATION_FIELDS)
 RECORD_TYPE = "asset"
 ENTITY = "asset"  # metadata.CustomFieldEntity.ASSET
 LIMIT_CODE = "asset_limit_reached"
@@ -155,9 +163,14 @@ def _require(subject: Subject, permission: str) -> None:
 
 
 def _require_financials_for(subject: Subject, values: Mapping[str, Any]) -> None:
-    """Depreciation settings are money (REQ-AST-037): only with `assets.view_financials`."""
-    if any(name in values for name in DEPRECIATION_FIELDS):
+    """Price, tax and depreciation settings are money (REQ-AST-037, D-157): `view_financials`."""
+    if any(name in values for name in MONEY_FIELDS):
         _require(subject, VIEW_FINANCIALS)
+
+
+def sees_money(subject: Subject) -> bool:
+    """Whether the subject may read an asset's money (price, tax, total, depreciation)."""
+    return subject.holds(VIEW_FINANCIALS)
 
 
 def _tenant(session: AsyncSession) -> uuid.UUID:
@@ -463,10 +476,56 @@ async def _visible(
     return row
 
 
+async def writable(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID
+) -> tuple[Asset, bool]:
+    """The asset to change, locked, and whether only the narrower D-157 path allows it.
+
+    `assets.manage` on the asset: the full write (False). Otherwise a person who sees it may
+    still change a few fields when it is linked to their own ticket and held by that ticket's
+    requester or department (True, `ticket_access`). Otherwise 403 (seen) or 404.
+    """
+    if subject.holds(MANAGE):
+        try:
+            return await _visible(session, subject, asset_id, permission=MANAGE), False
+        except PermissionDenied:
+            pass  # sees it without managing it (another site): perhaps through a ticket
+    if not subject.holds(VIEW):
+        raise PermissionDenied(params={"permission": MANAGE})
+    row = await _visible(session, subject, asset_id)
+    if not await ticket_access.ticket_grants(session, subject, row):
+        raise PermissionDenied(params={"permission": MANAGE})
+    await session.refresh(row, with_for_update=True)  # as the full write locks it
+    return row, True
+
+
+async def _writable_with(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID, values: Mapping[str, Any]
+) -> Asset:
+    """The asset for a save of `values`: the D-157 path changes the location only; money asks."""
+    row, limited = await writable(session, subject, asset_id)
+    if limited and (refused := sorted(set(values) - ticket_access.LIMITED_FIELDS)):
+        raise ticket_access.refuse_field(refused[0])
+    _require_financials_for(subject, values)
+    return row
+
+
 async def get_asset(session: AsyncSession, subject: Subject, asset_id: uuid.UUID) -> Asset:
     """One live asset the subject may see (404 otherwise: never a hint that it exists)."""
     _require(subject, VIEW)
     return await _visible(session, subject, asset_id)
+
+
+async def edit_reach(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID
+) -> tuple[bool, bool]:
+    """(manages it, may change a few fields through its own ticket: D-157) for the record page."""
+    row = await get_asset(session, subject, asset_id)
+    if subject.holds(MANAGE) and await authorize_stored(
+        session, subject, MANAGE, ASSETS, Asset.id, asset_id
+    ):
+        return True, False
+    return False, await ticket_access.ticket_grants(session, subject, row)
 
 
 async def create_asset(
@@ -563,9 +622,7 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
     A disposed asset is read-only (REQ-AST-017 AC3): only `assets.edit_disposed` changes it,
     and each such change asks for a reason, kept in its history.
     """
-    _require(subject, MANAGE)
-    _require_financials_for(subject, values)
-    row = await _visible(session, subject, asset_id, permission=MANAGE)
+    row = await _writable_with(session, subject, asset_id, values)
     if row.version != expected_version:
         raise await stale_version(
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,

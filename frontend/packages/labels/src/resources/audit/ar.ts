@@ -911,6 +911,7 @@ export const ar: LabelResource = {
   'event_type.licensing.entitlement.changed': 'تم تغيير الخطة أو الترخيص',
   'event_type.metadata.custom_field.changed': 'تغيّر حقل مخصص',
   'event_type.notifications.delivery.recorded': 'سُجّل إرسال إشعار',
+  'event_type.notifications.mail.not_sent_summary': 'رسائل بريد تُخلي عنها: البريد غير مُعدّ',
   // WP-023 notifications
   'event_type.notifications.notification.created': 'أُنشئ إشعار',
   'event_type.notifications.notification.read': 'قُرئت الإشعارات',
@@ -958,6 +959,7 @@ export const ar: LabelResource = {
   'event_type.work_items.asset_link.changed': 'ربط أصل أو فك ربطه',
   'event_type.work_items.bulk_job.progressed': 'تقدّم تغيير جماعي',
   'event_type.work_items.change.approval_notice': 'إشعار موافقة تغيير',
+  'event_type.work_items.change.reminder_due': 'حان موعد تذكير بتغيير',
   'event_type.work_items.change_board.changed': 'تغيّر مجلس استشاري للتغييرات',
   'event_type.work_items.change_window.changed': 'تغيّرت نافذة تغيير',
   'event_type.work_items.conversation.added': 'تمت إضافة رد أو ملاحظة',

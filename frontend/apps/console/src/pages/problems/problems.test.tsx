@@ -307,8 +307,15 @@ describe('console: problems', () => {
       },
     });
     render(<App />);
+    // Wait on state, not time (lane B's report, merge-group run 43023204885): the prefill has
+    // filled the form, and the tick is in the form, before Create is pressed.
+    await screen.findByDisplayValue('Mail is down');
     const caused = await screen.findByTestId('prb-already-caused');
-    fireEvent.click(within(caused).getByRole('checkbox'));
+    const move = within(caused).getByRole('checkbox');
+    fireEvent.click(move);
+    await waitFor(() => {
+      expect((move as HTMLInputElement).checked).toBe(true);
+    });
     fireEvent.click(screen.getByTestId('prb-create'));
     await waitFor(() => {
       expect(fake.find('POST', '/api/v1/problems/from-incidents')).toHaveLength(1);
