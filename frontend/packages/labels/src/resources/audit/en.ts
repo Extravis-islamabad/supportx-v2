@@ -822,6 +822,7 @@ export const en = {
   'event_type.automation.loop.stopped': 'Automation stopped (loop protection)',
   'event_type.automation.workflow.changed': 'Workflow changed',
   'event_type.automation.workflow.command_finished': 'Workflow step finished',
+  'event_type.automation.workflow.deleted': 'Workflow deleted',
   'event_type.automation.workflow.function_requested': 'Workflow asked for a custom function',
   'event_type.automation.workflow.webhook_requested': 'Workflow asked for a webhook call',
   'event_type.automation.workflow_instance.changed': 'Workflow moved on',

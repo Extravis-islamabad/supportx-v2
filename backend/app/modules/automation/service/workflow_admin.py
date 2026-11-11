@@ -35,7 +35,7 @@ from app.modules.automation.domain.workflows import (
     sub_flows,
     validate,
 )
-from app.modules.automation.events import WorkflowChanged
+from app.modules.automation.events import WorkflowChanged, WorkflowDeleted
 from app.modules.automation.infra.models import Workflow, WorkflowInstance, WorkflowVersion
 from app.modules.automation.service import functions
 from app.modules.automation.service.business_rules import person_group_problems
@@ -449,5 +449,12 @@ async def delete_workflow(
     if was_enabled and workflow.service_identity_id is not None:  # as switching it off does
         await set_service_identity_active(session, workflow.service_identity_id, active=False)
     await session.flush()
-    await _changed(session, workflow, "deleted")
+    await record_event(
+        session,
+        WorkflowDeleted(
+            workflow_id=workflow.id, record_type=workflow.record_type, version=workflow.version
+        ),
+        aggregate_id=workflow.id,
+        aggregate_version=workflow.version,
+    )
     return workflow

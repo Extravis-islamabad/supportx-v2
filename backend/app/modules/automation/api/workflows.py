@@ -691,7 +691,7 @@ async def get_job(job_id: uuid.UUID, session: TenantSession, subject: Manage) ->
     return _job(job)
 
 
-class VersionOut(BaseModel):
+class WorkflowVersionOut(BaseModel):
     """One published version: who published it and when, and the runs still on it (WF-027)."""
 
     number: int
@@ -703,7 +703,7 @@ class VersionOut(BaseModel):
 @router.get("/{workflow_id}/versions", summary="A workflow's published versions")
 async def versions(
     workflow_id: uuid.UUID, session: TenantSession, subject: Manage
-) -> list[VersionOut]:
+) -> list[WorkflowVersionOut]:
     """Newest first, with how many runs are live on each (REQ-WF-021, -027)."""
     del subject
     workflow = await session.get(Workflow, workflow_id)
@@ -722,7 +722,7 @@ async def versions(
         .order_by(WorkflowVersion.number.desc())
     )
     return [
-        VersionOut(
+        WorkflowVersionOut(
             number=v.number,
             published_at=v.published_at,
             published_by=v.published_by,

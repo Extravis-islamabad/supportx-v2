@@ -120,7 +120,22 @@ class WorkflowChanged(DomainEvent):
 
     workflow_id: uuid.UUID
     record_type: str
-    change: Literal["created", "draft_saved", "published", "enabled", "disabled", "deleted"]
+    change: Literal["created", "draft_saved", "published", "enabled", "disabled"]
+    version: int
+
+
+class WorkflowDeleted(DomainEvent):
+    """A workflow without live runs was deleted (soft, WP-048b S3d; REQ-WF-027 AC3).
+
+    Its own event, so `automation.workflow.changed` v1 keeps its contract. IDs only.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.deleted"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow"
+
+    workflow_id: uuid.UUID
+    record_type: str
     version: int
 
 
@@ -199,6 +214,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkflowCommandFinished,
     WorkflowInstanceChanged,
     WorkflowJobProgressed,
+    WorkflowDeleted,
     AutomationChanged,
     AvailabilityChanged,
     AssignmentWaiting,

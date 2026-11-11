@@ -820,6 +820,7 @@ export const ur: LabelResource = {
   'event_type.automation.loop.stopped': 'آٹومیشن رک گئی (لوپ سے حفاظت)',
   'event_type.automation.workflow.changed': 'ورک فلو بدلا',
   'event_type.automation.workflow.command_finished': 'ورک فلو کا مرحلہ مکمل ہوا',
+  'event_type.automation.workflow.deleted': 'ورک فلو حذف ہوا',
   'event_type.automation.workflow.function_requested': 'ورک فلو نے حسبِ ضرورت فنکشن چلانے کو کہا',
   'event_type.automation.workflow.webhook_requested': 'ورک فلو نے ویب ہک کال کرنے کو کہا',
   'event_type.automation.workflow_instance.changed': 'ورک فلو آگے بڑھا',

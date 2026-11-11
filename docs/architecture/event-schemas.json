@@ -1795,8 +1795,7 @@
               "draft_saved",
               "published",
               "enabled",
-              "disabled",
-              "deleted"
+              "disabled"
             ],
             "title": "Change",
             "type": "string"
@@ -1878,6 +1877,33 @@
           "ok"
         ],
         "title": "WorkflowCommandFinished",
+        "type": "object"
+      }
+    },
+    "automation.workflow.deleted": {
+      "1": {
+        "description": "A workflow without live runs was deleted (soft, WP-048b S3d; REQ-WF-027 AC3).\n\nIts own event, so `automation.workflow.changed` v1 keeps its contract. IDs only.",
+        "properties": {
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "record_type",
+          "version"
+        ],
+        "title": "WorkflowDeleted",
         "type": "object"
       }
     },
