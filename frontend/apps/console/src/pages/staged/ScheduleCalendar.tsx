@@ -15,13 +15,14 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { useMemo, useState, type DragEvent, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router';
 
 import {
   ApiError,
   useChangeWindows,
   useReapprovalPreview,
+  useStagedSchedule,
   useUpdateStagedSchedule,
   type CalendarEntry,
   type ChangeWindow,
@@ -63,6 +64,9 @@ const VIEWS: CalendarView[] = ['month', 'week', 'day', 'agenda', 'timeline'];
 const WEEK_START = { sunday: 0, monday: 1, saturday: 6 } as const;
 const DRAG_TYPE = 'application/x-supportx-planned-window';
 
+/** An entry with the type it belongs to (the calendar may show both staged types). */
+type Entry = CalendarEntry & { of: StagedPath };
+
 interface Occurrence {
   window: ChangeWindow;
   starts_at: string;
@@ -76,7 +80,14 @@ export interface ScheduleKind {
   /** The stage whose window is on the calendar (the server's PLANNED_STAGE). */
   stage: string;
   /** The type's calendar query (permission-scoped on the server, per type). */
-  useEntries: (start: string, end: string, mine: boolean) => UseQueryResult<CalendarEntry[]>;
+  useEntries: (
+    start: string,
+    end: string,
+    mine: boolean,
+    enabled?: boolean,
+  ) => UseQueryResult<CalendarEntry[]>;
+  /** The other type's records linked to one of this type (a release's changes), if any. */
+  useLinked: (id: string) => string[] | undefined;
   /** Its query key prefix, refetched when a record of the type changes. */
   queryKey: readonly string[];
   /** Whether a move asks the re-approval preview first (changes: ADR-042 §5). */
@@ -84,6 +95,8 @@ export interface ScheduleKind {
   title: string;
   list: string;
   notMoved: string;
+  /** "Show changes" / "Show releases": the other type drawn on this calendar. */
+  showOther: string;
   testId: string;
 }
 
@@ -94,8 +107,13 @@ export interface ScheduleKind {
  * your zone. Live: a record moving or a window changing shows at once. A window is dragged to
  * another day, or moved by "Move…", to reschedule it (same time of day), through the record's
  * re-approval warning and conflict guard. A chip opens a quick view of its record.
+ *
+ * Both staged types on one calendar (REQ-REL-038): "Show changes" (or releases) draws the other
+ * type too, each in its own colour with a legend, each moved by its own stage and rules.
+ * `?focus=<id>` is a record's scheduler (REQ-REL-039): the calendar opens on its planned window,
+ * marks it, and shows only the other type's records linked to it unless that is turned off.
  */
-export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
+export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: ScheduleKind }) {
   const t = useLabel();
   const { locale, dates } = useAppearance();
   const { format } = useDateTime();
@@ -108,14 +126,34 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
   const [view, setView] = useState<CalendarView>('month');
   const [anchor, setAnchor] = useState<Day>(() => dayOf(new Date().toISOString(), zone));
   const [mine, setMine] = useState(false);
+  const [params] = useSearchParams();
+  const focus = params.get('focus') ?? '';
+  const [showOther, setShowOther] = useState(focus !== '');
+  const [onlyLinked, setOnlyLinked] = useState(true);
+  const mayOther = can(`${other.type}.view`);
   const [layers, setLayers] = useState<string[]>(['freeze', 'maintenance']);
   const days = useMemo(() => daysOf(view, anchor, firstDay), [view, anchor, firstDay]);
   const range = useMemo(() => rangeOf(days, zone), [days, zone]);
   const calendar = kind.useEntries(range.start, range.end, mine);
+  const others = other.useEntries(range.start, range.end, mine, showOther && mayOther);
+  const linked = kind.useLinked(focus);
+  const focusSchedule = useStagedSchedule(kind.type, focus);
   const windows = useChangeWindows(range);
-  const update = useUpdateStagedSchedule(kind.type);
+  const updates = {
+    [kind.type]: useUpdateStagedSchedule(kind.type),
+    [other.type]: useUpdateStagedSchedule(other.type),
+  } as Record<StagedPath, ReturnType<typeof useUpdateStagedSchedule>>;
+  const kinds = { [kind.type]: kind, [other.type]: other } as Record<StagedPath, ScheduleKind>;
   const preview = useReapprovalPreview();
-  const [quick, setQuick] = useState<CalendarEntry>();
+  const [quick, setQuick] = useState<Entry>();
+  // The scheduler opens on the record's planned window, once (REQ-REL-039).
+  const centred = useRef(false);
+  const focusStart = focusSchedule.data?.find((r) => r.stage === kind.stage)?.scheduled_start;
+  useEffect(() => {
+    if (centred.current || !focusStart) return;
+    centred.current = true;
+    setAnchor(dayOf(focusStart, zone));
+  }, [focusStart, zone]);
   usePageCrumbs([
     { label: t(`nav.${kind.type}`), path: `/${kind.type}` },
     { label: t(kind.title) },
@@ -124,10 +162,19 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
   useListChannel(kind.type, () => {
     void queryClient.invalidateQueries({ queryKey: kind.queryKey });
   });
+  useListChannel(other.type, () => {
+    void queryClient.invalidateQueries({ queryKey: other.queryKey });
+  });
   useTenantChannel((m) => {
     if (m.type === 'work_items.change_windows_changed') void windows.refetch();
   });
-  const entries = calendar.data ?? [];
+  const entries: Entry[] = [
+    ...(calendar.data ?? []).map((e) => ({ ...e, of: kind.type })),
+    ...(showOther && mayOther ? (others.data ?? []) : [])
+      .filter((e) => focus === '' || !onlyLinked || (linked ?? []).includes(e.record_id))
+      .map((e) => ({ ...e, of: other.type })),
+  ].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  const colourOf = (of: StagedPath) => (of === kind.type ? token.colorPrimary : token.colorWarning);
   const bands: Occurrence[] = (windows.data ?? [])
     .filter((w) => layers.includes(w.kind))
     .flatMap((w) => occurrences(w, range.start, range.end).map((o) => ({ window: w, ...o })));
@@ -152,31 +199,33 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
       timeZone: 'UTC',
     }).format(new Date(Date.UTC(shown.year, shown.month, shown.day)));
   })();
-  const may = can(`${kind.type}.edit`);
+  // A day takes a drop when either type shown may be edited (each move checks its own).
+  const may = can(`${kind.type}.edit`) || (showOther && can(`${other.type}.edit`));
 
-  const reschedule = (entry: CalendarEntry, target: Day) => {
+  const reschedule = (entry: Entry, target: Day) => {
+    const k = kinds[entry.of];
     const shift = daysBetween(dayOf(entry.starts_at, zone), target);
     if (shift === 0) return;
     const start = shiftDays(entry.starts_at, shift, zone);
     const end = shiftDays(entry.ends_at, shift, zone);
     const write = () => {
-      update.mutate(
+      updates[entry.of].mutate(
         {
           id: entry.record_id,
-          stage: kind.stage,
+          stage: k.stage,
           version: entry.version,
           body: { scheduled_start: start, scheduled_end: end },
         },
         {
           onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: kind.queryKey });
+            void queryClient.invalidateQueries({ queryKey: k.queryKey });
           },
           onError: (error) => {
             const blocked = error instanceof ApiError && error.code === 'change_window_blocked';
             void modal.error({
-              title: t(blocked ? 'errors.change_window_blocked' : kind.notMoved),
+              title: t(blocked ? 'errors.change_window_blocked' : k.notMoved),
               content: (
-                <Link to={`/${kind.type}/${entry.record_id}?tab=schedule`}>
+                <Link to={`/${entry.of}/${entry.record_id}?tab=schedule`}>
                   {t('changes.calendar.open_change', { id: entry.display_id })}
                 </Link>
               ),
@@ -185,7 +234,7 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
         },
       );
     };
-    if (!kind.preview) {
+    if (!k.preview) {
       write();
       return;
     }
@@ -221,29 +270,32 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
 
   // The keyboard's way to reschedule (lane C's #381 review): "Move…" asks for the new day and
   // goes through the same reschedule, conflict check and re-approval as a drag.
-  const [moving, setMoving] = useState<CalendarEntry>();
+  const [moving, setMoving] = useState<Entry>();
   const [moveTo, setMoveTo] = useState<string | null>(null); // a day, YYYY-MM-DD
 
   const onDrop = (event: DragEvent<HTMLDivElement>, target: Day) => {
     event.preventDefault();
     const raw = event.dataTransfer.getData(DRAG_TYPE);
-    const entry = entries.find((e) => `${e.record_id}:${e.kind}` === raw);
+    const entry = entries.find((e) => `${e.of}:${e.record_id}:${e.kind}` === raw);
     if (entry !== undefined) reschedule(entry, target);
   };
 
-  const entryChip = (e: CalendarEntry) => {
-    const draggable = may && e.kind === 'window';
+  const entryChip = (e: Entry) => {
+    const draggable = can(`${e.of}.edit`) && e.kind === 'window';
+    const focused = e.record_id === focus;
     return (
       <div
-        key={`${e.record_id}:${e.kind}:${e.part_id ?? ''}`}
+        key={`${e.of}:${e.record_id}:${e.kind}:${e.part_id ?? ''}`}
         draggable={draggable}
         onDragStart={(event) => {
-          event.dataTransfer.setData(DRAG_TYPE, `${e.record_id}:${e.kind}`);
+          event.dataTransfer.setData(DRAG_TYPE, `${e.of}:${e.record_id}:${e.kind}`);
           event.dataTransfer.effectAllowed = 'move';
         }}
         data-testid={`calendar-entry-${e.display_id}-${e.kind}`}
+        data-type={e.of}
         style={{
-          borderInlineStart: `3px ${e.kind === 'window' ? 'solid' : 'dashed'} ${token.colorPrimary}`,
+          borderInlineStart: `3px ${e.kind === 'window' ? 'solid' : 'dashed'} ${colourOf(e.of)}`,
+          outline: focused ? `2px solid ${token.colorPrimary}` : undefined,
           paddingInline: 6,
           paddingBlock: 2,
           marginBottom: 2,
@@ -398,7 +450,7 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
               },
             ]}
           />
-          <Link to={`/${kind.type}/${quick.record_id}`} data-testid="calendar-quick-open">
+          <Link to={`/${quick.of}/${quick.record_id}`} data-testid="calendar-quick-open">
             {t('changes.calendar.quick.open', { id: quick.display_id })}
           </Link>
         </Flex>
@@ -498,6 +550,50 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
             />
             <Typography.Text>{t('changes.calendar.mine')}</Typography.Text>
           </Space>
+          {mayOther && (
+            <Space size={4}>
+              <Switch
+                size="small"
+                checked={showOther}
+                onChange={setShowOther}
+                aria-label={t(kind.showOther)}
+                data-testid="calendar-show-other"
+              />
+              <Typography.Text>{t(kind.showOther)}</Typography.Text>
+            </Space>
+          )}
+          {mayOther && showOther && focus !== '' && (
+            <Space size={4}>
+              <Switch
+                size="small"
+                checked={onlyLinked}
+                onChange={setOnlyLinked}
+                aria-label={t('changes.calendar.only_linked')}
+                data-testid="calendar-only-linked"
+              />
+              <Typography.Text>{t('changes.calendar.only_linked')}</Typography.Text>
+            </Space>
+          )}
+          {mayOther && showOther && (
+            // The legend: each type's colour, as its chips' edge (REQ-REL-038 AC1).
+            <Space size={12} data-testid="calendar-legend">
+              {[kind, other].map((k) => (
+                <Space key={k.type} size={4}>
+                  <span
+                    aria-hidden
+                    style={{
+                      display: 'inline-block',
+                      width: 12,
+                      height: 12,
+                      borderRadius: 2,
+                      background: colourOf(k.type),
+                    }}
+                  />
+                  <Typography.Text>{t(`nav.${k.type}`)}</Typography.Text>
+                </Space>
+              ))}
+            </Space>
+          )}
           <Checkbox.Group
             value={layers}
             onChange={(v) => {
@@ -528,7 +624,7 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
       }
       return { gridColumn: `${String(first + 2)} / ${String(last + 3)}`, gridRow: line + 1 };
     };
-    const records = [...new Map(entries.map((e) => [e.record_id, e])).values()];
+    const records = [...new Map(entries.map((e) => [`${e.of}:${e.record_id}`, e])).values()];
     const gridColumns = `minmax(140px, 200px) repeat(${String(days.length)}, minmax(28px, 1fr))`;
     const row = (key: string, label: ReactNode, cells: ReactNode, lines = 1) => (
       <div
@@ -615,9 +711,9 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
             </Typography.Text>
           )}
           {records.map((r) => {
-            const own = entries.filter((e) => e.record_id === r.record_id);
+            const own = entries.filter((e) => e.of === r.of && e.record_id === r.record_id);
             return row(
-              r.record_id,
+              `${r.of}:${r.record_id}`,
               <Typography.Text ellipsis={{ tooltip: r.subject }}>
                 <bdi dir="ltr" style={{ fontWeight: 600 }}>
                   {r.display_id}
@@ -669,7 +765,7 @@ export function ScheduleCalendar({ kind }: { kind: ScheduleKind }) {
             {entries
               .filter((e) => touches(e.starts_at, e.ends_at, d, zone))
               .map((e) => (
-                <Flex key={`${e.record_id}:${e.kind}:${e.part_id ?? ''}`} gap={8} wrap>
+                <Flex key={`${e.of}:${e.record_id}:${e.kind}:${e.part_id ?? ''}`} gap={8} wrap>
                   <span
                     style={{ whiteSpace: 'nowrap' }}
                   >{`${format(e.starts_at)} – ${format(e.ends_at)}`}</span>

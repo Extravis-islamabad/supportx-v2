@@ -111,7 +111,7 @@ async def test_req_rel_033_ac3_a_change_you_may_not_see_shows_only_that_it_is(
     assert change["subject"] not in listed.text
 
 
-async def test_req_rel_027_the_release_calendar_shows_deployment_windows(world: World) -> None:
+async def test_req_rel_038_the_release_calendar_shows_deployment_windows(world: World) -> None:
     """WP-058b S1: a release's deployment window on its calendar; the same query as changes'."""
     a, b = world.a, world.b
     release = await a_release(world, a)

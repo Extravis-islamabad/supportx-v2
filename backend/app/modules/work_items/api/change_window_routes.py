@@ -417,7 +417,7 @@ async def change_calendar(
     return _entries(await service.calendar(session, subject, start=start, end=end, mine=mine))
 
 
-# --- the release calendar (WP-058b S1; REQ-REL-027) --------------------------------------------
+# --- the release calendar (WP-058b S1; REQ-REL-038) --------------------------------------------
 
 release_calendar_router = APIRouter(
     prefix="/release-calendar",

@@ -519,11 +519,12 @@ export const releaseCalendarKeys = {
 };
 
 /** The releases you may see planned in [start, end): deployment windows and planned downtimes. */
-export function useReleaseCalendar(start: string, end: string, mine: boolean) {
+export function useReleaseCalendar(start: string, end: string, mine: boolean, enabled = true) {
   return useQuery({
     queryKey: releaseCalendarKeys.range(start, end, mine),
     queryFn: () =>
       call(api.GET('/api/v1/release-calendar', { params: { query: { start, end, mine } } })),
     placeholderData: keepPreviousData,
+    enabled,
   });
 }

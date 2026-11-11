@@ -1816,19 +1816,25 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     - history on both records;
     - a change the viewer may not see shows only that it is there;
     - the release page's **Changes** tab.
-  - **Calendar (REQ-REL-027):**
+  - **Calendar (REQ-REL-038, -039):**
     - `/release-calendar` uses lane A's `calendar()`, generalised by planned stage (change
       implementation, release deployment) and scoped by each type's own permission;
     - the change calendar moved to `pages/staged/ScheduleCalendar` with its behaviour kept
       (Move…, role=row, the re-approval preview and conflict path, #381's tests); the Move dialog
       now uses the shared DateField;
     - new: a timeline view and a quick-view drawer; `/releases/calendar`.
+    - both types on one calendar: "Show changes" / "Show releases" with a legend (REQ-REL-038
+      AC1), each moved by its own stage and rules;
+    - the release's scheduler: `/releases/calendar?focus=<id>` from its Schedule tab, opened on
+      its deployment with only its changes by default (REQ-REL-039 AC1).
   - Tests: `tests/db/test_release_changes_api.py` (4); Vitest `release-calendar.test.tsx` (3),
     the Changes tab in `releases.test.tsx` (2). Matrix screens: `release-calendar` (+ timeline)
     and the release's Changes tab.
   - **Open:** per-environment guarding (WP-053). A release move has no re-approval preview; the
     type-neutral guard comes in S2 with the ADR-042 addendum. A change does not yet show its
-    release on its own page (S3, with the page tabs).
+    release on its own page (S3, with the page tabs). REQ-REL-033's copy-downtime-on-add and
+    "a change behind its schedule" marker, and REQ-REL-038's service/site/type/group filters
+    and stage colours, go to S5 with the lists.
 - [ ] S2: the guard by planned stage, conflict acks, release freeze override (after lane A's
   WP-045d S2, 0137). S3: stage on tasks and worklogs, page tabs. S4: closure and rollback.
   S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
