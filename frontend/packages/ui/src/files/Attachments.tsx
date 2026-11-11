@@ -264,14 +264,13 @@ export function Attachments({
               if (_file === list[0]) uploads.add(list);
               return false;
             }}
-            style={compact ? { padding: 4 } : undefined}
+            // One compact band, never a tall empty box (D-155 A5; the QA fix-round's ~140 px).
+            style={{ padding: compact ? 4 : 8 }}
           >
-            {!compact && (
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined aria-hidden />
-              </p>
-            )}
-            <p className="ant-upload-text">{t('files.drop')}</p>
+            <p className="ant-upload-text" style={{ margin: 0 }}>
+              {!compact && <InboxOutlined aria-hidden style={{ marginInlineEnd: 8 }} />}
+              {t('files.drop')}
+            </p>
             {rules.data !== undefined && (
               <p className="ant-upload-hint">
                 {t('files.drop_hint', { limit: rules.data.max_file_mb })}

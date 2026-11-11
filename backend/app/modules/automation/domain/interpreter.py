@@ -13,6 +13,11 @@ Parallel branches are tokens. A split gives each branch a token that remembers w
 it (`groups`); a join counts the tokens of the same split and continues with one when its mode is
 met, cancelling the others it no longer needs (REQ-WF-018).
 
+A failed command retries when its node says so (`retries`, `retry_seconds`): the token waits and
+the waker runs the node again; only then does the error output (or the stop) follow (REQ-WF-024).
+A sub-flow is a command the runtime carries out itself: it starts the child instance, and the
+child's end comes back to the parent as that command's result (REQ-WF-017).
+
 Limits (Appendix A, REQ-WF-029): a token enters one node at most `max_rounds` times (100 at
 most), and an instance runs at most 10,000 steps. Hitting one fails the instance, with the reason.
 """
@@ -28,6 +33,7 @@ from app.modules.automation.domain.rules import JsonValue, matches
 from app.modules.automation.domain.workflows import (
     MAX_LOOP_ROUNDS,
     MAX_STEPS,
+    VAR_PREFIX,
     Definition,
     JoinMode,
     NodeType,
@@ -69,6 +75,12 @@ class CommandKind(StrEnum):
     MOVE = "move"
     UPDATE_FIELDS = "update_fields"
     ADD_NOTE = "add_note"
+    START_SUB_FLOW = "start_sub_flow"  # carried out by the runtime, not an owning module
+    OPEN_APPROVAL = "open_approval"  # opened now, decided later: its result names the output
+    OPEN_TASKS = "open_tasks"  # opened now, done later: all done is its result
+    RUN_FUNCTION = "run_function"  # run by a worker through the runner port (§6.7)
+    CALL_WEBHOOK = "call_webhook"  # sent by a worker through the guarded client (ADR-043 §8)
+    NOTIFY = "notify"  # through the owning module's record, to the one notification engine
 
 
 @dataclass(frozen=True)
@@ -91,6 +103,8 @@ class Token:
     rounds: dict[str, int] = field(default_factory=dict)
     wake_at: datetime | None = None
     command: str | None = None
+    attempts: int = 0  # failed tries of the node's command so far (its retries)
+    retrying: bool = False  # waiting to try the node's command again
 
 
 @dataclass
@@ -142,6 +156,7 @@ class CommandDone:
     ok: bool
     error: str | None = None
     outputs: Mapping[str, JsonValue] = field(default_factory=dict)
+    port: str | None = None  # the output a successful result leaves by ("next" when None)
 
 
 Event = RecordChanged | TimerFired | CommandDone
@@ -190,6 +205,12 @@ class _Run:
     steps: list[Step] = field(default_factory=list)
     commands: list[Command] = field(default_factory=list)
 
+    def seen(self) -> dict[str, JsonValue]:
+        """What conditions read: the record's facts and the variables as `var.<name>`."""
+        found = dict(self.facts)
+        found.update({f"{VAR_PREFIX}{k}": v for k, v in self.state.variables.items()})
+        return found
+
     def log(self, token: Token, result: str, **detail: JsonValue) -> None:
         node = self.definition.node(token.node)
         self.steps.append(Step(token.id, node.id, node.type, result, self.now, detail))
@@ -207,6 +228,7 @@ class _Run:
             self.fail(token, "output_not_linked", port=port)
             return
         token.node, token.state, token.wake_at, token.command = target, TokenState.READY, None, None
+        token.attempts, token.retrying = 0, False
 
     def new_id(self, prefix: str) -> str:
         value = f"{prefix}{self.state.next_id}"
@@ -241,36 +263,54 @@ def _apply(run: _Run, event: Event | None) -> None:  # noqa: C901 - one branch p
     if event is None:
         return
     if isinstance(event, CommandDone):
-        token = next((t for t in run.state.tokens if t.command == event.command), None)
-        if token is None or token.state != TokenState.COMMAND:
-            return  # a result already applied (activities run at least once)
-        if event.ok:
-            run.state.variables.update(event.outputs)
-            run.follow(token, "next")
-        elif run.definition.next_of(token.node, "error") is not None:
-            run.follow(token, "error")
-        else:  # no error output: the instance stops at the node (REQ-WF-024)
-            run.fail(token, event.error or "command_failed")
+        _command_done(run, event)
         return
     for token in [t for t in run.state.tokens if t.state == TokenState.WAITING]:
         node = run.definition.node(token.node)
         if isinstance(event, TimerFired):
-            if token.wake_at is not None and token.wake_at <= run.now:
+            if token.wake_at is None or token.wake_at > run.now:
+                continue
+            if token.retrying:  # the node runs again (its round counts, as a loop's would)
+                token.state, token.wake_at, token.retrying = TokenState.READY, None, False
+            else:
                 run.follow(token, "next" if node.type == NodeType.TIMER else "timeout")
+            continue
+        if token.retrying:
             continue
         if node.type != NodeType.WAIT:
             continue
         if event.kind.value in node.config.get("events", []) and matches(
-            node.config.get("condition"), None, run.facts
+            node.config.get("condition"), None, run.seen()
         ):
             run.follow(token, "next")
         elif _overtaken(run, node.config):
             run.follow(token, "overtaken")  # never silently dropped (REQ-WF-012 AC2)
 
 
+def _command_done(run: _Run, event: CommandDone) -> None:
+    """A command's result: its success, a retry, its error output, or the stop (REQ-WF-024)."""
+    token = next((t for t in run.state.tokens if t.command == event.command), None)
+    if token is None or token.state != TokenState.COMMAND:
+        return  # a result already applied (activities run at least once)
+    config = run.definition.node(token.node).config
+    if event.ok:
+        run.state.variables.update(event.outputs)
+        run.follow(token, event.port or "next")
+    elif token.attempts < int(config.get("retries", 0)):
+        token.attempts += 1
+        token.state, token.command, token.retrying = TokenState.WAITING, None, True
+        wait = int(config.get("retry_seconds", 60))
+        token.wake_at = run.clock(run.now, wait, TimeBasis.CALENDAR)
+        run.log(token, "retry", attempt=token.attempts, code=event.error or "command_failed")
+    elif run.definition.next_of(token.node, "error") is not None:
+        run.follow(token, "error")
+    else:  # no error output: the instance stops at the node (REQ-WF-024)
+        run.fail(token, event.error or "command_failed")
+
+
 def _overtaken(run: _Run, config: Mapping[str, Any]) -> bool:
     if config.get("overtaken_when") is not None:
-        return matches(config["overtaken_when"], None, run.facts)
+        return matches(config["overtaken_when"], None, run.seen())
     return run.facts.get("status_category") in FINAL
 
 
@@ -293,7 +333,7 @@ def _drain(run: _Run) -> None:
         _run_node(run, token)
 
 
-def _run_node(run: _Run, token: Token) -> None:  # noqa: C901 - one branch per node type
+def _run_node(run: _Run, token: Token) -> None:  # noqa: C901, PLR0912 - one branch per node type
     node = run.definition.node(token.node)
     config = node.config
     match node.type:
@@ -303,13 +343,13 @@ def _run_node(run: _Run, token: Token) -> None:  # noqa: C901 - one branch per n
             token.state = TokenState.DONE
             run.log(token, "finished")
         case NodeType.IF:
-            run.follow(token, "yes" if matches(config.get("condition"), None, run.facts) else "no")
+            run.follow(token, "yes" if matches(config.get("condition"), None, run.seen()) else "no")
         case NodeType.SWITCH:
             port = next(
                 (
                     str(case["port"])
                     for case in config.get("cases", [])
-                    if matches(case.get("condition"), None, run.facts)
+                    if matches(case.get("condition"), None, run.seen())
                 ),
                 "default",
             )
@@ -338,6 +378,78 @@ def _run_node(run: _Run, token: Token) -> None:  # noqa: C901 - one branch per n
             _split(run, token)
         case NodeType.JOIN:
             _join(run, token)
+        case NodeType.SET_VARIABLE:
+            _set_variable(run, token)
+        case NodeType.SUB_FLOW:
+            _command(
+                run, token, CommandKind.START_SUB_FLOW, {"workflow_id": config.get("workflow_id")}
+            )
+        case NodeType.TASKS:
+            _command(
+                run,
+                token,
+                CommandKind.OPEN_TASKS,
+                {
+                    "titles": [dict(t) for t in config.get("titles", [])],
+                    "owner_user_id": config.get("owner_user_id"),
+                    "owner_group_id": config.get("owner_group_id"),
+                    "due_days": config.get("due_days"),
+                },
+            )
+        case NodeType.NOTIFY:
+            _command(
+                run,
+                token,
+                CommandKind.NOTIFY,
+                {
+                    "audience": dict(config.get("audience", {})),
+                    "subject": dict(config.get("subject", {})),
+                    "body": dict(config.get("body", {})),
+                },
+            )
+        case NodeType.WEBHOOK:
+            _command(
+                run,
+                token,
+                CommandKind.CALL_WEBHOOK,
+                {
+                    "url": config.get("url"),
+                    "method": str(config.get("method", "POST")),
+                    "headers": dict(config.get("headers", {})),
+                    "fields": list(config.get("fields", [])),
+                    "status_variable": config.get("status_variable"),
+                },
+            )
+        case NodeType.FUNCTION:
+            _command(
+                run,
+                token,
+                CommandKind.RUN_FUNCTION,
+                {
+                    "function": config.get("function"),
+                    "inputs": dict(config.get("inputs", {})),
+                    "assign": dict(config.get("assign", {})),
+                    "timeout_seconds": int(config.get("timeout_seconds", 10)),
+                },
+            )
+        case NodeType.APPROVAL:
+            _command(
+                run,
+                token,
+                CommandKind.OPEN_APPROVAL,
+                {
+                    "approvers": dict(config.get("approvers", {})),
+                    "rule": str(config.get("rule", "any")),
+                },
+            )
+
+
+def _set_variable(run: _Run, token: Token) -> None:
+    config = run.definition.node(token.node).config
+    source = config.get("from_field")
+    value = run.facts.get(str(source)) if source is not None else config.get("value")
+    run.state.variables[str(config.get("variable"))] = value
+    run.follow(token, "next")
 
 
 def _command(run: _Run, token: Token, kind: CommandKind, payload: Mapping[str, Any]) -> None:
@@ -355,7 +467,7 @@ def _wait(run: _Run, token: Token) -> None:
     config = run.definition.node(token.node).config
     # A state the wait listens for that already holds completes at once: the change it waits for
     # has happened (REQ-WF-012 AC1 when the technician was quicker than the workflow).
-    if config.get("condition") is not None and matches(config["condition"], None, run.facts):
+    if config.get("condition") is not None and matches(config["condition"], None, run.seen()):
         run.follow(token, "next")
         return
     if _overtaken(run, config):

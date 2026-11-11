@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Flex, Skeleton, Tabs } from 'antd';
+import { useSearchParams } from 'react-router';
 
 import {
   queryKeys,
@@ -15,7 +16,10 @@ import { LifeCyclesTab } from './LifeCyclesTab';
 import { ProductsTab } from './ProductsTab';
 import { SettingsTab } from './SettingsTab';
 import { StatesTab } from './StatesTab';
+import { StockRulesTab } from './StockRulesTab';
 import { TypesTab } from './TypesTab';
+
+const TAB_KEYS = ['types', 'products', 'states', 'life_cycles', 'stock_rules', 'settings'];
 
 /**
  * The asset catalogue (WP-049a, D-141): product types, products, states, life cycles and the
@@ -27,6 +31,8 @@ export function AssetCatalogPage() {
   const t = useLabel();
   const licence = useLicence();
   const queryClient = useQueryClient();
+  // ?tab=products opens that tab (the asset form's "no products yet" hint links there).
+  const [params] = useSearchParams();
   const licensed = licence.has('assets');
   const settings = useAssetSettings(licensed);
   const states = useAssetStates(licensed);
@@ -65,6 +71,7 @@ export function AssetCatalogPage() {
       {header}
       <Tabs
         destroyOnHidden
+        defaultActiveKey={TAB_KEYS.find((key) => key === params.get('tab'))}
         items={[
           {
             key: 'types',
@@ -85,6 +92,12 @@ export function AssetCatalogPage() {
             key: 'life_cycles',
             label: t('assets.admin.life_cycles'),
             children: <LifeCyclesTab lifeCycles={lifeCycles.data} states={states.data} />,
+          },
+          {
+            // WP-049b s1 (REQ-AST-035): minimum stock and who hears of it.
+            key: 'stock_rules',
+            label: t('assets.rules.title'),
+            children: <StockRulesTab types={types.data} />,
           },
           {
             key: 'settings',

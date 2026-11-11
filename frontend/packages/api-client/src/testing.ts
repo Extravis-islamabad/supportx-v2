@@ -75,6 +75,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['config.service_desk', 'all'],
   ['config.organisation', 'all'],
   ['config.assets', 'all'], // WP-049a: the asset catalogue
+  ['assets.view_financials', 'all'], // WP-049b s2: costs, depreciation, book value
   ['vendors.create', 'all'],
   ['vendors.manage', 'all'],
   ['catalog_items.manage', 'all'], // WP-031: the catalog's administration
@@ -109,7 +110,6 @@ const ADMIN_EXTRA: Grant[] = [
   ['incidents.view', 'all'],
   ['incidents.edit', 'all'],
   ['incidents.assign', 'all'],
-  ['incidents.assign_outside_group', 'all'],
   ['incidents.delete', 'all'],
   ['audit.view', 'all'],
   ['audit.export', 'all'],
@@ -595,7 +595,10 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     on_behalf_scope: 'same_department',
     approvals_hidden_from_requesters: false,
     approvals_require_sign_in: false,
+    first_task_starts_work: true,
     portal_show_due_time: false,
+    segregation_strict: false,
+    cab_every_match: false,
     first_response_on: ['reply', 'public_note'],
     version: 1,
     statuses: [

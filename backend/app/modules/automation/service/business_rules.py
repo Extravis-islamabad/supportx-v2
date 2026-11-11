@@ -38,6 +38,7 @@ from app.modules.automation.domain.rules import (
 from app.modules.automation.events import AutomationChanged
 from app.modules.automation.infra.models import AutomationRun, BusinessRule
 from app.modules.automation.service.registry import record_type as registered
+from app.modules.organization import memberships
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 
@@ -129,7 +130,9 @@ async def check_rule(
     problems += check_actions(actions, fields)
     if not problems and isinstance(actions, list):
         settable = {a["field"]: a.get("value") for a in actions if a.get("kind") == "set"}
-        for field, code in (await kind.check_values(session, settable)).items():
+        found = dict(await kind.check_values(session, settable))
+        found = await person_group_problems(session, settable) | found
+        for field, code in found.items():
             index = next(i for i, a in enumerate(actions) if a.get("field") == field)
             problems.append((f"actions.{index}.value", code, {"field": field}))
     cleaned = {
@@ -264,6 +267,32 @@ async def reorder_rules(
 
 
 # --- running -------------------------------------------------------------------------------------
+
+
+async def person_group_problems(
+    session: AsyncSession, settable: Mapping[str, Any]
+) -> dict[str, str]:
+    """D-154 "rules", at save only: a technician the step sets comes with the group to move to.
+
+    In several groups, the step sets which one too; the one it sets must be theirs; in none,
+    nothing can be given to them. At run time a person who left is not refused but falls back
+    to the group only (work_items' `place_person`), so this is never part of `check_values`.
+    """
+    person = settable.get("technician_id")
+    if not person:
+        return {}
+    try:
+        groups = (await memberships(session, uuid.UUID(str(person)))).group_ids
+        group = uuid.UUID(str(settable["group_id"])) if settable.get("group_id") else None
+    except ValueError:
+        return {}  # check_values reports the malformed value
+    if not groups:
+        return {"technician_id": "person_in_no_group"}
+    if group is not None and group not in groups:
+        return {"technician_id": "person_not_in_group"}
+    if group is None and len(groups) > 1:
+        return {"technician_id": "reassign_group_required"}
+    return {}
 
 
 @dataclass

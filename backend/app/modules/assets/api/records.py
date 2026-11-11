@@ -6,7 +6,7 @@ match first and `/assets/{asset_id}` only takes an ID. Reading needs `assets.vie
 """
 
 import uuid
-from datetime import date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -19,9 +19,15 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules import metadata
 from app.modules.assets.domain.assets import IDENTIFIER_MAX, LOCATION_MAX, NAME_MAX
-from app.modules.assets.infra.models import Asset, AssetDisposal
+from app.modules.assets.domain.financials import (
+    COST_CENTRE_MAX,
+    GL_CODE_MAX,
+    LIFE_MAX,
+    DepreciationChoice,
+)
+from app.modules.assets.infra.models import Asset, AssetAssignment, AssetDisposal
 from app.modules.assets.service import assets as service
-from app.modules.assets.service import bulk, disposals, moves
+from app.modules.assets.service import bulk, disposals, moves, ownership, relationships
 from app.modules.assets.service.catalogue import TEXT_MAX
 from app.modules.audit import RequestFacts, audited
 from app.modules.audit import record as record_audit
@@ -31,7 +37,7 @@ from app.shared.api.filters import FilterField
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query, paginate
 from app.shared.api.ratelimit import rate_limit
-from app.shared.history import history_page, source_of
+from app.shared.history import HistoryFilter, Source, history_page, source_of
 from app.shared.search import ENGINE, SearchDocument
 
 router = APIRouter(
@@ -82,6 +88,9 @@ class AssetOut(BaseModel):
     barcode: str | None
     vendor_id: uuid.UUID | None
     site_id: uuid.UUID | None
+    owner_user_id: uuid.UUID | None = Field(default=None, description="Held by this person.")
+    department_id: uuid.UUID | None = Field(default=None, description="Held by a department.")
+    parent_asset_id: uuid.UUID | None = Field(default=None, description="Fitted to this asset.")
     location: str | None
     purchase_order_id: uuid.UUID | None
     purchase_price: Decimal | None
@@ -92,6 +101,9 @@ class AssetOut(BaseModel):
     warranty_expires_on: date | None
     expires_on: date | None
     description: str | None
+    loanable: bool = Field(default=False, description="May go out on a loan (REQ-AST-029).")
+    cost_centre: str | None = Field(default=None, description="Free text (REQ-AST-038).")
+    gl_code: str | None = Field(default=None, description="From the product unless typed.")
     custom: dict[str, Any]
     created_at: datetime
     updated_at: datetime
@@ -112,6 +124,9 @@ class AssetOut(BaseModel):
             barcode=row.barcode,
             vendor_id=row.vendor_id,
             site_id=row.site_id,
+            owner_user_id=row.owner_user_id,
+            department_id=row.department_id,
+            parent_asset_id=row.parent_asset_id,
             location=row.location,
             purchase_order_id=row.purchase_order_id,
             purchase_price=row.purchase_price,
@@ -120,6 +135,9 @@ class AssetOut(BaseModel):
             currency=row.currency,
             acquired_on=row.acquired_on,
             warranty_expires_on=row.warranty_expires_on,
+            loanable=row.loanable,
+            cost_centre=row.cost_centre,
+            gl_code=row.gl_code,
             expires_on=row.expires_on,
             description=row.description,
             custom=dict(row.custom),
@@ -150,6 +168,13 @@ class AssetIn(BaseModel):
     warranty_expires_on: date | None = None
     expires_on: date | None = None
     description: str | None = Field(default=None, max_length=TEXT_MAX)
+    cost_centre: str | None = Field(default=None, max_length=COST_CENTRE_MAX)
+    gl_code: str | None = Field(default=None, max_length=GL_CODE_MAX)
+    depreciation_method: DepreciationChoice | None = Field(
+        default=None, description="The asset's own (null: the product's). assets.view_financials."
+    )
+    useful_life_years: int | None = Field(default=None, ge=1, le=LIFE_MAX)
+    salvage_value: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     custom: dict[str, Any] | None = Field(default=None, description="Custom field values by key.")
 
 
@@ -174,6 +199,13 @@ class AssetPatch(BaseModel):
     warranty_expires_on: date | None = None
     expires_on: date | None = None
     description: str | None = Field(default=None, max_length=TEXT_MAX)
+    cost_centre: str | None = Field(default=None, max_length=COST_CENTRE_MAX)
+    gl_code: str | None = Field(default=None, max_length=GL_CODE_MAX)
+    depreciation_method: DepreciationChoice | None = Field(
+        default=None, description="The asset's own (null: the product's). assets.view_financials."
+    )
+    useful_life_years: int | None = Field(default=None, ge=1, le=LIFE_MAX)
+    salvage_value: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key; null clears one."
     )
@@ -203,6 +235,15 @@ class AssetHistoryEntryOut(BaseModel):
     reason: str | None
     occurred_at: datetime
     changes: list[AssetChangeOut]
+
+
+HistoryView = Literal["all", "state", "assignment"]
+# REQ-AST-049 sub-views: the fields each shows. Assignment: who holds it (a person, a department
+# or the asset it is fitted to); loans and their returns set and clear those too.
+HISTORY_VIEWS: dict[str, tuple[str, ...]] = {
+    "state": ("state_id",),
+    "assignment": ("owner_user_id", "department_id", "parent_asset_id"),
+}
 
 
 class AssetHistoryOut(BaseModel):
@@ -377,17 +418,41 @@ async def restore_asset(
     summary="An asset's history",
     responses={404: {"model": ProblemDetail, "description": "asset_not_found"}},
 )
-async def asset_history(
+async def asset_history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and filters
     asset_id: uuid.UUID,
     session: TenantSession,
     subject: View,
     cursor: Annotated[int | None, Query(ge=1, description="next_cursor of the last page")] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    view: Annotated[
+        HistoryView,
+        Query(description="state: state moves only; assignment: who holds it (and loans)."),
+    ] = "all",
+    field: Annotated[
+        list[str] | None, Query(max_length=20, description="Only these fields.")
+    ] = None,
+    source: Annotated[
+        list[Source] | None, Query(max_length=20, description="Only from these.")
+    ] = None,
+    actor_id: Annotated[uuid.UUID | None, Query(description="Only this person's changes.")] = None,
+    since: Annotated[date | None, Query(description="From this day (inclusive, UTC).")] = None,
+    until: Annotated[date | None, Query(description="To this day (inclusive, UTC).")] = None,
 ) -> AssetHistoryOut:
-    """Every save, newest first, with who, when, how (UI, API, rule ...) and what changed."""
+    """Every save, newest first, with who, when, how (UI, API, rule ...) and what changed.
+
+    Filters (REQ-AST-049): a sub-view (state, assignment), fields, sources, a person and days.
+    """
     await service.get_asset(session, subject, asset_id)
+    fields = set(field or ()) | set(HISTORY_VIEWS.get(view, ()))
+    where = HistoryFilter(
+        fields=frozenset(fields),
+        sources=frozenset(source or ()),
+        actor_id=None if actor_id is None else str(actor_id),
+        since=None if since is None else datetime.combine(since, time.min, UTC),
+        until=None if until is None else datetime.combine(until + timedelta(days=1), time.min, UTC),
+    )
     entries, next_version = await history_page(
-        session, service.RECORD_TYPE, asset_id, before_version=cursor, limit=limit
+        session, service.RECORD_TYPE, asset_id, before_version=cursor, limit=limit, where=where
     )
     names = await user_names(session, [e.actor_id for e in entries if e.actor_id])
     return AssetHistoryOut(
@@ -595,6 +660,11 @@ class AssetDisposalIn(BaseModel):
     cost: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     currency: str | None = Field(default=None, pattern="^[A-Z]{3}$")
     approved_by: uuid.UUID | None = Field(default=None, description="Who approved it (a person).")
+    components: Literal["detach", "dispose"] | None = Field(
+        default=None,
+        description="Its fitted components: detach them, or dispose of them with the same record. "
+        "Required when it has any (409 asset_has_components, params: count).",
+    )
 
 
 class AssetDisposalOut(BaseModel):
@@ -675,3 +745,194 @@ async def get_disposal(
 ) -> AssetDisposalOut:
     """For whoever may see the asset."""
     return AssetDisposalOut.of(await disposals.get_disposal(session, subject, asset_id))
+
+
+# --- holders and holdings (REQ-AST-018, 019, 020) ---------------------------------------------
+
+
+class AssetHolderIn(BaseModel):
+    """Who holds the asset now: a person, a department or the asset it is fitted to."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["user", "department", "asset"]
+    id: uuid.UUID
+
+
+class AssetHoldingOut(BaseModel):
+    """One holding of an asset, from when to when (`ended_at` null: the current one)."""
+
+    asset_id: uuid.UUID
+    holder_kind: str
+    holder_id: uuid.UUID
+    started_at: datetime
+    ended_at: datetime | None
+    source: str
+    assigned_by: uuid.UUID | None
+
+    @classmethod
+    def of(cls, row: AssetAssignment) -> "AssetHoldingOut":
+        """The API shape of a holding."""
+        return cls(
+            asset_id=row.asset_id,
+            holder_kind=row.holder_kind,
+            holder_id=row.holder_id,
+            started_at=row.started_at,
+            ended_at=row.ended_at,
+            source=row.source,
+            assigned_by=row.created_by,
+        )
+
+
+class HeldAssetOut(BaseModel):
+    """An asset a person or department holds or held, with that holding."""
+
+    asset: AssetOut
+    holding: AssetHoldingOut
+
+
+@router.put(
+    "/{asset_id}/holder",
+    summary="Give an asset to a person, a department or another asset",
+    responses=WRITE,
+    dependencies=[audited("asset.assigned", object_type="asset", object_param="asset_id")],
+)
+async def set_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    body: AssetHolderIn,
+    session: TenantSession,
+    subject: Manage,
+    version: ExpectedVersion,
+    response: Response,
+    request: Request,
+) -> AssetOut:
+    """If-Match. Ends the current holding and starts this one; never itself or a child."""
+    row = await ownership.set_holder(
+        session,
+        subject,
+        asset_id,
+        ownership.Holder(body.kind, body.id),
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, row.version)
+    return AssetOut.of(row)
+
+
+@router.delete(
+    "/{asset_id}/holder",
+    summary="Take an asset back from its holder",
+    responses=WRITE,
+    dependencies=[audited("asset.unassigned", object_type="asset", object_param="asset_id")],
+)
+async def clear_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    version: ExpectedVersion,
+    response: Response,
+    request: Request,
+) -> AssetOut:
+    """If-Match. The current holding ends; its history stays."""
+    row = await ownership.set_holder(
+        session, subject, asset_id, None, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, row.version)
+    return AssetOut.of(row)
+
+
+@router.get("/{asset_id}/holdings", summary="Who held an asset, and when")
+async def asset_holdings(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> list[AssetHoldingOut]:
+    """Newest first; the open one is the current holder (REQ-AST-019 AC1)."""
+    return [AssetHoldingOut.of(r) for r in await ownership.holdings(session, subject, asset_id)]
+
+
+# --- relationships (REQ-AST-027) -----------------------------------------------------------------
+
+
+class AssetLinkIn(BaseModel):
+    """Link this asset to another (stored once, shown from both ends)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to_asset_id: uuid.UUID
+    kind: Literal["connected_to", "depends_on", "runs_on", "backs_up"]
+
+
+class AssetLinkOut(BaseModel):
+    """A link as this asset sees it: `outgoing` false means the other asset points here."""
+
+    id: uuid.UUID
+    kind: str
+    outgoing: bool
+    other: AssetOut
+
+
+@router.post(
+    "/{asset_id}/links",
+    summary="Link an asset to another",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AssetLinkOut,
+    responses={
+        **WRITE,
+        409: {"model": ProblemDetail, "description": "asset_link_exists"},
+    },
+    dependencies=[audited("asset.linked", object_type="asset", object_param="asset_id")],
+)
+async def add_link(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    body: AssetLinkIn,
+    session: TenantSession,
+    subject: Manage,
+    idempotency: Idempotency,
+    request: Request,
+) -> Response:
+    """History on both assets (AC1). Idempotency-Key."""
+
+    async def run() -> Created:
+        link = await relationships.add_link(
+            session, subject, asset_id, body.to_asset_id, body.kind, source=source_of(request)
+        )
+        other = await service.get_asset(session, subject, body.to_asset_id)
+        return Created(
+            body=AssetLinkOut(id=link.id, kind=link.kind, outgoing=True, other=AssetOut.of(other))
+        )
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+
+@router.get("/{asset_id}/links", summary="An asset's links, from both ends")
+async def asset_links(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> list[AssetLinkOut]:
+    """Only links to assets you may see."""
+    return [
+        AssetLinkOut(
+            id=link.relationship.id,
+            kind=link.relationship.kind,
+            outgoing=link.outgoing,
+            other=AssetOut.of(link.other),
+        )
+        for link in await relationships.links_of(session, subject, asset_id)
+    ]
+
+
+@router.delete(
+    "/{asset_id}/links/{link_id}",
+    summary="Remove a link between two assets",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {"model": ProblemDetail, "description": "asset_link_not_found"}},
+    dependencies=[audited("asset.unlinked", object_type="asset", object_param="asset_id")],
+)
+async def remove_link(
+    asset_id: uuid.UUID,
+    link_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    request: Request,
+) -> Response:
+    """Kept, marked removed; history on both assets. 404 unless the link is this asset's."""
+    await relationships.remove_link(session, subject, asset_id, link_id, source=source_of(request))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

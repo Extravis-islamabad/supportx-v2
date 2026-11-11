@@ -26,6 +26,7 @@ import {
 } from '@supportx/api-client';
 import { refreshList, useListChannel } from '@supportx/realtime';
 import {
+  EmptyText,
   FormProblem,
   ToneTag,
   useAppearance,
@@ -147,7 +148,7 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
         <List
           dataSource={imports.data ?? []}
           loading={imports.isPending}
-          locale={{ emptyText: t('people.import.none') }}
+          locale={{ emptyText: <EmptyText>{t('people.import.none')}</EmptyText> }}
           renderItem={(job) => <ImportItem job={job} />}
         />
       </Space>

@@ -6,6 +6,7 @@ Inside a save, the owning module passes a snapshot of the record (field name -> 
 `sla.on_change`, which returns what to stamp on the record. So `sla` never imports `work_items`.
 """
 
+import enum
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -68,6 +69,22 @@ class LockHook(Protocol):
     ) -> None: ...
 
 
+class RecordState(enum.StrEnum):
+    """Whether a record's clocks may fire now (the owning module says)."""
+
+    LIVE = "live"
+    TRASHED = "trashed"  # in the trash: nothing fires until it is restored, as it was
+    GONE = "gone"  # erased or never there: its clocks are stopped for good
+
+
+class RecordStateHook(Protocol):
+    """The owning module says whether the record is live, in the trash or gone."""
+
+    async def __call__(  # noqa: D102 - the protocol's one call, documented on the class
+        self, session: AsyncSession, record_id: uuid.UUID
+    ) -> RecordState: ...
+
+
 class ActionsHook(Protocol):
     """The owning module runs a level's actions; one outcome per action, never raising."""
 
@@ -86,6 +103,9 @@ class SlaRecordType:
     lock_record: LockHook | None = None  # session 3: the record row first, then the clocks
     on_fired: FiredHook | None = None  # session 3: warnings, breaches and levels fired
     run_actions: ActionsHook | None = None  # session 3: a level's actions (REQ-SLA-024)
+    # The waker and the safety net ask before firing: a trashed record waits, a gone one's
+    # clocks stop (lane B, 2026-11-10: one missing record failed every safety-net run).
+    record_state: RecordStateHook | None = None
     # WP-030 s2 (REQ-SR-006): the policy the record itself names (a catalog item's), which wins
     # over condition matching while it exists and is enabled; None: conditions decide.
     preferred_policy: Callable[[Mapping[str, Any]], uuid.UUID | None] | None = None

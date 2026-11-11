@@ -3,7 +3,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, call } from './client';
 import { ApiError } from './errors';
 import { queryKeys } from './keys';
-import type { components } from './schema';
+import type { components, operations } from './schema';
 
 // The asset catalogue (WP-049a, D-141): product types in a tree, products, states, life cycles
 // and the asset settings. Every query sits under `queryKeys.assets.all`, so the tenant event
@@ -25,6 +25,13 @@ export type AssetMoveOption = S['AssetMoveOptionOut'];
 export type AssetBulkMoveResult = S['AssetBulkMoveResult'];
 export type AssetDisposal = S['AssetDisposalOut'];
 export type AssetDisposalInput = S['AssetDisposalIn'];
+export type AssetHolding = S['AssetHoldingOut'];
+export type AssetLink = S['AssetLinkOut'];
+export type AssetLinkKind = S['AssetLinkIn']['kind'];
+export type AssetGroup = S['AssetGroupOut'];
+export type AssetGroupInput = S['AssetGroupIn'];
+export type MyAsset = S['MyAssetOut'];
+export type AssetLoan = S['LoanOut'];
 export type AssetProductType = S['AssetProductTypeOut'];
 export type AssetProductTypeInput = S['AssetProductTypeIn'];
 export type AssetProductTypePatch = S['AssetProductTypePatch'];
@@ -318,16 +325,41 @@ export function useAssetRecord(id: string | undefined) {
   });
 }
 
-/** An asset's history, newest first. */
-export function useAssetHistory(id: string | undefined) {
+type HistoryQuery = NonNullable<
+  operations['asset_history_api_v1_assets__asset_id__history_get']['parameters']['query']
+>;
+/** Where a change came from (UI, API, rule, import ...), as the history filter takes it. */
+export type AssetHistorySource = NonNullable<HistoryQuery['source']>[number];
+
+/** REQ-AST-049: the history's filters (all optional; days are UTC days, inclusive). */
+export interface AssetHistoryFilters {
+  view?: 'all' | 'state' | 'assignment';
+  field?: string;
+  source?: AssetHistorySource;
+  actorId?: string;
+  since?: string;
+  until?: string;
+}
+
+/** An asset's history, newest first, narrowed by `filters`. */
+export function useAssetHistory(id: string | undefined, filters: AssetHistoryFilters = {}) {
   return useInfiniteQuery({
-    queryKey: queryKeys.assets.history(id ?? ''),
+    queryKey: queryKeys.assets.historyFiltered(id ?? '', filters),
     queryFn: ({ pageParam }) =>
       call(
         api.GET('/api/v1/assets/{asset_id}/history', {
           params: {
             path: { asset_id: id ?? '' },
-            query: { cursor: pageParam === null ? undefined : Number(pageParam), limit: 25 },
+            query: {
+              cursor: pageParam === null ? undefined : Number(pageParam),
+              limit: 25,
+              view: filters.view,
+              field: filters.field === undefined ? undefined : [filters.field],
+              source: filters.source === undefined ? undefined : [filters.source],
+              actor_id: filters.actorId,
+              since: filters.since,
+              until: filters.until,
+            },
           },
         }),
       ),
@@ -410,6 +442,273 @@ export function useAssetDisposal(id: string | undefined, enabled = true) {
     retry: false,
     meta: { silent: true },
   });
+}
+
+/** Who held an asset, newest first (REQ-AST-019). */
+export function useAssetHoldings(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.assets.holdings(id ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/{asset_id}/holdings', { params: { path: { asset_id: id ?? '' } } }),
+      ),
+    enabled: id !== undefined,
+  });
+}
+
+/** An asset's links from both ends (REQ-AST-027). */
+export function useAssetLinks(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.assets.links(id ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/{asset_id}/links', { params: { path: { asset_id: id ?? '' } } }),
+      ),
+    enabled: id !== undefined,
+  });
+}
+
+/** The assets fitted to this one (its components, REQ-AST-026). */
+export function useAssetComponents(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.assets.components(id ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets', {
+          params: {
+            query: {
+              filter: JSON.stringify({ field: 'parent_asset_id', op: 'eq', value: id }),
+              limit: 100,
+            },
+          },
+        }),
+      ),
+    enabled: id !== undefined,
+  });
+}
+
+/** What I hold, with each acknowledgement (REQ-AST-024); for requesters too. */
+export function useMyAssets(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.mine,
+    queryFn: () => call(api.GET('/api/v1/assets/mine')),
+    enabled,
+  });
+}
+
+/** Accept or dispute an asset given to me (REQ-AST-023). */
+export function useAnswerAcknowledgement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (input: {
+      id: string;
+      accept: boolean;
+      comment?: string;
+      channel?: 'portal' | 'console';
+    }) =>
+      call(
+        api.POST('/api/v1/assets/acknowledgements/{acknowledgement_id}/answer', {
+          params: { path: { acknowledgement_id: input.id } },
+          body: {
+            accept: input.accept,
+            comment: input.comment ?? null,
+            channel: input.channel ?? 'portal',
+          },
+        }),
+      ),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.assets.mine }),
+  });
+}
+
+/** Asset groups with their counts (REQ-AST-028). */
+export function useAssetGroups(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.groups,
+    queryFn: () => call(api.GET('/api/v1/assets/groups')),
+    enabled,
+  });
+}
+
+/** A group's assets (the ones I may see). */
+export function useAssetGroupAssets(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.assets.groupAssets(id ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/groups/{group_id}/assets', {
+          params: { path: { group_id: id ?? '' } },
+        }),
+      ),
+    enabled: id !== undefined,
+  });
+}
+
+/** The loan register's filters (REQ-AST-030): one status, one site. */
+export interface AssetLoansQuery {
+  status?: AssetLoan['status'];
+  siteId?: string;
+}
+
+/** The loan register: loans still out, earliest due first, or one status and site. */
+export function useAssetLoans(query: AssetLoansQuery = {}, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.loanList(query),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/loans', {
+          params: { query: { status: query.status, site_id: query.siteId } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+/** What can go on a new loan now (loanable, in stock, not out), searched by `q`. */
+export function useLoanableAssets(q: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.loanable(q),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/loanable', { params: { query: { q: q === '' ? undefined : q } } }),
+      ),
+    enabled,
+  });
+}
+
+/** Make loans, take assets back, mark assets loanable; every asset query refetches after. */
+export function useLoanActions() {
+  const queryClient = useQueryClient();
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+  const createLoan = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: {
+      borrowerId: string;
+      assetIds: string[];
+      dueAt: string;
+      comment?: string;
+      departmentId?: string | null;
+      siteId?: string | null;
+      key: string;
+    }) =>
+      call(
+        api.POST('/api/v1/assets/loans', {
+          params: { header: { 'Idempotency-Key': input.key } },
+          body: {
+            borrower_id: input.borrowerId,
+            asset_ids: input.assetIds,
+            due_at: input.dueAt,
+            comment: input.comment ?? null,
+            department_id: input.departmentId ?? null,
+            site_id: input.siteId ?? null,
+          },
+        }),
+      ),
+    onSettled: refresh,
+  });
+  const returnItems = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: {
+      loanId: string;
+      assetIds: string[];
+      outcome: 'in_stock' | 'in_repair';
+      comment?: string;
+    }) =>
+      call(
+        api.POST('/api/v1/assets/loans/{loan_id}/returns', {
+          params: { path: { loan_id: input.loanId } },
+          body: {
+            asset_ids: input.assetIds,
+            outcome: input.outcome,
+            comment: input.comment ?? null,
+          },
+        }),
+      ),
+    onSettled: refresh,
+  });
+  const setLoanable = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: { assetIds: string[]; loanable: boolean }) =>
+      call(
+        api.POST('/api/v1/assets/loanable', {
+          body: { asset_ids: input.assetIds, loanable: input.loanable },
+        }),
+      ),
+    onSettled: refresh,
+  });
+  return { createLoan, returnItems, setLoanable };
+}
+
+/** Holders, links and groups: every asset query refetches after. */
+export function useAssetRelations() {
+  const queryClient = useQueryClient();
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+  const setHolder = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: {
+      id: string;
+      version: number;
+      holder: { kind: 'user' | 'department' | 'asset'; id: string } | null;
+    }) =>
+      input.holder === null
+        ? call(
+            api.DELETE('/api/v1/assets/{asset_id}/holder', {
+              params: { header: ifMatch(input.version), path: { asset_id: input.id } },
+            }),
+          )
+        : call(
+            api.PUT('/api/v1/assets/{asset_id}/holder', {
+              params: { header: ifMatch(input.version), path: { asset_id: input.id } },
+              body: input.holder,
+            }),
+          ),
+    onSettled: refresh,
+  });
+  const addLink = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: { id: string; to: string; kind: AssetLinkKind; key: string }) =>
+      call(
+        api.POST('/api/v1/assets/{asset_id}/links', {
+          params: { header: { 'Idempotency-Key': input.key }, path: { asset_id: input.id } },
+          body: { to_asset_id: input.to, kind: input.kind },
+        }),
+      ),
+    onSettled: refresh,
+  });
+  const removeLink = useMutation({
+    meta: { silent: true },
+    mutationFn: async (input: { id: string; linkId: string }) => {
+      await call(
+        api.DELETE('/api/v1/assets/{asset_id}/links/{link_id}', {
+          params: { path: { asset_id: input.id, link_id: input.linkId } },
+        }),
+      );
+    },
+    onSettled: refresh,
+  });
+  const createGroup = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: { body: AssetGroupInput; key: string }) =>
+      call(
+        api.POST('/api/v1/assets/groups', {
+          params: { header: { 'Idempotency-Key': input.key } },
+          body: input.body,
+        }),
+      ),
+    onSettled: refresh,
+  });
+  const addMembers = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: { groupId: string; assetIds: string[] }) =>
+      call(
+        api.POST('/api/v1/assets/groups/{group_id}/members', {
+          params: { path: { group_id: input.groupId } },
+          body: { asset_ids: input.assetIds },
+        }),
+      ),
+    onSettled: refresh,
+  });
+  return { setHolder, addLink, removeLink, createGroup, addMembers };
 }
 
 /** Move, copy or bulk-move assets (WP-049a s3); every asset query refetches after. */

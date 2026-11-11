@@ -252,8 +252,9 @@ class ReportSchedule(TenantEntity):
 class Dashboard(TenantEntity):
     """A user-made dashboard (WP-036): its widgets and filter defaults in one document.
 
-    Private to its owner until shared with everyone (REQ-DSH-026). Built-in dashboards are code
-    (domain/dashboard.py), never rows.
+    Private to its owner until shared with everyone (REQ-DSH-026), or one support group's
+    (D-152: its members see it, its lead or dashboards.manage_defaults change it; never both).
+    Built-in dashboards are code (domain/dashboard.py), never rows.
     """
 
     __tablename__ = "dashboards"
@@ -268,12 +269,20 @@ class Dashboard(TenantEntity):
         ),
         CheckConstraint("jsonb_typeof(body) = 'object'", name="body_object"),
         CheckConstraint("pg_column_size(body) <= 262144", name="body_size"),
+        CheckConstraint("group_id IS NULL OR NOT shared", name="group_or_shared"),
         Index("ix_dashboards_tenant_owner", "tenant_id", "owner_id", "name"),
         Index(
             "ix_dashboards_tenant_shared",
             "tenant_id",
             "name",
             postgresql_where=text("shared AND deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_dashboards_tenant_group",
+            "tenant_id",
+            "group_id",
+            "name",
+            postgresql_where=text("group_id IS NOT NULL AND deleted_at IS NULL"),
         ),
     )
 
@@ -283,6 +292,8 @@ class Dashboard(TenantEntity):
     description: Mapped[str | None] = mapped_column(Text)
     owner_id: Mapped[uuid.UUID]
     shared: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # The support group it belongs to (D-152); organization's, so no foreign key (rule 5e).
+    group_id: Mapped[uuid.UUID | None]
     body: Mapped[dict[str, Any]] = mapped_column(JSONB)
     # The dashboard this one was copied from: "builtin:<code>" or an id (REQ-DSH-021).
     copied_from: Mapped[str | None] = mapped_column(String(100))

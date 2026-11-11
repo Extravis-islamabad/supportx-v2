@@ -1,6 +1,7 @@
 import { DatePicker, Flex, Form, Input, InputNumber, Select, TreeSelect } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 
 import {
   useAssetProduct,
@@ -9,7 +10,7 @@ import {
   useCustomFields,
   useVendors,
 } from '@supportx/api-client';
-import { lengthLimit, useAppearance, useLabel } from '@supportx/ui';
+import { lengthLimit, pickerFormat, useAccess, useAppearance, useLabel } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
 import { CustomFieldControl } from '../customFields/fields';
@@ -33,7 +34,8 @@ export function AssetFields({
   creating: boolean;
 }) {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const access = useAccess();
+  const { locale, dates } = useAppearance();
   const types = useAssetProductTypes();
   // Searching picker: the server finds products by name, manufacturer or part number, a page
   // at a time (scrolling loads more); the current one is fetched on its own if not loaded.
@@ -72,17 +74,29 @@ export function AssetFields({
       });
     return walk(typeTree(types.data ?? []));
   }, [products.data, current.data, types.data, locale]);
+  // No products at all (not merely none matching a search): an empty picker would leave the
+  // person stuck, so the form says where products come from (QA10-P4-38), with a link for an
+  // admin who may open the asset catalogue (its configure right, as the setup map asks).
+  const noProducts =
+    searched === '' &&
+    products.data !== undefined &&
+    products.data.pages.every((p) => p.items.length === 0) &&
+    current.data === undefined;
+  const mayConfigure = access.can('config.assets') || access.can('settings.manage');
   const vendorChoices = (vendors.data?.pages.flatMap((p) => p.items) ?? [])
     .filter((v) => v.is_active || v.id === draft.vendor_id)
     .map((v) => ({ value: v.id, label: v.name }));
   const set = (patch: Partial<AssetDraft>) => {
     onChange({ ...draft, ...patch });
   };
-  const text = (field: 'tag' | 'serial_number' | 'barcode' | 'location', max: number) => (
+  const text = (
+    field: 'tag' | 'serial_number' | 'barcode' | 'location' | 'cost_centre' | 'gl_code',
+    max: number,
+  ) => (
     <Form.Item label={t(`assets.record.${field}`)} htmlFor={`asset-${field}`}>
       <Input
         id={`asset-${field}`}
-        dir={field === 'location' ? 'auto' : 'ltr'}
+        dir={field === 'location' || field === 'cost_centre' ? 'auto' : 'ltr'}
         count={lengthLimit(max)}
         placeholder={field === 'tag' && creating ? t('assets.record.tag_auto') : undefined}
         value={draft[field]}
@@ -115,6 +129,7 @@ export function AssetFields({
       <DatePicker
         id={`asset-${field}`}
         value={draft[field] === null ? null : dayjs(draft[field])}
+        format={pickerFormat(dates, false)}
         onChange={(value: Dayjs | null) => {
           // Cleared: antd passes null although its types say otherwise.
           set({ [field]: value?.format('YYYY-MM-DD') ?? null });
@@ -137,7 +152,23 @@ export function AssetFields({
           data-testid="asset-name"
         />
       </Form.Item>
-      <Form.Item label={t('assets.record.product')} htmlFor="asset-product" required>
+      <Form.Item
+        label={t('assets.record.product')}
+        htmlFor="asset-product"
+        required
+        extra={
+          noProducts ? (
+            <span data-testid="asset-products-none">
+              {t('assets.record.products_none_hint')}{' '}
+              {mayConfigure && (
+                <Link to="/admin/assets?tab=products" data-testid="asset-products-open">
+                  {t('assets.record.products_open')}
+                </Link>
+              )}
+            </span>
+          ) : undefined
+        }
+      >
         <TreeSelect
           id="asset-product"
           aria-label={t('assets.record.product')}
@@ -201,6 +232,11 @@ export function AssetFields({
       <Flex gap={16} wrap>
         {day('acquired_on')}
         {day('warranty_expires_on')}
+      </Flex>
+      {/* REQ-AST-038: the GL code comes from the product when left empty on a new asset. */}
+      <Flex gap={16} wrap>
+        {text('cost_centre', 60)}
+        {text('gl_code', 40)}
       </Flex>
       {text('location', 200)}
       <Form.Item label={t('assets.admin.description')} htmlFor="asset-description">

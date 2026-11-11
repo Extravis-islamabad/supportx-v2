@@ -151,6 +151,14 @@ class CatalogMissingTranslation(BaseModel):
     language: str
 
 
+class ExpectedDeliveryOut(BaseModel):
+    """How long a request usually takes: "Usually delivered within N working days" (Haider)."""
+
+    amount: int
+    unit: str = Field(description="minutes, hours or business_days.")
+    around_the_clock: bool = Field(description="False: counted in working time.")
+
+
 class CatalogItemOut(BaseModel):
     """An item as screens show it; staff see the whole item, others what they raise it with."""
 
@@ -192,6 +200,11 @@ class CatalogItemOut(BaseModel):
     missing_translations: list[CatalogMissingTranslation]
     can_manage: bool
     version: int
+    expected_delivery: ExpectedDeliveryOut | None = Field(
+        default=None,
+        description="One item's read only: how long a request usually takes, from the SLA "
+        "that would apply (null: no SLA applies, so nothing is said).",
+    )
 
     @classmethod
     def of(cls, view: service.ItemView, *, staff: bool) -> "CatalogItemOut":
@@ -469,7 +482,13 @@ async def get_item(
     """One item you may see (404 otherwise)."""
     view = await service.get_item(session, subject, item_id)
     set_etag(response, view.item.version)
-    return CatalogItemOut.of(view, staff=is_staff(subject))
+    out = CatalogItemOut.of(view, staff=is_staff(subject))
+    target = await service.expected_delivery(session, view.item)
+    if target is not None:
+        out.expected_delivery = ExpectedDeliveryOut(
+            amount=target.amount, unit=target.unit, around_the_clock=target.around_the_clock
+        )
+    return out
 
 
 @router.post(

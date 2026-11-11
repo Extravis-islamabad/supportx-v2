@@ -76,7 +76,8 @@ VIEW_REPORTS = "work_items.view_reports"
 # D-129: engine-level, for every work item type (registered through work_items' ModuleSpec);
 # no role holds them by default.
 PERMISSIONS: tuple[PermissionSpec, ...] = (
-    PermissionSpec(VIEW_DEPARTMENT, "incident"),
+    # D-152: the department viewer role holds it; a department's head too, computed by identity.
+    PermissionSpec(VIEW_DEPARTMENT, "incident", defaults=(("department_viewer", "all"),)),
     PermissionSpec(VIEW_REPORTS, "incident"),
 )
 

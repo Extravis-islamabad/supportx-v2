@@ -1,13 +1,6 @@
 import { ArrowDownOutlined, ArrowUpOutlined, CloseOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Checkbox, Drawer, Empty, Flex, Input, List, Typography } from 'antd';
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ThHTMLAttributes,
-} from 'react';
+import { Button, Checkbox, Drawer, Empty, Input, List, Space, Typography } from 'antd';
+import { useEffect, useRef, useState } from 'react';
 
 import type { ListColumn } from '@supportx/api-client';
 import { useLabel } from '@supportx/ui';
@@ -15,9 +8,6 @@ import { useLabel } from '@supportx/ui';
 import { DEFAULT_COLUMNS, type ColumnContext, type ColumnSpec } from './columns';
 
 const MAX_COLUMNS = 40;
-const MIN_WIDTH = 60;
-const MAX_WIDTH = 800;
-const KEY_STEP = 20;
 
 /**
  * Choose, order and remove the list's columns (REQ-INC-104): every field by search, built-in,
@@ -72,14 +62,27 @@ export function ColumnChooser({
         width={420}
         data-testid="inc-columns-drawer"
         extra={
-          <Button
-            onClick={() => {
-              onChange(DEFAULT_COLUMNS.map((key) => ({ key, width: null })));
-            }}
-            data-testid="inc-columns-reset"
-          >
-            {t('incidents.columns.reset')}
-          </Button>
+          <Space>
+            {/* Your columns stay; only their widths go back to each column's own (Haider,
+                2026-11-10). */}
+            <Button
+              disabled={columns.every((c) => c.width == null)}
+              onClick={() => {
+                onChange(columns.map((c) => ({ ...c, width: null })));
+              }}
+              data-testid="inc-columns-reset-widths"
+            >
+              {t('incidents.columns.reset_widths')}
+            </Button>
+            <Button
+              onClick={() => {
+                onChange(DEFAULT_COLUMNS.map((key) => ({ key, width: null })));
+              }}
+              data-testid="inc-columns-reset"
+            >
+              {t('incidents.columns.reset')}
+            </Button>
+          </Space>
         }
       >
         <Typography.Title level={5}>{t('incidents.columns.shown')}</Typography.Title>
@@ -173,75 +176,6 @@ export function ColumnChooser({
         )}
       </Drawer>
     </>
-  );
-}
-
-type HeaderProps = ThHTMLAttributes<HTMLTableCellElement> & {
-  width?: number;
-  onResize?: (width: number) => void;
-  resizeLabel?: string;
-};
-
-/**
- * A header cell whose right edge (left in RTL) drags to resize; the handle also takes the arrow
- * keys, so a width can be changed without a mouse.
- */
-export function ResizableHeader({ width, onResize, resizeLabel, children, ...rest }: HeaderProps) {
-  const start = useRef<{ x: number; width: number } | null>(null);
-  if (onResize === undefined || width === undefined) return <th {...rest}>{children}</th>;
-  const clamp = (value: number) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(value)));
-  const rtl = () => document.documentElement.dir === 'rtl';
-  const onMouseDown = (event: MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation(); // never a sort click
-    start.current = { x: event.clientX, width };
-    const moved = (move: globalThis.MouseEvent) => {
-      if (start.current === null) return;
-      const delta = (move.clientX - start.current.x) * (rtl() ? -1 : 1);
-      onResize(clamp(start.current.width + delta));
-    };
-    const up = () => {
-      start.current = null;
-      window.removeEventListener('mousemove', moved);
-      window.removeEventListener('mouseup', up);
-    };
-    window.addEventListener('mousemove', moved);
-    window.addEventListener('mouseup', up);
-  };
-  const onKeyDown = (event: KeyboardEvent) => {
-    const wider = rtl() ? 'ArrowLeft' : 'ArrowRight';
-    const narrower = rtl() ? 'ArrowRight' : 'ArrowLeft';
-    if (event.key !== wider && event.key !== narrower) return;
-    event.preventDefault();
-    event.stopPropagation();
-    onResize(clamp(width + (event.key === wider ? KEY_STEP : -KEY_STEP)));
-  };
-  return (
-    <th {...rest} style={{ ...rest.style, position: 'relative' }}>
-      {children}
-      <Flex
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={resizeLabel}
-        aria-valuenow={width}
-        aria-valuemin={MIN_WIDTH}
-        aria-valuemax={MAX_WIDTH}
-        tabIndex={0}
-        onMouseDown={onMouseDown}
-        onKeyDown={onKeyDown}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-        style={{
-          position: 'absolute',
-          insetBlock: 0,
-          insetInlineEnd: -4,
-          width: 8,
-          cursor: 'col-resize',
-          zIndex: 1,
-        }}
-      />
-    </th>
   );
 }
 

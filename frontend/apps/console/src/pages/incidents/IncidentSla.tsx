@@ -92,10 +92,18 @@ function Levels({ target }: { target: IncidentSlaTarget }) {
  * apart from "Change due date", offered only when the server says the reader may.
  * Live: its query sits under the record's history, which every save of the record refreshes.
  */
-export function IncidentSla({ item }: { item: Incident }) {
+export function IncidentSla({
+  item,
+  base = 'incidents',
+}: {
+  item: Incident;
+  /** A service request's card too (Haider E3), read-only: due dates by hand are incidents'. */
+  base?: 'incidents' | 'service-requests';
+}) {
   const t = useLabel();
   const dates = useDateTime();
-  const sla = useIncidentSla(item.id);
+  const sla = useIncidentSla(item.id, true, base);
+  const byHand = base === 'incidents';
   const [editing, setEditing] = useState<IncidentSlaTarget | null>(null);
   if (sla.data === undefined) return null;
   const panel = sla.data;
@@ -176,19 +184,21 @@ export function IncidentSla({ item }: { item: Incident }) {
               <Levels target={target} />
             </Descriptions.Item>
           )}
-          {panel.may_set_due_dates && ['running', 'paused', 'breached'].includes(target.state) && (
-            <Descriptions.Item>
-              <Button
-                size="small"
-                onClick={() => {
-                  setEditing(target);
-                }}
-                data-testid={`inc-sla-${target.kind}-change`}
-              >
-                {t('incidents.sla.change_due')}
-              </Button>
-            </Descriptions.Item>
-          )}
+          {byHand &&
+            panel.may_set_due_dates &&
+            ['running', 'paused', 'breached'].includes(target.state) && (
+              <Descriptions.Item>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setEditing(target);
+                  }}
+                  data-testid={`inc-sla-${target.kind}-change`}
+                >
+                  {t('incidents.sla.change_due')}
+                </Button>
+              </Descriptions.Item>
+            )}
         </Descriptions>
       ))}
       {editing !== null && (
@@ -262,6 +272,7 @@ function DueDateDialog({
             <WriteButton
               key="clear"
               disabled={blank}
+              whyDisabled={t('why.give_reason')}
               loading={save.isPending}
               onClick={() => {
                 run(true);
@@ -275,6 +286,7 @@ function DueDateDialog({
             key="save"
             type="primary"
             disabled={blank || dueAt === null}
+            whyDisabled={t('why.give_reason_and_date')}
             loading={save.isPending}
             onClick={() => {
               run(false);

@@ -16,17 +16,20 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-NOW = datetime.now(UTC)
-
 
 async def seed(db: db_testing.ThrowawayDatabase) -> uuid.UUID:
-    """One tenant with keys and consumer records of several ages; returns the tenant."""
+    """One tenant with keys and consumer records of several ages; returns the tenant.
+
+    The ages count from now, not from import: in a full run these tests start over an hour
+    after collection, and a "valid" key that expired meanwhile failed them (lane C, 2026-11-10).
+    """
+    now = datetime.now(UTC)
     tenant = await create_tenant(db.migrator_url, "Housekeeping")
     conn = await asyncpg.connect(db.admin_url)
     try:
         for key, expires in (
-            ("expired", NOW - timedelta(minutes=1)),
-            ("valid", NOW + timedelta(hours=1)),
+            ("expired", now - timedelta(minutes=1)),
+            ("valid", now + timedelta(hours=1)),
         ):
             await conn.execute(
                 "INSERT INTO idempotency_keys (tenant_id, user_id, key, route, fingerprint,"
@@ -44,7 +47,7 @@ async def seed(db: db_testing.ThrowawayDatabase) -> uuid.UUID:
                 tenant,
                 consumer,
                 uuid.uuid4(),
-                NOW - timedelta(days=age),
+                now - timedelta(days=age),
             )
     finally:
         await conn.close()

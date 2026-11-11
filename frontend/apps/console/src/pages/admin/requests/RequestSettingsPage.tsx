@@ -32,6 +32,7 @@ export function RequestSettingsPage() {
     scope: OnBehalfScope;
     hidden: boolean;
     signIn: boolean;
+    starts: boolean;
     version: number;
   }>();
   if (catalogue.isLoading || catalogue.data === undefined) return <Skeleton active />;
@@ -39,8 +40,11 @@ export function RequestSettingsPage() {
   const scope = draft?.scope ?? saved.on_behalf_scope;
   const hidden = draft?.hidden ?? saved.approvals_hidden_from_requesters;
   const signIn = draft?.signIn ?? saved.approvals_require_sign_in;
-  const edit = (next: Partial<{ scope: OnBehalfScope; hidden: boolean; signIn: boolean }>) => {
-    setDraft({ scope, hidden, signIn, version: draft?.version ?? saved.version, ...next });
+  const starts = draft?.starts ?? saved.first_task_starts_work;
+  const edit = (
+    next: Partial<{ scope: OnBehalfScope; hidden: boolean; signIn: boolean; starts: boolean }>,
+  ) => {
+    setDraft({ scope, hidden, signIn, starts, version: draft?.version ?? saved.version, ...next });
   };
   const changes =
     draft === undefined
@@ -49,6 +53,7 @@ export function RequestSettingsPage() {
           draft.scope !== saved.on_behalf_scope,
           draft.hidden !== saved.approvals_hidden_from_requesters,
           draft.signIn !== saved.approvals_require_sign_in,
+          draft.starts !== saved.first_task_starts_work,
         ].filter(Boolean).length;
   const submit = () => {
     if (draft === undefined) return;
@@ -61,6 +66,9 @@ export function RequestSettingsPage() {
           }),
           ...(draft.signIn !== saved.approvals_require_sign_in && {
             approvals_require_sign_in: draft.signIn,
+          }),
+          ...(draft.starts !== saved.first_task_starts_work && {
+            first_task_starts_work: draft.starts,
           }),
         },
         version: draft.version,
@@ -143,6 +151,28 @@ export function RequestSettingsPage() {
                 edit({ signIn: value });
               }}
               data-testid="sr-require-sign-in"
+            />
+          </Form.Item>
+        </Form>
+      </SettingsCard>
+      <SettingsCard title={t('requests.settings.fulfilment')}>
+        <Form layout="vertical" component="div">
+          <Form.Item
+            label={t('requests.settings.first_task_starts_work')}
+            htmlFor="sr-first-task-starts"
+            extra={
+              <Typography.Text type="secondary">
+                {t('requests.settings.first_task_starts_work_help')}
+              </Typography.Text>
+            }
+          >
+            <Switch
+              id="sr-first-task-starts"
+              checked={starts}
+              onChange={(value) => {
+                edit({ starts: value });
+              }}
+              data-testid="sr-first-task-starts"
             />
           </Form.Item>
         </Form>

@@ -46,6 +46,7 @@ class ApprovalPurpose(StrEnum):
 
     RECORD = "record"  # the record's own approval (a request's item, a problem asked ad hoc)
     ACCEPT_WITHOUT_FIX = "accept_without_fix"  # a known error kept without a fix (REQ-PRB-050)
+    WORKFLOW = "workflow"  # a workflow's approval node opened it (WP-048b S2, REQ-WF-014)
 
 
 class RouteReason(StrEnum):
@@ -58,6 +59,8 @@ class RouteReason(StrEnum):
     NO_HOLDER = "no_holder"  # a role named as approver has nobody holding it
     # WP-045a (REQ-CHG-039): a holder of a role that may not approve (a change's implementer).
     SEGREGATION_OF_DUTIES = "segregation_of_duties"
+    # WP-045b S3 (REQ-CHG-040): the change advisory board chosen has no members yet.
+    BOARD_HAS_NO_MEMBERS = "board_has_no_members"
 
 
 class DecisionChannel(StrEnum):
@@ -204,14 +207,23 @@ class LevelOutcome(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    TIED = "tied"  # an exact majority split that a chair decides (D-146); only with a chair
 
 
-def level_outcome(rule: LevelRule, states: Iterable[ApprovalState]) -> LevelOutcome:
+def level_outcome(
+    rule: LevelRule,
+    states: Iterable[ApprovalState],
+    *,
+    chair: bool = False,
+    chair_vote: ApprovalState | None = None,
+) -> LevelOutcome:
     """The level's outcome from its approvers' states (withdrawn and not-needed do not count).
 
-    Majority: more than half of the level's approvers must approve. The level is rejected as
-    soon as a majority can no longer be reached, so an exact split (2 of 4 each way) rejects:
-    the tie case (the coordinator's condition).
+    Majority: more than half of the level's approvers must approve. Without a chair the level is
+    rejected as soon as a majority can no longer be reached, so an exact split (2 of 4 each way)
+    rejects: the tie case (the coordinator's condition, D-146). With the tenant's chair (D-146),
+    a level that can still end in an exact split waits for it; the split is TIED until the
+    chair's `chair_vote` decides it.
     """
     counted = [
         s
@@ -222,6 +234,8 @@ def level_outcome(rule: LevelRule, states: Iterable[ApprovalState]) -> LevelOutc
         return LevelOutcome.PENDING
     approved = sum(s == ApprovalState.APPROVED for s in counted)
     rejected = sum(s == ApprovalState.REJECTED for s in counted)
+    if rule == LevelRule.MAJORITY and chair:
+        return _majority_with_chair(approved, rejected, len(counted), chair_vote)
     decide = {LevelRule.ANY: _any, LevelRule.ALL: _all, LevelRule.MAJORITY: _majority}[rule]
     return decide(approved, rejected, len(counted))
 
@@ -248,6 +262,25 @@ def _majority(approved: int, rejected: int, total: int) -> LevelOutcome:
     return LevelOutcome.PENDING
 
 
+def _majority_with_chair(
+    approved: int, rejected: int, total: int, vote: ApprovalState | None
+) -> LevelOutcome:
+    needed = total // 2 + 1
+    if approved >= needed:
+        return LevelOutcome.APPROVED
+    split = total % 2 == 0 and approved == rejected == total // 2
+    if split:
+        if vote == ApprovalState.APPROVED:
+            return LevelOutcome.APPROVED
+        if vote == ApprovalState.REJECTED:
+            return LevelOutcome.REJECTED
+        return LevelOutcome.TIED
+    tie_reachable = total % 2 == 0 and total - rejected >= total // 2
+    if total - rejected < needed and not tie_reachable:
+        return LevelOutcome.REJECTED
+    return LevelOutcome.PENDING
+
+
 @dataclass(frozen=True)
 class LevelApprovers:
     """Who approves one level: people, groups (each member) and record roles (the holders)."""
@@ -256,6 +289,12 @@ class LevelApprovers:
     user_ids: tuple[uuid.UUID, ...] = ()
     group_ids: tuple[uuid.UUID, ...] = ()
     roles: tuple[str, ...] = ()
+    # WP-045b S3: change advisory boards: "mapped" (chosen by the change, REQ-CHG-041) or a
+    # board's ID; their members approve under the board's rule.
+    boards: tuple[str, ...] = ()
+
+
+MAPPED_BOARD = "mapped"
 
 
 @dataclass(frozen=True)
@@ -272,13 +311,18 @@ class StageApprovals:
 MAX_LEVELS = 5
 
 
-def parse_stage_approvals(  # noqa: C901, PLR0912 - one check per part of the settings, flat
-    raw: object, *, stage_statuses: Mapping[str, bool], roles: Iterable[str]
+def parse_stage_approvals(  # noqa: C901, PLR0912 - one check per part, flat
+    raw: object,
+    *,
+    stage_statuses: Mapping[str, bool],
+    roles: Iterable[str],
+    boards: bool = False,
 ) -> tuple[StageApprovals | None, list[tuple[str, str]]]:
     """Settings from JSON, plus (field, code) problems.
 
     Checked against the stage's statuses (code -> system-only) and the type's roles. The outcome
-    statuses must be system-only, so only the approvals set them (ADR-041 §2).
+    statuses must be system-only, so only the approvals set them (ADR-041 §2). `boards`: the
+    type has change advisory boards (changes), so a level may name one.
     """
     if raw is None:
         return None, []
@@ -312,6 +356,7 @@ def parse_stage_approvals(  # noqa: C901, PLR0912 - one check per part of the se
         users: list[uuid.UUID] = []
         groups: list[uuid.UUID] = []
         named_roles: list[str] = []
+        named_boards: list[str] = []
         for approver in level.get("approvers") or []:
             if not isinstance(approver, Mapping) or len(approver) != 1:
                 problems.append((f"{where}.approvers", "invalid_value"))
@@ -319,13 +364,19 @@ def parse_stage_approvals(  # noqa: C901, PLR0912 - one check per part of the se
             ((key, value),) = approver.items()
             if key == "role" and str(value) in known_roles:
                 named_roles.append(str(value))
+            elif key == "board" and boards and (value == MAPPED_BOARD or _is_uuid(value)):
+                named_boards.append(str(value))
             elif key in {"user_id", "group_id"} and _is_uuid(value):
                 (users if key == "user_id" else groups).append(uuid.UUID(str(value)))
             else:
                 problems.append((f"{where}.approvers", "invalid_value"))
-        if not (users or groups or named_roles):
+        if not (users or groups or named_roles or named_boards):
             problems.append((f"{where}.approvers", "required"))
-        levels.append(LevelApprovers(rule, tuple(users), tuple(groups), tuple(named_roles)))
+        levels.append(
+            LevelApprovers(
+                rule, tuple(users), tuple(groups), tuple(named_roles), tuple(named_boards)
+            )
+        )
     if problems:
         return None, problems
     return (
@@ -360,7 +411,8 @@ def stage_approvals_to_json(settings: StageApprovals) -> dict[str, object]:
                 "rule": level.rule.value,
                 "approvers": [{"user_id": str(u)} for u in level.user_ids]
                 + [{"group_id": str(g)} for g in level.group_ids]
-                + [{"role": r} for r in level.roles],
+                + [{"role": r} for r in level.roles]
+                + [{"board": b} for b in level.boards],
             }
             for level in settings.levels
         ],

@@ -82,7 +82,8 @@ export const OPERATORS: Record<FilterValueType, FilterOp[]> = {
   datetime: [...RELATIVE, 'between', 'gte', 'lt', ...PRESENCE],
   integer: ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'between', ...PRESENCE],
   decimal: ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'between', ...PRESENCE],
-  date: ['eq', 'gt', 'lt', 'between', ...PRESENCE],
+  // Calendar dates take the relative ranges too, as whole days against today (lane B's #352).
+  date: ['eq', 'gt', 'lt', 'between', ...RELATIVE, ...PRESENCE],
   boolean: ['eq', ...PRESENCE],
 };
 

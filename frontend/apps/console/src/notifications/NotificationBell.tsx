@@ -26,6 +26,8 @@ import {
 import { usePersonalChannel } from '@supportx/realtime';
 import { reportError, useDateTime, useLabel } from '@supportx/ui';
 
+const LIVE_TOAST = 'notification-live';
+
 /**
  * The notification centre (WP-023, REQ-INC-131): a bell with the unread count in the header and
  * a drawer with your entries grouped by day, newest first. Opening one opens its record and
@@ -67,7 +69,9 @@ export function NotificationBell() {
     const first = seen.current === undefined;
     if (!first && newest !== seen.current && !quiet && !open) {
       const entry = items[0];
-      if (entry && !entry.read) void message.info(entry.title);
+      // One at a time (QA10V-15: three SLA notices stacked over the page's banner and title);
+      // the newest replaces the last, and the drawer keeps them all.
+      if (entry && !entry.read) void message.info({ content: entry.title, key: LIVE_TOAST });
     }
     seen.current = newest;
   }, [newest, items, quiet, open, message]);
@@ -95,7 +99,8 @@ export function NotificationBell() {
     <>
       {/* Every icon button says what it does on hover (D-147 global fix 2). */}
       <Tooltip title={t('notifications.open', { count: unread })}>
-        <Badge count={unread} size="small" overflowCount={99}>
+        {/* Readable at a glance (Haider, 2026-11-10): full-size badge, clear of the icon. */}
+        <Badge count={unread} overflowCount={99} offset={[-2, 2]}>
           <Button
             type="text"
             icon={<BellOutlined />}
@@ -113,7 +118,8 @@ export function NotificationBell() {
           setOpen(false);
         }}
         title={t('notifications.title')}
-        width={420}
+        // Never wider than a phone's screen (QA10V-28 was found at 390 px).
+        width="min(420px, 100vw)"
         data-testid="notifications-drawer"
         extra={
           <Button
@@ -177,7 +183,11 @@ export function NotificationBell() {
                       <List.Item.Meta
                         avatar={entry.read ? undefined : <Badge status="processing" />}
                         title={
-                          <Typography.Text strong={!entry.read}>
+                          <Typography.Text
+                            strong={!entry.read}
+                            // The whole title when it is cut (QA10V-27).
+                            ellipsis={{ tooltip: entry.title }}
+                          >
                             <a
                               href={entry.link}
                               onClick={(event) => {
@@ -188,7 +198,13 @@ export function NotificationBell() {
                             </a>
                           </Typography.Text>
                         }
-                        description={relative(entry.created_at)}
+                        // Secondary text, not the list's description colour: that is 45% white,
+                        // about 4:1 on the dark drawer (QA10V-28, axe color-contrast).
+                        description={
+                          <Typography.Text type="secondary">
+                            {relative(entry.created_at)}
+                          </Typography.Text>
+                        }
                       />
                     </List.Item>
                   )}

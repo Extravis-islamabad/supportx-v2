@@ -378,7 +378,7 @@ test('knowledge in a reply: the server decides the warning, the card shows the l
 
     await tech.page.goto(`/incidents/${incident}`);
     await tech.page.getByRole('tab', { name: /Conversation/ }).click();
-    await tech.page.getByTestId('conv-reply').locator('button').first().click();
+    await tech.page.getByTestId('inc-op-reply').locator('button').first().click(); // the header's one Reply (D-155)
     const pickFrom = async (title: string, action: 'content' | 'link') => {
       // The reply editor's picker: the record panel's Knowledge card has its own (D-124).
       await tech.page

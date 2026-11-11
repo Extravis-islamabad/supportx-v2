@@ -14,11 +14,12 @@ from sqlalchemy import func, select
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import subject_for
 from app.shared.reporting import names_resolver, provider_for
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_assets_api import _add, _product
-from tests.db.test_incidents_api import Org, World, world
+from tests.db.test_incidents_api import Org, World
 
-pytestmark = pytest.mark.db
-__all__ = ["world"]  # the fixture, used by name
+pytestmark = [pytest.mark.db, MODULE_LOOP]
+__all__ = ["module_world", "shared_world"]  # the fixture, used by name
 
 
 async def _listed(world: World, org: Org, user: uuid.UUID) -> int:

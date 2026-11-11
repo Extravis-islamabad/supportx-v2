@@ -303,6 +303,8 @@ SETTINGS_FIELDS = (
     "portal_own_assets_only",
     "email_include_assets",
     "scan_retention_months",
+    "warranty_notice_days",
+    "portal_booking",  # 0130; REQ-AST-032 AC3
 )
 
 
@@ -318,7 +320,11 @@ def _settings_problems(values: Mapping[str, Any]) -> list[Problem]:
     problems = tag_pattern_problems("tag_pattern", values.get("tag_pattern"))
     if "age_basis" in values and values["age_basis"] not in set(AssetAgeBasis):
         problems.append(Problem("age_basis", "invalid_choice"))
-    for field, low, high in (("copy_limit", 1, 500), ("scan_retention_months", 1, 60)):
+    for field, low, high in (
+        ("copy_limit", 1, 500),
+        ("scan_retention_months", 1, 60),
+        ("warranty_notice_days", 1, 365),  # 0114; Appendix A: 30
+    ):
         value = values.get(field)
         if field in values and (not isinstance(value, int) or not low <= value <= high):
             problems.append(Problem(field, "out_of_range", (("min", low), ("max", high))))

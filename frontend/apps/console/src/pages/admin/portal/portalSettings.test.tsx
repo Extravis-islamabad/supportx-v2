@@ -98,4 +98,29 @@ describe('console: portal settings', () => {
       expect(screen.queryByTestId('portal-settings-partly')).toBeNull();
     });
   });
+
+  it('a save someone else beat opens the conflict dialog; Reload shows the latest', async () => {
+    window.history.pushState({}, '', '/admin/portal');
+    const fake = api({
+      'PATCH /api/v1/portal/settings': {
+        status: 409,
+        body: problem(409, 'version_conflict'),
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('portal-settings');
+    fireEvent.click(within(screen.getByTestId('ps-profile-editing')).getByRole('switch'));
+    fireEvent.click(screen.getByTestId('settings-save'));
+    const reload = await screen.findByTestId('conflict-reload');
+    expect(screen.queryByTestId('portal-settings-partly')).toBeNull(); // nothing saved before it
+    const before = fake.find('GET', '/api/v1/portal/settings').length;
+    fireEvent.click(reload);
+    await waitFor(() => {
+      expect(fake.find('GET', '/api/v1/portal/settings').length).toBeGreaterThan(before);
+    });
+    // My edit is dropped: nothing left to save, so the bar goes.
+    await waitFor(() => {
+      expect(screen.queryByTestId('settings-save')).toBeNull();
+    });
+  });
 });

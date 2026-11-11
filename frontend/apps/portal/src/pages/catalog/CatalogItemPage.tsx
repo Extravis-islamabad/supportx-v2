@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 
 import { ApiError, useCatalogItem, useRaiseServiceRequest, useSession } from '@supportx/api-client';
 import {
+  FormFooter,
   QuestionField,
   RichTextView,
   lengthLimit,
@@ -16,13 +17,16 @@ import {
   useAppearance,
   useLabel,
   type QuestionValue,
+  useLicence,
 } from '@supportx/ui';
 
 import { AttachFiles } from '../requests/attachFiles';
 import { useFilesToAttach } from '../requests/useFilesToAttach';
 import { ForWhom } from '../requests/ForWhom';
 import { FormCard } from '../FormCard';
+import { deliveryText } from './delivery';
 import { FORM_COLUMN } from '../formColumn';
+import { AssetsField } from '../requests/AssetsField';
 
 const SUBJECT_MAX = 250;
 
@@ -42,6 +46,8 @@ export function CatalogItemPage() {
   const loaded = useCatalogItem(id);
   const raise = useRaiseServiceRequest();
   const files = useFilesToAttach();
+  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const hasAssets = useLicence().has('assets');
   const [key] = useState(() => crypto.randomUUID());
   const item = loaded.data;
   const questions = useMemo(() => requesterQuestions(item?.questions ?? []), [item]);
@@ -70,6 +76,25 @@ export function CatalogItemPage() {
     );
   });
   const ready = typed.trim() !== '' && missing.length === 0;
+  // What is still missing, said beside the disabled button (Haider, 2026-11-10).
+  const why =
+    typed.trim() === ''
+      ? t('requests.why.subject')
+      : missing.length > 0
+        ? t('requests.why.answers')
+        : null;
+  // What is included: the steps a requester may see; and who approves it first.
+  const included = item.plan
+    .filter((step) => !step.internal)
+    .map((step) => textIn(step.title, locale))
+    .filter((title) => title !== '');
+  const delivery = deliveryText(t, item.expected_delivery);
+  const approval =
+    item.approval === null || item.approval.approvers.length === 0
+      ? null
+      : item.approval.approvers.some((a) => a.kind === 'requested_for_manager')
+        ? t('portal.catalog.manager_approves')
+        : t('portal.catalog.someone_approves');
 
   return (
     <Flex vertical gap={16} style={FORM_COLUMN}>
@@ -84,6 +109,35 @@ export function CatalogItemPage() {
         <section aria-label={t('portal.catalog.about')} data-testid="portal-cat-description">
           <RichTextView html={description} />
         </section>
+      )}
+      {(included.length > 0 || approval !== null || delivery !== null) && (
+        <FormCard testId="portal-cat-context">
+          {included.length > 0 && (
+            <div data-testid="portal-cat-included">
+              <Typography.Text strong>{t('requests.context.included')}</Typography.Text>
+              <ul style={{ marginTop: 4, marginBottom: approval === null ? 0 : 12 }}>
+                {included.map((title) => (
+                  <li key={title}>
+                    <bdi dir="auto">{title}</bdi>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {approval !== null && (
+            <Typography.Paragraph style={{ margin: 0 }} data-testid="portal-cat-approval">
+              {approval}
+            </Typography.Paragraph>
+          )}
+          {delivery !== null && (
+            <Typography.Paragraph
+              style={{ margin: approval === null ? 0 : '8px 0 0' }}
+              data-testid="portal-cat-delivery"
+            >
+              {delivery}
+            </Typography.Paragraph>
+          )}
+        </FormCard>
       )}
       <FormCard testId="portal-cat-form">
         <Form
@@ -102,6 +156,7 @@ export function CatalogItemPage() {
                   answers: sentAnswers(shown),
                   confirm_lose_access: false,
                   ...(onBehalf !== null ? { on_behalf_of_id: onBehalf } : {}),
+                  ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
                 },
               },
               {
@@ -168,6 +223,18 @@ export function CatalogItemPage() {
               />
             </Form.Item>
           ))}
+          {/* REQ-AST-025: the assets it is about, the person's own only (AC1). */}
+          {hasAssets && (
+            <Form.Item label={t('work_item.field.asset_ids')} htmlFor="portal-cat-assets">
+              <AssetsField
+                id="portal-cat-assets"
+                value={assetIds}
+                onChange={setAssetIds}
+                forUser={onBehalf}
+                testId="portal-cat-assets"
+              />
+            </Form.Item>
+          )}
           <Form.Item label={t('portal.report.files')}>
             <AttachFiles
               files={files.files}
@@ -176,16 +243,39 @@ export function CatalogItemPage() {
               testId="portal-cat"
             />
           </Form.Item>
-          <Button
-            type="primary"
-            size="large"
-            htmlType="submit"
-            disabled={!ready}
-            loading={raise.isPending || files.sending}
-            data-testid="portal-cat-send"
-          >
-            {t('portal.catalog.send')}
-          </Button>
+          {/* Template B's footer (D-147, Haider 2026-11-10): Cancel, then the request. */}
+          <FormFooter
+            testId="portal-cat-footer"
+            notice={
+              why === null ? undefined : (
+                <Typography.Text type="secondary" id="portal-cat-why" data-testid="portal-cat-why">
+                  {why}
+                </Typography.Text>
+              )
+            }
+            cancel={
+              <Button
+                size="large"
+                onClick={() => void navigate('/catalog')}
+                data-testid="portal-cat-cancel"
+              >
+                {t('actions.cancel')}
+              </Button>
+            }
+            primary={
+              <Button
+                type="primary"
+                size="large"
+                htmlType="submit"
+                disabled={!ready}
+                loading={raise.isPending || files.sending}
+                aria-describedby={why === null ? undefined : 'portal-cat-why'}
+                data-testid="portal-cat-send"
+              >
+                {t('portal.catalog.send')}
+              </Button>
+            }
+          />
         </Form>
       </FormCard>
     </Flex>

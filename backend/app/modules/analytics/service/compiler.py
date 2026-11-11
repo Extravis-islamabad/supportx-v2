@@ -30,7 +30,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
-from app.core.errors import FieldError, ValidationFailed
+from app.core.errors import FieldError, PermissionDenied, ValidationFailed
 from app.modules.analytics.domain.definition import (
     AGE_BUCKETS,
     DateBucket,
@@ -314,6 +314,10 @@ def _specs(definition: ReportDefinition, source: ReportingSource) -> list[Measur
     specs: list[MeasureSpec] = []
     for index, code in enumerate(definition.measures):
         spec = available.get(code)
+        if spec is None and code in measures_of(source.entity):
+            # The measure exists, but its data is not this viewer's to see (assets' money without
+            # assets.view_financials): said as such, never as an unknown measure.
+            raise PermissionDenied(code="measure_not_permitted", params={"measure": code})
         if spec is None:
             _invalid(f"measures[{index}]", "unknown_measure")
         specs.append(spec)

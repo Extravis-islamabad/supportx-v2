@@ -15,7 +15,8 @@ from structlog.testing import capture_logs
 from app.core.tenancy import TenantContext
 from app.modules.integrations.service import secrets
 from app.modules.integrations.tests.fake_providers import FakeProviders
-from tests.db.test_incidents_api import World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World
 from tests.db.test_mail_oauth_api import (
     ADDRESS,
     GMAIL,
@@ -30,9 +31,9 @@ from tests.db.test_mail_oauth_api import (
 )
 from tests.db.test_mailboxes_api import add, with_key_ring
 
-__all__ = ["fake", "world"]  # fixtures, re-used
+__all__ = ["fake", "module_world", "shared_world"]  # fixtures, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 BASE = "/integrations/mailboxes"
 

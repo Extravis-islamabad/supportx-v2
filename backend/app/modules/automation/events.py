@@ -1,7 +1,9 @@
 """Event contracts published by automation (WP-029). IDs and codes only, never record values."""
 
 import uuid
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
+
+from pydantic import Field
 
 from app.shared.events import DomainEvent
 
@@ -88,6 +90,24 @@ class WorkflowInstanceChanged(DomainEvent):
     version: int
 
 
+class WorkflowJobProgressed(DomainEvent):
+    """A bulk retry, cancel or migration moved on or ended (WP-048b S3; REQ-WF-021, -025).
+
+    The overview shows its progress live; IDs, counts and codes only.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow_job.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_job"
+
+    job_id: uuid.UUID
+    workflow_id: uuid.UUID
+    kind: Literal["retry", "cancel", "migrate"]
+    status: Literal["queued", "running", "done", "failed"]
+    processed: int
+    total: int
+
+
 class WorkflowChanged(DomainEvent):
     """A workflow was made, its draft saved, published, enabled or disabled (WP-048b).
 
@@ -104,9 +124,97 @@ class WorkflowChanged(DomainEvent):
     version: int
 
 
+class WorkflowDeleted(DomainEvent):
+    """A workflow without live runs was deleted (soft, WP-048b S3d; REQ-WF-027 AC3).
+
+    Its own event, so `automation.workflow.changed` v1 keeps its contract. IDs only.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.deleted"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow"
+
+    workflow_id: uuid.UUID
+    record_type: str
+    version: int
+
+
+class WorkflowCommandFinished(DomainEvent):
+    """A workflow command an owning module accepted for later is done (WP-048b S2, REQ-WF-014).
+
+    Written by the owning module in the transaction that finished it (an approval's deciding
+    vote), through `automation.command_finished`; automation's consumer then continues the
+    node: `port` is the output it leaves by (approved, rejected), or `error` refuses it.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.command_finished"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_instance"
+
+    instance_id: uuid.UUID
+    command: str
+    ok: bool
+    port: str | None = None
+    error: str | None = None
+    # A function node's outputs, by the variables the node keeps them in (never record data).
+    outputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkflowFunctionRequested(DomainEvent):
+    """A function node asks the worker to run a custom function (WP-048b S2; §6.7).
+
+    Never run in the API process: the worker's consumer calls the installation's runner and
+    reports back as `WorkflowCommandFinished`. The inputs are the node's own values and the
+    names of record fields, read by the worker; `assign` maps outputs to variables.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.function_requested"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_instance"
+
+    instance_id: uuid.UUID
+    command: str
+    record_type: str
+    record_id: uuid.UUID
+    function: str
+    inputs: dict[str, Any]
+    assign: dict[str, str]
+    timeout_seconds: int
+
+
+class WorkflowWebhookRequested(DomainEvent):
+    """A webhook node asks the worker to make one guarded call (WP-048b S2; ADR-043 §8).
+
+    Never sent from a request: the worker's consumer sends it through the shared egress client
+    and reports back as `WorkflowCommandFinished`. The record's fields are read by the worker,
+    so the outbox holds only their names.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.webhook_requested"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_instance"
+
+    instance_id: uuid.UUID
+    command: str
+    record_type: str
+    record_id: uuid.UUID
+    url: str
+    method: str
+    headers: dict[str, str]
+    fields: list[str]
+    status_variable: str | None = None
+    # A test run's one live call (S3e): `instance_id` names the test run, which takes the result.
+    test_run: bool = False
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkflowChanged,
+    WorkflowWebhookRequested,
+    WorkflowFunctionRequested,
+    WorkflowCommandFinished,
     WorkflowInstanceChanged,
+    WorkflowJobProgressed,
+    WorkflowDeleted,
     AutomationChanged,
     AvailabilityChanged,
     AssignmentWaiting,

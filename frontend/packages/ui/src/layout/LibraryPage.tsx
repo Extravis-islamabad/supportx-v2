@@ -276,14 +276,16 @@ function LibraryRow({
       )}
       <div style={{ flex: '1 1 auto', minWidth: 0 }}>
         <Flex gap={SPACE.xs} align="center" wrap>
-          <span style={{ fontWeight: 500 }}>{item.title}</span>
+          {/* The name leads (QA10V-11: names at 12 px sat under 14 px descriptions). */}
+          <span style={{ fontWeight: 500, fontSize: TYPE.body }}>{item.title}</span>
           {item.tags}
         </Flex>
         {item.description !== undefined && (
           <Typography.Text
             type="secondary"
             style={{ fontSize: TYPE.data, display: 'block' }}
-            ellipsis
+            // The whole description when it is cut (QA10V-27).
+            ellipsis={{ tooltip: item.description }}
           >
             {item.description}
           </Typography.Text>

@@ -17,6 +17,7 @@ from app.modules.identity_access import subject_for
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import conversations
+from app.shared.history import history
 from tests.db.test_incidents_api import World, incidents_world
 from tooling import db_testing
 
@@ -34,7 +35,13 @@ def own_db(db_config: db_testing.DbTestConfig) -> Iterator[db_testing.ThrowawayD
 
 
 @pytest_asyncio.fixture
-async def own_world(own_db: db_testing.ThrowawayDatabase) -> AsyncIterator[World]:
+async def own_world(
+    own_db: db_testing.ThrowawayDatabase, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[World]:
+    # This test migrates down past 0122 (WP-064). That downgrade refuses while lifecycle audit
+    # entries exist, since dropping their events would break their hashes (rule 5h). So the
+    # saves here are made without the lifecycle sink; the replies themselves are unchanged.
+    monkeypatch.setattr(history, "_audit_sink", None)
     async with incidents_world(own_db) as built:
         yield built
 

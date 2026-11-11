@@ -147,6 +147,8 @@ describe('The article page', () => {
     render(<App />);
     expect(await screen.findByTestId('kb-action-reject')).toBeDefined(); // still decidable by them
     expect(screen.queryByTestId('kb-action-approve')).toBeNull();
+    // QA10-P4-06: and the page says someone else approves it.
+    expect(screen.getByTestId('kb-own-version').textContent).toMatch(/approv/i);
   });
 
   it('saves the article settings with If-Match (rule g)', async () => {

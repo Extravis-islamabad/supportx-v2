@@ -103,10 +103,12 @@ OPERATORS: Mapping[FieldType, frozenset[Op]] = {
     FieldType.INTEGER: frozenset(_EQUALITY | _ORDERED),
     FieldType.BOOLEAN: frozenset({Op.EQ, Op.NE, Op.IS_NULL, Op.IS_NOT_NULL}),
     FieldType.DECIMAL: frozenset(_EQUALITY | _ORDERED),
-    FieldType.DATE: frozenset(_EQUALITY | _ORDERED),
+    # Relative ranges on calendar dates compare whole days with today (relative_day_range).
+    FieldType.DATE: frozenset(_EQUALITY | _ORDERED | _RELATIVE),
 }
 _NO_VALUE = {Op.IS_NULL, Op.IS_NOT_NULL} | (_RELATIVE - {Op.LAST_N_DAYS, Op.NEXT_N_DAYS})
 _LIST = {Op.IN, Op.NOT_IN}
+_ALSO_OPS = {Op.EQ, Op.NE, Op.IN, Op.NOT_IN}
 MAX_RELATIVE_DAYS = 3650
 # Public names for the in-memory evaluator (filter_eval.py), which must group operators the same.
 LIST_OPERATORS = frozenset(_LIST)
@@ -165,6 +167,10 @@ class FilterField:
     simple: bool = True  # also usable as `?name=value`
     # A JSONB array of codes (multiple choice): eq / in mean "includes", ne / not_in "excludes".
     array: bool = False
+    # An ENUM field's second home: a text[] column whose codes also count as the field's value
+    # (an audit entry's action and its save's events, WP-064). eq / in match either; ne / not_in
+    # neither. Served by a GIN index on the array (`@>` and `&&`).
+    also_in: Any = None  # an ORM column attribute of type ARRAY(String); Any as `column`
 
 
 @dataclass(frozen=True)
@@ -290,6 +296,46 @@ def relative_range(
     return ranges[op]()
 
 
+def relative_day_range(
+    op: Op, now: datetime, days: int | None = None
+) -> tuple[date | None, date | None]:
+    """[start, end) in calendar days for a relative operator on a DATE field (lane C, #320).
+
+    A date has no time, so "today" is `now`'s date (in `now`'s time zone, as for the calendar
+    operators above) and every range is whole days:
+
+    - `last_n_days` N: from N days ago up to and including today;
+    - `next_n_days` N: from today up to and including N days from now;
+    - `before_now`: before today; `after_now`: after today (today itself is neither);
+    - the calendar operators: the same days as `relative_range`.
+    """
+    today = now.date()
+    monday = today - timedelta(days=today.weekday())
+    one = timedelta(days=1)
+    ranges: dict[Op, Callable[[], tuple[date | None, date | None]]] = {
+        Op.TODAY: lambda: (today, today + one),
+        Op.YESTERDAY: lambda: (today - one, today),
+        Op.THIS_WEEK: lambda: (monday, monday + timedelta(days=7)),
+        Op.LAST_WEEK: lambda: (monday - timedelta(days=7), monday),
+        Op.THIS_MONTH: lambda: (_month_start(today), _next_month(today)),
+        Op.LAST_MONTH: lambda: (_month_start(_month_start(today) - one), _month_start(today)),
+        Op.LAST_N_DAYS: lambda: (today - timedelta(days=days or 0), today + one),
+        Op.NEXT_N_DAYS: lambda: (today, today + timedelta(days=(days or 0) + 1)),
+        Op.BEFORE_NOW: lambda: (None, today),
+        Op.AFTER_NOW: lambda: (today + one, None),
+    }
+    return ranges[op]()
+
+
+def relative_bounds(
+    field_type: FieldType, op: Op, now: datetime, days: int | None = None
+) -> tuple[datetime | date | None, datetime | date | None]:
+    """The [start, end) of a relative operator for a field of `field_type`."""
+    if field_type is FieldType.DATE:
+        return relative_day_range(op, now, days)
+    return relative_range(op, now, days)
+
+
 @dataclass
 class _Compiler:
     resource: ResourceFields
@@ -369,18 +415,34 @@ class _Compiler:
             if spec.array:
                 empty = or_(spec.column.is_(None), func.jsonb_array_length(spec.column) == 0)
                 return empty if op is Op.IS_NULL else not_(empty)
-            return self._no_value(spec.column, op)
+            return self._no_value(spec, op)
         if spec.array:
             return self._array(spec, op, raw, path)
         if op in {Op.LAST_N_DAYS, Op.NEXT_N_DAYS}:
             if type(raw) is not int or not 1 <= raw <= MAX_RELATIVE_DAYS:
                 _fail(path, "invalid_value", expected="days", max=MAX_RELATIVE_DAYS)
-            return self._range(spec.column, *relative_range(op, self.now, raw))
+            return self._range(spec.column, *relative_bounds(spec.type, op, self.now, raw))
+        if spec.also_in is not None and op in _ALSO_OPS:
+            return self._also(spec, op, raw, path)
         if op in _LIST:
             return self._list(spec, op, raw, path)
         if op is Op.BETWEEN:
             return self._between(spec, raw, path)
         return self._compare(spec.column, op, self._coerce(spec, raw, path))
+
+    def _also(self, spec: FilterField, op: Op, raw: Any, path: str) -> ColumnElement[bool]:  # noqa: ANN401 - untrusted JSON
+        if op in _LIST:
+            base = self._list(spec, op, raw, path)
+            codes = [self._coerce(spec, item, f"{path}[{i}]") for i, item in enumerate(raw)]
+            hit = spec.also_in.overlap(array(codes, type_=String))
+        else:
+            value = self._coerce(spec, raw, path)
+            base = self._compare(spec.column, op, value)
+            hit = spec.also_in.contains(array([value], type_=String))
+        if op in {Op.EQ, Op.IN}:
+            return or_(base, hit)
+        # ne / not_in: in neither place (a NULL array holds nothing).
+        return and_(base, not_(func.coalesce(hit, False)))
 
     def _array(self, spec: FilterField, op: Op, raw: Any, path: str) -> ColumnElement[bool]:  # noqa: ANN401 - untrusted JSON
         if op in _LIST:
@@ -397,12 +459,13 @@ class _Compiler:
         # "does not include" also matches records without the field, like ne elsewhere.
         return or_(spec.column.is_(None), not_(hit))
 
-    def _no_value(self, column: Any, op: Op) -> ColumnElement[bool]:  # noqa: ANN401 - column
+    def _no_value(self, spec: FilterField, op: Op) -> ColumnElement[bool]:
+        column = spec.column
         if op is Op.IS_NULL:
             return column.is_(None)  # type: ignore[no-any-return]  # Any column attribute
         if op is Op.IS_NOT_NULL:
             return column.is_not(None)  # type: ignore[no-any-return]  # Any column attribute
-        return self._range(column, *relative_range(op, self.now))
+        return self._range(column, *relative_bounds(spec.type, op, self.now))
 
     def _list(self, spec: FilterField, op: Op, raw: Any, path: str) -> ColumnElement[bool]:  # noqa: ANN401 - untrusted JSON
         if not isinstance(raw, list) or not raw:
@@ -442,7 +505,11 @@ class _Compiler:
         return comparisons[op](value)
 
     @staticmethod
-    def _range(column: Any, start: datetime | None, end: datetime | None) -> ColumnElement[bool]:  # noqa: ANN401 - column attribute
+    def _range(
+        column: Any,  # noqa: ANN401 - column attribute
+        start: datetime | date | None,
+        end: datetime | date | None,
+    ) -> ColumnElement[bool]:
         parts = []
         if start is not None:
             parts.append(column >= start)

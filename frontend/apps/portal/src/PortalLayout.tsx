@@ -39,6 +39,7 @@ const NAV: { path: string; labelKey: LabelKey; feature?: Feature }[] = [
   },
   { path: '/approvals', labelKey: 'portal.approvals.title', feature: 'service_request' },
   { path: '/catalog', labelKey: 'nav.catalog' },
+  { path: '/my-assets', labelKey: 'my_assets.title', feature: 'assets' },
 ];
 
 /** The menu entry of a path: its own, or the area it lies in (`/requests/…` is My requests). */

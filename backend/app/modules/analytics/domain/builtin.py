@@ -223,6 +223,9 @@ BUILTIN_REPORTS += (
     *_starter_set("release", RELEASES, "releases"),
 )
 
+# How far ahead the warranty report looks.
+WARRANTY_DAYS = 90
+
 # Assets (lane B's reporting source, #310): what is held, of what kind, its warranty and its age.
 BUILTIN_REPORTS += (
     _of("asset", ASSETS, "assets_by_state", group_by=[{"field": "state_id"}], chart="doughnut"),
@@ -237,9 +240,9 @@ BUILTIN_REPORTS += (
         "asset",
         ASSETS,
         "assets_warranty_ending",
-        # Dates (not times) take no relative ranges in the filter DSL: every asset with a
-        # warranty, by the month it ends, so the coming months read at a glance.
-        filter={"field": "warranty_expires_on", "op": "is_not_null"},
+        # The warranties ending in the next 90 days (calendar dates take relative ranges since
+        # lane B's #352), by the month they end, so the coming months read at a glance.
+        filter={"field": "warranty_expires_on", "op": "next_n_days", "value": WARRANTY_DAYS},
         group_by=[{"field": "warranty_expires_on", "bucket": "month"}],
         chart="bar",
     ),
@@ -248,6 +251,30 @@ BUILTIN_REPORTS += (
         ASSETS,
         "assets_by_age",
         group_by=[{"field": "acquired_on", "bucket": "age"}],
+        chart="bar",
+    ),
+)
+
+# Assets' money (lane B's #375, WP-049b S2; the coordinator, 2026-11-11): listed only for those
+# who may see money, as their fields exist only for them (the library compiles each built-in for
+# the viewer and leaves out one that does not compile).
+BUILTIN_REPORTS += (
+    _of(
+        "asset",
+        ASSETS,
+        "assets_book_value_by_cost_centre",
+        group_by=[{"field": "cost_centre"}],
+        measures=["book_value_total", "count"],
+        order="value_desc",
+        chart="bar",
+    ),
+    _of(
+        "asset",
+        ASSETS,
+        "assets_total_cost_of_ownership",
+        group_by=[{"field": "product_type_id"}],
+        measures=["total_cost_total", "book_value_total"],
+        order="value_desc",
         chart="bar",
     ),
 )

@@ -52,6 +52,7 @@ export function usePersonalAppearance(
   const textScale = user?.text_scale;
   const digits = user?.digits;
   const dateFormat = user?.date_format;
+  const ownDateFormat = user?.chosen?.includes('date_format') ?? false;
   const timeFormat = user?.time_format;
   const weekStart = user?.week_start;
   const urduScript = user?.urdu_script;
@@ -100,14 +101,17 @@ export function usePersonalAppearance(
   // QA10-P3-14: every date and picker follows the person's format, else the organisation's (the
   // session carries the one that applies); unknown values keep the defaults.
   useEffect(() => {
+    // D-155: a numeric date only for someone who picked it themselves; the organisation's
+    // default and everyone else see the written-out form ("10 Nov 2026").
     setDates({
-      ...(DATE_FORMATS.has(dateFormat ?? '') ? { dateFormat: dateFormat as DateFormat } : {}),
+      dateFormat:
+        ownDateFormat && DATE_FORMATS.has(dateFormat ?? '') ? (dateFormat as DateFormat) : 'medium',
       ...(timeFormat === '12h' || timeFormat === '24h' ? { timeFormat } : {}),
       ...(weekStart === 'monday' || weekStart === 'sunday' || weekStart === 'saturday'
         ? { weekStart }
         : {}),
     });
-  }, [dateFormat, timeFormat, weekStart, setDates]);
+  }, [dateFormat, ownDateFormat, timeFormat, weekStart, setDates]);
 
   // D-137: Urdu in Naskh unless the person chose Nastaliq.
   useEffect(() => {

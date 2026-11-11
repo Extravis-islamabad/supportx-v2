@@ -22,9 +22,12 @@ from app.modules.identity_access import (
     subject_for,
     worker_policy,
 )
-from tests.db.test_incidents_api import World, role, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World, role
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def _identity(world: World) -> uuid.UUID:

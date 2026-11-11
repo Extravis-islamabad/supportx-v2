@@ -104,12 +104,15 @@ test('Arabic in headings and body uses the bundled Noto Sans Arabic in every wei
     // One line cut off with an ellipsis: the incidents list's subject cell, Arabic subject in
     // the English UI. The clip box reaches at least a quarter of the font size below the line.
     await page.goto('/incidents');
-    const cell = page.locator(`td:has(bdi[title="${ARABIC}"])`).first();
+    // CellText's own bdi (its tooltip replaced the native title, QA fix-round B5).
+    const cell = page
+      .locator('td', { has: page.locator('bdi.sx-cell-text', { hasText: ARABIC }) })
+      .first();
     await expect(cell).toBeVisible();
     const room = await cell.evaluate((td) => {
       const style = getComputedStyle(td);
       const clipBottom = td.getBoundingClientRect().bottom - parseFloat(style.borderBottomWidth);
-      const text = td.querySelector('bdi');
+      const text = td.querySelector('bdi.sx-cell-text');
       const line = text?.getBoundingClientRect().bottom ?? clipBottom;
       return (clipBottom - line) / parseFloat(style.fontSize);
     });

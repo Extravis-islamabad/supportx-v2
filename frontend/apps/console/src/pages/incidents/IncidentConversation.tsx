@@ -1,13 +1,11 @@
 import {
   CheckOutlined,
-  DownOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
   GlobalOutlined,
   LockOutlined,
   MailOutlined,
   RollbackOutlined,
-  SendOutlined,
   ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -17,9 +15,7 @@ import {
   Avatar,
   Button,
   Card,
-  Dropdown,
   Modal,
-  Empty,
   Flex,
   Popconfirm,
   Radio,
@@ -32,15 +28,7 @@ import {
   Typography,
   theme,
 } from 'antd';
-import {
-  cloneElement,
-  createContext,
-  isValidElement,
-  type ReactNode,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -69,7 +57,9 @@ import {
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import {
+  EmptyText,
   Attachments,
+  ChannelTag,
   ConflictDialog,
   describeError,
   FormProblem,
@@ -134,18 +124,29 @@ export function IncidentConversation({
   item,
   typing,
   replyRequest = 0,
+  replyMode = 'reply',
   base = 'incidents',
 }: {
   item: Incident;
   typing: Typing;
-  /** Bumped by the header's Reply action (UI pass 2): opens the reply composer here. */
+  /**
+   * Bumped by the header's Reply (UI pass 2): opens the reply composer here. The header holds
+   * the record's one Reply, with reply to all and forward in its dropdown (D-155).
+   */
   replyRequest?: number;
+  /** How the header's last Reply asked to answer. */
+  replyMode?: ReplyMode;
   /** Whose conversation routes: incidents (the default) or service requests. */
   base?: ConversationBase;
 }) {
   return (
     <BaseContext.Provider value={base}>
-      <ConversationBody item={item} typing={typing} replyRequest={replyRequest} />
+      <ConversationBody
+        item={item}
+        typing={typing}
+        replyRequest={replyRequest}
+        replyMode={replyMode}
+      />
     </BaseContext.Provider>
   );
 }
@@ -154,10 +155,12 @@ function ConversationBody({
   item,
   typing,
   replyRequest,
+  replyMode,
 }: {
   item: Incident;
   typing: Typing;
   replyRequest: number;
+  replyMode: ReplyMode;
 }) {
   const base = useContext(BaseContext);
   const t = useLabel();
@@ -169,7 +172,11 @@ function ConversationBody({
   const [seenRequest, setSeenRequest] = useState(0);
   if (replyRequest !== seenRequest) {
     setSeenRequest(replyRequest);
-    if (replyRequest > 0 && draft === null) setDraft({ kind: 'reply', mode: 'reply' });
+    // A reply already open takes the mode just chosen (Forward after Reply), so the header's
+    // choice always shows (lane A's #338 review); a note being written is left alone.
+    if (replyRequest > 0 && (draft === null || draft.kind === 'reply')) {
+      setDraft({ kind: 'reply', mode: replyMode });
+    }
   }
   const conversation = useIncidentConversation(item.id, true, base);
   // The record type's own files and history: never an incident path for another type (a 404).
@@ -184,7 +191,7 @@ function ConversationBody({
   );
   const writers = Object.entries(typing);
   // Automation and status events from the history as quiet one-line entries (UI pass 2), in
-  // time order with the messages; the conversation's own saves are the cards themselves. Only
+  // time order, under "System"; the conversation's own saves are the cards themselves. Only
   // the history pages loaded so far (the first page, newest first): older events stay in the
   // History tab, which pages through all of them.
   // A request's own history joins with the type-aware history hooks (#240); until then its
@@ -199,7 +206,9 @@ function ConversationBody({
       ),
     }))
     .filter((e) => e.changes.length > 0);
-  const withEvents = filter === 'all' || filter === 'system';
+  // Under "System" only (Haider, 2026-11-10: the tab's count is what it shows by default, the
+  // description, replies and notes; system lines are history, also on the History tab).
+  const withEvents = filter === 'system';
   const rows = [
     ...(filter === 'system' ? [] : shown).map((entry) => ({
       at: entry.created_at,
@@ -284,22 +293,10 @@ function ConversationBody({
           )}
           {rows.map((row) => row.node)}
           {filter === 'system' && events.length === 0 && (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={
-                <Typography.Text type="secondary">{t('conversation.system_empty')}</Typography.Text>
-              }
-            />
+            <EmptyText>{t('conversation.system_empty')}</EmptyText>
           )}
           {filter !== 'system' && filter !== 'all' && shown.length === 0 && (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={
-                <Typography.Text type="secondary">
-                  {t(`conversation.empty.${filter}`)}
-                </Typography.Text>
-              }
-            />
+            <EmptyText>{t(`conversation.empty.${filter}`)}</EmptyText>
           )}
         </Flex>
       )}
@@ -318,54 +315,16 @@ function ComposeButtons({
 }) {
   const t = useLabel();
   const state = (name: string) => item.conversation_actions.find((a) => a.action === name);
-  const reply = state('reply');
   const note = state('add_note');
-  const why = (s: typeof reply) =>
+  const why = (s: typeof note) =>
     s === undefined || s.allowed ? undefined : t(`action_reason.${s.reason ?? 'no_permission'}`);
-  // Opens on click (keyboard too) and closes once something is chosen (QA BUG-10).
-  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <Space wrap>
-      <Tooltip title={why(reply)}>
-        {/* Default, not primary: the record header's Reply is the page's one primary action
-            (the coordinator's visual QA, one primary per screen). */}
-        <Dropdown.Button
-          disabled={disabled || reply?.allowed !== true}
-          icon={<DownOutlined />}
-          trigger={['click']}
-          open={menuOpen}
-          onOpenChange={setMenuOpen}
-          onClick={() => {
-            onCompose({ kind: 'reply', mode: 'reply' });
-          }}
-          menu={{
-            items: (['reply_all', 'forward'] as const).map((mode) => ({
-              key: mode,
-              label: t(`reply_mode.${mode}`),
-            })),
-            onClick: ({ key }) => {
-              setMenuOpen(false);
-              onCompose({ kind: 'reply', mode: key as ReplyMode });
-            },
-          }}
-          buttonsRender={([left, right]) => [
-            <span key="l" data-testid="conv-reply">
-              {left}
-            </span>,
-            <span key="r" data-testid="conv-reply-more" aria-label={t('conversation.more_reply')}>
-              {/* Ant Design disables only the left part; the arrow must look disabled too. */}
-              {isValidElement<{ disabled?: boolean }>(right)
-                ? cloneElement(right, { disabled: disabled || reply?.allowed !== true })
-                : right}
-            </span>,
-          ]}
-        >
-          <SendOutlined /> {t('reply_mode.reply')}
-        </Dropdown.Button>
-      </Tooltip>
+      {/* One Reply on the record, in its header (D-155): this toolbar adds notes. */}
       <Tooltip title={why(note)}>
         <WriteButton
           disabled={disabled || note?.allowed !== true}
+          whyDisabled={t('why.no_note')}
           onClick={() => {
             onCompose({ kind: 'note' });
           }}
@@ -398,7 +357,7 @@ function DescriptionEntry({ item }: { item: Incident }) {
             <bdi dir="auto">{author}</bdi>
           </Typography.Text>
           <Tag>{t('conversation.kind.description')}</Tag>
-          <Tag icon={<GlobalOutlined />}>{t(`work_item_channel.${item.channel}`)}</Tag>
+          <ChannelTag channel={item.channel} />
         </Space>
         <Typography.Text type="secondary">{dates.format(item.created_at)}</Typography.Text>
       </Flex>
@@ -890,6 +849,7 @@ function Composer({
           type="primary"
           loading={add.isPending}
           disabled={body === ''}
+          whyDisabled={t('why.write_first')}
           onClick={() => {
             send();
           }}
@@ -1014,16 +974,11 @@ function EventLine({
   changes: IncidentHistoryEntry['changes'];
   words: ReturnType<typeof useHistoryWords>;
 }) {
-  const t = useLabel();
   const listFormat = useListFormat();
   const dates = useDateTime();
   const { token } = theme.useToken();
-  const who = entry.actor_name ?? t(`actor_type.${entry.actor_type}`);
-  // Joined the language's way (Arabic and Urdu use their own conjunction), not with "; ".
-  const what = listFormat(
-    changes.map((c) => words.changeText(c)),
-    'unit',
-  );
+  // Each change a sentence with who did it (Haider, 2026-11-10), joined the language's way.
+  const what = listFormat(words.sentences(entry, changes), 'unit');
   return (
     <Flex gap={12} align="flex-start" data-testid="conv-event">
       <span
@@ -1049,9 +1004,6 @@ function EventLine({
         style={{ flex: 1, minWidth: 0, paddingTop: 7, fontSize: 13 }}
       >
         <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-          <Typography.Text strong style={{ fontSize: 13 }}>
-            <bdi dir="auto">{who}</bdi>
-          </Typography.Text>{' '}
           {what}
         </Typography.Text>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>

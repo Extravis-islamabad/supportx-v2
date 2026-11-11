@@ -27,14 +27,17 @@ from sqlalchemy import ColumnElement, and_, false, or_, select
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import (
     PROBLEM_MANAGER,
+    RELEASE_MANAGER,
     REPORT_VIEWER,
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
     ResourceType,
     Subject,
 )
+from app.modules.work_items.domain.changes import CHANGE_MODEL
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
+from app.modules.work_items.domain.releases import RELEASE_MODEL
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import Channel, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemFollower, WorkItemRoleHolder
@@ -109,7 +112,16 @@ FIELDS = ResourceFields(
         "display_id": FilterField(WorkItem.display_id, FieldType.STRING, sortable=True),
         "display_number": FilterField(WorkItem.display_number, FieldType.INTEGER, sortable=True),
         "subject": FilterField(WorkItem.subject, FieldType.STRING, sortable=True),
-        "status": _enum(WorkItem.status, DefaultStatus),
+        # The staged types' statuses too: a change or release list filters by its own status
+        # (the change screens; "Pending approval" is the change statuses awaiting approval).
+        "status": _enum(
+            WorkItem.status,
+            [
+                *DefaultStatus,
+                *(s.code for s in CHANGE_MODEL.statuses),
+                *(s.code for s in RELEASE_MODEL.statuses),
+            ],
+        ),
         "status_category": _enum(WorkItem.status_category, StatusCategory),
         "priority": FilterField(
             WorkItem.priority,
@@ -156,6 +168,10 @@ FIELDS = ResourceFields(
         ),
         "closed_at": FilterField(
             WorkItem.closed_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
+        # Haider, 2026-11-10: "restored from trash" (the latest restore), for SLA reports.
+        "restored_at": FilterField(
+            WorkItem.restored_at, FieldType.DATETIME, sortable=True, simple=False
         ),
         "resolution_due_at": FilterField(
             WorkItem.resolution_due_at, FieldType.DATETIME, sortable=True, simple=False
@@ -204,7 +220,6 @@ _ACTIONS: tuple[tuple[str, tuple[Scope, ...], tuple[tuple[str, Scope], ...]], ..
     ("create", ("all",), (("technician", "all"),)),
     ("edit", ALL_SCOPES, _TECH),
     ("assign", ALL_SCOPES, _TECH),
-    ("assign_outside_group", ("all",), ()),
     ("take", NOT_OWN, (("technician", "group"),)),
     ("change_priority", ALL_SCOPES, _TECH),
     ("resolve", ALL_SCOPES, _TECH),
@@ -263,7 +278,6 @@ IDENTITY_GRANTED = frozenset({"view", "create", "edit", "assign", "close"})
 _PROBLEM_TECH: dict[str, tuple[tuple[str, Scope], ...]] = {
     "view": (("technician", "all"),),
     "create": (("technician", "all"),),
-    "assign_outside_group": (),
     "delete": (),
     "edit_due_dates": (),
 }
@@ -285,12 +299,14 @@ def _type_defaults(
         return (*defaults, (PROBLEM_MANAGER, "all"))
     if wtype.code is WorkItemTypeCode.RELEASE:
         # Releases (WP-058a): technicians keep only identity's releases.view grant; the type
-        # adds no technician defaults, so nothing is widened (lane B review).
-        return ()
+        # adds no technician defaults, so nothing is widened (lane B review). The release
+        # manager (D-153) holds every release permission at "all" but delete: the trash stays
+        # with the service desk manager and admins, as for the other types (lane B's review).
+        return () if action == "delete" else ((RELEASE_MANAGER, "all"),)
     if wtype.code is WorkItemTypeCode.CHANGE:
         # Changes (WP-045a): technicians keep identity's changes.view and changes.create (all);
         # the engine adds working their groups' changes, never delete or due dates by hand.
-        kept = {"view", "create", "delete", "edit_due_dates", "assign_outside_group"}
+        kept = {"view", "create", "delete", "edit_due_dates"}
         return () if action in kept else (("technician", "group"),)
     return defaults
 
@@ -361,14 +377,35 @@ PROBLEM_SPECS: tuple[PermissionSpec, ...] = (
 APPROVE = "approve"
 # Releases (WP-058a s5; lane B's review): a release sign-off is a change-control duty, so only the
 # admin roles hold it by default; an approver without it is routed to approve_any, never stuck.
+# The release manager signs off too (D-153); the stage approvals' segregation still keeps anyone
+# from approving a stage of a release they requested or own.
 RELEASE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
-    PermissionSpec("releases.approve", "release", ("all",), defaults=_role_defaults("approve")),
+    PermissionSpec(
+        "releases.approve",
+        "release",
+        ("all",),
+        defaults=(*_role_defaults("approve"), (RELEASE_MANAGER, "all")),
+    ),
 )
 # changes.approve keeps identity's scopes (not own) and grants (WP-045a).
 CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec(
         "changes.approve", "change", ("all", "site", "group"), defaults=_role_defaults("approve")
     ),
+    # D-144: keep a change going without its approval, with a reason, audited, and a mandatory
+    # review. Nobody holds it by default but administrators; the change manager role (D-153)
+    # gets it when lane B's role model lands.
+    PermissionSpec("changes.emergency_override", "change", ("all", "site", "group")),
+    # Haider (2026-11-10): change boards are run by the change manager and administrators only,
+    # not by every service desk configurer. Administrators hold it; the change manager role
+    # (D-153) gets it with the role model.
+    PermissionSpec("changes.manage_boards", "change", ("all",)),
+    # WP-045c (the coordinator, 2026-11-11): freeze and maintenance windows are run by the
+    # change manager and administrators; passing a blocking freeze for a change is the change
+    # manager's, decided at its scope on that change (lane B). Administrators hold every
+    # permission, so they may override too, as with the emergency override (D-144).
+    PermissionSpec("changes.manage_windows", "change", ("all",)),
+    PermissionSpec("changes.override_freeze", "change", ("all", "site", "group")),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (

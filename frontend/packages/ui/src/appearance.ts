@@ -9,7 +9,11 @@ export type Direction = 'ltr' | 'rtl';
 /** Digits on screen (D-135). */
 export type Digits = 'western' | 'arabic_indic';
 /** How dates and times read (REQ-ADM-049/058): the person's choice, else the organisation's. */
-export type DateFormat = 'dd/mm/yyyy' | 'mm/dd/yyyy' | 'yyyy-mm-dd' | 'dd.mm.yyyy';
+/**
+ * How dates are written. `medium` ("10 Nov 2026") is the default and the only form anything
+ * shared uses; a numeric one shows only on the screens of a person who picked it (D-155).
+ */
+export type DateFormat = 'medium' | 'dd/mm/yyyy' | 'mm/dd/yyyy' | 'yyyy-mm-dd' | 'dd.mm.yyyy';
 export type TimeFormat = '24h' | '12h';
 export type WeekStart = 'monday' | 'sunday' | 'saturday';
 export interface DatePreferences {
@@ -18,7 +22,7 @@ export interface DatePreferences {
   weekStart: WeekStart;
 }
 export const DEFAULT_DATES: DatePreferences = {
-  dateFormat: 'dd/mm/yyyy',
+  dateFormat: 'medium',
   timeFormat: '24h',
   weekStart: 'monday',
 };

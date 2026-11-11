@@ -125,6 +125,7 @@ export const en = {
   'filter_op.this_week': 'this week',
   'filter_op.today': 'today',
   'filter_op.yesterday': 'yesterday',
+  'form.choose': 'Choose…',
   'forms.draft_restored': 'Your unsaved input was restored.',
   'forms.start_empty': 'Start empty',
   'home.plan': 'Plan',
@@ -137,6 +138,8 @@ export const en = {
   'layout.add_value': 'Add',
   'layout.alerts_count_one': '{{count}} alert',
   'layout.alerts_count_other': '{{count}} alerts',
+  'layout.also_above': 'Also above',
+  'layout.dismiss': 'Hide this line',
   'layout.done': 'Done',
   'layout.edit_field': 'Edit {{field}}',
   'layout.favourites': 'Favourites',
@@ -146,6 +149,7 @@ export const en = {
   'layout.library_empty': 'Nothing here yet.',
   'layout.library_no_match': 'Nothing matches your search.',
   'layout.more_actions': 'More actions',
+  'layout.more_options_for': 'More options: {{action}}',
   'layout.not_available_now': 'Not available now',
   'layout.notices_count_one': '{{count}} notice',
   'layout.notices_count_other': '{{count}} notices',
@@ -155,6 +159,8 @@ export const en = {
   'layout.properties': 'Properties',
   'layout.properties_add': 'Add details ({{n}})',
   'layout.properties_fewer': 'Hide empty fields',
+  'layout.reset_widths': 'Reset widths',
+  'layout.resize_column': 'Width of {{column}}: use the arrow keys',
   'layout.star': 'Add to favourites',
   'layout.unstar': 'Remove from favourites',
   'layout.view': 'View',
@@ -173,6 +179,8 @@ export const en = {
   'nav.admin_automation': 'Automation',
   'nav.admin_branding': 'Branding',
   'nav.admin_catalog': 'Service catalog',
+  'nav.admin_change_boards': 'Change advisory boards',
+  'nav.admin_change_windows': 'Freeze and maintenance windows',
   'nav.admin_files': 'Files',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',
@@ -242,6 +250,7 @@ export const en = {
   'richtext.align.end': 'Align to end',
   'richtext.align.justify': 'Justify',
   'richtext.align.start': 'Align to start',
+  'richtext.align_menu': 'Alignment and indent',
   'richtext.bold': 'Bold',
   'richtext.bullets': 'Bulleted list',
   'richtext.callout': 'Callout',
@@ -283,6 +292,7 @@ export const en = {
   'richtext.mention_cannot_see': 'Cannot see this incident',
   'richtext.mention_list': 'People to mention',
   'richtext.mention_none': 'Nobody found',
+  'richtext.more_tools': 'More formatting',
   'richtext.numbers': 'Numbered list',
   'richtext.outdent': 'Decrease indent',
   'richtext.quote': 'Quote',
@@ -513,6 +523,14 @@ export const en = {
   'setup.page.catalog.description':
     'Categories and items people request: their forms, approval, group, SLA and fulfilment tasks, in every language.',
   'setup.page.catalog.keywords': 'catalog, catalogue, items, forms, service requests, starter',
+  'setup.page.change-boards.description':
+    "Who approves changes: each board's members, chair, rule and which changes it reviews.",
+  'setup.page.change-boards.keywords':
+    'cab, change advisory board, approvals, chair, emergency, change manager',
+  'setup.page.change-windows.description':
+    'When changes must not happen, and when they should: freezes and maintenance windows, for everyone or for some sites and groups.',
+  'setup.page.change-windows.keywords':
+    'freeze, change freeze, maintenance window, blackout, change calendar',
   'setup.page.files.description': 'Upload limits, allowed file types and malware scanning.',
   'setup.page.files.keywords':
     'files, attachments, uploads, size, storage, malware, virus, scanning',

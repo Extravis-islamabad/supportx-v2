@@ -1,5 +1,5 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { Alert, Button, Empty, Flex, List, Modal, Select, Skeleton, Typography } from 'antd';
+import { Alert, Button, Flex, List, Modal, Select, Skeleton, Typography } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
@@ -12,7 +12,7 @@ import {
   type Problem,
   type ProblemLink,
 } from '@supportx/api-client';
-import { reportError, useLabel, WriteButton } from '@supportx/ui';
+import { EmptyText, reportError, useLabel, WriteButton } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
 
@@ -38,7 +38,7 @@ export function CausedIncidents({ id, canEdit }: { id: string; canEdit: boolean 
   const rows = (links.data ?? []).filter((l) => l.relation === 'causes');
   if (links.isLoading) return <Skeleton active paragraph={{ rows: 2 }} />;
   if (rows.length === 0) {
-    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('problems.no_incidents')} />;
+    return <EmptyText>{t('problems.no_incidents')}</EmptyText>;
   }
   return (
     <List

@@ -6,10 +6,10 @@ from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping, Se
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal, cast
+from typing import Any, Literal, Protocol, cast
 
 from fastapi import Request
-from sqlalchemy import BigInteger, CheckConstraint, Index, String, Text, func, select
+from sqlalchemy import BigInteger, CheckConstraint, Index, String, Text, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -202,6 +202,118 @@ def current_automation(session: AsyncSession) -> Mapping[str, JsonValue] | None:
     return found if isinstance(found, Mapping) else None
 
 
+@dataclass(frozen=True)
+class SavedRecord:
+    """One save, as the audit sink sees it (WP-064): what was saved, how, and its change ID."""
+
+    record_type: str
+    subtype: str | None
+    record_id: uuid.UUID
+    version: int
+    kind: ChangeKind
+    changes: tuple[Change, ...]
+    source: Source
+    reason: str | None
+    change_id: uuid.UUID
+    automation_ref: JsonValue | None
+    # The changes exactly as written to `field_changes` (without the sink-only annotations, and
+    # with the empty-field line of a save that changed nothing): the audit entry's fingerprint
+    # is computed from these, and the verifier recomputes it from the stored rows (WP-064 S2).
+    recorded: tuple[Change, ...] = ()
+
+
+class AuditSink(Protocol):
+    """Where saves of audited record types go (WP-064, ADR-045): the audit module implements it.
+
+    Called inside the save's transaction, after its history rows, so the audit entry exists
+    exactly when the save commits. The port lives here so the audit module is never imported by
+    the modules whose records it audits (rule e).
+    """
+
+    def handles(self, record_type: str, subtype: str | None) -> bool:
+        """Whether saves of this record type get an audit entry."""
+        ...
+
+    async def saved(self, session: AsyncSession, record: SavedRecord) -> None:
+        """Write the save's one audit entry in `session`'s transaction."""
+        ...
+
+
+_audit_sink: AuditSink | None = None
+
+
+def register_audit_sink(sink: AuditSink | None) -> None:
+    """Set (or with None, clear) the audit sink; the audit module sets it when imported."""
+    global _audit_sink  # noqa: PLW0603 - one registry, set once by the audit module
+    _audit_sink = sink
+
+
+# A shared record type's subtype for the audit sink (WP-064): record type -> resolver.
+SubtypeResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[str | None]]
+_subtype_resolvers: dict[str, SubtypeResolver] = {}
+
+
+def register_subtype_resolver(record_type: str, resolver: SubtypeResolver | None) -> None:
+    """Set (None: clear) how the subtype of a shared record type is found when a save names none.
+
+    The owning module registers it (work_items: `work_item` -> `incident`, `problem` ...), so no
+    call site has to pass `subtype`. A resolver never fails a save: it answers None when unsure.
+    """
+    if resolver is None:
+        _subtype_resolvers.pop(record_type, None)
+    else:
+        _subtype_resolvers[record_type] = resolver
+
+
+# Whose personal data a record holds, for the audit fingerprint (WP-064 S2, ADR-046): record type
+# -> resolver giving the record's people fields (`requester_id` ...) and their user IDs now.
+SubjectResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[Mapping[str, uuid.UUID | None]]]
+_subject_resolvers: dict[str, SubjectResolver] = {}
+
+
+def register_subject_resolver(record_type: str, resolver: SubjectResolver | None) -> None:
+    """Set (None: clear) how the people a record is about are found (the owning module's).
+
+    The audit sink asks it only when a save changed a personal field. It must not fail a save:
+    it answers an empty mapping when unsure.
+    """
+    if resolver is None:
+        _subject_resolvers.pop(record_type, None)
+    else:
+        _subject_resolvers[record_type] = resolver
+
+
+async def record_subjects(
+    session: AsyncSession, record_type: str, record_id: uuid.UUID
+) -> Mapping[str, uuid.UUID | None]:
+    """The record's people fields and their user IDs, from the owning module's resolver."""
+    resolver = _subject_resolvers.get(record_type)
+    return await resolver(session, record_id) if resolver is not None else {}
+
+
+# Facts a save's diff implies that history does not store, for the audit sink only (WP-064): a
+# status code's category, so the audit log can tell a resolve from a stage move. Pure, no I/O.
+ChangeAnnotator = Callable[[str | None, tuple[Change, ...]], tuple[Change, ...]]
+_annotators: dict[str, ChangeAnnotator] = {}
+
+
+def register_change_annotator(record_type: str, annotator: ChangeAnnotator | None) -> None:
+    """Set (None: clear) the extra changes the audit sink sees for saves of `record_type`.
+
+    They are added after the history rows are written and reach only the sink's copy: never
+    field_changes, the history API, realtime payloads or the outbox (lane A's guard).
+    """
+    if annotator is None:
+        _annotators.pop(record_type, None)
+    else:
+        _annotators[record_type] = annotator
+
+
+def audit_sink() -> AuditSink | None:
+    """The registered audit sink, if any (tests check the app and workers have one)."""
+    return _audit_sink
+
+
 async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     session: AsyncSession,
     *,
@@ -213,11 +325,15 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     source: Source,
     reason: str | None = None,
     automation_ref: JsonValue | None = None,
+    subtype: str | None = None,
 ) -> uuid.UUID:
     """Write one save's field changes (same transaction as the record). Returns the change ID.
 
-    `automation_ref` names the automation that made the change, if any (ADR-026).
+    `automation_ref` names the automation that made the change, if any (ADR-026). `subtype`
+    tells apart the kinds of a shared record type (a work item's `incident`, `problem` ...) for
+    the audit entry; history rows do not store it.
     """
+    changes = tuple(changes)
     change_id = new_id()
     batch_id = session.info.get(BATCH_KEY)
     if automation_ref is None:
@@ -275,6 +391,28 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     await session.flush()
     # The audit log links its entry for this request to the history it wrote (REQ-AUD-006).
     session.info.setdefault(CHANGE_IDS_KEY, []).append(change_id)
+    sink = _audit_sink
+    if sink is not None and subtype is None and record_type in _subtype_resolvers:
+        subtype = await _subtype_resolvers[record_type](session, record_id)
+    if sink is not None and sink.handles(record_type, subtype):
+        annotate = _annotators.get(record_type)
+        seen = changes + annotate(subtype, changes) if annotate is not None else changes
+        await sink.saved(
+            session,
+            SavedRecord(
+                record_type=record_type,
+                subtype=subtype,
+                record_id=record_id,
+                version=version,
+                kind=kind,
+                changes=seen,
+                source=source,
+                reason=reason,
+                change_id=change_id,
+                automation_ref=automation_ref,
+                recorded=tuple(Change(r.field, r.old_value, r.new_value) for r in rows),
+            ),
+        )
     return change_id
 
 
@@ -341,19 +479,61 @@ async def explain_conflict(
     return Conflict(code="version_conflict", params=params, headers=conflict.headers)
 
 
-async def history_page(
+@dataclass(frozen=True)
+class HistoryFilter:
+    """Narrows a history page (REQ-AST-049); every condition given must hold.
+
+    Only saves that changed one of `fields` (a name ending in "." stands for every field it
+    starts), from one of `sources`, by `actor_id`, at or after `since` and before `until`. With
+    `fields`, each save lists only those fields' changes.
+    """
+
+    fields: frozenset[str] = frozenset()
+    sources: frozenset[str] = frozenset()
+    actor_id: str | None = None
+    since: datetime | None = None
+    until: datetime | None = None
+
+    def conditions(self) -> list[Any]:  # Any: SQLAlchemy boolean clauses
+        """The WHERE clauses on `field_changes`."""
+        found: list[Any] = []
+        if self.fields:
+            exact = sorted(f for f in self.fields if not f.endswith("."))
+            prefixes = sorted(f for f in self.fields if f.endswith("."))
+            found.append(
+                or_(
+                    FieldChange.field.in_(exact),
+                    *(FieldChange.field.startswith(p, autoescape=True) for p in prefixes),
+                )
+            )
+        if self.sources:
+            found.append(FieldChange.source.in_(sorted(self.sources)))
+        if self.actor_id is not None:
+            found.append(FieldChange.actor_id == self.actor_id)
+        if self.since is not None:
+            found.append(FieldChange.occurred_at >= self.since)
+        if self.until is not None:
+            found.append(FieldChange.occurred_at < self.until)
+        return found
+
+
+async def history_page(  # noqa: PLR0913 - the record, the page and the filter, explicit
     session: AsyncSession,
     record_type: str,
     record_id: uuid.UUID,
     *,
     before_version: int | None = None,
     limit: int = 25,
+    where: HistoryFilter | None = None,
 ) -> tuple[list[HistoryEntry], int | None]:
     """Saves of one record, newest first, `limit` saves per page; plus the next cursor."""
     limit = max(1, min(limit, MAX_PAGE))
+    narrowed = [] if where is None else where.conditions()
     versions_query = (
         select(FieldChange.record_version)
-        .where(FieldChange.record_type == record_type, FieldChange.record_id == record_id)
+        .where(
+            FieldChange.record_type == record_type, FieldChange.record_id == record_id, *narrowed
+        )
         .group_by(FieldChange.record_version)
         .order_by(FieldChange.record_version.desc())
         .limit(limit + 1)
@@ -372,6 +552,7 @@ async def history_page(
                 FieldChange.record_type == record_type,
                 FieldChange.record_id == record_id,
                 FieldChange.record_version.in_(versions),
+                *narrowed,
             )
             .order_by(FieldChange.record_version.desc(), FieldChange.id)
         )

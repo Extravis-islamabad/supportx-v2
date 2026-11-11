@@ -319,7 +319,12 @@ def parse_display_id(value: str, prefix: str) -> tuple[str | None, int | None]:
 # tests/test_error_labels.py, which reads FIELD_PROBLEMS sets).
 FIELD_PROBLEMS = frozenset(
     {
+        # REQ-AST-025: an asset that is not there or not yours to see, and the per-record cap.
+        "asset_not_found",
+        "too_many_assets",
         "required",
+        "chair_inactive",  # D-146: the approval chair must be an active person
+        "fulfiller_required",  # D-154: a request is fulfilled only with a technician on it
         "not_in_past",  # WP-045a: a retrospective change's actual times (REQ-CHG-004)
         # WP-044c S1 (REQ-PRB-021): a template for requesters is for everyone.
         "limited_template_for_requesters",
@@ -365,6 +370,7 @@ FIELD_PROBLEMS = frozenset(
         "end_or_duration_required",
         "duration_mismatch",
         "already_linked",
+        "change_would_loop",  # WP-045d S1: a change cannot become part of its own child
         "cannot_link_itself",
         "cannot_merge_itself",
         "required_for_known_error",

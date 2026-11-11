@@ -55,6 +55,66 @@ describe('ActionBar', () => {
     expect(screen.getByTestId('a-assign').className).not.toContain('ant-btn-primary');
   });
 
+  it("QA10V-03: a split button's chevron is named after its action", () => {
+    const reply = action('reply', {
+      label: 'Reply',
+      variants: [{ key: 'reply_all', label: 'Reply all', onClick: vi.fn() }],
+    });
+    renderUi(<ActionBar testId="bar" actions={[reply]} />);
+    const chevron = within(screen.getByTestId('a-reply-more')).getByRole('button');
+    expect(chevron.getAttribute('aria-label')).toBe('More options: Reply');
+  });
+
+  it('QA bug 7: a split button on the bar is not repeated in More, nor are its variants', async () => {
+    renderUi(
+      <ActionBar
+        testId="bar"
+        actions={[
+          action('reply', {
+            rank: 0,
+            variants: [
+              { key: 'forward', label: 'Forward', onClick: () => undefined, testId: 'a-forward' },
+            ],
+          }),
+          action('assign', { rank: 1 }),
+          action('note', { primary: false }),
+        ]}
+      />,
+    );
+    const items = within(await menu()).getAllByRole('menuitem');
+    const ids = items.map((i) => i.getAttribute('data-testid'));
+    expect(ids).not.toContain('a-reply-menu');
+    expect(screen.queryByTestId('a-forward-menu')).toBeNull();
+    expect(ids).toContain('a-assign-menu'); // a plain bar button keeps its entry ("Also above")
+    expect(ids).toContain('a-note-menu');
+  });
+
+  it('QA10-P4-24: menu items that are also buttons say so, in the fixed order', async () => {
+    renderUi(
+      <ActionBar
+        testId="bar"
+        max={1}
+        actions={[
+          action('assign', { rank: 2 }),
+          action('resolve', { rank: 1 }),
+          action('note', { primary: false }),
+        ]}
+      />,
+    );
+    const items = within(await menu()).getAllByRole('menuitem');
+    expect(items.map((i) => i.getAttribute('data-testid'))).toEqual([
+      'a-assign-menu',
+      'a-resolve-menu',
+      'a-note-menu',
+    ]);
+    const marked = (testId: string) =>
+      screen.getByTestId(testId).querySelector('[data-also-above]') !== null;
+    expect(marked('a-resolve-menu')).toBe(true);
+    expect(screen.getByTestId('a-resolve-menu').textContent).toContain('Also above');
+    expect(marked('a-assign-menu')).toBe(false);
+    expect(marked('a-note-menu')).toBe(false);
+  });
+
   it('lists every action in the menu, unavailable ones disabled with the reason, destructive last', async () => {
     renderUi(
       <ActionBar
@@ -362,6 +422,16 @@ describe('D-147: page widths', () => {
     expect(screen.getByTestId('form').style.maxWidth).toBe(`${String(FORM_MAX_WIDTH)}px`);
     expect(screen.getByTestId('form').querySelector('aside')?.textContent).toBe('Help');
     expect(screen.getByTestId('list').style.width).toBe('100%');
+  });
+
+  it('a full-width page keeps its aside (lane A, #351: it was dropped silently)', () => {
+    renderUi(
+      <PageColumn kind="list" testId="wide" aside={<p>Suggestions</p>}>
+        <p>Fields</p>
+      </PageColumn>,
+    );
+    expect(screen.getByTestId('wide').style.width).toBe('100%');
+    expect(screen.getByTestId('wide').querySelector('aside')?.textContent).toBe('Suggestions');
   });
 });
 

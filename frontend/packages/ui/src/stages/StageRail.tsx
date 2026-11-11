@@ -1,0 +1,69 @@
+import { Steps, Tag } from 'antd';
+
+import type { RailStage } from '@supportx/api-client';
+
+import { useLabel } from '../appearance';
+import { useDateTime } from '../dates/format';
+
+const STATUS = {
+  done: 'finish',
+  current: 'process',
+  skipped: 'wait',
+  future: 'wait',
+} as const;
+
+/**
+ * A staged record's stages on its path, in order (ADR-041 §7): done, current, skipped or not
+ * yet, with when each was entered. Computed by the server, never stored; live through the
+ * record. Shared by releases and changes (one implementation, the coordinator 2026-11-11).
+ */
+export function StageRail({ rail, testId }: { rail: RailStage[]; testId?: string }) {
+  const t = useLabel();
+  const { format } = useDateTime();
+  const current = rail.findIndex((s) => s.state === 'current');
+  const name = (code: string) => t(`work_item_stage.${code}`);
+  return (
+    <Steps
+      size="small"
+      current={current < 0 ? 0 : current}
+      // Labels under each stage, wrapping between words: "Acceptance testing" is never cut
+      // mid-word (D-155; the coordinator's check of #338's shots).
+      labelPlacement="vertical"
+      responsive
+      data-testid={testId}
+      // The current stage, for tests and tools (the header's stage chip is gone, D2).
+      data-current={rail[current]?.stage}
+      items={rail.map((stage) => {
+        const last = stage.entries.at(-1);
+        return {
+          title: (
+            <span
+              data-testid={`rail-${stage.stage}`}
+              title={name(stage.stage)}
+              style={{ whiteSpace: 'normal', overflowWrap: 'normal', wordBreak: 'normal' }}
+            >
+              {name(stage.stage)}
+            </span>
+          ),
+          status: STATUS[stage.state],
+          subTitle: stage.optional ? <Tag>{t('stage_rail.optional')}</Tag> : undefined,
+          description: (
+            <span data-testid={`rail-${stage.stage}-state`}>
+              {stage.state === 'skipped' ? (
+                t('rail_state.skipped')
+              ) : last !== undefined ? (
+                // One line (QA10V-19: "10 Nov 2026," / "19:16"); a step is wide enough, and
+                // the rail stacks on a phone.
+                <span style={{ whiteSpace: 'nowrap' }}>{format(last.entered_at)}</span>
+              ) : (
+                t(`rail_state.${stage.state}`)
+              )}
+              {stage.entries.length > 1 &&
+                ` · ${t('stage_rail.rounds', { count: stage.entries.length })}`}
+            </span>
+          ),
+        };
+      })}
+    />
+  );
+}

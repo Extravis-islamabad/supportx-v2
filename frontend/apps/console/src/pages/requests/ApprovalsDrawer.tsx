@@ -52,7 +52,7 @@ export function ApprovalsDrawer() {
   return (
     <>
       <Tooltip title={t('requests.my_approvals_count', { count })}>
-        <Badge count={count} size="small" offset={[-4, 4]}>
+        <Badge count={count} overflowCount={99} offset={[-2, 2]}>
           <Button
             type="text"
             icon={<AuditOutlined />}
