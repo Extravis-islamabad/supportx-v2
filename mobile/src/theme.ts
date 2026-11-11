@@ -3,7 +3,7 @@ import { useColorScheme } from 'react-native';
 import { BRAND, darken, PRIMARY_HOVER_DARKEN, RADIUS, SURFACE_COLOURS } from '@supportx/ui/tokens';
 
 /**
- * The mobile look (D-155: the prototype's soft lilac page, white cards, purple primary), on the
+ * The mobile look (D-158: the prototype's soft lilac page, white cards, purple primary), on the
  * shared tokens. Every text colour reaches 4.5:1 on its background in both modes.
  */
 const MOBILE = {

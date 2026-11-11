@@ -1,4 +1,4 @@
-### 2026-11-05 — Mobile app: the prototype's screens (WP-M3, WP-M4, WP-M5; D-155)
+### 2026-11-05 — Mobile app: the prototype's screens (WP-M3, WP-M4, WP-M5; D-158)
 
 - **One role-based app.** After sign-in, technicians land on `/t/*` and requesters on `/r/*`.
   Each side has its own bottom bar, drawn in-app so that it follows the right-to-left switch.
@@ -33,7 +33,7 @@
   - 88 `mobile.*` labels (en/ar/ur); everything else reuses the web's labels (priority, status,
     views, SLA, actions).
   - New mobile dependencies: `@supportx/realtime` (link), `centrifuge` 5.8.0 (D-030) and
-    `@expo/vector-icons` (D-154).
+    `@expo/vector-icons` (D-157).
 - **Not in this round:**
   - Photo attachments (needs `expo-camera` or an image picker; `expo-camera` is approved for
     later).

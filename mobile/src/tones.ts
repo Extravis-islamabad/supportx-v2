@@ -1,4 +1,4 @@
-// Chip colours (the prototype's, D-155). Each pair reaches 4.5:1; the meaning is also in the
+// Chip colours (the prototype's, D-158). Each pair reaches 4.5:1; the meaning is also in the
 // words, never in the colour alone.
 export interface Tone {
   bg: string;

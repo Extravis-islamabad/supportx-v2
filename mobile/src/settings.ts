@@ -19,7 +19,7 @@ export interface SettingsState {
   session: string | null;
   /**
    * The server ended the session (it timed out, or was ended from another device or by an admin):
-   * the sign-in screen says so. Phones keep the web's session limits (ADR-044, D-154).
+   * the sign-in screen says so. Phones keep the web's session limits (ADR-044, D-157).
    */
   sessionEnded: boolean;
   locale: Locale;

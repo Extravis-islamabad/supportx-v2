@@ -338,9 +338,9 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 
 Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 1 starts.
 
-### [ ] WP-M1..M7 — Mobile app for technicians, admins and requesters (D-154, D-155, D-065)
+### [ ] WP-M1..M7 — Mobile app for technicians, admins and requesters (D-157, D-158, D-065)
 Plan: docs/architecture/mobile.md. Expo SDK 58 / React Native 0.88.1 / React 19.3 (mobile only),
-local builds only. One role-based app built from the prototype (D-155). One session each.
+local builds only. One role-based app built from the prototype (D-158). One session each.
 - [x] WP-M1 Scaffold (2026-11-04): Expo app in `mobile/`, Expo Router, Metro links to shared
   packages (one React), tokens, labels en/ar/ur + RTL, lint/typecheck/Jest, server-address
   screen, `make check` and a CI job. Ran on an iPhone in Expo Go against the local API.

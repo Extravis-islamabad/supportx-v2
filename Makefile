@@ -11,7 +11,7 @@
 
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
-# The mobile app is its own pnpm project (React 19, D-154; docs/architecture/mobile.md).
+# The mobile app is its own pnpm project (React 19, D-157; docs/architecture/mobile.md).
 MOBILE := cd mobile &&
 # Expo telemetry stays off (Haider, 2026-11-06; ADR-044 item 7): nothing goes to Expo's servers.
 # Exported by make itself, so it reaches every recipe in any shell (cmd.exe on Windows has no

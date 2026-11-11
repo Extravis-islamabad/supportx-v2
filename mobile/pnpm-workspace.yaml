@@ -1,4 +1,4 @@
-# The mobile app is its own pnpm project (React 19 here, React 18 in frontend/; D-154).
+# The mobile app is its own pnpm project (React 19 here, React 18 in frontend/; D-157).
 # This file holds its pnpm settings only; it lists no other packages.
 packages:
   - '.'

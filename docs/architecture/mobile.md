@@ -1,6 +1,6 @@
 # Mobile app — implementation plan
 
-Status: **approved** (D-154, 2026-11-03; SDK 58 instead of 57 by the product owner on 2026-11-04): dependencies, React 19.3 for mobile only, the sign-in hand-off design, and a 12 h session (same as web). **WP-M1 (scaffold) done 2026-11-04; WP-M2 (sign-in) built 2026-11-05**; WP-M3 is next. Screens follow the prototype (D-155).
+Status: **approved** (D-157, 2026-11-03; SDK 58 instead of 57 by the product owner on 2026-11-04): dependencies, React 19.3 for mobile only, the sign-in hand-off design, and a 12 h session (same as web). **WP-M1 (scaffold) done 2026-11-04; WP-M2 (sign-in) built 2026-11-05**; WP-M3 is next. Screens follow the prototype (D-158).
 Scope: the technician and admin app (architecture.md §9.1, D-004, D-065), used to see, create and move tickets.
 
 ## Context
@@ -46,13 +46,13 @@ The stack must work with the backend **as it is today** (user requirement). A ba
 ## Sign-in (built in WP-M2, ADR-044)
 Keep the BFF model: Keycloak tokens never reach the device, and the phone holds only the opaque session ID.
 1. The app makes a random verifier and opens the system browser at `/api/v1/auth/login?app=console&mobile_challenge=<S256 of the verifier>`. The BFF runs the existing PKCE flow with the existing Keycloak clients; no new client.
-2. The callback sets no cookie. It redirects to the verified return link `https://<host>/mobile/auth?handoff=<one-time code>` (ADR-044 item 3; `SUPPORTX_MOBILE_REDIRECT_URI`, which the chart builds from `publicUrl` and `mobile.returnPath`). The host serves `apple-app-site-association` and `assetlinks.json` naming the trusted app builds (#249), and the app lists only `/mobile/auth*` (`mobile/app.config.js`, `SUPPORTX_APP_LINK_HOSTS`), so only our app receives the code. No custom scheme: any app can claim one. The code is valid for 60 s, single use and stored encrypted in Valkey. On failure the link carries `?auth_error=<code>` instead. A requester-only person is first sent on to the portal client with the same challenge, so they get a portal session (D-129, D-155).
+2. The callback sets no cookie. It redirects to the verified return link `https://<host>/mobile/auth?handoff=<one-time code>` (ADR-044 item 3; `SUPPORTX_MOBILE_REDIRECT_URI`, which the chart builds from `publicUrl` and `mobile.returnPath`). The host serves `apple-app-site-association` and `assetlinks.json` naming the trusted app builds (#249), and the app lists only `/mobile/auth*` (`mobile/app.config.js`, `SUPPORTX_APP_LINK_HOSTS`), so only our app receives the code. No custom scheme: any app can claim one. The code is valid for 60 s, single use and stored encrypted in Valkey. On failure the link carries `?auth_error=<code>` instead. A requester-only person is first sent on to the portal client with the same challenge, so they get a portal session (D-129, D-158).
 3. The app calls `POST /api/v1/auth/mobile/exchange {handoff, verifier}` and gets the session ID, which it keeps in SecureStore. A wrong verifier spends the code.
 4. Every request sends `X-SupportX-Session: <id>` and, on writes, `X-CSRF-Token` from `/auth/me`. A tenant switch returns the new ID in the same header. Expiry, refresh, logout and the realtime tokens are unchanged. A 401 makes the app forget the session.
 
 The login also sends `mobile_platform` (ios, android) and `mobile_version`, so the person's session list (#249, ADR-044 item 5) names the phone.
 
-Mobile sessions keep the web's idle and absolute limits (D-154) until the product owner decides otherwise. When the server ends a session, the sign-in screen says so: signing in again is expected.
+Mobile sessions keep the web's idle and absolute limits (D-157) until the product owner decides otherwise. When the server ends a session, the sign-in screen says so: signing in again is expected.
 
 **Testing on a device in local dev:** Keycloak (`localhost:28080`) and the callback origin (`localhost:5173`, the console dev server, which forwards `/api` and the realtime `/connection` to the backend) must be reachable from the phone as `localhost`. On Android (emulator or USB), run `adb reverse` for ports 5173, 28080 and 8000, and use **`http://localhost:5173`** as the server address, so that live updates work too. Port 5173 must belong to SupportX's console dev server: the dev realm accepts only that callback. iOS needs a dev host the phone can reach, or a Mac with the simulator. A sign-in on a device needs the verified link: an https host that serves the `.well-known` files for the dev build (its bundle ID or package and signing fingerprint in the chart's `mobile.*` values, sent to lane B for the dev values), and a build made with `SUPPORTX_APP_LINK_HOSTS` set to that host. Plain `http://localhost` cannot be verified, so a full device sign-in is not possible against the local stack alone. Expo Go cannot finish a sign-in either. Step by step: `mobile/README.md`.
 
@@ -76,7 +76,7 @@ Mobile sessions keep the web's idle and absolute limits (D-154) until the produc
    - `make check` wiring, README and PROGRESS.md.
    - No backend change.
 2. **WP-M2 Mobile sign-in (built 2026-11-05):** ADR-044, BFF hand-off and exchange with tests, the app's sign-in, Home by side, Me (organisation switch, language, server status, sign-out).
-   The screens below follow the prototype (D-155), one role-based app:
+   The screens below follow the prototype (D-158), one role-based app:
 3. **WP-M3 Technician: see the work.**
    - Home: KPIs (my open, overdue, due today, unassigned in my group), the MonetX alert card, and "needs your attention".
    - Queue with the Mine, My group, Unassigned and Overdue filters, an SLA chip on every row.
@@ -96,7 +96,7 @@ Mobile sessions keep the web's idle and absolute limits (D-154) until the produc
 6. **WP-M6 Push:** device registration API, the notifications channel adapter, deep links into the right record.
 7. **WP-M7 Release:** signing, CI Android build (and iOS on macOS), Maestro e2e for en and ar.
 
-## Approvals (granted 2026-11-03, D-154)
+## Approvals (granted 2026-11-03, D-157)
 - **New dependencies:** expo + expo-router + expo-dev-client, expo-web-browser, expo-linking, expo-secure-store, expo-localization, react-native-mmkv, @shopify/flash-list, reanimated and gesture-handler, react-native-render-html, @expo/vector-icons, jest-expo, @testing-library/react-native, Maestro. Later: expo-notifications, expo-camera.
 - **React 19.3 on mobile** (SDK 58) while web stays on 18.3.1.
 - **Mobile auth design** (hand-off above) approved; the formal ADR is written in WP-M2.

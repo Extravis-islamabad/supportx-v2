@@ -103,7 +103,7 @@ function BottomNav({ side }: { side: AppSide }) {
 }
 
 /**
- * The signed-in frame for one side of the app (D-155): one live connection for the session
+ * The signed-in frame for one side of the app (D-158): one live connection for the session
  * (architecture.md §8; it follows a tenant switch), the screen, the bottom bar and the toast.
  */
 export function SignedInShell({ side, children }: { side: AppSide; children: ReactNode }) {

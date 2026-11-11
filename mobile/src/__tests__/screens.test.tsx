@@ -205,7 +205,7 @@ describe('session', () => {
     expect(currentSessionId()).toBeNull();
     expect(useSettings.getState().sessionEnded).toBe(true);
 
-    // The sign-in screen says why: signing in again is expected (ADR-044, D-154).
+    // The sign-in screen says why: signing in again is expected (ADR-044, D-157).
     await render(
       <AppProviders client={client}>
         <SignInScreen onSignedIn={jest.fn()} onChangeServer={jest.fn()} start={jest.fn()} />
