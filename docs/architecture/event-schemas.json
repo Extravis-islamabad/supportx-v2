@@ -5577,6 +5577,52 @@
         ],
         "title": "WorkItemPartChangedV2",
         "type": "object"
+      },
+      "3": {
+        "description": "As V2, with a record's checklists and personal reminders (WP-046a S2; REQ-INC-077, -082).\n\nNew allowed values retype `part`, so a new schema version (docs/architecture/events.md\n\"Versioning\"); v1 and v2 stay registered and keep publishing their parts. A reminder is its\nowner's only: realtime tells their personal channel, never the record's.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "task",
+              "worklog",
+              "link",
+              "plan_section",
+              "stage_schedule",
+              "downtime",
+              "checklist",
+              "reminder"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "part",
+          "part_id",
+          "change"
+        ],
+        "title": "WorkItemPartChangedV3",
+        "type": "object"
       }
     },
     "work_items.portal_settings.changed": {
@@ -5662,6 +5708,41 @@
           "incident_count"
         ],
         "title": "ProblemRepeatDetected",
+        "type": "object"
+      }
+    },
+    "work_items.reminder.due": {
+      "1": {
+        "description": "A person's own reminder on a record alerts them (WP-046a S2; REQ-INC-082 AC1).\n\nRaised once by the sweep at its time minus its lead. IDs only; the source re-reads the\nreminder at send time and says nothing if it moved, was completed, or its owner can no\nlonger see the record (the coordinator).",
+        "properties": {
+          "remind_at": {
+            "format": "date-time",
+            "title": "Remind At",
+            "type": "string"
+          },
+          "reminder_id": {
+            "format": "uuid",
+            "title": "Reminder Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "reminder_id",
+          "user_id",
+          "remind_at"
+        ],
+        "title": "WorkItemReminderDue",
         "type": "object"
       }
     },

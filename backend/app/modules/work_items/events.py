@@ -484,6 +484,24 @@ class ChangeReminderDue(DomainEvent):
     member_id: uuid.UUID | None = None
 
 
+class WorkItemReminderDue(DomainEvent):
+    """A person's own reminder on a record alerts them (WP-046a S2; REQ-INC-082 AC1).
+
+    Raised once by the sweep at its time minus its lead. IDs only; the source re-reads the
+    reminder at send time and says nothing if it moved, was completed, or its owner can no
+    longer see the record (the coordinator).
+    """
+
+    event_type: ClassVar[str] = "work_items.reminder.due"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    reminder_id: uuid.UUID
+    user_id: uuid.UUID
+    remind_at: datetime
+
+
 class ProblemRepeatDetected(DomainEvent):
     """A repeat incident rule found a new set (WP-044c D16, REQ-PRB-068): the group is told.
 
@@ -555,6 +573,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPartChanged,
     WorkItemPartChangedV2,
     WorkItemPartChangedV3,
+    WorkItemReminderDue,
     WorkItemApprovalChanged,
     ChangeBoardChanged,
     ChangeWindowChanged,

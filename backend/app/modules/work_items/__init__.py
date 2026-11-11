@@ -69,6 +69,8 @@ from app.modules.work_items.service import (
     problem_notifications,
     record_facts,
     release_duties,
+    reminder_notifications,
+    reminders,
     repeat_rules,
     report_names,
     request_notifications,
@@ -157,6 +159,7 @@ problem_notifications.register()  # WP-044c D15
 rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
 change_notifications.register()  # WP-045d S3: replaces the change reply-only source
+reminder_notifications.register()  # WP-046a S2: personal reminders alert their owner
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
@@ -226,6 +229,10 @@ module = ModuleSpec(
             "work_items__change_reminders",
             change_reminders.EVERY_SECONDS,
             change_reminders.reminders_schedule,
+        ),
+        # WP-046a S2 (REQ-INC-082 AC1): personal reminders, each alert raised once.
+        ScheduleSpec(
+            "work_items__personal_reminders", reminders.EVERY_SECONDS, reminders.reminders_schedule
         ),
     ],
 )
