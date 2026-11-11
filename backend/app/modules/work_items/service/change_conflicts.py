@@ -12,7 +12,7 @@ window or downtime), so it reads the rows it needs itself.
 
 import uuid
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,6 +69,39 @@ async def windows_touching(
                 and_(
                     ChangeWindow.repeat_weekly.is_(True),
                     or_(ChangeWindow.repeat_until.is_(None), ChangeWindow.repeat_until >= start),
+                ),
+            ),
+        )
+        .order_by(ChangeWindow.starts_at, ChangeWindow.id)
+    )
+    return list(rows)
+
+
+# A one-off maintenance window counts for a change planned within a week of it; a weekly one for
+# as long as it repeats (ADR-042: "outside maintenance" needs windows near the change, not every
+# window the tenant ever had).
+MAINTENANCE_REACH = timedelta(days=7)
+
+
+async def maintenance_in_effect(
+    session: AsyncSession, start: datetime, end: datetime
+) -> list[ChangeWindow]:
+    """Maintenance windows a change in [start, end) is measured against, in or out."""
+    rows = await session.scalars(
+        select(ChangeWindow)
+        .where(
+            ChangeWindow.deleted_at.is_(None),
+            ChangeWindow.kind == model.WindowKind.MAINTENANCE.value,
+            or_(
+                and_(
+                    ChangeWindow.repeat_weekly.is_(True),
+                    ChangeWindow.starts_at < end,
+                    or_(ChangeWindow.repeat_until.is_(None), ChangeWindow.repeat_until >= start),
+                ),
+                and_(
+                    ChangeWindow.repeat_weekly.is_(False),
+                    ChangeWindow.starts_at < end + MAINTENANCE_REACH,
+                    ChangeWindow.ends_at > start - MAINTENANCE_REACH,
                 ),
             ),
         )
@@ -149,7 +182,9 @@ async def conflicts(
         return [], {}
     start = min(s for s, _ in planned)
     end = max(e for _, e in planned)
-    rows = await windows_touching(session, start, end)
+    touching = await windows_touching(session, start, end)
+    near = await maintenance_in_effect(session, start, end)
+    rows = list({r.id: r for r in (*touching, *near)}.values())
     found = model.conflicts(
         planned,
         site_id=record.site_id,

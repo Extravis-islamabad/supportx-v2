@@ -1118,6 +1118,26 @@ it with no reload (rule c). Not built yet.
   attachments on the record; labels for questions an admin adds to a template's questionnaire
   (only Appendix A's are labelled); editing schedules and downtime (WP-045c).
 
+### [~] WP-045c — Changes: windows, conflicts, calendar (lane A, 2026-11-11; 3 sessions; ADR-042; migration 0132; D-156 held)
+- **S1 (backend, 0132):**
+  - freeze and maintenance windows, `/api/v1/change-windows`, with block/warn, a weekly repeat
+    and a site/group/service/CI scope;
+  - one pure conflict check (freeze, outside maintenance, overlapping changes in the same group
+    or at the same site);
+  - a guard on every save of a change's implementation window or planned downtime
+    (409 `change_window_blocked`);
+  - `GET /changes/{id}/conflicts`;
+  - the freeze override (`POST /changes/{id}/freeze-override`: `changes.override_freeze` at the
+    change's scope, a reason, audited, in history);
+  - `changes.manage_windows` (the change manager and admins);
+  - live via `work_items.change_windows_changed`.
+  - Defaults per D-156 (held): a freeze blocks, a maintenance window warns, weekly repeat only.
+  - Lane B gives the blocking review.
+- **S2:** the record. The schedule and downtime become editable, with a conflicts panel and the
+  override dialog; "announce planned downtime" makes an announcement draft.
+- **S3:** the calendar at /changes/calendar (month, week, day, timeline; layers; drag to
+  reschedule with re-approval and the conflict check), and the windows admin on template E.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)

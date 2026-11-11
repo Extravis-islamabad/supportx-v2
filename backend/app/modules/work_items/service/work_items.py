@@ -5147,7 +5147,7 @@ async def save_detail_change(  # noqa: PLR0913 - the save and its history, expli
     details save makes them, so open screens update live (rule 5c).
     """
     audience = _audience(record)
-    updated = await _update(session, record, expected_version, {"updated_at": _now()})
+    updated = await _update(session, record, expected_version, {})
     await record_changes(
         session,
         record_type=RECORD_TYPE,
