@@ -794,6 +794,8 @@ export const ur: LabelResource = {
   'errors.link_has_own_route':
     'یہ لنک اپنی جگہ سے ہٹایا جاتا ہے: واقعے کو الگ کریں، یا ضم کرنا واپس لیں۔',
   'errors.link_not_found': 'یہ ربط موجود نہیں، یا ہٹا دیا گیا۔',
+  'errors.linked_records_not_available': 'منسلک ریکارڈ ابھی دستیاب نہیں۔',
+  'errors.list_not_found': 'یہ فہرست ترتیبات محفوظ نہیں کرتی۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
@@ -926,6 +928,7 @@ export const ur: LabelResource = {
   'errors.rule_refused': '{{message_ur}}',
   'errors.saved_search_limit': 'آپ محفوظ تلاشوں کی حد تک پہنچ گئے ہیں۔ پہلے ایک حذف کریں۔',
   'errors.saved_search_not_found': 'یہ محفوظ تلاش موجود نہیں ہے۔',
+  'errors.saved_view_not_found': 'یہ محفوظ منظر اب موجود نہیں، یا یہ آپ کا نہیں۔',
   'errors.scale_value_not_found': 'یہ قدر موجود نہیں۔',
   'errors.server_busy': 'میل سرور مصروف تھا۔',
   'errors.service_category_in_use':

@@ -382,6 +382,23 @@ describe('console: changes', () => {
     expect(window.location.search).toBe('?tab=risk');
   });
 
+  it('an unknown ?template= falls back to the default template, quietly (lane A, #404)', async () => {
+    window.history.pushState({}, '', '/changes/new?template=01a1a2b3-0000-7000-8000-0000000dead0');
+    const fake = api();
+    render(<App />);
+    // The default's path shows and the form can be sent, as with no template asked for.
+    expect(await screen.findByTestId('change-path')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('change-subject'), { target: { value: 'Patch' } });
+    expect(screen.getByTestId('change-save')).toHaveProperty('disabled', false);
+    fireEvent.click(screen.getByTestId('change-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/changes')[0]?.body).toMatchObject({
+      template_id: TEMPLATE_ID,
+    });
+  });
+
   it('template A: the rail, one primary move, and a plan the move needs is named, not typed', async () => {
     window.history.pushState({}, '', `/changes/${CHG_ID}`);
     api();

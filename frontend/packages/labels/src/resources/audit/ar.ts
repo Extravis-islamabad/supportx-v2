@@ -952,6 +952,7 @@ export const ar: LabelResource = {
   'event_type.system.file.changed': 'تغيّر ملف',
   'event_type.system.file.uploaded': 'رُفع ملف',
   'event_type.system.file_settings.updated': 'تغيّرت قواعد الملفات',
+  'event_type.system.list_settings.changed': 'تغيّرت إعدادات القائمة',
   'event_type.system.mail.queued': 'وُضع بريد في قائمة الانتظار',
   'event_type.system.mail.state_changed': 'أُرسل البريد أو أُعيدت محاولته أو فشل',
   'event_type.work_items.approval.changed': 'فُتحت موافقة أو بُتّ فيها',
