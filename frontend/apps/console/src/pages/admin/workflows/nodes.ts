@@ -67,3 +67,6 @@ export function problemText(
   const shown = t(own, values);
   return shown === own ? t(`errors.field.${code}`, values) : shown;
 }
+
+/** The node types with a settings form of their own (NodeForms); the rest use Advanced. */
+export const FORM_TYPES = new Set(['if', 'switch', 'notify', 'timer', 'wait', 'set_status']);

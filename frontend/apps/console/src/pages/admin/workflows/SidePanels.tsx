@@ -1,11 +1,12 @@
 import { DeleteOutlined } from '@ant-design/icons';
-import { Alert, Button, Descriptions, Flex, Form, Input, Select, Typography } from 'antd';
+import { Alert, Button, Collapse, Descriptions, Flex, Form, Input, Select, Typography } from 'antd';
 import { useState } from 'react';
 
 import type { WorkflowEdge, WorkflowNode } from '@supportx/flow';
 import { EmptyText, useLabel } from '@supportx/ui';
 
-import { portName, problemText } from './nodes';
+import { NodeForm } from './NodeForms';
+import { FORM_TYPES, portName, problemText } from './nodes';
 
 export interface NodeProblem {
   code: string;
@@ -14,26 +15,36 @@ export interface NodeProblem {
 
 /**
  * The selected node's details (REQ-WF-008): its type and id, its settings and the problems
- * the last save found on it. Settings are edited as the definition stores them; a node with
- * its own form gets it in the next step of S4 (forms per node type), this editor stays for
- * the rest. Nothing applies until "Apply", and text that is not JSON never applies.
+ * the last save found on it. A type people use most has its own form (NodeForms); every type
+ * keeps "Advanced", its settings as the definition stores them. The form and the advanced
+ * text are one draft; nothing applies until "Apply" (one undo step), and text that is not
+ * JSON never applies.
  */
 export function NodeDetails({
   node,
+  recordType,
   problems,
   readOnly,
   onConfig,
   onDelete,
 }: {
   node: WorkflowNode;
+  recordType: string;
   problems: NodeProblem[];
   readOnly: boolean;
   onConfig: (config: Record<string, unknown>) => void;
   onDelete: () => void;
 }) {
   const t = useLabel();
+  const [draft, setDraft] = useState<Record<string, unknown>>(node.data.config);
   const [text, setText] = useState(() => JSON.stringify(node.data.config, null, 2));
   const [bad, setBad] = useState(false);
+  const hasForm = FORM_TYPES.has(node.data.nodeType);
+  const fromForm = (next: Record<string, unknown>) => {
+    setDraft(next);
+    setText(JSON.stringify(next, null, 2));
+    setBad(false);
+  };
   const apply = () => {
     try {
       const parsed: unknown = JSON.parse(text);
@@ -42,11 +53,13 @@ export function NodeDetails({
         return;
       }
       setBad(false);
+      setDraft(parsed as Record<string, unknown>);
       onConfig(parsed as Record<string, unknown>);
     } catch {
       setBad(true);
     }
   };
+  const changed = text !== JSON.stringify(node.data.config, null, 2);
   return (
     <Flex vertical gap={12} data-testid="designer-node-details">
       <Descriptions
@@ -81,33 +94,61 @@ export function NodeDetails({
         />
       )}
       {node.data.nodeType !== 'start' && node.data.nodeType !== 'end' && (
-        <Form layout="vertical">
-          <Form.Item
-            label={t('workflows.designer.settings')}
-            htmlFor="node-config"
-            validateStatus={bad ? 'error' : undefined}
-            help={bad ? t('workflows.designer.settings_not_json') : undefined}
-          >
-            <Input.TextArea
-              id="node-config"
-              dir="ltr"
-              rows={10}
-              value={text}
+        <>
+          {hasForm && (
+            <NodeForm
+              type={node.data.nodeType}
+              config={draft}
+              onChange={fromForm}
+              recordType={recordType}
               readOnly={readOnly}
-              spellCheck={false}
-              style={{ fontFamily: 'monospace', fontSize: 12 }}
-              onChange={(e) => {
-                setText(e.target.value);
-              }}
-              data-testid="designer-node-config"
             />
-          </Form.Item>
+          )}
+          <Collapse
+            size="small"
+            defaultActiveKey={hasForm ? [] : ['advanced']}
+            items={[
+              {
+                key: 'advanced',
+                label: t('workflows.designer.advanced'),
+                children: (
+                  <Form layout="vertical">
+                    <Form.Item
+                      label={t('workflows.designer.settings')}
+                      htmlFor="node-config"
+                      validateStatus={bad ? 'error' : undefined}
+                      help={bad ? t('workflows.designer.settings_not_json') : undefined}
+                    >
+                      <Input.TextArea
+                        id="node-config"
+                        dir="ltr"
+                        rows={10}
+                        value={text}
+                        readOnly={readOnly}
+                        spellCheck={false}
+                        style={{ fontFamily: 'monospace', fontSize: 12 }}
+                        onChange={(e) => {
+                          setText(e.target.value);
+                        }}
+                        data-testid="designer-node-config"
+                      />
+                    </Form.Item>
+                  </Form>
+                ),
+              },
+            ]}
+          />
           {!readOnly && (
-            <Button onClick={apply} data-testid="designer-node-apply">
+            <Button
+              type="primary"
+              disabled={!changed}
+              onClick={apply}
+              data-testid="designer-node-apply"
+            >
               {t('workflows.designer.apply')}
             </Button>
           )}
-        </Form>
+        </>
       )}
       {!readOnly && node.data.nodeType !== 'start' && (
         <Button

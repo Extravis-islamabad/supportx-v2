@@ -405,6 +405,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
             // A new node or new settings start the editor afresh (no effect to sync it).
             key={`${selectedNode.id}:${JSON.stringify(selectedNode.data.config)}`}
             node={selectedNode}
+            recordType={workflow.record_type}
             problems={nodeProblems.get(selectedNode.id) ?? []}
             readOnly={readOnly}
             onConfig={(config) => {
