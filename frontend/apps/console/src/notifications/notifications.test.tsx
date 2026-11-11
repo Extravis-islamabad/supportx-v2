@@ -81,18 +81,31 @@ describe('the notification centre', () => {
   it('QA10V-15: live pop-ups never stack: the newest replaces the last', async () => {
     const realtime = scriptedRealtime();
     setDefaultClientFactory(realtime.factory);
-    let entries = [fakeNotification({ id: 'n0', title: 'Already here', read: true })];
+    // One unread entry already there: the bell says so only once the first load is in, so the
+    // test never publishes before it (a pop-up is only for what arrives after the first load).
+    let entries = [fakeNotification({ id: 'n0', title: 'Already here', read: false })];
     api({
       routes: {
         'GET /api/v1/notifications': () => ({
-          body: { items: entries, next_cursor: null, unread: 0 },
+          body: {
+            items: entries,
+            next_cursor: null,
+            unread: entries.filter((e) => !e.read).length,
+          },
         }),
       },
     });
     window.history.pushState({}, '', '/');
     render(<App />);
-    await screen.findByTestId('notifications-bell');
-    const arrive = async (id: string, title: string) => {
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('notifications-bell').getAttribute('aria-label')).toBe(
+          'Notifications, 1 unread',
+        );
+      },
+      { timeout: 5000 },
+    );
+    const arrive = async (id: string, title: string, unread: number) => {
       entries = [fakeNotification({ id, title, read: false }), ...entries];
       act(() => {
         realtime.publish(':user:01900000-0000-7000-8000-000000000101', {
@@ -100,10 +113,19 @@ describe('the notification centre', () => {
           ids: [id],
         });
       });
-      await screen.findByText(title);
+      // The refetch is in (the bell's count), then its pop-up shows: state, not real time.
+      await waitFor(
+        () => {
+          expect(screen.getByTestId('notifications-bell').getAttribute('aria-label')).toBe(
+            `Notifications, ${String(unread)} unread`,
+          );
+        },
+        { timeout: 5000 },
+      );
+      await screen.findByText(title, undefined, { timeout: 5000 });
     };
-    await arrive('n1', 'INC-1 is close to its response target');
-    await arrive('n2', 'INC-2 is close to its response target');
+    await arrive('n1', 'INC-1 is close to its response target', 2);
+    await arrive('n2', 'INC-2 is close to its response target', 3);
     await waitFor(() => {
       expect(document.querySelectorAll('.ant-message-notice')).toHaveLength(1);
     });

@@ -117,7 +117,7 @@ export function useIncidentHistory(
   id: string,
   actors: 'all' | 'people' | 'automation',
   enabled = true,
-  base: 'incidents' | 'problems' | 'service-requests' = 'incidents',
+  base: 'incidents' | 'problems' | 'service-requests' | 'changes' = 'incidents',
 ) {
   return useInfiniteQuery({
     queryKey: queryKeys.incidents.history(id, actors),

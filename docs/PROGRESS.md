@@ -1104,6 +1104,20 @@ it with no reload (rule c). Not built yet.
   - CIs and services in the snapshot (with the CMDB);
   - the screens (UI pass 3 templates).
 
+### [~] Change screens — taken forward from WP-045d D19 (lane A, 2026-11-11; the coordinator; 4 sessions, 2 PRs)
+- **PR 1 (S1+S2, no migration):** the changes list on template C (path, stage, status, the
+  emergency flag, a Pending approval view); a new change on template B (prefilled when raised
+  from another record), opening on its risk questionnaire; the record on template A (stage rail
+  and moves, properties, details with a risk override that says why, the questionnaire, roles,
+  plans, schedule and downtime read-only, history). The staged parts' hooks by type
+  (`api-client/staged.ts`) and one move dialog for staged types (`pages/staged`, lane C's split).
+- **PR 2 (S3+S4, after PR 1):** the CAB and approvals panel (decisions, the SoD preview,
+  changes-since and re-approval, the emergency override), the QA flow 4 e2e, and the advisory
+  board admin on template E (`changes.manage_boards`). Lane B blocks it (D-149).
+- **Not yet:** risk and type columns on the list (not in the list API); conversation and
+  attachments on the record; labels for questions an admin adds to a template's questionnaire
+  (only Appendix A's are labelled); editing schedules and downtime (WP-045c).
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
@@ -1416,7 +1430,7 @@ it with no reload (rule c). Not built yet.
 
 ### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; session 1 built 2026-11-11)
 
-- [x] **Session 1 (migration 0130, down revision 0127 until re-pointed; REQ-AST-030's
+- [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
   - Consumables (033): a product of a consumable type (D-141) kept in stock with barcode, vendor,
     unit cost and comment; batch tracking chosen when made, a switch refused with the reason
@@ -1457,7 +1471,7 @@ it with no reload (rule c). Not built yet.
     above); a calendar screen of availability by product and site (`GET /assets/availability`
     is there, and the portal's picker uses the same query); AC2 of 035 with WP-054.
 
-### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045; session 1 of 4 built 2026-11-10)
+### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
 - [x] S1: the audit sink port in `app/shared/history.record_changes` and the audit module's sink;
   one entry per save listing all its events (route's code first, merged with the route's entry
@@ -1466,8 +1480,17 @@ it with no reload (rule c). Not built yet.
   event tables for assets and the five work-item types (lane A reviewed the field lists;
   statuses by category through work_items' annotator, never stored in history); the subtype
   resolver; catalogue and en/ar/ur labels; tests (unit, DB, the history guard).
-- [ ] S2: change-set fingerprints in the verifier, per-subject salts (0119), history erasure,
-  "erased on request".
+- [x] S2 (ADR-046, migration 0129): each save's entry holds two `fp1:` commitments to its
+  values in record history (never the values), inside the entry hash only when set: the
+  ordinary fields unsalted (they always verify, so an erasure never hides a change to them)
+  and the personal fields salted; the canonical
+  encoding fixed in ADR-046 with a golden vector; personal fields per record type in
+  `audit/domain/lifecycle.py` (work items: free text and save reasons, subjects = requester and on-behalf
+  person; assets none; people later) for lanes A and C to review; per-subject salts in
+  `audit_subject_salts` (no app rights, definer functions only); the verifier reports
+  verified / mismatch / erased on request (runs and the entry view; erased only when the
+  ordinary half matches); erasure blanks the
+  person's free text in history and destroys the salt; labels en/ar/ur.
 - [ ] S3: per-category retention and legal hold (0120), sealing to about 2,000/s, the 10M run,
   the save-latency check.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,

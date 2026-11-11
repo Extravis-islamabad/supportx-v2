@@ -12,18 +12,28 @@ It also tells the sink a status change's categories (`status_category`), from th
 models: the staged types' codes carry their stage (closure_closed ...), so the audit log decides
 "resolved", "closed" or "reopened" by category, never by code (lane A, 2026-11-10). That change
 is added to the sink's copy only, never to history (app/shared/history annotators).
+
+And whose personal data a work item holds (WP-064 S2, ADR-046): its requester and the person it
+was raised for. The audit sink salts the fingerprint of free-text values with their salts, so
+erasing one of them crypto-shreds those values in the chain.
 """
 
 import uuid
+from collections.abc import Mapping
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.util import identity_key
 
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import followers
-from app.shared.history import Change, register_change_annotator, register_subtype_resolver
+from app.shared.history import (
+    Change,
+    register_change_annotator,
+    register_subject_resolver,
+    register_subtype_resolver,
+)
 
 CATEGORY_FIELD = "status_category"
 
@@ -40,6 +50,32 @@ async def work_item_subtype(session: AsyncSession, record_id: uuid.UUID) -> str 
         return found.type
     value = await session.scalar(select(WorkItem.type).where(WorkItem.id == record_id))
     return value if isinstance(value, str) else None
+
+
+SUBJECT_FIELDS = ("requester_id", "on_behalf_of_id")
+
+
+async def work_item_subjects(
+    session: AsyncSession, record_id: uuid.UUID
+) -> Mapping[str, uuid.UUID | None]:
+    """The record's requester and on-behalf person now; empty when the row is not visible.
+
+    From the session's copy when it is loaded and current (the save just flushed it), else one
+    query in the same tenant session (RLS applies). Never raises for a save.
+    """
+    found = session.identity_map.get(identity_key(WorkItem, record_id))
+    if isinstance(found, WorkItem):
+        state = inspect(found)
+        if not state.expired and all(name in state.dict for name in SUBJECT_FIELDS):
+            return {name: state.dict[name] for name in SUBJECT_FIELDS}
+    row = (
+        await session.execute(
+            select(WorkItem.requester_id, WorkItem.on_behalf_of_id).where(WorkItem.id == record_id)
+        )
+    ).one_or_none()
+    if row is None:
+        return {}
+    return {"requester_id": row.requester_id, "on_behalf_of_id": row.on_behalf_of_id}
 
 
 def status_category(type_code: str | None, status_code: object) -> str | None:
@@ -71,3 +107,4 @@ def register() -> None:
     """At import (the consumers worker loads modules without their startup hooks)."""
     register_subtype_resolver(followers.RECORD_TYPE, work_item_subtype)
     register_change_annotator(followers.RECORD_TYPE, with_status_category)
+    register_subject_resolver(followers.RECORD_TYPE, work_item_subjects)

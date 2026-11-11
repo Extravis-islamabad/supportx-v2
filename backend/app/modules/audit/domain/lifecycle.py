@@ -72,6 +72,34 @@ class RecordAudit:
     values: tuple[ValueRule, ...] = ()
     # A part's kind of save and its field -> a named event instead of part_added/... .
     parts: Mapping[tuple[str, str], str] = field(default_factory=dict)
+    # The record type its saves are written to history with, when not `record_type` (every
+    # work item is `work_item` there). The verifier reads `field_changes` by it (WP-064 S2).
+    history_type: str | None = None
+    # Fields holding personal data (free text), named like `fields` (`plan.`, `schedule.*.x`).
+    # Their values are fingerprinted with the salts of the record's data subjects, so erasing
+    # a subject crypto-shreds them in the chain (ADR-046). IDs are never personal (ADR-027).
+    personal: tuple[str, ...] = ()
+    # Whose personal data those fields are: the record's fields naming people (the subject
+    # resolver of app/shared/history reads them from the record when it is saved).
+    data_subjects: tuple[str, ...] = ()
+
+    @property
+    def history_record_type(self) -> str:
+        """The record type of this type's rows in `field_changes`."""
+        return self.history_type or self.record_type
+
+    @property
+    def reasons_personal(self) -> bool:
+        """Whether a save's free-text reasons are its data subjects' personal data.
+
+        Yes for a type with data subjects (work items: a pause or priority reason is about the
+        ticket's people); otherwise they stay in the ordinary, unsalted half (assets).
+        """
+        return bool(self.data_subjects)
+
+    def is_personal(self, name: str) -> bool:
+        """Whether a changed field's values are personal data (see `personal`)."""
+        return _field_matches_one(name, self.personal)
 
     def events(self) -> frozenset[str]:
         """Every event code this type can produce."""
@@ -91,6 +119,10 @@ def _field_matches(key: str, names: set[str]) -> bool:
     if "*" in key:  # schedule.*.outcome: a stage's field
         return any(fnmatch.fnmatchcase(n, key) for n in names)
     return any(n.startswith(key) for n in names) if key.endswith(".") else key in names
+
+
+def _field_matches_one(name: str, keys: Iterable[str]) -> bool:
+    return any(_field_matches(key, {name}) for key in keys)
 
 
 @dataclass(frozen=True)
@@ -213,9 +245,71 @@ _WORK_PARTS: Mapping[tuple[str, str], str] = {
 
 _SLA_EVENTS = frozenset({"sla_paused", "sla_resumed", "sla_breached"})
 
+# --- personal data (WP-064 S2, D-150 "Erasure", ADR-046) -----------------------------------------
+#
+# THE LISTS FOR REVIEW (lanes A and C). The free-text fields each type's history records: their
+# values are personal data of the record's data subjects, fingerprinted with those people's
+# salts. Names follow `fields` (a trailing "." is a prefix, "*" a pattern). IDs never appear:
+# people are referred to by ID (ADR-027), and IDs are not personal.
+#
+# Work items, all five types: the text people write about themselves and their problem.
+# - every type: subject, description, impact_details, resolution, tags, custom field values
+#   (`custom.<key>`, any of them may be text), a task's title (`task`, `task.title`);
+# - problems: the analysis (root cause, symptoms, workaround, review texts);
+# - changes and releases: plan sections, a stage's outcome notes and issues, a downtime's
+#   description; changes also the risk reason; releases also the release notes, version and
+#   build reference (lane C).
+# Every save's free-text reason (`field_changes.reason`: status moves, the priority reason,
+# stage moves, set_fields, known-error comments, the SLA's by-hand reason) is personal too, for
+# every type with data subjects (`RecordAudit.reasons_personal`, lane A's and C's reviews).
+# Assets: none (a name, a location code and IDs; people hold assets by ID).
+# People (identity) are not a lifecycle type yet: their name, email and phone fields join when
+# they are (a later session), with the person themself as the data subject.
+_WORK_PERSONAL: tuple[str, ...] = (
+    "subject",
+    "description",
+    "impact_details",
+    "resolution",
+    "tags",
+    "custom.",
+    "task",
+    "task.title",
+)
+_PROBLEM_PERSONAL: tuple[str, ...] = (
+    *_WORK_PERSONAL,
+    "root_cause",
+    "symptoms",
+    "workaround",
+    "review_summary",
+    "review_lessons",
+    "review_actions",
+)
+_STAGED_PERSONAL: tuple[str, ...] = (
+    *_WORK_PERSONAL,
+    "plan.",
+    "schedule.*.outcome_notes",
+    "schedule.*.issues",
+    "downtime.*.description",
+)
+_CHANGE_PERSONAL: tuple[str, ...] = (*_STAGED_PERSONAL, "risk_reason")
+_RELEASE_PERSONAL: tuple[str, ...] = (
+    *_STAGED_PERSONAL,
+    "release_notes",
+    "release_version",
+    "build_ref",
+)
+# Whose: the requester and the person it was raised for (both, when both are set).
+_WORK_SUBJECTS: tuple[str, ...] = ("requester_id", "on_behalf_of_id")
+WORK_ITEM_HISTORY_TYPE = "work_item"
+
 
 def _work_item(
-    code: str, fields: Mapping[str, str | tuple[str, ...]], *, merges: bool, sla: bool
+    code: str,
+    fields: Mapping[str, str | tuple[str, ...]],
+    personal: tuple[str, ...],
+    *,
+    merges: bool,
+    sla: bool,
 ) -> RecordAudit:
     return RecordAudit(
         record_type=code,
@@ -229,15 +323,18 @@ def _work_item(
             if (merges or r.event != "merged") and (sla or r.event not in _SLA_EVENTS)
         ),
         parts=_WORK_PARTS,
+        history_type=WORK_ITEM_HISTORY_TYPE,
+        personal=personal,
+        data_subjects=_WORK_SUBJECTS,
     )
 
 
 WORK_ITEMS = (
-    _work_item("incident", _WORK_FIELDS, merges=True, sla=True),
-    _work_item("service_request", _WORK_FIELDS, merges=True, sla=True),
-    _work_item("problem", _WORK_FIELDS, merges=True, sla=True),
-    _work_item("change", _CHANGE_FIELDS, merges=False, sla=True),
-    _work_item("release", _RELEASE_FIELDS, merges=False, sla=False),
+    _work_item("incident", _WORK_FIELDS, _WORK_PERSONAL, merges=True, sla=True),
+    _work_item("service_request", _WORK_FIELDS, _WORK_PERSONAL, merges=True, sla=True),
+    _work_item("problem", _WORK_FIELDS, _PROBLEM_PERSONAL, merges=True, sla=True),
+    _work_item("change", _CHANGE_FIELDS, _CHANGE_PERSONAL, merges=False, sla=True),
+    _work_item("release", _RELEASE_FIELDS, _RELEASE_PERSONAL, merges=False, sla=False),
 )
 
 RECORD_TYPES: Mapping[str, RecordAudit] = {r.record_type: r for r in (ASSET, *WORK_ITEMS)}
