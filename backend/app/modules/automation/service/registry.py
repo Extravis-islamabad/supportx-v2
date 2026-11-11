@@ -40,6 +40,10 @@ class RecordType:
     # Workflow nodes' commands (WP-048b, ADR-043 §6): carried out through the owning module's
     # public services as the workflow's own identity, checked like a person's.
     run_command: "CommandRunner | None" = None
+    # The approval node (REQ-WF-014): None when the type's approvals cannot be decided; else
+    # the record roles an approval may name (empty: people and groups only).
+    approval_roles: tuple[str, ...] | None = None
+    notices: bool = False  # its notification source sends a workflow's notice (REQ-WF-022)
 
 
 @dataclass(frozen=True)
@@ -67,6 +71,9 @@ class CommandResult:
     ok: bool
     error: str | None = None
     outputs: Mapping[str, JsonValue] = field(default_factory=dict)
+    # Accepted, decided later (an approval node): the node waits; the owning module's event
+    # continues it with the result (REQ-WF-014).
+    pending: bool = False
 
 
 # (session, the workflow's subject, record, command kind, payload, automation_ref) -> result.

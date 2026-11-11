@@ -1,6 +1,6 @@
 import {
   Alert,
-  Card,
+  Button,
   Flex,
   Form,
   Input,
@@ -29,6 +29,7 @@ import {
   FilterBar,
   lengthLimit,
   ListPage,
+  loadedEmpty,
   NoAccess,
   PageHeader,
   ToneTag,
@@ -39,6 +40,7 @@ import {
 
 import { useDebounced } from '../../useDebounced';
 import { SitePicker } from '../incidents/pickers';
+import { useLocalColumnWidths } from './columnWidths';
 import { okFooter } from './dialogOk';
 import { problemText } from './problemText';
 import { useConsumablesLive, useSiteNames } from './live';
@@ -227,6 +229,22 @@ export function ConsumablesPage() {
   const list = useConsumables({ search: searched, siteId: site ?? undefined }, allowed);
   const siteName = useSiteNames();
   const [adding, setAdding] = useState(false);
+  const titles: Record<string, string> = {
+    product: t('assets.stock.product'),
+    total: t('assets.stock.total'),
+    sites: t('assets.stock.by_site'),
+    barcode: t('assets.stock.barcode'),
+  };
+  const widths = useLocalColumnWidths({
+    minWidths: { product: 180 },
+    label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
+  });
+  const column = (key: string) => ({
+    key,
+    title: titles[key],
+    width: widths.width(key),
+    onHeaderCell: () => widths.header(key),
+  });
   useConsumablesLive();
   if (!allowed) return <NoAccess titleKey="nav.assets" />;
   const rows = list.data ?? [];
@@ -237,7 +255,6 @@ export function ConsumablesPage() {
         <PageHeader
           title={t('assets.stock.title')}
           back={{ label: t('nav.assets'), onClick: () => void navigate('/assets') }}
-          count={list.data === undefined ? undefined : String(rows.length)}
           extra={
             access.can('assets.manage') && (
               <WriteButton
@@ -274,81 +291,82 @@ export function ConsumablesPage() {
                 value={site}
                 onChange={setSite}
                 ariaLabel={t('assets.stock.site')}
+                placeholder={t('assets.stock.all_sites')}
                 testId="consumables-site"
               />
             </div>
           }
+          extra={
+            widths.changed ? (
+              <Button onClick={widths.reset} data-testid="consumables-reset-widths">
+                {t('layout.reset_widths')}
+              </Button>
+            ) : undefined
+          }
         />
       }
     >
-      <Card>
-        <Table<AssetConsumable>
-          size="small"
-          rowKey="id"
-          loading={list.isPending}
-          dataSource={rows}
-          pagination={false}
-          scroll={{ x: 'max-content' }}
-          locale={{ emptyText: <EmptyText>{t('assets.stock.none')}</EmptyText> }}
-          data-testid="consumables"
-          columns={[
-            {
-              key: 'product',
-              title: t('assets.stock.product'),
-              render: (_, row) => (
-                <Space size={4} wrap>
-                  <Link to={`/assets/consumables/${row.id}`} data-testid={`consumable-${row.id}`}>
-                    <bdi dir="auto">{row.product_name}</bdi>
-                  </Link>
-                  {row.batch_tracked && (
-                    <ToneTag tone="default">{t('assets.stock.batches')}</ToneTag>
-                  )}
-                </Space>
-              ),
-            },
-            {
-              key: 'total',
-              title: t('assets.stock.total'),
-              align: 'end',
-              render: (_, row) => (
-                <span data-testid={`consumable-total-${row.id}`}>{plainQuantity(row.total)}</span>
-              ),
-            },
-            {
-              key: 'sites',
-              title: t('assets.stock.by_site'),
-              render: (_, row) => (
-                <Flex vertical gap={2}>
-                  {row.stocks.map((s) => (
-                    <Typography.Text key={s.id}>
-                      <bdi dir="auto">{siteName(s.site_id)}</bdi>
-                      {`: ${plainQuantity(s.quantity)}`}
-                      {s.low && (
-                        <>
-                          {' '}
-                          <ToneTag tone="warning" testId={`consumable-low-${s.id}`}>
-                            {t('assets.stock.low')}
-                          </ToneTag>
-                        </>
-                      )}
-                    </Typography.Text>
-                  ))}
-                  {row.stocks.length === 0 && <EmptyText>{t('assets.stock.no_stock')}</EmptyText>}
-                </Flex>
-              ),
-            },
-            {
-              key: 'barcode',
-              title: t('assets.stock.barcode'),
-              render: (_, row) => (
-                <CellText>
-                  {row.barcode === null ? '' : <bdi dir="ltr">{row.barcode}</bdi>}
-                </CellText>
-              ),
-            },
-          ]}
-        />
-      </Card>
+      <Table<AssetConsumable>
+        size="small"
+        rowKey="id"
+        loading={list.isPending}
+        dataSource={rows}
+        pagination={false}
+        scroll={{ x: 'max-content' }}
+        locale={{ emptyText: loadedEmpty(list.isPending, t('assets.stock.none')) }}
+        components={widths.components}
+        data-testid="consumables"
+        columns={[
+          {
+            ...column('product'),
+            render: (_, row) => (
+              <Space size={4} wrap>
+                <Link to={`/assets/consumables/${row.id}`} data-testid={`consumable-${row.id}`}>
+                  <bdi dir="auto">{row.product_name}</bdi>
+                </Link>
+                {row.batch_tracked && <ToneTag tone="default">{t('assets.stock.batches')}</ToneTag>}
+              </Space>
+            ),
+          },
+          {
+            ...column('total'),
+            align: 'end',
+            render: (_, row) => (
+              <span data-testid={`consumable-total-${row.id}`}>{plainQuantity(row.total)}</span>
+            ),
+          },
+          {
+            ...column('sites'),
+            render: (_, row) => (
+              <Flex vertical gap={2}>
+                {row.stocks.map((s) => (
+                  <Typography.Text key={s.id}>
+                    <bdi dir="auto">{siteName(s.site_id)}</bdi>
+                    {`: ${plainQuantity(s.quantity)}`}
+                    {s.low && (
+                      <>
+                        {' '}
+                        <ToneTag tone="warning" testId={`consumable-low-${s.id}`}>
+                          {t('assets.stock.low')}
+                        </ToneTag>
+                      </>
+                    )}
+                  </Typography.Text>
+                ))}
+                {row.stocks.length === 0 && <EmptyText>{t('assets.stock.no_stock')}</EmptyText>}
+              </Flex>
+            ),
+          },
+          {
+            ...column('barcode'),
+            render: (_, row) => (
+              <CellText title={row.barcode ?? undefined}>
+                {row.barcode === null ? '' : <bdi dir="ltr">{row.barcode}</bdi>}
+              </CellText>
+            ),
+          },
+        ]}
+      />
       <NewConsumableDialog
         open={adding}
         onClose={() => {

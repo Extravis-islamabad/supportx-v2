@@ -1,9 +1,9 @@
 import { Steps, Tag } from 'antd';
 
 import type { RailStage } from '@supportx/api-client';
-import { useDateTime, useLabel } from '@supportx/ui';
 
-import { stageName } from './labels';
+import { useLabel } from '../appearance';
+import { useDateTime } from '../dates/format';
 
 const STATUS = {
   done: 'finish',
@@ -13,13 +13,15 @@ const STATUS = {
 } as const;
 
 /**
- * The release's stages on its path, in order (ADR-041 §7): done, current, skipped or not yet,
- * with when each was entered. Computed by the server, never stored; live through the record.
+ * A staged record's stages on its path, in order (ADR-041 §7): done, current, skipped or not
+ * yet, with when each was entered. Computed by the server, never stored; live through the
+ * record. Shared by releases and changes (one implementation, the coordinator 2026-11-11).
  */
-export function StageRail({ rail }: { rail: RailStage[] }) {
+export function StageRail({ rail, testId }: { rail: RailStage[]; testId?: string }) {
   const t = useLabel();
   const { format } = useDateTime();
   const current = rail.findIndex((s) => s.state === 'current');
+  const name = (code: string) => t(`work_item_stage.${code}`);
   return (
     <Steps
       size="small"
@@ -28,7 +30,7 @@ export function StageRail({ rail }: { rail: RailStage[] }) {
       // mid-word (D-155; the coordinator's check of #338's shots).
       labelPlacement="vertical"
       responsive
-      data-testid="release-rail"
+      data-testid={testId}
       // The current stage, for tests and tools (the header's stage chip is gone, D2).
       data-current={rail[current]?.stage}
       items={rail.map((stage) => {
@@ -37,14 +39,14 @@ export function StageRail({ rail }: { rail: RailStage[] }) {
           title: (
             <span
               data-testid={`rail-${stage.stage}`}
-              title={stageName(t, stage.stage)}
+              title={name(stage.stage)}
               style={{ whiteSpace: 'normal', overflowWrap: 'normal', wordBreak: 'normal' }}
             >
-              {stageName(t, stage.stage)}
+              {name(stage.stage)}
             </span>
           ),
           status: STATUS[stage.state],
-          subTitle: stage.optional ? <Tag>{t('releases.rail.optional')}</Tag> : undefined,
+          subTitle: stage.optional ? <Tag>{t('stage_rail.optional')}</Tag> : undefined,
           description: (
             <span data-testid={`rail-${stage.stage}-state`}>
               {stage.state === 'skipped' ? (
@@ -57,7 +59,7 @@ export function StageRail({ rail }: { rail: RailStage[] }) {
                 t(`rail_state.${stage.state}`)
               )}
               {stage.entries.length > 1 &&
-                ` · ${t('releases.rail.rounds', { count: stage.entries.length })}`}
+                ` · ${t('stage_rail.rounds', { count: stage.entries.length })}`}
             </span>
           ),
         };

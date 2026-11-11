@@ -25,7 +25,7 @@ The downgrade refuses while any tenant has a row in a new table, a loan using a 
 portal booking on (rule 5h).
 
 Revision ID: 0130
-Revises: 0127
+Revises: 0129
 Created: 2026-11-11
 """
 
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 revision: str = "0130"
-down_revision: str | None = "0127"
+down_revision: str | None = "0129"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

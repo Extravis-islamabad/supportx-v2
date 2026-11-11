@@ -19,16 +19,19 @@ import pytest
 
 from app.core.tenancy import TenantContext
 from app.modules.work_items.events import WorkItemAssigneeUnavailable
-from app.modules.work_items.service.notifications import (
+from app.modules.work_items.infra.models import WorkItem
+from app.modules.work_items.service.rule_step_notifications import (
     STEP_OWNER,
     UNAVAILABLE,
-    IncidentNotifications,
+    RuleStepNotifications,
 )
+from app.modules.work_items.service.work_items import tell_unavailable
 from app.shared.events import EventEnvelope
-from app.shared.notifications.ports import LabelRef
+from app.shared.notifications.ports import LabelRef, RecordAccess
 from tests.db import test_incidents_api
 from tests.db.test_automation_triggers_api import drain
 from tests.db.test_incidents_api import Org, World
+from tests.db.test_problems_api import new_problem
 from tests.db.test_sla_clock import POLICIES, _p1, _targets
 from tests.db.test_sla_timers import _fire_all
 
@@ -136,7 +139,7 @@ async def test_someone_away_leaves_the_record_with_the_group_only_and_history_sa
     (envelope,) = await _unavailable_events(world, item)
     assert envelope.payload["reason"] == "away"
     assert envelope.payload["owner_id"] is None
-    source = IncidentNotifications()
+    source = RuleStepNotifications()
     assert source.events_for(envelope) == (UNAVAILABLE,)
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         context = await source.context(session, UNAVAILABLE, envelope)
@@ -240,7 +243,7 @@ async def test_a_business_rule_naming_someone_away_assigns_the_group_only(world:
     (envelope,) = await _unavailable_events(world, item)
     assert envelope.payload["step"] == "business_rule"
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
-        context = await IncidentNotifications().context(session, UNAVAILABLE, envelope)
+        context = await RuleStepNotifications().context(session, UNAVAILABLE, envelope)
     assert context is not None
     assert context.relatives[STEP_OWNER] == frozenset({a.admin})
 
@@ -384,3 +387,32 @@ async def test_migration_0126_fills_the_only_group_and_leaves_several_for_a_choi
     notes = [x for x in by_tenant[b.tenant] if x["kind"] == "add_note"]
     assert [x["text"] for x in notes] == ["Escalated"]  # other actions untouched
     assert all("group_id" not in x for x in notes)
+
+
+async def test_the_notice_covers_every_record_type_and_only_those_who_see_it(
+    world: World,
+) -> None:
+    """The coordinator: one shared source, so a problem's step is never silent either."""
+    a = world.a
+    made = await new_problem(world, a, a.admin)
+    assert made.status_code == 201, made.text
+    problem_id = uuid.UUID(made.json()["id"])
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        record = await session.get(WorkItem, problem_id)
+        assert record is not None
+        await tell_unavailable(
+            session,
+            record,
+            {"kind": "sla_escalation", "unavailable": "away", "person_id": str(a.tech_b)},
+        )
+    (envelope,) = await _unavailable_events(world, made.json())
+    source = RuleStepNotifications()
+    assert source.events_for(envelope) == (UNAVAILABLE,)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        context = await source.context(session, UNAVAILABLE, envelope)
+        assert context is not None
+        assert context.link == f"/problems/{problem_id}"
+        assert a.admin in context.relatives[STEP_OWNER]
+        # The record type's own visibility decides: the requester role never sees a problem.
+        assert await source.access(session, a.admin, problem_id) is RecordAccess.FULL
+        assert await source.access(session, a.requester, problem_id) is RecordAccess.NONE

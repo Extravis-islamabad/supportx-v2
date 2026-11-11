@@ -48,6 +48,7 @@ export {
 } from './theme';
 export { lengthLimit } from './lengthLimit';
 export * from './layout';
+export { StageRail } from './stages/StageRail';
 export * from './settings';
 export {
   CONTROL_HEIGHT,

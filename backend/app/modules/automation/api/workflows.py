@@ -178,7 +178,7 @@ async def get_workflow(
     if found is None or found.deleted_at is not None:
         raise NotFound(code="workflow_not_found")
     set_etag(response, found.version)
-    problems = await workflow_admin.problems_of(session, found.record_type, found.draft)
+    problems = await workflow_admin.problems_of(session, found.record_type, found.draft, found.id)
     return _out(found, problems)
 
 

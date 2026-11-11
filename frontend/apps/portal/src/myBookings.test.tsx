@@ -76,4 +76,21 @@ describe('portal: bookings', () => {
     const [sent] = fake.find('POST', '/api/v1/assets/my-bookings/bk-7/cancel');
     expect(sent?.headers.get('If-Match')).toBe('"2"');
   });
+
+  it('the booking dialog says what is still missing while it cannot be sent', async () => {
+    window.history.pushState({}, '', '/my-assets');
+    portal({
+      'GET /api/v1/assets/my-bookings': { body: { enabled: true, bookings: [], assets: {} } },
+      'GET /api/v1/assets/bookable': { body: [] },
+    });
+    render(<App />);
+    expect(await screen.findByText('You have no bookings ahead.')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('my-booking-new-open'));
+    const dialog = await screen.findByTestId('my-booking-new');
+    const why = await within(dialog).findByTestId('my-booking-why');
+    expect(why.textContent).toBe('Choose the asset to book.');
+    const ok = within(dialog).getByRole('button', { name: 'Book an asset' });
+    expect(ok.hasAttribute('disabled')).toBe(true);
+    expect(ok.getAttribute('aria-describedby')).toBe('my-booking-why');
+  });
 });

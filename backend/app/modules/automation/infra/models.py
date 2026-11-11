@@ -347,9 +347,27 @@ class WorkflowInstance(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Version
             "wake_at",
             postgresql_where=text("wake_at IS NOT NULL"),
         ),
+        # A sub-flow's child names its parent and the command waiting for it (0106, REQ-WF-017).
+        ForeignKeyConstraint(
+            ["tenant_id", "parent_instance_id"],
+            ["workflow_instances.tenant_id", "workflow_instances.id"],
+            name="fk_workflow_instances_parent",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "(parent_instance_id IS NULL) = (parent_command IS NULL)", name="parent_pair"
+        ),
+        Index(
+            "ix_workflow_instances_tenant_parent",
+            "tenant_id",
+            "parent_instance_id",
+            postgresql_where=text("parent_instance_id IS NOT NULL"),
+        ),
     )
 
     workflow_id: Mapped[uuid.UUID]
+    parent_instance_id: Mapped[uuid.UUID | None]
+    parent_command: Mapped[str | None] = mapped_column(String(20))
     version_number: Mapped[int] = mapped_column(Integer)
     record_type: Mapped[str] = mapped_column(String(20))
     record_id: Mapped[uuid.UUID]

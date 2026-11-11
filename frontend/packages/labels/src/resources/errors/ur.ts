@@ -298,6 +298,7 @@ export const ur: LabelResource = {
   'errors.field.certificate_unreadable':
     'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
   'errors.field.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
+  'errors.field.chair_inactive': 'صدر کے طور پر کوئی فعال شخص چنیں۔',
   'errors.field.channel_reserved':
     'صرف فون یا بالمشافہ چنا جا سکتا ہے؛ دوسرے ذرائع خود بخود طے ہوتے ہیں۔',
   'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',

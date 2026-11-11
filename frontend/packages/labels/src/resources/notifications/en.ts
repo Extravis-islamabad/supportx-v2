@@ -39,6 +39,7 @@ export const en = {
   'notification_area.problem': 'Problems',
   'notification_area.problem_repeat': 'Problems',
   'notification_area.release': 'Releases',
+  'notification_area.rule_step': 'Rules and escalations',
   'notification_area.service_request': 'Service requests',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
@@ -47,6 +48,7 @@ export const en = {
   'notification_category.following': 'Following',
   'notification_category.mention': 'Mentions',
   'notification_category.status': 'Status changes',
+  'notification_category.workflow': 'Workflow messages',
   'notification_channel.email': 'E-mail',
   'notification_channel.in_app': 'In the app',
   'notification_condition_operator.in': 'is one of',
@@ -64,7 +66,6 @@ export const en = {
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
-  'notification_event.incident.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.incident.canceled': 'Incident canceled',
   'notification_event.incident.closed': 'Incident closed',
   'notification_event.incident.created': 'New incident: acknowledgement',
@@ -81,6 +82,7 @@ export const en = {
   'notification_event.incident.sla_escalated': 'SLA escalation',
   'notification_event.incident.sla_warning': 'SLA warning point reached',
   'notification_event.incident.status_changed': 'Status changed',
+  'notification_event.incident.workflow_notice': 'A workflow’s message',
   'notification_event.kb_article.approved': 'Article approved',
   'notification_event.kb_article.rejected': 'Article sent back',
   'notification_event.kb_article.review_due': 'Article review due',
@@ -101,6 +103,7 @@ export const en = {
   'notification_event.problem.target_warning': 'Problem target date close',
   'notification_event.problem_repeat.detected': 'Repeated incidents found',
   'notification_event.release.public_reply': 'Reply to the requester',
+  'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
@@ -151,6 +154,7 @@ export const en = {
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.stock_watchers': "The minimum's people",
   'notification_recipient.topic_owner': 'Topic owner',
+  'notification_recipient.workflow_audience': 'People the workflow names',
   'notification_rules.any_priority': 'Any priority',
   'notification_rules.changed': 'Changed {{when}}',
   'notification_rules.col.channels': 'How',
@@ -236,12 +240,6 @@ export const en = {
     '{{ record.display_id }} is assigned to {{ assignee.name }}: {{ record.title }}',
   'notification_template.incident.assigned.subject':
     'Assigned to {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
-  'notification_template.incident.assignee_unavailable.body':
-    'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
-  'notification_template.incident.assignee_unavailable.in_app':
-    '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
-  'notification_template.incident.assignee_unavailable.subject':
-    'Nobody assigned: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was canceled.',
   'notification_template.incident.canceled.in_app': '{{ record.display_id }} was canceled',
@@ -334,6 +332,9 @@ export const en = {
     '{{ record.display_id }} is now {{ record.status }}',
   'notification_template.incident.status_changed.subject':
     '{{ record.display_id }} is now {{ record.status }}: {{ record.title }}',
+  'notification_template.incident.workflow_notice.body': '{{ notice.body }}',
+  'notification_template.incident.workflow_notice.in_app': '{{ notice.subject }}',
+  'notification_template.incident.workflow_notice.subject': '{{ notice.subject }}',
   'notification_template.kb_article.approved.body':
     'Hello {{ recipient.name }},\n\n{{ actor.name }} approved the article {{ record.display_id }} "{{ record.title }}". Its readers see it now.',
   'notification_template.kb_article.approved.in_app':
@@ -452,6 +453,12 @@ export const en = {
     '{{ conversation.author }} replied on {{ record.display_id }}',
   'notification_template.release.public_reply.subject':
     'New reply on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.rule_step.assignee_unavailable.body':
+    'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
+  'notification_template.rule_step.assignee_unavailable.in_app':
+    '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.rule_step.assignee_unavailable.subject':
+    'Nobody assigned: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -524,6 +531,8 @@ export const en = {
   'notification_variable.mailbox.address': 'Mailbox › Address',
   'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
   'notification_variable.mailbox.reason': 'Mailbox › Reason',
+  'notification_variable.notice.body': 'Message › Text',
+  'notification_variable.notice.subject': 'Message › Subject',
   'notification_variable.recipient.name': 'Recipient › Name',
   'notification_variable.record.display_id': 'Record › ID',
   'notification_variable.record.link': 'Record › Link',

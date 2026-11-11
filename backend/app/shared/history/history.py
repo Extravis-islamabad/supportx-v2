@@ -216,6 +216,10 @@ class SavedRecord:
     reason: str | None
     change_id: uuid.UUID
     automation_ref: JsonValue | None
+    # The changes exactly as written to `field_changes` (without the sink-only annotations, and
+    # with the empty-field line of a save that changed nothing): the audit entry's fingerprint
+    # is computed from these, and the verifier recomputes it from the stored rows (WP-064 S2).
+    recorded: tuple[Change, ...] = ()
 
 
 class AuditSink(Protocol):
@@ -259,6 +263,32 @@ def register_subtype_resolver(record_type: str, resolver: SubtypeResolver | None
         _subtype_resolvers.pop(record_type, None)
     else:
         _subtype_resolvers[record_type] = resolver
+
+
+# Whose personal data a record holds, for the audit fingerprint (WP-064 S2, ADR-046): record type
+# -> resolver giving the record's people fields (`requester_id` ...) and their user IDs now.
+SubjectResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[Mapping[str, uuid.UUID | None]]]
+_subject_resolvers: dict[str, SubjectResolver] = {}
+
+
+def register_subject_resolver(record_type: str, resolver: SubjectResolver | None) -> None:
+    """Set (None: clear) how the people a record is about are found (the owning module's).
+
+    The audit sink asks it only when a save changed a personal field. It must not fail a save:
+    it answers an empty mapping when unsure.
+    """
+    if resolver is None:
+        _subject_resolvers.pop(record_type, None)
+    else:
+        _subject_resolvers[record_type] = resolver
+
+
+async def record_subjects(
+    session: AsyncSession, record_type: str, record_id: uuid.UUID
+) -> Mapping[str, uuid.UUID | None]:
+    """The record's people fields and their user IDs, from the owning module's resolver."""
+    resolver = _subject_resolvers.get(record_type)
+    return await resolver(session, record_id) if resolver is not None else {}
 
 
 # Facts a save's diff implies that history does not store, for the audit sink only (WP-064): a
@@ -380,6 +410,7 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
                 reason=reason,
                 change_id=change_id,
                 automation_ref=automation_ref,
+                recorded=tuple(Change(r.field, r.old_value, r.new_value) for r in rows),
             ),
         )
     return change_id

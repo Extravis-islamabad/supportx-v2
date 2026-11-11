@@ -53,7 +53,14 @@ from app.modules.sla.service.registry import (
     register_record_type,
 )
 from app.modules.sla.service.scheduler import SCHEDULER
-from app.modules.sla.service.timers import escalation_run, fire, next_wake, safety_net
+from app.modules.sla.service.timers import (
+    OpenClock,
+    escalation_run,
+    fire,
+    next_wake,
+    open_clocks,
+    safety_net,
+)
 from app.shared.schedules import ScheduleSpec
 
 FEATURE = "sla"  # in every edition (licensing catalogue): SLAs have no licence gate beyond it
@@ -90,6 +97,7 @@ __all__ = [
     "DeliveryTarget",
     "Fired",
     "Level",
+    "OpenClock",
     "Recipient",
     "RecipientKind",
     "RecordState",
@@ -109,6 +117,7 @@ __all__ = [
     "module",
     "next_wake",
     "on_change",
+    "open_clocks",
     "rebase",
     "record_calendar",
     "record_sla",

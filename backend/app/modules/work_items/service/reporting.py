@@ -43,6 +43,9 @@ DIMENSIONS: Mapping[str, Dimension] = {
     "created_at": Dimension(_D.DATETIME),
     "resolved_at": Dimension(_D.DATETIME),
     "closed_at": Dimension(_D.DATETIME),
+    # The latest restore from the trash (Haider, 2026-11-10): "restored from trash" in SLA
+    # reports, as the clock keeps running while a record is in the trash.
+    "restored_at": Dimension(_D.DATETIME),
     "reopen_count": Dimension(_D.NUMBER),
     "reassignment_count": Dimension(_D.NUMBER),
     "paused_seconds": Dimension(_D.NUMBER),

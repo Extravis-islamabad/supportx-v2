@@ -4,8 +4,9 @@
   chain hashes itself; the app cannot write chain rows).
 * `anchor`: signs the newest chain position with the installation key (`audit_anchors`).
 * `verify`: recomputes entry hashes, chain links, personal-data commitments and anchors for a
-  range, records the run, and on a problem writes an audit entry and raises an alert (banner in
-  the console, `audit.alert.raised` for the notification engine, a metric for operations).
+  range, and each save's change-set fingerprint from record history (ADR-046); records the
+  run, and on a problem writes an audit entry and raises an alert (banner in the console,
+  `audit.alert.raised` for the notification engine, a metric for operations).
 """
 
 import uuid
@@ -46,6 +47,7 @@ from app.modules.audit.infra.models import (
     AuditVerificationRun,
 )
 from app.modules.audit.infra.signing import AnchorSigner, signature_valid
+from app.modules.audit.service.fingerprints import FingerprintTally, statuses
 from app.modules.audit.service.recording import WORKER, record
 from app.shared.clock import Clock, system_clock
 from app.shared.events import record_event
@@ -256,8 +258,24 @@ async def _anchor_problem(
     return None
 
 
+async def _tally(
+    session: AsyncSession,
+    batch: Sequence[tuple[AuditChainLink, dict[str, Any] | None, Any]],
+    tally: FingerprintTally,
+) -> None:
+    """Each fingerprinted entry of a batch against record history (ADR-046)."""
+    seqs = {entry["id"]: link.seq for link, entry, _ in batch if entry is not None}
+    rows = [entry for _, entry, _ in batch if entry is not None]
+    for entry_id, status in (await statuses(session, rows)).items():
+        tally.add(seqs[entry_id], entry_id, status)
+
+
 async def _walk(
-    session: AsyncSession, tenant_id: uuid.UUID, first: int | None, last: int | None
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    first: int | None,
+    last: int | None,
+    tally: FingerprintTally,
 ) -> tuple[Finding | None, int, dict[int, bytes]]:
     """Check links `first`..`last` in batches; (first finding, links checked, seq → hash)."""
     hashes: dict[int, bytes] = {}
@@ -276,6 +294,7 @@ async def _walk(
         batch = await _links(session, start, min(start + BATCH - 1, last))
         if not batch:
             return Finding(start, None, Problem.SEQUENCE_GAP), check.checked, hashes
+        await _tally(session, batch, tally)
         for link, entry, personal in batch:
             hashes[link.seq] = link.chain_hash
             link_view = ChainLink(
@@ -340,11 +359,16 @@ async def verify(  # noqa: PLR0913 - keyword-only run options
     if first is not None and last is not None and first <= floor:
         first, last = (floor + 1, last) if last > floor else (None, None)
     chain_end = await session.scalar(select(func.max(AuditChainLink.seq))) or 0
-    finding, checked, hashes = await _walk(session, tenant_id, first, last)
+    tally = FingerprintTally()
+    finding, checked, hashes = await _walk(session, tenant_id, first, last, tally)
     if finding is None:
         anchored = await _anchor_problem(session, hashes, first or 1, chain_end, trusted_keys)
         if anchored is not None:
             finding = Finding(anchored[0].seq, None, anchored[1])
+    if finding is None and tally.first_mismatch is not None:
+        # The chain is whole, but record history no longer matches a save's fingerprint.
+        seq, entry_id = tally.first_mismatch
+        finding = Finding(seq, entry_id, Problem.FINGERPRINT_MISMATCH)
     overdue = await unsealed_overdue(session, unsealed_limit, clock)
     stray = await session.scalar(
         select(func.count())
@@ -356,6 +380,9 @@ async def verify(  # noqa: PLR0913 - keyword-only run options
     run.status = status
     run.entries_checked = checked
     run.unsealed_overdue = overdue
+    run.fingerprints_verified = tally.verified
+    run.fingerprints_erased = tally.erased
+    run.fingerprint_mismatches = tally.mismatches
     run.first_broken_seq = finding.seq if finding else None
     run.first_broken_entry_id = finding.entry_id if finding else None
     run.problem = (

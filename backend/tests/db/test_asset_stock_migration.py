@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0127"  # 0130's down revision
+BEFORE = "0129"  # 0130's down revision
 NEW = (
     "asset_bookings",
     "asset_stock_rules",

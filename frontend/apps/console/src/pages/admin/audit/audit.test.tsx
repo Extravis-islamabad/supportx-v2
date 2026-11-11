@@ -52,6 +52,7 @@ const DETAIL: AuditEntryDetail = {
   sealed_at: '2026-10-24T09:15:43Z',
   personal: [{ subject_id: 'u-admin', ip: '10.1.2.3', user_agent: 'Firefox', reason: null }],
   names: { 'u-admin': 'Amal Admin' },
+  fingerprint_status: null,
 };
 
 function page(items: AuditEntry[]) {
