@@ -167,3 +167,27 @@ async def test_a_version_s_steps_and_its_runs_for_the_move_dialog(world: World) 
     )
     assert on_v1.status_code == 200, on_v1.text
     assert {r["id"] for r in on_v1.json()["items"]} == {str(r) for r in runs}
+
+
+async def test_publishing_records_who_published(world: World) -> None:
+    """The Versions tab names who published each version (REQ-WF-027; the S5 matrix shot)."""
+    a = world.a
+    made = await world.call(
+        "POST",
+        BASE,
+        a,
+        a.admin,
+        json={"record_type": "incident", "name": f"Who {uuid.uuid4().hex[:6]}"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    flow = made.json()
+    published = await world.call(
+        "POST",
+        f"{BASE}/{flow['id']}/publish",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{flow["version"]}"', **CONSOLE},
+    )
+    assert published.status_code == 200, published.text
+    listed = await world.call("GET", f"{BASE}/{flow['id']}/versions", a, a.admin)
+    assert [(v["number"], v["published_by"]) for v in listed.json()] == [(1, str(a.admin))]

@@ -549,8 +549,7 @@ async def publish(
     workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
 ) -> WorkflowOut:
     """Refused while the draft has problems (422 workflow_has_problems)."""
-    del subject
-    await workflow_admin.publish(session, workflow_id, expected_version=version)
+    await workflow_admin.publish(session, workflow_id, expected_version=version, by=subject.user_id)
     found = await session.get(Workflow, workflow_id)
     assert found is not None  # just published  # noqa: S101
     return _out(found)

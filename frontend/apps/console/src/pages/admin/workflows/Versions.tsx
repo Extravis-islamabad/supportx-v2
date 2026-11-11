@@ -226,26 +226,7 @@ export function VersionsPanel({ workflow }: { workflow: WorkflowOut }) {
         dataSource={rows}
         data-testid="workflow-versions"
         renderItem={(v) => (
-          <List.Item
-            key={v.number}
-            data-testid={`version-${String(v.number)}`}
-            actions={
-              v.number !== newest && v.running > 0 && newest !== undefined
-                ? [
-                    <WriteButton
-                      key="move"
-                      size="small"
-                      onClick={() => {
-                        setMoving(v.number);
-                      }}
-                      data-testid={`version-${String(v.number)}-move`}
-                    >
-                      {t('workflows.versions.move_to', { to: newest })}
-                    </WriteButton>,
-                  ]
-                : []
-            }
-          >
+          <List.Item key={v.number} data-testid={`version-${String(v.number)}`}>
             <Flex vertical gap={2}>
               <Space wrap>
                 <Typography.Text strong>
@@ -261,6 +242,21 @@ export function VersionsPanel({ workflow }: { workflow: WorkflowOut }) {
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                 {dates.format(v.published_at)} · <Publisher id={v.published_by} />
               </Typography.Text>
+              {/* Under its text, not in the item's actions: the side panel is narrow, and an
+                  action beside the text was cut off (the S5 matrix shot). */}
+              {v.number !== newest && v.running > 0 && newest !== undefined && (
+                <div>
+                  <WriteButton
+                    size="small"
+                    onClick={() => {
+                      setMoving(v.number);
+                    }}
+                    data-testid={`version-${String(v.number)}-move`}
+                  >
+                    {t('workflows.versions.move_to', { to: newest })}
+                  </WriteButton>
+                </div>
+              )}
             </Flex>
           </List.Item>
         )}
