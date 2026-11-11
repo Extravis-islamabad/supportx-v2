@@ -55,6 +55,63 @@ jobs:
       - name: Keycloak identity service account
         run: make keycloak-identity
       - uses: ./.github/actions/setup-frontend
+      # Chromium and its system libraries before the stack starts, so a mirror outage fails in
+      # a minute, not after the seeds. Run 43036727839: the runner could not resolve
+      # azure.archive.ubuntu.com and every shard went red inside `install --with-deps`. Not the
+      # Playwright job container (mcr.microsoft.com/playwright): the stack publishes its ports
+      # on the runner host and Keycloak's issuer is http://localhost:28080, which the browser
+      # inside a job container cannot reach (GitHub refuses --network host for job containers).
+      - name: Playwright version (from frontend/e2e/package.json)
+        id: playwright
+        run: |
+          version="$(node -p "require('./frontend/e2e/package.json').devDependencies['@playwright/test']")"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::@playwright/test must be an exact version, got '$version'"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Chromium (cached by the Playwright version)
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Chromium download (cache miss only)
+        if: ${{ steps.browsers.outputs.cache-hit != 'true' }}
+        working-directory: frontend
+        run: |
+          wait_s=20
+          for attempt in 1 2 3; do
+            pnpm --filter @supportx/e2e exec playwright install chromium && exit 0
+            if (( attempt < 3 )); then
+              echo "::warning::Chromium download attempt $attempt of 3 failed; trying again in ${wait_s}s"
+              sleep "$wait_s"
+              wait_s=$(( wait_s * 2 ))
+            fi
+          done
+          echo "::error::Chromium could not be downloaded after 3 attempts"
+          exit 1
+      - name: Chromium system libraries (apt, retried)
+        working-directory: frontend
+        run: |
+          # apt's own retries for each download, then three whole attempts waiting 20 s and
+          # 40 s; the last attempt leaves the runner's Azure mirror for archive.ubuntu.com, in
+          # case the mirror's name is what does not resolve.
+          echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-supportx-retries >/dev/null
+          wait_s=20
+          for attempt in 1 2 3; do
+            if (( attempt == 3 )); then
+              echo "::warning::last attempt: using archive.ubuntu.com instead of the Azure mirror"
+              sudo sed -i 's#http://azure\.archive\.ubuntu\.com/#http://archive.ubuntu.com/#g' \
+                /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
+            fi
+            pnpm --filter @supportx/e2e exec playwright install-deps chromium && exit 0
+            if (( attempt < 3 )); then
+              echo "::warning::Chromium system libraries, attempt $attempt of 3 failed; trying again in ${wait_s}s"
+              sleep "$wait_s"
+              wait_s=$(( wait_s * 2 ))
+            fi
+          done
+          echo "::error::Chromium's system libraries could not be installed after 3 attempts (apt mirror unreachable?)"
+          exit 1
       - uses: ./.github/actions/generated
         with:
           frontend: "true"
@@ -82,7 +139,6 @@ jobs:
         env:
           VISUAL_SCREENS: ${{ inputs.screens }} # through env, never into the script text
         run: |
-          pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
           SUPPORTX_SHOWCASE_PASSWORD="$(grep '^SHOWCASE_PASSWORD=' ../deploy/compose/.env | cut -d= -f2-)" \
           VISUAL_MATRIX=1 VISUAL_SHARD="${{ matrix.shard }}/${{ inputs.screens != '' && 1 || 6 }}" \
           VISUAL_OUT="$PWD/e2e/visual-matrix" \
@@ -112,32 +168,58 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        # A shard that failed in setup uploads nothing; the next step names it and the last
+        # step fails the run, so a download problem is never hidden.
+        continue-on-error: true
         with:
           pattern: visual-shard-*
           path: visual-matrix
           merge-multiple: true
       - name: One index.json for the day
+        id: index
+        env:
+          # Through env, never into the script text.
+          SHARDS: ${{ inputs.screens != '' && 1 || 6 }}
         run: |
+          mkdir -p visual-matrix
           python3 - <<'EOF'
           import glob, json, os
-          shots, skipped, shards = [], set(), []
+          expected = int(os.environ["SHARDS"])
+          shots, skipped, shards, seen = [], set(), [], set()
           for path in sorted(glob.glob("visual-matrix/index-*.json")):
               part = json.load(open(path))
               shards.append(part["shard"])
+              seen.add(int(part["shard"].split("/")[0]))
               shots += part["shots"]
               skipped |= set(part["skipped"])
               os.remove(path)
           shots.sort(key=lambda s: s["file"])
+          missing = [n for n in range(1, expected + 1) if n not in seen]
+          # Additive only (lane C's QA tooling reads this shape): a shard without an index file
+          # is named here instead of silently shrinking the day's set.
+          notes = [f"no shots from shard {n}/{expected} (setup failed)" for n in missing]
+          if not shots:
+              notes.append("no shots at all in this run")
           summary = {
               "shards": shards,
               "shots": len(shots),
               "errors": sum(1 for s in shots if s.get("error")),
               "with_warnings": sum(1 for s in shots if s["warnings"]),
               "with_axe": sum(1 for s in shots if s["axe"]),
+              "missing_shards": missing,
           }
-          json.dump({"summary": summary, "skipped": sorted(skipped), "shots": shots},
+          json.dump({"summary": summary, "skipped": sorted(skipped), "shots": shots,
+                     "notes": notes},
                     open("visual-matrix/index.json", "w"), indent=2)
           print(json.dumps(summary))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write(f"### Visual matrix\n\n{len(shots)} shots from {len(seen)} of "
+                        f"{expected} shards.\n\n")
+              for note in notes:
+                  out.write(f"- **{note}**\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"missing={' '.join(str(n) for n in missing)}\n")
+              out.write(f"shots={len(shots)}\n")
           EOF
           du -sh visual-matrix
       - name: Upload the visual matrix
@@ -146,3 +228,27 @@ jobs:
           name: visual-matrix
           path: visual-matrix
           retention-days: 7
+      # The partial set is uploaded first (still useful), then the run turns red: a failed or
+      # missing shard is never hidden behind a green merge.
+      - name: Every shard delivered
+        env:
+          MISSING: ${{ steps.index.outputs.missing }}
+          SHOTS: ${{ steps.index.outputs.shots }}
+          SHOTS_RESULT: ${{ needs.shots.result }}
+        run: |
+          failed=0
+          if [[ -n "$MISSING" ]]; then
+            for n in $MISSING; do
+              echo "::error::no shots from shard $n (setup failed; see the 'screens $n' job)"
+            done
+            failed=1
+          fi
+          if [[ "${SHOTS:-0}" == "0" ]]; then
+            echo "::error::the merged visual matrix has no shots at all"
+            failed=1
+          fi
+          if [[ "$SHOTS_RESULT" != "success" ]]; then
+            echo "::error::screens jobs finished '$SHOTS_RESULT'; see the failed shards above"
+            failed=1
+          fi
+          exit "$failed"
