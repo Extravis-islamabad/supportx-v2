@@ -55,6 +55,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2027-03-10T08:00:00Z'));
 });
 afterEach(() => {
+  vi.unstubAllGlobals(); // the wide-screen test's matchMedia, even when it fails (lane A)
   vi.useRealTimers();
   restore();
 });
@@ -225,6 +226,5 @@ describe('console: the change calendar (WP-045c S3)', () => {
     const grid = await screen.findByTestId('calendar-month');
     expect(grid.style.gridTemplateColumns).toBe('repeat(7, minmax(110px, 1fr))');
     expect(screen.queryByTestId('calendar-open-2027-03-10')).toBeNull();
-    vi.unstubAllGlobals();
   });
 });
