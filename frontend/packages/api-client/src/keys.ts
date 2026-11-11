@@ -233,6 +233,9 @@ export const queryKeys = {
     record: (type: string, id: string) => ['workflows', 'record', type, id] as const,
     runs: (query: object) => ['workflows', 'runs', query] as const,
     job: (id: string) => ['workflows', 'job', id] as const,
+    versions: (id: string) => ['workflows', 'versions', id] as const,
+    version: (id: string, n: number, part: string) =>
+      ['workflows', 'versions', id, n, part] as const,
   },
   connectors: {
     catalogue: ['connectors', 'catalogue'] as const,

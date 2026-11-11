@@ -400,6 +400,8 @@ INSTANCE_FIELDS = ResourceFields(
             values=frozenset(s.value for s in InstanceStatus),
         ),
         "record_type": FilterField(WorkflowInstance.record_type, FieldType.STRING),
+        # The runs still on one version: what a migration moves (WP-048b S5c).
+        "version_number": FilterField(WorkflowInstance.version_number, FieldType.INTEGER),
         "started_at": FilterField(
             WorkflowInstance.started_at, FieldType.DATETIME, sortable=True, simple=False
         ),
@@ -1065,6 +1067,37 @@ async def version_occupancy(
     """Live runs at each node of the version (REQ-WF-021: the per-node preview)."""
     del subject
     return await workflow_runtime.occupancy(session, workflow_id, number)
+
+
+class VersionStepOut(BaseModel):
+    """One step of a published version: what a migration can map a run's step onto."""
+
+    id: str
+    type: NodeType
+
+
+@router.get(
+    "/{workflow_id}/versions/{number}/steps",
+    summary="A published version's steps: the migration's targets",
+)
+async def version_steps(
+    workflow_id: uuid.UUID, number: int, session: TenantSession, subject: Manage
+) -> list[VersionStepOut]:
+    """The steps a run can be moved onto (REQ-WF-021): ids and types, in the version's order."""
+    del subject
+    found = await session.scalar(
+        select(WorkflowVersion).where(
+            WorkflowVersion.workflow_id == workflow_id, WorkflowVersion.number == number
+        )
+    )
+    if found is None:
+        raise NotFound(code="workflow_version_not_found")
+    nodes = found.definition.get("nodes") if isinstance(found.definition, dict) else None
+    return [
+        VersionStepOut(id=str(n["id"]), type=NodeType(str(n["type"])))
+        for n in (nodes if isinstance(nodes, list) else [])
+        if isinstance(n, dict) and n.get("type") in {t.value for t in NodeType}
+    ]
 
 
 class CopyIn(BaseModel):

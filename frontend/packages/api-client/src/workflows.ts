@@ -371,6 +371,7 @@ export type WorkflowJobIn = components['schemas']['JobIn'];
 export interface RunsQuery {
   status?: string;
   workflowId?: string;
+  versionNumber?: number;
   node?: string;
   waitingOverHours?: number;
 }
@@ -380,6 +381,9 @@ export function useWorkflowRuns(query: RunsQuery, enabled = true) {
   const terms = [
     ...(query.status ? [{ field: 'status', op: 'eq', value: query.status }] : []),
     ...(query.workflowId ? [{ field: 'workflow_id', op: 'eq', value: query.workflowId }] : []),
+    ...(query.versionNumber === undefined
+      ? []
+      : [{ field: 'version_number', op: 'eq', value: query.versionNumber }]),
   ];
   const filter =
     terms.length === 0 ? undefined : JSON.stringify(terms.length === 1 ? terms[0] : { and: terms });
@@ -435,5 +439,46 @@ export function useWorkflowJob(id: string) {
     queryKey: queryKeys.workflows.job(id),
     queryFn: () => call(api.GET(`${PATH}/jobs/{job_id}`, { params: { path: { job_id: id } } })),
     enabled: id !== '',
+  });
+}
+
+export type WorkflowVersionOut = components['schemas']['WorkflowVersionOut'];
+export type VersionStepOut = components['schemas']['VersionStepOut'];
+
+/** A workflow's published versions, newest first: who, when, and its live runs (REQ-WF-021). */
+export function useWorkflowVersions(id: string) {
+  return useQuery({
+    queryKey: queryKeys.workflows.versions(id),
+    queryFn: () =>
+      call(api.GET(`${PATH}/{workflow_id}/versions`, { params: { path: { workflow_id: id } } })),
+    enabled: id !== '',
+  });
+}
+
+/** Where a version's live runs are, step by step (the move's preview). */
+export function useVersionOccupancy(id: string, number: number | undefined) {
+  return useQuery({
+    queryKey: queryKeys.workflows.version(id, number ?? 0, 'occupancy'),
+    queryFn: () =>
+      call(
+        api.GET(`${PATH}/{workflow_id}/versions/{number}/occupancy`, {
+          params: { path: { workflow_id: id, number: number ?? 0 } },
+        }),
+      ),
+    enabled: id !== '' && number !== undefined,
+  });
+}
+
+/** A version's steps: what a run's step can be moved onto. */
+export function useVersionSteps(id: string, number: number | undefined) {
+  return useQuery({
+    queryKey: queryKeys.workflows.version(id, number ?? 0, 'steps'),
+    queryFn: () =>
+      call(
+        api.GET(`${PATH}/{workflow_id}/versions/{number}/steps`, {
+          params: { path: { workflow_id: id, number: number ?? 0 } },
+        }),
+      ),
+    enabled: id !== '' && number !== undefined,
   });
 }

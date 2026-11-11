@@ -6,7 +6,6 @@ import {
   Form,
   Input,
   InputNumber,
-  Progress,
   Select,
   Space,
   Table,
@@ -17,7 +16,6 @@ import { Link, useNavigate } from 'react-router';
 
 import {
   useQueueJob,
-  useWorkflowJob,
   useWorkflowRuns,
   useWorkflows,
   type OverviewRunOut,
@@ -44,6 +42,7 @@ import {
 } from '@supportx/ui';
 
 import { failureText } from '../../workflows/failure';
+import { JobProgress } from './JobProgress';
 import { WORKFLOW_TYPES, type WorkflowType } from './types';
 
 const STATES = ['failed', 'waiting', 'running', 'finished', 'cancelled'] as const;
@@ -83,38 +82,6 @@ function statusTone(status: string) {
       : status === 'cancelled'
         ? ('default' as const)
         : ('info' as const);
-}
-
-/** A queued job's progress, live: the queue channel says when it moved. */
-function JobProgress({ id, onDone }: { id: string; onDone: () => void }) {
-  const t = useLabel();
-  const job = useWorkflowJob(id);
-  const data = job.data;
-  if (data === undefined) return null;
-  const finished = data.status === 'done' || data.status === 'failed';
-  return (
-    <Flex gap={12} align="center" wrap data-testid={`workflow-job-${id}`} style={{ minWidth: 0 }}>
-      <Typography.Text>
-        {t(`workflow_job_kind.${data.kind}`)} ·{' '}
-        {t('workflows.runs.job_counts', {
-          done: data.done_count,
-          skipped: data.skipped_count,
-          total: data.total,
-        })}
-      </Typography.Text>
-      <Progress
-        percent={data.total === 0 ? 100 : Math.round((data.processed / data.total) * 100)}
-        status={data.status === 'failed' ? 'exception' : finished ? 'success' : 'active'}
-        style={{ width: 160 }}
-        aria-label={t(`workflow_job_status.${data.status}`)}
-      />
-      {finished && (
-        <Button size="small" onClick={onDone}>
-          {t('workflows.runs.job_dismiss')}
-        </Button>
-      )}
-    </Flex>
-  );
 }
 
 /**

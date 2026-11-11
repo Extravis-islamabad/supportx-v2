@@ -627,6 +627,9 @@ export {
   useQueueJob,
   useWorkflowJob,
   useWorkflowRuns,
+  useVersionOccupancy,
+  useVersionSteps,
+  useWorkflowVersions,
   useRecordWorkflows,
   useRestartInstance,
   useRetryInstance,
@@ -655,6 +658,8 @@ export {
   type RunsQuery,
   type WorkflowJobIn,
   type WorkflowJobOut,
+  type VersionStepOut,
+  type WorkflowVersionOut,
   type WorkflowOut,
   type WorkflowProblem,
 } from './workflows';
