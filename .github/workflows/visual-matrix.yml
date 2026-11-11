@@ -100,8 +100,10 @@ jobs:
           # not resolve (runs 43036727839 and 43042363216), every download fails however often
           # it is retried. So: short timeouts, the Azure mirror once, then the public archive
           # written into the mirror list itself (and into the plain sources, for other images).
+          # DPkg::Lock::Timeout: an apt child that outlived `timeout` must not fail the next
+          # attempt on the dpkg lock (lane C's review of #400).
           printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "20";' \
-            'Acquire::https::Timeout "20";' |
+            'Acquire::https::Timeout "20";' 'DPkg::Lock::Timeout "120";' |
             sudo tee /etc/apt/apt.conf.d/80-supportx-retries >/dev/null
           use_public_archive() {
             echo "::warning::using archive.ubuntu.com and security.ubuntu.com instead of the Azure mirror"
