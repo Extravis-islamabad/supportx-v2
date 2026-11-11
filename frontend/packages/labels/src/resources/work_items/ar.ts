@@ -1133,6 +1133,7 @@ export const ar: LabelResource = {
   'link_kind.caused_by_release': 'ناتج عن الإصدار',
   'link_kind.change_for': 'تغيير من أجل',
   'link_kind.follows': 'تتبع',
+  'link_kind.in_release': 'ضمن الإصدار',
   'link_kind.merged_into': 'دُمجت في',
   'link_kind.related': 'مرتبطة',
   'link_kind.started_release': 'بدأ الإصدار',

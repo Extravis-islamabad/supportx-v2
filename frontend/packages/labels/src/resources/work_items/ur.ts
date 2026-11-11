@@ -1053,6 +1053,7 @@ export const ur: LabelResource = {
   'link_kind.caused_by_release': 'ریلیز کی وجہ سے',
   'link_kind.change_for': 'اس کے لیے تبدیلی',
   'link_kind.follows': 'اس کے بعد',
+  'link_kind.in_release': 'ریلیز میں شامل',
   'link_kind.merged_into': 'میں ضم کیا گیا',
   'link_kind.related': 'متعلقہ',
   'link_kind.started_release': 'ریلیز شروع کی',

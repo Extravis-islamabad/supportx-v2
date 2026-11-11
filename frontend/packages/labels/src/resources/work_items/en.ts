@@ -1047,6 +1047,7 @@ export const en = {
   'link_kind.caused_by_release': 'Caused by release',
   'link_kind.change_for': 'Change for',
   'link_kind.follows': 'Follows',
+  'link_kind.in_release': 'In release',
   'link_kind.merged_into': 'Merged into',
   'link_kind.related': 'Related',
   'link_kind.started_release': 'Started release',

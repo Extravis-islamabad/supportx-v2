@@ -1916,6 +1916,26 @@ class SubReleaseOut(BaseModel):
     status: str | None
 
 
+class ReleaseChangeOut(BaseModel):
+    """A change in a release (REQ-REL-033); one you may not see shows only that it exists."""
+
+    id: uuid.UUID
+    visible: bool
+    display_id: str | None
+    subject: str | None
+    stage: str | None
+    status: str | None
+    status_category: str | None
+
+
+class ReleaseChangeIn(BaseModel):
+    """The change to put in the release."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    change_id: uuid.UUID
+
+
 class ParentIn(BaseModel):
     """The release's parent (null: none)."""
 
@@ -2887,6 +2907,60 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 session, subject, wtype, record_id, body.parent_id, source=source_of(request)
             )
             return ParentOut(parent_id=parent)
+
+        # WP-058b S1 (REQ-REL-033): the changes in the release, live on both records.
+        @router.get("/{record_id}/changes", summary="The changes in the release")
+        async def get_release_changes(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[ReleaseChangeOut]:
+            """With their stage and status; one you may not see shows only that it exists (AC3)."""
+            found = await release_links.release_changes(session, subject, wtype, record_id)
+            return [
+                ReleaseChangeOut(
+                    id=c.id,
+                    visible=c.seen,
+                    display_id=c.display_id,
+                    subject=c.subject,
+                    stage=c.stage,
+                    status=c.status,
+                    status_category=c.status_category,
+                )
+                for c in found
+            ]
+
+        @router.post(
+            "/{record_id}/changes",
+            summary="Put a change in the release",
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+        async def post_release_change(
+            record_id: uuid.UUID,
+            body: ReleaseChangeIn,
+            session: TenantSession,
+            subject: Edit,
+            request: Request,
+        ) -> None:
+            """A change is in one open release at most: another is refused, naming it (AC2)."""
+            await release_links.add_change(
+                session, subject, wtype, record_id, body.change_id, source=source_of(request)
+            )
+
+        @router.delete(
+            "/{record_id}/changes/{change_id}",
+            summary="Take a change out of the release",
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+        async def delete_release_change(
+            record_id: uuid.UUID,
+            change_id: uuid.UUID,
+            session: TenantSession,
+            subject: Edit,
+            request: Request,
+        ) -> None:
+            """History on both records."""
+            await release_links.remove_change(
+                session, subject, wtype, record_id, change_id, source=source_of(request)
+            )
 
     if wtype.code is WorkItemTypeCode.RELEASE:  # REQ-REL-002..005: a release's own fields
 

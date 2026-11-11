@@ -276,6 +276,8 @@ export const ar: LabelResource = {
   'errors.field.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.field.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.field.chair_inactive': 'اختر شخصًا نشطًا رئيسًا.',
+  'errors.field.change_in_other_release':
+    'هذا التغيير موجود بالفعل في الإصدار المفتوح {{release}}.',
   'errors.field.channel_reserved':
     'يمكن اختيار الهاتف أو الحضور الشخصي فقط؛ تُحدَّد القنوات الأخرى تلقائيًا.',
   'errors.field.choices_required': 'أضف خيارًا واحدًا على الأقل.',
