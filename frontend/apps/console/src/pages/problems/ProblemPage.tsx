@@ -30,8 +30,10 @@ import {
   useLabel,
   usePageCrumbs,
   type RecordAction,
+  useAccess,
 } from '@supportx/ui';
 
+import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { labelled, personName } from '../incidents/labels';
 import { useStatusActions } from '../incidents/StatusActions';
 import { PriorityTag, StatusTag } from '../incidents/tags';
@@ -197,6 +199,7 @@ function ProblemView({
   reload: () => Promise<unknown>;
 }) {
   const t = useLabel();
+  const { can } = useAccess();
   const catalogue = useProblemCatalogue();
   const act = useProblemAction(item.id);
   const status = useStatusActions(item, catalogue.data, act);
@@ -445,6 +448,15 @@ function ProblemView({
                 label: <span data-testid="prb-tab-worklogs">{t('incidents.tab.worklogs')}</span>,
                 children: <IncidentWorklogs item={item} canEdit={canEdit} base="problems" />,
               },
+              ...(can('workflows.run') || can('workflows.manage')
+                ? [
+                    {
+                      key: 'workflows',
+                      label: t('workflows.record.tab'),
+                      children: <RecordWorkflows recordType="problem" recordId={item.id} />,
+                    },
+                  ]
+                : []),
               {
                 key: 'history',
                 label: (

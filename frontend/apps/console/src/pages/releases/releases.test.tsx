@@ -125,12 +125,13 @@ function api(
       ? R
       : never
     : never = {},
+  permissions: string[] = ['releases.view', 'releases.create', 'releases.edit'],
 ) {
   const fake = consoleApi({
     me: fakeSession(
       { roles: ['tenant_admin'] },
       {
-        permissions: ['releases.view', 'releases.create', 'releases.edit'].map((key) => ({
+        permissions: permissions.map((key) => ({
           key,
           scope: 'all' as const,
           scopes: ['all' as const],
@@ -512,5 +513,101 @@ describe('console: releases', () => {
       expect(document.title).toContain('REL-1');
     });
     expect(document.title).toContain('Releases');
+  });
+
+  describe('the Workflows tab (WP-048b S4d; REQ-WF-023, -024)', () => {
+    const INSTANCE = '01a1a2b3-0000-7000-8000-0000000e0f01';
+    const PERMS = ['releases.view', 'releases.edit', 'workflows.run'];
+    const failedRun = {
+      instance: {
+        id: INSTANCE,
+        workflow_id: '01a1a2b3-0000-7000-8000-0000000e0f02',
+        version_number: 1,
+        record_type: 'release',
+        record_id: REL_ID,
+        status: 'failed',
+        failure: { node: 'call', code: 'webhook_timeout', params: {} },
+        wake_at: null,
+        started_how: 'trigger',
+        started_at: '2026-11-11T10:00:00Z',
+        finished_at: null,
+        stopped_reason: null,
+        version: 4,
+      },
+      workflow_name: 'Release go-live',
+      definition: {
+        format: 1,
+        nodes: [
+          { id: 'start', type: 'start', config: {}, position: { x: 0, y: 0 } },
+          { id: 'call', type: 'webhook', config: {}, position: { x: 0, y: 140 } },
+          { id: 'end', type: 'end', config: {}, position: { x: 0, y: 280 } },
+        ],
+        links: [
+          { from: 'start', port: 'next', to: 'call' },
+          { from: 'call', port: 'next', to: 'end' },
+        ],
+        variables: [],
+      },
+      current_nodes: ['call'],
+      steps: [
+        {
+          seq: 1,
+          node: 'start',
+          node_type: 'start',
+          result: 'next',
+          at: '2026-11-11T10:00:00Z',
+          detail: null,
+        },
+        {
+          seq: 2,
+          node: 'call',
+          node_type: 'webhook',
+          result: 'set:retried',
+          at: '2026-11-11T10:00:07Z',
+          detail: null,
+        },
+      ],
+    };
+
+    it('shows the run: the failure in words, the path, and the log to the second; Retry carries the If-Match', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(
+        {
+          [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] },
+          [`POST /api/v1/automation/workflows/instances/${INSTANCE}/retry`]: {
+            body: { ...failedRun.instance, status: 'running', version: 5 },
+          },
+        },
+        PERMS,
+      );
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Workflows' }));
+      const failure = await screen.findByTestId(`record-workflow-failure-${INSTANCE}`);
+      expect(failure.textContent).toContain('Stopped at the step call');
+      expect(failure.textContent).toContain('The other side took too long to answer.');
+      expect(failure.textContent).not.toContain('webhook_timeout'); // never a raw code
+      const log = screen.getByTestId(`record-workflow-log-${INSTANCE}`);
+      expect(log.textContent).toContain('7 s'); // start → call, to the second
+      expect(log.textContent).not.toContain('set:retried');
+      fireEvent.click(screen.getByTestId(`record-workflow-retry-${INSTANCE}`));
+      await waitFor(() => {
+        expect(
+          fake.find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/retry`),
+        ).toHaveLength(1);
+      });
+      expect(
+        fake
+          .find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/retry`)[0]
+          ?.headers.get('If-Match'),
+      ).toBe('"4"');
+    });
+
+    it('REQ-WF-023 AC3: no Workflows tab without workflows.run', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      api({}, ['releases.view', 'releases.edit']);
+      render(<App />);
+      await screen.findByRole('tab', { name: 'Details' });
+      expect(screen.queryByRole('tab', { name: 'Workflows' })).toBeNull();
+    });
   });
 });

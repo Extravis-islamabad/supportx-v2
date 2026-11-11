@@ -153,6 +153,12 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     labelKey: 'nav.admin_automation',
     permission: 'automation.view',
   },
+  {
+    key: 'workflows',
+    group: 'automation_sla',
+    labelKey: 'nav.admin_workflows',
+    permission: 'workflows.manage',
+  },
   { key: 'ai', group: 'automation_sla', labelKey: 'nav.admin_ai', permission: 'ai.manage' },
   {
     key: 'sla',
