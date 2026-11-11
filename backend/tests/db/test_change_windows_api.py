@@ -349,3 +349,50 @@ async def test_an_override_passes_only_its_freezes_never_a_later_one(world: Worl
     )
     assert problem(moved) == (409, "change_window_blocked"), moved.text
     assert moved.json()["params"]["window_ids"] == later["id"]
+
+
+async def test_d156_a_first_sunday_freeze_blocks_that_sunday_every_month(world: World) -> None:
+    """Monthly windows (D-156): "first Sunday, 02:00-06:00" blocks the first Sunday of every
+    month and no other Sunday."""
+    from app.modules.work_items.domain.change_windows import nth_weekday  # noqa: PLC0415
+
+    a = world.a
+    later = SOON + timedelta(days=200)  # far from the other tests' times
+    day = nth_weekday(later.year, later.month, 1, 6)
+    assert day is not None
+    first = datetime(day.year, day.month, day.day, 2, 0, tzinfo=UTC)
+    made = await a_window(
+        world,
+        a,
+        name="First Sunday",
+        group_ids=[str(a.gb)],
+        starts_at=_iso(first),
+        ends_at=_iso(first + 4 * H),
+        repeat="monthly",
+        repeat_week=1,
+        repeat_weekday=6,
+    )
+    assert (made["repeat"], made["repeat_week"], made["repeat_weekday"]) == ("monthly", 1, 6)
+    assert made["repeat_weekly"] is False
+    change = await new_change(world, a, a.admin, group_id=str(a.gb))
+    assert change.status_code == 201, change.text
+    item = change.json()
+    three_on = first.month + 3
+    year, month = first.year + (three_on - 1) // 12, (three_on - 1) % 12 + 1
+    sunday = nth_weekday(year, month, 1, 6)
+    second = nth_weekday(year, month, 2, 6)
+    assert sunday is not None
+    assert second is not None
+    at = datetime(sunday.year, sunday.month, sunday.day, 3, 0, tzinfo=UTC)
+    refused = await schedule(world, a, item, at, at + H)
+    assert problem(refused) == (409, "change_window_blocked"), refused.text
+    other = datetime(second.year, second.month, second.day, 3, 0, tzinfo=UTC)
+    fine = await schedule(world, a, item, other, other + H)
+    assert fine.status_code == 200, fine.text
+
+
+async def test_d156_an_old_client_s_weekly_flag_still_makes_a_weekly_window(world: World) -> None:
+    made = await a_window(
+        world, world.a, name="Old client", ends_at=_iso(SOON + 2 * H), repeat_weekly=True
+    )
+    assert (made["repeat"], made["repeat_weekly"]) == ("weekly", True)

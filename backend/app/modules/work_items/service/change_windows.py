@@ -48,10 +48,14 @@ EDITABLE = (
     "description",
     "starts_at",
     "ends_at",
-    "repeat_weekly",
+    "repeat_weekly",  # kept in step with `repeat` until 0137's contract (D-156)
+    "repeat",
+    "repeat_week",
+    "repeat_weekday",
     "repeat_until",
     *SCOPES,
 )
+REPEATS = ("none", "weekly", "monthly")
 # The field codes a window's checks give (labels: errors.field.*).
 FIELD_PROBLEMS = frozenset(
     {
@@ -62,6 +66,7 @@ FIELD_PROBLEMS = frozenset(
         "too_many_items",
         "end_before_start",
         "longer_than_a_week",
+        "longer_than_a_month",
         "not_allowed",
         "site_not_found",
         "group_not_found",
@@ -98,7 +103,8 @@ async def windows(
     _require_view(subject)
     if start is not None and end is not None:
         rows = await change_conflicts.windows_touching(session, start, end)
-        return [r for r in rows if change_conflicts.window_of(r).occurrences(start, end)]
+        zone = await change_conflicts.tenant_zone(session)
+        return [r for r in rows if change_conflicts.window_of(r, zone).occurrences(start, end)]
     found = await session.scalars(
         select(ChangeWindow)
         .where(ChangeWindow.deleted_at.is_(None))
@@ -178,13 +184,19 @@ async def _check(session: AsyncSession, merged: Mapping[str, Any]) -> dict[str, 
     if description is not None and len(description) > DESCRIPTION_MAX:
         problems.append(("description", "value_too_long"))
     labels = _labels(merged.get("labels"), problems)
-    weekly = bool(merged.get("repeat_weekly"))
+    # `repeat` wins; a client that sends only the old flag still gets a weekly window.
+    repeat = merged.get("repeat") or ("weekly" if merged.get("repeat_weekly") else "none")
+    if repeat not in REPEATS:
+        problems.append(("repeat", "invalid_choice"))
+    weekly = repeat == "weekly"
+    week, weekday = merged.get("repeat_week"), merged.get("repeat_weekday")
     problems.extend(
         rules.window_problems(
             merged.get("starts_at"),
             merged.get("ends_at"),
             repeat_weekly=weekly,
             repeat_until=merged.get("repeat_until"),
+            monthly=(week, weekday) if repeat == "monthly" else None,
         )
     )
     scope = await _scope(session, merged, problems)
@@ -199,6 +211,9 @@ async def _check(session: AsyncSession, merged: Mapping[str, Any]) -> dict[str, 
         "starts_at": merged["starts_at"],
         "ends_at": merged["ends_at"],
         "repeat_weekly": weekly,
+        "repeat": repeat,
+        "repeat_week": week if repeat == "monthly" else None,
+        "repeat_weekday": weekday if repeat == "monthly" else None,
         "repeat_until": merged.get("repeat_until"),
         **scope,
     }
