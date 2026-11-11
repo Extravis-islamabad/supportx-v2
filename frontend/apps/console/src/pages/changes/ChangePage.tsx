@@ -214,6 +214,65 @@ export function ChangePage() {
       )}
     </Flex>
   );
+  // The tabs this person sees; an address naming one they don't (a tab gated on a permission)
+  // opens Details rather than an empty page.
+  const tabItems = [
+    {
+      key: 'details',
+      label: t('staged.tab.details'),
+      children: (
+        <>
+          <DetailsPart id={c.id} />
+          <IncidentFiles item={c} canEdit={mayEdit} recordType="change" />
+        </>
+      ),
+    },
+    {
+      // REQ-CHG-100: the change's replies and notes, as on every other record.
+      key: 'conversation',
+      label: (
+        <span data-testid="chg-tab-conversation">
+          {t('incidents.tab.conversation', { count: c.conversation_count + 1 })}
+        </span>
+      ),
+      children: <IncidentConversation item={c} typing={NO_TYPING} base="changes" />,
+    },
+    { key: 'risk', label: t('changes.tab.risk'), children: <RiskPart id={c.id} /> },
+    {
+      key: 'approvals',
+      label: t('staged.tab.approvals'),
+      children: <ApprovalsPart id={c.id} />,
+    },
+    { key: 'roles', label: t('staged.tab.roles'), children: <RolesPart id={c.id} /> },
+    { key: 'plan', label: t('changes.tab.plans'), children: <PlanPart id={c.id} /> },
+    {
+      key: 'schedule',
+      label: t('staged.tab.schedule'),
+      children: <SchedulePart id={c.id} />,
+    },
+    {
+      key: 'downtime',
+      label: t('staged.tab.downtime'),
+      children: <DowntimePart id={c.id} />,
+    },
+    {
+      key: 'tasks',
+      label: t('changes.tab.tasks'),
+      children: <IncidentTasks item={c} canEdit={mayEdit} base="changes" />,
+    },
+    {
+      key: 'children',
+      label: t('changes.tab.children'),
+      children: <ChildrenPart id={c.id} canEdit={mayEdit} />,
+    },
+    {
+      key: 'history',
+      label: t('changes.tab.history'),
+      children: <IncidentHistory id={c.id} base="changes" />,
+    },
+  ];
+  const shown = tabItems.some((item) => item.key === tab) ? tab : 'details';
+
   return (
     <RecordPage
       testId="change-page"
@@ -289,65 +348,11 @@ export function ChangePage() {
       <Tabs
         data-testid="change-tabs"
         destroyOnHidden
-        activeKey={tab}
+        activeKey={shown}
         onChange={(key) => {
           setParams(key === 'details' ? {} : { tab: key }, { replace: true });
         }}
-        items={[
-          {
-            key: 'details',
-            label: t('staged.tab.details'),
-            children: (
-              <>
-                <DetailsPart id={c.id} />
-                <IncidentFiles item={c} canEdit={mayEdit} recordType="change" />
-              </>
-            ),
-          },
-          {
-            // REQ-CHG-100: the change's replies and notes, as on every other record.
-            key: 'conversation',
-            label: (
-              <span data-testid="chg-tab-conversation">
-                {t('incidents.tab.conversation', { count: c.conversation_count + 1 })}
-              </span>
-            ),
-            children: <IncidentConversation item={c} typing={NO_TYPING} base="changes" />,
-          },
-          { key: 'risk', label: t('changes.tab.risk'), children: <RiskPart id={c.id} /> },
-          {
-            key: 'approvals',
-            label: t('staged.tab.approvals'),
-            children: <ApprovalsPart id={c.id} />,
-          },
-          { key: 'roles', label: t('staged.tab.roles'), children: <RolesPart id={c.id} /> },
-          { key: 'plan', label: t('changes.tab.plans'), children: <PlanPart id={c.id} /> },
-          {
-            key: 'schedule',
-            label: t('staged.tab.schedule'),
-            children: <SchedulePart id={c.id} />,
-          },
-          {
-            key: 'downtime',
-            label: t('staged.tab.downtime'),
-            children: <DowntimePart id={c.id} />,
-          },
-          {
-            key: 'tasks',
-            label: t('changes.tab.tasks'),
-            children: <IncidentTasks item={c} canEdit={mayEdit} base="changes" />,
-          },
-          {
-            key: 'children',
-            label: t('changes.tab.children'),
-            children: <ChildrenPart id={c.id} canEdit={mayEdit} />,
-          },
-          {
-            key: 'history',
-            label: t('changes.tab.history'),
-            children: <IncidentHistory id={c.id} base="changes" />,
-          },
-        ]}
+        items={tabItems}
       />
     </RecordPage>
   );
