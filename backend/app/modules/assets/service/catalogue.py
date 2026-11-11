@@ -1084,11 +1084,24 @@ async def get_product(session: AsyncSession, product_id: uuid.UUID) -> AssetProd
     return row
 
 
+# D-157 2b (the coordinator for Haider): a product's list price, tax and default depreciation
+# are money, read and written only with assets.view_financials (named here: assets.py, which
+# defines VIEW_FINANCIALS, imports this module).
+VIEW_FINANCIALS = "assets.view_financials"
+PRODUCT_MONEY = ("price", "tax", "depreciation_method", "useful_life_years", "salvage_value")
+
+
+def _require_money_for(subject: Subject, values: Mapping[str, Any]) -> None:
+    if any(name in values for name in PRODUCT_MONEY) and not subject.holds(VIEW_FINANCIALS):
+        raise PermissionDenied(params={"permission": VIEW_FINANCIALS})
+
+
 async def create_product(
     session: AsyncSession, subject: Subject, values: Mapping[str, Any], *, source: Source
 ) -> AssetProduct:
-    """A new product of a type."""
+    """A new product of a type; its money fields need assets.view_financials (D-157 2b)."""
     require_configure(subject)
+    _require_money_for(subject, values)
     await ensure_defaults(session)
     cleaned = _clean_product(values)
     problems = await _product_problems(session, cleaned)
@@ -1119,6 +1132,7 @@ async def update_product(  # noqa: PLR0913 - the If-Match and the source
 ) -> AssetProduct:
     """Change the fields sent. Assets keep the cost they were bought at (REQ-AST-005 AC2)."""
     require_configure(subject)
+    _require_money_for(subject, values)
     row = await _locked(session, AssetProduct, product_id, "asset_product_not_found")
     await _fresh(session, row, expected_version, "asset_product")
     cleaned = _clean_product(values)

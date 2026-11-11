@@ -1547,8 +1547,13 @@ it with no reload (rule c). Not built yet.
     (`depreciation_factor`, default 2); double declining stays 200 %.
   - One in-app notice per run to the people who set mail up when e-mails are given up after 7
     days without mail (`outgoing_mail.not_sent`).
-  - **Open:** product (catalogue) prices and depreciation defaults are still shown to every
-    asset viewer (a question for the coordinator); the e2e journey for the technician's path.
+  - Review fixes: the ticket path fits only free components and never retires or disposes;
+    the on-behalf person counts as a holder (lane A); the mail summary is claimed once per run.
+  - 2b: catalogue prices and default depreciation behind `assets.view_financials` (masked in
+    product responses, needed to write them).
+  - The Purchase manager role will need catalogue prices when procurement is built (WP-054);
+    granting it then is Haider's call, not granted now.
+  - **Open:** the e2e journey for the technician's path.
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 

@@ -466,3 +466,104 @@ async def test_straight_line_is_the_default_and_declining_balance_takes_the_type
     )
     assert double.status_code == 200, double.text
     assert Decimal((await money())["book_value"]) == Decimal(6000)
+
+
+async def test_catalogue_prices_need_view_financials_and_the_picker_still_works(
+    world: World,
+) -> None:
+    """D-157 2b: list price, tax, total and default depreciation are money too."""
+    a = world.a
+    product_types = (await world.call("GET", f"{ASSETS}/product-types", a, a.admin)).json()
+    laptop_type = next(t for t in product_types if t["api_name"] == "laptop")
+    made = await world.call(
+        "POST",
+        f"{ASSETS}/products",
+        a,
+        a.admin,
+        json={
+            "product_type_id": laptop_type["id"],
+            "name": "D157 priced model",
+            "price": "900.00",
+            "tax": "153.00",
+            "depreciation_method": "straight_line",
+            "useful_life_years": 4,
+            "salvage_value": "100.00",
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert made.status_code == 201, made.text
+    product = made.json()
+    money = ("price", "tax", "total", "depreciation_method", "useful_life_years", "salvage_value")
+
+    async def seen(user: uuid.UUID) -> dict[str, Any]:
+        listed = await world.call(
+            "GET", f"{ASSETS}/products", a, user, params={"product_type_id": laptop_type["id"]}
+        )
+        assert listed.status_code == 200, listed.text
+        (row,) = [p for p in listed.json()["items"] if p["id"] == product["id"]]
+        one = await world.call("GET", f"{ASSETS}/products/{product['id']}", a, user)
+        assert one.status_code == 200, one.text
+        assert {k: one.json()[k] for k in money} == {k: row[k] for k in money}
+        return dict(row)
+
+    holder = await seen(a.admin)
+    assert (holder["price"], holder["total"], holder["useful_life_years"]) == (
+        "900.00",
+        "1053.00",
+        4,
+    )
+    viewer = await seen(a.tech_a)  # the picker still lists it, by name, without money
+    assert viewer["name"] == "D157 priced model"
+    assert all(viewer[k] is None for k in money), viewer
+    # Writing the money needs the right too, even for a catalogue configurer.
+    keeper = await role(
+        world,
+        a,
+        f"Catalogue keeper {uuid.uuid4().hex[:6]}",
+        [("assets.view", "all"), ("config.assets", "all")],
+    )
+    given = await world.call("PUT", f"/users/{a.tech_c}/roles/{keeper}", a, a.admin)
+    assert given.status_code == 204, given.text
+    for body in ({"price": "1.00"}, {"tax": "1.00"}, {"useful_life_years": 3}):
+        refused = await world.call(
+            "PATCH",
+            f"{ASSETS}/products/{product['id']}",
+            a,
+            a.tech_c,
+            json=body,
+            headers=_match(product["version"]),
+        )
+        assert problem(refused) == (403, "permission_denied"), refused.text
+        assert refused.json()["params"]["permission"] == "assets.view_financials"
+    renamed = await world.call(
+        "PATCH",
+        f"{ASSETS}/products/{product['id']}",
+        a,
+        a.tech_c,
+        json={"name": "D157 renamed model"},
+        headers=_match(product["version"]),
+    )
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["price"] is None  # their own answer is masked too
+    assert (await seen(a.admin))["price"] == "900.00"  # and nothing was cleared
+
+
+async def test_an_asset_of_the_person_a_ticket_is_on_behalf_of_counts(world: World) -> None:
+    """Lane A: the ticket's on-behalf person (and their department) holds it: allowed too."""
+    a = world.a
+    laptop = await _requesters_asset(world, "D157 on behalf")  # held by a.requester
+    ticket = await world.create(
+        a,
+        a.admin,
+        group_id=str(a.ga),
+        technician_id=str(a.tech_a),
+        requester_id=str(a.requester2),
+        on_behalf_of_id=str(a.requester),
+        asset_ids=[laptop["id"]],
+    )
+    assert (ticket["requester_id"], ticket["on_behalf_of_id"]) == (
+        str(a.requester2),
+        str(a.requester),
+    )
+    ok = await _patch(world, a.tech_a, laptop, location="Desk 7")
+    assert ok.status_code == 200, ok.text

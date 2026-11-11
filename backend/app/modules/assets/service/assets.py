@@ -59,6 +59,7 @@ from app.modules.assets.infra.models import (
     AssetSettings,
     AssetState,
 )
+from app.modules.assets.service import catalogue as catalogue_money
 from app.modules.assets.service import ticket_access, valuations
 from app.modules.assets.service.catalogue import TEXT_MAX, ensure_defaults
 from app.modules.assets.service.valuations import VALUED_FIELDS
@@ -83,7 +84,7 @@ MANAGE = "assets.manage"
 EDIT_DISPOSED = "assets.edit_disposed"  # REQ-AST-017 AC3: changes a disposed asset (with a reason)
 # WP-049b s2: costs, depreciation and book value (REQ-AST-036, 037). The asset's own depreciation
 # settings are set only by those who may see its money (and manage it).
-VIEW_FINANCIALS = "assets.view_financials"
+VIEW_FINANCIALS = catalogue_money.VIEW_FINANCIALS  # one name for the right (catalogue)
 DEPRECIATION_FIELDS = ("depreciation_method", "useful_life_years", "salvage_value")
 # D-157: the purchase price and tax are money too; with the depreciation settings, nobody
 # without `assets.view_financials` reads (API, list, history) or writes them.
