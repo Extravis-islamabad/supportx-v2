@@ -23,6 +23,10 @@ from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.asset_routes import add_asset_routes
+from app.modules.work_items.api.checklist_routes import (
+    add_checklist_collection_routes,
+    add_checklist_routes,
+)
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
@@ -2482,6 +2486,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
     add_parts_collection_routes(router, wtype)
+    add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
 
@@ -3476,6 +3481,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
 
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
+    add_checklist_routes(router, wtype)  # WP-046a S2: checklists and personal reminders
     # REQ-AST-025: assets on incidents and requests (the forms and the e-mail ask for them).
     if wtype.code in _WITH_ASSETS:
         add_asset_routes(router, wtype)

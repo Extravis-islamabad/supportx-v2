@@ -39,6 +39,7 @@ export const en = {
   'notification_area.problem': 'Problems',
   'notification_area.problem_repeat': 'Problems',
   'notification_area.release': 'Releases',
+  'notification_area.reminder': 'Reminders',
   'notification_area.rule_step': 'Rules and escalations',
   'notification_area.service_request': 'Service requests',
   'notification_category.approval': 'Approvals',
@@ -124,6 +125,7 @@ export const en = {
   'notification_event.problem.target_warning': 'Problem target date close',
   'notification_event.problem_repeat.detected': 'Repeated incidents found',
   'notification_event.release.public_reply': 'Reply to the requester',
+  'notification_event.reminder.due': 'Your reminder',
   'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
@@ -609,6 +611,11 @@ export const en = {
     '{{ conversation.author }} replied on {{ record.display_id }}',
   'notification_template.release.public_reply.subject':
     'New reply on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.reminder.due.body':
+    'Hello {{ recipient.name }},\n\nYour reminder on {{ record.display_id }} "{{ record.title }}" is at {{ reminder.at }}:\n\n{{ reminder.note }}',
+  'notification_template.reminder.due.in_app': 'Reminder at {{ reminder.at }}: {{ reminder.note }}',
+  'notification_template.reminder.due.subject':
+    'Reminder: {{ reminder.note }} ({{ record.display_id }})',
   'notification_template.rule_step.assignee_unavailable.body':
     'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -695,6 +702,8 @@ export const en = {
   'notification_variable.record.priority': 'Record › Priority',
   'notification_variable.record.status': 'Record › Status',
   'notification_variable.record.title': 'Record › Subject',
+  'notification_variable.reminder.at': 'Reminder time',
+  'notification_variable.reminder.note': 'Reminder note',
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
   'notification_variable.site.name': 'Site',

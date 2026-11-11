@@ -41,6 +41,7 @@ export const ur: LabelResource = {
   'notification_area.problem': 'مسائل',
   'notification_area.problem_repeat': 'مسائل',
   'notification_area.release': 'ریلیزز',
+  'notification_area.reminder': 'یاد دہانیاں',
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_category.approval': 'منظوریاں',
@@ -127,6 +128,7 @@ export const ur: LabelResource = {
   'notification_event.problem.target_warning': 'مسئلے کی ہدف تاریخ قریب',
   'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
   'notification_event.release.public_reply': 'درخواست گزار کو جواب',
+  'notification_event.reminder.due': 'آپ کی یاد دہانی',
   'notification_event.rule_step.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
@@ -611,6 +613,12 @@ export const ur: LabelResource = {
     '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
   'notification_template.release.public_reply.subject':
     '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
+  'notification_template.reminder.due.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کی یاد دہانی {{ reminder.at }} پر ہے:\n\n{{ reminder.note }}',
+  'notification_template.reminder.due.in_app':
+    '{{ reminder.at }} پر یاد دہانی: {{ reminder.note }}',
+  'notification_template.reminder.due.subject':
+    'یاد دہانی: {{ reminder.note }} ({{ record.display_id }})',
   'notification_template.rule_step.assignee_unavailable.body':
     'السلام علیکم {{ recipient.name }}،\n\nایک قاعدے یا ایسکلیشن کو {{ record.display_id }} "{{ record.title }}" کو {{ unavailable.person }} کے سپرد کرنا تھا، جو {{ unavailable.reason }}۔ یہ کسی کو تفویض کیے بغیر گروپ میں چلا گیا۔ براہ کرم کسی کو تفویض کریں یا قاعدہ بدلیں۔',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -697,6 +705,8 @@ export const ur: LabelResource = {
   'notification_variable.record.priority': 'ریکارڈ › ترجیح',
   'notification_variable.record.status': 'ریکارڈ › حالت',
   'notification_variable.record.title': 'ریکارڈ › موضوع',
+  'notification_variable.reminder.at': 'یاد دہانی کا وقت',
+  'notification_variable.reminder.note': 'یاد دہانی کا نوٹ',
   'notification_variable.requester.name': 'درخواست گزار › نام',
   'notification_variable.rule.name': 'اصول',
   'notification_variable.site.name': 'مقام',

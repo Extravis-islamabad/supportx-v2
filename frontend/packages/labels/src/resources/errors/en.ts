@@ -1,5 +1,12 @@
 // errors labels (see ../README.md). English is the reference.
 export const en = {
+  'checklist_import_failure.not_text': 'The file is not a UTF-8 text (CSV) file.',
+  'checklist_import_failure.too_large': 'The file is larger than 5 MB.',
+  'checklist_import_failure.too_many_columns': 'A row has more than 40 columns.',
+  'checklist_import_failure.too_many_rows': 'The file has more than 5,000 rows.',
+  'checklist_import_reason.empty': 'Empty row',
+  'checklist_import_reason.too_many_items': "Past the checklist's item limit",
+  'checklist_import_reason.value_too_long': 'Longer than 500 characters',
   'errors.action_link_expired': 'This link has expired. Open the request in the app instead.',
   'errors.action_link_not_found': 'This link is not valid.',
   'errors.action_link_revoked': 'This is no longer needed: the request was decided or withdrawn.',
@@ -163,6 +170,10 @@ export const en = {
   'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.change_window_blocked':
     'A freeze blocks this time. Choose another time, or someone allowed to may let the change go ahead with a reason.',
+  'errors.checklist_item_not_found': 'This checklist item is no longer there.',
+  'errors.checklist_library_not_found':
+    'This library checklist is no longer there or is no longer offered.',
+  'errors.checklist_not_found': 'This checklist is no longer there.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -884,6 +895,7 @@ export const en = {
   'errors.record_not_editable': 'You need to be able to edit the record to do this.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
+  'errors.reminder_not_found': 'This reminder is no longer there.',
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
   'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',

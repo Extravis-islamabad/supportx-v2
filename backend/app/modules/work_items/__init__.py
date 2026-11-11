@@ -40,6 +40,7 @@ from app.modules.work_items.api.change_window_routes import (
     release_calendar_router,
 )
 from app.modules.work_items.api.change_window_routes import router as change_window_router
+from app.modules.work_items.api.checklist_routes import my_reminders_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
@@ -187,6 +188,7 @@ module = ModuleSpec(
         change_child_router,  # WP-045d S1: child changes and releases
         change_calendar_router,  # WP-045c S3: the change calendar
         release_calendar_router,  # WP-058b S1: the release calendar (same query)
+        my_reminders_router,  # WP-046a S2: your personal reminders (REQ-INC-082)
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
@@ -201,6 +203,7 @@ module = ModuleSpec(
         CHANGE.feature,  # child changes and releases
         CHANGE.feature,  # the change calendar
         RELEASE.feature,  # the release calendar
+        None,  # your reminders: each record's own view rule decides what shows
     ],
     events=EVENTS,
     permissions=(

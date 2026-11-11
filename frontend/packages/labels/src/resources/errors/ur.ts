@@ -2,6 +2,13 @@ import type { LabelResource } from '../en';
 
 // errors labels (see ../README.md).
 export const ur: LabelResource = {
+  'checklist_import_failure.not_text': 'فائل UTF-8 متن (CSV) فائل نہیں ہے۔',
+  'checklist_import_failure.too_large': 'فائل 5 MB سے بڑی ہے۔',
+  'checklist_import_failure.too_many_columns': 'ایک قطار میں 40 سے زیادہ کالم ہیں۔',
+  'checklist_import_failure.too_many_rows': 'فائل میں 5,000 سے زیادہ قطاریں ہیں۔',
+  'checklist_import_reason.empty': 'خالی قطار',
+  'checklist_import_reason.too_many_items': 'چیک لسٹ کی آئٹم حد سے زیادہ',
+  'checklist_import_reason.value_too_long': '500 حروف سے لمبی',
   'errors.action_link_expired':
     'اس لنک کی میعاد ختم ہو گئی ہے۔ اس کے بجائے درخواست ایپ میں کھولیں۔',
   'errors.action_link_not_found': 'یہ لنک درست نہیں۔',
@@ -163,6 +170,9 @@ export const ur: LabelResource = {
   'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
   'errors.change_window_blocked':
     'ایک فریز اس وقت کو روکتا ہے۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ تبدیلی کو آگے بڑھنے دے سکتا ہے۔',
+  'errors.checklist_item_not_found': 'چیک لسٹ کا یہ آئٹم اب موجود نہیں۔',
+  'errors.checklist_library_not_found': 'لائبریری کی یہ چیک لسٹ اب موجود یا پیش نہیں۔',
+  'errors.checklist_not_found': 'یہ چیک لسٹ اب موجود نہیں۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.command_in_flight':
@@ -889,6 +899,7 @@ export const ur: LabelResource = {
   'errors.record_not_editable': 'یہ کرنے کے لیے آپ کو ریکارڈ میں ترمیم کا اختیار ہونا چاہیے۔',
   'errors.reference_copied': 'حوالہ کاپی ہو گیا',
   'errors.reference_is': 'حوالہ: {{reference}}',
+  'errors.reminder_not_found': 'یہ یاد دہانی اب موجود نہیں۔',
   'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
   'errors.repeat_rule_not_found': 'بار بار واقعات کا یہ اصول اب موجود نہیں۔',
   'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',

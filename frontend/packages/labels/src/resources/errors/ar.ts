@@ -2,6 +2,13 @@ import type { LabelResource } from '../en';
 
 // errors labels (see ../README.md).
 export const ar: LabelResource = {
+  'checklist_import_failure.not_text': 'الملف ليس ملفًا نصيًا (CSV) بترميز UTF-8.',
+  'checklist_import_failure.too_large': 'الملف أكبر من 5 ميغابايت.',
+  'checklist_import_failure.too_many_columns': 'يحتوي صف على أكثر من 40 عمودًا.',
+  'checklist_import_failure.too_many_rows': 'يحتوي الملف على أكثر من 5000 صف.',
+  'checklist_import_reason.empty': 'صف فارغ',
+  'checklist_import_reason.too_many_items': 'يتجاوز حد عناصر قائمة التحقق',
+  'checklist_import_reason.value_too_long': 'أطول من 500 حرف',
   'errors.action_link_expired': 'انتهت صلاحية هذا الرابط. افتح الطلب في التطبيق بدلًا منه.',
   'errors.action_link_not_found': 'هذا الرابط غير صالح.',
   'errors.action_link_revoked': 'لم يعد هذا مطلوبًا: تم البت في الطلب أو سحبه.',
@@ -153,6 +160,9 @@ export const ar: LabelResource = {
   'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.change_window_blocked':
     'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالتغيير مع ذكر السبب.',
+  'errors.checklist_item_not_found': 'لم يعد عنصر قائمة التحقق هذا موجودًا.',
+  'errors.checklist_library_not_found': 'لم تعد قائمة التحقق هذه في المكتبة موجودة أو متاحة.',
+  'errors.checklist_not_found': 'لم تعد قائمة التحقق هذه موجودة.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.command_in_flight':
@@ -816,6 +826,7 @@ export const ar: LabelResource = {
   'errors.record_not_editable': 'يجب أن تتمكن من تعديل السجل للقيام بذلك.',
   'errors.reference_copied': 'تم نسخ المرجع',
   'errors.reference_is': 'المرجع: {{reference}}',
+  'errors.reminder_not_found': 'لم يعد هذا التذكير موجودًا.',
   'errors.repeat_hit_not_found': 'لم تعد مجموعة الحوادث المتكررة هذه موجودة.',
   'errors.repeat_rule_not_found': 'لم تعد قاعدة الحوادث المتكررة هذه موجودة.',
   'errors.reply_template_not_found': 'لم يعد قالب الرد هذا موجودًا.',
