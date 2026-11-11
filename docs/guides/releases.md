@@ -99,7 +99,7 @@ calendar on its deployment window, marks the release, and shows its own changes.
 - **A stage with open tasks cannot be left:** the refusal names the first open task and how many
   more. Canceling is never held up. An administrator can switch this off for releases (Releases
   settings): the move then goes ahead and the counters show what is still open.
-- **Worklogs** record the stage the release was in when the time was logged.
+- **Worklogs** record the stage the release was in when the time was logged; it stays as it was when the release moves on, so time spent in each stage adds up.
 - **A failed workflow step** shows on the release's header with why, *Retry* for those allowed,
   and a link to its Workflows tab.
 

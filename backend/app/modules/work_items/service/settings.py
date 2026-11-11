@@ -178,7 +178,9 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         if name in values:
             if wtype.code is not WorkItemTypeCode.RELEASE:
                 problem(name, "not_allowed")
-            changes[name] = bool(values[name])
+            elif not isinstance(values[name], bool):  # never "false" read as true (lane A)
+                problem(name, "invalid_value")
+            changes[name] = values[name] is True
     if "first_response_on" in values:
         chosen = list(values["first_response_on"] or [])
         if any(code not in set(FirstResponseAction) for code in chosen):

@@ -119,6 +119,20 @@ async def test_the_release_setting_lets_a_stage_be_left_with_open_tasks(world: W
         headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
     )
     assert problem(refused)[0] == 422, refused.text
+    # "false" is false, never a truthy string (lane A's review): the API's bool field parses it,
+    # and the service takes only a bool from any other caller.
+    current = (await world.call("GET", "/releases/settings", a, a.admin)).json()
+    saved = await world.call(
+        "PATCH",
+        "/releases/settings",
+        a,
+        a.admin,
+        json={"open_stage_tasks_block": "false"},
+        headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["open_stage_tasks_block"] is False
+    await _setting(world, a, on=True)
 
 
 async def test_a_worklog_takes_the_stage_of_a_staged_record_only(world: World) -> None:
