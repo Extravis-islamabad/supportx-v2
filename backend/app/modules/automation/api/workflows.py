@@ -11,7 +11,9 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import func, select
 
 from app.core.authorization import require_permission
@@ -231,23 +233,51 @@ class WorkflowFileIn(BaseModel):
     start_templates: list[uuid.UUID] = Field(default_factory=list, max_length=200)
 
 
+def _too_large() -> ValidationFailed:
+    return ValidationFailed(code="workflow_file_too_large", params={"max": IMPORT_MAX_BYTES})
+
+
+async def _workflow_file(request: Request) -> WorkflowFileIn:
+    """The file, size-capped before a byte of it is parsed (lane B's review of #374).
+
+    The declared length is refused first; the body is then read in chunks and stops at the cap,
+    whatever the header said. Only then is it parsed against the closed schema.
+    """
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > IMPORT_MAX_BYTES:
+        raise _too_large()
+    raw = bytearray()
+    async for chunk in request.stream():
+        raw.extend(chunk)
+        if len(raw) > IMPORT_MAX_BYTES:
+            raise _too_large()
+    try:
+        return WorkflowFileIn.model_validate_json(bytes(raw))
+    except PydanticValidationError as exc:
+        raise RequestValidationError(exc.errors(include_url=False)) from exc
+
+
 @router.post(
     "/import",
     summary="Import a workflow file as a new draft",
     status_code=status.HTTP_201_CREATED,
     dependencies=[audited("automation.workflow_imported", object_type="workflow")],
+    # The body is read by `_workflow_file` (capped before parsing); its schema stays documented.
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": WorkflowFileIn.model_json_schema()}},
+        }
+    },
 )
 async def import_workflow(
-    request: Request,
-    body: WorkflowFileIn,
+    subject: Manage,  # first: nobody else's file is ever read
     session: TenantSession,
-    subject: Manage,
     idempotency: Idempotency,
+    body: Annotated[WorkflowFileIn, Depends(_workflow_file)],
 ) -> Response:
     """Same tenant only; it arrives disabled, with its problems to fix (REQ-WF-019)."""
     del subject
-    if len(await request.body()) > IMPORT_MAX_BYTES:
-        raise ValidationFailed(code="workflow_file_too_large", params={"max": IMPORT_MAX_BYTES})
 
     async def operation() -> Created:
         made, problems = await workflow_admin.import_workflow(
@@ -837,11 +867,10 @@ async def start_test(
     idempotency: Idempotency,
 ) -> Response:
     """Its commands are shown, never applied; it never writes to the record (REQ-WF-022 AC2)."""
-    del subject
 
     async def operation() -> Created:
         run = await workflow_tests.start(
-            session, workflow_id, record_id=body.record_id, sample=body.sample
+            session, subject, workflow_id, record_id=body.record_id, sample=body.sample
         )
         return Created(_test(run), {"ETag": f'"{run.version}"'})
 

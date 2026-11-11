@@ -349,6 +349,22 @@ async def may_edit(
     return await _may(session, subject, wtype, "edit", record_id)
 
 
+async def may_view(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may see the record (its type's view permission, in scope).
+
+    For other modules that show a record's values to a person: a workflow test run on it
+    (REQ-WF-022). A record in the trash (or gone) is never shown.
+    """
+    live = await session.scalar(
+        _rows(wtype).where(WorkItem.id == record_id).with_only_columns(WorkItem.id)
+    )
+    if live is None:
+        return False
+    return await _may(session, subject, wtype, "view", record_id)
+
+
 async def _reason_for(  # noqa: PLR0913 - the check and its optional stage rule, explicit
     session: AsyncSession,
     subject: Subject,

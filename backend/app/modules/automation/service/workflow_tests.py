@@ -35,6 +35,7 @@ from app.modules.automation.infra.models import Workflow, WorkflowTestRun
 from app.modules.automation.service import workflow_runtime
 from app.modules.automation.service.registry import CommandResult
 from app.modules.automation.service.registry import record_type as registered
+from app.modules.identity_access import Subject
 from app.shared.events import record_event
 
 LIVE_KINDS = frozenset({CommandKind.CALL_WEBHOOK, CommandKind.NOTIFY})
@@ -105,12 +106,17 @@ async def _advance(session: AsyncSession, run: WorkflowTestRun, event: Event | N
 
 async def start(
     session: AsyncSession,
+    subject: Subject,
     workflow_id: uuid.UUID,
     *,
     record_id: uuid.UUID | None,
     sample: Mapping[str, Any] | None,
 ) -> WorkflowTestRun:
-    """A new test run of the workflow's draft, on a record's facts or on sample values."""
+    """A new test run of the workflow's draft, on a record's facts or on sample values.
+
+    A record's facts are shown back, so only to someone who may see the record, by its type's
+    own view rule: workflows.manage alone is not enough (lane B's review of #374).
+    """
     workflow = await session.get(Workflow, workflow_id)
     if workflow is None or workflow.deleted_at is not None:
         raise NotFound(code="workflow_not_found")
@@ -118,8 +124,13 @@ async def start(
         raise ValidationFailed(code="workflow_unreadable")
     if record_id is not None:
         kind = registered(workflow.record_type)
-        facts = await kind.facts(session, record_id) if kind and kind.facts else None
-        if facts is None:  # gone, in the trash, or another type's
+        visible = (
+            kind is not None
+            and kind.may_view is not None
+            and await kind.may_view(session, subject, record_id)
+        )
+        facts = await kind.facts(session, record_id) if visible and kind and kind.facts else None
+        if facts is None:  # gone, in the trash, another type's, or not theirs to see
             raise NotFound(code="record_not_found")
     else:
         facts = dict(sample or {})
@@ -238,8 +249,12 @@ async def live_call(
         "by": str(by),
         "at": datetime.now(UTC).isoformat(),
     }
-    definition = _definition(run)
-    payload = dict(definition.node(found["node"]).config)  # the real headers, never `pending`'s
+    # The command as the interpreter asked for it (what a real run would send); only the
+    # headers, masked in `pending`, come back from the definition (lane B's review of #374).
+    payload = dict(found["payload"])
+    if kind is CommandKind.CALL_WEBHOOK:
+        config = _definition(run).node(found["node"]).config
+        payload["headers"] = dict(config.get("headers", {}))
     if kind is CommandKind.CALL_WEBHOOK:
         await record_event(
             session,

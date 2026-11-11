@@ -14,7 +14,7 @@ from typing import Any
 from app.core.tenancy import TenantContext
 from app.modules.automation.service import workflow_events
 from app.shared.events import EventEnvelope
-from tests.db.test_incidents_api import CONSOLE, World, world
+from tests.db.test_incidents_api import CONSOLE, World, role, world
 from tests.db.test_workflow_approvals import _approval, _release_flow
 from tests.db.test_workflow_events import TIMER, _node, _workflow
 from tests.db.test_workflow_webhooks import FLOW as WEBHOOK
@@ -184,3 +184,28 @@ async def test_a_live_call_needs_a_record_and_a_webhook_or_notify_node(world: Wo
     not_allowed = await _post(world, run2, "live-call", command_id=field_step["id"])
     assert not_allowed.status_code == 422
     assert not_allowed.json()["code"] == "live_call_not_allowed"
+
+
+async def test_a_test_run_on_a_record_needs_the_right_to_see_it(world: World) -> None:
+    """workflows.manage alone never shows a record's values (lane B's review of #374)."""
+    a = world.a
+    designer = await role(world, a, "Workflow designer", [("workflows.manage", "all")])
+    assigned = await world.call("PUT", f"/users/{a.tech_b}/roles/{designer}", a, a.admin)
+    assert assigned.status_code in {200, 204}, assigned.text
+    item = await world.create(a, a.admin, group_id=str(a.ga))  # GA's: tech_b is in GB
+    assert (await world.get(a, a.tech_b, item)).status_code == 404
+    flow = await _workflow(world, _notify_and_set())
+    refused = await world.call(
+        "POST",
+        f"{BASE}/{flow}/test-runs",
+        a,
+        a.tech_b,
+        json={"record_id": item["id"]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert refused.status_code == 404, refused.text
+    assert refused.json()["code"] == "record_not_found"
+    rows = await world.sql(
+        "SELECT count(*) AS n FROM workflow_test_runs WHERE tenant_id = $1", a.tenant
+    )
+    assert rows[0]["n"] == 0

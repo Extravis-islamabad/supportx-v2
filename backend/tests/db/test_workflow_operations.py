@@ -15,6 +15,7 @@ from app.core.tenancy import TenantContext
 from app.modules.automation.service import workflow_events
 from app.shared.events import EventEnvelope
 from tests.db.test_incidents_api import CONSOLE, Org, World, role, world
+from tests.db.test_releases_api import moved
 from tests.db.test_workflow_approvals import _approval, _release_flow, _started
 from tests.db.test_workflow_events import WAIT_FOR_P1, _node, _start, _status, _workflow
 
@@ -208,6 +209,26 @@ async def test_req_wf_026_ac3_a_cancelled_record_stops_its_workflow(world: World
         "work_items.work_item.status_changed",
     )
     envelope = EventEnvelope.model_validate(json.loads(rows[0]["envelope"]))
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await workflow_events.on_record_event(envelope, session)
+    assert await _status(world, instance) == "cancelled"
+    assert (await _instance(world, instance))["stopped_reason"] == "record_canceled"
+
+
+async def test_a_release_canceled_by_a_stage_move_stops_its_workflow(world: World) -> None:
+    """Staged types cancel by a move into closure_canceled, not the cancel action (lane A)."""
+    a = world.a
+    release, instance = await _started(world, await _release_flow(world, WAIT_FOR_P1))
+    canceled = await moved(world, a, release, "closure_canceled", reason_text="Not needed")
+    assert canceled["status_category"] == "canceled"
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE event_type = $2"
+        " AND aggregate_id = $1 ORDER BY id DESC LIMIT 1",
+        release["id"],
+        "work_items.work_item.status_changed",
+    )
+    envelope = EventEnvelope.model_validate(json.loads(rows[0]["envelope"]))
+    assert envelope.payload["action"] != "cancel"  # a stage move
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         await workflow_events.on_record_event(envelope, session)
     assert await _status(world, instance) == "cancelled"

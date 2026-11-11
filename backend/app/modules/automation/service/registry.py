@@ -24,6 +24,8 @@ ValueChecker = Callable[[AsyncSession, Mapping[str, JsonValue]], Awaitable[Mappi
 
 # The owning module's own access check, as the person (one policy layer, §11.2).
 RecordEditCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
+# Whether a person may see the record (its type's own view rule): a test run reads its facts.
+RecordViewCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
 # The record and the stopped instance.
 WorkflowCloser = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[None]]
 # The IDs among these that are live templates of the type, in the session's tenant.
@@ -59,6 +61,8 @@ class RecordType:
     # Whether a person may edit one record (ADR-043 §10): running, stopping or restarting a
     # workflow on it needs workflows.run and this. None: nobody may (the type has no workflows).
     may_edit: "RecordEditCheck | None" = None
+    # A test run on a record shows its facts: only to someone who may see it (lane B, #374).
+    may_view: "RecordViewCheck | None" = None
     # A stopped workflow's open parts on the record (its pending approvals) close (REQ-WF-026).
     close_workflow: "WorkflowCloser | None" = None
     # A run moved to another version: the record's history says so, naming it (REQ-WF-021 AC2).
