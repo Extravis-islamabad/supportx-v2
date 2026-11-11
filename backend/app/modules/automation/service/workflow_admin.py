@@ -48,14 +48,10 @@ from app.modules.automation.service.business_rules import person_group_problems
 from app.modules.automation.service.registry import record_type as registered
 from app.modules.identity_access import (
     PolicyService,
-    ServiceIdentityView,
-    ServiceRole,
     Subject,
     assign_service_identity_role,
     create_service_identity,
     remove_service_identity_role,
-    roles_for_service,
-    service_identity,
     set_service_identity_active,
 )
 from app.shared.events import record_event
@@ -532,17 +528,9 @@ async def delete_workflow(
 # --- the run-as identity's roles (ADR-043 §6; the coordinator's plan, 2026-11-11) -------------
 
 
-async def run_as(session: AsyncSession, workflow_id: uuid.UUID) -> ServiceIdentityView | None:
-    """The workflow's run-as identity with its roles, or None before its first publish."""
-    workflow = await _get(session, workflow_id)
-    if workflow.service_identity_id is None:
-        return None
-    return await service_identity(session, workflow.service_identity_id)
-
-
-async def run_as_offered(session: AsyncSession, policy: PolicyService) -> list[ServiceRole]:
-    """The roles a run-as identity may be given: the server's own rule, never a client copy."""
-    return await roles_for_service(session, policy.catalogue)
+async def run_as_identity(session: AsyncSession, workflow_id: uuid.UUID) -> uuid.UUID | None:
+    """The workflow's run-as identity, or None before its first publish makes it."""
+    return (await _get(session, workflow_id)).service_identity_id
 
 
 async def set_run_as_role(  # noqa: PLR0913 - the workflow, the role and who asks, explicit

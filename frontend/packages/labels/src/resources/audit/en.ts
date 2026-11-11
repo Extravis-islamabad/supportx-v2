@@ -871,6 +871,7 @@ export const en = {
   'event_type.automation.workflow.command_finished': 'Workflow step finished',
   'event_type.automation.workflow.deleted': 'Workflow deleted',
   'event_type.automation.workflow.function_requested': 'Workflow asked for a custom function',
+  'event_type.automation.workflow.run_as_changed': 'Workflow run-as roles changed',
   'event_type.automation.workflow.webhook_requested': 'Workflow asked for a webhook call',
   'event_type.automation.workflow_instance.changed': 'Workflow moved on',
   'event_type.automation.workflow_job.progressed': 'Workflow job progressed',

@@ -667,8 +667,8 @@ export {
   type VersionStepOut,
   type WorkflowVersionOut,
   type WorkflowOut,
-  type RunAsOut,
-  type RunAsRoleOut,
+  type ServiceRolesOut,
+  type ServiceRoleOut,
   type WorkflowProblem,
 } from './workflows';
 export {

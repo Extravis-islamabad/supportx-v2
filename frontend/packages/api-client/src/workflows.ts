@@ -15,8 +15,8 @@ export type NodeConfigIn = components['schemas']['NodeConfigIn'];
 export type TestRunOut = components['schemas']['TestRunOut'];
 export type TestRunIn = components['schemas']['TestRunIn'];
 export type TestAnswerIn = components['schemas']['AnswerIn'];
-export type RunAsOut = components['schemas']['RunAsOut'];
-export type RunAsRoleOut = components['schemas']['RunAsRoleOut'];
+export type ServiceRolesOut = components['schemas']['ServiceRolesOut'];
+export type ServiceRoleOut = components['schemas']['ServiceRoleOut'];
 
 const PATH = '/api/v1/automation/workflows';
 

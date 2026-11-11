@@ -39,6 +39,11 @@ from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
+from app.modules.identity_access.api.service_roles import (
+    ServiceRoleOut,
+    ServiceRolesOut,
+    service_roles_out,
+)
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
@@ -429,6 +434,8 @@ __all__ = [
     "RoleName",
     "ServiceIdentityView",
     "ServiceRole",
+    "ServiceRoleOut",
+    "ServiceRolesOut",
     "SodRule",
     "Subject",
     "SyncedPerson",
@@ -464,6 +471,7 @@ __all__ = [
     "roles_for_service",
     "scope_filter",
     "service_identity",
+    "service_roles_out",
     "set_service_identity_active",
     "subject_for",
     "sync_directory_person",

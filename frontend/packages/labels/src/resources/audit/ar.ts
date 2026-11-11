@@ -871,6 +871,7 @@ export const ar: LabelResource = {
   'event_type.automation.workflow.command_finished': 'انتهت خطوة في سير العمل',
   'event_type.automation.workflow.deleted': 'حُذف سير العمل',
   'event_type.automation.workflow.function_requested': 'طلب سير العمل تشغيل دالة مخصصة',
+  'event_type.automation.workflow.run_as_changed': 'تغيّرت أدوار هوية تشغيل سير العمل',
   'event_type.automation.workflow.webhook_requested': 'طلب سير العمل استدعاء خطاف ويب',
   'event_type.automation.workflow_instance.changed': 'تقدّم سير العمل',
   'event_type.automation.workflow_job.progressed': 'تقدّمت مهمة سير عمل',

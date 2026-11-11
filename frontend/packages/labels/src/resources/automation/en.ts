@@ -609,16 +609,11 @@ export const en = {
   'workflows.record.tab': 'Workflows',
   'workflows.record.took': 'Took',
   'workflows.record_type': 'Record type',
-  'workflows.run_as.add': 'Give a role',
   'workflows.run_as.help':
     "Steps that change the record (set status, field update, note) act as this workflow's own identity, with only the roles you give it here.",
-  'workflows.run_as.inactive': 'Inactive while the workflow is switched off.',
-  'workflows.run_as.no_roles': 'No role yet: its steps that change the record will fail.',
-  'workflows.run_as.none_offered': 'No role you can give fits a workflow.',
   'workflows.run_as.not_made': 'Made when the workflow is first published.',
   'workflows.run_as.publish_anyway': 'Publish anyway',
   'workflows.run_as.publish_title': 'Publish without a role?',
-  'workflows.run_as.remove': 'Take the role {{name}}',
   'workflows.run_as.scope_help':
     'Give it a role that reaches every record of this type: a role limited to its own groups reaches none, as this identity belongs to no group.',
   'workflows.run_as.tab': 'Runs as',

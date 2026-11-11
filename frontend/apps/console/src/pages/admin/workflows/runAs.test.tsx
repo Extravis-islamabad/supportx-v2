@@ -120,7 +120,7 @@ describe('console: a workflow’s run-as identity', () => {
     expect(panel.textContent).toContain('Workflow: Note it');
     expect(panel.textContent).toContain('No role yet');
     const box = within(panel)
-      .getByTestId('run-as-add')
+      .getByTestId('designer-run-as-add')
       .closest('.ant-select')
       ?.querySelector('.ant-select-selector');
     if (box === null || box === undefined) throw new Error('no role picker');

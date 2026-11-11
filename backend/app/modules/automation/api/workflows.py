@@ -44,7 +44,13 @@ from app.modules.automation.service import (
     workflow_tests,
 )
 from app.modules.automation.service.registry import record_type as registered
-from app.modules.identity_access import PolicyService, Subject, get_policy
+from app.modules.identity_access import (
+    PolicyService,
+    ServiceRolesOut,
+    Subject,
+    get_policy,
+    service_roles_out,
+)
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.idempotency import Created, Idempotency
@@ -1175,48 +1181,14 @@ async def delete_workflow(
 # --- the run-as identity (ADR-043 §6; the coordinator's plan, 2026-11-11) -----------------------
 
 
-class RunAsRoleOut(BaseModel):
-    """A role as the "Runs as" section names it: system roles by key (labelled), others by name."""
-
-    id: uuid.UUID
-    key: str
-    name: str
-    system: bool
-
-
-class RunAsOut(BaseModel):
-    """Who a workflow's steps act as, and the roles it may be given (REQ-WF-010, ADR-043 §6)."""
-
-    made: bool = Field(description="False until the first publish makes the identity.")
-    name: str | None
-    active: bool
-    roles: list[RunAsRoleOut] = Field(description="The roles given to it; none by default.")
-    offered: list[RunAsRoleOut] = Field(
-        description="Roles a run-as identity may hold (the server's rule), for the picker."
-    )
-
-
-def _role(role: Any) -> RunAsRoleOut:  # noqa: ANN401 - identity_access's ServiceRole
-    return RunAsRoleOut(id=role.id, key=role.key, name=role.name, system=role.system)
-
-
 @router.get("/{workflow_id}/run-as", summary="Who the workflow acts as, and its roles")
 async def run_as(
     workflow_id: uuid.UUID, session: TenantSession, subject: Manage, policy: Policy
-) -> RunAsOut:
+) -> ServiceRolesOut:
     """Before the first publish there is no identity yet; its roles are none until given."""
     del subject
-    found = await workflow_admin.run_as(session, workflow_id)
-    offered = [_role(r) for r in await workflow_admin.run_as_offered(session, policy)]
-    if found is None:
-        return RunAsOut(made=False, name=None, active=False, roles=[], offered=offered)
-    return RunAsOut(
-        made=True,
-        name=found.name,
-        active=found.active,
-        roles=[_role(r) for r in found.roles],
-        offered=offered,
-    )
+    identity = await workflow_admin.run_as_identity(session, workflow_id)
+    return await service_roles_out(session, policy, identity)
 
 
 @router.put(
