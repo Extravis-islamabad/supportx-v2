@@ -202,6 +202,9 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             # (D-144) are the change manager's and the administrators' only.
             ("changes.manage_boards", "all"),
             ("changes.emergency_override", "all"),
+            # WP-045c (the coordinator, 2026-11-11): change windows and the freeze override.
+            ("changes.manage_windows", "all"),
+            ("changes.override_freeze", "all"),
             ("cmdb.view", "all"),
         ),
         RELEASE_MANAGER: (

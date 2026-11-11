@@ -1603,6 +1603,15 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     resume_status: Mapped[str | None] = mapped_column(String(40))
     pir_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
     risk_reason: Mapped[str | None] = mapped_column(String(500))
+    # WP-045c (0132): a blocking freeze passed for this change, with who, when and why. The
+    # reason is personal data, as risk_reason (WP-064 S2).
+    freeze_override_reason: Mapped[str | None] = mapped_column(String(500))
+    freeze_override_by: Mapped[uuid.UUID | None]
+    freeze_override_at: Mapped[datetime | None]
+    # The freezes it passes, by ID: any other blocking freeze still refuses (lane B's review).
+    freeze_override_window_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
 
 
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------
@@ -1770,6 +1779,51 @@ class WorkItemDowntime(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
     )
     version: Mapped[int] = mapped_column(Integer, server_default="1")
     deleted_at: Mapped[datetime | None]
+
+
+# --- freeze and maintenance windows (WP-045c; REQ-CHG-075..077; ADR-042; 0132) -------------------
+
+
+class ChangeWindow(TenantEntity):
+    """A freeze or maintenance window, tenant-wide or for some sites, groups, services or CIs.
+
+    `mode` says what a conflict does (block or warn); a weekly window repeats from its first
+    occurrence until `repeat_until` (or always). Services and CIs are IDs until the CMDB lands.
+    """
+
+    __tablename__ = "change_windows"
+    __table_args__ = (
+        CheckConstraint("kind IN ('freeze', 'maintenance')", name="kind_code"),
+        CheckConstraint("mode IN ('block', 'warn')", name="mode_code"),
+        CheckConstraint("ends_at > starts_at", name="order"),
+        Index(
+            "ix_change_windows_tenant_kind_start",
+            "tenant_id",
+            "kind",
+            "starts_at",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    kind: Mapped[str] = mapped_column(String(20))
+    mode: Mapped[str] = mapped_column(String(10))
+    name: Mapped[str] = mapped_column(String(200))
+    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    description: Mapped[str | None] = mapped_column(String(2000))
+    starts_at: Mapped[datetime]
+    ends_at: Mapped[datetime]
+    repeat_weekly: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    repeat_until: Mapped[datetime | None]
+    site_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
+    group_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
+    service_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
+    ci_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), server_default="{}")
 
 
 # --- change advisory boards (WP-045b S2; REQ-CHG-040, -041; 0117) --------------------------------

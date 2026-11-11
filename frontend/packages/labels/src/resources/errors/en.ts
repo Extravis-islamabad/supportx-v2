@@ -147,6 +147,8 @@ export const en = {
   'errors.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.change_source_not_found': 'The record this change was made for was not found.',
+  'errors.change_window_blocked':
+    'A freeze blocks this time. Choose another time, or someone allowed to may let the change go ahead with a reason.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -427,6 +429,7 @@ export const en = {
     'A template for requesters is offered to everyone: it cannot be limited to groups.',
   'errors.field.list_too_long': 'Too many values in this list.',
   'errors.field.logo_required': 'Upload a logo first.',
+  'errors.field.longer_than_a_week': 'A weekly window can last a week at most.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
   'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
@@ -963,6 +966,7 @@ export const en = {
   'errors.vendor_not_found': 'This vendor no longer exists.',
   'errors.version_conflict':
     'Someone else saved this item after you opened it. Reload to see their changes.',
+  'errors.window_not_found': 'This window does not exist, or it was removed.',
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
   'errors.work_item_asset_not_found': 'This asset is no longer linked to the record.',
