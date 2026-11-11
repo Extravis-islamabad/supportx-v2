@@ -9,10 +9,12 @@ assets come with the CMDB (lane B's WP-049/050).
 import uuid
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
 from app.modules.identity_access import Subject
+from app.modules.work_items.domain.changes import REVIEW_SECTIONS
 from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemLink
@@ -103,6 +105,9 @@ async def copy_change(  # noqa: PLR0913 - the copy and its context, explicit
     if "plans" in parts_chosen:
         _, sections = await items.plan_sections(session, subject, wtype, original.id)
         for name, row in sections:
+            # The plans, never the original's review: a copy has not been implemented yet.
+            if name in REVIEW_SECTIONS:
+                continue
             if row is not None and row.content:
                 await items.put_plan_section(
                     session,
@@ -133,3 +138,115 @@ async def copy_change(  # noqa: PLR0913 - the copy and its context, explicit
                 holders=holders,
             )
     return await items.visible_record(session, subject, wtype, record.id)
+
+
+# --- child changes and releases (WP-045d S1; REQ-CHG-096) ----------------------------------------
+
+CHILD_TYPES = frozenset({WorkItemTypeCode.CHANGE, WorkItemTypeCode.RELEASE})
+CHANGE = TYPES[WorkItemTypeCode.CHANGE]
+
+
+async def _parent_of(session: AsyncSession, record_id: uuid.UUID) -> uuid.UUID | None:
+    return await session.scalar(
+        select(WorkItemLink.target_id).where(
+            WorkItemLink.source_id == record_id,
+            WorkItemLink.kind == LinkKind.PART_OF_CHANGE.value,
+            WorkItemLink.deleted_at.is_(None),
+        )
+    )
+
+
+async def children(
+    session: AsyncSession, subject: Subject, change_id: uuid.UUID
+) -> tuple[WorkItem, list[tuple[WorkItemLink, WorkItem]]]:
+    """The change's child changes and releases (the ones you may see), by number."""
+    change = await items.visible_record(session, subject, CHANGE, change_id)
+    rows = await session.execute(
+        select(WorkItemLink, WorkItem)
+        .join(WorkItem, WorkItem.id == WorkItemLink.source_id)
+        .where(
+            WorkItemLink.target_id == change.id,
+            WorkItemLink.kind == LinkKind.PART_OF_CHANGE.value,
+            WorkItemLink.deleted_at.is_(None),
+            WorkItem.deleted_at.is_(None),
+        )
+        .order_by(WorkItem.display_id)
+    )
+    found: list[tuple[WorkItemLink, WorkItem]] = []
+    for link, child in rows:
+        try:
+            await items.visible_record(
+                session, subject, TYPES[WorkItemTypeCode(child.type)], child.id
+            )
+        except NotFound:
+            continue  # a child you may not see is never listed (nor named)
+        found.append((link, child))
+    return change, found
+
+
+async def add_child(
+    session: AsyncSession,
+    subject: Subject,
+    change_id: uuid.UUID,
+    child_id: uuid.UUID,
+    *,
+    source: Source,
+) -> WorkItemLink:
+    """Make a change or a release part of this change (editing the change; seeing the child).
+
+    One parent each, never the change itself or one of its own parents (no loops). Closing the
+    change then waits for it (the guard, REQ-CHG-096).
+    """
+    change = await items.record_for_action(session, subject, CHANGE, "edit", change_id)
+    found = await session.get(WorkItem, child_id)
+    code = WorkItemTypeCode(found.type) if found is not None else None
+    if found is None or code not in CHILD_TYPES or found.deleted_at is not None:
+        raise items.field_errors([("child_id", "record_not_found")])
+    try:
+        child = await items.visible_record(session, subject, TYPES[code], child_id)
+    except NotFound as error:
+        raise items.field_errors([("child_id", "record_not_found")]) from error
+    if child.id == change.id:
+        raise items.field_errors([("child_id", "cannot_link_itself")])
+    if await _parent_of(session, child.id) is not None:
+        raise items.field_errors([("child_id", "already_linked")])
+    ancestor = await _parent_of(session, change.id)
+    seen = {change.id}
+    while ancestor is not None and ancestor not in seen:
+        if ancestor == child.id:
+            raise items.field_errors([("child_id", "change_would_loop")])
+        seen.add(ancestor)
+        ancestor = await _parent_of(session, ancestor)
+    link = await parts.LinkRepository(session).add(
+        WorkItemLink(source_id=child.id, target_id=change.id, kind=LinkKind.PART_OF_CHANGE.value)
+    )
+    await parts.link_recorded(session, change, child, link, "child_added", source)
+    return link
+
+
+async def remove_child(
+    session: AsyncSession,
+    subject: Subject,
+    change_id: uuid.UUID,
+    link_id: uuid.UUID,
+    *,
+    source: Source,
+) -> None:
+    """Take a child off the change (kept as history; the link is soft-deleted)."""
+    change = await items.record_for_action(session, subject, CHANGE, "edit", change_id)
+    link = await session.scalar(
+        select(WorkItemLink).where(
+            WorkItemLink.id == link_id,
+            WorkItemLink.target_id == change.id,
+            WorkItemLink.kind == LinkKind.PART_OF_CHANGE.value,
+            WorkItemLink.deleted_at.is_(None),
+        )
+    )
+    if link is None:
+        raise NotFound(code="link_not_found")
+    child = await session.get(WorkItem, link.source_id)
+    removed = await parts.LinkRepository(session).soft_delete(
+        link.id, expected_version=link.version
+    )
+    if child is not None:
+        await parts.link_recorded(session, change, child, removed, "child_removed", source)
