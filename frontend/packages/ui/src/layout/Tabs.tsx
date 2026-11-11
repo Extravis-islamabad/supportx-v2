@@ -86,8 +86,22 @@ function ScrollButtons() {
         if (keyboard) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       });
     };
+    // A pointer press never moves focus onto a tab: focusing one makes Ant Design reset the
+    // row's scroll (above), and in a real browser the tab still slid out from under the press,
+    // so the click never chose it (the #402 smoke runs). The click itself still chooses the tab;
+    // the keyboard reaches tabs by Tab and the arrow keys as before.
+    const onPress = (event: MouseEvent) => {
+      if (
+        event.button === 0 &&
+        event.target instanceof Element &&
+        event.target.closest('[role="tab"]')
+      ) {
+        event.preventDefault();
+      }
+    };
     wrap.addEventListener('scroll', measure, { passive: true });
     wrap.addEventListener('focusin', onFocus);
+    wrap.addEventListener('mousedown', onPress, { capture: true });
     const watch = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
     watch?.observe(wrap);
     const list = wrap.querySelector('.ant-tabs-nav-list');
@@ -96,6 +110,7 @@ function ScrollButtons() {
       wrap.style.marginInline = '';
       wrap.removeEventListener('scroll', measure);
       wrap.removeEventListener('focusin', onFocus);
+      wrap.removeEventListener('mousedown', onPress, { capture: true });
       watch?.disconnect();
     };
   }, [wrap, measure]);

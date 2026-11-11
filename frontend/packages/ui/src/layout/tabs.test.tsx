@@ -66,4 +66,24 @@ describe('Tabs', () => {
     expect(screen.queryByTestId('tabs-scroll-later')).toBeNull();
     expect(screen.queryByTestId('tabs-scroll-earlier')).toBeNull();
   });
+  it('a pressed tab is chosen by its click without taking focus first', () => {
+    overflowing(300);
+    let selected = 't0';
+    const view = render(
+      <AppearanceProvider initialMode="light">
+        <Tabs
+          items={items}
+          onChange={(key) => {
+            selected = key;
+          }}
+        />
+      </AppearanceProvider>,
+    );
+    const tab = view.getByRole('tab', { name: 'Tab 7' });
+    // The press is cancelled (so focus, and Ant Design's scroll reset, never happen) ...
+    expect(fireEvent.mouseDown(tab, { button: 0 })).toBe(false);
+    // ... and the click still chooses the tab.
+    fireEvent.click(tab);
+    expect(selected).toBe('t7');
+  });
 });
