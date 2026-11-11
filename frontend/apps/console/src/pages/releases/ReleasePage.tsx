@@ -27,7 +27,7 @@ import {
   SPACE,
 } from '@supportx/ui';
 
-import { RecordWorkflows } from '../workflows/RecordWorkflows';
+import { RecordWorkflows, WorkflowFailureBanner } from '../workflows/RecordWorkflows';
 import { personName } from '../incidents/labels';
 
 import { EMERGENCY_PATH, stageName, statusName } from './labels';
@@ -71,6 +71,7 @@ export function ReleasePage() {
     (a) => a.state === 'pending',
   ).length;
   const [moving, setMoving] = useState<StageMove>();
+  const [tab, setTab] = useState('details');
   useRecordChannel('wi', id === '' ? undefined : id, () => {
     void queryClient.invalidateQueries({ queryKey: releaseKeys.detail(id) });
   });
@@ -255,9 +256,19 @@ export function ReleasePage() {
           }}
         />
       )}
+      {/* A failed workflow step, named on the header with Retry (REQ-REL-021 AC1). */}
+      <WorkflowFailureBanner
+        recordType="release"
+        recordId={r.id}
+        onOpen={() => {
+          setTab('workflows');
+        }}
+      />
       <Tabs
         data-testid="release-tabs"
         destroyOnHidden
+        activeKey={tab}
+        onChange={setTab}
         items={[
           { key: 'details', label: t('releases.tab.details'), children: <DetailsPart id={r.id} /> },
           { key: 'roles', label: t('releases.tab.roles'), children: <RolesPart id={r.id} /> },

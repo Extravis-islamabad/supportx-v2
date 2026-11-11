@@ -807,6 +807,42 @@ describe('console: releases', () => {
       ).toBe('"4"');
     });
 
+    it('REQ-REL-021 AC1: a failed step shows on the header, with Retry and a way to the tab', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(
+        {
+          [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] },
+          [`POST /api/v1/automation/workflows/instances/${INSTANCE}/retry`]: {
+            body: { ...failedRun.instance, status: 'running', version: 5 },
+          },
+        },
+        PERMS,
+      );
+      render(<App />);
+      const banner = await screen.findByTestId('workflow-failure-banner');
+      expect(banner.textContent).toContain(failedRun.workflow_name);
+      expect(banner.textContent).toContain('call');
+      fireEvent.click(within(banner).getByTestId('workflow-failure-retry'));
+      await waitFor(() => {
+        expect(
+          fake.find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/retry`),
+        ).toHaveLength(1);
+      });
+      fireEvent.click(within(banner).getByTestId('workflow-failure-open'));
+      expect(await screen.findByTestId('record-workflows')).toBeDefined();
+    });
+
+    it('without workflows.run there is no banner', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      api(
+        { [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] } },
+        ['releases.view', 'releases.edit'],
+      );
+      render(<App />);
+      await screen.findByTestId('release-page');
+      expect(screen.queryByTestId('workflow-failure-banner')).toBeNull();
+    });
+
     it('REQ-WF-024 AC2: Skip asks first, then goes with the run’s If-Match', async () => {
       window.history.pushState({}, '', `/releases/${REL_ID}`);
       const fake = api(

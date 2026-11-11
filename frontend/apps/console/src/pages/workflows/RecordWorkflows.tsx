@@ -343,3 +343,69 @@ export function RecordWorkflows({
     />
   );
 }
+
+/**
+ * A failed workflow step on the record's header (REQ-REL-021 AC1; REQ-WI-009): which workflow,
+ * which step and why, with Retry for those who run workflows and may edit the record (the server
+ * decides). Shown only to people who may see the record's workflows; live with its channel.
+ */
+export function WorkflowFailureBanner({
+  recordType,
+  recordId,
+  onOpen,
+}: {
+  recordType: string;
+  recordId: string;
+  onOpen: () => void;
+}) {
+  const t = useLabel();
+  const { can } = useAccess();
+  const queryClient = useQueryClient();
+  const allowed = can('workflows.run') || can('workflows.manage');
+  const runs = useRecordWorkflows(recordType, recordId, allowed);
+  const retry = useRetryInstance();
+  useRecordEvents('wi', allowed ? recordId : undefined, (m) => {
+    if (m.type === 'workflow_instances.changed') {
+      void queryClient.invalidateQueries({
+        queryKey: ['workflows', 'record', recordType, recordId],
+      });
+    }
+  });
+  const failed = (runs.data ?? []).find((r) => r.instance.status === 'failed');
+  if (!allowed || failed === undefined) return null;
+  const i = failed.instance;
+  const failure = (i.failure ?? {}) as {
+    node?: string;
+    code?: string;
+    params?: Record<string, unknown>;
+  };
+  return (
+    <Alert
+      type="error"
+      showIcon
+      style={{ marginBottom: 12 }}
+      data-testid="workflow-failure-banner"
+      message={t('workflows.record.failed_banner', {
+        workflow: failed.workflow_name,
+        node: failure.node ?? '',
+      })}
+      description={failureText(t, failure.code ?? '', failure.params ?? {})}
+      action={
+        <Space>
+          <WriteButton
+            size="small"
+            onClick={() => {
+              retry.mutate({ id: i.id, version: i.version }, { onError: reportError });
+            }}
+            data-testid="workflow-failure-retry"
+          >
+            {t('workflows.record.retry')}
+          </WriteButton>
+          <Typography.Link onClick={onOpen} data-testid="workflow-failure-open">
+            {t('workflows.record.open_tab')}
+          </Typography.Link>
+        </Space>
+      }
+    />
+  );
+}
