@@ -23,7 +23,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol, cast
 
-from sqlalchemy import ColumnElement, Select, and_, delete, exists, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, delete, exists, false, func, or_, select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -690,6 +690,56 @@ async def views_for(
     return view_predicates(subject, zone=zone, now=_now(), reports=reports)
 
 
+def _release_views(subject: Subject) -> dict[str, ColumnElement[bool]]:
+    """The release list's own views (REQ-REL-055), on its role holders and its own fields.
+
+    A release's manager and engineer are kept in two places until they are one (PROGRESS): both
+    are read, so a release is never missed from "My releases" or wrongly "Unassigned".
+    """
+    me = subject.user_id
+    held = select(WorkItemRoleHolder.work_item_id).where(
+        or_(
+            WorkItemRoleHolder.user_id == me,
+            WorkItemRoleHolder.group_id.in_(subject.group_ids) if subject.group_ids else false(),
+        )
+    )
+    named = select(WorkItemReleaseDetails.work_item_id).where(
+        or_(
+            WorkItemReleaseDetails.release_manager_id == me,
+            WorkItemReleaseDetails.release_engineer_id == me,
+        )
+    )
+    staffed = select(WorkItemRoleHolder.work_item_id).where(
+        WorkItemRoleHolder.role.in_(tuple(release_rules.PEOPLE_ROLES))
+    )
+    staffed_by_field = select(WorkItemReleaseDetails.work_item_id).where(
+        or_(
+            WorkItemReleaseDetails.release_manager_id.is_not(None),
+            WorkItemReleaseDetails.release_engineer_id.is_not(None),
+        )
+    )
+    scheduled = select(WorkItemReleaseDetails.work_item_id).where(
+        WorkItemReleaseDetails.scheduled_start.is_not(None)
+    )
+    return {
+        "my_releases": or_(WorkItem.id.in_(held), WorkItem.id.in_(named)),  # AC1
+        "release_unassigned": and_(
+            _open(), WorkItem.id.not_in(staffed), WorkItem.id.not_in(staffed_by_field)
+        ),
+        "scheduled": and_(_open(), WorkItem.id.in_(scheduled)),
+        "unscheduled": and_(_open(), WorkItem.id.not_in(scheduled)),  # AC2
+        "deployed": or_(
+            WorkItem.status == "deployment_deployed",
+            and_(
+                WorkItem.status_category.not_in(
+                    (StatusCategory.CLOSED.value, StatusCategory.CANCELED.value)
+                ),
+                WorkItem.stage.in_(RELEASE_DEPLOYED_STAGES),
+            ),
+        ),
+    }
+
+
 def view_predicates(
     subject: Subject,
     *,
@@ -770,6 +820,7 @@ def view_predicates(
         # emergency path (open), and closed past their review date with the review still open.
         # Releases (WP-058b S4, REQ-REL-053 AC3): a failed or rolled-back deployment.
         "failed": WorkItem.status.in_(RELEASE_FAILED),
+        **_release_views(subject),
         "awaiting_cab": WorkItem.status == CHANGE_AT_CAB,
         "in_implementation": and_(_open(), WorkItem.stage == "implementation"),
         "emergency": and_(_open(), WorkItem.stage_path == "emergency"),
@@ -893,6 +944,8 @@ async def view_filters(
             },
         ),
         "failed": _cond("status", "in", list(RELEASE_FAILED)),
+        # Releases (WP-058b S5a): their people and schedule are the release's own tables.
+        **dict.fromkeys(RELEASE_VIEW_CODES[1:], NOT_EXPRESSIBLE),
         "awaiting_cab": _cond("status", "eq", CHANGE_AT_CAB),
         "in_implementation": NOT_EXPRESSIBLE,  # the stage fields are not in the DSL yet
         "emergency": NOT_EXPRESSIBLE,
@@ -1030,7 +1083,17 @@ PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
 # WP-045d S2 adds the CAB's own view and the change states people look for (REQ-CHG-098).
 # Releases: their failed and rolled-back deployments (REQ-REL-053 AC3), reportable.
 RELEASE_FAILED = ("deployment_failed", "deployment_rolled_back")
-RELEASE_VIEW_CODES = ("failed",)
+# WP-058b S5a (REQ-REL-055): mine (any release role), nobody to run it, (un)scheduled, deployed.
+RELEASE_VIEW_CODES = (
+    "failed",
+    "my_releases",
+    "release_unassigned",
+    "scheduled",
+    "unscheduled",
+    "deployed",
+)
+# Deployed and not closed yet: the deployment done, training and review to come or under way.
+RELEASE_DEPLOYED_STAGES = ("training", "review")
 CHANGE_VIEW_CODES = (
     "pending_approval",
     "awaiting_cab",
