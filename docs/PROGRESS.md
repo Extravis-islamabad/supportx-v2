@@ -337,9 +337,16 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   workers; the preflight checks all of it (`make cluster-ha-preflight` after the install, CI
   too) and node-loss.sh proves live updates resume after the fan-out moves. What runs how many
   copies: [deployment.md](deployment.md) (Profiles).
-  - [ ] **Open: bundled HA SeaweedFS (3 masters, replicated volumes, filer ×2): pending Haider
-    (roadmap call).** Until then HA installs use their own S3-compatible store (decision b,
-    2026-11-12); the preflight warns (advisory) when the bundled single SeaweedFS runs.
+  - [x] **Bundled HA SeaweedFS (D-166, ADR-038 Addendum A):** in `values-ha.yaml` SeaweedFS's
+    own replication: 3 masters (raft), 3 volume servers with replication 001 (two copies on two
+    nodes), 2 filers with the S3 gateway behind the unchanged Service; the filers' metadata in
+    its own database and role in the release's CloudNativePG cluster (same backups, checked by
+    the restore drill). The preflight checks the spread and the replication; the HA job's
+    object-storage node-loss test (`make cluster-ha-objects-node-loss`) stops the node with the
+    raft leader and a volume server. External S3 stays supported. Moving a single-copy install
+    is a documented rclone copy ([deployment.md](deployment.md), Profiles). Still open: the
+    file-store backup (audit gap #1); the single-node pod still sends SeaweedFS's anonymous
+    usage statistics (its golden file unchanged here; fix in its own PR).
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
