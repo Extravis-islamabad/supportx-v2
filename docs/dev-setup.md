@@ -70,7 +70,8 @@ dark / high contrast, right-to-left, language); the tenant switcher
 profile** in the user menu (open it in two browsers and save in both to see the conflict
 dialog); `/dev/components` (development builds only: chart, every error message). Licence states
 are driven with `make dev-subscription` (see "Plans and licence limits"). Playwright: `make e2e`
-(frontend/e2e/README.md). How the frontend is built: docs/architecture/frontend.md.
+(frontend/e2e/README.md), or `make e2e-smoke` for the ~5-minute `@smoke` subset. How the
+frontend is built: docs/architecture/frontend.md.
 
 ## 4. Services, ports and logins
 
