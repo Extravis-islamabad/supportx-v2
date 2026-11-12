@@ -10,6 +10,7 @@ import { reportError, useLabel } from '@supportx/ui';
 // chosen; never the conversation, worklogs or history (AC2). The server's limit is said at the
 // count when it refuses (AC3).
 
+const PARTS: readonly RecordCopyPart[] = ['tasks', 'attachments'];
 const SHOWN_MAX = 20; // the default limit; the server's own (per type) is the one that counts
 
 export function CopyDialog({
@@ -109,15 +110,15 @@ export function CopyDialog({
           />
         </Form.Item>
         <Form.Item label={t('incidents.copy.with')}>
-          <Checkbox
-            checked={parts.includes('tasks')}
-            onChange={(event) => {
-              setParts(event.target.checked ? ['tasks'] : []);
-            }}
-            data-testid="inc-copy-tasks"
-          >
-            {t('record_copy_part.tasks')}
-          </Checkbox>
+          <Checkbox.Group<RecordCopyPart>
+            value={parts}
+            onChange={setParts}
+            options={PARTS.map((part) => ({
+              value: part,
+              label: t(`record_copy_part.${part}`),
+            }))}
+            data-testid="inc-copy-parts"
+          />
         </Form.Item>
       </Form>
     </Modal>

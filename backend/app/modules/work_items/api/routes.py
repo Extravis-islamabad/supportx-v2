@@ -104,6 +104,7 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
 from app.shared.api.ratelimit import rate_limit
+from app.shared.files.service.core import FileServices
 from app.shared.history import Actors, ChangeKind, HistoryEntry, Source, source_of
 from app.shared.labels import strip_isolates
 
@@ -2261,6 +2262,21 @@ async def _release_facts(
     }
 
 
+FILES_STATE = "files"  # the system module keeps the API's FileServices on app.state
+
+
+def _copy_files(request: Request) -> FileServices:
+    """The API's file services, for copying a record's files (as knowledge's links do)."""
+    found: FileServices | None = getattr(request.app.state, FILES_STATE, None)
+    if found is None:
+        found = FileServices.from_settings(request.app.state.settings)
+        setattr(request.app.state, FILES_STATE, found)
+    return found
+
+
+CopyFiles = Annotated[FileServices, Depends(_copy_files)]
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -3742,6 +3758,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             idempotency: Idempotency,
             request: Request,
             policy: Policy,
+            files: CopyFiles,
         ) -> Response:
             """New records from this one's fields, each naming it in its history.
 
@@ -3759,6 +3776,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
                     parts_chosen=frozenset(body.parts),
                     source=source_of(request),
                     holders=policy,
+                    files=files,
+                    facts=RequestFacts.of(request),
                 )
                 views = [await service.get(session, subject, wtype, r.id) for r in made.records]
                 return Created(body=RecordCopiesOut(items=[WorkItemOut.of(v) for v in views]))

@@ -1808,6 +1808,7 @@ export const ar: LabelResource = {
   'reason_mode.none': 'بدون سبب',
   'reason_mode.optional': 'السبب اختياري',
   'reason_mode.required': 'السبب مطلوب',
+  'record_copy_part.attachments': 'المرفقات',
   'record_copy_part.tasks': 'المهام',
   'release_reason.compliance': 'الامتثال',
   'release_reason.fixes': 'إصلاحات',

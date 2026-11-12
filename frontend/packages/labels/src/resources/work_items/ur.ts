@@ -1617,6 +1617,7 @@ export const ur: LabelResource = {
   'reason_mode.none': 'کوئی وجہ نہیں',
   'reason_mode.optional': 'وجہ اختیاری',
   'reason_mode.required': 'وجہ ضروری',
+  'record_copy_part.attachments': 'منسلکات',
   'record_copy_part.tasks': 'کام',
   'release_reason.compliance': 'تعمیل',
   'release_reason.fixes': 'اصلاحات',

@@ -1614,6 +1614,7 @@ export const en = {
   'reason_mode.none': 'No reason',
   'reason_mode.optional': 'Reason optional',
   'reason_mode.required': 'Reason required',
+  'record_copy_part.attachments': 'Attachments',
   'record_copy_part.tasks': 'Tasks',
   'release_reason.compliance': 'Compliance',
   'release_reason.fixes': 'Fixes',

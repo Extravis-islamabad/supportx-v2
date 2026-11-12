@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -56,7 +56,7 @@ describe('Copy an incident', () => {
     render(<App />);
     await clickAction('inc-op-copy');
     fireEvent.change(await screen.findByTestId('inc-copy-count'), { target: { value: '2' } });
-    fireEvent.click(screen.getByTestId('inc-copy-tasks'));
+    fireEvent.click(within(screen.getByTestId('inc-copy-parts')).getByText('Tasks'));
     fireEvent.click(screen.getByTestId('inc-copy-confirm'));
     await waitFor(() => {
       expect(fake.find('POST', `${PATH}/copies`)).toHaveLength(1);

@@ -203,6 +203,7 @@ export const en = {
   'audit.action.domain.verified': 'Verified a custom domain',
   'audit.action.file.archive_downloaded': 'Downloaded files as a zip',
   'audit.action.file.blocked': 'Blocked a file containing malware',
+  'audit.action.file.copied': 'Copied a file onto a copied record',
   'audit.action.file.deleted': 'Deleted a file',
   'audit.action.file.downloaded': 'Opened a file from a private note',
   'audit.action.file.purged': 'Removed files for good',
