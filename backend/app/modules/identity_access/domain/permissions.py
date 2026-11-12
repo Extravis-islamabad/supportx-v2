@@ -90,6 +90,10 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
     # API keys for service identities and every key of the tenant (WP-041, D-128). The key
     # screens are for the browser only: no key ever reaches them, whatever its scopes.
     PermissionSpec("api_keys.manage"),
+    # A person's cost per hour (REQ-INC-068, for worklog costs): money, so no built-in role but
+    # the tenant admin holds them (no defaults). Names pending Haider's naming (PROGRESS.md).
+    PermissionSpec("users.view_cost_rates"),
+    PermissionSpec("users.manage_cost_rates"),
 )
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
@@ -122,9 +126,11 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("changes.create", "all"),
             ("releases.view", "all"),
             ("assets.view", "all"),
-            # D-153: a technician updates only the assets linked to its own tickets. Records
-            # can't link assets yet (REQ-AST-025, the asset picker on incident and request
-            # forms), so for now it only views them; full management is the asset manager's.
+            # D-153, D-157: no assets.manage. A technician changes only an asset linked to its
+            # own ticket still being worked and held by that ticket's requester or department,
+            # and then only its state, location, notes and fitted components: the assets
+            # module's narrower write (assets/service/ticket_access.py), not a grant here.
+            # Full management is the asset manager's.
             ("cmdb.view", "all"),
         ),
         REQUESTER: (

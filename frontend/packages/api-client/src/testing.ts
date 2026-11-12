@@ -598,6 +598,8 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     first_task_starts_work: true,
     portal_show_due_time: false,
     segregation_strict: false,
+    outside_maintenance_blocks: false,
+    open_stage_tasks_block: true,
     cab_every_match: false,
     first_response_on: ['reply', 'public_note'],
     version: 1,
@@ -669,8 +671,10 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       open_work: { tasks: 'warn', checklists: 'warn', child_incidents: 'warn', approvals: 'block' },
       complete_open_work: false,
       auto_close_days: null,
+      checklist_item_max: 100, // WP-046a S2
       reopen_window_days: 7,
       task_owner_access: false, // WP-020e (D-112): off by default
+      task_dependency_mode: 'block', // WP-046a S1 (REQ-INC-075)
       requester_channels: [],
       requester_channel_states: [],
     },

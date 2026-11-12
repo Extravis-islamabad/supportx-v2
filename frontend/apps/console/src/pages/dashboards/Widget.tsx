@@ -127,7 +127,7 @@ export function Widget({
         result={result}
         words={words}
         onDrill={() => {
-          onDrill({ title, filter: result.drill_all, count: null });
+          onDrill({ title, filter: result.drill_all, count: null, listPath: result.list_path });
         }}
       />
     ) : (
@@ -143,10 +143,11 @@ export function Widget({
             title: `${title}: ${joinParts(row.keys.map((k, i) => (result.groups[i] ? words.key(result.groups[i], k) : '')))}`,
             filter: row.drill,
             count: typeof row.values[0] === 'number' ? row.values[0] : null,
+            listPath: result.list_path,
           });
         }}
         onDrillAll={() => {
-          onDrill({ title, filter: result.drill_all, count: null });
+          onDrill({ title, filter: result.drill_all, count: null, listPath: result.list_path });
         }}
       />
     );
@@ -281,11 +282,11 @@ export function Widget({
             chartHeight={420}
             onDrill={(row) => {
               setExpanded(false);
-              onDrill({ title, filter: row.drill, count: null });
+              onDrill({ title, filter: row.drill, count: null, listPath: result.list_path });
             }}
             onDrillAll={() => {
               setExpanded(false);
-              onDrill({ title, filter: result.drill_all, count: null });
+              onDrill({ title, filter: result.drill_all, count: null, listPath: result.list_path });
             }}
           />
         ) : (

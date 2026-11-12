@@ -3,10 +3,14 @@
 export {
   emptyDefinition,
   readDefinition,
+  readVariables,
+  VARIABLE_KINDS,
   type FlowDefinition,
   type FlowLinkDef,
   type FlowNodeDef,
   type FlowPosition,
+  type VariableKind,
+  type WorkflowVariable,
 } from './definition';
 export {
   INPUT,
@@ -19,6 +23,7 @@ export {
   type WorkflowNodeData,
 } from './graph';
 export { COLUMN, ROW, layout, withLayout } from './layout';
+export { stepNames, type StepName } from './names';
 export {
   HISTORY_LIMIT,
   canRedo,

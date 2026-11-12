@@ -72,4 +72,21 @@ export function problemText(
 }
 
 /** The node types with a settings form of their own (NodeForms); the rest use Advanced. */
-export const FORM_TYPES = new Set(['if', 'switch', 'notify', 'timer', 'wait', 'set_status']);
+export const FORM_TYPES = new Set([
+  'if',
+  'switch',
+  'notify',
+  'timer',
+  'wait',
+  'set_status',
+  'note',
+  'tasks',
+  'approval',
+  'field_update',
+  'webhook',
+  'set_variable',
+  'split',
+  'join',
+  'sub_flow',
+  'function',
+]);

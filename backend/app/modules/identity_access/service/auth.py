@@ -255,10 +255,19 @@ class AuthService:
         return f"{parts.scheme}://{host or parts.netloc}"
 
     def landing(self, app: AppName, return_to: str, origin: str | None = None) -> str:
-        """Where the browser goes after login: its own path, else the UI's home."""
+        """Where the browser goes after login: its own path, else the UI's home.
+
+        `/` (with or without a query or fragment, as the console's hand-off to the portal sends
+        `/?from=console`) is the UI's home: under its base path when both UIs share one host
+        (`https://host/portal/?from=console`), never the host's root, which is the console's.
+        """
         base_origin = origin or self.origin(app)
-        if return_to == "/":
-            return base_origin + urlsplit(self.base_url(app)).path.rstrip("/") + "/"
+        parts = urlsplit(return_to)
+        if parts.path == "/" and not parts.netloc:
+            home = base_origin + urlsplit(self.base_url(app)).path.rstrip("/") + "/"
+            query = f"?{parts.query}" if parts.query else ""
+            fragment = f"#{parts.fragment}" if parts.fragment else ""
+            return home + query + fragment
         return base_origin + return_to
 
     def client(self, app: AppName, origin: str | None = None) -> ClientCredentials:
@@ -386,7 +395,7 @@ class AuthService:
             # The console's paths mean nothing in the portal: its home, never return_to.
             log.info("login_sent_to_portal", subject=session.subject, tenant_id=session.tenant_id)
             if mobile is not None:
-                # The mobile app serves both (D-158): it signs in again for a portal session.
+                # The mobile app serves both (D-160): it signs in again for a portal session.
                 # Keycloak's own session stands, so there is no second prompt.
                 return PortalInstead(self._login_again("portal", origin, "/", mobile))
             return PortalInstead(self.landing("portal", "/", origin))
@@ -407,7 +416,7 @@ class AuthService:
             subject=session.subject,
             tenant_id=session.tenant_id,
             client=app,
-            mobile=mobile is not None,
+            via_app=mobile is not None,  # not mobile=: SENSITIVE_KEY_PARTS redacts it
         )
         if mobile is not None:
             handoff = secrets.token_urlsafe(32)

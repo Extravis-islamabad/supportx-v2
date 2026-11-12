@@ -1,5 +1,12 @@
 // errors labels (see ../README.md). English is the reference.
 export const en = {
+  'checklist_import_failure.not_text': 'The file is not a UTF-8 text (CSV) file.',
+  'checklist_import_failure.too_large': 'The file is larger than 5 MB.',
+  'checklist_import_failure.too_many_columns': 'A row has more than 40 columns.',
+  'checklist_import_failure.too_many_rows': 'The file has more than 5,000 rows.',
+  'checklist_import_reason.empty': 'Empty row',
+  'checklist_import_reason.too_many_items': "Past the checklist's item limit",
+  'checklist_import_reason.value_too_long': 'Longer than 500 characters',
   'errors.action_link_expired': 'This link has expired. Open the request in the app instead.',
   'errors.action_link_not_found': 'This link is not valid.',
   'errors.action_link_revoked': 'This is no longer needed: the request was decided or withdrawn.',
@@ -36,10 +43,22 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.archive_busy': 'You already have two downloads running. Try again in a minute.',
+  'errors.archive_too_large': 'These files come to more than {{max_mb}} MB. Pick fewer files.',
+  'errors.archive_too_many_files': 'You can download up to {{max}} files at once.',
   'errors.asset_acknowledgement_answered': 'You have already answered this one.',
   'errors.asset_acknowledgement_not_found':
     "That acknowledgement isn't yours, or no longer exists.",
   'errors.asset_already_disposed': 'This asset already has a disposal record.',
+  'errors.asset_audit_closed': 'This audit is closed and can no longer change.',
+  'errors.asset_audit_item_not_found': 'That item is not part of this audit.',
+  'errors.asset_audit_not_auditor': 'Only the auditors named on this audit can mark its items.',
+  'errors.asset_audit_not_draft': 'This audit has already started.',
+  'errors.asset_audit_not_found': "This audit does not exist, or you can't see it.",
+  'errors.asset_audit_not_running': 'This audit is not running: start it first.',
+  'errors.asset_audit_scope_frozen':
+    'The scope is fixed once an audit starts: only the name, description, end date and auditors can change.',
+  'errors.asset_audit_too_large': 'This scope holds more than {{max}} assets: narrow it down.',
   'errors.asset_batch_not_found': 'That batch is not at this site.',
   'errors.asset_book_for_yourself': 'In the portal you can book only for yourself.',
   'errors.asset_booked': '{{asset}} is booked for part of that time.',
@@ -48,6 +67,7 @@ export const en = {
   'errors.asset_booking_taken':
     'That time is already taken. The next free day starts {{next_free}}.',
   'errors.asset_bulk_empty': 'Choose at least one asset.',
+  'errors.asset_bulk_job_not_found': 'This bulk change was not found.',
   'errors.asset_bulk_too_many': 'Choose at most {{max}} assets at once.',
   'errors.asset_consumable_batch_tracking_fixed':
     'Batch tracking is chosen when a consumable is added and cannot be switched later. Add the product again as a new consumable instead.',
@@ -60,12 +80,29 @@ export const en = {
   'errors.asset_disposal_not_found': 'This asset has no disposal record.',
   'errors.asset_disposed_read_only':
     'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
+  'errors.asset_field_not_allowed':
+    "Through your ticket you can change only this asset's state, location, notes and fitted parts. Ask an asset manager for anything else.",
   'errors.asset_group_dynamic':
     "A dynamic group's members come from its filter; change the filter instead.",
   'errors.asset_group_name_taken': 'Another group already has this name.',
   'errors.asset_group_not_found': 'That group no longer exists.',
   'errors.asset_has_components':
     'It has fitted components ({{count}}): detach them or dispose of them too.',
+  'errors.asset_import_exists': 'A record with this key already exists, and the import only adds.',
+  'errors.asset_import_file_not_readable': 'Use a CSV file or an Excel workbook ({{xlsx}}).',
+  'errors.asset_import_file_not_utf8': 'Save the CSV file as UTF-8 and try again.',
+  'errors.asset_import_file_too_large': 'The file is larger than {{max_mb}} MB.',
+  'errors.asset_import_file_unsafe':
+    'The workbook unpacks to far more than its size, so it was not opened.',
+  'errors.asset_import_match_invalid': 'This kind of file cannot be matched that way.',
+  'errors.asset_import_no_match': 'No record matches this row, and the import only updates.',
+  'errors.asset_import_not_checked': 'Only a checked file can be imported. Check it again.',
+  'errors.asset_import_not_found': 'This import was not found.',
+  'errors.asset_label_job_not_found': "These labels don't exist, or someone else asked for them.",
+  'errors.asset_label_job_not_ready': 'The labels are not ready to download.',
+  'errors.asset_label_print_not_found': 'That print is no longer in the label history.',
+  'errors.asset_labels_failed': 'The labels could not be made. Try again.',
+  'errors.asset_labels_too_large': 'The labels would make too large a file: print fewer at once.',
   'errors.asset_life_cycle_in_use':
     'Product types still use this life cycle ({{used}}). Move them to another one first.',
   'errors.asset_life_cycle_not_found': 'This life cycle does not exist.',
@@ -76,11 +113,22 @@ export const en = {
   'errors.asset_link_exists': 'These two assets are already linked that way.',
   'errors.asset_link_not_found': 'That link no longer exists.',
   'errors.asset_loan_not_found': 'That loan is closed or no longer exists.',
+  'errors.asset_merge_booked': '{{asset}} is booked ahead. Cancel the booking before merging.',
+  'errors.asset_merge_nested': 'One of these assets is fitted to the other. Take it out first.',
+  'errors.asset_merge_on_loan': '{{asset}} is on loan. Take it back before merging.',
+  'errors.asset_merge_same': 'Choose two different assets.',
+  'errors.asset_merge_site_not_managed':
+    'You do not manage assets at both sites, so these cannot be merged.',
+  'errors.asset_merged': 'This asset was merged into another one.',
   'errors.asset_move_not_allowed': "This asset can't move to that state from where it is now.",
+  'errors.asset_move_not_allowed_through_ticket':
+    'Retiring or disposing of an asset is not done through a ticket. Ask an asset manager.',
   'errors.asset_no_default_state':
     'There is no default state to move the asset to. Ask an admin to check the asset states.',
   'errors.asset_no_disposed_state':
     'There is no disposed state to move the asset to. Ask an admin to check the asset states.',
+  'errors.asset_not_a_component':
+    'Only a component that nobody holds can be fitted through your ticket. Ask an asset manager to give out a whole asset.',
   'errors.asset_not_bookable':
     '{{asset}} cannot be booked: only loanable assets that are not retired or disposed can be.',
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
@@ -89,11 +137,15 @@ export const en = {
   'errors.asset_note_not_found': 'This note no longer exists.',
   'errors.asset_on_loan': '{{asset}} is already out on a loan.',
   'errors.asset_portal_booking_off': 'Your organisation does not take bookings in the portal.',
+  'errors.asset_product_ambiguous': 'More than one product has this name.',
   'errors.asset_product_not_found': 'This product does not exist.',
   'errors.asset_product_type_has_children':
     'Other product types sit under this one ({{used}}). Move or delete them first.',
   'errors.asset_product_type_in_use': 'Products still use this product type ({{used}}).',
   'errors.asset_product_type_not_found': 'This product type does not exist.',
+  'errors.asset_restore_merged':
+    'This asset was merged into {{asset}}. Confirm to restore it on its own.',
+  'errors.asset_site_not_managed': 'You can only add or move assets to the sites you manage.',
   'errors.asset_state_in_use':
     'Moves in life cycles still use this state ({{used}}). Remove them first.',
   'errors.asset_state_not_found': 'This asset state does not exist.',
@@ -148,7 +200,11 @@ export const en = {
   'errors.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.change_window_blocked':
-    'A freeze blocks this time. Choose another time, or someone allowed to may let the change go ahead with a reason.',
+    'A freeze blocks this time. Choose another time, or someone allowed to may let it go ahead with a reason.',
+  'errors.checklist_item_not_found': 'This checklist item is no longer there.',
+  'errors.checklist_library_not_found':
+    'This library checklist is no longer there or is no longer offered.',
+  'errors.checklist_not_found': 'This checklist is no longer there.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -159,6 +215,11 @@ export const en = {
     'Your organisation does not let you change your contact details here. Ask your service desk.',
   'errors.conversation_entry_not_found': 'This reply or note no longer exists.',
   'errors.copy_reference': 'Copy reference',
+  'errors.cost_rate_date_taken':
+    'This person already has a rate from that moment. Change that one instead.',
+  'errors.cost_rate_not_found': 'The rate was not found.',
+  'errors.cost_rate_superseded':
+    'A later rate is already in force, so this one can no longer change. Set a new rate instead.',
   'errors.csrf_failed': 'This request could not be verified. Please reload the page and try again.',
   'errors.currency_change_needs_confirmation':
     'Changing the base currency needs a confirmation: amounts already recorded stay in the old one.',
@@ -250,6 +311,8 @@ export const en = {
     "An asset can't be fitted to itself or to one of its own parts.",
   'errors.field.asset_not_batch_tracked': 'This consumable is not tracked in batches.',
   'errors.field.asset_not_found': 'This asset does not exist or you may not see it.',
+  'errors.field.asset_overdue_state_unreachable':
+    'No life cycle of these product types moves an asset to this state. Choose one it can reach.',
   'errors.field.asset_product_not_consumable': 'Choose a product of a consumable type.',
   'errors.field.asset_product_not_found': 'This product no longer exists.',
   'errors.field.asset_product_type_cycle':
@@ -303,6 +366,7 @@ export const en = {
   'errors.field.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.field.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.field.chair_inactive': 'Choose an active person as the chair.',
+  'errors.field.change_in_other_release': 'This change is already in the open release {{release}}.',
   'errors.field.change_would_loop':
     'A change cannot be part of itself, directly or through others.',
   'errors.field.channel_reserved':
@@ -311,6 +375,10 @@ export const en = {
   'errors.field.code_taken': 'Another one already uses this code.',
   'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.condition_not_supported': 'Rules are not available for this permission yet.',
+  'errors.field.conflict_blocks':
+    'A blocking conflict cannot be acknowledged. Choose another time, or someone allowed to may let it go ahead with a reason.',
+  'errors.field.conflict_not_found':
+    'This conflict is no longer there. The list shows the conflicts now.',
   'errors.field.country_invalid': 'Choose a country from the list.',
   'errors.field.currency_unknown': 'Choose a currency from the list.',
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",
@@ -327,6 +395,7 @@ export const en = {
   'errors.field.default_required':
     'There is always a default template. Make another template the default instead.',
   'errors.field.department_not_found': 'Choose an active department.',
+  'errors.field.dependency_loop': 'A task cannot wait for itself, directly or through other tasks.',
   'errors.field.desk_not_found': 'Choose an active desk.',
   'errors.field.dimension_not_groupable':
     'Fields with several choices cannot be used for grouping yet.',
@@ -431,6 +500,7 @@ export const en = {
     'A template for requesters is offered to everyone: it cannot be limited to groups.',
   'errors.field.list_too_long': 'Too many values in this list.',
   'errors.field.logo_required': 'Upload a logo first.',
+  'errors.field.longer_than_a_month': 'A monthly window can be at most 28 days long.',
   'errors.field.longer_than_a_week': 'A weekly window can last a week at most.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
@@ -450,6 +520,7 @@ export const en = {
   'errors.field.name_needs_letters': 'Use at least one letter or digit in the name.',
   'errors.field.name_required': 'Enter a name.',
   'errors.field.name_taken': 'Another one already uses this name.',
+  'errors.field.needs_scheduled_start': 'A reminder before the start needs a scheduled start.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
   'errors.field.not_a_field': 'This field does not exist for this type.',
   'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
@@ -516,7 +587,10 @@ export const en = {
   'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
+  'errors.field.review_required_to_close': "Complete the release's review before closing it.",
   'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
+  'errors.field.role_held_by_record':
+    "This role follows the record's own field. Change it in the details panel.",
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
@@ -688,6 +762,7 @@ export const en = {
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
+  'errors.invalid_date': 'Enter a date such as 2026-11-30.',
   'errors.invalid_etag':
     'The item version sent with this change is not valid. Reload and try again.',
   'errors.invalid_filter': 'The filter could not be applied. Check the highlighted condition.',
@@ -695,12 +770,14 @@ export const en = {
   'errors.invalid_login_state': 'This sign-in link has expired. Please start again.',
   'errors.invalid_mobile_challenge':
     'The app could not start signing in. Please update the app and try again.',
+  'errors.invalid_number': 'Enter a number.',
   'errors.invalid_page_size': 'Too many rows were requested for one page.',
   'errors.invalid_report': 'This report cannot run as it is. Check the highlighted parts.',
   'errors.invalid_sort': 'The list cannot be sorted this way.',
   'errors.invalid_tenant_id': 'The organisation identifier is not valid.',
   'errors.invalid_transition':
     'This is not possible in the current status. Reload to see the latest.',
+  'errors.invalid_value': 'This value is not valid.',
   'errors.investigator_not_found': 'This person is not an investigator of this problem.',
   'errors.invitation_already_signed_in':
     'This person has signed in already, so there is nothing to invite them to.',
@@ -764,6 +841,8 @@ export const en = {
   'errors.link_has_own_route':
     'This link is removed in its own place: unlink the incident, or undo the merge.',
   'errors.link_not_found': 'This link does not exist, or it was removed.',
+  'errors.linked_records_not_available': 'Linked records are not available yet.',
+  'errors.list_not_found': 'This list does not keep settings.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
@@ -805,8 +884,11 @@ export const en = {
   'errors.node_not_found': 'That step is not in this version of the workflow.',
   'errors.node_not_mapped': 'A step this run is at has no place in the new version: map it to one.',
   'errors.not_a_member': 'You are not a member of that organisation.',
+  'errors.not_a_person': 'This is a service identity, not a person: it has no cost per hour.',
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
+  'errors.not_cancelable_from_here': 'It cannot be cancelled from where it is now.',
+  'errors.not_closable_from_here': 'It cannot be closed from where it is now. Move it on first.',
   'errors.not_found': 'The item was not found.',
   'errors.not_known_error': '{{display_id}} is not a known error.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
@@ -864,10 +946,13 @@ export const en = {
     'Live updates are not set up on this server. Reload the page to see the latest data.',
   'errors.recipient_deferred': "The recipient's mail server asked to try later.",
   'errors.recipient_refused': 'The mail server refused the recipient.',
-  'errors.record_closed': 'Closed and canceled records cannot be changed.',
+  'errors.record_closed': 'Closed and cancelled records cannot be changed.',
   'errors.record_not_editable': 'You need to be able to edit the record to do this.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
+  'errors.release_not_failed':
+    "Follow-ups are offered once the release's deployment has failed or been rolled back.",
+  'errors.reminder_not_found': 'This reminder is no longer there.',
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
   'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',
@@ -894,6 +979,7 @@ export const en = {
   'errors.rule_refused': '{{message}}',
   'errors.saved_search_limit': 'You have reached the limit of saved searches. Delete one first.',
   'errors.saved_search_not_found': 'This saved search does not exist.',
+  'errors.saved_view_not_found': 'This saved view no longer exists, or it is not yours.',
   'errors.scale_value_not_found': 'That value does not exist.',
   'errors.server_busy': 'The mail server was busy.',
   'errors.service_category_in_use':
@@ -901,8 +987,12 @@ export const en = {
   'errors.service_category_not_found': 'This category does not exist.',
   'errors.service_identity_managed':
     'This is a connector’s own identity. Change it from Admin › Integrations.',
+  'errors.service_identity_roles_elsewhere':
+    'A workflow’s or connector’s own identity gets its roles from its own settings, not here.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
   'errors.session_expired': 'Your session has ended. Please sign in again.',
+  'errors.session_key_still_in_use':
+    'This server cannot start: a sign-in key it no longer lists is still needed. List the key again.',
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unknown_person':
@@ -949,6 +1039,9 @@ export const en = {
   'errors.system_role_immutable': 'Built-in roles cannot be changed or deleted.',
   'errors.system_role_not_deletable':
     "Built-in roles can't be deleted. Copy the role to make your own version.",
+  'errors.task_blocked': 'This task waits for {{task}} to be done first.',
+  'errors.task_template_not_found':
+    'This task template is no longer there or is no longer offered.',
   'errors.technician_limit_reached':
     'All technician seats in your organisation’s plan are in use. Ask your administrator to free a seat or add more.',
   'errors.technicians_only': 'Only technicians can see other users.',
@@ -983,6 +1076,7 @@ export const en = {
   'errors.work_item_link_not_found': 'This link no longer exists.',
   'errors.work_item_not_found': 'This record does not exist or you cannot see it.',
   'errors.work_item_task_not_found': 'This task no longer exists.',
+  'errors.work_item_type_not_found': 'There is no such kind of record.',
   'errors.work_item_view_not_found':
     'This saved view no longer exists, or it is not shared with you.',
   'errors.work_item_worklog_not_found': 'This worklog no longer exists.',

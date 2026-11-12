@@ -1,8 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { DownOutlined, SwapOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { Button, Card, Dropdown, Flex, Result, Skeleton, Space, Tabs, Typography } from 'antd';
+import {
+  DownOutlined,
+  PrinterOutlined,
+  SwapOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
+import { Button, Card, Dropdown, Flex, Result, Skeleton, Space, Typography } from 'antd';
 import { useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   changeKeys,
@@ -10,6 +15,7 @@ import {
   useChangeDetails,
   useStagedApprovals,
   useStagedPanel,
+  useStagedSettings,
   type StageMove,
 } from '@supportx/api-client';
 import { useRecordChannel } from '@supportx/realtime';
@@ -25,12 +31,16 @@ import {
   useLabel,
   usePageCrumbs,
   SPACE,
+  Tabs,
 } from '@supportx/ui';
 
+import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
+import { IncidentFiles } from '../incidents/IncidentFiles';
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { IncidentHistory } from '../incidents/IncidentHistory';
 import { IncidentTasks } from '../incidents/IncidentParts';
 import { personName } from '../incidents/labels';
+import { SlaTag } from '../incidents/tags';
 import { stageName, statusName } from '../staged/labels';
 import { StagedMoveDialog } from '../staged/MoveDialog';
 import { ApprovalPreview, ApprovalsPart } from './ChangeApprovals';
@@ -41,9 +51,12 @@ import { EmergencyOverrideDialog } from './EmergencyOverride';
 import { DetailsPart, PlanPart, RiskPart, RolesPart, SchedulePart } from './ChangeParts';
 import { EMERGENCY_PATH, riskTone } from './labels';
 
+const NO_TYPING: Typing = {};
+
 const CANCELED = 'closure_canceled';
 const TABS = [
   'details',
+  'conversation',
   'risk',
   'approvals',
   'roles',
@@ -74,6 +87,7 @@ type Tab = (typeof TABS)[number];
 export function ChangePage() {
   const t = useLabel();
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const asked = params.get('tab');
   const tab: Tab = TABS.includes(asked as Tab) ? (asked as Tab) : 'details';
@@ -84,6 +98,7 @@ export function ChangePage() {
     ...(record.data ? [{ label: record.data.display_id }] : []),
   ]);
   const panel = useStagedPanel('changes', id);
+  const settings = useStagedSettings('changes');
   const approvals = useStagedApprovals('changes', id);
   const details = useChangeDetails(id).data;
   const dates = useDateTime();
@@ -113,8 +128,13 @@ export function ChangePage() {
   // Canceling ends the change: never beside the positive moves, always in "More".
   const ending = (m: StageMove) => m.to_status === CANCELED;
   const positive = allowed.filter((m) => !ending(m));
-  // One clear primary action, the next stage (D-155); every other move is under "More".
-  const next = positive.find((m) => m.to_stage !== c.stage) ?? positive[0];
+  // One clear primary action (D-155): the next stage, else the step forward in this one; a move
+  // into a paused status ("More information needed") is never the primary (QA-2026-11-11 F-09).
+  const paused = new Set(
+    (settings.data?.statuses ?? []).filter((s) => s.category === 'paused').map((s) => s.code),
+  );
+  const forward = positive.filter((m) => !paused.has(m.to_status));
+  const next = positive.find((m) => m.to_stage !== c.stage) ?? forward[0] ?? positive[0];
   const overflow = [...positive.filter((m) => m !== next), ...allowed.filter(ending)];
   const unavailable = moves.filter((m) => !m.allowed);
   // Editing as the record allows it (a closed change is read-only, REQ-CHG-097).
@@ -202,8 +222,80 @@ export function ChangePage() {
           </Button>
         </Dropdown>
       )}
+      {/* The CAB pack (REQ-CHG-102): a printable page for the board, saved as PDF by the browser. */}
+      <Button
+        icon={<PrinterOutlined aria-hidden />}
+        onClick={() => void navigate(`/changes/${c.id}/pack`)}
+        data-testid="change-pack-link"
+      >
+        {t('changes.pack.open')}
+      </Button>
     </Flex>
   );
+  // The tabs this person sees; an address naming one they don't (a tab gated on a permission)
+  // opens Details rather than an empty page.
+  const tabItems = [
+    {
+      key: 'details',
+      label: t('staged.tab.details'),
+      children: (
+        <>
+          <DetailsPart id={c.id} />
+          <IncidentFiles item={c} canEdit={mayEdit} recordType="change" />
+        </>
+      ),
+    },
+    {
+      // REQ-CHG-100: the change's replies and notes, as on every other record.
+      key: 'conversation',
+      label: (
+        <span data-testid="chg-tab-conversation">
+          {t('incidents.tab.conversation', { count: c.conversation_count + 1 })}
+        </span>
+      ),
+      children: <IncidentConversation item={c} typing={NO_TYPING} base="changes" />,
+    },
+    { key: 'risk', label: t('changes.tab.risk'), children: <RiskPart id={c.id} /> },
+    {
+      key: 'approvals',
+      label: t('staged.tab.approvals'),
+      children: <ApprovalsPart id={c.id} />,
+    },
+    { key: 'roles', label: t('staged.tab.roles'), children: <RolesPart id={c.id} /> },
+    { key: 'plan', label: t('changes.tab.plans'), children: <PlanPart id={c.id} /> },
+    {
+      key: 'schedule',
+      label: t('staged.tab.schedule'),
+      children: <ChangeScheduleTab change={c} stages={<SchedulePart id={c.id} />} />,
+    },
+    {
+      key: 'tasks',
+      label: t('changes.tab.tasks'),
+      children: <IncidentTasks item={c} canEdit={mayEdit} base="changes" />,
+    },
+    {
+      key: 'children',
+      label: t('changes.tab.children'),
+      children: <ChildrenPart id={c.id} canEdit={mayEdit} />,
+    },
+    // Workflows stays last before History (agreed with lane C, #379).
+    ...(can('workflows.run') || can('workflows.manage')
+      ? [
+          {
+            key: 'workflows',
+            label: t('workflows.record.tab'),
+            children: <RecordWorkflows recordType="change" recordId={c.id} />,
+          },
+        ]
+      : []),
+    {
+      key: 'history',
+      label: t('changes.tab.history'),
+      children: <IncidentHistory id={c.id} base="changes" />,
+    },
+  ];
+  const shown = tabItems.some((item) => item.key === tab) ? tab : 'details';
+
   return (
     <RecordPage
       testId="change-page"
@@ -230,9 +322,21 @@ export function ChangePage() {
                 </ToneTag>
               )}
               {pending > 0 && (
+                // The status's own words ("Awaiting acceptance"), so the chip and the status
+                // never name one state twice (QA-2026-11-11 F-09).
                 <ToneTag tone="warning" testId="change-awaiting-approval">
-                  {t('staged.awaiting_approval', { count: pending })}
+                  {statusName(t, c.status)}
                 </ToneTag>
+              )}
+              {/* REQ-CHG-107: its SLA's due time, once a policy gives it one. */}
+              {c.resolution_due_at !== null && (
+                <SlaTag
+                  policyId={c.sla_policy_id}
+                  dueAt={c.resolution_due_at}
+                  state={c.resolution_sla_state}
+                  resolvedAt={c.resolved_at}
+                  format={dates.format}
+                />
               )}
               {c.stage_path === EMERGENCY_PATH && (
                 <ToneTag tone="error" icon={<ThunderboltOutlined />} testId="change-emergency">
@@ -279,51 +383,11 @@ export function ChangePage() {
       <Tabs
         data-testid="change-tabs"
         destroyOnHidden
-        activeKey={tab}
+        activeKey={shown}
         onChange={(key) => {
           setParams(key === 'details' ? {} : { tab: key }, { replace: true });
         }}
-        items={[
-          { key: 'details', label: t('staged.tab.details'), children: <DetailsPart id={c.id} /> },
-          { key: 'risk', label: t('changes.tab.risk'), children: <RiskPart id={c.id} /> },
-          {
-            key: 'approvals',
-            label: t('staged.tab.approvals'),
-            children: <ApprovalsPart id={c.id} />,
-          },
-          { key: 'roles', label: t('staged.tab.roles'), children: <RolesPart id={c.id} /> },
-          { key: 'plan', label: t('changes.tab.plans'), children: <PlanPart id={c.id} /> },
-          {
-            key: 'schedule',
-            label: t('staged.tab.schedule'),
-            children: <ChangeScheduleTab change={c} stages={<SchedulePart id={c.id} />} />,
-          },
-          {
-            key: 'tasks',
-            label: t('changes.tab.tasks'),
-            children: <IncidentTasks item={c} canEdit={mayEdit} base="changes" />,
-          },
-          {
-            key: 'children',
-            label: t('changes.tab.children'),
-            children: <ChildrenPart id={c.id} canEdit={mayEdit} />,
-          },
-          // Workflows stays last before History (agreed with lane C, #379).
-          ...(can('workflows.run') || can('workflows.manage')
-            ? [
-                {
-                  key: 'workflows',
-                  label: t('workflows.record.tab'),
-                  children: <RecordWorkflows recordType="change" recordId={c.id} />,
-                },
-              ]
-            : []),
-          {
-            key: 'history',
-            label: t('changes.tab.history'),
-            children: <IncidentHistory id={c.id} base="changes" />,
-          },
-        ]}
+        items={tabItems}
       />
     </RecordPage>
   );

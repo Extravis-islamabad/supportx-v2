@@ -13,19 +13,37 @@
 - WP-049b session 2: cost lines and total cost of ownership, depreciation and book value
   (`assets.view_financials`), cost centre and GL code, notes and attachments on the asset,
   history with filters.
+- WP-049b session 3: labels (QR codes and Code 128, one PDF per job in the worker, label
+  history), asset audits (plan, run, self-audits, discrepancies settled through the asset
+  service), scan history with its retention clean-up, and the overdue-scan rule.
+- WP-049b session 4a: the asset list's built-in views and product type tree with counts, saved
+  views and favourites (the shared list-settings store), the paged asset picker, the linked
+  records port (REQ-AST-044) and the "raised from this asset" history line (045).
+- WP-049b session 4b: bulk edit, move, assign and delete as background jobs (REQ-AST-051),
+  merging duplicates with a field-by-field choice and an alias (052), and importing assets,
+  consumables and vendors with a dry run (053). The linked-records port also moves a merged
+  asset's work-item links (lane A's `repoint_asset_links`).
 
 Licensed with the `assets` feature. Public interface for other modules: `can_see`, `asset_refs`
-and `assets_of` (REQ-AST-025, for work items), and the disposal guard port.
+and `assets_of` (REQ-AST-025, for work items), the disposal guard port, `record_scan` with
+its codes (`ScanSource`, `ScanType`, `ScanResult`, `ScanFailure`): the port discovery calls for
+each scan (REQ-AST-054); (D-157) the port work items register "the requesters of my tickets
+that link this asset" with; and `LinkedRecords` with `register_linked_records` (REQ-AST-044),
+the port work items register for the asset's linked records panel.
 """
 
 from fastapi import FastAPI
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.core.modules import ModuleSpec
+from app.modules.assets.api.audits import router as audits_router
+from app.modules.assets.api.batch import router as batch_router
 from app.modules.assets.api.financials import router as financials_router
+from app.modules.assets.api.labels import router as labels_router
 from app.modules.assets.api.records import router as records_router
 from app.modules.assets.api.routes import router
 from app.modules.assets.api.stock import router as stock_router
+from app.modules.assets.domain.scans import ScanFailure, ScanResult, ScanSource, ScanType
 from app.modules.assets.events import EVENTS
 from app.modules.assets.service import notifications, reporting
 from app.modules.assets.service.assets import (
@@ -34,6 +52,7 @@ from app.modules.assets.service.assets import (
     assets_naming_vendor,
     count_managed_assets,
 )
+from app.modules.assets.service.bulk_jobs import run_asset_bulk_jobs
 from app.modules.assets.service.catalogue import CONFIGURE, MANAGE, REINSTATE, VIEW
 from app.modules.assets.service.consumables import (
     DraftPurchaseRequests,
@@ -42,6 +61,15 @@ from app.modules.assets.service.consumables import (
 )
 from app.modules.assets.service.disposals import register_disposal_guard, unregister_disposal_guard
 from app.modules.assets.service.file_access import FILE_ACCESS
+from app.modules.assets.service.imports import run_asset_imports
+from app.modules.assets.service.labels import on_label_requested
+from app.modules.assets.service.linked import (
+    LinkedRecord,
+    LinkedRecords,
+    on_asset_link_changed,
+    register_linked_records,
+    unregister_linked_records,
+)
 from app.modules.assets.service.loans import loan_sweep, on_loan_guard
 from app.modules.assets.service.ownership import OWNER_SITE_CHANGED
 from app.modules.assets.service.realtime import CHANNELS, ROUTES
@@ -52,9 +80,18 @@ from app.modules.assets.service.refs import (
     can_see,
     email_includes_assets,
 )
+from app.modules.assets.service.scans import overdue_sweep, record_scan, scan_cleanup_sweep
+from app.modules.assets.service.ticket_access import (
+    TicketRequesters,
+    register_ticket_requesters,
+    unregister_ticket_requesters,
+)
 from app.modules.assets.service.valuations import valuation_sweep
+from app.modules.assets.service.views import LIST_SPECS
 from app.modules.procurement import register_vendor_usage
+from app.shared.events import ConsumerSpec
 from app.shared.files.ports import register_owner_access, unregister_owner_access
+from app.shared.list_settings import register_list
 from app.shared.schedules import ScheduleSpec
 
 FEATURE = "assets"
@@ -98,7 +135,17 @@ module = ModuleSpec(
     name="assets",
     # The catalogue first: its fixed paths (/assets/states ...) must match before /assets/{id}.
     # Stock and bookings (WP-049b) before the record too: /assets/consumables is not an ID.
-    routers=[router, stock_router, financials_router, records_router],
+    # WP-049b s3's fixed paths (/assets/audits, /assets/labels, /assets/overdue-rule) too, and
+    # S4b's (/assets/bulk-jobs, /assets/merges, /assets/imports).
+    routers=[
+        router,
+        stock_router,
+        audits_router,
+        labels_router,
+        financials_router,
+        batch_router,
+        records_router,
+    ],
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,
@@ -107,13 +154,35 @@ module = ModuleSpec(
     # Only IT assets that are not disposed use a slot of the plan's limit (D-141).
     usage_counters={"assets": count_managed_assets},
     # A person's site changed: assets that follow their owner move too (REQ-AST-018 AC2).
-    consumers=[OWNER_SITE_CHANGED],
+    # Label PDFs are built here, never in the request (REQ-AST-039; the worker image renders).
+    consumers=[
+        OWNER_SITE_CHANGED,
+        ConsumerSpec(
+            name="assets__labels",
+            event_types=("assets.label.requested",),
+            handler=on_label_requested,
+            ack_wait_seconds=600,
+        ),
+        # REQ-AST-045: a work item raised with an asset adds a line to the asset's history.
+        ConsumerSpec(
+            name="assets__raised_from",
+            event_types=("work_items.asset_link.changed",),
+            handler=on_asset_link_changed,
+        ),
+    ],
     # Loan due and overdue, and warranty notices (REQ-AST-059), claimed once per tenant.
     schedules=[
         ScheduleSpec("assets__notices", 60, loan_sweep),
         # Book values move with time (REQ-AST-037): each asset is valued once a day for reports;
         # hourly, so a day is never missed (each run values only what is not valued today).
         ScheduleSpec("assets__valuations", 3600, valuation_sweep),
+        # Scan history past its retention, once a day (REQ-AST-054 AC2): the only hard delete.
+        ScheduleSpec("assets__scan_cleanup", 86400, scan_cleanup_sweep),
+        # The overdue-scan rule (REQ-AST-056), hourly: each run acts only on what is newly due.
+        ScheduleSpec("assets__overdue_scans", 3600, overdue_sweep),
+        # WP-049b S4b: bulk jobs (REQ-AST-051) and imports (053), as work items' and people's.
+        ScheduleSpec("assets__bulk_jobs", 5, run_asset_bulk_jobs),
+        ScheduleSpec("assets__imports", 5, run_asset_imports),
     ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
@@ -126,17 +195,33 @@ register_owner_access(FILE_ACCESS)
 register_disposal_guard(on_loan_guard)
 # Acknowledgements notify through the engine (REQ-AST-023): at import, for the workers too.
 notifications.register()
+# Each person's columns, saved views and favourites of the asset list (WP-049b s4a,
+# REQ-AST-047) live in the shared list-settings store.
+for _list in LIST_SPECS:
+    register_list(_list)
 
 __all__ = [
     "AssetRef",
     "DraftPurchaseRequests",
+    "LinkedRecord",
+    "LinkedRecords",
+    "ScanFailure",
+    "ScanResult",
+    "ScanSource",
+    "ScanType",
+    "TicketRequesters",
     "asset_refs",
     "assets_of",
     "can_see",
     "email_includes_assets",
     "module",
+    "record_scan",
     "register_disposal_guard",
     "register_draft_purchase_requests",
+    "register_linked_records",
+    "register_ticket_requesters",
     "unregister_disposal_guard",
     "unregister_draft_purchase_requests",
+    "unregister_linked_records",
+    "unregister_ticket_requesters",
 ]

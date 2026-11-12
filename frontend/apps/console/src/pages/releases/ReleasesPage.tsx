@@ -1,6 +1,6 @@
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Flex, Input, Select, Table, Tag } from 'antd';
+import { Button, Flex, Input, Select, Space, Table, Tag } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -36,7 +36,7 @@ const SUBJECT_MIN = 180; // the subject stays readable however narrow it is drag
 // Each column's own width, as the problems list (QA10V-06: the subject took ~750 px and squeezed
 // the rest; at 390 px Updated was off-screen). The table scrolls sideways on a phone.
 const OWN_WIDTHS = { id: 130, subject: 360, stage: 170, status: 170, updated: 170 };
-const VIEWS = ['open', 'my_open', 'resolved', 'all'] as const;
+const VIEWS = ['open', 'my_open', 'resolved', 'failed', 'all'] as const;
 type View = (typeof VIEWS)[number];
 
 /** Number or title: the list's search, as a filter the API applies to what you may see. */
@@ -107,16 +107,24 @@ export function ReleasesPage() {
           count={total === undefined || total === null ? undefined : String(total)}
           testId="releases-header"
           extra={
-            can('releases.create') && (
-              <WriteButton
-                type="primary"
-                icon={<PlusOutlined />}
-                data-testid="new-release"
-                onClick={() => void navigate('/releases/new')}
+            <Space>
+              <Button
+                onClick={() => void navigate('/releases/calendar')}
+                data-testid="releases-calendar"
               >
-                {t('releases.new')}
-              </WriteButton>
-            )
+                {t('releases.calendar.title')}
+              </Button>
+              {can('releases.create') && (
+                <WriteButton
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  data-testid="new-release"
+                  onClick={() => void navigate('/releases/new')}
+                >
+                  {t('releases.new')}
+                </WriteButton>
+              )}
+            </Space>
           }
         />
       }

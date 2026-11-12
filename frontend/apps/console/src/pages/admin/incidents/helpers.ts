@@ -1,16 +1,18 @@
 import { App } from 'antd';
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 import {
   ApiError,
   isOwnSettingsVersion,
   useIncidentCatalogue,
-  useIncidentSettingsChange,
+  useSettingsChange,
+  useStagedSettings,
   type IncidentCatalogue,
   type IncidentTemplate,
   type IncidentScale,
   type Labels,
   type PickList,
+  type SettingsBase,
   type SettingsChange,
 } from '@supportx/api-client';
 import {
@@ -27,6 +29,26 @@ import { scaleLabel, statusLabel } from '../../incidents/labels';
 
 // Logic shared by the incident settings screens (components live in their own files).
 type Translate = ReturnType<typeof useLabel>;
+
+/**
+ * Whose settings the screens below edit (WP-058b S4): the incidents' unless a page wraps them
+ * in another base (the release settings page). Saves, the catalogue and "this tab saved it"
+ * all follow it, so a release screen never writes /incidents/settings.
+ */
+export const SettingsBaseContext = createContext<SettingsBase>('incidents');
+
+/** The base the screen edits. */
+export function useSettingsBase(): SettingsBase {
+  return useContext(SettingsBaseContext);
+}
+
+/** The catalogue of the screen's base (both hooks run; only the base's one fetches). */
+export function useSettingsCatalogue(enabled = true) {
+  const base = useSettingsBase();
+  const incidents = useIncidentCatalogue(enabled && base === 'incidents');
+  const releases = useStagedSettings('releases', enabled && base === 'releases');
+  return base === 'incidents' ? incidents : releases;
+}
 
 /** Problems of one save, translated, for the dialog that made it (never only in a log). */
 export function fieldMessages(t: Translate, error: unknown): string[] {
@@ -73,6 +95,8 @@ const SETTING_NAMES: Record<string, string> = {
   complete_open_work: 'settings.closing.complete_open_work',
   auto_close_days: 'settings.closing.auto_close_days',
   reopen_window_days: 'settings.closing.reopen_window_days',
+  // Releases (WP-058b S4).
+  open_stage_tasks_block: 'settings.stages.open_tasks_block',
 };
 const SCALES = new Set<string>(['impact', 'urgency', 'priority']);
 
@@ -128,8 +152,8 @@ export function useSettingsSave() {
   const t = useLabel();
   const { locale } = useAppearance();
   const { message } = App.useApp();
-  const change = useIncidentSettingsChange();
-  const catalogue = useIncidentCatalogue();
+  const change = useSettingsChange(useSettingsBase());
+  const catalogue = useSettingsCatalogue();
   const conflict = useConflict();
   // The save the conflict stopped: "Keep my changes" sends it again on the saved version; and
   // the settings at the version it was based on, for the dialog to compare with the live ones.
@@ -251,10 +275,11 @@ export function cleanLabels(labels: Labels): Labels | null {
  * (Adjusted while rendering, as React recommends for state derived from a changing prop.)
  */
 export function useDraft<T>(source: T, version: number) {
+  const base = useSettingsBase();
   const [state, setState] = useState({ draft: source, base: version, dirty: false });
   if (version !== state.base && !state.dirty) {
     setState({ draft: source, base: version, dirty: false });
-  } else if (version !== state.base && isOwnSettingsVersion(version)) {
+  } else if (version !== state.base && isOwnSettingsVersion(version, base)) {
     // This tab saved another part of the settings (QA BUG-02): not someone else's change.
     setState({ ...state, base: version });
   }

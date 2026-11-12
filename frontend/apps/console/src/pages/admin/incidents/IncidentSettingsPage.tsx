@@ -13,12 +13,14 @@ import {
 } from '@supportx/ui';
 
 import { CategoriesTab } from './CategoriesTab';
+import { ChecklistLibraryTab } from './ChecklistLibraryTab';
 import { ClosingTab } from './ClosingTab';
 import { CustomFieldsTab } from './CustomFieldsTab';
 import { GeneralTab } from './GeneralTab';
 import { PickListEditor } from './PickListEditor';
 import { PriorityTab } from './PriorityTab';
 import { ReplyTemplatesTab } from './ReplyTemplatesTab';
+import { TaskTemplatesTab } from './TaskTemplatesTab';
 import { StatusesTab } from './StatusesTab';
 import { TemplatesTab } from './TemplatesTab';
 import { RepeatRulesTab } from './RepeatRulesTab';
@@ -26,6 +28,7 @@ import { RepeatRulesTab } from './RepeatRulesTab';
 const SECTIONS = [
   'general',
   'templates',
+  'checklists',
   'custom-fields',
   'statuses',
   'reasons',
@@ -35,6 +38,7 @@ const SECTIONS = [
   'closure-codes',
   'closing',
   'reply-templates',
+  'task-templates',
   'repeat-rules',
 ] as const;
 type Section = (typeof SECTIONS)[number];
@@ -85,6 +89,8 @@ export function IncidentSettingsPage() {
         return <CategoriesTab />;
       case 'reply-templates':
         return <ReplyTemplatesTab />;
+      case 'task-templates':
+        return <TaskTemplatesTab />;
       default:
         break;
     }
@@ -130,6 +136,8 @@ export function IncidentSettingsPage() {
             values={cat.closure_codes}
           />
         );
+      case 'checklists':
+        return <ChecklistLibraryTab />;
       case 'closing':
         return <ClosingTab catalogue={cat} />;
       case 'repeat-rules':

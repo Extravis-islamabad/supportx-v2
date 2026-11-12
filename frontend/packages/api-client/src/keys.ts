@@ -77,9 +77,14 @@ export const queryKeys = {
     productTypes: ['assets', 'product-types'] as const,
     products: (query: AssetProductsQuery) => ['assets', 'products', query] as const,
     records: (query: AssetRecordsQuery) => ['assets', 'records', query] as const,
+    // WP-049b s4a: the tree's counts per view, and an asset's linked work items.
+    typeCounts: (view: string) => ['assets', 'records', 'type-counts', view] as const,
+    linked: (id: string) => ['assets', 'record', id, 'linked'] as const,
     record: (id: string) => ['assets', 'record', id] as const,
     history: (id: string) => ['assets', 'history', id] as const,
     moves: (id: string) => ['assets', 'moves', id] as const,
+    // Under the record's key: a change to the asset refetches what the person may change (D-157).
+    access: (id: string) => ['assets', 'record', id, 'access'] as const,
     disposal: (id: string) => ['assets', 'disposal', id] as const,
     holdings: (id: string) => ['assets', 'holdings', id] as const,
     links: (id: string) => ['assets', 'links', id] as const,
@@ -107,6 +112,19 @@ export const queryKeys = {
     noteHistory: (id: string) => ['assets', 'note-history', id] as const,
     historyFiltered: (id: string, filters: AssetHistoryFilters) =>
       ['assets', 'history', id, filters] as const,
+    // WP-049b s3: audits, labels, scans and the overdue-scan rule.
+    audits: ['assets', 'audits'] as const,
+    audit: (id: string) => ['assets', 'audit', id] as const,
+    auditItemsAll: (id: string) => ['assets', 'audit-items', id] as const,
+    auditItems: (id: string, discrepancies: boolean) =>
+      ['assets', 'audit-items', id, discrepancies] as const,
+    labelJobs: ['assets', 'label-jobs'] as const,
+    labelPrintsAll: ['assets', 'label-prints'] as const,
+    labelPrints: (assetId: string) => ['assets', 'label-prints', assetId] as const,
+    scans: (id: string) => ['assets', 'scans', id] as const,
+    overdueRule: ['assets', 'overdue-rule'] as const,
+    overdueRuns: ['assets', 'overdue-runs'] as const,
+    overdueStates: (typeIds: string[]) => ['assets', 'overdue-states', typeIds] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here
@@ -234,6 +252,7 @@ export const queryKeys = {
     runs: (query: object) => ['workflows', 'runs', query] as const,
     job: (id: string) => ['workflows', 'job', id] as const,
     versions: (id: string) => ['workflows', 'versions', id] as const,
+    runAs: (id: string) => ['workflows', 'run-as', id] as const,
     version: (id: string, n: number, part: string) =>
       ['workflows', 'versions', id, n, part] as const,
   },
@@ -289,5 +308,7 @@ export const queryKeys = {
     all: ['users'] as const,
     list: (query: UsersQuery) => ['users', 'list', query] as const,
     detail: (id: string) => ['users', 'detail', id] as const,
+    // A person's cost per hour (money): its own key, never inside the person record's.
+    costRates: (id: string) => ['users', 'cost-rates', id] as const,
   },
 };

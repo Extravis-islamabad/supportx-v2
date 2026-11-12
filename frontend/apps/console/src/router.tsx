@@ -64,6 +64,19 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-049b s3 (REQ-AST-042, 043): asset audits, and one audit.
+            path: 'audits',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/AuditsPage')).AuditsPage,
+            }),
+          },
+          {
+            path: 'audits/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/AuditPage')).AuditPage,
+            }),
+          },
+          {
             // WP-049a s4 (REQ-AST-028): static and dynamic groups.
             path: 'groups',
             lazy: async () => ({
@@ -75,6 +88,13 @@ export const routes: RouteObject[] = [
             lazy: async () => ({ Component: (await import('./pages/assets/AssetPage')).AssetPage }),
           },
         ],
+      },
+      {
+        // WP-046a S1 (REQ-INC-076): your open tasks on every type.
+        path: 'my-tasks',
+        lazy: async () => ({
+          Component: (await import('./pages/tasks/MyTasksPage')).MyTasksPage,
+        }),
       },
       {
         // The change screens (WP-045d D19, taken forward): the list, a new change, the record.
@@ -106,6 +126,12 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/changes/ChangePage')).ChangePage,
             }),
           },
+          {
+            path: ':id/pack',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangePack')).ChangePack,
+            }),
+          },
         ],
       },
       {
@@ -123,6 +149,13 @@ export const routes: RouteObject[] = [
             path: 'new',
             lazy: async () => ({
               Component: (await import('./pages/releases/NewReleasePage')).NewReleasePage,
+            }),
+          },
+          {
+            // WP-058b S1: the release calendar (the shared staged calendar).
+            path: 'calendar',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleaseCalendarPage')).ReleaseCalendarPage,
             }),
           },
           {
@@ -370,6 +403,14 @@ export const routes: RouteObject[] = [
             lazy: async () => ({
               Component: (await import('./pages/admin/incidents/IncidentSettingsPage'))
                 .IncidentSettingsPage,
+            }),
+          },
+          {
+            // WP-058b S4: release closure codes, closing and stages (template E).
+            path: 'releases/:section?',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/releases/ReleaseSettingsPage'))
+                .ReleaseSettingsPage,
             }),
           },
           {

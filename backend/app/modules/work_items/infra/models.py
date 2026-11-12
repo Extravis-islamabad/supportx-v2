@@ -12,6 +12,7 @@ keys: the database refuses a link to another tenant's row even though FK checks 
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -23,6 +24,8 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -86,6 +89,10 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
+        CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
+        CheckConstraint(
+            "task_dependency_mode IN ('block', 'warn')", name="task_dependency_mode_code"
+        ),
         CheckConstraint(
             "on_behalf_scope IN ('same_department', 'same_site', 'all_requesters', 'all_users')",
             name="on_behalf_scope_code",
@@ -137,6 +144,11 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     first_task_starts_work: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # REQ-INC-147 (WP-028 D5): requesters see the expected resolution time; off by default.
     portal_show_due_time: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # D-156 (0137), changes only: outside every maintenance window blocks instead of warns.
+    outside_maintenance_blocks: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-058b S3 (0142; REQ-REL-048), releases only: a stage with open tasks cannot be left
+    # (off: it can, and the stage tab's counter shows what is open).
+    open_stage_tasks_block: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
     first_response_on: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default="{reply,public_note}"
@@ -159,6 +171,9 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     reopen_window_days: Mapped[int] = mapped_column(Integer, server_default="7")
     # REQ-INC-072 AC3 (D-112): a task's owner may work on it without access to the record.
     task_owner_access: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-046a S1 (0141, REQ-INC-075): an open predecessor refuses a task's start or completion
+    # ("block", the default) or only warns ("warn").
+    task_dependency_mode: Mapped[str] = mapped_column(String(10), server_default="block")
     # Problems (WP-044b s4, D-140 Q4): priorities whose problems need a review before closing;
     # the major problem template's always do. P1 by default, P2 at the admin's choice.
     review_required_priorities: Mapped[list[str]] = mapped_column(
@@ -168,6 +183,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     # implementing group too (strict; off by Haider's default), and a change goes to every board
     # its mapping matches rather than the first.
     segregation_strict: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-046a S2 (0144, REQ-INC-077): the most items one checklist may hold (admins set it).
+    checklist_item_max: Mapped[int] = mapped_column(Integer, server_default="100")
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
@@ -455,6 +472,13 @@ class WorkItemTemplate(TenantEntity):
     # A change template's own risk questionnaire (WP-045b, 0116); none: Appendix A's.
     risk_questionnaire: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     stage_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    # WP-046a S1 (0141, REQ-INC-040): the tasks a record made from this template gets, each with
+    # an optional condition on the new record's fields.
+    tasks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    # WP-046a S2 (0144, REQ-INC-040): the checklists a record made from this template gets.
+    checklists: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )
 
 
 # Description is sanitised HTML: tags and entities become spaces before indexing (migration 0020);
@@ -1057,6 +1081,110 @@ class WorkItemBulkJob(TenantEntity):
     finished_at: Mapped[datetime | None]
 
 
+class WorkItemChecklist(TenantEntity):
+    """A checklist on a work item (REQ-INC-077); a library copy is the record's own (AC3)."""
+
+    __tablename__ = "work_item_checklists"
+    __table_args__ = (
+        _work_item_fk("fk_wicl_work_item"),
+        CheckConstraint("length(btrim(title)) BETWEEN 1 AND 200", name="title_length"),
+        Index(
+            "ix_wicl_tenant_item_position",
+            "tenant_id",
+            "work_item_id",
+            "position",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    title: Mapped[str] = mapped_column(String(200))
+    position: Mapped[int] = mapped_column(Integer)
+    library_id: Mapped[uuid.UUID | None]
+
+
+class WorkItemChecklistItem(TenantEntity):
+    """One checklist item: ticked by whom and when (REQ-INC-077 AC1)."""
+
+    __tablename__ = "work_item_checklist_items"
+    __table_args__ = (
+        _work_item_fk("fk_wicli_work_item"),
+        CheckConstraint("length(btrim(text)) BETWEEN 1 AND 500", name="text_length"),
+        # Ticked by someone, or by the system on close (no person); never a person without a time.
+        CheckConstraint("done_by IS NULL OR done_at IS NOT NULL", name="done_pair"),
+        Index(
+            "ix_wicli_tenant_checklist_position",
+            "tenant_id",
+            "checklist_id",
+            "position",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    checklist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("work_item_checklists.id"))
+    work_item_id: Mapped[uuid.UUID]
+    text: Mapped[str] = mapped_column(String(500))
+    position: Mapped[int] = mapped_column(Integer)
+    done_at: Mapped[datetime | None]
+    done_by: Mapped[uuid.UUID | None]
+
+
+class ChecklistLibrary(TenantEntity):
+    """An admin's checklist for one work item type (REQ-INC-078): translatable, its items."""
+
+    __tablename__ = "checklist_library"
+    __table_args__ = (
+        CheckConstraint("jsonb_typeof(items) = 'array'", name="items_array"),
+        Index(
+            "ix_checklist_library_tenant_type",
+            "tenant_id",
+            "type",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(200))
+    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    items: Mapped[list[str]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    disabled_at: Mapped[datetime | None]
+
+
+class WorkItemReminder(TenantEntity):
+    """A person's own reminder on a record (REQ-INC-082): never shown to anyone else (AC2)."""
+
+    __tablename__ = "work_item_reminders"
+    __table_args__ = (
+        _work_item_fk("fk_wir_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wir_user"
+        ),
+        CheckConstraint("length(btrim(note)) BETWEEN 1 AND 500", name="note_length"),
+        CheckConstraint("alert_minutes BETWEEN 0 AND 10080", name="alert_range"),
+        Index(
+            "ix_wir_tenant_user_open",
+            "tenant_id",
+            "user_id",
+            "remind_at",
+            postgresql_where=text("deleted_at IS NULL AND done_at IS NULL"),
+        ),
+        Index(
+            "ix_wir_tenant_item",
+            "tenant_id",
+            "work_item_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    user_id: Mapped[uuid.UUID]
+    note: Mapped[str] = mapped_column(String(500))
+    remind_at: Mapped[datetime]
+    alert_minutes: Mapped[int] = mapped_column(Integer, server_default="0")
+    alerted_at: Mapped[datetime | None]
+    done_at: Mapped[datetime | None]
+
+
 class WorkItemTask(TenantEntity):
     """A task on a work item (REQ-INC-072): its own status, owner, group, priority and due time.
 
@@ -1100,6 +1228,27 @@ class WorkItemTask(TenantEntity):
             "workflow_command",
             postgresql_where=text("workflow_instance_id IS NOT NULL"),
         ),
+        # WP-046a S1 (0141, REQ-INC-073): an end is never before its start; sane ranges.
+        CheckConstraint(
+            "scheduled_end IS NULL OR scheduled_start IS NULL OR scheduled_end >= scheduled_start",
+            name="scheduled_order",
+        ),
+        CheckConstraint(
+            "actual_end IS NULL OR actual_start IS NULL OR actual_end >= actual_start",
+            name="actual_order",
+        ),
+        CheckConstraint(
+            "estimated_minutes IS NULL OR estimated_minutes BETWEEN 0 AND 525600",
+            name="estimate_range",
+        ),
+        CheckConstraint(
+            "percent_complete IS NULL OR percent_complete BETWEEN 0 AND 100", name="percent_range"
+        ),
+        CheckConstraint("extra_cost IS NULL OR extra_cost >= 0", name="cost_range"),
+        CheckConstraint(
+            "remind_before_minutes IS NULL OR remind_before_minutes BETWEEN 0 AND 10080",
+            name="reminder_range",
+        ),
     )
 
     work_item_id: Mapped[uuid.UUID]
@@ -1125,6 +1274,68 @@ class WorkItemTask(TenantEntity):
     # its tasks are done the node continues.
     workflow_instance_id: Mapped[uuid.UUID | None]
     workflow_command: Mapped[str | None] = mapped_column(String(20))
+    # WP-046a S1 (0141, REQ-INC-073): the task's details. `extra_cost` is money on a record:
+    # shown to those who may edit the record, never to requesters (the coordinator; S3 decides
+    # task and worklog cost visibility once for both).
+    task_type: Mapped[str | None] = mapped_column(String(40))
+    scheduled_start: Mapped[datetime | None]
+    scheduled_end: Mapped[datetime | None]
+    actual_start: Mapped[datetime | None]
+    actual_end: Mapped[datetime | None]
+    estimated_minutes: Mapped[int | None] = mapped_column(Integer)
+    percent_complete: Mapped[int | None] = mapped_column(SmallInteger)
+    extra_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    # A reminder this many minutes before the scheduled start (REQ-INC-073 AC2), sent once.
+    remind_before_minutes: Mapped[int | None] = mapped_column(Integer)
+    reminded_at: Mapped[datetime | None]
+
+
+class WorkItemTaskTemplate(TenantEntity):
+    """An admin's task template for one work item type (REQ-INC-074): one task or a set.
+
+    `tasks` is the ordered list of task specs it adds (title, description, type, priority,
+    owner or group, estimate); a disabled template is not offered.
+    """
+
+    __tablename__ = "work_item_task_templates"
+    __table_args__ = (
+        CheckConstraint(
+            "jsonb_typeof(tasks) = 'array' AND jsonb_array_length(tasks) BETWEEN 1 AND 20",
+            name="tasks_count",
+        ),
+        Index(
+            "ix_work_item_task_templates_tenant_type",
+            "tenant_id",
+            "type",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(String(2000))
+    tasks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    disabled_at: Mapped[datetime | None]
+
+
+class WorkItemTaskDependency(TenantKeyed, Base):
+    """A task waits for another task of the same record to finish (REQ-INC-075)."""
+
+    __tablename__ = "work_item_task_dependencies"
+    __table_args__ = (
+        _work_item_fk("fk_witd_work_item"),
+        CheckConstraint("task_id <> depends_on_id", name="not_self"),
+        Index("ix_work_item_task_dependencies_tenant_depends_on", "tenant_id", "depends_on_id"),
+        Index("ix_work_item_task_dependencies_tenant_item", "tenant_id", "work_item_id"),
+    )
+
+    task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("work_item_tasks.id"), primary_key=True)
+    depends_on_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("work_item_tasks.id"), primary_key=True
+    )
+    work_item_id: Mapped[uuid.UUID]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_by: Mapped[uuid.UUID | None]
 
 
 class WorkItemWorklog(TenantEntity):
@@ -1156,6 +1367,8 @@ class WorkItemWorklog(TenantEntity):
     ended_at: Mapped[datetime]
     minutes: Mapped[int] = mapped_column(Integer)
     description: Mapped[str | None] = mapped_column(Text)
+    # WP-058b S3 (0142): the staged record's stage when the time was logged (null otherwise).
+    stage: Mapped[str | None] = mapped_column(String(40))
 
 
 class WorkItemLink(TenantEntity):
@@ -1568,6 +1781,15 @@ class WorkItemReleaseDetails(TenantKeyed, Timestamps, Actors, Base):
     actual_end: Mapped[datetime | None]
     release_manager_id: Mapped[uuid.UUID | None]
     release_engineer_id: Mapped[uuid.UUID | None]
+    # WP-058b S2 (0139; REQ-REL-040): blocking freezes passed for this release, as a change's
+    # (0132): who, when, why, and which freezes by ID; any other freeze still refuses. The reason
+    # is personal data, as the change's.
+    freeze_override_reason: Mapped[str | None] = mapped_column(String(500))
+    freeze_override_by: Mapped[uuid.UUID | None]
+    freeze_override_at: Mapped[datetime | None]
+    freeze_override_window_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
 
 
 class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
@@ -1618,6 +1840,13 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     review_due_at: Mapped[datetime | None]
     review_reminded_at: Mapped[datetime | None]
     schedule_reminded_at: Mapped[datetime | None]
+    # D-156 (0137): the emergency CAB let this emergency change go ahead in a blocking freeze.
+    freeze_cab_passed_at: Mapped[datetime | None]
+    freeze_cab_passed_by: Mapped[uuid.UUID | None]
+    # Exactly the freezes the CAB passed: any other still holds the change (lane B's review).
+    freeze_cab_window_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
 
 
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------
@@ -1790,6 +2019,34 @@ class WorkItemDowntime(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
 # --- freeze and maintenance windows (WP-045c; REQ-CHG-075..077; ADR-042; 0132) -------------------
 
 
+class WorkItemConflictAck(TenantEntity):
+    """A conflict on a change or release acknowledged with a reason (WP-058b S2; REQ-REL-041).
+
+    `conflict_key` names one conflict as it is now: its kind, what it is with and both sides'
+    versions of their planned times. When either side moves the key changes, so the ack lapses
+    and a new conflict never inherits it (the coordinator's S2 terms). The reason is personal
+    data, as an override's.
+    """
+
+    __tablename__ = "work_item_conflict_acks"
+    __table_args__ = (
+        Index(
+            "uq_work_item_conflict_acks_tenant_item_key",
+            "tenant_id",
+            "work_item_id",
+            "conflict_key",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("work_items.id", ondelete="CASCADE"))
+    conflict_key: Mapped[str] = mapped_column(String(300))
+    reason: Mapped[str] = mapped_column(String(500))
+    acked_by: Mapped[uuid.UUID]
+    acked_at: Mapped[datetime]
+
+
 class ChangeWindow(TenantEntity):
     """A freeze or maintenance window, tenant-wide or for some sites, groups, services or CIs.
 
@@ -1802,6 +2059,14 @@ class ChangeWindow(TenantEntity):
         CheckConstraint("kind IN ('freeze', 'maintenance')", name="kind_code"),
         CheckConstraint("mode IN ('block', 'warn')", name="mode_code"),
         CheckConstraint("ends_at > starts_at", name="order"),
+        # D-156 (0137): weekly or monthly ("first Sunday"); week 5 is the month's last.
+        CheckConstraint("repeat IN ('none', 'weekly', 'monthly')", name="repeat_code"),
+        CheckConstraint(
+            "(repeat = 'monthly') = (repeat_week IS NOT NULL AND repeat_weekday IS NOT NULL)"
+            " AND (repeat_week IS NULL OR repeat_week BETWEEN 1 AND 5)"
+            " AND (repeat_weekday IS NULL OR repeat_weekday BETWEEN 0 AND 6)",
+            name="repeat_monthly_shape",
+        ),
         Index(
             "ix_change_windows_tenant_kind_start",
             "tenant_id",
@@ -1818,7 +2083,12 @@ class ChangeWindow(TenantEntity):
     description: Mapped[str | None] = mapped_column(String(2000))
     starts_at: Mapped[datetime]
     ends_at: Mapped[datetime]
-    repeat_weekly: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    repeat_weekly: Mapped[bool] = mapped_column(
+        Boolean, server_default="false"
+    )  # until 0137's contract
+    repeat: Mapped[str] = mapped_column(String(10), server_default="none")
+    repeat_week: Mapped[int | None] = mapped_column(SmallInteger)
+    repeat_weekday: Mapped[int | None] = mapped_column(SmallInteger)
     repeat_until: Mapped[datetime | None]
     site_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(UUID(as_uuid=True)), server_default="{}"

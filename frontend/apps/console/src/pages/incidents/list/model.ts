@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import {
   allOf,
+  bulkJobKey,
   queryKeys,
   type BulkAction,
   type BulkResult,
@@ -233,7 +234,16 @@ export function draftOf(view: SavedView | undefined): ViewDraft {
 
 // --- bulk (REQ-INC-119, 120) ---
 
-export const BULK_ACTIONS: readonly BulkAction[] = ['edit', 'assign', 'take', 'resolve', 'close'];
+// cancel and delete are the change list's own (REQ-CHG-101): other lists never offer them.
+export const BULK_ACTIONS: readonly BulkAction[] = [
+  'edit',
+  'assign',
+  'take',
+  'resolve',
+  'close',
+  'cancel',
+  'delete',
+];
 export const BULK_MAX = 1000;
 const PROGRESS = 'work_items.bulk_progress';
 
@@ -258,6 +268,10 @@ export function skipReason(
       problem: t(`errors.field.${result.code ?? 'invalid'}`, params),
     });
   }
+  // A staged record's guard names its first reason (a change's open children or tasks): say that.
+  if (result.code === 'stage_move_refused' && params.reason) {
+    return t(`action_reason.${params.reason}`, params);
+  }
   return t(`errors.${result.code ?? 'internal_error'}`, params);
 }
 
@@ -268,6 +282,7 @@ export function useBulkLive() {
     if (message.type !== PROGRESS) return;
     for (const id of message.ids) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJob(id) });
+      void queryClient.invalidateQueries({ queryKey: bulkJobKey('changes', id) });
     }
     void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJobs });
   });

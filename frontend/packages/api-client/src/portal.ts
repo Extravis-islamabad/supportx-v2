@@ -321,3 +321,96 @@ export function usePortalSettingsChange() {
     },
   });
 }
+
+// The portal's changes for requesters (WP-045d S4a, REQ-CHG-109): where a change they raised
+// stands (stage, status, planned window) and its public conversation, never its plans, risk or
+// private notes. Live on `t:{tenant}:portal_wi:{id}` and the person's own channel.
+export type PortalChange = components['schemas']['PortalChangeOut'];
+export type PortalChangeDetail = components['schemas']['PortalChangeDetailOut'];
+export type PortalChangeInput = components['schemas']['PortalChangeIn'];
+
+export const portalChangeKeys = {
+  all: ['portal', 'changes'] as const,
+  list: (state: PortalState | undefined) => ['portal', 'changes', 'list', state] as const,
+  detail: (id: string) => ['portal', 'changes', 'detail', id] as const,
+  conversation: (id: string) => ['portal', 'changes', 'conversation', id] as const,
+  templates: ['portal', 'changes', 'templates'] as const,
+};
+
+/** "My changes", open first. */
+export function usePortalChanges(state: PortalState | undefined) {
+  return useQuery({
+    queryKey: portalChangeKeys.list(state),
+    queryFn: () => call(api.GET('/api/v1/portal/changes', { params: { query: { state } } })),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function usePortalChange(id: string) {
+  return useQuery({
+    queryKey: portalChangeKeys.detail(id),
+    queryFn: () =>
+      call(api.GET('/api/v1/portal/changes/{record_id}', { params: { path: { record_id: id } } })),
+  });
+}
+
+/** Public replies and notes only, oldest first. */
+export function usePortalChangeConversation(id: string) {
+  return useQuery({
+    queryKey: portalChangeKeys.conversation(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/changes/{record_id}/conversation', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+  });
+}
+
+/** The change forms offered to requesters, with their fields only. */
+export function usePortalChangeTemplates(enabled = true) {
+  return useQuery({
+    queryKey: portalChangeKeys.templates,
+    queryFn: () => call(api.GET('/api/v1/portal/changes/templates')),
+    staleTime: 60_000,
+    enabled,
+  });
+}
+
+/** Raise a change. One Idempotency-Key per form, so a retry never creates two. */
+export function useRaiseChange() {
+  const queryClient = useQueryClient();
+  const once = useSingleFlight(({ body, key }: { body: PortalChangeInput; key: string }) =>
+    call(
+      api.POST('/api/v1/portal/changes', {
+        params: { header: { 'Idempotency-Key': key } },
+        body,
+      }),
+    ),
+  );
+  return useMutation({
+    mutationFn: once,
+    onSuccess: (saved) => {
+      queryClient.setQueryData(portalChangeKeys.detail(saved.id), saved);
+      void queryClient.invalidateQueries({ queryKey: [...portalChangeKeys.all, 'list'] });
+    },
+  });
+}
+
+/** The requester's public reply on their own change. */
+export function usePortalChangeReply(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) =>
+      call(
+        api.POST('/api/v1/portal/changes/{record_id}/replies', {
+          params: { path: { record_id: id } },
+          body: { body },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: portalChangeKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: portalChangeKeys.conversation(id) });
+    },
+  });
+}

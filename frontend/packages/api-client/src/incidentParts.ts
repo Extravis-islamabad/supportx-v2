@@ -13,6 +13,10 @@ export type IncidentTaskPatch = components['schemas']['WorkItemTaskPatch'];
 export type TaskStatus = components['schemas']['TaskStatus'];
 export type TaskPriority = components['schemas']['TaskPriority'];
 export type MyTask = components['schemas']['WorkItemMyTaskOut'];
+export type AnyMyTask = components['schemas']['AllMyTaskOut'];
+export type TaskTemplate = components['schemas']['TaskTemplateOut'];
+export type TaskTemplateInput = components['schemas']['TaskTemplateIn'];
+export type TaskTemplatePatch = components['schemas']['TaskTemplatePatch'];
 export type IncidentWorklog = components['schemas']['WorkItemWorklogOut'];
 export type IncidentWorklogs = components['schemas']['WorkItemWorklogsOut'];
 export type IncidentWorklogInput = components['schemas']['WorkItemWorklogIn'];
@@ -23,7 +27,7 @@ const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
 /** The work-item types whose record parts (tasks, worklogs, links) these hooks serve. */
 // Changes (WP-045d S1): the same parts; their tasks carry the stage they are for.
-export type PartsBase = 'incidents' | 'problems' | 'changes';
+export type PartsBase = 'incidents' | 'problems' | 'changes' | 'releases';
 
 /**
  * The same engine route under another type's prefix (WP-044c: problems' tasks and worklogs).
@@ -52,7 +56,10 @@ export type TaskChange =
   | { kind: 'create'; task: IncidentTaskInput }
   | { kind: 'update'; taskId: string; version: number; task: IncidentTaskPatch }
   | { kind: 'delete'; taskId: string; version: number }
-  | { kind: 'move'; taskId: string; direction: 'up' | 'down' };
+  | { kind: 'move'; taskId: string; direction: 'up' | 'down' }
+  // WP-046a S1 (REQ-INC-074, -075): what a task waits for, and a task template's tasks.
+  | { kind: 'dependencies'; taskId: string; dependsOn: string[] }
+  | { kind: 'fromTemplate'; templateId: string };
 
 /** Add, change, remove or move a task of one record. */
 export function useTaskChange(id: string, base: PartsBase = 'incidents') {
@@ -80,6 +87,20 @@ export function useTaskChange(id: string, base: PartsBase = 'incidents') {
             params: { path: { ...path, task_id: change.taskId }, header: ifMatch(change.version) },
           }),
         );
+      } else if (change.kind === 'dependencies') {
+        await call(
+          api.PUT(at(base, '/api/v1/incidents/{record_id}/tasks/{task_id}/dependencies'), {
+            params: { path: { ...path, task_id: change.taskId } },
+            body: { depends_on: change.dependsOn },
+          }),
+        );
+      } else if (change.kind === 'fromTemplate') {
+        await call(
+          api.POST(at(base, '/api/v1/incidents/{record_id}/tasks/from-template'), {
+            params: { path },
+            body: { template_id: change.templateId },
+          }),
+        );
       } else {
         await call(
           api.POST(at(base, '/api/v1/incidents/{record_id}/tasks/{task_id}/move'), {
@@ -101,6 +122,63 @@ export function useMyTasks(enabled = true) {
     queryKey: queryKeys.incidents.myTasks,
     queryFn: () => call(api.GET('/api/v1/incidents/my-tasks')),
     enabled,
+  });
+}
+
+/** Your open tasks on every type, due first, overdue marked (REQ-INC-076). */
+export function useAllMyTasks(enabled = true) {
+  return useQuery({
+    queryKey: ['my-tasks'] as const,
+    queryFn: () => call(api.GET('/api/v1/my-tasks')),
+    enabled,
+  });
+}
+
+const taskTemplateKeys = (base: PartsBase) => ({
+  offered: [base, 'task-templates'] as const,
+  all: [base, 'task-templates', 'all'] as const,
+});
+
+/** The task templates offered on a record (enabled only, REQ-INC-074 AC2). */
+export function useTaskTemplates(base: PartsBase = 'incidents', enabled = true) {
+  return useQuery({
+    queryKey: taskTemplateKeys(base).offered,
+    queryFn: () => call(api.GET(at(base, '/api/v1/incidents/task-templates'))),
+    enabled,
+  });
+}
+
+/** Every task template of the type, disabled ones too (the settings screen). */
+export function useAllTaskTemplates(base: PartsBase = 'incidents') {
+  return useQuery({
+    queryKey: taskTemplateKeys(base).all,
+    queryFn: () => call(api.GET(at(base, '/api/v1/incidents/task-templates/all'))),
+  });
+}
+
+export type TaskTemplateChange =
+  | { kind: 'create'; template: TaskTemplateInput }
+  | { kind: 'update'; templateId: string; version: number; template: TaskTemplatePatch };
+
+/** Add or change a task template (admins); both lists refetch. */
+export function useTaskTemplateChange(base: PartsBase = 'incidents') {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (change: TaskTemplateChange) =>
+      change.kind === 'create'
+        ? call(api.POST(at(base, '/api/v1/incidents/task-templates'), { body: change.template }))
+        : call(
+            api.PATCH(at(base, '/api/v1/incidents/task-templates/{template_id}'), {
+              params: {
+                path: { template_id: change.templateId },
+                header: ifMatch(change.version),
+              },
+              body: change.template,
+            }),
+          ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: [base, 'task-templates'] });
+    },
   });
 }
 

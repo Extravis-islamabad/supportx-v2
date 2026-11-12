@@ -79,7 +79,10 @@ COPY --from=build-pdf-test /opt/venv /opt/venv
 COPY --chown=root:root backend/pyproject.toml ./
 USER 10001:10001
 ENV SUPPORTX_REQUIRE_PDF_TESTS=1
-CMD ["python", "-m", "pytest", "-m", "pdf", "--no-cov", "-p", "no:cacheprovider", "-q", "app/modules/analytics/tests"]
+# Exactly the PDF test files, never whole folders: pytest imports every module it collects, and
+# the image has no backend/conftest.py or top-level tests/ (nightly run 42993721634). The list
+# is held to every `pytest.mark.pdf` file by tests/test_pdf_image_tests.py.
+CMD ["python", "-m", "pytest", "-m", "pdf", "--no-cov", "-p", "no:cacheprovider", "-q", "app/modules/analytics/tests/test_report_pdf.py", "app/shared/tests/test_pdf.py", "app/modules/assets/tests/test_labels_pdf.py"]
 
 FROM ${PYTHON_IMAGE} AS runtime
 ARG VERSION=0.0.0-dev

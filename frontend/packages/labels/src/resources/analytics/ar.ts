@@ -7,6 +7,7 @@ export const ar: LabelResource = {
   'age_bucket.7_to_30_days': 'من 7 إلى 30 يومًا',
   'age_bucket.over_30_days': 'أكثر من 30 يومًا',
   'age_bucket.under_1_day': 'أقل من يوم',
+  'dashboard.changes': 'التغييرات',
   'dashboard.my_work': 'عملي',
   'dashboard.my_work.description': 'حوادثك المفتوحة وما حللته هذا الأسبوع وقائمة الانتظار.',
   'dashboard.service_desk': 'مكتب الخدمة',
@@ -24,6 +25,18 @@ export const ar: LabelResource = {
   'dashboard_widget.backlog_trend': 'اتجاه المتراكم',
   'dashboard_widget.backlog_trend.description':
     'الحوادث التي بقيت مفتوحة في نهاية كل أسبوع خلال آخر 90 يومًا.',
+  'dashboard_widget.change_emergency_share': 'التغييرات الطارئة',
+  'dashboard_widget.change_emergency_share.description':
+    'نسبة التغييرات المطلوبة في آخر 90 يومًا التي سلكت المسار الطارئ.',
+  'dashboard_widget.change_failed': 'فشلت أو تم التراجع عنها',
+  'dashboard_widget.change_failed.description':
+    'التغييرات المطلوبة في آخر 90 يومًا التي فشل تنفيذها أو تم التراجع عنه.',
+  'dashboard_widget.change_freeze_overrides': 'تجاوزات التجميد',
+  'dashboard_widget.change_freeze_overrides.description':
+    'التغييرات المطلوبة في آخر 90 يومًا التي مضت خلال فترة تجميد مانعة.',
+  'dashboard_widget.change_success_rate': 'معدل نجاح التغييرات',
+  'dashboard_widget.change_success_rate.description':
+    'نسبة التغييرات المطلوبة في آخر 90 يومًا التي نجح تنفيذها، من بين ما له نتيجة.',
   'dashboard_widget.created_vs_resolved': 'المسجلة مقابل المحلولة',
   'dashboard_widget.created_vs_resolved.description':
     'الحوادث المسجلة والمحلولة كل يوم خلال آخر 30 يومًا.',
@@ -214,6 +227,27 @@ export const ar: LabelResource = {
   'measure.asset.total_cost_total': 'إجمالي تكلفة الملكية',
   'measure.asset.total_cost_total.help':
     'مجموع تكلفة شراء الأصول والاحتفاظ بها (الخدمة والنقل والعقود وغيرها)، بالعملة الأساسية.',
+  'measure.change.actual_downtime_total': 'التوقف الفعلي',
+  'measure.change.actual_downtime_total.help': 'إجمالي التوقف الذي حدث فعلًا أثناء التغييرات.',
+  'measure.change.average_implementation_time': 'متوسط مدة التنفيذ',
+  'measure.change.average_implementation_time.help':
+    'متوسط المدة من البدء الفعلي إلى الانتهاء الفعلي للتنفيذ، للتغييرات التي لها الاثنان.',
+  'measure.change.count': 'التغييرات',
+  'measure.change.count.help': 'كل تغيير يطابق عوامل التصفية ويُسمح لك برؤيته.',
+  'measure.change.emergency_share': 'نسبة الطارئة',
+  'measure.change.emergency_share.help': 'نسبة التغييرات التي سلكت المسار الطارئ.',
+  'measure.change.failed_count': 'فشلت أو تم التراجع عنها',
+  'measure.change.failed_count.help': 'التغييرات التي فشل تنفيذها أو تم التراجع عنه.',
+  'measure.change.freeze_override_count': 'تجاوزات التجميد',
+  'measure.change.freeze_override_count.help':
+    'التغييرات التي مضت خلال فترة تجميد مانعة، بتجاوز أو بقرار مجلس الطوارئ.',
+  'measure.change.planned_downtime_total': 'التوقف المخطط',
+  'measure.change.planned_downtime_total.help': 'إجمالي التوقف المخطط للتغييرات.',
+  'measure.change.retrospective_share': 'نسبة اللاحقة',
+  'measure.change.retrospective_share.help': 'نسبة التغييرات المسجلة بعد إنجاز العمل.',
+  'measure.change.success_rate': 'معدل النجاح',
+  'measure.change.success_rate.help':
+    'نسبة التغييرات التي نجح تنفيذها، من بين التغييرات التي لتنفيذها نتيجة. لا نتيجة بعد يعني لا معدل.',
   'measure.incident.average_reassignments': 'متوسط مرات إعادة الإسناد',
   'measure.incident.average_reassignments.help':
     'متوسط عدد مرات نقل الحادثة إلى مجموعة أو فني آخر.',
@@ -275,6 +309,53 @@ export const ar: LabelResource = {
   'report.assets_warranty_ending': 'الضمانات المنتهية خلال الأيام الـ 90 القادمة',
   'report.assets_warranty_ending.description':
     'الأصول التي ينتهي ضمانها خلال 90 يومًا، حسب شهر انتهائه.',
+  'report.changes_by_outcome': 'التغييرات حسب النتيجة',
+  'report.changes_by_outcome.description':
+    'التغييرات المطلوبة في آخر 90 يومًا التي لتنفيذها نتيجة، حسب تلك النتيجة.',
+  'report.changes_by_reason': 'التغييرات حسب السبب',
+  'report.changes_by_reason.description': 'التغييرات المطلوبة في آخر 90 يومًا حسب سبب التغيير.',
+  'report.changes_by_risk': 'التغييرات حسب المخاطر',
+  'report.changes_by_risk.description': 'التغييرات المطلوبة في آخر 90 يومًا حسب مستوى المخاطر.',
+  'report.changes_by_status': 'التغييرات حسب الحالة',
+  'report.changes_by_status.description': 'التغييرات المطلوبة في الفترة حسب حالتها الحالية.',
+  'report.changes_by_type': 'التغييرات حسب النوع',
+  'report.changes_by_type.description': 'التغييرات المطلوبة في آخر 90 يومًا حسب نوع التغيير.',
+  'report.changes_downtime_per_month': 'التوقف المخطط والفعلي شهريًا',
+  'report.changes_downtime_per_month.description':
+    'التوقف المخطط والتوقف الذي حدث، شهرًا بشهر على مدى سنة.',
+  'report.changes_emergency_share_per_month': 'نسبة الطارئة شهريًا',
+  'report.changes_emergency_share_per_month.description':
+    'نسبة التغييرات التي سلكت المسار الطارئ، شهرًا بشهر على مدى سنة.',
+  'report.changes_freeze_overrides_by_group': 'تجاوزات التجميد حسب المجموعة',
+  'report.changes_freeze_overrides_by_group.description':
+    'التغييرات المطلوبة في آخر 90 يومًا التي مضت خلال فترة تجميد مانعة، حسب مجموعة الدعم.',
+  'report.changes_implementation_time_by_type': 'مدة التنفيذ حسب نوع التغيير',
+  'report.changes_implementation_time_by_type.description':
+    'متوسط مدة التنفيذ الفعلية للتغييرات المطلوبة في آخر 90 يومًا حسب نوع التغيير.',
+  'report.changes_open_ageing': 'أعمار التغييرات المفتوحة',
+  'report.changes_open_ageing.description': 'منذ متى والتغييرات المفتوحة وقيد الانتظار مفتوحة.',
+  'report.changes_open_by_group': 'التغييرات المفتوحة حسب المجموعة',
+  'report.changes_open_by_group.description': 'التغييرات المفتوحة وقيد الانتظار حسب مجموعة الدعم.',
+  'report.changes_open_by_priority': 'التغييرات المفتوحة حسب الأولوية',
+  'report.changes_open_by_priority.description': 'التغييرات المفتوحة وقيد الانتظار حسب الأولوية.',
+  'report.changes_open_by_stage': 'التغييرات المفتوحة حسب المرحلة',
+  'report.changes_open_by_stage.description':
+    'التغييرات المفتوحة وقيد الانتظار حسب المرحلة التي هي فيها.',
+  'report.changes_open_by_status': 'التغييرات المفتوحة حسب الحالة',
+  'report.changes_open_by_status.description': 'التغييرات المفتوحة وقيد الانتظار حسب الحالة.',
+  'report.changes_open_by_technician': 'التغييرات المفتوحة حسب المسؤول',
+  'report.changes_open_by_technician.description':
+    'التغييرات المفتوحة وقيد الانتظار حسب الشخص المسؤول عنها.',
+  'report.changes_received_per_week': 'التغييرات المطلوبة أسبوعيًا',
+  'report.changes_received_per_week.description': 'التغييرات الجديدة كل أسبوع على مدى ستة أشهر.',
+  'report.changes_resolved_per_week': 'التغييرات المكتملة أسبوعيًا',
+  'report.changes_resolved_per_week.description': 'التغييرات المكتملة كل أسبوع على مدى ستة أشهر.',
+  'report.changes_success_rate_by_group': 'معدل النجاح حسب المجموعة',
+  'report.changes_success_rate_by_group.description':
+    'معدل النجاح وعدد التغييرات المطلوبة في آخر 90 يومًا حسب مجموعة الدعم.',
+  'report.changes_success_rate_by_type': 'معدل النجاح حسب نوع التغيير',
+  'report.changes_success_rate_by_type.description':
+    'معدل النجاح وعدد التغييرات المطلوبة في آخر 90 يومًا حسب نوع التغيير.',
   'report.incidents_all': 'جميع الحوادث',
   'report.incidents_all.description': 'كل حادثة أُنشئت في الفترة، حسب الحالة.',
   'report.incidents_by_status': 'الحوادث حسب الحالة',
@@ -422,7 +503,9 @@ export const ar: LabelResource = {
   'report_field.acquired_on': 'تاريخ الاقتناء',
   'report_field.approval_status': 'حالة الموافقة',
   'report_field.barcode': 'قيمة الباركود أو QR',
+  'report_field.book_value': 'القيمة الدفترية',
   'report_field.catalog_item_id': 'عنصر الكتالوج',
+  'report_field.cost_centre': 'مركز التكلفة',
   'report_field.created_at': 'تاريخ الإنشاء',
   'report_field.created_by': 'أنشأه',
   'report_field.desk_id': 'المكتب',
@@ -432,11 +515,14 @@ export const ar: LabelResource = {
   'report_field.first_response_breached': 'تأخر الاستجابة',
   'report_field.first_response_due_at': 'الاستجابة قبل',
   'report_field.first_response_sla_state': 'اتفاقية الاستجابة',
+  'report_field.gl_code': 'رمز دفتر الأستاذ',
   'report_field.id': 'معرّف السجل',
   'report_field.name': 'الاسم',
   'report_field.paused_seconds': 'مدة الإيقاف المؤقت',
   'report_field.product_id': 'المنتج',
   'report_field.product_type_id': 'نوع المنتج',
+  'report_field.purchase_price': 'سعر الشراء',
+  'report_field.purchase_tax': 'ضريبة الشراء',
   'report_field.resolution_breached': 'تأخر الحل',
   'report_field.resolution_due_at': 'موعد الحل',
   'report_field.resolution_sla_state': 'اتفاقية الحل',
@@ -446,6 +532,7 @@ export const ar: LabelResource = {
   'report_field.status_category': 'الوضع',
   'report_field.status_changed_at': 'تاريخ تغيير الحالة',
   'report_field.tag': 'وسم الأصل',
+  'report_field.total_cost': 'إجمالي تكلفة الملكية',
   'report_field.updated_at': 'آخر تحديث',
   'report_field.updated_by': 'آخر تحديث بواسطة',
   'report_field.vendor_id': 'المورد',

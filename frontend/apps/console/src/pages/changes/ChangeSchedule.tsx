@@ -242,8 +242,19 @@ export function ConflictsPanel({ id }: { id: string }) {
     c.window_name !== null && c.window_name !== undefined
       ? labelled(c.window_labels, locale, () => c.window_name ?? '')
       : c.record_id
-        ? t('changes.conflicts.another_change')
+        ? // A change's conflicts may name a release (ADR-042 addendum A); none: a change.
+          t(
+            c.record_type === 'release'
+              ? 'changes.conflicts.another_release'
+              : 'changes.conflicts.another_change',
+          )
         : '';
+  const kindName = (c: ChangeConflict) =>
+    t(
+      c.kind === 'overlap' && c.record_type === 'release'
+        ? 'change_conflict.overlap_release'
+        : `change_conflict.${c.kind}`,
+    );
   return (
     <Alert
       type={items.some((c) => c.blocks) ? 'error' : 'warning'}
@@ -257,9 +268,7 @@ export function ConflictsPanel({ id }: { id: string }) {
           renderItem={(c, index) => (
             <List.Item key={index} data-testid={`conflict-${c.kind}`}>
               <Space wrap>
-                <ToneTag tone={c.blocks ? 'error' : 'warning'}>
-                  {t(`change_conflict.${c.kind}`)}
-                </ToneTag>
+                <ToneTag tone={c.blocks ? 'error' : 'warning'}>{kindName(c)}</ToneTag>
                 {what(c) !== '' && <span>{what(c)}</span>}
                 <span>{`${format(c.starts_at)} – ${format(c.ends_at)}`}</span>
                 {c.blocks && (
@@ -353,7 +362,7 @@ function ImplementationWindow({ change }: { change: Change }) {
           />
         </Form.Item>
         {dirty && (
-          <Form.Item label={<span aria-hidden>&nbsp;</span>}>
+          <Form.Item style={{ alignSelf: 'flex-end' }}>
             <Space>
               <WriteButton
                 type="primary"
@@ -579,7 +588,7 @@ function Downtimes({ change }: { change: Change }) {
               hideZone
             />
           </Form.Item>
-          <Form.Item label={<span aria-hidden>&nbsp;</span>}>
+          <Form.Item style={{ alignSelf: 'flex-end' }}>
             <WriteButton
               disabled={missing !== undefined}
               whyDisabled={missing}

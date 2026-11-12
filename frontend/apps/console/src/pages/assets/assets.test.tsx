@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, onTestFinished } from 'vitest';
 import type { AssetProductType, AssetRecord, AssetState, Vendor } from '@supportx/api-client';
 
 import { App } from '../../App';
+import { fakePermissions } from '@supportx/api-client/testing';
+
 import { consoleApi, fakeSession } from '../../test/api';
 
 // WP-049a s2: the asset list, one asset and vendors.
@@ -25,6 +27,7 @@ const type: AssetProductType = {
   life_cycle_id: null,
   tag_pattern: null,
   ack_required: false,
+  depreciation_factor: '2.00',
   sort: 0,
   version: 1,
 };
@@ -291,6 +294,54 @@ describe('console: assets', () => {
     expect(sent?.headers.get('If-Match')).toBe('"3"');
   });
 
+  it('D-157: through its ticket a technician changes the location only, and sees no money', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const masked = { ...asset, purchase_price: null, purchase_tax: null, purchase_total: null };
+    const fake = consoleApi({
+      // A technician: views assets, no assets.manage, no assets.view_financials.
+      me: fakeSession(
+        {},
+        {
+          permissions: ['assets.view'].map((key) => ({
+            key,
+            scope: 'all' as const,
+            scopes: ['all' as const],
+            conditional: false,
+          })),
+        },
+      ),
+      routes: {
+        'GET /api/v1/assets/product-types': { body: [type] },
+        'GET /api/v1/assets/states': { body: [state] },
+        [`GET /api/v1/assets/${asset.id}`]: { body: masked, headers: { ETag: '"3"' } },
+        [`GET /api/v1/assets/${asset.id}/history`]: { body: { items: [], next_cursor: null } },
+        [`GET /api/v1/assets/${asset.id}/access`]: {
+          body: { manage: false, through_ticket: true },
+        },
+        [`GET /api/v1/assets/${asset.id}/moves`]: { body: [] },
+        [`PATCH /api/v1/assets/${asset.id}`]: {
+          body: { ...masked, location: 'Desk 4', version: 4 },
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByTestId('asset-through-ticket')).toBeTruthy();
+    expect(screen.queryByTestId('asset-total')).toBeNull();
+    expect(screen.queryByTestId('asset-edit')).toBeNull(); // no full edit
+    fireEvent.click(screen.getByTestId('asset-location-open'));
+    fireEvent.change(await screen.findByTestId('asset-location-only'), {
+      target: { value: 'Desk 4' },
+    });
+    fireEvent.click(screen.getByTestId('asset-location-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/assets/${asset.id}`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `/api/v1/assets/${asset.id}`);
+    expect(sent?.body).toEqual({ location: 'Desk 4' });
+    expect(sent?.headers.get('If-Match')).toBe('"3"');
+  });
+
   it('lists vendors and adds one', async () => {
     window.history.pushState({}, '', '/assets/vendors');
     const fake = assetsApi({ 'POST /api/v1/procurement/vendors': { status: 201, body: vendor } });
@@ -391,7 +442,9 @@ describe('console: assets', () => {
     expect(call?.headers.get('Idempotency-Key')).toBeTruthy();
   });
 
-  it('moves selected assets at once and lists the ones that could not move', async () => {
+  it('moves selected assets at once as a job and lists the ones that could not move', async () => {
+    // WP-049b S4b: the bulk move runs as a background job (REQ-AST-051), not the old 100-asset
+    // call; each asset that could not move is listed with its reason.
     const other: AssetRecord = {
       ...asset,
       id: '01900000-0000-7000-8000-00000000d002',
@@ -399,38 +452,48 @@ describe('console: assets', () => {
       tag: 'AST-8',
       version: 1,
     };
+    const job = {
+      id: '01900000-0000-7000-8000-0000000b1002',
+      action: 'move',
+      status: 'done',
+      total: 2,
+      processed: 2,
+      done_count: 1,
+      skipped_count: 1,
+      results: [
+        { id: asset.id, tag: 'AST-7', outcome: 'done', params: {} },
+        { id: other.id, tag: 'AST-8', outcome: 'skipped', code: 'version_conflict', params: {} },
+      ],
+      created_at: '2026-11-11T00:00:00Z',
+      started_at: null,
+      finished_at: null,
+    };
     window.history.pushState({}, '', '/assets');
     const fake = assetsApi({
       'GET /api/v1/assets': { body: page([asset, other]) },
-      'POST /api/v1/assets/bulk-moves': {
-        body: [
-          { asset_id: asset.id, moved: true, code: null, version: 4 },
-          { asset_id: other.id, moved: false, code: 'version_conflict', version: null },
-        ],
-      },
+      'POST /api/v1/assets/bulk-jobs': { status: 202, body: { ...job, status: 'queued' } },
+      [`GET /api/v1/assets/bulk-jobs/${job.id}`]: { body: job },
     });
     restore = fake.restore;
     render(<App />);
     await screen.findByTestId(`asset-row-${asset.id}`);
     for (const box of screen.getAllByRole('checkbox').slice(1)) fireEvent.click(box);
     expect((await screen.findByTestId('assets-selection')).textContent).toContain('2 selected');
-    fireEvent.click(screen.getByTestId('assets-bulk-move-open'));
-    const dialog = await screen.findByTestId('asset-bulk-move-dialog');
+    fireEvent.click(screen.getByTestId('assets-bulk-open'));
+    const dialog = await screen.findByTestId('asset-bulk-dialog');
+    fireEvent.click(within(dialog).getByText('Change state'));
     fireEvent.mouseDown(within(dialog).getByRole('combobox'));
     fireEvent.click(await screen.findByTitle('In stock'));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Change state' }));
-    expect((await within(dialog).findByTestId('asset-bulk-move-partial')).textContent).toContain(
-      '1 moved; 1 could not move',
-    );
-    expect(within(dialog).getByText('Old desktop')).toBeTruthy();
-    const [call] = fake.find('POST', '/api/v1/assets/bulk-moves');
+    fireEvent.click(screen.getByTestId('asset-bulk-start'));
+    await waitFor(() => {
+      expect(screen.getByTestId('asset-bulk-summary').textContent).toBe('Done: 1. Skipped: 1.');
+    });
+    expect(screen.getByTestId('asset-bulk-skipped').textContent).toContain('AST-8');
+    const [call] = fake.find('POST', '/api/v1/assets/bulk-jobs');
     expect(call?.body).toEqual({
-      items: [
-        { asset_id: asset.id, version: 3 },
-        { asset_id: other.id, version: 1 },
-      ],
-      to_state_id: state.id,
-      reason: null,
+      action: 'move',
+      asset_ids: [asset.id, other.id],
+      changes: { to_state_id: state.id },
     });
   });
 
@@ -722,7 +785,7 @@ describe('console: assets', () => {
     // One control row: the selection bar takes the toolbar's place while rows are selected.
     const bar = await screen.findByTestId('assets-filterbar-selection');
     expect(within(bar).getByTestId('assets-selection').textContent).toContain('1 selected');
-    expect(within(bar).getByTestId('assets-bulk-move-open')).toBeTruthy();
+    expect(within(bar).getByTestId('assets-bulk-open')).toBeTruthy();
     expect(within(bar).getByTestId('assets-make-loanable')).toBeTruthy();
     expect(screen.queryByTestId('assets-filterbar')).toBeNull();
     expect(screen.queryByTestId('assets-search')).toBeNull();
@@ -1038,5 +1101,32 @@ describe('console: assets polish (QA10-P4-38, P4-39; #307 review)', () => {
       target: { value: 'x'.repeat(201) },
     });
     expect(await within(dialog).findByText('201 / 200')).toBeTruthy();
+  });
+});
+
+describe('the asset list selection for view-only people (WP-049b s3)', () => {
+  it('offers only Print labels; moving, groups and loans stay with assets.manage', async () => {
+    window.history.pushState({}, '', '/assets');
+    const viewOnly = fakeSession(
+      { roles: ['technician'] },
+      { permissions: fakePermissions('technician').filter((p) => p.key !== 'assets.manage') },
+    );
+    const fake = consoleApi({
+      me: viewOnly,
+      routes: {
+        'GET /api/v1/assets': { body: page([asset]) },
+        'GET /api/v1/assets/product-types': { body: [type] },
+        'GET /api/v1/assets/states': { body: [state] },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const row = (await screen.findByTestId(`asset-row-${asset.id}`)).closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByTitle('Select AST-7'));
+    const bar = await screen.findByTestId('assets-selection');
+    expect(within(bar).getByTestId('assets-print-labels')).toBeTruthy();
+    expect(within(bar).queryByTestId('assets-bulk-move-open')).toBeNull();
+    expect(within(bar).queryByTestId('assets-add-to-group')).toBeNull();
+    expect(within(bar).queryByTestId('assets-make-loanable')).toBeNull();
   });
 });

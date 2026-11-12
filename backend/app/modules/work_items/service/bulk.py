@@ -15,7 +15,7 @@ not flood). Progress goes to the requester's personal channel; the job stays rea
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, tzinfo
 from typing import Any
 
@@ -25,10 +25,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import Database
-from app.core.errors import AppError, NotFound, PermissionDenied
+from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import Subject, subject_for, worker_policy
+from app.modules.work_items.domain.changes import CANCELED_STATUS, CLOSED_STATUS
 from app.modules.work_items.domain.lifecycle import WorkItemAction
 from app.modules.work_items.domain.lists import (
     BULK_BATCH,
@@ -40,7 +41,7 @@ from app.modules.work_items.domain.lists import (
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemBulkJobProgressed
 from app.modules.work_items.infra.models import WorkItem, WorkItemBulkJob
-from app.modules.work_items.service import closing
+from app.modules.work_items.service import change_close, closing
 from app.modules.work_items.service import problems as problem_links
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.realtime import BULK_PREFIX
@@ -60,6 +61,8 @@ _PERMISSION = {
     BulkAction.CLOSE: "view",
     BulkAction.LINK_PROBLEM: "edit",
     BulkAction.UNLINK_PROBLEM: "edit",
+    BulkAction.CANCEL: "cancel",
+    BulkAction.DELETE: "delete",
 }
 _KEYS = {
     BulkAction.EDIT: None,  # any field the edit form has; the update checks each one
@@ -70,7 +73,11 @@ _KEYS = {
     BulkAction.CLOSE: {"closure_code", "confirm_open_work"},
     BulkAction.LINK_PROBLEM: {"problem_id", "move"},
     BulkAction.UNLINK_PROBLEM: {"problem_id"},
+    BulkAction.CANCEL: {"reason_text"},
+    BulkAction.DELETE: set(),
 }
+# The staged list's own actions (REQ-CHG-101): other types cancel through their life cycle.
+STAGED_ONLY = frozenset({BulkAction.CANCEL, BulkAction.DELETE})
 
 
 class JobRepository(Repository[WorkItemBulkJob]):
@@ -88,6 +95,8 @@ def _check_changes(action: BulkAction, changes: dict[str, Any]) -> dict[str, Any
         problems.append(("changes", "required"))  # AC2: only what the user changed, and something
     if action == BulkAction.LINK_PROBLEM and not changes.get("problem_id"):
         problems.append(("changes", "required"))
+    if action == BulkAction.CANCEL and not str(changes.get("reason_text") or "").strip():
+        problems.append(("changes", "required"))  # a cancel says why, for every change
     if action == BulkAction.ASSIGN and not (
         changes.get("group_id") or changes.get("technician_id")
     ):
@@ -142,6 +151,8 @@ async def start(  # noqa: PLR0913 - the job's inputs, explicit
         and wtype.code is not WorkItemTypeCode.INCIDENT
     ):
         raise items.field_errors([("action", "invalid_choice")])  # only incidents have a cause
+    if action in STAGED_ONLY and wtype.code is not WorkItemTypeCode.CHANGE:
+        raise items.field_errors([("action", "invalid_choice")])  # the change list's (CHG-101)
     clean = _check_changes(action, changes)
     ids = list(dict.fromkeys(record_ids))
     if not ids:
@@ -356,7 +367,7 @@ def _skipped(record_id: uuid.UUID, display_id: str | None, refused: AppError) ->
     }
 
 
-async def _apply(
+async def _apply(  # noqa: C901 - one case per bulk action, flat
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -427,6 +438,14 @@ async def _apply(
                 uuid.UUID(str(given)) if given else None,
                 source=source,
             )
+        case BulkAction.CANCEL:
+            await _cancel_staged(session, subject, wtype, record_id, version, changes, source)
+        case BulkAction.DELETE:
+            await items.remove(
+                session, subject, wtype, record_id, expected_version=version, source=source
+            )
+        case BulkAction.CLOSE if wtype.stages is not None:
+            await _close_staged(session, subject, wtype, record_id, version, changes, source)
         case BulkAction.RESOLVE | BulkAction.CLOSE as action:
             await items.transition(
                 session,
@@ -447,6 +466,100 @@ async def _apply(
             )
             if changes.get("follow_up_of"):
                 await _note_follow_up(session, record_id, str(changes["follow_up_of"]), source)
+
+
+async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's values, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    version: int,
+    changes: Mapping[str, Any],
+    source: Source,
+) -> None:
+    """Close a staged record (a change) by its own listed move that lands in closed (REQ-CHG-101).
+
+    Its life cycle, closure rules and children decide, as for one change: the move the record
+    page would offer, with the code; none from where it is is a skip that says so. A change
+    closes through `change_close`, the one close every flow shares (lane C's REQ-REL-052 too).
+    """
+    if wtype.code is WorkItemTypeCode.CHANGE:
+        await change_close.close_change(
+            session,
+            subject,
+            record_id,
+            expected_version=version,
+            closure_code=changes.get("closure_code"),
+            resolution=changes.get("resolution"),
+            confirm_open_work=bool(changes.get("confirm_open_work")),
+            source=source,
+        )
+        return
+    panel = await items.stage_panel(session, subject, wtype, record_id)
+    closing_move = next(
+        (
+            m
+            for m in panel.moves
+            if m.allowed and (m.lands_in or m.transition.to_status) == CLOSED_STATUS
+        ),
+        None,
+    )
+    if closing_move is None:
+        raise Conflict(code="not_closable_from_here")
+    await items.move_status(
+        session,
+        subject,
+        wtype,
+        record_id,
+        target=closing_move.transition.to_status,
+        expected_version=version,
+        reason_code=None,
+        reason_text=None,
+        source=source,
+        closing_input=closing.MoveInput(
+            resolution=changes.get("resolution"),
+            closure_code=changes.get("closure_code"),
+            confirm_open_work=bool(changes.get("confirm_open_work")),
+        ),
+    )
+
+
+async def _cancel_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's values, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    version: int,
+    changes: Mapping[str, Any],
+    source: Source,
+) -> None:
+    """Cancel a change by its own listed move into canceled, with the reason (REQ-CHG-101).
+
+    The same move the record page offers, with its permission and stage rules; a change past the
+    point a cancel is offered (implementation in progress or later) is a skip that says so.
+    """
+    panel = await items.stage_panel(session, subject, wtype, record_id)
+    cancel = next(
+        (
+            m
+            for m in panel.moves
+            if m.allowed and (m.lands_in or m.transition.to_status) == CANCELED_STATUS
+        ),
+        None,
+    )
+    if cancel is None:
+        raise Conflict(code="not_cancelable_from_here")
+    await items.move_status(
+        session,
+        subject,
+        wtype,
+        record_id,
+        target=cancel.transition.to_status,
+        expected_version=version,
+        reason_code=None,
+        reason_text=str(changes["reason_text"]).strip(),
+        source=source,
+    )
 
 
 async def _note_follow_up(

@@ -11,22 +11,32 @@ Work items keep their own link table and never read asset tables; they ask here:
 
 The picker (`GET /assets/picker`) lists the person's own assets first, then their department's
 when the tenant allows it, then a search by tag, serial or name within what the caller may see.
+The paged picker (`GET /assets/picker/search`, WP-049b s4a, REQ-AST-046) filters by product type
+(and the types below it) and site, finds part of a name, tag, barcode, serial or discovered
+serial, and pages by cursor; staff search what their own asset scope reaches, anyone else only
+what they hold (AC2).
 """
 
+import base64
+import binascii
+import json
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import or_, select
+from sqlalchemy import ColumnElement, Select, func, literal, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound, PermissionDenied
+from app.core.errors import BadRequest, NotFound, PermissionDenied
 from app.modules.assets.infra.models import Asset, AssetSettings
 from app.modules.assets.service.assets import VIEW, _tenant, _visible, staff_rows
+from app.modules.assets.service.views import subtree
 from app.modules.identity_access import Subject, person_placement
 from app.shared.search import ENGINE, SearchDocument
 
 PICKER_MAX = 50
+PAGED_MAX = 100
+PAGED_DEFAULT = 25
 # The asset list's own search document (api/records.py's TEXT), over the generated columns.
 ASSET_SEARCH = SearchDocument(
     vector=Asset.__table__.c.search_vector, short_text=Asset.__table__.c.search_text
@@ -102,15 +112,21 @@ async def assets_of(session: AsyncSession, user_id: uuid.UUID) -> list[AssetRef]
     return [_ref(r, mine=True) for r in rows]
 
 
-async def picker(
+async def picker(  # noqa: PLR0913 - the picker's options, explicit
     session: AsyncSession,
     subject: Subject,
     *,
     for_user: uuid.UUID | None,
     text: str | None,
     limit: int = PICKER_MAX,
+    product_type: uuid.UUID | None = None,
+    site: uuid.UUID | None = None,
 ) -> list[AssetRef]:
-    """The asset picker on a record: the person's own first, then a search (REQ-AST-025)."""
+    """The asset picker on a record: the person's own first, then a search (REQ-AST-025).
+
+    `product_type` (with the types below it) and `site` narrow both parts (REQ-AST-046).
+    """
+    narrow = await _narrowing(session, product_type, site)
     person = for_user or subject.user_id
     settings = await session.get(AssetSettings, _tenant(session))
     own_only = settings is None or settings.portal_own_assets_only
@@ -127,7 +143,7 @@ async def picker(
     base = (
         staff_rows(subject) if for_someone_else else select(Asset).where(Asset.deleted_at.is_(None))
     )
-    theirs = base.where(or_(*holders))
+    theirs = base.where(or_(*holders), *narrow)
     found: list[AssetRef] = [
         _ref(r, mine=True) for r in await session.scalars(theirs.order_by(Asset.name).limit(limit))
     ]
@@ -137,9 +153,97 @@ async def picker(
             seen = {r.id for r in found}
             more = await session.scalars(
                 staff_rows(subject)
-                .where(match.predicate)
+                .where(or_(match.predicate, _part_of(text)), *narrow)
                 .order_by(match.rank.desc(), Asset.id)
                 .limit(limit)
             )
             found += [_ref(r) for r in more if r.id not in seen][: limit - len(found)]
     return found
+
+
+# --- the paged picker (WP-049b s4a, REQ-AST-046) ---------------------------------------------
+
+
+async def _narrowing(
+    session: AsyncSession, product_type: uuid.UUID | None, site: uuid.UUID | None
+) -> list[ColumnElement[bool]]:
+    found: list[ColumnElement[bool]] = []
+    if product_type is not None:
+        found.append(Asset.product_type_id.in_(await subtree(session, product_type)))
+    if site is not None:
+        found.append(Asset.site_id == site)
+    return found
+
+
+def _part_of(text: str) -> ColumnElement[bool]:
+    """Part of a name or identifier, anywhere in it ("4F7Q" finds "SN-224F7Q9", AC1).
+
+    Over the generated search text (name, tag, serials, barcode), normalised as stored, so the
+    trigram index serves it; LIKE's own characters are escaped.
+    """
+    escaped = text.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = literal("%") + func.sx_search_normalize(literal(escaped)) + literal("%")
+    return ASSET_SEARCH.short_text.like(pattern, escape="\\")
+
+
+@dataclass(frozen=True, slots=True)
+class PickerPage:
+    """One page of the paged picker; `next_cursor` None on the last page."""
+
+    items: list[AssetRef]
+    next_cursor: str | None
+
+
+def _encode(name: str, asset_id: uuid.UUID) -> str:
+    raw = json.dumps([name, str(asset_id)]).encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _decode(cursor: str) -> tuple[str, uuid.UUID]:
+    try:
+        raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
+        name, asset_id = json.loads(raw)
+        return str(name), uuid.UUID(str(asset_id))
+    except (ValueError, TypeError, binascii.Error) as exc:
+        raise BadRequest(code="invalid_cursor") from exc
+
+
+async def picker_page(  # noqa: PLR0913 - the picker's filters, explicit
+    session: AsyncSession,
+    subject: Subject,
+    *,
+    text: str | None,
+    product_type: uuid.UUID | None,
+    site: uuid.UUID | None,
+    cursor: str | None,
+    limit: int = PAGED_DEFAULT,
+) -> PickerPage:
+    """Assets to pick, by name, a page at a time (REQ-AST-046).
+
+    Staff (`assets.view`) search within their own asset scope; anyone else sees only the assets
+    they hold. Never more than the caller may see (AC2, REQ-CMDB-029).
+    """
+    limit = max(1, min(limit, PAGED_MAX))
+    statement: Select[Asset] = (
+        staff_rows(subject)
+        if subject.holds(VIEW)
+        else select(Asset).where(Asset.deleted_at.is_(None), Asset.owner_user_id == subject.user_id)
+    )
+    statement = statement.where(*await _narrowing(session, product_type, site))
+    if text and text.strip():
+        match = await ENGINE.match(session, ASSET_SEARCH, text)
+        statement = statement.where(
+            _part_of(text) if match is None else or_(match.predicate, _part_of(text))
+        )
+    if cursor is not None:
+        name, after = _decode(cursor)
+        statement = statement.where(
+            tuple_(Asset.name, Asset.id) > tuple_(literal(name), literal(after))
+        )
+    rows = list(await session.scalars(statement.order_by(Asset.name, Asset.id).limit(limit + 1)))
+    more = len(rows) > limit
+    rows = rows[:limit]
+    return PickerPage(
+        items=[_ref(r, mine=r.owner_user_id == subject.user_id) for r in rows],
+        next_cursor=_encode(rows[-1].name, rows[-1].id) if more and rows else None,
+    )

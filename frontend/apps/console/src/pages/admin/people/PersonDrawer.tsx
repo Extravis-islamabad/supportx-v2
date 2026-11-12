@@ -16,7 +16,6 @@ import {
   Space,
   Spin,
   Switch,
-  Tabs,
   Typography,
 } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
@@ -52,11 +51,13 @@ import {
   useFormProblem,
   useLabel,
   PersonSessions,
+  Tabs,
 } from '@supportx/ui';
 
 import { MemberAvailability } from '../../../MemberAvailability';
 import { PersonSignInActions } from '../security/PersonSignInActions';
 import { UserAccessPanel } from '../UserAccessDrawer';
+import { CostRatesCard, VIEW_COST_RATES } from './CostRatesCard';
 import { roleName } from '../roleName';
 import { personFieldKey } from './fields';
 
@@ -199,6 +200,16 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
                     key: 'sessions',
                     label: t('people.tab.sessions'),
                     children: <PersonSessions userId={user.id} />,
+                  },
+                ]
+              : []),
+            // A person's cost per hour (REQ-INC-068): money, only with users.view_cost_rates.
+            ...(can(VIEW_COST_RATES) && user.user_type !== 'service'
+              ? [
+                  {
+                    key: 'cost',
+                    label: t('people.tab.cost'),
+                    children: <CostRatesCard userId={user.id} />,
                   },
                 ]
               : []),

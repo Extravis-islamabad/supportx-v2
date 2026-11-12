@@ -50,6 +50,7 @@ import { ConditionBuilder } from './fields';
 import { fromTree, toTree, type Conditions } from './rules';
 import { conditionAt, missingProblems, useEditorProblems, whereOf } from './problems';
 import { ProblemList } from './ProblemList';
+import { TableRegion } from '../../../TableRegion';
 
 const RECORD_TYPE = 'incident';
 const STATE_TONE: Record<RoutingOut['state'], Tone> = {
@@ -275,128 +276,131 @@ function RoutingRules() {
         )
       }
     >
-      <Table<RoutingOut>
-        rowKey="id"
-        loading={rules.isPending}
-        dataSource={list}
-        pagination={false}
-        data-testid="routing-table"
-        locale={{
-          emptyText: (
-            <Typography.Text type="secondary">{t('automation.routing.none')}</Typography.Text>
-          ),
-        }}
-        onRow={(rule) => ({
-          onClick: () => {
-            if (editable) setEditing(rule);
-          },
-          style: editable ? { cursor: 'pointer' } : undefined,
-          'data-testid': `routing-row-${rule.name}`,
-        })}
-        columns={[
-          {
-            key: 'order',
-            title: t('automation.col.order'),
-            width: 120,
-            render: (_, rule, index) => (
-              <Flex gap={4} align="center">
-                <span>{index + 1}</span>
-                {editable && (
-                  <>
-                    <Button
-                      size="small"
-                      icon={<ArrowUpOutlined />}
-                      aria-label={t('automation.move_up', { name: rule.name })}
-                      disabled={index === 0 || orderRouting.isPending}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        move(index, -1);
-                      }}
-                    />
-                    <Button
-                      size="small"
-                      icon={<ArrowDownOutlined />}
-                      aria-label={t('automation.move_down', { name: rule.name })}
-                      disabled={index === list.length - 1 || orderRouting.isPending}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        move(index, 1);
-                      }}
-                    />
-                  </>
-                )}
-              </Flex>
+      {/* A keyboard can reach and scroll the table's own scroll box (QA V-18, axe). */}
+      <TableRegion label={t('automation.routing.rules')}>
+        <Table<RoutingOut>
+          rowKey="id"
+          loading={rules.isPending}
+          dataSource={list}
+          pagination={false}
+          data-testid="routing-table"
+          locale={{
+            emptyText: (
+              <Typography.Text type="secondary">{t('automation.routing.none')}</Typography.Text>
             ),
-          },
-          {
-            key: 'name',
-            title: t('automation.col.name'),
-            render: (_, rule) => <bdi>{rule.name}</bdi>,
-          },
-          {
-            key: 'group',
-            title: t('automation.col.group'),
-            render: (_, rule) => <bdi>{groups.name(rule.group_id)}</bdi>,
-          },
-          {
-            key: 'site',
-            title: t('automation.col.site'),
-            render: (_, rule) =>
-              rule.site_id === null ? (
-                t('automation.routing.any_site')
-              ) : (
-                <bdi>
-                  {sites.data === undefined
-                    ? ''
-                    : (sites.data.find((s) => s.id === rule.site_id)?.name ??
-                      t('automation.site_gone'))}
-                </bdi>
-              ),
-          },
-          {
-            key: 'state',
-            title: t('automation.col.state'),
-            render: (_, rule) => (
-              <ToneTag tone={STATE_TONE[rule.state]}>{t(`rule_state.${rule.state}`)}</ToneTag>
-            ),
-          },
-          ...(editable
-            ? [
-                {
-                  key: 'actions',
-                  title: <span className="sr-only">{t('automation.col.actions')}</span>,
-                  render: (_: unknown, rule: RoutingOut) => (
-                    <Popconfirm
-                      title={t('automation.remove.confirm', { name: rule.name })}
-                      okText={t('automation.remove')}
-                      cancelText={t('actions.cancel')}
-                      onConfirm={() => {
-                        deleteRouting.mutate(
-                          { id: rule.id, version: rule.version },
-                          { onError: reportError },
-                        );
-                      }}
-                      onPopupClick={(event) => {
-                        event.stopPropagation();
-                      }}
-                    >
+          }}
+          onRow={(rule) => ({
+            onClick: () => {
+              if (editable) setEditing(rule);
+            },
+            style: editable ? { cursor: 'pointer' } : undefined,
+            'data-testid': `routing-row-${rule.name}`,
+          })}
+          columns={[
+            {
+              key: 'order',
+              title: t('automation.col.order'),
+              width: 120,
+              render: (_, rule, index) => (
+                <Flex gap={4} align="center">
+                  <span>{index + 1}</span>
+                  {editable && (
+                    <>
                       <Button
-                        danger
                         size="small"
+                        icon={<ArrowUpOutlined />}
+                        aria-label={t('automation.move_up', { name: rule.name })}
+                        disabled={index === 0 || orderRouting.isPending}
                         onClick={(event) => {
                           event.stopPropagation();
+                          move(index, -1);
                         }}
-                        data-testid={`routing-remove-${rule.name}`}
+                      />
+                      <Button
+                        size="small"
+                        icon={<ArrowDownOutlined />}
+                        aria-label={t('automation.move_down', { name: rule.name })}
+                        disabled={index === list.length - 1 || orderRouting.isPending}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          move(index, 1);
+                        }}
+                      />
+                    </>
+                  )}
+                </Flex>
+              ),
+            },
+            {
+              key: 'name',
+              title: t('automation.col.name'),
+              render: (_, rule) => <bdi>{rule.name}</bdi>,
+            },
+            {
+              key: 'group',
+              title: t('automation.col.group'),
+              render: (_, rule) => <bdi>{groups.name(rule.group_id)}</bdi>,
+            },
+            {
+              key: 'site',
+              title: t('automation.col.site'),
+              render: (_, rule) =>
+                rule.site_id === null ? (
+                  t('automation.routing.any_site')
+                ) : (
+                  <bdi>
+                    {sites.data === undefined
+                      ? ''
+                      : (sites.data.find((s) => s.id === rule.site_id)?.name ??
+                        t('automation.site_gone'))}
+                  </bdi>
+                ),
+            },
+            {
+              key: 'state',
+              title: t('automation.col.state'),
+              render: (_, rule) => (
+                <ToneTag tone={STATE_TONE[rule.state]}>{t(`rule_state.${rule.state}`)}</ToneTag>
+              ),
+            },
+            ...(editable
+              ? [
+                  {
+                    key: 'actions',
+                    title: <span className="sr-only">{t('automation.col.actions')}</span>,
+                    render: (_: unknown, rule: RoutingOut) => (
+                      <Popconfirm
+                        title={t('automation.remove.confirm', { name: rule.name })}
+                        okText={t('automation.remove')}
+                        cancelText={t('actions.cancel')}
+                        onConfirm={() => {
+                          deleteRouting.mutate(
+                            { id: rule.id, version: rule.version },
+                            { onError: reportError },
+                          );
+                        }}
+                        onPopupClick={(event) => {
+                          event.stopPropagation();
+                        }}
                       >
-                        {t('automation.remove')}
-                      </Button>
-                    </Popconfirm>
-                  ),
-                },
-              ]
-            : []),
-        ]}
-      />
+                        <Button
+                          danger
+                          size="small"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                          data-testid={`routing-remove-${rule.name}`}
+                        >
+                          {t('automation.remove')}
+                        </Button>
+                      </Popconfirm>
+                    ),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </TableRegion>
       <RoutingEditor
         rule={editing === 'new' ? undefined : editing}
         open={editing !== undefined}
