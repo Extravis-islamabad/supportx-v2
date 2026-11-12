@@ -110,9 +110,16 @@ async def return_display_numbers(
     """
     if last_used < 1 or last_used >= last_reserved:
         return
+    context = session.info.get(SESSION_TENANT_KEY)
+    if not isinstance(context, TenantContext):
+        msg = "return_display_numbers needs a tenant session"
+        raise TypeError(msg)
     await session.execute(
         update(DisplayIdSequence)
         .where(
+            # RLS already limits it to the session's tenant; named too, as a shared helper
+            # should (lane A's #439 review).
+            DisplayIdSequence.tenant_id == context.tenant_id,
             DisplayIdSequence.prefix == counter_key,
             DisplayIdSequence.last_value == last_reserved,
         )
