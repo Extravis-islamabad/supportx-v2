@@ -28,7 +28,7 @@ async def _publish_version_2_without_start_work(world: World) -> None:
         await session.execute(
             text(
                 "INSERT INTO work_item_lifecycle_versions (tenant_id, type, lifecycle, number,"
-                " state, published_at) VALUES (:t, 'incident', 'standard', 2, 'published', now())"
+                " state) VALUES (:t, 'incident', 'standard', 2, 'draft')"
             ),
             {"t": world.a.tenant},
         )
@@ -40,6 +40,12 @@ async def _publish_version_2_without_start_work(world: World) -> None:
                 " reason_mode, reason_list FROM work_item_transitions"
                 " WHERE type = 'incident' AND lifecycle = 'standard' AND lifecycle_version = 1"
                 " AND NOT (from_status = 'new' AND action = 'start_work')"
+            )
+        )
+        await session.execute(
+            text(
+                "UPDATE work_item_lifecycle_versions SET state = 'published', published_at = now()"
+                " WHERE type = 'incident' AND lifecycle = 'standard' AND number = 2"
             )
         )
 
@@ -98,3 +104,56 @@ async def test_req_inc_049_ac3_a_record_keeps_its_version_after_a_newer_one_publ
             {"x": uuid.UUID(before["id"]), "y": uuid.UUID(after["id"])},
         )
         assert dict(kept.tuples().all()) == {before["id"]: 1, after["id"]: 2}
+
+
+async def _sql_as_app(world: World, statement: str) -> None:
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        await session.execute(text(statement))
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        # A published version's move cannot be removed, retargeted or given a new right.
+        "DELETE FROM work_item_transitions WHERE type = 'incident' AND lifecycle_version = 1",
+        (
+            "UPDATE work_item_transitions SET to_status = 'closed'"
+            " WHERE type = 'incident' AND lifecycle_version = 1 AND action = 'resolve'"
+        ),
+        (
+            "UPDATE work_item_transitions SET permission = 'incidents.delete'"
+            " WHERE type = 'incident' AND lifecycle_version = 1"
+        ),
+        # Nor can a move be added to it.
+        (
+            "INSERT INTO work_item_transitions (tenant_id, type, lifecycle, lifecycle_version,"
+            " from_status, action, to_status, reason_mode)"
+            " SELECT tenant_id, type, lifecycle, 1, 'closed', 'reopen', 'in_progress', 'none'"
+            " FROM work_item_lifecycle_versions WHERE type = 'incident' AND number = 1"
+            " ON CONFLICT DO NOTHING"
+        ),
+        # A version goes draft -> published -> retired only, and only a draft is removed.
+        (
+            "UPDATE work_item_lifecycle_versions SET state = 'draft'"
+            " WHERE type = 'incident' AND number = 1"
+        ),
+        "DELETE FROM work_item_lifecycle_versions WHERE type = 'incident' AND number = 1",
+    ],
+)
+async def test_lane_b_a_published_version_cannot_be_changed_by_the_app_role(
+    world: World, statement: str
+) -> None:
+    """Enforced by the database, not only the service (lane B's #454 review)."""
+    await world.create(world.a, world.a.admin)  # seeds tenant A's version 1, published
+    with pytest.raises(DBAPIError, match=r"never change|draft"):
+        await _sql_as_app(world, statement)
+
+
+async def test_the_reason_prompt_stays_a_version_wide_setting(world: World) -> None:
+    """Amendment 1: on a published version only the reason prompt may change."""
+    await world.create(world.a, world.a.admin)
+    await _sql_as_app(
+        world,
+        "UPDATE work_item_transitions SET reason_mode = 'optional'"
+        " WHERE type = 'incident' AND lifecycle_version = 1 AND action = 'resolve'",
+    )

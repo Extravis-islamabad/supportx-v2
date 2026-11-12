@@ -329,8 +329,10 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
             for i, (code, colour) in enumerate(values)
         ]
     )
-    # Each shipped life cycle starts as version 1, published (ADR-049); staged types' status
-    # moves run on the "standard" one. The version rows go in before the transitions naming them.
+    # Each shipped life cycle starts as version 1 (ADR-049); staged types' status moves run on
+    # the "standard" one. The version rows go in first, as drafts: the database lets moves be
+    # written only into a draft (0152's trigger). They are published once seeded (below).
+    seeded_lifecycles = sorted({*wtype.lifecycles, STANDARD_LIFECYCLE})
     session.add_all(
         [
             WorkItemLifecycleVersion(
@@ -338,10 +340,9 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
                 type=wtype.code,
                 lifecycle=code,
                 number=FIRST_VERSION,
-                state=VersionState.PUBLISHED.value,
-                published_at=datetime.now(UTC),
+                state=VersionState.DRAFT.value,
             )
-            for code in {*wtype.lifecycles, STANDARD_LIFECYCLE}
+            for code in seeded_lifecycles
         ]
     )
     await session.flush()
@@ -419,6 +420,16 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
                 )
         await session.flush()
     await session.flush()
+    await session.execute(
+        update(WorkItemLifecycleVersion)
+        .where(
+            WorkItemLifecycleVersion.type == wtype.code,
+            WorkItemLifecycleVersion.lifecycle.in_(seeded_lifecycles),
+            WorkItemLifecycleVersion.number == FIRST_VERSION,
+            WorkItemLifecycleVersion.state == VersionState.DRAFT.value,
+        )
+        .values(state=VersionState.PUBLISHED.value, published_at=datetime.now(UTC))
+    )
 
 
 def _stage_columns(staged: StageModel | None, code: str) -> dict[str, Any]:

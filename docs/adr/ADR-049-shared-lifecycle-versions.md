@@ -144,6 +144,20 @@ two evaluators. The coordinator approved this amendment on 2026-11-12:
   drops a status leaves no setting pointing at it. A setting for an action that no published
   version uses any more stays and never applies; the designer marks it unused. Workflows' "set
   status" step checks moves against the record's own version at run time (lane C).
+- **Moves outside who may run (an explicit exception, lane B).** Only platform-internal moves
+  that no tenant automation or workflow makes, each recorded with what made it:
+  - *the system's own*: auto-close (source `system`, rule `auto_close`), and approval outcomes
+    (`decided_move`, and `system_stage_move` for staged types: system statuses only);
+  - *a person's act, carried on*: the status an assignment moves to (`auto_status_on_assign`,
+    in the same save as the assignment), the first status at creation, a service request's
+    fulfilment moves (D-154c), and a requester's reply resuming a paused record (REQ-INC-051);
+  - *the requester's own act*: confirming or rejecting a resolution, recorded as the requester
+    from their channel with `requester_action` (WP-020f BUG-03), never as automation.
+  Workflows, business rules and bulk changes are never among them: they move through the one
+  function above, as their run-as identity.
+- **Database guard (lane B).** Two triggers from 0152 keep a published version as it is,
+  whatever the code does: moves are written only into a draft (on a published version only the
+  reason prompt may change), and a version goes draft → published → retired only.
 - **Migration 0152** adds only `lifecycle_version`, `permission` and `required_fields` to
   `work_item_transitions`; the `conditions`, `after_actions` and bypass columns first drafted
   never ship.
