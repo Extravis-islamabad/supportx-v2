@@ -417,6 +417,28 @@ describe('Reports', () => {
       },
     );
 
+    it('an asset money bucket says it cannot list yet, never a failed request', async () => {
+      const money = {
+        ...RESULT,
+        list_path: 'assets',
+        rows: RESULT.rows.map((row) => ({
+          ...row,
+          drill: { field: 'book_value', op: 'between', value: [0, 1000] },
+        })),
+      };
+      const fake = api({
+        me: fakeSession(),
+        routes: routes({ 'POST /api/v1/reports/run': { body: money } }),
+      });
+      render(<App />);
+      const table = await screen.findByTestId('report-table');
+      fireEvent.click(within(table).getByText('P1 – Critical'));
+      expect((await screen.findByTestId('report-drill-unavailable')).textContent).toBe(
+        'These records cannot be listed from this chart yet.',
+      );
+      expect(fake.find('GET', '/api/v1/assets')).toHaveLength(0);
+    });
+
     it('exports to a file in the background and lists my exports (REQ-RPT-058)', async () => {
       const ready = {
         id: '01900000-0000-7000-8000-00000000e001',

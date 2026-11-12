@@ -653,6 +653,7 @@ export const ur: LabelResource = {
   'reports.delete_folder_named': 'فولڈر “{{name}}” حذف کریں',
   'reports.download': 'ڈاؤن لوڈ',
   'reports.drill_count': 'ریکارڈز: {{count}}',
+  'reports.drill_unavailable': 'یہ ریکارڈ ابھی اس چارٹ سے فہرست میں نہیں دکھائے جا سکتے۔',
   'reports.duration_days': '{{days}} دن {{hours}} گھنٹے',
   'reports.duration_hours': '{{hours}} گھنٹے {{minutes}} منٹ',
   'reports.duration_minutes': '{{minutes}} منٹ',

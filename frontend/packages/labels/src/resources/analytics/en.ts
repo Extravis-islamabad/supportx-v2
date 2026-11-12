@@ -652,6 +652,7 @@ export const en = {
   'reports.delete_folder_named': 'Delete the folder “{{name}}”',
   'reports.download': 'Download',
   'reports.drill_count': 'Records: {{count}}',
+  'reports.drill_unavailable': 'These records cannot be listed from this chart yet.',
   'reports.duration_days': '{{days}} d {{hours}} h',
   'reports.duration_hours': '{{hours}} h {{minutes}} min',
   'reports.duration_minutes': '{{minutes}} min',

@@ -647,6 +647,7 @@ export const ar: LabelResource = {
   'reports.delete_folder_named': 'حذف المجلد «{{name}}»',
   'reports.download': 'تنزيل',
   'reports.drill_count': 'السجلات: {{count}}',
+  'reports.drill_unavailable': 'لا يمكن عرض هذه السجلات من هذا المخطط بعد.',
   'reports.duration_days': '{{days}} ي {{hours}} س',
   'reports.duration_hours': '{{hours}} س {{minutes}} د',
   'reports.duration_minutes': '{{minutes}} د',

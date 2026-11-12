@@ -44,7 +44,22 @@ interface DrillRows {
   rows: readonly { id: string; display_id: string; subject: string; status: string }[];
   total: number | null;
   pending: boolean;
+  /** The list cannot take this chart's filter (yet): say so, never a failed request. */
+  unavailable?: boolean;
 }
+
+/** Whether a filter tree names one of `fields` anywhere. */
+function mentions(tree: unknown, fields: ReadonlySet<string>): boolean {
+  if (tree === null || typeof tree !== 'object') return false;
+  if (Array.isArray(tree)) return tree.some((t) => mentions(t, fields));
+  const node = tree as Record<string, unknown>;
+  if (typeof node.field === 'string' && fields.has(node.field)) return true;
+  return Object.values(node).some((v) => mentions(v, fields));
+}
+
+// The asset report's money buckets (assets.view_financials): the asset list does not take them
+// as filters yet (lane B adds them), so their bars do not list (lane B's #S5b note).
+const ASSET_MONEY = new Set(['book_value', 'total_cost', 'purchase_price', 'purchase_tax']);
 
 function useChangeRows(filter: unknown): DrillRows {
   const list = useChanges({
@@ -91,8 +106,13 @@ function useRequestRows(filter: unknown): DrillRows {
 }
 
 function useAssetRows(filter: unknown): DrillRows {
-  // Lane B's asset list takes the report's filter as its list API does (FilterExpression JSON).
-  const list = useAssetRecords({ filter: filter == null ? undefined : JSON.stringify(filter) });
+  // Lane B's asset list takes the report's filter as its list API does (FilterExpression JSON),
+  // over every asset (view "all"), as the report counted them (the trash left out).
+  const unavailable = mentions(filter, ASSET_MONEY);
+  const list = useAssetRecords(
+    { view: 'all', filter: filter == null ? undefined : JSON.stringify(filter) },
+    !unavailable,
+  );
   const first = list.data?.pages[0];
   return {
     rows: (list.data?.pages.flatMap((page) => page.items) ?? []).map((asset) => ({
@@ -102,7 +122,8 @@ function useAssetRows(filter: unknown): DrillRows {
       status: '',
     })),
     total: first?.estimated_total ?? null,
-    pending: list.isPending,
+    pending: !unavailable && list.isPending,
+    unavailable,
   };
 }
 
@@ -128,7 +149,7 @@ function RecordDrill({
   route: string;
 }) {
   const t = useLabels();
-  const { rows, total, pending } = useRows(drill.filter);
+  const { rows, total, pending, unavailable = false } = useRows(drill.filter);
   return (
     <Drawer
       open
@@ -138,29 +159,35 @@ function RecordDrill({
       destroyOnHidden
       data-testid="report-drill"
     >
-      <Space direction="vertical" style={{ width: '100%' }}>
-        <Typography.Text type="secondary" data-testid="report-drill-count">
-          {t('reports.drill_count', { count: total ?? rows.length })}
+      {unavailable ? (
+        <Typography.Text type="secondary" data-testid="report-drill-unavailable">
+          {t('reports.drill_unavailable')}
         </Typography.Text>
-        <List
-          loading={pending}
-          dataSource={[...rows]}
-          renderItem={(item) => (
-            <List.Item>
-              <Space direction="vertical" size={0} style={{ minWidth: 0 }}>
-                <Link to={`/${route}/${item.id}`}>
-                  <bdi>{item.display_id}</bdi> {item.subject}
-                </Link>
-                {item.status !== '' && (
-                  <Typography.Text type="secondary">
-                    {t(`work_item_status.${item.status}`)}
-                  </Typography.Text>
-                )}
-              </Space>
-            </List.Item>
-          )}
-        />
-      </Space>
+      ) : (
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Typography.Text type="secondary" data-testid="report-drill-count">
+            {t('reports.drill_count', { count: total ?? rows.length })}
+          </Typography.Text>
+          <List
+            loading={pending}
+            dataSource={[...rows]}
+            renderItem={(item) => (
+              <List.Item>
+                <Space direction="vertical" size={0} style={{ minWidth: 0 }}>
+                  <Link to={`/${route}/${item.id}`}>
+                    <bdi>{item.display_id}</bdi> {item.subject}
+                  </Link>
+                  {item.status !== '' && (
+                    <Typography.Text type="secondary">
+                      {t(`work_item_status.${item.status}`)}
+                    </Typography.Text>
+                  )}
+                </Space>
+              </List.Item>
+            )}
+          />
+        </Space>
+      )}
     </Drawer>
   );
 }
