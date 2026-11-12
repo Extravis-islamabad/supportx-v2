@@ -109,3 +109,37 @@ async def test_a_reminder_for_a_moved_start_or_an_unseen_record_says_nothing(wor
     told = await sent(world, a, item["id"], "task.starts_soon")
     # The start moved: nothing for the old time. And GB's record is not tech_a's to see.
     assert not [d for d in told if d["user_id"] == a.tech_a and d["state"] == "sent"], told
+
+
+async def test_an_unlicensed_type_s_tasks_neither_remind_nor_tell_and_keep_their_reminder(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rule 5f (lane B's #424 review): after a downgrade, no task notice or reminder for the
+    type; the reminder is not used up, so it comes when the plan includes the type again."""
+    from app.modules import licensing  # noqa: PLC0415 - patched here only
+    from app.modules.work_items.domain.types import INCIDENT  # noqa: PLC0415
+
+    real = licensing.has_feature
+
+    async def no_incidents(tenant_id: uuid.UUID, feature: object) -> bool:
+        return str(feature) != INCIDENT.feature and await real(tenant_id, feature)  # type: ignore[arg-type]  # test passthrough
+
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga))
+    start = datetime.now(UTC).replace(microsecond=0) + timedelta(days=40)
+    monkeypatch.setattr(licensing, "has_feature", no_incidents)
+    await _task(
+        world,
+        a,
+        item,
+        owner_id=str(a.tech_a),  # sees the record: would be told if licensed
+        scheduled_start=start.isoformat(),
+        remind_before_minutes=60,
+    )
+    assert await _sweep(world, a, start - timedelta(minutes=30)) == 0  # not claimed
+    await run_engine(world, a)
+    assert [
+        d for d in await sent(world, a, item["id"], "task.assigned") if d["user_id"] == a.tech_a
+    ] == []
+    monkeypatch.setattr(licensing, "has_feature", real)
+    assert await _sweep(world, a, start - timedelta(minutes=20)) == 1  # licensed again: it comes

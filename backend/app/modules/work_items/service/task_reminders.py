@@ -14,6 +14,7 @@ time that moved, or a task done meanwhile, says nothing.
 """
 
 import uuid
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 
 from sqlalchemy import Select, func, select, text
@@ -24,7 +25,9 @@ from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules import licensing
 from app.modules.work_items.domain.parts import OPEN_TASK_STATUSES
+from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import WorkItemTaskReminderDue
 from app.modules.work_items.infra.models import WorkItem, WorkItemTask
 from app.shared.clock import Clock, SystemClock
@@ -74,7 +77,7 @@ async def _raise(
     return True
 
 
-def _open_owned() -> Select[WorkItemTask, WorkItem]:
+def _open_owned(licensed: Sequence[str]) -> Select[WorkItemTask, WorkItem]:
     return (
         select(WorkItemTask, WorkItem)
         .join(WorkItem, WorkItem.id == WorkItemTask.work_item_id)
@@ -83,19 +86,35 @@ def _open_owned() -> Select[WorkItemTask, WorkItem]:
             WorkItemTask.owner_id.is_not(None),
             WorkItemTask.status.in_(OPEN_TASK_STATUSES),
             WorkItem.deleted_at.is_(None),
+            WorkItem.type.in_(licensed),
         )
     )
+
+
+async def _licensed(session: AsyncSession) -> list[str]:
+    """The types the tenant's plan includes (rule 5f): only their tasks are reminded."""
+    tenant = session.info[SESSION_TENANT_KEY].tenant_id
+    return [
+        wtype.code.value
+        for wtype in TYPES.values()
+        if await licensing.has_feature(tenant, wtype.feature)
+    ]
 
 
 async def sweep(session: AsyncSession, clock: Clock) -> int:
     """Raise every task reminder due now in this tenant, each once; how many were raised."""
     now = clock.now()
     raised = 0
+    # Unlicensed types are left out before any claim, so their reminders are not used up and
+    # come back if the plan does (lane B's #424 review).
+    licensed = await _licensed(session)
+    if not licensed:
+        return 0
     remind_at = WorkItemTask.scheduled_start - func.make_interval(
         0, 0, 0, 0, 0, WorkItemTask.remind_before_minutes
     )
     starting = await session.execute(
-        _open_owned().where(
+        _open_owned(licensed).where(
             WorkItemTask.remind_before_minutes.is_not(None),
             WorkItemTask.scheduled_start > now,
             remind_at <= now,
@@ -105,7 +124,7 @@ async def sweep(session: AsyncSession, clock: Clock) -> int:
         assert task.scheduled_start is not None  # noqa: S101 - filtered above
         raised += await _raise(session, task, record, STARTS_SOON, task.scheduled_start)
     late = await session.execute(
-        _open_owned().where(
+        _open_owned(licensed).where(
             WorkItemTask.due_at.is_not(None),
             WorkItemTask.due_at <= now,
             WorkItemTask.due_at >= now - LOOK_BACK,

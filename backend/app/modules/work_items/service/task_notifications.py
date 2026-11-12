@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound, PermissionDenied
+from app.modules import licensing
 from app.modules.identity_access import subject_for, user_names
 from app.modules.work_items.domain.parts import OPEN_TASK_STATUSES
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
@@ -134,6 +135,10 @@ class TaskNotifications:
         if task is None or record is None or task.owner_id is None or not _stands(task, envelope):
             return None
         wtype = TYPES[WorkItemTypeCode(record.type)]
+        # A type the tenant's plan no longer includes says nothing (rule 5f; lane B's #424 review):
+        # the same licence /my-tasks asks.
+        if not await licensing.has_feature(envelope.tenant_id, wtype.feature):
+            return None
         actor = envelope.actor.id if envelope.actor.type == "user" else None
         names = await user_names(session, [actor] if actor else [])
         public: dict[str, VariableValue] = {
