@@ -23,7 +23,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound, PermissionDenied
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, notifiable_people
 from app.modules.organization import existing_unit_ids, offered_languages
 from app.modules.work_items.domain.text_templates import (
     BODY_MAX,
@@ -385,11 +385,20 @@ async def fill_for(  # noqa: PLR0913 - the template, the record and the reader, 
 ) -> Filled:
     """The template filled with the record's values (REQ-INC-041 AC1-AC3).
 
-    The record must be one the subject may see. The language: the requester's (the caller
-    passes it), then the tenant's default, then any the template has.
+    The record must be one the subject may see, and the template one offered to them (a shared
+    one limited to groups only for those groups' members). The language: the one the screen
+    asks for, then the requester's own, then the tenant's default, then any the template has.
     """
     row = await _row(session, subject, wtype, template_id)
+    if (
+        row.visibility == TemplateVisibility.SHARED.value
+        and row.group_ids
+        and not set(row.group_ids) & set(subject.group_ids)
+    ):
+        raise NotFound(code=NOT_FOUND)
     record: WorkItem = await items.visible_record(session, subject, wtype, record_id)
+    person = (await notifiable_people(session, [record.requester_id])).get(record.requester_id)
+    languages = [*languages, person.language if person else None]
     cat = await config.load(session, wtype)
     bodies = dict(row.bodies or {})
     if not bodies and row.body:
