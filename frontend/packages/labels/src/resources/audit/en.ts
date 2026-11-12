@@ -219,6 +219,7 @@ export const en = {
   'audit.action.identity.network_rules_changed': 'Changed the IP allow-lists',
   'audit.action.identity.password_policy_reapplied': 'Applied the password policy again',
   'audit.action.identity.settings_changed': 'Changed the sign-in settings',
+  'audit.action.identity.sign_ins_viewed': 'Viewed the sign-in log',
   'audit.action.incident.access_changed': 'Changed who can see or work on an incident',
   'audit.action.incident.approval_decided': 'Recorded an approval decision on an incident',
   'audit.action.incident.assigned': 'Changed who an incident is assigned to',

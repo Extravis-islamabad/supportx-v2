@@ -5,6 +5,7 @@ AC2: "failed" in the last 24 hours lists only failures in that range. Only holde
 signed cursor bound to the filters.
 """
 
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -61,6 +62,20 @@ async def test_req_aud_015_ac2_failed_in_the_last_day_lists_only_those(world: Wo
         "chrome:windows",
     )
     assert str(world.a.admin) in page["people"]
+    # Reading the log is a personal-data read: one entry per call, the filters, never the rows.
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        entries = await conn.fetch(
+            "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = $2",
+            world.a.tenant,
+            "identity.sign_ins_viewed",
+        )
+    finally:
+        await conn.close()
+    (entry,) = entries
+    details = json.loads(entry["details"])
+    assert (details["outcome"], details["page"]) == (["failed"], "first")
+    assert "192.0.2.10" not in entry["details"]
 
 
 async def test_the_log_pages_newest_first_with_a_cursor_bound_to_its_filters(world: World) -> None:

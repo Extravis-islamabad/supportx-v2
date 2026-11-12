@@ -257,6 +257,9 @@ async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of 
     request: Request,
     session: TenantSession,
     subject: ViewSignIns,
+    note: Annotated[
+        AuditNote, audited("identity.sign_ins_viewed", object_type="identity_settings")
+    ],
     outcome: Annotated[list[SignInOutcome] | None, Query()] = None,
     method: Annotated[list[SignInMethod] | None, Query()] = None,
     user_id: uuid.UUID | None = None,
@@ -265,7 +268,20 @@ async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of 
     cursor: Annotated[str | None, Query(max_length=2048)] = None,
     limit: Annotated[int, Query(ge=1, le=sign_in_log.PAGE_MAX)] = 50,
 ) -> SignInLogPage:
-    """Every sign-in event of the organisation, newest first (AC2: by outcome and time)."""
+    """Every sign-in event of the organisation, newest first (AC2: by outcome and time).
+
+    Reading it is a read of personal data: each call is audited with its filters, never the
+    rows (the coordinator).
+    """
+    note.object_id = str(subject.tenant_id)
+    note.details = {
+        "outcome": sorted(o.value for o in outcome or ()),
+        "method": sorted(m.value for m in method or ()),
+        "user_id": str(user_id) if user_id else None,
+        "since": since.isoformat() if since else None,
+        "until": until.isoformat() if until else None,
+        "page": "next" if cursor else "first",
+    }
     scope = CursorScope(
         endpoint="identity.sign_ins",
         tenant_id=subject.tenant_id,

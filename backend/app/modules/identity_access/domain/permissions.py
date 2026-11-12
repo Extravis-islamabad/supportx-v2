@@ -88,7 +88,8 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
     # Sign-in and security settings: SSO, sessions, people creation (WP-039, D-089 D7).
     PermissionSpec("identity.manage"),
     # The sign-in log (REQ-AUD-015; WP-057 S1a): addresses and devices are personal data, so
-    # its own right (lane B), held by tenant admins, security admins and auditors.
+    # its own right (lane B). No built-in role but the tenant admin holds it; grantable to custom
+    # roles (the coordinator, as D-164's cost-rate rights). Every read of it is audited.
     PermissionSpec("identity.view_sign_ins"),
     # API keys for service identities and every key of the tenant (WP-041, D-128). The key
     # screens are for the browser only: no key ever reaches them, whatever its scopes.
@@ -144,7 +145,6 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
         ),
         AUDITOR: (
             ("profile.edit", "own"),
-            ("identity.view_sign_ins", "all"),
             ("users.view", "all"),
             ("roles.view", "all"),
             ("sites.view", "all"),
@@ -155,7 +155,6 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("users.view", "all"),
             ("roles.view", "all"),
             ("identity.manage", "all"),
-            ("identity.view_sign_ins", "all"),
             ("api_keys.manage", "all"),
         ),
         KNOWLEDGE_MANAGER: (("profile.edit", "own"),),
