@@ -500,7 +500,7 @@ export function ChangeBoardsPage() {
                   more={[
                     {
                       key: 'up',
-                      label: t('changes.boards.move_up', { name: boardName(t, locale, b) }),
+                      label: t('changes.boards.move_up'), // the menu is named for its row (rowName)
                       disabled: rows.indexOf(b) === 0,
                       whyNot: t('changes.boards.why.first'),
                       onClick: () => {
@@ -510,7 +510,7 @@ export function ChangeBoardsPage() {
                     },
                     {
                       key: 'down',
-                      label: t('changes.boards.move_down', { name: boardName(t, locale, b) }),
+                      label: t('changes.boards.move_down'), // the menu is named for its row (rowName)
                       disabled: rows.indexOf(b) === rows.length - 1,
                       whyNot: t('changes.boards.why.last'),
                       onClick: () => {

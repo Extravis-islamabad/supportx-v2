@@ -324,8 +324,8 @@ export function IncidentTasks({
             />
           </div>
           <DateTimeField value={due} onChange={setDue} testId="inc-task-due" />
+          {/* An inline row add stays secondary: the page has one primary (template A). */}
           <WriteButton
-            type="primary"
             disabled={title.trim() === ''}
             whyDisabled={t('why.task_title')}
             loading={change.isPending}
@@ -680,7 +680,23 @@ const WORKLOG_GRID = {
 
 // --- links ----------------------------------------------------------------------------------------
 
-const OWN_ROUTE = new Set(['caused_by', 'causes', 'merged_into', 'merged_from']);
+// Links another flow owns: removed there, never here (a release's links: lane C's WP-058b).
+const OWN_ROUTE = new Set([
+  'caused_by',
+  'causes',
+  'merged_into',
+  'merged_from',
+  'caused_by_release',
+  'started_release',
+]);
+
+/** Where the other record of a link opens. */
+const LINK_PATHS: Record<string, string> = {
+  problem: 'problems',
+  release: 'releases',
+  change: 'changes',
+  service_request: 'requests',
+};
 
 export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: boolean }) {
   const t = useLabel();
@@ -748,7 +764,7 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
                     </Typography.Text>
                   ) : (
                     <Link
-                      to={`/${link.other_type === 'problem' ? 'problems' : 'incidents'}/${link.other_id}`}
+                      to={`/${LINK_PATHS[link.other_type ?? ''] ?? 'incidents'}/${link.other_id}`}
                     >
                       {link.other_display_id} · <bdi dir="auto">{link.other_subject}</bdi>
                     </Link>

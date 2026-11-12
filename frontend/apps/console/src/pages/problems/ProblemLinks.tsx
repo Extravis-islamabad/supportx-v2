@@ -15,10 +15,16 @@ import {
 import { EmptyText, reportError, useLabel, WriteButton } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
+import { RELEASE_RELATIONS } from './releaseLinks';
 
 function Other({ link, hidden }: { link: ProblemLink; hidden: string }) {
   if (link.other_id === null) return <>{hidden}</>;
-  const path = link.other_type === 'incident' ? 'incidents' : 'problems';
+  const path =
+    link.other_type === 'incident'
+      ? 'incidents'
+      : link.other_type === 'release'
+        ? 'releases'
+        : 'problems';
   return (
     <Link to={`/${path}/${link.other_id}`}>
       <strong dir="ltr">{link.other_display_id}</strong> <bdi dir="auto">{link.other_subject}</bdi>
@@ -68,6 +74,33 @@ export function CausedIncidents({ id, canEdit }: { id: string; canEdit: boolean 
           }
         >
           <Other link={link} hidden={t('problems.hidden_incident')} />
+        </List.Item>
+      )}
+    />
+  );
+}
+
+/**
+ * The releases this problem came from (a failed release's "Create problem") or started; the
+ * release page lists the other side. Read-only here: the release's flow owns these links.
+ */
+export function ProblemReleases({ id }: { id: string }) {
+  const t = useLabel();
+  const links = useProblemLinks(id);
+  const rows = (links.data ?? []).filter((l) => RELEASE_RELATIONS.has(l.relation));
+  return (
+    <List
+      size="small"
+      dataSource={rows}
+      data-testid="prb-releases"
+      renderItem={(link) => (
+        <List.Item>
+          <Flex gap={8} wrap align="center">
+            <Typography.Text type="secondary">
+              {t(`link_relation.${link.relation}`)}
+            </Typography.Text>
+            <Other link={link} hidden={t('problems.releases.hidden')} />
+          </Flex>
         </List.Item>
       )}
     />

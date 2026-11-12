@@ -187,6 +187,10 @@ export const ar: LabelResource = {
   'errors.contact_editing_off': 'لا تسمح مؤسستك بتغيير بيانات الاتصال هنا. اسأل مكتب الخدمة.',
   'errors.conversation_entry_not_found': 'لم يعد هذا الرد أو الملاحظة موجودًا.',
   'errors.copy_reference': 'نسخ المرجع',
+  'errors.cost_rate_date_taken': 'لهذا الشخص تكلفة تبدأ من هذا الوقت. غيّرها بدلًا من ذلك.',
+  'errors.cost_rate_not_found': 'التكلفة غير موجودة.',
+  'errors.cost_rate_superseded':
+    'تسري الآن تكلفة أحدث، فلم يعد بالإمكان تغيير هذه. حدّد تكلفة جديدة بدلًا من ذلك.',
   'errors.csrf_failed': 'تعذّر التحقق من هذا الطلب. يرجى إعادة تحميل الصفحة والمحاولة مرة أخرى.',
   'errors.currency_change_needs_confirmation':
     'يتطلب تغيير العملة الأساسية تأكيدًا: تبقى المبالغ المسجلة سابقًا بالعملة القديمة.',
@@ -794,6 +798,7 @@ export const ar: LabelResource = {
   'errors.node_not_mapped':
     'خطوة يقف عندها هذا التشغيل ليس لها مكان في الإصدار الجديد: اربطها بخطوة.',
   'errors.not_a_member': 'أنت لست عضوًا في هذه المؤسسة.',
+  'errors.not_a_person': 'هذه هوية خدمة وليست شخصًا: لا تكلفة ساعة لها.',
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
   'errors.not_cancelable_from_here': 'لا يمكن إلغاؤه من مكانه الحالي.',

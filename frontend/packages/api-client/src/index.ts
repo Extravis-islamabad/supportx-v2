@@ -599,6 +599,15 @@ export {
   type TechnicianScope,
 } from './people';
 export {
+  useCostRateActions,
+  useCostRates,
+  type CostRate,
+  type CostRateInput,
+  type CostRatePatch,
+  type CostRateState,
+  type CostRates,
+} from './costRates';
+export {
   useAutomationChange,
   useAvailability,
   useAvailabilityHistory,

@@ -28,7 +28,7 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -127,6 +127,7 @@ export function IncidentConversation({
   replyRequest = 0,
   replyMode = 'reply',
   base = 'incidents',
+  onComposingChange,
 }: {
   item: Incident;
   typing: Typing;
@@ -139,6 +140,11 @@ export function IncidentConversation({
   replyMode?: ReplyMode;
   /** Whose conversation routes: incidents (the default) or service requests. */
   base?: ConversationBase;
+  /**
+   * Told when a composer opens or closes: while one is open its Send is the page's one primary
+   * action (template A), so the header's actions go quiet.
+   */
+  onComposingChange?: (composing: boolean) => void;
 }) {
   return (
     <BaseContext.Provider value={base}>
@@ -147,6 +153,7 @@ export function IncidentConversation({
         typing={typing}
         replyRequest={replyRequest}
         replyMode={replyMode}
+        onComposingChange={onComposingChange}
       />
     </BaseContext.Provider>
   );
@@ -157,11 +164,13 @@ function ConversationBody({
   typing,
   replyRequest,
   replyMode,
+  onComposingChange,
 }: {
   item: Incident;
   typing: Typing;
   replyRequest: number;
   replyMode: ReplyMode;
+  onComposingChange?: (composing: boolean) => void;
 }) {
   const base = useContext(BaseContext);
   const t = useLabel();
@@ -179,6 +188,13 @@ function ConversationBody({
       setDraft({ kind: 'reply', mode: replyMode });
     }
   }
+  const composing = draft !== null;
+  useEffect(() => {
+    onComposingChange?.(composing);
+    return () => {
+      onComposingChange?.(false); // leaving the tab closes the composer
+    };
+  }, [composing, onComposingChange]);
   const conversation = useIncidentConversation(item.id, true, base);
   // The record type's own files and history: never an incident path for another type (a 404).
   const recordFiles = useRecordFiles(RECORD_TYPE[base], item.id).data ?? [];
