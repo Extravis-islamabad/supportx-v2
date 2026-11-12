@@ -844,6 +844,8 @@ export const en = {
   'errors.linked_records_not_available': 'Linked records are not available yet.',
   'errors.list_not_found': 'This list does not keep settings.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
+  'errors.login_not_this_browser':
+    'This sign-in was started in another browser or has expired. Please sign in again here.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
   'errors.mail_attachment_type': 'This type of file cannot be sent by email.',
@@ -996,6 +998,8 @@ export const en = {
     'This server cannot start: a sign-in key it no longer lists is still needed. List the key again.',
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
+  'errors.sign_in_unavailable':
+    'Signing in is not available right now. Please wait a minute and try again.',
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
   'errors.site_not_found': 'The site was not found.',

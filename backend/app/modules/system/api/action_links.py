@@ -39,7 +39,7 @@ from app.modules.identity_access import Subject, subject_for
 from app.modules.organization import tenant_for_host, tenant_for_slug
 from app.shared import action_links
 from app.shared.action_links.domain import TOKEN_LENGTH
-from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, rate_limit
+from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, ip_rate_limit, rate_limit
 
 router = APIRouter(
     prefix="/action-links",
@@ -115,7 +115,16 @@ async def use(
 
 # --- without sign-in (D-132, the default) -------------------------------------------------------
 
-public_router = APIRouter(prefix="/public/action-links", tags=["action-links"])
+# An outer per-address cap (audit row 14), before the two budgets of `_public_tenant` below,
+# which stay the real limits (and the only RateLimit-* headers the client sees: they are set
+# after this one's). It is wider than those, so it only bites on a flood. Fails open like them:
+# the token (256 bits) is the protection, and an approver's e-mailed link must keep working.
+PUBLIC_LINKS_PER_ADDRESS = 120  # a minute
+public_router = APIRouter(
+    prefix="/public/action-links",
+    tags=["action-links"],
+    dependencies=[Depends(ip_rate_limit("action_links_public_address", PUBLIC_LINKS_PER_ADDRESS))],
+)
 DatabaseDep = Annotated[Database, Depends(get_database)]
 PUBLIC_GROUP = "action_links_public"
 
