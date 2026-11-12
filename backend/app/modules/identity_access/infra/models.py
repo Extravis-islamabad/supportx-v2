@@ -22,6 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, CIDR, INET, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
+from app.modules.identity_access.domain.network import IP_ALLOW_MAX
 from app.shared.db.models import Actors, Base, TenantEntity, TenantKeyed, Timestamps, Versioned
 
 # Name and email; the email also split at its punctuation, so "ahmed" finds ahmed.ali@x.com.
@@ -364,9 +365,6 @@ MAX_IDLE_SECONDS = 86400
 
 
 PASSWORD_POLICY_STATES = ("default", "applying", "applied", "failed")
-
-
-IP_ALLOW_MAX = 50  # entries per app list (lane B: validated, capped)
 
 
 class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
