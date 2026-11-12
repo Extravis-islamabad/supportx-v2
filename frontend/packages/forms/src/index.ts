@@ -49,3 +49,13 @@ export {
   type RuleOp,
   type RuleScalar,
 } from './rules/evaluate';
+export {
+  arrangeFields,
+  type ArrangedForm,
+  type ArrangedSection,
+  type FormLayout,
+  type LabelPosition,
+  type LayoutAudience,
+  type LayoutPart,
+  type LayoutSection,
+} from './rules/layout';
