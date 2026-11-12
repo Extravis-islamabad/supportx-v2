@@ -938,6 +938,7 @@ export const en = {
   'assets.stock.search': 'Search consumables',
   'assets.stock.site': 'Site',
   'assets.stock.site_needed': 'Choose the stock to use.',
+  'assets.stock.site_quantity': '{{site}}: {{quantity}}',
   'assets.stock.state': 'State',
   'assets.stock.title': 'Consumables',
   'assets.stock.to_from': 'To or from',

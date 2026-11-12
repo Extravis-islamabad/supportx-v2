@@ -942,6 +942,7 @@ export const ur: LabelResource = {
   'assets.stock.search': 'قابلِ صرف اشیاء تلاش کریں',
   'assets.stock.site': 'سائٹ',
   'assets.stock.site_needed': 'استعمال کا اسٹاک منتخب کریں۔',
+  'assets.stock.site_quantity': '{{site}}: {{quantity}}',
   'assets.stock.state': 'کیفیت',
   'assets.stock.title': 'قابلِ صرف اشیاء',
   'assets.stock.to_from': 'کس کو یا کس سے',

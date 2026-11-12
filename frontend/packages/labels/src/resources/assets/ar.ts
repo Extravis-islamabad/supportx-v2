@@ -1000,6 +1000,7 @@ export const ar: LabelResource = {
   'assets.stock.search': 'ابحث في المستهلكات',
   'assets.stock.site': 'الموقع',
   'assets.stock.site_needed': 'اختر المخزون المستخدم.',
+  'assets.stock.site_quantity': '{{site}}: {{quantity}}',
   'assets.stock.state': 'الوضع',
   'assets.stock.title': 'المستهلكات',
   'assets.stock.to_from': 'إلى أو من',
