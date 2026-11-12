@@ -40,6 +40,11 @@ from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
+from app.modules.identity_access.api.service_roles import (
+    ServiceRoleOut,
+    ServiceRolesOut,
+    service_roles_out,
+)
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
@@ -124,16 +129,20 @@ from app.modules.identity_access.service.policy import (
 from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
 from app.modules.identity_access.service.roles import (
     RoleName,
+    ServiceRole,
     check_group_grantable,
     guard_group_disable,
     member_guard,
     role_names,
+    roles_for_service,
     use_policy,
 )
 from app.modules.identity_access.service.service_identities import (
+    ServiceIdentityView,
     assign_service_identity_role,
     create_service_identity,
     remove_service_identity_role,
+    service_identity,
     set_service_identity_active,
 )
 from app.modules.identity_access.service.session_keys import (
@@ -437,6 +446,10 @@ __all__ = [
     "RecordFacts",
     "ResourceType",
     "RoleName",
+    "ServiceIdentityView",
+    "ServiceRole",
+    "ServiceRoleOut",
+    "ServiceRolesOut",
     "SodRule",
     "Subject",
     "SyncedPerson",
@@ -469,7 +482,10 @@ __all__ = [
     "remove_service_identity_role",
     "require",
     "role_names",
+    "roles_for_service",
     "scope_filter",
+    "service_identity",
+    "service_roles_out",
     "set_service_identity_active",
     "subject_for",
     "sync_directory_person",

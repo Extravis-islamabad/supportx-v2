@@ -1567,7 +1567,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3 and 4a built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1757,6 +1757,74 @@ it with no reload (rule c). Not built yet.
     groups (REQ-INC-107's sharing; the store is per person), the record forms' pickers adopting
     the paged picker (lane A's screens), a change's asset on its create form (changes take no
     asset on create yet).
+
+- [x] **Session 4b (migration 0145, down revision 0140 for now: it moves to main's head at the
+  lane's queue turn; REQ-AST-051, 052, 053; branch backup/wp-049b-s4b, from S4a at e52c46f7):**
+  - Bulk actions (051): `POST /assets/bulk-jobs` (assets.manage) queues an edit (location, site,
+    vendor, product, cost centre, GL code, dates, description; never money or identifiers),
+    a state change, an assignment (person, department or no one) or a move to the trash (soft
+    delete) of at most 1,000 assets (more: 422 `asset_bulk_too_many`, `max`). The consumers
+    worker (`assets__bulk_jobs`, work items' pattern) runs it as the requester in batches of 50,
+    each asset through the single-asset call in a savepoint: refused ones are skipped with the
+    reason code. History names the job (`batch_id`); progress on the personal channel
+    (`assets.bulk_progress`). The old 100-asset `/assets/bulk-moves` stays for API callers.
+  - Merge (052): `GET /assets/merge-preview` and `POST /assets/merges` (assets.manage on both,
+    within scope: another site's asset `asset_merge_site_not_managed`; another tenant's not
+    found). The suggested survivor is the discovered one, then the newest scan; each field's
+    side is chosen (money only with assets.view_financials). The survivor takes the chosen
+    values through the ordinary update; work-item links move through lane A's
+    `repoint_asset_links` (called through the linked-records port: `repoint_links` added to
+    the Protocol and to work items' adapter, lane B's file); cost lines, notes, fitted
+    components (through the holder change), static groups and relationships move; the merged
+    asset goes to the trash with "merged into" history; its tag, serial and barcode stay on it
+    and on the merge row as an alias that finds the survivor (list search), and its ID answers
+    404 `asset_merged` with the survivor (the asset page opens it). One `asset.merged` audit
+    entry holds the field mapping (codes only). A merged asset's restore answers 409
+    `asset_restore_merged` until `confirm_merged`; it then comes back alone, the alias ends and
+    nothing moves back. Refused: the same asset twice, an open loan, a booking, one fitted to
+    the other.
+  - Import (053): `POST /assets/imports` (raw body; assets and consumables need assets.manage,
+    vendors vendors.create and vendors.manage by mode), dry run first: every row through the
+    real service calls in a savepoint that is rolled back (nothing changes), then
+    `POST /imports/{id}/run` (If-Match). Modes add, update, add and update; matching on tag or
+    serial (assets), product (consumables), name (vendors). WP-021's reader moved to
+    `app/shared/sheets.py` (same checks; the people import uses it unchanged at 5 MB) with a
+    20,000-row cap here. Per-row problems (row, column, code), the file cleared once read.
+    **Interim limit, deliberate (coordinator, 2026-11-11):** asset imports take files up to
+    25 MB and 20,000 rows, below the spec's Appendix A (50 MB, no row cap): a 20,000-row sheet
+    fits while each import stays one bounded background job. WP-021's column, cell, zip-entry
+    and ratio checks are kept; the unpacked cap grows with the file (250 MB). The dialog shows
+    the limits and a larger file gets the labelled `asset_import_file_too_large` (with `max_mb`).
+    The people import keeps 5 MB. Raising it toward Appendix A waits for the batched path.
+    Measured: about 50 ms a row for assets on the loaded shared Mac (2,000 rows: dry run 99 s,
+    run 101 s), so 20,000 rows run as one job of about 17 minutes each pass, progress streamed.
+    The figure on CI or the stack goes in the PR.
+  - **Follow-up (WP-049b):** batched inserts for imports (rows written in batches, not one
+    savepoint per row). If a 20,000-row run takes more than about 10 minutes on the stack, this
+    is done before the polish round, not after QA (coordinator, 2026-11-11).
+  - **Merge and links:** the merge moves every live work-item link of the duplicate, including
+    records the merging person may not see (only a count comes back to them), inside the
+    merge's own transaction (lane A's note).
+  - Export (053): the list's Export button uses the reports export (entity `asset`) with the
+    list's filter; built-in views other than All are not exportable (said so). Price, tax, book
+    value and total cost only for those with assets.view_financials (D-157; the source gains
+    `purchase_price` and `purchase_tax` as money fields).
+  - Console: the selection bar's Change selected (bulk dialog with live progress and skipped
+    reasons) and Merge (exactly two; the field table, swap), the import wizard (upload, check,
+    import; problems table and a CSV error file in the person's language), Export, the restore
+    warning, the merged asset's redirect, history lines. Labels en/ar/ur. Vitest: 11 new
+    (incl. RTL in Arabic and Urdu), the old bulk-move test moved to the job.
+  - Tests: tests/db/test_asset_bulk_merge_import_api.py (12: RLS read and write on the three
+    tables, the cap, the per-asset skip, the rules of move/assign/delete, the merge with links
+    and one audit entry, cross-site refused, cross-tenant not found, the restore warning, the
+    dry run, modes, vendors, zip bomb, broken workbook, 20,001 rows, 5 MB, live progress),
+    tests/db/test_asset_bulk_merge_import_migration.py, app/modules/assets/tests/test_batch_domain.py.
+  - Guide: docs/guides/asset-list-and-views.md (bulk, merge, import, export).
+  - **Open:** "select all N" for bulk (picked rows only for now), the spec's other bulk actions
+    (change product as such, add to group and loanable stay synchronous, depreciation, labels,
+    scan now), field mapping in the import wizard (fixed headings for now), imports of licences,
+    CIs, contracts and POs (their modules), loans and bookings moving on merge (refused
+    instead), a faster import path for 20,000 rows, the e2e journey.
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 

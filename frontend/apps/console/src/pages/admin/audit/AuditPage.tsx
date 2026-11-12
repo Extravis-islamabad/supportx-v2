@@ -1,7 +1,7 @@
-import { Space, Tabs } from 'antd';
+import { Space } from 'antd';
 import { useSearchParams } from 'react-router';
 
-import { NoAccess, useAccess, useLabel } from '@supportx/ui';
+import { NoAccess, useAccess, useLabel, Tabs } from '@supportx/ui';
 
 import { ArchivesTab } from './ArchivesTab';
 import { AuditAlertBanner } from './AuditAlertBanner';

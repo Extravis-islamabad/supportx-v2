@@ -129,6 +129,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("automation.workflow_imported", AuditCategory.CONFIGURATION, "automation"),
     ("automation.workflow_exported", AuditCategory.DATA, "automation"),
     ("automation.workflow_deleted", AuditCategory.CONFIGURATION, "automation"),
+    # A role given to or taken from a workflow's run-as identity (ADR-043 §6): access, as for
+    # a person's role.
+    ("automation.workflow_run_as_role_added", AuditCategory.ACCESS, "automation"),
+    ("automation.workflow_run_as_role_removed", AuditCategory.ACCESS, "automation"),
     # A test run's one live call (S3e): who, which node, which record (the route's details).
     ("automation.workflow_test_live_call", AuditCategory.RECORDS, "automation"),
     ("automation.transition_reset", AuditCategory.CONFIGURATION, "automation"),
@@ -434,6 +438,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset_group.members_added", AuditCategory.RECORDS, "assets"),
     ("asset_group.member_removed", AuditCategory.RECORDS, "assets"),
     ("asset.copied", AuditCategory.RECORDS, "assets"),
+    # WP-049b S4b: bulk jobs (REQ-AST-051), merges (052), imports (053).
+    ("asset.bulk_started", AuditCategory.RECORDS, "assets"),
+    ("asset.merged", AuditCategory.RECORDS, "assets"),
+    ("asset_import.started", AuditCategory.DATA, "assets"),
+    ("asset_import.run", AuditCategory.DATA, "assets"),
     # a save's lifecycle events that no route names (WP-064, domain/lifecycle.py)
     ("asset.relocated", AuditCategory.RECORDS, "assets"),
     ("asset.product_changed", AuditCategory.RECORDS, "assets"),

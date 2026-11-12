@@ -13,6 +13,7 @@ Only the integrations module calls this, when it creates, pauses or removes a co
 """
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -27,9 +28,11 @@ from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service.directory import USER_RECORD_TYPE, UserRepository
 from app.modules.identity_access.service.policy import PolicyService
 from app.modules.identity_access.service.roles import (
+    ServiceRole,
     assign_role,
     remove_role,
     role_allowed_for_service,
+    roles_held,
 )
 from app.shared.events import record_event
 from app.shared.history import Change, record_changes
@@ -150,3 +153,28 @@ async def remove_service_identity_role(
     """Take a role from a service identity, through the same guarded path."""
     await _service_only(session, identity_id)
     return await remove_role(session, policy, subject, identity_id, role_id)
+
+
+@dataclass(frozen=True)
+class ServiceIdentityView:
+    """A service identity as the screen that owns it shows it.
+
+    Its name, whether it is active, and the roles given to it.
+    """
+
+    id: uuid.UUID
+    name: str
+    active: bool
+    roles: list[ServiceRole]
+
+
+async def service_identity(session: AsyncSession, identity_id: uuid.UUID) -> ServiceIdentityView:
+    """One service identity with its roles (403 `not_a_service_identity` for a person)."""
+    await _service_only(session, identity_id)
+    identity = await UserRepository(session).get(identity_id)
+    return ServiceIdentityView(
+        id=identity.id,
+        name=identity.display_name,
+        active=identity.status == "active",
+        roles=await roles_held(session, identity_id),
+    )
