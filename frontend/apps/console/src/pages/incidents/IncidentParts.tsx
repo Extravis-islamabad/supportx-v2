@@ -3,12 +3,14 @@ import {
   ArrowUpOutlined,
   BulbOutlined,
   DeleteOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Button,
   Card,
+  Checkbox,
   Descriptions,
   Flex,
   Form,
@@ -56,6 +58,7 @@ import {
 import { useListFormat } from '@supportx/labels';
 import { useRecordChannel } from '@supportx/realtime';
 
+import { NO_AMOUNT, useMoney } from '../assets/money';
 import { IncidentPicker } from './IncidentPicker';
 import { UserPicker } from './pickers';
 import { TaskDetails } from './TaskDetails';
@@ -367,6 +370,35 @@ export function IncidentTasks({
 
 // --- worklogs -------------------------------------------------------------------------------------
 
+/** An other cost being typed (WP-046a S3, REQ-INC-068): money as text, never a float. */
+interface CostDraft {
+  key: number;
+  amount: string | null;
+  currency: string;
+  rate: string | null;
+  note: string;
+}
+
+const CURRENCY = /^[A-Z]{3}$/;
+
+/** A line as the API takes it: the base currency's amount, or another's with its rate. */
+function costInput(line: CostDraft, base: string) {
+  const note = line.note.trim() === '' ? null : line.note.trim();
+  return line.currency === base
+    ? { amount: line.amount, note }
+    : {
+        original_amount: line.amount,
+        original_currency: line.currency,
+        exchange_rate: line.rate,
+        note,
+      };
+}
+
+function costReady(line: CostDraft, base: string): boolean {
+  if (line.amount === null) return false;
+  return line.currency === base || (CURRENCY.test(line.currency) && line.rate !== null);
+}
+
 export function IncidentWorklogs({
   item,
   canEdit,
@@ -388,6 +420,13 @@ export function IncidentWorklogs({
   const [end, setEnd] = useState<string | null>(null);
   const [minutes, setMinutes] = useState<number | null>(null);
   const [description, setDescription] = useState('');
+  // WP-046a S3 (REQ-INC-068): billable time and other costs. Costs are only offered, and only
+  // shown, to those with the type's cost right (the server says so with `money_hidden`).
+  const [billable, setBillable] = useState(false);
+  const [costs, setCosts] = useState<CostDraft[]>([]);
+  const currency = found.data?.currency ?? null;
+  const showMoney = found.data !== undefined && !found.data.money_hidden && currency !== null;
+  const money = useMoney(currency);
   // The form opens on "Log time" and Cancel clears and closes it (template B, Haider 11-10).
   const [open, setOpen] = useState(false);
   const cancel = () => {
@@ -397,6 +436,8 @@ export function IncidentWorklogs({
     setEnd(null);
     setMinutes(null);
     setDescription('');
+    setBillable(false);
+    setCosts([]);
     setOpen(false);
   };
   const rows = found.data?.items ?? [];
@@ -411,14 +452,18 @@ export function IncidentWorklogs({
       ? Math.round((Date.parse(end) - Date.parse(start)) / 60_000)
       : null;
   const endBeforeStart = start !== null && end !== null && Date.parse(end) < Date.parse(start);
-  const ready = start !== null && (end !== null || minutes !== null) && !endBeforeStart;
+  const costsReady = currency === null || costs.every((line) => costReady(line, currency));
+  const ready =
+    start !== null && (end !== null || minutes !== null) && !endBeforeStart && costsReady;
   // Why "Log time" is off, said next to it (D-147); an end before the start has its own alert.
   const why =
     start === null
       ? t('incidents.worklogs.why_start')
       : end === null && minutes === null
         ? t('incidents.worklogs.why_end')
-        : null;
+        : !costsReady
+          ? t('incidents.worklogs.why_cost')
+          : null;
   const add = () => {
     change.mutate(
       {
@@ -430,6 +475,8 @@ export function IncidentWorklogs({
           ended_at: end,
           minutes,
           description: description.trim() === '' ? null : description,
+          billable,
+          costs: showMoney ? costs.map((line) => costInput(line, currency)) : [],
         },
       },
       {
@@ -438,6 +485,7 @@ export function IncidentWorklogs({
           setEnd(clearIfSent(end, null));
           setMinutes(clearIfSent(minutes, null));
           setDescription(clearIfSent(description, ''));
+          setCosts(clearIfSent(costs, []));
         },
         onError: reportError,
       },
@@ -466,6 +514,35 @@ export function IncidentWorklogs({
             label: t(`worklog_type.${row.key}`),
             children: duration(row.minutes),
           })),
+          {
+            key: 'billable',
+            label: t('incidents.worklogs.billable_total'),
+            children: duration(found.data?.billable_minutes ?? 0),
+          },
+          {
+            key: 'non_billable',
+            label: t('incidents.worklogs.non_billable_total'),
+            children: duration(found.data?.non_billable_minutes ?? 0),
+          },
+          ...(showMoney
+            ? [
+                {
+                  key: 'technician_cost',
+                  label: t('incidents.worklogs.technician_cost'),
+                  children: money(found.data.technician_cost) ?? NO_AMOUNT,
+                },
+                {
+                  key: 'other_cost',
+                  label: t('incidents.worklogs.other_cost'),
+                  children: money(found.data.other_cost) ?? NO_AMOUNT,
+                },
+                {
+                  key: 'total_cost',
+                  label: t('incidents.worklogs.total_cost'),
+                  children: money(found.data.total_cost) ?? NO_AMOUNT,
+                },
+              ]
+            : []),
         ]}
       />
       <List
@@ -502,13 +579,16 @@ export function IncidentWorklogs({
             }
           >
             <Space direction="vertical" size={0}>
-              <Typography.Text>
-                {t('incidents.worklogs.line', {
-                  person: people.get(row.owner_id) ?? t('incidents.unknown_value'),
-                  type: t(`worklog_type.${row.worklog_type}`),
-                  duration: duration(row.minutes),
-                })}
-              </Typography.Text>
+              <Flex gap={SPACE.xs} align="center" wrap>
+                <Typography.Text>
+                  {t('incidents.worklogs.line', {
+                    person: people.get(row.owner_id) ?? t('incidents.unknown_value'),
+                    type: t(`worklog_type.${row.worklog_type}`),
+                    duration: duration(row.minutes),
+                  })}
+                </Typography.Text>
+                {row.billable && <Tag>{t('incidents.worklogs.billable')}</Tag>}
+              </Flex>
               <Typography.Text type="secondary">
                 {t('incidents.worklogs.when', {
                   from: dates.format(row.started_at),
@@ -516,6 +596,16 @@ export function IncidentWorklogs({
                 })}
               </Typography.Text>
               {row.description !== null && <bdi dir="auto">{row.description}</bdi>}
+              {showMoney && (row.technician_cost !== null || (row.costs ?? []).length > 0) && (
+                <Typography.Text type="secondary" data-testid={`inc-worklog-cost-${row.id}`}>
+                  {t('incidents.worklogs.cost_line', {
+                    technician: money(row.technician_cost) ?? NO_AMOUNT,
+                    other: money(
+                      (row.costs ?? []).reduce((sum, c) => sum + Number(c.amount), 0).toFixed(2),
+                    ),
+                  })}
+                </Typography.Text>
+              )}
             </Space>
           </List.Item>
         )}
@@ -635,6 +725,18 @@ export function IncidentWorklogs({
                 }}
               />
             </Form.Item>
+            <Form.Item style={{ marginBottom: SPACE.sm }}>
+              <Checkbox
+                checked={billable}
+                onChange={(event) => {
+                  setBillable(event.target.checked);
+                }}
+                data-testid="inc-worklog-billable"
+              >
+                {t('incidents.worklogs.billable_field')}
+              </Checkbox>
+            </Form.Item>
+            {showMoney && <CostLines lines={costs} base={currency} onChange={setCosts} />}
             <Flex justify="flex-end" align="center" gap={SPACE.sm} wrap>
               {why !== null && (
                 <Typography.Text
@@ -665,6 +767,120 @@ export function IncidentWorklogs({
         </Card>
       )}
     </Space>
+  );
+}
+
+/** Other costs of the worklog being logged: in the base currency, or another with its rate. */
+function CostLines({
+  lines,
+  base,
+  onChange,
+}: {
+  lines: CostDraft[];
+  base: string;
+  onChange: (lines: CostDraft[]) => void;
+}) {
+  const t = useLabel();
+  const set = (key: number, change: Partial<CostDraft>) => {
+    onChange(lines.map((line) => (line.key === key ? { ...line, ...change } : line)));
+  };
+  return (
+    <Form.Item
+      label={t('incidents.worklogs.other_costs')}
+      extra={t('incidents.worklogs.other_costs_help', { currency: base })}
+      data-testid="inc-worklog-costs"
+    >
+      <Flex vertical gap={SPACE.xs}>
+        {lines.map((line, index) => (
+          <Flex
+            key={line.key}
+            gap={SPACE.xs}
+            wrap
+            align="center"
+            data-testid={`inc-cost-${String(index)}`}
+          >
+            <InputNumber<string>
+              stringMode
+              min="0"
+              step="0.01"
+              precision={2}
+              value={line.amount}
+              onChange={(value) => {
+                set(line.key, { amount: value });
+              }}
+              aria-label={t('incidents.worklogs.cost_amount')}
+              placeholder={t('incidents.worklogs.cost_amount')}
+              style={{ width: 140 }}
+              data-testid={`inc-cost-amount-${String(index)}`}
+            />
+            <Input
+              value={line.currency}
+              count={lengthLimit(3)}
+              onChange={(event) => {
+                set(line.key, { currency: event.target.value.toUpperCase() });
+              }}
+              aria-label={t('incidents.worklogs.cost_currency')}
+              style={{ width: 80 }}
+              data-testid={`inc-cost-currency-${String(index)}`}
+            />
+            {line.currency !== base && (
+              <InputNumber<string>
+                stringMode
+                min="0.00000001"
+                value={line.rate}
+                onChange={(value) => {
+                  set(line.key, { rate: value });
+                }}
+                aria-label={t('incidents.worklogs.cost_rate', { from: line.currency, to: base })}
+                placeholder={t('incidents.worklogs.cost_rate', { from: line.currency, to: base })}
+                style={{ width: 180 }}
+                data-testid={`inc-cost-rate-${String(index)}`}
+              />
+            )}
+            <Input
+              value={line.note}
+              count={lengthLimit(500)}
+              onChange={(event) => {
+                set(line.key, { note: event.target.value });
+              }}
+              aria-label={t('incidents.worklogs.cost_note')}
+              placeholder={t('incidents.worklogs.cost_note')}
+              style={{ flex: '1 1 160px', minWidth: 0 }}
+            />
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              aria-label={t('incidents.worklogs.cost_remove')}
+              onClick={() => {
+                onChange(lines.filter((other) => other.key !== line.key));
+              }}
+            />
+          </Flex>
+        ))}
+        {lines.length < 20 && (
+          <Button
+            icon={<PlusOutlined />}
+            style={{ alignSelf: 'flex-start' }}
+            onClick={() => {
+              onChange([
+                ...lines,
+                {
+                  key: Date.now() + lines.length,
+                  amount: null,
+                  currency: base,
+                  rate: null,
+                  note: '',
+                },
+              ]);
+            }}
+            data-testid="inc-cost-add"
+          >
+            {t('incidents.worklogs.cost_add')}
+          </Button>
+        )}
+      </Flex>
+    </Form.Item>
   );
 }
 

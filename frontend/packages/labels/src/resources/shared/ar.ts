@@ -383,7 +383,16 @@ export const ar: LabelResource = {
   'settings.closing.task_owner_access': 'يعمل مسؤولو المهام على مهامهم دون الوصول إلى الحادثة',
   'settings.closing.task_owner_access_help':
     'يرون مهمتهم ومعرّف الحادثة وموضوعها ويمكنهم تغيير حالة المهمة؛ ولا يرون المحادثة أو الملاحظات أبدًا.',
+  'settings.closing.timer_auto_start': 'بدء المؤقت عندما يفتح الفني حادثته',
+  'settings.closing.timer_auto_start_help':
+    'مرة واحدة لكل حادثة، للشخص المسندة إليه. موقوف افتراضيًا: المؤقت الذي لا يلاحظه أحد يسجل وقتًا خاطئًا.',
   'settings.closing.title': 'الحل والإغلاق',
+  'settings.closing.worklog_block_closed': 'لا وقت على الحوادث المغلقة',
+  'settings.closing.worklog_block_closed_help':
+    'بعد إغلاق الحادثة لا يمكن لأحد تسجيل وقتها أو تغييره أو إزالته.',
+  'settings.closing.worklog_count_nonworking': 'احتساب الوقت خارج ساعات العمل',
+  'settings.closing.worklog_count_nonworking_help':
+    'يُحتسب الوقت المسجل خارج ساعات العمل في الإجماليات والتقارير. عند الإيقاف تُحتسب ساعات العمل فقط.',
   'settings.closure_codes_help':
     'كيف انتهى الحادث. يُختار عند إغلاق الحادث؛ وتُجمّع التقارير حسبه.',
   'settings.colour': 'اللون',

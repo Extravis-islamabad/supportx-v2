@@ -375,7 +375,16 @@ export const en = {
     'Task owners work on their tasks without access to the incident',
   'settings.closing.task_owner_access_help':
     'They see their task and the incident’s ID and subject, and can change the task’s status; never the conversation or notes.',
+  'settings.closing.timer_auto_start': 'Start the timer when a technician opens their incident',
+  'settings.closing.timer_auto_start_help':
+    'Once per incident, for the person it is assigned to. Off by default: a timer nobody notices logs wrong time.',
   'settings.closing.title': 'Resolving and closing',
+  'settings.closing.worklog_block_closed': 'No time on closed incidents',
+  'settings.closing.worklog_block_closed_help':
+    'Once an incident is closed, nobody can log, change or remove its time.',
+  'settings.closing.worklog_count_nonworking': 'Count time outside working hours',
+  'settings.closing.worklog_count_nonworking_help':
+    'Time logged outside working hours counts in totals and reports. Off: only working hours count.',
   'settings.closure_codes_help':
     'How an incident ended. Picked when an incident is closed; reports group by it.',
   'settings.colour': 'Colour',

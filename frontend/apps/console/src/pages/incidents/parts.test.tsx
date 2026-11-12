@@ -194,6 +194,100 @@ describe('Incident parts (WP-020e)', () => {
     ).toBe(''); // cleared, not kept
   });
 
+  // WP-046a S3 (REQ-INC-068): money only with the type's cost right; the server decides.
+  const WORKLOG = {
+    id: '01900000-0000-7000-8000-00000000b001',
+    owner_id: SESSION_USER,
+    worklog_type: 'fix',
+    started_at: '2026-11-12T09:00:00Z',
+    ended_at: '2026-11-12T10:30:00Z',
+    minutes: 90,
+    description: null,
+    version: 1,
+    created_by: SESSION_USER,
+    stage: null,
+    billable: true,
+    draft: false,
+  };
+
+  it('REQ-INC-068 AC2: without the cost right no money shows, only time and billable', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'worklogs');
+    api({
+      [`GET ${PATH}/worklogs`]: {
+        body: {
+          items: [
+            { ...WORKLOG, money_hidden: true, cost_rate: null, technician_cost: null, costs: [] },
+          ],
+          minutes: 90,
+          by_owner: [],
+          by_type: [],
+          billable_minutes: 90,
+          non_billable_minutes: 0,
+          money_hidden: true,
+          currency: null,
+          technician_cost: null,
+          other_cost: null,
+          total_cost: null,
+        },
+      },
+    });
+    render(<App />);
+    const totals = await screen.findByTestId('inc-worklog-totals');
+    await waitFor(() => {
+      expect(totals.textContent).toContain('Billable time');
+    });
+    expect(totals.textContent).not.toContain('Total cost');
+    expect(screen.queryByTestId(`inc-worklog-cost-${WORKLOG.id}`)).toBeNull();
+    fireEvent.click(screen.getByTestId('inc-worklog-open'));
+    const form = await screen.findByTestId('inc-worklog-form');
+    expect(within(form).getByTestId('inc-worklog-billable')).toBeTruthy();
+    expect(within(form).queryByTestId('inc-worklog-costs')).toBeNull(); // no cost entry either
+  });
+
+  it('REQ-INC-068 AC1: with the cost right the costs show, and another currency needs its rate', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'worklogs');
+    api({
+      [`GET ${PATH}/worklogs`]: {
+        body: {
+          items: [
+            {
+              ...WORKLOG,
+              money_hidden: false,
+              cost_rate: '40.00',
+              technician_cost: '60.00',
+              costs: [],
+            },
+          ],
+          minutes: 90,
+          by_owner: [],
+          by_type: [],
+          billable_minutes: 90,
+          non_billable_minutes: 0,
+          money_hidden: false,
+          currency: 'USD',
+          technician_cost: '60.00',
+          other_cost: '0.00',
+          total_cost: '60.00',
+        },
+      },
+    });
+    render(<App />);
+    const totals = await screen.findByTestId('inc-worklog-totals');
+    await waitFor(() => {
+      expect(totals.textContent).toContain('$60.00');
+    });
+    expect(screen.getByTestId(`inc-worklog-cost-${WORKLOG.id}`).textContent).toContain('$60.00');
+    fireEvent.click(screen.getByTestId('inc-worklog-open'));
+    const form = await screen.findByTestId('inc-worklog-form');
+    fireEvent.click(within(form).getByTestId('inc-cost-add'));
+    expect(within(form).queryByTestId('inc-cost-rate-0')).toBeNull(); // the base currency: no rate
+    fireEvent.change(within(form).getByTestId('inc-cost-currency-0'), { target: { value: 'eur' } });
+    expect(within(form).getByTestId<HTMLInputElement>('inc-cost-currency-0').value).toBe('EUR');
+    expect(within(form).getByTestId('inc-cost-rate-0')).toBeTruthy();
+  });
+
   it('REQ-INC-084 AC3: a link to a record you cannot see shows without its ID or subject', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     rememberTab(SESSION_USER, 'links');

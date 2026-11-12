@@ -372,7 +372,16 @@ export const ur: LabelResource = {
     'کام کے ذمہ دار واقعے تک رسائی کے بغیر اپنے کام پر کام کریں',
   'settings.closing.task_owner_access_help':
     'وہ اپنا کام اور واقعے کی شناخت اور موضوع دیکھتے ہیں اور کام کی حالت بدل سکتے ہیں؛ گفتگو یا نوٹس کبھی نہیں۔',
+  'settings.closing.timer_auto_start': 'ٹیکنیشن کے اپنا واقعہ کھولنے پر ٹائمر شروع کریں',
+  'settings.closing.timer_auto_start_help':
+    'ہر واقعے پر ایک بار، اسی شخص کے لیے جسے یہ تفویض ہو۔ پہلے سے بند: جس ٹائمر پر کسی کی نظر نہ ہو وہ غلط وقت درج کرتا ہے۔',
   'settings.closing.title': 'حل اور بندش',
+  'settings.closing.worklog_block_closed': 'بند واقعات پر وقت نہیں',
+  'settings.closing.worklog_block_closed_help':
+    'واقعہ بند ہونے کے بعد کوئی اس کا وقت درج، تبدیل یا ختم نہیں کر سکتا۔',
+  'settings.closing.worklog_count_nonworking': 'کام کے اوقات سے باہر کا وقت شمار کریں',
+  'settings.closing.worklog_count_nonworking_help':
+    'کام کے اوقات سے باہر درج وقت مجموعوں اور رپورٹوں میں شمار ہوتا ہے۔ بند ہو تو صرف کام کے اوقات شمار ہوتے ہیں۔',
   'settings.closure_codes_help':
     'واقعہ کیسے ختم ہوا۔ بند کرتے وقت منتخب کیا جاتا ہے؛ رپورٹس اسی کے مطابق گروپ ہوتی ہیں۔',
   'settings.colour': 'رنگ',
