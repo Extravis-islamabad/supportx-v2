@@ -37,6 +37,10 @@ data:
   # TLS only (audit row 5): certificates checked against the internal CA and the pod names.
   SUPPORTX_VALKEY_TLS_CA_FILE: /etc/supportx/tls/internal-ca/ca.crt
   {{- end }}
+  {{- if eq (include "supportx.natsTls" .) "true" }}
+  # TLS to NATS (audit row 5): tls:// with the internal CA, the service name checked.
+  SUPPORTX_NATS_TLS_CA_FILE: /etc/supportx/tls/internal-ca/ca.crt
+  {{- end }}
   # /metrics (and the workers' /healthz, /readyz) on the internal port (WP-014).
   SUPPORTX_METRICS_EXPORTER: prometheus
   SUPPORTX_METRICS_HOST: "0.0.0.0"

@@ -119,6 +119,7 @@ server's certificate against a known CA and the host name it dialled.
 |---|---|---|---|
 | Browser to gateway | plain http (local only) | **HTTPS**, HTTP answers 301 to https | **HTTPS**, HTTP answers 301 to https |
 | App, Centrifugo to Valkey (servers and sentinels) | plain (bundled single Valkey) | plain (bundled single Valkey) | **TLS only, verified** (internal CA) |
+| App to NATS; NATS server to server (routes) | plain | plain (one server) | **TLS, verified** (internal CA); routes mutual TLS |
 
 ### Browser to gateway (routing.tls)
 
@@ -160,6 +161,7 @@ without it turns the internal TLS switches off and keeps only the NetworkPolicie
 |---|---|---|
 | `<release>-internal-ca` (or `internalTls.caSecret`) | the internal root (`ca.crt`; `tls.key` only for the chart's own) | cert-manager, or you |
 | `<release>-valkey-tls` | every Valkey pod's server and sentinel certificate: `*.<release>-valkey-headless[.<ns>.svc[.cluster.local]]`, `localhost`, `127.0.0.1` | cert-manager |
+| `supportx-nats-tls` (`nats.config.nats.tls.secretName`) | the NATS servers' certificate, for clients and routes: `<release>-nats[.<ns>[.svc[.cluster.local]]]`, `*.<release>-nats-headless[...]` | cert-manager |
 
 ### Valkey (valkeyHa.tls)
 
@@ -174,6 +176,20 @@ Centrifugo's engine with `tls` and `sentinel_tls`. The chart's scripts reach the
 through `vcli` (`templates/valkey-ha.yaml`, `common.sh`), which adds `--tls --cacert`; from a
 shell in a pod: `. /scripts/common.sh; vcli -p 26379 SENTINEL masters`. The single-node and dev
 profiles keep the bundled single Valkey, plaintext inside the namespace's NetworkPolicy.
+
+### NATS (nats.config.nats.tls)
+
+On in `values-ha.yaml`, for the clients and between the servers. The app connects with `tls://`
+and `SUPPORTX_NATS_TLS_CA_FILE`; the host name checked is the URL's (`<release>-nats`, which the
+certificate lists), also when the client reconnects to another server of the cluster. Routes are
+always mutual TLS in NATS: each server presents the same certificate and checks its peers' against
+the CA (`cluster.tls.merge.ca_file`, the `ca.crt` cert-manager writes beside the certificate; a
+CA or Vault issuer of your own writes it too). The NATS chart reloads the certificate when
+cert-manager renews it. The monitoring port 8222 (probes, the Prometheus exporter) stays plain
+http inside the pod network. The certificate's Secret name is a plain value of the NATS chart, so
+`values-ha.yaml` names it `supportx-nats-tls` for the release name `supportx`; another release
+name sets `nats.config.nats.tls.secretName` and `nats.config.cluster.tls.secretName` to
+`<release>-nats-tls` (the chart refuses the two differing).
 
 ## Client addresses behind the gateway
 

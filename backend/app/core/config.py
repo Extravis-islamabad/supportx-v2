@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     # certificate against this CA and the host name dialled. Unset: as the URL says.
     valkey_tls_ca_file: Path | None = None
     nats_url: SecretStr | None = None
+    # TLS to NATS (audit row 5; the chart's internal CA in values-ha.yaml). Set: `nats_url` must
+    # be tls://, and the server certificate is checked against this CA and the URL's host name.
+    nats_tls_ca_file: Path | None = None
     readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
     # Database (WP-005). `database_url` is the application role (supportx_app) through PgBouncer
@@ -474,6 +477,16 @@ class Settings(BaseSettings):
             if scheme not in {"valkeys", "rediss"}:
                 msg = "SUPPORTX_VALKEY_TLS_CA_FILE needs a valkeys:// SUPPORTX_VALKEY_URL"
                 raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _nats_tls_needs_a_tls_url(self) -> Self:
+        """As for Valkey: a CA with a nats:// URL would look protected and be in clear."""
+        url = self.nats_url
+        plaintext = url is not None and urlsplit(url.get_secret_value()).scheme != "tls"
+        if self.nats_tls_ca_file is not None and plaintext:
+            msg = "SUPPORTX_NATS_TLS_CA_FILE needs a tls:// SUPPORTX_NATS_URL"
+            raise ValueError(msg)
         return self
 
     @model_validator(mode="after")

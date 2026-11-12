@@ -46,12 +46,27 @@ postgresql:
       instances: 2
       tcpUserTimeoutMs: "10000"
 
-# A three-server NATS cluster; streams keep three replicas.
+# A three-server NATS cluster; streams keep three replicas. TLS (audit row 5) for the clients
+# (the app's tls:// URL) and between the servers (routes, always mutual in NATS), with one
+# certificate from the internal CA (internalTls). Its name is fixed here because the NATS chart
+# takes it as a plain value: <release>-nats-tls for the release name "supportx". The monitoring
+# port (8222: probes, the exporter) stays plain http inside the pod network.
 nats:
   config:
+    nats:
+      tls:
+        enabled: true
+        secretName: supportx-nats-tls
     cluster:
       enabled: true
       replicas: 3
+      tls:
+        enabled: true
+        secretName: supportx-nats-tls
+        merge:
+          # The peers' certificates are checked against the internal CA (cert-manager writes
+          # ca.crt beside the certificate).
+          ca_file: /etc/nats-certs/cluster/ca.crt
 
 # Valkey with Sentinel (ADR-038): three pods, each a server and a sentinel; the app follows a
 # failover by itself. It replaces the bundled single Valkey.

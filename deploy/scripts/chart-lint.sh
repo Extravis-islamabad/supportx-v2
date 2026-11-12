@@ -192,6 +192,15 @@ for p in ha ha-ci; do
   fi
 done
 grep -q 'valkeys://\|kind: Issuer' "$OUT/single-node.yaml" && { echo "single-node: no internal TLS without valkeyHa" >&2; exit 1; }
+# NATS TLS in the HA profiles: clients and routes, the app on tls:// with the CA; monitoring
+# (8222, the probes and the exporter) stays plain http; single-node keeps nats://.
+for p in ha ha-ci; do
+  grep -q '"tls://supportx-nats-0.supportx-nats-headless:6222"' "$OUT/$p.yaml" || { echo "$p: NATS routes must be TLS" >&2; exit 1; }
+  grep -q 'value: "tls://supportx:' "$OUT/$p.yaml" || { echo "$p: the app must use tls:// to NATS" >&2; exit 1; }
+  grep -q 'SUPPORTX_NATS_TLS_CA_FILE' "$OUT/$p.yaml" || { echo "$p: the app needs the NATS CA" >&2; exit 1; }
+  grep -q '"http_port": 8222' "$OUT/$p.yaml" || { echo "$p: NATS monitoring must stay on http 8222" >&2; exit 1; }
+done
+grep -q 'value: "nats://supportx:' "$OUT/single-node.yaml" || { echo "single-node: NATS stays nats:// without TLS" >&2; exit 1; }
 HA_ARGS="-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.tls.secretName=t"
 # Your own issuer (on-prem PKI): no CA of the chart's, and the Secret with its root is required.
 # shellcheck disable=SC2086 # the flags are meant to be split
@@ -203,7 +212,7 @@ OWN="$(helm template supportx "$CHART" --namespace supportx $HA_ARGS --set inter
   --set internalTls.issuerRef.kind=ClusterIssuer --set internalTls.caSecret=corp-ca)"
 grep -q "selfSigned" <<<"$OWN" && { echo "internalTls: with your own issuer the chart makes no CA" >&2; exit 1; }
 grep -q "secretName: corp-ca, items" <<<"$OWN" || { echo "internalTls: pods must trust caSecret" >&2; exit 1; }
-echo "transport: Valkey TLS only in the HA profiles, the internal CA's key in no pod; own issuer works"
+echo "transport: Valkey and NATS TLS in the HA profiles, the internal CA's key in no pod; own issuer works"
 
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"

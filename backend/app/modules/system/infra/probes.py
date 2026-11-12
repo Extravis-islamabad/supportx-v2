@@ -10,6 +10,7 @@ import json
 import math
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -24,6 +25,7 @@ from nats.aio.client import Client as NatsClient
 from opentelemetry import metrics
 
 from app.core.config import Settings
+from app.core.tls import nats_tls
 from app.core.valkey import client as valkey_client
 from app.core.valkey import tls_options as valkey_tls_options
 from app.modules.system.domain.readiness import FailureReason, ProbeFailedError
@@ -99,7 +101,7 @@ async def _ignore_nats_error(_error: Exception) -> None:
     """nats-py logs every connection error by default; the probe reports its own reason."""
 
 
-async def _connect_nats(url: str, timeout_s: float) -> NatsClient:
+async def _connect_nats(url: str, timeout_s: float, ca_file: Path | None) -> NatsClient:
     """One short-lived NATS connection that fails fast instead of retrying."""
     # nats-py keeps retrying a refused initial connection instead of failing fast, which would
     # turn "unreachable" into a timeout; a plain TCP connect answers that first.
@@ -109,9 +111,12 @@ async def _connect_nats(url: str, timeout_s: float) -> NatsClient:
     )
     writer.close()
     await writer.wait_closed()
+    tls, tls_hostname = nats_tls(url, ca_file)
     try:
         return await nats.connect(
             url,
+            tls=tls,
+            tls_hostname=tls_hostname,
             connect_timeout=timeout_s,
             allow_reconnect=False,
             max_reconnect_attempts=0,
@@ -128,12 +133,13 @@ class NatsProbe:
 
     name = "nats"
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, tls_ca_file: Path | None = None) -> None:
         self._url = url
+        self._tls_ca_file = tls_ca_file
 
     async def check(self, timeout_s: float) -> None:
         """Connect without reconnecting, flush, close."""
-        client = await _connect_nats(self._url, timeout_s)
+        client = await _connect_nats(self._url, timeout_s, self._tls_ca_file)
         try:
             # nats-py takes whole seconds here.
             await client.flush(timeout=max(1, math.ceil(timeout_s)))
@@ -157,9 +163,11 @@ class WorkerHeartbeatProbe:
         kind: str,
         stale_after_s: float,
         backlog_after_s: float | None = None,
+        tls_ca_file: Path | None = None,
     ) -> None:
         self.name = name
         self._url = url
+        self._tls_ca_file = tls_ca_file
         self._bucket = bucket
         self._prefix = f"{kind}."
         self._stale_after_s = stale_after_s
@@ -171,7 +179,7 @@ class WorkerHeartbeatProbe:
         `disconnected`: the newest heartbeat says the worker cannot reach PostgreSQL or NATS now
         (workers/resilience.py). `backlog` (relay): its oldest unpublished event is too old.
         """
-        client = await _connect_nats(self._url, timeout_s)
+        client = await _connect_nats(self._url, timeout_s, self._tls_ca_file)
         try:
             newest = await self._newest_heartbeat(client)
         finally:
