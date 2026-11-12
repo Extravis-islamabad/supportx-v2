@@ -274,19 +274,28 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
         "/reply-templates",
         summary="Add a reply template",
         status_code=status.HTTP_201_CREATED,
+        response_model=ReplyTemplateOut,
         dependencies=[
             audited(f"{audit}.reply_template_created", object_type=f"{audit}_reply_template")
         ],
     )
     async def create_template(
-        body: ReplyTemplateIn, session: TenantSession, subject: Admin, request: Request
-    ) -> ReplyTemplateOut:
+        body: ReplyTemplateIn,
+        session: TenantSession,
+        subject: Admin,
+        request: Request,
+        idempotency: Idempotency,
+    ) -> Response:
         """Names are unique (ignoring case)."""
         del subject
-        row = await service.create_template(
-            session, wtype, name=body.name, body=body.body, source=source_of(request)
-        )
-        return ReplyTemplateOut.of(row)
+
+        async def run() -> Created:
+            row = await service.create_template(
+                session, wtype, name=body.name, body=body.body, source=source_of(request)
+            )
+            return Created(body=ReplyTemplateOut.of(row))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.put(
         "/reply-templates/{template_id}",

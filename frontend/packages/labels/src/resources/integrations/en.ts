@@ -351,6 +351,7 @@ export const en = {
   'mailbox_protocol.gmail': 'Gmail',
   'mailbox_protocol.graph': 'Microsoft 365',
   'mailbox_protocol.imap': 'IMAP',
+  'mailbox_reason.address_not_allowed': "The mail server's address can't be used",
   'mailbox_reason.imap_fetch_failed': 'The mail server did not hand over a message',
   'mailbox_reason.imap_login_failed': 'The mail server refused the user name or password',
   'mailbox_reason.imap_mark_failed': 'The mail server did not mark a message as read',
@@ -383,6 +384,7 @@ export const en = {
   'mailbox_reason.oauth_unreachable': 'Microsoft or Google cannot be reached',
   'mailbox_reason.oauth_wrong_account':
     "The sign-in was with another account than the mailbox's own",
+  'mailbox_reason.port_not_allowed': "The mail server's port can't be used",
   'mailbox_reason.secret_store_fallback':
     'The secrets store could not be read, so the mailbox uses its earlier copy of the credential. Save the credential again to fix it.',
   'mailbox_security.none': 'No encryption',

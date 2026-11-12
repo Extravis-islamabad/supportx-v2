@@ -334,6 +334,7 @@ async def portal_conversation(
     "/{record_id}/replies",
     summary="Reply on your incident",
     status_code=status.HTTP_201_CREATED,
+    response_model=PortalIncidentOut,
     response_model_exclude_unset=True,
 )
 async def portal_reply(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -343,13 +344,23 @@ async def portal_reply(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     subject: SignedIn,
     request: Request,
     policy: Annotated[PolicyService, Depends(get_policy)],
-) -> PortalIncidentOut:
-    """A public reply in your name; waiting on you resumes, a late one may reopen (WP-020f)."""
-    replied = await service.reply(
-        session, subject, record_id, body=body.body, source=source_of(request), holders=policy
-    )
-    target = replied.follow_up.id if replied.follow_up is not None else record_id
-    return _out(await service.get_record(session, subject, target))
+    idempotency: Idempotency,
+) -> Response:
+    """A public reply in your name; waiting on you resumes, a late one may reopen (WP-020f).
+
+    Takes an Idempotency-Key (audit #19): a phone retrying after a lost answer never posts twice.
+    """
+
+    async def run() -> Created:
+        replied = await service.reply(
+            session, subject, record_id, body=body.body, source=source_of(request), holders=policy
+        )
+        target = replied.follow_up.id if replied.follow_up is not None else record_id
+        out = _out(await service.get_record(session, subject, target))
+        # Exactly what the route showed before: only the fields the portal sets.
+        return Created(body=out.model_dump(mode="json", exclude_unset=True))
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
 @router.post(

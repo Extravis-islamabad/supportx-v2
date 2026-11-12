@@ -2469,8 +2469,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             for n in await settings_service.list_categories(session, wtype)
         ]
 
-    @router.post("/categories", summary="Add a category", status_code=status.HTTP_201_CREATED)
-    async def create_category(
+    @router.post(
+        "/categories",
+        summary="Add a category",
+        status_code=status.HTTP_201_CREATED,
+        response_model=WorkItemCategoryOut,
+    )
+    async def create_category(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         body: WorkItemCategoryIn,
         session: TenantSession,
         subject: Admin,
@@ -2478,21 +2483,26 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         note: Annotated[
             AuditNote, audited(f"{audit}.category_created", object_type=f"{audit}_category")
         ],
-    ) -> WorkItemCategoryOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """A new node (at most three levels)."""
         del subject
-        node = await settings_service.create_category(
-            session,
-            wtype,
-            parent_id=body.parent_id,
-            labels=body.labels,
-            default_group_id=body.default_group_id,
-            source=source_of(request),
-        )
-        out = WorkItemCategoryOut.of(node)
-        note.object_id = str(out.id)
-        note.details = {"parent_id": body.parent_id}
-        return out
+
+        async def run() -> Created:
+            node = await settings_service.create_category(
+                session,
+                wtype,
+                parent_id=body.parent_id,
+                labels=body.labels,
+                default_group_id=body.default_group_id,
+                source=source_of(request),
+            )
+            out = WorkItemCategoryOut.of(node)
+            note.object_id = str(out.id)
+            note.details = {"parent_id": body.parent_id}
+            return Created(body=out)
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.patch("/categories/{category_id}", summary="Change a category", responses=CONFLICT)
     async def patch_category(  # noqa: PLR0913, PLR0917 - FastAPI dependencies

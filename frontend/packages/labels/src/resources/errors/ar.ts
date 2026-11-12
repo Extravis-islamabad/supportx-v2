@@ -251,6 +251,8 @@ export const ar: LabelResource = {
   'errors.entitlements_unavailable':
     'معلومات الترخيص غير متاحة مؤقتًا. يرجى المحاولة مرة أخرى بعد قليل.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
+  'errors.field.address_not_allowed':
+    'لا يمكن استخدام عنوان الخادم هذا. استخدم الاسم العام لخادم البريد.',
   'errors.field.already_linked': 'هذان السجلان مرتبطان بالفعل.',
   'errors.field.announcement_message_required': 'اكتب الرسالة التي سيراها الناس.',
   'errors.field.api_key_allowlist_invalid': 'أدخل حتى 20 عنوانًا أو شبكة صالحة، مثل 10.0.0.0/8.',
@@ -519,6 +521,7 @@ export const ar: LabelResource = {
   'errors.field.person_not_in_group': 'هذا الشخص ليس عضوًا في المجموعة المختارة.',
   'errors.field.phone_not_valid': 'أدخل رقم هاتف: أرقام ومسافات و+ و- وأقواس.',
   'errors.field.plain_connection_refused': 'يُرفض الاتصال دون تشفير ما لم تسمح به.',
+  'errors.field.port_not_allowed': 'استخدم منفذ بريد: 993 (TLS) أو 143.',
   'errors.field.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
   'errors.field.range_end_before_start': 'يجب أن تكون النهاية بعد البداية.',
   'errors.field.read_category_unknown': 'لا يمكن تسجيل هذا النوع من القراءة.',
