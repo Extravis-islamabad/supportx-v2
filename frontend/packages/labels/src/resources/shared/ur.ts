@@ -464,6 +464,9 @@ export const ur: LabelResource = {
     'منتخب کریں کہ ہر تبدیلی وجہ پوچھے یا نہیں۔ روکنا، منسوخ کرنا اور دوبارہ کھولنا وجوہات کی فہرستوں سے انتخاب کرتے ہیں۔',
   'settings.release_closure_codes_help':
     'ریلیز کیسے ختم ہوئی۔ ریلیز بند کرتے وقت چنا جاتا ہے؛ رپورٹس اسی کے مطابق گروپ ہوتی ہیں۔',
+  'settings.release_roles.take_help':
+    'ریلیز لینے سے آپ اس پر یہ کردار بن جاتے ہیں، اگر ابھی کسی کے پاس نہ ہو۔ ہر کردار کون رکھ سکتا ہے یہ اس کردار کے اپنے قواعد پر ہے۔',
+  'settings.release_roles.take_title': 'لینے سے آپ کیا بنتے ہیں',
   'settings.rename': 'نام بدلیں',
   'settings.rename_value': '"{{name}}" کا نام بدلیں',
   'settings.resume_on_requester_reply': 'درخواست گزار کا جواب اسے دوبارہ شروع کرتا ہے',
@@ -496,6 +499,7 @@ export const ur: LabelResource = {
   'settings.section.priority': 'ترجیح',
   'settings.section.reasons': 'وجوہات',
   'settings.section.reply-templates': 'جوابی سانچے',
+  'settings.section.roles': 'کردار',
   'settings.section.routing': 'روٹنگ اور تفویض',
   'settings.section.stages': 'مراحل',
   'settings.section.statuses': 'حالتیں',

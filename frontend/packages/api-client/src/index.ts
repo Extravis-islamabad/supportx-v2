@@ -1244,6 +1244,7 @@ export {
   useStagedRoleCandidates,
   useStagedRoles,
   useRoleDefs,
+  useSetTakeRole,
   useStagedSchedule,
   useRemoveStagedDowntime,
   useSaveStagedDowntime,

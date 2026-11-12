@@ -453,6 +453,7 @@ export const SCREENS: Screen[] = [
     'releases/closure-codes',
     'releases/closing',
     'releases/stages',
+    'releases/roles', // WP-058b S5a: what Take makes you
   ].map<Screen>((page) => ({
     key: `admin-${page.replace('/', '-')}`,
     path: `/admin/${page}`,

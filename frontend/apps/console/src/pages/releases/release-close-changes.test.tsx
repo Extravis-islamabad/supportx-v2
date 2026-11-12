@@ -46,8 +46,14 @@ describe('closing a release closes its changes you may close', () => {
   it('REQ-REL-052: one closes, one is skipped with the reason in words', async () => {
     const settings = fakeIncidentCatalogue();
     settings.closure_codes = [
-      { code: 'successful', labels: { en: 'Successful' }, disabled: false },
-    ] as typeof settings.closure_codes;
+      {
+        code: 'successful',
+        labels: { en: 'Successful' },
+        disabled: false,
+        colour: null,
+        sort_order: 1,
+      },
+    ];
     const fake = consoleApi({
       routes: {
         [`GET /api/v1/releases/${REL_ID}/changes`]: {
