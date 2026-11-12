@@ -18,13 +18,14 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied
-from app.modules import automation
+from app.modules import automation, licensing
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.parts import (
@@ -39,12 +40,21 @@ from app.modules.work_items.domain.parts import (
     moved,
     worklog_times,
 )
+from app.modules.work_items.domain.tasks import (
+    GATED_STATUSES,
+    MAX_DEPENDENCIES,
+    DependencyMode,
+    creates_loop,
+    detail_problems,
+    open_predecessors,
+)
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
-from app.modules.work_items.events import WorkItemPartChanged
+from app.modules.work_items.events import WorkItemPartChanged, WorkItemTaskAssigned
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemLink,
     WorkItemTask,
+    WorkItemTaskDependency,
     WorkItemTypeSettings,
     WorkItemWorklog,
 )
@@ -199,8 +209,26 @@ async def tasks(
     return await _tasks(session, record_id)
 
 
+# WP-046a S1 (REQ-INC-073): a task's details, checked together with what it has now.
+DETAILS = (
+    "task_type",
+    "scheduled_start",
+    "scheduled_end",
+    "actual_start",
+    "actual_end",
+    "estimated_minutes",
+    "percent_complete",
+    "extra_cost",
+    "remind_before_minutes",
+)
+
+
 def _task_values(
-    values: dict[str, Any], *, creating: bool, stages: frozenset[str] | None = None
+    values: dict[str, Any],
+    *,
+    creating: bool,
+    stages: frozenset[str] | None = None,
+    current: WorkItemTask | None = None,
 ) -> dict[str, Any]:
     problems: list[tuple[str, str]] = []
     clean: dict[str, Any] = {}
@@ -222,15 +250,37 @@ def _task_values(
         clean["description"] = _text(
             values["description"], "description", DESCRIPTION_MAX, problems
         )
-    for name in ("owner_id", "group_id", "status", "priority", "due_at"):
+    for name in ("owner_id", "group_id", "status", "priority", "due_at", *DETAILS):
         if name in values:
             clean[name] = values[name]
+    problems += _detail_problems(clean, current, creating=creating)
     if problems:
         raise items.field_errors(problems)
     return clean
 
 
-_TRACKED = ("title", "status", "owner_id", "group_id", "priority", "due_at", "done_by", "stage")
+def _detail_problems(
+    clean: dict[str, Any], current: WorkItemTask | None, *, creating: bool
+) -> list[tuple[str, str]]:
+    """The details as they will be (what it has now, with the change) checked together."""
+    merged = {n: getattr(current, n) if current is not None else None for n in DETAILS}
+    merged.update({n: clean[n] for n in DETAILS if n in clean})
+    if "scheduled_start" in clean or "remind_before_minutes" in clean:
+        clean["reminded_at"] = None  # a new start or offset reminds again (REQ-INC-073 AC2)
+    return [p for p in detail_problems(merged) if creating or p[0] in clean]
+
+
+_TRACKED = (
+    "title",
+    "status",
+    "owner_id",
+    "group_id",
+    "priority",
+    "due_at",
+    "done_by",
+    "stage",
+    *DETAILS,
+)
 
 
 async def _stages_of(
@@ -260,6 +310,8 @@ def _task_history(before: dict[str, Any] | None, after: WorkItemTask) -> list[Ch
 
 
 def _json(value: object) -> object:
+    if isinstance(value, Decimal):
+        return str(value)
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, uuid.UUID):
@@ -297,7 +349,58 @@ async def create_task(  # noqa: PLR0913 - the record, the task and the source, e
     await _recorded(
         session, record, "task", row.id, "child_added", _task_history(None, row), source
     )
+    await _assigned(session, record, row, before=None)
     return row
+
+
+async def create_template_task(
+    session: AsyncSession,
+    record: WorkItem,
+    values: dict[str, Any],
+    *,
+    source: Source,
+    by: uuid.UUID | None,
+) -> WorkItemTask:
+    """A task the record's template adds as the record is made (REQ-INC-040).
+
+    No permission check of its own: it is part of creating the record, which was checked. The
+    history says the template added it (AC1: "history records their creation by the template").
+    """
+    del by  # the record's creator is the history's actor already
+    existing = await _tasks(session, record.id)
+    clean = _task_values(values, creating=True)
+    row = await TaskRepository(session).add(
+        WorkItemTask(
+            work_item_id=record.id,
+            position=(existing[-1].position + 1) if existing else 0,
+            **{"status": TaskStatus.OPEN.value, "priority": "normal", **clean},
+            stage=record.stage,
+        )
+    )
+    await _recorded(
+        session,
+        record,
+        "task",
+        row.id,
+        "child_added",
+        [*_task_history(None, row), Change("task.from_template", old=None, new=True)],
+        source,
+    )
+    return row
+
+
+async def _assigned(
+    session: AsyncSession, record: WorkItem, task: WorkItemTask, *, before: uuid.UUID | None
+) -> None:
+    """A task given to someone new tells them (WP-046a S1; REQ-INC-076 AC1)."""
+    if task.owner_id is None or task.owner_id == before:
+        return
+    await record_event(
+        session,
+        WorkItemTaskAssigned(work_item_id=record.id, task_id=task.id, owner_id=task.owner_id),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
 
 
 async def _task(session: AsyncSession, record_id: uuid.UUID, task_id: uuid.UUID) -> WorkItemTask:
@@ -395,7 +498,11 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
         raise PermissionDenied(
             params={"permission": wtype.permission("edit"), "reason": "task_owner_status_only"}
         )
-    clean = _task_values(values, creating=False, stages=await _stages_of(session, wtype, record))
+    clean = _task_values(
+        values, creating=False, stages=await _stages_of(session, wtype, record), current=task
+    )
+    if clean.get("status") in GATED_STATUSES and clean["status"] != task.status:
+        await _predecessors_done(session, wtype, task)
     if "status" in clean:
         done = clean["status"] == TaskStatus.DONE
         clean["done_at"] = datetime.now(UTC) if done else None
@@ -408,6 +515,7 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
     changes = _task_history(before, updated)
     if len(changes) > 1:  # something besides the task's name changed
         await _recorded(session, record, "task", updated.id, "child_changed", changes, source)
+    await _assigned(session, record, updated, before=before["owner_id"])
     if "status" in clean and updated.workflow_instance_id is not None:
         await workflow_task_settled(session, updated)
     if "status" in clean and updated.from_plan:
@@ -497,6 +605,147 @@ async def move_task(  # noqa: PLR0913 - the task, the direction and the source, 
     return await _tasks(session, record_id)
 
 
+def is_overdue(task: WorkItemTask, now: datetime | None = None) -> bool:
+    """Open and past its due time (REQ-INC-076 AC2: marked overdue in "my tasks" and the list)."""
+    return (
+        task.status in OPEN_TASK_STATUSES
+        and task.due_at is not None
+        and task.due_at < (now or datetime.now(UTC))
+    )
+
+
+async def may_see_money(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """A task's extra cost: for those who may edit the record (the coordinator, WP-046a S1).
+
+    Never for a task-only owner or an investigator without edit; S3 decides task and worklog cost
+    visibility once for both.
+    """
+    return await items.may(session, subject, wtype, "edit", record_id)
+
+
+async def live_tasks(session: AsyncSession, task: WorkItemTask) -> list[WorkItemTask]:
+    """The other tasks of the task's record (for its blocked state)."""
+    return await _tasks(session, task.work_item_id)
+
+
+# --- dependencies (WP-046a S1, REQ-INC-075) -----------------------------------------------------
+
+
+async def dependency_mode(session: AsyncSession, wtype: WorkItemType) -> DependencyMode:
+    """Whether an open predecessor refuses a start or completion (default) or only warns."""
+    found = await session.scalar(
+        select(WorkItemTypeSettings.task_dependency_mode).where(
+            WorkItemTypeSettings.type == wtype.code
+        )
+    )
+    return DependencyMode(found or DependencyMode.BLOCK)
+
+
+async def dependencies_of(
+    session: AsyncSession, record_id: uuid.UUID
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """Each task of the record and the tasks it waits for, in the order they were added."""
+    rows = await session.execute(
+        select(WorkItemTaskDependency.task_id, WorkItemTaskDependency.depends_on_id)
+        .where(WorkItemTaskDependency.work_item_id == record_id)
+        .order_by(WorkItemTaskDependency.created_at, WorkItemTaskDependency.depends_on_id)
+    )
+    found: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    for task_id, depends_on in rows:
+        found[task_id].append(depends_on)
+    return dict(found)
+
+
+def blocked_by(
+    task: WorkItemTask, dependencies: dict[uuid.UUID, list[uuid.UUID]], tasks: list[WorkItemTask]
+) -> list[uuid.UUID]:
+    """The predecessors of `task` still open (shown as blocked, REQ-INC-075)."""
+    statuses = {t.id: t.status for t in tasks}
+    return open_predecessors(dependencies.get(task.id, []), statuses)
+
+
+async def _predecessors_done(
+    session: AsyncSession, wtype: WorkItemType, task: WorkItemTask
+) -> None:
+    """Refuse a start or completion while a predecessor is open (AC1), unless the type warns."""
+    if await dependency_mode(session, wtype) is DependencyMode.WARN:
+        return
+    waits = (await dependencies_of(session, task.work_item_id)).get(task.id, [])
+    if not waits:
+        return
+    others = {t.id: t for t in await _tasks(session, task.work_item_id)}
+    open_ids = open_predecessors(waits, {i: t.status for i, t in others.items()})
+    # A deleted predecessor no longer holds the task back.
+    open_ids = [i for i in open_ids if i in others]
+    if open_ids:
+        first = others[open_ids[0]]
+        raise Conflict(
+            code="task_blocked",
+            params={"task": first.title, "task_id": str(first.id), "count": len(open_ids)},
+        )
+
+
+async def set_dependencies(  # noqa: PLR0913, PLR0917 - the task, what it waits for, the source
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    task_id: uuid.UUID,
+    depends_on: list[uuid.UUID],
+    *,
+    source: Source,
+) -> list[uuid.UUID]:
+    """Replace the tasks this task waits for: the same record's, at most 20, never a loop (AC3)."""
+    record = await _for_work(session, subject, wtype, record_id)
+    task = await _task(session, record_id, task_id)
+    wanted = list(dict.fromkeys(depends_on))
+    if len(wanted) > MAX_DEPENDENCIES:
+        raise items.field_errors([("depends_on", "too_many_items")], max=MAX_DEPENDENCIES)
+    siblings = {t.id: t for t in await _tasks(session, record_id)}
+    if any(d not in siblings for d in wanted):
+        raise items.field_errors([("depends_on", "invalid_value")])
+    edges = await dependencies_of(session, record_id)
+    edges.pop(task.id, None)
+    if creates_loop(edges, task.id, wanted):
+        raise items.field_errors([("depends_on", "dependency_loop")])
+    before = (await dependencies_of(session, record_id)).get(task.id, [])
+    if set(before) == set(wanted):
+        return before
+    await session.execute(
+        delete(WorkItemTaskDependency).where(WorkItemTaskDependency.task_id == task.id)
+    )
+    for depends_on_id in wanted:
+        session.add(
+            WorkItemTaskDependency(
+                tenant_id=record.tenant_id,
+                task_id=task.id,
+                depends_on_id=depends_on_id,
+                work_item_id=record.id,
+                created_by=subject.user_id,
+            )
+        )
+    await session.flush()
+    await _recorded(
+        session,
+        record,
+        "task",
+        task.id,
+        "child_changed",
+        [
+            Change("task", task.title, task.title),
+            Change(
+                "task.depends_on",
+                [siblings[d].title for d in before if d in siblings],
+                [siblings[d].title for d in wanted],
+            ),
+        ],
+        source,
+    )
+    return wanted
+
+
 async def my_tasks(
     session: AsyncSession, subject: Subject, wtype: WorkItemType
 ) -> list[tuple[WorkItemTask, WorkItem]]:
@@ -518,6 +767,24 @@ async def my_tasks(
     if not await owner_access(session, wtype):  # without the setting, only records they see
         found = [(t, r) for t, r in found if await items.may(session, subject, wtype, "view", r.id)]
     return found
+
+
+async def all_my_tasks(
+    session: AsyncSession, subject: Subject
+) -> list[tuple[WorkItemTask, WorkItem]]:
+    """Open tasks the subject owns on every type (REQ-INC-076), due first.
+
+    Each type licensed for the tenant, each record through its own rule (the type's view, or
+    its task-owner setting), as the per-type lists do: a task on a record the person can no
+    longer see is not listed (the coordinator, WP-046a S1).
+    """
+    found: list[tuple[WorkItemTask, WorkItem]] = []
+    for wtype in TYPES.values():
+        if not await licensing.has_feature(subject.tenant_id, wtype.feature):
+            continue
+        found += await my_tasks(session, subject, wtype)
+    far = datetime.max.replace(tzinfo=UTC)
+    return sorted(found, key=lambda pair: (pair[0].due_at or far, pair[0].created_at))[:200]
 
 
 async def open_tasks(session: AsyncSession, record: WorkItem) -> list[OpenItem]:
@@ -727,6 +994,9 @@ async def create_worklog(  # noqa: PLR0913 - the record, the worklog and the sou
             ended_at=times.ended_at,
             minutes=times.minutes,
             description=description,
+            # WP-058b S3 (0142): a staged record's worklog belongs to its stage then; set here,
+            # never sent by the client (lane A's OK). Other types keep none.
+            stage=record.stage if wtype.stages is not None else None,
         )
     )
     await _recorded(

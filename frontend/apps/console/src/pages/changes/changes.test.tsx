@@ -231,7 +231,47 @@ describe('console: changes', () => {
     });
   });
 
-  it('REQ-CHG-101: picked changes close together; assign, take and close only, and skips say why', async () => {
+  it('REQ-CHG-101 (WP-046a S1): picked changes are canceled with one reason', async () => {
+    const JOB_ID = '01a1a2b3-0000-7000-8000-0000000c0d02';
+    window.history.pushState({}, '', '/changes');
+    const job = {
+      id: JOB_ID,
+      action: 'cancel',
+      status: 'queued',
+      total: 1,
+      processed: 0,
+      done_count: 0,
+      skipped_count: 0,
+      results: [],
+      created_at: '2027-03-01T00:00:00Z',
+      started_at: null,
+      finished_at: null,
+    };
+    const fake = api({
+      'POST /api/v1/changes/bulk': { status: 202, body: job },
+      [`GET /api/v1/changes/bulk-jobs/${JOB_ID}`]: { body: { ...job, status: 'done' } },
+    });
+    render(<App />);
+    const row = await screen.findByTestId('change-row-CHG-7');
+    fireEvent.click(within(row).getByRole('checkbox'));
+    fireEvent.click(await screen.findByTestId('inc-bulk-cancel'));
+    const ok = await screen.findByTestId('chg-bulk-cancel-ok');
+    expect((ok as HTMLButtonElement).disabled).toBe(true); // a cancel says why
+    fireEvent.change(screen.getByTestId('chg-bulk-cancel-reason'), {
+      target: { value: 'Superseded by CHG-9' },
+    });
+    fireEvent.click(ok);
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes/bulk')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/changes/bulk')[0]?.body).toMatchObject({
+      action: 'cancel',
+      changes: { reason_text: 'Superseded by CHG-9' },
+      record_ids: [CHG_ID],
+    });
+  });
+
+  it('REQ-CHG-101: picked changes close together; assign, take, close, cancel and trash, and skips say why', async () => {
     const JOB_ID = '01a1a2b3-0000-7000-8000-0000000c0d01';
     window.history.pushState({}, '', '/changes');
     const fake = api({
@@ -286,10 +326,11 @@ describe('console: changes', () => {
     const row = await screen.findByTestId('change-row-CHG-7');
     fireEvent.click(within(row).getByRole('checkbox'));
     expect((await screen.findByTestId('inc-selected')).textContent).toBe('1 change selected');
-    for (const action of ['close', 'assign', 'take']) {
+    // Cancel and trash since WP-046a S1 (0141); edit and resolve are not the change list's.
+    for (const action of ['close', 'assign', 'take', 'cancel', 'delete']) {
       expect(screen.getByTestId(`inc-bulk-${action}`)).toBeTruthy();
     }
-    for (const action of ['cancel', 'delete', 'edit', 'resolve']) {
+    for (const action of ['edit', 'resolve']) {
       expect(screen.queryByTestId(`inc-bulk-${action}`)).toBeNull();
     }
     fireEvent.click(screen.getByTestId('inc-bulk-close'));
@@ -553,6 +594,7 @@ describe('console: changes', () => {
                 { field: 'change_reason', old: null, new: 'security_fix' },
                 { field: 'stage', old: 'planning', new: 'submission' },
                 { field: 'reapproval_restarted', old: null, new: ['risk'] },
+                { field: 'task.extra_cost', old: null, new: null, hidden: true },
               ],
             },
           ],
@@ -575,6 +617,8 @@ describe('console: changes', () => {
     expect(text).toContain('from Planning to Submission');
     expect(text).not.toMatch(/planning to submission|because of to/);
     expect(text).toContain('Sana Malik sent it back for approval again because Risk changed');
+    // A task's extra cost not the reader's to see (lane B's #398 review): only that it changed.
+    expect(text).toContain('Sana Malik changed Extra cost');
   });
 
   it('QA-2026-11-11 F-01: a form that remounts keeps its Idempotency-Key, so a repeat never duplicates', async () => {
@@ -614,5 +658,59 @@ describe('console: changes', () => {
     const [one, two] = fake.find('POST', '/api/v1/changes');
     expect(one?.headers.get('Idempotency-Key')).toBeTruthy();
     expect(two?.headers.get('Idempotency-Key')).toBe(one?.headers.get('Idempotency-Key'));
+  });
+
+  it('QA-2026-11-11 F-09: in Submission the primary move is the step forward, never a paused one', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}`);
+    const move = (to_status: string) => ({
+      to_status,
+      to_stage: 'submission',
+      lands_in: to_status,
+      reason_mode: 'none',
+      reason_list: null,
+      required_fields: [],
+      allowed: true,
+      reason: null,
+      missing: [],
+    });
+    const status = (code: string, category: string) => ({
+      code,
+      category,
+      colour: '#1677ff',
+      labels: null,
+      system: false,
+      disabled: false,
+      resume_on_requester_reply: false,
+    });
+    api({
+      [`GET /api/v1/changes/${CHG_ID}`]: {
+        body: { ...change, stage: 'submission', status: 'submission_submitted' },
+        headers: { ETag: '"4"' },
+      },
+      [`GET /api/v1/changes/${CHG_ID}/stages`]: {
+        body: {
+          ...panel,
+          stage: 'submission',
+          moves: [move('submission_more_info'), move('submission_awaiting_acceptance')],
+        },
+      },
+      'GET /api/v1/changes/settings': {
+        body: {
+          statuses: [
+            status('submission_submitted', 'open'),
+            status('submission_more_info', 'paused'),
+            status('submission_awaiting_acceptance', 'open'),
+          ],
+          closure_codes: [],
+          own_lists: {},
+        },
+      },
+    });
+    render(<App />);
+    const moves = await screen.findByTestId('change-moves');
+    await waitFor(() => {
+      expect(within(moves).queryByTestId('move-submission_awaiting_acceptance')).not.toBeNull();
+    });
+    expect(within(moves).queryByTestId('move-submission_more_info')).toBeNull(); // under More
   });
 });

@@ -124,6 +124,7 @@ class ClosureSettings:
     auto_close_days: int | None
     reopen_window_days: int
     task_owner_access: bool = False  # WP-020e (D-112)
+    task_dependency_mode: str = "block"  # WP-046a S1 (REQ-INC-075): block or warn
 
 
 @dataclass(frozen=True)
@@ -170,6 +171,7 @@ class Catalogue:
     review_required_priorities: tuple[str, ...]  # WP-044b s4: problems needing a review
     segregation_strict: bool  # WP-045b S3: changes, implementing groups barred too
     outside_maintenance_blocks: bool  # D-156: changes outside every maintenance window blocked
+    open_stage_tasks_block: bool  # WP-058b S3: releases, a stage's open tasks hold its move out
     cab_every_match: bool  # WP-045b S3: changes go to every matching board
     reapproval: Mapping[str, Any] | None  # WP-045b S4: the stored policy (None: shipped)
     lifecycle: Lifecycle  # the standard one; a record follows `lifecycle_of(record.lifecycle)`
@@ -722,6 +724,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         review_required_priorities=tuple(settings.review_required_priorities),
         segregation_strict=settings.segregation_strict,
         outside_maintenance_blocks=settings.outside_maintenance_blocks,
+        open_stage_tasks_block=settings.open_stage_tasks_block,
         cab_every_match=settings.cab_every_match,
         reapproval=settings.reapproval,
         first_response_on=tuple(settings.first_response_on),
@@ -764,6 +767,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             auto_close_days=settings.auto_close_days,
             reopen_window_days=settings.reopen_window_days,
             task_owner_access=settings.task_owner_access,
+            task_dependency_mode=settings.task_dependency_mode,
         ),
         last_number=await last_number(session, wtype.counter_key),
     )

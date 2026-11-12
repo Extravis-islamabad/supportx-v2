@@ -128,6 +128,7 @@ export const ar: LabelResource = {
   'errors.asset_product_type_in_use': 'لا تزال منتجات تستخدم نوع المنتج هذا ({{used}}).',
   'errors.asset_product_type_not_found': 'نوع المنتج هذا غير موجود.',
   'errors.asset_restore_merged': 'دُمج هذا الأصل في {{asset}}. أكّد لاستعادته وحده.',
+  'errors.asset_site_not_managed': 'يمكنك إضافة الأصول أو نقلها إلى المواقع التي تديرها فقط.',
   'errors.asset_state_in_use':
     'لا تزال انتقالات في دورات الحياة تستخدم هذه الحالة ({{used}}). أزلها أولًا.',
   'errors.asset_state_not_found': 'حالة الأصل هذه غير موجودة.',
@@ -344,6 +345,7 @@ export const ar: LabelResource = {
   'errors.field.default_required':
     'يوجد دائمًا قالب افتراضي. عيّن قالبًا آخر كافتراضي بدلًا من ذلك.',
   'errors.field.department_not_found': 'اختر قسمًا نشطًا.',
+  'errors.field.dependency_loop': 'لا يمكن لمهمة أن تنتظر نفسها، مباشرة أو عبر مهام أخرى.',
   'errors.field.desk_not_found': 'اختر مكتبًا نشطًا.',
   'errors.field.dimension_not_groupable': 'لا يمكن بعد استخدام الحقول متعددة الاختيارات للتجميع.',
   'errors.field.disabled_cannot_be_default': 'شغّل هذا القالب قبل تعيينه افتراضيًا.',
@@ -464,6 +466,7 @@ export const ar: LabelResource = {
   'errors.field.name_needs_letters': 'استخدم حرفًا أو رقمًا واحدًا على الأقل في الاسم.',
   'errors.field.name_required': 'أدخل اسمًا.',
   'errors.field.name_taken': 'هذا الاسم مستخدم بالفعل.',
+  'errors.field.needs_scheduled_start': 'يحتاج التذكير قبل البدء إلى موعد بدء مجدول.',
   'errors.field.no_default_allowed': 'لا يمكن أن يكون لهذا الحقل قيمة أولية.',
   'errors.field.not_a_field': 'هذا الحقل غير موجود لهذا النوع.',
   'errors.field.not_a_technician': 'لا يحقق في مشكلة إلا فني يعمل على المشكلات.',
@@ -792,6 +795,7 @@ export const ar: LabelResource = {
   'errors.not_a_member': 'أنت لست عضوًا في هذه المؤسسة.',
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
+  'errors.not_cancelable_from_here': 'لا يمكن إلغاؤه من مكانه الحالي.',
   'errors.not_closable_from_here':
     'لا يمكن إغلاقه من مرحلته الحالية. انقله إلى المرحلة التالية أولًا.',
   'errors.not_found': 'العنصر غير موجود.',
@@ -881,8 +885,12 @@ export const ar: LabelResource = {
     'لا تزال هذه الفئة تحتوي على عناصر أو فئات. انقلها أو احذفها أولاً.',
   'errors.service_category_not_found': 'هذه الفئة غير موجودة.',
   'errors.service_identity_managed': 'هذه هوية خاصة بموصّل. غيّرها من الإدارة › التكاملات.',
+  'errors.service_identity_roles_elsewhere':
+    'تحصل هوية سير العمل أو الموصل على أدوارها من إعداداتها الخاصة، وليس من هنا.',
   'errors.service_unavailable': 'الخدمة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل.',
   'errors.session_expired': 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.',
+  'errors.session_key_still_in_use':
+    'لا يمكن تشغيل هذا الخادم: مفتاح تسجيل دخول لم يعد مُدرجًا ما زال مطلوبًا. أدرِج المفتاح مرة أخرى.',
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unknown_person':
@@ -923,6 +931,8 @@ export const ar: LabelResource = {
   'errors.system_role_immutable': 'لا يمكن تغيير الأدوار المضمّنة أو حذفها.',
   'errors.system_role_not_deletable':
     'لا يمكن حذف الأدوار المضمّنة. انسخ الدور لإنشاء نسختك الخاصة.',
+  'errors.task_blocked': 'تنتظر هذه المهمة اكتمال {{task}} أولًا.',
+  'errors.task_template_not_found': 'لم يعد قالب المهام هذا موجودًا أو متاحًا.',
   'errors.technician_limit_reached':
     'جميع مقاعد الفنيين في خطة مؤسستك مستخدمة. اطلب من المسؤول تحرير مقعد أو إضافة المزيد.',
   'errors.technicians_only': 'يمكن للفنيين فقط رؤية المستخدمين الآخرين.',

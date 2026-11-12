@@ -89,8 +89,12 @@ def _out(view: domains.DomainView) -> DomainOut:
     )
 
 
-def _secret(request: Request) -> bytes:
-    secret = request.app.state.settings.session_secret
+def domain_secret(request: Request) -> bytes:
+    """The installation's domain-proof key (D-162): never the session key ring."""
+    # Its own key, else the legacy session secret as before D-162; never the session key ring,
+    # so rotating sign-in keys never changes a proof.
+    settings = request.app.state.settings
+    secret = settings.domain_proof_secret or settings.session_secret
     if secret is None:
         raise ServiceUnavailable(code="domains_not_configured")
     return bytes(secret.get_secret_value(), "utf-8")
@@ -166,7 +170,7 @@ async def verify_domain(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     view = await domains.verify_domain(
         session,
         domain_id,
-        secret=_secret(request),
+        secret=domain_secret(request),
         fetch=fetch_answer,
         certificates_managed=request.app.state.settings.domain_certificates_managed,
     )
@@ -243,7 +247,7 @@ async def domain_proof(token: str, request: Request) -> Response:
     if len(token) > 64:  # noqa: PLR2004 - tokens are 32 characters
         token = token[:64]
     return Response(
-        proof(_secret(request), token),
+        proof(domain_secret(request), token),
         media_type="text/plain",
         headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
     )

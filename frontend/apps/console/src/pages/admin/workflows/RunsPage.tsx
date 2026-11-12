@@ -21,7 +21,6 @@ import {
   type OverviewRunOut,
   type RunsQuery,
 } from '@supportx/api-client';
-import { useListFormat } from '@supportx/labels';
 import { useListChannel } from '@supportx/realtime';
 import {
   FilterBar,
@@ -42,6 +41,8 @@ import {
 } from '@supportx/ui';
 
 import { failureText } from '../../workflows/failure';
+import { StepNames } from '../../workflows/StepNames';
+import { StepPick } from './StepPick';
 import { JobProgress } from './JobProgress';
 import { WORKFLOW_TYPES, type WorkflowType } from './types';
 
@@ -93,7 +94,6 @@ function statusTone(status: string) {
 export function RunsPage() {
   const t = useLabel();
   const dates = useDateTime();
-  const list = useListFormat();
   const { can } = useAccess();
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
@@ -302,18 +302,17 @@ export function RunsPage() {
           >
             <Form layout="vertical">
               <Form.Item label={t('workflows.runs.step')} htmlFor="runs-node">
-                <Input
-                  id="runs-node"
-                  dir="ltr"
-                  allowClear
-                  value={query.node ?? ''}
-                  onChange={(e) => {
-                    setQuery({
-                      ...query,
-                      node: e.target.value === '' ? undefined : e.target.value,
-                    });
+                {/* A step of the chosen workflow, by name (QA F-07): never a typed id. */}
+                <StepPick
+                  workflowId={query.workflowId}
+                  version={
+                    (flows.data ?? []).find((f) => f.id === query.workflowId)?.published_version ??
+                    undefined
+                  }
+                  value={query.node}
+                  onChange={(node) => {
+                    setQuery({ ...query, node });
                   }}
-                  data-testid="runs-node"
                 />
               </Form.Item>
               <Form.Item
@@ -413,14 +412,27 @@ export function RunsPage() {
               if (r.status === 'failed' && failure !== null) {
                 return (
                   <Flex vertical>
-                    <bdi dir="ltr">{failure.node ?? ''}</bdi>
+                    <span>
+                      <StepNames
+                        workflowId={r.workflow_id}
+                        version={r.version_number}
+                        ids={failure.node ? [failure.node] : []}
+                      />
+                    </span>
                     <Typography.Text type="danger" style={{ fontSize: 12 }}>
                       {failureText(t, failure.code ?? '')}
                     </Typography.Text>
                   </Flex>
                 );
               }
-              return <bdi dir="ltr">{list(r.current_nodes ?? [])}</bdi>;
+              // By name, from the run's own version (QA F-07).
+              return (
+                <StepNames
+                  workflowId={r.workflow_id}
+                  version={r.version_number}
+                  ids={r.current_nodes ?? []}
+                />
+              );
             },
           },
           {

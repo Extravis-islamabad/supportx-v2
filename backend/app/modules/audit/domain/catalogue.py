@@ -106,6 +106,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("api_key.revoked", AuditCategory.SECURITY, "identity_access"),
     ("api_key.refused", AuditCategory.SECURITY, "identity_access"),
     ("api_key.settings_changed", AuditCategory.SECURITY, "identity_access"),
+    # the installation's sign-in key ring (D-162, ADR-048): written by the system at start-up
+    ("security.session_key_rotated", AuditCategory.SECURITY, "identity_access"),
+    ("security.session_key_retired", AuditCategory.SECURITY, "identity_access"),
     # automation (WP-029)
     ("automation.rule_created", AuditCategory.CONFIGURATION, "automation"),
     ("automation.rule_changed", AuditCategory.CONFIGURATION, "automation"),
@@ -126,6 +129,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("automation.workflow_imported", AuditCategory.CONFIGURATION, "automation"),
     ("automation.workflow_exported", AuditCategory.DATA, "automation"),
     ("automation.workflow_deleted", AuditCategory.CONFIGURATION, "automation"),
+    # A role given to or taken from a workflow's run-as identity (ADR-043 §6): access, as for
+    # a person's role.
+    ("automation.workflow_run_as_role_added", AuditCategory.ACCESS, "automation"),
+    ("automation.workflow_run_as_role_removed", AuditCategory.ACCESS, "automation"),
     # A test run's one live call (S3e): who, which node, which record (the route's details).
     ("automation.workflow_test_live_call", AuditCategory.RECORDS, "automation"),
     ("automation.transition_reset", AuditCategory.CONFIGURATION, "automation"),
@@ -222,6 +229,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("announcement.settings_changed", AuditCategory.CONFIGURATION, "announcements"),
     ("notification.rule_changed", AuditCategory.CONFIGURATION, "notifications"),
     ("notification.rule_reset", AuditCategory.CONFIGURATION, "notifications"),
@@ -261,6 +270,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("service_request.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.deleted", AuditCategory.RECORDS, "work_items"),
     ("service_request.restored", AuditCategory.RECORDS, "work_items"),
     # WP-030 s2: approval decisions and withdrawals (REQ-SR-025, -061).
@@ -281,6 +292,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("problem.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("problem.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("problem.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("problem.deleted", AuditCategory.RECORDS, "work_items"),
     ("problem.restored", AuditCategory.RECORDS, "work_items"),
     ("problem.bulk_started", AuditCategory.RECORDS, "work_items"),
@@ -306,6 +319,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("release.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("release.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("release.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("release.deleted", AuditCategory.RECORDS, "work_items"),
     ("release.restored", AuditCategory.RECORDS, "work_items"),
     ("release.bulk_started", AuditCategory.RECORDS, "work_items"),
@@ -331,6 +346,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("change.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("change.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.deleted", AuditCategory.RECORDS, "work_items"),
     ("change.restored", AuditCategory.RECORDS, "work_items"),
     ("change.bulk_started", AuditCategory.RECORDS, "work_items"),

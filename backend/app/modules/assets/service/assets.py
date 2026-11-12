@@ -159,6 +159,27 @@ _DATES = ("acquired_on", "warranty_expires_on", "expires_on")
 _IDS = ("product_id", "vendor_id", "site_id", "purchase_order_id")
 
 
+# The asset as it is saved is one the person may manage (their scope: site, or group's sites and
+# unsited assets). `assets.manage` in some scope is not enough: a site-scoped manager never
+# creates an asset at, nor moves one to, a site outside it (lane B, 2026-11-12).
+SITE_NOT_MANAGED = "asset_site_not_managed"
+
+
+async def _within_scope(session: AsyncSession, subject: Subject, row: Asset) -> None:
+    """Refuse (the transaction rolls back) when the saved asset falls outside the scope."""
+    await session.flush()
+    if not await authorize_stored(session, subject, MANAGE, ASSETS, Asset.id, row.id):
+        raise PermissionDenied(code=SITE_NOT_MANAGED, params={"permission": MANAGE})
+
+
+async def _site_change_within_scope(
+    session: AsyncSession, subject: Subject, row: Asset, changes: list[Change]
+) -> None:
+    """A change of site never moves the asset out of the person's reach."""
+    if any(c.field == "site_id" for c in changes):
+        await _within_scope(session, subject, row)
+
+
 def _require(subject: Subject, permission: str) -> None:
     if not subject.holds(permission):
         raise PermissionDenied(params={"permission": permission})
@@ -594,7 +615,7 @@ async def create_asset(
         **cleaned,
     )
     session.add(row)
-    await session.flush()
+    await _within_scope(session, subject, row)  # flushes
     if custom:
         await metadata.mark_used(session, ENTITY, list(custom))
     changes = [
@@ -682,6 +703,7 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
         changes += await _apply_custom(session, row, custom)
     if not changes:
         return row
+    await _site_change_within_scope(session, subject, row, changes)
     if not counted and await _counts(session, row.product_type_id, row.state_id):
         await _reserve(session)  # e.g. a non-IT asset's product became an IT one
     await _saved(session, subject, row, changes, action="updated", source=source, reason=text)

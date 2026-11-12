@@ -96,6 +96,8 @@ async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue
 
 # Settings only changes have (WP-045b S3); audited with the type's settings_changed.
 CHANGE_ONLY = ("segregation_strict", "cab_every_match", "outside_maintenance_blocks")  # D-156
+# Settings only releases have (WP-058b S3; REQ-REL-048).
+RELEASE_ONLY = ("open_stage_tasks_block",)
 
 
 async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
@@ -172,6 +174,13 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
             if wtype.code is not WorkItemTypeCode.CHANGE:
                 problem(name, "not_allowed")
             changes[name] = bool(values[name])
+    for name in RELEASE_ONLY:  # WP-058b S3: a stage's open tasks hold its move out (or not)
+        if name in values:
+            if wtype.code is not WorkItemTypeCode.RELEASE:
+                problem(name, "not_allowed")
+            elif not isinstance(values[name], bool):  # never "false" read as true (lane A)
+                problem(name, "invalid_value")
+            changes[name] = values[name] is True
     if "first_response_on" in values:
         chosen = list(values["first_response_on"] or [])
         if any(code not in set(FirstResponseAction) for code in chosen):
@@ -198,6 +207,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "review_required_priorities": list(current.review_required_priorities),
         "segregation_strict": current.segregation_strict,
         "outside_maintenance_blocks": current.outside_maintenance_blocks,
+        "open_stage_tasks_block": current.open_stage_tasks_block,
         "cab_every_match": current.cab_every_match,
         "reapproval": current.reapproval,
         "first_response_on": list(current.first_response_on),
@@ -268,6 +278,7 @@ def _closure_before(current: Catalogue) -> dict[str, Any]:
         "auto_close_days": c.auto_close_days,
         "reopen_window_days": c.reopen_window_days,
         "task_owner_access": c.task_owner_access,
+        "task_dependency_mode": c.task_dependency_mode,
     }
 
 
@@ -315,6 +326,10 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         changes["complete_open_work"] = bool(values["complete_open_work"])
     if "task_owner_access" in values:  # REQ-INC-072 AC3 (D-112)
         changes["task_owner_access"] = bool(values["task_owner_access"])
+    if "task_dependency_mode" in values:  # REQ-INC-075: an open predecessor blocks or warns
+        if values["task_dependency_mode"] not in {"block", "warn"}:
+            problem("task_dependency_mode", "invalid_choice")
+        changes["task_dependency_mode"] = values["task_dependency_mode"]
     if "auto_close_days" in values:
         days = values["auto_close_days"]
         if days is not None and _days(days, AUTO_CLOSE_MIN, AUTO_CLOSE_MAX) is None:

@@ -93,6 +93,7 @@ from app.modules.work_items.domain.lifecycle import (
     move_pause_clock,
     reason_problems,
 )
+from app.modules.work_items.domain.parts import TaskStatus
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.stages import (
     DEFAULT_PATH,
@@ -143,6 +144,7 @@ from app.modules.work_items.infra.models import (
     WorkItemRoleDef,
     WorkItemRoleHolder,
     WorkItemStageSchedule,
+    WorkItemTask,
     WorkItemTemplate,
 )
 from app.modules.work_items.service import (
@@ -1120,6 +1122,11 @@ PERSON_FIELDS = frozenset(
 )
 
 
+# History fields whose values only the record's editors read; others see them as MASKED.
+EDITORS_ONLY = frozenset({"task.extra_cost"})
+MASKED: dict[str, bool] = {"masked": True}
+
+
 async def history(  # noqa: PLR0913 - paging options, explicit
     session: AsyncSession,
     subject: Subject,
@@ -1143,6 +1150,21 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     if hidden:  # the root cause stays out of the history too (D-140 Q7)
         entries = [
             replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+        ]
+    # A task's extra cost is for those who may edit the record (WP-046a S1, lane B's #398
+    # review): others keep the line (that it changed, when, by whom) but never the amounts.
+    if any(c.field in EDITORS_ONLY for e in entries for c in e.changes) and not await _may(
+        session, subject, wtype, "edit", record_id
+    ):
+        entries = [
+            replace(
+                e,
+                changes=[
+                    Change(c.field, MASKED, MASKED) if c.field in EDITORS_ONLY else c
+                    for c in e.changes
+                ],
+            )
+            for e in entries
         ]
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
@@ -2487,6 +2509,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     await approval_stage.after_submission(  # REQ-SR-021
         session, record, item, source=source, holders=holders
     )
+    if template.tasks:  # REQ-INC-040: the template's tasks whose condition the record matches
+        # Imported here: the task service builds on this module (WP-046a S1).
+        from app.modules.work_items.service import task_templates  # noqa: PLC0415 - see above
+
+        await task_templates.add_template_tasks(
+            session, subject, wtype, record, template.tasks, source=source
+        )
     if change_types.pre_approved(new_change):  # REQ-CHG-006: a standard change, approved now
         record = await _stage_move(
             session,
@@ -2940,6 +2969,8 @@ class StagePanel:
     record: WorkItem
     rail: list[RailStage]
     moves: list[StageOffer]
+    # WP-058b S3 (REQ-REL-048 AC2): each stage's tasks, done and all (canceled ones not counted).
+    tasks: Mapping[str, tuple[int, int]] = field(default_factory=dict)
 
 
 async def stage_panel(
@@ -2971,7 +3002,22 @@ async def stage_panel(
         moves.append(
             StageOffer(t, target.stage, refused is None, refused, missing, planned.landed.code)
         )
-    return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves)
+    counted = await session.execute(
+        select(
+            WorkItemTask.stage,
+            func.count().filter(WorkItemTask.status == TaskStatus.DONE.value),
+            func.count(),
+        )
+        .where(
+            WorkItemTask.work_item_id == record.id,
+            WorkItemTask.deleted_at.is_(None),
+            WorkItemTask.status != TaskStatus.CANCELED.value,
+            WorkItemTask.stage.is_not(None),
+        )
+        .group_by(WorkItemTask.stage)
+    )
+    tasks = {str(stage): (int(done), int(total)) for stage, done, total in counted}
+    return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves, tasks)
 
 
 async def system_stage_move(  # noqa: PLR0913 - the move and its context, explicit
@@ -5483,6 +5529,7 @@ async def automation_facts(
         **_snapshot(record),
         "status": record.status,
         "status_category": record.status_category,
+        "stage": record.stage,  # WP-058b S3: a staged record's stage (stage_entered triggers)
         **await automation.requester_facts(session, record.requester_id),
     }
 

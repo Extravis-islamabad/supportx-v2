@@ -55,6 +55,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2027-03-10T08:00:00Z'));
 });
 afterEach(() => {
+  vi.unstubAllGlobals(); // the wide-screen test's matchMedia, even when it fails (lane A)
   vi.useRealTimers();
   restore();
 });
@@ -189,5 +190,41 @@ describe('console: the change calendar (WP-045c S3)', () => {
     const agenda = await screen.findByTestId('calendar-agenda');
     expect(within(agenda).getByTestId('calendar-day-2027-03-10')).toBeTruthy();
     expect(within(agenda).queryByTestId('calendar-day-2027-03-11')).toBeNull();
+  });
+
+  it('QA V-05: on a phone the month fits its width, a day opens on a tap and the week is a list', async () => {
+    // jsdom matches no media query: this is the narrow layout.
+    window.history.pushState({}, '', '/changes/calendar');
+    api();
+    render(<App />);
+    const grid = await screen.findByTestId('calendar-month');
+    expect(grid.style.minWidth).toBe('');
+    expect(grid.style.gridTemplateColumns).toBe('repeat(7, minmax(0, 1fr))');
+    fireEvent.click(screen.getByTestId('calendar-open-2027-03-10'));
+    const day = await screen.findByTestId('calendar-day');
+    expect(within(day).getByTestId('calendar-entry-CHG-20-window')).toBeTruthy();
+    fireEvent.click(screen.getByText('Week'));
+    const week = await screen.findByTestId('calendar-week');
+    expect(week.style.gridTemplateColumns).toBe('repeat(1, minmax(0, 1fr))');
+    expect(week.querySelectorAll('[role="gridcell"]')).toHaveLength(7);
+  });
+
+  it('QA V-05: on a wide screen the month keeps its seven readable columns', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(min-width: 768px)',
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+    window.history.pushState({}, '', '/changes/calendar');
+    api();
+    render(<App />);
+    const grid = await screen.findByTestId('calendar-month');
+    expect(grid.style.gridTemplateColumns).toBe('repeat(7, minmax(110px, 1fr))');
+    expect(screen.queryByTestId('calendar-open-2027-03-10')).toBeNull();
   });
 });

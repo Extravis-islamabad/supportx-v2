@@ -49,7 +49,25 @@ export default tseslint.config(
             'maxLength cuts text silently: use count={lengthLimit(max)} from @supportx/ui (D-091).',
         },
       ],
+      // A tab row that does not fit scrolls by buttons only in the shared Tabs (QA F-06/V-04).
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'antd',
+              importNames: ['Tabs'],
+              message:
+                'Use Tabs from @supportx/ui: its row scrolls by buttons when it does not fit.',
+            },
+          ],
+        },
+      ],
     },
+  },
+  {
+    files: ['packages/ui/src/layout/Tabs.tsx'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   {
     // Plain JS config files are not part of any tsconfig project.

@@ -35,6 +35,7 @@ import { NodeView } from '../admin/workflows/NodeView';
 import { isKnownPort } from '../admin/workflows/nodes';
 
 import { failureText, stoppedText } from './failure';
+import { namer } from './stepName';
 
 type Run = RecordWorkflowOut;
 type Step = Run['steps'][number];
@@ -120,11 +121,8 @@ function StepLog({ run }: { run: Run }) {
         {
           key: 'node',
           title: t('workflows.record.step'),
-          render: (_, s) =>
-            t('workflows.test.step', {
-              type: t(`workflow_node_type.${s.node_type}`),
-              node: s.node,
-            }),
+          // By name, never by id (QA F-07).
+          render: (_, s) => namer(t, readDefinition(run.definition).nodes)(s.node),
         },
         {
           key: 'result',
@@ -163,7 +161,10 @@ function RunActions({ run }: { run: Run }) {
   // The confirm dialog reads the reason when it closes: a ref, not state its callback captured.
   const reason = useRef('');
   const i = run.instance;
-  const failedNode = (i.failure as { node?: string } | null)?.node;
+  const failedNode = namer(
+    t,
+    readDefinition(run.definition).nodes,
+  )((i.failure as { node?: string } | null)?.node);
   if (!ACTIVE.has(i.status) && i.status !== 'cancelled' && i.status !== 'finished') return null;
   return (
     <Space wrap>
@@ -188,7 +189,7 @@ function RunActions({ run }: { run: Run }) {
           loading={skip.isPending}
           onClick={() => {
             void modal.confirm({
-              title: t('workflows.record.skip_title', { node: failedNode ?? '' }),
+              title: t('workflows.record.skip_title', { node: failedNode }),
               content: t('workflows.record.skip_body'),
               okText: t('workflows.record.skip'),
               cancelText: t('actions.cancel'),
@@ -320,7 +321,9 @@ export function RecordWorkflows({
                 <Alert
                   type="error"
                   showIcon
-                  message={t('workflows.record.failed_at', { node: failure.node ?? '' })}
+                  message={t('workflows.record.failed_at', {
+                    node: namer(t, readDefinition(run.definition).nodes)(failure.node),
+                  })}
                   description={failureText(t, failure.code ?? '', failure.params ?? {})}
                   data-testid={`record-workflow-failure-${i.id}`}
                 />
@@ -340,6 +343,72 @@ export function RecordWorkflows({
           ),
         };
       })}
+    />
+  );
+}
+
+/**
+ * A failed workflow step on the record's header (REQ-REL-021 AC1; REQ-WI-009): which workflow,
+ * which step and why, with Retry for those who run workflows and may edit the record (the server
+ * decides). Shown only to people who may see the record's workflows; live with its channel.
+ */
+export function WorkflowFailureBanner({
+  recordType,
+  recordId,
+  onOpen,
+}: {
+  recordType: string;
+  recordId: string;
+  onOpen: () => void;
+}) {
+  const t = useLabel();
+  const { can } = useAccess();
+  const queryClient = useQueryClient();
+  const allowed = can('workflows.run') || can('workflows.manage');
+  const runs = useRecordWorkflows(recordType, recordId, allowed);
+  const retry = useRetryInstance();
+  useRecordEvents('wi', allowed ? recordId : undefined, (m) => {
+    if (m.type === 'workflow_instances.changed') {
+      void queryClient.invalidateQueries({
+        queryKey: ['workflows', 'record', recordType, recordId],
+      });
+    }
+  });
+  const failed = (runs.data ?? []).find((r) => r.instance.status === 'failed');
+  if (!allowed || failed === undefined) return null;
+  const i = failed.instance;
+  const failure = (i.failure ?? {}) as {
+    node?: string;
+    code?: string;
+    params?: Record<string, unknown>;
+  };
+  return (
+    <Alert
+      type="error"
+      showIcon
+      style={{ marginBottom: 12 }}
+      data-testid="workflow-failure-banner"
+      message={t('workflows.record.failed_banner', {
+        workflow: failed.workflow_name,
+        node: failure.node ?? '',
+      })}
+      description={failureText(t, failure.code ?? '', failure.params ?? {})}
+      action={
+        <Space>
+          <WriteButton
+            size="small"
+            onClick={() => {
+              retry.mutate({ id: i.id, version: i.version }, { onError: reportError });
+            }}
+            data-testid="workflow-failure-retry"
+          >
+            {t('workflows.record.retry')}
+          </WriteButton>
+          <Typography.Link onClick={onOpen} data-testid="workflow-failure-open">
+            {t('workflows.record.open_tab')}
+          </Typography.Link>
+        </Space>
+      }
     />
   );
 }

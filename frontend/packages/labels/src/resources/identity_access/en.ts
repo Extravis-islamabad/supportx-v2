@@ -794,6 +794,7 @@ export const en = {
   'readiness_check.nats': 'Message bus',
   'readiness_check.outbox_relay': 'Event relay',
   'readiness_check.realtime_fanout': 'Live updates',
+  'readiness_check.session_keys': 'Sign-in keys',
   'readiness_status.not_ready': 'Not ready',
   'readiness_status.ready': 'Ready',
   'role.asset_manager': 'Asset manager',

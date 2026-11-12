@@ -92,6 +92,13 @@ decisions D1-D13 (D-038).
    › Automation (Triggers, Transitions, Business rules, Routing) and Admin › Organization use a
    class nothing defines, so they are probably visible. Switch them to `.sx-visually-hidden` once
    lane C's header branch lands; check with axe and a screenshot.
+6. **D-162 (lane B, 2026-11-12): rotatable sign-in key ring built** (ADR-048, migration 0146,
+   docs/guides/rotating-the-sign-in-key.md). Lane C's WP-057 is to reuse its blob format and
+   key-users hook. Migration 0146's `down_revision` is re-pointed at queue time.
+7. **Follow-up: a platform audit log for installation events** (coordinator, #418). Events of
+   the installation rather than a tenant (sign-in key rotations, D-162) are written into every
+   tenant's log today, by a background announcer; a platform log for the operator would hold
+   them once. Needs an ADR (it sits beside ADR-027's per-tenant chain).
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -1252,6 +1259,33 @@ it with no reload (rule c). Not built yet.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
+### [~] WP-046a — Incidents V1 (lane A, 2026-11-11; 7 sessions, one migration each; 42 REQs)
+- **S1 PR 1 (0141; REQ-INC-040, 073..076):**
+  - Task details: type, scheduled and actual start and end (an end before its start is
+    refused), estimate, percent done, extra cost, a reminder before the scheduled start.
+  - The extra cost is shown only to those who may edit the record, never to requesters, the
+    portal or a task-only owner. **S3 decides task and worklog cost visibility together.** A new
+    right would go to Haider through the coordinator.
+  - Dependencies: same record only, at most 20, loops refused. Starting or completing a task
+    whose predecessor is open is refused with a 409 naming it; a per-type setting turns this
+    into a warning. Tasks show "waits for ..." live.
+  - Task templates per type (one task or a set of up to 20; a disabled one is not offered),
+    kept under Admin › Incidents › Task templates.
+  - A record template's tasks, each with an optional condition (a list filter), are added when
+    the record is made, recorded as the template's.
+  - `GET /my-tasks` on every type, each record through its own view rule, due first, overdue
+    marked; a console page with a nav entry.
+  - The migration also widens the link kind check (`caused_by_change`) and the bulk action
+    check (`cancel`, `delete`). Their enum values and use come in PR 2.
+- **S1 PR 2 (no migration):**
+  - Task notifications: a task given to you, its reminder before the scheduled start, and
+    overdue. A sweep claims each once; a moved time or an unseen record says nothing.
+  - Change bulk cancel (one reason) and move to trash (REQ-CHG-101), on the change list's bulk
+    bar.
+  - add_child refuses any holding loop through lane C's `release_links.holds`.
+  - **Still open:** the "caused incidents" change report field and the `caused_by_change` link
+    kind (REQ-CHG-116) come once #396's type fields are on main.
+
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
   (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).
@@ -2175,7 +2209,26 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     in the PR.
   - **Open:** per-environment guarding (WP-053); a release emergency route would be a new
     decision; GiST range index not needed (lane A, 7 ms worst case).
-- [ ] S3: stage on tasks and worklogs, page tabs. S4: closure and rollback.
+- [~] Session 3 (2026-11-11): stage work for releases. Migration 0142.
+  - **REQ-REL-048:** the stage-task refusal is shared with changes (lane A's OK) and names the
+    first open task (`task`, `task_id`, `tasks`, `more`; never its text). Releases can switch it
+    off (`open_stage_tasks_block`). The rail shows each stage's tasks done / total, live.
+  - **Worklogs:** they carry the staged record's stage, set by the server (lane A's WP-046a S3
+    builds on it).
+  - **REQ-REL-022 AC1:** trigger event `stage_entered`, with `stage` as a rule field for staged
+    types. It runs once per entry and is named in history. Notifications keep their own events
+    (lane A's `change.status_entered`); see the workflows guide.
+  - **REQ-REL-021 AC1:** a failed workflow step on the release header, with Retry.
+  - **Moved:**
+    - REQ-REL-020's default release workflows → S6. Their notices need the release-role
+      recipients that S6 brings; no stand-ins (the coordinator, 2026-11-11).
+    - REQ-REL-022 AC2 waits for custom menu actions (REQ-RUL-024, WP-048a, lane A). The release
+      scoping test is theirs to add, with my review.
+  - **REQ-REL-048 AC3** (a task from a template is created in the stage): delivered by lane A's
+    task templates (#398, WP-046a S1). Proved on a release by their
+    `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
+  - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
+- [ ] S4: closure and rollback.
   S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 

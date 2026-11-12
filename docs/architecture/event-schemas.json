@@ -2352,6 +2352,42 @@
         "type": "object"
       }
     },
+    "automation.workflow.run_as_changed": {
+      "1": {
+        "description": "A role was given to, or taken from, a workflow's run-as identity (ADR-043 §6).\n\nIts own event, so `automation.workflow.changed` v1 keeps its contract. The designer's\n\"Runs as\" section refreshes; IDs and codes only, never the role's name.",
+        "properties": {
+          "change": {
+            "enum": [
+              "role_added",
+              "role_removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "record_type",
+          "change",
+          "version"
+        ],
+        "title": "WorkflowRunAsChanged",
+        "type": "object"
+      }
+    },
     "automation.workflow.webhook_requested": {
       "1": {
         "description": "A webhook node asks the worker to make one guarded call (WP-048b S2; ADR-043 §8).\n\nNever sent from a request: the worker's consumer sends it through the shared egress client\nand reports back as `WorkflowCommandFinished`. The record's fields are read by the worker,\nso the outbox holds only their names.",
@@ -5907,6 +5943,69 @@
           "changed_fields"
         ],
         "title": "WorkItemSettingsChanged",
+        "type": "object"
+      }
+    },
+    "work_items.task.assigned": {
+      "1": {
+        "description": "A task was given to someone (WP-046a S1; REQ-INC-076 AC1): its owner is told.\n\nRaised when a task is made with an owner or its owner changes to another person. IDs only;\nthe notification source reads the task and its record at send time.",
+        "properties": {
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "task_id",
+          "owner_id"
+        ],
+        "title": "WorkItemTaskAssigned",
+        "type": "object"
+      }
+    },
+    "work_items.task.reminder_due": {
+      "1": {
+        "description": "A task's reminder is due (WP-046a S1; REQ-INC-073 AC2, -076), claimed once by the sweep.\n\n`kind`: `starts_soon` (its owner's reminder before the scheduled start) or `overdue` (open\npast its due time). `at` is the time it was claimed for: the source re-reads the task at\nsend time and says nothing if that time moved meanwhile. IDs and times only.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "task_id",
+          "kind",
+          "at"
+        ],
+        "title": "WorkItemTaskReminderDue",
         "type": "object"
       }
     },
