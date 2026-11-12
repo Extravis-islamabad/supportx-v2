@@ -337,25 +337,32 @@ async def remove_rate(  # noqa: PLR0913 - the rate, its version and the source
 
 
 async def cost_rate(session: AsyncSession, user_id: uuid.UUID, at: datetime) -> Decimal | None:
-    """The person's cost per hour in force at `at`, or None when unset or not yet started.
+    """The person's cost per hour in force at `at`, in the tenant's base currency, or None.
 
-    The latest live rate whose `effective_from` is at or before `at`, in the tenant's base
-    currency as it was when the rate was set. `at` must be timezone-aware (ValueError
-    otherwise). The session's tenant applies through RLS.
+    The latest live rate whose `effective_from` is at or before `at`. None when unset, not yet
+    started, or set in another currency than today's base currency (lane A's #427 review): an
+    old rate after a change of base currency is never passed off as an amount in the new one;
+    a caller reads None as "no rate set". `at` must be timezone-aware (ValueError otherwise).
+    The session's tenant applies through RLS.
 
     **No permission check:** this is for system snapshotting (a worklog's cost when it is
     logged, REQ-INC-068); the caller decides who may see money (`users.view_cost_rates` or its
     own module's right).
     """
     require_aware(at)
-    found: Decimal | None = await session.scalar(
-        select(UserCostRate.rate)
-        .where(
-            UserCostRate.user_id == user_id,
-            UserCostRate.deleted_at.is_(None),
-            UserCostRate.effective_from <= at,
+    found = (
+        await session.execute(
+            select(UserCostRate.rate, UserCostRate.currency)
+            .where(
+                UserCostRate.user_id == user_id,
+                UserCostRate.deleted_at.is_(None),
+                UserCostRate.effective_from <= at,
+            )
+            .order_by(UserCostRate.effective_from.desc())
+            .limit(1)
         )
-        .order_by(UserCostRate.effective_from.desc())
-        .limit(1)
-    )
-    return found
+    ).first()
+    if found is None or found.currency != await base_currency(session):
+        return None
+    rate: Decimal = found.rate
+    return rate

@@ -388,3 +388,26 @@ async def test_every_change_is_audited_with_old_new_and_the_date(world: World) -
     assert payloads == [
         {"user_id": str(a.tech), "change": change} for change in ("created", "updated", "deleted")
     ]
+
+
+async def test_a_rate_in_another_currency_than_today_s_base_is_no_rate(world: World) -> None:
+    """After a change of base currency an old rate is never snapshotted as an amount in the new
+    one: the port says no rate (lane A's #427 review)."""
+    a, now = world.a, _now()
+    person = a.manager  # no other test gives the manager a rate
+    assert (await _set(world, a, person, "42.00", now - DAY)).status_code == 201
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await cost_rate(session, person, now) == Decimal("42.00")
+    # As if the base currency had changed since: the stored rate keeps its old currency.
+    # Superuser connection: RLS does not apply, so the tenant is filtered explicitly.
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute(
+            "UPDATE user_cost_rates SET currency = 'XTS' WHERE tenant_id = $1 AND user_id = $2",
+            a.tenant,
+            person,
+        )
+    finally:
+        await conn.close()
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await cost_rate(session, person, now) is None
