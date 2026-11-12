@@ -47,6 +47,34 @@ app.kubernetes.io/component: {{ .component }}
 {{- if not (has .Values.postgresql.mode (list "cnpg" "external")) -}}
 {{- fail "postgresql.mode must be cnpg or external" -}}
 {{- end -}}
+{{- if hasKey .Values.routing.gateway "protocol" -}}
+{{- fail "routing.gateway.protocol is gone: HTTPS is routing.tls.enabled (on by default), with the certificate in routing.tls.secretName (docs/deployment.md, Transport security)" -}}
+{{- end -}}
+{{- if and .Values.routing.tls.enabled (ne .Values.routing.mode "none") -}}
+{{- if not (hasPrefix "https://" .Values.publicUrl) -}}
+{{- fail "routing.tls.enabled serves https: publicUrl must start with https:// (or set routing.tls.enabled=false where something in front terminates TLS)" -}}
+{{- end -}}
+{{- $legacy := ternary .Values.routing.ingress.tlsSecret .Values.routing.gateway.tlsSecret (eq .Values.routing.mode "ingress") -}}
+{{- if not (or .Values.routing.tls.secretName $legacy .Values.routing.tls.issuerRef.name) -}}
+{{- fail "routing.tls.enabled needs a certificate: routing.tls.secretName (your own kubernetes.io/tls Secret) or routing.tls.issuerRef (cert-manager)" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/* The Secret holding the gateway's (or Ingress's) certificate. */}}
+{{- define "supportx.routingTlsSecret" -}}
+{{- $tls := .Values.routing.tls -}}
+{{- $legacy := ternary .Values.routing.ingress.tlsSecret .Values.routing.gateway.tlsSecret (eq .Values.routing.mode "ingress") -}}
+{{- coalesce $tls.secretName $legacy (printf "%s-tls" .Release.Name) -}}
+{{- end -}}
+
+{{/* The public host names as a JSON list: routing.hostnames, else publicUrl's host. */}}
+{{- define "supportx.publicHosts" -}}
+{{- if .Values.routing.hostnames -}}
+{{- toJson .Values.routing.hostnames -}}
+{{- else -}}
+{{- toJson (list (regexReplaceAll ":[0-9]+$" (regexReplaceAll "^https?://" .Values.publicUrl "") "")) -}}
+{{- end -}}
 {{- end -}}
 
 {{/* Image reference for our own images: registry override, tag or digest. */}}

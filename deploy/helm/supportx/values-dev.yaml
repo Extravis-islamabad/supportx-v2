@@ -2,6 +2,13 @@
 # the dev realm with its demo users, demo tenants seeded, images built locally and imported.
 publicUrl: http://supportx.localhost:8080
 
+# Plain http on purpose, the local cluster only: the e2e suite and the HA tests (values-ha-ci.yaml
+# sits on top of this file) reach supportx.localhost:8080 with no certificate to trust. Every
+# other profile serves HTTPS and redirects HTTP (routing.tls, docs/deployment.md).
+routing:
+  tls:
+    enabled: false
+
 images:
   backend: {repository: supportx-backend, tag: dev, pullPolicy: Never}
   worker: {repository: supportx-worker, tag: dev, pullPolicy: Never}

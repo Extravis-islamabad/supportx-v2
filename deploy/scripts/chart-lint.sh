@@ -161,6 +161,32 @@ if helm template supportx "$CHART" --namespace supportx $EXT_ARGS --set temporal
 fi
 echo "temporal: bundled only on the release's CloudNativePG cluster"
 
+# Transport security (audit row 5; docs/deployment.md). HTTPS at the gateway by default: the app
+# routes hang off the HTTPS listener and plain HTTP only redirects (301). The dev profile (the
+# local k3d cluster, plain http on supportx.localhost) keeps one HTTP listener and no redirect.
+for p in single-node ha; do
+  grep -q "name: supportx-https-redirect" "$OUT/$p.yaml" || { echo "$p: no http-to-https redirect" >&2; exit 1; }
+  [ "$(grep -c 'protocol: HTTPS' "$OUT/$p.yaml" || true)" = "1" ] || { echo "$p: no HTTPS listener" >&2; exit 1; }
+done
+grep -q "protocol: HTTPS" "$OUT/dev.yaml" && { echo "dev: plain http on the local cluster only" >&2; exit 1; }
+grep -q "supportx-https-redirect" "$OUT/dev.yaml" && { echo "dev: no redirect on the local cluster" >&2; exit 1; }
+SN="-f $CHART/values-single-node.yaml"
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=https://supportx.example.com >/dev/null 2>&1; then
+  echo "routing: TLS on without a certificate (secretName or issuerRef) must be refused" >&2; exit 1
+fi
+# shellcheck disable=SC2086
+if helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=http://supportx.example.com \
+  --set routing.tls.secretName=t >/dev/null 2>&1; then
+  echo "routing: TLS on with an http:// publicUrl must be refused" >&2; exit 1
+fi
+# shellcheck disable=SC2086
+helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=https://supportx.example.com \
+  --set routing.tls.issuerRef.name=corp --set routing.tls.issuerRef.kind=ClusterIssuer \
+  --show-only templates/routing.yaml | grep -q "kind: Certificate" ||
+  { echo "routing: issuerRef must render a cert-manager Certificate" >&2; exit 1; }
+echo "transport: HTTPS with an http redirect by default; dev plain http; misconfigurations refused"
+
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"
 SN_ARGS="${PROFILES[1]#*|}"
