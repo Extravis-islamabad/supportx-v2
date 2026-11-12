@@ -11,7 +11,7 @@ The downgrade refuses while any tenant has an `assign_role` bulk job or a marked
 otherwise it drops both.
 
 Revision ID: 0149
-Revises: 0146
+Revises: 0148
 Created: 2026-11-12
 """
 
@@ -22,7 +22,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0149"
-down_revision: str | None = "0146"
+down_revision: str | None = "0148"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
