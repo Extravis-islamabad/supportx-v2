@@ -317,6 +317,19 @@ class SignInRecorded(DomainEvent):
     outcome: Literal["success", "failed", "signed_out", "locked", "mfa_failed"]
 
 
+class BreakGlassSignedIn(DomainEvent):
+    """A break-glass admin signed in with a password while single sign-on is required.
+
+    REQ-SEC-009 AC3 (WP-057 S1b): every other tenant admin is told. IDs only.
+    """
+
+    event_type: ClassVar[str] = "identity_access.break_glass.signed_in"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -341,4 +354,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     ApiKeyChanged,
     UserCostRateChanged,
     SignInRecorded,
+    BreakGlassSignedIn,
 )

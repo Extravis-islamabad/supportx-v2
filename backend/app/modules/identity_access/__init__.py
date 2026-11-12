@@ -75,7 +75,12 @@ from app.modules.identity_access.infra.crypto import SessionCipher, session_ring
 from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
-from app.modules.identity_access.service import directory, mfa, sign_in_log
+from app.modules.identity_access.service import (
+    break_glass_notifications,
+    directory,
+    mfa,
+    sign_in_log,
+)
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
 from app.modules.identity_access.service.cost_rates import cost_rate
@@ -383,6 +388,8 @@ async def _shutdown(app: FastAPI) -> None:
         await http.aclose()
         await kv.aclose()
 
+
+break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
 
 module = ModuleSpec(
     name="identity_access",

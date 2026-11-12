@@ -64,6 +64,14 @@ class Session:
     # shown in the person's session list. None for the web apps.
     device_platform: str | None = None
     app_version: str | None = None
+    # How the person signed in (WP-057 S1b, lane B's condition 2): from the verified ID token at
+    # sign-in, kept for the session, as a tenant switch has no new token and the single sign-on
+    # rule must judge the original method. None for sessions begun before S1b (judged unknown).
+    sign_in_method: str | None = None
+    identity_provider: str | None = None
+    # A break-glass admin's password sign-in while single sign-on is required: the sign-in
+    # route audits it and alerts the other admins.
+    break_glass: bool = False
 
     def limits(self, *, idle: timedelta, absolute: timedelta) -> tuple[timedelta, timedelta]:
         """The (idle, absolute) limits of the session; `idle` and `absolute` when it has none."""

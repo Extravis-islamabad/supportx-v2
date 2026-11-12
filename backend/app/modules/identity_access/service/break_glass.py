@@ -17,11 +17,13 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import SESSION_TENANT_KEY
+from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, NotFound, PermissionDenied
+from app.core.tenancy import TenantContext
+from app.modules.identity_access.domain.identity import Identity, UserType
 from app.modules.identity_access.domain.permissions import TENANT_ADMIN
 from app.modules.identity_access.domain.policy import Subject
-from app.modules.identity_access.domain.sign_in_policy import SsoRequired, change_refusal
+from app.modules.identity_access.domain.sign_in_policy import Person, SsoRequired, change_refusal
 from app.modules.identity_access.events import IdentitySettingsChanged, UserUpdated
 from app.modules.identity_access.infra.models import IdentitySettings, Role, User, UserRole
 from app.shared.events import record_event
@@ -207,3 +209,33 @@ async def save_sso_policy(
     )
     details: dict[str, object] = {"changed_fields": changed, "before": before, "after": columns}
     return SsoPolicy(required, also_require_mfa, version), details
+
+
+async def policy_facts(
+    database: Database, tenant_id: uuid.UUID, identity: Identity
+) -> tuple[SsoRequired, Person, bool]:
+    """The tenant's rule, the person as the policy sees them, and SupportX-MFA-after-SSO.
+
+    Read-only, before anyone is created (lane B's condition 1): a person new to the tenant is a
+    technician if their token says so, and never break-glass.
+    """
+    async with database.tenant_session(TenantContext(tenant_id)) as session:
+        settings = await session.scalar(select(IdentitySettings))
+        person = await session.scalar(
+            select(User).where(User.external_subject == identity.subject, User.deleted_at.is_(None))
+        )
+    rule = SsoRequired(settings.sso_required) if settings is not None else SsoRequired.OFF
+    also_mfa = bool(settings is not None and settings.sso_also_require_mfa)
+    if person is None:
+        newcomer = Person(
+            technician=identity.user_type is UserType.TECHNICIAN,
+            break_glass=False,
+            mfa_enrolled=False,
+        )
+        return rule, newcomer, also_mfa
+    facts = Person(
+        technician=person.user_type == UserType.TECHNICIAN.value,
+        break_glass=person.break_glass and person.status == "active",
+        mfa_enrolled=person.mfa_enrolled_at is not None,
+    )
+    return rule, facts, also_mfa

@@ -393,6 +393,10 @@ async def _finish_callback(  # noqa: PLR0913, PLR0917 - the callback's parts, pa
         await _record_sso_test(request, result)
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     await _audit_session(request, result.session, "session.signed_in")
+    if result.session.break_glass:
+        # A break-glass admin past "single sign-on required" (REQ-SEC-009 AC3): its own entry,
+        # which the notification engine turns into an alert to the other tenant admins.
+        await _audit_session(request, result.session, "session.break_glass_sign_in")
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)
     if not result.mobile:  # the app gets a hand-off code in the address instead (ADR-044)
         set_session_cookie(response, auth.settings, result.session_id)
