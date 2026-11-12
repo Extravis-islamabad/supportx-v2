@@ -274,6 +274,30 @@ describe('dashboards on screen', () => {
     });
   });
 
+  it('QA 2026-11-12 F-04: a ready-made dashboard without a description shows none', async () => {
+    window.history.pushState({}, '', '/dashboards');
+    const bare = { ...MY_WORK, ref: 'builtin:no_text_yet', builtin: 'no_text_yet' };
+    api({
+      me: fakeSession(),
+      routes: routes({
+        'GET /api/v1/dashboards': {
+          body: {
+            items: [MY_WORK, bare],
+            favourites: [],
+            home: 'builtin:my_work',
+            home_chosen: false,
+          },
+        },
+      }),
+    });
+    render(<App />);
+    const row = await screen.findByTestId('dashboards-item-builtin:no_text_yet');
+    expect(row.textContent).not.toMatch(/Description/);
+    // A dashboard with its own text keeps it.
+    const described = await screen.findByTestId('dashboards-item-builtin:my_work');
+    expect(described.textContent.length).toBeGreaterThan('My work'.length + 10);
+  });
+
   it('REQ-DSH-022: the site filter reaches every widget in one step', async () => {
     window.history.pushState({}, '', '/dashboards/builtin%3Amy_work');
     const fake = api({ me: fakeSession(), routes: routes() });
