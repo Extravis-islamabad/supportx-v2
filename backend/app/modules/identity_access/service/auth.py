@@ -232,10 +232,19 @@ class AuthService:
         return f"{parts.scheme}://{host or parts.netloc}"
 
     def landing(self, app: AppName, return_to: str, origin: str | None = None) -> str:
-        """Where the browser goes after login: its own path, else the UI's home."""
+        """Where the browser goes after login: its own path, else the UI's home.
+
+        `/` (with or without a query or fragment, as the console's hand-off to the portal sends
+        `/?from=console`) is the UI's home: under its base path when both UIs share one host
+        (`https://host/portal/?from=console`), never the host's root, which is the console's.
+        """
         base_origin = origin or self.origin(app)
-        if return_to == "/":
-            return base_origin + urlsplit(self.base_url(app)).path.rstrip("/") + "/"
+        parts = urlsplit(return_to)
+        if parts.path == "/" and not parts.netloc:
+            home = base_origin + urlsplit(self.base_url(app)).path.rstrip("/") + "/"
+            query = f"?{parts.query}" if parts.query else ""
+            fragment = f"#{parts.fragment}" if parts.fragment else ""
+            return home + query + fragment
         return base_origin + return_to
 
     def client(self, app: AppName, origin: str | None = None) -> ClientCredentials:

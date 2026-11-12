@@ -179,3 +179,64 @@ async def test_a_group_with_it_never_gets_a_forbidden_role(world: World) -> None
     risky = await role(world, a, "Role managers", [("roles.manage", "all")])
     carried = await world.call("PUT", f"/roles/{risky}/groups/{group}", a, a.admin)
     assert _problem(carried) == (403, "service_identity_role_not_allowed")
+
+
+# --- the general role route (lane C's finding, 2026-11-11) -------------------------------------
+
+
+@pytest.mark.parametrize(
+    "what", ["tenant_admin", "roles.manage", "identity.manage", "users.manage", "incidents.view"]
+)
+async def test_the_general_role_route_never_gives_a_service_identity_a_role(
+    world: World, what: str
+) -> None:
+    """Lane B's bypass 3: PUT /users/{id}/roles/{role_id} skipped role_allowed_for_service.
+
+    Service identities get roles through the guarded path only, so the general route refuses
+    them whatever the role (even a harmless one), and nothing is stored.
+    """
+    a = world.a
+    identity = await _identity(world)
+    if what == "tenant_admin":
+        role_id = await _system_role(world, "tenant_admin")
+    else:
+        role_id = await role(world, a, f"Route {what}", [(what, "all")])
+    put = await world.call("PUT", f"/users/{identity}/roles/{role_id}", a, a.admin)
+    assert _problem(put) == (403, "service_identity_roles_elsewhere")
+    held = await world.sql(
+        "SELECT count(*) AS n FROM user_roles WHERE tenant_id = $1 AND user_id = $2",
+        a.tenant,
+        identity,
+    )
+    assert held[0]["n"] == 0
+
+
+async def test_the_general_route_still_removes_a_service_identity_s_role(world: World) -> None:
+    """Removing only lowers rights, so DELETE works for service identities too."""
+    a = world.a
+    identity = await _identity(world)
+    viewers = await role(world, a, "Removable viewers", [("incidents.view", "all")])
+    await _give(world, a.admin, identity, viewers)
+    removed = await world.call("DELETE", f"/users/{identity}/roles/{viewers}", a, a.admin)
+    assert removed.status_code == 204, removed.text
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert not (await subject_for(session, a.tenant, identity)).holds("incidents.view")
+
+
+async def test_deleting_a_role_never_moves_its_service_holder_onto_a_forbidden_one(
+    world: World,
+) -> None:
+    """Lane B's bypass 4: a role's deletion moves its holders to `reassign_to`, unchecked."""
+    a = world.a
+    identity = await _identity(world)
+    held = await role(world, a, "Soon gone", [("incidents.view", "all")])
+    await _give(world, a.admin, identity, held)
+    risky = await role(world, a, "Reassign managers", [("roles.manage", "all")])
+    gone = await world.call(
+        "DELETE", f"/roles/{held}?reassign_to={risky}", a, a.admin, headers={"If-Match": '"1"'}
+    )
+    assert _problem(gone) == (403, "service_identity_role_not_allowed")
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        subject = await subject_for(session, a.tenant, identity)
+        assert subject.holds("incidents.view")
+        assert not subject.holds("roles.manage")

@@ -14,7 +14,6 @@ import {
   Select,
   Space,
   Switch,
-  Tabs,
   Typography,
 } from 'antd';
 import dayjs from 'dayjs';
@@ -48,6 +47,7 @@ import {
   useLabel,
   useLicence,
   WriteButton,
+  Tabs,
 } from '@supportx/ui';
 
 import { UserPicker } from '../../incidents/pickers';

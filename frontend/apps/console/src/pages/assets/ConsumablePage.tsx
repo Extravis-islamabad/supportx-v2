@@ -11,7 +11,6 @@ import {
   Select,
   Skeleton,
   Table,
-  Tabs,
   Typography,
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -47,6 +46,7 @@ import {
   useLabel,
   usePageCrumbs,
   type RecordAction,
+  Tabs,
 } from '@supportx/ui';
 
 import { DepartmentPicker, SitePicker, UserPicker } from '../incidents/pickers';

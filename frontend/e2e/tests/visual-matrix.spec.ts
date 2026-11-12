@@ -124,6 +124,7 @@ const ADMIN_SECTIONS: Record<string, string[]> = {
     'closure-codes',
     'closing',
     'reply-templates',
+    'task-templates', // WP-046a S1 (REQ-INC-074)
   ],
   sla: ['policies', 'calendars', 'holidays', 'settings'],
   automation: ['business-rules', 'triggers', 'routing', 'transitions'],
@@ -192,6 +193,25 @@ export const SCREENS: Screen[] = [
     app: 'console',
     state: { name: 'user-menu', open: click('user-menu') }, // near the right edge (left in RTL)
   },
+  // WP-046a S1 (REQ-INC-073, -075): a task's details drawer. The record may have no task yet, so
+  // one is added first through the list's own form.
+  {
+    key: 'incident',
+    path: incident,
+    app: 'console',
+    state: {
+      name: 'task-details',
+      open: async (page: Page) => {
+        await tab('tasks')(page);
+        if ((await page.getByTestId('inc-task-details-0').count()) === 0) {
+          await page.getByTestId('inc-task-title').fill('Back up the switch');
+          await page.getByTestId('inc-task-add').click({ timeout: STATE_TIMEOUT });
+        }
+        await click('inc-task-details-0')(page);
+      },
+    },
+  },
+  { key: 'my-tasks', path: '/my-tasks', app: 'console' }, // WP-046a S1 (REQ-INC-076)
   { key: 'change-calendar', path: '/changes/calendar', app: 'console' }, // WP-045c S3
   {
     // WP-058b S1: the shared staged calendar on releases, and its timeline view (the fifth).
@@ -764,6 +784,12 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
       await page.waitForTimeout(500);
       if (screen.state) await screen.state.open(page);
     }
+    // A full-page shot keeps the window's own height for layout, so a footer bar sticky to the
+    // window's foot was drawn in the middle of a long form, over its fields (QA V-01). In the
+    // shot it sits where it ends up once the page is scrolled to the end.
+    await page
+      .addStyleTag({ content: '[data-sticky-footer] { position: static !important; }' })
+      .catch(() => undefined);
     await page.screenshot({
       path: `${OUT}/${shot.file}`,
       fullPage: true,

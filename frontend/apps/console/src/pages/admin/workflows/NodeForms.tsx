@@ -8,7 +8,7 @@ import { TranslatedField, lengthLimit, useLabel, type TranslatedValue } from '@s
 
 import { ConditionBuilder } from '../automation/fields';
 import { ApprovalForm, FieldUpdateForm, SetVariableForm, WebhookForm } from './MoreNodeForms';
-import { FunctionForm, JoinForm, SplitForm, SubFlowForm } from './StructureForms';
+import { FunctionForm, JoinForm, RetriesField, SplitForm, SubFlowForm } from './StructureForms';
 import { fieldOptions, fromTree, toTree, useFieldName, type Conditions } from '../automation/rules';
 
 // Settings forms for the node types people use most (WP-048b S4b). Each edits the node's
@@ -447,19 +447,143 @@ function WaitForm({ config, onChange, recordType, readOnly }: FormProps) {
 function SetStatusForm({ config, onChange, readOnly }: FormProps) {
   const t = useLabel();
   return (
-    <Form.Item label={t('workflows.form.action')} htmlFor="status-action">
-      <Select<string>
-        id="status-action"
-        value={typeof config.action === 'string' ? config.action : undefined}
-        placeholder={t('workflows.form.action')}
-        disabled={readOnly}
-        onChange={(action) => {
-          onChange({ ...config, action });
+    <>
+      <Form.Item label={t('workflows.form.action')} htmlFor="status-action">
+        <Select<string>
+          id="status-action"
+          value={typeof config.action === 'string' ? config.action : undefined}
+          placeholder={t('workflows.form.action')}
+          disabled={readOnly}
+          onChange={(action) => {
+            onChange({ ...config, action });
+          }}
+          options={ACTIONS.map((a) => ({ value: a, label: t(`work_item_action.${a}`) }))}
+          data-testid="status-action"
+        />
+      </Form.Item>
+      <RetriesField config={config} onChange={onChange} readOnly={readOnly} />
+    </>
+  );
+}
+
+// The server's NOTE_MAX, MAX_NODE_TASKS and TASK_TITLE_MAX (domain/workflows.py).
+const NOTE_MAX = 5000;
+const MAX_TASKS = 20;
+const TASK_TITLE_MAX = 200;
+const MAX_DUE_DAYS = 365;
+
+function NoteForm({ config, onChange, readOnly }: FormProps) {
+  const t = useLabel();
+  return (
+    <>
+      <TranslatedField
+        label={t('workflows.form.note_text')}
+        value={texts(config.text)}
+        max={NOTE_MAX}
+        onChange={(text) => {
+          onChange({ ...config, text });
         }}
-        options={ACTIONS.map((a) => ({ value: a, label: t(`work_item_action.${a}`) }))}
-        data-testid="status-action"
+        testId="note-text"
       />
-    </Form.Item>
+      <Form.Item>
+        <Checkbox
+          checked={config.private !== false}
+          disabled={readOnly}
+          onChange={(e) => {
+            onChange({ ...config, private: e.target.checked });
+          }}
+          data-testid="note-private"
+        >
+          {t('workflows.form.note_private')}
+        </Checkbox>
+      </Form.Item>
+      <RetriesField config={config} onChange={onChange} readOnly={readOnly} />
+    </>
+  );
+}
+
+function TasksForm({ config, onChange, readOnly }: FormProps) {
+  const t = useLabel();
+  const groups = useUnits('groups');
+  const titles = Array.isArray(config.titles) ? config.titles.map(texts) : [];
+  const shown = titles.length === 0 ? [{}] : titles;
+  const setTitles = (next: TranslatedValue[]) => {
+    onChange({ ...config, titles: next });
+  };
+  return (
+    <>
+      {shown.map((title, i) => (
+        <Flex key={i} gap={8} align="start">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <TranslatedField
+              label={t('workflows.form.task_title', { n: i + 1 })}
+              value={title}
+              max={TASK_TITLE_MAX}
+              onChange={(next) => {
+                setTitles(shown.map((old, j) => (j === i ? next : old)));
+              }}
+              testId={`task-title-${String(i + 1)}`}
+            />
+          </div>
+          {shown.length > 1 && (
+            <Button
+              type="text"
+              icon={<DeleteOutlined />}
+              disabled={readOnly}
+              aria-label={t('workflows.form.remove_task', { n: i + 1 })}
+              onClick={() => {
+                setTitles(shown.filter((_, j) => j !== i));
+              }}
+              data-testid={`task-remove-${String(i + 1)}`}
+            />
+          )}
+        </Flex>
+      ))}
+      <Form.Item>
+        <Button
+          icon={<PlusOutlined />}
+          disabled={readOnly || shown.length >= MAX_TASKS}
+          onClick={() => {
+            setTitles([...shown, {}]);
+          }}
+          data-testid="task-add"
+        >
+          {t('workflows.form.add_task')}
+        </Button>
+      </Form.Item>
+      <Form.Item label={t('workflows.form.task_group')} htmlFor="task-group">
+        <Select<string>
+          id="task-group"
+          allowClear
+          optionFilterProp="label"
+          value={typeof config.owner_group_id === 'string' ? config.owner_group_id : undefined}
+          disabled={readOnly}
+          onChange={(owner_group_id: string | undefined) => {
+            onChange({ ...config, owner_group_id: owner_group_id ?? null });
+          }}
+          options={(groups.data ?? []).map((g) => ({ value: g.id, label: g.name }))}
+          data-testid="task-group"
+        />
+      </Form.Item>
+      <Form.Item
+        label={t('workflows.form.task_due')}
+        htmlFor="task-due"
+        extra={t('workflows.form.task_due_help')}
+      >
+        <InputNumber<number>
+          id="task-due"
+          min={0}
+          max={MAX_DUE_DAYS}
+          precision={0}
+          value={typeof config.due_days === 'number' ? config.due_days : null}
+          disabled={readOnly}
+          onChange={(due_days) => {
+            onChange({ ...config, due_days });
+          }}
+          data-testid="task-due"
+        />
+      </Form.Item>
+    </>
   );
 }
 
@@ -470,6 +594,8 @@ const FORMS: Record<string, (props: FormProps) => React.JSX.Element> = {
   timer: TimerForm,
   wait: WaitForm,
   set_status: SetStatusForm,
+  note: NoteForm,
+  tasks: TasksForm,
   approval: ApprovalForm,
   field_update: FieldUpdateForm,
   webhook: WebhookForm,

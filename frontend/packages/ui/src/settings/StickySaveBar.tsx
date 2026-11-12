@@ -1,8 +1,9 @@
 import { Button, Flex, Typography, theme } from 'antd';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useLabel } from '../appearance';
 import { SPACE } from '../density';
+import { useClearOfBar } from '../layout/useClearOfBar';
 import { WriteButton } from '../licence/WriteButton';
 
 export interface StickySaveBarProps {
@@ -32,6 +33,8 @@ export function StickySaveBar({
 }: StickySaveBarProps) {
   const t = useLabel();
   const { token } = theme.useToken();
+  const bar = useRef<HTMLDivElement>(null);
+  useClearOfBar(bar, changes > 0);
   useEffect(() => {
     if (changes === 0) return undefined;
     const ask = (event: BeforeUnloadEvent) => {
@@ -45,8 +48,10 @@ export function StickySaveBar({
   if (changes === 0) return null;
   return (
     <div
+      ref={bar}
       role="region"
       aria-label={t('settings.unsaved_region')}
+      data-sticky-footer=""
       data-testid={testId ?? 'settings-save-bar'}
       style={{
         position: 'sticky',

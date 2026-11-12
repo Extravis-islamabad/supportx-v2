@@ -1,17 +1,6 @@
 import { ReadOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Alert,
-  Button,
-  Flex,
-  List,
-  Result,
-  Segmented,
-  Space,
-  Tabs,
-  Timeline,
-  Typography,
-} from 'antd';
+import { Alert, Button, Flex, List, Result, Segmented, Space, Timeline, Typography } from 'antd';
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -41,6 +30,7 @@ import {
   useAccess,
   useAppearance,
   useLabel,
+  Tabs,
 } from '@supportx/ui';
 
 import { ArticleActions } from './ArticleActions';

@@ -90,6 +90,13 @@ export const routes: RouteObject[] = [
         ],
       },
       {
+        // WP-046a S1 (REQ-INC-076): your open tasks on every type.
+        path: 'my-tasks',
+        lazy: async () => ({
+          Component: (await import('./pages/tasks/MyTasksPage')).MyTasksPage,
+        }),
+      },
+      {
         // The change screens (WP-045d D19, taken forward): the list, a new change, the record.
         path: 'changes',
         handle: { section: 'changes' },
