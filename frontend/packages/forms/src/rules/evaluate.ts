@@ -19,15 +19,25 @@ export interface RuleAction {
   do: RuleActionKind;
   field: string;
   /** `set` only: the value an empty field takes. */
-  value?: RuleScalar;
+  value?: RuleScalar | null;
   /** `hide` only: keep the value instead of clearing it on save. */
-  keep_value?: boolean;
+  keep_value?: boolean | null;
 }
 
 export interface FormRule {
   id: string;
   when: RuleCondition;
   then: RuleAction[];
+}
+
+/**
+ * A template's stored rules as the evaluator takes them. The API types `when` as any JSON (a
+ * nested condition has no closed schema); the server checked its shape when it was saved.
+ */
+export function asFormRules(
+  raw: readonly { id: string; when: unknown; then: RuleAction[] }[],
+): FormRule[] {
+  return raw.map((r) => ({ id: r.id, when: r.when as RuleCondition, then: r.then }));
 }
 
 export interface RuledField {

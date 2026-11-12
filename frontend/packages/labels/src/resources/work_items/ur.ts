@@ -1044,6 +1044,7 @@ export const ur: LabelResource = {
   'incidents.section.assignment': 'تفویض',
   'incidents.section.classification': 'درجہ بندی',
   'incidents.section.details': 'تفصیلات',
+  'incidents.section.more': 'ترجیح اور اثاثے',
   'incidents.section.request': 'درخواست',
   'incidents.show_all': 'سب دکھائیں',
   'incidents.site_help': 'درخواست گزار کا مقام استعمال کرنے کے لیے خالی چھوڑیں۔',
@@ -2118,6 +2119,7 @@ export const ur: LabelResource = {
   'templates.problem_field': '{{field}}: {{message}}',
   'templates.requester_always_needed': 'درخواست گزار یہ فیلڈ ہمیشہ دیکھتے اور بھرتے ہیں',
   'templates.search': 'سانچے تلاش کریں',
+  'templates.section_untitled': 'حصہ',
   'templates.starting_values': 'ابتدائی قدریں',
   'templates.starting_values_help':
     'فارم کس سے شروع ہو۔ لوگ کبھی پہلے سے مقرر نہیں ہوتے: سانچہ ہر واقعہ ایک شخص کو تفویض نہیں کر سکتا۔',

@@ -1039,6 +1039,7 @@ export const en = {
   'incidents.section.assignment': 'Assignment',
   'incidents.section.classification': 'Classification',
   'incidents.section.details': 'Details',
+  'incidents.section.more': 'Priority and assets',
   'incidents.section.request': 'Request',
   'incidents.show_all': 'Show everything',
   'incidents.site_help': 'Leave empty to use the requester’s site.',
@@ -2114,6 +2115,7 @@ export const en = {
   'templates.problem_field': '{{field}}: {{message}}',
   'templates.requester_always_needed': 'Requesters always see and fill in this field',
   'templates.search': 'Search templates',
+  'templates.section_untitled': 'Section',
   'templates.starting_values': 'Starting values',
   'templates.starting_values_help':
     'What the form starts with. People are never preset: a template cannot assign every incident to one person.',

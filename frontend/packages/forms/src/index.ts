@@ -36,6 +36,7 @@ export {
   type FilterValueType,
 } from './filter/model';
 export {
+  asFormRules,
   evaluateRules,
   isEmptyValue,
   ruleMatches,

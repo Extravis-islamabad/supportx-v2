@@ -1181,6 +1181,7 @@ export const ar: LabelResource = {
   'incidents.section.assignment': 'الإسناد',
   'incidents.section.classification': 'التصنيف',
   'incidents.section.details': 'التفاصيل',
+  'incidents.section.more': 'الأولوية والأصول',
   'incidents.section.request': 'الطلب',
   'incidents.show_all': 'عرض الكل',
   'incidents.site_help': 'اتركه فارغًا لاستخدام موقع مقدم الطلب.',
@@ -2400,6 +2401,7 @@ export const ar: LabelResource = {
   'templates.problem_field': '{{field}}: {{message}}',
   'templates.requester_always_needed': 'يرى مقدمو الطلبات هذا الحقل ويملؤونه دائمًا',
   'templates.search': 'البحث في القوالب',
+  'templates.section_untitled': 'قسم',
   'templates.starting_values': 'القيم الأولية',
   'templates.starting_values_help':
     'ما يبدأ به النموذج. لا يُضبط الأشخاص مسبقًا أبدًا: لا يمكن للقالب إسناد كل الحوادث إلى شخص واحد.',
