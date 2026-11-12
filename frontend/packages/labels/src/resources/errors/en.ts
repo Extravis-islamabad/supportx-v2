@@ -135,6 +135,7 @@ export const en = {
   'errors.asset_product_type_not_found': 'This product type does not exist.',
   'errors.asset_restore_merged':
     'This asset was merged into {{asset}}. Confirm to restore it on its own.',
+  'errors.asset_site_not_managed': 'You can only add or move assets to the sites you manage.',
   'errors.asset_state_in_use':
     'Moves in life cycles still use this state ({{used}}). Remove them first.',
   'errors.asset_state_not_found': 'This asset state does not exist.',
