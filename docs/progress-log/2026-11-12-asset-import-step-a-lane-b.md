@@ -1,4 +1,4 @@
-# 2026-11-12: asset import, step A (lane B)
+### 2026-11-12 — Asset import step A: 45% fewer statements per row (lane B)
 
 - **Why:** #434 (S4c) made imports 35-40% faster but missed the 20,000-row targets: dry run
   425 s and run 589 s, against 120 s and 240 s. The coordinator asked for a profile by phase and
