@@ -896,6 +896,7 @@ export const en = {
   'errors.not_known_error': '{{display_id}} is not a known error.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
+  'errors.not_visible': 'You cannot see this change, so it was left as it is.',
   'errors.nothing_to_override':
     'This change is not waiting for approval again, so there is nothing to override.',
   'errors.nothing_to_retry': 'There is no failed step to run again.',
