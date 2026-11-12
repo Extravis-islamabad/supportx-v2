@@ -124,6 +124,10 @@ class ClosureSettings:
     auto_close_days: int | None
     reopen_window_days: int
     task_owner_access: bool = False  # WP-020e (D-112)
+    # WP-046a S3 (REQ-INC-070): worklog rules; the timer never starts by itself by default.
+    worklog_block_closed: bool = False
+    worklog_count_nonworking: bool = True
+    timer_auto_start: bool = False
     task_dependency_mode: str = "block"  # WP-046a S1 (REQ-INC-075): block or warn
 
 
@@ -767,6 +771,9 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             auto_close_days=settings.auto_close_days,
             reopen_window_days=settings.reopen_window_days,
             task_owner_access=settings.task_owner_access,
+            worklog_block_closed=settings.worklog_block_closed,
+            worklog_count_nonworking=settings.worklog_count_nonworking,
+            timer_auto_start=settings.timer_auto_start,
             task_dependency_mode=settings.task_dependency_mode,
         ),
         last_number=await last_number(session, wtype.counter_key),

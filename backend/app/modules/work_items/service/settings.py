@@ -258,6 +258,9 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
     return await config.load(session, wtype)
 
 
+# WP-046a S3 (REQ-INC-070): the worklog rules, on every type with worklogs.
+WORKLOG_RULES = ("worklog_block_closed", "worklog_count_nonworking", "timer_auto_start")
+
 CLOSURE_FIELDS = (
     "resolve_requires",
     "close_requires",
@@ -278,6 +281,9 @@ def _closure_before(current: Catalogue) -> dict[str, Any]:
         "auto_close_days": c.auto_close_days,
         "reopen_window_days": c.reopen_window_days,
         "task_owner_access": c.task_owner_access,
+        "worklog_block_closed": c.worklog_block_closed,
+        "worklog_count_nonworking": c.worklog_count_nonworking,
+        "timer_auto_start": c.timer_auto_start,
         "task_dependency_mode": c.task_dependency_mode,
     }
 
@@ -288,7 +294,7 @@ def _days(value: Any, low: int, high: int) -> int | None:  # noqa: ANN401 - JSON
     return value
 
 
-async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per setting, flat
+async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
     *,
@@ -326,6 +332,11 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         changes["complete_open_work"] = bool(values["complete_open_work"])
     if "task_owner_access" in values:  # REQ-INC-072 AC3 (D-112)
         changes["task_owner_access"] = bool(values["task_owner_access"])
+    for name in WORKLOG_RULES:  # WP-046a S3 (REQ-INC-070): true or false, nothing else
+        if name in values:
+            if not isinstance(values[name], bool):
+                problem(name, "invalid_value")
+            changes[name] = values[name] is True
     if "task_dependency_mode" in values:  # REQ-INC-075: an open predecessor blocks or warns
         if values["task_dependency_mode"] not in {"block", "warn"}:
             problem("task_dependency_mode", "invalid_choice")

@@ -1055,6 +1055,7 @@ export const en = {
   'errors.workflow_instance_not_found': 'This workflow run was not found.',
   'errors.workflow_job_not_found': 'This job was not found.',
   'errors.workflow_version_not_found': 'That version of the workflow was not found.',
+  'errors.worklog_record_closed': "Time can't be logged or changed on a closed record here.",
   'errors.would_lose_access':
     'After this change you will no longer see {{display_id}}. Confirm to hand it over.',
 } as const;

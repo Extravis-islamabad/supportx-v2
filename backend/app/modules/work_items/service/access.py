@@ -349,6 +349,7 @@ COST_TYPES = frozenset(
         WorkItemTypeCode.PROBLEM,
         WorkItemTypeCode.CHANGE,
         WorkItemTypeCode.RELEASE,
+        WorkItemTypeCode.SERVICE_REQUEST,  # its tasks carry an extra cost (S1)
     }
 )
 

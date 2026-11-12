@@ -10,13 +10,17 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
+from app.modules.organization import base_currency
 from app.modules.work_items.domain.parts import (
     COMMENT_MAX,
+    COST_NOTE_MAX,
+    COSTS_MAX,
     DESCRIPTION_MAX,
     TITLE_MAX,
     LinkKind,
@@ -30,6 +34,7 @@ from app.modules.work_items.infra.models import (
     WorkItemTask,
     WorkItemTaskTemplate,
     WorkItemWorklog,
+    WorkItemWorklogCost,
 )
 from app.modules.work_items.service import parts as service
 from app.modules.work_items.service import task_templates
@@ -246,6 +251,35 @@ class WorkItemMyTaskOut(BaseModel):
     subject: str
 
 
+Money = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2)]
+
+
+class WorkItemWorklogCostIn(BaseModel):
+    """An other cost (REQ-INC-068), in the base currency or paid in another.
+
+    In the base currency: `amount`. In another: `original_amount`, `original_currency` and the
+    `exchange_rate` to the base currency; the amount is then computed, to the cent (no automatic
+    rates).
+    """
+
+    amount: Money | None = None
+    original_amount: Money | None = None
+    original_currency: str | None = Field(default=None, min_length=3, max_length=3)
+    exchange_rate: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=8)
+    note: str | None = Field(default=None, max_length=COST_NOTE_MAX * 2)
+
+
+class WorkItemWorklogCostOut(BaseModel):
+    """An other cost as stored, in the base currency."""
+
+    id: uuid.UUID
+    amount: Decimal
+    original_amount: Decimal | None
+    original_currency: str | None
+    exchange_rate: Decimal | None
+    note: str | None
+
+
 class WorkItemWorklogIn(BaseModel):
     """Time spent: a start and an end or a duration (in minutes); both must agree if sent."""
 
@@ -255,6 +289,8 @@ class WorkItemWorklogIn(BaseModel):
     ended_at: datetime | None = None
     minutes: int | None = Field(default=None, ge=0)
     description: str | None = Field(default=None, max_length=DESCRIPTION_MAX * 2)
+    billable: bool = Field(default=False, description="Time the customer is charged for.")
+    costs: list[WorkItemWorklogCostIn] = Field(default_factory=list, max_length=COSTS_MAX)
 
 
 class WorkItemWorklogPatch(BaseModel):
@@ -266,6 +302,10 @@ class WorkItemWorklogPatch(BaseModel):
     ended_at: datetime | None = None
     minutes: int | None = Field(default=None, ge=0)
     description: str | None = Field(default=None, max_length=DESCRIPTION_MAX * 2)
+    billable: bool | None = None
+    costs: list[WorkItemWorklogCostIn] | None = Field(
+        default=None, max_length=COSTS_MAX, description="Replaces all the worklog's other costs."
+    )
 
 
 class WorkItemWorklogOut(BaseModel):
@@ -283,11 +323,36 @@ class WorkItemWorklogOut(BaseModel):
     stage: str | None = Field(
         default=None, description="A staged record's stage when it was logged (WP-058b S3)."
     )
+    billable: bool = False
+    draft: bool = Field(
+        default=False, description="A timer's time saved on close, counted once confirmed."
+    )
+    money_hidden: bool = Field(
+        default=False, description="You may not see costs here: the cost fields are empty."
+    )
+    cost_rate: Decimal | None = Field(
+        default=None, description="The owner's cost per hour when the time started (a snapshot)."
+    )
+    technician_cost: Decimal | None = None
+    costs: list[WorkItemWorklogCostOut] = Field(default_factory=list)
 
     @classmethod
-    def of(cls, row: WorkItemWorklog) -> "WorkItemWorklogOut":
-        """From a row."""
-        return cls.model_validate(row, from_attributes=True)
+    def of(
+        cls,
+        row: WorkItemWorklog,
+        costs: list[WorkItemWorklogCost] | None = None,
+        *,
+        money: bool = True,
+    ) -> "WorkItemWorklogOut":
+        """From a row; its costs only when `money` (the type's cost right, REQ-INC-068 AC2)."""
+        out = cls.model_validate(row, from_attributes=True)
+        if money:
+            out.costs = [
+                WorkItemWorklogCostOut.model_validate(c, from_attributes=True) for c in costs or []
+            ]
+        else:
+            out.money_hidden, out.cost_rate, out.technician_cost = True, None, None
+        return out
 
 
 class WorkItemMinutesBy(BaseModel):
@@ -304,6 +369,13 @@ class WorkItemWorklogsOut(BaseModel):
     minutes: int
     by_owner: list[WorkItemMinutesBy]
     by_type: list[WorkItemMinutesBy]
+    billable_minutes: int = 0
+    non_billable_minutes: int = 0
+    money_hidden: bool = False
+    currency: str | None = Field(default=None, description="The base currency of the costs.")
+    technician_cost: Decimal | None = None
+    other_cost: Decimal | None = None
+    total_cost: Decimal | None = None
 
 
 class WorkItemLinkIn(BaseModel):
@@ -358,14 +430,36 @@ def _tasks_out(
     )
 
 
-def _worklogs_out(rows: list[WorkItemWorklog]) -> WorkItemWorklogsOut:
-    totals = service.totals_of(rows)
+def _worklogs_out(
+    rows: list[WorkItemWorklog],
+    costs: dict[uuid.UUID, list[WorkItemWorklogCost]],
+    *,
+    money: bool,
+    currency: str,
+) -> WorkItemWorklogsOut:
+    totals = service.totals_of(rows, costs)
     return WorkItemWorklogsOut(
-        items=[WorkItemWorklogOut.of(r) for r in rows],
+        items=[WorkItemWorklogOut.of(r, costs.get(r.id), money=money) for r in rows],
         minutes=totals.minutes,
         by_owner=[WorkItemMinutesBy(key=str(k), minutes=v) for k, v in totals.by_owner.items()],
         by_type=[WorkItemMinutesBy(key=k, minutes=v) for k, v in totals.by_type.items()],
+        billable_minutes=totals.billable_minutes,
+        non_billable_minutes=totals.non_billable_minutes,
+        money_hidden=not money,
+        currency=currency if money else None,
+        technician_cost=totals.technician_cost if money else None,
+        other_cost=totals.other_cost if money else None,
+        total_cost=totals.total_cost if money else None,
     )
+
+
+async def _worklog_out(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, row: WorkItemWorklog
+) -> WorkItemWorklogOut:
+    """One worklog with its costs, masked without the cost right."""
+    costs = await service.worklog_costs(session, row.work_item_id)
+    money = await service.may_see_money(session, subject, wtype, row.work_item_id)
+    return WorkItemWorklogOut.of(row, costs.get(row.id), money=money)
 
 
 class AllMyTaskOut(WorkItemMyTaskOut):
@@ -659,8 +753,14 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
     async def list_worklogs(
         record_id: uuid.UUID, session: TenantSession, subject: View
     ) -> WorkItemWorklogsOut:
-        """Newest first, with totals per person and per type."""
-        return _worklogs_out(await service.worklogs(session, subject, wtype, record_id))
+        """Newest first, with totals per person and per type; costs with the cost right."""
+        rows = await service.worklogs(session, subject, wtype, record_id)
+        return _worklogs_out(
+            rows,
+            await service.worklog_costs(session, record_id),
+            money=await service.may_see_money(session, subject, wtype, record_id),
+            currency=await base_currency(session),
+        )
 
     @router.post(
         "/{record_id}/worklogs",
@@ -687,7 +787,8 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
                 body.model_dump(mode="python"),
                 source=source_of(request),
             )
-            return Created(body=WorkItemWorklogOut.of(row), headers={"ETag": etag_for(row.version)})
+            out = await _worklog_out(session, subject, wtype, row)
+            return Created(body=out, headers={"ETag": etag_for(row.version)})
 
         return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -716,7 +817,7 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
             source=source_of(request),
         )
         set_etag(response, row.version)
-        return WorkItemWorklogOut.of(row)
+        return await _worklog_out(session, subject, wtype, row)
 
     @router.delete(
         "/{record_id}/worklogs/{worklog_id}",

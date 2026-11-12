@@ -680,6 +680,9 @@ export const ar: LabelResource = {
   'permission.requests.take.description': 'تولي طلب خدمة لم يتولّه أحد بعد.',
   'permission.requests.view': 'عرض طلبات الخدمة',
   'permission.requests.view.description': 'رؤية طلبات الخدمة (عند توفر وحدة طلبات الخدمة).',
+  'permission.requests.view_costs': 'عرض التكاليف في طلبات الخدمة',
+  'permission.requests.view_costs.description':
+    'عرض أسعار التكلفة وتكاليف الفنيين والتكاليف الأخرى وإجمالياتها في طلبات الخدمة، والتكلفة الإضافية للمهمة. بدونها لا يظهر شيء من ذلك في أي مكان، بما في ذلك التصدير.',
   'permission.roles.manage': 'إدارة الأدوار',
   'permission.roles.manage.description': 'إنشاء الأدوار المخصصة وتعديلها وحذفها.',
   'permission.roles.view': 'عرض الأدوار',

@@ -969,5 +969,6 @@ export const ar: LabelResource = {
   'errors.workflow_instance_not_found': 'لم يُعثر على تشغيل سير العمل هذا.',
   'errors.workflow_job_not_found': 'لم يُعثر على هذه المهمة.',
   'errors.workflow_version_not_found': 'لم يُعثر على هذا الإصدار من سير العمل.',
+  'errors.worklog_record_closed': 'لا يمكن تسجيل الوقت أو تغييره في سجل مغلق هنا.',
   'errors.would_lose_access': 'بعد هذا التغيير لن ترى {{display_id}} بعد الآن. أكّد لتسليمه.',
 };

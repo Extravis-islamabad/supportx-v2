@@ -697,6 +697,9 @@ export const ur: LabelResource = {
   'permission.requests.view': 'سروس درخواستیں دیکھیں',
   'permission.requests.view.description':
     'سروس درخواستیں دیکھیں (جب سروس درخواست ماڈیول دستیاب ہو)۔',
+  'permission.requests.view_costs': 'سروس درخواستوں پر لاگت دیکھیں',
+  'permission.requests.view_costs.description':
+    'سروس درخواستوں پر لاگت کی شرحیں، ٹیکنیشن اور دیگر لاگتیں اور ان کے مجموعے، اور کام کی اضافی لاگت دیکھیں۔ اس کے بغیر یہ کہیں نظر نہیں آتیں، برآمدات میں بھی نہیں۔',
   'permission.roles.manage': 'کرداروں کا انتظام کریں',
   'permission.roles.manage.description': 'حسب ضرورت کردار بنائیں، ان میں ترمیم کریں اور حذف کریں۔',
   'permission.roles.view': 'کردار دیکھیں',

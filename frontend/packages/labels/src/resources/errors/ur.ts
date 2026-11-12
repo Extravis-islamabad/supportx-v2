@@ -1059,6 +1059,7 @@ export const ur: LabelResource = {
   'errors.workflow_instance_not_found': 'ورک فلو کا یہ رن نہیں ملا۔',
   'errors.workflow_job_not_found': 'یہ جاب نہیں ملی۔',
   'errors.workflow_version_not_found': 'ورک فلو کا یہ ورژن نہیں ملا۔',
+  'errors.worklog_record_closed': 'یہاں بند ریکارڈ پر وقت درج یا تبدیل نہیں کیا جا سکتا۔',
   'errors.would_lose_access':
     'اس تبدیلی کے بعد آپ {{display_id}} نہیں دیکھ سکیں گے۔ حوالے کرنے کے لیے تصدیق کریں۔',
 };

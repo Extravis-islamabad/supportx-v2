@@ -701,6 +701,9 @@ export const en = {
   'permission.requests.view': 'View service requests',
   'permission.requests.view.description':
     'See service requests (when the service request module is available).',
+  'permission.requests.view_costs': 'See costs on service requests',
+  'permission.requests.view_costs.description':
+    "See cost rates, technician and other costs and cost totals on service requests, and a task's extra cost. Without it none of these show anywhere, exports included.",
   'permission.roles.manage': 'Manage roles',
   'permission.roles.manage.description': 'Create, edit and delete custom roles.',
   'permission.roles.view': 'View roles',
