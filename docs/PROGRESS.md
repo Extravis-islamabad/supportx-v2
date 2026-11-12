@@ -313,6 +313,18 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   (`make cluster-ha-valkey-node-loss-dns`).
   - [ ] **Later:** NodeLocal DNSCache to remove the dead-endpoint window, without a shorter
     grace period; weigh it after this lands.
+  Round 3 (2026-11-12, the coordinator's sweep of single copies in the HA profile; the proving
+  run lost k3s's only Traefik copy with the stopped node and no request was answered for 90 s):
+  Traefik two copies with required anti-affinity (`deploy/k3s/traefik-ha.yaml`, a
+  HelmChartConfig; the k3d HA cluster uses the same file, `deploy/k3s/traefik-ha.sh` checks);
+  NATS and the CloudNativePG cluster with required anti-affinity; workflow timers 2; ClamAV 2
+  with staggered signature pulls; fast eviction (30 s) for the single-copy fan-out and index
+  workers; the preflight checks all of it (`make cluster-ha-preflight` after the install, CI
+  too) and node-loss.sh proves live updates resume after the fan-out moves. What runs how many
+  copies: [deployment.md](deployment.md) (Profiles).
+  - [ ] **Open: bundled HA SeaweedFS (3 masters, replicated volumes, filer ×2): pending Haider
+    (roadmap call).** Until then HA installs use their own S3-compatible store (decision b,
+    2026-11-12); the preflight warns (advisory) when the bundled single SeaweedFS runs.
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.

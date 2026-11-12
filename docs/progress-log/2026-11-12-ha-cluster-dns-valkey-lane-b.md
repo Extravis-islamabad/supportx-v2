@@ -44,3 +44,25 @@ Deployment only (deploy/, Makefile, the Cluster workflow, docs); no app code, no
     replica at replica-priority 0);
   - `applied_since` compares times, not strings; the HA job's timeout is 60 minutes;
   - later: NodeLocal DNSCache (PROGRESS).
+- **Round 3 (the coordinator's sweep of single copies in the HA profile):** the last proving run
+  lost k3s's only Traefik copy with the stopped node; no request was answered for 90 s, the API
+  pods healthy. Now:
+  - Traefik 2 with required anti-affinity and a PodDisruptionBudget: `deploy/k3s/traefik-ha.yaml`
+    (a HelmChartConfig for k3s's server manifests folder; the Traefik chart's own keys, chart
+    40.1.0 as bundled by k3s v1.36.5), which the k3d HA cluster installs as is;
+    `deploy/k3s/traefik-ha.sh` waits for two ready copies on two nodes (`make cluster-up-ha`);
+    single-node k3d keeps one copy;
+  - NATS (the subchart's `podTemplate.merge`) and the CloudNativePG cluster
+    (`affinity.podAntiAffinityType: required`) with required anti-affinity; workflow timers 2;
+    ClamAV 2, spread, its freshclam checks staggered by StatefulSet ordinal;
+  - fast eviction for the single-copy fan-out and index workers (`ha.fastEvictionSeconds: 30`,
+    NoExecute tolerations for the unreachable and not-ready taints): about 50 s, not 300 s;
+  - the preflight checks Traefik, NATS and PostgreSQL spread and the tolerations once the
+    release is in (`make cluster-ha-preflight`, a new step in the HA job), and warns, advisory
+    only, about the bundled SeaweedFS (decision b: HA installs use their own S3 store; a bundled
+    HA SeaweedFS is open in PROGRESS);
+  - node-loss.sh: after the write returns, the fan-out is ready on a live node (moved within
+    90 s if it was on the stopped one) and acknowledges past a write made after that
+    (`realtime__fanout` on `SUPPORTX_EVENTS`, NATS monitoring endpoint);
+  - `docs/deployment.md`: what runs how many copies in the HA profile, Traefik and object
+    storage for k3s HA installs. Single-node render unchanged (golden file untouched).

@@ -91,6 +91,58 @@ hex values and never overwrites an existing one (its passwords are already insid
   losing its node stops the database failover until Kubernetes moves the operator pod, about
   five minutes later.
 
+  **What runs how many copies in the HA profile.** "Spread" means required pod anti-affinity on
+  `kubernetes.io/hostname` (`ha.antiAffinity: hard`): two copies never share a node, so a lost
+  node takes at most one. `deploy/k3s/ha-preflight.sh` checks the rows marked *(preflight)*.
+
+  | Component | Copies | How it survives a lost node |
+  |---|---|---|
+  | API | 3 to 6 (HPA, minimum 3), spread | the others serve; PodDisruptionBudget |
+  | Web | 2, spread | the other serves |
+  | Outbox relay | 2, spread | both share the outbox (`FOR UPDATE SKIP LOCKED`) |
+  | Event consumers | 2, spread | both share each durable consumer |
+  | SLA timers (Temporal worker) | 2, spread | both share the task queue; a repeated task is a no-op |
+  | Workflow timers (Temporal worker) | 2, spread | the same |
+  | Keycloak | 2, spread | Infinispan shares sessions between the copies |
+  | Centrifugo | 3, spread | the Valkey engine (through Sentinel) links the copies |
+  | Temporal (bundled) | 2, spread | the server pods share the shards (membership) |
+  | Valkey + Sentinel | 3, spread | Sentinel promotes a replica (below) |
+  | PostgreSQL (CloudNativePG cluster) | 3 instances, required anti-affinity *(preflight)* | CloudNativePG promotes a standby |
+  | PgBouncer pooler | 2, spread | the other copy; dead server links dropped in 10 s |
+  | NATS | 3 servers, required anti-affinity *(preflight)* | JetStream keeps quorum (2 of 3); streams keep 3 replicas |
+  | ClamAV | 2, spread | the Service balances scans over both; their signature pulls are staggered |
+  | CoreDNS (k3s) | 2, spread *(preflight)* | `deploy/k3s/cluster-dns-ha.sh` (below) |
+  | Traefik (k3s) | 2, spread *(preflight)* | `deploy/k3s/traefik-ha.yaml` (below) |
+  | CloudNativePG operator | 2, hostname spread *(preflight)* | `deploy/k3d/prereqs.sh` shows how |
+  | Barman Cloud plugin | 2, hostname spread | the same; the operator blocks a cluster's changes, failover included, while its plugin is unreachable |
+  | **Single copy, and why that is acceptable** | | |
+  | Realtime fan-out | 1 (ADR-023: merge windows and per-tenant rate limits are in memory) | fast eviction *(preflight)*: evicted 30 s after its node goes NotReady (`ha.fastEvictionSeconds`), so it runs again elsewhere about 50 s after the loss instead of five minutes. Meanwhile live updates pause; screens reconcile by refetch when their realtime connection returns (architecture.md §8.3). The node-loss test checks that it moves and that events reach it again. |
+  | Custom field index worker | 1 (D-088: one builder, behind an advisory lock) | background work only; fast eviction as the fan-out *(preflight)* |
+  | local-path-provisioner (k3s) | 1 | only creates new volumes; local volumes are bound to their node anyway |
+  | metrics-server (k3s) | 1 | only feeds the HPA, which keeps its current count meanwhile |
+  | cert-manager | 1 | renewals start days before expiry; its webhook matters only while certificate resources are applied |
+  | **Not highly available: use your own** | | |
+  | Object storage (bundled SeaweedFS) | 1 StatefulSet, not HA | HA installs point the chart at their own S3-compatible store (below). The preflight warns (advisory, never failing) when the bundled one runs. A bundled HA SeaweedFS is pending a roadmap decision. |
+
+  **Object storage for HA: your own S3-compatible store.** The bundled SeaweedFS
+  (`objectStorage.mode: seaweedfs`) is a single copy: while its node is down, attachments cannot
+  be uploaded or opened. An HA install points the chart at its own highly available
+  S3-compatible store (a MinIO cluster, Ceph RGW, or a cloud S3):
+
+  ```yaml
+  objectStorage:
+    mode: external                  # no bundled SeaweedFS is installed
+    bucket: supportx                # created beforehand
+    region: us-east-1
+    external:
+      endpoint: https://s3.internal.example.com
+  ```
+
+  with the access keys in the app Secret (keys `s3-access-key`, `s3-secret-key`). With backups
+  on, the database backups then go to that store too (`postgresql.cnpg.backup`, a separate bucket
+  and credentials recommended), and it must encrypt at rest (`postgresql.cnpg.backup.encryption`
+  or `encryptionByBucketPolicy: true`); the chart refuses otherwise (Backups).
+
   **Cluster DNS: at least two copies on different nodes (k3s ships one).** With one copy, losing
   its node stops every name lookup in the cluster until Kubernetes re-creates the pod, about
   five minutes later (the 300 s unreachable eviction). Valkey's sentinels find each other and
@@ -118,11 +170,36 @@ hex values and never overwrites an existing one (its passwords are already insid
   anti-affinity (or a `DoNotSchedule` topology spread) on `kubernetes.io/hostname`. kubeadm,
   RKE2 and managed clusters usually run two copies already; check where they run.
 
+  **Traefik: two copies on different nodes (k3s ships one).** Every request into SupportX
+  passes the ingress. With k3s's one Traefik copy, the node-loss test's stopped agent held it:
+  the pod stayed "Running" until the 300 s eviction and no client request was answered for 90 s,
+  although the API pods were healthy. k3s installs Traefik as a Helm chart, so a
+  `HelmChartConfig` reaches it. On a k3s HA install, on every server:
+
+  ```
+  sudo cp deploy/k3s/traefik-ha.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+  bash deploy/k3s/traefik-ha.sh      # waits until two ready copies run on two nodes, else fails
+  ```
+
+  If that folder already holds a `HelmChartConfig` named `traefik` (k3s keeps one per chart),
+  merge the file's values into it instead. It keeps the Gateway API and streaming settings, and
+  adds `deployment.replicas: 2`, required pod anti-affinity on `kubernetes.io/hostname` and a
+  PodDisruptionBudget (the Traefik chart's own keys; k3s v1.36.5 bundles chart 40.1.0). k3s
+  re-applies the file at every start and its own Traefik manifest sets neither replicas nor
+  affinity, so both survive restarts and upgrades. The k3d HA cluster in CI installs this same
+  file (`deploy/k3d/cluster-ha.yaml`). On another distribution, run your ingress controller with
+  two or more copies on different nodes.
+
   **Preflight.** `deploy/k3s/ha-preflight.sh` checks a cluster for the HA profile, read-only:
   three or more schedulable nodes, cluster DNS ready on two or more nodes, the CloudNativePG
-  operator ready on two or more nodes. Each unmet requirement prints a WARNING and how to fix
-  it (exit 0; `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make cluster-up-ha` does). Run it
-  before the install and after any cluster upgrade. `helm install` with `values-ha.yaml` also
+  operator ready on two or more nodes, Traefik ready on two or more nodes. Once SupportX is
+  installed in `SUPPORTX_NAMESPACE` (default `supportx`) it also checks the release: NATS servers
+  and PostgreSQL instances each on distinct nodes, and the fast-eviction tolerations on the
+  fan-out and index workers. Each unmet requirement prints a WARNING and how to fix it (exit 0;
+  `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make cluster-up-ha` does before the install
+  and `make cluster-ha-preflight` after it). The bundled SeaweedFS gets an advisory warning that
+  never fails, even when strict. Run it before the install, after it, and after any cluster
+  upgrade. `helm install` with `values-ha.yaml` also
   warns in its notes when `kube-system/coredns` runs one copy.
 
   **Node-monitor grace period: 20 s recommended (not required).** Until Kubernetes marks a lost
