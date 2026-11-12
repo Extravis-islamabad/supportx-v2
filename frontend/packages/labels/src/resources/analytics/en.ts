@@ -10,6 +10,8 @@ export const en = {
   'dashboard.my_work.description':
     'Your open incidents, what you resolved this week and the queue.',
   'dashboard.releases': 'Releases',
+  'dashboard.releases.description':
+    'Open releases by stage, how many deployed on time, overdue stages and failed releases.',
   'dashboard.service_desk': 'Service desk',
   'dashboard.service_desk.description':
     'Open work across the desk: queues, priorities, channels and the daily flow.',

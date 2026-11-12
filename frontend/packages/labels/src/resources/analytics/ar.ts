@@ -11,6 +11,8 @@ export const ar: LabelResource = {
   'dashboard.my_work': 'عملي',
   'dashboard.my_work.description': 'حوادثك المفتوحة وما حللته هذا الأسبوع وقائمة الانتظار.',
   'dashboard.releases': 'الإصدارات',
+  'dashboard.releases.description':
+    'الإصدارات المفتوحة حسب المرحلة، وكم منها نُشر في موعده، والمراحل المتأخرة والإصدارات الفاشلة.',
   'dashboard.service_desk': 'مكتب الخدمة',
   'dashboard.service_desk.description':
     'العمل المفتوح في المكتب: قوائم الانتظار والأولويات والقنوات والتدفق اليومي.',

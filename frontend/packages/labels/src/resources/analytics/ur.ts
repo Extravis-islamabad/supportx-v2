@@ -11,6 +11,8 @@ export const ur: LabelResource = {
   'dashboard.my_work': 'میرا کام',
   'dashboard.my_work.description': 'آپ کے کھلے واقعات، اس ہفتے آپ نے کیا حل کیا اور قطار۔',
   'dashboard.releases': 'ریلیزیں',
+  'dashboard.releases.description':
+    'مرحلے کے لحاظ سے کھلی ریلیزیں، کتنی وقت پر تعینات ہوئیں، تاخیر والے مراحل اور ناکام ریلیزیں۔',
   'dashboard.service_desk': 'سروس ڈیسک',
   'dashboard.service_desk.description':
     'پورے ڈیسک کا کھلا کام: قطاریں، ترجیحات، چینل اور روزانہ بہاؤ۔',

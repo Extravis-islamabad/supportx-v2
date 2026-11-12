@@ -17,7 +17,7 @@ import pytest
 
 from tests.db.per_test_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_incidents_api import CONSOLE, Org, World, role
-from tests.db.test_releases_api import REL, a_release
+from tests.db.test_releases_api import REL, a_release, move
 
 pytestmark = [pytest.mark.db, MODULE_LOOP]
 
@@ -44,11 +44,21 @@ async def _totals(world: World, org: Org, user: Any, measures: list[str]) -> dic
 
 
 async def _deployment(world: World, org: Org, item: dict[str, Any], **body: Any) -> None:  # noqa: ANN401 - JSON
+    await _stage_dates(world, org, item, "deployment", **body)
+
+
+async def _stage_dates(
+    world: World,
+    org: Org,
+    item: dict[str, Any],
+    stage: str,
+    **body: Any,  # noqa: ANN401 - JSON
+) -> None:
     shown = (await world.call("GET", f"{REL}/{item['id']}/schedule", org, org.admin)).json()
-    row = next(s for s in shown if s["stage"] == "deployment")
+    row = next(s for s in shown if s["stage"] == stage)
     set_ = await world.call(
         "PATCH",
-        f"{REL}/{item['id']}/schedule/deployment",
+        f"{REL}/{item['id']}/schedule/{stage}",
         org,
         org.admin,
         json=body,
@@ -205,3 +215,18 @@ async def test_0150_the_reporting_role_reads_only_the_granted_columns_per_tenant
         assert bypass is False
     finally:
         await conn.close()
+
+
+async def test_req_rel_060_overdue_is_the_open_release_current_stage_only(world: World) -> None:
+    """Lane A's #443 review: a stage it is not in, or a cancelled release, is never overdue."""
+    a = world.a
+    past = {"scheduled_start": "2026-01-01T08:00:00Z", "scheduled_end": "2026-01-02T08:00:00Z"}
+    ahead, current, cancelled = [await a_release(world, a) for _ in range(3)]
+    await _stage_dates(world, a, ahead, "deployment", **past)  # not the stage it is in
+    await _stage_dates(world, a, current, current["stage"], **past)
+    await _stage_dates(world, a, cancelled, cancelled["stage"], **past)
+    gone = await move(world, a, cancelled, "closure_canceled", reason_text="Not needed")
+    assert gone.status_code == 200, gone.text
+    overdue = {"field": "stage_overdue", "op": "eq", "value": True}
+    assert await _listed(world, a, a.admin, overdue) == {current["id"]}
+    assert (await _totals(world, a, a.admin, ["overdue_count"]))["overdue_count"] == 1

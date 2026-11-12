@@ -1,4 +1,4 @@
-import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Flex, Input, Select, Space, Table, Tag } from 'antd';
 import { useEffect, useState } from 'react';
@@ -190,6 +190,14 @@ export function ReleasesPage() {
                 data-testid="releases-calendar"
               >
                 {t('releases.calendar.title')}
+              </Button>
+              {/* Releases by stage (REQ-REL-056): the same releases, one column per stage. */}
+              <Button
+                icon={<AppstoreOutlined />}
+                onClick={() => void navigate('/releases/board')}
+                data-testid="releases-board-open"
+              >
+                {t('releases.board.open')}
               </Button>
               {can('releases.create') && (
                 <WriteButton

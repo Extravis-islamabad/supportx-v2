@@ -1159,6 +1159,15 @@ describe('console: releases by stage (WP-058b S5b)', () => {
     fireEvent.click(within(menu).getByText(stage));
   }
 
+  it('REQ-REL-056: the release list opens the board', async () => {
+    window.history.pushState({}, '', '/releases');
+    api();
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('releases-board-open'));
+    expect(await screen.findByTestId('release-board-column-build')).toBeTruthy();
+    expect(window.location.pathname).toBe('/releases/board');
+  });
+
   it('REQ-REL-056: a release sits in its stage; moving it opens its own move dialog', async () => {
     window.history.pushState({}, '', '/releases/board');
     api({ [`GET /api/v1/releases/${REL_ID}/stages`]: { body: { ...panel, moves: [toTesting] } } });

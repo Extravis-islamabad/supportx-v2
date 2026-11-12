@@ -326,15 +326,20 @@ def _deployment(column: Any) -> Any:  # noqa: ANN401 - SQLAlchemy column and sca
 
 
 DEPLOYMENT = "deployment"
-_OVERDUE_STAGE = (
+# Overdue: an open record whose CURRENT stage is past its planned end and not yet ended. Never a
+# stage it skipped or left behind, nor a closed or cancelled record (lane A's #443 review): those
+# would otherwise stay "overdue" for ever.
+_OVERDUE_STAGE = and_(
+    WorkItem.status_category.in_((StatusCategory.OPEN, StatusCategory.PAUSED)),
     select(WorkItemStageSchedule.work_item_id)
     .where(
         WorkItemStageSchedule.tenant_id == WorkItem.tenant_id,
         WorkItemStageSchedule.work_item_id == WorkItem.id,
+        WorkItemStageSchedule.stage == WorkItem.stage,
         WorkItemStageSchedule.scheduled_end < func.now(),
         WorkItemStageSchedule.actual_end.is_(None),
     )
-    .exists()
+    .exists(),
 )
 # The mean time from an approval being asked to its decision, over the record's decided ones
 # (REQ-REL-060: approval turnaround). Reads only granted columns (0150): never a comment.
