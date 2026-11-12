@@ -955,9 +955,11 @@ async def apply_form_rules(  # noqa: C901, PLR0912, PLR0913 - one step per kind 
     old = _form_values(before or {}, custom_before) if before is not None else {}
     new = {**old, **_form_values(values, custom_after)}
     state = form_rule_domain.evaluate(rules, base, new)
+    # Only what was sent and what the rules change: the save merges it over the record's
+    # current values, so an unchanged custom value is never checked again (lane B's review).
     custom_out: dict[str, Any] | None = None
     if any(n.startswith(CUSTOM_PREFIX) for n in [*state.set_values, *state.fields]):
-        custom_out = dict(custom_after)
+        custom_out = dict(sent_custom or {})
     problems: list[tuple[str, str]] = []
     locked_by = state if before is None else form_rule_domain.evaluate(rules, base, old)
     defaults = dict(template.defaults or {})
@@ -972,7 +974,11 @@ async def apply_form_rules(  # noqa: C901, PLR0912, PLR0913 - one step per kind 
         elif _json(given) != _json(old.get(name)):
             problems.append((name, "field_locked"))
     for name, value in state.set_values.items():
-        _put(out, custom_out, name, value)
+        typed = _as_input(name, value)
+        if typed is _INVALID:
+            problems.append((name, "invalid_value"))
+            continue
+        _put(out, custom_out, name, typed)
         new[name] = value
     for name, ruled in state.fields.items():
         if not ruled.shown and not ruled.keep_value and not form_rule_domain.empty(new.get(name)):
@@ -1011,6 +1017,23 @@ async def of_record(
         select(WorkItemTemplate).where(WorkItemTemplate.id == template_id)
     )
     return found
+
+
+_INVALID = object()
+
+
+def _as_input(name: str, value: Any) -> Any:  # noqa: ANN401 - a rule's JSON value
+    """A rule's value as the request body would carry it.
+
+    A typed id reaches the service as a UUID (the API model parses it), so a rule's must too:
+    otherwise it would be checked differently from the same value typed by hand (lane B).
+    """
+    if name.endswith("_id") and not name.startswith(CUSTOM_PREFIX) and isinstance(value, str):
+        try:
+            return uuid.UUID(value)
+        except ValueError:
+            return _INVALID
+    return value
 
 
 def _fixed_name(name: str) -> bool:

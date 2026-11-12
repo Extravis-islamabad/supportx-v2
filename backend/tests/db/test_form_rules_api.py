@@ -266,3 +266,68 @@ async def test_the_portal_gets_only_rules_and_sections_over_its_own_fields(world
     assert [(s["id"], s["fields"]) for s in mine["sections"]] == [
         ("ask", ["description", "subject"])
     ]
+
+
+async def test_rules_never_widen_rights(world: World) -> None:
+    """A value a rule sets is checked like a typed one (lane B's review).
+
+    An assignment the caller could not make by hand is refused with the same field error as
+    typing it, and a portal requester is never given a staff field through a rule.
+    """
+    a = world.a
+    rules = [
+        {
+            "id": "assign",
+            "when": {"field": "impact", "op": "eq", "value": "team"},
+            "then": [
+                {"do": "set", "field": "group_id", "value": str(a.ga)},
+                {"do": "set", "field": "technician_id", "value": str(a.tech_b)},  # in GB only
+            ],
+        },
+        {
+            "id": "portal",
+            "when": {"field": "subject", "op": "is_not_null"},
+            "then": [{"do": "set", "field": "group_id", "value": str(a.ga)}],
+        },
+    ]
+    template = await new_template(world, a, form_rules=rules[:1])
+    typed = await world.call(
+        "POST",
+        BASE,
+        a,
+        a.admin,
+        json={
+            "subject": "Typed",
+            "requester_id": str(a.requester),
+            "template_id": template["id"],
+            "group_id": str(a.ga),
+            "technician_id": str(a.tech_b),
+        },
+        headers=CONSOLE,
+    )
+    by_rule = await world.call(
+        "POST",
+        BASE,
+        a,
+        a.admin,
+        json={
+            "subject": "By rule",
+            "requester_id": str(a.requester),
+            "template_id": template["id"],
+            "impact": "team",
+        },
+        headers=CONSOLE,
+    )
+    # The same refusal, field and code, whether typed or set by a rule.
+    assert (typed.status_code, by_rule.status_code) == (422, 422), by_rule.text
+    assert field_codes(by_rule) == field_codes(typed) != {}
+    portal = await new_template(world, a, form_rules=rules[1:], for_requesters=True)
+    raised = await world.call(
+        "POST",
+        "/portal/incidents",
+        a,
+        a.requester,
+        json={"subject": "Mail is down", "template_id": portal["id"]},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert raised.status_code == 403, raised.text  # assigning needs the right, rule or not
