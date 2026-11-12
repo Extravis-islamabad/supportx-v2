@@ -66,6 +66,19 @@ describe('Admin › People', () => {
     window.history.pushState({}, '', '/admin/users');
   });
 
+  it('the last sign-in uses the app date format; the status dot stays on its word (QA 2026-11-12 V-10)', async () => {
+    const seen = { ...BILAL, last_login_at: '2026-11-12T06:01:00Z' };
+    routes({
+      'GET /api/v1/users': { body: { items: [seen], has_more: false, next_cursor: null } },
+    });
+    render(<App />);
+    const when = await screen.findByTestId('user-last-login-u-9');
+    // Day first, month in words, 24-hour clock ("12 Nov 2026, 11:01"), never "Nov 12, … AM".
+    expect(when.textContent).toMatch(/^1[12] Nov 2026, \d{2}:\d{2}$/);
+    expect(when.style.whiteSpace).toBe('nowrap');
+    expect(screen.getByTestId('user-status-u-9').style.whiteSpace).toBe('nowrap');
+  });
+
   it('adding someone who signs in without an email shows the problem at the field', async () => {
     const fake = routes({
       'POST /api/v1/users': {
