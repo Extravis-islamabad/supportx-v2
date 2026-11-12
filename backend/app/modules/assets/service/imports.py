@@ -39,6 +39,10 @@ row; what changed is the work around them:
   refused batch) gives its numbers back.
 - The asset service reads the tenant's configuration once per (sub)transaction
   (service/memo.py).
+- **Rows written together (step B):** inside a batch savepoint, the rows' outbox events, field
+  history, audit entries and new valuations wait in a buffer and go in one INSERT per table
+  when the rows are done (app/shared/db/deferred.py): about one statement per asset instead of
+  seven. The row-by-row redo writes each row's at once, as before.
 """
 
 import contextlib
@@ -88,12 +92,21 @@ from app.modules.assets.infra.models import (
     AssetState,
 )
 from app.modules.assets.service import consumables
-from app.modules.assets.service.assets import LIMIT_CODE, MANAGE, create_asset, update_asset
+from app.modules.assets.service.assets import (
+    LIMIT_CODE,
+    MANAGE,
+    create_asset,
+    prefetch_unique,
+    return_unused_tags,
+    update_asset,
+    use_tag_blocks,
+)
 from app.modules.assets.service.memo import keep_slot_count
 from app.modules.identity_access import Subject, subject_for
 from app.modules.licensing import LimitKey, remaining
 from app.modules.organization import find_site
 from app.shared import sheets
+from app.shared.db.deferred import deferred_writes
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history.conflicts import stale_version
@@ -337,7 +350,11 @@ async def _run(database: Database, tenant: uuid.UUID, ref: tuple[uuid.UUID, uuid
             job.status, job.total = AssetImportStatus.RUNNING.value, len(rows)
             job.version += 1
             await _progress(session, job)
-    lookups = Lookups(tenant=tenant, requester=importer)  # this job's own, never shared
+    # This job's own, never shared. A dry run resumed in a fresh worker (a retry after a crash)
+    # starts a new Lookups, so it re-reads the asset-limit slots and forgets the tally of the
+    # slices before it: its "limit reached" rows are then advisory only. Rare, and harmless: the
+    # real run counts afresh under the limit's lock (`reserve_capacity` on each asset it makes).
+    lookups = Lookups(tenant=tenant, requester=importer)
     while offset < len(rows):
         async with database.tenant_session(context) as session:
             offset = await _batch(session, import_id, rows, offset, lookups)
@@ -455,11 +472,20 @@ async def _apply_chunk(
     outcomes: list[ImportRowOutcome | RowProblem] = []
     savepoint = await session.begin_nested()
     keep_slot_count(session)  # a refusal redoes the rows one by one, each counting afresh
+    if how.kind == ImportKind.ASSETS:  # the creates' tags and serials, one query (S4c follow-up)
+        creates = [p.fields for p in plans if p.problem is None and p.record_id is None]
+        await prefetch_unique(session, creates)
+        use_tag_blocks(session, sum(1 for f in creates if not f.get("tag")))
     try:
-        for plan in plans:
-            if outcomes and time.monotonic() >= how.deadline:
-                break
-            outcomes.append(plan.problem or await execute_row(session, how, plan))
+        # The rows' outbox events, history, audit entries and valuations go in one INSERT per
+        # table when the block ends (step B; app/shared/db/deferred.py). A dry run drops them:
+        # its savepoint is rolled back anyway, and every check ran before a row was buffered.
+        # Closed before the savepoint ends, so a refusal (an exception) writes none of them.
+        async with deferred_writes(session, write=not how.dry_run):
+            for plan in plans:
+                if outcomes and time.monotonic() >= how.deadline:
+                    break
+                outcomes.append(plan.problem or await execute_row(session, how, plan))
     except (RowProblem, IntegrityError):
         await savepoint.rollback()  # nothing of the savepoint stays: redo each row on its own
         return await _one_by_one(session, how, plans[: len(outcomes) + 1], tally)
@@ -467,8 +493,9 @@ async def _apply_chunk(
         await savepoint.rollback()
         raise
     if how.dry_run:
-        await savepoint.rollback()  # AC2: a dry run changes nothing
+        await savepoint.rollback()  # AC2: a dry run changes nothing, tag numbers included
     else:
+        await return_unused_tags(session)  # only the saved rows keep numbers, no gap
         await savepoint.commit()
     for plan, outcome in zip(plans, outcomes, strict=False):
         tally.add(plan.number, await _dry_limit(session, how, plan, outcome))

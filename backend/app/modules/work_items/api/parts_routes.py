@@ -580,17 +580,22 @@ def add_parts_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
         "/task-templates",
         summary="Add a task template",
         status_code=status.HTTP_201_CREATED,
+        response_model=TaskTemplateOut,
         dependencies=[
             audited(f"{audit}.task_template_created", object_type=f"{audit}_task_template")
         ],
     )
     async def create_task_template(
-        body: TaskTemplateIn, session: TenantSession, subject: Admin
-    ) -> TaskTemplateOut:
+        body: TaskTemplateIn, session: TenantSession, subject: Admin, idempotency: Idempotency
+    ) -> Response:
         """A name and its tasks (REQ-INC-074)."""
         del subject
-        row = await task_templates.create_template(session, wtype, body.model_dump(mode="json"))
-        return TaskTemplateOut.of(row)
+
+        async def run() -> Created:
+            row = await task_templates.create_template(session, wtype, body.model_dump(mode="json"))
+            return Created(body=TaskTemplateOut.of(row))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.patch(
         "/task-templates/{template_id}",
@@ -770,20 +775,26 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
         "/{record_id}/tasks/from-template",
         summary="Add a task template's tasks",
         status_code=status.HTTP_201_CREATED,
+        response_model=WorkItemTasksOut,
     )
-    async def tasks_from_template(
+    async def tasks_from_template(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,
         body: FromTemplateIn,
         session: TenantSession,
         subject: View,
         request: Request,
-    ) -> WorkItemTasksOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """At the end of the list, each ready to edit (REQ-INC-074 AC1); needs edit."""
-        await task_templates.add_from_template(
-            session, subject, wtype, record_id, body.template_id, source=source_of(request)
-        )
-        rows = await service.tasks(session, subject, wtype, record_id)
-        return _tasks_out(rows, await service.dependencies_of(session, record_id))
+
+        async def run() -> Created:
+            await task_templates.add_from_template(
+                session, subject, wtype, record_id, body.template_id, source=source_of(request)
+            )
+            rows = await service.tasks(session, subject, wtype, record_id)
+            return Created(body=_tasks_out(rows, await service.dependencies_of(session, record_id)))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.put(
         "/{record_id}/tasks/{task_id}/dependencies",

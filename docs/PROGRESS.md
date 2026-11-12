@@ -38,6 +38,21 @@
   list has no row checkboxes or selection bar. It is built in **WP-047a** (SR V1, lane A). Until
   then the list shows no checkboxes at all, rather than dead ones.
 
+### Engineering-practices audit (#444), lane B security items
+
+Branch `fix/security-audit-a` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b.md):
+- [x] Row 4, login CSRF: each browser sign-in bound to its browser (per-sign-in cookie).
+- [ ] Row 3, egress: SaaS values profile with `networkPolicies.egress.enabled` on. **Blocked:**
+  no SaaS values file exists yet (WP-014d builds the SaaS cell); turn egress on there. The
+  `fetch.py` DNS-pin part is another lane's.
+- [x] Row 14, lane B's part: per-address limits on `/auth/login` and `/auth/callback` (fail
+  closed), public branding, domain check, public action links; `organization` limits on
+  `/organization/tenant` and `/organization/settings`. Still open: automation (lane C) and custom
+  fields (lane A) routes, `/auth/me`, `/auth/sessions`, realtime tokens, `/my-tasks`,
+  `/my-reminders`; API keys sharing their owner's budget.
+- [x] Row 15, HSTS on the console and portal nginx responses. Still open from the audit's HSTS
+  row: the chart's port-80 listener with an https redirect.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -323,7 +338,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Scope:** `values-saas.yaml`; External Secrets Operator; cert-manager with DNS-01 wildcard
   certificates; managed PostgreSQL option; admission-time signature verification; per-tenant
   hostnames (WP-017).
-- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite.
+- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite;
+  the egress NetworkPolicy allow-list (`networkPolicies.egress`) is ON in `values-saas.yaml`, with
+  the Kubernetes API addresses set, and the egress check passes on the cell (audit #3, the
+  coordinator 2026-11-12; until then the app-level pins are the protection: IMAP hosts #446,
+  fetch.py WP-057 S1, LDAP hosts lane B's security PR B).
 - **Depends on:** WP-014c, WP-017
 
 ### [ ] WP-015 — Clickable prototype of console and portal
@@ -1858,6 +1877,38 @@ it with no reload (rule c). Not built yet.
   - **Follow-up (WP-049b):** batched inserts for imports (rows written in batches, not one
     savepoint per row). If a 20,000-row run takes more than about 10 minutes on the stack, this
     is done before the polish round, not after QA (coordinator, 2026-11-11).
+  - **S4c result (#434, 2026-11-12): below target.** CI, 20,000 rows: dry run 596 → 425 s, real
+    run 936 → 589 s (29.4 ms a row), against targets of 120 s and 240 s. The coordinator shipped it
+    as it was (correct, reviewed, 35-40% faster) and asked for a profile by phase.
+  - **Profile (2026-11-12):** SQL is about 87% of the time: about 16 statements per created row
+    at about 1 ms each, none slow. The dry run costs as much as the run (it writes, then rolls
+    back).
+  - **Step A (assets only, this PR):** 27,072 → 14,862 statements for a 1,000-row dry run plus
+    run (−45%), about 7.4 per created row, all of them inserts:
+    - #435's per-transaction definitions memo (custom fields): 2 reads a row gone;
+    - the asset limit's advisory lock taken once per transaction (taken again after a rolled-back
+      savepoint, which releases it);
+    - a new asset's INSERT returns its defaults (no SELECT after it);
+    - the product kept for the (sub)transaction;
+    - no scope query for a just-saved asset when the manage grant is scope "all" without a
+      condition (`unrestricted`);
+    - the batch's taken tags and serials in one query (in-batch duplicates still refused);
+    - tag numbers in one block per batch, the unused rest handed back before the savepoint is
+      released. A dry run takes none, a batch with a refused row redoes row by row, and no gap
+      is left (the coordinator's rule; tested).
+    CI (Audit scale run 43189974597, 20,000 rows): real run 228.2 s (target 240 s, met), dry run
+    219.6 s (target 120 s, not yet: Step B).
+  - **Step B (approved by the coordinator and lanes A and C, 2026-11-12):** an import batch's
+    outbox events, field history, audit entries (with their personal rows and sealing queue) and
+    valuations are buffered (`app/shared/db/deferred.py`, `deferred_writes`, import-only) and
+    written as one multi-row INSERT per table, chunked under asyncpg's parameter limit, in
+    foreign-key order with the outbox last, before the batch savepoint is released. The dry run
+    discards the buffer instead of writing it. Rows are built exactly as before (ids, times and
+    entry hashes at the call), so the relay (ORDER BY id) and audit sealing (occurred_at,
+    entry_id) see the same order. A savepoint rolled back inside the block drops its rows. A
+    guard raises if a buffered table is read or written around the buffer while rows wait.
+    Locally: 14,862 → 2,911 statements for 1,000 rows, dry run plus run (about 1.1 per created
+    asset). The CI figure goes in the PR.
   - **Merge and links:** the merge moves every live work-item link of the duplicate, including
     records the merging person may not see (only a count comes back to them), inside the
     merge's own transaction (lane A's note).

@@ -21,6 +21,7 @@ import {
   useConsumable,
   useConsumableActions,
   useConsumableLedger,
+  useTenantSettings,
   useUser,
   type AssetBatch,
   type AssetConsumableDetail,
@@ -41,7 +42,6 @@ import {
   RecordPage,
   ToneTag,
   useAccess,
-  useAppearance,
   useDateTime,
   useLabel,
   usePageCrumbs,
@@ -54,7 +54,8 @@ import { AssetPicker, DepartmentName } from './AssetRelations';
 import { useConsumablesLive, useSiteNames } from './live';
 import { okFooter } from './dialogOk';
 import { problemText } from './problemText';
-import { plainQuantity, unsignedQuantity } from './quantity';
+import { plainQuantity, stockLevelKey, unsignedQuantity } from './quantity';
+import { useMoney } from './money';
 
 const COMMENT_MAX = 2000;
 const RECIPIENTS: AssetRecipientKind[] = ['user', 'department', 'asset'];
@@ -606,12 +607,14 @@ function Stocks({ consumable, loading }: { consumable: AssetConsumableDetail; lo
         {
           key: 'low',
           title: t('assets.stock.state'),
-          render: (_, s) =>
-            s.low ? (
+          render: (_, s) => {
+            const level = stockLevelKey(s);
+            return level === null ? null : (
               <ToneTag tone="warning" testId={`stock-low-${s.id}`}>
-                {t('assets.stock.low')}
+                {t(level)}
               </ToneTag>
-            ) : null,
+            );
+          },
         },
       ]}
     />
@@ -691,7 +694,8 @@ export function ConsumablePage() {
     forRequest === undefined ? undefined : 'allocate',
   );
   useConsumablesLive();
-  const { locale } = useAppearance();
+  // The unit cost is in the base currency (stock.py), shown with it as assets show theirs (F-15).
+  const money = useMoney(useTenantSettings(allowed).data?.base_currency);
   // The path in the top bar and the tab's title: Consumables › Toner 26A (lane C's #367 review).
   usePageCrumbs([
     { label: t('assets.stock.title'), path: '/assets/consumables' },
@@ -719,7 +723,13 @@ export function ConsumablePage() {
       rank,
     }),
   );
-  const low = consumable.stocks.some((s) => s.low);
+  // Below the minimum at any site says so; only "At minimum" when none is below (F-15).
+  const levels = consumable.stocks.map(stockLevelKey);
+  const level = levels.includes('assets.stock.below_minimum')
+    ? 'assets.stock.below_minimum'
+    : levels.includes('assets.stock.low')
+      ? 'assets.stock.low'
+      : null;
   return (
     <RecordPage
       testId="consumable-page"
@@ -737,9 +747,9 @@ export function ConsumablePage() {
               {consumable.batch_tracked && (
                 <ToneTag tone="default">{t('assets.stock.batches')}</ToneTag>
               )}
-              {low && (
+              {level !== null && (
                 <ToneTag tone="warning" testId="consumable-low">
-                  {t('assets.stock.low')}
+                  {t(level)}
                 </ToneTag>
               )}
             </>
@@ -784,12 +794,8 @@ export function ConsumablePage() {
                     {
                       key: 'cost',
                       label: t('assets.stock.unit_cost'),
-                      content:
-                        consumable.unit_cost === null
-                          ? ''
-                          : new Intl.NumberFormat(locale, { minimumFractionDigits: 2 }).format(
-                              Number(consumable.unit_cost),
-                            ),
+                      testId: 'consumable-unit-cost',
+                      content: money(consumable.unit_cost) ?? '',
                       filled: consumable.unit_cost !== null,
                     },
                     {

@@ -19,12 +19,12 @@ sequenceDiagram
     B->>A: GET /api/v1/auth/me
     A-->>B: 401 (no session)
     B->>A: GET /api/v1/auth/login?app=console&returnTo=/tickets
-    A->>V: store one-time state (PKCE verifier, nonce, returnTo) - 10 min
-    A-->>B: 302 to Keycloak /auth (code_challenge, state, nonce)
+    A->>V: store one-time state (PKCE verifier, nonce, returnTo, hash of binding token) - 10 min
+    A-->>B: 302 to Keycloak /auth (code_challenge, state, nonce) + Set-Cookie: binding token
     B->>K: username, then password (identity-first login)
     K-->>B: 302 to /api/v1/auth/callback?code&state
-    B->>A: GET /api/v1/auth/callback
-    A->>V: take state (deleted: single use)
+    B->>A: GET /api/v1/auth/callback (binding cookie)
+    A->>V: take state (deleted: single use); binding token's hash must match
     A->>K: POST /token (code + PKCE verifier + client secret)  [back channel]
     K-->>A: ID, access and refresh tokens
     A->>A: verify ID token (RS256 signature, issuer, audience, expiry, nonce)
@@ -46,6 +46,27 @@ In words:
    client secret), checks the ID token's signature and claims, and works out the tenant.
 6. It creates or updates the user's row in that tenant, stores a **new** session, sets the cookie
    and sends the browser back to the page it started on.
+
+### Login CSRF: the sign-in is bound to its browser
+
+Without a binding, someone could start a sign-in to their own account, stop at Keycloak's redirect
+and send the callback link (`/api/v1/auth/callback?code=…&state=…`) to someone else: that browser
+would be signed in as them, and anything typed there would land in their account. So
+`/auth/login` (and `/auth/account-action`) also set a **login-binding cookie** holding a fresh
+random token, and the pending state keeps only its SHA-256. The callback refuses the sign-in with
+`login_not_this_browser` unless the browser presents the token (compared in constant time), and
+clears the cookie whether the sign-in succeeds or fails.
+
+- **One cookie per sign-in**, named `supportx_login_<16 hex of the state's SHA-256>`
+  (`__Host-supportx_login_…` in production): two tabs signing in at once each keep their own.
+- HttpOnly, SameSite=Lax (Keycloak's redirect back is a top-level GET, so Lax sends it), Secure as
+  the session cookie, Path=/ (the `__Host-` prefix needs it), Max-Age = the state's 10 minutes.
+- **Not bound:** the mobile app's sign-in (ADR-044), whose S256 challenge already binds it to the
+  app and whose system browser may not keep the start's cookies; it also never ends a browser
+  session it passes through. And an admin's SSO test (WP-039), which is opened in a private window
+  by design and creates no session.
+- A sign-in must end on the host it started on. That is the default (console and portal share
+  one host, D3); with separate hosts a cross-host start fails with `login_not_this_browser`.
 
 `returnTo` only accepts same-origin relative paths (`/tickets?id=7`). Anything else (`https://…`,
 `//evil`, backslash tricks, encoded variants) lands on `/`, so the login can never be used as an

@@ -7,9 +7,14 @@ tenant's time zone. They are read once per transaction instead (WP-049b S4c).
 The memo belongs to the innermost transaction open when it is read: a savepoint gets its own,
 which ends with it. A savepoint that rolls back (a dry run, a refused row) can therefore never
 leave behind a memo of something it wrote, such as the first defaults of a new tenant. Only
-configuration is kept, never a validity check of what a person sent (the product, the site
-and the vendor of a save are still checked on every save); the one exception, the asset
+configuration is kept, and the products a save names (a batch names the same few on thousands
+of rows; one retired meanwhile counts as live until the batch ends, about two seconds). The
+site and the vendor of a save are still checked on every save. The other exception, the asset
 limit's count in an import's batch savepoint, is `keep_slot_count`'s, with its reasons.
+
+Unlike app/core/database.py's `transaction_memo`, which lives per session until the outermost
+transaction ends or any savepoint rolls back, this memo is per (sub)transaction: a new
+savepoint starts empty, even one that commits.
 """
 
 from typing import Any

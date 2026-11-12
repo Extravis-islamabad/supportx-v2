@@ -25,7 +25,7 @@ from app.modules.organization.service.file_access import MANAGE
 from app.modules.organization.service.tenants import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
-from app.shared.api.ratelimit import rate_limit
+from app.shared.api.ratelimit import ip_rate_limit, rate_limit
 
 Manage = Annotated[Any, Depends(require_permission(MANAGE))]
 
@@ -231,7 +231,14 @@ async def remove_domain(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-public_router = APIRouter(prefix="/public/domain-check", tags=["organization"])
+# Per client address (audit row 14). The verifier asks once per check; anyone else asking only
+# learns proofs for tokens they already hold. Fails open: the proof is a hash, no lookup, cheap.
+DOMAIN_CHECKS_PER_ADDRESS = 30  # a minute
+public_router = APIRouter(
+    prefix="/public/domain-check",
+    tags=["organization"],
+    dependencies=[Depends(ip_rate_limit("public_domain_check", DOMAIN_CHECKS_PER_ADDRESS))],
+)
 
 
 @public_router.get(
