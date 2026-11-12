@@ -151,6 +151,21 @@ go on top. */ -}}
 {{- end }}
 {{- end }}
 {{- $annotations := merge (deepCopy ($ing.annotations | default dict)) $httpsOnly }}
+{{- /* Your annotations win the merge, so one carried over from an http setup must not
+re-open plain HTTP while TLS is on (lane C). */ -}}
+{{- if $tls.enabled }}
+{{- $eps := index $annotations "traefik.ingress.kubernetes.io/router.entrypoints" | default "" }}
+{{- range $ep := splitList "," $eps }}
+{{- if eq (trim $ep) "web" }}
+{{- fail "routing.ingress.annotations: router.entrypoints names \"web\" with routing.tls on, which serves the app over plain HTTP. Leave it out (the chart sets websecure) or turn routing.tls off" }}
+{{- end }}
+{{- end }}
+{{- range $key := list "nginx.ingress.kubernetes.io/ssl-redirect" "nginx.ingress.kubernetes.io/force-ssl-redirect" }}
+{{- if eq (toString (index $annotations $key)) "false" }}
+{{- fail (printf "routing.ingress.annotations: %s is \"false\" with routing.tls on, which serves the app over plain HTTP. Leave it out (the chart sets it) or turn routing.tls off" $key) }}
+{{- end }}
+{{- end }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

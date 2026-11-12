@@ -77,3 +77,21 @@ def test_tls_off_adds_nothing() -> None:
     ingress = _ingress(out.stdout)
     assert "router.entrypoints" not in ingress
     assert "tls:" not in ingress.split("spec:", 1)[1]
+
+
+@pytest.mark.parametrize(
+    ("cls", "annotation"),
+    [
+        ("traefik", "traefik\\.ingress\\.kubernetes\\.io/router\\.entrypoints=web"),
+        ("traefik", "traefik\\.ingress\\.kubernetes\\.io/router\\.entrypoints=web\\,websecure"),
+        ("nginx", "nginx\\.ingress\\.kubernetes\\.io/ssl-redirect=false"),
+    ],
+)
+def test_an_annotation_reopening_plain_http_is_refused(cls: str, annotation: str) -> None:
+    refused = _render(
+        "--set", f"routing.ingress.className={cls}",
+        "--set-string", f"routing.ingress.annotations.{annotation}",
+        check=False,
+    )  # fmt: skip
+    assert refused.returncode != 0
+    assert "serves the app over plain HTTP" in refused.stderr
