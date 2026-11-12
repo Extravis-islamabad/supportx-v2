@@ -2018,6 +2018,27 @@ class ParentIn(BaseModel):
     parent_id: uuid.UUID | None
 
 
+class CloseLinkedChangesIn(BaseModel):
+    """The closure code the release's changes close with (WP-058b S5a; REQ-REL-052)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    closure_code: str = Field(min_length=1, max_length=40)
+
+
+class LinkedChangeClosedOut(BaseModel):
+    """One linked change: closed, or skipped and why (a code the UI words).
+
+    A change you may not see has no ID, number or title (`not_visible`).
+    """
+
+    id: uuid.UUID | None
+    display_id: str | None
+    closed: bool
+    code: str | None = None
+    params: dict[str, Any] | None = None
+
+
 class ReleaseFollowUpIn(BaseModel):
     """What to make after a failed deployment (REQ-REL-053 AC2)."""
 
@@ -3051,6 +3072,33 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 session, subject, wtype, record_id, body.parent_id, source=source_of(request)
             )
             return ParentOut(parent_id=parent)
+
+        @router.post(
+            "/{record_id}/changes/close",
+            summary="Close the release's changes you may close",
+            responses=CONFLICT,
+        )
+        async def close_release_changes(
+            record_id: uuid.UUID,
+            body: CloseLinkedChangesIn,
+            session: TenantSession,
+            subject: View,
+            request: Request,
+        ) -> list[LinkedChangeClosedOut]:
+            """REQ-REL-052: each change not closed yet closes by its own close, with this code.
+
+            As you: one you may not close (your right, its life cycle, its rules or open work) is
+            skipped with why, never forced. Nothing on the release itself changes.
+            """
+            found = await release_links.close_linked_changes(
+                session,
+                subject,
+                wtype,
+                record_id,
+                closure_code=body.closure_code,
+                source=source_of(request),
+            )
+            return [LinkedChangeClosedOut(**vars(f)) for f in found]
 
         @router.get("/{record_id}/follow-ups", summary="What was made after the release failed")
         async def get_follow_ups(

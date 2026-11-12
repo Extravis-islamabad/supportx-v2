@@ -530,3 +530,82 @@ async def follow_ups(
             )
         )
     return found
+
+
+# --- closing the release's changes (WP-058b S5a; REQ-REL-052) ---------------------------------
+
+
+@dataclass(frozen=True)
+class LinkedChangeClosed:
+    """One linked change the offer tried: closed, or skipped and why (never forced).
+
+    A change you may not see is reported as skipped with no number or title (only that it is).
+    """
+
+    id: uuid.UUID | None
+    display_id: str | None
+    closed: bool
+    code: str | None = None
+    params: dict[str, Any] | None = None
+
+
+async def close_linked_changes(  # noqa: PLR0913 - the release, the code and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    release_id: uuid.UUID,
+    *,
+    closure_code: str,
+    source: Source,
+) -> list[LinkedChangeClosed]:
+    """Close the release's changes that are not closed yet, each by its own close.
+
+    Each goes through lane A's change close (`change_close.close_change`) in its own savepoint:
+    the person's right on that change, its life cycle, closing rules and open work decide, and a
+    refusal is that change's skip with its code, never the others' or the release's.
+    """
+    from app.core.errors import AppError  # noqa: PLC0415 - only the skips need it
+    from app.modules.work_items.service import change_close  # noqa: PLC0415 - cycle
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - cycle
+
+    if wtype.code is not RELEASE.code:
+        raise NotFound(code="work_item_not_found")
+    await items.visible_record(session, subject, wtype, release_id)
+    results: list[LinkedChangeClosed] = []
+    # Plain IDs first: nothing read before a refused savepoint is touched after it.
+    for source_id in [link.source_id for link in await _change_links(session, release_id)]:
+        change = await session.get(WorkItem, source_id, populate_existing=True)
+        if change is None or change.deleted_at is not None:
+            continue
+        if StatusCategory(change.status_category) in FINAL_CATEGORIES:
+            continue
+        seen = await items.may(session, subject, CHANGE, "view", change.id)
+        if not seen:
+            results.append(LinkedChangeClosed(None, None, closed=False, code="not_visible"))
+            continue
+        # Read now: a refused savepoint expires the row, and async code may not reload it.
+        change_id, display_id, version = change.id, change.display_id, change.version
+        try:
+            async with session.begin_nested():
+                await change_close.close_change(
+                    session,
+                    subject,
+                    change_id,
+                    expected_version=version,
+                    closure_code=closure_code,
+                    source=source,
+                )
+        except AppError as refused:
+            first = refused.errors[0] if refused.errors else None
+            results.append(
+                LinkedChangeClosed(
+                    change_id,
+                    display_id,
+                    closed=False,
+                    code=first.code if first is not None else refused.instance_code,
+                    params=dict(first.params) if first is not None else dict(refused.params),
+                )
+            )
+            continue
+        results.append(LinkedChangeClosed(change_id, display_id, closed=True))
+    return results
