@@ -87,3 +87,25 @@ async def test_the_log_pages_newest_first_with_a_cursor_bound_to_its_filters(wor
 
 async def test_only_holders_of_the_right_read_the_log(world: World) -> None:
     assert (await world.call("GET", PATH, world.a, world.a.tech)).status_code == 403
+
+
+async def test_erasure_clears_address_and_device_and_old_entries_go(world: World) -> None:
+    """Lane B's condition 8: ip and device are personal data; entries go after 90 days."""
+    from app.core.tenancy import TenantContext  # noqa: PLC0415 - this test only
+    from app.modules.identity_access.service import sign_in_log  # noqa: PLC0415 - this test only
+
+    kept = await _event(world, world.a, outcome="success", ago=timedelta(days=89))
+    await _event(world, world.a, outcome="success", ago=timedelta(days=91))
+    theirs = await _event(world, world.b, outcome="success", ago=timedelta(days=91))
+    database = world.app.state.db
+    async with database.tenant_session(TenantContext(world.a.tenant)) as session:
+        assert await sign_in_log.purge(session, datetime.now(UTC)) == 1  # only the old one here
+        assert await sign_in_log.forget_person(session, world.a.admin) == 1
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        rows = await conn.fetch("SELECT id, ip, device FROM sign_in_events")
+    finally:
+        await conn.close()
+    found = {r["id"]: (r["ip"], r["device"]) for r in rows}
+    assert found[kept] == (None, None)  # erased: no address, no device
+    assert theirs in found  # the other tenant's old entry is its own purge's business (RLS)
