@@ -3092,8 +3092,12 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             subject: Edit,
             response: Response,
             request: Request,
+            policy: Policy,
         ) -> ReleaseDetailsOut:
-            """Needs If-Match (the release's version). A risk change needs `risk_reason`."""
+            """Needs If-Match (the release's version). A risk change needs `risk_reason`.
+
+            The manager and engineer are the release's roles too: only eligible people.
+            """
             sent = body.model_dump(include=body.model_fields_set - {"risk_reason"})
             view = await service.update_release_details(
                 session,
@@ -3104,6 +3108,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 values=sent,
                 source=source_of(request),
                 risk_reason=body.risk_reason,
+                holders=policy,
             )
             set_etag(response, view.record.version)
             return ReleaseDetailsOut.of(view)

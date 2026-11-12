@@ -58,6 +58,7 @@ from app.modules.identity_access import (
     scope_filter,
     user_contacts,
     user_names,
+    worker_policy,
 )
 from app.modules.organization import (
     default_desk_id,
@@ -3561,6 +3562,7 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
     source: Source,
     risk_reason: str | None = None,
     copying: bool = False,
+    holders: PermissionHolders | None = None,
 ) -> ReleaseDetailsView:
     """Change the fields you send (If-Match on the record). Unchanged input: no new version.
 
@@ -3596,6 +3598,17 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
     if row is None:
         row = spec.model(tenant_id=tenant, work_item_id=record.id)
         session.add(row)
+    # A release's manager and engineer are its roles too: checked as roles, both written.
+    role_problems, role_params, role_changes = await _mirror_details_to_roles(
+        # Every path checks as the API does (a move's fields have no request's policy).
+        session,
+        wtype,
+        record.id,
+        changed,
+        None if copying else (holders or worker_policy()),
+    )
+    if role_problems:
+        raise _errors(role_problems, **role_params)
     for name, value in changed.items():
         setattr(row, name, value)
     await session.flush()
@@ -3612,7 +3625,10 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
         record_id=updated.id,
         version=updated.version,
         kind="updated",
-        changes=[Change(n, _json(current[n]), _json(v)) for n, v in changed.items()],
+        changes=[
+            *(Change(n, _json(current[n]), _json(v)) for n, v in changed.items()),
+            *role_changes,
+        ],
         source=source,
         reason=reason,
     )
@@ -3782,6 +3798,111 @@ async def _holder_problems(
     return problems + people, params
 
 
+async def _replace_holders(  # noqa: PLR0913, PLR0917 - the record's role and its holders
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    role: str,
+    users: Sequence[uuid.UUID],
+    groups: Sequence[uuid.UUID],
+) -> None:
+    """`role` is held by exactly these people and groups now (no checks: the callers make them)."""
+    await session.execute(
+        delete(WorkItemRoleHolder).where(
+            WorkItemRoleHolder.work_item_id == record_id, WorkItemRoleHolder.role == role
+        )
+    )
+    tenant = config.tenant_of(session)
+    session.add_all(
+        [
+            WorkItemRoleHolder(
+                tenant_id=tenant, work_item_id=record_id, type=wtype.code, role=role, user_id=u
+            )
+            for u in users
+        ]
+        + [
+            WorkItemRoleHolder(
+                tenant_id=tenant, work_item_id=record_id, type=wtype.code, role=role, group_id=g
+            )
+            for g in groups
+        ]
+    )
+    await session.flush()
+
+
+async def _mirror_role_to_details(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    role: str,
+    users: Sequence[uuid.UUID],
+) -> list[Change]:
+    """A release's manager or engineer role written to its own field too (same transaction).
+
+    The field holds one person: the role's person, or none when a group (or nobody) holds it.
+    Returns the field's change for the same history entry.
+    """
+    name = release_rules.PEOPLE_ROLES.get(role)
+    if wtype.code is not WorkItemTypeCode.RELEASE or name is None:
+        return []
+    spec = _spec(wtype)
+    row = await _details_row(session, spec, record_id)
+    old = getattr(row, name) if row is not None else None
+    new = users[0] if len(users) == 1 else None
+    if old == new:
+        return []
+    if row is None:
+        row = spec.model(tenant_id=config.tenant_of(session), work_item_id=record_id)
+        session.add(row)
+    setattr(row, name, new)
+    await session.flush()
+    return [Change(name, _json(old), _json(new))]
+
+
+async def _mirror_details_to_roles(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    changed: Mapping[str, Any],
+    holders: PermissionHolders | None,
+) -> tuple[list[tuple[str, str]], dict[str, Any], list[Change]]:
+    """A release's manager or engineer field written to its role too, with the role's own checks.
+
+    Returns the problems (on the field), their params, and the roles' changes for history.
+    `holders` None: a copy of another release's people, already held there, not checked again.
+    """
+    if wtype.code is not WorkItemTypeCode.RELEASE:
+        return [], {}, []
+    by_field = {f: r for r, f in release_rules.PEOPLE_ROLES.items() if f in changed}
+    if not by_field:
+        return [], {}, []
+    definitions = {d.code: d for d in await _role_defs(session, wtype)}
+    held = await _holders_of(session, record_id)
+    problems: list[tuple[str, str]] = []
+    params: dict[str, Any] = {}
+    changes: list[Change] = []
+    for name, role in by_field.items():
+        definition = definitions.get(role)
+        value = changed[name]
+        users = [value] if value is not None else []
+        if definition is not None and holders is not None and users:
+            found, found_params = await _person_holder_problems(session, holders, definition, users)
+            problems += [(name, code) for _field, code in found]
+            params |= found_params
+        if problems:
+            continue
+        before = held.get(role, ([], []))
+        await _replace_holders(session, wtype, record_id, role, users, [])
+        changes.append(
+            Change(
+                f"role.{role}",
+                {"users": [str(u) for u in before[0]], "groups": [str(g) for g in before[1]]},
+                {"users": [str(u) for u in users], "groups": []},
+            )
+        )
+    return problems, params, changes
+
+
 async def set_role(  # noqa: PLR0913 - the change and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -3817,27 +3938,9 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
         raise _errors(problems, **params)
     if (set(users), set(groups)) == (set(held[0]), set(held[1])):
         return await roles_of(session, subject, wtype, record.id)
-    await session.execute(
-        delete(WorkItemRoleHolder).where(
-            WorkItemRoleHolder.work_item_id == record.id, WorkItemRoleHolder.role == role
-        )
-    )
-    tenant = config.tenant_of(session)
-    session.add_all(
-        [
-            WorkItemRoleHolder(
-                tenant_id=tenant, work_item_id=record.id, type=wtype.code, role=role, user_id=u
-            )
-            for u in users
-        ]
-        + [
-            WorkItemRoleHolder(
-                tenant_id=tenant, work_item_id=record.id, type=wtype.code, role=role, group_id=g
-            )
-            for g in groups
-        ]
-    )
-    await session.flush()
+    await _replace_holders(session, wtype, record.id, role, users, groups)
+    # A release's manager and engineer are its own fields too: both change together.
+    mirrored = await _mirror_role_to_details(session, wtype, record.id, role, users)
     updated = await _update(session, record, expected_version, {})
     await record_changes(
         session,
@@ -3850,7 +3953,8 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
                 f"role.{role}",
                 {"users": [str(u) for u in held[0]], "groups": [str(g) for g in held[1]]},
                 {"users": [str(u) for u in users], "groups": [str(g) for g in groups]},
-            )
+            ),
+            *mirrored,
         ],
         source=source,
     )
