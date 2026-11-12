@@ -14,11 +14,22 @@ NS=kube-system
 LOCAL_IP="${NODE_LOCAL_DNS_IP:-169.254.20.10}"
 VALUES="$HERE/../helm/supportx/values.yaml"
 
-image="$(awk '$1 == "nodeLocalDns:" {print $2; exit}' "$VALUES")"
-[ -n "$image" ] || { echo "node-local-dns: no images.nodeLocalDns in $VALUES" >&2; exit 1; }
-if [ -n "${IMAGE_REGISTRY:-}" ]; then
-  image="$IMAGE_REGISTRY/${image#*/}"
-fi
+# An image from values.yaml's images block, moved to IMAGE_REGISTRY when set. Only a first path
+# part that names a registry host (it has a dot or a port) is replaced: valkey/valkey keeps it.
+pinned() {  # pinned <images key>
+  local ref first
+  ref="$(awk -v key="$1:" '$1 == "images:" {inside = 1; next}
+    inside && /^[^ #]/ {exit}
+    inside && $1 == key {print $2; exit}' "$VALUES")"
+  [ -n "$ref" ] || { echo "node-local-dns: no images.$1 in $VALUES" >&2; return 1; }
+  if [ -n "${IMAGE_REGISTRY:-}" ]; then
+    first="${ref%%/*}"
+    case "$first" in *.* | *:*) ref="${ref#*/}" ;; esac
+    ref="$IMAGE_REGISTRY/$ref"
+  fi
+  echo "$ref"
+}
+image="$(pinned nodeLocalDns)"
 dns_ip="$(kubectl -n "$NS" get svc kube-dns -o jsonpath='{.spec.clusterIP}')"
 [ -n "$dns_ip" ] || { echo "node-local-dns: the kube-dns Service has no address" >&2; exit 1; }
 
@@ -36,10 +47,7 @@ fi
 
 # A pod's lookup now goes through its node's cache: resolve a cluster name from a throwaway pod.
 # The cache image has no shell; Valkey's image (already pinned and mirrored) has getent.
-probe_image="$(awk '$1 == "valkey:" {print $2; exit}' "$VALUES")"
-if [ -n "${IMAGE_REGISTRY:-}" ]; then
-  probe_image="$IMAGE_REGISTRY/${probe_image#*/}"
-fi
+probe_image="$(pinned valkey)"
 if ! kubectl -n "$NS" run "node-local-dns-probe-$RANDOM" --rm -i --restart=Never --quiet \
   --image="$probe_image" --command -- getent hosts kubernetes.default.svc.cluster.local; then
   echo "node-local-dns: a pod could not resolve kubernetes.default through the cache" >&2
