@@ -503,7 +503,7 @@ async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's v
     changes: Mapping[str, Any],
     source: Source,
 ) -> None:
-    """Close a staged record (a change) by its own listed move that lands in closed (REQ-CHG-101).
+    """Close a staged record by its own listed move that lands in closed (REQ-CHG-101, REL-057).
 
     Its life cycle, closure rules and children decide, as for one change: the move the record
     page would offer, with the code; none from where it is is a skip that says so. A change
