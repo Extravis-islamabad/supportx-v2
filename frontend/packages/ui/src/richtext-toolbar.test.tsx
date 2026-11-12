@@ -82,3 +82,14 @@ describe('rich-text toolbar (QA10V-21)', () => {
     expect(screen.queryByTestId('rt-align-menu')).toBeNull();
   });
 });
+
+describe('the requester toolbar (QA 2026-11-12 F-09)', () => {
+  it('basic keeps text, lists, links and a quote, and offers no code, table or line', async () => {
+    renderUi(<RichTextField label="Details" basic testId="basic" />);
+    expect(await screen.findByTestId('rt-bold')).toBeDefined();
+    expect(screen.getByTestId('rt-quote')).toBeDefined();
+    for (const tool of ['rt-code', 'rt-code-block', 'rt-table', 'rt-hr']) {
+      expect(screen.queryByTestId(tool)).toBeNull();
+    }
+  });
+});

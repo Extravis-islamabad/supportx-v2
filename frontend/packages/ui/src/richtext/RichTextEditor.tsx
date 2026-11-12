@@ -95,6 +95,7 @@ export default function RichTextEditor({
   autoFocus = false,
   imageOwnerId,
   callouts = false,
+  basic = false,
   extraTools,
 }: RichTextFieldProps) {
   const t = useLabel();
@@ -212,6 +213,7 @@ export default function RichTextEditor({
           editor={editor}
           templates={templates}
           callouts={callouts}
+          basic={basic}
           extraTools={extraTools}
           onManageTemplates={onManageTemplates}
           fullScreen={fullScreen}
@@ -379,6 +381,7 @@ type HeadingChoice = 'paragraph' | '2' | '3' | '4';
 function Toolbar({
   editor,
   callouts,
+  basic,
   extraTools,
   templates,
   onManageTemplates,
@@ -387,6 +390,7 @@ function Toolbar({
 }: {
   editor: Editor;
   callouts: boolean;
+  basic: boolean;
   extraTools: RichTextFieldProps['extraTools'];
   templates: RichTextTemplate[] | undefined;
   onManageTemplates: (() => void) | undefined;
@@ -527,7 +531,9 @@ function Toolbar({
       testId: 'rt-indent',
     },
   ];
-  const blocks: ToolSpec[] = [
+  // A requester's toolbar keeps only the quote among the blocks (F-09).
+  const BASIC_BLOCKS = new Set(['rt-quote']);
+  const allBlocks: ToolSpec[] = [
     {
       title: t('richtext.quote'),
       icon: <MessageOutlined />,
@@ -555,6 +561,7 @@ function Toolbar({
       testId: 'rt-table',
     },
   ];
+  const blocks = basic ? allBlocks.filter((b) => BASIC_BLOCKS.has(b.testId)) : allBlocks;
   return (
     <Flex
       ref={bar}
@@ -635,13 +642,15 @@ function Toolbar({
         onClick={() => chain().toggleStrike().run()}
         testId="rt-strike"
       />
-      <Tool
-        title={t('richtext.code')}
-        icon={<CodeOutlined />}
-        active={state.code}
-        onClick={() => chain().toggleCode().run()}
-        testId="rt-code"
-      />
+      {!basic && (
+        <Tool
+          title={t('richtext.code')}
+          icon={<CodeOutlined />}
+          active={state.code}
+          onClick={() => chain().toggleCode().run()}
+          testId="rt-code"
+        />
+      )}
       <Dropdown
         trigger={['click']}
         menu={{

@@ -38,6 +38,11 @@ export interface RichTextFieldProps {
   /** Offer callout boxes (info, warning, tip, note) in the toolbar (knowledge articles). */
   callouts?: boolean;
   /**
+   * A requester's toolbar (the portal, QA 2026-11-12 F-09): text, lists, links, a quote; no code,
+   * table or horizontal line.
+   */
+  basic?: boolean;
+  /**
    * More toolbar controls from the screen (the knowledge picker, D-121). They get `insert`, which
    * puts sanitised HTML at the editor's own caret; the editor keeps its state and logic.
    */
