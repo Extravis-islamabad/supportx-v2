@@ -14,6 +14,17 @@ cd frontend && pnpm --filter @supportx/console dev  # console (terminal 4)
 make e2e
 ```
 
+**Smoke suite (`@smoke`, about 5 minutes).** One test per critical journey carries `@smoke` at
+the end of its title (a Playwright tag): sign-in, sign-in security, incident create
+(`incidents.spec.ts`) and resolve (`closing.spec.ts`), a portal service request, live updates,
+the realtime permission cut, files, API keys, a role change (`roles.spec.ts`), audit, read-only
+mode and knowledge search. `make e2e-smoke` runs only these against the same running stack. In
+CI, the `e2e smoke (@smoke journeys)` job of the Stack smoke workflow runs them nightly and on a
+manual run with `suite: smoke` (which skips the three full shards); it is never a required check
+and never runs on a pull request or in the merge queue. Its summary lists the total and each
+test's time. Tag a test only in place of the one covering the same journey:
+`backend/tests/test_ci_triggers.py` keeps the suite between 12 and 16 tests.
+
 | Spec                        | Journey                                                                                                                                                                                                                                                                                                                                      |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `login.spec.ts`             | Keycloak login, HttpOnly session cookie, logout ends both sessions                                                                                                                                                                                                                                                                           |
