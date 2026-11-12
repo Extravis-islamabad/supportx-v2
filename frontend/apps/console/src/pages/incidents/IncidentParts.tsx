@@ -377,19 +377,21 @@ export function IncidentTasks({
  * hours its calendar counts (said above the figures, AC2). Live: the record's changes refresh it
  * through its channel, and open time is fetched again each minute.
  */
-export function IncidentTime({ item, base = 'incidents' }: { item: Incident; base?: PartsBase }) {
+export function IncidentTime({ item }: { item: Incident }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const duration = useDuration();
   const queryClient = useQueryClient();
-  const found = useTimeAnalysis(item.id, true, base);
-  const catalogue = useIncidentCatalogue(base === 'incidents');
+  // Incidents only for now: the wording and the status names are the incident's.
+  const found = useTimeAnalysis(item.id);
+  const catalogue = useIncidentCatalogue();
   const groups = useUnits('groups');
   useRecordChannel('wi', item.id, () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.timeAnalysis(item.id) });
   });
   const data = found.data;
   const people = usePeople((data?.by_technician ?? []).map((row) => row.key));
+  if (found.isError) return <EmptyText>{t('incidents.time.failed')}</EmptyText>;
   if (data === undefined) return <EmptyText>{t('shell.loading')}</EmptyText>;
   const minutes = (seconds: number) => duration(Math.round(seconds / 60));
   const groupName = (id: string | null) =>
@@ -403,23 +405,25 @@ export function IncidentTime({ item, base = 'incidents' }: { item: Incident; bas
     title: string,
     rows: { key: string | null; seconds: number }[],
     name: (key: string | null) => string,
-  ) => (
-    <Descriptions
-      size="small"
-      column={1}
-      title={title}
-      data-testid={testId}
-      items={
-        rows.length === 0
-          ? [{ key: 'none', label: t('incidents.time.none'), children: '' }]
-          : rows.map((row) => ({
-              key: row.key ?? 'none',
-              label: name(row.key),
-              children: minutes(row.seconds),
-            }))
-      }
-    />
-  );
+  ) =>
+    rows.length === 0 ? (
+      <Space direction="vertical" size={4} data-testid={testId}>
+        <Typography.Text strong>{title}</Typography.Text>
+        <EmptyText>{t('incidents.time.none')}</EmptyText>
+      </Space>
+    ) : (
+      <Descriptions
+        size="small"
+        column={1}
+        title={title}
+        data-testid={testId}
+        items={rows.map((row) => ({
+          key: row.key ?? 'none',
+          label: name(row.key),
+          children: minutes(row.seconds),
+        }))}
+      />
+    );
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }} data-testid="inc-time">
       <Typography.Text type="secondary" data-testid="inc-time-hours">

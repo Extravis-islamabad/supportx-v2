@@ -225,6 +225,16 @@ describe('Incident parts (WP-020e)', () => {
     expect(screen.getByTestId('inc-time-technician').textContent).toContain('Nobody');
   });
 
+  it("REQ-INC-071 (lane C's #432 review): a failed time analysis says so, never Loading for ever", async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'time');
+    api({ [`GET ${PATH}/time-analysis`]: { status: 500, body: {} } });
+    render(<App />);
+    expect(
+      await screen.findByText('The time analysis could not be loaded. Try again later.'),
+    ).toBeTruthy();
+  });
+
   it('REQ-INC-084 AC3: a link to a record you cannot see shows without its ID or subject', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     rememberTab(SESSION_USER, 'links');

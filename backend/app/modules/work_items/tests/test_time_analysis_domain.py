@@ -113,3 +113,21 @@ def test_no_changes_means_the_current_values_all_along() -> None:
         "group_id": None,
         "technician_id": None,
     }
+
+
+def test_a_closed_spell_never_grows_and_a_reopen_counts_again() -> None:
+    steps = [
+        status(1, "new", "closed"),
+        status(5, "closed", "in_progress"),  # reopened
+        status(6, "in_progress", "closed"),
+    ]
+    found = analyse(
+        T0,
+        hours(100),  # closed for days since
+        initial_values({"status": "closed"}, steps),
+        steps,
+        category=CATEGORIES.__getitem__,
+        measure=calendar,
+    )
+    assert found.by_status == {"new": 3600, "in_progress": 3600}
+    assert found.open_seconds == 2 * 3600

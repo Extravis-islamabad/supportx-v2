@@ -5,9 +5,10 @@ every later change of those, oldest first) is cut into segments, each measured b
 clock (business hours from the record's calendar, or calendar hours). Reopening only adds
 segments, so earlier time is never reset (AC3).
 
-Open time is the time in an open or paused status; group and technician time count only while
-the record is open (after closing nobody is working on it). Paused time is the time in a paused
-status (AC1).
+Open time is the time in an open or paused status (paused included); group and technician time
+count only while the record is open (after closing nobody is working on it). Paused time is the
+time in a paused status (AC1). A closed or cancelled spell is not counted at all: it would only
+grow each day the record stays closed (lane C's #432 review); reopening counts again.
 """
 
 from collections import defaultdict
@@ -15,7 +16,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from app.modules.work_items.domain.lifecycle import StatusCategory
+from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory
 
 TRACKED = ("status", "group_id", "technician_id")
 OPEN = frozenset({StatusCategory.OPEN, StatusCategory.PAUSED})
@@ -61,10 +62,11 @@ def analyse(  # noqa: PLR0913 - the timeline and how to read and measure it, exp
     cursor = start
     for at, change in [*((min(max(s.at, start), end), s) for s in ordered), (end, None)]:
         if at > cursor and state["status"] is not None:
-            seconds = measure(cursor, at)
             status = str(state["status"])
-            by_status[status] += seconds
             kind = category(status)
+            seconds = 0 if kind in FINAL_CATEGORIES else measure(cursor, at)
+            if seconds:
+                by_status[status] += seconds
             if kind in OPEN:
                 open_seconds += seconds
                 by_group[state["group_id"]] += seconds
