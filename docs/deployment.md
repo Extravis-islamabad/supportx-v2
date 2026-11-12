@@ -167,6 +167,12 @@ hex values and never overwrites an existing one (its passwords are already insid
   copy at once, though. The file-store backup (the offsite rclone copy, audit gap #1) is still
   needed, as it is with an external store.
 
+  **Upgrade note for existing HA installs.** `values-ha.yaml` now turns the replicated store
+  on, so an HA release upgraded with it starts the new store **empty**: follow the steps below in
+  a maintenance window. To upgrade the rest first, keep the old store with
+  `--set objectStorage.seaweedfs.ha.enabled=false`. The preflight then warns that the
+  single-copy store runs under HA, and `HA_PREFLIGHT_STRICT=1` fails, until the move is done.
+
   **Moving an existing single-copy install to HA.** The chart does not move files from the
   single SeaweedFS pod to the replicated topology: the two are different stores (the filers'
   metadata moves into PostgreSQL), and switching `objectStorage.seaweedfs.ha.enabled` on an

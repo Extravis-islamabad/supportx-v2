@@ -99,8 +99,11 @@ echo "restored rows: $rows"
 if [ -n "$filer_entries" ]; then
   restored="$(sql "${RESTORE}-1" "SELECT count(*) FROM filemeta" "$FILER_DB" || true)"
   echo "restored SeaweedFS filer metadata ($FILER_DB): ${restored:-none} entries"
-  if [ -z "$restored" ] || [ "$restored" -eq 0 ]; then
-    echo "the filers' metadata database $FILER_DB was not restored with its entries"; exit 1
+  # At least what it held before the chosen moment (counted before it was chosen): the filers
+  # only add entries meanwhile (WAL archives), so fewer means entries were lost (lane C).
+  if [ -z "$restored" ] || [ "$restored" -lt "$filer_entries" ]; then
+    echo "the filers' metadata database $FILER_DB was not restored with its entries" \
+      "(${restored:-none} restored, $filer_entries before the moment)"; exit 1
   fi
 fi
 echo "restore drill passed: a backup restored to a chosen moment, nothing after it"

@@ -163,7 +163,11 @@ else
         | select(startswith("-defaultReplication=")) | ltrimstr("-defaultReplication=")]
       | first // "none"' | sort -u)"
     case "$replication" in
-      001|002|010|011|100|101|110|200) echo "ok: SeaweedFS default replication $replication" ;;
+      001|002) echo "ok: SeaweedFS default replication $replication" ;;
+      010|011|100|101|110|200)
+        warn "SeaweedFS masters run with default replication $replication: it places copies by" \
+          "rack or data centre, which the chart does not label (one rack, one data centre), so new" \
+          "volumes cannot be placed. Use 001 or 002 (objectStorage.seaweedfs.ha.replication)" ;;
       *) warn "SeaweedFS masters run with default replication '$(echo "$replication" | paste -sd, -)':" \
            "000 (or none) keeps one copy of each file, so a lost volume server loses files. Set" \
            "objectStorage.seaweedfs.ha.replication to 001 (values-ha.yaml)" ;;
