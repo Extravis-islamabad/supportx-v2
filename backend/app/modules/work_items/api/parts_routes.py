@@ -41,6 +41,7 @@ from app.modules.work_items.service import parts as service
 from app.modules.work_items.service import task_templates, timers
 from app.shared.api.concurrency import ExpectedVersion, etag_for, set_etag
 from app.shared.api.idempotency import Created, Idempotency
+from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
 CONFLICT_409: dict[int | str, dict[str, object]] = {
@@ -531,7 +532,10 @@ async def all_my_tasks(
     ]
 
 
-my_timers_router = APIRouter(prefix="/my-timers", tags=["work_items"])
+# Rate limited like every route (#445's guard, audit #14).
+my_timers_router = APIRouter(
+    prefix="/my-timers", tags=["work_items"], dependencies=[Depends(rate_limit("work_items"))]
+)
 
 
 @my_timers_router.get("", summary="Your running timers on every type")
