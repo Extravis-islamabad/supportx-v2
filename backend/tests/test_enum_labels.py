@@ -44,6 +44,17 @@ ENUM_PREFIXES: dict[str, str] = {
     "AssetDepreciationMethod": "asset_depreciation",
     # The asset list's built-in views (WP-049b s4a)
     "AssetView": "asset_view",
+    # Bulk jobs, merges and imports (WP-049b S4b)
+    "AssetBulkAction": "asset_bulk_action",
+    "AssetBulkStatus": "asset_bulk_status",
+    "AssetBulkOutcome": "asset_bulk_outcome",
+    "AssetBulkChanges.holder_kind": "asset_holder_kind",
+    "AssetImportStatus": "asset_import_status",
+    "AssetImportOut.file_format": "people_import_format",
+    "ImportKind": "asset_import_kind",
+    "ImportMatch": "asset_import_match",
+    "ImportMode": "asset_import_mode",
+    "MergeSide": "asset_merge_side",
     # Asset financials (WP-049b s2)
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",

@@ -442,7 +442,9 @@ describe('console: assets', () => {
     expect(call?.headers.get('Idempotency-Key')).toBeTruthy();
   });
 
-  it('moves selected assets at once and lists the ones that could not move', async () => {
+  it('moves selected assets at once as a job and lists the ones that could not move', async () => {
+    // WP-049b S4b: the bulk move runs as a background job (REQ-AST-051), not the old 100-asset
+    // call; each asset that could not move is listed with its reason.
     const other: AssetRecord = {
       ...asset,
       id: '01900000-0000-7000-8000-00000000d002',
@@ -450,38 +452,48 @@ describe('console: assets', () => {
       tag: 'AST-8',
       version: 1,
     };
+    const job = {
+      id: '01900000-0000-7000-8000-0000000b1002',
+      action: 'move',
+      status: 'done',
+      total: 2,
+      processed: 2,
+      done_count: 1,
+      skipped_count: 1,
+      results: [
+        { id: asset.id, tag: 'AST-7', outcome: 'done', params: {} },
+        { id: other.id, tag: 'AST-8', outcome: 'skipped', code: 'version_conflict', params: {} },
+      ],
+      created_at: '2026-11-11T00:00:00Z',
+      started_at: null,
+      finished_at: null,
+    };
     window.history.pushState({}, '', '/assets');
     const fake = assetsApi({
       'GET /api/v1/assets': { body: page([asset, other]) },
-      'POST /api/v1/assets/bulk-moves': {
-        body: [
-          { asset_id: asset.id, moved: true, code: null, version: 4 },
-          { asset_id: other.id, moved: false, code: 'version_conflict', version: null },
-        ],
-      },
+      'POST /api/v1/assets/bulk-jobs': { status: 202, body: { ...job, status: 'queued' } },
+      [`GET /api/v1/assets/bulk-jobs/${job.id}`]: { body: job },
     });
     restore = fake.restore;
     render(<App />);
     await screen.findByTestId(`asset-row-${asset.id}`);
     for (const box of screen.getAllByRole('checkbox').slice(1)) fireEvent.click(box);
     expect((await screen.findByTestId('assets-selection')).textContent).toContain('2 selected');
-    fireEvent.click(screen.getByTestId('assets-bulk-move-open'));
-    const dialog = await screen.findByTestId('asset-bulk-move-dialog');
+    fireEvent.click(screen.getByTestId('assets-bulk-open'));
+    const dialog = await screen.findByTestId('asset-bulk-dialog');
+    fireEvent.click(within(dialog).getByText('Change state'));
     fireEvent.mouseDown(within(dialog).getByRole('combobox'));
     fireEvent.click(await screen.findByTitle('In stock'));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Change state' }));
-    expect((await within(dialog).findByTestId('asset-bulk-move-partial')).textContent).toContain(
-      '1 moved; 1 could not move',
-    );
-    expect(within(dialog).getByText('Old desktop')).toBeTruthy();
-    const [call] = fake.find('POST', '/api/v1/assets/bulk-moves');
+    fireEvent.click(screen.getByTestId('asset-bulk-start'));
+    await waitFor(() => {
+      expect(screen.getByTestId('asset-bulk-summary').textContent).toBe('Done: 1. Skipped: 1.');
+    });
+    expect(screen.getByTestId('asset-bulk-skipped').textContent).toContain('AST-8');
+    const [call] = fake.find('POST', '/api/v1/assets/bulk-jobs');
     expect(call?.body).toEqual({
-      items: [
-        { asset_id: asset.id, version: 3 },
-        { asset_id: other.id, version: 1 },
-      ],
-      to_state_id: state.id,
-      reason: null,
+      action: 'move',
+      asset_ids: [asset.id, other.id],
+      changes: { to_state_id: state.id },
     });
   });
 
@@ -773,7 +785,7 @@ describe('console: assets', () => {
     // One control row: the selection bar takes the toolbar's place while rows are selected.
     const bar = await screen.findByTestId('assets-filterbar-selection');
     expect(within(bar).getByTestId('assets-selection').textContent).toContain('1 selected');
-    expect(within(bar).getByTestId('assets-bulk-move-open')).toBeTruthy();
+    expect(within(bar).getByTestId('assets-bulk-open')).toBeTruthy();
     expect(within(bar).getByTestId('assets-make-loanable')).toBeTruthy();
     expect(screen.queryByTestId('assets-filterbar')).toBeNull();
     expect(screen.queryByTestId('assets-search')).toBeNull();

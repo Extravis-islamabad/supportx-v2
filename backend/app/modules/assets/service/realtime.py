@@ -333,6 +333,30 @@ async def _label_changed(envelope: EventEnvelope, session: AsyncSession) -> Real
     )
 
 
+# WP-049b S4b: a bulk job's or an import's progress, to the person who asked for it. The assets
+# a job changes reach the lists through their own `assets.asset.changed` (coalesced).
+BULK_PROGRESS = "assets.bulk_progress"
+IMPORT_PROGRESS = "assets.import_progress"
+
+
+async def _job_progressed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A bulk job or an import moved on: its requester's screens refresh. IDs only."""
+    del session
+    payload = envelope.payload
+    person = uuid.UUID(str(payload["requested_by"]))
+    bulk = envelope.event_type == "assets.bulk_job.progressed"
+    job_id = str(payload["job_id"] if bulk else payload["import_id"])
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, person),
+                BULK_PROGRESS if bulk else IMPORT_PROGRESS,
+                ids=(job_id,),
+            )
+        ]
+    )
+
+
 async def _scan_recorded(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A scan of an asset was recorded: its Scans tab refreshes. IDs only."""
     del session
@@ -389,6 +413,7 @@ ROUTES = [
     RealtimeRoute(("assets.audit.changed", "assets.audit.item_changed"), _audit_changed),
     RealtimeRoute(("assets.label.requested", "assets.label.printed"), _label_changed),
     RealtimeRoute(("assets.scan.recorded",), _scan_recorded),
+    RealtimeRoute(("assets.bulk_job.progressed", "assets.import.progressed"), _job_progressed),
     # The overdue-scan rule is set-up, like the catalogue: the settings screen refetches.
     RealtimeRoute(("assets.overdue_rule.changed",), _catalogue_changed),
     RealtimeRoute(tuple(_PARTS), _part_changed),

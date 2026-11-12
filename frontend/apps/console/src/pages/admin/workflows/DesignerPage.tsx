@@ -9,6 +9,7 @@ import {
   useNodePorts,
   useNodeTypes,
   usePublishWorkflow,
+  useRunAs,
   useSaveDraft,
   useWorkflow,
   type NodeTypeOut,
@@ -68,6 +69,8 @@ import { DRAG_TYPE, Palette } from './Palette';
 import { LinkDetails, NodeDetails, Outline, type NodeProblem } from './SidePanels';
 import { TestPanel, type TestHighlight } from './TestPanel';
 import { VariablesPanel } from './VariablesPanel';
+import { RunAsPanel } from './RunAsPanel';
+import { runAsWarning } from './runAs';
 import { VersionsPanel } from './Versions';
 import { WorkflowState } from './WorkflowsPage';
 
@@ -134,7 +137,8 @@ export function DesignerPage() {
 
 function Designer({ workflow }: { workflow: WorkflowOut }) {
   const t = useLabel();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
+  const runAs = useRunAs(workflow.id);
   const { token } = theme.useToken();
   const { direction, mode } = useAppearance();
   const rtl = direction === 'rtl';
@@ -223,6 +227,8 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
 
   useListChannel('workflows', (m) => {
     if (m.type !== 'workflows.changed' || !m.ids.includes(workflow.id)) return;
+    // A role given or taken keeps the workflow's version: its run-as refreshes on any change.
+    void queryClient.invalidateQueries({ queryKey: ['workflows', 'run-as', workflow.id] });
     if ((m.version ?? 0) <= workflow.version) return; // our own save, already here
     if (dirty) setStale(true);
     else void queryClient.invalidateQueries({ queryKey: ['workflows', 'detail', workflow.id] });
@@ -421,7 +427,26 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
       },
     );
   };
+  // Steps that change the record act as the run-as identity: without a role they would fail on
+  // every record, so the canvas says so and publishing asks first (never blocks: the admin may
+  // give the role right after the first publish makes the identity).
+  const warning = runAsWarning(
+    live.nodes.map((n) => n.data.nodeType),
+    runAs.data?.made === true ? runAs.data.roles : undefined,
+  );
   const doPublish = () => {
+    if (warning !== undefined) {
+      modal.confirm({
+        title: t('workflows.run_as.publish_title'),
+        content: t(warning),
+        okText: t('workflows.run_as.publish_anyway'),
+        onOk: publishNow,
+      });
+      return;
+    }
+    publishNow();
+  };
+  const publishNow = () => {
     publish.mutate(
       { id: workflow.id, version: workflow.version },
       {
@@ -570,6 +595,11 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
       label: t('workflows.versions.tab'),
       children: <VersionsPanel workflow={workflow} />,
     },
+    {
+      key: 'run_as',
+      label: t('workflows.run_as.tab'),
+      children: <RunAsPanel workflow={workflow} readOnly={readOnly} />,
+    },
   ];
 
   const palette = (
@@ -675,6 +705,25 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
           </div>
         </Flex>
       </section>
+      {warning !== undefined && (
+        <Alert
+          type="warning"
+          showIcon
+          message={t(warning)}
+          action={
+            <Button
+              size="small"
+              onClick={() => {
+                setTab('run_as');
+              }}
+              data-testid="designer-run-as-open"
+            >
+              {t('workflows.run_as.tab')}
+            </Button>
+          }
+          data-testid="designer-run-as-warning"
+        />
+      )}
       {stale && (
         <Alert
           type="warning"

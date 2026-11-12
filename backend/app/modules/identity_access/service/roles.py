@@ -387,6 +387,54 @@ async def role_allowed_for_service(
         raise _refuse_for_service()
 
 
+@dataclass(frozen=True)
+class ServiceRole:
+    """A role as a service identity's screen shows it: system roles by their key (labelled)."""
+
+    id: uuid.UUID
+    key: str
+    name: str
+    system: bool
+
+
+def _service_role(role: Role) -> ServiceRole:
+    return ServiceRole(role.id, role.key, role.name, role.is_system)
+
+
+async def roles_for_service(
+    session: AsyncSession, policy: PolicyService, subject: Subject | None = None
+) -> list[ServiceRole]:
+    """Every role a service identity may hold, by the rule `role_allowed_for_service` applies.
+
+    Never tenant administration, nor a role that manages identities, roles or API keys or
+    previews people; given `subject`, never a role beyond that admin's own rights either (lane
+    B's #416 review), so a picker never offers what a save would refuse.
+    """
+    allowed = []
+    for role, _users in await list_roles(session):
+        detail = await _detail(session, policy.catalogue, role)
+        if _forbidden_for_service(role, {g.permission for g in detail.grants}):
+            continue
+        if subject is not None:  # only what this admin may hand out, as a save checks
+            try:
+                await _assignable(session, policy, subject, role.id)
+            except PermissionDenied:
+                continue
+        allowed.append(_service_role(role))
+    return allowed
+
+
+async def roles_held(session: AsyncSession, user_id: uuid.UUID) -> list[ServiceRole]:
+    """The roles given to one user directly (a service identity has no groups), by name."""
+    rows = await session.scalars(
+        select(Role)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == user_id, Role.deleted_at.is_(None))
+        .order_by(Role.is_system.desc(), Role.name)
+    )
+    return [_service_role(r) for r in rows]
+
+
 async def update_role(  # noqa: PLR0913 - keyword-only role fields
     session: AsyncSession,
     policy: PolicyService,

@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import {
+  ApiError,
+  ASSET_BULK_MAX,
   queryKeys,
   useAssetProductTypes,
   useAssetGroups,
@@ -13,10 +15,12 @@ import {
   useAssetStates,
   useAssetTypeCounts,
   useLoanActions,
+  useRestoreAsset,
   useStructure,
   sharedListKeys,
   listSettingKey,
   type AssetRecord,
+  type FilterExpression,
 } from '@supportx/api-client';
 import {
   refreshList,
@@ -50,7 +54,9 @@ import { TypeTree } from './TypeTree';
 import { ALL_TYPES } from './typeCounts';
 import { isBuiltIn, TRASH, useAssetViewChoices } from './views';
 import { useSiteNames } from './live';
-import { BulkMoveDialog } from './AssetActions';
+import { AssetListExport } from './AssetExport';
+import { BulkActionsDialog, MergeDialog } from './BatchActions';
+import { ImportWizard } from './ImportWizard';
 import { PrintLabelsButton } from './PrintLabels';
 import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
@@ -64,8 +70,13 @@ import { SelectPageBox } from '../incidents/list/ColumnChooser';
  * spec's; each person's widths are kept per view (the shared list-settings store). It follows
  * the asset list channel live (and the catalogue broadcast for names), so another person's
  * change shows without a refresh.
+ *
+ * WP-049b S4b: up to 1,000 picked rows go to a bulk job (edit, change state, assign, trash;
+ * REQ-AST-051), two to the merge dialog (052); the header imports a file and exports the list
+ * as it is shown (053). A merged asset in the trash asks before it is restored.
  */
-const BULK_MAX = 100; // the API takes up to 100 assets per bulk move
+// WP-049b S4b: a bulk job takes up to 1,000 assets (REQ-AST-051); the server says so too.
+const BULK_MAX = ASSET_BULK_MAX;
 const LIST_SETTINGS_CHANGED = 'system.list_settings_changed';
 const OWN_WIDTHS: Record<string, number> = { name: 220 };
 
@@ -158,15 +169,14 @@ export function AssetsPage() {
   const selectable = !trash;
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const restore = useRestoreAsset();
   const groups = useAssetGroups(bulkAllowed);
   const staticGroups = groups.data?.filter((g) => g.kind === 'static');
   const { addMembers } = useAssetRelations();
   const { setLoanable } = useLoanActions();
   const { message, modal } = App.useApp();
-  const selectedRows = useMemo(
-    () => rows.filter((row) => selected.includes(row.id)),
-    [rows, selected],
-  );
   const tree = useMemo(() => typeTree(types.data ?? []), [types.data]);
   const titles: Record<string, string> = {
     tag: t('assets.record.tag'),
@@ -265,6 +275,38 @@ export function AssetsPage() {
       },
     });
   };
+  // A merged asset comes back only after the warning (REQ-AST-052): it returns on its own and
+  // what moved to the asset kept stays there.
+  const restoreAsset = (id: string) => {
+    restore.mutate(
+      { id, confirmMerged: false },
+      {
+        onError: (error) => {
+          if (!(error instanceof ApiError) || error.code !== 'asset_restore_merged') {
+            reportError(error);
+            return;
+          }
+          const survivor = String(error.params.asset ?? '');
+          modal.confirm({
+            title: t('assets.merge.restore_title'),
+            content: t('assets.merge.restore_body', { asset: survivor }),
+            okText: t('assets.merge.restore_ok'),
+            okButtonProps: { 'data-testid': 'asset-restore-merged-ok' },
+            cancelText: t('actions.cancel'),
+            onOk: () => {
+              restore.mutate({ id, confirmMerged: true }, { onError: reportError });
+            },
+          });
+        },
+      },
+    );
+  };
+  // The list as it is shown, as the export's filter; a built-in view the filter language
+  // cannot say (and the trash) is not exported, and the button says why.
+  // currentFilter builds the list API's filter DSL, the very shape the export takes.
+  const shownFilter = currentFilter() as FilterExpression | null;
+  const exportFilter: FilterExpression | null | undefined =
+    trash || (isBuiltIn(view) && view !== 'all') ? null : (shownFilter ?? undefined);
   // The server's count when it gives one, else the rows when they are all loaded.
   const total =
     list.data === undefined
@@ -281,13 +323,25 @@ export function AssetsPage() {
         <PrintLabelsButton assetIds={selected} testId="assets-print-labels" />
         {bulkAllowed && (
           <>
+            {/* REQ-AST-051: edit, change state, assign or trash, as a background job. */}
             <WriteButton
               onClick={() => {
                 setBulkOpen(true);
               }}
-              data-testid="assets-bulk-move-open"
+              data-testid="assets-bulk-open"
             >
-              {t('assets.bulk_move.open')}
+              {t('assets.bulk.open')}
+            </WriteButton>
+            {/* REQ-AST-052: two duplicates, merged with a field-by-field choice. */}
+            <WriteButton
+              disabled={selected.length !== 2}
+              whyDisabled={selected.length !== 2 ? t('assets.merge.choose_two') : undefined}
+              onClick={() => {
+                setMergeOpen(true);
+              }}
+              data-testid="assets-merge-open"
+            >
+              {t('assets.merge.open')}
             </WriteButton>
             {/* REQ-AST-028 AC2: a static group is filled from the selection in one step. */}
             <Select
@@ -368,6 +422,19 @@ export function AssetsPage() {
               <Link to="/assets/audits" data-testid="assets-audits-link">
                 {t('assets.audits.title')}
               </Link>
+              <AssetListExport filter={exportFilter} title={t('nav.assets')} />
+              {(access.can('assets.manage') ||
+                access.can('vendors.create') ||
+                access.can('vendors.manage')) && (
+                <WriteButton
+                  onClick={() => {
+                    setImportOpen(true);
+                  }}
+                  data-testid="assets-import-open"
+                >
+                  {t('assets.import.open')}
+                </WriteButton>
+              )}
               {access.can('assets.manage') && (
                 <WriteButton
                   type="primary"
@@ -478,11 +545,19 @@ export function AssetsPage() {
           </nav>
         )}
         <Flex vertical gap={8} style={{ flex: '1 1 480px', minWidth: 0 }}>
-          <BulkMoveDialog
-            assets={selectedRows}
+          <BulkActionsDialog
+            assetIds={selected}
             open={bulkOpen}
             onClose={() => {
               setBulkOpen(false);
+              setSelected([]);
+            }}
+          />
+          <MergeDialog
+            ids={selected.length === 2 ? [selected[0] ?? '', selected[1] ?? ''] : undefined}
+            open={mergeOpen}
+            onClose={() => {
+              setMergeOpen(false);
               setSelected([]);
             }}
           />
@@ -619,10 +694,7 @@ export function AssetsPage() {
                           type="link"
                           onClick={(event) => {
                             event.stopPropagation();
-                            change.mutate(
-                              { kind: 'restore', id: asset.id },
-                              { onError: reportError },
-                            );
+                            restoreAsset(asset.id);
                           }}
                           data-testid={`asset-restore-${asset.id}`}
                         >
@@ -647,6 +719,12 @@ export function AssetsPage() {
           )}
         </Flex>
       </Flex>
+      <ImportWizard
+        open={importOpen}
+        onClose={() => {
+          setImportOpen(false);
+        }}
+      />
       <Drawer
         open={adding !== undefined}
         title={t('assets.record.add')}
