@@ -137,3 +137,31 @@ async def test_req_rel_057_cancel_and_trash_work_on_releases(world: World) -> No
     b = world.b
     theirs = await world.call("GET", f"{REL}/bulk-jobs/{canceled['id']}", b, b.admin)
     assert theirs.status_code == 404
+
+
+async def test_req_rel_057_ac1_bulk_close_closes_what_may_close_and_says_why_for_the_rest(
+    world: World,
+) -> None:
+    """Releases close by their own listed move into closed (the staged close), with a code;
+    a release whose life cycle offers no close from where it is is skipped, with why."""
+    import asyncpg  # noqa: PLC0415 - only this test puts a release at its review directly
+
+    a = world.a
+    ready, early = await a_release(world, a), await a_release(world, a)
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute(
+            "UPDATE work_items SET status = 'review_in_progress', stage = 'review',"
+            " status_category = 'resolved', version = version + 1"
+            " WHERE tenant_id = $1 AND id = $2",
+            a.tenant,
+            uuid.UUID(ready["id"]),
+        )
+    finally:
+        await conn.close()
+    done = await _bulk(world, a, "close", [ready, early], closure_code="completed")
+    assert (done["done_count"], done["skipped_count"]) == (1, 1), done["results"]
+    [skip] = [r for r in done["results"] if r["outcome"] == "skipped"]
+    assert (skip["id"], skip["code"]) == (early["id"], "not_closable_from_here")
+    got = (await world.call("GET", f"{REL}/{ready['id']}", a, a.admin)).json()
+    assert (got["status"], got["closure_code"]) == ("closure_closed", "completed")

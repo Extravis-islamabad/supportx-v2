@@ -29,8 +29,8 @@ from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import Subject, subject_for, worker_policy
-from app.modules.work_items.domain.changes import CANCELED_STATUS, CLOSED_STATUS
-from app.modules.work_items.domain.lifecycle import WorkItemAction
+from app.modules.work_items.domain.changes import CANCELED_STATUS
+from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.lists import (
     BULK_BATCH,
     MAX_BULK,
@@ -43,6 +43,7 @@ from app.modules.work_items.events import WorkItemBulkJobProgressed
 from app.modules.work_items.infra.models import WorkItem, WorkItemBulkJob
 from app.modules.work_items.service import closing
 from app.modules.work_items.service import problems as problem_links
+from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.realtime import BULK_PREFIX
 from app.shared.api.listing import ListQuery, order_by
@@ -508,11 +509,14 @@ async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's v
     page would offer, with the code; none from where it is is a skip that says so.
     """
     panel = await items.stage_panel(session, subject, wtype, record_id)
+    # Closed by the type's own model (a release and a change each), never one type's constant.
+    model = await stage_service.load_model(session, wtype, panel.record.lifecycle_version)
     closing_move = next(
         (
             m
             for m in panel.moves
-            if m.allowed and (m.lands_in or m.transition.to_status) == CLOSED_STATUS
+            if m.allowed
+            and model.status(m.lands_in or m.transition.to_status).category is StatusCategory.CLOSED
         ),
         None,
     )
