@@ -94,3 +94,78 @@ async def test_req_rel_053_ac3_the_failed_view_lists_failed_and_rolled_back_rele
     ids = {row["id"] for row in listed.json()["items"]}
     assert {failed["id"], rolled["id"]} <= ids
     assert running["id"] not in ids
+
+
+async def _fail(world: World, item: dict[str, object]) -> None:
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute(
+            "UPDATE work_items SET status = 'deployment_failed', stage = 'deployment'"
+            " WHERE tenant_id = $1 AND id = $2",
+            world.a.tenant,
+            uuid.UUID(str(item["id"])),
+        )
+    finally:
+        await conn.close()
+
+
+async def test_req_rel_053_ac2_a_failed_release_makes_its_problem_and_follow_up(
+    world: World,
+) -> None:
+    a = world.a
+    release = await a_release(world, a)
+    early = await world.call(
+        "POST",
+        f"{REL}/{release['id']}/follow-ups",
+        a,
+        a.admin,
+        json={"kind": "problem", "subject": "Why did it fail?"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert early.status_code == 409, early.text
+    assert early.json()["code"] == "release_not_failed"
+
+    await _fail(world, release)
+    problem = await world.call(
+        "POST",
+        f"{REL}/{release['id']}/follow-ups",
+        a,
+        a.admin,
+        json={"kind": "problem", "subject": "Why did it fail?"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert problem.status_code == 201, problem.text
+    assert (problem.json()["type"], problem.json()["relation"]) == ("problem", "caused_problem")
+    again = await world.call(
+        "POST",
+        f"{REL}/{release['id']}/follow-ups",
+        a,
+        a.admin,
+        json={"kind": "release", "subject": "Payroll 4.2.1"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert again.status_code == 201, again.text
+    assert again.json()["relation"] == "follow_up_release"
+
+    listed = await world.call("GET", f"{REL}/{release['id']}/follow-ups", a, a.admin)
+    assert [(f["display_id"], f["relation"]) for f in listed.json()] == [
+        (problem.json()["display_id"], "caused_problem"),
+        (again.json()["display_id"], "follow_up_release"),
+    ]
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        kinds = {
+            r["kind"]
+            for r in await conn.fetch(
+                "SELECT kind FROM work_item_links WHERE tenant_id = $1 AND target_id = $2",
+                a.tenant,
+                uuid.UUID(release["id"]),
+            )
+        }
+    finally:
+        await conn.close()
+    assert {"caused_by_release", "follows"} <= kinds
+    # Another tenant sees nothing of it.
+    b = world.b
+    theirs = await world.call("GET", f"{REL}/{release['id']}/follow-ups", b, b.admin)
+    assert theirs.status_code == 404
