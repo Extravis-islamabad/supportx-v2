@@ -99,6 +99,13 @@ describe('Admin › Releases', () => {
     const [sent] = fake.find('PATCH', '/api/v1/releases/settings/closure');
     expect(sent?.headers.get('If-Match')).toBe('"1"');
     expect(sent?.body).toMatchObject({ complete_open_work: true });
+    // Only the release's own kinds are stored (lane A's review).
+    expect(Object.keys((sent?.body as { open_work: object }).open_work).sort()).toEqual([
+      'approvals',
+      'child_releases',
+      'linked_changes',
+      'tasks',
+    ]);
     expect(sent?.body).not.toHaveProperty('auto_close_days');
   });
 
@@ -158,7 +165,17 @@ describe('Admin › Releases', () => {
   });
 
   it('is closed to people without the service desk configure right', async () => {
-    api({ me: fakeSession({ permissions: ['releases.view'] }), routes: routes() });
+    api({
+      me: fakeSession(
+        { roles: ['technician'] },
+        {
+          permissions: [
+            { key: 'releases.view', scope: 'all', scopes: ['all'], conditional: false },
+          ],
+        },
+      ),
+      routes: routes(),
+    });
     open('/admin/releases/closing');
     expect(await screen.findByText(/permission/i)).toBeTruthy();
     expect(screen.queryByTestId('settings-closing')).toBeNull();

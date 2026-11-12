@@ -116,7 +116,13 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
   const source: Draft = {
     resolve: [...closure.resolve_requires],
     close: [...closure.close_requires],
-    openWork: { ...OPEN_WORK_DEFAULTS, ...closure.open_work },
+    // Only the type's own kinds (lane A's #428 review): an incident never stores a release kind.
+    openWork: Object.fromEntries(
+      profile.openWorkKinds.map((kind) => [
+        kind,
+        closure.open_work[kind] ?? OPEN_WORK_DEFAULTS[kind] ?? 'warn',
+      ]),
+    ),
     complete: closure.complete_open_work,
     taskOwners: closure.task_owner_access,
     waitBlocks: closure.task_dependency_mode === 'block',
