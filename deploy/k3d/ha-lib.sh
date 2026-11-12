@@ -16,7 +16,7 @@ api() {  # api METHOD PATH [curl args...]: prints the status; the body goes to $
   local method="$1" path="$2"
   shift 2
   curl -s -m 10 -X "$method" -o "$BODY" -w '%{http_code}' -H "Cookie: $(cat "$COOKIES")" \
-    -H 'X-SupportX-Client: console' "$@" "$PUBLIC_URL/api/v1$path" || echo 000
+    -H 'X-SupportX-Client: console' "$@" "$PUBLIC_URL/api/v1$path" || true  # -w already wrote 000
 }
 WRITE_TRACE="$(mktemp)"  # each failed write attempt: when, which step, its status and code
 write_failed() {  # write_failed <step> <status>: one trace line (never a body's data)

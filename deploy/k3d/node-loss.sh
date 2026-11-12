@@ -58,8 +58,12 @@ k3d node stop "$node"
 took="$(until_ok 300 promoted "$primary")" ||
   { echo "no standby promoted within 300 s"; exit 1; }
 echo "promoted after ${took}s: $(pg '{.status.currentPrimary}')"
-took="$(until_ok 300 save_locale '"ar"')" ||
-  { echo "the session or the write did not come back within 300 s (last answer: $(head -c 300 "$BODY"))"; show_write_trace; exit 1; }
+# Within 60 s of the promotion (the coordinator's target, #425): the API's database sockets
+# give up on a lost pooler copy in about 15 s (TCP_USER_TIMEOUT, app/core/database.py), so a
+# request meets a live copy soon after. Run 1 took 294 s before that fix.
+WRITE_BUDGET=60
+took="$(until_ok "$WRITE_BUDGET" save_locale '"ar"')" ||
+  { echo "the session or the write did not come back within ${WRITE_BUDGET} s of the promotion (last answer: $(head -c 300 "$BODY"))"; show_write_trace; exit 1; }
 echo "the same session writes again after ${took}s more"
 show_write_trace
 for pod in $VALKEY_PODS; do
