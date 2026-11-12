@@ -20,7 +20,6 @@ from tests.test_route_permissions import _dependencies
 # list only shrinks: a route that gains the key must leave it (the stale-entry test below).
 KNOWN_GAPS: frozenset[str] = frozenset(
     {
-        "POST /api/v1/audit/saved-searches",  # audit (lane B)
         "POST /api/v1/custom-fields",  # metadata (lane C)
         "POST /api/v1/knowledge/articles/{article_id}/drafts/{language}",  # knowledge (lane C)
     }
