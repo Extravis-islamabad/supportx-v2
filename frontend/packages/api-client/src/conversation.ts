@@ -188,36 +188,75 @@ export function useIncidentCounters(enabled = true) {
   });
 }
 
-export function useReplyTemplates(enabled = true) {
+/** Reply or resolution (REQ-INC-041, -042). */
+export type ReplyTemplateKind = ReplyTemplate['kind'];
+/** What a template is, as its owner or the admin writes it. */
+export type ReplyTemplateInput = components['schemas']['ReplyTemplateIn'];
+export type FilledTemplate = components['schemas']['FilledTemplateOut'];
+
+/**
+ * The templates you may use: shared ones (yours by group) and your own personal ones. For a
+ * resolution, `categoryId`'s come first.
+ */
+export function useReplyTemplates(
+  enabled = true,
+  kind: ReplyTemplateKind = 'reply',
+  categoryId?: string | null,
+) {
   return useQuery({
-    queryKey: queryKeys.incidents.replyTemplates,
-    queryFn: () => call(api.GET('/api/v1/incidents/reply-templates')),
+    queryKey: [...queryKeys.incidents.replyTemplates, kind, categoryId ?? null],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/incidents/reply-templates', {
+          params: { query: { kind, category_id: categoryId ?? undefined } },
+        }),
+      ),
     enabled,
     staleTime: 60_000,
   });
 }
 
-/** Add, change or remove a reply template (settings.manage). */
+/** The admin screen's list: every shared template and your own personal ones. */
+export function useManagedReplyTemplates(kind: ReplyTemplateKind, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.incidents.replyTemplates, 'manage', kind],
+    queryFn: () =>
+      call(api.GET('/api/v1/incidents/reply-templates/manage', { params: { query: { kind } } })),
+    enabled,
+  });
+}
+
+/** A template filled with a record's values, in `language` first (the requester's). */
+export function fillReplyTemplate(
+  recordId: string,
+  templateId: string,
+  language?: 'en' | 'ar' | 'ur' | null,
+): Promise<FilledTemplate> {
+  return call(
+    api.POST('/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill', {
+      params: { path: { record_id: recordId, template_id: templateId } },
+      body: { language: language ?? null },
+    }),
+  );
+}
+
+/** Add, change or remove a template (personal: yours; shared: the settings right). */
 export function useReplyTemplateChange() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (
       change:
-        | { kind: 'create'; name: string; body: string }
-        | { kind: 'update'; id: string; version: number; name: string; body: string }
-        | { kind: 'delete'; id: string; version: number },
+        | { op: 'create'; template: ReplyTemplateInput }
+        | { op: 'update'; id: string; version: number; template: ReplyTemplateInput }
+        | { op: 'delete'; id: string; version: number },
     ): Promise<void> => {
-      if (change.kind === 'create') {
-        await call(
-          api.POST('/api/v1/incidents/reply-templates', {
-            body: { name: change.name, body: change.body },
-          }),
-        );
-      } else if (change.kind === 'update') {
+      if (change.op === 'create') {
+        await call(api.POST('/api/v1/incidents/reply-templates', { body: change.template }));
+      } else if (change.op === 'update') {
         await call(
           api.PUT('/api/v1/incidents/reply-templates/{template_id}', {
             params: { path: { template_id: change.id }, header: ifMatch(change.version) },
-            body: { name: change.name, body: change.body },
+            body: change.template,
           }),
         );
       } else {

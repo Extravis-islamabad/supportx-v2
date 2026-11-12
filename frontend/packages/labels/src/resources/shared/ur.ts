@@ -519,6 +519,7 @@ export const ur: LabelResource = {
   'settings.section.priority': 'ترجیح',
   'settings.section.reasons': 'وجوہات',
   'settings.section.reply-templates': 'جوابی سانچے',
+  'settings.section.resolution-templates': 'حل کے سانچے',
   'settings.section.roles': 'کردار',
   'settings.section.routing': 'روٹنگ اور تفویض',
   'settings.section.stages': 'مراحل',

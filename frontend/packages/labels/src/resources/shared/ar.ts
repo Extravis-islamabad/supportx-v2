@@ -534,6 +534,7 @@ export const ar: LabelResource = {
   'settings.section.priority': 'الأولوية',
   'settings.section.reasons': 'الأسباب',
   'settings.section.reply-templates': 'قوالب الردود',
+  'settings.section.resolution-templates': 'قوالب الحل',
   'settings.section.roles': 'الأدوار',
   'settings.section.routing': 'التوجيه والإسناد',
   'settings.section.stages': 'المراحل',

@@ -518,6 +518,7 @@ export const en = {
   'settings.section.priority': 'Priority',
   'settings.section.reasons': 'Reasons',
   'settings.section.reply-templates': 'Reply templates',
+  'settings.section.resolution-templates': 'Resolution templates',
   'settings.section.roles': 'Roles',
   'settings.section.routing': 'Routing and assignment',
   'settings.section.stages': 'Stages',
