@@ -70,6 +70,7 @@ from app.modules.identity_access import (
     Subject,
     authorize_stored,
     scope_filter,
+    unrestricted,
 )
 from app.modules.licensing import LimitKey, reserve_capacity
 from app.modules.organization import existing_unit_ids
@@ -168,6 +169,8 @@ SITE_NOT_MANAGED = "asset_site_not_managed"
 async def _within_scope(session: AsyncSession, subject: Subject, row: Asset) -> None:
     """Refuse (the transaction rolls back) when the saved asset falls outside the scope."""
     await session.flush()
+    if unrestricted(subject, MANAGE):
+        return  # scope "all", no condition: the query could only say yes (an import, per row)
     if not await authorize_stored(session, subject, MANAGE, ASSETS, Asset.id, row.id):
         raise PermissionDenied(code=SITE_NOT_MANAGED, params={"permission": MANAGE})
 
@@ -355,9 +358,20 @@ async def _link_problems(
 
 
 async def _product(session: AsyncSession, product_id: uuid.UUID) -> AssetProduct | None:
-    return await session.scalar(
-        select(AssetProduct).where(AssetProduct.id == product_id, AssetProduct.deleted_at.is_(None))
-    )
+    """A live product, kept for the (sub)transaction like the types.
+
+    An import names the same few products on thousands of rows (WP-049b). Within one batch a
+    product retired by someone else is still seen as live until the batch ends, about two
+    seconds, as a row already checked would have been.
+    """
+    products: dict[uuid.UUID, AssetProduct | None] = memo(session).setdefault("products", {})
+    if product_id not in products:
+        products[product_id] = await session.scalar(
+            select(AssetProduct).where(
+                AssetProduct.id == product_id, AssetProduct.deleted_at.is_(None)
+            )
+        )
+    return products[product_id]
 
 
 async def _type(session: AsyncSession, type_id: uuid.UUID) -> AssetProductType:
@@ -461,7 +475,8 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
         row.version += 1
     row.updated_by = None if subject is None else subject.user_id
     await session.flush()
-    await session.refresh(row)  # the database's timestamps
+    if action != "created":  # a new asset's INSERT returned them (eager_defaults on Asset)
+        await session.refresh(row)  # the database's timestamps
     await record_changes(
         session,
         record_type=RECORD_TYPE,
