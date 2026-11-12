@@ -34,6 +34,7 @@ import { personName } from '../incidents/labels';
 
 import { EMERGENCY_PATH, stageName, statusName } from './labels';
 import { MoveDialog } from './MoveDialog';
+import { ReleaseFailed } from './ReleaseFailed';
 import {
   ApprovalsPart,
   DetailsPart,
@@ -265,6 +266,8 @@ export function ReleasePage() {
           }}
         />
       )}
+      {/* A failed deployment: its backout plan and "Mark rolled back" (REQ-REL-053 AC1). */}
+      <ReleaseFailed id={r.id} status={r.status} moves={moves} onMove={setMoving} />
       {/* A failed workflow step, named on the header with Retry (REQ-REL-021 AC1). */}
       <WorkflowFailureBanner
         recordType="release"

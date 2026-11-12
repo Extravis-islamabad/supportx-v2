@@ -406,6 +406,53 @@ describe('console: releases', () => {
     expect(second?.body).toMatchObject({ confirm_open_work: true });
   });
 
+  it('REQ-REL-053 AC1: a failed deployment shows its backout plan and "Mark rolled back"', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const failed = { ...release, status: 'deployment_failed', stage: 'deployment' };
+    api({
+      [`GET /api/v1/releases/${REL_ID}`]: { body: failed, headers: { ETag: '"7"' } },
+      [`GET /api/v1/releases/${REL_ID}/stages`]: {
+        body: {
+          ...panel,
+          stage: 'deployment',
+          status: 'deployment_failed',
+          moves: [
+            {
+              to_status: 'deployment_rolled_back',
+              to_stage: 'deployment',
+              reason_mode: 'required',
+              reason_list: null,
+              required_fields: [],
+              allowed: true,
+              reason: null,
+              missing: [],
+            },
+          ],
+        },
+      },
+      [`GET /api/v1/releases/${REL_ID}/plan`]: {
+        body: [{ section: 'backout', content: '<p>Restore build 4.1.</p>', version: 1 }],
+      },
+    });
+    render(<App />);
+    const box = await screen.findByTestId('release-failed');
+    expect(box.textContent).toContain('The deployment failed');
+    expect((await screen.findByTestId('release-failed-backout')).textContent).toContain(
+      'Restore build 4.1.',
+    );
+    fireEvent.click(screen.getByTestId('release-mark-rolled-back'));
+    expect(await screen.findByTestId('move-dialog')).toBeTruthy();
+    expect(screen.getByTestId('move-reason')).toBeTruthy(); // the rollback asks for its reason
+  });
+
+  it('the failed panel is absent while the deployment has not failed', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    await screen.findByTestId('release-page');
+    expect(screen.queryByTestId('release-failed')).toBeNull();
+  });
+
   it('asks for the reason of a rejection and the comment a level requires, then decides', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     const fake = api();

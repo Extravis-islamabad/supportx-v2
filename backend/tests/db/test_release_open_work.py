@@ -7,6 +7,8 @@
 
 import uuid
 
+import asyncpg
+
 from app.core.tenancy import TenantContext
 from app.modules.work_items.domain.closure import OPEN_WORK_DEFAULTS, OpenWorkKind, OpenWorkMode
 from app.modules.work_items.infra.models import WorkItem
@@ -66,3 +68,29 @@ async def test_req_rel_052_a_release_lists_its_open_changes_and_sub_releases(
     assert subs == [f"{sub['display_id']} {sub['subject']}"]
     # The change itself has neither kind: only releases report them.
     assert await _open(world, change["id"]) == ([], [])
+
+
+async def test_req_rel_053_ac3_the_failed_view_lists_failed_and_rolled_back_releases(
+    world: World,
+) -> None:
+    a = world.a
+    failed = await a_release(world, a)
+    rolled = await a_release(world, a)
+    running = await a_release(world, a)
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        for item, status in ((failed, "deployment_failed"), (rolled, "deployment_rolled_back")):
+            await conn.execute(
+                "UPDATE work_items SET status = $3, stage = 'deployment'"
+                " WHERE tenant_id = $1 AND id = $2",
+                a.tenant,
+                uuid.UUID(item["id"]),
+                status,
+            )
+    finally:
+        await conn.close()
+    listed = await world.call("GET", REL, a, a.admin, params={"view": "failed"})
+    assert listed.status_code == 200, listed.text
+    ids = {row["id"] for row in listed.json()["items"]}
+    assert {failed["id"], rolled["id"]} <= ids
+    assert running["id"] not in ids
