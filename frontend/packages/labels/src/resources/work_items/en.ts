@@ -1591,6 +1591,7 @@ export const en = {
   'release_type.minor': 'Minor',
   'releases.approvals.level': 'Level {{level}}',
   'releases.approvals.none': 'No approvals yet.',
+  'releases.associations': 'Linked',
   'releases.awaiting_approval': 'Waiting for approval',
   'releases.board.list': 'List',
   'releases.board.no_move': 'This release cannot move to {{stage}} from where it is.',

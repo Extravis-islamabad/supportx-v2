@@ -1765,6 +1765,7 @@ export const ar: LabelResource = {
   'release_type.minor': 'ثانوي',
   'releases.approvals.level': 'المستوى {{level}}',
   'releases.approvals.none': 'لا توجد موافقات بعد.',
+  'releases.associations': 'المرتبطة',
   'releases.awaiting_approval': 'بانتظار الموافقة',
   'releases.board.list': 'القائمة',
   'releases.board.no_move': 'لا يمكن نقل هذا الإصدار إلى {{stage}} من مكانه الحالي.',

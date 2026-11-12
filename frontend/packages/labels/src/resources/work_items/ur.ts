@@ -1594,6 +1594,7 @@ export const ur: LabelResource = {
   'release_type.minor': 'چھوٹی',
   'releases.approvals.level': 'سطح {{level}}',
   'releases.approvals.none': 'ابھی کوئی منظوری نہیں۔',
+  'releases.associations': 'منسلک',
   'releases.awaiting_approval': 'منظوری کا انتظار',
   'releases.board.list': 'فہرست',
   'releases.board.no_move': 'یہ ریلیز موجودہ جگہ سے {{stage}} میں نہیں جا سکتی۔',
