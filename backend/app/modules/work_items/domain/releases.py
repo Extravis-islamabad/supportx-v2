@@ -226,6 +226,10 @@ def search_terms(details: Mapping[str, Any]) -> str:
 
 # --- roles, plan sections, stage outcomes (WP-058a s4; REQ-REL-023..028) -------------------------
 
+# The two roles a release also keeps as its own fields (WP-058a S1's release_details): until the
+# two are one (PROGRESS, a later cleanup), every write updates both (the coordinator, after F-02).
+PEOPLE_ROLES = {"release_manager": "release_manager_id", "release_engineer": "release_engineer_id"}
+
 # Appendix A's release roles, each held by one person (REQ-REL-023); seeded per tenant, editable.
 RELEASE_ROLES = (
     "requester",

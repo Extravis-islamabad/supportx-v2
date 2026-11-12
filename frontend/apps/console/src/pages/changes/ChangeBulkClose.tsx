@@ -1,31 +1,35 @@
 import { Form, Input, Modal, Select, Typography } from 'antd';
 import { useState } from 'react';
 
-import { useStagedSettings, useStartChangeBulkClose } from '@supportx/api-client';
+import { useStagedSettings, useStartBulk, type StagedPath } from '@supportx/api-client';
 import { FormProblem, lengthLimit, useAppearance, useFormProblem, useLabel } from '@supportx/ui';
 
 import { labelled } from '../incidents/labels';
 
 /**
- * Close the picked changes together (REQ-CHG-101): one closure code and an optional closing
- * description for all. Each change still closes by its own move, so one that has open children
- * or tasks, or is not yet in review, is skipped and the drawer says why.
+ * Close the picked changes (or releases: `base`) together (REQ-CHG-101, REQ-REL-057): one
+ * closure code, the type's own, and an optional closing description for all. Each record still
+ * closes by its own move, so one with open work, or not yet in review, is skipped and the drawer
+ * says why.
  */
 export function ChangeBulkClose({
   ids,
   open,
   onClose,
   onStarted,
+  base = 'changes',
 }: {
   ids: string[];
   open: boolean;
   onClose: () => void;
   onStarted: (jobId: string) => void;
+  base?: StagedPath;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
-  const settings = useStagedSettings('changes');
-  const start = useStartChangeBulkClose();
+  const settings = useStagedSettings(base);
+  const start = useStartBulk(base);
+  const id = base === 'changes' ? 'chg' : 'rel'; // the test ids each list has had
   const problem = useFormProblem();
   const [code, setCode] = useState<string | undefined>(undefined);
   const [text, setText] = useState('');
@@ -37,10 +41,10 @@ export function ChangeBulkClose({
   return (
     <Modal
       open={open}
-      title={t('changes.bulk.close_title', { count: ids.length })}
-      okText={t('changes.bulk.close_ok')}
+      title={t(`${base}.bulk.close_title`, { count: ids.length })}
+      okText={t(`${base}.bulk.close_ok`)}
       cancelText={t('incidents.bulk.cancel')}
-      okButtonProps={{ disabled: code === undefined, 'data-testid': 'chg-bulk-close-ok' }}
+      okButtonProps={{ disabled: code === undefined, 'data-testid': `${id}-bulk-close-ok` }}
       confirmLoading={start.isPending}
       onCancel={() => {
         reset();
@@ -49,7 +53,14 @@ export function ChangeBulkClose({
       onOk={() => {
         if (code === undefined) return;
         start.mutate(
-          { recordIds: ids, closureCode: code, resolution: text.trim() || undefined },
+          {
+            action: 'close',
+            recordIds: ids,
+            changes: {
+              closure_code: code,
+              ...(text.trim() ? { resolution: text.trim() } : {}),
+            },
+          },
           {
             onSuccess: (job) => {
               reset();
@@ -61,20 +72,20 @@ export function ChangeBulkClose({
           },
         );
       }}
-      data-testid="chg-bulk-close"
+      data-testid={`${id}-bulk-close`}
     >
-      <Typography.Paragraph type="secondary">{t('changes.bulk.close_help')}</Typography.Paragraph>
+      <Typography.Paragraph type="secondary">{t(`${base}.bulk.close_help`)}</Typography.Paragraph>
       <Form layout="vertical">
         <Form.Item
           label={t('work_item.field.closure_code')}
           required
-          htmlFor="chg-bulk-closure-code"
+          htmlFor={`${id}-bulk-closure-code`}
         >
           <Select
-            id="chg-bulk-closure-code"
+            id={`${id}-bulk-closure-code`}
             value={code}
             onChange={setCode}
-            data-testid="chg-bulk-closure-code"
+            data-testid={`${id}-bulk-closure-code`}
             options={(settings.data?.closure_codes ?? [])
               .filter((c) => !c.disabled)
               .map((c) => ({
@@ -83,16 +94,16 @@ export function ChangeBulkClose({
               }))}
           />
         </Form.Item>
-        <Form.Item label={t('staged.move.closing_description')} htmlFor="chg-bulk-closing-text">
+        <Form.Item label={t('staged.move.closing_description')} htmlFor={`${id}-bulk-closing-text`}>
           <Input.TextArea
-            id="chg-bulk-closing-text"
+            id={`${id}-bulk-closing-text`}
             rows={3}
             count={lengthLimit(2000)}
             value={text}
             onChange={(e) => {
               setText(e.target.value);
             }}
-            data-testid="chg-bulk-closing-text"
+            data-testid={`${id}-bulk-closing-text`}
           />
         </Form.Item>
       </Form>
