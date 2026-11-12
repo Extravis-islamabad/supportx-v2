@@ -1,0 +1,139 @@
+# NodeLocal DNSCache for SupportX HA installs on k3s (D-163; rendered and applied by
+# deploy/k3s/node-local-dns.sh, never applied by hand: __LOCAL_IP__, __DNS_IP__ and __IMAGE__ are
+# filled in there).
+#
+# Why (Cluster runs 43153098860, 43157246881; #425): when a node is lost, its CoreDNS copy stays
+# behind the kube-dns Service until the node goes NotReady (about 20 s). Lookups that land on it
+# time out, and Valkey's sentinels, which resolve hostnames synchronously, stall long enough to
+# enter TILT, a fixed 30 s pause before they may fail over. A cache on every node answers the
+# names SupportX uses (they never change) from memory, so a dead CoreDNS copy no longer stalls
+# anyone: failover goes from about 50 s to about 15 s.
+#
+# Transparent mode: the cache binds both a link-local address and the kube-dns Service address on
+# a dummy interface on its node, with NOTRACK rules so kube-proxy (iptables mode, k3s's default)
+# does not rewrite them. Pods keep their DNS server address: no kubelet or k3s flag changes, and
+# nothing to restart. On a clean stop the cache removes its rules and the node's pods reach
+# CoreDNS directly again; a crashed cache is restarted by the kubelet within seconds.
+# Everything that misses the cache goes to k3s's own CoreDNS through kube-dns-upstream, so k3s's
+# Corefile (NodeHosts, forwarding, custom zones) still decides every answer.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-local-dns
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: node-local-dns
+    app.kubernetes.io/part-of: supportx-ha
+---
+# The same CoreDNS pods as kube-dns, behind a second Service: the kube-dns address itself is
+# taken by the caches, so they need another way in.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-dns-upstream
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: node-local-dns
+    app.kubernetes.io/part-of: supportx-ha
+spec:
+  selector:
+    k8s-app: kube-dns
+  ports:
+    - {name: dns, port: 53, protocol: UDP, targetPort: 53}
+    - {name: dns-tcp, port: 53, protocol: TCP, targetPort: 53}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-local-dns
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: node-local-dns
+    app.kubernetes.io/part-of: supportx-ha
+data:
+  # serve_stale: an answer up to 60 s past its TTL is still given at once while the cache asks
+  # CoreDNS again in the background, which is what carries a node loss. prefetch renews names in
+  # use before they expire. force_tcp: a TCP connection to a dead CoreDNS copy fails fast and the
+  # next try goes to a live one; UDP would wait out its timeout.
+  # __PILLAR__CLUSTER__DNS__ is filled in by the cache itself, from kube-dns-upstream.
+  Corefile: |
+    .:53 {
+        errors
+        cache 30 {
+            serve_stale 60s
+            prefetch 1 10s
+        }
+        reload
+        loop
+        bind __LOCAL_IP__ __DNS_IP__
+        forward . __PILLAR__CLUSTER__DNS__ {
+            force_tcp
+        }
+        prometheus :9253
+        health __LOCAL_IP__:8080
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-local-dns
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: node-local-dns
+    app.kubernetes.io/part-of: supportx-ha
+spec:
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+  selector:
+    matchLabels:
+      k8s-app: node-local-dns
+  template:
+    metadata:
+      labels:
+        k8s-app: node-local-dns
+    spec:
+      serviceAccountName: node-local-dns
+      priorityClassName: system-node-critical
+      hostNetwork: true
+      dnsPolicy: Default # the cache must not resolve through itself
+      tolerations:
+        - operator: Exists # every node, control plane included
+      containers:
+        - name: node-cache
+          image: __IMAGE__
+          args:
+            - -localip
+            - __LOCAL_IP__,__DNS_IP__
+            - -conf
+            - /etc/Corefile
+            - -upstreamsvc
+            - kube-dns-upstream
+          resources:
+            requests: {cpu: 25m, memory: 10Mi}
+            limits: {memory: 64Mi}
+          securityContext:
+            capabilities:
+              add: [NET_ADMIN] # the dummy interface and its NOTRACK rules
+          ports:
+            - {name: dns, containerPort: 53, protocol: UDP}
+            - {name: dns-tcp, containerPort: 53, protocol: TCP}
+            - {name: metrics, containerPort: 9253, protocol: TCP}
+          livenessProbe:
+            httpGet:
+              host: __LOCAL_IP__
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+          volumeMounts:
+            - {name: xtables-lock, mountPath: /run/xtables.lock}
+            - {name: config, mountPath: /etc/coredns}
+      volumes:
+        - name: xtables-lock
+          hostPath: {path: /run/xtables.lock, type: FileOrCreate}
+        - name: config
+          configMap:
+            name: node-local-dns
+            items:
+              - {key: Corefile, path: Corefile.base}

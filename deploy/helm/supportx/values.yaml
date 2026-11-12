@@ -38,6 +38,9 @@ images:
   clamav: clamav/clamav:1.5.4-debian
   mailpit: axllent/mailpit:v1.31.6   # dev profile only (mailCatcher)
   valkey: valkey/valkey:9.1.2        # HA only (valkeyHa, ADR-038); the bundled chart's own otherwise
+  # HA on k3s only (D-163): NodeLocal DNSCache, a cluster add-on that deploy/k3s/node-local-dns.sh
+  # installs (the chart never deploys it). Listed here so the air-gapped mirror carries it.
+  nodeLocalDns: registry.k8s.io/dns/k8s-dns-node-cache:1.27.1@sha256:6748acde83ac08626a27a554da5364e8cac64bc950c6a1b6b939a3d27b364ae7
   # Local AI (WP-037, D-131): pinned by digest; mirrored through Zot like the others (D-038).
   llamaCpp: ghcr.io/ggml-org/llama.cpp:server-b11960@sha256:8052c13edd987de8858f8150031e025ac3d66823f09cf3ec8220899c4abce220
   # Bundled Temporal (temporal.bundled): the server, and admin-tools for its schema Job.
