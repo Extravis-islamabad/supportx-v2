@@ -59,8 +59,9 @@ took="$(until_ok 300 promoted "$primary")" ||
   { echo "no standby promoted within 300 s"; exit 1; }
 echo "promoted after ${took}s: $(pg '{.status.currentPrimary}')"
 took="$(until_ok 300 save_locale '"ar"')" ||
-  { echo "the session or the write did not come back within 300 s (last answer: $(head -c 300 "$BODY"))"; exit 1; }
+  { echo "the session or the write did not come back within 300 s (last answer: $(head -c 300 "$BODY"))"; show_write_trace; exit 1; }
 echo "the same session writes again after ${took}s more"
+show_write_trace
 for pod in $VALKEY_PODS; do
   [ "$(node_of "$pod")" = "$node" ] && continue
   echo "Valkey master now: $(master_of "$pod" || true) (as $pod's sentinel names it)"

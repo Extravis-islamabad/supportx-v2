@@ -136,8 +136,9 @@ for pod in $VALKEY_PODS; do
 done
 echo "Sentinel promoted $promoted (on $(node_of "$promoted")) after ${took}s"
 took="$(until_ok 120 save_locale '"ar"')" ||
-  { echo "the session or the write did not come back within 120 s (last answer: $(head -c 300 "$BODY"))"; exit 1; }
+  { echo "the session or the write did not come back within 120 s (last answer: $(head -c 300 "$BODY"))"; show_write_trace; exit 1; }
 echo "the same session writes again after ${took}s more"
+show_write_trace
 
 echo "== $node starts again"
 k3d node start "$node"

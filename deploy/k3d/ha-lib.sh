@@ -18,17 +18,32 @@ api() {  # api METHOD PATH [curl args...]: prints the status; the body goes to $
   curl -s -m 10 -X "$method" -o "$BODY" -w '%{http_code}' -H "Cookie: $(cat "$COOKIES")" \
     -H 'X-SupportX-Client: console' "$@" "$PUBLIC_URL/api/v1$path" || echo 000
 }
+WRITE_TRACE="$(mktemp)"  # each failed write attempt: when, which step, its status and code
+write_failed() {  # write_failed <step> <status>: one trace line (never a body's data)
+  local code
+  code="$(jq -r '.code // empty' "$BODY" 2>/dev/null | head -c 60)"
+  echo "t+${SECONDS}s $1 -> $2${code:+ ($code)}" >> "$WRITE_TRACE"
+  return 1
+}
+show_write_trace() {  # the attempts' story, each change once (a slow or failed write says why)
+  [ -s "$WRITE_TRACE" ] || return 0
+  echo "write attempts (step -> status, changes only):"
+  awk '{key=$2" "$3" "$4" "$5} key!=last {print "  "$0; last=key}' "$WRITE_TRACE" | tail -n 30
+  : > "$WRITE_TRACE"
+}
 save_locale() {  # save_locale <"ar" | null>: 0 once the API stored it
   local value="$1" status me_id csrf version
   status="$(api GET /auth/me)"
-  [ "$status" = 200 ] || return 1
+  [ "$status" = 200 ] || write_failed "GET /auth/me" "$status" || return 1
   me_id="$(jq -r .user.id "$BODY")"
   csrf="$(jq -r .csrf_token "$BODY")"
-  [ "$(api GET "/users/$me_id")" = 200 ] || return 1
+  status="$(api GET "/users/$me_id")"
+  [ "$status" = 200 ] || write_failed "GET /users/<me>" "$status" || return 1
   version="$(jq -r .version "$BODY")"
   status="$(api PATCH "/users/$me_id" -H 'Content-Type: application/json' \
     -H "If-Match: \"$version\"" -H "X-CSRF-Token: $csrf" -d "{\"ui_locale\": $value}")"
-  [ "$status" = 200 ] && [ "$(jq -c .ui_locale "$BODY")" = "$value" ]
+  [ "$status" = 200 ] || write_failed "PATCH /users/<me>" "$status" || return 1
+  [ "$(jq -c .ui_locale "$BODY")" = "$value" ] || write_failed "PATCH /users/<me>" "200, not stored"
 }
 until_ok() {  # until_ok <seconds> <command...>: retry every 3 s; the seconds it took
   local limit="$1" started=$SECONDS
