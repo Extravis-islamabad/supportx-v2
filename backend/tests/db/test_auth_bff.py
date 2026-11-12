@@ -691,6 +691,31 @@ async def test_audit_26_a_request_waiting_on_the_refresh_never_saves_its_stale_c
     await bff.app.state.auth.store.unlock(sid, held)
 
 
+async def test_audit_26_a_sign_out_during_the_refresh_is_never_undone(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane C's #451 review: the session is deleted (signed out elsewhere) while Keycloak answers
+    the refresh; the refresh's write is conditional (SET XX), so the session stays gone and the
+    request ends as expired, never revived with fresh tokens."""
+    await bff.login(bff.user("a"))
+    sid = bff.cookie()
+    assert sid is not None
+    auth = bff.app.state.auth
+    real_refresh = auth.oidc.refresh
+
+    async def signed_out_meanwhile(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401 - passthrough
+        tokens = await real_refresh(*args, **kwargs)
+        await auth.store.delete_session(sid)  # the sign-out lands mid-refresh
+        return tokens
+
+    monkeypatch.setattr(auth.oidc, "refresh", signed_out_meanwhile)
+    bff.clock.advance(timedelta(minutes=6))
+    answer = await bff.me()
+    assert answer.status_code == 401, answer.text
+    assert answer.json()["code"] == "session_expired"
+    assert await auth.store.get_session(sid) is None  # still signed out
+
+
 async def test_refused_refresh_ends_the_session_cleanly(bff: Bff) -> None:
     await bff.login(bff.user("a"))
     bff.idp.refresh_ok = False  # e.g. the user was logged out or disabled in Keycloak

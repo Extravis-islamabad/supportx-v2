@@ -47,7 +47,9 @@ class KeyValue(Protocol):
 
     async def get(self, key: str) -> bytes | None: ...  # noqa: D102 - mirrors Valkey
     async def getdel(self, key: str) -> bytes | None: ...  # noqa: D102
-    async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None: ...  # noqa: D102
+    async def set(  # noqa: D102
+        self, key: str, value: bytes, *, px: int, nx: bool = False, xx: bool = False
+    ) -> bool | None: ...
     async def delete(self, key: str) -> int: ...  # noqa: D102
     async def count(self, key: str, *, px: int) -> int: ...  # noqa: D102 - one more hit, kept px ms
     async def hset(self, key: str, field: str, value: bytes, *, px: int) -> None: ...  # noqa: D102 - field, then the key's TTL
@@ -70,8 +72,10 @@ class ValkeyKeyValue:
         value: bytes | None = await self._client.getdel(key)
         return value
 
-    async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None:  # noqa: D102
-        result: bool | None = await self._client.set(key, value, px=px, nx=nx)
+    async def set(  # noqa: D102
+        self, key: str, value: bytes, *, px: int, nx: bool = False, xx: bool = False
+    ) -> bool | None:
+        result: bool | None = await self._client.set(key, value, px=px, nx=nx, xx=xx)
         return result
 
     async def delete(self, key: str) -> int:  # noqa: D102
@@ -124,15 +128,30 @@ class SessionStore:
         self._kv = kv
         self._cipher = cipher
 
-    async def put_session(self, session_id: str, data: dict[str, Any], ttl: timedelta) -> None:
+    async def put_session(
+        self,
+        session_id: str,
+        data: dict[str, Any],
+        ttl: timedelta,
+        *,
+        only_if_present: bool = False,
+    ) -> bool:
         """Store (or replace) a session record until `ttl` elapses, and list it for its person.
+
+        `only_if_present` (SET XX): replace the record only if it still exists, and return False
+        when it does not. A refresh or a touch must never bring back a session someone signed out
+        while the request was in flight (lane C's #451 review).
 
         Every save (sign-in, refresh, tenant switch) updates the person's list, so "last used"
         is the last save. A deleted or rotated session leaves a stale entry, which the list
         drops when it finds the session gone (`user_sessions`).
         """
         key = _hashed(SESSION_PREFIX, session_id)
-        await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+        written = await self._kv.set(
+            key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl), xx=only_if_present
+        )
+        if only_if_present and not written:
+            return False  # gone: never listed again either
         tenant, user = data.get("tenant_id"), data.get("user_id")
         if tenant and user:
             index = _hashed(INDEX_PREFIX, f"{tenant}:{user}")
@@ -149,6 +168,7 @@ class SessionStore:
             }
             sealed = self._cipher.encrypt(meta, bound_to=f"{index}:{field}")
             await self._kv.hset(index, field, sealed, px=_ms(ttl))
+        return True
 
     async def user_sessions(self, user_key: str) -> list[tuple[str, dict[str, Any]]]:
         """(public id, description) of a person's live sessions; stale entries are removed."""

@@ -208,9 +208,13 @@ class MemoryKeyValue:
     async def getdel(self, key: str) -> bytes | None:
         return self.data.pop(key, None)
 
-    async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None:
+    async def set(
+        self, key: str, value: bytes, *, px: int, nx: bool = False, xx: bool = False
+    ) -> bool | None:
         assert px > 0
         if nx and key in self.data:
+            return None
+        if xx and key not in self.data:
             return None
         self.data[key] = value
         return True
