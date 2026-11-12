@@ -290,6 +290,33 @@ def rule_problems(  # noqa: C901, PLR0912 - one check per part of a rule, flat
     return problems
 
 
+def condition_fields(condition: Mapping[str, Any]) -> set[str]:
+    """Every field a (validated) condition reads."""
+    if "and" in condition or "or" in condition:
+        found: set[str] = set()
+        for child in condition.get("and") or condition.get("or") or []:
+            found |= condition_fields(child)
+        return found
+    return {str(condition["field"])}
+
+
+def limited_to(
+    rules: Sequence[Mapping[str, Any]], fields: Iterable[str]
+) -> list[Mapping[str, Any]]:
+    """The rules that read and change only these fields (the portal's: REQ-INC-036 AC2).
+
+    A rule naming any other field is left out whole, never cut down, so the browser never sees
+    a staff field's name or a value it tests; the server still enforces every rule on save.
+    """
+    allowed = set(fields)
+    return [
+        rule
+        for rule in rules
+        if condition_fields(rule["when"]) <= allowed
+        and {str(a["field"]) for a in rule["then"]} <= allowed
+    ]
+
+
 __all__ = [
     "ACTIONS_MAX",
     "DEPTH_MAX",
@@ -299,8 +326,10 @@ __all__ = [
     "FormState",
     "RuleAction",
     "RuleOp",
+    "condition_fields",
     "empty",
     "evaluate",
+    "limited_to",
     "matches",
     "rule_problems",
 ]

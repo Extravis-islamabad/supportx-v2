@@ -2133,6 +2133,7 @@ export const en = {
     'Subject and requester are locked on: without them requesters could not log an incident from the portal.',
   'templates.make_default': 'Make default',
   'templates.new': 'New template',
+  'templates.new_custom_field': 'New custom field…',
   'templates.none_found': 'No templates match.',
   'templates.preview_direction': 'Reading direction',
   'templates.preview_ltr': 'Left to right',

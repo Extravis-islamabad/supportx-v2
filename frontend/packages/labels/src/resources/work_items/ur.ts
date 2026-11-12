@@ -2137,6 +2137,7 @@ export const ur: LabelResource = {
     'موضوع اور درخواست گزار مقفل ہیں: ان کے بغیر درخواست گزار پورٹل سے واقعہ درج نہیں کر سکتے۔',
   'templates.make_default': 'ڈیفالٹ بنائیں',
   'templates.new': 'نیا سانچہ',
+  'templates.new_custom_field': 'نئی حسب ضرورت فیلڈ…',
   'templates.none_found': 'کوئی سانچہ مماثل نہیں۔',
   'templates.preview_direction': 'پڑھنے کی سمت',
   'templates.preview_ltr': 'بائیں سے دائیں',

@@ -40,6 +40,9 @@ import { LabelsFields } from './shared';
 // without a pointer; drag to reorder is a later item. A layout only arranges: which fields are
 // shown or required stays in the field table above, and a field no section names goes last.
 
+/** Where custom fields are made (a new tab, so the template being edited stays open). */
+const CUSTOM_FIELDS_SETTINGS = '/admin/incidents/custom-fields';
+
 const newId = (): string => `s_${Math.random().toString(36).slice(2, 10)}`;
 
 function blankPart(fields: readonly string[]): LayoutPart {
@@ -359,16 +362,28 @@ export function FormLayoutDesigner({
               {t('templates.layout_unplaced')}
             </Typography.Text>
           )}
-          <Button
-            icon={<PlusOutlined />}
-            disabled={part.sections.length >= 20}
-            onClick={() => {
-              setSections([...part.sections, { id: newId(), names: {}, fields: [] }]);
-            }}
-            data-testid="tpl-section-add"
-          >
-            {t('templates.section_add')}
-          </Button>
+          <Space wrap>
+            <Button
+              icon={<PlusOutlined />}
+              disabled={part.sections.length >= 20}
+              onClick={() => {
+                setSections([...part.sections, { id: newId(), names: {}, fields: [] }]);
+              }}
+              data-testid="tpl-section-add"
+            >
+              {t('templates.section_add')}
+            </Button>
+            {/* A new custom field, made without leaving this template (REQ-INC-036): a new tab
+                keeps this editor's changes, and the field list here updates live when saved. */}
+            <Button
+              onClick={() => {
+                window.open(CUSTOM_FIELDS_SETTINGS, '_blank', 'noopener');
+              }}
+              data-testid="tpl-layout-new-field"
+            >
+              {t('templates.new_custom_field')}
+            </Button>
+          </Space>
         </>
       )}
       <LayoutPreview

@@ -226,3 +226,43 @@ async def test_template_layout_and_rules_are_checked_when_saved(world: World) ->
     )
     assert copy.status_code == 201, copy.text
     assert copy.json()["layout"] == template["layout"]
+
+
+async def test_the_portal_gets_only_rules_and_sections_over_its_own_fields(world: World) -> None:
+    """REQ-INC-036 AC2: a staff field's name or a value it tests never reaches the portal."""
+    a = world.a
+    rules = [
+        {
+            "id": "own",
+            "when": {"field": "description", "op": "is_null"},
+            "then": [{"do": "require", "field": "description"}],
+        },
+        {
+            "id": "staff",
+            "when": {"field": "group_id", "op": "eq", "value": str(a.ga)},
+            "then": [{"do": "require", "field": "description"}],
+        },
+    ]
+    layout = {
+        "technician": {
+            "sections": [{"id": "all", "names": {"en": "All"}, "fields": ["group_id", "subject"]}]
+        },
+        "requester": {
+            "sections": [
+                {
+                    "id": "ask",
+                    "names": {"en": "Your question"},
+                    "fields": ["description", "subject"],
+                }
+            ]
+        },
+    }
+    template = await new_template(world, a, form_rules=rules, layout=layout, for_requesters=True)
+    offered = (await world.call("GET", "/portal/incidents/templates", a, a.requester)).json()
+    mine = next(t for t in offered if t["id"] == template["id"])
+    assert [r["id"] for r in mine["form_rules"]] == ["own"]
+    assert str(a.ga) not in str(mine)
+    assert "group_id" not in str(mine)
+    assert [(s["id"], s["fields"]) for s in mine["sections"]] == [
+        ("ask", ["description", "subject"])
+    ]

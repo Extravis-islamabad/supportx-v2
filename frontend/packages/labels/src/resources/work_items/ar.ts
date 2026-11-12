@@ -2419,6 +2419,7 @@ export const ar: LabelResource = {
     'الموضوع ومقدم الطلب مثبّتان: بدونهما لا يستطيع مقدمو الطلبات تسجيل حادث من البوابة.',
   'templates.make_default': 'تعيين كافتراضي',
   'templates.new': 'قالب جديد',
+  'templates.new_custom_field': 'حقل مخصص جديد…',
   'templates.none_found': 'لا توجد قوالب مطابقة.',
   'templates.preview_direction': 'اتجاه القراءة',
   'templates.preview_ltr': 'من اليسار إلى اليمين',
