@@ -841,7 +841,9 @@ export const en = {
   'errors.lifecycle_draft_exists':
     'This life cycle already has a draft. Open it, or throw it away first.',
   'errors.lifecycle_draft_not_found': 'This life cycle has no draft. Start one to make changes.',
-  'errors.lifecycle_version_has_problems':
+  'errors.lifecycle_version_has_problems_one':
+    'The draft has {{count}} problem to fix before it can be published.',
+  'errors.lifecycle_version_has_problems_other':
     'The draft has {{count}} problems to fix before it can be published.',
   'errors.lifecycle_version_last_published':
     'Version {{number}} is the one new records start on, so it cannot be retired.',

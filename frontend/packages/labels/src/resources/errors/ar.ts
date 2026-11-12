@@ -775,7 +775,13 @@ export const ar: LabelResource = {
   'errors.lifecycle_draft_exists': 'لدورة الحياة هذه مسودة بالفعل. افتحها أو تخلّص منها أولًا.',
   'errors.lifecycle_draft_not_found':
     'لا توجد مسودة لدورة الحياة هذه. ابدأ مسودة لإجراء التغييرات.',
-  'errors.lifecycle_version_has_problems': 'في المسودة {{count}} مشكلات يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_few': 'في المسودة {{count}} مشكلات يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_many': 'في المسودة {{count}} مشكلة يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_one': 'في المسودة مشكلة واحدة يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_other':
+    'في المسودة {{count}} مشكلة يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_two': 'في المسودة مشكلتان يجب إصلاحهما قبل نشرها.',
+  'errors.lifecycle_version_has_problems_zero': 'لا توجد مشكلات في المسودة.',
   'errors.lifecycle_version_last_published':
     'الإصدار {{number}} هو الذي تبدأ به السجلات الجديدة، لذا لا يمكن إيقافه.',
   'errors.lifecycle_version_not_found': 'لم يُعثر على إصدار دورة الحياة هذا.',

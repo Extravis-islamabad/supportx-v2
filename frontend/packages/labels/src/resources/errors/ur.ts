@@ -846,7 +846,9 @@ export const ur: LabelResource = {
     'اس لائف سائیکل کا مسودہ پہلے سے موجود ہے۔ اسے کھولیں یا پہلے ختم کریں۔',
   'errors.lifecycle_draft_not_found':
     'اس لائف سائیکل کا کوئی مسودہ نہیں۔ تبدیلیوں کے لیے مسودہ شروع کریں۔',
-  'errors.lifecycle_version_has_problems':
+  'errors.lifecycle_version_has_problems_one':
+    'مسودے میں {{count}} مسئلہ ہے جسے شائع کرنے سے پہلے ٹھیک کرنا ہے۔',
+  'errors.lifecycle_version_has_problems_other':
     'مسودے میں {{count}} مسائل ہیں جنہیں شائع کرنے سے پہلے ٹھیک کرنا ہے۔',
   'errors.lifecycle_version_last_published':
     'ورژن {{number}} وہ ہے جس پر نئے ریکارڈ شروع ہوتے ہیں، اس لیے اسے ریٹائر نہیں کیا جا سکتا۔',

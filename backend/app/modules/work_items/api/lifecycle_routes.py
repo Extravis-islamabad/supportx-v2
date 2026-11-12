@@ -57,6 +57,7 @@ class LifecycleVersionsOut(BaseModel):
 
     lifecycle: str
     latest_published: int
+    settings_version: int = Field(description="The type's settings version: If-Match of writes.")
     items: list[LifecycleVersionOut]
 
 
@@ -130,6 +131,7 @@ def add_lifecycle_routes(router: APIRouter, wtype: WorkItemType) -> None:
         return LifecycleVersionsOut(
             lifecycle=lifecycle,
             latest_published=cat.latest_version(lifecycle),
+            settings_version=cat.settings_version,
             items=[
                 LifecycleVersionOut(
                     number=v.number,
