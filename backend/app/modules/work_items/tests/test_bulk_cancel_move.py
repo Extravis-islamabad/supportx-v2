@@ -32,7 +32,13 @@ def test_the_cancel_transition_wins_in_either_order() -> None:
         assert chosen.transition.to_status == "closure_canceled"
 
 
-def test_without_a_cancel_transition_any_move_into_canceled_is_taken() -> None:
+def test_a_cancel_you_may_not_make_is_a_skip_never_a_rejection() -> None:
+    """Lane A's #452 review: no cancel right means the release is skipped, not rejected."""
+    reject, cancel = _offer("submission_rejected"), _offer("closure_canceled", allowed=False)
+    for moves in ([reject, cancel], [cancel, reject]):
+        assert cancel_move(moves, RELEASE_MODEL) is None
+
+
+def test_without_a_cancel_transition_an_allowed_move_into_canceled_is_taken() -> None:
     reject = _offer("submission_rejected")
     assert cancel_move([reject], RELEASE_MODEL) is reject
-    assert cancel_move([_offer("closure_canceled", allowed=False)], RELEASE_MODEL) is None
