@@ -84,8 +84,11 @@ all_copies() {  # all_copies <master pod>: every volume has $COPIES copies, and 
   copies="$(volume_copies "$1")"
   [ -n "$copies" ] && ! echo "$copies" | awk -v want="$COPIES" '$2 != want { bad = 1 } END { exit !bad }'
 }
-fix_replication() {  # fix_replication <master pod>: re-make missing copies, then check them
+# One pass adds a missing copy or removes a surplus one (a returned server's copies of volumes
+# re-made meanwhile); new copies take a few seconds to register with the master.
+fix_replication() {  # fix_replication <master pod>: re-make or trim copies, then check them
   weed_shell "$1" lock "volume.fix.replication -apply" unlock >/dev/null
+  sleep 5
   all_copies "$1"
 }
 
