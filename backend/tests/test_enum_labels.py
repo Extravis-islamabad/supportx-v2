@@ -62,6 +62,7 @@ ENUM_PREFIXES: dict[str, str] = {
     # Asset financials (WP-049b s2)
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",
+    "RateState": "people.cost_rate.state",  # a person's cost per hour (REQ-INC-068)
     "TermsSource": "asset_terms_source",
     # Labels, audits, scans and the overdue rule (WP-049b s3)
     "AssetChangeOriginOut.kind": "asset_change_origin",

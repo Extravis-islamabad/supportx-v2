@@ -202,6 +202,10 @@ export const ur: LabelResource = {
     'آپ کی تنظیم یہاں رابطے کی تفصیلات بدلنے کی اجازت نہیں دیتی۔ سروس ڈیسک سے پوچھیں۔',
   'errors.conversation_entry_not_found': 'یہ جواب یا نوٹ اب موجود نہیں ہے۔',
   'errors.copy_reference': 'حوالہ کاپی کریں',
+  'errors.cost_rate_date_taken': 'اس فرد کی اسی وقت سے ایک لاگت پہلے سے ہے۔ اسی کو بدلیں۔',
+  'errors.cost_rate_not_found': 'لاگت نہیں ملی۔',
+  'errors.cost_rate_superseded':
+    'اس کے بعد کی لاگت نافذ ہو چکی ہے، اس لیے یہ اب نہیں بدل سکتی۔ نئی لاگت مقرر کریں۔',
   'errors.csrf_failed':
     'اس درخواست کی تصدیق نہیں ہو سکی۔ براہِ کرم صفحہ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.currency_change_needs_confirmation':
@@ -868,6 +872,7 @@ export const ur: LabelResource = {
   'errors.node_not_mapped':
     'یہ رن جس مرحلے پر ہے اس کی نئے ورژن میں جگہ نہیں: اسے کسی مرحلے سے جوڑیں۔',
   'errors.not_a_member': 'آپ اس ادارے کے رکن نہیں ہیں۔',
+  'errors.not_a_person': 'یہ سروس شناخت ہے، فرد نہیں: اس کی کوئی فی گھنٹہ لاگت نہیں۔',
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
   'errors.not_cancelable_from_here': 'اسے اس کی موجودہ جگہ سے منسوخ نہیں کیا جا سکتا۔',
