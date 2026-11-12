@@ -10,7 +10,7 @@ Expand only, no data step, on `work_item_templates`:
 The downgrade refuses while any tenant has a layout or a rule (rule 5h); otherwise it drops both.
 
 Revision ID: 0155
-Revises: 0149
+Revises: 0150
 Created: 2026-11-13
 """
 
@@ -21,7 +21,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0155"
-down_revision: str | None = "0149"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0150"  # main's head while building; re-pointed at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
