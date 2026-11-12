@@ -8,7 +8,7 @@ later report can never read a column nobody granted. RLS still filters by tenant
 no BYPASSRLS). No data step.
 
 Revision ID: 0150
-Revises: 0143
+Revises: 0144
 Created: 2026-11-12
 """
 
@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from migrations.helpers import grant_report_columns, revoke_report
 
 revision: str = "0150"
-down_revision: str | None = "0143"
+down_revision: str | None = "0144"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
