@@ -36,6 +36,8 @@ class FakeUser:
     locale: str = "en"
     roles: tuple[str, ...] = ("technician",)
     organizations: dict[str, uuid.UUID] = field(default_factory=dict)  # alias -> tenant id
+    # A sign-in through an identity provider (WP-057 S1b): Keycloak's `sx_idp` claim.
+    identity_provider: str | None = None
 
 
 @dataclass
@@ -89,6 +91,8 @@ class FakeIdp:
         }
         if nonce is not None:
             claims["nonce"] = nonce
+        if user.identity_provider is not None:
+            claims["sx_idp"] = user.identity_provider
         return {**claims, **self.token_overrides}
 
     def issue_code(self, authorize_url: str, user: FakeUser) -> tuple[str, str]:
