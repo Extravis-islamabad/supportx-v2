@@ -575,6 +575,7 @@ export const en = {
     '{{csv}} or {{xlsx}}, up to {{max_mb}} MB and {{max_rows}} rows. The first row names the columns.',
   'assets.import.match': 'Match existing by',
   'assets.import.mode': 'Rows',
+  'assets.import.no_file': 'No file chosen',
   'assets.import.nothing_changed': 'This was a check: nothing has changed yet.',
   'assets.import.open': 'Import',
   'assets.import.problem': 'Problem',

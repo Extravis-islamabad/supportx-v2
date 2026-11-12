@@ -606,3 +606,34 @@ describe('console: the asset list fits its box (QA 2026-11-12 V-03)', () => {
     expect(state?.className).toContain('ant-table-cell-fix-left');
   });
 });
+
+// QA 2026-11-12 F-03: one control for the file. The browser's own input never shows (Ant
+// Design's form styles once overrode its `hidden`); the styled button says what is chosen.
+describe('console: the import drawer has one file control (QA 2026-11-12 F-03)', () => {
+  it('the native input stays hidden; the chosen file shows in the styled control, in every language', async () => {
+    const empty = {
+      en: 'No file chosen',
+      ar: 'لم يُختر أي ملف',
+      ur: 'کوئی فائل منتخب نہیں کی گئی',
+    };
+    for (const locale of ['en', 'ar', 'ur'] as const) {
+      window.history.pushState({}, '', '/assets');
+      const fake = assetsApi({ locale, routes: { 'GET /api/v1/assets/imports': { body: [] } } });
+      restore = fake.restore;
+      const { unmount } = render(<App />);
+      fireEvent.click(await screen.findByTestId('assets-header-actions-more'));
+      fireEvent.click(await screen.findByTestId('assets-import-open'));
+      const input = await screen.findByTestId('asset-import-file');
+      expect(input.style.display).toBe('none');
+      expect(input.getAttribute('tabindex')).toBe('-1');
+      expect(input.getAttribute('aria-hidden')).toBe('true');
+      const name = screen.getByTestId('asset-import-file-name');
+      expect(name.textContent).toBe(empty[locale]);
+      fireEvent.change(input, { target: { files: [new File(['1'], 'أصول-2026.csv')] } });
+      expect(name.textContent).toBe('أصول-2026.csv');
+      expect(name.querySelector('bdi')?.getAttribute('dir')).toBe('auto');
+      unmount();
+      fake.restore();
+    }
+  });
+});

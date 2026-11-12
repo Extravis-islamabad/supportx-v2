@@ -614,6 +614,7 @@ export const ar: LabelResource = {
     '{{csv}} أو {{xlsx}}، حتى {{max_mb}} ميغابايت و{{max_rows}} صف. يسمي الصف الأول الأعمدة.',
   'assets.import.match': 'مطابقة الموجود حسب',
   'assets.import.mode': 'الصفوف',
+  'assets.import.no_file': 'لم يُختر أي ملف',
   'assets.import.nothing_changed': 'كان هذا فحصًا: لم يتغير شيء بعد.',
   'assets.import.open': 'استيراد',
   'assets.import.problem': 'المشكلة',

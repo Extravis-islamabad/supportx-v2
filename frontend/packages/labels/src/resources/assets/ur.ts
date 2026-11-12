@@ -581,6 +581,7 @@ export const ur: LabelResource = {
     '{{csv}} یا {{xlsx}}، زیادہ سے زیادہ {{max_mb}} MB اور {{max_rows}} قطاریں۔ پہلی قطار کالموں کے نام بتاتی ہے۔',
   'assets.import.match': 'موجودہ کو اس سے ملائیں',
   'assets.import.mode': 'قطاریں',
+  'assets.import.no_file': 'کوئی فائل منتخب نہیں کی گئی',
   'assets.import.nothing_changed': 'یہ جانچ تھی: ابھی کچھ نہیں بدلا۔',
   'assets.import.open': 'درآمد',
   'assets.import.problem': 'مسئلہ',
