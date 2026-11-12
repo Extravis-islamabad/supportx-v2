@@ -37,6 +37,7 @@ from app.modules.work_items.domain.lists import (
     BulkOutcome,
     BulkStatus,
 )
+from app.modules.work_items.domain.stages import StageModel
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemBulkJobProgressed
 from app.modules.work_items.infra.models import WorkItem, WorkItemBulkJob
@@ -45,6 +46,7 @@ from app.modules.work_items.service import problems as problem_links
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.realtime import BULK_PREFIX
+from app.modules.work_items.service.work_items import StageOffer
 from app.shared.api.listing import ListQuery, order_by
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -552,6 +554,26 @@ async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's v
     )
 
 
+CANCEL_PERMISSION = "cancel"  # the lifecycle transitions' cancel right (domain models)
+
+
+def cancel_move(moves: Sequence[StageOffer], model: StageModel) -> StageOffer | None:
+    """The bulk cancel's move: the allowed cancel transition, else any allowed move into canceled.
+
+    Never by the order the moves come in (see _cancel_staged).
+    """
+    into_canceled = [
+        m
+        for m in moves
+        if m.allowed
+        and model.status(m.lands_in or m.transition.to_status).category is StatusCategory.CANCELED
+    ]
+    return next(
+        (m for m in into_canceled if m.transition.permission == CANCEL_PERMISSION),
+        into_canceled[0] if into_canceled else None,
+    )
+
+
 async def _cancel_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's values, explicit
     session: AsyncSession,
     subject: Subject,
@@ -567,18 +589,13 @@ async def _cancel_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's 
     point a cancel is offered (implementation in progress or later) is a skip that says so.
     """
     panel = await items.stage_panel(session, subject, wtype, record_id)
-    # Canceled by the type's own model (lane A's #438 review), as the close does.
+    # Canceled by the type's own model (lane A's #438 review), as the close does. A type may
+    # have more than one canceled status (a release's submission can also be REJECTED, which is
+    # canceled too): the bulk cancel is the cancel transition itself (permission "cancel"), and
+    # only a type without one falls back to any move into canceled. Never the order the moves
+    # come in (the flake lane B saw in a merge group: a rejection taken for the cancel).
     model = await stage_service.load_model(session, wtype, panel.record.lifecycle_version)
-    cancel = next(
-        (
-            m
-            for m in panel.moves
-            if m.allowed
-            and model.status(m.lands_in or m.transition.to_status).category
-            is StatusCategory.CANCELED
-        ),
-        None,
-    )
+    cancel = cancel_move(panel.moves, model)
     if cancel is None:
         raise Conflict(code="not_cancelable_from_here")
     await items.move_status(
