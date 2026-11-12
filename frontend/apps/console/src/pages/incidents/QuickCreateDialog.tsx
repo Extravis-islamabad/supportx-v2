@@ -12,7 +12,7 @@ import {
   type IncidentTemplate,
 } from '@supportx/api-client';
 import { formFieldOf } from '@supportx/forms';
-import { useListFormat } from '@supportx/labels';
+import { hasLabel, useListFormat, type LabelParams } from '@supportx/labels';
 import { lengthLimit, reportError, useAppearance, useLabel } from '@supportx/ui';
 
 import { fieldName } from '../customFields/values';
@@ -60,17 +60,31 @@ export function QuickCreateDialog({ open, onClose }: { open: boolean; onClose: (
   const [requester, setRequester] = useState<string | null>(null);
   const [priority, setPriority] = useState<string | null>(null);
   const [reason, setReason] = useState('');
-  const [errors, setErrors] = useState<Map<string, string>>(new Map());
+  // Each field's error as the server said it: its message key and params, so a limit keeps its
+  // number (lane C).
+  const [errors, setErrors] = useState<Map<string, { key: string; params: LabelParams }>>(
+    new Map(),
+  );
   const fieldLabel = (name: string) => {
-    if (!name.startsWith('custom.')) return t(`work_item.field.${name}`);
-    const found = customFields.data?.find((f) => `custom.${f.key}` === name);
-    return found === undefined ? t('custom_fields.unknown_field') : fieldName(found, locale);
+    if (name.startsWith('custom.')) {
+      const found = customFields.data?.find((f) => `custom.${f.key}` === name);
+      return found === undefined ? t('custom_fields.unknown_field') : fieldName(found, locale);
+    }
+    // Never a raw key: an unexpected field reads as "another field" (lane C).
+    const key = `work_item.field.${name}`;
+    return hasLabel(key) ? t(key) : t('incidents.quick.another_field');
+  };
+  const clearError = (name: string) => {
+    if (!errors.has(name)) return;
+    const next = new Map(errors);
+    next.delete(name);
+    setErrors(next);
   };
   // Fields a rule or the template needs that this dialog does not have (AC2).
   const elsewhere = [...errors.keys()].filter((name) => !OWN.has(name));
   const errorOf = (name: string) => {
-    const code = errors.get(name);
-    return code === undefined ? undefined : t(`errors.field.${code}`);
+    const found = errors.get(name);
+    return found === undefined ? undefined : t(found.key, found.params);
   };
 
   const reset = () => {
@@ -86,10 +100,11 @@ export function QuickCreateDialog({ open, onClose }: { open: boolean; onClose: (
     onClose();
   };
   const submit = () => {
-    const missing = new Map<string, string>();
-    if (subject.trim() === '') missing.set('subject', 'required');
-    if (requester === null) missing.set('requester_id', 'required');
-    if (priority !== null && reason.trim() === '') missing.set('priority_reason', 'required');
+    const required = { key: 'errors.field.required', params: {} };
+    const missing = new Map<string, { key: string; params: LabelParams }>();
+    if (subject.trim() === '') missing.set('subject', required);
+    if (requester === null) missing.set('requester_id', required);
+    if (priority !== null && reason.trim() === '') missing.set('priority_reason', required);
     if (missing.size > 0) {
       setErrors(missing);
       return;
@@ -110,7 +125,14 @@ export function QuickCreateDialog({ open, onClose }: { open: boolean; onClose: (
         },
         onError: (error) => {
           if (error instanceof ApiError && error.status === 422 && error.fieldErrors.length > 0) {
-            setErrors(new Map(error.fieldErrors.map((e) => [formFieldOf(e.field), e.code])));
+            setErrors(
+              new Map(
+                error.fieldErrors.map((e) => [
+                  formFieldOf(e.field),
+                  { key: e.message_key, params: e.params ?? {} },
+                ]),
+              ),
+            );
             setKey(crypto.randomUUID()); // a fixed retry is a new create
             return;
           }
@@ -174,6 +196,7 @@ export function QuickCreateDialog({ open, onClose }: { open: boolean; onClose: (
             value={subject}
             onChange={(event) => {
               setSubject(event.target.value);
+              clearError('subject');
             }}
             onPressEnter={submit}
             data-testid="inc-quick-subject"
@@ -189,7 +212,10 @@ export function QuickCreateDialog({ open, onClose }: { open: boolean; onClose: (
           <UserPicker
             id="inc-quick-requester"
             value={requester}
-            onChange={setRequester}
+            onChange={(next) => {
+              setRequester(next);
+              clearError('requester_id');
+            }}
             testId="inc-quick-requester"
             ariaLabel={t('work_item.field.requester_id')}
           />
@@ -230,6 +256,7 @@ export function QuickCreateDialog({ open, onClose }: { open: boolean; onClose: (
                 value={reason}
                 onChange={(event) => {
                   setReason(event.target.value);
+                  clearError('priority_reason');
                 }}
                 data-testid="inc-quick-reason"
               />

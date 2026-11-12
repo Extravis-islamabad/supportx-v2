@@ -62,7 +62,9 @@ afterEach(() => {
 });
 
 async function fillIn() {
-  fireEvent.click(await screen.findByTestId('inc-quick-open'));
+  // The header has three buttons at most: with Export and New, Quick create sits in "More".
+  fireEvent.click(await screen.findByTestId('inc-header-actions-more'));
+  fireEvent.click(await screen.findByTestId('inc-quick-open-menu'));
   fireEvent.change(await screen.findByTestId('inc-quick-subject'), {
     target: { value: 'Printer jammed' },
   });
@@ -76,7 +78,7 @@ describe('Quick create', () => {
     const fake = consoleApi({ me: ADMIN, routes: routes({ status: 201, body: ITEM }) });
     restore = fake.restore;
     render(<App />);
-    await screen.findByTestId('inc-quick-open');
+    await screen.findByTestId('inc-header-actions-more');
     const listed = fake.find('GET', '/api/v1/incidents').length;
     await fillIn();
     await waitFor(() => {
@@ -95,6 +97,43 @@ describe('Quick create', () => {
     await waitFor(() => {
       expect(fake.find('GET', '/api/v1/incidents').length).toBeGreaterThan(listed);
     });
+  });
+
+  it('a limit keeps its number, and an unexpected field is never shown as a key', async () => {
+    const fake = consoleApi({
+      me: ADMIN,
+      routes: routes({
+        status: 422,
+        body: {
+          type: 'about:blank',
+          title: 'Validation failed',
+          status: 422,
+          code: 'validation_failed',
+          message_key: 'errors.validation_failed',
+          errors: [
+            {
+              field: 'body.subject',
+              code: 'value_too_long',
+              message_key: 'errors.field.value_too_long',
+              params: { max: 250 },
+            },
+            {
+              field: 'body.mystery_field',
+              code: 'required',
+              message_key: 'errors.field.required',
+              params: {},
+            },
+          ],
+        },
+      }),
+    });
+    restore = fake.restore;
+    render(<App />);
+    await fillIn();
+    const needs = await screen.findByTestId('inc-quick-needs');
+    expect(needs.textContent).toContain('another field');
+    expect(needs.textContent).not.toContain('work_item.field');
+    expect(screen.getByTestId('inc-quick').textContent).toContain('250');
   });
 
   it('AC2: a field a rule requires is named, with the way to the full form', async () => {

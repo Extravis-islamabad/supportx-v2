@@ -1154,6 +1154,7 @@ export const ar: LabelResource = {
   'incidents.priority_override': 'تحديد الأولوية يدويًا',
   'incidents.priority_pending': 'تُحسب عند تحديد التأثير والإلحاح',
   'incidents.properties': 'الخصائص',
+  'incidents.quick.another_field': 'حقل آخر',
   'incidents.quick.create': 'إنشاء',
   'incidents.quick.full_form': 'فتح النموذج الكامل',
   'incidents.quick.help':

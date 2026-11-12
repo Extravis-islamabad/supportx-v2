@@ -1012,6 +1012,7 @@ export const en = {
   'incidents.priority_override': 'Set priority by hand',
   'incidents.priority_pending': 'Calculated when impact and urgency are set',
   'incidents.properties': 'Properties',
+  'incidents.quick.another_field': 'another field',
   'incidents.quick.create': 'Create',
   'incidents.quick.full_form': 'Open the full form',
   'incidents.quick.help':

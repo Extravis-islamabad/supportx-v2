@@ -389,6 +389,33 @@ export function IncidentsPage() {
                 trash
                   ? []
                   : [
+                      // Quick create without leaving the list (REQ-INC-018): its own button
+                      // before New, so the main action stays last (template C, lane C).
+                      ...(can('incidents.create')
+                        ? [
+                            {
+                              key: 'quick',
+                              node: (
+                                <WriteButton
+                                  onClick={() => {
+                                    setQuick(true);
+                                  }}
+                                  data-testid="inc-quick-open"
+                                >
+                                  {t('incidents.quick.open')}
+                                </WriteButton>
+                              ),
+                              overflow: {
+                                key: 'quick',
+                                label: t('incidents.quick.open'),
+                                onClick: () => {
+                                  setQuick(true);
+                                },
+                                testId: 'inc-quick-open-menu',
+                              },
+                            },
+                          ]
+                        : []),
                       {
                         key: 'export',
                         node: (
@@ -445,24 +472,13 @@ export function IncidentsPage() {
               primary={
                 // Nothing is made in the trash (QA10-P1-18).
                 can('incidents.create') && !trash ? (
-                  <Space.Compact>
-                    <WriteButton
-                      type="primary"
-                      onClick={() => void navigate('/incidents/new')}
-                      data-testid="inc-new"
-                    >
-                      {t('incidents.new')}
-                    </WriteButton>
-                    {/* Quick create without leaving the list (REQ-INC-018). */}
-                    <WriteButton
-                      onClick={() => {
-                        setQuick(true);
-                      }}
-                      data-testid="inc-quick-open"
-                    >
-                      {t('incidents.quick.open')}
-                    </WriteButton>
-                  </Space.Compact>
+                  <WriteButton
+                    type="primary"
+                    onClick={() => void navigate('/incidents/new')}
+                    data-testid="inc-new"
+                  >
+                    {t('incidents.new')}
+                  </WriteButton>
                 ) : undefined
               }
             />

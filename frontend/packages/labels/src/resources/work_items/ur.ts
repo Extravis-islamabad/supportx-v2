@@ -1017,6 +1017,7 @@ export const ur: LabelResource = {
   'incidents.priority_override': 'ترجیح ہاتھ سے مقرر کریں',
   'incidents.priority_pending': 'اثر اور فوریت طے ہونے پر حساب ہوگی',
   'incidents.properties': 'خصوصیات',
+  'incidents.quick.another_field': 'ایک اور فیلڈ',
   'incidents.quick.create': 'بنائیں',
   'incidents.quick.full_form': 'مکمل فارم کھولیں',
   'incidents.quick.help':
