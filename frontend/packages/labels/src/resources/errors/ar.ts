@@ -777,6 +777,8 @@ export const ar: LabelResource = {
   'errors.linked_records_not_available': 'السجلات المرتبطة غير متاحة بعد.',
   'errors.list_not_found': 'هذه القائمة لا تحتفظ بإعدادات.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
+  'errors.login_not_this_browser':
+    'بدأ تسجيل الدخول هذا في متصفح آخر أو انتهت صلاحيته. يرجى تسجيل الدخول من جديد هنا.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
   'errors.mail_attachment_type': 'لا يمكن إرسال هذا النوع من الملفات بالبريد.',
@@ -919,6 +921,8 @@ export const ar: LabelResource = {
     'لا يمكن تشغيل هذا الخادم: مفتاح تسجيل دخول لم يعد مُدرجًا ما زال مطلوبًا. أدرِج المفتاح مرة أخرى.',
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
+  'errors.sign_in_unavailable':
+    'تسجيل الدخول غير متاح الآن. يرجى الانتظار دقيقة ثم المحاولة مرة أخرى.',
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
   'errors.site_not_found': 'الموقع غير موجود.',
