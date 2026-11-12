@@ -1376,7 +1376,11 @@ it with no reload (rule c). Not built yet.
       effect there once it shows more fields;
     - rules over assignment fields don't run on the assign route;
     - a rule (or a template setting) that requires a field requesters can't fill blocks portal
-      creates from that template, as base template settings already do.
+      creates from that template, as base template settings already do. Follow-up (lane B): a
+      save-time check on for_requesters templates that refuses or warns when a rule requires,
+      sets or hides a field requesters can't fill;
+    - designer keyboard polish (lane C, non-blocking): keep focus after a move, a remove or at
+      a list's end, and announce moves to screen readers.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
