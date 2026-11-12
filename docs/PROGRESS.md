@@ -1944,6 +1944,38 @@ it with no reload (rule c). Not built yet.
     refresh after insert) needs those owners. The import of a site-scoped manager may add
     assets at any site, as `create_asset` allows today (only updates are scope-checked).
 
+### [~] WP-057 — Security and audit: sign-in policy, network rules, sign-in log, encryption, service accounts (lane C; D-149; plan approved 2026-11-12; 6 sessions; lane B blocks every PR)
+
+- [x] Session 1a (2026-11-12): IP allow-lists, the sign-in log and the SSO fetch pin. Migration 0151.
+  - **REQ-SEC-034 (IP allow-lists), AC1-AC3:**
+    - One list per app: console, portal and API (keys).
+    - Checked before the person is looked up or created, at sign-in and at a tenant switch. A
+      person in several tenants lands in one that admits them.
+    - Checked again at every refresh and at the realtime token.
+    - A save that would shut out the admin is refused (AC2). Every change is audited.
+  - **REQ-AUD-015 (sign-in log):**
+    - The BFF writes sign-ins, IP refusals and sign-outs (person only where known; a device
+      code, never the User-Agent).
+    - Live, behind its own right (`identity.view_sign_ins`, tenant admin only, grantable; each
+      read audited).
+    - Erasure clears the address and device. Entries go after 90 days.
+    - **AC2 met. AC1 (a failed SSO's reason) OPEN until S1b**, with the Keycloak events import.
+  - **Audit #3 (fetch part):** set-up checks are pinned through the guarded egress client.
+    Private ranges only where the installation lists them.
+  - **Tests:** ip_allow_lists (7), network_rules_api (4), sign_in_log_api (4), api_keys (+1),
+    auth suites unchanged (109), domain (network 9, sign_in 15), Vitest network (3) and sign-ins
+    (3). test_auth_keycloak is split in three (12 pass).
+- [ ] Session 1b: SSO required with break-glass and the admin alert (REQ-SEC-009), MFA with SSO
+  (REQ-SEC-026), the verified sign-in method (a realm mapper, lane B), and the Keycloak events
+  import (AUD-015 AC1). Migration number at the turn.
+- [ ] Session 2: recent re-authentication, session places, notices, expiring certificates,
+  invite links.
+- [ ] Session 3: field-level encryption (ADR-050), personal-data access log.
+- [ ] Session 4: service accounts, key policy, non-person actors, security overview.
+- [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
+- [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
+  tenant) moved to LATER (D-165).
+
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
 - [x] S1: the audit sink port in `app/shared/history.record_changes` and the audit module's sink;
