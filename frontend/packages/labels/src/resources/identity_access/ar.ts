@@ -406,6 +406,9 @@ export const ar: LabelResource = {
   'permission.changes.take.description': 'تولي تغيير ليس لها مالك بعد.',
   'permission.changes.view': 'عرض التغييرات',
   'permission.changes.view.description': 'رؤية طلبات التغيير.',
+  'permission.changes.view_costs': 'عرض التكاليف في التغييرات',
+  'permission.changes.view_costs.description':
+    'عرض أسعار التكلفة وتكاليف الفنيين والتكاليف الأخرى وإجمالياتها في التغييرات، والتكلفة الإضافية للمهمة. بدونها لا يظهر شيء من ذلك في أي مكان، بما في ذلك التصدير.',
   'permission.cmdb.manage': 'إدارة قاعدة بيانات التهيئة',
   'permission.cmdb.manage.description': 'تغيير عناصر التهيئة وعلاقاتها.',
   'permission.cmdb.view': 'عرض قاعدة بيانات التهيئة',
@@ -488,6 +491,9 @@ export const ar: LabelResource = {
   'permission.incidents.view': 'عرض الحوادث',
   'permission.incidents.view.description':
     'رؤية الحوادث وسجلها. نطاق المجموعة يعرض أيضًا حوادث مواقعك التي لم يتولّها أحد بعد.',
+  'permission.incidents.view_costs': 'عرض التكاليف في الحوادث',
+  'permission.incidents.view_costs.description':
+    'عرض أسعار التكلفة وتكاليف الفنيين والتكاليف الأخرى وإجمالياتها في الحوادث، والتكلفة الإضافية للمهمة. بدونها لا يظهر شيء من ذلك في أي مكان، بما في ذلك التصدير.',
   'permission.integrations.manage_email': 'إعداد موصلات البريد الإلكتروني',
   'permission.integrations.manage_email.description':
     'ربط صناديق بريد الدعم واختيار ما يتحول إليه بريدها.',
@@ -571,6 +577,9 @@ export const ar: LabelResource = {
   'permission.problems.take.description': 'تولي مشكلة ليس لها مالك بعد.',
   'permission.problems.view': 'عرض المشكلات',
   'permission.problems.view.description': 'رؤية سجلات المشكلات.',
+  'permission.problems.view_costs': 'عرض التكاليف في المشكلات',
+  'permission.problems.view_costs.description':
+    'عرض أسعار التكلفة وتكاليف الفنيين والتكاليف الأخرى وإجمالياتها في المشكلات، والتكلفة الإضافية للمهمة. بدونها لا يظهر شيء من ذلك في أي مكان، بما في ذلك التصدير.',
   'permission.problems.view_root_cause': 'رؤية الأسباب الجذرية',
   'permission.problems.view_root_cause.description':
     'قراءة السبب الجذري للمشكلات، وقد يصف ثغرة أمنية.',
@@ -618,6 +627,9 @@ export const ar: LabelResource = {
   'permission.releases.take.description': 'أخذ إصدار لم يأخذه أحد بعد.',
   'permission.releases.view': 'عرض الإصدارات',
   'permission.releases.view.description': 'رؤية الإصدارات (عند توفر إدارة الإصدارات).',
+  'permission.releases.view_costs': 'عرض التكاليف في الإصدارات',
+  'permission.releases.view_costs.description':
+    'عرض أسعار التكلفة وتكاليف الفنيين والتكاليف الأخرى وإجمالياتها في الإصدارات، والتكلفة الإضافية للمهمة. بدونها لا يظهر شيء من ذلك في أي مكان، بما في ذلك التصدير.',
   'permission.reports.create': 'إنشاء التقارير',
   'permission.reports.create.description': 'حفظ التقارير ونسخ التقارير المضمّنة وتعديل تقاريرهم.',
   'permission.reports.export': 'تصدير التقارير',

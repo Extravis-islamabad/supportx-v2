@@ -414,6 +414,9 @@ export const en = {
   'permission.changes.take.description': 'Take a change nobody owns yet.',
   'permission.changes.view': 'View changes',
   'permission.changes.view.description': 'See change requests.',
+  'permission.changes.view_costs': 'See costs on changes',
+  'permission.changes.view_costs.description':
+    "See cost rates, technician and other costs and cost totals on changes, and a task's extra cost. Without it none of these show anywhere, exports included.",
   'permission.cmdb.manage': 'Manage CMDB',
   'permission.cmdb.manage.description': 'Change configuration items and relationships.',
   'permission.cmdb.view': 'View CMDB',
@@ -498,6 +501,9 @@ export const en = {
   'permission.incidents.view': 'View incidents',
   'permission.incidents.view.description':
     'See incidents and their history. Group scope also shows the not-yet-taken incidents of your sites.',
+  'permission.incidents.view_costs': 'See costs on incidents',
+  'permission.incidents.view_costs.description':
+    "See cost rates, technician and other costs and cost totals on incidents, and a task's extra cost. Without it none of these show anywhere, exports included.",
   'permission.integrations.manage_email': 'Set up email connectors',
   'permission.integrations.manage_email.description':
     'Connect support mailboxes and choose what their mail becomes.',
@@ -589,6 +595,9 @@ export const en = {
   'permission.problems.take.description': 'Take a problem nobody owns yet.',
   'permission.problems.view': 'View problems',
   'permission.problems.view.description': 'See problem records.',
+  'permission.problems.view_costs': 'See costs on problems',
+  'permission.problems.view_costs.description':
+    "See cost rates, technician and other costs and cost totals on problems, and a task's extra cost. Without it none of these show anywhere, exports included.",
   'permission.problems.view_root_cause': 'See root causes',
   'permission.problems.view_root_cause.description':
     'Read the root cause of problems, which may describe a security weakness.',
@@ -635,6 +644,9 @@ export const en = {
   'permission.releases.take.description': 'Take a release nobody has taken yet.',
   'permission.releases.view': 'View releases',
   'permission.releases.view.description': 'See releases (when release management is available).',
+  'permission.releases.view_costs': 'See costs on releases',
+  'permission.releases.view_costs.description':
+    "See cost rates, technician and other costs and cost totals on releases, and a task's extra cost. Without it none of these show anywhere, exports included.",
   'permission.reports.create': 'Create reports',
   'permission.reports.create.description':
     'Save reports and copies of built-in reports, and change their own.',

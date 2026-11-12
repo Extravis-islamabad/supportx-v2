@@ -333,6 +333,34 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
         + (PROBLEM_SPECS if wtype.code is WorkItemTypeCode.PROBLEM else ())
         + (RELEASE_APPROVE_SPECS if is_release else ())
         + (CHANGE_APPROVE_SPECS if wtype.code is WorkItemTypeCode.CHANGE else ())
+        + (_cost_spec(wtype) if wtype.code in COST_TYPES else ())
+    )
+
+
+# WP-046a S3 (REQ-INC-068 AC2), PENDING HAIDER (the coordinator, 2026-11-12): who sees money on a
+# record: worklog cost rates, technician and other costs, cost totals, and a task's extra cost.
+# One right per type with worklogs; without it the API, UI and exports show none of it. Seeded
+# for the service desk manager (tenant admins hold every right). Named here once, so Haider's
+# answer changes one place.
+VIEW_COSTS = "view_costs"
+COST_TYPES = frozenset(
+    {
+        WorkItemTypeCode.INCIDENT,
+        WorkItemTypeCode.PROBLEM,
+        WorkItemTypeCode.CHANGE,
+        WorkItemTypeCode.RELEASE,
+    }
+)
+
+
+def _cost_spec(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
+    return (
+        PermissionSpec(
+            wtype.permission(VIEW_COSTS),
+            wtype.feature,
+            ALL_SCOPES,
+            defaults=((SERVICE_DESK_MANAGER, "all"),),
+        ),
     )
 
 
