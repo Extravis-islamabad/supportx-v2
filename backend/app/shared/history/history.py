@@ -335,6 +335,10 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     `automation_ref` names the automation that made the change, if any (ADR-026). `subtype`
     tells apart the kinds of a shared record type (a work item's `incident`, `problem` ...) for
     the audit entry; history rows do not store it.
+
+    Inside `deferred_writes` (an import batch, app/shared/db/deferred.py) the rows go to the
+    batch's buffer and nothing is flushed here, so a caller must never rely on this call to flush
+    its other pending ORM rows (lane A's #449 review).
     """
     changes = tuple(changes)
     change_id = new_id()
