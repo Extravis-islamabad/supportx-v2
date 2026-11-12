@@ -1197,6 +1197,8 @@ export {
   type ReleaseConflicts,
   useReleaseCalendar,
   useReleaseChanges,
+  useCloseReleaseChanges,
+  type LinkedChangeClosed,
   useRemoveReleaseChange,
   releaseCalendarKeys,
   type ReleaseChange,

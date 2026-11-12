@@ -2037,6 +2037,7 @@ class LinkedChangeClosedOut(BaseModel):
     closed: bool
     code: str | None = None
     params: dict[str, Any] | None = None
+    field: str | None = Field(default=None, description="A field problem's field, if any.")
 
 
 class ReleaseFollowUpIn(BaseModel):

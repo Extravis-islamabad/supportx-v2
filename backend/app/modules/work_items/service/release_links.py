@@ -547,6 +547,7 @@ class LinkedChangeClosed:
     closed: bool
     code: str | None = None
     params: dict[str, Any] | None = None
+    field: str | None = None  # a field problem's field (the bulk results' shape)
 
 
 async def close_linked_changes(  # noqa: PLR0913 - the release, the code and its context, explicit
@@ -604,6 +605,7 @@ async def close_linked_changes(  # noqa: PLR0913 - the release, the code and its
                     closed=False,
                     code=first.code if first is not None else refused.instance_code,
                     params=dict(first.params) if first is not None else dict(refused.params),
+                    field=first.field.removeprefix("body.") if first is not None else None,
                 )
             )
             continue

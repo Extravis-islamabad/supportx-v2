@@ -1647,6 +1647,13 @@ export const ur: LabelResource = {
   'releases.changes.remove': 'نکالیں',
   'releases.changes.remove_of': '{{id}} کو اس ریلیز سے نکالیں',
   'releases.changes.search': 'نمبر یا عنوان سے تلاش کریں',
+  'releases.close_changes.closed': 'بند',
+  'releases.close_changes.help':
+    'ہر وہ تبدیلی جو ابھی بند نہیں ہوئی اپنے قواعد کے مطابق اس کوڈ کے ساتھ بند ہوتی ہے۔ جسے آپ بند نہیں کر سکتے وہ ویسی ہی رہتی ہے، اور فہرست وجہ بتاتی ہے۔',
+  'releases.close_changes.hidden': 'ایک تبدیلی جو آپ نہیں دیکھ سکتے',
+  'releases.close_changes.none': 'بند کرنے کو کوئی تبدیلی نہیں بچی۔',
+  'releases.close_changes.run': 'وہ تبدیلیاں بند کریں جو میں کر سکتا ہوں',
+  'releases.close_changes.title': 'اس کی تبدیلیاں بند کریں',
   'releases.col.id': 'نمبر',
   'releases.col.tasks': 'کام',
   'releases.col.updated': 'تازہ کاری',

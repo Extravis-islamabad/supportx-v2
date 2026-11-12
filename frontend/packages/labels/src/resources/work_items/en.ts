@@ -1644,6 +1644,13 @@ export const en = {
   'releases.changes.remove': 'Take out',
   'releases.changes.remove_of': 'Take {{id}} out of this release',
   'releases.changes.search': 'Search by number or title',
+  'releases.close_changes.closed': 'Closed',
+  'releases.close_changes.help':
+    'Each change not closed yet is closed by its own rules, with this code. One you may not close is left as it is, and the list says why.',
+  'releases.close_changes.hidden': 'A change you cannot see',
+  'releases.close_changes.none': 'No change was left to close.',
+  'releases.close_changes.run': 'Close the changes I may close',
+  'releases.close_changes.title': 'Close its changes',
   'releases.col.id': 'Number',
   'releases.col.tasks': 'Tasks',
   'releases.col.updated': 'Updated',

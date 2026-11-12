@@ -1866,6 +1866,13 @@ export const ar: LabelResource = {
   'releases.changes.remove': 'إخراج',
   'releases.changes.remove_of': 'إخراج {{id}} من هذا الإصدار',
   'releases.changes.search': 'البحث بالرقم أو العنوان',
+  'releases.close_changes.closed': 'مُغلق',
+  'releases.close_changes.help':
+    'يُغلق كل تغيير لم يُغلق بعد وفق قواعده، بهذا الرمز. ما لا يُسمح لك بإغلاقه يبقى كما هو، وتذكر القائمة السبب.',
+  'releases.close_changes.hidden': 'تغيير لا يمكنك رؤيته',
+  'releases.close_changes.none': 'لم يبقَ أي تغيير لإغلاقه.',
+  'releases.close_changes.run': 'إغلاق التغييرات التي يحق لي إغلاقها',
+  'releases.close_changes.title': 'إغلاق تغييراته',
   'releases.col.id': 'الرقم',
   'releases.col.tasks': 'المهام',
   'releases.col.updated': 'آخر تحديث',
