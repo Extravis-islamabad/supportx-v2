@@ -265,14 +265,57 @@ CHANGE_MEASURES: tuple[MeasureSpec, ...] = (
     ),
 )
 
+# Releases (WP-058b S5b, REQ-REL-060): how they went. As for changes, every field is something a
+# viewer of the release already sees, and the source holds only the releases they may list. The
+# on-time rate is of the releases whose deployment ended (AC2: ended before its stage's
+# scheduled end); a release still deploying is neither on time nor late.
+RELEASE_MEASURES: tuple[MeasureSpec, ...] = (
+    *COUNT_ONLY,
+    MeasureSpec("open_count", MeasureKind.COUNT_WHERE, Unit.COUNT, Better.DOWN, where=_OPEN),
+    MeasureSpec(
+        "on_time_rate",
+        MeasureKind.RATE,
+        Unit.PERCENT,
+        Better.UP,
+        where={"field": "deployed_on_time", "op": "eq", "value": True},
+        of={"field": "deployment_ended", "op": "eq", "value": True},
+    ),
+    MeasureSpec(
+        "overdue_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={"and": [_OPEN, {"field": "stage_overdue", "op": "eq", "value": True}]},
+    ),
+    MeasureSpec(
+        "failed_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={
+            "field": "status",
+            "op": "in",
+            "value": ["deployment_failed", "deployment_rolled_back"],
+        },
+    ),
+    MeasureSpec(
+        "average_approval_turnaround",
+        MeasureKind.AVERAGE,
+        Unit.SECONDS,
+        Better.DOWN,
+        field="approval_turnaround_seconds",
+    ),
+)
+
 MEASURES: Mapping[str, Mapping[str, MeasureSpec]] = MappingProxyType(
     {
         "incident": MappingProxyType({m.code: m for m in INCIDENT_MEASURES}),
         "asset": MappingProxyType({m.code: m for m in ASSET_MEASURES}),
         "change": MappingProxyType({m.code: m for m in CHANGE_MEASURES}),
+        "release": MappingProxyType({m.code: m for m in RELEASE_MEASURES}),
         **{
             entity: MappingProxyType({m.code: m for m in COUNT_ONLY})
-            for entity in ("service_request", "problem", "release")
+            for entity in ("service_request", "problem")
         },
     }
 )

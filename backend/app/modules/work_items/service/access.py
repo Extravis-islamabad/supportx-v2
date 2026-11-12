@@ -40,14 +40,16 @@ from app.modules.work_items.domain.change_risk import RiskLevel
 from app.modules.work_items.domain.changes import CHANGE_MODEL, OUTCOME_OF_STATUS
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
-from app.modules.work_items.domain.releases import RELEASE_MODEL, DowntimePhase
+from app.modules.work_items.domain.releases import RELEASE_MODEL, DowntimePhase, ReleaseRisk
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import Channel, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import (
     WorkItem,
+    WorkItemApproval,
     WorkItemChangeDetails,
     WorkItemDowntime,
     WorkItemFollower,
+    WorkItemReleaseDetails,
     WorkItemRoleHolder,
     WorkItemStageSchedule,
 )
@@ -298,9 +300,101 @@ CHANGE_FIELDS: Mapping[str, FilterField] = {
         _downtime_seconds(DowntimePhase.ACTUAL), FieldType.INTEGER
     ),
 }
+
+
+def _release(column: Any) -> Any:  # noqa: ANN401 - SQLAlchemy column and scalar subquery
+    return (
+        select(column)
+        .where(
+            WorkItemReleaseDetails.tenant_id == WorkItem.tenant_id,
+            WorkItemReleaseDetails.work_item_id == WorkItem.id,
+        )
+        .scalar_subquery()
+    )
+
+
+def _deployment(column: Any) -> Any:  # noqa: ANN401 - SQLAlchemy column and scalar subquery
+    return (
+        select(column)
+        .where(
+            WorkItemStageSchedule.tenant_id == WorkItem.tenant_id,
+            WorkItemStageSchedule.work_item_id == WorkItem.id,
+            WorkItemStageSchedule.stage == DEPLOYMENT,
+        )
+        .scalar_subquery()
+    )
+
+
+DEPLOYMENT = "deployment"
+# Overdue: an open record whose CURRENT stage is past its planned end and not yet ended. Never a
+# stage it skipped or left behind, nor a closed or cancelled record (lane A's #443 review): those
+# would otherwise stay "overdue" for ever.
+_OVERDUE_STAGE = and_(
+    WorkItem.status_category.in_((StatusCategory.OPEN, StatusCategory.PAUSED)),
+    select(WorkItemStageSchedule.work_item_id)
+    .where(
+        WorkItemStageSchedule.tenant_id == WorkItem.tenant_id,
+        WorkItemStageSchedule.work_item_id == WorkItem.id,
+        WorkItemStageSchedule.stage == WorkItem.stage,
+        WorkItemStageSchedule.scheduled_end < func.now(),
+        WorkItemStageSchedule.actual_end.is_(None),
+    )
+    .exists(),
+)
+# The mean time from an approval being asked to its decision, over the record's decided ones
+# (REQ-REL-060: approval turnaround). Reads only granted columns (0150): never a comment.
+_TURNAROUND = (
+    select(
+        func.avg(
+            func.extract("epoch", WorkItemApproval.decided_at - WorkItemApproval.created_at)
+        ).cast(BigInteger)
+    )
+    .where(
+        WorkItemApproval.tenant_id == WorkItem.tenant_id,
+        WorkItemApproval.work_item_id == WorkItem.id,
+        WorkItemApproval.decided_at.is_not(None),
+        WorkItemApproval.deleted_at.is_(None),
+    )
+    .scalar_subquery()
+)
+# Releases' own figures (WP-058b S5b, REQ-REL-060): where it is, what kind, why, how risky, its
+# people, whether its deployment ended on time (AC2: before its stage's scheduled end), whether
+# a stage is overdue, and approval turnaround. Never the notes or anyone's words.
+RELEASE_FIELDS: Mapping[str, FilterField] = {
+    "stage": FilterField(WorkItem.stage, FieldType.STRING),
+    "stage_path": FilterField(WorkItem.stage_path, FieldType.STRING),
+    "release_type": FilterField(_release(WorkItemReleaseDetails.release_type), FieldType.STRING),
+    "release_reason": FilterField(
+        _release(WorkItemReleaseDetails.release_reason), FieldType.STRING
+    ),
+    "risk": _enum(_release(WorkItemReleaseDetails.risk), ReleaseRisk),
+    # The manager's and engineer's fields, kept equal to the role holders on every write (S5a).
+    "release_manager_id": FilterField(
+        _release(WorkItemReleaseDetails.release_manager_id), FieldType.UUID
+    ),
+    "release_engineer_id": FilterField(
+        _release(WorkItemReleaseDetails.release_engineer_id), FieldType.UUID
+    ),
+    "deployment_ended": FilterField(
+        _deployment(WorkItemStageSchedule.actual_end.is_not(None)), FieldType.BOOLEAN
+    ),
+    "deployed_on_time": FilterField(
+        _deployment(
+            and_(
+                WorkItemStageSchedule.actual_end.is_not(None),
+                WorkItemStageSchedule.scheduled_end.is_not(None),
+                WorkItemStageSchedule.actual_end <= WorkItemStageSchedule.scheduled_end,
+            )
+        ),
+        FieldType.BOOLEAN,
+    ),
+    "stage_overdue": FilterField(_OVERDUE_STAGE, FieldType.BOOLEAN),
+    "approval_turnaround_seconds": FilterField(_TURNAROUND, FieldType.INTEGER),
+}
 _TYPE_FIELDS: Mapping[WorkItemTypeCode, Mapping[str, FilterField]] = {
     WorkItemTypeCode.PROBLEM: PROBLEM_FIELDS,
     WorkItemTypeCode.CHANGE: CHANGE_FIELDS,
+    WorkItemTypeCode.RELEASE: RELEASE_FIELDS,
 }
 
 
