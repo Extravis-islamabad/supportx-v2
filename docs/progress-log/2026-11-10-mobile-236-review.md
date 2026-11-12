@@ -1,4 +1,4 @@
-### 2026-11-10 — Mobile app: #236 review changes and the three-way split (ADR-044, D-157, D-158)
+### 2026-11-10 — Mobile app: #236 review changes and the three-way split (ADR-044, D-159, D-160)
 
 The product owner's and lane B's review of #236 (2026-11-06 and 2026-11-09), applied after
 merging the latest main (ADR-044 accepted, #246 CI plan, #247 CLAUDE.md lines, #249 device
@@ -8,7 +8,9 @@ sessions and verified-link files).
   draft ADR-042 file is removed; main's ADR-044 carries it). D-145 is claimed by lane A and
   D-146 by WP-048b, so the mobile decisions became **D-154** (setup) and **D-155** (one
   role-based app from the prototype). Main then took D-154 and D-155 (and a lane D-156), so they
-  became **D-157** and **D-158** when PR #333 was brought up to date with main.
+  became D-157 and D-158 when PR #333 was brought up to date with main. Those were taken too
+  (the asset-permissions decision and S4a), so the coordinator assigned **D-159** (setup) and
+  **D-160** (one role-based app).
 - **Verified return link (ADR-044 item 3):**
   - `SUPPORTX_MOBILE_REDIRECT_URI` replaces `supportx://auth`: the chart sets it to
     `publicUrl` + `mobile.returnPath` (`https://<host>/mobile/auth`); the default is the local

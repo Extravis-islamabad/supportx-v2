@@ -52,6 +52,11 @@ export interface ActionBarProps {
    */
   lead?: ReactNode;
   testId?: string;
+  /**
+   * No button is primary, while another part of the page holds the primary action (an open
+   * composer); template A allows one primary. Buttons, order, the menu and reasons stay as they are.
+   */
+  quiet?: boolean;
 }
 
 /**
@@ -61,7 +66,14 @@ export interface ActionBarProps {
  */
 type MenuItem = NonNullable<MenuProps['items']>[number];
 
-export function ActionBar({ actions: given, max = 4, extra, lead, testId }: ActionBarProps) {
+export function ActionBar({
+  actions: given,
+  max = 4,
+  extra,
+  lead,
+  testId,
+  quiet = false,
+}: ActionBarProps) {
   const t = useLabel();
   const { modal } = App.useApp();
   const { writable } = useLicence();
@@ -79,7 +91,9 @@ export function ActionBar({ actions: given, max = 4, extra, lead, testId }: Acti
   );
   const buttons = candidates.filter((a) => chosen.has(a.key));
   // The most useful one is the primary button; placement keeps the fixed order.
-  const main = [...buttons].sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50))[0]?.key;
+  const main = quiet
+    ? undefined
+    : [...buttons].sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50))[0]?.key;
 
   const run = (action: RecordAction) => {
     if (!action.allowed) return;

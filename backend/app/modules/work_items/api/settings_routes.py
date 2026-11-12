@@ -25,6 +25,7 @@ from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.work_items.domain.approvals import LevelRule
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
 from app.modules.work_items.domain.lifecycle import ReasonMode, WorkItemAction
+from app.modules.work_items.domain.parts import TaskPriority
 from app.modules.work_items.domain.templates import (
     CUSTOM_PREFIX,
     TEMPLATE_DESCRIPTION_MAX,
@@ -286,6 +287,35 @@ class StageFieldRuleIO(BaseModel):
     read_only: bool = False
 
 
+class TemplateTaskIO(BaseModel):
+    """A task the template adds to each new record, if its condition matches (REQ-INC-040)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(max_length=400)
+    description: str | None = Field(default=None, max_length=8000)
+    task_type: str | None = Field(default=None, max_length=40)
+    priority: TaskPriority = TaskPriority.NORMAL
+    estimated_minutes: int | None = Field(default=None, ge=0, le=525600)
+    condition: Any = Field(
+        default=None,
+        description="A filter over the record's list fields (the list filter DSL); null: always.",
+    )
+
+
+class TemplateChecklistIO(BaseModel):
+    """A checklist the template adds to each new record, if its condition matches (INC-040)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(max_length=400)
+    items: list[str] = Field(default_factory=list, max_length=1000)
+    condition: Any = Field(
+        default=None,
+        description="A filter over the record's list fields (the list filter DSL); null: always.",
+    )
+
+
 class TemplateOut(BaseModel):
     """A template as admins and the create form see it."""
 
@@ -315,6 +345,12 @@ class TemplateOut(BaseModel):
     stage_path: str | None = Field(default=None, description="Staged types: the path it sets.")
     stage_rules: dict[str, dict[str, StageFieldRuleIO]] | None = Field(
         default=None, description="Staged types: rules per stage (only what differs)."
+    )
+    tasks: list[TemplateTaskIO] = Field(
+        default_factory=list, description="Tasks each new record gets (REQ-INC-040)."
+    )
+    checklists: list[TemplateChecklistIO] = Field(
+        default_factory=list, description="Checklists each new record gets (REQ-INC-040)."
     )
     version: int
 
@@ -347,6 +383,8 @@ class TemplateOut(BaseModel):
             lifecycle=row.lifecycle or STANDARD_LIFECYCLE,
             stage_path=row.stage_path,
             stage_rules=row.stage_rules,
+            tasks=[TemplateTaskIO.model_validate(t) for t in row.tasks or []],
+            checklists=[TemplateChecklistIO.model_validate(c) for c in row.checklists or []],
             version=row.version,
         )
 
@@ -376,6 +414,18 @@ class TemplateIn(BaseModel):
         description="Staged types, per stage and field (standard, the type's own, custom.<key>):"
         " shown, required to leave the stage, read-only while in it. Replaces all of them.",
     )
+    tasks: list[TemplateTaskIO] | None = Field(
+        default=None,
+        max_length=20,
+        description="Tasks each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
+    )
+    checklists: list[TemplateChecklistIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
+    )
 
 
 class TemplatePatch(BaseModel):
@@ -404,6 +454,18 @@ class TemplatePatch(BaseModel):
         default=None,
         description="Staged types, per stage and field (standard, the type's own, custom.<key>):"
         " shown, required to leave the stage, read-only while in it. Replaces all of them.",
+    )
+    tasks: list[TemplateTaskIO] | None = Field(
+        default=None,
+        max_length=20,
+        description="Tasks each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
+    )
+    checklists: list[TemplateChecklistIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
     )
 
 

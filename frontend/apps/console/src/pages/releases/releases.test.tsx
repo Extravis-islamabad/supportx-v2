@@ -1,7 +1,13 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeCustomField, fakeIncident, fakeSession } from '@supportx/api-client/testing';
+import {
+  fakeCustomField,
+  fakeIncident,
+  fakeSession,
+  fakeUser,
+  problem,
+} from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
@@ -365,6 +371,174 @@ describe('console: releases', () => {
     });
   });
 
+  it('REQ-REL-052 AC1: open work is named, and the move goes on only once confirmed', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    let tries = 0;
+    const fake = api({
+      [`POST /api/v1/releases/${REL_ID}/moves`]: () => {
+        tries += 1;
+        return tries === 1
+          ? {
+              status: 409,
+              body: problem(409, 'open_work_unconfirmed', {
+                params: { count: 1, items: 'CHG-12 Core switch firmware' },
+              }),
+            }
+          : { body: { ...release, version: 8 } };
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('release-more'));
+    fireEvent.click(await screen.findByTestId('move-build_completed'));
+    fireEvent.change(await screen.findByTestId('move-field-release_version'), {
+      target: { value: '4.2.0' },
+    });
+    fireEvent.click(screen.getByTestId('move-ok'));
+    const open = await screen.findByTestId('move-open-work');
+    expect(open.textContent).toContain('CHG-12 Core switch firmware');
+    expect(screen.getByTestId('move-ok').textContent).toBe('Confirm and continue');
+    fireEvent.click(screen.getByTestId('move-ok'));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/moves`)).toHaveLength(2);
+    });
+    const [first, second] = fake.find('POST', `/api/v1/releases/${REL_ID}/moves`);
+    expect(first?.body).toMatchObject({ confirm_open_work: false });
+    expect(second?.body).toMatchObject({ confirm_open_work: true });
+  });
+
+  it('REQ-REL-053 AC1: a failed deployment shows its backout plan and "Mark rolled back"', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const failed = { ...release, status: 'deployment_failed', stage: 'deployment' };
+    api({
+      [`GET /api/v1/releases/${REL_ID}`]: { body: failed, headers: { ETag: '"7"' } },
+      [`GET /api/v1/releases/${REL_ID}/stages`]: {
+        body: {
+          ...panel,
+          stage: 'deployment',
+          status: 'deployment_failed',
+          moves: [
+            {
+              to_status: 'deployment_rolled_back',
+              to_stage: 'deployment',
+              reason_mode: 'required',
+              reason_list: null,
+              required_fields: [],
+              allowed: true,
+              reason: null,
+              missing: [],
+            },
+          ],
+        },
+      },
+      [`GET /api/v1/releases/${REL_ID}/plan`]: {
+        body: [{ section: 'backout', content: '<p>Restore build 4.1.</p>', version: 1 }],
+      },
+    });
+    render(<App />);
+    const box = await screen.findByTestId('release-failed');
+    expect(box.textContent).toContain('The deployment failed');
+    expect((await screen.findByTestId('release-failed-backout')).textContent).toContain(
+      'Restore build 4.1.',
+    );
+    fireEvent.click(screen.getByTestId('release-mark-rolled-back'));
+    expect(await screen.findByTestId('move-dialog')).toBeTruthy();
+    expect(screen.getByTestId('move-reason')).toBeTruthy(); // the rollback asks for its reason
+  });
+
+  it('REQ-REL-053 AC2: a failed release makes its problem, linked, and lists it', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const failed = { ...release, status: 'deployment_failed', stage: 'deployment' };
+    const made = {
+      id: '01a1a2b3-0000-7000-8000-0000000f0901',
+      display_id: 'PRB-3',
+      subject: 'Deployment failure: REL-1 Payroll 4.2',
+      type: 'problem',
+      relation: 'caused_problem',
+      status_category: 'open',
+    };
+    let listed: object[] = [];
+    const fake = api(
+      {
+        [`GET /api/v1/releases/${REL_ID}`]: { body: failed, headers: { ETag: '"7"' } },
+        [`GET /api/v1/releases/${REL_ID}/plan`]: { body: [] },
+        [`GET /api/v1/releases/${REL_ID}/follow-ups`]: () => ({ body: listed }),
+        [`POST /api/v1/releases/${REL_ID}/follow-ups`]: () => {
+          listed = [made];
+          return { status: 201, body: made };
+        },
+      },
+      ['releases.view', 'releases.create', 'releases.edit', 'problems.create'],
+    );
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('release-create-problem'));
+    const title = await screen.findByTestId<HTMLInputElement>('release-follow-up-title');
+    expect(title.value).toBe('Deployment failure: REL-1 Payroll 4.2');
+    const dialog = await screen.findByTestId('release-follow-up-dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create problem' }));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/follow-ups`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', `/api/v1/releases/${REL_ID}/follow-ups`);
+    expect(sent?.body).toEqual({
+      kind: 'problem',
+      subject: 'Deployment failure: REL-1 Payroll 4.2',
+    });
+    expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect((await screen.findByTestId('release-follow-ups')).textContent).toContain(
+      'PRB-3 Deployment failure: REL-1 Payroll 4.2',
+    );
+  });
+
+  it('REQ-REL-054: a canceled release offers to unlink the changes still in it', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const CHG = '01a1a2b3-0000-7000-8000-00000058b201';
+    const canceled = { ...release, status: 'closure_canceled', stage: 'closure' };
+    const fake = api({
+      [`GET /api/v1/releases/${REL_ID}`]: { body: canceled, headers: { ETag: '"7"' } },
+      [`GET /api/v1/releases/${REL_ID}/changes`]: {
+        body: [
+          {
+            id: CHG,
+            visible: true,
+            display_id: 'CHG-5',
+            subject: 'Database upgrade',
+            stage: 'implementation',
+            status: 'implementation_scheduled',
+            status_category: 'open',
+          },
+          {
+            id: '01a1a2b3-0000-7000-8000-00000058b202',
+            visible: false,
+            display_id: null,
+            subject: null,
+            stage: null,
+            status: null,
+            status_category: null,
+          },
+        ],
+      },
+      [`DELETE /api/v1/releases/${REL_ID}/changes/${CHG}`]: { status: 204 },
+    });
+    render(<App />);
+    const offer = await screen.findByTestId('release-canceled-changes');
+    expect(offer.textContent).toContain('1 change is still in this cancelled release');
+    expect(offer.textContent).toContain('CHG-5 Database upgrade');
+    fireEvent.click(screen.getByTestId('release-unlink-changes'));
+    await waitFor(() => {
+      expect(fake.find('DELETE', `/api/v1/releases/${REL_ID}/changes/${CHG}`)).toHaveLength(1);
+    });
+    // The hidden change is never unlinked from here.
+    expect(fake.calls.filter((c) => c.method === 'DELETE')).toHaveLength(1);
+  });
+
+  it('the failed panel is absent while the deployment has not failed', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    await screen.findByTestId('release-page');
+    expect(screen.queryByTestId('release-failed')).toBeNull();
+  });
+
   it('asks for the reason of a rejection and the comment a level requires, then decides', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     const fake = api();
@@ -504,6 +678,285 @@ describe('console: releases', () => {
     expect(await screen.findByText('Choose when it starts and when it ends.')).toBeDefined();
   });
 
+  describe('the Changes tab (WP-058b S1; REQ-REL-033)', () => {
+    const CHG = '01a1a2b3-0000-7000-8000-00000058b101';
+    const OTHER = '01a1a2b3-0000-7000-8000-00000058b102';
+    const inRelease = [
+      {
+        id: CHG,
+        visible: true,
+        display_id: 'CHG-5',
+        subject: 'Database upgrade',
+        stage: 'implementation',
+        status: 'implementation_scheduled',
+        status_category: 'open',
+      },
+      {
+        id: '01a1a2b3-0000-7000-8000-00000058b103',
+        visible: false,
+        display_id: null,
+        subject: null,
+        stage: null,
+        status: null,
+        status_category: null,
+      },
+    ];
+    const found = {
+      items: [
+        {
+          ...fakeIncident({ id: OTHER, display_id: 'CHG-9', subject: 'Firewall rules' }),
+          type: 'change',
+        },
+      ],
+      next_cursor: null,
+      has_more: false,
+      people: {},
+    };
+
+    it('lists its changes, a hidden one by its existence only; refuses one in another release', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api({
+        [`GET /api/v1/releases/${REL_ID}/changes`]: { body: inRelease },
+        'GET /api/v1/changes': { body: found },
+        [`POST /api/v1/releases/${REL_ID}/changes`]: {
+          status: 422,
+          body: problem(422, 'validation_failed', {
+            errors: [
+              {
+                field: 'change_id',
+                code: 'change_in_other_release',
+                message_key: 'errors.field.change_in_other_release',
+                params: { release: 'REL-3' },
+              },
+            ],
+          }),
+        },
+      });
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Changes' }));
+      const tab = await screen.findByTestId('release-changes');
+      expect(await within(tab).findByText('Database upgrade')).toBeDefined();
+      expect(within(tab).getByText("A change you can't see")).toBeDefined();
+      const box = screen
+        .getByTestId('release-change-add')
+        .closest('.ant-select')
+        ?.querySelector('.ant-select-selector');
+      if (box === null || box === undefined) throw new Error('no select');
+      fireEvent.mouseDown(box);
+      fireEvent.click(await screen.findByTitle('CHG-9 Firewall rules'));
+      await waitFor(() => {
+        expect(fake.find('POST', `/api/v1/releases/${REL_ID}/changes`)).toHaveLength(1);
+      });
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/changes`)[0]?.body).toEqual({
+        change_id: OTHER,
+      });
+      expect(
+        await within(tab).findByText('This change is already in the open release REL-3.'),
+      ).toBeDefined();
+    });
+
+    it('without releases.edit: no add and no take out', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      api({ [`GET /api/v1/releases/${REL_ID}/changes`]: { body: inRelease } }, ['releases.view']);
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Changes' }));
+      const tab = await screen.findByTestId('release-changes');
+      await within(tab).findByText('Database upgrade');
+      expect(screen.queryByTestId('release-change-add')).toBeNull();
+      expect(screen.queryByTestId(`release-change-remove-${CHG}`)).toBeNull();
+    });
+  });
+
+  it('WP-058b S3: the Stages tab lists the picked stage’s tasks and time, from the current one', async () => {
+    const task = (id: string, title: string, stage: string, status: string) => ({
+      id,
+      work_item_id: REL_ID,
+      title,
+      description: null,
+      owner_id: null,
+      group_id: null,
+      status,
+      priority: 'normal',
+      due_at: null,
+      done_at: null,
+      done_by: null,
+      stage,
+      position: 0,
+      from_plan: false,
+      required: false,
+      internal: false,
+      version: 1,
+      created_at: '2027-03-01T00:00:00Z',
+      updated_at: '2027-03-01T00:00:00Z',
+    });
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api({
+      [`GET /api/v1/releases/${REL_ID}/stages`]: {
+        body: {
+          ...panel,
+          rail: panel.rail.map((s) =>
+            s.stage === 'build'
+              ? { ...s, tasks_done: 1, tasks_total: 2 }
+              : { ...s, tasks_done: 0, tasks_total: 0 },
+          ),
+        },
+      },
+      [`GET /api/v1/releases/${REL_ID}/tasks`]: {
+        body: {
+          items: [
+            task('t1', 'Tag the build', 'build', 'done'),
+            task('t2', 'Freeze the branch', 'build', 'open'),
+            task('t3', 'Write the notes', 'testing', 'open'),
+          ],
+          done: 1,
+          total: 3,
+        },
+      },
+      [`GET /api/v1/releases/${REL_ID}/worklogs`]: {
+        body: {
+          items: [
+            {
+              id: 'w1',
+              owner_id: REL_ID,
+              worklog_type: 'fix',
+              started_at: '2027-03-01T09:00:00Z',
+              ended_at: '2027-03-01T10:30:00Z',
+              minutes: 90,
+              description: null,
+              version: 1,
+              created_by: null,
+              stage: 'build',
+            },
+          ],
+          minutes: 90,
+          by_owner: [],
+          by_type: [],
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Stages' }));
+    const stages = await screen.findByTestId('release-stage-work');
+    // The current stage (build) first: its two tasks, one done, and its 90 minutes.
+    expect(await within(stages).findByText('Tasks 1 / 2')).toBeDefined();
+    expect(within(stages).getByText('Tag the build')).toBeDefined();
+    expect(within(stages).queryByText('Write the notes')).toBeNull();
+    expect(within(stages).getByTestId('release-stage-worklog-w1')).toBeDefined();
+    fireEvent.click(within(stages).getByText('Testing'));
+    expect(await within(stages).findByText('Write the notes')).toBeDefined();
+    expect(within(stages).queryByText('Tag the build')).toBeNull();
+  });
+
+  describe('conflicts on the Schedule tab (WP-058b S2; REQ-REL-040, -041)', () => {
+    const FREEZE = '01a1a2b3-0000-7000-8000-00000058c001';
+    const OTHER = '01a1a2b3-0000-7000-8000-00000058c002';
+    const MANAGER = '01a1a2b3-0000-7000-8000-00000058c003';
+    const base = {
+      starts_at: '2027-03-06T22:00:00Z',
+      ends_at: '2027-03-07T02:00:00Z',
+      window_id: null,
+      window_name: null,
+      window_labels: null,
+      record_id: null,
+      record_type: null,
+      ack: null,
+    };
+    const conflicts = {
+      items: [
+        {
+          ...base,
+          kind: 'freeze',
+          blocks: true,
+          window_id: FREEZE,
+          window_name: 'Quarter close',
+          key: 'freeze:f',
+        },
+        {
+          ...base,
+          kind: 'overlap',
+          blocks: false,
+          record_id: OTHER,
+          record_type: 'release',
+          key: 'overlap:o',
+        },
+        {
+          ...base,
+          kind: 'role_booked',
+          blocks: false,
+          record_id: OTHER,
+          record_type: 'release',
+          key: 'role_booked:r',
+          ack: {
+            acked_by: MANAGER,
+            acked_at: '2027-03-01T08:00:00Z',
+            reason: 'Two engineers on call',
+          },
+        },
+      ],
+      passed_window_ids: [],
+    };
+    const routes = {
+      [`GET /api/v1/releases/${REL_ID}/schedule`]: { body: [] },
+      [`GET /api/v1/releases/${REL_ID}/conflicts`]: { body: conflicts },
+      [`POST /api/v1/releases/${REL_ID}/conflicts/acks`]: { body: { version: 8 } },
+      [`POST /api/v1/releases/${REL_ID}/freeze-override`]: { body: { version: 8 } },
+      [`GET /api/v1/users/${MANAGER}`]: {
+        body: fakeUser({ id: MANAGER, display_name: 'Rania Khan' }),
+      },
+    };
+
+    it('names another release by type, says who acknowledged what, and acknowledges with a reason', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(routes, ['releases.view', 'releases.edit']);
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Schedule' }));
+      const panel = await screen.findByTestId('release-conflicts');
+      const overlap = within(panel).getByTestId('release-conflict-overlap');
+      expect(overlap.textContent).toContain('At the same time as another release');
+      expect(overlap.textContent).toContain('Another release');
+      expect(await within(panel).findByText('Rania Khan')).toBeDefined();
+      expect(within(panel).getByTestId('release-conflict-acked').textContent).toContain(
+        'Two engineers on call',
+      );
+      // No override without releases.override_freeze; a block is never acknowledged.
+      expect(screen.queryByTestId('release-freeze-override')).toBeNull();
+      expect(screen.queryByTestId('release-conflict-ack-freeze')).toBeNull();
+      fireEvent.click(within(overlap).getByTestId('release-conflict-ack-overlap'));
+      fireEvent.change(await screen.findByTestId('release-ack-reason'), {
+        target: { value: 'Same team, agreed' },
+      });
+      fireEvent.click(screen.getByTestId('release-ack-ok'));
+      await waitFor(() => {
+        expect(fake.find('POST', `/api/v1/releases/${REL_ID}/conflicts/acks`)).toHaveLength(1);
+      });
+      const [sent] = fake.find('POST', `/api/v1/releases/${REL_ID}/conflicts/acks`);
+      expect(sent?.body).toEqual({ key: 'overlap:o', reason: 'Same team, agreed' });
+      expect(sent?.headers.get('If-Match')).toBe('"7"');
+    });
+
+    it('with releases.override_freeze: passes only the blocking freezes, with a reason', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(routes, ['releases.view', 'releases.edit', 'releases.override_freeze']);
+      render(<App />);
+      fireEvent.click(await screen.findByRole('tab', { name: 'Schedule' }));
+      fireEvent.click(await screen.findByTestId('release-freeze-override'));
+      expect((await screen.findByTestId('release-override')).textContent).toContain(
+        'only this freeze is passed',
+      );
+      fireEvent.change(screen.getByTestId('release-override-reason'), {
+        target: { value: 'Payroll must go out' },
+      });
+      fireEvent.click(screen.getByTestId('release-override-ok'));
+      await waitFor(() => {
+        expect(fake.find('POST', `/api/v1/releases/${REL_ID}/freeze-override`)).toHaveLength(1);
+      });
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/freeze-override`)[0]?.body).toEqual({
+        reason: 'Payroll must go out',
+        window_ids: [FREEZE],
+      });
+    });
+  });
+
   it('QA6-REL-04: the tab and the top bar say which release this is', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     api();
@@ -583,7 +1036,7 @@ describe('console: releases', () => {
       render(<App />);
       fireEvent.click(await screen.findByRole('tab', { name: 'Workflows' }));
       const failure = await screen.findByTestId(`record-workflow-failure-${INSTANCE}`);
-      expect(failure.textContent).toContain('Stopped at the step call');
+      expect(failure.textContent).toContain('Stopped at the step Webhook');
       expect(failure.textContent).toContain('The other side took too long to answer.');
       expect(failure.textContent).not.toContain('webhook_timeout'); // never a raw code
       const log = screen.getByTestId(`record-workflow-log-${INSTANCE}`);
@@ -602,6 +1055,42 @@ describe('console: releases', () => {
       ).toBe('"4"');
     });
 
+    it('REQ-REL-021 AC1: a failed step shows on the header, with Retry and a way to the tab', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(
+        {
+          [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] },
+          [`POST /api/v1/automation/workflows/instances/${INSTANCE}/retry`]: {
+            body: { ...failedRun.instance, status: 'running', version: 5 },
+          },
+        },
+        PERMS,
+      );
+      render(<App />);
+      const banner = await screen.findByTestId('workflow-failure-banner');
+      expect(banner.textContent).toContain(failedRun.workflow_name);
+      expect(banner.textContent).toContain('call');
+      fireEvent.click(within(banner).getByTestId('workflow-failure-retry'));
+      await waitFor(() => {
+        expect(
+          fake.find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/retry`),
+        ).toHaveLength(1);
+      });
+      fireEvent.click(within(banner).getByTestId('workflow-failure-open'));
+      expect(await screen.findByTestId('record-workflows')).toBeDefined();
+    });
+
+    it('without workflows.run there is no banner', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      api(
+        { [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] } },
+        ['releases.view', 'releases.edit'],
+      );
+      render(<App />);
+      await screen.findByTestId('release-page');
+      expect(screen.queryByTestId('workflow-failure-banner')).toBeNull();
+    });
+
     it('REQ-WF-024 AC2: Skip asks first, then goes with the run’s If-Match', async () => {
       window.history.pushState({}, '', `/releases/${REL_ID}`);
       const fake = api(
@@ -617,7 +1106,7 @@ describe('console: releases', () => {
       fireEvent.click(await screen.findByRole('tab', { name: 'Workflows' }));
       fireEvent.click(await screen.findByTestId(`record-workflow-skip-${INSTANCE}`));
       const dialog = await screen.findByRole('dialog');
-      expect(dialog.textContent).toContain('Skip the step call?');
+      expect(dialog.textContent).toContain('Skip the step Webhook?');
       expect(dialog.textContent).toContain('recorded with your name');
       fireEvent.click(within(dialog).getByRole('button', { name: 'Skip this step' }));
       await waitFor(() => {

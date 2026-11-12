@@ -43,6 +43,10 @@ class TriggerEvent(StrEnum):
     ASSIGNED = "assigned"
     NOTE_ADDED = "note_added"
     REQUESTER_REPLIED = "requester_replied"
+    # WP-058b S3 (REQ-REL-022 AC1): a staged record (change, release) entered a stage. Fires
+    # once per entry, on the status move that lands in a new stage; the stage is in conditions.
+    # Notifications have their own events (lane A's change.status_entered): this runs actions.
+    STAGE_ENTERED = "stage_entered"
 
 
 class TriggerActionKind(StrEnum):

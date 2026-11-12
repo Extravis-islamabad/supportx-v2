@@ -115,7 +115,7 @@ async def test_failures_go_back_to_the_app_with_a_label_code(bff: Bff) -> None:
 
 
 async def test_a_requester_gets_a_portal_session_in_the_same_app(bff: Bff) -> None:
-    """D-158: one app for both. A requester never gets a console session (D-129)."""
+    """D-160: one app for both. A requester never gets a console session (D-129)."""
     requester = bff.user("a", email="mobile-requester@demo.test", roles=("requester",))
     verifier = new_verifier()
     answer = await mobile_login(bff, requester, verifier)

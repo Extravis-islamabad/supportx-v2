@@ -468,6 +468,33 @@ heavy jobs (the dev stack with end-to-end tests, the cluster images) start with 
 pull request cancels that pull request's older runs; runs on `main` and nightly runs are never
 cancelled.
 
+## Backend tests on pull requests: only what the change reaches
+
+The merge queue, the nightly run, manual runs and pull requests labelled `full-ci` always run
+the whole backend suite on all 8 shards and check the combined 90% coverage. A pull request run
+(once it is out of draft) runs only the test files its changes can affect, on as few shards as
+those files need (about ten minutes of tests a shard). The `backend paths` job decides, with
+`backend/tooling/test_select.py`:
+
+- No backend test at all: changes only to `frontend/`, `docs/`, `mobile/`, Markdown,
+  `deploy/helm/`, `deploy/k3s/`, `deploy/k3d/` or workflows other than `ci.yml` (the label and
+  CI guard tests still run in `backend checks`).
+- Everything: any change to `backend/app/core/`, `backend/app/shared/`, `backend/app/main.py`,
+  `backend/workers/`, `backend/migrations/`, `backend/tooling/`, any `conftest.py`,
+  `backend/tests/db/shared_world.py`, the backend's project files (`pyproject.toml`, `uv.lock`,
+  `alembic.ini`), any backend file that is not a `.py` file in `app/modules/` or `tests/`,
+  `deploy/compose/`, `ci.yml`, `.github/actions/`, the `Makefile` or `.pre-commit-config.yaml`.
+- Otherwise the test files whose imports (grimp's import graph, without the app factory
+  `app.main`) reach a changed module package `app.modules.<m>` or a changed test file or test
+  helper, plus the quick `tests/test_*.py`.
+
+Tests that reach a module only through HTTP on `create_app` are not selected for it; the queue's
+full run catches those. On a selecting run, coverage is checked per changed app file instead:
+at most 1 point below the newest nightly's (`backend-coverage-baseline`), 90% for a new file
+(`backend/tooling/coverage_compare.py`). `make ci-metrics DAYS=7` prints, read-only, the daily
+queue runs, merged pull requests, merge-group size and the PR shard minutes.
+`backend/tests/test_ci_triggers.py` guards that only an unlabelled pull request run selects.
+
 ## Merging
 
 `main` takes changes only through GitHub's merge queue (the `main` ruleset: pull request required,

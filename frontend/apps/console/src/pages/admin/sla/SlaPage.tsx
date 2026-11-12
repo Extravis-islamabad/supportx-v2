@@ -13,7 +13,6 @@ import {
   Select,
   Space,
   Table,
-  Tabs,
   Tooltip,
   Typography,
   Upload,
@@ -53,6 +52,7 @@ import {
   useFormProblem,
   useLabel,
   useLicence,
+  Tabs,
 } from '@supportx/ui';
 
 import { PoliciesTab, SettingsTab } from './PoliciesTab';

@@ -106,6 +106,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("api_key.revoked", AuditCategory.SECURITY, "identity_access"),
     ("api_key.refused", AuditCategory.SECURITY, "identity_access"),
     ("api_key.settings_changed", AuditCategory.SECURITY, "identity_access"),
+    # the installation's sign-in key ring (D-162, ADR-048): written by the system at start-up
+    ("security.session_key_rotated", AuditCategory.SECURITY, "identity_access"),
+    ("security.session_key_retired", AuditCategory.SECURITY, "identity_access"),
     # automation (WP-029)
     ("automation.rule_created", AuditCategory.CONFIGURATION, "automation"),
     ("automation.rule_changed", AuditCategory.CONFIGURATION, "automation"),
@@ -126,6 +129,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("automation.workflow_imported", AuditCategory.CONFIGURATION, "automation"),
     ("automation.workflow_exported", AuditCategory.DATA, "automation"),
     ("automation.workflow_deleted", AuditCategory.CONFIGURATION, "automation"),
+    # A role given to or taken from a workflow's run-as identity (ADR-043 §6): access, as for
+    # a person's role.
+    ("automation.workflow_run_as_role_added", AuditCategory.ACCESS, "automation"),
+    ("automation.workflow_run_as_role_removed", AuditCategory.ACCESS, "automation"),
     # A test run's one live call (S3e): who, which node, which record (the route's details).
     ("automation.workflow_test_live_call", AuditCategory.RECORDS, "automation"),
     ("automation.transition_reset", AuditCategory.CONFIGURATION, "automation"),
@@ -156,6 +163,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.created", AuditCategory.ACCESS, "identity_access"),
     ("user.changed", AuditCategory.ACCESS, "identity_access"),
     ("user.type_changed", AuditCategory.ACCESS, "identity_access"),
+    # a person's cost per hour (REQ-INC-068): old and new rate and start in the details
+    ("user.cost_rate_changed", AuditCategory.ACCESS, "identity_access"),
+    # D-164: every view of a person's rates is audited too (the worklog cost snapshot is not).
+    ("user.cost_rate_viewed", AuditCategory.ACCESS, "identity_access"),
     ("user.sign_in_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.deactivated", AuditCategory.ACCESS, "identity_access"),
     ("user.reactivated", AuditCategory.ACCESS, "identity_access"),
@@ -222,6 +233,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("announcement.settings_changed", AuditCategory.CONFIGURATION, "announcements"),
     ("notification.rule_changed", AuditCategory.CONFIGURATION, "notifications"),
     ("notification.rule_reset", AuditCategory.CONFIGURATION, "notifications"),
@@ -261,6 +276,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("service_request.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.deleted", AuditCategory.RECORDS, "work_items"),
     ("service_request.restored", AuditCategory.RECORDS, "work_items"),
     # WP-030 s2: approval decisions and withdrawals (REQ-SR-025, -061).
@@ -281,6 +300,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("problem.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("problem.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("problem.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("problem.deleted", AuditCategory.RECORDS, "work_items"),
     ("problem.restored", AuditCategory.RECORDS, "work_items"),
     ("problem.bulk_started", AuditCategory.RECORDS, "work_items"),
@@ -306,6 +329,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("release.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("release.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("release.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("release.deleted", AuditCategory.RECORDS, "work_items"),
     ("release.restored", AuditCategory.RECORDS, "work_items"),
     ("release.bulk_started", AuditCategory.RECORDS, "work_items"),
@@ -321,6 +348,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("change.emergency_override", AuditCategory.SECURITY, "work_items"),  # D-144
     ("change.window_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-045c
     ("change.freeze_override", AuditCategory.SECURITY, "work_items"),  # WP-045c, as D-144
+    ("release.freeze_override", AuditCategory.SECURITY, "work_items"),  # WP-058b S2, as a change's
+    ("release.conflict_acknowledged", AuditCategory.RECORDS, "work_items"),  # WP-058b S2
+    ("change.freeze_passed_by_cab", AuditCategory.SECURITY, "work_items"),  # D-156
     ("change.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("change.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.template_created", AuditCategory.CONFIGURATION, "work_items"),
@@ -328,6 +358,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("change.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("change.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.deleted", AuditCategory.RECORDS, "work_items"),
     ("change.restored", AuditCategory.RECORDS, "work_items"),
     ("change.bulk_started", AuditCategory.RECORDS, "work_items"),
@@ -340,6 +374,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("file.uploaded", AuditCategory.RECORDS, "system"),
     ("file.deleted", AuditCategory.RECORDS, "system"),
     ("file.downloaded", AuditCategory.DATA, "system"),
+    ("file.archive_downloaded", AuditCategory.DATA, "system"),  # WP-046a S2: a bulk export
     ("file.blocked", AuditCategory.SECURITY, "system"),
     ("file.rescan_requested", AuditCategory.SECURITY, "system"),
     ("file.purged", AuditCategory.DATA, "system"),
@@ -409,12 +444,30 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset_note.created", AuditCategory.RECORDS, "assets"),
     ("asset_note.updated", AuditCategory.RECORDS, "assets"),
     ("asset_note.deleted", AuditCategory.RECORDS, "assets"),
+    # WP-049b s3: labels (REQ-AST-039), audits (042, 043), scan history (054), the overdue rule
+    ("asset_label.requested", AuditCategory.RECORDS, "assets"),
+    ("asset_label.reprinted", AuditCategory.RECORDS, "assets"),
+    ("asset_label.downloaded", AuditCategory.DATA, "assets"),
+    ("asset_audit.created", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.updated", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.started", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.closed", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.item_marked", AuditCategory.RECORDS, "assets"),
+    ("asset_audit.fixes_applied", AuditCategory.RECORDS, "assets"),
+    ("asset_overdue_rule.changed", AuditCategory.CONFIGURATION, "assets"),
+    ("asset_overdue_rule.ran", AuditCategory.RECORDS, "assets"),
+    ("asset_scan.cleaned_up", AuditCategory.DATA, "assets"),
     ("asset_group.created", AuditCategory.RECORDS, "assets"),
     ("asset_group.updated", AuditCategory.RECORDS, "assets"),
     ("asset_group.deleted", AuditCategory.RECORDS, "assets"),
     ("asset_group.members_added", AuditCategory.RECORDS, "assets"),
     ("asset_group.member_removed", AuditCategory.RECORDS, "assets"),
     ("asset.copied", AuditCategory.RECORDS, "assets"),
+    # WP-049b S4b: bulk jobs (REQ-AST-051), merges (052), imports (053).
+    ("asset.bulk_started", AuditCategory.RECORDS, "assets"),
+    ("asset.merged", AuditCategory.RECORDS, "assets"),
+    ("asset_import.started", AuditCategory.DATA, "assets"),
+    ("asset_import.run", AuditCategory.DATA, "assets"),
     # a save's lifecycle events that no route names (WP-064, domain/lifecycle.py)
     ("asset.relocated", AuditCategory.RECORDS, "assets"),
     ("asset.product_changed", AuditCategory.RECORDS, "assets"),

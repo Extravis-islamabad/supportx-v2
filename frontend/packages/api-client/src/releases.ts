@@ -456,3 +456,189 @@ export function useSetParentRelease() {
     },
   });
 }
+
+// --- changes in a release and the release calendar (WP-058b S1; REQ-REL-033, -027) ----------
+
+export type ReleaseChange = components['schemas']['ReleaseChangeOut'];
+
+/** The changes in a release; one you may not see shows only that it is there. */
+export function useReleaseChanges(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'changes'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/changes', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Put a change in the release; a change in another open release is refused. */
+export function useAddReleaseChange() {
+  const refresh = useRefreshRecord();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, changeId }: { id: string; changeId: string }) => {
+      await call(
+        api.POST('/api/v1/releases/{record_id}/changes', {
+          params: { path: { record_id: id } },
+          body: { change_id: changeId },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'changes') });
+    },
+  });
+}
+
+/** Take a change out of the release. */
+export function useRemoveReleaseChange() {
+  const refresh = useRefreshRecord();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, changeId }: { id: string; changeId: string }) => {
+      await call(
+        api.DELETE('/api/v1/releases/{record_id}/changes/{change_id}', {
+          params: { path: { record_id: id, change_id: changeId } },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'changes') });
+    },
+  });
+}
+
+export const releaseCalendarKeys = {
+  all: ['release-calendar'] as const,
+  range: (start: string, end: string, mine: boolean) =>
+    ['release-calendar', start, end, mine] as const,
+};
+
+/** The releases you may see planned in [start, end): deployment windows and planned downtimes. */
+export function useReleaseCalendar(start: string, end: string, mine: boolean, enabled = true) {
+  return useQuery({
+    queryKey: releaseCalendarKeys.range(start, end, mine),
+    queryFn: () =>
+      call(api.GET('/api/v1/release-calendar', { params: { query: { start, end, mine } } })),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+// --- a release's conflicts, acks and freeze override (WP-058b S2; REQ-REL-040, -041) --------
+
+export type ReleaseConflicts = components['schemas']['ReleaseConflictsOut'];
+export type ReleaseConflict = components['schemas']['ReleaseConflictOut'];
+
+/** A release's conflicts now, each with its key, whether it blocks and its ack. */
+export function useReleaseConflicts(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'conflicts'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/conflicts', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Acknowledge one warning with a reason (If-Match on the release). */
+export function useAckReleaseConflict() {
+  const refresh = useRefreshRecord();
+  return useMutation({
+    mutationFn: ({
+      id,
+      version,
+      key,
+      reason,
+    }: {
+      id: string;
+      version: number;
+      key: string;
+      reason: string;
+    }) =>
+      call(
+        api.POST('/api/v1/releases/{record_id}/conflicts/acks', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { key, reason },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}
+
+/** Go ahead in these blocking freezes, with a reason (releases.override_freeze; If-Match). */
+export function useReleaseFreezeOverride() {
+  const refresh = useRefreshRecord();
+  return useMutation({
+    mutationFn: ({
+      id,
+      version,
+      reason,
+      windowIds,
+    }: {
+      id: string;
+      version: number;
+      reason: string;
+      windowIds: string[];
+    }) =>
+      call(
+        api.POST('/api/v1/releases/{record_id}/freeze-override', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { reason, window_ids: windowIds },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}
+
+export type ReleaseFollowUpOut = components['schemas']['ReleaseFollowUpOut'];
+
+/** What was made after the release failed: its problems and follow-up releases (REQ-REL-053). */
+export function useReleaseFollowUps(id: string, enabled = true) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'follow-ups'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/follow-ups', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: enabled && id !== '',
+  });
+}
+
+/** A problem caused by the failed release, or a release that follows it up (one at a time). */
+export function useCreateReleaseFollowUp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      kind,
+      subject,
+      key,
+    }: {
+      id: string;
+      kind: 'problem' | 'release';
+      subject: string;
+      key: string;
+    }) =>
+      call(
+        api.POST('/api/v1/releases/{record_id}/follow-ups', {
+          params: { path: { record_id: id }, header: { 'Idempotency-Key': key } },
+          body: { kind, subject },
+        }),
+      ),
+    onSettled: (_out, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'follow-ups') });
+    },
+  });
+}

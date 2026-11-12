@@ -231,8 +231,8 @@ describe('console: workflow designer', () => {
       if (last === undefined) throw new Error(`no option ${option}`);
       fireEvent.click(last);
     };
-    await pick('outline-link-start-next', 'Send a notification (notify)');
-    await pick('outline-link-notify-next', 'End (end)');
+    await pick('outline-link-start-next', 'Send a notification');
+    await pick('outline-link-notify-next', 'End');
     fireEvent.click(screen.getByTestId('designer-save'));
     await waitFor(() => {
       expect(fake.find('PUT', `/api/v1/automation/workflows/${FLOW_ID}/draft`)).toHaveLength(1);

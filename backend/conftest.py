@@ -54,6 +54,7 @@ PRODUCTION_REQUIRED: dict[str, Any] = {
     "centrifugo_api_url": "http://127.0.0.1:1",
     "centrifugo_api_key": "centrifugo-key",
     "centrifugo_token_secret": "c" * 32,
+    "mobile_redirect_uri": "https://sx.example.com/mobile/auth",  # https in production
 }
 
 

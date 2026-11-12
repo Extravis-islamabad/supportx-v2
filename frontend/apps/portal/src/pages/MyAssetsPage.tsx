@@ -95,7 +95,7 @@ export function MyAssetsPage() {
     }
   });
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 840 }}>
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <Typography.Title level={1}>{t('my_assets.title')}</Typography.Title>
       <Card data-testid="my-assets">
         <List
@@ -170,6 +170,15 @@ export function MyAssetsPage() {
                         <ToneTag tone={TONES[ack.status]}>
                           {t(`asset_ack_status.${ack.status}`)}
                         </ToneTag>
+                        {/* A self-audit asks again (WP-049b s3, REQ-AST-042 AC2): only its name. */}
+                        {ack.audit_id != null && (
+                          <Typography.Text
+                            type="secondary"
+                            data-testid={`my-asset-audit-${row.id}`}
+                          >
+                            {t('my_assets.audit_asks', { audit: ack.audit_name ?? '' })}
+                          </Typography.Text>
+                        )}
                         {ack.answered_at != null && (
                           <Typography.Text type="secondary">
                             {format(ack.answered_at)}

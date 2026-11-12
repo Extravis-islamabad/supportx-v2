@@ -17,6 +17,7 @@ export {
   addEdge,
   applyEdgeChanges,
   applyNodeChanges,
+  useNodesInitialized,
   useReactFlow,
   type Connection,
   type EdgeChange,

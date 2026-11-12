@@ -143,8 +143,8 @@ describe('console: service requests', () => {
     const row = (await screen.findByTestId('sr-row-SR-1')).closest('tr');
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByText('New laptop')).toBeDefined();
-    // the status and the approval status both read it while it waits
-    expect(within(row as HTMLElement).getAllByText('Awaiting approval')).toHaveLength(2);
+    // Said once while it waits (QA-2026-11-11 V-16): the status chip, not the approval column too
+    expect(within(row as HTMLElement).getAllByText('Awaiting approval')).toHaveLength(1);
   });
 
   it('Haider 2026-11-10: the list is the list template; a resized column is kept under its own settings', async () => {

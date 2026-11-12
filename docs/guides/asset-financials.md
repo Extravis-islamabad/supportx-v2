@@ -11,6 +11,29 @@ role can add it. Without it the asset page has no Financials tab and no value in
 and the API refuses (403). Changing cost lines or the asset's depreciation also needs the right to
 manage the asset.
 
+Since D-157 the same right also covers the purchase price, tax and total on the asset itself:
+without it they are empty on the asset page, in lists and in the API, the add and edit form
+leaves them out, and the history still lists their changes (who and when) without the values.
+Nobody can filter or sort the asset list by money; reports offer book value and total cost to
+people who hold the right.
+
+## Technicians and the assets of their tickets
+
+A technician views assets but does not manage them. On an asset linked to one of **their own
+tickets** that is still being worked (open, on hold or resolved, not closed), and held by that
+ticket's requester or the requester's department, the asset page says so and offers:
+
+- **Change state**, along the asset's life cycle;
+- **Change location**;
+- **Fit a part** and **Take out** on the Relations tab (a part that nobody holds, or one fitted
+  to this asset);
+- notes, as for anyone who sees the asset.
+
+Anything else (who holds it, its money, its name and the rest) is refused with "Through your
+ticket you can change only this asset's state, location, notes and fitted parts". Each change is
+in the asset's history and the audit log under the technician's name. Once the ticket is closed,
+or given to someone else, the asset is view-only again.
+
 ## Financials tab
 
 - **Summary:** purchase cost (price plus tax, or the price alone when the asset settings say the
@@ -25,10 +48,13 @@ manage the asset.
   month ends at local midnight; book values and the daily valuation follow it.
 - **Depreciation:** Configure depreciation sets the asset's own method, useful life and salvage
   value. Anything left empty comes from the product (Admin > Assets > Products); each setting shows
-  where it came from. Methods:
-  - Straight line: the same amount each year.
-  - Declining balance: 1.5 times the straight-line rate of the value left each year.
-  - Double declining balance: twice that rate.
+  where it came from. When neither names a method, the asset depreciates straight line ("Default
+  (straight line)"), once a useful life is known. Methods:
+  - Straight line: the same amount each year (the default).
+  - Declining balance: the product type's factor times the straight-line rate, of the value left
+    each year. The factor is 2 unless the type sets another (Admin > Assets > Types, "Declining
+    balance factor", more than 0 and at most 10; 1.5 gives the classic 150 %).
+  - Double declining balance: always twice the straight-line rate, whatever the type's factor.
   - Sum of the years' digits: most in the first year, less each year after.
   - No depreciation: the book value stays the purchase cost, whatever the product says.
 

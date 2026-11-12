@@ -241,7 +241,7 @@ export async function call<T>(promise: Promise<Result<T>>): Promise<T> {
 }
 
 export type App = 'console' | 'portal';
-/** Who makes the calls (X-SupportX-Client): a web app, or the native app (D-157). */
+/** Who makes the calls (X-SupportX-Client): a web app, or the native app (D-159). */
 export type ClientApp = App | 'mobile';
 
 /** Where to send the browser to log in, coming back to `returnTo` (same-origin path). */

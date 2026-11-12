@@ -13,7 +13,6 @@ import {
   Space,
   Switch,
   Table,
-  Tabs,
   Divider,
   Typography,
 } from 'antd';
@@ -44,6 +43,7 @@ import {
   useFormProblem,
   useLabel,
   useLicence,
+  Tabs,
 } from '@supportx/ui';
 
 import { refreshList, useListChannel } from '@supportx/realtime';

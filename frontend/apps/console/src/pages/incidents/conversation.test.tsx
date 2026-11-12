@@ -239,6 +239,20 @@ describe('Conversation', () => {
     expect(within(composer).queryByTestId('conv-mail-not-set-up')).toBeNull();
   });
 
+  it('template A: with a composer open, its Send is the one primary and the header goes quiet', async () => {
+    api({ routes: COMMON });
+    await openConversation();
+    const header = screen.getByTestId('inc-operations');
+    expect(header.querySelectorAll('.ant-btn-primary').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByTestId('inc-op-reply').querySelector('button') as HTMLElement);
+    await screen.findByTestId('conv-composer');
+    await waitFor(() => {
+      expect(header.querySelectorAll('.ant-btn-primary')).toHaveLength(0);
+    });
+    expect(screen.getByTestId('inc-op-reply')).toBeTruthy(); // Reply stays where it was
+    expect(screen.getByTestId('conv-send').className).toContain('ant-btn-primary');
+  });
+
   it('QA6-INC-01: the composer says when outgoing mail is not set up, and who can fix it', async () => {
     api({
       routes: {

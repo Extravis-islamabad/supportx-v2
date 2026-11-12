@@ -236,6 +236,139 @@ class AssetNoteChanged(DomainEvent):
     mentioned: list[uuid.UUID] = Field(default_factory=list)
 
 
+# --- WP-049b s3: labels, audits, scans, the overdue-scan rule -----------------------------------
+
+
+class LabelRequested(DomainEvent):
+    """Labels were asked for (REQ-AST-039): the consumers worker builds the PDF."""
+
+    event_type: ClassVar[str] = "assets.label.requested"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_label_job"
+
+    job_id: uuid.UUID
+    requested_by: uuid.UUID
+
+
+LabelJobStatus = Literal["ready", "failed"]
+
+
+class LabelPrinted(DomainEvent):
+    """A label PDF is ready, or failed with a problem code; its requester hears of it live."""
+
+    event_type: ClassVar[str] = "assets.label.printed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_label_job"
+
+    job_id: uuid.UUID
+    requested_by: uuid.UUID
+    status: LabelJobStatus
+    problem: str | None = None
+
+
+AuditAction = Literal["created", "updated", "started", "closed", "fixed"]
+
+
+class AuditChanged(DomainEvent):
+    """An asset audit was planned, changed, started, closed or had fixes applied (042, 043)."""
+
+    event_type: ClassVar[str] = "assets.audit.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_audit"
+
+    audit_id: uuid.UUID
+    action: AuditAction
+    changed_fields: list[str] = Field(default_factory=list)
+    auditors: list[uuid.UUID] = Field(default_factory=list)
+
+
+AuditItemAction = Literal["marked", "added", "fixed"]
+
+
+class AuditItemChanged(DomainEvent):
+    """An audit item was marked, an unexpected asset added, or a fix applied (REQ-AST-043)."""
+
+    event_type: ClassVar[str] = "assets.audit.item_changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_audit_item"
+
+    audit_id: uuid.UUID
+    item_id: uuid.UUID
+    asset_id: uuid.UUID
+    action: AuditItemAction
+
+
+ScanOutcome = Literal["ok", "failed"]
+
+
+class ScanRecorded(DomainEvent):
+    """A scan of an asset was recorded (REQ-AST-054). No hardware or software names (§8.2)."""
+
+    event_type: ClassVar[str] = "assets.scan.recorded"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_scan"
+
+    asset_id: uuid.UUID
+    scan_id: uuid.UUID
+    result: ScanOutcome
+    changes: int = 0
+
+
+OverdueRuleAction = Literal["updated", "ran"]
+
+
+class OverdueRuleChanged(DomainEvent):
+    """The overdue-scan rule was saved, or ran and changed assets (REQ-AST-056)."""
+
+    event_type: ClassVar[str] = "assets.overdue_rule.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_overdue_rule"
+
+    action: OverdueRuleAction
+    run_id: uuid.UUID | None = None
+    changed_count: int = 0
+
+
+BulkJobStatus = Literal["queued", "running", "done", "failed"]
+
+
+class AssetBulkJobProgressed(DomainEvent):
+    """A bulk job on assets moved on (REQ-AST-051): its requester's progress, one list refresh.
+
+    Sent when it is queued, after each batch and when it ends. Counts only.
+    """
+
+    event_type: ClassVar[str] = "assets.bulk_job.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_bulk_job"
+
+    job_id: uuid.UUID
+    requested_by: uuid.UUID
+    status: BulkJobStatus
+    processed: int
+    total: int
+
+
+ImportStatus = Literal["queued", "running", "checked", "done", "failed"]
+
+
+class AssetImportProgressed(DomainEvent):
+    """An asset, consumable or vendor import moved on (REQ-AST-053): its requester's progress.
+
+    Sent when it is queued, after each batch and when it ends (a dry run ends `checked`).
+    """
+
+    event_type: ClassVar[str] = "assets.import.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_import"
+
+    import_id: uuid.UUID
+    requested_by: uuid.UUID
+    status: ImportStatus
+    processed: int
+    total: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     CatalogueChanged,
     ProductChanged,
@@ -252,4 +385,12 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AssetBookingChanged,
     AssetCostChanged,
     AssetNoteChanged,
+    LabelRequested,
+    LabelPrinted,
+    AuditChanged,
+    AuditItemChanged,
+    ScanRecorded,
+    OverdueRuleChanged,
+    AssetBulkJobProgressed,
+    AssetImportProgressed,
 )

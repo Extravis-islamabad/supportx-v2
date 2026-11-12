@@ -26,6 +26,7 @@ from app.modules.automation.domain.workflows import (
     NodeType,
     Problem,
     WaitEvent,
+    masked,
     ports_of,
 )
 from app.modules.automation.infra.models import (
@@ -43,7 +44,13 @@ from app.modules.automation.service import (
     workflow_tests,
 )
 from app.modules.automation.service.registry import record_type as registered
-from app.modules.identity_access import Subject
+from app.modules.identity_access import (
+    PolicyService,
+    ServiceRolesOut,
+    Subject,
+    get_policy,
+    service_roles_out,
+)
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.idempotency import Created, Idempotency
@@ -52,6 +59,7 @@ from app.shared.api.listing import ListQuery, Page, list_query, paginate
 router = APIRouter(prefix="/automation/workflows", tags=["automation"])
 Manage = Annotated[Subject, Depends(require_permission("workflows.manage"))]
 Run = Annotated[Subject, Depends(require_permission("workflows.run"))]
+Policy = Annotated[PolicyService, Depends(get_policy)]
 
 
 class WorkflowIn(BaseModel):
@@ -176,7 +184,7 @@ def _out(workflow: Workflow, problems: list[Problem] | None = None) -> WorkflowO
         record_type=workflow.record_type,
         name=workflow.name,
         description=workflow.description,
-        draft=dict(workflow.draft),
+        draft=masked(workflow.draft),  # header values are write-only (#406)
         problems=_problems(problems or []),
         enabled=workflow.enabled,
         published_version=workflow.published_version,
@@ -198,6 +206,10 @@ class NodeTypeOut(BaseModel):
     why_not: str | None = Field(description="Why not, as a problem code with its label.")
     outputs: list[str] = Field(description="Its outputs with an empty config.")
     optional: list[str] = Field(description="Outputs it may leave unlinked.")
+    roles: list[str] = Field(
+        default_factory=list,
+        description="An approval's choice of the record's roles (empty for other types).",
+    )
 
 
 @router.get("/node-types", summary="The designer's palette for a record type")
@@ -216,6 +228,7 @@ async def node_types(
             why_not=o.why_not,
             outputs=list(o.outputs),
             optional=sorted(o.optional),
+            roles=list(o.roles),
         )
         for o in await workflow_admin.node_types(session, record_type)
     ]
@@ -1162,6 +1175,72 @@ async def delete_workflow(
     """409 workflow_has_running_instances while runs are live: disable it instead (AC3)."""
     del subject
     await workflow_admin.delete_workflow(session, workflow_id, expected_version=version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- the run-as identity (ADR-043 §6; the coordinator's plan, 2026-11-11) -----------------------
+
+
+@router.get("/{workflow_id}/run-as", summary="Who the workflow acts as, and its roles")
+async def run_as(
+    workflow_id: uuid.UUID, session: TenantSession, subject: Manage, policy: Policy
+) -> ServiceRolesOut:
+    """Before the first publish there is no identity yet; its roles are none until given."""
+    identity = await workflow_admin.run_as_identity(session, workflow_id)
+    return await service_roles_out(session, policy, subject, identity)
+
+
+@router.put(
+    "/{workflow_id}/run-as/roles/{role_id}",
+    summary="Give the run-as identity a role",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "automation.workflow_run_as_role_added",
+            object_type="workflow",
+            object_param="workflow_id",
+            detail_params=("role_id",),
+        )
+    ],
+)
+async def add_run_as_role(
+    workflow_id: uuid.UUID,
+    role_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    policy: Policy,
+) -> Response:
+    """Idempotent, and only roles a run-as identity may hold.
+
+    Never tenant administration, a role managing identities, roles or API keys, or more than
+    your own rights (403 with the reason); 409 workflow_not_published before the first publish.
+    """
+    await workflow_admin.set_run_as_role(session, policy, subject, workflow_id, role_id, held=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/{workflow_id}/run-as/roles/{role_id}",
+    summary="Take a role from the run-as identity",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "automation.workflow_run_as_role_removed",
+            object_type="workflow",
+            object_param="workflow_id",
+            detail_params=("role_id",),
+        )
+    ],
+)
+async def remove_run_as_role(
+    workflow_id: uuid.UUID,
+    role_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    policy: Policy,
+) -> Response:
+    """Idempotent; through the same guarded path."""
+    await workflow_admin.set_run_as_role(session, policy, subject, workflow_id, role_id, held=False)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

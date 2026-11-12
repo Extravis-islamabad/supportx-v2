@@ -499,6 +499,9 @@
   "releases.manage_followers": [
    "all"
   ],
+  "releases.override_freeze": [
+   "all"
+  ],
   "releases.reopen": [
    "all"
   ],
@@ -556,6 +559,9 @@
    "all"
   ],
   "releases.manage_followers": [
+   "all"
+  ],
+  "releases.override_freeze": [
    "all"
   ],
   "releases.reopen": [

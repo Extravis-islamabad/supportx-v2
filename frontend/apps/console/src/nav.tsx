@@ -6,6 +6,7 @@ import {
   BookOutlined,
   BugOutlined,
   ClusterOutlined,
+  CheckSquareOutlined,
   HomeOutlined,
   InboxOutlined,
   NotificationOutlined,
@@ -24,6 +25,8 @@ import { SETUP_PERMISSIONS } from './pages/admin/setupMap';
  */
 export const NAV: readonly NavItem[] = [
   { key: 'home', path: '/', labelKey: 'nav.home', icon: <HomeOutlined /> },
+  // WP-046a S1 (REQ-INC-076): every user's tasks on every type.
+  { key: 'my_tasks', path: '/my-tasks', labelKey: 'nav.my_tasks', icon: <CheckSquareOutlined /> },
   {
     key: 'incidents',
     path: '/incidents',
