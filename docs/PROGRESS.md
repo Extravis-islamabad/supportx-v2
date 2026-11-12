@@ -2166,7 +2166,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     in the PR.
   - **Open:** per-environment guarding (WP-053); a release emergency route would be a new
     decision; GiST range index not needed (lane A, 7 ms worst case).
-- [~] Session 3 (2026-11-11): stage work for releases. Migration 0142.
+- [x] Session 3 (2026-11-11): stage work for releases. Migration 0142 (#422).
   - **REQ-REL-048:** the stage-task refusal is shared with changes (lane A's OK) and names the
     first open task (`task`, `task_id`, `tasks`, `more`; never its text). Releases can switch it
     off (`open_stage_tasks_block`). The rail shows each stage's tasks done / total, live.
@@ -2185,7 +2185,32 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     task templates (#398, WP-046a S1). Proved on a release by their
     `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
   - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
-- [ ] S4: closure and rollback.
+- [~] Session 4 (2026-11-12): closure and rollback. No migration (seed version 5).
+  - **Closure codes (REQ-REL-050):** releases close with their own codes (completed, completed
+    with issues, rolled back, deferred, rejected, cancelled). Older tenants are topped up once:
+    an incident-style code is switched off only while untouched and unused by any release; one
+    audit entry (`work_item.settings_topped_up`).
+  - **Open work (REQ-REL-052):** new shared kinds `linked_changes` and `child_releases` (warn),
+    named "CHG-12 Subject"; the staged move dialog lists open work and moves on only once
+    confirmed.
+  - **Failure (REQ-REL-053):** a failed deployment shows its backout plan and Mark rolled back;
+    Create problem (caused_by_release) and Create follow-up release (follows), listed on the
+    release; `POST/GET /releases/{id}/follow-ups` (Idempotency-Key); a Failed view.
+  - **Cancel and reopen (REQ-REL-054):** a cancelled release offers to unlink its visible changes;
+    reopening keeps the closure in history and on the rail.
+  - **Admin › Releases (template E):** closure codes, Closing (release fields and kinds; no
+    auto-close or reopen window, which follow requester replies) and Stages
+    (`open_stage_tasks_block`). Lane A's PickListEditor and ClosingTab are shared through
+    `SettingsBaseContext` and `useSettingsChange(base)`; incident behaviour unchanged.
+  - **Tests:** test_release_closure_codes (2), test_release_open_work (3), test_release_flow
+    (reopen); Vitest releases.test.tsx (REL-052..054), release-settings.test.tsx (4).
+  - **Open:**
+    - REQ-REL-051 AC1 ("review completed" as a closure condition) is not built; AC2 (bulk close
+      report) goes with S5's bulk actions. Placement asked of the coordinator.
+    - REQ-REL-052's offer to close the linked changes the user may close (through lane A's change
+      close path) is not built; the kinds warn and list only.
+    - Lane A lists `caused_by_release` / `follows` on the problem, incident and request pages in
+      their next polish.
   S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 
