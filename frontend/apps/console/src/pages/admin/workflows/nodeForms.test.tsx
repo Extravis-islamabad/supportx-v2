@@ -210,9 +210,11 @@ describe('console: workflow node forms', () => {
       target: { value: 'Started by the workflow' },
     });
     fireEvent.click(within(details).getByTestId('note-private'));
+    fireEvent.change(within(details).getByTestId('node-retries'), { target: { value: '2' } });
     expect(await saved(fake, 'jot')).toEqual({
       text: { en: 'Started by the workflow' },
       private: false,
+      retries: 2,
     });
   });
 

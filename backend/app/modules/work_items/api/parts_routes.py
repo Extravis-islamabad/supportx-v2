@@ -280,6 +280,9 @@ class WorkItemWorklogOut(BaseModel):
     description: str | None
     version: int
     created_by: uuid.UUID | None
+    stage: str | None = Field(
+        default=None, description="A staged record's stage when it was logged (WP-058b S3)."
+    )
 
     @classmethod
     def of(cls, row: WorkItemWorklog) -> "WorkItemWorklogOut":

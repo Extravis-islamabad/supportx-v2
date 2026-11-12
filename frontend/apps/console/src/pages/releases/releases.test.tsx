@@ -599,6 +599,86 @@ describe('console: releases', () => {
     });
   });
 
+  it('WP-058b S3: the Stages tab lists the picked stage’s tasks and time, from the current one', async () => {
+    const task = (id: string, title: string, stage: string, status: string) => ({
+      id,
+      work_item_id: REL_ID,
+      title,
+      description: null,
+      owner_id: null,
+      group_id: null,
+      status,
+      priority: 'normal',
+      due_at: null,
+      done_at: null,
+      done_by: null,
+      stage,
+      position: 0,
+      from_plan: false,
+      required: false,
+      internal: false,
+      version: 1,
+      created_at: '2027-03-01T00:00:00Z',
+      updated_at: '2027-03-01T00:00:00Z',
+    });
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api({
+      [`GET /api/v1/releases/${REL_ID}/stages`]: {
+        body: {
+          ...panel,
+          rail: panel.rail.map((s) =>
+            s.stage === 'build'
+              ? { ...s, tasks_done: 1, tasks_total: 2 }
+              : { ...s, tasks_done: 0, tasks_total: 0 },
+          ),
+        },
+      },
+      [`GET /api/v1/releases/${REL_ID}/tasks`]: {
+        body: {
+          items: [
+            task('t1', 'Tag the build', 'build', 'done'),
+            task('t2', 'Freeze the branch', 'build', 'open'),
+            task('t3', 'Write the notes', 'testing', 'open'),
+          ],
+          done: 1,
+          total: 3,
+        },
+      },
+      [`GET /api/v1/releases/${REL_ID}/worklogs`]: {
+        body: {
+          items: [
+            {
+              id: 'w1',
+              owner_id: REL_ID,
+              worklog_type: 'fix',
+              started_at: '2027-03-01T09:00:00Z',
+              ended_at: '2027-03-01T10:30:00Z',
+              minutes: 90,
+              description: null,
+              version: 1,
+              created_by: null,
+              stage: 'build',
+            },
+          ],
+          minutes: 90,
+          by_owner: [],
+          by_type: [],
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Stages' }));
+    const stages = await screen.findByTestId('release-stage-work');
+    // The current stage (build) first: its two tasks, one done, and its 90 minutes.
+    expect(await within(stages).findByText('Tasks 1 / 2')).toBeDefined();
+    expect(within(stages).getByText('Tag the build')).toBeDefined();
+    expect(within(stages).queryByText('Write the notes')).toBeNull();
+    expect(within(stages).getByTestId('release-stage-worklog-w1')).toBeDefined();
+    fireEvent.click(within(stages).getByText('Testing'));
+    expect(await within(stages).findByText('Write the notes')).toBeDefined();
+    expect(within(stages).queryByText('Tag the build')).toBeNull();
+  });
+
   describe('conflicts on the Schedule tab (WP-058b S2; REQ-REL-040, -041)', () => {
     const FREEZE = '01a1a2b3-0000-7000-8000-00000058c001';
     const OTHER = '01a1a2b3-0000-7000-8000-00000058c002';
@@ -805,6 +885,42 @@ describe('console: releases', () => {
           .find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/retry`)[0]
           ?.headers.get('If-Match'),
       ).toBe('"4"');
+    });
+
+    it('REQ-REL-021 AC1: a failed step shows on the header, with Retry and a way to the tab', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      const fake = api(
+        {
+          [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] },
+          [`POST /api/v1/automation/workflows/instances/${INSTANCE}/retry`]: {
+            body: { ...failedRun.instance, status: 'running', version: 5 },
+          },
+        },
+        PERMS,
+      );
+      render(<App />);
+      const banner = await screen.findByTestId('workflow-failure-banner');
+      expect(banner.textContent).toContain(failedRun.workflow_name);
+      expect(banner.textContent).toContain('call');
+      fireEvent.click(within(banner).getByTestId('workflow-failure-retry'));
+      await waitFor(() => {
+        expect(
+          fake.find('POST', `/api/v1/automation/workflows/instances/${INSTANCE}/retry`),
+        ).toHaveLength(1);
+      });
+      fireEvent.click(within(banner).getByTestId('workflow-failure-open'));
+      expect(await screen.findByTestId('record-workflows')).toBeDefined();
+    });
+
+    it('without workflows.run there is no banner', async () => {
+      window.history.pushState({}, '', `/releases/${REL_ID}`);
+      api(
+        { [`GET /api/v1/automation/workflows/records/release/${REL_ID}`]: { body: [failedRun] } },
+        ['releases.view', 'releases.edit'],
+      );
+      render(<App />);
+      await screen.findByTestId('release-page');
+      expect(screen.queryByTestId('workflow-failure-banner')).toBeNull();
     });
 
     it('REQ-WF-024 AC2: Skip asks first, then goes with the run’s If-Match', async () => {

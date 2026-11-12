@@ -1002,6 +1002,8 @@ export const ur: LabelResource = {
   'event_type.work_items.reply_templates.changed': 'جواب کے سانچے تبدیل ہوئے',
   'event_type.work_items.service_request.ready_to_fulfil': 'درخواست تکمیل کے لیے تیار',
   'event_type.work_items.settings.changed': 'ریکارڈ کی ترتیبات بدلیں',
+  'event_type.work_items.task.assigned': 'کام کسی کو دیا گیا',
+  'event_type.work_items.task.reminder_due': 'کام کی یاد دہانی کا وقت',
   'event_type.work_items.view.changed': 'محفوظ ویو تبدیل ہوا',
   'event_type.work_items.work_item.assigned': 'ریکارڈ تفویض ہوا',
   'event_type.work_items.work_item.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',

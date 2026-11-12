@@ -1006,6 +1006,8 @@ export const ar: LabelResource = {
   'event_type.work_items.reply_templates.changed': 'تم تغيير قوالب الرد',
   'event_type.work_items.service_request.ready_to_fulfil': 'طلب جاهز للتنفيذ',
   'event_type.work_items.settings.changed': 'تغيرت إعدادات السجلات',
+  'event_type.work_items.task.assigned': 'أُسندت مهمة إلى شخص',
+  'event_type.work_items.task.reminder_due': 'حان تذكير مهمة',
   'event_type.work_items.view.changed': 'تم تغيير طريقة عرض محفوظة',
   'event_type.work_items.work_item.assigned': 'تم إسناد السجل',
   'event_type.work_items.work_item.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
