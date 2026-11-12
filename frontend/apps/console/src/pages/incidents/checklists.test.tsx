@@ -116,6 +116,14 @@ describe('WP-046a S2 on the incident record', () => {
     expect(sent?.body).toEqual({ done: true });
   });
 
+  it('QA 2026-11-12 F-10: a link to a tab (?tab=) opens on it, whatever tab was used last', async () => {
+    rememberTab(SESSION_USER, 'files');
+    window.history.pushState({}, '', `/incidents/${ITEM.id}?tab=checklists`);
+    api();
+    render(<App />);
+    expect(await screen.findByTestId('checklist-0')).toBeDefined();
+  });
+
   it('REQ-INC-080: only openable files can be picked, and the zip asks for the picked ones', async () => {
     rememberTab(SESSION_USER, 'files');
     const fake = api({

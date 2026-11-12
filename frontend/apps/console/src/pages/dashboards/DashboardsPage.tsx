@@ -27,7 +27,7 @@ import {
   useUpdateDashboard,
   type DashboardBody,
 } from '@supportx/api-client';
-import { useIsolate, useLabels } from '@supportx/labels';
+import { hasLabel, useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import {
   ActionBar,
@@ -96,7 +96,10 @@ function Picker() {
     const items = data?.items ?? [];
     const item = (d: (typeof items)[number]): LibraryItem => {
       const name = dashboardName(d, t, locale);
-      const description = d.builtin ? t(`dashboard.${d.builtin}.description`) : d.description;
+      // A ready-made dashboard without a description shows none, never a placeholder (F-04).
+      const builtinKey = d.builtin ? `dashboard.${d.builtin}.description` : null;
+      const description =
+        builtinKey === null ? d.description : hasLabel(builtinKey) ? t(builtinKey) : null;
       return {
         key: d.ref,
         searchText: name,

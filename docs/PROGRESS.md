@@ -325,6 +325,35 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   every replica connected to it (master); afterwards only the server counts. Tests in
   `backend/tests/ha/test_valkey_failover.py`; the remaining unplanned-crash gap is in
   [deployment.md](deployment.md) (Profiles, "Valkey failover and readiness").
+  **HA cluster DNS fix (2026-11-12, lane B, branch `fix/ha-cluster-dns-valkey`):** Cluster run
+  43082299609 stopped the node with k3s's only CoreDNS copy; for about six minutes nothing
+  resolved, the sentinels kept entering TILT and every later failover aborted
+  (`-failover-abort-no-good-slave`). Now cluster DNS runs two copies on different nodes
+  (`deploy/k3s/cluster-dns-ha.sh`, run by `make cluster-up-ha` and documented for on-prem and
+  customer-managed clusters), `deploy/k3s/ha-preflight.sh` warns about a single copy, Valkey's
+  pods use short lookups of fully qualified names (`dnsConfig`), node-loss.sh waits for Sentinel
+  to settle first, and a new test stops the node with the Valkey master after a failover
+  (`make cluster-ha-valkey-node-loss`). Proven only by the next Cluster dispatch.
+  Round 2 (proving run 43148329223, node-loss red: the stopped node held the PG primary, the
+  Valkey master and a CoreDNS copy; SDOWN 77 s after the stop, every failover aborted): Sentinel
+  down-after 10 s (a 100 s replica allowance) and failover-timeout 30 s (an aborted failover
+  retries after 60 s); node-monitor grace period 20 s in `deploy/k3s/config-ha.yaml` and the k3d
+  HA cluster; a forced worst-case test, master plus CoreDNS on the stopped node
+  (`make cluster-ha-valkey-node-loss-dns`).
+  - [ ] **Later:** NodeLocal DNSCache to remove the dead-endpoint window, without a shorter
+    grace period; weigh it after this lands.
+  Round 3 (2026-11-12, the coordinator's sweep of single copies in the HA profile; the proving
+  run lost k3s's only Traefik copy with the stopped node and no request was answered for 90 s):
+  Traefik two copies with required anti-affinity (`deploy/k3s/traefik-ha.yaml`, a
+  HelmChartConfig; the k3d HA cluster uses the same file, `deploy/k3s/traefik-ha.sh` checks);
+  NATS and the CloudNativePG cluster with required anti-affinity; workflow timers 2; ClamAV 2
+  with staggered signature pulls; fast eviction (30 s) for the single-copy fan-out and index
+  workers; the preflight checks all of it (`make cluster-ha-preflight` after the install, CI
+  too) and node-loss.sh proves live updates resume after the fan-out moves. What runs how many
+  copies: [deployment.md](deployment.md) (Profiles).
+  - [ ] **Open: bundled HA SeaweedFS (3 masters, replicated volumes, filer ×2): pending Haider
+    (roadmap call).** Until then HA installs use their own S3-compatible store (decision b,
+    2026-11-12); the preflight warns (advisory) when the bundled single SeaweedFS runs.
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -1895,9 +1924,19 @@ it with no reload (rule c). Not built yet.
     - tag numbers in one block per batch, the unused rest handed back before the savepoint is
       released. A dry run takes none, a batch with a refused row redoes row by row, and no gap
       is left (the coordinator's rule; tested).
-    The CI figure goes in the PR (one Audit scale run).
-  - **Step B (approved in principle, sketch first):** multi-row inserts for the outbox,
-    field_changes, audit and valuations, and a dry run that skips the writes it rolls back.
+    CI (Audit scale run 43189974597, 20,000 rows): real run 228.2 s (target 240 s, met), dry run
+    219.6 s (target 120 s, not yet: Step B).
+  - **Step B (approved by the coordinator and lanes A and C, 2026-11-12):** an import batch's
+    outbox events, field history, audit entries (with their personal rows and sealing queue) and
+    valuations are buffered (`app/shared/db/deferred.py`, `deferred_writes`, import-only) and
+    written as one multi-row INSERT per table, chunked under asyncpg's parameter limit, in
+    foreign-key order with the outbox last, before the batch savepoint is released. The dry run
+    discards the buffer instead of writing it. Rows are built exactly as before (ids, times and
+    entry hashes at the call), so the relay (ORDER BY id) and audit sealing (occurred_at,
+    entry_id) see the same order. A savepoint rolled back inside the block drops its rows. A
+    guard raises if a buffered table is read or written around the buffer while rows wait.
+    Locally: 14,862 → 2,911 statements for 1,000 rows, dry run plus run (about 1.1 per created
+    asset). The CI figure goes in the PR.
   - **Merge and links:** the merge moves every live work-item link of the duplicate, including
     records the merging person may not see (only a count comes back to them), inside the
     merge's own transaction (lane A's note).

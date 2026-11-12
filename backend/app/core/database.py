@@ -21,6 +21,7 @@ recommends. This works with any transaction-mode pooler and PgBouncer version a 
 on-prem; the cost is one extra parse per statement. See docs/architecture/tenancy.md.
 """
 
+import socket
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -107,6 +108,44 @@ def pgbouncer_safe_connect_args(application_name: str) -> dict[str, Any]:
     }
 
 
+# A connection to a pod that vanished (its node lost) gets no reset: without these, a pooled
+# connection waits out the whole command timeout (120 s) before it fails, and a request can meet
+# several of them (Cluster run 43135183726: the write came back after 294 s of 300). With them,
+# the kernel gives up on an unanswered connection in about 15 s and the pool's pre-ping or the
+# next command fails fast, so the request gets a fresh connection to a live pooler copy.
+TCP_USER_TIMEOUT_MS = 15_000  # unacknowledged data: the connection is dead after 15 s
+TCP_KEEPALIVE = (10, 5, 3)  # idle 10 s, then a probe every 5 s, dead after 3 missed
+
+
+def _detect_dead_peers(dbapi_connection: Any) -> None:  # noqa: ANN401 - the dialect's adapted connection
+    """Kernel-level dead-peer detection on one new asyncpg connection's TCP socket.
+
+    asyncpg has no setting for these, so they are set on the socket itself; each option only
+    where the platform has it (Linux in every image; a developer's macOS lacks some), and never
+    on a Unix socket. Best effort: a connection without them still works, as before.
+    """
+    raw = getattr(dbapi_connection, "driver_connection", None)
+    transport = getattr(raw, "_transport", None)  # asyncpg keeps no public handle on it
+    sock = transport.get_extra_info("socket") if transport is not None else None
+    if sock is None or sock.family not in (socket.AF_INET, socket.AF_INET6):
+        return
+    idle, interval, count = TCP_KEEPALIVE
+    options = [
+        (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+        (socket.IPPROTO_TCP, getattr(socket, "TCP_KEEPIDLE", None), idle),
+        (socket.IPPROTO_TCP, getattr(socket, "TCP_KEEPINTVL", None), interval),
+        (socket.IPPROTO_TCP, getattr(socket, "TCP_KEEPCNT", None), count),
+        (socket.IPPROTO_TCP, getattr(socket, "TCP_USER_TIMEOUT", None), TCP_USER_TIMEOUT_MS),
+    ]
+    for level, name, value in options:
+        if name is None:
+            continue
+        try:
+            sock.setsockopt(level, name, value)
+        except OSError:  # pragma: no cover - a platform that has the name but refuses it
+            log.debug("db_socket_option_refused", option=name)
+
+
 def create_engine(  # noqa: PLR0913 - keyword-only pool settings, all optional
     url: str,
     *,
@@ -139,11 +178,13 @@ def create_engine(  # noqa: PLR0913 - keyword-only pool settings, all optional
             "pool_pre_ping": True,
         }
     )
-    return create_async_engine(
+    engine = create_async_engine(
         to_async_url(url),
         connect_args=connect_args,
         **pool_args,
     )
+    event.listen(engine.sync_engine, "connect", lambda conn, _record: _detect_dead_peers(conn))
+    return engine
 
 
 def reporting_command_timeout(settings: Settings) -> float:

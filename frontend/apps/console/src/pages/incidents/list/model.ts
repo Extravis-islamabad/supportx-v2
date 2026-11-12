@@ -18,7 +18,7 @@ import {
   type FilterModel,
   type FilterValueType,
 } from '@supportx/forms';
-import { usePersonalChannel } from '@supportx/realtime';
+import { usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import { instantOf, wallTimeIn } from '@supportx/ui';
 
 import type { ReportWords } from '../../reports/names';
@@ -277,6 +277,21 @@ export function skipReason(
 }
 
 /** Keeps every job you look at live: progress refetches when your channel says it moved. */
+const LISTS_CHANGED = 'work_items.lists_changed';
+
+/**
+ * Every screen that starts or shows a bulk job of `type` (incident, change, release) refreshes
+ * through here (QA 2026-11-12 F-01). A job's records never reach list channels one by one: the
+ * job says once per batch which type's lists changed (`work_items.lists_changed`, its type in
+ * `ids`). `refresh` runs on that; the job's own progress drawer follows the job.
+ */
+export function useBulkRefresh(type: string, refresh: () => void) {
+  useTenantChannel((message) => {
+    if (message.type === LISTS_CHANGED && message.ids.includes(type)) refresh();
+  });
+  useBulkLive();
+}
+
 export function useBulkLive() {
   const queryClient = useQueryClient();
   usePersonalChannel((message) => {

@@ -27,11 +27,13 @@ from app.modules.metadata.domain.fields import (
 from app.modules.metadata.infra.models import CustomField
 from app.modules.metadata.service import custom_fields as service
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
 router = APIRouter(
     prefix="/custom-fields",
     tags=["custom-fields"],
+    dependencies=[Depends(rate_limit("custom_fields"))],  # audit #14; architecture.md §10
     responses={
         401: {"model": ProblemDetail, "description": "Not signed in."},
         403: {"model": ProblemDetail, "description": "Missing permission or licence feature."},

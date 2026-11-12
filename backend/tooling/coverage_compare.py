@@ -8,6 +8,15 @@ percentage points below the newest nightly's (the `backend-coverage-baseline` ar
 reach NEW_FILE_MINIMUM. Without a baseline it passes with a notice: the merge queue runs the
 full suite and enforces the combined 90% on every merge.
 
+A DROP IS ADVISORY (2026-11-12, lane C on #445): a warning, never a failure. A NEW file below
+NEW_FILE_MINIMUM still fails: its tests are new in the same PR and always selected, so its figure
+is real, and the queue's combined 90% would not catch a weak new module (lane C on #450).
+The nightly's coverage includes tests that reach a file only over HTTP through `create_app`, which
+test_select deliberately does not pick (its docstring), so a PR touching only a router showed
+a false drop (automation/api/workflows.py, 91.8% against 97.1%). Telling those lines apart needs
+per-test coverage, which CI does not keep. The merge queue's full run still enforces the
+combined 90% on every merge, so a real loss cannot land.
+
 CLI (from backend/): `uv run python -m tooling.coverage_compare --selection selection.json
 --current coverage.json [--baseline coverage-baseline.json]`. Never imported by the app.
 """
@@ -86,7 +95,7 @@ def _pct(value: float | None) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Compare, print a line per changed file; 1 when any lost coverage."""
+    """Compare and print a line per changed file; 1 only for a new file below the minimum."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--selection", type=Path, required=True, help="tooling.test_select's")
     parser.add_argument("--current", type=Path, required=True, help="this run's coverage json")
@@ -104,15 +113,25 @@ def main(argv: list[str] | None = None) -> int:
     baseline = line_coverage(json.loads(args.baseline.read_text(encoding="utf-8")))
     verdicts = compare(changed, current, baseline)
     for v in verdicts:
-        mark = "ok  " if v.ok else "FAIL"
+        mark = "ok  " if v.ok else "LOW "
         _say(f"{mark} {v.path}: {_pct(v.current)} ({v.note})")
-    failed = [v for v in verdicts if not v.ok]
+    new_low = [v for v in verdicts if not v.ok and v.baseline is None]
+    failed = [v for v in verdicts if not v.ok and v.baseline is not None]
+    if new_low:
+        _say(
+            f"::error title=coverage::{len(new_low)} new file(s) below {NEW_FILE_MINIMUM:.0f}%: "
+            + ", ".join(v.path for v in new_low)
+        )
     if failed:
         _say(
-            f"::error title=coverage::{len(failed)} changed file(s) lost coverage: "
-            + ", ".join(v.path for v in failed)
+            f"::warning title=coverage (advisory)::{len(failed)} changed file(s) below the "
+            "nightly on the selected tests only (tests that reach them over HTTP may not have "
+            "run; the merge queue checks the full 90%): " + ", ".join(v.path for v in failed)
         )
+    if new_low:
         return 1
+    if failed:
+        return 0
     _say(f"Coverage of {len(verdicts)} changed app file(s) holds against the nightly")
     return 0
 

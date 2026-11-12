@@ -55,7 +55,7 @@ metadata:
     {{- include "supportx.labels" $c | nindent 4 }}
 spec:
   serviceName: {{ include "supportx.name" $c }}
-  replicas: 1
+  replicas: {{ .Values.clamav.replicas }}
   selector:
     matchLabels:
       {{- include "supportx.selector" $c | nindent 6 }}
@@ -74,6 +74,7 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
         seccompProfile: {type: RuntimeDefault}
+      {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
       initContainers:
         # First signatures before clamd starts. With no mirror reachable, an existing database
         # (earlier download or the offline bundle) is used; with none at all the pod waits, files
@@ -117,7 +118,21 @@ spec:
             - {name: tmp, mountPath: /tmp}
         - name: freshclam
           image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.clamav) }}
+          {{- if gt (int .Values.clamav.replicas) 1 }}
+          # Several copies: each pulls its own signatures, Checks times a day from its own start.
+          # Copies start within minutes of each other, so unstaggered they would hit the mirror
+          # together every time. Copy N (the StatefulSet ordinal, from the pod name) waits N times
+          # (one check interval / copies) before its daemon starts: with 12 checks a day and two
+          # copies, copy 1 checks an hour after copy 0, every time. clamd meanwhile serves the
+          # signatures the init container fetched.
+          command: ["/bin/sh", "-c"]
+          args:
+            - >-
+              sleep "$((${HOSTNAME##*-} * {{ div 86400 (mul (int .Values.clamav.checksPerDay) (int .Values.clamav.replicas)) }}))"
+              && exec freshclam --daemon --foreground --config-file=/etc/clamav-sx/freshclam.conf
+          {{- else }}
           command: ["freshclam", "--daemon", "--foreground", "--config-file=/etc/clamav-sx/freshclam.conf"]
+          {{- end }}
           {{- include "supportx.containerSecurityContext" . | nindent 10 }}
           resources:
             requests: {cpu: 10m, memory: 64Mi}
