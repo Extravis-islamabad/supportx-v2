@@ -44,6 +44,12 @@ NOT_AUDITED: frozenset[str] = frozenset(
         "POST /api/v1/roles/{role_id}/change-preview",
         "POST /api/v1/users/{user_id}/role-preview",
         "POST /api/v1/assets/overdue-rule/preview",
+        # WP-046a S2: a CSV read into items for the admin to review; nothing is saved.
+        "POST /api/v1/incidents/checklist-library/import",  # reads a CSV, saves nothing
+        "POST /api/v1/service-requests/checklist-library/import",  # reads a CSV, saves nothing
+        "POST /api/v1/problems/checklist-library/import",  # reads a CSV, saves nothing
+        "POST /api/v1/changes/checklist-library/import",  # reads a CSV, saves nothing
+        "POST /api/v1/releases/checklist-library/import",  # reads a CSV, saves nothing
     }
 )
 

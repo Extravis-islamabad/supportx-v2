@@ -33,6 +33,9 @@ second run is safe:
 - The token-refresh lock (`SessionStore.lock`): SET NX with a per-attempt token; a retry that
   finds the key holding its own token knows the first try won. Release is a compare-and-delete
   script, so it never frees another holder's lock and a second run does nothing.
+- ZREMRANGEBYSCORE, ZCARD, ZADD of a random token, EXPIRE and ZREM of an archive download's slot
+  (`app/shared/files/service/archive_slots.py`, WP-046a S2): dropping what expired, adding the
+  same token again or removing one already gone change nothing a second time.
 No LPUSH/RPUSH/XADD/SADD and no PUBLISH go to Valkey (realtime publishes go to Centrifugo).
 A new non-idempotent command needs its line here, or a token as the lock has.
 """

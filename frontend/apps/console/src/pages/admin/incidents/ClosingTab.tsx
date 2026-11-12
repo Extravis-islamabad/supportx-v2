@@ -77,6 +77,8 @@ const PROFILES: Record<SettingsBase, ClosingProfile> = {
   },
 };
 const DAYS = { min: 1, max: 30 };
+// Checklist items per record (WP-046a S2): the server's own range.
+const ITEMS = { min: 1, max: 1000 };
 const AUTO_CLOSE_DEFAULT = 3; // Appendix A (D3)
 // Settings whose problems show at their own field.
 const PLACED = new Set([
@@ -84,6 +86,7 @@ const PLACED = new Set([
   'close_requires',
   'auto_close_days',
   'reopen_window_days',
+  'checklist_item_max',
 ]);
 
 interface Draft {
@@ -97,6 +100,7 @@ interface Draft {
   autoClose: boolean;
   autoCloseDays: number | null;
   reopenDays: number | null;
+  itemMax: number | null;
 }
 
 /**
@@ -129,6 +133,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     autoClose: closure.auto_close_days !== null,
     autoCloseDays: closure.auto_close_days ?? AUTO_CLOSE_DEFAULT,
     reopenDays: closure.reopen_window_days,
+    itemMax: closure.checklist_item_max,
   };
   const draftState = useDraft(source, catalogue.version);
   const { draft, edit, stale } = draftState;
@@ -151,13 +156,18 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     value === null ? t('errors.field.required') : numberProblem(t, value, { ...DAYS, whole: true });
   const autoCloseProblem = draft.autoClose ? daysProblem(draft.autoCloseDays) : null;
   const reopenProblem = daysProblem(draft.reopenDays);
+  const itemMaxProblem =
+    draft.itemMax === null
+      ? t('errors.field.required')
+      : numberProblem(t, draft.itemMax, { ...ITEMS, whole: true });
   const problemAt = (field: string) => {
     if (field === 'auto_close_days' && autoCloseProblem !== null) return autoCloseProblem;
     if (field === 'reopen_window_days' && reopenProblem !== null) return reopenProblem;
+    if (field === 'checklist_item_max' && itemMaxProblem !== null) return itemMaxProblem;
     return byField[field];
   };
   const submit = () => {
-    if (autoCloseProblem !== null || reopenProblem !== null) return;
+    if (autoCloseProblem !== null || reopenProblem !== null || itemMaxProblem !== null) return;
     const body: ClosurePatch = {
       resolve_requires: draft.resolve,
       close_requires: draft.close,
@@ -166,6 +176,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       task_owner_access: draft.taskOwners,
       task_dependency_mode: draft.waitBlocks ? 'block' : 'warn',
       reopen_window_days: draft.reopenDays,
+      checklist_item_max: draft.itemMax,
     };
     // Only sent when it changes: the server refuses switching it on without a channel.
     const autoCloseDays = draft.autoClose ? draft.autoCloseDays : null;
@@ -388,6 +399,28 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
               </Flex>
             </>
           )}
+          {/* WP-046a S2: items per record across its checklists, for every type with checklists. */}
+          <Flex gap={16} wrap>
+            <Form.Item
+              label={t('settings.closing.checklist_item_max')}
+              htmlFor="settings-checklist-item-max"
+              validateStatus={problemAt('checklist_item_max') === undefined ? undefined : 'error'}
+              help={
+                problemAt('checklist_item_max') ??
+                t('settings.closing.checklist_item_max_help', ITEMS)
+              }
+            >
+              <InputNumber
+                id="settings-checklist-item-max"
+                value={draft.itemMax}
+                style={{ width: 160 }}
+                onChange={(value) => {
+                  edit({ ...draft, itemMax: typeof value === 'number' ? value : null });
+                }}
+                data-testid="settings-checklist-item-max"
+              />
+            </Form.Item>
+          </Flex>
           {/* A refusal with no field to point at (QA WP-029 BUG-02); field ones show in place. */}
           {(Object.keys(byField).length === 0 ||
             Object.keys(byField).some((key) => !PLACED.has(key))) && (
