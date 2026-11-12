@@ -2,6 +2,7 @@ import { Drawer, List, Space, Typography } from 'antd';
 import { Link } from 'react-router';
 
 import {
+  useAssetRecords,
   useChanges,
   useIncidentCatalogue,
   useIncidents,
@@ -89,12 +90,29 @@ function useRequestRows(filter: unknown): DrillRows {
   };
 }
 
+function useAssetRows(filter: unknown): DrillRows {
+  // Lane B's asset list takes the report's filter as its list API does (FilterExpression JSON).
+  const list = useAssetRecords({ filter: filter == null ? undefined : JSON.stringify(filter) });
+  const first = list.data?.pages[0];
+  return {
+    rows: (list.data?.pages.flatMap((page) => page.items) ?? []).map((asset) => ({
+      id: asset.id,
+      display_id: asset.tag ?? '',
+      subject: asset.name,
+      status: '',
+    })),
+    total: first?.estimated_total ?? null,
+    pending: list.isPending,
+  };
+}
+
 /** A report's `list_path` → its list's rows and where a row opens. Incidents are the default. */
 const LISTS: Record<string, { useRows: (filter: unknown) => DrillRows; route: string }> = {
   changes: { useRows: useChangeRows, route: 'changes' },
   releases: { useRows: useReleaseRows, route: 'releases' },
   problems: { useRows: useProblemRows, route: 'problems' },
   'service-requests': { useRows: useRequestRows, route: 'requests' },
+  assets: { useRows: useAssetRows, route: 'assets' },
 };
 
 /** A type's own list with the row's filter: same scope, same count as the chart. */
@@ -133,9 +151,11 @@ function RecordDrill({
                 <Link to={`/${route}/${item.id}`}>
                   <bdi>{item.display_id}</bdi> {item.subject}
                 </Link>
-                <Typography.Text type="secondary">
-                  {t(`work_item_status.${item.status}`)}
-                </Typography.Text>
+                {item.status !== '' && (
+                  <Typography.Text type="secondary">
+                    {t(`work_item_status.${item.status}`)}
+                  </Typography.Text>
+                )}
               </Space>
             </List.Item>
           )}

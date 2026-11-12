@@ -385,10 +385,16 @@ describe('Reports', () => {
       ['releases', 'releases', 'REL-4'],
       ['problems', 'problems', 'PRB-4'],
       ['service-requests', 'requests', 'SR-4'],
+      ['assets', 'assets', 'AST-4'],
     ])(
       'a %s report drills down to its own list (WP-058b S5b, REQ-REL-060)',
       async (listPath, route, displayId) => {
-        const row = { ...fakeIncident({ display_id: displayId, subject: 'Payroll 4.2' }) };
+        // An asset row names itself and its tag; a work item its ID and subject.
+        const row = {
+          ...fakeIncident({ display_id: displayId, subject: 'Payroll 4.2' }),
+          name: 'Payroll 4.2',
+          tag: displayId,
+        };
         const fake = api({
           me: fakeSession(),
           routes: routes({
