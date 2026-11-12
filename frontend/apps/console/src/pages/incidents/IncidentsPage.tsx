@@ -78,7 +78,7 @@ import {
   draftOf,
   exportFilter,
   rangeFilter,
-  useBulkLive,
+  useBulkRefresh,
   type SearchChip,
   type Selection,
   type TimeRangeValue,
@@ -264,9 +264,9 @@ export function IncidentsPage() {
       refreshRecord(queryClient, queryKeys.incidents.detail(id), message);
     }
   });
+  // A bulk job's batch: one refresh for the whole batch (REQ-INC-120), not one per record.
+  useBulkRefresh('incident', refreshLists);
   useTenantChannel((message) => {
-    // A bulk job's batch: one refresh for the whole batch (REQ-INC-120), not one per record.
-    if (message.type === LISTS_CHANGED) refreshLists();
     if (message.type === VIEWS_CHANGED) refreshList(queryClient, queryKeys.incidents.savedViews);
   });
   usePersonalChannel((message) => {
@@ -276,7 +276,6 @@ export function IncidentsPage() {
       refreshList(queryClient, queryKeys.incidents.listSetting(settingKey));
     }
   });
-  useBulkLive();
   const listKey = JSON.stringify([view, filter ?? null, trash]);
   const selection: Selection = picked.list === listKey ? picked : { ids: [], all: false };
   const setSelection = (next: Selection) => {

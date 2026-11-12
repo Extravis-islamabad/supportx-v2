@@ -276,3 +276,7 @@ def check_security(security: ConnectionSecurity, *, allow_plain: bool) -> list[s
     if security is ConnectionSecurity.NONE and not allow_plain:
         return ["plain_connection_refused"]
     return []
+
+
+# The ports a tenant's IMAP host may be reached on (audit #3): never a port scanner.
+IMAP_PORTS = frozenset({143, 993})
