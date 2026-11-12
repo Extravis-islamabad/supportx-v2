@@ -78,6 +78,15 @@ def test_the_cli_warns_on_lost_coverage_and_never_fails(
     assert "::warning title=coverage (advisory)::1 changed file(s)" in said
     assert "app/a.py" in said
     assert "::error" not in said
+
+
+def test_a_new_file_below_the_minimum_still_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Its tests are new in the PR and always selected, so the figure is real (lane C on #450)."""
+    new = _files(tmp_path, _report({"app/a.py": (5, 10)}), _report({"app/other.py": (10, 10)}))
+    assert coverage_compare.main(new) == 1
+    assert "::error title=coverage::1 new file(s) below 90%: app/a.py" in capsys.readouterr().out
     held = _files(tmp_path, _report({"app/a.py": (10, 10)}), _report({"app/a.py": (10, 10)}))
     assert coverage_compare.main(held) == 0
     assert "holds against the nightly" in capsys.readouterr().out
