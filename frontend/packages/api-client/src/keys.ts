@@ -308,5 +308,7 @@ export const queryKeys = {
     all: ['users'] as const,
     list: (query: UsersQuery) => ['users', 'list', query] as const,
     detail: (id: string) => ['users', 'detail', id] as const,
+    // A person's cost per hour (money): its own key, never inside the person record's.
+    costRates: (id: string) => ['users', 'cost-rates', id] as const,
   },
 };

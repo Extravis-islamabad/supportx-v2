@@ -75,6 +75,7 @@ from app.modules.work_items.service import (
     portal,
     problem_notifications,
     record_facts,
+    release_closing,
     release_duties,
     repeat_rules,
     report_names,
@@ -117,6 +118,10 @@ def _register_parts() -> None:
     test unregistered it).
     """
     register_open_work(OpenWorkKind.TASKS, parts.open_tasks, parts.complete_tasks)
+    # A release's open changes and sub-releases (WP-058b S4): listed, never closed for the user
+    # by the "complete open work" setting (each closes through its own rules).
+    register_open_work(OpenWorkKind.LINKED_CHANGES, release_closing.open_linked_changes, None)
+    register_open_work(OpenWorkKind.CHILD_RELEASES, release_closing.open_sub_releases, None)
 
 
 _register_parts()

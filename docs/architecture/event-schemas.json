@@ -3196,6 +3196,33 @@
         "type": "object"
       }
     },
+    "identity_access.user_cost_rate.changed": {
+      "1": {
+        "description": "A person's cost per hour was set, changed or removed (REQ-INC-068).\n\nIDs and the kind of change only, never the amount: screens with `users.view_cost_rates`\nrefetch the person's rates.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "change"
+        ],
+        "title": "UserCostRateChanged",
+        "type": "object"
+      }
+    },
     "identity_access.user_role.changed": {
       "1": {
         "description": "A role was assigned to or removed from a user (WP-016).",

@@ -36,7 +36,7 @@ const SUBJECT_MIN = 180; // the subject stays readable however narrow it is drag
 // Each column's own width, as the problems list (QA10V-06: the subject took ~750 px and squeezed
 // the rest; at 390 px Updated was off-screen). The table scrolls sideways on a phone.
 const OWN_WIDTHS = { id: 130, subject: 360, stage: 170, status: 170, updated: 170 };
-const VIEWS = ['open', 'my_open', 'resolved', 'all'] as const;
+const VIEWS = ['open', 'my_open', 'resolved', 'failed', 'all'] as const;
 type View = (typeof VIEWS)[number];
 
 /** Number or title: the list's search, as a filter the API applies to what you may see. */

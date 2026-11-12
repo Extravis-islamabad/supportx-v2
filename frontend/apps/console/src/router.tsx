@@ -406,6 +406,14 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-058b S4: release closure codes, closing and stages (template E).
+            path: 'releases/:section?',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/releases/ReleaseSettingsPage'))
+                .ReleaseSettingsPage,
+            }),
+          },
+          {
             path: 'requests',
             lazy: async () => ({
               Component: (await import('./pages/admin/requests/RequestSettingsPage'))

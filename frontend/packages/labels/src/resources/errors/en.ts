@@ -201,6 +201,11 @@ export const en = {
     'Your organisation does not let you change your contact details here. Ask your service desk.',
   'errors.conversation_entry_not_found': 'This reply or note no longer exists.',
   'errors.copy_reference': 'Copy reference',
+  'errors.cost_rate_date_taken':
+    'This person already has a rate from that moment. Change that one instead.',
+  'errors.cost_rate_not_found': 'The rate was not found.',
+  'errors.cost_rate_superseded':
+    'A later rate is already in force, so this one can no longer change. Set a new rate instead.',
   'errors.csrf_failed': 'This request could not be verified. Please reload the page and try again.',
   'errors.currency_change_needs_confirmation':
     'Changing the base currency needs a confirmation: amounts already recorded stay in the old one.',
@@ -568,6 +573,7 @@ export const en = {
   'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
+  'errors.field.review_required_to_close': "Complete the release's review before closing it.",
   'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
   'errors.field.role_held_by_record':
     "This role follows the record's own field. Change it in the details panel.",
@@ -861,6 +867,7 @@ export const en = {
   'errors.node_not_found': 'That step is not in this version of the workflow.',
   'errors.node_not_mapped': 'A step this run is at has no place in the new version: map it to one.',
   'errors.not_a_member': 'You are not a member of that organisation.',
+  'errors.not_a_person': 'This is a service identity, not a person: it has no cost per hour.',
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
   'errors.not_cancelable_from_here': 'It cannot be cancelled from where it is now.',
@@ -926,6 +933,8 @@ export const en = {
   'errors.record_not_editable': 'You need to be able to edit the record to do this.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
+  'errors.release_not_failed':
+    "Follow-ups are offered once the release's deployment has failed or been rolled back.",
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
   'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',

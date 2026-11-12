@@ -767,6 +767,8 @@ def view_predicates(
         ),
         # Changes (WP-045d S2, REQ-CHG-098): at the CAB now, in implementation now, on the
         # emergency path (open), and closed past their review date with the review still open.
+        # Releases (WP-058b S4, REQ-REL-053 AC3): a failed or rolled-back deployment.
+        "failed": WorkItem.status.in_(RELEASE_FAILED),
         "awaiting_cab": WorkItem.status == CHANGE_AT_CAB,
         "in_implementation": and_(_open(), WorkItem.stage == "implementation"),
         "emergency": and_(_open(), WorkItem.stage_path == "emergency"),
@@ -889,6 +891,7 @@ async def view_filters(
                 "value": [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value],
             },
         ),
+        "failed": _cond("status", "in", list(RELEASE_FAILED)),
         "awaiting_cab": _cond("status", "eq", CHANGE_AT_CAB),
         "in_implementation": NOT_EXPRESSIBLE,  # the stage fields are not in the DSL yet
         "emergency": NOT_EXPRESSIBLE,
@@ -1024,6 +1027,9 @@ SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
 PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
 # Changes: waiting for a stage's approval (acceptance, the plan, the CAB), the change screens.
 # WP-045d S2 adds the CAB's own view and the change states people look for (REQ-CHG-098).
+# Releases: their failed and rolled-back deployments (REQ-REL-053 AC3), reportable.
+RELEASE_FAILED = ("deployment_failed", "deployment_rolled_back")
+RELEASE_VIEW_CODES = ("failed",)
 CHANGE_VIEW_CODES = (
     "pending_approval",
     "awaiting_cab",
@@ -1042,6 +1048,8 @@ def view_codes(wtype: WorkItemType) -> tuple[str, ...]:
         return (*VIEW_CODES[:-1], *PROBLEM_VIEW_CODES, VIEW_CODES[-1])
     if wtype.code is WorkItemTypeCode.CHANGE:
         return (*VIEW_CODES[:-1], *CHANGE_VIEW_CODES, VIEW_CODES[-1])
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        return (*VIEW_CODES[:-1], *RELEASE_VIEW_CODES, VIEW_CODES[-1])
     return VIEW_CODES
 
 
@@ -3115,7 +3123,11 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     # The closing rules by category (WP-020f): entering resolved runs resolve's, closed close's,
     # leaving a final status clears the resolution as a reopen does.
     closing_step = await closing.before_move(
-        session, cat, record, _closing_action(record, move), given
+        session,
+        cat,
+        record,
+        _closing_action(record, move),
+        replace(given, passes_through=move.target.code),
     )
     before = _snapshot(record, (*STAMP_FIELDS, "stage"))
     from_stage = str(record.stage)
