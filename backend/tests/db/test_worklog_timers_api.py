@@ -139,3 +139,17 @@ async def test_timers_are_isolated_by_rls(world: World) -> None:
         changed = await session.execute(text("UPDATE work_item_timers SET comment = 'x'"))
         assert changed.rowcount == 0
     assert (await world.call("GET", "/my-timers", b, b.admin)).json() == []
+
+
+async def test_audit_19_a_retried_start_with_its_key_starts_one_timer(world: World) -> None:
+    """A lost answer retried with the same key replays the first, never `timer_running`."""
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    path = f"{BASE}/{item['id']}/timer"
+    key = {"Idempotency-Key": uuid.uuid4().hex}
+    first = await world.call("POST", path, a, a.tech_a, json={}, headers=key)
+    again = await world.call("POST", path, a, a.tech_a, json={}, headers=key)
+    assert first.status_code == 201, first.text
+    assert again.status_code == 201, again.text
+    assert again.headers.get("Idempotent-Replayed") == "true"
+    assert again.json() == first.json()

@@ -836,13 +836,29 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
         summary="Start your timer",
         status_code=status.HTTP_201_CREATED,
         responses=CONFLICT_409,
+        response_model=WorkItemTimerOut,
     )
     async def start_timer(
-        record_id: uuid.UUID, body: WorkItemTimerIn, session: TenantSession, subject: View
-    ) -> WorkItemTimerOut:
-        """As logging time: the record's edit right, or an investigator. One running per record."""
-        return WorkItemTimerOut.of(
-            await timers.start(session, subject, wtype, record_id, comment=body.comment)
+        record_id: uuid.UUID,
+        body: WorkItemTimerIn,
+        session: TenantSession,
+        subject: View,
+        idempotency: Idempotency,
+    ) -> Response:
+        """As logging time: the record's edit right, or an investigator. One running per record.
+
+        Idempotency-Key (audit #19): a retried start replays the first answer, never a
+        `timer_running` refusal for the timer it just started.
+        """
+
+        async def run() -> Created:
+            row = await timers.start(session, subject, wtype, record_id, comment=body.comment)
+            return Created(WorkItemTimerOut.of(row), {})
+
+        return await idempotency.run(
+            {"record_id": str(record_id), **body.model_dump(mode="json")},
+            run,
+            status_code=status.HTTP_201_CREATED,
         )
 
     @router.post("/{record_id}/timer/stop", summary="Stop your timer", responses=CONFLICT_409)
