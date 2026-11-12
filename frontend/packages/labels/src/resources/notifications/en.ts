@@ -36,11 +36,13 @@ export const en = {
   'notification_area.incident': 'Incidents',
   'notification_area.kb_article': 'Knowledge',
   'notification_area.mailbox': 'Mail',
+  'notification_area.outgoing_mail': 'Outgoing mail',
   'notification_area.problem': 'Problems',
   'notification_area.problem_repeat': 'Problems',
   'notification_area.release': 'Releases',
   'notification_area.rule_step': 'Rules and escalations',
   'notification_area.service_request': 'Service requests',
+  'notification_area.task': 'Tasks',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
   'notification_category.conversation': 'Replies and notes',
@@ -87,7 +89,7 @@ export const en = {
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
-  'notification_event.incident.canceled': 'Incident canceled',
+  'notification_event.incident.canceled': 'Incident cancelled',
   'notification_event.incident.closed': 'Incident closed',
   'notification_event.incident.created': 'New incident: acknowledgement',
   'notification_event.incident.created_in_group': 'New incident in a group',
@@ -112,6 +114,7 @@ export const en = {
   'notification_event.mailbox.credential_expiring': 'Mailbox app secret or certificate expiring',
   'notification_event.mailbox.failing': 'Mailbox stopped working',
   'notification_event.mailbox.mail_held': 'A sender is flooding a mailbox',
+  'notification_event.outgoing_mail.not_sent': 'E-mails never sent: mail is not set up',
   'notification_event.problem.assigned': 'Problem assigned',
   'notification_event.problem.closed': 'Problem closed',
   'notification_event.problem.created_in_group': 'Problem created in your group',
@@ -134,6 +137,9 @@ export const en = {
   'notification_event.service_request.received': 'Request received: acknowledgement',
   'notification_event.service_request.rejected': 'Request rejected',
   'notification_event.service_request.withdrawn': 'Request withdrawn',
+  'notification_event.task.assigned': 'A task is given to you',
+  'notification_event.task.overdue': 'Your task is overdue',
+  'notification_event.task.starts_soon': 'Your task starts soon',
   'notification_preferences.col.category': 'Kind',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
@@ -397,10 +403,10 @@ export const en = {
   'notification_template.incident.assigned.subject':
     'Assigned to {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
-    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was canceled.',
-  'notification_template.incident.canceled.in_app': '{{ record.display_id }} was canceled',
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was cancelled.',
+  'notification_template.incident.canceled.in_app': '{{ record.display_id }} was cancelled',
   'notification_template.incident.canceled.subject':
-    'Canceled: {{ record.display_id }} {{ record.title }}',
+    'Cancelled: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.closed.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now closed.',
   'notification_template.incident.closed.in_app': '{{ record.display_id }} was closed',
@@ -538,6 +544,12 @@ export const en = {
     'Mail to {{ record.title }} is held for review: a sender sent more than 10 messages in an hour',
   'notification_template.mailbox.mail_held.subject':
     'Mailbox {{ record.title }}: mail held for review',
+  'notification_template.outgoing_mail.not_sent.body':
+    'Hello {{ recipient.name }},\n\n{{ mail.count }} e-mails were never sent, because outgoing mail was not set up within 7 days. The oldest was from {{ mail.oldest_at }}. They will not be sent late. Open Admin › Mail to set up outgoing mail.',
+  'notification_template.outgoing_mail.not_sent.in_app':
+    '{{ mail.count }} e-mails were never sent: outgoing mail was not set up within 7 days (the oldest from {{ mail.oldest_at }}). Set up mail so the next ones go.',
+  'notification_template.outgoing_mail.not_sent.subject':
+    '{{ mail.count }} e-mails were never sent',
   'notification_template.problem.assigned.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now assigned to {{ assignee.name }}.\n\nPriority: {{ record.priority }}\nStatus: {{ record.status }}',
   'notification_template.problem.assigned.in_app':
@@ -669,6 +681,23 @@ export const en = {
     '{{ record.display_id }} was withdrawn: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'Withdrawn: {{ record.display_id }} {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'Hello {{ recipient.name }},\n\nThe task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" is now yours.',
+  'notification_template.task.assigned.in_app':
+    '{{ task.title }} on {{ record.display_id }} is yours',
+  'notification_template.task.assigned.subject':
+    'Task for you: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'Hello {{ recipient.name }},\n\nYour task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" was due at {{ task.due_at }} and is still open.',
+  'notification_template.task.overdue.in_app': '{{ task.title }} was due at {{ task.due_at }}',
+  'notification_template.task.overdue.subject':
+    'Overdue: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'Hello {{ recipient.name }},\n\nYour task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" starts at {{ task.starts_at }}.',
+  'notification_template.task.starts_soon.in_app':
+    '{{ task.title }} starts at {{ task.starts_at }}',
+  'notification_template.task.starts_soon.subject':
+    'Starts soon: {{ task.title }} ({{ record.display_id }})',
   'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
   'notification_variable.approval.comment': 'Approval › Comment',
@@ -684,6 +713,8 @@ export const en = {
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
   'notification_variable.holder.name': 'Holder › Name',
   'notification_variable.incident.count': 'Number of incidents',
+  'notification_variable.mail.count': 'Mail › E-mails not sent',
+  'notification_variable.mail.oldest_at': 'Mail › Oldest',
   'notification_variable.mailbox.address': 'Mailbox › Address',
   'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
   'notification_variable.mailbox.reason': 'Mailbox › Reason',
@@ -701,6 +732,9 @@ export const en = {
   'notification_variable.sla.target': 'SLA › Target',
   'notification_variable.stock.minimum': 'Stock › Minimum',
   'notification_variable.stock.quantity': 'Stock › Quantity',
+  'notification_variable.task.due_at': 'Task due time',
+  'notification_variable.task.starts_at': 'Task scheduled start',
+  'notification_variable.task.title': 'Task title',
   'notification_variable.unavailable.person': 'Unassigned › Person',
   'notification_variable.unavailable.reason': 'Unassigned › Why',
   'notification_variable.warranty.ends_on': 'Warranty › Ends on',

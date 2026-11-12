@@ -142,6 +142,7 @@ securityContext:
   value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@{{ .Release.Name }}-nats:4222"
 - name: SUPPORTX_SESSION_SECRET
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: session-secret}}
+{{- include "supportx.sessionKeysEnv" . }}
 - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: oidc-console-secret}}
 - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
@@ -168,6 +169,32 @@ securityContext:
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: s3-access-key}}
 - name: SUPPORTX_OBJECT_STORAGE_SECRET_KEY
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: s3-secret-key}}
+{{- end -}}
+
+{{/* Sign-in key ring (D-162, ADR-048): each listed secret from the app Secret as its own
+variable, then SUPPORTX_SESSION_KEYS as JSON naming them with $(VAR), so no secret is ever in
+the chart's values or rendered manifests. Nothing when `secrets.sessionKeys` is empty. */}}
+{{- define "supportx.sessionKeysEnv" -}}
+{{- $root := . -}}
+{{- $entries := list -}}
+{{- range $i, $k := .Values.secrets.sessionKeys }}
+{{- if not (regexMatch "^[a-z0-9_-]{1,32}$" (toString $k.id)) }}
+{{- fail (printf "secrets.sessionKeys[%d].id must be 1 to 32 of a-z, 0-9, '_' and '-'" $i) }}
+{{- end }}
+{{- if $k.key }}
+- name: SUPPORTX_SECRET_SESSION_KEY_{{ $i }}
+  valueFrom: {secretKeyRef: {name: {{ $root.Values.secrets.app }}, key: {{ $k.key }}}}
+{{- $entries = append $entries (printf "{\"id\":\"%s\",\"secret\":\"$(SUPPORTX_SECRET_SESSION_KEY_%d)\"}" $k.id $i) }}
+{{- else if eq (toString $k.id) "legacy" }}
+{{- $entries = append $entries "{\"id\":\"legacy\"}" }}
+{{- else }}
+{{- fail (printf "secrets.sessionKeys[%d] needs `key` (only legacy may leave it out)" $i) }}
+{{- end }}
+{{- end }}
+{{- if $entries }}
+- name: SUPPORTX_SESSION_KEYS
+  value: {{ printf "[%s]" (join "," $entries) | quote }}
+{{- end }}
 {{- end -}}
 
 {{/* Files key ring (WP-022, ADR-028): the API (uploads) and the consumers worker (scanning) only.

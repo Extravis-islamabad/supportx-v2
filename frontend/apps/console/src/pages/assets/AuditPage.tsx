@@ -11,7 +11,6 @@ import {
   Select,
   Skeleton,
   Table,
-  Tabs,
   Typography,
 } from 'antd';
 import { useState } from 'react';
@@ -55,6 +54,7 @@ import {
   usePageCrumbs,
   WriteButton,
   type RecordAction,
+  Tabs,
 } from '@supportx/ui';
 
 import { nameOf } from '../admin/assets/shared';

@@ -54,6 +54,7 @@ export const ar: LabelResource = {
   'errors.asset_booking_not_open': 'سُلّم هذا الحجز أو أُلغي بالفعل.',
   'errors.asset_booking_taken': 'هذا الوقت محجوز. يبدأ أقرب يوم متاح في {{next_free}}.',
   'errors.asset_bulk_empty': 'اختر أصلًا واحدًا على الأقل.',
+  'errors.asset_bulk_job_not_found': 'لم يُعثر على هذا التغيير الجماعي.',
   'errors.asset_bulk_too_many': 'اختر {{max}} أصلًا على الأكثر في المرة الواحدة.',
   'errors.asset_consumable_batch_tracking_fixed':
     'يُختار التتبع بالدفعات عند إضافة المستهلك ولا يمكن تغييره لاحقًا. أضف المنتج كمستهلك جديد بدلًا من ذلك.',
@@ -66,11 +67,22 @@ export const ar: LabelResource = {
   'errors.asset_disposal_not_found': 'لا يوجد سجل تخلّص لهذا الأصل.',
   'errors.asset_disposed_read_only':
     'تم التخلّص من هذا الأصل، لذا فهو للقراءة فقط. يتطلب تغييره صلاحية تغيير الأصول المتخلَّص منها.',
+  'errors.asset_field_not_allowed':
+    'من خلال تذكرتك يمكنك تغيير حالة هذا الأصل وموقعه وملاحظاته والقطع المركّبة فيه فقط. اطلب أي شيء آخر من مدير الأصول.',
   'errors.asset_group_dynamic':
     'أعضاء المجموعة الديناميكية يأتون من عامل التصفية؛ غيّره بدلًا من ذلك.',
   'errors.asset_group_name_taken': 'لمجموعة أخرى هذا الاسم بالفعل.',
   'errors.asset_group_not_found': 'هذه المجموعة لم تعد موجودة.',
   'errors.asset_has_components': 'عليه مكوّنات مركّبة ({{count}}): افصلها أو تخلّص منها أيضًا.',
+  'errors.asset_import_exists': 'يوجد سجل بهذا المفتاح، والاستيراد يضيف فقط.',
+  'errors.asset_import_file_not_readable': 'استخدم ملف CSV أو مصنف Excel ({{xlsx}}).',
+  'errors.asset_import_file_not_utf8': 'احفظ ملف CSV بترميز UTF-8 وحاول مجددًا.',
+  'errors.asset_import_file_too_large': 'حجم الملف أكبر من {{max_mb}} ميغابايت.',
+  'errors.asset_import_file_unsafe': 'يتضخم المصنف إلى حجم يفوق حجمه بكثير، لذا لم يُفتح.',
+  'errors.asset_import_match_invalid': 'لا يمكن مطابقة هذا النوع من الملفات بهذه الطريقة.',
+  'errors.asset_import_no_match': 'لا يطابق هذا الصف أي سجل، والاستيراد يحدّث فقط.',
+  'errors.asset_import_not_checked': 'لا يمكن استيراد إلا ملف تم فحصه. افحصه مجددًا.',
+  'errors.asset_import_not_found': 'لم يُعثر على هذا الاستيراد.',
   'errors.asset_label_job_not_found': 'هذه الملصقات غير موجودة، أو طلبها شخص آخر.',
   'errors.asset_label_job_not_ready': 'الملصقات غير جاهزة للتنزيل.',
   'errors.asset_label_print_not_found': 'لم تعد عملية الطباعة هذه في سجل الملصقات.',
@@ -86,11 +98,21 @@ export const ar: LabelResource = {
   'errors.asset_link_exists': 'هذان الأصلان مرتبطان بهذه الطريقة بالفعل.',
   'errors.asset_link_not_found': 'هذا الرابط لم يعد موجودًا.',
   'errors.asset_loan_not_found': 'هذه الإعارة مغلقة أو لم تعد موجودة.',
+  'errors.asset_merge_booked': '{{asset}} محجوز مسبقًا. ألغِ الحجز قبل الدمج.',
+  'errors.asset_merge_nested': 'أحد هذين الأصلين مركّب في الآخر. افصله أولًا.',
+  'errors.asset_merge_on_loan': '{{asset}} مُعار. استرجعه قبل الدمج.',
+  'errors.asset_merge_same': 'اختر أصلين مختلفين.',
+  'errors.asset_merge_site_not_managed': 'لا تدير الأصول في كلا الموقعين، لذا لا يمكن دمجهما.',
+  'errors.asset_merged': 'دُمج هذا الأصل في أصل آخر.',
   'errors.asset_move_not_allowed': 'لا يمكن نقل هذا الأصل إلى تلك الحالة من حالته الحالية.',
+  'errors.asset_move_not_allowed_through_ticket':
+    'لا يتم إيقاف الأصل عن الخدمة أو التخلص منه من خلال تذكرة. اطلب ذلك من مدير الأصول.',
   'errors.asset_no_default_state':
     'لا توجد حالة افتراضية لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
   'errors.asset_no_disposed_state':
     'لا توجد حالة تخلّص لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
+  'errors.asset_not_a_component':
+    'من خلال تذكرتك يمكن تركيب مكوّن لا يحتفظ به أحد فقط. اطلب من مدير الأصول تسليم أصل كامل.',
   'errors.asset_not_bookable':
     'لا يمكن حجز {{asset}}: يُحجز فقط ما يقبل الإعارة ولم يُسحب أو يُتخلَّص منه.',
   'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
@@ -99,11 +121,14 @@ export const ar: LabelResource = {
   'errors.asset_note_not_found': 'لم تعد هذه الملاحظة موجودة.',
   'errors.asset_on_loan': '{{asset}} معار بالفعل.',
   'errors.asset_portal_booking_off': 'لا تقبل مؤسستك الحجوزات من البوابة.',
+  'errors.asset_product_ambiguous': 'يحمل أكثر من منتج هذا الاسم.',
   'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
   'errors.asset_product_type_has_children':
     'توجد أنواع منتجات أخرى تحت هذا النوع ({{used}}). انقلها أو احذفها أولًا.',
   'errors.asset_product_type_in_use': 'لا تزال منتجات تستخدم نوع المنتج هذا ({{used}}).',
   'errors.asset_product_type_not_found': 'نوع المنتج هذا غير موجود.',
+  'errors.asset_restore_merged': 'دُمج هذا الأصل في {{asset}}. أكّد لاستعادته وحده.',
+  'errors.asset_site_not_managed': 'يمكنك إضافة الأصول أو نقلها إلى المواقع التي تديرها فقط.',
   'errors.asset_state_in_use':
     'لا تزال انتقالات في دورات الحياة تستخدم هذه الحالة ({{used}}). أزلها أولًا.',
   'errors.asset_state_not_found': 'حالة الأصل هذه غير موجودة.',
@@ -152,7 +177,7 @@ export const ar: LabelResource = {
   'errors.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.change_window_blocked':
-    'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالتغيير مع ذكر السبب.',
+    'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.command_in_flight':
@@ -302,6 +327,9 @@ export const ar: LabelResource = {
   'errors.field.code_taken': 'هذا الرمز مستخدم بالفعل.',
   'errors.field.comment_required': 'أضف تعليقًا: هذا البند يتطلب تعليقًا.',
   'errors.field.condition_not_supported': 'القواعد غير متاحة لهذه الصلاحية بعد.',
+  'errors.field.conflict_blocks':
+    'لا يمكن الإقرار بتعارض مانع. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
+  'errors.field.conflict_not_found': 'لم يعد هذا التعارض موجودًا. تعرض القائمة التعارضات الحالية.',
   'errors.field.country_invalid': 'اختر دولة من القائمة.',
   'errors.field.currency_unknown': 'اختر عملة من القائمة.',
   'errors.field.dashboard_not_shared': 'يمكن أن تكون لوحة البداية لدور لوحة مدمجة أو مشتركة فقط.',
@@ -317,6 +345,7 @@ export const ar: LabelResource = {
   'errors.field.default_required':
     'يوجد دائمًا قالب افتراضي. عيّن قالبًا آخر كافتراضي بدلًا من ذلك.',
   'errors.field.department_not_found': 'اختر قسمًا نشطًا.',
+  'errors.field.dependency_loop': 'لا يمكن لمهمة أن تنتظر نفسها، مباشرة أو عبر مهام أخرى.',
   'errors.field.desk_not_found': 'اختر مكتبًا نشطًا.',
   'errors.field.dimension_not_groupable': 'لا يمكن بعد استخدام الحقول متعددة الاختيارات للتجميع.',
   'errors.field.disabled_cannot_be_default': 'شغّل هذا القالب قبل تعيينه افتراضيًا.',
@@ -437,6 +466,7 @@ export const ar: LabelResource = {
   'errors.field.name_needs_letters': 'استخدم حرفًا أو رقمًا واحدًا على الأقل في الاسم.',
   'errors.field.name_required': 'أدخل اسمًا.',
   'errors.field.name_taken': 'هذا الاسم مستخدم بالفعل.',
+  'errors.field.needs_scheduled_start': 'يحتاج التذكير قبل البدء إلى موعد بدء مجدول.',
   'errors.field.no_default_allowed': 'لا يمكن أن يكون لهذا الحقل قيمة أولية.',
   'errors.field.not_a_field': 'هذا الحقل غير موجود لهذا النوع.',
   'errors.field.not_a_technician': 'لا يحقق في مشكلة إلا فني يعمل على المشكلات.',
@@ -499,6 +529,7 @@ export const ar: LabelResource = {
   'errors.field.required_to_resolve': 'مطلوب قبل الحل.',
   'errors.field.review_date_past': 'اختر اليوم أو تاريخًا لاحقًا.',
   'errors.field.role_disabled': 'هذا الدور متوقف: لا يمكن منحه لأي شخص جديد.',
+  'errors.field.role_held_by_record': 'يتبع هذا الدور حقلًا في السجل نفسه. غيّره من لوحة التفاصيل.',
   'errors.field.same_folder': 'اختر مجلدًا مختلفًا لتقاريره.',
   'errors.field.schedule_never_runs': 'بهذه التواريخ لن تعمل الجدولة أبدًا.',
   'errors.field.scope_not_allowed': 'هذا النطاق غير متاح لهذه الصلاحية.',
@@ -656,15 +687,18 @@ export const ar: LabelResource = {
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
   'errors.invalid_cursor': 'رابط هذه الصفحة لم يعد صالحًا. يرجى إعادة تحميل القائمة.',
+  'errors.invalid_date': 'أدخل تاريخًا مثل 2026-11-30.',
   'errors.invalid_etag': 'إصدار العنصر المرسل مع هذا التغيير غير صالح. أعد التحميل وحاول مرة أخرى.',
   'errors.invalid_filter': 'تعذّر تطبيق عامل التصفية. تحقّق من الشرط المحدّد.',
   'errors.invalid_idempotency_key': 'معرّف الطلب غير صالح.',
   'errors.invalid_login_state': 'انتهت صلاحية رابط تسجيل الدخول هذا. يرجى البدء من جديد.',
+  'errors.invalid_number': 'أدخل رقمًا.',
   'errors.invalid_page_size': 'عدد الصفوف المطلوبة لصفحة واحدة كبير جدًا.',
   'errors.invalid_report': 'لا يمكن تشغيل هذا التقرير كما هو. تحقق من الأجزاء المحددة.',
   'errors.invalid_sort': 'لا يمكن ترتيب القائمة بهذه الطريقة.',
   'errors.invalid_tenant_id': 'معرّف المؤسسة غير صالح.',
   'errors.invalid_transition': 'هذا غير ممكن في الحالة الحالية. أعد التحميل لرؤية أحدث نسخة.',
+  'errors.invalid_value': 'هذه القيمة غير صالحة.',
   'errors.investigator_not_found': 'هذا الشخص ليس محققًا في هذه المشكلة.',
   'errors.invitation_already_signed_in': 'سجّل هذا الشخص الدخول بالفعل، فلا داعي لدعوته.',
   'errors.invitation_needs_email': 'أضف عنوان بريد إلكتروني لهذا الشخص أولًا.',
@@ -718,6 +752,8 @@ export const ar: LabelResource = {
   'errors.link_has_own_route':
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
   'errors.link_not_found': 'هذا الرابط غير موجود، أو أُزيل.',
+  'errors.linked_records_not_available': 'السجلات المرتبطة غير متاحة بعد.',
+  'errors.list_not_found': 'هذه القائمة لا تحتفظ بإعدادات.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
@@ -759,6 +795,7 @@ export const ar: LabelResource = {
   'errors.not_a_member': 'أنت لست عضوًا في هذه المؤسسة.',
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
+  'errors.not_cancelable_from_here': 'لا يمكن إلغاؤه من مكانه الحالي.',
   'errors.not_closable_from_here':
     'لا يمكن إغلاقه من مرحلته الحالية. انقله إلى المرحلة التالية أولًا.',
   'errors.not_found': 'العنصر غير موجود.',
@@ -841,14 +878,19 @@ export const ar: LabelResource = {
   'errors.rule_refused': '{{message_ar}}',
   'errors.saved_search_limit': 'وصلت إلى الحد الأقصى لعمليات البحث المحفوظة. احذف واحدة أولًا.',
   'errors.saved_search_not_found': 'عملية البحث المحفوظة هذه غير موجودة.',
+  'errors.saved_view_not_found': 'لم يعد هذا العرض المحفوظ موجودًا، أو أنه ليس لك.',
   'errors.scale_value_not_found': 'هذه القيمة غير موجودة.',
   'errors.server_busy': 'كان خادم البريد مشغولًا.',
   'errors.service_category_in_use':
     'لا تزال هذه الفئة تحتوي على عناصر أو فئات. انقلها أو احذفها أولاً.',
   'errors.service_category_not_found': 'هذه الفئة غير موجودة.',
   'errors.service_identity_managed': 'هذه هوية خاصة بموصّل. غيّرها من الإدارة › التكاملات.',
+  'errors.service_identity_roles_elsewhere':
+    'تحصل هوية سير العمل أو الموصل على أدوارها من إعداداتها الخاصة، وليس من هنا.',
   'errors.service_unavailable': 'الخدمة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل.',
   'errors.session_expired': 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.',
+  'errors.session_key_still_in_use':
+    'لا يمكن تشغيل هذا الخادم: مفتاح تسجيل دخول لم يعد مُدرجًا ما زال مطلوبًا. أدرِج المفتاح مرة أخرى.',
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unknown_person':
@@ -889,6 +931,8 @@ export const ar: LabelResource = {
   'errors.system_role_immutable': 'لا يمكن تغيير الأدوار المضمّنة أو حذفها.',
   'errors.system_role_not_deletable':
     'لا يمكن حذف الأدوار المضمّنة. انسخ الدور لإنشاء نسختك الخاصة.',
+  'errors.task_blocked': 'تنتظر هذه المهمة اكتمال {{task}} أولًا.',
+  'errors.task_template_not_found': 'لم يعد قالب المهام هذا موجودًا أو متاحًا.',
   'errors.technician_limit_reached':
     'جميع مقاعد الفنيين في خطة مؤسستك مستخدمة. اطلب من المسؤول تحرير مقعد أو إضافة المزيد.',
   'errors.technicians_only': 'يمكن للفنيين فقط رؤية المستخدمين الآخرين.',

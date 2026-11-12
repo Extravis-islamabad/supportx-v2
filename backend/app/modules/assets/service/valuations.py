@@ -24,6 +24,7 @@ from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.assets.domain.financials import (
+    DEFAULT_FACTOR,
     CostSummary,
     ResolvedTerms,
     ScheduleYear,
@@ -38,6 +39,7 @@ from app.modules.assets.infra.models import (
     AssetCost,
     AssetDisposal,
     AssetProduct,
+    AssetProductType,
     AssetSettings,
     AssetValuation,
 )
@@ -143,12 +145,15 @@ async def figures(
         product_life=None if product is None else product.useful_life_years,
         product_salvage=None if product is None else product.salvage_value,
     )
+    kind = await session.get(AssetProductType, row.product_type_id)
     applied = Terms(
         method=terms.method,
         cost=purchase or Decimal(0),
         starts_on=row.acquired_on,
         life_years=terms.life_years,
         salvage=terms.salvage or Decimal(0),
+        # Declining balance's factor is the product type's (D-157; 2 unless it sets one).
+        factor=DEFAULT_FACTOR if kind is None else kind.depreciation_factor,
     )
     return Figures(
         summary=summary,

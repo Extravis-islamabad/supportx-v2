@@ -505,3 +505,41 @@ async def test_req_chg_101_bulk_assign_and_take_follow_the_group_rule(world: Wor
     taken = await _bulk(world, a, "take", [third], user=a.tech_a)
     assert taken["done_count"] == 1, taken
     assert (await fresh(world, a, third))["technician_id"] == str(a.tech_a)
+
+
+async def test_req_chg_101_bulk_cancel_with_a_reason_and_bulk_delete(world: World) -> None:
+    """WP-046a S1 PR 2: cancel takes each change's own listed cancel move with the reason;
+    one past the point a cancel is offered is skipped and says why; delete moves to the trash.
+    """
+    a = world.a
+    first, second, gone = [await a_change(world, a) for _ in range(3)]
+    without = await world.call(
+        "POST",
+        f"{CHG}/bulk",
+        a,
+        a.admin,
+        json={"action": "cancel", "changes": {}, "record_ids": [first["id"]]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert without.status_code == 422, without.text  # a cancel says why
+    job = await _bulk(world, a, "cancel", [first, second], reason_text="Superseded by CHG-9")
+    assert job["done_count"] == 2, job
+    for item in (first, second):
+        now = await fresh(world, a, item)
+        assert (now["status"], now["status_category"]) == ("closure_canceled", "canceled")
+    again = await _bulk(world, a, "cancel", [first], reason_text="Twice")
+    assert again["results"][0]["outcome"] == "skipped", again
+    removed = await _bulk(world, a, "delete", [gone])
+    assert removed["done_count"] == 1, removed
+    shown = await world.call("GET", f"{CHG}/{gone['id']}", a, a.admin)
+    assert shown.status_code == 404, shown.text
+    # Incidents cancel through their own life cycle, never this action.
+    refused = await world.call(
+        "POST",
+        "/incidents/bulk",
+        a,
+        a.admin,
+        json={"action": "delete", "changes": {}, "record_ids": [str(uuid.uuid4())]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert refused.status_code == 422, refused.text

@@ -1,7 +1,11 @@
 """The asset record (WP-049a session 2; parity 07 §3: REQ-AST-001, 002, 004, 007, 008).
 
 - **Who:** `assets.view` reads (scoped: all, or the assets at your sites); `assets.manage` adds,
-  changes and moves assets to the trash, within its scope.
+  changes and moves assets to the trash, within its scope. A technician without it may change
+  the location of an asset its own ticket links while the ticket's requester or department
+  holds it (D-157, `ticket_access`; also its state and fitted parts, in moves and ownership).
+- **Money (D-157):** price, tax, total and depreciation settings are read and written only with
+  `assets.view_financials`; the API shows others nulls and masks those history lines.
 - **Licence (REQ-AST-002, D-141):** an IT asset (an IT type of kind asset) that is not disposed
   uses a slot of the plan's asset limit. Adding one, or turning an asset into one (a product
   change, a restore), reserves the slot race-safely; the limit is only read through the
@@ -28,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import metadata
 from app.modules.assets.domain.assets import (
     IDENTIFIER_MAX,
@@ -50,12 +54,14 @@ from app.modules.assets.domain.financials import (
 from app.modules.assets.events import AssetAction, AssetChanged
 from app.modules.assets.infra.models import (
     Asset,
+    AssetMerge,
     AssetProduct,
     AssetProductType,
     AssetSettings,
     AssetState,
 )
-from app.modules.assets.service import valuations
+from app.modules.assets.service import catalogue as catalogue_money
+from app.modules.assets.service import ticket_access, valuations
 from app.modules.assets.service.catalogue import TEXT_MAX, ensure_defaults
 from app.modules.assets.service.valuations import VALUED_FIELDS
 from app.modules.identity_access import (
@@ -79,8 +85,11 @@ MANAGE = "assets.manage"
 EDIT_DISPOSED = "assets.edit_disposed"  # REQ-AST-017 AC3: changes a disposed asset (with a reason)
 # WP-049b s2: costs, depreciation and book value (REQ-AST-036, 037). The asset's own depreciation
 # settings are set only by those who may see its money (and manage it).
-VIEW_FINANCIALS = "assets.view_financials"
+VIEW_FINANCIALS = catalogue_money.VIEW_FINANCIALS  # one name for the right (catalogue)
 DEPRECIATION_FIELDS = ("depreciation_method", "useful_life_years", "salvage_value")
+# D-157: the purchase price and tax are money too; with the depreciation settings, nobody
+# without `assets.view_financials` reads (API, list, history) or writes them.
+MONEY_FIELDS = ("purchase_price", "purchase_tax", "purchase_total", *DEPRECIATION_FIELDS)
 RECORD_TYPE = "asset"
 ENTITY = "asset"  # metadata.CustomFieldEntity.ASSET
 LIMIT_CODE = "asset_limit_reached"
@@ -149,15 +158,41 @@ _DATES = ("acquired_on", "warranty_expires_on", "expires_on")
 _IDS = ("product_id", "vendor_id", "site_id", "purchase_order_id")
 
 
+# The asset as it is saved is one the person may manage (their scope: site, or group's sites and
+# unsited assets). `assets.manage` in some scope is not enough: a site-scoped manager never
+# creates an asset at, nor moves one to, a site outside it (lane B, 2026-11-12).
+SITE_NOT_MANAGED = "asset_site_not_managed"
+
+
+async def _within_scope(session: AsyncSession, subject: Subject, row: Asset) -> None:
+    """Refuse (the transaction rolls back) when the saved asset falls outside the scope."""
+    await session.flush()
+    if not await authorize_stored(session, subject, MANAGE, ASSETS, Asset.id, row.id):
+        raise PermissionDenied(code=SITE_NOT_MANAGED, params={"permission": MANAGE})
+
+
+async def _site_change_within_scope(
+    session: AsyncSession, subject: Subject, row: Asset, changes: list[Change]
+) -> None:
+    """A change of site never moves the asset out of the person's reach."""
+    if any(c.field == "site_id" for c in changes):
+        await _within_scope(session, subject, row)
+
+
 def _require(subject: Subject, permission: str) -> None:
     if not subject.holds(permission):
         raise PermissionDenied(params={"permission": permission})
 
 
 def _require_financials_for(subject: Subject, values: Mapping[str, Any]) -> None:
-    """Depreciation settings are money (REQ-AST-037): only with `assets.view_financials`."""
-    if any(name in values for name in DEPRECIATION_FIELDS):
+    """Price, tax and depreciation settings are money (REQ-AST-037, D-157): `view_financials`."""
+    if any(name in values for name in MONEY_FIELDS):
         _require(subject, VIEW_FINANCIALS)
+
+
+def sees_money(subject: Subject) -> bool:
+    """Whether the subject may read an asset's money (price, tax, total, depreciation)."""
+    return subject.holds(VIEW_FINANCIALS)
 
 
 def _tenant(session: AsyncSession) -> uuid.UUID:
@@ -463,10 +498,56 @@ async def _visible(
     return row
 
 
+async def writable(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID
+) -> tuple[Asset, bool]:
+    """The asset to change, locked, and whether only the narrower D-157 path allows it.
+
+    `assets.manage` on the asset: the full write (False). Otherwise a person who sees it may
+    still change a few fields when it is linked to their own ticket and held by that ticket's
+    requester or department (True, `ticket_access`). Otherwise 403 (seen) or 404.
+    """
+    if subject.holds(MANAGE):
+        try:
+            return await _visible(session, subject, asset_id, permission=MANAGE), False
+        except PermissionDenied:
+            pass  # sees it without managing it (another site): perhaps through a ticket
+    if not subject.holds(VIEW):
+        raise PermissionDenied(params={"permission": MANAGE})
+    row = await _visible(session, subject, asset_id)
+    if not await ticket_access.ticket_grants(session, subject, row):
+        raise PermissionDenied(params={"permission": MANAGE})
+    await session.refresh(row, with_for_update=True)  # as the full write locks it
+    return row, True
+
+
+async def _writable_with(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID, values: Mapping[str, Any]
+) -> Asset:
+    """The asset for a save of `values`: the D-157 path changes the location only; money asks."""
+    row, limited = await writable(session, subject, asset_id)
+    if limited and (refused := sorted(set(values) - ticket_access.LIMITED_FIELDS)):
+        raise ticket_access.refuse_field(refused[0])
+    _require_financials_for(subject, values)
+    return row
+
+
 async def get_asset(session: AsyncSession, subject: Subject, asset_id: uuid.UUID) -> Asset:
     """One live asset the subject may see (404 otherwise: never a hint that it exists)."""
     _require(subject, VIEW)
     return await _visible(session, subject, asset_id)
+
+
+async def edit_reach(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID
+) -> tuple[bool, bool]:
+    """(manages it, may change a few fields through its own ticket: D-157) for the record page."""
+    row = await get_asset(session, subject, asset_id)
+    if subject.holds(MANAGE) and await authorize_stored(
+        session, subject, MANAGE, ASSETS, Asset.id, asset_id
+    ):
+        return True, False
+    return False, await ticket_access.ticket_grants(session, subject, row)
 
 
 async def create_asset(
@@ -510,7 +591,7 @@ async def create_asset(
         **cleaned,
     )
     session.add(row)
-    await session.flush()
+    await _within_scope(session, subject, row)  # flushes
     if custom:
         await metadata.mark_used(session, ENTITY, list(custom))
     changes = [
@@ -563,9 +644,7 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
     A disposed asset is read-only (REQ-AST-017 AC3): only `assets.edit_disposed` changes it,
     and each such change asks for a reason, kept in its history.
     """
-    _require(subject, MANAGE)
-    _require_financials_for(subject, values)
-    row = await _visible(session, subject, asset_id, permission=MANAGE)
+    row = await _writable_with(session, subject, asset_id, values)
     if row.version != expected_version:
         raise await stale_version(
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,
@@ -600,6 +679,7 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
         changes += await _apply_custom(session, row, custom)
     if not changes:
         return row
+    await _site_change_within_scope(session, subject, row, changes)
     if not counted and await _counts(session, row.product_type_id, row.state_id):
         await _reserve(session)  # e.g. a non-IT asset's product became an IT one
     await _saved(session, subject, row, changes, action="updated", source=source, reason=text)
@@ -628,9 +708,19 @@ async def delete_asset(
 
 
 async def restore_asset(
-    session: AsyncSession, subject: Subject, asset_id: uuid.UUID, *, source: Source
+    session: AsyncSession,
+    subject: Subject,
+    asset_id: uuid.UUID,
+    *,
+    source: Source,
+    confirm_merged: bool = False,
 ) -> Asset:
-    """Back from the trash, taking a slot again if it counts (403 asset_limit_reached)."""
+    """Back from the trash, taking a slot again if it counts (403 asset_limit_reached).
+
+    An asset merged into another (REQ-AST-052) comes back only once the person has seen the
+    warning (409 `asset_restore_merged`, naming the survivor; then `confirm_merged`). It comes
+    back on its own: the alias ends, and what moved to the survivor stays there.
+    """
     _require(subject, MANAGE)
     in_trash = select(Asset).where(
         Asset.id == asset_id,
@@ -640,11 +730,28 @@ async def restore_asset(
     row = await session.scalar(in_trash.with_for_update())
     if row is None:
         raise NotFound(code="asset_not_found")
+    changes = [Change("deleted", old=True, new=False)]
+    merge = await session.scalar(
+        select(AssetMerge)
+        .where(
+            AssetMerge.merged_id == row.id,
+            AssetMerge.restored_at.is_(None),
+            AssetMerge.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if merge is not None:
+        survivor = await session.get(Asset, merge.survivor_id)
+        name = "" if survivor is None else (survivor.tag or survivor.name)
+        if not confirm_merged:
+            raise Conflict(code="asset_restore_merged", params={"asset": name})
+        merge.restored_at, merge.restored_by = datetime.now(UTC), subject.user_id
+        merge.version += 1
+        changes.append(Change("restored_after_merge", None, name))
     if await _counts(session, row.product_type_id, row.state_id):
         await _reserve(session)
     row.deleted_at = None
-    restored = Change("deleted", old=True, new=False)
-    await _saved(session, subject, row, [restored], action="restored", source=source)
+    await _saved(session, subject, row, changes, action="restored", source=source)
     return row
 
 

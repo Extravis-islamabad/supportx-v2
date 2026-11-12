@@ -38,11 +38,13 @@ export const ur: LabelResource = {
   'notification_area.incident': 'واقعات',
   'notification_area.kb_article': 'علمی ذخیرہ',
   'notification_area.mailbox': 'میل',
+  'notification_area.outgoing_mail': 'جانے والی میل',
   'notification_area.problem': 'مسائل',
   'notification_area.problem_repeat': 'مسائل',
   'notification_area.release': 'ریلیزز',
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.service_request': 'سروس کی درخواستیں',
+  'notification_area.task': 'کام',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
   'notification_category.conversation': 'جوابات اور نوٹس',
@@ -115,6 +117,7 @@ export const ur: LabelResource = {
     'میل باکس ایپ کا سیکرٹ یا سرٹیفکیٹ ختم ہونے والا ہے',
   'notification_event.mailbox.failing': 'میل باکس نے کام کرنا بند کر دیا',
   'notification_event.mailbox.mail_held': 'ایک بھیجنے والا میل باکس کو پیغامات سے بھر رہا ہے',
+  'notification_event.outgoing_mail.not_sent': 'ای میلز کبھی نہیں بھیجی گئیں: میل سیٹ اپ نہیں',
   'notification_event.problem.assigned': 'مسئلہ تفویض ہوا',
   'notification_event.problem.closed': 'مسئلہ بند ہوا',
   'notification_event.problem.created_in_group': 'آپ کے گروپ میں مسئلہ بنا',
@@ -137,6 +140,9 @@ export const ur: LabelResource = {
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
+  'notification_event.task.assigned': 'آپ کو ایک کام دیا گیا',
+  'notification_event.task.overdue': 'آپ کا کام تاخیر کا شکار ہے',
+  'notification_event.task.starts_soon': 'آپ کا کام جلد شروع ہو رہا ہے',
   'notification_preferences.col.category': 'قسم',
   'notification_preferences.dnd_help':
     'کوئی پاپ اپ نہیں اور فوری و لازمی کے سوا کوئی ای میل نہیں؛ سب کچھ آپ کی اطلاعات میں پھر بھی آتا ہے۔',
@@ -541,6 +547,12 @@ export const ur: LabelResource = {
     '{{ record.title }} کی میل جائزے کے لیے روکی گئی: ایک بھیجنے والے نے ایک گھنٹے میں 10 سے زیادہ پیغامات بھیجے',
   'notification_template.mailbox.mail_held.subject':
     'میل باکس {{ record.title }}: میل جائزے کے لیے روکی گئی',
+  'notification_template.outgoing_mail.not_sent.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ mail.count }} ای میلز کبھی نہیں بھیجی گئیں کیونکہ جانے والی میل 7 دن میں سیٹ اپ نہیں ہوئی۔ سب سے پرانی {{ mail.oldest_at }} کی تھی۔ یہ دیر سے نہیں بھیجی جائیں گی۔ جانے والی میل سیٹ اپ کرنے کے لیے ایڈمن › میل کھولیں۔',
+  'notification_template.outgoing_mail.not_sent.in_app':
+    '{{ mail.count }} ای میلز کبھی نہیں بھیجی گئیں: جانے والی میل 7 دن میں سیٹ اپ نہیں ہوئی (سب سے پرانی {{ mail.oldest_at }} کی)۔ میل سیٹ اپ کریں تاکہ اگلی ای میلز جائیں۔',
+  'notification_template.outgoing_mail.not_sent.subject':
+    '{{ mail.count }} ای میلز کبھی نہیں بھیجی گئیں',
   'notification_template.problem.assigned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب {{ assignee.name }} کو تفویض ہے۔\n\nترجیح: {{ record.priority }}\nحالت: {{ record.status }}',
   'notification_template.problem.assigned.in_app':
@@ -671,6 +683,23 @@ export const ur: LabelResource = {
     '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر کام "{{ task.title }}" اب آپ کا ہے۔',
+  'notification_template.task.assigned.in_app':
+    '{{ record.display_id }} پر {{ task.title }} اب آپ کا ہے',
+  'notification_template.task.assigned.subject':
+    'آپ کے لیے کام: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کے کام "{{ task.title }}" کا وقت {{ task.due_at }} تھا اور یہ ابھی کھلا ہے۔',
+  'notification_template.task.overdue.in_app': '{{ task.title }} کا وقت {{ task.due_at }} تھا',
+  'notification_template.task.overdue.subject':
+    'تاخیر شدہ: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کا کام "{{ task.title }}" {{ task.starts_at }} پر شروع ہوگا۔',
+  'notification_template.task.starts_soon.in_app':
+    '{{ task.title }} {{ task.starts_at }} پر شروع ہوگا',
+  'notification_template.task.starts_soon.subject':
+    'جلد شروع: {{ task.title }} ({{ record.display_id }})',
   'notification_variable.acknowledgement.comment': 'تصدیق › تبصرہ',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
   'notification_variable.approval.comment': 'منظوری دینے والے کا تبصرہ',
@@ -686,6 +715,8 @@ export const ur: LabelResource = {
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
   'notification_variable.holder.name': 'حامل › نام',
   'notification_variable.incident.count': 'واقعات کی تعداد',
+  'notification_variable.mail.count': 'میل › نہ بھیجی گئی ای میلز',
+  'notification_variable.mail.oldest_at': 'میل › سب سے پرانی',
   'notification_variable.mailbox.address': 'میل باکس › پتہ',
   'notification_variable.mailbox.expires_at': 'میل باکس › اسناد کی میعاد',
   'notification_variable.mailbox.reason': 'میل باکس › وجہ',
@@ -703,6 +734,9 @@ export const ur: LabelResource = {
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
   'notification_variable.stock.minimum': 'اسٹاک › کم از کم',
   'notification_variable.stock.quantity': 'اسٹاک › مقدار',
+  'notification_variable.task.due_at': 'کام کا مقررہ وقت',
+  'notification_variable.task.starts_at': 'کام کا طے شدہ آغاز',
+  'notification_variable.task.title': 'کام کا عنوان',
   'notification_variable.unavailable.person': 'غیر تفویض › فرد',
   'notification_variable.unavailable.reason': 'غیر تفویض › وجہ',
   'notification_variable.warranty.ends_on': 'وارنٹی › ختم ہونے کی تاریخ',

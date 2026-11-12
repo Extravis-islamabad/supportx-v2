@@ -226,7 +226,11 @@ class CursorCodec:
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "CursorCodec":
-        """Key from SUPPORTX_CURSOR_SECRET, else derived from the session secret, else random."""
+        """Key from SUPPORTX_CURSOR_SECRET, else derived from the session secret, else random.
+
+        Only SUPPORTX_SESSION_SECRET (the legacy secret), never the session key ring (D-162):
+        rotating sign-in keys leaves every cursor valid.
+        """
         if settings.cursor_secret is not None:
             return cls(settings.cursor_secret.get_secret_value().encode())
         if settings.session_secret is not None:

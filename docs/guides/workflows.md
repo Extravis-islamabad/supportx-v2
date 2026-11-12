@@ -122,3 +122,16 @@ Every run of every workflow, newest first:
      why any would stay, for example a step with no place in the new version.
   3. **Move runs.** Possible only after a check with the same mapping. The move runs as a job
      with live progress, and each moved record's history notes the new version.
+
+## Stage triggers and notifications
+
+Two different things happen when a change or a release enters a new stage:
+- **A trigger** (Admin › Automation › Triggers) can react with *When it enters a stage*, with the
+  stage in its conditions (for example *stage is Deployment*). It runs its actions, such as a
+  webhook or starting a workflow, **once per entry**. A move within the same stage runs nothing,
+  and the record's history names the trigger.
+- **A notification rule** (Admin › Notifications) tells people, by status: for changes,
+  *A change enters a status*.
+
+One move fires each at most once, so nobody gets the same automation twice or the same mail twice.
+

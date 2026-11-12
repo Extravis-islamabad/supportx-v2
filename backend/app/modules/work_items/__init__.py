@@ -26,6 +26,7 @@ from app.modules.ai import (
     unregister_embedding_source,
     unregister_record_access,
 )
+from app.modules.assets import register_linked_records, register_ticket_requesters
 from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.approval_settings_routes import router as approval_settings_router
 from app.modules.work_items.api.change_board_routes import router as change_board_router
@@ -39,7 +40,12 @@ from app.modules.work_items.api.change_window_routes import (
 from app.modules.work_items.api.change_window_routes import (
     release_calendar_router,
 )
+from app.modules.work_items.api.change_window_routes import (
+    release_router as release_window_router,
+)
 from app.modules.work_items.api.change_window_routes import router as change_window_router
+from app.modules.work_items.api.parts_routes import my_tasks_router
+from app.modules.work_items.api.portal_change_routes import router as portal_change_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
@@ -58,6 +64,7 @@ from app.modules.work_items.domain.types import (
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     ai_sources,
+    asset_links,
     audit_subtype,
     bulk,
     change_notifications,
@@ -75,9 +82,12 @@ from app.modules.work_items.service import (
     resolution,
     rule_step_notifications,
     staff_reply_notifications,
+    task_notifications,
+    task_reminders,
 )
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
+from app.modules.work_items.service.asset_link_port import PORT as ASSET_LINK_PORT
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.change_guard import register as register_change_guard
@@ -137,6 +147,9 @@ async def _shutdown(app: FastAPI) -> None:
 
 
 register_record_usage()
+# The asset page's linked records (REQ-AST-044, lane B's WP-049b s4a; lane A agreed, rule 8):
+# assets ask through their port, answered by this module's visible-only queries.
+register_linked_records(ASSET_LINK_PORT)
 _register_ai()  # at import too: the consumers worker runs the re-embed sweep without startup
 register_types()
 register_triggers()
@@ -158,12 +171,16 @@ problem_notifications.register()  # WP-044c D15
 rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
 change_notifications.register()  # WP-045d S3: replaces the change reply-only source
+task_notifications.register()  # WP-046a S1: a task's owner hears of it (REQ-INC-076)
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
 audit_subtype.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
 inbound_mail.register()
+# D-157 (lane B; lane A reviews): the requesters of a technician's tickets that link an asset, for
+# the assets module's narrower technician write. At import, as above.
+register_ticket_requesters(asset_links.linked_requester_ids_select)
 # Who may reach work item files: at import too, since mail attachments upload in the worker.
 register_owner_access(FILE_ACCESS)
 
@@ -182,6 +199,9 @@ module = ModuleSpec(
         change_child_router,  # WP-045d S1: child changes and releases
         change_calendar_router,  # WP-045c S3: the change calendar
         release_calendar_router,  # WP-058b S1: the release calendar (same query)
+        release_window_router,  # WP-058b S2: a release's freeze override
+        portal_change_router,  # WP-045d S4a: requesters' changes in the portal
+        my_tasks_router,  # WP-046a S1: your tasks on every type (REQ-INC-076)
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
@@ -196,6 +216,9 @@ module = ModuleSpec(
         CHANGE.feature,  # child changes and releases
         CHANGE.feature,  # the change calendar
         RELEASE.feature,  # the release calendar
+        RELEASE.feature,  # a release's freeze override
+        CHANGE.feature,  # requesters' changes in the portal
+        None,  # your tasks: each type's own licence is checked per type in the service
     ],
     events=EVENTS,
     permissions=(
@@ -227,6 +250,12 @@ module = ModuleSpec(
             "work_items__change_reminders",
             change_reminders.EVERY_SECONDS,
             change_reminders.reminders_schedule,
+        ),
+        # WP-046a S1 (REQ-INC-073 AC2, -076): task reminders and overdue tasks, each raised once.
+        ScheduleSpec(
+            "work_items__task_reminders",
+            task_reminders.EVERY_SECONDS,
+            task_reminders.reminders_schedule,
         ),
     ],
 )

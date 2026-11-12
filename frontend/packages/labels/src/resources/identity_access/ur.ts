@@ -617,6 +617,9 @@ export const ur: LabelResource = {
   'permission.releases.manage_followers': 'ریلیزز کے فالوورز کا انتظام کریں',
   'permission.releases.manage_followers.description':
     'دوسرے لوگوں کو ریلیزز کے فالوورز کے طور پر شامل کریں اور ہٹائیں۔',
+  'permission.releases.override_freeze': 'فریز کے دوران ریلیز کو آگے بڑھنے دینا',
+  'permission.releases.override_freeze.description':
+    'ایک ریلیز کے لیے روکنے والے فریز کو وجہ کے ساتھ پار کریں۔ یہ آڈٹ ہوتا ہے اور ریلیز کی تاریخ میں رہتا ہے۔',
   'permission.releases.reopen': 'ریلیزز دوبارہ کھولیں',
   'permission.releases.reopen.description': 'بند ریلیزز کو وجہ کے ساتھ جائزے میں دوبارہ کھولیں۔',
   'permission.releases.reply': 'ریلیزز پر جواب دیں اور عوامی نوٹس شامل کریں',
@@ -788,6 +791,7 @@ export const ur: LabelResource = {
   'readiness_check.nats': 'میسج بس',
   'readiness_check.outbox_relay': 'واقعات ریلے',
   'readiness_check.realtime_fanout': 'براہ راست اپ ڈیٹس',
+  'readiness_check.session_keys': 'سائن اِن کی کلیدیں',
   'readiness_status.not_ready': 'تیار نہیں',
   'readiness_status.ready': 'تیار',
   'role.asset_manager': 'اثاثہ مینیجر',

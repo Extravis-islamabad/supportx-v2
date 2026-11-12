@@ -26,7 +26,10 @@ from tooling import showcase_assets as assets
 from tooling import showcase_lane_a as lane_a
 from tooling import showcase_seed as seed
 
-pytestmark = pytest.mark.db
+# The whole showcase is seeded through the API: about 210 s in CI on a quiet runner (setup
+# included), more under load. The shards' 300 s per-test limit (ci.yml) would cut it off, so these
+# files get their own, still finite: a real hang here fails and names itself too.
+pytestmark = [pytest.mark.db, pytest.mark.timeout(900)]
 
 
 class FakeKeycloak:

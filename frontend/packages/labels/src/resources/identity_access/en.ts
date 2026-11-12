@@ -621,6 +621,9 @@ export const en = {
   'permission.releases.manage_followers': 'Manage followers of releases',
   'permission.releases.manage_followers.description':
     'Add other people as followers of releases and remove them.',
+  'permission.releases.override_freeze': 'Let a release go ahead in a freeze',
+  'permission.releases.override_freeze.description':
+    "Pass the blocking freezes for one release, with a reason. It is audited and kept in the release's history.",
   'permission.releases.reopen': 'Reopen releases',
   'permission.releases.reopen.description': 'Reopen closed releases into review, with a reason.',
   'permission.releases.reply': 'Reply on releases and add public notes',
@@ -791,6 +794,7 @@ export const en = {
   'readiness_check.nats': 'Message bus',
   'readiness_check.outbox_relay': 'Event relay',
   'readiness_check.realtime_fanout': 'Live updates',
+  'readiness_check.session_keys': 'Sign-in keys',
   'readiness_status.not_ready': 'Not ready',
   'readiness_status.ready': 'Ready',
   'role.asset_manager': 'Asset manager',

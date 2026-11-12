@@ -15,7 +15,15 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type DragEvent,
+  type ReactNode,
+} from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import {
@@ -39,6 +47,7 @@ import {
   useAccess,
   useAppearance,
   useDateTime,
+  useMinWidth,
   useLabel,
   usePageCrumbs,
   useTimeZone,
@@ -98,6 +107,16 @@ export interface ScheduleKind {
   notMoved: string;
   /** "Show changes" / "Show releases": the other type drawn on this calendar. */
   showOther: string;
+  /**
+   * Going ahead in the freezes that refused a move, in place (releases: the calendar is where
+   * their deployment moves). None: the refusal links to the record, whose own form offers it.
+   */
+  Override?: ComponentType<{
+    id: string;
+    windowIds: string[];
+    onDone: () => void;
+    onClose: () => void;
+  }>;
   testId: string;
 }
 
@@ -124,6 +143,9 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
   const zone = useTimeZone();
   const queryClient = useQueryClient();
   const firstDay = WEEK_START[dates.weekStart];
+  // A phone has no room for seven columns of chips: the week is a list of days and the month
+  // fits its width, a day opening on a tap (QA V-05: 3.5 of 7 columns showed at 390).
+  const wide = useMinWidth(768);
   const [view, setView] = useState<CalendarView>('month');
   const [anchor, setAnchor] = useState<Day>(() => dayOf(new Date().toISOString(), zone));
   const [mine, setMine] = useState(false);
@@ -188,6 +210,14 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
     new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(
       new Date(Date.UTC(d.year, d.month, d.day)),
     );
+  const weekdayNarrow = (d: Day) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'narrow', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(d.year, d.month, d.day)),
+    );
+  const weekdayLong = (d: Day) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(d.year, d.month, d.day)),
+    );
   const dayName = (d: Day) =>
     new Intl.DateTimeFormat(locale, { day: 'numeric', timeZone: 'UTC' }).format(
       new Date(Date.UTC(d.year, d.month, d.day)),
@@ -227,6 +257,14 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           },
           onError: (error) => {
             const blocked = error instanceof ApiError && error.code === 'change_window_blocked';
+            const ids =
+              blocked && typeof error.params.window_ids === 'string'
+                ? error.params.window_ids.split(',').filter((w) => w !== '')
+                : [];
+            if (k.Override !== undefined && ids.length > 0 && can(`${entry.of}.override_freeze`)) {
+              setPassing({ entry, ids, retry: write });
+              return;
+            }
             void modal.error({
               title: t(blocked ? 'errors.change_window_blocked' : k.notMoved),
               content: (
@@ -276,6 +314,7 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
   // The keyboard's way to reschedule (lane C's #381 review): "Move…" asks for the new day and
   // goes through the same reschedule, conflict check and re-approval as a drag.
   const [moving, setMoving] = useState<Entry>();
+  const [passing, setPassing] = useState<{ entry: Entry; ids: string[]; retry: () => void }>();
   const [moveTo, setMoveTo] = useState<string | null>(null); // a day, YYYY-MM-DD
 
   const onDrop = (event: DragEvent<HTMLDivElement>, target: Day) => {
@@ -332,6 +371,11 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
               : e.subject}
           </span>
         </Button>
+        {(e.conflicts ?? 0) > 0 && (
+          <ToneTag tone="warning" testId={`calendar-conflicts-${e.display_id}`}>
+            {t('changes.calendar.conflicts', { count: e.conflicts ?? 0 })}
+          </ToneTag>
+        )}
         {draggable && (
           <Button
             size="small"
@@ -366,13 +410,14 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
     const mineToday = entries.filter((e) => touches(e.starts_at, e.ends_at, d, zone));
     const bandsToday = bands.filter((o) => touches(o.starts_at, o.ends_at, d, zone));
     const outside = view === 'month' && d.month !== normal(anchor).month;
+    const fullDate = new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(d.year, d.month, d.day)),
+    );
     return (
       <div
         key={key}
         role="gridcell"
-        aria-label={new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' }).format(
-          new Date(Date.UTC(d.year, d.month, d.day)),
-        )}
+        aria-label={fullDate}
         data-testid={`calendar-day-${key}`}
         onDragOver={(event) => {
           if (may) event.preventDefault();
@@ -381,8 +426,8 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           onDrop(event, d);
         }}
         style={{
-          minHeight: compact ? 110 : 320,
-          padding: 6,
+          minHeight: compact ? (wide ? 110 : 72) : view === 'week' ? 96 : 320,
+          padding: wide ? 6 : 2,
           border: `1px solid ${token.colorBorderSecondary}`,
           // Out of the month: a quieter background and secondary text, never opacity, so its
           // chips keep their contrast (lane C's #381 review).
@@ -395,9 +440,27 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           minWidth: 0,
         }}
       >
-        <Typography.Text strong={key === today} type={outside ? 'secondary' : undefined}>
-          {view === 'month' ? dayName(d) : `${weekdayName(d)} ${dayName(d)}`}
-        </Typography.Text>
+        {compact && !wide ? (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, height: 'auto' }}
+            aria-label={t('changes.calendar.open_day', { day: fullDate })}
+            onClick={() => {
+              setAnchor(d);
+              setView('day');
+            }}
+            data-testid={`calendar-open-${key}`}
+          >
+            <Typography.Text strong={key === today} type={outside ? 'secondary' : undefined}>
+              {dayName(d)}
+            </Typography.Text>
+          </Button>
+        ) : (
+          <Typography.Text strong={key === today} type={outside ? 'secondary' : undefined}>
+            {view === 'month' ? dayName(d) : `${weekdayName(d)} ${dayName(d)}`}
+          </Typography.Text>
+        )}
         <Flex vertical gap={2} style={{ marginTop: 4 }}>
           {bandsToday.length > 0 && (
             <Space size={2} wrap>
@@ -498,6 +561,25 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
     <ListPage testId={kind.testId} header={header} filters={filters}>
       {quickView}
       {moveDialog}
+      {passing !== undefined &&
+        kinds[passing.entry.of].Override !== undefined &&
+        (() => {
+          const Override = kinds[passing.entry.of].Override;
+          return Override === undefined ? null : (
+            <Override
+              id={passing.entry.record_id}
+              windowIds={passing.ids}
+              onClose={() => {
+                setPassing(undefined);
+              }}
+              onDone={() => {
+                const again = passing.retry;
+                setPassing(undefined);
+                again();
+              }}
+            />
+          );
+        })()}
       {children}
     </ListPage>
   );
@@ -785,7 +867,7 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
 
   if (view === 'timeline') return page(timeline());
 
-  const columns = view === 'day' ? 1 : 7;
+  const columns = view === 'day' || (view === 'week' && !wide) ? 1 : 7;
   const heads = days.slice(0, columns);
   return page(
     <>
@@ -801,8 +883,10 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           data-testid={`calendar-${view}`}
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${String(columns)}, minmax(110px, 1fr))`,
-            minWidth: columns === 7 ? 770 : undefined,
+            gridTemplateColumns: wide
+              ? `repeat(${String(columns)}, minmax(110px, 1fr))`
+              : `repeat(${String(columns)}, minmax(0, 1fr))`,
+            minWidth: columns === 7 && wide ? 770 : undefined,
           }}
         >
           {/* Rows for the grid's roles (axe: aria-required-children); `display: contents`
@@ -810,8 +894,17 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           {view === 'month' && (
             <div role="row" style={{ display: 'contents' }}>
               {heads.map((d) => (
-                <div key={`head-${dayKey(d)}`} role="columnheader" style={{ padding: 6 }}>
-                  <Typography.Text type="secondary">{weekdayName(d)}</Typography.Text>
+                <div
+                  key={`head-${dayKey(d)}`}
+                  role="columnheader"
+                  // A phone's seventh of the width holds a narrow day name, never one broken
+                  // mid-word (the 390 matrix shot: Arabic Thursday); the full name is its title.
+                  title={wide ? undefined : weekdayLong(d)}
+                  style={{ padding: wide ? 6 : 2, textAlign: 'center' }}
+                >
+                  <Typography.Text type="secondary">
+                    {wide ? weekdayName(d) : weekdayNarrow(d)}
+                  </Typography.Text>
                 </div>
               ))}
             </div>

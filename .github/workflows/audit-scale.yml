@@ -10,8 +10,11 @@ on:
   workflow_dispatch:
     inputs:
       rows:
-        description: Number of audit entries
+        description: Number of audit entries (0 skips the audit volume test)
         default: "10000000"
+      asset_import_rows:
+        description: Rows for the asset import timing (WP-049b S4b; 0 skips it, target 20000)
+        default: "0"
 
 permissions:
   contents: read
@@ -66,13 +69,39 @@ jobs:
       - uses: ./.github/actions/setup-backend
       - uses: ./.github/actions/generated
       - name: Volume test
+        if: ${{ (inputs.rows || '10000000') != '0' }}
         working-directory: backend
         env:
           SUPPORTX_AUDIT_SCALE_REPORT: ${{ runner.temp }}/audit-scale.json
         run: uv run pytest --no-cov -q -s -m scale tests/db/test_audit_scale.py
+      # By hand only (the coordinator, 2026-11-11): a large asset import's dry run and real run on
+      # a CI runner, so its figure is not a loaded laptop's.
+      # The incident test world needs Valkey (sessions); the audit volume test does not, so it
+      # starts here only (the same image as ci.yml). The world skips without it, so the step
+      # fails unless the timing really ran (a skip must never look like a figure).
+      - name: Asset import timing
+        if: ${{ (inputs.asset_import_rows || '0') != '0' }}
+        working-directory: backend
+        env:
+          SUPPORTX_ASSET_IMPORT_SCALE_ROWS: ${{ inputs.asset_import_rows }}
+          SUPPORTX_ASSET_IMPORT_SCALE_REPORT: ${{ runner.temp }}/asset-import-scale.json
+          SUPPORTX_TEST_VALKEY_URL: valkey://127.0.0.1:6379/0
+        run: |
+          docker run -d --name valkey -p 6379:6379 valkey/valkey:9.1.2-alpine
+          for _ in $(seq 1 30); do
+            docker exec valkey valkey-cli ping 2>/dev/null | grep -q PONG && break
+            sleep 1
+          done
+          set -o pipefail
+          uv run pytest --no-cov -q -s -rs -m scale tests/db/test_asset_import_scale.py | tee "$RUNNER_TEMP/asset-import-scale.log"
+          grep -q "1 passed" "$RUNNER_TEMP/asset-import-scale.log" || {
+            echo "::error::the asset import timing did not run (skipped?)"; exit 1; }
       - name: Timings (job summary)
         if: ${{ !cancelled() }}
         run: |
           if [ -f "$RUNNER_TEMP/audit-scale.json" ]; then
             { echo '### Audit log at volume'; echo '```json'; cat "$RUNNER_TEMP/audit-scale.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f "$RUNNER_TEMP/asset-import-scale.json" ]; then
+            { echo '### Asset import at volume'; echo '```json'; cat "$RUNNER_TEMP/asset-import-scale.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi

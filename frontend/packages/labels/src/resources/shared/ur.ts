@@ -163,6 +163,8 @@ export const ur: LabelResource = {
   'layout.reset_widths': 'چوڑائی دوبارہ طے کریں',
   'layout.resize_column': '{{column}} کی چوڑائی: تیر والی کلیدیں استعمال کریں',
   'layout.star': 'پسندیدہ میں شامل کریں',
+  'layout.tabs_earlier': 'پچھلے ٹیب',
+  'layout.tabs_later': 'اگلے ٹیب',
   'layout.unstar': 'پسندیدہ سے ہٹائیں',
   'layout.view': 'دیکھیں',
   'live.changed_by':
@@ -216,6 +218,7 @@ export const ur: LabelResource = {
   'nav.main': 'مرکزی نیویگیشن',
   'nav.more': 'مزید',
   'nav.my_requests': 'میری درخواستیں',
+  'nav.my_tasks': 'میرے کام',
   'nav.open_menu': 'مینو کھولیں',
   'nav.problems': 'مسائل',
   'nav.profile': 'میری پروفائل',
@@ -318,6 +321,11 @@ export const ur: LabelResource = {
   'search.same_requester': '{{name}} کے دیگر واقعات',
   'search.status_filter': 'حالت',
   'search.type_to_search': 'نمبر، الفاظ یا نام لکھیں',
+  'service_roles.add': 'کردار دیں',
+  'service_roles.inactive': 'غیر فعال: دوبارہ چالو ہونے تک کچھ نہیں کرتی۔',
+  'service_roles.no_roles': 'ابھی کوئی کردار نہیں: یہ کسی ریکارڈ پر کام نہیں کر سکتی۔',
+  'service_roles.none_offered': 'آپ کے دینے کے قابل کوئی کردار اس شناخت کے لیے موزوں نہیں۔',
+  'service_roles.remove': 'کردار {{name}} واپس لیں',
   'settings.actions': 'کارروائیاں',
   'settings.add_category': 'زمرہ شامل کریں',
   'settings.add_item': 'آئٹم شامل کریں',
@@ -357,6 +365,9 @@ export const ur: LabelResource = {
     'حل کے بعد اتنے دنوں میں درخواست گزار کا جواب واقعہ دوبارہ کھولتا ہے؛ بعد کا جواب نیا واقعہ شروع کرتا ہے۔ 1 سے 30 تک۔',
   'settings.closing.resolve_requires': 'حل سے پہلے درکار',
   'settings.closing.resolve_requires_help': 'وہ فیلڈز جو واقعہ حل کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.task_dependency_mode': 'انتظار والے کام روکیں',
+  'settings.closing.task_dependency_mode_help':
+    'جب تک وہ کام کھلا ہے جس کا یہ انتظار کرتا ہے، یہ کام شروع یا مکمل نہیں ہو سکتا۔ بند: یہ صرف انتظار میں دکھتا ہے۔',
   'settings.closing.task_owner_access':
     'کام کے ذمہ دار واقعے تک رسائی کے بغیر اپنے کام پر کام کریں',
   'settings.closing.task_owner_access_help':
@@ -469,6 +480,7 @@ export const ur: LabelResource = {
   'settings.section.reply-templates': 'جوابی سانچے',
   'settings.section.routing': 'روٹنگ اور تفویض',
   'settings.section.statuses': 'حالتیں',
+  'settings.section.task-templates': 'کاموں کے سانچے',
   'settings.section.templates': 'سانچے',
   'settings.section.transitions': 'حالت کی تبدیلیاں',
   'settings.section.triggers': 'ٹرگرز',
