@@ -338,7 +338,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Scope:** `values-saas.yaml`; External Secrets Operator; cert-manager with DNS-01 wildcard
   certificates; managed PostgreSQL option; admission-time signature verification; per-tenant
   hostnames (WP-017).
-- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite.
+- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite;
+  the egress NetworkPolicy allow-list (`networkPolicies.egress`) is ON in `values-saas.yaml`, with
+  the Kubernetes API addresses set, and the egress check passes on the cell (audit #3, the
+  coordinator 2026-11-12; until then the app-level pins are the protection: IMAP hosts #446,
+  fetch.py WP-057 S1, LDAP hosts lane B's security PR B).
 - **Depends on:** WP-014c, WP-017
 
 ### [ ] WP-015 — Clickable prototype of console and portal
