@@ -360,7 +360,11 @@ async def _seed_stock(url: str) -> SeedStock:
             )
             bookings = await conn.fetch(
                 "SELECT a.tag, u.email, b.status,"
-                " extract(day FROM b.starts_at - now())::int AS days FROM asset_bookings b"
+                # Rounded, not truncated: a booking made 14 days ahead is 13 days 23:59:59 away
+                # a moment later, so truncating made the reads before and after the re-run
+                # differ by one whenever a second passed between them (flake, 2026-11-12).
+                " round(extract(epoch FROM b.starts_at - now()) / 86400)::int AS days"
+                " FROM asset_bookings b"
                 " JOIN assets a ON a.id = b.asset_id JOIN users u ON u.id = b.borrower_id"
                 " WHERE b.tenant_id = $1 AND b.deleted_at IS NULL",
                 seed.TENANT_ID,
