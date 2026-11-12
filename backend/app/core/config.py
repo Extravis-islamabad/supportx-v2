@@ -132,9 +132,9 @@ class Settings(BaseSettings):
     # the secret to the consumers worker alone, and only where LDAP is on (never on SaaS).
     keycloak_federation_client_id: str = "supportx-federation"
     keycloak_federation_client_secret: SecretStr | None = None
-    # Single sign-on checks fetch the provider's discovery document or SAML metadata. Loopback
-    # addresses are refused (server-side request forgery) unless allowed: dev and CI only, where
-    # the test identity provider runs on the same machine.
+    # Single sign-on checks fetch the provider's discovery document or SAML metadata through the
+    # guarded client (private ranges only via egress_allow, below). This also opens loopback, in
+    # the dev and test profiles only, where the test identity provider runs on the same machine.
     sso_fetch_allow_loopback: bool = False
     # Guarded outbound calls (workflow webhooks, outbound webhooks; ADR-043 §8): what the
     # installation opens beyond the public internet, as CIDRs or host names (an on-prem ERP on a

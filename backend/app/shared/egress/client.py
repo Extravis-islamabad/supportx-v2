@@ -223,7 +223,7 @@ def _target(request: OutboundRequest, allowance: Allowance) -> tuple[str, int]:
         port = parts.port or (443 if parts.scheme == "https" else 80)
     except ValueError:
         raise EgressError(INVALID) from None
-    if port not in allowance.ports:
+    if allowance.ports is not None and port not in allowance.ports:
         raise EgressError(BLOCKED)
     return parts.hostname, port
 
@@ -238,12 +238,24 @@ async def send(  # noqa: PLR0913 - the call and everything that bounds it, expli
     max_bytes: int = MAX_RESPONSE_BYTES,
     resolver: Resolver = system_resolver,
     backend: httpcore.AsyncNetworkBackend | None = None,
+    accept_statuses: frozenset[int] = frozenset(),
 ) -> OutboundResponse:
-    """Make one guarded call; any 2xx is the response, anything else an `EgressError`."""
+    """Make one guarded call; any 2xx is the response, anything else an `EgressError`.
+
+    `accept_statuses` are other statuses the caller reads the body of (a token endpoint's 401
+    says whether a client was refused); a redirect is never one of them.
+    """
     started = time.monotonic()
     where = urlsplit(request.url)
     host = where.hostname or ""
-    call = _Call(request, allowance, destination, min(max_bytes, MAX_RESPONSE_BYTES), backend)
+    call = _Call(
+        request,
+        allowance,
+        destination,
+        min(max_bytes, MAX_RESPONSE_BYTES),
+        backend,
+        accept_statuses - frozenset(range(300, 400)),
+    )
     try:
         response = await asyncio.wait_for(call.run(resolver), timeout=TOTAL_SECONDS)
     except EgressError as error:
@@ -273,6 +285,7 @@ class _Call:
     destination: Destination | None
     cap: int
     backend: httpcore.AsyncNetworkBackend | None
+    accept_statuses: frozenset[int] = frozenset()
     port: int = 0
 
     async def run(self, resolver: Resolver) -> OutboundResponse:
@@ -282,7 +295,8 @@ class _Call:
         headers = _headers(self.request)
         ip = await _checked_address(host, self.port, self.allowance, resolver)
         response = await _call(self, ip, headers)
-        _status(response.status)
+        if response.status not in self.accept_statuses:
+            _status(response.status)
         return response
 
 

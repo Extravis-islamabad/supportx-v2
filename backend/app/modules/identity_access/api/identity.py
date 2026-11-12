@@ -12,6 +12,7 @@ audited (D-089 D7) and reaches other open settings pages live.
   secret is accepted, never returned.
 """
 
+import ipaddress
 import uuid
 from dataclasses import replace
 from datetime import datetime
@@ -45,6 +46,7 @@ from app.modules.organization import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
+from app.shared.egress import Allowance, installation_allowance
 
 RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ProblemDetail, "description": "Not signed in."},
@@ -223,8 +225,18 @@ def _admin(request: Request) -> IdentityAdmin | None:
     return getattr(request.app.state, "identity_admin", None)
 
 
-def _allow_loopback(request: Request) -> bool:
-    return bool(request.app.state.settings.sso_fetch_allow_loopback)
+def _fetch_allowance(request: Request) -> Allowance:
+    """What a sign-in set-up's check may contact: the installation's list (audit #3).
+
+    Plus loopback where `sso_fetch_allow_loopback` is set in the dev and test profiles (their
+    test identity provider runs on the same machine).
+    """
+    settings = request.app.state.settings
+    allowance = installation_allowance(settings)
+    if settings.sso_fetch_allow_loopback and settings.profile in {"dev", "test"}:
+        loopback = (ipaddress.ip_network("127.0.0.0/8"), ipaddress.ip_network("::1/128"))
+        return Allowance(allowance.networks + loopback, allowance.hosts, allowance.ports)
+    return allowance
 
 
 def _require_domain_proof(request: Request) -> bool:
@@ -232,7 +244,7 @@ def _require_domain_proof(request: Request) -> bool:
 
 
 Admin = Annotated[IdentityAdmin | None, Depends(_admin)]
-AllowLoopback = Annotated[bool, Depends(_allow_loopback)]
+FetchAllowance = Annotated[Allowance, Depends(_fetch_allowance)]
 RequireDomainProof = Annotated[bool, Depends(_require_domain_proof)]
 
 
@@ -360,7 +372,7 @@ async def create_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     session: TenantSession,
     subject: Manage,
     admin: Admin,
-    allow_loopback: AllowLoopback,
+    allowance: FetchAllowance,
     require_domain_proof: RequireDomainProof,
     idempotency: Idempotency,
     note: Annotated[AuditNote, audited("sso.added", object_type="sso_provider")],
@@ -374,7 +386,7 @@ async def create_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
             session,
             admin,
             body.values(),
-            allow_loopback=allow_loopback,
+            allowance=allowance,
             require_domain_proof=require_domain_proof,
         )
         note.skip = False
@@ -414,7 +426,7 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     session: TenantSession,
     subject: Manage,
     admin: Admin,
-    allow_loopback: AllowLoopback,
+    allowance: FetchAllowance,
     require_domain_proof: RequireDomainProof,
 ) -> SsoOut:
     """A connection change sends it back to draft (an "on" set-up: switch it off first)."""
@@ -425,7 +437,7 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
         provider_id,
         body.values(),
         expected_version=version,
-        allow_loopback=allow_loopback,
+        allowance=allowance,
         require_domain_proof=require_domain_proof,
     )
     set_etag(response, view.version)
