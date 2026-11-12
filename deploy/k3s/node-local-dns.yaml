@@ -109,6 +109,12 @@ spec:
             - /etc/Corefile
             - -upstreamsvc
             - kube-dns-upstream
+            # How often the cache checks its iptables rules and puts back any that are missing.
+            # The flag is a duration counted in seconds ("5ns" = 5 s; the image's default is 60):
+            # on k3s the rules are not always in place at the first check after a start (the
+            # Cluster run for #464 saw lookups pass the cache for the first seconds).
+            - -syncinterval
+            - 5ns
           resources:
             requests: {cpu: 25m, memory: 10Mi}
             limits: {memory: 64Mi}

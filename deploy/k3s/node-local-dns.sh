@@ -66,19 +66,30 @@ requests() {  # the cache's request counter on the probe's node, through the API
   kubectl get --raw "/api/v1/namespaces/$NS/pods/$cache_pod:9253/proxy/metrics" |
     awk '/^coredns_dns_requests_total/ {sum += $NF} END {printf "%d", sum}'
 }
-before="$(requests)"
-if ! kubectl -n "$NS" run "node-local-dns-probe-$RANDOM" --rm -i --restart=Never --quiet \
-  --image="$probe_image" --overrides="{\"spec\":{\"nodeName\":\"$probe_node\"}}" \
-  --command -- getent hosts kubernetes.default.svc.cluster.local; then
-  echo "node-local-dns: a pod could not resolve kubernetes.default through the cache" >&2
+# The cache puts its iptables rules in place within its sync interval (5 s) of starting; until
+# then a lookup still reaches CoreDNS directly. Try for up to 30 s.
+if [ -z "$cache_pod" ]; then
+  echo "node-local-dns: no cache pod on $probe_node" >&2
   exit 1
 fi
-after="$(requests)"
-if [ "$after" -le "$before" ]; then
-  echo "node-local-dns: a pod on $probe_node resolved a name, but its cache ($cache_pod) counted no" \
-    "request ($before before, $after after): lookups bypass the cache" >&2
-  exit 1
-fi
+for attempt in 1 2 3 4 5 6; do
+  before="$(requests)"
+  if ! kubectl -n "$NS" run "node-local-dns-probe-$RANDOM" --rm -i --restart=Never --quiet \
+    --image="$probe_image" --overrides="{\"spec\":{\"nodeName\":\"$probe_node\"}}" \
+    --command -- getent hosts kubernetes.default.svc.cluster.local >/dev/null; then
+    echo "node-local-dns: a pod could not resolve kubernetes.default" >&2
+    exit 1
+  fi
+  after="$(requests)"
+  [ "$after" -gt "$before" ] && break
+  if [ "$attempt" = 6 ]; then
+    echo "node-local-dns: a pod on $probe_node resolved a name, but its cache ($cache_pod) counted no" \
+      "request in 30 s ($before before, $after after): lookups bypass the cache" >&2
+    kubectl -n "$NS" logs "$cache_pod" --tail=30 >&2 || true
+    exit 1
+  fi
+  sleep 5
+done
 echo "node-local-dns: a ready cache on each of $want nodes (local $LOCAL_IP, kube-dns $dns_ip, $image)"
 if [ "$dns_ip" != 10.43.0.10 ]; then
   echo "note: kube-dns is $dns_ip, not k3s's default 10.43.0.10. With the egress allow-list on, set" \
