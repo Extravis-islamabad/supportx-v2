@@ -119,6 +119,28 @@ export function useRoleDefs(path: StagedPath | undefined) {
   });
 }
 
+/**
+ * Make one role what Take makes you (releases, REQ-REL-057 AC2), on the type's settings version
+ * the screen showed; the roles and the settings refetch.
+ */
+export function useSetTakeRole(path: StagedPath) {
+  const queryClient = useQueryClient();
+  const keys = stagedKeys(path);
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ code, version }: { code: string; version: number }) =>
+      call(
+        api.PATCH(at(path, '/api/v1/releases/settings/roles/{code}'), {
+          params: { path: { code }, header: ifMatch(version) },
+          body: { take: true },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.settings });
+    },
+  });
+}
+
 export function useSetStagedRole(path: StagedPath) {
   const refresh = useRefresh(path);
   return useMutation({

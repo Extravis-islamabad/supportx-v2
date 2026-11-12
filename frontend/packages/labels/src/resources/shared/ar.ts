@@ -497,6 +497,9 @@ export const ar: LabelResource = {
     'اختر ما إذا كان كل تغيير يطلب سببًا. الإيقاف المؤقت والإلغاء وإعادة الفتح تختار من قوائم الأسباب.',
   'settings.release_closure_codes_help':
     'كيف انتهى الإصدار. يُختار عند إغلاق الإصدار؛ وتُجمِّع التقارير حسبه.',
+  'settings.release_roles.take_help':
+    'يجعلك تولّي الإصدار في هذا الدور عليه، إن لم يشغله أحد بعد. ومن يحق له شغل كل دور يتبع قواعد الدور نفسه.',
+  'settings.release_roles.take_title': 'ما يجعلك إياه التولّي',
   'settings.rename': 'إعادة تسمية',
   'settings.rename_value': 'إعادة تسمية "{{name}}"',
   'settings.resume_on_requester_reply': 'ردّ مقدّم الطلب يستأنفها',
@@ -532,6 +535,7 @@ export const ar: LabelResource = {
   'settings.section.priority': 'الأولوية',
   'settings.section.reasons': 'الأسباب',
   'settings.section.reply-templates': 'قوالب الردود',
+  'settings.section.roles': 'الأدوار',
   'settings.section.routing': 'التوجيه والإسناد',
   'settings.section.stages': 'المراحل',
   'settings.section.statuses': 'الحالات',
