@@ -16,7 +16,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0148"  # 0149's down revision (re-pointed at its turn)
+BEFORE = "0144"  # 0149's down revision (re-pointed at its turn)
 
 
 async def _state(url: str) -> tuple[bool, bool]:
