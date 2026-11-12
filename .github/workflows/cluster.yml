@@ -303,6 +303,9 @@ jobs:
           for d in api centrifugo keycloak; do
             echo "== $d"; kubectl -n supportx logs "deploy/supportx-$d" --all-containers --tail=80 || true
           done
+          # The single-copy fan-out (every pod of it: after a node loss the new copy's start-up
+          # is what the node-loss test waits for).
+          echo "== fanout"; kubectl -n supportx logs -l app.kubernetes.io/component=fanout --all-containers --tail=80 --prefix || true
           echo "== migrate"; kubectl -n supportx logs -l app.kubernetes.io/component=migrate --tail=150 --prefix || true
           for c in seaweedfs-master seaweedfs-volume seaweedfs-filer; do
             echo "== $c"; kubectl -n supportx logs -l "app.kubernetes.io/component=$c" --tail=60 --prefix || true

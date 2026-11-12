@@ -145,7 +145,9 @@ data:
     password = ""
     database = "{{ $h.filer.database }}"
     schema = ""
-    sslmode = "require"
+    # verify-full against CloudNativePG's CA (audit row 5): the chain and the host name.
+    sslmode = "verify-full"
+    sslrootcert = "/etc/seaweedfs/pg-ca/ca.crt"
     connection_max_idle = 10
     connection_max_open = 20
     connection_max_lifetime_seconds = 300
@@ -353,10 +355,13 @@ spec:
             - {name: PGHOST, value: {{ include "supportx.dbHost" . | quote }}}
             - {name: PGUSER, value: seaweedfs_filer}
             - {name: PGDATABASE, value: {{ $h.filer.database | quote }}}
-            - {name: PGSSLMODE, value: require}
+            - {name: PGSSLMODE, value: verify-full}
+            - {name: PGSSLROOTCERT, value: /etc/seaweedfs/pg-ca/ca.crt}
             - {name: PGCONNECT_TIMEOUT, value: "5"}
             - name: PGPASSWORD
               valueFrom: {secretKeyRef: {name: {{ .Values.secrets.seaweedfsFilerDb }}, key: password}}
+          volumeMounts:
+            - {name: config, mountPath: /etc/seaweedfs, readOnly: true}
           {{- include "supportx.containerSecurityContext" . | nindent 10 }}
           resources:
             requests: {cpu: 10m, memory: 32Mi}
@@ -409,6 +414,11 @@ spec:
                   name: {{ .Values.secrets.app }}
                   items:
                     - {key: seaweedfs-s3-config, path: s3.json}
+              # CloudNativePG's CA certificate only, never its key: the store checks the server.
+              - secret:
+                  name: {{ printf "%s-pg-ca" .Release.Name }}
+                  items:
+                    - {key: ca.crt, path: pg-ca/ca.crt}
         # The filer's own scratch (its store is PostgreSQL): nothing here outlives the pod.
         - name: data
           emptyDir: {}
