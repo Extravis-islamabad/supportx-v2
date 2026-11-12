@@ -395,5 +395,9 @@ def test_the_settings_refuse_a_wide_entry_and_production_loopback_at_load() -> N
     with pytest.raises(ValidationError, match="wider than"):
         make_settings(egress_allow=["0.0.0.0/0"])
     with pytest.raises(ValidationError, match="opens loopback"):
-        make_settings(profile="production", egress_allow=["127.0.0.0/8"])
+        make_settings(
+            profile="production",
+            mobile_redirect_uri="https://sx.example.com/mobile/auth",
+            egress_allow=["127.0.0.0/8"],
+        )
     assert make_settings(egress_allow=["10.20.0.0/16", "erp.internal"]).egress_allow
