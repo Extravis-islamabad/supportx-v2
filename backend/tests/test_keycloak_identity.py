@@ -10,6 +10,7 @@ import pytest
 from tooling.keycloak_identity import (
     CLIENT_ID,
     EVENT_TYPES,
+    EVENTS_CLIENT_ID,
     FEDERATION_CLIENT_ID,
     LOCKOUT,
     OLD_DEFAULT_POLICY,
@@ -165,6 +166,7 @@ async def _run(
     password: str = "right",  # noqa: S107 - test data
     realm_secret: str = "",
     federation_secret: str = "",
+    events_secret: str = "",
 ) -> Result:
     return await run(
         Target(
@@ -174,6 +176,7 @@ async def _run(
             secret=SECRET,
             realm_secret=realm_secret,
             federation_secret=federation_secret,
+            events_secret=events_secret,
         ),
         wait_seconds=0,
         transport=httpx.MockTransport(keycloak.handler),
@@ -401,3 +404,30 @@ async def test_the_post_broker_mfa_flow_is_made_once_with_one_required_code_step
     await _run(keycloak)
     assert len(keycloak.flows) == 1
     assert not [w for w in keycloak.writes if "authentication/flows/supportx-otp" in w]
+
+
+EVENTS_SECRET = secrets.token_urlsafe(24)  # made at run time, as FEDERATION_SECRET
+
+
+async def test_the_events_client_reads_events_only_and_loses_any_extra_role() -> None:
+    """WP-057 S1b (lane B): supportx-events holds exactly view-events; extras are taken away."""
+    keycloak = FakeKeycloak()
+    assert EVENTS_CLIENT_ID not in {c["clientId"] for c in keycloak.clients}
+    await _run(keycloak)  # no secret: not made
+    assert EVENTS_CLIENT_ID not in {c["clientId"] for c in keycloak.clients}
+    result = await _run(keycloak, events_secret="events-s3cret")
+    events = keycloak.client(EVENTS_CLIENT_ID)
+    assert f"client {EVENTS_CLIENT_ID} created" in result.changes
+    assert events["serviceAccountsEnabled"] is True
+    assert not events["standardFlowEnabled"]
+    assert not events["directAccessGrantsEnabled"]
+    assert not events["implicitFlowEnabled"]
+    assert events["publicClient"] is False
+    assert not events.get("redirectUris")
+    held = keycloak.held_by[f"sa-{events['id']}"]
+    assert sorted(r["name"] for r in held) == ["view-events"]
+    # Someone gives it more by hand: the next run takes it away.
+    held.append({"id": "manage-users", "name": "manage-users"})
+    again = await _run(keycloak, events_secret="events-s3cret")
+    assert sorted(r["name"] for r in keycloak.held_by[f"sa-{events['id']}"]) == ["view-events"]
+    assert again.outcome is Outcome.UPDATED  # the extra role was taken away

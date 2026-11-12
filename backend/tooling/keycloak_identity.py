@@ -60,6 +60,7 @@ operator then creates the client by hand once: docs/architecture/identity.md).
 Environment: SUPPORTX_KEYCLOAK_URL, SUPPORTX_KEYCLOAK_ADMIN_USER (default admin),
 SUPPORTX_KEYCLOAK_ADMIN_PASSWORD, SUPPORTX_KEYCLOAK_REALM (default supportx),
 SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET, SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET (optional),
+SUPPORTX_KEYCLOAK_EVENTS_CLIENT_SECRET (optional, WP-057 S1b),
 SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET (optional: on-prem installs with LDAP only),
 SUPPORTX_KEYCLOAK_WAIT_SECONDS (default 300).
 """
@@ -88,6 +89,8 @@ REALM_CLIENT_ID = "supportx-realm"
 REALM_ROLES = ("manage-realm",)  # the password policy; held by the consumers worker only
 FEDERATION_CLIENT_ID = "supportx-federation"
 FEDERATION_ROLES = ("manage-realm",)  # the LDAP user-federation component (D-118); nothing else
+EVENTS_CLIENT_ID = "supportx-events"
+EVENTS_ROLES = ("view-events",)  # the sign-in log import (WP-057 S1b); nothing else (lane B)
 # Lock-out (REQ-SEC-005 AC2, D-104), and what the realm import shipped before WP-039 session 3.
 LOCKOUT = {
     "bruteForceProtected": True,
@@ -160,6 +163,7 @@ class Target:
     secret: str = field(repr=False, default="")
     realm: str = "supportx"
     realm_secret: str = field(repr=False, default="")  # supportx-realm; empty = not made
+    events_secret: str = field(repr=False, default="")  # supportx-events; empty = not made
     # supportx-federation: only on an on-prem install with LDAP on; empty = off (never deleted).
     federation_secret: str = field(repr=False, default="")
     smtp: dict[str, str] | None = field(repr=False, default=None)  # Keycloak's smtpServer
@@ -177,6 +181,10 @@ CLIENT_TEXTS = {
     FEDERATION_CLIENT_ID: (
         "SupportX directory federation",
         "Service account SupportX writes the on-prem AD/LDAP connection with (WP-040, D-118).",
+    ),
+    EVENTS_CLIENT_ID: (
+        "SupportX sign-in log",
+        "Service account the SupportX worker reads login events with (WP-057 S1b).",
     ),
 }
 
@@ -506,6 +514,21 @@ async def _ensure_realm_client(
     return changes + await _ensure_roles(client, headers, realm, internal, REALM_ROLES)
 
 
+async def _ensure_events_client(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str, secret: str
+) -> list[str]:
+    """`supportx-events` with exactly EVENTS_ROLES (view-events), when its secret is given.
+
+    The sign-in log's import reads Keycloak's login events with it (WP-057 S1b): a client of
+    its own, as supportx-identity holds far more than reading events (lane B: least privilege).
+    Client credentials only; any other role on its service account is taken away every run.
+    """
+    if not secret:
+        return []
+    internal, changes = await _ensure_client(client, headers, realm, secret, EVENTS_CLIENT_ID)
+    return changes + await _ensure_roles(client, headers, realm, internal, EVENTS_ROLES)
+
+
 async def _ensure_federation_client(
     client: httpx.AsyncClient, headers: dict[str, str], realm: str, secret: str
 ) -> list[str]:
@@ -596,6 +619,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     internal, changes = await _ensure_client(client, headers, target.realm, target.secret)
     changes += await _ensure_roles(client, headers, target.realm, internal)
     changes += await _ensure_realm_client(client, headers, target.realm, target.realm_secret)
+    changes += await _ensure_events_client(client, headers, target.realm, target.events_secret)
     changes += await _ensure_federation_client(
         client, headers, target.realm, target.federation_secret
     )
@@ -651,6 +675,7 @@ def main() -> int:  # pragma: no cover - thin CLI over tested functions
         secret=secret,
         realm=realm,
         realm_secret=env.get("SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET", ""),
+        events_secret=env.get("SUPPORTX_KEYCLOAK_EVENTS_CLIENT_SECRET", ""),
         federation_secret=env.get("SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET", ""),
         smtp=smtp_from_env(dict(env)),
     )
