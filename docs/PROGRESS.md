@@ -1881,9 +1881,19 @@ it with no reload (rule c). Not built yet.
     - tag numbers in one block per batch, the unused rest handed back before the savepoint is
       released. A dry run takes none, a batch with a refused row redoes row by row, and no gap
       is left (the coordinator's rule; tested).
-    The CI figure goes in the PR (one Audit scale run).
-  - **Step B (approved in principle, sketch first):** multi-row inserts for the outbox,
-    field_changes, audit and valuations, and a dry run that skips the writes it rolls back.
+    CI (Audit scale run 43189974597, 20,000 rows): real run 228.2 s (target 240 s, met), dry run
+    219.6 s (target 120 s, not yet: Step B).
+  - **Step B (approved by the coordinator and lanes A and C, 2026-11-12):** an import batch's
+    outbox events, field history, audit entries (with their personal rows and sealing queue) and
+    valuations are buffered (`app/shared/db/deferred.py`, `deferred_writes`, import-only) and
+    written as one multi-row INSERT per table, chunked under asyncpg's parameter limit, in
+    foreign-key order with the outbox last, before the batch savepoint is released. The dry run
+    discards the buffer instead of writing it. Rows are built exactly as before (ids, times and
+    entry hashes at the call), so the relay (ORDER BY id) and audit sealing (occurred_at,
+    entry_id) see the same order. A savepoint rolled back inside the block drops its rows. A
+    guard raises if a buffered table is read or written around the buffer while rows wait.
+    Locally: 14,862 → 2,911 statements for 1,000 rows, dry run plus run (about 1.1 per created
+    asset). The CI figure goes in the PR.
   - **Merge and links:** the merge moves every live work-item link of the duplicate, including
     records the merging person may not see (only a count comes back to them), inside the
     merge's own transaction (lane A's note).

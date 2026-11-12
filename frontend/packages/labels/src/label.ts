@@ -149,3 +149,12 @@ export function isolateParams(
   }
   return out;
 }
+
+/**
+ * Whether `key` has a text (English counts: every language falls back to it). For optional
+ * text such as a ready-made dashboard's description, so a screen shows nothing rather than a
+ * key turned into words ("Description"; QA 2026-11-12 F-04).
+ */
+export function hasLabel(key: string): boolean {
+  return i18n.exists(key, { lng: 'en' });
+}

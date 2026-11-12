@@ -6,6 +6,8 @@ export const en = {
   'age_bucket.over_30_days': 'Over 30 days',
   'age_bucket.under_1_day': 'Under 1 day',
   'dashboard.changes': 'Changes',
+  'dashboard.changes.description':
+    'How changes go and where they stand: success rate, emergencies, outcomes, risk and reasons.',
   'dashboard.my_work': 'My work',
   'dashboard.my_work.description':
     'Your open incidents, what you resolved this week and the queue.',

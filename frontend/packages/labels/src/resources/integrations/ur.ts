@@ -354,6 +354,7 @@ export const ur: LabelResource = {
   'mailbox_protocol.gmail': 'Gmail',
   'mailbox_protocol.graph': 'Microsoft 365',
   'mailbox_protocol.imap': 'IMAP',
+  'mailbox_reason.address_not_allowed': 'میل سرور کا ایڈریس استعمال نہیں ہو سکتا',
   'mailbox_reason.imap_fetch_failed': 'میل سرور نے پیغام نہیں دیا',
   'mailbox_reason.imap_login_failed': 'میل سرور نے یوزر نیم یا پاس ورڈ مسترد کر دیا',
   'mailbox_reason.imap_mark_failed': 'میل سرور نے پیغام کو پڑھا ہوا نشان زد نہیں کیا',
@@ -384,6 +385,7 @@ export const ur: LabelResource = {
   'mailbox_reason.oauth_unreachable': 'Microsoft یا Google تک رسائی نہیں ہو سکی',
   'mailbox_reason.oauth_wrong_account':
     'سائن اِن میل باکس کے اپنے اکاؤنٹ کے بجائے کسی اور اکاؤنٹ سے ہوا',
+  'mailbox_reason.port_not_allowed': 'میل سرور کا پورٹ استعمال نہیں ہو سکتا',
   'mailbox_reason.secret_store_fallback':
     'رازوں کا ذخیرہ پڑھا نہیں جا سکا، اس لیے میل باکس اپنی اسناد کی پچھلی نقل استعمال کر رہا ہے۔ اسے ٹھیک کرنے کے لیے اسناد دوبارہ محفوظ کریں۔',
   'mailbox_security.none': 'انکرپشن کے بغیر',

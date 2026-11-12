@@ -13,6 +13,7 @@ import asyncio
 import contextlib
 import imaplib
 import re
+import socket
 import ssl
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -45,6 +46,9 @@ class ImapSettings:
     username: str
     password: str
     folder: str = "INBOX"
+    # The address `host` was checked to be (audit #3): connected to instead of the name, so DNS
+    # cannot change between the check and the connection. TLS still checks the name.
+    pinned: str | None = None
 
 
 @dataclass(frozen=True)
@@ -77,6 +81,33 @@ def _check(status: str, what: str) -> None:
         raise MailboxUnavailableError(reason)
 
 
+class _PinnedIMAP4(imaplib.IMAP4):
+    """IMAP4 connecting to the pinned address; `host` stays the typed name (STARTTLS checks it)."""
+
+    def __init__(self, host: str, port: int, pinned: str, timeout: float) -> None:
+        self._pinned = pinned
+        super().__init__(host, port, timeout=timeout)
+
+    def _create_socket(self, timeout: float | None) -> socket.socket:
+        return socket.create_connection((self._pinned, self.port), timeout)
+
+
+class _PinnedIMAP4SSL(imaplib.IMAP4_SSL):
+    """IMAP4 over TLS to the pinned address, the certificate checked against the typed name."""
+
+    def __init__(
+        self, host: str, port: int, pinned: str, context: ssl.SSLContext, timeout: float
+    ) -> None:
+        self._pinned = pinned
+        super().__init__(host, port, ssl_context=context, timeout=timeout)
+
+    def _create_socket(self, timeout: float | None) -> socket.socket:
+        # imaplib's IMAP4_SSL calls IMAP4._create_socket by name, so the override is here too.
+        sock = socket.create_connection((self._pinned, self.port), timeout)
+        wrapped: socket.socket = self.ssl_context.wrap_socket(sock, server_hostname=self.host)
+        return wrapped
+
+
 class ImapReader:
     """MailboxReader over imaplib (one connection per fetch)."""
 
@@ -88,14 +119,21 @@ class ImapReader:
         s = self.settings
         context = ssl.create_default_context()
         try:
+            client: imaplib.IMAP4
             if s.security is ConnectionSecurity.TLS:
-                client: imaplib.IMAP4 = imaplib.IMAP4_SSL(
-                    s.host, s.port, ssl_context=context, timeout=TIMEOUT_SECONDS
+                client = (
+                    _PinnedIMAP4SSL(s.host, s.port, s.pinned, context, TIMEOUT_SECONDS)
+                    if s.pinned
+                    else imaplib.IMAP4_SSL(
+                        s.host, s.port, ssl_context=context, timeout=TIMEOUT_SECONDS
+                    )
                 )
+            elif s.pinned:
+                client = _PinnedIMAP4(s.host, s.port, s.pinned, TIMEOUT_SECONDS)
             else:
                 client = imaplib.IMAP4(s.host, s.port, timeout=TIMEOUT_SECONDS)
-                if s.security is ConnectionSecurity.STARTTLS:
-                    client.starttls(ssl_context=context)
+            if s.security is ConnectionSecurity.STARTTLS:
+                client.starttls(ssl_context=context)
             client.login(s.username, s.password)
         except imaplib.IMAP4.error as exc:
             raise MailboxUnavailableError(IMAP_LOGIN_FAILED) from exc

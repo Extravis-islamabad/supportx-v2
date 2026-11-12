@@ -274,6 +274,8 @@ export const en = {
   'errors.entitlements_unavailable':
     'Licence information is temporarily unavailable. Please try again shortly.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
+  'errors.field.address_not_allowed':
+    "This server address can't be used. Use the mail server's public name.",
   'errors.field.already_linked': 'These records are already linked.',
   'errors.field.announcement_message_required': 'Write the message people will see.',
   'errors.field.api_key_allowlist_invalid':
@@ -565,6 +567,7 @@ export const en = {
   'errors.field.phone_not_valid': 'Enter a phone number: digits, spaces, +, - and brackets.',
   'errors.field.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
+  'errors.field.port_not_allowed': 'Use a mail port: 993 (TLS) or 143.',
   'errors.field.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.field.range_end_before_start': 'The end must be after the start.',

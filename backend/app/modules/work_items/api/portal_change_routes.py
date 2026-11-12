@@ -211,6 +211,7 @@ async def portal_change_conversation(
     "/{record_id}/replies",
     summary="Reply on your change",
     status_code=status.HTTP_201_CREATED,
+    response_model=PortalChangeOut,
 )
 async def portal_change_reply(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     record_id: uuid.UUID,
@@ -219,18 +220,23 @@ async def portal_change_reply(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     subject: SignedIn,
     request: Request,
     policy: Annotated[PolicyService, Depends(get_policy)],
-) -> PortalChangeOut:
-    """A public reply in your name, on your own change only."""
-    await service.reply(
-        session,
-        subject,
-        record_id,
-        body=body.body,
-        source=source_of(request),
-        holders=policy,
-        wtype=CHANGE,
-    )
-    return _out(await service.get_record(session, subject, record_id, CHANGE))
+    idempotency: Idempotency,
+) -> Response:
+    """A public reply in your name, on your own change only (Idempotency-Key: audit #19)."""
+
+    async def run() -> Created:
+        await service.reply(
+            session,
+            subject,
+            record_id,
+            body=body.body,
+            source=source_of(request),
+            holders=policy,
+            wtype=CHANGE,
+        )
+        return Created(body=_out(await service.get_record(session, subject, record_id, CHANGE)))
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
 __all__ = ["router"]
