@@ -122,6 +122,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['dashboards.share', 'all'],
   ['dashboards.manage_defaults', 'all'],
   ['identity.manage', 'all'],
+  ['identity.view_sign_ins', 'all'], // the sign-in log (WP-057 S1a): the tenant admin's only
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
   ['integrations.manage_email', 'all'],
