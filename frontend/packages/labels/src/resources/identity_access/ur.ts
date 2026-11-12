@@ -438,6 +438,9 @@ export const ur: LabelResource = {
   'permission.changes.take.description': 'ایسا تبدیلی خود لیں جس کا ابھی کوئی مالک نہیں۔',
   'permission.changes.view': 'تبدیلیاں دیکھیں',
   'permission.changes.view.description': 'تبدیلی کی درخواستیں دیکھیں۔',
+  'permission.changes.view_costs': 'تبدیلیاں پر لاگت دیکھیں',
+  'permission.changes.view_costs.description':
+    'تبدیلیاں پر لاگت کی شرحیں، ٹیکنیشن اور دیگر لاگتیں اور ان کے مجموعے، اور کام کی اضافی لاگت دیکھیں۔ اس کے بغیر یہ کہیں نظر نہیں آتیں، برآمدات میں بھی نہیں۔',
   'permission.cmdb.manage': 'CMDB کا انتظام کریں',
   'permission.cmdb.manage.description': 'کنفیگریشن آئٹمز اور ان کے تعلقات تبدیل کریں۔',
   'permission.cmdb.view': 'CMDB دیکھیں',
@@ -521,6 +524,9 @@ export const ur: LabelResource = {
   'permission.incidents.view': 'واقعات دیکھیں',
   'permission.incidents.view.description':
     'واقعات اور ان کی تاریخ دیکھیں۔ گروپ دائرہ آپ کے مقامات کے وہ واقعات بھی دکھاتا ہے جو ابھی کسی نے نہیں لیے۔',
+  'permission.incidents.view_costs': 'واقعات پر لاگت دیکھیں',
+  'permission.incidents.view_costs.description':
+    'واقعات پر لاگت کی شرحیں، ٹیکنیشن اور دیگر لاگتیں اور ان کے مجموعے، اور کام کی اضافی لاگت دیکھیں۔ اس کے بغیر یہ کہیں نظر نہیں آتیں، برآمدات میں بھی نہیں۔',
   'permission.integrations.manage_email': 'ای میل کنیکٹر سیٹ اپ کریں',
   'permission.integrations.manage_email.description':
     'سپورٹ میل باکس جوڑیں اور منتخب کریں کہ ان کی میل کیا بنے۔',
@@ -607,6 +613,9 @@ export const ur: LabelResource = {
   'permission.problems.take.description': 'ایسا مسئلہ خود لیں جس کا ابھی کوئی مالک نہیں۔',
   'permission.problems.view': 'مسائل دیکھیں',
   'permission.problems.view.description': 'مسئلے کے ریکارڈ دیکھیں۔',
+  'permission.problems.view_costs': 'مسائل پر لاگت دیکھیں',
+  'permission.problems.view_costs.description':
+    'مسائل پر لاگت کی شرحیں، ٹیکنیشن اور دیگر لاگتیں اور ان کے مجموعے، اور کام کی اضافی لاگت دیکھیں۔ اس کے بغیر یہ کہیں نظر نہیں آتیں، برآمدات میں بھی نہیں۔',
   'permission.problems.view_root_cause': 'بنیادی وجوہات دیکھیں',
   'permission.problems.view_root_cause.description':
     'مسائل کی بنیادی وجہ پڑھیں، جو کسی حفاظتی کمزوری کو بیان کر سکتی ہے۔',
@@ -653,6 +662,9 @@ export const ur: LabelResource = {
   'permission.releases.take.description': 'ایسی ریلیز لیں جو ابھی کسی نے نہیں لی۔',
   'permission.releases.view': 'ریلیزز دیکھیں',
   'permission.releases.view.description': 'ریلیزز دیکھیں (جب ریلیز مینجمنٹ دستیاب ہو)۔',
+  'permission.releases.view_costs': 'ریلیزز پر لاگت دیکھیں',
+  'permission.releases.view_costs.description':
+    'ریلیزز پر لاگت کی شرحیں، ٹیکنیشن اور دیگر لاگتیں اور ان کے مجموعے، اور کام کی اضافی لاگت دیکھیں۔ اس کے بغیر یہ کہیں نظر نہیں آتیں، برآمدات میں بھی نہیں۔',
   'permission.reports.create': 'رپورٹس بنائیں',
   'permission.reports.create.description':
     'رپورٹس اور بلٹ اِن رپورٹس کی نقول محفوظ کریں اور اپنی رپورٹس بدلیں۔',
@@ -707,6 +719,9 @@ export const ur: LabelResource = {
   'permission.requests.view': 'سروس درخواستیں دیکھیں',
   'permission.requests.view.description':
     'سروس درخواستیں دیکھیں (جب سروس درخواست ماڈیول دستیاب ہو)۔',
+  'permission.requests.view_costs': 'سروس درخواستوں پر لاگت دیکھیں',
+  'permission.requests.view_costs.description':
+    'سروس درخواستوں پر لاگت کی شرحیں، ٹیکنیشن اور دیگر لاگتیں اور ان کے مجموعے، اور کام کی اضافی لاگت دیکھیں۔ اس کے بغیر یہ کہیں نظر نہیں آتیں، برآمدات میں بھی نہیں۔',
   'permission.roles.manage': 'کرداروں کا انتظام کریں',
   'permission.roles.manage.description': 'حسب ضرورت کردار بنائیں، ان میں ترمیم کریں اور حذف کریں۔',
   'permission.roles.view': 'کردار دیکھیں',

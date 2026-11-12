@@ -131,6 +131,9 @@
   "changes.view": [
    "all"
   ],
+  "changes.view_costs": [
+   "all"
+  ],
   "cmdb.view": [
    "all"
   ],
@@ -167,6 +170,9 @@
    "all"
   ],
   "changes.view": [
+   "all"
+  ],
+  "changes.view_costs": [
    "all"
   ],
   "cmdb.view": [
@@ -517,6 +523,9 @@
   "releases.view": [
    "all"
   ],
+  "releases.view_costs": [
+   "all"
+  ],
   "users.view": [
    "all"
   ]
@@ -577,6 +586,9 @@
    "all"
   ],
   "releases.view": [
+   "all"
+  ],
+  "releases.view_costs": [
    "all"
   ],
   "users.view": [
@@ -773,6 +785,9 @@
   "changes.view": [
    "all"
   ],
+  "changes.view_costs": [
+   "all"
+  ],
   "config.announcements": [
    "all"
   ],
@@ -834,6 +849,9 @@
    "all"
   ],
   "incidents.view": [
+   "all"
+  ],
+  "incidents.view_costs": [
    "all"
   ],
   "integrations.view": [
@@ -899,6 +917,9 @@
   "problems.view": [
    "all"
   ],
+  "problems.view_costs": [
+   "all"
+  ],
   "problems.view_root_cause": [
    "all"
   ],
@@ -951,6 +972,9 @@
    "all"
   ],
   "releases.view": [
+   "all"
+  ],
+  "releases.view_costs": [
    "all"
   ],
   "reports.create": [
@@ -1008,6 +1032,9 @@
    "all"
   ],
   "requests.view": [
+   "all"
+  ],
+  "requests.view_costs": [
    "all"
   ],
   "sites.view": [
@@ -1093,6 +1120,9 @@
   "changes.view": [
    "all"
   ],
+  "changes.view_costs": [
+   "all"
+  ],
   "config.announcements": [
    "all"
   ],
@@ -1154,6 +1184,9 @@
    "all"
   ],
   "incidents.view": [
+   "all"
+  ],
+  "incidents.view_costs": [
    "all"
   ],
   "integrations.view": [
@@ -1219,6 +1252,9 @@
   "problems.view": [
    "all"
   ],
+  "problems.view_costs": [
+   "all"
+  ],
   "problems.view_root_cause": [
    "all"
   ],
@@ -1271,6 +1307,9 @@
    "all"
   ],
   "releases.view": [
+   "all"
+  ],
+  "releases.view_costs": [
    "all"
   ],
   "reports.create": [
@@ -1328,6 +1367,9 @@
    "all"
   ],
   "requests.view": [
+   "all"
+  ],
+  "requests.view_costs": [
    "all"
   ],
   "sites.view": [
