@@ -325,6 +325,9 @@ FIELD_PROBLEMS = frozenset(
     {
         # REQ-AST-025: an asset that is not there or not yours to see, and the per-record cap.
         "asset_not_found",
+        # WP-046a S1 (REQ-INC-073..075): task details, template tasks and dependencies.
+        "dependency_loop",
+        "needs_scheduled_start",
         "too_many_assets",
         "required",
         "chair_inactive",  # D-146: the approval chair must be an active person

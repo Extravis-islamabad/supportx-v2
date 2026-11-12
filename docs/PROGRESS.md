@@ -1252,6 +1252,28 @@ it with no reload (rule c). Not built yet.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
+### [~] WP-046a — Incidents V1 (lane A, 2026-11-11; 7 sessions, one migration each; 42 REQs)
+- **S1 PR 1 (0141; REQ-INC-040, 073..076):**
+  - Task details: type, scheduled and actual start and end (an end before its start is
+    refused), estimate, percent done, extra cost, a reminder before the scheduled start.
+  - The extra cost is shown only to those who may edit the record, never to requesters, the
+    portal or a task-only owner. **S3 decides task and worklog cost visibility together.** A new
+    right would go to Haider through the coordinator.
+  - Dependencies: same record only, at most 20, loops refused. Starting or completing a task
+    whose predecessor is open is refused with a 409 naming it; a per-type setting turns this
+    into a warning. Tasks show "waits for ..." live.
+  - Task templates per type (one task or a set of up to 20; a disabled one is not offered),
+    kept under Admin › Incidents › Task templates.
+  - A record template's tasks, each with an optional condition (a list filter), are added when
+    the record is made, recorded as the template's.
+  - `GET /my-tasks` on every type, each record through its own view rule, due first, overdue
+    marked; a console page with a nav entry.
+  - The migration also widens the link kind check (`caused_by_change`) and the bulk action
+    check (`cancel`, `delete`). Their enum values and use come in PR 2.
+- **S1 PR 2 (no migration):** task notifications (assigned, the reminder, overdue) with a
+  reminder sweep; change bulk cancel and delete (REQ-CHG-101); the "caused incidents" change
+  report field (REQ-CHG-116, with #396's type fields); the add_child reverse loop check.
+
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
   (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).

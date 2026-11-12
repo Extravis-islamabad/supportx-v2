@@ -553,6 +553,7 @@ describe('console: changes', () => {
                 { field: 'change_reason', old: null, new: 'security_fix' },
                 { field: 'stage', old: 'planning', new: 'submission' },
                 { field: 'reapproval_restarted', old: null, new: ['risk'] },
+                { field: 'task.extra_cost', old: null, new: null, hidden: true },
               ],
             },
           ],
@@ -575,6 +576,8 @@ describe('console: changes', () => {
     expect(text).toContain('from Planning to Submission');
     expect(text).not.toMatch(/planning to submission|because of to/);
     expect(text).toContain('Sana Malik sent it back for approval again because Risk changed');
+    // A task's extra cost not the reader's to see (lane B's #398 review): only that it changed.
+    expect(text).toContain('Sana Malik changed Extra cost');
   });
 
   it('QA-2026-11-11 F-01: a form that remounts keeps its Idempotency-Key, so a repeat never duplicates', async () => {
