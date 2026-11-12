@@ -1829,6 +1829,28 @@ it with no reload (rule c). Not built yet.
   - **Follow-up (WP-049b):** batched inserts for imports (rows written in batches, not one
     savepoint per row). If a 20,000-row run takes more than about 10 minutes on the stack, this
     is done before the polish round, not after QA (coordinator, 2026-11-11).
+  - **S4c result (#434, 2026-11-12): below target.** CI, 20,000 rows: dry run 596 → 425 s, real
+    run 936 → 589 s (29.4 ms a row), against targets of 120 s and 240 s. The coordinator shipped it
+    as it was (correct, reviewed, 35-40% faster) and asked for a profile by phase.
+  - **Profile (2026-11-12):** SQL is about 87% of the time: about 16 statements per created row
+    at about 1 ms each, none slow. The dry run costs as much as the run (it writes, then rolls
+    back).
+  - **Step A (assets only, this PR):** 27,072 → 14,862 statements for a 1,000-row dry run plus
+    run (−45%), about 7.4 per created row, all of them inserts:
+    - #435's per-transaction definitions memo (custom fields): 2 reads a row gone;
+    - the asset limit's advisory lock taken once per transaction (taken again after a rolled-back
+      savepoint, which releases it);
+    - a new asset's INSERT returns its defaults (no SELECT after it);
+    - the product kept for the (sub)transaction;
+    - no scope query for a just-saved asset when the manage grant is scope "all" without a
+      condition (`unrestricted`);
+    - the batch's taken tags and serials in one query (in-batch duplicates still refused);
+    - tag numbers in one block per batch, the unused rest handed back before the savepoint is
+      released. A dry run takes none, a batch with a refused row redoes row by row, and no gap
+      is left (the coordinator's rule; tested).
+    The CI figure goes in the PR (one Audit scale run).
+  - **Step B (approved in principle, sketch first):** multi-row inserts for the outbox,
+    field_changes, audit and valuations, and a dry run that skips the writes it rolls back.
   - **Merge and links:** the merge moves every live work-item link of the duplicate, including
     records the merging person may not see (only a count comes back to them), inside the
     merge's own transaction (lane A's note).

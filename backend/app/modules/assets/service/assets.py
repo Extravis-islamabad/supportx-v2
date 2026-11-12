@@ -76,7 +76,11 @@ from app.modules.licensing import LimitKey, reserve_capacity
 from app.modules.organization import existing_unit_ids
 from app.modules.procurement import vendor_problem
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
-from app.shared.db.display_ids import next_display_number
+from app.shared.db.display_ids import (
+    next_display_number,
+    reserve_display_numbers,
+    return_display_numbers,
+)
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
 from app.shared.history.conflicts import stale_version
@@ -328,15 +332,71 @@ async def _holder(
     return None if row is None else (row.tag or row.name)
 
 
+_UNIQUE: tuple[tuple[str, InstrumentedAttribute[str | None]], ...] = (
+    ("tag", Asset.tag),
+    ("serial_number", Asset.serial_number),
+)
+
+
 async def _unique_problems(
     session: AsyncSession, cleaned: Mapping[str, Any], other_than: uuid.UUID | None
 ) -> list[Problem]:
     problems: list[Problem] = []
-    for name, column in (("tag", Asset.tag), ("serial_number", Asset.serial_number)):
+    known = memo(session).get("unique") if other_than is None else None
+    for name, column in _UNIQUE:
         value = cleaned.get(name)
-        if value is not None and (held := await _holder(session, column, value, other_than)):
+        if value is None:
+            continue
+        if known is not None and (name, value.lower()) in known["checked"]:
+            held = known["held"].get((name, value.lower()))  # the batch's prefetch, below
+        else:
+            held = await _holder(session, column, value, other_than)
+        if held:
             problems.append(Problem(name, f"asset_{name}_taken", (("asset", held),)))
     return problems
+
+
+async def prefetch_unique(session: AsyncSession, creates: Sequence[Mapping[str, Any]]) -> None:
+    """Which tags and serial numbers of a batch of new assets are taken, in one query.
+
+    For an import's batch savepoint (WP-049b): each create checked both against the table, two
+    round trips a row. Kept in the savepoint's memo, so it ends with it, and every asset the
+    savepoint saves is added (`_note_unique`), so a second row naming the first one's serial is
+    refused as before. A value the prefetch did not ask about is still queried; an update always
+    is. Trash included, as `_holder`. The unique indexes stay the last word on a race.
+    """
+    wanted = {
+        name: {str(v).lower() for row in creates if (v := row.get(name))} for name, _ in _UNIQUE
+    }
+    known: dict[str, Any] = {
+        "checked": {(name, v) for name, values in wanted.items() for v in values},
+        "held": {},
+    }
+    clauses = [func.lower(column).in_(wanted[name]) for name, column in _UNIQUE if wanted[name]]
+    if clauses:
+        found = await session.execute(
+            select(
+                func.lower(Asset.tag), func.lower(Asset.serial_number), Asset.tag, Asset.name
+            ).where(or_(*clauses))
+        )
+        for tag, serial, shown_tag, name in found:
+            for field, value in (("tag", tag), ("serial_number", serial)):
+                if value is not None and value in wanted[field]:
+                    known["held"].setdefault((field, value), shown_tag or name)
+    memo(session)["unique"] = known
+
+
+def _note_unique(session: AsyncSession, row: Asset) -> None:
+    """A batch's new asset now holds its tag and serial number (see `prefetch_unique`)."""
+    known = memo(session).get("unique")
+    if known is None:
+        return
+    for name, _ in _UNIQUE:
+        value = getattr(row, name)
+        if value:
+            key = (name, str(value).lower())
+            known["checked"].add(key)
+            known["held"].setdefault(key, row.tag or row.name)
 
 
 async def _link_problems(
@@ -427,12 +487,52 @@ async def _reserve(session: AsyncSession) -> None:
         known["slots"] += 1
 
 
+def use_tag_blocks(session: AsyncSession, creates: int) -> None:
+    """In this savepoint, take tag numbers in blocks: one counter upsert, not one per asset.
+
+    For an import's batch savepoint (WP-049b), with `creates` the batch's new assets without a
+    typed tag. A block is reserved when the first number is needed, sized to the creates still
+    to come, and `return_unused_tags` hands back what the batch did not use before the
+    savepoint is released, so only saved assets take numbers and no gap is left (the
+    coordinator's rule). A savepoint that rolls back (a dry run, a refused row) takes its
+    block with it; the row-by-row redo then numbers each row as before.
+    """
+    memo(session)["tag_blocks"] = {"size": max(creates, 1), "used": 0, "blocks": {}}
+
+
+async def return_unused_tags(session: AsyncSession) -> None:
+    """Hand back the numbers this savepoint reserved but did not use (see `use_tag_blocks`)."""
+    known = memo(session).get("tag_blocks")
+    if not known:
+        return
+    for key, block in known["blocks"].items():
+        await return_display_numbers(session, key, block["next"] - 1, block["last"])
+    known["blocks"] = {}
+
+
+async def _number(session: AsyncSession, key: str) -> int:
+    """The next number of a tag counter: from this savepoint's block, else one at a time."""
+    known = memo(session).get("tag_blocks")
+    if known is None:
+        return await next_display_number(session, key)
+    block = known["blocks"].get(key)
+    if block is None or block["next"] > block["last"]:
+        size = max(known["size"] - known["used"], 1)
+        first = await reserve_display_numbers(session, key, size)
+        block = {"next": first, "last": first + size - 1}
+        known["blocks"][key] = block
+    number: int = block["next"]
+    block["next"] += 1
+    known["used"] += 1
+    return number
+
+
 async def _next_tag(session: AsyncSession, product_type: AssetProductType) -> str:
     """The next tag of the nearest pattern up the type tree, else the tenant's (REQ-AST-008)."""
     node: AssetProductType | None = product_type
     while node is not None:
         if node.tag_pattern:
-            number = await next_display_number(session, tag_counter_key(str(node.id)))
+            number = await _number(session, tag_counter_key(str(node.id)))
             return format_tag(node.tag_pattern, number)
         node = None if node.parent_id is None else await _held_type(session, node.parent_id)
     known = memo(session)
@@ -440,7 +540,7 @@ async def _next_tag(session: AsyncSession, product_type: AssetProductType) -> st
         known["settings"] = await session.get(AssetSettings, _tenant(session))
     settings: AssetSettings | None = known["settings"]
     pattern = settings.tag_pattern if settings is not None else "AST-{n}"
-    return format_tag(pattern, await next_display_number(session, tag_counter_key(None)))
+    return format_tag(pattern, await _number(session, tag_counter_key(None)))
 
 
 async def _custom(
@@ -631,6 +731,7 @@ async def create_asset(
     )
     session.add(row)
     await _within_scope(session, subject, row)  # flushes
+    _note_unique(session, row)
     if custom:
         await metadata.mark_used(session, ENTITY, list(custom))
     changes = [
@@ -722,6 +823,7 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
     if not counted and await _counts(session, row.product_type_id, row.state_id):
         await _reserve(session)  # e.g. a non-IT asset's product became an IT one
     await _saved(session, subject, row, changes, action="updated", source=source, reason=text)
+    _note_unique(session, row)  # a later create in the batch may name its new tag or serial
     return row
 
 

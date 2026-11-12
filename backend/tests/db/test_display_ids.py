@@ -64,3 +64,32 @@ async def test_prefix_is_validated(prefix: str) -> None:
 
 def test_format() -> None:
     assert format_display_id("INC", 1042) == "INC-1042"
+
+
+async def test_a_block_is_reserved_at_once_and_its_unused_rest_goes_back(
+    app_db: Database, tenant_pair: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    """One upsert for a block of numbers (an asset import's batch, WP-049b); handing back the
+    unused rest leaves no gap, and a misuse (the counter moved on) changes nothing."""
+    from app.shared.db.display_ids import (  # noqa: PLC0415 - the functions under test
+        next_display_number,
+        reserve_display_numbers,
+        return_display_numbers,
+    )
+
+    tenant, other = tenant_pair
+    async with app_db.tenant_session(TenantContext(tenant)) as session:
+        first = await reserve_display_numbers(session, "AT_BLOCK", 10)
+        assert first == 1  # a new counter: 1..10
+        await return_display_numbers(session, "AT_BLOCK", last_used=3, last_reserved=10)
+        assert await next_display_number(session, "AT_BLOCK") == 4  # no gap
+        again = await reserve_display_numbers(session, "AT_BLOCK", 5)
+        assert again == 5  # 5..9
+        await return_display_numbers(session, "AT_BLOCK", last_used=6, last_reserved=8)
+        assert await next_display_number(session, "AT_BLOCK") == 10  # 9 was the last: unchanged
+        await return_display_numbers(session, "AT_BLOCK", last_used=0, last_reserved=10)
+        assert await next_display_number(session, "AT_BLOCK") == 11  # never back to 0
+        with pytest.raises(ValueError, match="at least 1"):
+            await reserve_display_numbers(session, "AT_BLOCK", 0)
+    async with app_db.tenant_session(TenantContext(other)) as session:
+        assert await reserve_display_numbers(session, "AT_BLOCK", 2) == 1  # per tenant

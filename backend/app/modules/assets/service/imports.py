@@ -88,7 +88,15 @@ from app.modules.assets.infra.models import (
     AssetState,
 )
 from app.modules.assets.service import consumables
-from app.modules.assets.service.assets import LIMIT_CODE, MANAGE, create_asset, update_asset
+from app.modules.assets.service.assets import (
+    LIMIT_CODE,
+    MANAGE,
+    create_asset,
+    prefetch_unique,
+    return_unused_tags,
+    update_asset,
+    use_tag_blocks,
+)
 from app.modules.assets.service.memo import keep_slot_count
 from app.modules.identity_access import Subject, subject_for
 from app.modules.licensing import LimitKey, remaining
@@ -455,6 +463,10 @@ async def _apply_chunk(
     outcomes: list[ImportRowOutcome | RowProblem] = []
     savepoint = await session.begin_nested()
     keep_slot_count(session)  # a refusal redoes the rows one by one, each counting afresh
+    if how.kind == ImportKind.ASSETS:  # the creates' tags and serials, one query (S4c follow-up)
+        creates = [p.fields for p in plans if p.problem is None and p.record_id is None]
+        await prefetch_unique(session, creates)
+        use_tag_blocks(session, sum(1 for f in creates if not f.get("tag")))
     try:
         for plan in plans:
             if outcomes and time.monotonic() >= how.deadline:
@@ -467,8 +479,9 @@ async def _apply_chunk(
         await savepoint.rollback()
         raise
     if how.dry_run:
-        await savepoint.rollback()  # AC2: a dry run changes nothing
+        await savepoint.rollback()  # AC2: a dry run changes nothing, tag numbers included
     else:
+        await return_unused_tags(session)  # only the saved rows keep numbers, no gap
         await savepoint.commit()
     for plan, outcome in zip(plans, outcomes, strict=False):
         tally.add(plan.number, await _dry_limit(session, how, plan, outcome))
