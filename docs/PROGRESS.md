@@ -1594,7 +1594,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11; 4c 2026-11-12)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1851,7 +1851,43 @@ it with no reload (rule c). Not built yet.
     (change product as such, add to group and loanable stay synchronous, depreciation, labels,
     scan now), field mapping in the import wizard (fixed headings for now), imports of licences,
     CIs, contracts and POs (their modules), loans and bookings moving on merge (refused
-    instead), a faster import path for 20,000 rows, the e2e journey.
+    instead), the e2e journey.
+- [x] **Session 4c (no migration; faster asset imports, the S4b follow-up; coordinator
+  conditions 2026-11-12):** each row still goes through `create_asset` / `update_asset` (or the
+  consumable and vendor calls) with its own permission check, history, outbox event and audit
+  entry; no bulk INSERT. What changed around them (`service/imports.py`):
+  - Product, site and vendor names resolved once per job (`Lookups`: made per job for its
+    tenant and importer, refuses any other session, answers as `find_site` / `find_vendor_id`
+    do, which apply no person's scope); the records a batch matches read in one query
+    (assets by lower(tag or serial), consumables by product, vendors by name through
+    procurement's new `find_vendors`).
+  - Rows checked first without writing, in the row path's order; the passing rows of a batch
+    go through the services in one savepoint (rolled back in a dry run); any refusal rolls it
+    back and redoes those rows one by one, each in its own savepoint and checked afresh, so the
+    problems are exactly the row path's. A key twice in a batch splits the savepoint there.
+  - A transaction ends after 100 rows or about 2 s (`BATCH_SECONDS`), so the tag counter row
+    and the asset limit's lock are held briefly; tag numbers still come from the caller's
+    transaction, so a dry run gives them all back.
+  - The asset service reads tenant configuration (defaults, the default state, settings, the
+    type tree, the time zone) once per (sub)transaction (`service/memo.py`), skips reads a new
+    asset cannot need (cost lines, disposal, custom-field definitions without custom values,
+    a second UPDATE, a second advisory lock), and in an import's batch savepoint counts the
+    asset limit once under its lock, then adds one per slot taken (a refusal redoes the rows
+    one by one with fresh counts).
+  - Measured locally (backend/tests/db/test_asset_import_scale.py, 2,000 rows, the loaded
+    shared Mac): before 70.5 s dry run, 75.1 s run (35 and 38 ms a row); after 32.8 s and 33.2 s
+    (16 and 17 ms a row). The CI figure for 20,000 rows comes from an audit-scale dispatch
+    (`asset_import_rows`), not from this Mac.
+  - Tests: tests/db/test_asset_import_batches.py (8: lookups per job, tenant and importer;
+    the out-of-scope rows of a mixed batch refused one by one; one refused row in a full batch
+    with exact problems; tag numbers untouched by a dry run and one per saved row; a manual add
+    waits about one 2 s transaction (measured 2.0 s); consumables matched as before); the S4b
+    import tests unchanged.
+  - **Open:** the remaining per-row reads are other modules' (custom-field definitions three
+    times, the licence count and lock, the audit entry) or the save itself; a further step
+    (a per-transaction cache of metadata's definitions, eager server defaults instead of the
+    refresh after insert) needs those owners. The import of a site-scoped manager may add
+    assets at any site, as `create_asset` allows today (only updates are scope-checked).
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
