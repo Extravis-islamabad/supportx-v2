@@ -331,13 +331,11 @@ class WorkItemTransition(TenantKeyed, Base):
     to_status: Mapped[str | None] = mapped_column(String(40))
     reason_mode: Mapped[str] = mapped_column(String(10))
     reason_list: Mapped[str | None] = mapped_column(String(20))
-    # ADR-049 §4-§5: an extra right, fields the move needs, who may run it (an any-of list that
-    # only narrows), the actions that follow (ADR-043), and the administrator-set bypass.
+    # ADR-049 §4 (as amended): an extra right and the fields the move needs, per version. Who
+    # may run it, when it is offered and what follows stay WP-029's transition settings
+    # (automation), version-wide.
     permission: Mapped[str | None] = mapped_column(String(40))
     required_fields: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
-    conditions: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB(none_as_null=True))
-    after_actions: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB(none_as_null=True))
-    automation_bypasses_conditions: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class WorkItemReason(TenantKeyed, Base):

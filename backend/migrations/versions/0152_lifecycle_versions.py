@@ -4,9 +4,9 @@ Expand, with one data step:
 - `work_item_lifecycle_versions`: each life cycle's versions (draft, published, retired), for
   action-based and staged types alike. Tenant-scoped with RLS forced and actor audit.
 - `work_item_transitions` (action-based types) gains `lifecycle_version` in its key, with a
-  foreign key to its version, and what ADR-049 §4 adds to a transition: `permission`,
-  `required_fields`, `conditions`, `after_actions` and the administrator-set
-  `automation_bypasses_conditions`.
+  foreign key to its version, and what ADR-049 §4 (as amended) adds per version: `permission`
+  and `required_fields`. Who may run a move, when it is offered and its after-actions stay
+  WP-029's transition settings (automation), version-wide.
 - Data step, once per tenant with `app.tenant_id` set (business tables force RLS): every life
   cycle the tenant has becomes version 1, published; staged transitions with no version get 1;
   records with no version get 1, in batches of 5,000 so no single statement holds a large
@@ -81,9 +81,7 @@ BEGIN
         PERFORM set_config('app.tenant_id', t::text, true);
         IF EXISTS (SELECT 1 FROM {VERSIONS} WHERE number <> 1 OR state <> 'published')
             OR EXISTS (SELECT 1 FROM {TRANSITIONS} WHERE lifecycle_version <> 1
-                OR permission IS NOT NULL OR required_fields IS NOT NULL
-                OR conditions IS NOT NULL OR after_actions IS NOT NULL
-                OR automation_bypasses_conditions)
+                OR permission IS NOT NULL OR required_fields IS NOT NULL)
             OR EXISTS (SELECT 1 FROM work_items WHERE lifecycle_version <> 1)
             OR EXISTS (SELECT 1 FROM work_item_status_transitions WHERE lifecycle_version <> 1)
         THEN
@@ -160,7 +158,7 @@ def _create_versions() -> None:
 
 
 def upgrade() -> None:
-    """The versions table, the transitions' version and rules, version 1 everywhere."""
+    """The versions table, the transitions' version, right and fields, version 1 everywhere."""
     _create_versions()
     op.add_column(
         TRANSITIONS,
@@ -173,15 +171,9 @@ def upgrade() -> None:
         ["tenant_id", "type", "lifecycle", "lifecycle_version", "from_status", "action"],
     )
     op.add_column(TRANSITIONS, sa.Column("permission", sa.String(40), nullable=True))
-    for name in ("required_fields", "conditions", "after_actions"):
-        op.add_column(
-            TRANSITIONS, sa.Column(name, postgresql.JSONB(astext_type=sa.Text()), nullable=True)
-        )
     op.add_column(
         TRANSITIONS,
-        sa.Column(
-            "automation_bypasses_conditions", sa.Boolean(), server_default="false", nullable=False
-        ),
+        sa.Column("required_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     )
     op.execute(_DATA_STEP)
     # After the data step: every transition now has its version row.
@@ -198,9 +190,8 @@ def downgrade() -> None:
     """Back to before (stops while any tenant has versions or rules beyond version 1)."""
     op.execute(_GUARD)
     op.drop_constraint(op.f(VERSION_FK), TRANSITIONS, type_="foreignkey")
-    op.drop_column(TRANSITIONS, "automation_bypasses_conditions")
-    for name in ("after_actions", "conditions", "required_fields", "permission"):
-        op.drop_column(TRANSITIONS, name)
+    op.drop_column(TRANSITIONS, "required_fields")
+    op.drop_column(TRANSITIONS, "permission")
     op.drop_constraint(op.f(TRANSITIONS_PK), TRANSITIONS, type_="primary")
     op.create_primary_key(
         op.f(TRANSITIONS_PK),

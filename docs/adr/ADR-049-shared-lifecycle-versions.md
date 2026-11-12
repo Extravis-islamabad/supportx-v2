@@ -38,11 +38,12 @@ Both share `work_item_statuses`.
    types) is set on every record when it is made, to the life cycle's latest published version.
    Every lookup of a move reads the record's own version, so publishing version 2 never changes a
    record on version 1 (REQ-INC-049 AC3).
-4. **What an action-based transition gains** (mirroring ADR-041's names): `lifecycle_version` (in
-   the key), `permission` (an extra right, as ADR-041's), `required_fields`, `conditions` (JSONB:
-   who may run it, from roles, groups, the requester, the group head and the reporting manager)
-   and `after_actions` (references to the automation action library, run through it, ADR-043).
-5. **One conditions function; conditions only narrow, never grant** (lane B's review). A
+4. **What an action-based transition gains** (mirroring ADR-041's names; amended, see below):
+   `lifecycle_version` (in the key), `permission` (an extra right, as ADR-041's) and
+   `required_fields`. Who may run it, when it is offered and the actions that follow are **not**
+   columns here: they stay WP-029's transition settings (automation's `transition_settings`).
+5. **One conditions function; conditions only narrow, never grant** (lane B's review). The
+   function is WP-029's `may_run` and its "offered when" check, hardened to these rules. A
    transition runs only when all of these hold, checked in this order:
    1. the record is in the person's scope (`authorize_stored`); a record out of scope stays a
       404, before any condition is looked at;
@@ -117,6 +118,36 @@ Both share `work_item_statuses`.
     none, once per tenant with `app.tenant_id` set and in batches. It is reversible while no
     tenant has a version 2.
 
+## Amendment 1 (2026-11-12): who may run stays in one store
+
+Found while building S4: WP-029 (REQ-WF-003, 004) already gives every life cycle action, per
+type, who may run it (roles, groups, and people relative to the record: the requester, the
+assignee, the group head, the department head, the requester's manager), when it is offered
+(conditions), a confirmation and after-actions. They live in automation's `transition_settings`,
+`may_run` evaluates them and work_items applies them to every offer and move. Adding conditions
+and after-actions to `work_item_transitions` as §4 first said would have made two rule stores and
+two evaluators. The coordinator approved this amendment on 2026-11-12:
+
+- **Versioned** (per life cycle version, immutable once published): the statuses a version uses,
+  its moves, reason prompts aside, each move's `permission` and `required_fields`.
+- **Version-wide** (one setting per type and action, in force for every record at once, whatever
+  its version): who may run a move, when it is offered, its confirmation and its after-actions
+  (WP-029's transition settings), and the reason prompt (REQ-INC-047). Changing them changes
+  every record's moves straight away; the admin guide says so.
+- **Hardening.** `may_run` and the "offered when" check are hardened to §5's rules (fail closed,
+  ids checked within the tenant, run-as identities limited like people, an administrator-only
+  audited bypass, after-actions through the outbox, the 403 `transition_condition_not_met` with
+  only the kind), one test per rule. That code is automation's (lane C, rule 8); lane B blocks.
+- **The designer** edits the structure through the version API and who-may-run through
+  automation's existing transition-settings API, never a parallel route (lane C).
+- **Removed statuses.** Transition settings are keyed by action, not status, so a version that
+  drops a status leaves no setting pointing at it. A setting for an action that no published
+  version uses any more stays and never applies; the designer marks it unused. Workflows' "set
+  status" step checks moves against the record's own version at run time (lane C).
+- **Migration 0152** adds only `lifecycle_version`, `permission` and `required_fields` to
+  `work_item_transitions`; the `conditions`, `after_actions` and bypass columns first drafted
+  never ship.
+
 ## Consequences
 
 - Every move lookup carries the version: the key and indexes include it, and a timing test covers
@@ -130,7 +161,7 @@ Both share `work_item_statuses`.
 ## Tests this decision requires
 
 - RLS for `work_item_lifecycle_versions` (rule 5a): tenant A never reads or writes tenant B's.
-- A condition matrix: each kind × matches / doesn't / names something deleted.
+- A condition matrix on `may_run`: each kind × matches / doesn't / names something deleted.
 - The API refuses a transition it did not offer, with `transition_condition_not_met` and its kind.
 - A record out of scope is a 404 before any condition is checked.
 - A role or group id from another tenant is refused when a draft is saved.
