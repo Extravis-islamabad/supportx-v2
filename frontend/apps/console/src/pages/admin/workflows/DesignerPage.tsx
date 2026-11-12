@@ -22,6 +22,7 @@ import {
   Panel,
   ReactFlow,
   ReactFlowProvider,
+  freeSpot,
   ROW,
   applyEdgeChanges,
   applyNodeChanges,
@@ -288,11 +289,16 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
     const taken = new Set(live.nodes.map((n) => n.id));
     const id = freeId(type, taken);
     const anchor = live.nodes.find((n) => selected?.kind === 'node' && n.id === selected.id);
-    const position =
+    const wanted =
       at ??
       (anchor === undefined
         ? flow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
         : { x: anchor.position.x, y: anchor.position.y + ROW });
+    // Never on top of another step (V-08): the nearest free row below where it was dropped.
+    const position = freeSpot(
+      wanted,
+      live.nodes.map((n) => n.position),
+    );
     const node: WorkflowNode = {
       id,
       type: 'workflow',
