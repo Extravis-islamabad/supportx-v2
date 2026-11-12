@@ -1,4 +1,5 @@
 import { Checkbox, Flex, Form, Modal, Radio, Typography } from 'antd';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import {
@@ -6,10 +7,12 @@ import {
   useStartFollowUp,
   type Problem,
   type ProblemFollowUpCopy,
+  problemKeys,
 } from '@supportx/api-client';
 import { EmptyText, FormProblem, useFormProblem, useLabel } from '@supportx/ui';
 
 import { BulkProgress } from '../incidents/list/bulk';
+import { useBulkRefresh } from '../incidents/list/model';
 
 /**
  * Follow up the linked incidents (REQ-PRB-055, D-140 Q1): the open ones are listed and ticked by
@@ -32,6 +35,11 @@ export function FollowUpDialog({
   const [unticked, setUnticked] = useState<string[]>([]);
   const [copy, setCopy] = useState<ProblemFollowUpCopy>('resolution');
   const [jobId, setJobId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  // The followed-up incidents' new states show in the problem's links as each batch lands.
+  useBulkRefresh('incident', () => {
+    void queryClient.invalidateQueries({ queryKey: problemKeys.links(item.id) });
+  });
   const rows = preview.data?.incidents ?? [];
   const chosen = rows.map((r) => r.id).filter((id) => !unticked.includes(id));
   const offered: ProblemFollowUpCopy[] = [
