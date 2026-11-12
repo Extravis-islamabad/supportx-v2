@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { AssetBulkJob, AssetImport, AssetRecord } from '@supportx/api-client';
 import type { FakeRoute } from '@supportx/api-client/testing';
-import { en } from '@supportx/labels';
+import { en, label } from '@supportx/labels';
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
 import { scriptedRealtime } from '@supportx/realtime/testing';
 
@@ -389,6 +389,7 @@ describe('console: asset bulk jobs, merges, imports and export (WP-049b S4b)', (
     });
     restore = fake.restore;
     render(<App />);
+    fireEvent.click(await screen.findByTestId('assets-header-actions-more')); // template C: in "More"
     fireEvent.click(await screen.findByTestId('assets-import-open'));
     const input = await screen.findByTestId('asset-import-file');
     // The limits are shown before the person picks a file.
@@ -422,6 +423,7 @@ describe('console: asset bulk jobs, merges, imports and export (WP-049b S4b)', (
     const fake = assetsApi({ routes: { 'GET /api/v1/assets/imports': { body: [] } } });
     restore = fake.restore;
     render(<App />);
+    fireEvent.click(await screen.findByTestId('assets-header-actions-more')); // template C: in "More"
     fireEvent.click(await screen.findByTestId('assets-import-open'));
     const huge = new File(['1'], 'huge.csv');
     Object.defineProperty(huge, 'size', { value: 25 * 1024 * 1024 + 1 });
@@ -473,6 +475,7 @@ describe('console: asset bulk jobs, merges, imports and export (WP-049b S4b)', (
       const fake = assetsApi({ locale });
       restore = fake.restore;
       const { unmount } = render(<App />);
+      fireEvent.click(await screen.findByTestId('assets-header-actions-more')); // template C: in "More"
       fireEvent.click(await screen.findByTestId('assets-import-open'));
       const drawer = await screen.findByTestId('asset-import-drawer');
       await waitFor(() => {
@@ -483,5 +486,123 @@ describe('console: asset bulk jobs, merges, imports and export (WP-049b S4b)', (
       unmount();
       fake.restore();
     }
+  });
+});
+
+// QA 2026-11-12 V-03: the list header keeps to template C, the type tree waits behind a button
+// on a phone, and the table scrolls inside its box with the tag and the state pinned at its
+// sides (Ant Design pins the start side on the right in Arabic).
+describe('console: the asset list fits its box (QA 2026-11-12 V-03)', () => {
+  // The setup's matchMedia (every query false: a phone); `wide` matches every min-width.
+  const narrowMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+  afterEach(() => {
+    if (narrowMedia !== undefined) Object.defineProperty(window, 'matchMedia', narrowMedia);
+  });
+  const wide = () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: query.includes('min-width'),
+        media: query,
+        onchange: null,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+      }),
+    });
+  };
+  const headerCell = (text: string) => {
+    const cell = screen.getAllByRole('columnheader').find((th) => th.textContent === text);
+    if (cell === undefined) throw new Error(`no column ${text}`);
+    return cell;
+  };
+
+  it('the header shows Export, More and Add asset; the registers and the import are in More', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    const actions = await screen.findByTestId('assets-header-actions');
+    await screen.findByTestId('asset-add');
+    const buttons = within(actions).getAllByRole('button');
+    expect(buttons.map((b) => b.textContent.trim())).toEqual(['Export', 'More', 'Add asset']);
+    expect(screen.queryByTestId('assets-vendors-link')).toBeNull();
+    fireEvent.click(screen.getByTestId('assets-header-actions-more'));
+    for (const id of [
+      'assets-import-open',
+      'report-my-exports',
+      'assets-vendors-link',
+      'assets-groups-link',
+      'assets-loans-link',
+      'assets-consumables-link',
+      'assets-audits-link',
+    ]) {
+      expect(await screen.findByTestId(id)).toBeTruthy();
+    }
+    fireEvent.click(screen.getByTestId('report-my-exports'));
+    expect(await screen.findByTestId('report-exports-drawer')).toBeTruthy();
+  });
+
+  it('on a phone the type tree opens from its button, which names the chosen type', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    const toggle = await screen.findByTestId('asset-tree-toggle');
+    await screen.findByTestId(`asset-row-${ONE.id}`);
+    expect(screen.queryByRole('tree')).toBeNull();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.textContent).toBe('Product types');
+    fireEvent.click(toggle);
+    expect(await screen.findByRole('tree', { name: 'Product types' })).toBeTruthy();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    // Nothing is pinned on a phone: the pinned columns would take most of its width.
+    expect(headerCell('Asset tag').className).not.toContain('ant-table-cell-fix');
+  });
+
+  it('wide: the tree sits beside the list, the table knows its width, tag and state are pinned', async () => {
+    wide();
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByRole('tree', { name: 'Product types' })).toBeTruthy();
+    expect(screen.queryByTestId('asset-tree-toggle')).toBeNull();
+    await screen.findByTestId(`asset-row-${ONE.id}`);
+    const table = screen.getByTestId(`asset-row-${ONE.id}`).closest('table');
+    // 48 (boxes) + the ten columns' own widths: wider than the box, so it scrolls in it.
+    expect(table?.style.width).toBe('1668px');
+    expect(headerCell('Asset tag').className).toContain('ant-table-cell-fix-left');
+    const state = headerCell('State');
+    expect(state.className).toContain('ant-table-cell-fix-right');
+    // The state is the last column (pinned at the end side, the sideways-scroll cue).
+    expect(state.nextElementSibling).toBeNull();
+  });
+
+  it('wide, in Arabic: the tag stays pinned at the start side, now the right one', async () => {
+    wide();
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi({ locale: 'ar' });
+    restore = fake.restore;
+    render(<App />);
+    await screen.findByTestId(`asset-row-${ONE.id}`);
+    await waitFor(() => {
+      expect(document.documentElement.getAttribute('dir')).toBe('rtl');
+    });
+    const tag = await waitFor(() => {
+      const cell = screen
+        .getAllByRole('columnheader')
+        .find((th) => th.textContent === label('assets.record.tag', 'ar'));
+      if (cell === undefined) throw new Error('no tag column');
+      expect(cell.className).toContain('ant-table-cell-fix-right');
+      return cell;
+    });
+    expect(tag.className).not.toContain('ant-table-cell-fix-left');
+    const state = screen
+      .getAllByRole('columnheader')
+      .find((th) => th.textContent === label('assets.record.state', 'ar'));
+    expect(state?.className).toContain('ant-table-cell-fix-left');
   });
 });

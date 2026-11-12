@@ -945,6 +945,7 @@ export const en = {
   'assets.stock.vendor': 'Vendor',
   'assets.stock.yes': 'Yes',
   'assets.tree.all_types': 'All types',
+  'assets.tree.chosen': 'Product type: {{type}}',
   'assets.tree.count_one': '1 asset',
   'assets.tree.count_other': '{{count}} assets',
   'assets.tree.label': 'Product types',

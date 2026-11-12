@@ -159,6 +159,8 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
     const fake = viewsApi();
     restore = fake.restore;
     render(<App />);
+    // jsdom has no wide screen: the tree waits behind its button, as on a phone (V-03).
+    fireEvent.click(await screen.findByTestId('asset-tree-toggle'));
     const tree = await screen.findByRole('tree', { name: 'Product types' });
     const all = within(tree).getByTestId('asset-tree-all');
     await waitFor(() => {
@@ -207,6 +209,8 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
     const fake = viewsApi();
     restore = fake.restore;
     render(<App />);
+    // jsdom has no wide screen: the tree waits behind its button, as on a phone (V-03).
+    fireEvent.click(await screen.findByTestId('asset-tree-toggle'));
     const tree = await screen.findByRole('tree', { name: 'Product types' });
     const row = (id: string) => within(tree).getByTestId(`asset-tree-${id}`);
     await waitFor(() => {

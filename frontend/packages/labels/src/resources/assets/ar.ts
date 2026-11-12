@@ -1007,6 +1007,7 @@ export const ar: LabelResource = {
   'assets.stock.vendor': 'المورّد',
   'assets.stock.yes': 'نعم',
   'assets.tree.all_types': 'كل الأنواع',
+  'assets.tree.chosen': 'نوع المنتج: {{type}}',
   'assets.tree.count_few': '{{count}} أصول',
   'assets.tree.count_many': '{{count}} أصلًا',
   'assets.tree.count_one': 'أصل واحد',

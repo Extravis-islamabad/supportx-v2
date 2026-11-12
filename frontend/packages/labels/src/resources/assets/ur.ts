@@ -949,6 +949,7 @@ export const ur: LabelResource = {
   'assets.stock.vendor': 'فروشندہ',
   'assets.stock.yes': 'ہاں',
   'assets.tree.all_types': 'تمام اقسام',
+  'assets.tree.chosen': 'پروڈکٹ کی قسم: {{type}}',
   'assets.tree.count_one': '1 اثاثہ',
   'assets.tree.count_other': '{{count}} اثاثے',
   'assets.tree.label': 'پروڈکٹ کی اقسام',
