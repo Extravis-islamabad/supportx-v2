@@ -160,6 +160,16 @@ async def test_req_rel_057_ac2_take_makes_you_the_engineer_or_the_marked_role(
 
 async def test_only_a_release_role_can_be_take_s_role(world: World) -> None:
     a = world.a
+    release_settings = (await world.call("GET", f"{REL}/settings", a, a.admin)).json()
+    requester = await world.call(
+        "PATCH",
+        f"{REL}/settings/roles/requester",
+        a,
+        a.admin,
+        json={"take": True},
+        headers={"If-Match": f'"{release_settings["version"]}"', **CONSOLE},
+    )
+    assert requester.status_code == 422, requester.text  # who asked never takes it
     settings = (await world.call("GET", "/changes/settings", a, a.admin)).json()
     roles = (await world.call("GET", "/changes/settings/roles", a, a.admin)).json()
     refused = await world.call(

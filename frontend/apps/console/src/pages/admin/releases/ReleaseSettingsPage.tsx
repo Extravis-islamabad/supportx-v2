@@ -205,7 +205,8 @@ function RolesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       >
         <Flex vertical gap={8}>
           {(roles.data ?? [])
-            .filter((r) => !r.disabled)
+            // Who asked for a release never takes it; retired roles are not offered.
+            .filter((r) => !r.disabled && r.code !== 'requester')
             .map((r) => (
               <Radio key={r.code} value={r.code} data-testid={`settings-take-${r.code}`}>
                 {labelled(r.labels, locale, () => t(`work_item_role.${r.code}`))}

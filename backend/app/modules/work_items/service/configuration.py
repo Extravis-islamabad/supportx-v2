@@ -854,6 +854,8 @@ def _take_marker(
         raise invalid(field="take", field_code="invalid_choice")
     if take and changes.get("disabled_at", row.disabled_at) is not None:
         raise invalid(field="take", field_code="role_disabled")
+    if take and row.code == "requester":  # who asked for the release never takes it
+        raise invalid(field="take", field_code="invalid_choice")
     return take
 
 
