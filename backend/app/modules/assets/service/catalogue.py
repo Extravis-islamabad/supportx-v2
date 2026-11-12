@@ -64,6 +64,7 @@ from app.modules.assets.infra.models import (
     AssetSettings,
     AssetState,
 )
+from app.modules.assets.service.memo import memo
 from app.modules.identity_access import Subject
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.db.models import TenantEntity
@@ -220,6 +221,9 @@ async def ensure_defaults(session: AsyncSession) -> None:
     The settings row is the marker: only the transaction that inserts it seeds the rest. A
     parallel first request waits on the row's key until that transaction ends, then finds it.
     """
+    known = memo(session)
+    if known.get("defaults"):
+        return  # found earlier in this (sub)transaction (S4c: an import's many saves)
     tenant = _tenant(session)
     inserted = await session.execute(
         insert(AssetSettings)
@@ -228,6 +232,7 @@ async def ensure_defaults(session: AsyncSession) -> None:
         .returning(AssetSettings.tenant_id)
     )
     if inserted.scalar() is None:
+        known["defaults"] = True  # there before: never a row this savepoint may still undo
         return
     states: dict[str, uuid.UUID] = {}
     for sort, seed in enumerate(SEED_STATES):

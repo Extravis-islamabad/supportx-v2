@@ -89,6 +89,7 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
+        CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
         CheckConstraint(
             "task_dependency_mode IN ('block', 'warn')", name="task_dependency_mode_code"
         ),
@@ -186,6 +187,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     # implementing group too (strict; off by Haider's default), and a change goes to every board
     # its mapping matches rather than the first.
     segregation_strict: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-046a S2 (0144, REQ-INC-077): the most items one checklist may hold (admins set it).
+    checklist_item_max: Mapped[int] = mapped_column(Integer, server_default="100")
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
@@ -476,6 +479,10 @@ class WorkItemTemplate(TenantEntity):
     # WP-046a S1 (0141, REQ-INC-040): the tasks a record made from this template gets, each with
     # an optional condition on the new record's fields.
     tasks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    # WP-046a S2 (0144, REQ-INC-040): the checklists a record made from this template gets.
+    checklists: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )
 
 
 # Description is sanitised HTML: tags and entities become spaces before indexing (migration 0020);
@@ -1076,6 +1083,110 @@ class WorkItemBulkJob(TenantEntity):
     results: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
+
+
+class WorkItemChecklist(TenantEntity):
+    """A checklist on a work item (REQ-INC-077); a library copy is the record's own (AC3)."""
+
+    __tablename__ = "work_item_checklists"
+    __table_args__ = (
+        _work_item_fk("fk_wicl_work_item"),
+        CheckConstraint("length(btrim(title)) BETWEEN 1 AND 200", name="title_length"),
+        Index(
+            "ix_wicl_tenant_item_position",
+            "tenant_id",
+            "work_item_id",
+            "position",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    title: Mapped[str] = mapped_column(String(200))
+    position: Mapped[int] = mapped_column(Integer)
+    library_id: Mapped[uuid.UUID | None]
+
+
+class WorkItemChecklistItem(TenantEntity):
+    """One checklist item: ticked by whom and when (REQ-INC-077 AC1)."""
+
+    __tablename__ = "work_item_checklist_items"
+    __table_args__ = (
+        _work_item_fk("fk_wicli_work_item"),
+        CheckConstraint("length(btrim(text)) BETWEEN 1 AND 500", name="text_length"),
+        # Ticked by someone, or by the system on close (no person); never a person without a time.
+        CheckConstraint("done_by IS NULL OR done_at IS NOT NULL", name="done_pair"),
+        Index(
+            "ix_wicli_tenant_checklist_position",
+            "tenant_id",
+            "checklist_id",
+            "position",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    checklist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("work_item_checklists.id"))
+    work_item_id: Mapped[uuid.UUID]
+    text: Mapped[str] = mapped_column(String(500))
+    position: Mapped[int] = mapped_column(Integer)
+    done_at: Mapped[datetime | None]
+    done_by: Mapped[uuid.UUID | None]
+
+
+class ChecklistLibrary(TenantEntity):
+    """An admin's checklist for one work item type (REQ-INC-078): translatable, its items."""
+
+    __tablename__ = "checklist_library"
+    __table_args__ = (
+        CheckConstraint("jsonb_typeof(items) = 'array'", name="items_array"),
+        Index(
+            "ix_checklist_library_tenant_type",
+            "tenant_id",
+            "type",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(200))
+    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    items: Mapped[list[str]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    disabled_at: Mapped[datetime | None]
+
+
+class WorkItemReminder(TenantEntity):
+    """A person's own reminder on a record (REQ-INC-082): never shown to anyone else (AC2)."""
+
+    __tablename__ = "work_item_reminders"
+    __table_args__ = (
+        _work_item_fk("fk_wir_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wir_user"
+        ),
+        CheckConstraint("length(btrim(note)) BETWEEN 1 AND 500", name="note_length"),
+        CheckConstraint("alert_minutes BETWEEN 0 AND 10080", name="alert_range"),
+        Index(
+            "ix_wir_tenant_user_open",
+            "tenant_id",
+            "user_id",
+            "remind_at",
+            postgresql_where=text("deleted_at IS NULL AND done_at IS NULL"),
+        ),
+        Index(
+            "ix_wir_tenant_item",
+            "tenant_id",
+            "work_item_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    user_id: Mapped[uuid.UUID]
+    note: Mapped[str] = mapped_column(String(500))
+    remind_at: Mapped[datetime]
+    alert_minutes: Mapped[int] = mapped_column(Integer, server_default="0")
+    alerted_at: Mapped[datetime | None]
+    done_at: Mapped[datetime | None]
 
 
 class WorkItemTask(TenantEntity):

@@ -40,8 +40,8 @@ from app.modules.work_items.events import WorkItemListSettingsChanged, WorkItemV
 from app.modules.work_items.infra.models import WorkItemListSetting, WorkItemView
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import work_items as items
-from app.modules.work_items.service.access import FIELDS
-from app.modules.work_items.service.reporting import DIMENSIONS
+from app.modules.work_items.service.access import FIELDS, type_fields
+from app.modules.work_items.service.reporting import DIMENSIONS, TYPE_DIMENSIONS
 from app.shared.api.filters import FieldType, ResourceFields, compile_filter
 from app.shared.api.listing import parse_sort
 from app.shared.db.repository import Repository
@@ -68,9 +68,13 @@ class SettingRepository(Repository[WorkItemListSetting]):
 
 
 async def allowed_fields(session: AsyncSession, wtype: WorkItemType) -> ResourceFields:
-    """The list's allowlist for this tenant: built-in fields and custom fields (WP-026)."""
+    """The list's allowlist for this tenant: built-in, the type's own and custom fields (WP-026).
+
+    The type's own fields (a problem's type, a change's risk or outcome) are here so a report's
+    drill-down opens the list with the filter the chart counted (REQ-CHG-116 AC2).
+    """
     custom = await metadata.filter_fields(session, wtype.code.value, "work_items")
-    return replace(FIELDS, fields={**FIELDS.fields, **custom})
+    return replace(FIELDS, fields={**FIELDS.fields, **type_fields(wtype), **custom})
 
 
 def _require_view(subject: Subject, wtype: WorkItemType) -> None:
@@ -131,7 +135,13 @@ class ListField:
 
 # Built-in fields whose codes come from the tenant's pick lists: the list offers them as choices
 # named like the record does, never as free text (WP-020f QA BUG-05).
-PICK_LIST_FIELDS = {"level": PickList.LEVEL, "closure_code": PickList.CLOSURE_CODE}
+PICK_LIST_FIELDS = {
+    "level": PickList.LEVEL,
+    "closure_code": PickList.CLOSURE_CODE,
+    # A change's own lists (WP-045d S4c): only the change list has these fields.
+    "change_type": PickList.CHANGE_TYPE,
+    "change_reason": PickList.CHANGE_REASON,
+}
 
 
 async def list_fields(
@@ -150,7 +160,7 @@ async def list_fields(
     for name, spec in allowed.fields.items():
         if not spec.filterable:
             continue
-        dimension = DIMENSIONS.get(name)
+        dimension = DIMENSIONS.get(name) or TYPE_DIMENSIONS.get(wtype.code, {}).get(name)
         if dimension is None and name.startswith("custom.") and spec.type == FieldType.ENUM:
             dimension = Dimension(DimensionKind.ADMIN_CODE)
         found.append(

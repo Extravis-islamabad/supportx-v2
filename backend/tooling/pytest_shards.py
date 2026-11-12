@@ -22,6 +22,9 @@ using pytest-xdist inside (product owner, 2026-10-27: the backend CI job under 1
   fallback from a CI run (CI's runners, not a laptop, are what the shards must balance on).
 - Files using the private Keycloak run serially (one xdist group per shard), so the split
   spreads them over the shards instead of letting one shard's Keycloak chain set its time.
+- `SUPPORTX_TEST_SELECT=<selection.json>` (tooling/test_select.py, PR runs only) keeps only the
+  listed files when its "all" is false, before the split, so the shards share out just those.
+  A missing or unreadable file runs everything with a warning: never silently nothing.
 
 Registered with `-p tooling.pytest_shards` (pyproject addopts); does nothing without the
 variables. Never imported by the app.
@@ -165,6 +168,12 @@ KEYCLOAK_GROUP = "keycloak"
 @pytest.hookimpl(tryfirst=True)  # before xdist reads the groups
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Group the private Keycloak's tests; keep only this shard's files (SUPPORTX_TEST_SHARD)."""
+    chosen = _selected(config)
+    if chosen is not None:
+        outside = [item for item in items if _file(item.nodeid) not in chosen]
+        if outside:
+            config.hook.pytest_deselected(items=outside)
+        items[:] = [item for item in items if _file(item.nodeid) in chosen]
     serial: set[str] = set()
     for item in items:
         if "private_keycloak" in getattr(item, "fixturenames", ()):
@@ -195,12 +204,38 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 
 _UNWEIGHTED = pytest.StashKey[tuple[list[str], int]]()
+_SELECT_WARNING = pytest.StashKey[str]()
+
+
+def _selected(config: pytest.Config) -> frozenset[str] | None:
+    """The test files SUPPORTX_TEST_SELECT keeps, or None for all of them."""
+    given = os.environ.get("SUPPORTX_TEST_SELECT", "").strip()
+    if not given:
+        return None
+    try:
+        found = json.loads(Path(given).read_text(encoding="utf-8"))
+        if found["all"] is True:
+            return None
+        files = found["files"]
+        if found["all"] is not False or not isinstance(files, list) or not files:
+            msg = "expected all false with a non-empty list of files"
+            raise ValueError(msg)  # noqa: TRY301 - one fallback for every way the file is bad
+        return frozenset(str(name) for name in files)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        config.stash[_SELECT_WARNING] = (
+            f"SUPPORTX_TEST_SELECT={given} could not be used ({error!r}): running every test"
+        )
+        return None
 
 
 def pytest_terminal_summary(
     terminalreporter: pytest.TerminalReporter, config: pytest.Config
 ) -> None:
     """Name every test file without a shard weight, so the weights get added."""
+    if (warning := config.stash.get(_SELECT_WARNING, None)) is not None:
+        terminalreporter.write_line(f"WARNING: {warning}", yellow=True)
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            terminalreporter.write_line(f"::warning title=Test selection ignored::{warning}")
     found = config.stash.get(_UNWEIGHTED, None)
     if found is None:
         return
@@ -237,6 +272,10 @@ class _Timings:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Record file timings when asked (SUPPORTX_TEST_TIMINGS)."""
+    """Record file timings when asked (SUPPORTX_TEST_TIMINGS); check SUPPORTX_TEST_SELECT."""
+    # With xdist only the workers collect; reading the selection here too puts a bad file's
+    # warning in the controller's summary, where the job log shows it.
+    if not os.environ.get("PYTEST_XDIST_WORKER"):
+        _selected(config)
     if target := os.environ.get("SUPPORTX_TEST_TIMINGS"):
         config.pluginmanager.register(_Timings(Path(target)), "supportx-test-timings")

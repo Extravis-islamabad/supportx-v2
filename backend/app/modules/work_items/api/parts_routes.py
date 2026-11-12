@@ -390,9 +390,7 @@ class WorkItemLinkOut(BaseModel):
 
     id: uuid.UUID
     kind: LinkKind
-    relation: Literal[
-        "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
-    ]
+    relation: service.Relation
     other_id: uuid.UUID | None = Field(description="Only when you may see the other record.")
     other_type: WorkItemTypeCode | None = Field(
         default=None, description="The other record's type, when you may see it (WP-044a)."

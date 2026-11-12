@@ -135,6 +135,7 @@ class ClosureSettings:
     worklog_count_nonworking: bool = True
     timer_auto_start: bool = False
     task_dependency_mode: str = "block"  # WP-046a S1 (REQ-INC-075): block or warn
+    checklist_item_max: int = 100  # WP-046a S2: items per record, all its checklists
 
 
 @dataclass(frozen=True)
@@ -870,6 +871,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             worklog_count_nonworking=settings.worklog_count_nonworking,
             timer_auto_start=settings.timer_auto_start,
             task_dependency_mode=settings.task_dependency_mode,
+            checklist_item_max=settings.checklist_item_max,
         ),
         last_number=await last_number(session, wtype.counter_key),
     )

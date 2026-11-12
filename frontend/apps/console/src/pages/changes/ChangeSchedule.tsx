@@ -362,7 +362,7 @@ function ImplementationWindow({ change }: { change: Change }) {
           />
         </Form.Item>
         {dirty && (
-          <Form.Item label={<span aria-hidden>&nbsp;</span>}>
+          <Form.Item style={{ alignSelf: 'flex-end' }}>
             <Space>
               <WriteButton
                 type="primary"
@@ -588,7 +588,7 @@ function Downtimes({ change }: { change: Change }) {
               hideZone
             />
           </Form.Item>
-          <Form.Item label={<span aria-hidden>&nbsp;</span>}>
+          <Form.Item style={{ alignSelf: 'flex-end' }}>
             <WriteButton
               disabled={missing !== undefined}
               whyDisabled={missing}

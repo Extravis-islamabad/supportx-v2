@@ -21,8 +21,10 @@ The built-in technician role holds view and the working permissions at `group` a
 """
 
 import uuid
+from collections.abc import Mapping
+from typing import Any
 
-from sqlalchemy import ColumnElement, and_, false, or_, select
+from sqlalchemy import BigInteger, ColumnElement, and_, false, func, or_, select
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import (
@@ -35,13 +37,21 @@ from app.modules.identity_access import (
     ResourceType,
     Subject,
 )
-from app.modules.work_items.domain.changes import CHANGE_MODEL
+from app.modules.work_items.domain.change_risk import RiskLevel
+from app.modules.work_items.domain.changes import CHANGE_MODEL, OUTCOME_OF_STATUS
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
-from app.modules.work_items.domain.releases import RELEASE_MODEL
+from app.modules.work_items.domain.releases import RELEASE_MODEL, DowntimePhase
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import Channel, WorkItemType, WorkItemTypeCode
-from app.modules.work_items.infra.models import WorkItem, WorkItemFollower, WorkItemRoleHolder
+from app.modules.work_items.infra.models import (
+    WorkItem,
+    WorkItemChangeDetails,
+    WorkItemDowntime,
+    WorkItemFollower,
+    WorkItemRoleHolder,
+    WorkItemStageSchedule,
+)
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 
 NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
@@ -197,6 +207,108 @@ FIELDS = ResourceFields(
     id_column=WorkItem.id,
     default_sort=("-updated_at",),
 )
+
+
+# --- type-own fields (WP-044c D15, WP-045d S4c; REQ-CHG-116) ----------------------------------
+# Fields only one type has. Its report source and its list both take them, so a chart's drill-down
+# opens the list with the very filter the chart counted (AC2); other types never offer them.
+# A change's figures live on its own rows; each is a correlated subquery on the change's key
+# (tenant_id first, the primary keys' order), read only for the rows the list's scope keeps.
+
+
+def _change(column: Any) -> Any:  # noqa: ANN401 - SQLAlchemy column and scalar subquery
+    return (
+        select(column)
+        .where(
+            WorkItemChangeDetails.tenant_id == WorkItem.tenant_id,
+            WorkItemChangeDetails.work_item_id == WorkItem.id,
+        )
+        .scalar_subquery()
+    )
+
+
+def _implementation(column: Any) -> Any:  # noqa: ANN401 - SQLAlchemy column and scalar subquery
+    return (
+        select(column)
+        .where(
+            WorkItemStageSchedule.tenant_id == WorkItem.tenant_id,
+            WorkItemStageSchedule.work_item_id == WorkItem.id,
+            WorkItemStageSchedule.stage == IMPLEMENTATION,
+        )
+        .scalar_subquery()
+    )
+
+
+def _downtime_seconds(phase: DowntimePhase) -> Any:  # noqa: ANN401 - a scalar subquery
+    seconds = func.extract("epoch", WorkItemDowntime.ends_at - WorkItemDowntime.starts_at)
+    return (
+        select(func.coalesce(func.sum(seconds), 0).cast(BigInteger))
+        .where(
+            WorkItemDowntime.tenant_id == WorkItem.tenant_id,
+            WorkItemDowntime.work_item_id == WorkItem.id,
+            WorkItemDowntime.phase == phase.value,
+            WorkItemDowntime.deleted_at.is_(None),
+        )
+        .scalar_subquery()
+    )
+
+
+IMPLEMENTATION = "implementation"
+PROBLEM_FIELDS: Mapping[str, FilterField] = {
+    "problem_type": FilterField(WorkItem.problem_type, FieldType.STRING),
+    "root_cause_category": FilterField(WorkItem.root_cause_category, FieldType.STRING),
+    "known_error_at": FilterField(WorkItem.known_error_at, FieldType.DATETIME, simple=False),
+    "accepted_at": FilterField(WorkItem.accepted_at, FieldType.DATETIME, simple=False),
+}
+CHANGE_FIELDS: Mapping[str, FilterField] = {
+    "stage": FilterField(WorkItem.stage, FieldType.STRING),
+    "stage_path": FilterField(WorkItem.stage_path, FieldType.STRING),  # "emergency": the path
+    "change_type": FilterField(_change(WorkItemChangeDetails.change_type), FieldType.STRING),
+    "change_reason": FilterField(_change(WorkItemChangeDetails.change_reason), FieldType.STRING),
+    "risk": _enum(_change(WorkItemChangeDetails.risk), RiskLevel),
+    "retrospective": FilterField(_change(WorkItemChangeDetails.retrospective), FieldType.BOOLEAN),
+    # A blocking freeze passed: the change manager's override or the emergency CAB's (D-156).
+    "freeze_overridden": FilterField(
+        _change(
+            or_(
+                WorkItemChangeDetails.freeze_override_at.is_not(None),
+                WorkItemChangeDetails.freeze_cab_passed_at.is_not(None),
+            )
+        ),
+        FieldType.BOOLEAN,
+    ),
+    # A change's implementation outcomes (REQ-CHG-032): successful (with issues or not), failed,
+    # backed out.
+    "implementation_outcome": _enum(
+        _implementation(WorkItemStageSchedule.outcome),
+        sorted({o for allowed in OUTCOME_OF_STATUS.values() for o in allowed}),
+    ),
+    # Actual implementation time only: a change without both actual times has none.
+    "implementation_seconds": FilterField(
+        _implementation(
+            func.extract(
+                "epoch", WorkItemStageSchedule.actual_end - WorkItemStageSchedule.actual_start
+            ).cast(BigInteger)
+        ),
+        FieldType.INTEGER,
+    ),
+    "planned_downtime_seconds": FilterField(
+        _downtime_seconds(DowntimePhase.PLANNED), FieldType.INTEGER
+    ),
+    "actual_downtime_seconds": FilterField(
+        _downtime_seconds(DowntimePhase.ACTUAL), FieldType.INTEGER
+    ),
+}
+_TYPE_FIELDS: Mapping[WorkItemTypeCode, Mapping[str, FilterField]] = {
+    WorkItemTypeCode.PROBLEM: PROBLEM_FIELDS,
+    WorkItemTypeCode.CHANGE: CHANGE_FIELDS,
+}
+
+
+def type_fields(wtype: WorkItemType) -> Mapping[str, FilterField]:
+    """The fields only this type has (empty for most)."""
+    return _TYPE_FIELDS.get(wtype.code, {})
+
 
 RESOURCE = ResourceType(
     name="work_items",

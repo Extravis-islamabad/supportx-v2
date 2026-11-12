@@ -186,6 +186,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFormatsOut.formats[]": "report_export_format",
     "ReportExportIn.language": "locale",
     "ReportRunIn.language": "locale",
+    "ArchiveIn.language": "locale",  # WP-046a S2: the zip manifest's language
     "ReportExportOut.status": "report_export_status",
     "ReportSettingsOut.week_start": "report_week_start",
     "ReportSettingsPatch.week_start": "report_week_start",

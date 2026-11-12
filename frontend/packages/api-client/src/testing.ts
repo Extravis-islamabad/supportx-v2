@@ -671,6 +671,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       open_work: { tasks: 'warn', checklists: 'warn', child_incidents: 'warn', approvals: 'block' },
       complete_open_work: false,
       auto_close_days: null,
+      checklist_item_max: 100, // WP-046a S2
       reopen_window_days: 7,
       task_owner_access: false, // WP-020e (D-112): off by default
       task_dependency_mode: 'block', // WP-046a S1 (REQ-INC-075)

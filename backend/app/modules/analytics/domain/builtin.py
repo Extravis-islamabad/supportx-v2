@@ -24,6 +24,7 @@ INCIDENTS = "incidents"  # folder code; label `report_folder.incidents`
 SERVICE_REQUESTS = "service_requests"
 PROBLEMS = "problems"
 RELEASES = "releases"
+CHANGES = "changes"
 ASSETS = "assets"
 
 _OPEN = {"field": "status_category", "op": "in", "value": ["open", "paused"]}
@@ -221,6 +222,83 @@ BUILTIN_REPORTS += (
     *_starter_set("service_request", SERVICE_REQUESTS, "requests"),
     *_starter_set("problem", PROBLEMS, "problems"),
     *_starter_set("release", RELEASES, "releases"),
+)
+
+# Changes (WP-045d S4c, REQ-CHG-116): the starter set, then where changes stand and how they went,
+# over the changes raised in the last 90 days (a year for the monthly trends).
+_CHANGE_90 = {"field": "created_at", "op": "last_n_days", "value": 90}
+
+
+def _change(code: str, **definition: Any) -> BuiltinReport:  # noqa: ANN401 - definition fields
+    return _of("change", CHANGES, code, **definition)
+
+
+BUILTIN_REPORTS += (
+    *_starter_set("change", CHANGES, "changes"),
+    _change(
+        "changes_open_by_stage",
+        filter=_OPEN,
+        group_by=[{"field": "stage"}],
+        order="key",
+        chart="bar",
+    ),
+    _change("changes_by_type", filter=_CHANGE_90, group_by=[{"field": "change_type"}]),
+    _change("changes_by_risk", filter=_CHANGE_90, group_by=[{"field": "risk"}], chart="doughnut"),
+    _change(
+        "changes_by_reason",
+        filter=_CHANGE_90,
+        group_by=[{"field": "change_reason"}],
+        order="value_desc",
+    ),
+    _change(
+        "changes_by_outcome",
+        filter={"and": [_CHANGE_90, {"field": "implementation_outcome", "op": "is_not_null"}]},
+        group_by=[{"field": "implementation_outcome"}],
+        chart="doughnut",
+    ),
+    _change(
+        "changes_success_rate_by_type",
+        filter=_CHANGE_90,
+        group_by=[{"field": "change_type"}],
+        measures=["success_rate", "count"],
+        chart="bar",
+    ),
+    _change(
+        "changes_success_rate_by_group",
+        filter=_CHANGE_90,
+        group_by=[{"field": "group_id"}],
+        measures=["success_rate", "count"],
+        order="value_desc",
+        chart="bar",
+    ),
+    _change(
+        "changes_emergency_share_per_month",
+        filter={"field": "created_at", "op": "last_n_days", "value": 365},
+        group_by=[{"field": "created_at", "bucket": "month"}],
+        measures=["emergency_share"],
+        chart="line",
+    ),
+    _change(
+        "changes_downtime_per_month",
+        filter={"field": "created_at", "op": "last_n_days", "value": 365},
+        group_by=[{"field": "created_at", "bucket": "month"}],
+        measures=["planned_downtime_total", "actual_downtime_total"],
+        chart="bar",
+    ),
+    _change(
+        "changes_implementation_time_by_type",
+        filter=_CHANGE_90,
+        group_by=[{"field": "change_type"}],
+        measures=["average_implementation_time"],
+        chart="bar",
+    ),
+    _change(
+        "changes_freeze_overrides_by_group",
+        filter={"and": [_CHANGE_90, {"field": "freeze_overridden", "op": "eq", "value": True}]},
+        group_by=[{"field": "group_id"}],
+        order="value_desc",
+        chart="bar",
+    ),
 )
 
 # How far ahead the warranty report looks.
