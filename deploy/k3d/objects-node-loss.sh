@@ -201,9 +201,14 @@ deadline=$((stopped_at + BUDGET))
 for n in $(seq 1 "$FILES"); do
   by_deadline "$deadline" downloaded "$n" ||
     { echo "file $n did not download intact within ${BUDGET} s of the stop"; show_write_trace; exit 1; }
+  echo "  file $n read at t+$((SECONDS - stopped_at))s"
 done
 read_after=$((SECONDS - stopped_at))
 echo "all $FILES files downloaded intact ${read_after} s after the stop"
+# by_deadline only stops retrying at the deadline; a file read on its first try after it still
+# passes there, so the whole batch is held to the budget here (run 43320676209: 107 s passed).
+[ "$read_after" -le "$BUDGET" ] ||
+  { echo "the $FILES files took ${read_after} s to read after the stop, over the ${BUDGET} s budget"; show_write_trace; exit 1; }
 for n in $(seq $((FILES + 1)) $((FILES + NEW))); do
   make_file "$n"
   by_deadline "$deadline" upload "$n" ||
@@ -211,6 +216,8 @@ for n in $(seq $((FILES + 1)) $((FILES + NEW))); do
 done
 write_after=$((SECONDS - stopped_at))
 echo "$NEW new files uploaded ${write_after} s after the stop"
+[ "$write_after" -le "$BUDGET" ] ||
+  { echo "the $NEW new files were written ${write_after} s after the stop, over the ${BUDGET} s budget"; show_write_trace; exit 1; }
 show_write_trace
 new_leader="$(leader "$node" || true)"
 [ -n "$new_leader" ] && echo "SeaweedFS leader now: $new_leader (on $(node_of "$new_leader"))"
