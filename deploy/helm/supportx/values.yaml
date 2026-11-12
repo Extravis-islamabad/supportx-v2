@@ -510,19 +510,37 @@ mailCatcher:
 routing:
   mode: gateway                     # gateway | ingress | none
   hostnames: []                     # empty = every host that reaches the gateway
+  # HTTPS at the gateway (audit row 5; docs/deployment.md "Transport security"). On by default:
+  # browsers carry the session cookie and every password over this hop. Turn it off only where
+  # something in front already terminates TLS, or on the local k3d cluster (values-dev.yaml).
+  tls:
+    enabled: true
+    # The kubernetes.io/tls Secret the HTTPS listener serves: your own certificate (on-prem), or
+    # where cert-manager writes one when `issuerRef` is set (default name then: <release>-tls).
+    # The older routing.gateway.tlsSecret / routing.ingress.tlsSecret still work.
+    secretName: ""
+    # A cert-manager Issuer or ClusterIssuer (e.g. {name: letsencrypt, kind: ClusterIssuer}):
+    # the chart then asks it for a certificate for `hostnames` (or publicUrl's host).
+    issuerRef: {}
+    # Plain HTTP answers only with a 301 to https (gateway mode). Ingress mode: use your ingress
+    # controller's own redirect (an annotation), as Ingress has no portable way to say it.
+    redirectHttp: true
   gateway:
     create: true                    # false = attach the routes to an existing Gateway
     name: ""                        # default: <release>
     namespace: ""                   # default: release namespace
     className: traefik
+    # Plain HTTP: the only listener with routing.tls off, else only the redirect to https.
     listenerName: web
     port: 8000                      # Traefik's web entrypoint inside the cluster
-    protocol: HTTP
-    tlsSecret: ""                   # with protocol HTTPS
+    # HTTPS (routing.tls.enabled).
+    tlsListenerName: websecure
+    tlsPort: 8443                   # Traefik's websecure entrypoint inside the cluster
+    tlsSecret: ""                   # older name of routing.tls.secretName
   ingress:
     className: traefik
     annotations: {}
-    tlsSecret: ""
+    tlsSecret: ""                   # older name of routing.tls.secretName
 
 # --- observability ------------------------------------------------------------------------------------
 metrics:

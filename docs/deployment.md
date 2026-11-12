@@ -81,8 +81,9 @@ hex values and never overwrites an existing one (its passwords are already insid
   demo tenants seeded, Keycloak admin API public, a NodePort to PostgreSQL on the host's loopback
   (127.0.0.1:25433) for the e2e suite's tools. **Never** use it anywhere else.
 - `values-single-node.yaml`: one k3s VM (8 vCPU / 32 GB / 500 GB), production profile, HTTPS on
-  Traefik's websecure listener with your certificate Secret, the base realm (no users). **Internal
-  evaluation only** until backups (WP-014b) and Nuitka images exist.
+  Traefik's websecure listener with your certificate Secret (plain HTTP redirected to it), the
+  base realm (no users). **Internal evaluation only** until backups (WP-014b) and Nuitka images
+  exist.
 - `values-ha.yaml` (WP-014b, ADR-038): three or more nodes. Two or three copies of every stateless
   component, PostgreSQL with one primary and two standbys, two PgBouncer copies, a three-server
   NATS cluster and Valkey with Sentinel. Copies sit on different nodes, each with a
@@ -108,6 +109,36 @@ hex values and never overwrites an existing one (its passwords are already insid
   the sentinels' next INFO, can still miss the failover until that pod is back. No data is lost
   (a pod never starts as an empty master while a peer may hold data), but Valkey is unavailable
   meanwhile; Kubernetes restarts the pod, and it rejoins.
+
+## Transport security
+
+What is encrypted on each hop, per profile (audit row 5). "Verified" means the client checks the
+server's certificate against a known CA and the host name it dialled.
+
+| Hop | dev (k3d) | single-node | HA |
+|---|---|---|---|
+| Browser to gateway | plain http (local only) | **HTTPS**, HTTP answers 301 to https | **HTTPS**, HTTP answers 301 to https |
+
+### Browser to gateway (routing.tls)
+
+On by default in every profile but `values-dev.yaml`. The Gateway gets two listeners: HTTPS
+(`routing.gateway.tlsListenerName`, Traefik's websecure entrypoint 8443) carrying every route, and
+plain HTTP (`listenerName`, 8000) whose only route is a `RequestRedirect` to https with status
+301. `routing.tls.redirectHttp: false` drops the HTTP listener altogether. The certificate:
+
+- **Your own (on-prem):** create a `kubernetes.io/tls` Secret in the release namespace
+  (`kubectl -n supportx create secret tls supportx-tls --cert=fullchain.pem --key=key.pem`) and
+  set `routing.tls.secretName=supportx-tls`. The older `routing.gateway.tlsSecret` still works.
+  Renewing it is replacing the Secret; Traefik picks the new one up by itself.
+- **From cert-manager:** set `routing.tls.issuerRef` (`{name: ..., kind: ClusterIssuer}`); the
+  chart asks for a Certificate for `routing.hostnames` (or `publicUrl`'s host) in
+  `<release>-tls` (or `routing.tls.secretName`), and cert-manager renews it.
+
+The chart refuses TLS without either, and TLS with an `http://` `publicUrl`. Where a load
+balancer in front already terminates TLS, set `routing.tls.enabled: false` and keep `publicUrl`
+`https://`. Ingress mode serves the same Secret; its redirect is your ingress controller's own
+setting (Ingress has no portable way to say it). `routing.gateway.protocol` is gone: the chart
+refuses it and names `routing.tls.enabled` instead.
 
 ## Client addresses behind the gateway
 
