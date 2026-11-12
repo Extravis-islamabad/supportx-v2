@@ -129,8 +129,14 @@ async def bff(
         app.state.session_resolver = service.resolve
         # Rate limits on memory too: the settings' Valkey is unreachable on purpose, and the
         # sign-in routes fail closed without one (audit row 14).
+        # The world's frozen clock, never wall time: the limiter counts in fixed windows, and a
+        # test whose requests straddled a window edge saw its count reset (a flake in CI on
+        # test_login_is_limited_per_address, 2026-11-12).
         limiter = RateLimiter(
-            CountingValkey(), prefix="t:", provider=SettingsPolicyProvider(settings)
+            CountingValkey(),
+            prefix="t:",
+            provider=SettingsPolicyProvider(settings),
+            clock=lambda: clock.now().timestamp(),
         )
         setattr(app.state, RATE_LIMITER_STATE, limiter)
         transport = ASGITransport(app=app, raise_app_exceptions=False)
