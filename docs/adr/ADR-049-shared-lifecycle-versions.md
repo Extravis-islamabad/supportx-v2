@@ -42,18 +42,55 @@ Both share `work_item_statuses`.
    the key), `permission` (an extra right, as ADR-041's), `required_fields`, `conditions` (JSONB:
    who may run it, from roles, groups, the requester, the group head and the reporting manager)
    and `after_actions` (references to the automation action library, run through it, ADR-043).
-5. **One conditions function.** Whether a person may run a transition is decided by one pure
-   function over the transition's conditions and the person's facts on the record. The same
-   function decides what is offered (the record's buttons and the API's operations) and what the
-   API accepts: a transition it refuses is a 403 with its reason, never just hidden (AC2).
+5. **One conditions function; conditions only narrow, never grant** (lane B's review). A
+   transition runs only when all of these hold, checked in this order:
+   1. the record is in the person's scope (`authorize_stored`); a record out of scope stays a
+      404, before any condition is looked at;
+   2. the person holds the type's base right for the move, as today;
+   3. the person holds the transition's `permission`, when one is set;
+   4. the transition's conditions pass.
+
+   A condition can never stand in for a missing right.
+   - **Semantics.** No conditions means no extra limit. The conditions are **one any-of list**:
+     the transition runs for anyone who matches any entry ("the requester, or the group head, or
+     role Finance"). Within an entry, its roles, groups or people are any-of too.
+   - **Fail closed.** An entry naming a role or group since deleted, or "the reporting manager" of
+     a requester who has none, matches nobody. Publishing reports it up front, and at run time it
+     is a refusal, never an allow.
+   - **Facts are read when the move is accepted**, inside its transaction and after the If-Match
+     check (the group, the requester or a manager may have changed since the buttons were shown).
+     What is offered is advisory only.
+   - **Ids stay in the tenant.** A role, group or person id in a condition is checked within the
+     tenant when the draft is saved. One from another tenant is refused (RLS already hides it,
+     and a test proves the refusal).
+   - **The refusal says why, without naming anyone.** It is a 403
+     `transition_condition_not_met` whose params carry only the condition kind
+     (`{kind: "group_head"}`): no names, other people's identities or role ids. On the portal a
+     requester sees only that the move is not available to them.
+   - **No silent bypass.** Conditions apply to automation, workflows and rules too, acting
+     through their run-as identities (lane C's run-as pattern). Anything that must bypass them
+     does so only through an explicit transition flag that only an administrator sets, and the
+     setting is audited.
+   - **After-actions** run through the ADR-043 action library as the configured run-as identity,
+     never as the acting person, after the commit through the outbox, never in the request's
+     transaction, so an action cannot make the move succeed or fail.
+   - **`permission`** must be a right in the catalogue, checked at publish, and never an
+     administrator-only right (identity, roles, API keys): the same rule as
+     `role_allowed_for_service`.
 6. **Publishing validates.** A version publishes only when every status that is not final has a
    way out (the message names the status, AC1), every transition's target exists in it, every
-   required field is a real field of the type, every condition names something that exists, and
-   every after-action is known to the action library. Each problem names exactly what to fix.
-7. **Migrating records is an admin action.** It moves chosen records (or all on a version) to
-   another published version, after a dry run that lists each record whose status has no place
-   in the target and where it would go. It needs the type's settings right, writes history on
-   each record and one audit entry per run.
+   required field is a real field of the type, every condition names something that exists in
+   the tenant, every `permission` is allowed (above), and every after-action is known to the
+   action library. Each problem names exactly what to fix. Saving a draft, publishing and
+   retiring a version need the type's settings right; publishing and retiring are audited.
+7. **Migrating records is an admin action** (the type's settings right).
+   - A dry run writes nothing: it lists each record whose status has no place in the target
+     version and where it would go.
+   - A real run moves records in background jobs of up to 1,000 each, with each record's version
+     check: a record changed since the dry run is skipped and listed, never forced.
+   - Migrating runs no after-actions and none of the new version's required-field checks.
+   - History on each record uses the source `migration`. One audit entry per run records the
+     actor, the type, the from and to version, and the moved, skipped and failed counts.
 8. **The designer reuses lane C's flow package** (packages/flow): statuses as nodes, transitions as
    links, keyboard moves and right-to-left layout as the workflow designer has them (AC4).
 9. **Data step.** The migration that adds this makes every tenant's existing transitions version 1,
@@ -66,9 +103,20 @@ Both share `work_item_statuses`.
   100,000 records.
 - REQ-CHG-030's publish uses the same table and validation, so changes and releases gain versions
   without a second model.
-- The conditions function is security-relevant and is reviewed by lane B; the stage side, by
-  lane C.
+- The conditions function is security-relevant: lane B blocks it and its 403 path; lane C
+  blocks the stage engine side.
 - Incidents keep their actions contract, so no caller changes.
+
+## Tests this decision requires
+
+- RLS for `work_item_lifecycle_versions` (rule 5a): tenant A never reads or writes tenant B's.
+- A condition matrix: each kind × matches / doesn't / names something deleted.
+- The API refuses a transition it did not offer, with `transition_condition_not_met` and its kind.
+- A record out of scope is a 404 before any condition is checked.
+- A role or group id from another tenant is refused when a draft is saved.
+- A run-as identity (automation, workflow) is limited by a condition like a person.
+- A migration skips a record changed since its dry run and lists it.
+- A record on version 1 keeps working after version 2 is published (REQ-INC-049 AC3).
 
 ## Alternatives considered
 
