@@ -220,17 +220,27 @@ jobs:
         run: uv run pytest tests/ha --no-cov -p no:cacheprovider -v
 
   backend-paths:
-    # Whether this PR run needs the 8 backend shards (coordinator, 2026-11-11, option A: on 11-10
-    # the shards were 83% of PR runner time and 29 of 117 PR runs changed no backend file). A PR
-    # touching only the frontend, docs or the mobile app skips them at job level, so their
-    # runner slots are actually freed; `backend checks` still runs the label tests there.
-    # The merge queue, nightly, manual runs and the full-ci label ALWAYS run them, so every merge
-    # is still tested in full (tests/test_ci_triggers.py guards it).
+    # Whether this PR run needs the backend shards, and which tests they run (coordinator,
+    # 2026-11-11, option A: on 11-10 the shards were 83% of PR runner time and 29 of 117 PR runs
+    # changed no backend file). A PR touching only the frontend, docs, the mobile app, the Helm
+    # chart or the k3s/k3d files skips them at job level, so their runner slots are actually
+    # freed; `backend checks` still runs the label tests there. A PR with a backend change runs
+    # only the test files its changes can affect (tooling/test_select.py), on as many shards as
+    # they need (product owner, 2026-11-12).
+    # The merge queue, nightly, manual runs and the full-ci label ALWAYS run all 8 shards with
+    # no selection, so every merge is still tested in full (tests/test_ci_triggers.py guards it).
     name: backend paths
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # the newest nightly's shard weights, to size the selection
     outputs:
       tests: ${{ github.event_name != 'pull_request' && 'true' || contains(github.event.pull_request.labels.*.name, 'full-ci') && 'true' || steps.changes.outputs.run }}
+      # Only a PR run without the label may run fewer shards; anything else gets all eight.
+      shards: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') && steps.select.outputs.shards || '[1, 2, 3, 4, 5, 6, 7, 8]' }}
+      count: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') && steps.select.outputs.count || '8' }}
+      partial: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') && steps.select.outputs.partial || 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: ${{ github.event_name == 'pull_request' }}
@@ -242,9 +252,56 @@ jobs:
         uses: ./.github/actions/changes
         with:
           light: '^(docs/|mobile/|.*\.(md|mdx)$)'
-          # The backend, its deployment, the build and CI itself; frontend/ alone does not.
-          needs: '^(backend/|deploy/|Makefile$|\.github/|\.pre-commit-config\.yaml$)'
+          # The backend, the dev stack it is tested against, the build and the CI files the
+          # shards use; frontend/, the Helm chart, k3s/k3d files and other workflows alone do not.
+          needs: '^(backend/|deploy/compose/|Makefile$|\.github/actions/|\.github/workflows/ci\.yml$|\.pre-commit-config\.yaml$)'
           skipped: "skipped: no backend change (the 8 shards run in the merge queue)"
+      - uses: ./.github/actions/setup-backend
+        if: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') && !github.event.pull_request.draft && steps.changes.outputs.run == 'true' }}
+      - name: Select the tests this PR's changes can affect
+        id: select
+        if: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') && !github.event.pull_request.draft && steps.changes.outputs.run == 'true' }}
+        working-directory: backend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Both names of a renamed file count, as in .github/actions/changes. Any failure here
+          # fails the job, and a failed paths job never lets skipped shards pass `backend`.
+          gh api --paginate "repos/$REPO/pulls/$PR/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
+          # The newest nightly's file seconds size the selection (none: the committed ones).
+          weights=()
+          run=$(gh run list --repo "$REPO" --workflow ci.yml --event schedule --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId // empty' || true)
+          if [ -n "$run" ] && gh run download "$run" --repo "$REPO" -n backend-shard-weights -D "$RUNNER_TEMP/weights"; then
+            weights=(--weights "$RUNNER_TEMP/weights/shard_weights.json")
+          fi
+          mkdir -p "$RUNNER_TEMP/selection"
+          uv run python -m tooling.test_select --changed "$RUNNER_TEMP/changed.txt" "${weights[@]}" \
+            --out "$RUNNER_TEMP/selection/selection.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          all=$(jq -r '.all' "$RUNNER_TEMP/selection/selection.json")
+          count=$(jq -r '.shards' "$RUNNER_TEMP/selection/selection.json")
+          # More than 3000 changed files (the API's limit), or nothing selected although the
+          # changes step found a backend change: run everything (never a run of nothing).
+          if [ "$all" = "true" ] || [ "$count" -lt 1 ] || [ "$(grep -c . "$RUNNER_TEMP/changed.txt")" -ge 3000 ]; then
+            { echo "shards=[1, 2, 3, 4, 5, 6, 7, 8]"; echo "count=8"; echo "partial=false"; } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "shards=$(jq -c '[range(1; .shards + 1)]' "$RUNNER_TEMP/selection/selection.json")"
+              echo "count=$count"
+              echo "partial=true"
+            } >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ steps.select.outputs.partial == 'true' }}
+        with:
+          name: test-selection
+          path: ${{ runner.temp }}/selection/selection.json
+          retention-days: 3
+          if-no-files-found: error
 
   shard-weights:
     # The newest nightly's file timings (its `backend-shard-weights` artifact), resolved once per
@@ -287,7 +344,7 @@ jobs:
           if-no-files-found: ignore
 
   backend-tests:
-    name: backend tests ${{ matrix.shard }}/8
+    name: backend tests ${{ matrix.shard }}/${{ needs.backend-paths.outputs.count }}
     needs: [shard-weights, backend-paths]
     # Drafts: the fast set only (see shard-weights); PRs without a backend change: see backend-paths.
     if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) && needs.backend-paths.outputs.tests == 'true' }}
@@ -301,7 +358,9 @@ jobs:
       matrix:
         # Six since 2026-11-05 (coordinator): with four, shards ran 17-20 min of the 20 min
         # limit as the suite grew (WP-044, 049, 058); four since 2026-11-04, three before.
-        shard: [1, 2, 3, 4, 5, 6, 7, 8] # keep in step with SUPPORTX_TEST_SHARD below
+        # Eight everywhere but a PR run with a test selection (backend-paths: fewer, by its
+        # selected files' seconds); keep in step with SUPPORTX_TEST_SHARD below.
+        shard: ${{ fromJSON(needs.backend-paths.outputs.shards) }}
     # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
     # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
     # NATS JetStream is started as a step below (service containers cannot pass `-js`).
@@ -341,7 +400,7 @@ jobs:
           --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 5s
           --health-retries 20
     env:
-      SUPPORTX_TEST_SHARD: ${{ matrix.shard }}/8
+      SUPPORTX_TEST_SHARD: ${{ matrix.shard }}/${{ needs.backend-paths.outputs.count }}
       SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
       SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
       SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
@@ -414,12 +473,23 @@ jobs:
         with:
           name: shard-weights
           path: ${{ runner.temp }}/shard-weights
+      # A PR run with a selection runs only its files (tooling/test_select.py). A failed
+      # download fails the shard at once (lane C's #437 review): the run was sized for the
+      # selection, so this shard's share of everything would only time out 20 minutes later.
+      - name: The run's test selection (PR runs that select only)
+        if: ${{ steps.changes.outputs.run == 'true' && github.event_name == 'pull_request' && needs.backend-paths.outputs.partial == 'true' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: test-selection
+          path: ${{ runner.temp }}/test-selection
       - name: Test this shard (4 workers; coverage combined and checked by the backend job)
         if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: backend
         env:
           # tooling/pytest_shards.py falls back to tests/shard_weights.json when this is missing.
           SUPPORTX_TEST_WEIGHTS: ${{ runner.temp }}/shard-weights/shard_weights.json
+          # Empty (run everything) outside a selecting PR run: the queue never selects.
+          SUPPORTX_TEST_SELECT: ${{ github.event_name == 'pull_request' && needs.backend-paths.outputs.partial == 'true' && format('{0}/test-selection/selection.json', runner.temp) || '' }}
           SUPPORTX_PERF_REPORT: ${{ runner.temp }}/event-perf.json
           # Each file's seconds, to refresh tests/shard_weights.json from CI (tooling/pytest_shards.py).
           SUPPORTX_TEST_TIMINGS: ${{ runner.temp }}/timings.json
@@ -465,6 +535,12 @@ jobs:
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # the newest nightly's coverage baseline (a PR run that selected tests)
+    env:
+      # A PR run that ran only the selected tests (backend-paths); never true anywhere else.
+      PARTIAL: ${{ github.event_name == 'pull_request' && needs.backend-paths.outputs.partial == 'true' }}
     steps:
       - name: Every backend job passed
         env:
@@ -474,11 +550,18 @@ jobs:
           DRAFT: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft) }}
           # "false" only for a PR run whose paths job succeeded and found no backend change.
           NO_BACKEND: ${{ github.event_name == 'pull_request' && needs.backend-paths.result == 'success' && needs.backend-paths.outputs.tests == 'false' }}
+          # The merge queue, nightly, manual runs and full-ci must have run all eight shards.
+          FULL: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+          SHARDS: ${{ needs.backend-paths.outputs.count }}
         run: |
-          echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF, draft: $DRAFT, no backend change: $NO_BACKEND"
+          echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF, draft: $DRAFT, no backend change: $NO_BACKEND, shards: $SHARDS, selected only: $PARTIAL"
           # pdf is skipped outside nightly, manual and full-ci runs (speed mode, D-122).
           # The shards are skipped only on a draft or a PR with no backend change; anywhere else
           # (the merge queue, nightly) a skipped shard fails here.
+          if [ "$FULL" = "true" ] && { [ "$SHARDS" != "8" ] || [ "$PARTIAL" != "false" ]; }; then
+            echo "::error title=backend::a full run must run all 8 shards with no test selection"
+            exit 1
+          fi
           [ "$CHECKS" = "success" ] &&
             { [ "$TESTS" = "success" ] || { { [ "$DRAFT" = "true" ] || [ "$NO_BACKEND" = "true" ]; } && [ "$TESTS" = "skipped" ]; }; } &&
             { [ "$PDF" = "success" ] || [ "$PDF" = "skipped" ]; }
@@ -506,11 +589,48 @@ jobs:
           path: backend
           merge-multiple: true
       - name: Coverage of all shards together (threshold from pyproject.toml)
-        if: ${{ steps.changes.outputs.run == 'true' && needs.backend-tests.result == 'success' }}
+        if: ${{ steps.changes.outputs.run == 'true' && needs.backend-tests.result == 'success' && env.PARTIAL != 'true' }}
         working-directory: backend
         run: |
           uv run coverage combine .coverage.shard*
           uv run coverage report --skip-covered --sort=cover
+      # The nightly's per-file coverage: what a PR run that selected tests compares against.
+      - name: Coverage baseline for PR runs (nightly)
+        if: ${{ github.event_name == 'schedule' && steps.changes.outputs.run == 'true' && needs.backend-tests.result == 'success' }}
+        working-directory: backend
+        run: uv run coverage json -o coverage-baseline.json --fail-under=0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ github.event_name == 'schedule' && steps.changes.outputs.run == 'true' && needs.backend-tests.result == 'success' }}
+        with:
+          name: backend-coverage-baseline
+          path: backend/coverage-baseline.json
+          retention-days: 14
+      # A PR run that ran only the selected tests cannot hold the combined 90%: each changed app
+      # file may lose at most 1 point against the newest nightly, and a new file needs 90%
+      # (tooling/coverage_compare.py). The merge queue runs everything and checks the full 90%.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: ${{ steps.changes.outputs.run == 'true' && needs.backend-tests.result == 'success' && env.PARTIAL == 'true' }}
+        with:
+          name: test-selection
+          path: ${{ runner.temp }}/test-selection
+      - name: Coverage of the changed files against the nightly (selected tests only)
+        if: ${{ steps.changes.outputs.run == 'true' && needs.backend-tests.result == 'success' && env.PARTIAL == 'true' }}
+        working-directory: backend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          uv run coverage combine .coverage.shard*
+          uv run coverage json -o "$RUNNER_TEMP/coverage-pr.json" --fail-under=0
+          baseline=()
+          run=$(gh run list --repo "$REPO" --workflow ci.yml --event schedule --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId // empty' || true)
+          if [ -n "$run" ] && gh run download "$run" --repo "$REPO" -n backend-coverage-baseline -D "$RUNNER_TEMP/baseline"; then
+            baseline=(--baseline "$RUNNER_TEMP/baseline/coverage-baseline.json")
+          fi
+          uv run python -m tooling.coverage_compare --selection "$RUNNER_TEMP/test-selection/selection.json" \
+            --current "$RUNNER_TEMP/coverage-pr.json" "${baseline[@]}"
       # Fresh shard weights every night: every shard's file timings in one file, ready to commit
       # as backend/tests/shard_weights.json (`make backend-shard-weights RUN=<this run>`). A
       # test file without a weight counts as a heavy one (90th percentile of its kind), is dealt
