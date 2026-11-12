@@ -19,6 +19,10 @@
 - WP-049b session 4a: the asset list's built-in views and product type tree with counts, saved
   views and favourites (the shared list-settings store), the paged asset picker, the linked
   records port (REQ-AST-044) and the "raised from this asset" history line (045).
+- WP-049b session 4b: bulk edit, move, assign and delete as background jobs (REQ-AST-051),
+  merging duplicates with a field-by-field choice and an alias (052), and importing assets,
+  consumables and vendors with a dry run (053). The linked-records port also moves a merged
+  asset's work-item links (lane A's `repoint_asset_links`).
 
 Licensed with the `assets` feature. Public interface for other modules: `can_see`, `asset_refs`
 and `assets_of` (REQ-AST-025, for work items), the disposal guard port, `record_scan` with
@@ -33,6 +37,7 @@ from fastapi import FastAPI
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.core.modules import ModuleSpec
 from app.modules.assets.api.audits import router as audits_router
+from app.modules.assets.api.batch import router as batch_router
 from app.modules.assets.api.financials import router as financials_router
 from app.modules.assets.api.labels import router as labels_router
 from app.modules.assets.api.records import router as records_router
@@ -47,6 +52,7 @@ from app.modules.assets.service.assets import (
     assets_naming_vendor,
     count_managed_assets,
 )
+from app.modules.assets.service.bulk_jobs import run_asset_bulk_jobs
 from app.modules.assets.service.catalogue import CONFIGURE, MANAGE, REINSTATE, VIEW
 from app.modules.assets.service.consumables import (
     DraftPurchaseRequests,
@@ -55,6 +61,7 @@ from app.modules.assets.service.consumables import (
 )
 from app.modules.assets.service.disposals import register_disposal_guard, unregister_disposal_guard
 from app.modules.assets.service.file_access import FILE_ACCESS
+from app.modules.assets.service.imports import run_asset_imports
 from app.modules.assets.service.labels import on_label_requested
 from app.modules.assets.service.linked import (
     LinkedRecord,
@@ -128,8 +135,17 @@ module = ModuleSpec(
     name="assets",
     # The catalogue first: its fixed paths (/assets/states ...) must match before /assets/{id}.
     # Stock and bookings (WP-049b) before the record too: /assets/consumables is not an ID.
-    # WP-049b s3's fixed paths (/assets/audits, /assets/labels, /assets/overdue-rule) too.
-    routers=[router, stock_router, audits_router, labels_router, financials_router, records_router],
+    # WP-049b s3's fixed paths (/assets/audits, /assets/labels, /assets/overdue-rule) too, and
+    # S4b's (/assets/bulk-jobs, /assets/merges, /assets/imports).
+    routers=[
+        router,
+        stock_router,
+        audits_router,
+        labels_router,
+        financials_router,
+        batch_router,
+        records_router,
+    ],
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,
@@ -164,6 +180,9 @@ module = ModuleSpec(
         ScheduleSpec("assets__scan_cleanup", 86400, scan_cleanup_sweep),
         # The overdue-scan rule (REQ-AST-056), hourly: each run acts only on what is newly due.
         ScheduleSpec("assets__overdue_scans", 3600, overdue_sweep),
+        # WP-049b S4b: bulk jobs (REQ-AST-051) and imports (053), as work items' and people's.
+        ScheduleSpec("assets__bulk_jobs", 5, run_asset_bulk_jobs),
+        ScheduleSpec("assets__imports", 5, run_asset_imports),
     ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],

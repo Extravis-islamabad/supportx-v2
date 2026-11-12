@@ -1,6 +1,6 @@
 import { ApartmentOutlined, BranchesOutlined, RedoOutlined, UndoOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Skeleton, Space, Tabs, Typography, theme } from 'antd';
+import { Alert, App, Button, Flex, Skeleton, Space, Typography, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
@@ -9,6 +9,7 @@ import {
   useNodePorts,
   useNodeTypes,
   usePublishWorkflow,
+  useRunAs,
   useSaveDraft,
   useWorkflow,
   type NodeTypeOut,
@@ -34,6 +35,7 @@ import {
   startHistory,
   toGraph,
   undo,
+  useNodesInitialized,
   useReactFlow,
   withLayout,
   type Connection,
@@ -58,6 +60,7 @@ import {
   useLabel,
   useMinWidth,
   usePageCrumbs,
+  Tabs,
 } from '@supportx/ui';
 
 import { freeId, problemText } from './nodes';
@@ -66,6 +69,8 @@ import { DRAG_TYPE, Palette } from './Palette';
 import { LinkDetails, NodeDetails, Outline, type NodeProblem } from './SidePanels';
 import { TestPanel, type TestHighlight } from './TestPanel';
 import { VariablesPanel } from './VariablesPanel';
+import { RunAsPanel } from './RunAsPanel';
+import { runAsWarning } from './runAs';
 import { VersionsPanel } from './Versions';
 import { WorkflowState } from './WorkflowsPage';
 
@@ -86,6 +91,26 @@ const NODE_TYPES = { workflow: NodeView };
  * draft whatever its problems, which come back onto the canvas (REQ-WF-019). Live: another
  * admin's save shows at once when nothing is unsaved here, else a notice offers to reload.
  */
+// Fit the whole diagram in view, never zoomed past its own size: a short workflow fitted
+// without a ceiling drew its steps at twice their size, past the canvas (QA V-02).
+const FIT = { padding: 0.2, maxZoom: 1 } as const;
+
+/**
+ * Fit once the steps have been measured. Fitting on init ran before the nodes had sizes (and,
+ * on a narrow screen, before the pane had its own), so the first view was off (QA V-02).
+ */
+function FitWhenReady() {
+  const flow = useReactFlow();
+  const ready = useNodesInitialized();
+  const done = useRef(false);
+  useEffect(() => {
+    if (!ready || done.current) return;
+    done.current = true;
+    window.requestAnimationFrame(() => void flow.fitView(FIT));
+  }, [ready, flow]);
+  return null;
+}
+
 export function DesignerPage() {
   const t = useLabel();
   const { can } = useAccess();
@@ -112,7 +137,8 @@ export function DesignerPage() {
 
 function Designer({ workflow }: { workflow: WorkflowOut }) {
   const t = useLabel();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
+  const runAs = useRunAs(workflow.id);
   const { token } = theme.useToken();
   const { direction, mode } = useAppearance();
   const rtl = direction === 'rtl';
@@ -201,6 +227,8 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
 
   useListChannel('workflows', (m) => {
     if (m.type !== 'workflows.changed' || !m.ids.includes(workflow.id)) return;
+    // A role given or taken keeps the workflow's version: its run-as refreshes on any change.
+    void queryClient.invalidateQueries({ queryKey: ['workflows', 'run-as', workflow.id] });
     if ((m.version ?? 0) <= workflow.version) return; // our own save, already here
     if (dirty) setStale(true);
     else void queryClient.invalidateQueries({ queryKey: ['workflows', 'detail', workflow.id] });
@@ -359,7 +387,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
         position: laid.nodes.find((l) => l.id === n.id)?.position ?? n.position,
       })),
     });
-    window.requestAnimationFrame(() => void flow.fitView({ padding: 0.2 }));
+    window.requestAnimationFrame(() => void flow.fitView(FIT));
   };
 
   // Undo and redo from the keyboard, as in any editor (not while typing in a field).
@@ -399,7 +427,26 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
       },
     );
   };
+  // Steps that change the record act as the run-as identity: without a role they would fail on
+  // every record, so the canvas says so and publishing asks first (never blocks: the admin may
+  // give the role right after the first publish makes the identity).
+  const warning = runAsWarning(
+    live.nodes.map((n) => n.data.nodeType),
+    runAs.data?.made === true ? runAs.data.roles : undefined,
+  );
   const doPublish = () => {
+    if (warning !== undefined) {
+      modal.confirm({
+        title: t('workflows.run_as.publish_title'),
+        content: t(warning),
+        okText: t('workflows.run_as.publish_anyway'),
+        onOk: publishNow,
+      });
+      return;
+    }
+    publishNow();
+  };
+  const publishNow = () => {
     publish.mutate(
       { id: workflow.id, version: workflow.version },
       {
@@ -541,14 +588,17 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
     {
       key: 'test',
       label: t('workflows.test.tab'),
-      children: (
-        <TestPanel workflow={workflow} dirty={dirty} typeOf={typeOf} onHighlight={setHighlight} />
-      ),
+      children: <TestPanel workflow={workflow} dirty={dirty} onHighlight={setHighlight} />,
     },
     {
       key: 'versions',
       label: t('workflows.versions.tab'),
       children: <VersionsPanel workflow={workflow} />,
+    },
+    {
+      key: 'run_as',
+      label: t('workflows.run_as.tab'),
+      children: <RunAsPanel workflow={workflow} readOnly={readOnly} />,
     },
   ];
 
@@ -655,6 +705,25 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
           </div>
         </Flex>
       </section>
+      {warning !== undefined && (
+        <Alert
+          type="warning"
+          showIcon
+          message={t(warning)}
+          action={
+            <Button
+              size="small"
+              onClick={() => {
+                setTab('run_as');
+              }}
+              data-testid="designer-run-as-open"
+            >
+              {t('workflows.run_as.tab')}
+            </Button>
+          }
+          data-testid="designer-run-as-warning"
+        />
+      )}
       {stale && (
         <Alert
           type="warning"
@@ -728,16 +797,14 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
             }}
             deleteKeyCode={['Delete', 'Backspace']}
             fitView
+            fitViewOptions={FIT}
             colorMode={mode === 'dark' ? 'dark' : 'light'}
-            // Fit again once the pane has its size (a narrow screen lays it out after the nodes).
-            onInit={(instance) => {
-              window.requestAnimationFrame(() => void instance.fitView({ padding: 0.2 }));
-            }}
             minZoom={0.2}
             proOptions={{ hideAttribution: true }}
             aria-label={t('workflows.designer.canvas')}
           >
             <Background gap={20} />
+            <FitWhenReady />
             <Controls position={rtl ? 'bottom-right' : 'bottom-left'} />
             {wide && (
               <MiniMap

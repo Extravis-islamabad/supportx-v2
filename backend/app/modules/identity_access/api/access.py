@@ -418,8 +418,12 @@ async def assign_role(
     subject: ManageUsers,
     policy: Policy,
 ) -> Response:
-    """Idempotent. Only roles within your own permissions (tenant admins: any)."""
-    await role_service.assign_role(session, policy, subject, user_id, role_id)
+    """Idempotent. Only roles within your own permissions (tenant admins: any).
+
+    People only: a service identity's roles are given through its own guarded path
+    (403 `service_identity_roles_elsewhere`). Removing a role (DELETE) works for both.
+    """
+    await role_service.assign_role(session, policy, subject, user_id, role_id, people_only=True)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

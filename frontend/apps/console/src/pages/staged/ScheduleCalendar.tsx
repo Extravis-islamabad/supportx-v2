@@ -47,6 +47,7 @@ import {
   useAccess,
   useAppearance,
   useDateTime,
+  useMinWidth,
   useLabel,
   usePageCrumbs,
   useTimeZone,
@@ -142,6 +143,9 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
   const zone = useTimeZone();
   const queryClient = useQueryClient();
   const firstDay = WEEK_START[dates.weekStart];
+  // A phone has no room for seven columns of chips: the week is a list of days and the month
+  // fits its width, a day opening on a tap (QA V-05: 3.5 of 7 columns showed at 390).
+  const wide = useMinWidth(768);
   const [view, setView] = useState<CalendarView>('month');
   const [anchor, setAnchor] = useState<Day>(() => dayOf(new Date().toISOString(), zone));
   const [mine, setMine] = useState(false);
@@ -204,6 +208,14 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
   const today = dayKey(dayOf(new Date().toISOString(), zone));
   const weekdayName = (d: Day) =>
     new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(d.year, d.month, d.day)),
+    );
+  const weekdayNarrow = (d: Day) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'narrow', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(d.year, d.month, d.day)),
+    );
+  const weekdayLong = (d: Day) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(
       new Date(Date.UTC(d.year, d.month, d.day)),
     );
   const dayName = (d: Day) =>
@@ -398,13 +410,14 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
     const mineToday = entries.filter((e) => touches(e.starts_at, e.ends_at, d, zone));
     const bandsToday = bands.filter((o) => touches(o.starts_at, o.ends_at, d, zone));
     const outside = view === 'month' && d.month !== normal(anchor).month;
+    const fullDate = new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(d.year, d.month, d.day)),
+    );
     return (
       <div
         key={key}
         role="gridcell"
-        aria-label={new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' }).format(
-          new Date(Date.UTC(d.year, d.month, d.day)),
-        )}
+        aria-label={fullDate}
         data-testid={`calendar-day-${key}`}
         onDragOver={(event) => {
           if (may) event.preventDefault();
@@ -413,8 +426,8 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           onDrop(event, d);
         }}
         style={{
-          minHeight: compact ? 110 : 320,
-          padding: 6,
+          minHeight: compact ? (wide ? 110 : 72) : view === 'week' ? 96 : 320,
+          padding: wide ? 6 : 2,
           border: `1px solid ${token.colorBorderSecondary}`,
           // Out of the month: a quieter background and secondary text, never opacity, so its
           // chips keep their contrast (lane C's #381 review).
@@ -427,9 +440,27 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           minWidth: 0,
         }}
       >
-        <Typography.Text strong={key === today} type={outside ? 'secondary' : undefined}>
-          {view === 'month' ? dayName(d) : `${weekdayName(d)} ${dayName(d)}`}
-        </Typography.Text>
+        {compact && !wide ? (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, height: 'auto' }}
+            aria-label={t('changes.calendar.open_day', { day: fullDate })}
+            onClick={() => {
+              setAnchor(d);
+              setView('day');
+            }}
+            data-testid={`calendar-open-${key}`}
+          >
+            <Typography.Text strong={key === today} type={outside ? 'secondary' : undefined}>
+              {dayName(d)}
+            </Typography.Text>
+          </Button>
+        ) : (
+          <Typography.Text strong={key === today} type={outside ? 'secondary' : undefined}>
+            {view === 'month' ? dayName(d) : `${weekdayName(d)} ${dayName(d)}`}
+          </Typography.Text>
+        )}
         <Flex vertical gap={2} style={{ marginTop: 4 }}>
           {bandsToday.length > 0 && (
             <Space size={2} wrap>
@@ -836,7 +867,7 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
 
   if (view === 'timeline') return page(timeline());
 
-  const columns = view === 'day' ? 1 : 7;
+  const columns = view === 'day' || (view === 'week' && !wide) ? 1 : 7;
   const heads = days.slice(0, columns);
   return page(
     <>
@@ -852,8 +883,10 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           data-testid={`calendar-${view}`}
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${String(columns)}, minmax(110px, 1fr))`,
-            minWidth: columns === 7 ? 770 : undefined,
+            gridTemplateColumns: wide
+              ? `repeat(${String(columns)}, minmax(110px, 1fr))`
+              : `repeat(${String(columns)}, minmax(0, 1fr))`,
+            minWidth: columns === 7 && wide ? 770 : undefined,
           }}
         >
           {/* Rows for the grid's roles (axe: aria-required-children); `display: contents`
@@ -861,8 +894,17 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
           {view === 'month' && (
             <div role="row" style={{ display: 'contents' }}>
               {heads.map((d) => (
-                <div key={`head-${dayKey(d)}`} role="columnheader" style={{ padding: 6 }}>
-                  <Typography.Text type="secondary">{weekdayName(d)}</Typography.Text>
+                <div
+                  key={`head-${dayKey(d)}`}
+                  role="columnheader"
+                  // A phone's seventh of the width holds a narrow day name, never one broken
+                  // mid-word (the 390 matrix shot: Arabic Thursday); the full name is its title.
+                  title={wide ? undefined : weekdayLong(d)}
+                  style={{ padding: wide ? 6 : 2, textAlign: 'center' }}
+                >
+                  <Typography.Text type="secondary">
+                    {wide ? weekdayName(d) : weekdayNarrow(d)}
+                  </Typography.Text>
                 </div>
               ))}
             </div>

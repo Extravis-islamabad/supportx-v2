@@ -12,12 +12,12 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.errors import ProblemDetail
+from app.core.errors import NotFound, ProblemDetail
 from app.modules import metadata
 from app.modules.assets.domain.assets import IDENTIFIER_MAX, LOCATION_MAX, NAME_MAX
 from app.modules.assets.domain.financials import (
@@ -33,13 +33,14 @@ from app.modules.assets.service import (
     bulk,
     disposals,
     linked,
+    merge,
     moves,
     ownership,
     relationships,
     views,
 )
 from app.modules.assets.service.catalogue import TEXT_MAX
-from app.modules.assets.service.refs import asset_refs
+from app.modules.assets.service.refs import asset_refs, can_see
 from app.modules.audit import RequestFacts, audited
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import Subject, user_names
@@ -380,9 +381,9 @@ async def _page(  # noqa: PLR0913 - the list's parts, explicit
     search = (search or "").strip()
     if search:
         words = await ENGINE.match(session, TEXT, search)
-        if words is None:
-            return AssetListPage(items=[], next_cursor=None, has_more=False, estimated_total=0)
-        statement = statement.where(words.predicate)
+        # REQ-AST-052 AC2: a merged asset's tag, serial or barcode finds its survivor.
+        alias = Asset.id.in_(merge.alias_survivors(search))
+        statement = statement.where(alias if words is None else or_(words.predicate, alias))
     page = await paginate(session, statement, query)
     people, parents, products = await _names(session, subject, list(page.rows))
     return AssetListPage(
@@ -494,8 +495,18 @@ async def create_asset(
 async def get_asset(
     asset_id: uuid.UUID, session: TenantSession, subject: View, response: Response
 ) -> AssetOut:
-    """One asset you may see."""
-    row = await service.get_asset(session, subject, asset_id)
+    """One asset you may see.
+
+    A merged asset's ID answers 404 `asset_merged` naming the survivor (`survivor_id`) when you
+    may see it, so the screen opens the survivor (REQ-AST-052 AC2).
+    """
+    try:
+        row = await service.get_asset(session, subject, asset_id)
+    except NotFound:
+        survivor = await merge.survivor_of(session, asset_id)
+        if survivor is not None and await can_see(session, subject, survivor):
+            raise NotFound(code="asset_merged", params={"survivor_id": str(survivor)}) from None
+        raise
     set_etag(response, row.version)
     return AssetOut.of(row, subject)
 
@@ -580,18 +591,31 @@ async def delete_asset(
 @router.post(
     "/{asset_id}/restore",
     summary="Restore an asset from the trash",
-    responses={404: {"model": ProblemDetail, "description": "asset_not_found"}},
+    responses={
+        404: {"model": ProblemDetail, "description": "asset_not_found"},
+        409: {"model": ProblemDetail, "description": "asset_restore_merged"},
+    },
     dependencies=[audited("asset.restored", object_type="asset", object_param="asset_id")],
 )
-async def restore_asset(
+async def restore_asset(  # noqa: PLR0913 - FastAPI dependencies and the confirmation
+    *,
     asset_id: uuid.UUID,
     session: TenantSession,
     subject: Manage,
     request: Request,
     response: Response,
+    confirm_merged: Annotated[
+        bool, Query(description="Restore an asset merged into another (after the warning).")
+    ] = False,
 ) -> AssetOut:
-    """Back from the trash; an IT asset needs a free slot again."""
-    row = await service.restore_asset(session, subject, asset_id, source=source_of(request))
+    """Back from the trash; an IT asset needs a free slot again.
+
+    An asset merged into another answers 409 `asset_restore_merged` (naming the survivor) until
+    `confirm_merged` is sent: it then comes back on its own, and the merge stays as it was.
+    """
+    row = await service.restore_asset(
+        session, subject, asset_id, source=source_of(request), confirm_merged=confirm_merged
+    )
     set_etag(response, row.version)
     return AssetOut.of(row, subject)
 

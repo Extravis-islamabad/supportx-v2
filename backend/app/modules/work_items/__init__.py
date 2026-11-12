@@ -44,6 +44,7 @@ from app.modules.work_items.api.change_window_routes import (
     release_router as release_window_router,
 )
 from app.modules.work_items.api.change_window_routes import router as change_window_router
+from app.modules.work_items.api.parts_routes import my_tasks_router
 from app.modules.work_items.api.portal_change_routes import router as portal_change_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
@@ -81,6 +82,8 @@ from app.modules.work_items.service import (
     resolution,
     rule_step_notifications,
     staff_reply_notifications,
+    task_notifications,
+    task_reminders,
 )
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
@@ -167,6 +170,7 @@ problem_notifications.register()  # WP-044c D15
 rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
 change_notifications.register()  # WP-045d S3: replaces the change reply-only source
+task_notifications.register()  # WP-046a S1: a task's owner hears of it (REQ-INC-076)
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
@@ -196,6 +200,7 @@ module = ModuleSpec(
         release_calendar_router,  # WP-058b S1: the release calendar (same query)
         release_window_router,  # WP-058b S2: a release's freeze override
         portal_change_router,  # WP-045d S4a: requesters' changes in the portal
+        my_tasks_router,  # WP-046a S1: your tasks on every type (REQ-INC-076)
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
@@ -212,6 +217,7 @@ module = ModuleSpec(
         RELEASE.feature,  # the release calendar
         RELEASE.feature,  # a release's freeze override
         CHANGE.feature,  # requesters' changes in the portal
+        None,  # your tasks: each type's own licence is checked per type in the service
     ],
     events=EVENTS,
     permissions=(
@@ -243,6 +249,12 @@ module = ModuleSpec(
             "work_items__change_reminders",
             change_reminders.EVERY_SECONDS,
             change_reminders.reminders_schedule,
+        ),
+        # WP-046a S1 (REQ-INC-073 AC2, -076): task reminders and overdue tasks, each raised once.
+        ScheduleSpec(
+            "work_items__task_reminders",
+            task_reminders.EVERY_SECONDS,
+            task_reminders.reminders_schedule,
         ),
     ],
 )

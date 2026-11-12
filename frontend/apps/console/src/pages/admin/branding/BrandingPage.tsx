@@ -11,7 +11,6 @@ import {
   Row,
   Space,
   Switch,
-  Tabs,
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
@@ -42,6 +41,7 @@ import {
   StickySaveBar,
   WriteButton,
   type Branding,
+  Tabs,
 } from '@supportx/ui';
 
 import { useDebounced } from '../../../useDebounced';
