@@ -35,6 +35,9 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   ID and access tokens as `sx_idp` (WP-057 S1b, lane B's review): a user-session note only
   Keycloak's broker writes, never a user attribute and never userinfo, so a password, LDAP or
   direct-grant token never carries it. SupportX's "single sign-on required" reads it;
+- the flow `supportx-otp-after-broker` exists (one REQUIRED OTP-form step): a tenant that also
+  requires SupportX's MFA after single sign-on (REQ-SEC-026) has its identity providers point at
+  it; nobody else's do;
 - a realm still on the password policy SupportX shipped before WP-039 gets the new default
   (Appendix A, with the breached list); a policy anyone chose is never touched;
 - the browser flow offers recovery codes as a second step (REQ-SEC-025): Keycloak ships that
@@ -341,6 +344,58 @@ async def _ensure_idp_claim(
     return changes
 
 
+POST_BROKER_FLOW = "supportx-otp-after-broker"
+
+
+async def _ensure_post_broker_flow(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """The flow SupportX puts after a single sign-on when a tenant also requires its MFA.
+
+    REQ-SEC-026 AC2 (WP-057 S1b): one REQUIRED step, Keycloak's OTP form. A person with a code
+    generator is asked for a code; one without is made to set it up first (the form adds the
+    required action), so nobody passes untested (lane B). Made once, never duplicated; the
+    tenant's identity providers point at it only while their tenant asks for it (sso.py).
+    """
+    base = f"/admin/realms/{realm}/authentication/flows"
+    flows = await client.get(base, headers=headers)
+    flows.raise_for_status()
+    changes: list[str] = []
+    if not any(f.get("alias") == POST_BROKER_FLOW for f in flows.json()):
+        made = await client.post(
+            base,
+            headers=headers,
+            json={
+                "alias": POST_BROKER_FLOW,
+                "description": "SupportX: a code after single sign-on (REQ-SEC-026)",
+                "providerId": "basic-flow",
+                "topLevel": True,
+                "builtIn": False,
+            },
+        )
+        made.raise_for_status()
+        changes.append("post-broker MFA flow created")
+    executions_path = f"{base}/{POST_BROKER_FLOW}/executions"
+    executions = await client.get(executions_path, headers=headers)
+    executions.raise_for_status()
+    otp = next((e for e in executions.json() if e.get("providerId") == "auth-otp-form"), None)
+    if otp is None:
+        added = await client.post(
+            f"{executions_path}/execution", headers=headers, json={"provider": "auth-otp-form"}
+        )
+        added.raise_for_status()
+        executions = await client.get(executions_path, headers=headers)
+        executions.raise_for_status()
+        otp = next(e for e in executions.json() if e.get("providerId") == "auth-otp-form")
+        changes.append("post-broker MFA flow: code step added")
+    if otp.get("requirement") != "REQUIRED":
+        required = {**otp, "requirement": "REQUIRED"}
+        put = await client.put(executions_path, headers=headers, json=required)
+        put.raise_for_status()
+        changes.append("post-broker MFA flow: code step required")
+    return changes
+
+
 async def _ensure_sso_session(
     client: httpx.AsyncClient, headers: dict[str, str], realm: str
 ) -> list[str]:
@@ -551,6 +606,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     changes += await _enable_recovery_codes(client, headers, target.realm)
     changes += await _ensure_events(client, headers, target.realm)
     changes += await _ensure_idp_claim(client, headers, target.realm)
+    changes += await _ensure_post_broker_flow(client, headers, target.realm)
     changes += await _ensure_sso_session(client, headers, target.realm)
     changes += await _ensure_user_profile(client, headers, target.realm)
     changes += await _ensure_smtp(client, headers, target.realm, target.smtp)
