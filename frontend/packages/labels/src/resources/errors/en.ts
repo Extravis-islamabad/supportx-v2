@@ -375,6 +375,7 @@ export const en = {
   'errors.field.default_required':
     'There is always a default template. Make another template the default instead.',
   'errors.field.department_not_found': 'Choose an active department.',
+  'errors.field.dependency_loop': 'A task cannot wait for itself, directly or through other tasks.',
   'errors.field.desk_not_found': 'Choose an active desk.',
   'errors.field.dimension_not_groupable':
     'Fields with several choices cannot be used for grouping yet.',
@@ -499,6 +500,7 @@ export const en = {
   'errors.field.name_needs_letters': 'Use at least one letter or digit in the name.',
   'errors.field.name_required': 'Enter a name.',
   'errors.field.name_taken': 'Another one already uses this name.',
+  'errors.field.needs_scheduled_start': 'A reminder before the start needs a scheduled start.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
   'errors.field.not_a_field': 'This field does not exist for this type.',
   'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
@@ -1008,6 +1010,9 @@ export const en = {
   'errors.system_role_immutable': 'Built-in roles cannot be changed or deleted.',
   'errors.system_role_not_deletable':
     "Built-in roles can't be deleted. Copy the role to make your own version.",
+  'errors.task_blocked': 'This task waits for {{task}} to be done first.',
+  'errors.task_template_not_found':
+    'This task template is no longer there or is no longer offered.',
   'errors.technician_limit_reached':
     'All technician seats in your organisation’s plan are in use. Ask your administrator to free a seat or add more.',
   'errors.technicians_only': 'Only technicians can see other users.',

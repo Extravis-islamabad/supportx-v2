@@ -268,6 +268,7 @@ def _closure_before(current: Catalogue) -> dict[str, Any]:
         "auto_close_days": c.auto_close_days,
         "reopen_window_days": c.reopen_window_days,
         "task_owner_access": c.task_owner_access,
+        "task_dependency_mode": c.task_dependency_mode,
     }
 
 
@@ -315,6 +316,10 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         changes["complete_open_work"] = bool(values["complete_open_work"])
     if "task_owner_access" in values:  # REQ-INC-072 AC3 (D-112)
         changes["task_owner_access"] = bool(values["task_owner_access"])
+    if "task_dependency_mode" in values:  # REQ-INC-075: an open predecessor blocks or warns
+        if values["task_dependency_mode"] not in {"block", "warn"}:
+            problem("task_dependency_mode", "invalid_choice")
+        changes["task_dependency_mode"] = values["task_dependency_mode"]
     if "auto_close_days" in values:
         days = values["auto_close_days"]
         if days is not None and _days(days, AUTO_CLOSE_MIN, AUTO_CLOSE_MAX) is None:
