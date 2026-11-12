@@ -41,7 +41,8 @@ export interface RichTextFieldProps {
    * Which tools the toolbar offers: `full` (the default) or `basic`, a requester's (the portal,
    * QA 2026-11-12 F-09): text, lists, links and a quote; no code, table or horizontal line.
    * The toolbar only, never a security boundary: the server's sanitiser still accepts the full
-   * set (D-051), so nothing may rely on `basic` to keep content out.
+   * set (D-051), so nothing may rely on `basic` to keep content out. Typed shortcuts still
+   * work under `basic` (``` for a code block, --- for a line), as the toolbar is all it trims.
    */
   toolbar?: 'full' | 'basic';
   /**
