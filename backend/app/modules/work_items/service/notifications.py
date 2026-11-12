@@ -244,6 +244,35 @@ VARIABLES = (
 )
 
 
+def status_variable(cat: catalogue.Catalogue, code: str | None) -> VariableValue:
+    """A status as a variable: the tenant's own name, else the shipped label."""
+    if code is None:
+        return None
+    found = next((s for s in cat.statuses if s.code == code), None)
+    return Localised(found.labels or {} if found else {}, fallback=f"work_item_status.{code}")
+
+
+async def record_values(
+    session: AsyncSession, record: WorkItem, cat: catalogue.Catalogue, actor: uuid.UUID | None
+) -> dict[str, VariableValue]:
+    """The record's own variables (VARIABLES), for notices and for templates (REQ-INC-041).
+
+    One catalogue: a reply template and a notification name the same things the same way.
+    """
+    people = [p for p in (record.requester_id, record.technician_id, actor) if p is not None]
+    names = await user_names(session, [str(p) for p in people])
+    return {
+        "record.display_id": record.display_id,
+        "record.title": record.subject,
+        "record.priority": LabelRef(f"priority.{record.priority}"),
+        "record.status": status_variable(cat, record.status),
+        "record.link": f"/incidents/{record.id}",
+        "requester.name": names.get(str(record.requester_id)),
+        "assignee.name": names.get(str(record.technician_id)) if record.technician_id else None,
+        "actor.name": names.get(str(actor)) if actor else None,
+    }
+
+
 def _uuid(value: object) -> uuid.UUID | None:
     return uuid.UUID(str(value)) if value else None
 
@@ -507,29 +536,12 @@ class IncidentNotifications:
         relatives = await _relatives(session, record, event_code, envelope)
         if relatives is None:
             return None
-        people = [p for p in (record.requester_id, record.technician_id, actor) if p is not None]
-        names = await user_names(session, [str(p) for p in people])
         cat = await catalogue.load(session, INCIDENT)
-        status = next((s for s in cat.statuses if s.code == record.status), None)
 
         def status_value(code: str | None) -> VariableValue:
-            found = next((s for s in cat.statuses if s.code == code), None)
-            if code is None:
-                return None
-            return Localised(
-                found.labels or {} if found else {}, fallback=f"work_item_status.{code}"
-            )
+            return status_variable(cat, code)
 
-        shared: dict[str, VariableValue] = {
-            "record.display_id": record.display_id,
-            "record.title": record.subject,
-            "record.priority": LabelRef(f"priority.{record.priority}"),
-            "record.status": status_value(status.code if status else record.status),
-            "record.link": f"/incidents/{record.id}",
-            "requester.name": names.get(str(record.requester_id)),
-            "assignee.name": names.get(str(record.technician_id)) if record.technician_id else None,
-            "actor.name": names.get(str(actor)) if actor else None,
-        }
+        shared = await record_values(session, record, cat, actor)
         if envelope.event_type == WorkItemStatusChanged.event_type:
             shared["change.from_status"] = status_value(payload.get("from_status"))
         if envelope.event_type in _SLA_EVENTS:
