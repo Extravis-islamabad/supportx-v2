@@ -48,7 +48,7 @@ BEGIN
             (SELECT default_language FROM tenant_settings WHERE tenant_id = t), 'en'
         ) INTO lang;
         UPDATE {TABLE} SET bodies = jsonb_build_object(lang, body)
-            WHERE body IS NOT NULL AND bodies = '{{}}'::jsonb;
+            WHERE tenant_id = t AND body IS NOT NULL AND bodies = '{{}}'::jsonb;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
 END $$;
@@ -62,10 +62,10 @@ BEGIN
         PERFORM set_config('app.tenant_id', t::text, true);
         IF EXISTS (
             SELECT 1 FROM {TABLE}
-            WHERE kind <> 'reply' OR visibility <> 'shared'
+            WHERE tenant_id = t AND (kind <> 'reply' OR visibility <> 'shared'
                OR (SELECT count(*) FROM jsonb_object_keys(bodies)) > 1
                OR subject IS NOT NULL OR cardinality(group_ids) > 0
-               OR cardinality(category_ids) > 0
+               OR cardinality(category_ids) > 0)
         ) THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has resolution, personal or translated templates (rule 5h)', t;
         END IF;
@@ -82,7 +82,7 @@ BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
         UPDATE {TABLE} SET body = (SELECT value FROM jsonb_each_text(bodies) LIMIT 1)
-            WHERE body IS NULL;
+            WHERE tenant_id = t AND body IS NULL;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
 END $$;
