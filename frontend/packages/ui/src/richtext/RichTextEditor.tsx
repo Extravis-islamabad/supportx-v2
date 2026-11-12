@@ -95,7 +95,7 @@ export default function RichTextEditor({
   autoFocus = false,
   imageOwnerId,
   callouts = false,
-  basic = false,
+  toolbar = 'full',
   extraTools,
 }: RichTextFieldProps) {
   const t = useLabel();
@@ -213,7 +213,7 @@ export default function RichTextEditor({
           editor={editor}
           templates={templates}
           callouts={callouts}
-          basic={basic}
+          basic={toolbar === 'basic'}
           extraTools={extraTools}
           onManageTemplates={onManageTemplates}
           fullScreen={fullScreen}
