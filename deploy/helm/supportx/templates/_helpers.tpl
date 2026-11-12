@@ -50,6 +50,15 @@ app.kubernetes.io/component: {{ .component }}
 {{- if and .Values.internalTls.issuerRef.name (not .Values.internalTls.caSecret) -}}
 {{- fail "internalTls.issuerRef needs internalTls.caSecret: a Secret whose ca.crt is the root your issuer chains to (the pods trust only it)" -}}
 {{- end -}}
+{{- if eq (include "supportx.natsTls" .) "true" -}}
+{{- $n := .Values.nats.config -}}
+{{- if not $n.nats.tls.secretName -}}
+{{- fail "nats.config.nats.tls.enabled needs nats.config.nats.tls.secretName (the chart's cert-manager Certificate writes it)" -}}
+{{- end -}}
+{{- if and $n.cluster.enabled $n.cluster.tls.enabled (ne $n.cluster.tls.secretName $n.nats.tls.secretName) -}}
+{{- fail "nats.config.cluster.tls.secretName must equal nats.config.nats.tls.secretName: one certificate for clients and routes" -}}
+{{- end -}}
+{{- end -}}
 {{- if hasKey .Values.routing.gateway "protocol" -}}
 {{- fail "routing.gateway.protocol is gone: HTTPS is routing.tls.enabled (on by default), with the certificate in routing.tls.secretName (docs/deployment.md, Transport security)" -}}
 {{- end -}}
@@ -170,7 +179,7 @@ securityContext:
 - name: SUPPORTX_VALKEY_URL
   value: "{{ ternary "valkeys" "valkey" (include "supportx.valkeyTls" . | eq "true") }}://:$(SUPPORTX_SECRET_VALKEY_PASSWORD)@{{ .Release.Name }}-valkey:6379/0"
 - name: SUPPORTX_NATS_URL
-  value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@{{ .Release.Name }}-nats:4222"
+  value: "{{ ternary "tls" "nats" (include "supportx.natsTls" . | eq "true") }}://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@{{ .Release.Name }}-nats:4222"
 - name: SUPPORTX_SESSION_SECRET
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: session-secret}}
 {{- include "supportx.sessionKeysEnv" . }}
@@ -339,8 +348,12 @@ TLS; when any in-cluster server does (the CA is then made and mounted).
 {{- and .Values.valkeyHa.enabled .Values.valkeyHa.tls.enabled | toString -}}
 {{- end -}}
 
+{{- define "supportx.natsTls" -}}
+{{- and .Values.nats.enabled .Values.nats.config.nats.tls.enabled | toString -}}
+{{- end -}}
+
 {{- define "supportx.internalTlsOn" -}}
-{{- if eq (include "supportx.valkeyTls" .) "true" -}}true{{- end -}}
+{{- if or (eq (include "supportx.valkeyTls" .) "true") (eq (include "supportx.natsTls" .) "true") -}}true{{- end -}}
 {{- end -}}
 
 {{- define "supportx.internalCaSecret" -}}

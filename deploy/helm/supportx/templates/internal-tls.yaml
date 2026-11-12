@@ -76,4 +76,33 @@ spec:
     {{- toYaml $issuer | nindent 4 }}
 ---
 {{- end }}
+{{- if eq (include "supportx.natsTls" .) "true" }}
+{{- $nats := printf "%s-nats" .Release.Name }}
+{{- $nh := printf "%s-nats-headless" .Release.Name }}
+# The NATS servers: clients dial the service by name; routes dial each pod, and present this
+# same certificate as their client certificate (NATS routes are always mutual TLS).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.nats.config.nats.tls.secretName }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  secretName: {{ .Values.nats.config.nats.tls.secretName }}
+  duration: {{ $t.duration }}
+  renewBefore: {{ $t.renewBefore }}
+  privateKey: {algorithm: ECDSA, size: 256, rotationPolicy: Always}
+  usages: [digital signature, key encipherment, server auth, client auth]
+  dnsNames:
+    - {{ $nats }}
+    - {{ printf "%s.%s" $nats .Release.Namespace }}
+    - {{ printf "%s.%s.svc" $nats .Release.Namespace }}
+    - {{ printf "%s.%s.svc.cluster.local" $nats .Release.Namespace }}
+    - {{ printf "*.%s" $nh | quote }}
+    - {{ printf "*.%s.%s.svc" $nh .Release.Namespace | quote }}
+    - {{ printf "*.%s.%s.svc.cluster.local" $nh .Release.Namespace | quote }}
+  issuerRef:
+    {{- toYaml $issuer | nindent 4 }}
+---
+{{- end }}
 {{- end }}
