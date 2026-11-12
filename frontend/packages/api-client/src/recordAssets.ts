@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
 import type { components } from './schema';
@@ -53,6 +53,38 @@ export function useAssetPicker(q: string, forUser: string | null, enabled = true
     enabled,
     staleTime: 30_000,
     // A form field: a failure shows as an empty list, never a toast over the form.
+    meta: { silent: true },
+  });
+}
+
+/** The paged picker's filters (REQ-AST-046): part of any identifier, a tree node, a site. */
+export interface AssetPickerQuery {
+  q: string;
+  productTypeId?: string;
+  siteId?: string;
+}
+
+/** Assets to pick, by name, a page at a time; staff search their scope, others what they hold. */
+export function useAssetPickerPage(query: AssetPickerQuery, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: ['assets', 'picker', 'search', query] as const,
+    queryFn: ({ pageParam }) =>
+      call(
+        api.GET('/api/v1/assets/picker/search', {
+          params: {
+            query: {
+              q: query.q === '' ? undefined : query.q,
+              product_type_id: query.productTypeId,
+              site_id: query.siteId,
+              cursor: pageParam ?? undefined,
+            },
+          },
+        }),
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.next_cursor,
+    enabled,
+    staleTime: 30_000,
     meta: { silent: true },
   });
 }

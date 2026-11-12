@@ -68,6 +68,7 @@ from app.modules.organization import (
     users_in_groups,
 )
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
@@ -131,6 +132,7 @@ from app.modules.work_items.events import (
 )
 from app.modules.work_items.infra.models import (
     WorkItem,
+    WorkItemApproval,
     WorkItemCategory,
     WorkItemChangeDetails,
     WorkItemConversation,
@@ -150,6 +152,7 @@ from app.modules.work_items.service import (
     change_types,
     closing,
     followers,
+    record_roles,
     templates,
 )
 from app.modules.work_items.service import catalogue as config
@@ -894,6 +897,9 @@ async def view_filters(
         "my_overdue": _all(mine, open_, _cond("resolution_due_at", op="before_now")),
         "my_due_today": _all(mine, due_today),
         "waiting_on_me": _all(mine, _cond("status_category", "eq", StatusCategory.OPEN.value)),
+        # WP-045d S4a: approvals and the schedule are not in the DSL.
+        "pending_my_approval": NOT_EXPRESSIBLE,
+        "my_starting_today": NOT_EXPRESSIBLE,
         "updated_by_others": NOT_EXPRESSIBLE,  # "changed or written by someone else" needs SQL
         "unassigned_in_my_groups": both(
             _all(open_, _cond("technician_id", op="is_null")), in_groups
@@ -911,6 +917,19 @@ COUNTERS = (
     "updated_by_others",
     "unassigned_in_my_groups",
 )
+# REQ-CHG-117 (WP-045d S4a): a change's own counters, beside the ones every type has; "my overdue
+# changes" is `my_overdue` (the change's SLA due time).
+CHANGE_COUNTERS = (
+    "pending_my_approval",
+    "my_starting_today",
+)
+
+
+def counter_codes(wtype: WorkItemType) -> tuple[str, ...]:
+    """The type's personal counters, in their fixed order."""
+    return (*COUNTERS, *CHANGE_COUNTERS) if wtype.code is WorkItemTypeCode.CHANGE else COUNTERS
+
+
 RECENT = timedelta(hours=24)
 
 
@@ -953,6 +972,26 @@ def _personal(
         )
         if groups
         else WorkItem.id.is_(None),
+        # REQ-CHG-117: an approval waiting for this person (theirs, still pending), and their
+        # changes whose implementation window starts today (in the zone of the request).
+        "pending_my_approval": WorkItem.id.in_(
+            select(WorkItemApproval.work_item_id).where(
+                WorkItemApproval.approver_id == subject.user_id,
+                WorkItemApproval.state == "pending",
+                WorkItemApproval.deleted_at.is_(None),
+            )
+        ),
+        "my_starting_today": and_(
+            mine,
+            active,
+            WorkItem.id.in_(
+                select(WorkItemStageSchedule.work_item_id).where(
+                    WorkItemStageSchedule.stage == change_rules.IMPLEMENTATION,
+                    WorkItemStageSchedule.scheduled_start >= today_end - timedelta(days=1),
+                    WorkItemStageSchedule.scheduled_start < today_end,
+                )
+            ),
+        ),
     }
 
 
@@ -1081,6 +1120,11 @@ PERSON_FIELDS = frozenset(
 )
 
 
+# History fields whose values only the record's editors read; others see them as MASKED.
+EDITORS_ONLY = frozenset({"task.extra_cost"})
+MASKED: dict[str, bool] = {"masked": True}
+
+
 async def history(  # noqa: PLR0913 - paging options, explicit
     session: AsyncSession,
     subject: Subject,
@@ -1104,6 +1148,21 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     if hidden:  # the root cause stays out of the history too (D-140 Q7)
         entries = [
             replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+        ]
+    # A task's extra cost is for those who may edit the record (WP-046a S1, lane B's #398
+    # review): others keep the line (that it changed, when, by whom) but never the amounts.
+    if any(c.field in EDITORS_ONLY for e in entries for c in e.changes) and not await _may(
+        session, subject, wtype, "edit", record_id
+    ):
+        entries = [
+            replace(
+                e,
+                changes=[
+                    Change(c.field, MASKED, MASKED) if c.field in EDITORS_ONLY else c
+                    for c in e.changes
+                ],
+            )
+            for e in entries
         ]
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
@@ -3569,6 +3628,7 @@ class RoleHolding:
     definition: WorkItemRoleDef
     user_ids: tuple[uuid.UUID, ...]
     group_ids: tuple[uuid.UUID, ...]
+    from_record: bool = False  # the record's own field holds it (F-02): changed there
 
 
 @dataclass(frozen=True)
@@ -3616,9 +3676,14 @@ async def roles_of(
     if not wtype.roles:
         raise _not_found(wtype)
     record = await _visible(session, subject, wtype, record_id)
-    held = await _holders_of(session, record.id)
+    held = await record_roles.role_holders(session, record)
     roles = [
-        RoleHolding(d, tuple(held.get(d.code, ([], []))[0]), tuple(held.get(d.code, ([], []))[1]))
+        RoleHolding(
+            d,
+            tuple(held.get(d.code, ([], []))[0]),
+            tuple(held.get(d.code, ([], []))[1]),
+            from_record=d.code in wtype.record_roles,
+        )
         for d in await _role_defs(session, wtype)
         if d.disabled_at is None or d.code in held
     ]
@@ -3722,6 +3787,8 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
     definition = next((d for d in await _role_defs(session, wtype) if d.code == role), None)
     if definition is None:
         raise NotFound(code="role_not_found")
+    if role in wtype.record_roles:  # the record's own field: changed where that field is
+        raise _errors([("role", "role_held_by_record")])
     users, groups = list(dict.fromkeys(user_ids)), list(dict.fromkeys(group_ids))
     held = (await _holders_of(session, record.id)).get(role, ([], []))
     if definition.disabled_at is not None and (users or groups) and (users, groups) != held:
@@ -4230,8 +4297,12 @@ async def _window_guard(  # noqa: PLR0913 - the save and its values, explicit
     merged: Mapping[str, Any],
     changed: Mapping[str, Any],
 ) -> None:
-    """A change's implementation window moved: a blocking freeze refuses it (WP-045c, ADR-042)."""
-    if wtype.code is not WorkItemTypeCode.CHANGE or stage != change_rules.IMPLEMENTATION:
+    """A change's or release's planned window moved: a blocking freeze refuses it.
+
+    The change's implementation (WP-045c, ADR-042), the release's deployment (WP-058b S2,
+    addendum A).
+    """
+    if stage != window_rules.PLANNED_STAGE.get(wtype.code.value):
         return
     if not {"scheduled_start", "scheduled_end"} & set(changed):
         return
@@ -4372,8 +4443,8 @@ async def _downtime_guard(  # noqa: PLR0913 - the save and its values, explicit
     adding: bool,
     changed: Mapping[str, Any],
 ) -> None:
-    """A change's planned downtime is its planned time too: a blocking freeze refuses it."""
-    if wtype.code is not WorkItemTypeCode.CHANGE or merged["phase"] != "planned":
+    """A change's or release's planned downtime is its planned time too: a freeze refuses it."""
+    if wtype.code.value not in window_rules.PLANNED_STAGE or merged["phase"] != "planned":
         return
     if adding or {"starts_at", "ends_at", "phase"} & set(changed):
         await change_conflicts.guard(session, record, [(merged["starts_at"], merged["ends_at"])])

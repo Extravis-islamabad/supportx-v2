@@ -267,6 +267,33 @@ export const SCREENS: Screen[] = [
   },
   // Assets (WP-049a, D-155 template A; lane B): the list, one asset, vendors, loans, groups.
   { key: 'assets', path: '/assets', app: 'console' },
+  // WP-049b s4a (lane B): the product type tree with a node chosen, the views drawer, and the
+  // honest empty "recently discovered" view (no discovery yet).
+  {
+    key: 'asset-tree',
+    path: '/assets',
+    app: 'console',
+    state: {
+      name: 'node-chosen',
+      open: async (page) => {
+        // The first type after "All types": its branch listed, its row chosen.
+        await page
+          .getByRole('treeitem')
+          .nth(1)
+          .locator('div')
+          .first()
+          .click({ timeout: STATE_TIMEOUT });
+        await page.waitForTimeout(400);
+      },
+    },
+  },
+  {
+    key: 'asset-views-drawer',
+    path: '/assets',
+    app: 'console',
+    state: { name: 'views-drawer', open: click('assets-views-open') },
+  },
+  { key: 'assets-discovered', path: '/assets?view=recently_discovered', app: 'console' },
   {
     key: 'asset',
     path: (r) => (r.asset ? `/assets/${r.asset}` : undefined),
@@ -322,6 +349,13 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.release ? `/releases/${r.release}` : undefined),
     app: 'console',
     state: { name: 'changes', open: tab('changes') }, // WP-058b S1: the changes in it
+  },
+  {
+    // WP-058b S2: the Schedule tab, where a release's conflicts, acks and override live.
+    key: 'release-schedule',
+    path: (r) => (r.release ? `/releases/${r.release}` : undefined),
+    app: 'console',
+    state: { name: 'schedule', open: tab('schedule') },
   },
   { key: 'request-new', path: '/requests/new', app: 'console' },
   { key: 'announcement-new', path: '/announcements/new', app: 'console' },
@@ -750,6 +784,12 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
       await page.waitForTimeout(500);
       if (screen.state) await screen.state.open(page);
     }
+    // A full-page shot keeps the window's own height for layout, so a footer bar sticky to the
+    // window's foot was drawn in the middle of a long form, over its fields (QA V-01). In the
+    // shot it sits where it ends up once the page is scrolled to the end.
+    await page
+      .addStyleTag({ content: '[data-sticky-footer] { position: static !important; }' })
+      .catch(() => undefined);
     await page.screenshot({
       path: `${OUT}/${shot.file}`,
       fullPage: true,

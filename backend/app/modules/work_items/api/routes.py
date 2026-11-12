@@ -1427,6 +1427,23 @@ class WorkItemFieldChangeOut(BaseModel):
     field: str
     old: Any = None
     new: Any = None
+    # Additive and only where it applies (#398 CI): an ordinary line stays exactly {field, old,
+    # new} for every reader that compares or stores it; only a masked line says hidden.
+    hidden: bool = Field(
+        default=False,
+        exclude_if=lambda value: not value,
+        description=(
+            "Present (true) only when the values are not yours to see (a task's extra cost): "
+            "only that it changed. Absent on every other line, which keeps its old shape."
+        ),
+    )
+
+    @classmethod
+    def of(cls, change: Any) -> "WorkItemFieldChangeOut":  # noqa: ANN401 - a history Change
+        """One change, masked values as `hidden` with no old or new."""
+        if change.old == service.MASKED and change.new == service.MASKED:
+            return cls(field=change.field, hidden=True)
+        return cls(field=change.field, old=change.old, new=change.new)
 
 
 class WorkItemHistoryEntryOut(BaseModel):
@@ -1473,9 +1490,7 @@ class WorkItemHistoryEntryOut(BaseModel):
             reason=entry.reason,
             automation=entry.automation_ref if isinstance(entry.automation_ref, dict) else None,
             bulk_job_id=entry.batch_id,
-            changes=[
-                WorkItemFieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes
-            ],
+            changes=[WorkItemFieldChangeOut.of(c) for c in entry.changes],
             audit_entry_id=(audit or {}).get(entry.change_id),
         )
 
@@ -1799,6 +1814,10 @@ class RoleHoldingOut(BaseModel):
     disabled: bool
     user_ids: list[uuid.UUID]
     group_ids: list[uuid.UUID]
+    from_record: bool = Field(
+        default=False,
+        description="Held by the record's own field (a change's requester or owner): set there.",
+    )
 
 
 class RolesOut(BaseModel):
@@ -1822,6 +1841,7 @@ class RolesOut(BaseModel):
                     disabled=r.definition.disabled_at is not None,
                     user_ids=list(r.user_ids),
                     group_ids=list(r.group_ids),
+                    from_record=r.from_record,
                 )
                 for r in view.roles
             ],

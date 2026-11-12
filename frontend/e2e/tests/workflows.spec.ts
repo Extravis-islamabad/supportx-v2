@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { expectAccessible, openSelect, signInAs } from './helpers';
+import { deleteE2eRoles, expectAccessible, openSelect, resetLanguage, signInAs } from './helpers';
 
 // WP-048b S5e, visual workflows end to end (REQ-WF-008, -022, -023, -024):
 // 1. a workflow built in the designer by keyboard (palette buttons and the outline), published,
@@ -94,6 +94,42 @@ async function removeWorkflow(page: Page, id: string): Promise<void> {
   });
 }
 
+/**
+ * Give the workflow's run-as identity a role that reaches every incident and adds notes, through
+ * its own guarded route (the coordinator, 2026-11-11: publishing gives it none). The role is the
+ * suite's own ("E2E …"), removed by `deleteE2eRoles`.
+ */
+async function giveRunAsRole(page: Page, flow: string): Promise<void> {
+  const { csrf_token } = await me(page);
+  const write = { 'X-CSRF-Token': csrf_token };
+  const role = await page.request.post('/api/v1/roles', {
+    data: {
+      name: `E2E workflow notes ${String(Date.now())}`,
+      permissions: [
+        { permission: 'incidents.view', scope: 'all' },
+        { permission: 'incidents.add_note', scope: 'all' },
+      ],
+    },
+    headers: write,
+  });
+  expect(role.status(), await role.text()).toBe(201);
+  const { id } = (await role.json()) as { id: string };
+  const given = await page.request.put(`${BASE}/${flow}/run-as/roles/${id}`, { headers: write });
+  expect(given.status(), await given.text()).toBe(204);
+}
+
+/** The signed-in user's language, stored as theirs (put back by `resetLanguage`). */
+async function useLanguage(page: Page, locale: string): Promise<void> {
+  const { csrf_token, user } = await me(page);
+  const path = `/api/v1/users/${user.id}`;
+  const current = (await (await page.request.get(path)).json()) as { version: number };
+  const saved = await page.request.patch(path, {
+    data: { ui_locale: locale },
+    headers: { 'If-Match': `"${String(current.version)}"`, 'X-CSRF-Token': csrf_token },
+  });
+  expect(saved.status(), await saved.text()).toBe(200);
+}
+
 const at = (x: number, y: number) => ({ x, y });
 
 test('REQ-WF-008, -028: a workflow built by keyboard, published, run on an incident', async ({
@@ -124,15 +160,33 @@ test('REQ-WF-008, -028: a workflow built by keyboard, published, run on an incid
     // The outline: start → note → end, by its selects alone.
     await page.getByRole('tab', { name: 'Outline' }).click();
     let list = await openSelect(page, 'outline-link-start-next');
-    await list.getByTitle('Add a note (note)').click();
+    await list.getByTitle('Add a note').click();
     list = await openSelect(page, 'outline-link-note-next');
-    await list.getByTitle('End (end)').click();
+    await list.getByTitle('End').click();
     await expectAccessible(page, 'the workflow designer');
 
     await page.getByTestId('designer-save').click();
     await expect(page.getByTestId('designer-problem-count')).toHaveCount(0, LIVE);
+    // A note acts as the workflow's run-as identity, which has no role yet: the canvas says so
+    // (in Arabic too), and publishing asks first.
+    const warning = page.getByTestId('designer-run-as-warning');
+    await expect(warning).toContainText("This workflow can't change records yet", LIVE);
+    await useLanguage(page, 'ar');
+    await page.reload();
+    await expect(page.getByTestId('designer-run-as-warning')).toContainText(
+      'لا يستطيع سير العمل هذا تغيير السجلات بعد',
+      LIVE,
+    );
+    await resetLanguage(page);
+    await page.reload();
     await page.getByTestId('designer-publish').click();
+    const confirm = page.getByRole('dialog');
+    await expect(confirm).toContainText('Publish without a role?');
+    await confirm.getByRole('button', { name: 'Publish anyway' }).click();
     await expect(page.getByTestId('designer-header')).toContainText('Version 1', LIVE);
+    // Given a role, the warning goes, live.
+    await giveRunAsRole(page, flow);
+    await expect(warning).toHaveCount(0, LIVE);
     await page.getByTestId('designer-actions-more').click();
     await page.getByTestId('designer-enable').click();
     await expect(page.getByTestId('designer-header')).toContainText('On', LIVE);
@@ -146,8 +200,10 @@ test('REQ-WF-008, -028: a workflow built by keyboard, published, run on an incid
     await expect(panel).toContainText('Finished');
     await expectAccessible(page, "an incident's Workflows tab");
   } finally {
+    await resetLanguage(page);
     if (record !== '') await removeIncident(page, record);
     if (flow !== '') await removeWorkflow(page, flow);
+    await deleteE2eRoles(page);
   }
 });
 
@@ -190,7 +246,8 @@ test('REQ-WF-024 AC2: a failed step is skipped from the incident, with a confirm
   page,
 }) => {
   await signInAs(page, 'admin', '/admin/workflows');
-  // A field step the incident refuses (an impact that does not exist): the run fails there.
+  // A field step its run-as identity may not do (it holds no role): the run fails there, in
+  // words, and is skipped from the incident.
   const flow = await workflow(
     page,
     `E2E skip ${String(Date.now())}`,
@@ -201,7 +258,7 @@ test('REQ-WF-024 AC2: a failed step is skipped from the incident, with a confirm
         {
           id: 'set',
           type: 'field_update',
-          config: { values: { impact: 'not_an_impact' } },
+          config: { values: { impact: 'team' } },
           position: at(0, 140),
         },
         { id: 'end', type: 'end', config: {}, position: at(0, 280) },
@@ -222,6 +279,9 @@ test('REQ-WF-024 AC2: a failed step is skipped from the incident, with a confirm
     const panel = page.getByTestId('record-workflows');
     await expect(panel).toContainText('Failed', LIVE);
     await expect(panel).toContainText('Stopped at the step set');
+    await expect(panel).toContainText(
+      "The workflow's run-as identity has no right to do this step",
+    );
     await panel.getByRole('button', { name: 'Skip this step' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('recorded with your name');

@@ -602,6 +602,9 @@ export const ar: LabelResource = {
   'permission.releases.manage_followers': 'إدارة متابعي الإصدارات',
   'permission.releases.manage_followers.description':
     'إضافة أشخاص آخرين كمتابعين للإصدارات وإزالتهم.',
+  'permission.releases.override_freeze': 'السماح بتنفيذ إصدار خلال فترة تجميد',
+  'permission.releases.override_freeze.description':
+    'تجاوز فترات التجميد المانعة لإصدار واحد مع ذكر السبب. يُسجَّل ذلك في سجل التدقيق وفي سجل الإصدار.',
   'permission.releases.reopen': 'إعادة فتح الإصدارات',
   'permission.releases.reopen.description':
     'إعادة فتح الإصدارات المغلقة إلى المراجعة، مع ذكر السبب.',

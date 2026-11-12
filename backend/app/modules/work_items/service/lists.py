@@ -391,7 +391,7 @@ async def delete_view(  # noqa: PLR0913 - the view and its version, explicit
 
 
 def _view_key(wtype: WorkItemType, key: str) -> str:
-    if not view_key_valid(key, (*items.view_codes(wtype), *items.COUNTERS, ALL)):
+    if not view_key_valid(key, (*items.view_codes(wtype), *items.counter_codes(wtype), ALL)):
         raise items.field_errors([("view_key", "invalid_choice")])
     return key
 

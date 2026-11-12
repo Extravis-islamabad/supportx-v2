@@ -24,7 +24,6 @@ from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain import change_windows as rules
-from app.modules.work_items.domain.changes import IMPLEMENTATION
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import ChangeWindowChanged
 from app.modules.work_items.infra.models import (
@@ -32,6 +31,7 @@ from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemChangeDetails,
     WorkItemDowntime,
+    WorkItemReleaseDetails,
     WorkItemStageSchedule,
 )
 from app.modules.work_items.service import change_conflicts
@@ -45,6 +45,40 @@ CHANGE = TYPES[WorkItemTypeCode.CHANGE]
 MANAGE = ("changes.manage_windows", "settings.manage")
 OVERRIDE = "override_freeze"  # the change's own action (its permission's scope decides)
 OVERRIDE_PERMISSION = "changes.override_freeze"
+RELEASE = TYPES[WorkItemTypeCode.RELEASE]
+OVERRIDE_TYPES = frozenset({WorkItemTypeCode.CHANGE, WorkItemTypeCode.RELEASE})
+
+
+async def _locked_details(
+    session: AsyncSession, record: WorkItem
+) -> WorkItemChangeDetails | WorkItemReleaseDetails:
+    """The details row keeping the record's passed freezes, locked for update.
+
+    A change's (0132) or a release's (0139): two overrides of one record apply one after the
+    other (lane B's review).
+    """
+    details: WorkItemChangeDetails | WorkItemReleaseDetails | None
+    if record.type == WorkItemTypeCode.RELEASE.value:
+        details = await session.scalar(
+            select(WorkItemReleaseDetails)
+            .where(WorkItemReleaseDetails.work_item_id == record.id)
+            .with_for_update()
+        )
+        if details is None:
+            details = WorkItemReleaseDetails(tenant_id=record.tenant_id, work_item_id=record.id)
+            session.add(details)
+        return details
+    details = await session.scalar(
+        select(WorkItemChangeDetails)
+        .where(WorkItemChangeDetails.work_item_id == record.id)
+        .with_for_update()
+    )
+    if details is None:
+        details = WorkItemChangeDetails(tenant_id=record.tenant_id, work_item_id=record.id)
+        session.add(details)
+    return details
+
+
 NAME_MAX, DESCRIPTION_MAX, LABEL_MAX, REASON_MAX, MAX_IDS = 200, 2000, 200, 500, 200
 LANGUAGES = frozenset({"en", "ar", "ur"})
 SCOPES = ("site_ids", "group_ids", "service_ids", "ci_ids")
@@ -341,24 +375,28 @@ async def override_freeze(  # noqa: PLR0913 - the change, its version and why, e
     window_ids: Sequence[uuid.UUID],
     expected_version: int,
     source: Source,
+    wtype: WorkItemType = CHANGE,
 ) -> WorkItem:
     """Pass these blocking freezes for this change, with a reason (ADR-042; D-144's pattern).
+
+    A release the same way (WP-058b S2; REQ-REL-040): `releases.override_freeze`, its details row.
 
     Decided on this change at the scope it was granted (all, its site or its group): holding it
     for one group never reaches another group's change (lane B's review). Only the freezes named
     are passed: a different freeze, or one added later, still blocks until someone passes it too
     (lane B's review of #376). The route audits it.
     """
-    record = await items.visible_record(session, subject, CHANGE, record_id)
+    if wtype.code not in OVERRIDE_TYPES:
+        raise NotFound(code="work_item_not_found")
+    permission = wtype.permission(OVERRIDE)
+    record = await items.visible_record(session, subject, wtype, record_id)
     if items.is_closed(record):  # a closed or canceled change is locked (REQ-CHG-097)
         raise Conflict(code=items.RECORD_CLOSED, params={"status": record.status})
-    if not await items.may(session, subject, CHANGE, OVERRIDE, record.id):
+    if not await items.may(session, subject, wtype, OVERRIDE, record.id):
         raise PermissionDenied(
             params={
-                "permission": OVERRIDE_PERMISSION,
-                "reason": items.OUT_OF_SCOPE
-                if subject.holds(OVERRIDE_PERMISSION)
-                else "no_permission",
+                "permission": permission,
+                "reason": items.OUT_OF_SCOPE if subject.holds(permission) else "no_permission",
             }
         )
     if record.version != expected_version:
@@ -381,15 +419,7 @@ async def override_freeze(  # noqa: PLR0913 - the change, its version and why, e
     )
     if not wanted or freezes != set(wanted):
         raise items.field_errors([("window_ids", "required" if not wanted else "invalid_value")])
-    # Locked: two overrides of one change apply one after the other (lane B's review).
-    details = await session.scalar(
-        select(WorkItemChangeDetails)
-        .where(WorkItemChangeDetails.work_item_id == record.id)
-        .with_for_update()
-    )
-    if details is None:
-        details = WorkItemChangeDetails(tenant_id=record.tenant_id, work_item_id=record.id)
-        session.add(details)
+    details = await _locked_details(session, record)
     before = sorted(str(w) for w in details.freeze_override_window_ids or [])
     passed = sorted({*(details.freeze_override_window_ids or []), *wanted})
     details.freeze_override_reason = text
@@ -417,8 +447,7 @@ CALENDAR_LIMIT = 2000  # entries in one range; a month of a busy tenant fits man
 # The stage whose window a type puts on the calendar (WP-058b S1; ADR-042 addendum): a change's
 # implementation, a release's deployment.
 PLANNED_STAGE: dict[WorkItemTypeCode, str] = {
-    WorkItemTypeCode.CHANGE: IMPLEMENTATION,
-    WorkItemTypeCode.RELEASE: "deployment",
+    WorkItemTypeCode(code): stage for code, stage in rules.PLANNED_STAGE.items()
 }
 
 

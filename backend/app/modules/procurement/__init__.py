@@ -7,7 +7,10 @@ here, with no ADR (the approved WP-049 plan). Licensed with the `procurement` fe
 Public interface for other modules: `vendor_problem` (may a record name this vendor: not found,
 or inactive and not already its vendor), `vendor_names` (for display), and
 `register_vendor_usage` (a module whose records name vendors says how many do, so a vendor in
-use cannot be deleted).
+use cannot be deleted). WP-049b S4b (REQ-AST-053, the vendor import from the asset screens):
+`create_vendor` and `update_vendor` (the same calls as the API, with their permissions),
+`find_vendor` and `find_vendor_id` (by name), and the permissions `VENDORS_CREATE` and
+`VENDORS_MANAGE`.
 """
 
 from app.core.authorization import PermissionSpec
@@ -19,7 +22,11 @@ from app.modules.procurement.service.vendors import (
     CREATE,
     MANAGE,
     VIEW,
+    create_vendor,
+    find_vendor,
+    find_vendor_id,
     register_vendor_usage,
+    update_vendor,
     vendor_names,
     vendor_problem,
     vendor_report_names,
@@ -48,4 +55,18 @@ module = ModuleSpec(
     realtime=ROUTES,
 )
 
-__all__ = ["module", "register_vendor_usage", "vendor_names", "vendor_problem"]
+VENDORS_CREATE = CREATE
+VENDORS_MANAGE = MANAGE
+
+__all__ = [
+    "VENDORS_CREATE",
+    "VENDORS_MANAGE",
+    "create_vendor",
+    "find_vendor",
+    "find_vendor_id",
+    "module",
+    "register_vendor_usage",
+    "update_vendor",
+    "vendor_names",
+    "vendor_problem",
+]

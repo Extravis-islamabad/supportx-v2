@@ -16,7 +16,6 @@ import {
   Space,
   Spin,
   Switch,
-  Tabs,
   Typography,
 } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
@@ -52,6 +51,7 @@ import {
   useFormProblem,
   useLabel,
   PersonSessions,
+  Tabs,
 } from '@supportx/ui';
 
 import { MemberAvailability } from '../../../MemberAvailability';

@@ -364,3 +364,47 @@ async def test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_curr
     [smoke] = [t for t in added.json()["items"] if t["title"] == "Smoke test"]
     assert smoke["stage"] == release["stage"]
     assert smoke["stage"] is not None
+
+
+async def test_a_task_s_extra_cost_in_the_history_is_for_the_record_s_editors_only(
+    world: World,
+) -> None:
+    """Lane B's #398 review: the history keeps the line but never the amounts for a viewer
+    without edit, nor for a task-only owner (D-112); the editor reads them."""
+    from tests.db.test_incidents_api import role  # noqa: PLC0415 - shared helper
+    from tests.db.test_parts_api import _task_owner_access  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga))  # tech_b is not in GA
+    await _task_owner_access(world, a, on=True)
+    try:
+        task = await _made(world, a, item, title="Swap the PSU", owner_id=str(a.tech_b))
+        costed = await _patch(world, a, a.admin, task, extra_cost="125.50")
+        assert costed.status_code == 200, costed.text
+        viewer_role = await role(
+            world, a, f"Viewers {uuid.uuid4().hex[:6]}", [("incidents.view", "all")]
+        )
+        granted = await world.call("PUT", f"/users/{a.requester2}/roles/{viewer_role}", a, a.admin)
+        assert granted.status_code == 204, granted.text
+
+        async def history(user: uuid.UUID) -> httpx.Response:
+            return await world.call("GET", f"{BASE}/{item['id']}/history", a, user, headers=CONSOLE)
+
+        editor = await history(a.admin)
+        assert editor.status_code == 200, editor.text
+        assert "125.50" in editor.text
+        viewer = await history(a.requester2)
+        assert viewer.status_code == 200, viewer.text
+        assert "125.50" not in viewer.text
+        lines = [
+            c
+            for e in viewer.json()["items"]
+            for c in e["changes"]
+            if c["field"] == "task.extra_cost"
+        ]
+        assert lines, viewer.text  # the line stays: that it changed, when and by whom
+        assert all(c["hidden"] and c["old"] is None and c["new"] is None for c in lines)
+        owner = await history(a.tech_b)  # works the task, may not see the record
+        assert "125.50" not in owner.text
+    finally:
+        await _task_owner_access(world, a, on=False)

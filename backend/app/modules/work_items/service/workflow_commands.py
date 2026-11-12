@@ -27,7 +27,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import AppError, BadRequest
+from app.core.errors import AppError, BadRequest, PermissionDenied
 from app.modules import automation, sla
 from app.modules.identity_access import Subject, worker_policy
 from app.modules.work_items.domain.conversation import EntryKind, Visibility
@@ -89,6 +89,22 @@ async def _with_group(
     return placed, {**ref, "unavailable": placement.unavailable.value, "person_id": str(person)}
 
 
+def _refusal(wtype: WorkItemType, refused: AppError) -> str:
+    """The step's error for a refused command, in words the Runs tab can say.
+
+    The record was found just before (`_version`), so a not-found on the record or a permission
+    refusal here means the workflow's run-as identity may not see or change it, never that the
+    record is gone (the coordinator, 2026-11-11: it read "Work Item Not Found"). The code names
+    the identity's missing right only: nothing about the record leaks to anyone.
+    """
+    # Only the plain "may not": a refusal with its own code (a rule, a state) keeps it, and a
+    # licence refusal is EntitlementRequired, never this (lane B's #416 review).
+    record_gone = {"work_item_not_found", f"{wtype.code}_not_found", PermissionDenied.code}
+    if refused.instance_code in record_gone:
+        return "workflow_identity_not_permitted"
+    return refused.instance_code
+
+
 def runner(wtype: WorkItemType) -> automation.CommandRunner:
     """The `run_command` of one work item type."""
 
@@ -124,7 +140,7 @@ def runner(wtype: WorkItemType) -> automation.CommandRunner:
                     policy=policy,
                 )
         except AppError as refused:  # the person-like checks said no: the node decides
-            return automation.CommandResult(ok=False, error=refused.instance_code)
+            return automation.CommandResult(ok=False, error=_refusal(wtype, refused))
         if not handled:
             return automation.CommandResult(ok=False, error="command_not_supported")
         return automation.CommandResult(ok=True)

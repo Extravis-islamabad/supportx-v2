@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from app.core.config import Settings
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
 from app.modules.work_items.service import change_reminders
@@ -21,6 +22,9 @@ from tests.db.test_change_closure_api import _in_review, fresh
 from tests.db.test_changes_api import CHG, a_change, move, new_change
 from tests.db.test_incidents_api import CONSOLE, Org, World
 from tests.db.test_notifications_api import run_engine
+
+CONSOLE_URL = Settings().console_url
+PORTAL_URL = Settings().portal_url
 
 pytestmark = [pytest.mark.db, MODULE_LOOP]
 
@@ -121,7 +125,8 @@ async def test_lane_b_an_approver_without_changes_view_is_told_with_the_public_s
     body = (mail["text_body"] or "") + (mail["subject"] or "")
     assert item["display_id"] in body
     assert "approval_link" in body  # their own one-time link, made by the mail sender
-    assert "/changes/" not in body  # never the console address they cannot open
+    assert f"{CONSOLE_URL}/changes/" not in body  # never the console address they cannot open
+    assert f"{PORTAL_URL}/approvals" in body  # where a requester-only approver decides (AC3)
     assert "risk" not in body.lower()
 
 
@@ -179,7 +184,9 @@ async def test_req_chg_104_the_requester_sees_only_their_own_view(world: World) 
     assert told, "the requester was not told the change closed"
     for d in told:
         body = (d["text_body"] or "") + (d["subject"] or "")
-        assert "/changes/" not in body
+        assert f"{CONSOLE_URL}/changes/" not in body
+        if d["channel"] == "email":  # its portal page (REQ-CHG-109)
+            assert f"{PORTAL_URL}/changes/{item['id']}" in body
         assert "Secret backout steps" not in body
         assert "risk" not in body.lower()
 

@@ -83,6 +83,7 @@ export function AssetFields({
     products.data.pages.every((p) => p.items.length === 0) &&
     current.data === undefined;
   const mayConfigure = access.can('config.assets') || access.can('settings.manage');
+  const seesMoney = access.can('assets.view_financials');
   const vendorChoices = (vendors.data?.pages.flatMap((p) => p.items) ?? [])
     .filter((v) => v.is_active || v.id === draft.vendor_id)
     .map((v) => ({ value: v.id, label: v.name }));
@@ -214,8 +215,9 @@ export function AssetFields({
         />
       </Form.Item>
       <Flex gap={16} wrap>
-        {amount('purchase_price')}
-        {amount('purchase_tax')}
+        {/* D-157: the price and tax are money: only people who may see it set them. */}
+        {seesMoney && amount('purchase_price')}
+        {seesMoney && amount('purchase_tax')}
         <Form.Item label={t('assets.admin.currency')} htmlFor="asset-currency">
           <Input
             id="asset-currency"

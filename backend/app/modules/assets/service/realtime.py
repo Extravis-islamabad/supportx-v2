@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.assets.infra.models import Asset, AssetAudit
 from app.modules.assets.service.assets import ASSETS, MANAGE, VIEW
 from app.modules.assets.service.audits import is_auditor
+from app.modules.assets.service.linked import assets_of_work_item
 from app.modules.identity_access import authorize_stored
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
@@ -332,6 +333,30 @@ async def _label_changed(envelope: EventEnvelope, session: AsyncSession) -> Real
     )
 
 
+# WP-049b S4b: a bulk job's or an import's progress, to the person who asked for it. The assets
+# a job changes reach the lists through their own `assets.asset.changed` (coalesced).
+BULK_PROGRESS = "assets.bulk_progress"
+IMPORT_PROGRESS = "assets.import_progress"
+
+
+async def _job_progressed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A bulk job or an import moved on: its requester's screens refresh. IDs only."""
+    del session
+    payload = envelope.payload
+    person = uuid.UUID(str(payload["requested_by"]))
+    bulk = envelope.event_type == "assets.bulk_job.progressed"
+    job_id = str(payload["job_id"] if bulk else payload["import_id"])
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, person),
+                BULK_PROGRESS if bulk else IMPORT_PROGRESS,
+                ids=(job_id,),
+            )
+        ]
+    )
+
+
 async def _scan_recorded(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A scan of an asset was recorded: its Scans tab refreshes. IDs only."""
     del session
@@ -348,10 +373,47 @@ async def _scan_recorded(envelope: EventEnvelope, session: AsyncSession) -> Real
     )
 
 
+# WP-049b s4a (REQ-AST-044): the linked records panel counts live. A link made or removed names
+# the asset; a status change of a linked work item reaches its assets through lane A's port
+# (none registered yet: nothing to send). `fields`: linked. IDs only; counts through the API.
+LINKED_FIELD = "linked"
+
+
+def _linked(tenant: uuid.UUID, asset_id: uuid.UUID, work_item: str) -> Publication:
+    return Publication(
+        record(tenant, RECORD_KIND, asset_id),
+        ASSET_CHANGED,
+        ids=(str(asset_id), work_item),
+        fields=(LINKED_FIELD,),
+    )
+
+
+async def _link_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    del session
+    payload = envelope.payload
+    asset_id = uuid.UUID(str(payload["asset_id"]))
+    return RealtimeEffects(
+        publications=[_linked(envelope.tenant_id, asset_id, str(payload["work_item_id"]))]
+    )
+
+
+async def _work_item_moved(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    work_item = uuid.UUID(str(envelope.payload["work_item_id"]))
+    return RealtimeEffects(
+        publications=[
+            _linked(envelope.tenant_id, asset_id, str(work_item))
+            for asset_id in await assets_of_work_item(session, work_item)
+        ]
+    )
+
+
 ROUTES = [
+    RealtimeRoute(("work_items.asset_link.changed",), _link_changed),
+    RealtimeRoute(("work_items.work_item.status_changed",), _work_item_moved),
     RealtimeRoute(("assets.audit.changed", "assets.audit.item_changed"), _audit_changed),
     RealtimeRoute(("assets.label.requested", "assets.label.printed"), _label_changed),
     RealtimeRoute(("assets.scan.recorded",), _scan_recorded),
+    RealtimeRoute(("assets.bulk_job.progressed", "assets.import.progressed"), _job_progressed),
     # The overdue-scan rule is set-up, like the catalogue: the settings screen refetches.
     RealtimeRoute(("assets.overdue_rule.changed",), _catalogue_changed),
     RealtimeRoute(tuple(_PARTS), _part_changed),

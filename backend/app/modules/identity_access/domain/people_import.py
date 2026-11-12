@@ -3,24 +3,22 @@
 Limits protect the import job from oversized and "bomb" files (product owner, WP-021): the file
 size, the rows, the columns and the characters per cell are capped, and an Excel file (a zip) is
 checked before it is opened: entry count, total unpacked size and compression ratio. Excel is
-read with openpyxl in read-only mode, values only (formulas are never evaluated).
+read with openpyxl in read-only mode, values only (formulas are never evaluated). The reading
+itself is app/shared/sheets.py (shared with the asset imports, WP-049b S4b); these are its limits.
 """
 
-import csv
-import io
-import zipfile
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 
-MAX_FILE_BYTES = 5 * 1024 * 1024
+from app.shared import sheets
+
+MAX_FILE_BYTES = sheets.MAX_FILE_BYTES
 MAX_ROWS = 5000
-MAX_COLUMNS = 40
-MAX_CELL_CHARS = 5000
-MAX_ZIP_ENTRIES = 200
-MAX_UNPACKED_BYTES = 50 * 1024 * 1024
-MAX_RATIO = 100  # unpacked / packed, per entry
-RATIO_FROM_BYTES = 1024  # tiny entries (empty parts) compress far better and are harmless
+MAX_COLUMNS = sheets.MAX_COLUMNS
+MAX_CELL_CHARS = sheets.MAX_CELL_CHARS
+LIMITS = sheets.SheetLimits(max_rows=MAX_ROWS)
 
 # Column heading (lowercase, spaces or underscores) → field. Field codes and English headings.
 COLUMNS: dict[str, str] = {
@@ -85,12 +83,8 @@ class SheetRows:
 
 def file_format(file_name: str, content: bytes) -> str:
     """The file's kind, csv or xlsx: by the content (an xlsx is a zip) and the extension."""
-    name = file_name.lower()
-    if content.startswith(b"PK\x03\x04") and name.endswith(".xlsx"):
-        return "xlsx"
-    if name.endswith((".csv", ".txt")) and not content.startswith(b"PK\x03\x04"):
-        return "csv"
-    raise ImportRefused(ImportFailure.NOT_READABLE)
+    with _refusals():
+        return sheets.file_format(file_name, content)
 
 
 def flag(value: str) -> bool | None:
@@ -105,34 +99,35 @@ def flag(value: str) -> bool | None:
 
 def read_rows(file_format_code: str, content: bytes) -> SheetRows:
     """Every data row as {field: text}; refuses the whole file when a limit is crossed."""
-    if len(content) > MAX_FILE_BYTES:
-        raise ImportRefused(ImportFailure.TOO_LARGE)
-    raw = _xlsx_rows(content) if file_format_code == "xlsx" else _csv_rows(content)
     header: list[str] | None = None
     rows: list[tuple[int, dict[str, str]]] = []
-    for number, cells in enumerate(raw, start=1):
-        if len(cells) > MAX_COLUMNS:
-            raise ImportRefused(ImportFailure.TOO_MANY_COLUMNS)
-        if any(len(cell) > MAX_CELL_CHARS for cell in cells):
-            raise ImportRefused(ImportFailure.CELL_TOO_LONG, str(number))
-        if header is None:
-            header = _fields(cells)
-            continue
-        if not any(cell.strip() for cell in cells):
-            continue
-        if len(rows) >= MAX_ROWS:
-            raise ImportRefused(ImportFailure.TOO_MANY_ROWS)
-        values = {
-            field: cells[index].strip()
-            for index, field in enumerate(header)
-            if field and index < len(cells)
-        }
-        rows.append((number, values))
+    with _refusals():
+        for number, cells in enumerate(sheets.raw_rows(file_format_code, content, LIMITS), 1):
+            if header is None:
+                header = _fields(cells)
+                continue
+            if not any(cell.strip() for cell in cells):
+                continue
+            values = {
+                field: cells[index].strip()
+                for index, field in enumerate(header)
+                if field and index < len(cells)
+            }
+            rows.append((number, values))
     if header is None:
         raise ImportRefused(ImportFailure.NO_HEADER)
     if not rows:
         raise ImportRefused(ImportFailure.EMPTY)
     return SheetRows([f for f in header if f], rows)
+
+
+@contextmanager
+def _refusals() -> Iterator[None]:
+    """The shared reader's refusals as this import's (the same codes)."""
+    try:
+        yield
+    except sheets.SheetRefused as refused:
+        raise ImportRefused(ImportFailure(refused.code), refused.detail) from refused
 
 
 def _fields(cells: list[str]) -> list[str]:
@@ -153,68 +148,7 @@ def _fields(cells: list[str]) -> list[str]:
     return fields
 
 
-def _csv_rows(content: bytes) -> Iterator[list[str]]:
-    try:
-        decoded = content.decode("utf-8-sig")
-    except UnicodeDecodeError as exc:
-        raise ImportRefused(ImportFailure.NOT_UTF8) from exc
-    try:
-        dialect = csv.Sniffer().sniff(decoded[:4096], delimiters=",;\t")
-    except csv.Error:
-        dialect = csv.excel
-    reader = csv.reader(io.StringIO(decoded), dialect)
-    try:
-        yield from reader
-    except csv.Error as exc:
-        raise ImportRefused(ImportFailure.NOT_READABLE) from exc
-
-
 def check_zip(content: bytes) -> None:
     """Refuse an xlsx whose zip could unpack to far more than it weighs (a "bomb")."""
-    try:
-        with zipfile.ZipFile(io.BytesIO(content)) as archive:
-            entries = archive.infolist()
-    except zipfile.BadZipFile as exc:
-        raise ImportRefused(ImportFailure.NOT_READABLE) from exc
-    if len(entries) > MAX_ZIP_ENTRIES:
-        raise ImportRefused(ImportFailure.UNSAFE)
-    total = 0
-    for entry in entries:
-        total += entry.file_size
-        if total > MAX_UNPACKED_BYTES:
-            raise ImportRefused(ImportFailure.UNSAFE)
-        if (
-            entry.file_size > MAX_RATIO * max(entry.compress_size, 1)
-            and entry.file_size > RATIO_FROM_BYTES
-        ):
-            raise ImportRefused(ImportFailure.UNSAFE)
-
-
-def _xlsx_rows(content: bytes) -> Iterator[list[str]]:
-    check_zip(content)
-    from openpyxl import load_workbook  # noqa: PLC0415 - only the import job needs it
-
-    try:
-        workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
-    except Exception as exc:  # openpyxl raises many types for a broken file
-        raise ImportRefused(ImportFailure.NOT_READABLE) from exc
-    try:
-        sheet = workbook.worksheets[0] if workbook.worksheets else None
-        if sheet is None:
-            raise ImportRefused(ImportFailure.EMPTY)
-        # Rows past the limit are never read: max_row stops openpyxl itself.
-        for values in sheet.iter_rows(
-            max_row=MAX_ROWS + 2, max_col=MAX_COLUMNS + 1, values_only=True
-        ):
-            cells = ["" if value is None else _cell(value) for value in values]
-            while cells and not cells[-1]:
-                cells.pop()
-            yield cells
-    finally:
-        workbook.close()
-
-
-def _cell(value: object) -> str:
-    if isinstance(value, float) and value.is_integer():
-        return str(int(value))  # Excel stores 1001 as 1001.0 (employee IDs, phones)
-    return str(value)
+    with _refusals():
+        sheets.check_zip(content)

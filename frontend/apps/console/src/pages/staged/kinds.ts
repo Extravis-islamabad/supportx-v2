@@ -6,6 +6,7 @@ import {
   useReleaseChanges,
 } from '@supportx/api-client';
 
+import { ReleaseOverride } from '../releases/ReleaseConflicts';
 import type { ScheduleKind } from './ScheduleCalendar';
 
 // The staged types on the shared calendar (WP-045c S3, WP-058b S1): each one's planned stage
@@ -45,5 +46,6 @@ export const RELEASES: ScheduleKind = {
   list: 'releases.calendar.list',
   notMoved: 'releases.calendar.not_moved',
   showOther: 'releases.calendar.show_changes',
+  Override: ReleaseOverride, // its deployment moves here: the override is offered here too
   testId: 'release-calendar',
 };

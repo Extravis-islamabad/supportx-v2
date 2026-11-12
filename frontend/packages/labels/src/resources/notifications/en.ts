@@ -36,6 +36,7 @@ export const en = {
   'notification_area.incident': 'Incidents',
   'notification_area.kb_article': 'Knowledge',
   'notification_area.mailbox': 'Mail',
+  'notification_area.outgoing_mail': 'Outgoing mail',
   'notification_area.problem': 'Problems',
   'notification_area.problem_repeat': 'Problems',
   'notification_area.release': 'Releases',
@@ -113,6 +114,7 @@ export const en = {
   'notification_event.mailbox.credential_expiring': 'Mailbox app secret or certificate expiring',
   'notification_event.mailbox.failing': 'Mailbox stopped working',
   'notification_event.mailbox.mail_held': 'A sender is flooding a mailbox',
+  'notification_event.outgoing_mail.not_sent': 'E-mails never sent: mail is not set up',
   'notification_event.problem.assigned': 'Problem assigned',
   'notification_event.problem.closed': 'Problem closed',
   'notification_event.problem.created_in_group': 'Problem created in your group',
@@ -542,6 +544,12 @@ export const en = {
     'Mail to {{ record.title }} is held for review: a sender sent more than 10 messages in an hour',
   'notification_template.mailbox.mail_held.subject':
     'Mailbox {{ record.title }}: mail held for review',
+  'notification_template.outgoing_mail.not_sent.body':
+    'Hello {{ recipient.name }},\n\n{{ mail.count }} e-mails were never sent, because outgoing mail was not set up within 7 days. The oldest was from {{ mail.oldest_at }}. They will not be sent late. Open Admin › Mail to set up outgoing mail.',
+  'notification_template.outgoing_mail.not_sent.in_app':
+    '{{ mail.count }} e-mails were never sent: outgoing mail was not set up within 7 days (the oldest from {{ mail.oldest_at }}). Set up mail so the next ones go.',
+  'notification_template.outgoing_mail.not_sent.subject':
+    '{{ mail.count }} e-mails were never sent',
   'notification_template.problem.assigned.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now assigned to {{ assignee.name }}.\n\nPriority: {{ record.priority }}\nStatus: {{ record.status }}',
   'notification_template.problem.assigned.in_app':
@@ -705,6 +713,8 @@ export const en = {
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
   'notification_variable.holder.name': 'Holder › Name',
   'notification_variable.incident.count': 'Number of incidents',
+  'notification_variable.mail.count': 'Mail › E-mails not sent',
+  'notification_variable.mail.oldest_at': 'Mail › Oldest',
   'notification_variable.mailbox.address': 'Mailbox › Address',
   'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
   'notification_variable.mailbox.reason': 'Mailbox › Reason',

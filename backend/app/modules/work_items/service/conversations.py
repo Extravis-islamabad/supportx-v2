@@ -727,7 +727,7 @@ async def counters(
     predicates = await items.views_for(session, subject, zone=zone)
     base = items.staff_rows(subject, wtype)
     found: list[tuple[str, int, bool]] = []
-    for code in items.COUNTERS:
+    for code in items.counter_codes(wtype):
         limited = (
             base.where(predicates[code]).with_only_columns(WorkItem.id).limit(items.COUNT_CAP + 1)
         )
