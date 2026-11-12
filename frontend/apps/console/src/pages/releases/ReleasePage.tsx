@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import {
+  queryKeys,
   releaseKeys,
   useRelease,
   useReleaseApprovals,
@@ -28,7 +29,7 @@ import {
   Tabs,
 } from '@supportx/ui';
 
-import { RecordWorkflows } from '../workflows/RecordWorkflows';
+import { RecordWorkflows, WorkflowFailureBanner } from '../workflows/RecordWorkflows';
 import { personName } from '../incidents/labels';
 
 import { EMERGENCY_PATH, stageName, statusName } from './labels';
@@ -43,6 +44,8 @@ import {
   SubReleasesPart,
 } from './ReleaseParts';
 import { ReleaseChangesPart } from './ReleaseChanges';
+import { ReleaseStagesPart } from './ReleaseStages';
+import { IncidentTasks, IncidentWorklogs } from '../incidents/IncidentParts';
 import { ReleaseProperties } from './ReleaseProperties';
 
 // Beside "More": the page's 4-action rule (UI pass 2; QA6-REL-01).
@@ -72,8 +75,12 @@ export function ReleasePage() {
     (a) => a.state === 'pending',
   ).length;
   const [moving, setMoving] = useState<StageMove>();
+  const [tab, setTab] = useState('details');
   useRecordChannel('wi', id === '' ? undefined : id, () => {
     void queryClient.invalidateQueries({ queryKey: releaseKeys.detail(id) });
+    // Its tasks and worklogs live under the shared parts' keys (WP-058b S3).
+    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(id) });
   });
   // Once per error, not on every render (lane A's review of #219).
   useEffect(() => {
@@ -90,6 +97,8 @@ export function ReleasePage() {
     );
   }
   const r = record.data;
+  // The record's own operations say whether this person may edit it (as a change's page).
+  const mayEdit = r.operations.find((o) => o.action === 'edit')?.allowed === true;
   const moves = panel.data?.moves ?? [];
   const allowed = moves.filter((m) => m.allowed);
   // Canceling ends the release: never beside the positive moves, always in "More" (QA6-REL-01).
@@ -256,9 +265,19 @@ export function ReleasePage() {
           }}
         />
       )}
+      {/* A failed workflow step, named on the header with Retry (REQ-REL-021 AC1). */}
+      <WorkflowFailureBanner
+        recordType="release"
+        recordId={r.id}
+        onOpen={() => {
+          setTab('workflows');
+        }}
+      />
       <Tabs
         data-testid="release-tabs"
         destroyOnHidden
+        activeKey={tab}
+        onChange={setTab}
         items={[
           { key: 'details', label: t('releases.tab.details'), children: <DetailsPart id={r.id} /> },
           { key: 'roles', label: t('releases.tab.roles'), children: <RolesPart id={r.id} /> },
@@ -281,6 +300,21 @@ export function ReleasePage() {
             key: 'approvals',
             label: t('releases.tab.approvals'),
             children: <ApprovalsPart id={r.id} />,
+          },
+          {
+            key: 'stages',
+            label: t('releases.tab.stages'),
+            children: <ReleaseStagesPart id={r.id} />,
+          },
+          {
+            key: 'tasks',
+            label: t('releases.tab.tasks'),
+            children: <IncidentTasks item={r} canEdit={mayEdit} base="releases" />,
+          },
+          {
+            key: 'worklogs',
+            label: t('releases.tab.worklogs'),
+            children: <IncidentWorklogs item={r} canEdit={mayEdit} base="releases" />,
           },
           {
             key: 'sub-releases',

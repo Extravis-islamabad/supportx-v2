@@ -27,7 +27,7 @@ const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
 /** The work-item types whose record parts (tasks, worklogs, links) these hooks serve. */
 // Changes (WP-045d S1): the same parts; their tasks carry the stage they are for.
-export type PartsBase = 'incidents' | 'problems' | 'changes';
+export type PartsBase = 'incidents' | 'problems' | 'changes' | 'releases';
 
 /**
  * The same engine route under another type's prefix (WP-044c: problems' tasks and worklogs).

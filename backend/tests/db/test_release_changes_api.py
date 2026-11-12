@@ -177,3 +177,25 @@ async def test_a_change_that_holds_the_release_cannot_go_in_it(world: World) -> 
         refused = await _add(world, a, release, holder)
         assert field_codes(refused) == {("change_id", "change_would_loop")}, refused.text
     assert (await _add(world, a, child, other)).status_code == 204
+
+
+async def test_a_release_that_holds_a_change_cannot_become_its_child(world: World) -> None:
+    """Lane A's add_child uses the same holding walk (lane C's #386): no loop of mixed kinds."""
+    from tests.db.test_changes_api import CHG  # noqa: PLC0415 - shared constant
+    from tests.db.test_releases_api import a_release  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    release = await a_release(world, a)
+    change = await _change(world, a)
+    held = await _add(world, a, release, change)
+    assert held.status_code in {200, 201, 204}, held.text
+    loop = await world.call(
+        "POST",
+        f"{CHG}/{change['id']}/children",
+        a,
+        a.admin,
+        json={"child_id": release["id"]},
+        headers=CONSOLE,
+    )
+    assert loop.status_code == 422, loop.text
+    assert "change_would_loop" in loop.text

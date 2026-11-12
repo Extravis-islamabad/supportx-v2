@@ -229,9 +229,12 @@ export function BulkDialog({
           ...(closureCode === null ? {} : { closure_code: closureCode }),
           confirm_open_work: openWork,
         };
+      // Started from the problem screens (WP-044a/b), and the change list's own cancel and trash
+      // dialog (REQ-CHG-101): never this dialog.
       case 'link_problem':
       case 'unlink_problem':
-        // Started from the problem screens (WP-044a/b), never offered in this menu (BULK_ACTIONS).
+      case 'cancel':
+      case 'delete':
         return {};
     }
   };

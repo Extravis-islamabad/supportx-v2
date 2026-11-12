@@ -44,6 +44,7 @@ export const ur: LabelResource = {
   'notification_area.release': 'ریلیزز',
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.service_request': 'سروس کی درخواستیں',
+  'notification_area.task': 'کام',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
   'notification_category.conversation': 'جوابات اور نوٹس',
@@ -139,6 +140,9 @@ export const ur: LabelResource = {
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
+  'notification_event.task.assigned': 'آپ کو ایک کام دیا گیا',
+  'notification_event.task.overdue': 'آپ کا کام تاخیر کا شکار ہے',
+  'notification_event.task.starts_soon': 'آپ کا کام جلد شروع ہو رہا ہے',
   'notification_preferences.col.category': 'قسم',
   'notification_preferences.dnd_help':
     'کوئی پاپ اپ نہیں اور فوری و لازمی کے سوا کوئی ای میل نہیں؛ سب کچھ آپ کی اطلاعات میں پھر بھی آتا ہے۔',
@@ -679,6 +683,23 @@ export const ur: LabelResource = {
     '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر کام "{{ task.title }}" اب آپ کا ہے۔',
+  'notification_template.task.assigned.in_app':
+    '{{ record.display_id }} پر {{ task.title }} اب آپ کا ہے',
+  'notification_template.task.assigned.subject':
+    'آپ کے لیے کام: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کے کام "{{ task.title }}" کا وقت {{ task.due_at }} تھا اور یہ ابھی کھلا ہے۔',
+  'notification_template.task.overdue.in_app': '{{ task.title }} کا وقت {{ task.due_at }} تھا',
+  'notification_template.task.overdue.subject':
+    'تاخیر شدہ: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کا کام "{{ task.title }}" {{ task.starts_at }} پر شروع ہوگا۔',
+  'notification_template.task.starts_soon.in_app':
+    '{{ task.title }} {{ task.starts_at }} پر شروع ہوگا',
+  'notification_template.task.starts_soon.subject':
+    'جلد شروع: {{ task.title }} ({{ record.display_id }})',
   'notification_variable.acknowledgement.comment': 'تصدیق › تبصرہ',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
   'notification_variable.approval.comment': 'منظوری دینے والے کا تبصرہ',
@@ -713,6 +734,9 @@ export const ur: LabelResource = {
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
   'notification_variable.stock.minimum': 'اسٹاک › کم از کم',
   'notification_variable.stock.quantity': 'اسٹاک › مقدار',
+  'notification_variable.task.due_at': 'کام کا مقررہ وقت',
+  'notification_variable.task.starts_at': 'کام کا طے شدہ آغاز',
+  'notification_variable.task.title': 'کام کا عنوان',
   'notification_variable.unavailable.person': 'غیر تفویض › فرد',
   'notification_variable.unavailable.reason': 'غیر تفویض › وجہ',
   'notification_variable.warranty.ends_on': 'وارنٹی › ختم ہونے کی تاریخ',

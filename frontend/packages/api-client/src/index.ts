@@ -1254,6 +1254,7 @@ export {
   useChangeRiskQuestionnaire,
   useChanges,
   useStartChangeBulkClose,
+  useStartChangeBulk,
   useChangeTemplates,
   useChangeApprovalPreview,
   useAddChangeChild,
