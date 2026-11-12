@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { setErrorReporter } from './errors/reporter';
 import { cleanPastedHtml, RichTextField } from './richtext';
 import { renderUi } from './test/render';
 
@@ -162,7 +163,9 @@ describe('The rich-text editor (WP-020b)', () => {
 
   it('inserts nothing when filling fails, never the raw variables (WP-046a S5a)', async () => {
     const changed = vi.fn<(html: string) => void>();
-    const fill = vi.fn(() => Promise.reject(new Error('refused')));
+    const refused = new Error('refused');
+    const reported = vi.fn();
+    const fill = vi.fn(() => Promise.reject(refused));
     renderUi(
       <RichTextField
         label="Reply"
@@ -172,6 +175,8 @@ describe('The rich-text editor (WP-020b)', () => {
       />,
     );
     await screen.findByTestId('ed');
+    // After the app's own reporter is mounted, so this one catches the report.
+    setErrorReporter(reported);
     fireEvent.click(screen.getByTestId('rt-templates'));
     fireEvent.click(await screen.findByText('Update'));
     await waitFor(() => {
@@ -181,6 +186,7 @@ describe('The rich-text editor (WP-020b)', () => {
       await Promise.resolve();
     });
     expect(changed.mock.calls.some(([html]) => html.includes('record.title'))).toBe(false);
+    expect(reported).toHaveBeenCalledWith(refused);
   });
 
   it('wraps text in a callout box of one of four kinds, only when asked (D-108 (9))', async () => {

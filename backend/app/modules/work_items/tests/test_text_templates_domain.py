@@ -1,11 +1,15 @@
 """Reply and resolution template text (REQ-INC-041, -042), without I/O."""
 
+import uuid
+
 from app.modules.work_items.domain.text_templates import (
     fill,
     pick_language,
     unknown_variables,
     variables_in,
 )
+from app.modules.work_items.infra.models import WorkItem
+from app.modules.work_items.service.notifications import record_link
 
 OFFERED = ["record.display_id", "record.title", "requester.name"]
 
@@ -38,3 +42,17 @@ def test_ac2_the_requester_s_language_comes_first_then_the_tenant_s_then_any() -
     assert pick_language(bodies, ["ur", "en"]) == "en"
     assert pick_language({"ar": "<p>x</p>"}, ["ur", "en"]) == "ar"
     assert pick_language({}, ["en"]) is None
+
+
+def test_record_link_follows_the_record_s_type() -> None:
+    """record.link opens the record's own console page: /requests for a request (lane B)."""
+    rid = uuid.uuid4()
+    assert record_link(WorkItem(id=rid, type="service_request")) == f"/requests/{rid}"
+    assert record_link(WorkItem(id=rid, type="incident")) == f"/incidents/{rid}"
+    assert record_link(WorkItem(id=rid, type="problem")) == f"/problems/{rid}"
+
+
+def test_a_plain_line_takes_values_as_they_are() -> None:
+    assert fill("Re: {{ record.title }}", {"record.title": "A & B"}, "-", html=False) == (
+        "Re: A & B"
+    )

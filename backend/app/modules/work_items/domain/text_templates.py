@@ -46,12 +46,16 @@ def unknown_variables(text: str, offered: Iterable[str]) -> list[str]:
     return [name for name in variables_in(text) if name not in known]
 
 
-def fill(text: str, values: Mapping[str, str | None], not_set: str) -> str:
-    """`text` with every variable replaced by its value as escaped text, or `not_set`."""
+def fill(text: str, values: Mapping[str, str | None], not_set: str, *, html: bool = True) -> str:
+    """`text` with every variable replaced by its value, or `not_set`.
+
+    In rich text (`html`) the value goes in escaped, as text, never markup; a plain-text line
+    (a mail subject) takes it as it is, since escaping would show "&amp;" to the reader.
+    """
 
     def value(match: re.Match[str]) -> str:
-        found = values.get(match.group(1))
-        return escape(found) if found else escape(not_set)
+        found = values.get(match.group(1)) or not_set
+        return escape(found) if html else found
 
     return _TOKEN.sub(value, text)
 

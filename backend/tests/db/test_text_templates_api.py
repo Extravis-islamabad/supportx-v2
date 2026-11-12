@@ -128,17 +128,24 @@ async def test_shared_templates_need_the_settings_right_and_honour_groups(world:
     for_ga = await make(world, a, a.admin, name="GA only", group_ids=[str(a.ga)])
     assert for_ga.status_code == 201, for_ga.text
     assert for_ga.json()["may_edit"] is True
-    # Offered to GA's members only; listed for management to everyone, editable by the right.
+    # GA's members and holders of the settings right see it; nobody else, not even its text
+    # through the manage list (lane B's review).
     assert "GA only" in await names(world, a, a.tech_a)
     assert "GA only" not in await names(world, a, a.tech_b)
-    listed = await world.call("GET", f"{PATH}/manage", a, a.tech_b)
+    assert "GA only" not in await managed(world, a, a.tech_b)
+    listed = await world.call("GET", f"{PATH}/manage", a, a.tech_a)
     row = next(t for t in listed.json() if t["name"] == "GA only")
     assert row["may_edit"] is False
+    assert "GA only" in await managed(world, a, a.admin)
     item = await world.create(a, a.admin, group_id=str(a.gb))
     assert problem(await fill(world, a, a.tech_b, item, for_ga.json())) == (
         404,
         "reply_template_not_found",
     )
+    # A record the caller cannot see is not filled, even with a template they may use.
+    hidden = await world.create(a, a.admin, group_id=str(a.gb), requester_id=str(a.requester2))
+    everyone = (await make(world, a, a.admin, name="Everyone's")).json()
+    assert (await fill(world, a, a.tech_a, hidden, everyone)).status_code == 404
     # A personal template takes no groups; a reply takes no categories.
     wrong = await make(
         world, a, a.tech_a, visibility="personal", group_ids=[str(a.ga)], category_ids=[]
@@ -188,6 +195,11 @@ async def test_req_inc_041_variables_language_and_not_set(world: World) -> None:
     out = filled.json()
     assert out["language"] == "en"
     assert out["subject"] == f"About {item['display_id']}"
+    plain = (await make(world, a, a.admin, name="Plain", subject="Re: {{ record.title }}")).json()
+    # A subject is plain text: the title as typed, not HTML-escaped.
+    assert (await fill(world, a, a.admin, item, plain)).json()["subject"] == (
+        "Re: Printer <jammed> & stuck"
+    )
     assert out["body"] == "<p>Printer &lt;jammed&gt; &amp; stuck for not set</p>"
     # AC2: the requester's language first; the screen's choice wins over it.
     await world.sql(

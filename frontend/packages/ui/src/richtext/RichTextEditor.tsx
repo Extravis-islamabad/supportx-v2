@@ -33,6 +33,7 @@ import { TableKit } from '@tiptap/extension-table';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Button, Divider, Dropdown, Flex, Input, Modal, Select, Tooltip } from 'antd';
+import type { Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -405,8 +406,18 @@ function Toolbar({
     if (pending.current.has(id)) return;
     pending.current.add(id);
     setFilling(new Set(pending.current));
-    const { from, to } = editor.state.selection;
+    // Where the click was, kept in step with edits made while the server fills (lane C):
+    // typing before it would otherwise move the text a few characters off.
+    let range = { from: editor.state.selection.from, to: editor.state.selection.to };
+    const follow = ({ transaction }: { transaction: Transaction }): void => {
+      range = {
+        from: transaction.mapping.map(range.from, -1),
+        to: transaction.mapping.map(range.to, 1),
+      };
+    };
+    editor.on('transaction', follow);
     const done = (): void => {
+      editor.off('transaction', follow);
       pending.current.delete(id);
       setFilling(new Set(pending.current));
     };
@@ -414,7 +425,7 @@ function Toolbar({
       .then((html) => {
         if (!html || editor.isDestroyed) return;
         const size = editor.state.doc.content.size;
-        if (to <= size) editor.chain().focus().insertContentAt({ from, to }, html).run();
+        if (range.to <= size) editor.chain().focus().insertContentAt(range, html).run();
         else editor.chain().focus().insertContent(html).run();
       })
       .catch(reportError)

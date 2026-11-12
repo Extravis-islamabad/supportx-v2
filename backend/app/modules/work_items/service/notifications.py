@@ -39,7 +39,7 @@ from app.modules.work_items.domain.conversation import (
 )
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.portal import portal_status
-from app.modules.work_items.domain.types import INCIDENT
+from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemTypeCode
 from app.modules.work_items.events import (
     WorkItemAssigned,
     WorkItemConversationAdded,
@@ -252,6 +252,16 @@ def status_variable(cat: catalogue.Catalogue, code: str | None) -> VariableValue
     return Localised(found.labels or {} if found else {}, fallback=f"work_item_status.{code}")
 
 
+# The console page of a record: its type's API path, except requests (the console's /requests).
+_CONSOLE_PATHS = {WorkItemTypeCode.SERVICE_REQUEST.value: "requests"}
+
+
+def record_link(record: WorkItem) -> str:
+    """The record's console link, by its type (lane B: never /incidents for a request)."""
+    code = WorkItemTypeCode(record.type)
+    return f"/{_CONSOLE_PATHS.get(code.value, TYPES[code].path)}/{record.id}"
+
+
 async def record_values(
     session: AsyncSession, record: WorkItem, cat: catalogue.Catalogue, actor: uuid.UUID | None
 ) -> dict[str, VariableValue]:
@@ -266,7 +276,7 @@ async def record_values(
         "record.title": record.subject,
         "record.priority": LabelRef(f"priority.{record.priority}"),
         "record.status": status_variable(cat, record.status),
-        "record.link": f"/incidents/{record.id}",
+        "record.link": record_link(record),
         "requester.name": names.get(str(record.requester_id)),
         "assignee.name": names.get(str(record.technician_id)) if record.technician_id else None,
         "actor.name": names.get(str(actor)) if actor else None,

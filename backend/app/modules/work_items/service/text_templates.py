@@ -19,7 +19,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound, PermissionDenied
@@ -143,22 +143,25 @@ async def offered(
 async def managed(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, kind: TemplateKind
 ) -> list[WorkItemReplyTemplate]:
-    """The admin screen's list: every shared template, and the subject's own personal ones.
+    """The admin screen's list: the shared templates, and the subject's own personal ones.
 
-    Another person's personal template is never listed, whoever asks (the coordinator).
+    Another person's personal template is never listed, whoever asks (the coordinator). A
+    shared one limited to groups is listed to those groups' members and to holders of the
+    settings right only (lane B): the group limit keeps its text from everyone else too.
     """
     _require_view(subject, wtype)
-    mine = (WorkItemReplyTemplate.visibility == TemplateVisibility.PERSONAL.value) & (
-        WorkItemReplyTemplate.owner_id == subject.user_id
-    )
-    shared = WorkItemReplyTemplate.visibility == TemplateVisibility.SHARED.value
+    readable = (
+        (WorkItemReplyTemplate.visibility == TemplateVisibility.PERSONAL.value)
+        & (WorkItemReplyTemplate.owner_id == subject.user_id)
+    ) | (WorkItemReplyTemplate.visibility == TemplateVisibility.SHARED.value)
+    condition = readable if may_manage_shared(subject) else _readable(subject)
     rows = await session.scalars(
         select(WorkItemReplyTemplate)
         .where(
             WorkItemReplyTemplate.type == wtype.code,
             WorkItemReplyTemplate.kind == kind.value,
             WorkItemReplyTemplate.deleted_at.is_(None),
-            mine | shared,
+            condition,
         )
         .order_by(func.lower(WorkItemReplyTemplate.name), WorkItemReplyTemplate.id)
     )
@@ -174,7 +177,11 @@ async def _row(
             WorkItemReplyTemplate.id == template_id,
             WorkItemReplyTemplate.type == wtype.code,
             WorkItemReplyTemplate.deleted_at.is_(None),
-            _readable(subject) | (WorkItemReplyTemplate.visibility == "shared"),
+            _readable(subject)
+            | (
+                (WorkItemReplyTemplate.visibility == TemplateVisibility.SHARED.value)
+                & literal(may_manage_shared(subject))
+            ),
         )
     )
     if found is None or (
@@ -409,7 +416,7 @@ async def fill_for(  # noqa: PLR0913 - the template, the record and the reader, 
     not_set = label(NOT_SET, language)
     return Filled(
         language=language,
-        subject=fill(row.subject, values, not_set) if row.subject else None,
+        subject=fill(row.subject, values, not_set, html=False) if row.subject else None,
         # Sanitised again once filled (lane C): the values went in escaped, and the text meets
         # the editor's allow-list whatever was stored before the allow-list last changed.
         body=sanitize_html(fill(bodies.get(language, ""), values, not_set)),
