@@ -54,7 +54,7 @@ describe('StageBoard', () => {
     const onMove = vi.fn(() => Promise.resolve(null));
     board(onMove);
     const opener = screen.getByTestId('stage-board-move-r1');
-    expect(opener.getAttribute('aria-label')).toBe('Move REL-1 to…');
+    expect(opener.getAttribute('aria-label')).toBe('Move to… REL-1');
     fireEvent.click(opener);
     const menus = await screen.findAllByRole('menu');
     const menu = menus.at(-1);

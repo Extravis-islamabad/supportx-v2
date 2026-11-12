@@ -144,7 +144,8 @@ export function StageBoard<C extends BoardCard>({
                           size="small"
                           type="link"
                           style={{ paddingInline: 0, alignSelf: 'flex-start' }}
-                          aria-label={t('board.move_named', { name: card.name })}
+                          // The name starts with the visible words (WCAG 2.5.3), then the card.
+                          aria-label={`${t('board.move_to')} ${card.name}`}
                           data-testid={`${testId}-move-${card.id}`}
                         >
                           {t('board.move_to')}
