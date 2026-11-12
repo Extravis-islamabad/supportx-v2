@@ -903,6 +903,18 @@ class ListChangeFactsOut(BaseModel):
     risk: RiskLevel | None
 
 
+class ListReleaseFactsOut(BaseModel):
+    """A release's own columns for its list row (REQ-REL-055)."""
+
+    release_type: str | None
+    release_version: str | None
+    scheduled_end: datetime | None
+    release_manager_id: uuid.UUID | None
+    release_engineer_id: uuid.UUID | None
+    tasks_done: int
+    tasks_total: int = Field(description="Its tasks, canceled ones not counted.")
+
+
 class WorkItemPage(Page[WorkItemListItem]):
     """One page of a list, with the display names of the people on it."""
 
@@ -910,6 +922,10 @@ class WorkItemPage(Page[WorkItemListItem]):
     changes: dict[str, ListChangeFactsOut] = Field(
         default_factory=dict,
         description="Changes only: each row's type and risk (the effective one), by record ID.",
+    )
+    releases: dict[str, ListReleaseFactsOut] = Field(
+        default_factory=dict,
+        description="Releases only: each row's own columns, by record ID.",
     )
 
 
@@ -2176,6 +2192,27 @@ async def _change_facts(
     }
 
 
+async def _release_facts(
+    session: AsyncSession, wtype: WorkItemType, ids: list[uuid.UUID]
+) -> dict[str, ListReleaseFactsOut]:
+    """A release list's own columns per row: a few reads for the page (REQ-REL-055)."""
+    if wtype.code is not WorkItemTypeCode.RELEASE or not ids:
+        return {}
+    facts = await service.release_list_facts(session, ids)
+    return {
+        str(i): ListReleaseFactsOut(
+            release_type=f.release_type,
+            release_version=f.release_version,
+            scheduled_end=f.scheduled_end,
+            release_manager_id=f.release_manager_id,
+            release_engineer_id=f.release_engineer_id,
+            tasks_done=f.tasks_done,
+            tasks_total=f.tasks_total,
+        )
+        for i, f in facts.items()
+    }
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -2207,8 +2244,18 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         session: Any,  # noqa: ANN401 - TenantSession (an AsyncSession) from the route
         page: PageResult[WorkItem],
     ) -> WorkItemPage:
+        ids = [r.id for r in page.rows]
+        releases = await _release_facts(session, wtype, ids)
+        # A release's manager and engineer are named on its row too.
+        named = {
+            str(u)
+            for f in releases.values()
+            for u in (f.release_manager_id, f.release_engineer_id)
+            if u is not None
+        }
         people = sorted(
             {str(u) for r in page.rows for u in (r.requester_id, r.technician_id) if u is not None}
+            | named
         )
         return WorkItemPage(
             items=[_item(r) for r in page.rows],
@@ -2216,7 +2263,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             has_more=page.has_more,
             estimated_total=page.estimated_total,
             people=_people(await user_contacts(session, people)),
-            changes=await _change_facts(session, wtype, [r.id for r in page.rows]),
+            changes=await _change_facts(session, wtype, ids),
+            releases=releases,
         )
 
     @router.get("", summary=f"List {wtype.path}")

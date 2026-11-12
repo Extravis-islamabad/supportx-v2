@@ -16,6 +16,7 @@ import asyncpg
 from tests.db.test_incidents_api import CONSOLE, Org, World, world
 from tests.db.test_release_guards_api import release_workers
 from tests.db.test_release_parts_api import put_role
+from tests.db.test_release_stage_work_api import task
 from tests.db.test_releases_api import REL, a_release
 
 __all__ = ["world"]  # the fixture, re-used
@@ -104,3 +105,36 @@ async def test_deployed_lists_releases_past_their_deployment_and_not_closed(worl
     assert closed["id"] not in found
     # Another tenant sees none of them.
     assert not found & await _view(world, world.b, world.b.admin, "deployed")
+
+
+async def test_req_rel_055_the_list_carries_each_release_s_own_columns(world: World) -> None:
+    """Type, version, scheduled end, manager and engineer (named), and task progress."""
+    a = world.a
+    await release_workers(world, a)
+    item = await a_release(world, a)
+    await _details(
+        world,
+        a,
+        item,
+        release_version="4.2.0",
+        scheduled_start="2027-03-10T09:00:00Z",
+        scheduled_end="2027-03-11T09:00:00Z",
+    )
+    held = await put_role(
+        world,
+        a,
+        (await world.call("GET", f"{REL}/{item['id']}", a, a.admin)).json(),
+        "release_manager",
+        users=[a.tech_a],
+    )
+    assert held.status_code == 200, held.text
+    await task(world, a, item, "Back up the database")
+    listed = await world.call("GET", REL, a, a.admin, params={"view": "open", "limit": 100})
+    assert listed.status_code == 200, listed.text
+    page = listed.json()
+    facts = page["releases"][item["id"]]
+    assert facts["release_version"] == "4.2.0"
+    assert facts["scheduled_end"].startswith("2027-03-11T09:00:00")
+    assert facts["release_manager_id"] == str(a.tech_a)
+    assert (facts["tasks_done"], facts["tasks_total"]) == (0, 1)
+    assert str(a.tech_a) in page["people"]  # the manager is named on the row

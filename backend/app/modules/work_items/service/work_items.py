@@ -5654,6 +5654,87 @@ async def change_list_facts(
     return {r.work_item_id: (r.change_type, r.risk_chosen or r.risk) for r in rows}
 
 
+@dataclass(frozen=True)
+class ReleaseListFacts:
+    """A listed release's own columns (REQ-REL-055): type, version, schedule, people, tasks."""
+
+    release_type: str | None
+    release_version: str | None
+    scheduled_end: datetime | None
+    release_manager_id: uuid.UUID | None
+    release_engineer_id: uuid.UUID | None
+    tasks_done: int
+    tasks_total: int
+
+
+async def release_list_facts(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, ReleaseListFacts]:
+    """Each listed release's columns, in three reads for the page (never one per row).
+
+    Its manager and engineer are its role holders when one person holds them, else its fields
+    (both are kept equal; read both until they are one).
+    """
+    if not ids:
+        return {}
+    wanted = list(ids)
+    details = {
+        r.work_item_id: r
+        for r in await session.scalars(
+            select(WorkItemReleaseDetails).where(WorkItemReleaseDetails.work_item_id.in_(wanted))
+        )
+    }
+    holders: dict[tuple[uuid.UUID, str], list[uuid.UUID]] = {}
+    for holder in await session.scalars(
+        select(WorkItemRoleHolder).where(
+            WorkItemRoleHolder.work_item_id.in_(wanted),
+            WorkItemRoleHolder.role.in_(tuple(release_rules.PEOPLE_ROLES)),
+            WorkItemRoleHolder.user_id.is_not(None),
+        )
+    ):
+        if holder.user_id is not None:  # a group holder names nobody on the row
+            holders.setdefault((holder.work_item_id, holder.role), []).append(holder.user_id)
+    counted = {
+        item: (int(done), int(total))
+        for item, done, total in await session.execute(
+            select(
+                WorkItemTask.work_item_id,
+                func.count().filter(WorkItemTask.status == TaskStatus.DONE.value),
+                func.count(),
+            )
+            .where(
+                WorkItemTask.work_item_id.in_(wanted),
+                WorkItemTask.deleted_at.is_(None),
+                WorkItemTask.status != TaskStatus.CANCELED.value,
+            )
+            .group_by(WorkItemTask.work_item_id)
+        )
+    }
+
+    def person(item: uuid.UUID, role: str, field_value: uuid.UUID | None) -> uuid.UUID | None:
+        held = holders.get((item, role), [])
+        return held[0] if len(held) == 1 else field_value
+
+    found: dict[uuid.UUID, ReleaseListFacts] = {}
+    for item in wanted:
+        row = details.get(item)
+        done, total = counted.get(item, (0, 0))
+        found[item] = ReleaseListFacts(
+            release_type=row.release_type if row else None,
+            release_version=row.release_version if row else None,
+            scheduled_end=row.scheduled_end if row else None,
+            release_manager_id=person(
+                item, "release_manager", row.release_manager_id if row else None
+            ),
+            release_engineer_id=person(
+                item, "release_engineer", row.release_engineer_id if row else None
+            ),
+            tasks_done=done,
+            tasks_total=total,
+        )
+    return found
+
+
 may = _may
 is_closed = _closed
 audience_of = _audience
