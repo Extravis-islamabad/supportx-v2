@@ -61,6 +61,7 @@ from app.core.errors import AppError, Conflict, NotFound, PermissionDenied, Vali
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules import procurement
+from app.modules.assets.domain.assets import counts_toward_limit
 from app.modules.assets.domain.batch import (
     IMPORT_LIMITS,
     MATCHES,
@@ -76,12 +77,21 @@ from app.modules.assets.domain.batch import (
     flag,
     read_import,
 )
+from app.modules.assets.domain.catalogue import AssetStateCategory
 from app.modules.assets.events import AssetImportProgressed
-from app.modules.assets.infra.models import Asset, AssetConsumable, AssetImport, AssetProduct
+from app.modules.assets.infra.models import (
+    Asset,
+    AssetConsumable,
+    AssetImport,
+    AssetProduct,
+    AssetProductType,
+    AssetState,
+)
 from app.modules.assets.service import consumables
-from app.modules.assets.service.assets import MANAGE, create_asset, update_asset
+from app.modules.assets.service.assets import LIMIT_CODE, MANAGE, create_asset, update_asset
 from app.modules.assets.service.memo import keep_slot_count
 from app.modules.identity_access import Subject, subject_for
+from app.modules.licensing import LimitKey, remaining
 from app.modules.organization import find_site
 from app.shared import sheets
 from app.shared.db.repository import Repository
@@ -461,7 +471,7 @@ async def _apply_chunk(
     else:
         await savepoint.commit()
     for plan, outcome in zip(plans, outcomes, strict=False):
-        tally.add(plan.number, outcome)
+        tally.add(plan.number, await _dry_limit(session, how, plan, outcome))
     return len(outcomes)
 
 
@@ -490,8 +500,76 @@ async def _one_by_one(
             await savepoint.rollback()
         else:
             await savepoint.commit()
-        tally.add(plan.number, outcome)
+        tally.add(plan.number, await _dry_limit(session, how, fresh, outcome))
     return used
+
+
+async def _dry_limit(
+    session: AsyncSession, how: _How, plan: "Plan", outcome: ImportRowOutcome | RowProblem
+) -> ImportRowOutcome | RowProblem:
+    """A dry run's row as the run would end it under the asset limit (lane A, #434).
+
+    Each dry-run row is rolled back, so the service's own reservation never sees the slots the
+    earlier rows would take. Here, in file order, from the slots left (read once per job), a
+    row that makes a counting asset takes one and is refused (`asset_limit_reached`, as the
+    run refuses it) when none is left; a row that makes a counting asset non-counting frees
+    one. Imports set no state, so only a create and a product change can switch counting.
+    A real run is untouched: `reserve_capacity` under the limit's lock stays the only judge.
+    """
+    if not how.dry_run or how.kind != ImportKind.ASSETS or isinstance(outcome, RowProblem):
+        return outcome
+    change = await _slot_change(session, how.lookups, plan)
+    lookups = how.lookups
+    if change == 0:
+        return outcome
+    if not lookups.slots_read:
+        lookups.slots_left = await remaining(session, LimitKey.ASSETS)
+        lookups.slots_read = True
+    if lookups.slots_left is None:
+        return outcome  # unlimited
+    if change > 0 and lookups.slots_left < change:
+        return RowProblem(field="row", code=LIMIT_CODE)
+    lookups.slots_left -= change
+    return outcome
+
+
+async def _counts_as(
+    session: AsyncSession, lookups: "Lookups", product_id: uuid.UUID, state: str
+) -> bool:
+    if product_id not in lookups.product_kinds:
+        row = (
+            await session.execute(
+                select(AssetProductType.category, AssetProductType.kind)
+                .join(AssetProduct, AssetProduct.product_type_id == AssetProductType.id)
+                .where(AssetProduct.id == product_id)
+            )
+        ).one()
+        lookups.product_kinds[product_id] = (row.category, row.kind)
+    category, kind = lookups.product_kinds[product_id]
+    return counts_toward_limit(category, kind, state)
+
+
+async def _slot_change(session: AsyncSession, lookups: "Lookups", plan: "Plan") -> int:
+    """+1: the row makes a counting asset; -1: it makes one non-counting; 0: neither."""
+    product_id = plan.fields.get("product_id")
+    if plan.record_id is None:  # a create: the default in-stock state, as `create_asset`
+        if product_id is None:
+            return 0
+        return int(await _counts_as(session, lookups, product_id, AssetStateCategory.IN_STOCK))
+    if product_id is None:
+        return 0  # the product (and so the type) stays; imports set no state
+    current = (
+        await session.execute(
+            select(Asset.product_id, AssetState.category)
+            .join(AssetState, AssetState.id == Asset.state_id)
+            .where(Asset.id == plan.record_id)
+        )
+    ).one_or_none()
+    if current is None:
+        return 0
+    before = await _counts_as(session, lookups, current.product_id, current.category)
+    after = await _counts_as(session, lookups, product_id, current.category)
+    return int(after) - int(before)
 
 
 def _problem(refused: Exception) -> RowProblem:
@@ -543,6 +621,11 @@ class Lookups:
     products: dict[str, uuid.UUID | str] = field(default_factory=dict)  # an ID, or a problem code
     sites: dict[str, uuid.UUID | None] = field(default_factory=dict)
     vendors: dict[str, uuid.UUID | None] = field(default_factory=dict)
+    # The dry run's view of the asset limit (#434): slots left, read once per job (None:
+    # unlimited), then taken and freed by each row's outcome in file order.
+    slots_read: bool = False
+    slots_left: int | None = None
+    product_kinds: dict[uuid.UUID, tuple[str, str]] = field(default_factory=dict)
 
     def _check(self, session: AsyncSession) -> None:
         context = session.info.get(SESSION_TENANT_KEY)
