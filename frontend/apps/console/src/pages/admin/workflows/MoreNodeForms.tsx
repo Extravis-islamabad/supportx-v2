@@ -13,9 +13,17 @@ import {
 } from 'antd';
 import { useState } from 'react';
 
-import { useNodeTypes, useRuleFields, useUnits, useUser } from '@supportx/api-client';
-import { DateTimeField, lengthLimit, useLabel } from '@supportx/ui';
+import {
+  useNodeTypes,
+  useRoleDefs,
+  useRuleFields,
+  useUnits,
+  useUser,
+  type StagedPath,
+} from '@supportx/api-client';
+import { DateTimeField, lengthLimit, useAppearance, useLabel } from '@supportx/ui';
 
+import { labelled } from '../../incidents/labels';
 import { ValueInput } from '../automation/fields';
 import { fieldOptions, useFieldName } from '../automation/rules';
 import { UserPicker } from '../../incidents/pickers';
@@ -37,6 +45,8 @@ const WEBHOOK_HEADER_MAX = 1000;
 const MAX_WEBHOOK_FIELDS = 50;
 const VARIABLE_TEXT_MAX = 2000;
 const APPROVAL_RULES = ['any', 'all', 'majority'] as const;
+// The staged types, whose roles have admin-given names (their roles settings).
+const STAGED: Partial<Record<string, StagedPath>> = { change: 'changes', release: 'releases' };
 // What the server shows for a stored header value (domain/workflows.py SECRET_MASK).
 const SECRET_MASK = '•••';
 
@@ -80,13 +90,22 @@ function Person({
 export function ApprovalForm({ config, onChange, recordType, readOnly }: FormProps) {
   const t = useLabel();
   const groups = useUnits('groups');
+  const { locale } = useAppearance();
   const types = useNodeTypes(recordType);
   const roles = types.data?.find((n) => n.type === 'approval')?.roles ?? [];
+  // The admin's own role names where the type has them (and the reader may see its settings);
+  // otherwise the role's label from its code (lane A's #406 review).
+  const defs = useRoleDefs(STAGED[recordType]);
+  const roleName = (code: string) =>
+    labelled(defs.data?.find((d) => d.code === code)?.labels ?? null, locale, () =>
+      t(`work_item_role.${code}`),
+    );
   const approvers = tree(config.approvers);
   const users = strings(approvers.user_ids);
   const groupIds = strings(approvers.group_ids);
   const roleCodes = strings(approvers.roles);
-  const full = users.length + groupIds.length + roleCodes.length >= MAX_APPROVERS;
+  const named = users.length + groupIds.length + roleCodes.length;
+  const full = named >= MAX_APPROVERS;
   const setApprovers = (patch: Record<string, string[]>) => {
     onChange({
       ...config,
@@ -103,10 +122,11 @@ export function ApprovalForm({ config, onChange, recordType, readOnly }: FormPro
           optionFilterProp="label"
           value={roleCodes}
           disabled={readOnly}
+          maxCount={MAX_APPROVERS - named + roleCodes.length}
           onChange={(next) => {
             setApprovers({ roles: next });
           }}
-          options={roles.map((r) => ({ value: r, label: t(`work_item_role.${r}`) }))}
+          options={roles.map((r) => ({ value: r, label: roleName(r) }))}
           data-testid="approval-roles"
         />
       </Form.Item>
@@ -118,6 +138,7 @@ export function ApprovalForm({ config, onChange, recordType, readOnly }: FormPro
           optionFilterProp="label"
           value={groupIds}
           disabled={readOnly}
+          maxCount={MAX_APPROVERS - named + groupIds.length}
           onChange={(next) => {
             setApprovers({ group_ids: next });
           }}
@@ -163,6 +184,11 @@ export function ApprovalForm({ config, onChange, recordType, readOnly }: FormPro
           data-testid="approval-rule"
         />
       </Form.Item>
+      {recordType === 'change' && (
+        <Typography.Paragraph type="secondary" data-testid="approval-barred">
+          {t('workflows.form.approval_barred')}
+        </Typography.Paragraph>
+      )}
     </>
   );
 }
