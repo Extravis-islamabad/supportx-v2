@@ -461,6 +461,7 @@ export const ur: LabelResource = {
   'audit.action.user.changed': 'کسی فرد کی تفصیلات میں ترمیم کی',
   'audit.action.user.contact_changed': 'اپنی رابطے کی تفصیلات تبدیل کیں',
   'audit.action.user.cost_rate_changed': 'کسی فرد کی فی گھنٹہ لاگت بدلی',
+  'audit.action.user.cost_rate_viewed': 'کسی فرد کی فی گھنٹہ لاگت دیکھی',
   'audit.action.user.created': 'کسی فرد کو شامل کیا',
   'audit.action.user.deactivated': 'کسی فرد کا اکاؤنٹ غیر فعال کیا',
   'audit.action.user.mfa_reset': 'کسی شخص کا دو مرحلہ سائن اِن ری سیٹ کیا',

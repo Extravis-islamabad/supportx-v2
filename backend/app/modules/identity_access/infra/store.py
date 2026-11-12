@@ -23,6 +23,8 @@ LOCK_PREFIX = "sx:session-lock:"
 # A person's sessions started before this moment are over (deactivation, sign-in turned off).
 ENDED_PREFIX = "sx:sessions-ended:"
 SSO_TEST_PREFIX = "sx:sso-test:"
+# A mobile sign-in's one-time hand-off code (ADR-044): the session it stands for, briefly.
+HANDOFF_PREFIX = "sx:handoff:"
 LIMIT_PREFIX = "sx:limit:"
 # A person's sessions, listed for My account and admins (ADR-044 item 5): one hash per person,
 # field = the session's public id, value = its description, encrypted.
@@ -137,7 +139,9 @@ class SessionStore:
             field = public_id(session_id)
             meta = {
                 "key": key,
-                "client": data.get("client"),
+                # A mobile session signs in through the console or portal client (ADR-044), but
+                # the person's list names the phone: its platform is set on mobile sessions only.
+                "client": "mobile" if data.get("device_platform") else data.get("client"),
                 "created_at": data.get("created_at"),
                 "last_seen_at": data.get("last_seen_at"),
                 "platform": data.get("device_platform"),
@@ -206,6 +210,17 @@ class SessionStore:
         """A test's record, or None when unknown or expired."""
         key = _hashed(SSO_TEST_PREFIX, test_id)
         blob = await self._kv.get(key)
+        return self._cipher.decrypt(blob, bound_to=key) if blob else None
+
+    async def put_handoff(self, code: str, data: dict[str, Any], ttl: timedelta) -> None:
+        """Remember a mobile hand-off code (the session ID and its challenge), encrypted."""
+        key = _hashed(HANDOFF_PREFIX, code)
+        await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+
+    async def take_handoff(self, code: str) -> dict[str, Any] | None:
+        """Fetch and delete a hand-off code: usable exactly once, even when the exchange fails."""
+        key = _hashed(HANDOFF_PREFIX, code)
+        blob = await self._kv.getdel(key)
         return self._cipher.decrypt(blob, bound_to=key) if blob else None
 
     async def take_login(self, state: str) -> dict[str, Any] | None:

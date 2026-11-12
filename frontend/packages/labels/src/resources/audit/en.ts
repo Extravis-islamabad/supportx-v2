@@ -464,6 +464,7 @@ export const en = {
   'audit.action.user.changed': 'Edited a person',
   'audit.action.user.contact_changed': 'Changed their contact details',
   'audit.action.user.cost_rate_changed': 'Changed a person’s cost per hour',
+  'audit.action.user.cost_rate_viewed': 'Viewed a person’s cost per hour',
   'audit.action.user.created': 'Added a person',
   'audit.action.user.deactivated': 'Deactivated a person',
   'audit.action.user.mfa_reset': "Reset a person's two-step sign-in",
