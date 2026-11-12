@@ -30,7 +30,7 @@ import {
   type LayoutPart,
   type LayoutSection,
 } from '@supportx/forms';
-import { useLabel } from '@supportx/ui';
+import { useAppearance, useLabel } from '@supportx/ui';
 
 import { LabelsFields } from './shared';
 
@@ -72,6 +72,7 @@ export function FormLayoutDesigner({
   fieldLabel: (name: string) => string;
 }) {
   const t = useLabel();
+  const { locale } = useAppearance();
   const [audience, setAudience] = useState<LayoutAudience>('technician');
   const [previewing, setPreviewing] = useState(false);
   const own = audience === 'requester' ? (value?.requester ?? null) : (value?.technician ?? null);
@@ -92,8 +93,13 @@ export function FormLayoutDesigner({
     setSections(part.sections.map((s, i) => (i === index ? section : s)));
   };
   const placed = new Set(part?.sections.flatMap((s) => s.fields ?? []) ?? []);
-  const unplaced = fields.filter((f) => !placed.has(f));
+  // A requester layout offers only the fields a requester may see (lane C).
+  const unplaced = (audience === 'requester' ? requesterFields : fields).filter(
+    (f) => !placed.has(f),
+  );
+  // The reader's language first, as the form itself shows it (lane C).
   const sectionLabel = (s: LayoutSection, index: number) =>
+    s.names?.[locale] ??
     s.names?.en ??
     Object.values(s.names ?? {})[0] ??
     t('templates.section_number', { n: index + 1 });

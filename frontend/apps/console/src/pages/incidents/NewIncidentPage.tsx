@@ -1068,6 +1068,12 @@ export function NewIncidentPage() {
         <LaidOutSections
           arranged={arrangeFields(layout, 'technician', [...placed.keys()])}
           fields={placed}
+          errored={
+            new Set([
+              ...Object.keys(form.formState.errors).filter((k) => k !== 'custom'),
+              ...Object.keys(form.formState.errors.custom ?? {}).map((k) => `custom.${k}`),
+            ])
+          }
           testIdPrefix="inc-layout"
         />
         {extras.length > 0 && (

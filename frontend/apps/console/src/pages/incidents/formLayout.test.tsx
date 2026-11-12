@@ -73,6 +73,56 @@ describe('New incident: the designer layout and form rules', () => {
     expect(screen.queryByTestId('inc-section-request')).toBeNull();
   });
 
+  it('a required field in a section that starts closed opens it on Save (lane C)', async () => {
+    const base = fakeIncidentTemplate();
+    const template = {
+      ...base,
+      fields: {
+        ...base.fields,
+        description: {
+          shown: true,
+          required: true,
+          requester_can_see: true,
+          requester_can_fill: true,
+        },
+      },
+      layout: {
+        technician: {
+          label_position: 'top' as const,
+          sections: [
+            {
+              id: 'first',
+              names: { en: 'First' },
+              columns: 1,
+              collapsible: false,
+              collapsed: false,
+              fields: ['requester_id', 'subject'],
+            },
+            {
+              id: 'more',
+              names: { en: 'More' },
+              columns: 1,
+              collapsible: true,
+              collapsed: true,
+              fields: ['description'],
+            },
+          ],
+        },
+        requester: null,
+      },
+    };
+    restore = consoleApi({ me: ADMIN, routes: routes(template) }).restore;
+    render(<App />);
+    const more = await screen.findByTestId('inc-layout-more');
+    const panel = () => more.querySelector('.ant-collapse-item');
+    expect(panel()?.className).not.toContain('ant-collapse-item-active');
+    fireEvent.change(screen.getByTestId('inc-subject'), { target: { value: 'Printer jammed' } });
+    fireEvent.click(screen.getByTestId('inc-save'));
+    await waitFor(() => {
+      expect(panel()?.className).toContain('ant-collapse-item-active');
+    });
+  });
+
   it('REQ-INC-037: rules hide and lock fields as soon as their condition holds', async () => {
     const template = {
       ...fakeIncidentTemplate(),

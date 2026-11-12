@@ -1,5 +1,5 @@
 import { Col, Collapse, Form, Row } from 'antd';
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 
 import type { ArrangedForm, ArrangedSection } from '@supportx/forms';
 import { FormSection, useAppearance, useLabel } from '@supportx/ui';
@@ -27,15 +27,22 @@ function sectionName(
 export function LaidOutSections({
   arranged,
   fields,
+  errored,
   testIdPrefix,
 }: {
   arranged: ArrangedForm;
   fields: ReadonlyMap<string, PlacedField>;
+  /** Fields with an error now: a collapsed section holding one opens, so it is seen (lane C). */
+  errored: ReadonlySet<string>;
   testIdPrefix: string;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const beside = arranged.labelPosition === 'start';
+  // Which collapsible sections the person has open (those not starting closed, at first).
+  const [opened, setOpened] = useState<ReadonlySet<string>>(
+    () => new Set(arranged.sections.filter((s) => !s.collapsed).map((s) => s.id)),
+  );
   return (
     <>
       {arranged.sections.map((section) => {
@@ -68,11 +75,20 @@ export function LaidOutSections({
         const title = sectionName(section, locale, t('templates.section_untitled'));
         const testId = `${testIdPrefix}-${section.id}`;
         if (section.collapsible) {
+          const open = opened.has(section.id) || section.fields.some((f) => errored.has(f));
           return (
             <Collapse
               key={section.id}
-              defaultActiveKey={section.collapsed ? [] : [section.id]}
-              items={[{ key: section.id, label: title, children: content }]}
+              activeKey={open ? [section.id] : []}
+              onChange={(keys) => {
+                const next = new Set(opened);
+                if ((Array.isArray(keys) ? keys : [keys]).includes(section.id)) {
+                  next.add(section.id);
+                } else next.delete(section.id);
+                setOpened(next);
+              }}
+              // Mounted while closed too: its fields keep their values and checks.
+              items={[{ key: section.id, label: title, children: content, forceRender: true }]}
               data-testid={testId}
             />
           );
