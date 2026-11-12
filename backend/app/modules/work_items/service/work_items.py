@@ -2379,7 +2379,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     group (history: "routed to the group of the way it came in").
     """
     cat = await config.load(session, wtype)
+    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
+    # The template's form rules first (REQ-INC-037): what they set or clear is then checked
+    # like any other input, and what they refuse is reported with the other field errors.
+    ruled = await templates.apply_form_rules(session, wtype, template, values, before=None)
+    values = ruled.values
     cleaned, problems = _check_fields(values, creating=True)
+    problems += ruled.problems
     manual, priority_reason, priority_problems = _priority_input(values)
     problems += priority_problems
     if manual is not None and not subject.holds(wtype.permission("change_priority")):
@@ -2400,10 +2406,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     item = await _request_item(session, subject, wtype, values)
     started = _started(item, cat)
     problems += [] if item is None else list(item.answer_problems)
-    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
-    problems += await templates.required_problems(
-        session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
-    )
+    problems += [
+        p
+        for p in await templates.required_problems(
+            session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
+        )
+        if p not in problems  # a rule's "required" already said it
+    ]
     new_change, change_problems = change_types.prepare(wtype, cat, values, template)
     problems += change_problems + change_types.problems_for(wtype, values)
     problems += _check_level(cat, cleaned.get("level"), current=None)
@@ -2655,7 +2664,18 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     if _closed(record):
         raise Conflict(code="record_closed", params={"status": record.status})
     cat = await config.load(session, wtype)
+    # The record's template's form rules (REQ-INC-037), on the record as this edit leaves it.
+    ruled = await templates.apply_form_rules(
+        session,
+        wtype,
+        await templates.of_record(session, record.template_id),
+        values,
+        before={name: getattr(record, name) for name in templates.FORM_FIELDS},
+        before_custom=record.custom or {},
+    )
+    values = ruled.values
     cleaned, problems = _check_fields(values, creating=False)
+    problems += ruled.problems
     priority_sent = "priority" in values
     manual, priority_reason, priority_problems = (
         _priority_input(values) if priority_sent else (None, None, [])
