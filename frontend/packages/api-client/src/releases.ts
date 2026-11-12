@@ -512,6 +512,30 @@ export function useRemoveReleaseChange() {
   });
 }
 
+export type LinkedChangeClosed = components['schemas']['LinkedChangeClosedOut'];
+
+/**
+ * Close the release's changes you may close (REQ-REL-052), each by its own close with this code;
+ * the answer says, per change, closed or why not. The release's changes refetch.
+ */
+export function useCloseReleaseChanges() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, closureCode }: { id: string; closureCode: string }) =>
+      call(
+        api.POST('/api/v1/releases/{record_id}/changes/close', {
+          params: { path: { record_id: id } },
+          body: { closure_code: closureCode },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'changes') });
+      void queryClient.invalidateQueries({ queryKey: ['changes'] });
+    },
+  });
+}
+
 export const releaseCalendarKeys = {
   all: ['release-calendar'] as const,
   range: (start: string, end: string, mine: boolean) =>

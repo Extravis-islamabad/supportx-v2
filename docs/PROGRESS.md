@@ -2284,7 +2284,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     task templates (#398, WP-046a S1). Proved on a release by their
     `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
   - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
-- [~] Session 4 (2026-11-12): closure and rollback. No migration (seed version 5).
+- [x] Session 4 (2026-11-12): closure and rollback. No migration (seed version 5). #428.
   - **Closure codes (REQ-REL-050):** releases close with their own codes (completed, completed
     with issues, rolled back, deferred, rejected, cancelled). Older tenants are topped up once:
     an incident-style code is switched off only while untouched and unused by any release; one
@@ -2315,7 +2315,30 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
       small PR before S5). The kinds warn and list only until then.
     - Lane A lists `caused_by_release` / `follows` on the problem, incident and request pages in
       their next polish.
-  S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
+- [~] Session 5a (2026-11-12): the release list, views and bulk actions. Migration 0149.
+  - **Views (REQ-REL-055 AC1, AC2):** my releases (any release role, both stores), unassigned
+    (no manager or engineer), scheduled, unscheduled, deployed (not closed), failed, cancelled,
+    closed. The list carries each row's type, version, scheduled end, manager, engineer (named)
+    and task progress in a few reads per page.
+  - **Bulk (REQ-REL-057):** assign, a new `assign_role` (manager or engineer, through the Roles
+    tab's own checks, per release), take, close (the type's closed category, not the change's
+    code), cancel and trash; skips with their reasons. The change list's close and cancel dialogs
+    and the bulk hooks take a base (lane A's, rule 8 notice sent).
+  - **Take (AC2):** makes you the release's Take role: the engineer, or the role the tenant marks
+    in Release settings › Roles (`work_item_role_defs.taken_by_take`, one per type).
+  - **Manager and engineer in two stores** (release_details.*_id and the role holders): every
+    write path (the Roles tab, the details panel, bulk assign_role, Take) writes both in one
+    transaction, with one test per path; the details panel now checks eligibility as the Roles
+    tab does (the coordinator, after F-02). **Later cleanup:** make them one store.
+  - **REQ-REL-052's offer:** a closing release's move dialog closes the changes you may close,
+    each through lane A's `close_change` in its own savepoint; each result closed or why not.
+  - **Tests:** test_release_bulk_api (4), test_release_people_sync (6), test_release_views_api
+    (4), test_release_close_changes_api (1), test_release_bulk_role_migration; Vitest
+    releases.test.tsx (2 more), release-close-changes.test.tsx (2), release-settings.test.tsx (1
+    more).
+  S5b: staged board, reporting and the release dashboard (after #396; costs behind
+  `releases.view_costs`, D-164), REQ-REL-058's inline-edit switch and live association counts.
+  S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
