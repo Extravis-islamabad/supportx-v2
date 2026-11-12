@@ -91,11 +91,31 @@ Both share `work_item_statuses`.
    - Migrating runs no after-actions and none of the new version's required-field checks.
    - History on each record uses the source `migration`. One audit entry per run records the
      actor, the type, the from and to version, and the moved, skipped and failed counts.
-8. **The designer reuses lane C's flow package** (packages/flow): statuses as nodes, transitions as
-   links, keyboard moves and right-to-left layout as the workflow designer has them (AC4).
-9. **Data step.** The migration that adds this makes every tenant's existing transitions version 1,
-   published, and sets `lifecycle_version = 1` on every action-based record, once per tenant with
-   `app.tenant_id` set and in batches. It is reversible while no tenant has a version 2.
+8. **Staged types** (lane C's review):
+   - **What a version covers.** On a staged type a version covers its statuses' transitions
+     only. Stages, paths, stage access, stage approvals and required-to-leave rules stay per type,
+     not per version. Publishing a staged version also checks that every status's stage exists,
+     every path still reaches closure, and each stage keeps a completing status.
+   - **No NULL versions left.** The data step (§10) makes every staged transition version 1 and
+     points it at the new table, so no staged row stays NULL against a referenced version. NULL
+     is gone after it; until then `load_model` keeps reading NULL as version 1.
+   - **The stage model cache** (`stage_service.load_model`) is keyed by (tenant, type, version)
+     and dropped on publish. A test proves that a record on version 1 still gets version 1's
+     moves after version 2 publishes, on a change and on a release.
+   - **Migrating a staged record** can change its stage. The dry run shows each record's stage
+     change. A record whose current stage is not on its path in the target version is listed as
+     not movable, never moved. A moved record keeps `stage`, `stage_path` and its tasks
+     consistent: tasks keep their stage, and the per-stage task counts follow.
+   - **Seeds.** A catalogue top-up (`_seed_vN`) adds only to the version it shipped with, never
+     into an administrator's published or draft version.
+9. **The designer reuses lane C's flow package** (packages/flow): statuses as nodes, transitions as
+   links, keyboard moves and right-to-left layout as the workflow designer has them (AC4). The
+   package stays domain-free (no work-item imports): status nodes are a new node kind with their
+   own names, on the in-house layout.
+10. **Data step.** The migration that adds this makes every tenant's existing transitions, in both
+    tables, version 1 and published, and sets `lifecycle_version = 1` on every record that has
+    none, once per tenant with `app.tenant_id` set and in batches. It is reversible while no
+    tenant has a version 2.
 
 ## Consequences
 
@@ -116,7 +136,9 @@ Both share `work_item_statuses`.
 - A role or group id from another tenant is refused when a draft is saved.
 - A run-as identity (automation, workflow) is limited by a condition like a person.
 - A migration skips a record changed since its dry run and lists it.
-- A record on version 1 keeps working after version 2 is published (REQ-INC-049 AC3).
+- A record on version 1 keeps working after version 2 is published (REQ-INC-049 AC3), on an
+  incident, a change and a release (the stage model cache).
+- A staged record whose stage is not on the target version's path is listed, never moved.
 
 ## Alternatives considered
 
