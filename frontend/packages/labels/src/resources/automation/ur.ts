@@ -495,6 +495,8 @@ export const ur: LabelResource = {
   'workflows.form.add_output': 'آؤٹ پٹ شامل کریں',
   'workflows.form.add_person': 'کوئی فرد شامل کریں',
   'workflows.form.add_task': 'کام شامل کریں',
+  'workflows.form.approval_barred':
+    'تبدیلی کا درخواست گزار اور اس کا مالک کبھی اس پر فیصلہ نہیں کرتے، چاہے یہاں نامزد ہوں۔',
   'workflows.form.approval_rule': 'فیصلہ کون کرے',
   'workflows.form.approver_people': 'افراد',
   'workflows.form.approver_roles': 'ریکارڈ کے کردار',

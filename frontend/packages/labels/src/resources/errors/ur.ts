@@ -375,6 +375,8 @@ export const ur: LabelResource = {
   'errors.field.default_required':
     'ہمیشہ ایک ڈیفالٹ سانچہ ہوتا ہے۔ اس کے بجائے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.department_not_found': 'کوئی فعال شعبہ منتخب کریں۔',
+  'errors.field.dependency_loop':
+    'کوئی کام خود اپنا انتظار نہیں کر سکتا، براہ راست یا دوسرے کاموں کے ذریعے۔',
   'errors.field.desk_not_found': 'کوئی فعال ڈیسک منتخب کریں۔',
   'errors.field.dimension_not_groupable':
     'متعدد انتخاب والی فیلڈز ابھی گروپ بندی کے لیے استعمال نہیں ہو سکتیں۔',
@@ -499,6 +501,7 @@ export const ur: LabelResource = {
   'errors.field.name_needs_letters': 'نام میں کم از کم ایک حرف یا ہندسہ استعمال کریں۔',
   'errors.field.name_required': 'نام درج کریں۔',
   'errors.field.name_taken': 'یہ نام پہلے سے استعمال میں ہے۔',
+  'errors.field.needs_scheduled_start': 'آغاز سے پہلے یاد دہانی کے لیے طے شدہ آغاز ضروری ہے۔',
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
   'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
   'errors.field.not_a_technician':
@@ -1009,6 +1012,8 @@ export const ur: LabelResource = {
   'errors.system_role_immutable': 'پہلے سے موجود کردار تبدیل یا حذف نہیں کیے جا سکتے۔',
   'errors.system_role_not_deletable':
     'بلٹ ان رولز حذف نہیں کیے جا سکتے۔ اپنا ورژن بنانے کے لیے رول کی نقل بنائیں۔',
+  'errors.task_blocked': 'یہ کام پہلے {{task}} کے مکمل ہونے کا انتظار کرتا ہے۔',
+  'errors.task_template_not_found': 'کاموں کا یہ سانچہ اب موجود یا پیش نہیں ہے۔',
   'errors.technician_limit_reached':
     'آپ کے ادارے کے پلان میں ٹیکنیشن کی تمام نشستیں استعمال میں ہیں۔ نشست خالی کرنے یا مزید شامل کرنے کے لیے اپنے منتظم سے کہیں۔',
   'errors.technicians_only': 'صرف ٹیکنیشن دوسرے صارفین کو دیکھ سکتا ہے۔',
