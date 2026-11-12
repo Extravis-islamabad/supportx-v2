@@ -194,7 +194,7 @@ export function TypeTree({
           else refs.current.set(id, element);
         }}
         role="treeitem"
-        aria-label={`${row.name}, ${countText}`}
+        aria-label={`${row.name}${t('list.separator')}${countText}`}
         aria-level={row.level}
         aria-setsize={row.setSize}
         aria-posinset={row.position}

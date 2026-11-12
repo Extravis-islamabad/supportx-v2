@@ -21,11 +21,21 @@ metadata:
     {{- include "supportx.labels" $c | nindent 4 }}
 data:
   common.sh: |
+    # Every peer by its fully qualified name, cluster domain included, taken from the first
+    # search entry the kubelet writes (<namespace>.svc.<cluster domain>), so no value has to
+    # repeat it. With the pod's ndots 1 (dnsConfig below) such a name resolves in one query:
+    # never a walk through the search list, never a query forwarded outside the cluster. No
+    # trailing dot is needed (the name has more dots than ndots, so it is tried as it is first).
+    DOMAIN=$(sed -n 's/^search \([^ ]*\).*/\1/p' /etc/resolv.conf | head -n 1)
+    case "$DOMAIN" in
+      {{ .Release.Namespace }}.svc.*) ;;
+      *) DOMAIN="{{ .Release.Namespace }}.svc" ;;  # no kubelet search line: the short form
+    esac
     # The current master's host, asked of the sentinels; empty when none answers.
-    SELF="${HOSTNAME}.{{ $headless }}.{{ .Release.Namespace }}.svc"
+    SELF="${HOSTNAME}.{{ $headless }}.$DOMAIN"
     ask_sentinels() {
       for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
-        peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
+        peer="{{ $name }}-$i.{{ $headless }}.$DOMAIN"
         found=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 \
           --no-auth-warning SENTINEL get-master-addr-by-name supportx 2>/dev/null | head -n 1)
         if [ -n "$found" ]; then echo "$found"; return 0; fi
@@ -62,7 +72,7 @@ data:
     set_state() {
       silent=""
       for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
-        peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
+        peer="{{ $name }}-$i.{{ $headless }}.$DOMAIN"
         [ "$peer" = "$SELF" ] && continue
         info=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
           info all 2>/dev/null | tr -d '\r')
@@ -83,14 +93,14 @@ data:
     }
     hand_over() {
       for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
-        peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
+        peer="{{ $name }}-$i.{{ $headless }}.$DOMAIN"
         [ "$peer" = "$SELF" ] && continue
         REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 --no-auth-warning \
           SENTINEL FAILOVER supportx >/dev/null 2>&1 && return 0
       done
       return 0
     }
-    pod0="{{ $name }}-0.{{ $headless }}.{{ .Release.Namespace }}.svc"
+    pod0="{{ $name }}-0.{{ $headless }}.$DOMAIN"
     tries=0
     while :; do
       master=$(ask_sentinels)
@@ -280,6 +290,17 @@ spec:
         checksum/scripts: {{ printf "%s-%s" (toJson $ha) .Chart.Version | sha256sum }}
     spec:
       automountServiceAccountToken: false
+      # Sentinel (resolve-hostnames) looks names up in its main loop: with the defaults (5 s
+      # timeout, 2 attempts, ndots 5 walking the search list) a CoreDNS outage stalls that loop
+      # for tens of seconds, the sentinel enters TILT and no quorum forms; a replica's link stays
+      # down so long that no replica is good enough to promote (Cluster run 43082299609: the only
+      # CoreDNS copy was on the stopped node). Short lookups that fail fast, and one query per
+      # name (the scripts use fully qualified names, common.sh).
+      dnsConfig:
+        options:
+          - {name: ndots, value: "1"}
+          - {name: timeout, value: "1"}
+          - {name: attempts, value: "2"}
       {{- include "supportx.pullSecrets" . | nindent 6 }}
       {{- include "supportx.podSecurityContext" . | nindent 6 }}
       {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
