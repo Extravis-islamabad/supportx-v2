@@ -8,7 +8,7 @@ exactly those three tables, nothing broader; RLS still filters by tenant (the ro
 BYPASSRLS). No data step.
 
 Revision ID: 0143
-Revises: 0146
+Revises: 0148
 Created: 2026-11-11
 """
 
@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from migrations.helpers import grant_report, revoke_report
 
 revision: str = "0143"
-down_revision: str | None = "0146"
+down_revision: str | None = "0148"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
