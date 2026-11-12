@@ -20,6 +20,7 @@ __all__ = ["world"]  # the fixture, re-used
 
 BASE = "tenants.test"
 NOW_MS = 1_800_000_000_000
+RUN_AT = NOW_MS + 10_000  # every test event has settled (SETTLE_MS) by then
 
 
 @dataclass
@@ -31,11 +32,11 @@ class FakeReader:
     asked_since: list[int] = field(default_factory=list)
 
     async def realm_events(
-        self, types: tuple[str, ...], since_ms: int, *, first: int, limit: int
+        self, types: tuple[str, ...], since_ms: int, until_ms: int, *, first: int, limit: int
     ) -> list[KeycloakEvent]:
         self.asked_since.append(since_ms)
         found = sorted(
-            (e for e in self.events if e.type in types and e.time_ms >= since_ms),
+            (e for e in self.events if e.type in types and since_ms <= e.time_ms <= until_ms),
             key=lambda e: e.time_ms,
         )
         return found[first : first + limit]
@@ -117,9 +118,9 @@ async def test_events_land_in_the_one_tenant_they_name_once(world: World) -> Non
     )
     database = Database(create_engine(world.db.app_url, application_name="test"))
     try:
-        assert await import_once(database, reader, base_domain=BASE, now_ms=NOW_MS) == 2
+        assert await import_once(database, reader, base_domain=BASE, now_ms=RUN_AT) == 2
         # Read again (the cursor is inclusive): nothing written twice.
-        assert await import_once(database, reader, base_domain=BASE, now_ms=NOW_MS) == 0
+        assert await import_once(database, reader, base_domain=BASE, now_ms=RUN_AT) == 0
     finally:
         await database.dispose()
 
@@ -147,7 +148,7 @@ async def test_events_land_in_the_one_tenant_they_name_once(world: World) -> Non
     )
     assert cursor["last_time_ms"] == NOW_MS - 500
     # The first run read the last day; the second began at the cursor.
-    assert reader.asked_since[0] == NOW_MS - 24 * 3600 * 1000
+    assert reader.asked_since[0] == RUN_AT - 24 * 3600 * 1000
     assert reader.asked_since[-1] == NOW_MS - 500
     # Each new row is announced for the open log screens (outbox, rule 5b/5c).
     announced = await _admin_rows(
@@ -179,7 +180,7 @@ async def test_a_burst_inside_one_millisecond_is_read_on_never_skipped(
             NOW_MS - 100,
         )
         written = [
-            await import_once(database, reader, base_domain=BASE, now_ms=NOW_MS) for _ in range(4)
+            await import_once(database, reader, base_domain=BASE, now_ms=RUN_AT) for _ in range(4)
         ]
     finally:
         await database.dispose()
@@ -193,3 +194,27 @@ async def test_a_burst_inside_one_millisecond_is_read_on_never_skipped(
     )
     # The last run stayed at "after"'s millisecond and read its one event: on from there.
     assert (cursor["last_time_ms"], cursor["last_offset"]) == (NOW_MS - 50, 1)
+
+
+async def test_a_millisecond_still_filling_is_left_for_the_next_run(world: World) -> None:
+    """Lane B: only settled milliseconds are read, so an event that comes into one later counts."""
+    b = world.b
+    host = f"https://{await _slug(world, b.tenant)}.{BASE}/api/v1/auth/callback"
+    reader = FakeReader([_event("early", NOW_MS - 1000, redirect_uri=host)])
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    try:
+        await _admin_rows(
+            world.db,
+            "INSERT INTO sign_in_import_cursor (realm, last_time_ms) VALUES ($1, $2)",
+            reader.realm,
+            NOW_MS - 2000,
+        )
+        # One second old at NOW_MS: not settled, not read, the cursor stays put.
+        assert await import_once(database, reader, base_domain=BASE, now_ms=NOW_MS) == 0
+        # Another event lands in that same millisecond afterwards.
+        reader.events.append(_event("late", NOW_MS - 1000, redirect_uri=host))
+        assert await import_once(database, reader, base_domain=BASE, now_ms=RUN_AT) == 2
+    finally:
+        await database.dispose()
+    ids = {r["keycloak_event_id"] for r in await _rows(world, b.tenant)}
+    assert ids == {"early", "late"}

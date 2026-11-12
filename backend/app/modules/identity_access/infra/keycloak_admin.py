@@ -161,7 +161,7 @@ class EventsReader(Protocol):
     realm: str
 
     async def realm_events(  # noqa: D102 - see KeycloakAdmin
-        self, types: tuple[str, ...], since_ms: int, *, first: int, limit: int
+        self, types: tuple[str, ...], since_ms: int, until_ms: int, *, first: int, limit: int
     ) -> list[KeycloakEvent]: ...
 
     async def close(self) -> None: ...  # noqa: D102
@@ -638,12 +638,13 @@ class KeycloakAdmin:
         return events
 
     async def realm_events(
-        self, types: tuple[str, ...], since_ms: int, *, first: int, limit: int
+        self, types: tuple[str, ...], since_ms: int, until_ms: int, *, first: int, limit: int
     ) -> list[KeycloakEvent]:
-        """Events of `types` from `since_ms` (inclusive), oldest first, one page."""
+        """Events of `types` from `since_ms` to `until_ms` (both inclusive), oldest first."""
         params: dict[str, Any] = {
             "type": list(types),
             "dateFrom": since_ms,  # milliseconds, inclusive (Keycloak 26)
+            "dateTo": until_ms,
             "direction": "asc",
             "first": first,
             "max": limit,

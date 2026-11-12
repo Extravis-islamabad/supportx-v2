@@ -12,6 +12,8 @@ tenant it belongs to (domain/sign_in_import.py says which, and what is read at a
   millisecond and an offset into it: when a whole run fell inside one millisecond (a burst), the
   next run reads on from the offset (`first`), so nothing in a burst is ever skipped (lane B).
   Otherwise it starts at the newest millisecond again with offset 0 and re-reads those few.
+  Only events older than SETTLE_MS are read (`dateTo`), so the cursor never stands in a
+  millisecond that can still grow and its offset always counts a finished set (lane B).
 - **Unattributed** events (the shared address, no identity provider) are counted in
   `supportx_sign_in_import_unattributed`, never written to a guessed tenant.
 """
@@ -60,6 +62,7 @@ log = get_logger(__name__)
 
 IMPORT_CAP = 5000
 PAGE = 500
+SETTLE_MS = 5000  # a millisecond this old takes no new events: offsets into it are stable
 FIRST_RUN_LOOKBACK_MS = 24 * 3600 * 1000  # a new installation reads the last day, no more
 
 _meter = metrics.get_meter("supportx.identity_access")
@@ -109,13 +112,15 @@ class _Attribution:
         return tenant
 
 
-async def _read(reader: EventsReader, since_ms: int, offset: int) -> list[KeycloakEvent]:
-    """Up to IMPORT_CAP events from `since_ms`, skipping the `offset` read before, oldest first."""
+async def _read(
+    reader: EventsReader, since_ms: int, offset: int, until_ms: int
+) -> list[KeycloakEvent]:
+    """Up to IMPORT_CAP events from `since_ms` to `until_ms`, after the `offset` read before."""
     events: list[KeycloakEvent] = []
     while len(events) < IMPORT_CAP:
         asked = min(PAGE, IMPORT_CAP - len(events))
         page = await reader.realm_events(
-            IMPORT_TYPES, since_ms, first=offset + len(events), limit=asked
+            IMPORT_TYPES, since_ms, until_ms, first=offset + len(events), limit=asked
         )
         events.extend(page)
         if len(page) < asked:
@@ -224,7 +229,10 @@ async def import_once(
         since, offset = now_ms - FIRST_RUN_LOOKBACK_MS, 0
     else:
         since, offset = cursor.last_time_ms, cursor.last_offset
-    events = await _read(reader, since, offset)
+    until = now_ms - SETTLE_MS
+    if until < since:
+        return 0  # nothing has settled since the cursor yet
+    events = await _read(reader, since, offset, until)
     if not events:
         if cursor is None:
             await _advance(database, reader.realm, since, 0)
