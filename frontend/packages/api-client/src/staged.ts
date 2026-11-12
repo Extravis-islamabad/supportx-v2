@@ -40,11 +40,12 @@ function useRefresh(path: StagedPath) {
 }
 
 /** The type's configuration: statuses, closure codes and its own lists. */
-export function useStagedSettings(path: StagedPath) {
+export function useStagedSettings(path: StagedPath, enabled = true) {
   return useQuery({
     queryKey: stagedKeys(path).settings,
     queryFn: () => call(api.GET(at(path, '/api/v1/releases/settings'))),
     staleTime: 60_000,
+    enabled,
   });
 }
 
@@ -92,6 +93,25 @@ export function useStagedRoles(path: StagedPath, id: string) {
     queryFn: () =>
       call(api.GET(at(path, `${RECORD}/roles`), { params: { path: { record_id: id } } })),
     enabled: id !== '',
+  });
+}
+
+export type RoleDefOut = components['schemas']['RoleDefOut'];
+
+/**
+ * A staged type's role definitions with the admin's own labels (the roles settings), for screens
+ * that name its roles outside a record (a workflow's approval step). Reading needs the type's
+ * settings view: without it the query fails quietly and callers label roles from their codes.
+ */
+export function useRoleDefs(path: StagedPath | undefined) {
+  return useQuery({
+    queryKey: [...stagedKeys(path ?? 'changes').settings, 'roles'] as const,
+    queryFn: () => call(api.GET(at(path ?? 'changes', '/api/v1/releases/settings/roles'))),
+    enabled: path !== undefined,
+    retry: false,
+    // A designer without the settings view gets a 403: labels fall back to the codes quietly,
+    // never a global error toast (lane A's #420 review).
+    meta: { silent: true },
   });
 }
 

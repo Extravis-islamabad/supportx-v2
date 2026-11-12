@@ -602,6 +602,9 @@ export const ar: LabelResource = {
   'permission.releases.manage_followers': 'إدارة متابعي الإصدارات',
   'permission.releases.manage_followers.description':
     'إضافة أشخاص آخرين كمتابعين للإصدارات وإزالتهم.',
+  'permission.releases.override_freeze': 'السماح بتنفيذ إصدار خلال فترة تجميد',
+  'permission.releases.override_freeze.description':
+    'تجاوز فترات التجميد المانعة لإصدار واحد مع ذكر السبب. يُسجَّل ذلك في سجل التدقيق وفي سجل الإصدار.',
   'permission.releases.reopen': 'إعادة فتح الإصدارات',
   'permission.releases.reopen.description':
     'إعادة فتح الإصدارات المغلقة إلى المراجعة، مع ذكر السبب.',
@@ -769,6 +772,7 @@ export const ar: LabelResource = {
   'readiness_check.nats': 'ناقل الرسائل',
   'readiness_check.outbox_relay': 'مُرحّل الأحداث',
   'readiness_check.realtime_fanout': 'التحديثات المباشرة',
+  'readiness_check.session_keys': 'مفاتيح تسجيل الدخول',
   'readiness_status.not_ready': 'غير جاهز',
   'readiness_status.ready': 'جاهز',
   'role.asset_manager': 'مدير الأصول',

@@ -487,9 +487,10 @@ class ChangeNotifications:
             record_id=record.id,
             display_id=record.display_id,
             link=link,
-            # No portal page for a change yet (WP-045d S4): a public reader gets the portal's
-            # home, never the console address they cannot open.
-            public_link=None,
+            # The portal's change page (WP-045d S4a), never the console address a public reader
+            # cannot open; approval notices open the portal's approvals, where a requester-only
+            # approver decides (REQ-CHG-109 AC3), as the change page is its requester's only.
+            public_link="/approvals" if event_code in APPROVAL_EVENTS else f"/changes/{record.id}",
             variables=full,
             public_variables=public,
             relatives=relatives,

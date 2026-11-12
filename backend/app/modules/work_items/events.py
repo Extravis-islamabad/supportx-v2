@@ -486,6 +486,40 @@ class ChangeReminderDue(DomainEvent):
     member_id: uuid.UUID | None = None
 
 
+class WorkItemTaskAssigned(DomainEvent):
+    """A task was given to someone (WP-046a S1; REQ-INC-076 AC1): its owner is told.
+
+    Raised when a task is made with an owner or its owner changes to another person. IDs only;
+    the notification source reads the task and its record at send time.
+    """
+
+    event_type: ClassVar[str] = "work_items.task.assigned"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    task_id: uuid.UUID
+    owner_id: uuid.UUID
+
+
+class WorkItemTaskReminderDue(DomainEvent):
+    """A task's reminder is due (WP-046a S1; REQ-INC-073 AC2, -076), claimed once by the sweep.
+
+    `kind`: `starts_soon` (its owner's reminder before the scheduled start) or `overdue` (open
+    past its due time). `at` is the time it was claimed for: the source re-reads the task at
+    send time and says nothing if that time moved meanwhile. IDs and times only.
+    """
+
+    event_type: ClassVar[str] = "work_items.task.reminder_due"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    task_id: uuid.UUID
+    kind: str
+    at: datetime
+
+
 class WorkItemReminderDue(DomainEvent):
     """A person's own reminder on a record alerts them (WP-046a S2; REQ-INC-082 AC1).
 
@@ -581,6 +615,8 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     ChangeWindowChanged,
     ChangeApprovalNotice,
     ChangeReminderDue,
+    WorkItemTaskAssigned,
+    WorkItemTaskReminderDue,
     ProblemRepeatDetected,
     ProblemRepeatChanged,
 )

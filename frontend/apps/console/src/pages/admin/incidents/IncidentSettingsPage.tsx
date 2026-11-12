@@ -20,6 +20,7 @@ import { GeneralTab } from './GeneralTab';
 import { PickListEditor } from './PickListEditor';
 import { PriorityTab } from './PriorityTab';
 import { ReplyTemplatesTab } from './ReplyTemplatesTab';
+import { TaskTemplatesTab } from './TaskTemplatesTab';
 import { StatusesTab } from './StatusesTab';
 import { TemplatesTab } from './TemplatesTab';
 import { RepeatRulesTab } from './RepeatRulesTab';
@@ -37,6 +38,7 @@ const SECTIONS = [
   'closure-codes',
   'closing',
   'reply-templates',
+  'task-templates',
   'repeat-rules',
 ] as const;
 type Section = (typeof SECTIONS)[number];
@@ -87,6 +89,8 @@ export function IncidentSettingsPage() {
         return <CategoriesTab />;
       case 'reply-templates':
         return <ReplyTemplatesTab />;
+      case 'task-templates':
+        return <TaskTemplatesTab />;
       default:
         break;
     }

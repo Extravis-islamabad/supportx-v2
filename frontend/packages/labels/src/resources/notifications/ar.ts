@@ -38,12 +38,14 @@ export const ar: LabelResource = {
   'notification_area.incident': 'الحوادث',
   'notification_area.kb_article': 'المعرفة',
   'notification_area.mailbox': 'البريد',
+  'notification_area.outgoing_mail': 'البريد الصادر',
   'notification_area.problem': 'المشكلات',
   'notification_area.problem_repeat': 'المشكلات',
   'notification_area.release': 'الإصدارات',
   'notification_area.reminder': 'التذكيرات',
   'notification_area.rule_step': 'القواعد والتصعيدات',
   'notification_area.service_request': 'طلبات الخدمة',
+  'notification_area.task': 'المهام',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
   'notification_category.conversation': 'الردود والملاحظات',
@@ -116,6 +118,7 @@ export const ar: LabelResource = {
     'سرّ تطبيق صندوق البريد أو شهادته على وشك الانتهاء',
   'notification_event.mailbox.failing': 'توقف صندوق البريد عن العمل',
   'notification_event.mailbox.mail_held': 'مُرسِل يُغرق صندوق بريد بالرسائل',
+  'notification_event.outgoing_mail.not_sent': 'رسائل بريد لم تُرسل: البريد غير مُعدّ',
   'notification_event.problem.assigned': 'أُسندت مشكلة',
   'notification_event.problem.closed': 'أُغلقت مشكلة',
   'notification_event.problem.created_in_group': 'أُنشئت مشكلة في مجموعتك',
@@ -139,6 +142,9 @@ export const ar: LabelResource = {
   'notification_event.service_request.received': 'استلام الطلب: إشعار',
   'notification_event.service_request.rejected': 'رفض الطلب',
   'notification_event.service_request.withdrawn': 'سحب الطلب',
+  'notification_event.task.assigned': 'أُسندت إليك مهمة',
+  'notification_event.task.overdue': 'مهمتك متأخرة',
+  'notification_event.task.starts_soon': 'مهمتك تبدأ قريبًا',
   'notification_preferences.col.category': 'النوع',
   'notification_preferences.dnd_help':
     'لا نوافذ منبثقة ولا بريد إلا العاجل والإلزامي؛ ويبقى كل شيء في إشعاراتك.',
@@ -541,6 +547,12 @@ export const ar: LabelResource = {
     'البريد الوارد إلى {{ record.title }} محتجز للمراجعة: أرسل مُرسِل أكثر من 10 رسائل خلال ساعة',
   'notification_template.mailbox.mail_held.subject':
     'صندوق البريد {{ record.title }}: بريد محتجز للمراجعة',
+  'notification_template.outgoing_mail.not_sent.body':
+    'مرحبًا {{ recipient.name }}،\n\nلم تُرسل {{ mail.count }} من رسائل البريد لأن البريد الصادر لم يُعدّ خلال 7 أيام. أقدمها من {{ mail.oldest_at }}. لن تُرسل متأخرة. افتح الإدارة › البريد لإعداد البريد الصادر.',
+  'notification_template.outgoing_mail.not_sent.in_app':
+    'لم تُرسل {{ mail.count }} من رسائل البريد: لم يُعدّ البريد الصادر خلال 7 أيام (أقدمها من {{ mail.oldest_at }}). أعدّ البريد لتُرسل الرسائل القادمة.',
+  'notification_template.outgoing_mail.not_sent.subject':
+    'لم تُرسل {{ mail.count }} من رسائل البريد',
   'notification_template.problem.assigned.body':
     'مرحبًا {{ recipient.name }}،\n\nأصبحت {{ record.display_id }} "{{ record.title }}" مسندة إلى {{ assignee.name }}.\n\nالأولوية: {{ record.priority }}\nالحالة: {{ record.status }}',
   'notification_template.problem.assigned.in_app':
@@ -677,6 +689,22 @@ export const ar: LabelResource = {
     'سُحب {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'تم السحب: {{ record.display_id }} {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأصبحت المهمة "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" لك الآن.',
+  'notification_template.task.assigned.in_app':
+    '{{ task.title }} على {{ record.display_id }} أصبحت لك',
+  'notification_template.task.assigned.subject':
+    'مهمة لك: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'مرحبًا {{ recipient.name }}،\n\nكان موعد مهمتك "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" في {{ task.due_at }} وما زالت مفتوحة.',
+  'notification_template.task.overdue.in_app': 'كان موعد {{ task.title }} في {{ task.due_at }}',
+  'notification_template.task.overdue.subject':
+    'متأخرة: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'مرحبًا {{ recipient.name }}،\n\nتبدأ مهمتك "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" في {{ task.starts_at }}.',
+  'notification_template.task.starts_soon.in_app': 'تبدأ {{ task.title }} في {{ task.starts_at }}',
+  'notification_template.task.starts_soon.subject':
+    'تبدأ قريبًا: {{ task.title }} ({{ record.display_id }})',
   'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
   'notification_variable.approval.comment': 'تعليق الموافِق',
@@ -692,6 +720,8 @@ export const ar: LabelResource = {
   'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
   'notification_variable.holder.name': 'الحامل › الاسم',
   'notification_variable.incident.count': 'عدد الحوادث',
+  'notification_variable.mail.count': 'البريد › رسائل لم تُرسل',
+  'notification_variable.mail.oldest_at': 'البريد › الأقدم',
   'notification_variable.mailbox.address': 'صندوق البريد › العنوان',
   'notification_variable.mailbox.expires_at': 'صندوق البريد › تنتهي بيانات الاعتماد',
   'notification_variable.mailbox.reason': 'صندوق البريد › السبب',
@@ -711,6 +741,9 @@ export const ar: LabelResource = {
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
   'notification_variable.stock.minimum': 'المخزون › الحد الأدنى',
   'notification_variable.stock.quantity': 'المخزون › الكمية',
+  'notification_variable.task.due_at': 'موعد استحقاق المهمة',
+  'notification_variable.task.starts_at': 'البدء المجدول للمهمة',
+  'notification_variable.task.title': 'عنوان المهمة',
   'notification_variable.unavailable.person': 'غير مُسند › الشخص',
   'notification_variable.unavailable.reason': 'غير مُسند › السبب',
   'notification_variable.warranty.ends_on': 'الضمان › ينتهي في',

@@ -10,7 +10,6 @@ import {
   Select,
   Skeleton,
   Space,
-  Tabs,
   Tooltip,
   Typography,
 } from 'antd';
@@ -73,6 +72,7 @@ import {
   useLicence,
   usePageCrumbs,
   WriteButton,
+  Tabs,
 } from '@supportx/ui';
 
 import { RecordWorkflows } from '../workflows/RecordWorkflows';

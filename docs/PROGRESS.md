@@ -92,6 +92,13 @@ decisions D1-D13 (D-038).
    › Automation (Triggers, Transitions, Business rules, Routing) and Admin › Organization use a
    class nothing defines, so they are probably visible. Switch them to `.sx-visually-hidden` once
    lane C's header branch lands; check with axe and a screenshot.
+6. **D-162 (lane B, 2026-11-12): rotatable sign-in key ring built** (ADR-048, migration 0146,
+   docs/guides/rotating-the-sign-in-key.md). Lane C's WP-057 is to reuse its blob format and
+   key-users hook. Migration 0146's `down_revision` is re-pointed at queue time.
+7. **Follow-up: a platform audit log for installation events** (coordinator, #418). Events of
+   the installation rather than a tenant (sign-in key rotations, D-162) are written into every
+   tenant's log today, by a background announcer; a platform log for the operator would hold
+   them once. Needs an ADR (it sits beside ADR-027's per-tenant chain).
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -276,14 +283,19 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** HA install survives the loss of any one node with the e2e suite passing; a
   restore drill (backup → new cluster → smoke test) passes in CI; alerts fire in a fault test.
 - **Depends on:** WP-014
-- [ ] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
+- [x] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
   master that dies within about 10 s of a fresh start, before its sentinels have seen its
   replicas (Sentinel reads a master's INFO every 10 s), does not fail over until it returns: every
   attempt aborts with `-failover-abort-no-good-slave`. No data is lost, since #284's guard still
   refuses to start empty, but the set is unavailable meanwhile. #388 only made the tests wait for
   the sentinels. Fix: a Valkey pod reports ready only once the sentinels list its replicas (the
   readiness option), with a test that fails over a master stopped right after a fresh start.
-  In Haider's summary as an FYI.
+  In Haider's summary as an FYI. **Done (2026-11-11, branch `feat/valkey-ready-sentinels`):** the
+  valkey container's readiness probe is the chart's `ready.sh` (`templates/valkey-ha.yaml`): until
+  a pod's first readiness in its role, its own sentinel must list it (replica, once synced) or
+  every replica connected to it (master); afterwards only the server counts. Tests in
+  `backend/tests/ha/test_valkey_failover.py`; the remaining unplanned-crash gap is in
+  [deployment.md](deployment.md) (Profiles, "Valkey failover and readiness").
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -1220,11 +1232,59 @@ it with no reload (rule c). Not built yet.
   - **Open:**
     - the "health check regression" default waits for health checks (REQ-CHG-086, MonetX);
     - the testing owner is not a change role yet, so it is not a recipient;
-    - the portal has no change page, so public notices link to the portal home (S4).
-- **S4:** the portal (raise, follow, approve), the mobile API audit, report dimensions and
-  personal counters (REQ-CHG-109, 110, 116, 117). Lane B blocks the portal access.
+    - ~~the portal has no change page~~: done in S4a.
+- **S4** (three PRs; REQ-CHG-109, 110, 116, 117):
+  - **S4a, the portal and counters (REQ-CHG-109, -117; no migration; lane B blocks the portal
+    access and approvals):**
+    - `/portal/changes`: list, the forms offered to requesters, raise (Idempotency-Key, staff
+      fields refused), one change with its stage, status and planned window (the
+      implementation's schedule), the public conversation and a reply. Plans, risk, approvals
+      detail, outcome and private notes are not in these responses (AC2). Same reach rules as
+      the portal's incidents and requests.
+    - Portal pages: My changes, a change's page, Raise a change; nav entry behind `change`.
+    - Live: the requester channel hears a change's stage and status, and the implementation's
+      schedule (another stage's schedule says nothing there).
+    - Approvals: a requester-only approver decides a change in the portal's approvals, through
+      the change's own route (AC3). Bulk approve stays with service requests (D-143). The
+      console's approvals drawer lists change approvals too.
+    - Notices: change notices link to the portal change page, approval notices to the portal's
+      approvals (the change page is its requester's only).
+    - Counters (REQ-CHG-117): "waiting for my approval" and "starting today" on changes only.
+    - **Open:** a requester-only approver sees only the number and title in the portal
+      approvals (no read-only summary page); tenant-own status codes show through the label
+      fallback.
+  - **S4b:** the mobile API audit and the push payload and deep-link format (REQ-CHG-110).
+  - **S4c:** change report fields, measures, dashboard and drill-down (REQ-CHG-116; lane C
+    reviews).
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+
+### [~] WP-046a — Incidents V1 (lane A, 2026-11-11; 7 sessions, one migration each; 42 REQs)
+- **S1 PR 1 (0141; REQ-INC-040, 073..076):**
+  - Task details: type, scheduled and actual start and end (an end before its start is
+    refused), estimate, percent done, extra cost, a reminder before the scheduled start.
+  - The extra cost is shown only to those who may edit the record, never to requesters, the
+    portal or a task-only owner. **S3 decides task and worklog cost visibility together.** A new
+    right would go to Haider through the coordinator.
+  - Dependencies: same record only, at most 20, loops refused. Starting or completing a task
+    whose predecessor is open is refused with a 409 naming it; a per-type setting turns this
+    into a warning. Tasks show "waits for ..." live.
+  - Task templates per type (one task or a set of up to 20; a disabled one is not offered),
+    kept under Admin › Incidents › Task templates.
+  - A record template's tasks, each with an optional condition (a list filter), are added when
+    the record is made, recorded as the template's.
+  - `GET /my-tasks` on every type, each record through its own view rule, due first, overdue
+    marked; a console page with a nav entry.
+  - The migration also widens the link kind check (`caused_by_change`) and the bulk action
+    check (`cancel`, `delete`). Their enum values and use come in PR 2.
+- **S1 PR 2 (no migration):**
+  - Task notifications: a task given to you, its reminder before the scheduled start, and
+    overdue. A sweep claims each once; a moved time or an unseen record says nothing.
+  - Change bulk cancel (one reason) and move to trash (REQ-CHG-101), on the change list's bulk
+    bar.
+  - add_child refuses any holding loop through lane C's `release_links.holds`.
+  - **Still open:** the "caused incidents" change report field and the `caused_by_change` link
+    kind (REQ-CHG-116) come once #396's type fields are on main.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -1534,7 +1594,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3 built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1642,6 +1702,156 @@ it with no reload (rule c). Not built yet.
     the API cannot tell beforehand whether a worker can render PDFs (a job without one fails
     with `pdf_not_available`); the label designer (040) and mobile scanning (041) are later;
     discovery calls `record_scan` (WP-050).
+- [x] **D-157 follow-up (lane B, 2026-11-11; migration 0136 after 0137;
+  branch backup/d157):**
+  - A technician changes an asset linked to its own ticket still being worked and held by the
+    ticket's requester or department: state, location, notes and fitted parts only
+    (`asset_field_not_allowed` otherwise); `GET /assets/{id}/access`; work_items'
+    `linked_requester_ids_select` port (additive; lane A reviews).
+  - Price, tax and total behind `assets.view_financials` in responses, history (masked) and
+    writes.
+  - Straight line by default; declining balance with the product type's factor
+    (`depreciation_factor`, default 2); double declining stays 200 %.
+  - One in-app notice per run to the people who set mail up when e-mails are given up after 7
+    days without mail (`outgoing_mail.not_sent`).
+  - Review fixes: the ticket path fits only free components and never retires or disposes;
+    the on-behalf person counts as a holder (lane A); the mail summary is claimed once per run.
+  - 2b: catalogue prices and default depreciation behind `assets.view_financials` (masked in
+    product responses, needed to write them).
+  - The Purchase manager role will need catalogue prices when procurement is built (WP-054);
+    granting it then is Haider's call, not granted now.
+  - **Open:** the e2e journey for the technician's path.
+- [x] **Session 4a (migration 0140, down revision 0136 after the second main merge; it moves
+  to 0139 at the lane's turn; REQ-AST-044, 045, 046, 047; branch backup/wp-049b-s4a):**
+  - Shared list-settings store (the coordinator's decision): `app/shared/list_settings` owns the
+    `list_settings` table (RLS forced, SELECT/INSERT/UPDATE, soft delete): per person, list and
+    view, the columns with widths, sort, page size and a favourite star; a saved view is a row
+    keyed `custom:<id>` with a name and the list's own filter (checked as the list checks it).
+    Lists register a `ListSpec` (permission, built-in views, fields, licence feature); the system
+    module mounts `/api/v1/list-settings/{list_key}` (views, saved views; If-Match, an
+    Idempotency-Key on create) and sends `system.list_settings.changed` (IDs and keys only) to the
+    person's own channel. Assets (`assets`, `asset_consumables`) use it; work-item lists keep
+    their own store until lane A chooses to move (rule 8: the lane tells lane A).
+  - Asset list (047): the product type tree beside the list (a node lists its types and every
+    type below, with counts per branch from `GET /assets/type-counts`; AC1), its own WAI-ARIA tree
+    (roving tabindex, arrows mirrored in right to left, Home/End, Enter/Space; AC2), built-in
+    views (all, mine, scan failures, loanable, in stock, warranty ending soon, recently
+    discovered: empty until discovery, said so on screen), saved views and favourites (favourites
+    first in the picker), the spec's default columns (holder, department, parent asset and
+    product named by the list page; additive fields), widths kept per person and view through
+    `useColumnWidths` with the new shared kinds (#367's local hook removed; lane C reviews).
+    AC3: `ix_assets_type_updated` (tenant_id, product_type_id, updated_at, id; live rows); the
+    EXPLAIN test over 50,000 assets shows index scans only (ix_assets_updated for the default
+    sort and a large branch, ix_assets_type_updated for a 5,000-asset node), first page well under
+    1 s through the API.
+  - Picker (046): `GET /assets/picker/search` (filters by product type with its children and by
+    site; part of a name, tag, barcode, serial or discovered serial anywhere in it; pages by
+    cursor; staff within their asset scope, others only what they hold). The classic
+    `/assets/picker` takes the same two filters. Tests: a partial serial (AC1), an asset outside
+    the scope (AC2).
+  - Linked records (044, **D-158**: the counters count only the records the viewer may see,
+    overriding AC3): the assets-side port `LinkedRecords` (`linked_counts`, `linked_page`,
+    `asset_ids_of`) with `register_linked_records`; `GET /assets/{id}/linked` ("not available"
+    while no port is registered, and the panel hides) and `/linked/{kind}`; live through the
+    asset's channel on `work_items.asset_link.changed` and `work_items.work_item.status_changed`.
+    Unit-tested with a fake port (a record the viewer may not see is neither counted nor listed).
+  - Raise from an asset (045): Raise an incident, service request or change on the asset page,
+    a template (or catalogue item) picker listing only what the person may use, then the normal
+    create form with the asset and its holder filled in (`?template=`/`?item=`, `?asset=`,
+    `?requester=`; small console-only additions to lane A's three create forms, agreed with
+    their conditions). Each ID is checked quietly first: an unknown or not-allowed template,
+    item, asset or person leaves its field empty (the form's default template), with no banner
+    or toast; a known asset shows by tag and name; the server re-checks on submit. The history
+    line "INC-1042 raised from this asset" is written by the `assets__raised_from` consumer from
+    `work_items.asset_link.changed` with `at_creation: true`, the display ID read at write time
+    through the labeler work items register with automation (their public `labels_of`); a record
+    already gone gives the generic line.
+  - Lane C's checklist: typeahead in the type tree (a printable key moves to the next matching
+    row, wrapping; keys within 500 ms form a prefix; locale lower-casing; Arabic and Urdu by the
+    first letter), the row's focus ring from the theme's focus colour and width, drawers capped
+    at the screen width (390 px); a test that work-item lists keep their own `/list-settings`
+    and that Reset widths clears the saved widths in both stores.
+  - Guide: docs/guides/asset-list-and-views.md.
+  - **Lane A's ports (#389) are on main:** work_items registers the port from its __init__
+    (`asset_link_port.py`, a thin adapter over lane A's visible-only `linked_counts`,
+    `linked_page` and `asset_ids_of`; no query of its own), so the panel shows. DB test with
+    real incidents: a linked incident of the technician's group is counted and listed, one of
+    another group neither (D-158); the counters follow a new link live; an incident raised with
+    an asset (`at_creation` on the real event) names itself in the asset's history. The display
+    ID still comes through automation's labeler until lane A's `labels_of` export (#396) lands.
+  - **Open:** a column chooser for the asset list (the store keeps chosen columns; the screen
+    shows the default set), renaming a saved view on screen (the API has it), sharing views with
+    groups (REQ-INC-107's sharing; the store is per person), the record forms' pickers adopting
+    the paged picker (lane A's screens), a change's asset on its create form (changes take no
+    asset on create yet).
+
+- [x] **Session 4b (migration 0145, down revision 0140 for now: it moves to main's head at the
+  lane's queue turn; REQ-AST-051, 052, 053; branch backup/wp-049b-s4b, from S4a at e52c46f7):**
+  - Bulk actions (051): `POST /assets/bulk-jobs` (assets.manage) queues an edit (location, site,
+    vendor, product, cost centre, GL code, dates, description; never money or identifiers),
+    a state change, an assignment (person, department or no one) or a move to the trash (soft
+    delete) of at most 1,000 assets (more: 422 `asset_bulk_too_many`, `max`). The consumers
+    worker (`assets__bulk_jobs`, work items' pattern) runs it as the requester in batches of 50,
+    each asset through the single-asset call in a savepoint: refused ones are skipped with the
+    reason code. History names the job (`batch_id`); progress on the personal channel
+    (`assets.bulk_progress`). The old 100-asset `/assets/bulk-moves` stays for API callers.
+  - Merge (052): `GET /assets/merge-preview` and `POST /assets/merges` (assets.manage on both,
+    within scope: another site's asset `asset_merge_site_not_managed`; another tenant's not
+    found). The suggested survivor is the discovered one, then the newest scan; each field's
+    side is chosen (money only with assets.view_financials). The survivor takes the chosen
+    values through the ordinary update; work-item links move through lane A's
+    `repoint_asset_links` (called through the linked-records port: `repoint_links` added to
+    the Protocol and to work items' adapter, lane B's file); cost lines, notes, fitted
+    components (through the holder change), static groups and relationships move; the merged
+    asset goes to the trash with "merged into" history; its tag, serial and barcode stay on it
+    and on the merge row as an alias that finds the survivor (list search), and its ID answers
+    404 `asset_merged` with the survivor (the asset page opens it). One `asset.merged` audit
+    entry holds the field mapping (codes only). A merged asset's restore answers 409
+    `asset_restore_merged` until `confirm_merged`; it then comes back alone, the alias ends and
+    nothing moves back. Refused: the same asset twice, an open loan, a booking, one fitted to
+    the other.
+  - Import (053): `POST /assets/imports` (raw body; assets and consumables need assets.manage,
+    vendors vendors.create and vendors.manage by mode), dry run first: every row through the
+    real service calls in a savepoint that is rolled back (nothing changes), then
+    `POST /imports/{id}/run` (If-Match). Modes add, update, add and update; matching on tag or
+    serial (assets), product (consumables), name (vendors). WP-021's reader moved to
+    `app/shared/sheets.py` (same checks; the people import uses it unchanged at 5 MB) with a
+    20,000-row cap here. Per-row problems (row, column, code), the file cleared once read.
+    **Interim limit, deliberate (coordinator, 2026-11-11):** asset imports take files up to
+    25 MB and 20,000 rows, below the spec's Appendix A (50 MB, no row cap): a 20,000-row sheet
+    fits while each import stays one bounded background job. WP-021's column, cell, zip-entry
+    and ratio checks are kept; the unpacked cap grows with the file (250 MB). The dialog shows
+    the limits and a larger file gets the labelled `asset_import_file_too_large` (with `max_mb`).
+    The people import keeps 5 MB. Raising it toward Appendix A waits for the batched path.
+    Measured: about 50 ms a row for assets on the loaded shared Mac (2,000 rows: dry run 99 s,
+    run 101 s), so 20,000 rows run as one job of about 17 minutes each pass, progress streamed.
+    The figure on CI or the stack goes in the PR.
+  - **Follow-up (WP-049b):** batched inserts for imports (rows written in batches, not one
+    savepoint per row). If a 20,000-row run takes more than about 10 minutes on the stack, this
+    is done before the polish round, not after QA (coordinator, 2026-11-11).
+  - **Merge and links:** the merge moves every live work-item link of the duplicate, including
+    records the merging person may not see (only a count comes back to them), inside the
+    merge's own transaction (lane A's note).
+  - Export (053): the list's Export button uses the reports export (entity `asset`) with the
+    list's filter; built-in views other than All are not exportable (said so). Price, tax, book
+    value and total cost only for those with assets.view_financials (D-157; the source gains
+    `purchase_price` and `purchase_tax` as money fields).
+  - Console: the selection bar's Change selected (bulk dialog with live progress and skipped
+    reasons) and Merge (exactly two; the field table, swap), the import wizard (upload, check,
+    import; problems table and a CSV error file in the person's language), Export, the restore
+    warning, the merged asset's redirect, history lines. Labels en/ar/ur. Vitest: 11 new
+    (incl. RTL in Arabic and Urdu), the old bulk-move test moved to the job.
+  - Tests: tests/db/test_asset_bulk_merge_import_api.py (12: RLS read and write on the three
+    tables, the cap, the per-asset skip, the rules of move/assign/delete, the merge with links
+    and one audit entry, cross-site refused, cross-tenant not found, the restore warning, the
+    dry run, modes, vendors, zip bomb, broken workbook, 20,001 rows, 5 MB, live progress),
+    tests/db/test_asset_bulk_merge_import_migration.py, app/modules/assets/tests/test_batch_domain.py.
+  - Guide: docs/guides/asset-list-and-views.md (bulk, merge, import, export).
+  - **Open:** "select all N" for bulk (picked rows only for now), the spec's other bulk actions
+    (change product as such, add to group and loanable stay synchronous, depreciation, labels,
+    scan now), field mapping in the import wizard (fixed headings for now), imports of licences,
+    CIs, contracts and POs (their modules), loans and bookings moving on merge (refused
+    instead), a faster import path for 20,000 rows, the e2e journey.
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
@@ -1942,8 +2152,47 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     release on its own page (S3, with the page tabs). REQ-REL-033's copy-downtime-on-add and
     "a change behind its schedule" marker, and REQ-REL-038's service/site/type/group filters
     and stage colours, go to S5 with the lists.
-- [ ] S2: the guard by planned stage, conflict acks, release freeze override (after lane A's
-  WP-045d S2, 0137). S3: stage on tasks and worklogs, page tabs. S4: closure and rollback.
+- [x] Session 2 (2026-11-11): the schedule guard for releases, conflicts, acks, the freeze
+  override. Migration 0139. ADR-042 addendum A (lane A's OK; their blocking review in the PR).
+  - **Guard (REQ-REL-040):** one guard by planned stage (`domain/change_windows.PLANNED_STAGE`). A
+    release's deployment window and planned downtimes are refused in a blocking freeze on every
+    path, an emergency release too. Its own override (`releases.override_freeze`: the release
+    manager and admins; a reason, SECURITY audit, history; window IDs only; a closed release
+    refuses) is the only pass. Outside maintenance always warns for a release.
+  - **Conflicts (REQ-REL-041):** changes and releases meet across types on group, site or
+    downtime service/CI IDs, named by ID and type only; `role_booked` for a release manager or
+    engineer on two overlapping deployments. `GET /releases/{id}/conflicts`; acks
+    (`POST …/conflicts/acks`, If-Match, audited) keyed on both sides' versions, so they lapse when
+    either moves. The calendar's chips carry a conflict count (one batch per range).
+  - **Screens:** the release's Schedule tab lists them live, with Acknowledge and the override;
+    a release move refused on the calendar offers the override in place. Lane A's
+    ConflictsPanel names a release as a release (their ask).
+  - **Tests:** test_release_conflicts_api (6), test_release_freeze_override_api (4),
+    test_release_override_acks_migration, the role-matrix pin; Vitest releases.test.tsx (2),
+    release-calendar.test.tsx (2), schedule.test.tsx (1). EXPLAIN of `_others` at 50k schedules
+    in the PR.
+  - **Open:** per-environment guarding (WP-053); a release emergency route would be a new
+    decision; GiST range index not needed (lane A, 7 ms worst case).
+- [~] Session 3 (2026-11-11): stage work for releases. Migration 0142.
+  - **REQ-REL-048:** the stage-task refusal is shared with changes (lane A's OK) and names the
+    first open task (`task`, `task_id`, `tasks`, `more`; never its text). Releases can switch it
+    off (`open_stage_tasks_block`). The rail shows each stage's tasks done / total, live.
+  - **Worklogs:** they carry the staged record's stage, set by the server (lane A's WP-046a S3
+    builds on it).
+  - **REQ-REL-022 AC1:** trigger event `stage_entered`, with `stage` as a rule field for staged
+    types. It runs once per entry and is named in history. Notifications keep their own events
+    (lane A's `change.status_entered`); see the workflows guide.
+  - **REQ-REL-021 AC1:** a failed workflow step on the release header, with Retry.
+  - **Moved:**
+    - REQ-REL-020's default release workflows → S6. Their notices need the release-role
+      recipients that S6 brings; no stand-ins (the coordinator, 2026-11-11).
+    - REQ-REL-022 AC2 waits for custom menu actions (REQ-RUL-024, WP-048a, lane A). The release
+      scoping test is theirs to add, with my review.
+  - **REQ-REL-048 AC3** (a task from a template is created in the stage): delivered by lane A's
+    task templates (#398, WP-046a S1). Proved on a release by their
+    `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
+  - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
+- [ ] S4: closure and rollback.
   S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 

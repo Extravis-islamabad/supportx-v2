@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict
 from app.modules.organization import regional_defaults
 from app.modules.work_items.domain import change_windows as model
-from app.modules.work_items.domain.changes import EMERGENCY_PATH, IMPLEMENTATION
+from app.modules.work_items.domain.changes import EMERGENCY_PATH
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.types import WorkItemTypeCode
 from app.modules.work_items.infra.models import (
@@ -29,6 +29,8 @@ from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemChangeDetails,
     WorkItemDowntime,
+    WorkItemReleaseDetails,
+    WorkItemRoleHolder,
     WorkItemStageSchedule,
     WorkItemTypeSettings,
 )
@@ -142,22 +144,23 @@ async def maintenance_in_effect(
     return list(rows)
 
 
-async def planned_times(
-    session: AsyncSession, record_id: uuid.UUID
-) -> list[tuple[datetime, datetime]]:
-    """The change's planned time: its implementation window and its planned downtimes."""
+async def planned_times(session: AsyncSession, record: WorkItem) -> list[tuple[datetime, datetime]]:
+    """The record's planned time: its planned stage's window and its planned downtimes."""
     times: list[tuple[datetime, datetime]] = []
+    stage = model.PLANNED_STAGE.get(record.type)
+    if stage is None:
+        return times
     window = await session.scalar(
         select(WorkItemStageSchedule).where(
-            WorkItemStageSchedule.work_item_id == record_id,
-            WorkItemStageSchedule.stage == IMPLEMENTATION,
+            WorkItemStageSchedule.work_item_id == record.id,
+            WorkItemStageSchedule.stage == stage,
         )
     )
     if window is not None and window.scheduled_start and window.scheduled_end:
         times.append((window.scheduled_start, window.scheduled_end))
     downtimes = await session.scalars(
         select(WorkItemDowntime).where(
-            WorkItemDowntime.work_item_id == record_id,
+            WorkItemDowntime.work_item_id == record.id,
             WorkItemDowntime.phase == "planned",
             WorkItemDowntime.deleted_at.is_(None),
         )
@@ -166,51 +169,190 @@ async def planned_times(
     return times
 
 
-async def _others(
-    session: AsyncSession, record: WorkItem, start: datetime, end: datetime
-) -> list[model.Planned]:
-    """Other open changes in the same group or at the same site planned in [start, end)."""
-    place = [
-        c
-        for c in (
-            WorkItem.group_id == record.group_id if record.group_id else None,
-            WorkItem.site_id == record.site_id if record.site_id else None,
-        )
-        if c is not None
-    ]
-    if not place:
-        return []
+OTHERS_LIMIT = 200  # other records met in one check: a busy week fits many times over
+RELEASE = WorkItemTypeCode.RELEASE.value
+RELEASE_ROLES = frozenset({"release_manager", "release_engineer"})  # its people (REQ-REL-023)
+
+
+async def _items_of(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> tuple[dict[uuid.UUID, set[uuid.UUID]], dict[uuid.UUID, set[uuid.UUID]]]:
+    """The service and CI IDs the records' planned downtimes name (stored IDs only)."""
+    services: dict[uuid.UUID, set[uuid.UUID]] = {i: set() for i in ids}
+    cis: dict[uuid.UUID, set[uuid.UUID]] = {i: set() for i in ids}
+    if not ids:
+        return services, cis
     rows = await session.execute(
         select(
-            WorkItem.id,
-            WorkItem.site_id,
-            WorkItem.group_id,
-            WorkItemStageSchedule.scheduled_start,
-            WorkItemStageSchedule.scheduled_end,
-        )
-        .join(WorkItemStageSchedule, WorkItemStageSchedule.work_item_id == WorkItem.id)
-        .where(
-            WorkItem.type == CHANGE,
-            WorkItem.id != record.id,
-            WorkItem.deleted_at.is_(None),
-            WorkItem.status_category.in_(_OPEN),
-            or_(*place),
-            WorkItemStageSchedule.stage == IMPLEMENTATION,
-            WorkItemStageSchedule.scheduled_start < end,
-            WorkItemStageSchedule.scheduled_end > start,
+            WorkItemDowntime.work_item_id, WorkItemDowntime.service_ids, WorkItemDowntime.ci_ids
+        ).where(
+            WorkItemDowntime.work_item_id.in_(ids),
+            WorkItemDowntime.phase == "planned",
+            WorkItemDowntime.deleted_at.is_(None),
         )
     )
-    return [
-        model.Planned(r.id, r.scheduled_start, r.scheduled_end, r.site_id, r.group_id) for r in rows
-    ]
+    for item, service_ids, ci_ids in rows:
+        services[item] |= set(service_ids or ())
+        cis[item] |= set(ci_ids or ())
+    return services, cis
+
+
+async def _people_of(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """The release manager and engineer of each release: its details and its role holders."""
+    people: dict[uuid.UUID, set[uuid.UUID]] = {i: set() for i in ids}
+    if not ids:
+        return people
+    details = await session.execute(
+        select(
+            WorkItemReleaseDetails.work_item_id,
+            WorkItemReleaseDetails.release_manager_id,
+            WorkItemReleaseDetails.release_engineer_id,
+        ).where(WorkItemReleaseDetails.work_item_id.in_(ids))
+    )
+    for item, manager, engineer in details:
+        people[item] |= {p for p in (manager, engineer) if p is not None}
+    holders = await session.execute(
+        select(WorkItemRoleHolder.work_item_id, WorkItemRoleHolder.user_id).where(
+            WorkItemRoleHolder.work_item_id.in_(ids),
+            WorkItemRoleHolder.role.in_(RELEASE_ROLES),
+            WorkItemRoleHolder.user_id.is_not(None),
+        )
+    )
+    for item, user in holders:
+        if user is not None:
+            people[item].add(user)
+    return people
+
+
+async def _others(  # noqa: PLR0913 - the record, its range and what it may meet, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    start: datetime,
+    end: datetime,
+    *,
+    service_ids: frozenset[uuid.UUID],
+    ci_ids: frozenset[uuid.UUID],
+    people: frozenset[uuid.UUID],
+) -> list[model.Planned]:
+    """Other open changes and releases planned in [start, end) that this one may meet.
+
+    One query per type (ADR-042 addendum A): the same group or site, a planned downtime naming
+    one of the same services or CIs, or (releases) a release role held by the same person.
+    """
+    found: list[model.Planned] = []
+    for wtype, stage in model.PLANNED_STAGE.items():
+        meets = [
+            c
+            for c in (
+                WorkItem.group_id == record.group_id if record.group_id else None,
+                WorkItem.site_id == record.site_id if record.site_id else None,
+            )
+            if c is not None
+        ]
+        if service_ids or ci_ids:
+            meets.append(
+                WorkItem.id.in_(
+                    select(WorkItemDowntime.work_item_id).where(
+                        # The tenant explicitly too (lane A's #397 note): the tenant-leading
+                        # indexes serve it, not only RLS's filter.
+                        WorkItemDowntime.tenant_id == record.tenant_id,
+                        WorkItemDowntime.phase == "planned",
+                        WorkItemDowntime.deleted_at.is_(None),
+                        or_(
+                            *(
+                                [WorkItemDowntime.service_ids.overlap(sorted(service_ids))]
+                                if service_ids
+                                else []
+                            ),
+                            *([WorkItemDowntime.ci_ids.overlap(sorted(ci_ids))] if ci_ids else []),
+                        ),
+                    )
+                )
+            )
+        if people and wtype == RELEASE:
+            meets.append(
+                WorkItem.id.in_(
+                    select(WorkItemReleaseDetails.work_item_id).where(
+                        WorkItemReleaseDetails.tenant_id == record.tenant_id,
+                        or_(
+                            WorkItemReleaseDetails.release_manager_id.in_(people),
+                            WorkItemReleaseDetails.release_engineer_id.in_(people),
+                        ),
+                    )
+                )
+            )
+            meets.append(
+                WorkItem.id.in_(
+                    select(WorkItemRoleHolder.work_item_id).where(
+                        WorkItemRoleHolder.tenant_id == record.tenant_id,
+                        WorkItemRoleHolder.role.in_(RELEASE_ROLES),
+                        WorkItemRoleHolder.user_id.in_(people),
+                    )
+                )
+            )
+        if not meets:
+            continue
+        rows = (
+            await session.execute(
+                select(
+                    WorkItem.id,
+                    WorkItem.site_id,
+                    WorkItem.group_id,
+                    WorkItemStageSchedule.scheduled_start,
+                    WorkItemStageSchedule.scheduled_end,
+                    WorkItemStageSchedule.version,
+                )
+                .join(WorkItemStageSchedule, WorkItemStageSchedule.work_item_id == WorkItem.id)
+                .where(
+                    WorkItem.tenant_id == record.tenant_id,
+                    WorkItemStageSchedule.tenant_id == record.tenant_id,
+                    WorkItem.type == wtype,
+                    WorkItem.id != record.id,
+                    WorkItem.deleted_at.is_(None),
+                    WorkItem.status_category.in_(_OPEN),
+                    or_(*meets),
+                    WorkItemStageSchedule.stage == stage,
+                    WorkItemStageSchedule.scheduled_start < end,
+                    WorkItemStageSchedule.scheduled_end > start,
+                )
+                .order_by(WorkItemStageSchedule.scheduled_start, WorkItem.id)
+                .limit(OTHERS_LIMIT)
+            )
+        ).all()
+        ids = [r.id for r in rows]
+        services, cis = await _items_of(session, ids) if service_ids or ci_ids else ({}, {})
+        holders = await _people_of(session, ids) if people and wtype == RELEASE else {}
+        found.extend(
+            model.Planned(
+                r.id,
+                r.scheduled_start,
+                r.scheduled_end,
+                r.site_id,
+                r.group_id,
+                record_type=wtype,
+                service_ids=frozenset(services.get(r.id, ())),
+                ci_ids=frozenset(cis.get(r.id, ())),
+                people=frozenset(holders.get(r.id, ())),
+                version=r.version,
+            )
+            for r in rows
+        )
+    return found
 
 
 async def conflicts(
     session: AsyncSession, record: WorkItem, times: Times | None = None
 ) -> tuple[list[model.Conflict], dict[uuid.UUID, ChangeWindow]]:
-    """Every conflict of the change's planned times (or of `times`), and the windows named."""
-    planned = list(times) if times is not None else await planned_times(session, record.id)
-    if record.type != CHANGE or not planned:
+    """Every conflict of the record's planned times (or of `times`), and the windows named.
+
+    A change or a release (ADR-042 addendum A); any other type has none.
+    """
+    if record.type not in model.PLANNED_STAGE:
+        return [], {}
+    planned = list(times) if times is not None else await planned_times(session, record)
+    if not planned:
         return [], {}
     start = min(s for s, _ in planned)
     end = max(e for _, e in planned)
@@ -218,29 +360,56 @@ async def conflicts(
     near = await maintenance_in_effect(session, start, end)
     rows = list({r.id: r for r in (*touching, *near)}.values())
     zone = await tenant_zone(session)
+    services, cis = await _items_of(session, [record.id])
+    own_services = frozenset(services.get(record.id, ()))
+    own_cis = frozenset(cis.get(record.id, ()))
+    own_people = (
+        frozenset((await _people_of(session, [record.id])).get(record.id, ()))
+        if record.type == RELEASE
+        else frozenset()
+    )
     found = model.conflicts(
         planned,
         site_id=record.site_id,
         group_id=record.group_id,
         windows=[window_of(r, zone) for r in rows],
-        others=await _others(session, record, start, end),
+        others=await _others(
+            session,
+            record,
+            start,
+            end,
+            service_ids=own_services,
+            ci_ids=own_cis,
+            people=own_people,
+        ),
         record_id=record.id,
-        outside_blocks=await outside_maintenance_blocks(session),
+        # D-156's setting is the change type's only: a release warns (lane A, addendum A).
+        outside_blocks=record.type == CHANGE and await outside_maintenance_blocks(session),
+        service_ids=own_services,
+        ci_ids=own_cis,
+        people=own_people,
     )
     return found, {r.id: r for r in rows}
 
 
 async def passed_windows(session: AsyncSession, record_id: uuid.UUID) -> frozenset[uuid.UUID]:
-    """The freezes someone allowed to has passed for this change, by ID (none: nothing passed).
+    """The freezes someone allowed to has passed for this change or release, by ID.
 
-    Only these: a different freeze, or one added later, still blocks the change until someone
-    passes it too (lane B's review of #376).
+    Only these: a different freeze, or one added later, still blocks the record until someone
+    passes it too (lane B's review of #376). A release's are its own override's only (0139; no
+    CAB path, ADR-042 addendum A).
     """
     ids = await session.scalar(
         select(WorkItemChangeDetails.freeze_override_window_ids).where(
             WorkItemChangeDetails.work_item_id == record_id
         )
     )
+    if ids is None:
+        ids = await session.scalar(
+            select(WorkItemReleaseDetails.freeze_override_window_ids).where(
+                WorkItemReleaseDetails.work_item_id == record_id
+            )
+        )
     return frozenset(ids or ())
 
 
@@ -270,7 +439,8 @@ async def guard(session: AsyncSession, record: WorkItem, times: Times) -> list[m
     """
     found, _ = await conflicts(session, record, times)
     blocking = still_blocking(found, await passed_windows(session, record.id))
-    if record.stage_path == EMERGENCY_PATH:
+    # Changes only (lane A, addendum A): a release's emergency path is refused like any other.
+    if record.type == CHANGE and record.stage_path == EMERGENCY_PATH:
         blocking = [c for c in blocking if c.kind is not model.ConflictKind.FREEZE]
     if blocking:
         first = blocking[0]

@@ -21,7 +21,7 @@ that was removed or that the reader may not see comes back marked, never named.
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import ColumnElement, Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
@@ -228,6 +228,27 @@ async def attach_emailed(session: AsyncSession, record: WorkItem) -> None:
     await _write(session, record, held[0].id, held[0], source="email")
 
 
+def _assigned_and_worked(user_id: uuid.UUID) -> tuple[ColumnElement[bool], ...]:
+    """Live links on records assigned to `user_id` that are still being worked (D-153, D-157).
+
+    One predicate for both builders below, so "my tickets" can never mean two things: not in
+    the trash (deleted), and open, paused or resolved (closed and canceled are done).
+    """
+    return (
+        WorkItemAsset.deleted_at.is_(None),
+        WorkItem.deleted_at.is_(None),
+        WorkItem.technician_id == user_id,
+        WorkItem.status_category.in_(_WORKING),
+    )
+
+
+def _linked_records() -> tuple[type[WorkItem], ColumnElement[bool]]:
+    """The join from a link to its record (both tables force RLS: the caller's tenant)."""
+    return WorkItem, (WorkItem.tenant_id == WorkItemAsset.tenant_id) & (
+        WorkItem.id == WorkItemAsset.work_item_id
+    )
+
+
 def linked_asset_ids_select(user_id: uuid.UUID) -> Select[uuid.UUID]:
     """The assets linked to records assigned to `user_id` that are still being worked (D-153).
 
@@ -236,17 +257,30 @@ def linked_asset_ids_select(user_id: uuid.UUID) -> Select[uuid.UUID]:
     """
     return (
         select(WorkItemAsset.asset_id)
-        .join(
-            WorkItem,
-            (WorkItem.tenant_id == WorkItemAsset.tenant_id)
-            & (WorkItem.id == WorkItemAsset.work_item_id),
-        )
-        .where(
-            WorkItemAsset.deleted_at.is_(None),
-            WorkItem.deleted_at.is_(None),
-            WorkItem.technician_id == user_id,
-            WorkItem.status_category.in_(_WORKING),
-        )
+        .join(*_linked_records())
+        .where(*_assigned_and_worked(user_id))
+    )
+
+
+def linked_requester_ids_select(
+    user_id: uuid.UUID, asset_id: uuid.UUID
+) -> Select[uuid.UUID, uuid.UUID | None]:
+    """Who `user_id`'s records still being worked that link `asset_id` are for (D-157).
+
+    Each such record's requester and the person it was raised on behalf of (None when nobody).
+    Added for lane B's D-157 (lane A reviewed: shared predicate, on-behalf people, trash
+    excluded): the assets module lets a technician change a few fields of an asset linked to
+    its own ticket only while the asset is held by one of these people or their department. A
+    pure select builder (no I/O); assets runs it in its own session and compares the people
+    with the asset's own holder, so neither module reads the other's tables. Registered at
+    import (work_items/__init__.py) through assets' public `register_ticket_requesters`.
+    """
+    return (
+        select(WorkItem.requester_id, WorkItem.on_behalf_of_id)
+        .select_from(WorkItemAsset)
+        .join(*_linked_records())
+        .where(WorkItemAsset.asset_id == asset_id, *_assigned_and_worked(user_id))
+        .distinct()
     )
 
 

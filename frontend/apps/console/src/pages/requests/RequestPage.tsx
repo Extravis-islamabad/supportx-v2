@@ -1,6 +1,6 @@
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Descriptions, Flex, Result, Skeleton, Tabs, Tooltip, Typography } from 'antd';
+import { Alert, Descriptions, Flex, Result, Skeleton, Tooltip, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
@@ -38,6 +38,7 @@ import {
   useMinWidth,
   usePageCrumbs,
   type RecordAction,
+  Tabs,
 } from '@supportx/ui';
 
 import { RecordWorkflows } from '../workflows/RecordWorkflows';

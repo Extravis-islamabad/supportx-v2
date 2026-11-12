@@ -36,6 +36,7 @@ from app.modules.identity_access.service import sso_test
 from app.modules.identity_access.service.auth import AuthService
 from app.modules.identity_access.tests.fake_idp import ISSUER, FakeIdp, FakeUser, MemoryKeyValue
 from app.shared.clock import FrozenClock
+from app.shared.crypto import key_id_of
 from conftest import make_settings
 from tests.app_state import set_state
 from tests.db.test_api_tenancy import build_app
@@ -1222,3 +1223,33 @@ async def test_a_failed_sso_test_says_why_and_leaves_the_set_up_untested(bff: Bf
     finally:
         await conn.close()
     assert state == "draft"
+
+
+# --- the sign-in key ring (D-162, ADR-048) ------------------------------------------------------
+
+
+async def test_a_session_survives_a_key_rotation_and_moves_to_the_new_key(bff: Bff) -> None:
+    """Nobody is signed out: the old key stays readable, the next save seals under the new one."""
+    assert (await bff.login(bff.user("a", email="rotate@demo.test"))).status_code == 302
+    session_key = next(k for k in bff.kv.data if k.startswith("sx:session:"))
+    assert key_id_of(bff.kv.data[session_key]) == "legacy"
+    # The operator lists a new newest key and keeps "legacy" for the overlap; the API restarts.
+    rotated = make_settings(
+        session_secret=bff.settings.session_secret.get_secret_value(),  # type: ignore[union-attr]  # set by the fixture
+        session_keys=json.dumps([{"id": "k2", "secret": "n" * 40}, {"id": "legacy"}]),
+    )
+    cipher = SessionCipher.from_settings(rotated)
+    assert cipher is not None
+    bff.app.state.auth.store = SessionStore(bff.kv, cipher)
+    me = await bff.me()
+    assert me.status_code == 200, me.text
+    bff.clock.advance(timedelta(minutes=2))  # past the touch interval: the record is saved again
+    assert (await bff.me()).status_code == 200
+    assert key_id_of(bff.kv.data[session_key]) == "k2"
+    # Once "legacy" is retired, the moved session still works.
+    retired = SessionCipher.from_settings(
+        make_settings(session_keys=json.dumps([{"id": "k2", "secret": "n" * 40}]))
+    )
+    assert retired is not None
+    bff.app.state.auth.store = SessionStore(bff.kv, retired)
+    assert (await bff.me()).status_code == 200

@@ -231,7 +231,47 @@ describe('console: changes', () => {
     });
   });
 
-  it('REQ-CHG-101: picked changes close together; assign, take and close only, and skips say why', async () => {
+  it('REQ-CHG-101 (WP-046a S1): picked changes are canceled with one reason', async () => {
+    const JOB_ID = '01a1a2b3-0000-7000-8000-0000000c0d02';
+    window.history.pushState({}, '', '/changes');
+    const job = {
+      id: JOB_ID,
+      action: 'cancel',
+      status: 'queued',
+      total: 1,
+      processed: 0,
+      done_count: 0,
+      skipped_count: 0,
+      results: [],
+      created_at: '2027-03-01T00:00:00Z',
+      started_at: null,
+      finished_at: null,
+    };
+    const fake = api({
+      'POST /api/v1/changes/bulk': { status: 202, body: job },
+      [`GET /api/v1/changes/bulk-jobs/${JOB_ID}`]: { body: { ...job, status: 'done' } },
+    });
+    render(<App />);
+    const row = await screen.findByTestId('change-row-CHG-7');
+    fireEvent.click(within(row).getByRole('checkbox'));
+    fireEvent.click(await screen.findByTestId('inc-bulk-cancel'));
+    const ok = await screen.findByTestId('chg-bulk-cancel-ok');
+    expect((ok as HTMLButtonElement).disabled).toBe(true); // a cancel says why
+    fireEvent.change(screen.getByTestId('chg-bulk-cancel-reason'), {
+      target: { value: 'Superseded by CHG-9' },
+    });
+    fireEvent.click(ok);
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes/bulk')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/changes/bulk')[0]?.body).toMatchObject({
+      action: 'cancel',
+      changes: { reason_text: 'Superseded by CHG-9' },
+      record_ids: [CHG_ID],
+    });
+  });
+
+  it('REQ-CHG-101: picked changes close together; assign, take, close, cancel and trash, and skips say why', async () => {
     const JOB_ID = '01a1a2b3-0000-7000-8000-0000000c0d01';
     window.history.pushState({}, '', '/changes');
     const fake = api({
@@ -286,10 +326,11 @@ describe('console: changes', () => {
     const row = await screen.findByTestId('change-row-CHG-7');
     fireEvent.click(within(row).getByRole('checkbox'));
     expect((await screen.findByTestId('inc-selected')).textContent).toBe('1 change selected');
-    for (const action of ['close', 'assign', 'take']) {
+    // Cancel and trash since WP-046a S1 (0141); edit and resolve are not the change list's.
+    for (const action of ['close', 'assign', 'take', 'cancel', 'delete']) {
       expect(screen.getByTestId(`inc-bulk-${action}`)).toBeTruthy();
     }
-    for (const action of ['cancel', 'delete', 'edit', 'resolve']) {
+    for (const action of ['edit', 'resolve']) {
       expect(screen.queryByTestId(`inc-bulk-${action}`)).toBeNull();
     }
     fireEvent.click(screen.getByTestId('inc-bulk-close'));
@@ -380,6 +421,23 @@ describe('console: changes', () => {
     // It opens on the Risk tab: the questionnaire is the template's, so the change comes first.
     expect(await screen.findByTestId('change-risk')).toBeTruthy();
     expect(window.location.search).toBe('?tab=risk');
+  });
+
+  it('an unknown ?template= falls back to the default template, quietly (lane A, #404)', async () => {
+    window.history.pushState({}, '', '/changes/new?template=01a1a2b3-0000-7000-8000-0000000dead0');
+    const fake = api();
+    render(<App />);
+    // The default's path shows and the form can be sent, as with no template asked for.
+    expect(await screen.findByTestId('change-path')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('change-subject'), { target: { value: 'Patch' } });
+    expect(screen.getByTestId('change-save')).toHaveProperty('disabled', false);
+    fireEvent.click(screen.getByTestId('change-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/changes')[0]?.body).toMatchObject({
+      template_id: TEMPLATE_ID,
+    });
   });
 
   it('template A: the rail, one primary move, and a plan the move needs is named, not typed', async () => {
@@ -479,5 +537,180 @@ describe('console: changes', () => {
     await waitFor(() => {
       expect(fake.find('PATCH', `/api/v1/changes/${CHG_ID}/details`)).toHaveLength(1);
     });
+  });
+
+  it('QA-2026-11-11 F-02: the roles tab names the change\'s own requester, not "Nobody yet"', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}?tab=roles`);
+    const SANA = '01a1a2b3-0000-7000-8000-00000000aa01';
+    api({
+      [`GET /api/v1/changes/${CHG_ID}/roles`]: {
+        body: {
+          version: 4,
+          roles: [
+            {
+              code: 'requester',
+              labels: null,
+              single: true,
+              system: true,
+              disabled: false,
+              user_ids: [SANA],
+              group_ids: [],
+              from_record: true,
+            },
+          ],
+          people: { [SANA]: 'Sana Malik' },
+        },
+      },
+    });
+    render(<App />);
+    const holder = await screen.findByTestId('change-role-requester-holder');
+    expect(holder.textContent).toContain('Sana Malik');
+    expect(holder.textContent).toContain('Set in the details panel');
+    expect(screen.getByTestId('change-roles').textContent).not.toContain('Nobody yet');
+  });
+
+  it('QA-2026-11-11 F-03: history shows labels and local times, never codes, UTC or bookkeeping', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}?tab=history`);
+    api({
+      [`GET /api/v1/changes/${CHG_ID}/history`]: {
+        body: {
+          items: [
+            {
+              change_id: 'h-1',
+              version: 2,
+              kind: 'updated',
+              occurred_at: '2026-11-11T14:18:00Z',
+              actor_type: 'user',
+              actor_id: null,
+              actor_name: 'Sana Malik',
+              source: 'ui',
+              reason: null,
+              automation: null,
+              changes: [
+                { field: 'risk', old: null, new: 'very_high' },
+                { field: 'risk_answers', old: null, new: { affected: 'organisation' } },
+                { field: 'risk_version', old: null, new: 1 },
+                { field: 'scheduled_start', old: null, new: '2026-11-17T21:00:00+00:00' },
+                { field: 'change_reason', old: null, new: 'security_fix' },
+                { field: 'stage', old: 'planning', new: 'submission' },
+                { field: 'reapproval_restarted', old: null, new: ['risk'] },
+                { field: 'task.extra_cost', old: null, new: null, hidden: true },
+              ],
+            },
+          ],
+          next_cursor: null,
+          people: {},
+        },
+      },
+    });
+    render(<App />);
+    const entry = await screen.findByTestId('inc-history-entry');
+    const text = entry.textContent;
+    expect(text).toContain('Very high');
+    expect(text).not.toContain('very_high');
+    expect(text).toContain('Risk assessment answers');
+    expect(text).not.toMatch(/Risk Version|risk_version/);
+    expect(text).not.toContain('2026-11-17T21:00');
+    expect(text).not.toContain('+00:00');
+    expect(text).not.toContain('security_fix');
+    // The re-check (2d848b42): a stage by its name, and a send-back as one sentence.
+    expect(text).toContain('from Planning to Submission');
+    expect(text).not.toMatch(/planning to submission|because of to/);
+    expect(text).toContain('Sana Malik sent it back for approval again because Risk changed');
+    // A task's extra cost not the reader's to see (lane B's #398 review): only that it changed.
+    expect(text).toContain('Sana Malik changed Extra cost');
+  });
+
+  it('QA-2026-11-11 F-01: a form that remounts keeps its Idempotency-Key, so a repeat never duplicates', async () => {
+    window.history.pushState({}, '', '/changes/new');
+    const fake = api({
+      'POST /api/v1/changes': {
+        status: 503,
+        body: {
+          type: 'urn:supportx:problem:service_unavailable',
+          title: 'Service Unavailable',
+          status: 503,
+          code: 'service_unavailable',
+          message_key: 'errors.service_unavailable',
+          params: {},
+          errors: [],
+        },
+      },
+    });
+    const fill = async () => {
+      expect(await screen.findByTestId('change-path')).toBeTruthy();
+      fireEvent.change(screen.getByTestId('change-subject'), {
+        target: { value: 'Core switch firmware 9.3' },
+      });
+      fireEvent.click(screen.getByTestId('change-save'));
+    };
+    const first = render(<App />);
+    await fill();
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(1);
+    });
+    first.unmount(); // the page remounts (a banner, a session refetch)
+    render(<App />);
+    await fill();
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(2);
+    });
+    const [one, two] = fake.find('POST', '/api/v1/changes');
+    expect(one?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(two?.headers.get('Idempotency-Key')).toBe(one?.headers.get('Idempotency-Key'));
+  });
+
+  it('QA-2026-11-11 F-09: in Submission the primary move is the step forward, never a paused one', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}`);
+    const move = (to_status: string) => ({
+      to_status,
+      to_stage: 'submission',
+      lands_in: to_status,
+      reason_mode: 'none',
+      reason_list: null,
+      required_fields: [],
+      allowed: true,
+      reason: null,
+      missing: [],
+    });
+    const status = (code: string, category: string) => ({
+      code,
+      category,
+      colour: '#1677ff',
+      labels: null,
+      system: false,
+      disabled: false,
+      resume_on_requester_reply: false,
+    });
+    api({
+      [`GET /api/v1/changes/${CHG_ID}`]: {
+        body: { ...change, stage: 'submission', status: 'submission_submitted' },
+        headers: { ETag: '"4"' },
+      },
+      [`GET /api/v1/changes/${CHG_ID}/stages`]: {
+        body: {
+          ...panel,
+          stage: 'submission',
+          moves: [move('submission_more_info'), move('submission_awaiting_acceptance')],
+        },
+      },
+      'GET /api/v1/changes/settings': {
+        body: {
+          statuses: [
+            status('submission_submitted', 'open'),
+            status('submission_more_info', 'paused'),
+            status('submission_awaiting_acceptance', 'open'),
+          ],
+          closure_codes: [],
+          own_lists: {},
+        },
+      },
+    });
+    render(<App />);
+    const moves = await screen.findByTestId('change-moves');
+    await waitFor(() => {
+      expect(within(moves).queryByTestId('move-submission_awaiting_acceptance')).not.toBeNull();
+    });
+    expect(within(moves).queryByTestId('move-submission_more_info')).toBeNull(); // under More
   });
 });

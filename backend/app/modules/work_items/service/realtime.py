@@ -31,8 +31,14 @@ from app.modules.identity_access import authorize_stored
 from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import DEFAULT_STATUSES, StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
-from app.modules.work_items.domain.portal import portal_changes
-from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
+from app.modules.work_items.domain.portal import PLANNED_STAGE, portal_changes
+from app.modules.work_items.domain.types import (
+    CHANGE,
+    INCIDENT,
+    TYPES,
+    WorkItemType,
+    WorkItemTypeCode,
+)
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemFollower,
@@ -152,6 +158,11 @@ def _portal(envelope: EventEnvelope, row: WorkItem, fields: tuple[str, ...]) -> 
         )
         if after and after_category is None:  # unknown now: say it changed, the API decides
             heard = tuple(sorted({*heard, "portal_status"}))
+        if row.type == CHANGE.code:  # its requester follows the stage and status (REQ-CHG-109)
+            shown = {f for f in fields if f in {"stage", "status"}}
+            if after:
+                shown.add("status")
+            heard = tuple(sorted({*heard, *shown}))
     if not heard:
         return []
     return [
@@ -590,6 +601,19 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
             actor_id=_actor(envelope),
         )
     ]
+    if payload["part"] == "stage_schedule" and part_id == uuid.uuid5(record_id, PLANNED_STAGE):
+        # A change's planned window, which its requester sees (REQ-CHG-109); other stages not.
+        publications.append(
+            Publication(
+                record(envelope.tenant_id, PORTAL_KIND, record_id),
+                PORTAL_CHANGED,
+                ids=(str(record_id),),
+                fields=(
+                    "planned_end",
+                    "planned_start",
+                ),
+            )
+        )
     if payload["part"] == "task":
         owner = await session.scalar(
             select(WorkItemTask.owner_id).where(WorkItemTask.id == part_id)

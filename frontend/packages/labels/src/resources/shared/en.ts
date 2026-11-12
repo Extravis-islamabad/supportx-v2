@@ -162,6 +162,8 @@ export const en = {
   'layout.reset_widths': 'Reset widths',
   'layout.resize_column': 'Width of {{column}}: use the arrow keys',
   'layout.star': 'Add to favourites',
+  'layout.tabs_earlier': 'Earlier tabs',
+  'layout.tabs_later': 'Later tabs',
   'layout.unstar': 'Remove from favourites',
   'layout.view': 'View',
   'live.changed_by':
@@ -217,6 +219,7 @@ export const en = {
   'nav.main': 'Main navigation',
   'nav.more': 'More',
   'nav.my_requests': 'My requests',
+  'nav.my_tasks': 'My tasks',
   'nav.open_menu': 'Open the menu',
   'nav.problems': 'Problems',
   'nav.profile': 'My profile',
@@ -320,6 +323,11 @@ export const en = {
   'search.same_requester': 'Also from {{name}}',
   'search.status_filter': 'Status',
   'search.type_to_search': 'Type an ID, words or a name',
+  'service_roles.add': 'Give a role',
+  'service_roles.inactive': 'Inactive: it does nothing until switched on again.',
+  'service_roles.no_roles': "No role yet: it can't act on any record.",
+  'service_roles.none_offered': 'No role you can give fits this identity.',
+  'service_roles.remove': 'Take the role {{name}}',
   'settings.actions': 'Actions',
   'settings.add_category': 'Add a category',
   'settings.add_item': 'Add an item',
@@ -379,6 +387,9 @@ export const en = {
   'settings.closing.resolve_requires': 'Needed before resolving',
   'settings.closing.resolve_requires_help':
     'Fields that must be filled before an incident can be resolved.',
+  'settings.closing.task_dependency_mode': 'Waiting tasks are blocked',
+  'settings.closing.task_dependency_mode_help':
+    'A task cannot start or be done while a task it waits for is open. Off: it only shows as waiting.',
   'settings.closing.task_owner_access':
     'Task owners work on their tasks without access to the incident',
   'settings.closing.task_owner_access_help':
@@ -488,6 +499,7 @@ export const en = {
   'settings.section.reply-templates': 'Reply templates',
   'settings.section.routing': 'Routing and assignment',
   'settings.section.statuses': 'Statuses',
+  'settings.section.task-templates': 'Task templates',
   'settings.section.templates': 'Templates',
   'settings.section.transitions': 'Transitions',
   'settings.section.triggers': 'Triggers',

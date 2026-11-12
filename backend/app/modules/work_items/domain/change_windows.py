@@ -62,6 +62,14 @@ class ConflictKind(StrEnum):
     FREEZE = "freeze"
     OUTSIDE_MAINTENANCE = "outside_maintenance"
     OVERLAP = "overlap"
+    # WP-058b S2 (ADR-042 addendum A; REQ-REL-041): a release manager or engineer booked on two
+    # overlapping deployments. Releases only, warn only.
+    ROLE_BOOKED = "role_booked"
+
+
+# The stage whose window a type plans (ADR-042 addendum A): a change's implementation, a
+# release's deployment. The calendar and the guard both read it.
+PLANNED_STAGE: dict[str, str] = {"change": "implementation", "release": "deployment"}
 
 
 KIND_DEFAULT_MODE = {WindowKind.FREEZE: WindowMode.BLOCK, WindowKind.MAINTENANCE: WindowMode.WARN}
@@ -168,13 +176,22 @@ class Window:
 
 @dataclass(frozen=True)
 class Planned:
-    """Another change's planned time, for the overlap check."""
+    """Another change's or release's planned time, for the overlap check.
+
+    `service_ids`/`ci_ids`: those its planned downtimes name (stored IDs only); `people`: its
+    release roles' holders (releases only). Both empty for a change as before (addendum A).
+    """
 
     record_id: uuid.UUID
     starts_at: datetime
     ends_at: datetime
     site_id: uuid.UUID | None
     group_id: uuid.UUID | None
+    record_type: str = "change"
+    service_ids: frozenset[uuid.UUID] = frozenset()
+    ci_ids: frozenset[uuid.UUID] = frozenset()
+    people: frozenset[uuid.UUID] = frozenset()
+    version: int = 0  # its planned window's version: an ack's key (addendum A)
 
 
 @dataclass(frozen=True)
@@ -187,6 +204,9 @@ class Conflict:
     blocks: bool
     window_id: uuid.UUID | None = None
     record_id: uuid.UUID | None = None
+    # The other record's type for an overlap or a booking (addendum A): named by ID and type only.
+    record_type: str | None = None
+    other_version: int | None = None  # the other record's planned window version (an ack's key)
 
 
 def overlaps(a_start: datetime, a_end: datetime, b_start: datetime, b_end: datetime) -> bool:
@@ -203,11 +223,19 @@ def conflicts(  # noqa: PLR0913 - the change's times, place and the world it mee
     others: Iterable[Planned] = (),
     record_id: uuid.UUID | None = None,
     outside_blocks: bool = False,
+    service_ids: frozenset[uuid.UUID] = frozenset(),
+    ci_ids: frozenset[uuid.UUID] = frozenset(),
+    people: frozenset[uuid.UUID] = frozenset(),
 ) -> list[Conflict]:
-    """Every conflict of the change's planned times, in time order (none for no times).
+    """Every conflict of the record's planned times, in time order (none for no times).
 
     `outside_blocks`: the tenant's setting that being outside every maintenance window blocks,
     whatever the windows' own mode (D-156; off: each window's mode decides, warn by default).
+    Changes only: a release always warns outside maintenance (lane A, addendum A).
+
+    `service_ids`/`ci_ids`: what this record's planned downtimes name, matched against the
+    others' (an overlap beside the same group or site); `people`: its role holders, against the
+    others' (role_booked). Both warn only.
     """
     found: list[Conflict] = []
     in_scope = [w for w in windows if w.scope.covers(site_id, group_id)]
@@ -227,9 +255,30 @@ def conflicts(  # noqa: PLR0913 - the change's times, place and the world it mee
                 continue
             same_group = group_id is not None and o.group_id == group_id
             same_site = site_id is not None and o.site_id == site_id
-            if same_group or same_site:
+            same_item = bool(service_ids & o.service_ids or ci_ids & o.ci_ids)
+            if same_group or same_site or same_item:
                 found.append(
-                    Conflict(ConflictKind.OVERLAP, start, end, blocks=False, record_id=o.record_id)
+                    Conflict(
+                        ConflictKind.OVERLAP,
+                        start,
+                        end,
+                        blocks=False,
+                        record_id=o.record_id,
+                        record_type=o.record_type,
+                        other_version=o.version,
+                    )
+                )
+            if people & o.people:
+                found.append(
+                    Conflict(
+                        ConflictKind.ROLE_BOOKED,
+                        start,
+                        end,
+                        blocks=False,
+                        record_id=o.record_id,
+                        record_type=o.record_type,
+                        other_version=o.version,
+                    )
                 )
     return sorted(found, key=lambda c: (c.starts_at, c.kind.value))
 

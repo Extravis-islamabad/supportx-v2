@@ -31,6 +31,7 @@ from app.modules.work_items.domain.stages import (
     parse_stage_rules,
     stage_rules_to_json,
 )
+from app.modules.work_items.domain.tasks import specs_of
 from app.modules.work_items.domain.templates import (
     CUSTOM_PREFIX,
     FIXED_FIELDS,
@@ -412,6 +413,25 @@ PLAN_PREFIX = "plan."  # a plan section as a stage rule's field, e.g. plan.backo
 # --- writes ---------------------------------------------------------------------------------------
 
 
+def _template_tasks(raw: Any) -> tuple[list[dict[str, Any]], list[tuple[str, str]]]:  # noqa: ANN401 - JSON
+    """A template's tasks (REQ-INC-040): each checked by place, its condition a list filter."""
+    if raw in (None, []):
+        return [], []
+    found = specs_of(raw)
+    problems = [p for p in found if isinstance(p, tuple)]
+    if problems:
+        return [], problems
+    tasks = [{k: v for k, v in vars(t).items() if v is not None} for t in found]
+    for index, task in enumerate(tasks):
+        if task.get("condition") is None:
+            continue
+        try:
+            compile_filter(task["condition"], FIELDS, now=datetime.now(UTC))
+        except ValidationFailed:
+            problems.append((f"tasks.{index}.condition", "invalid_value"))
+    return tasks, problems
+
+
 MAX_TEMPLATE_CHECKLISTS = 10
 
 
@@ -486,6 +506,8 @@ async def create_template(
         session, wtype, values.get("lifecycle", copied_from.lifecycle if copied_from else None)
     )
     problems += codes
+    tasks, codes = _template_tasks(values.get("tasks", copied_from.tasks if copied_from else None))
+    problems += codes
     checklists, codes = _template_checklists(
         values.get("checklists", copied_from.checklists if copied_from else None)
     )
@@ -524,6 +546,7 @@ async def create_template(
         defaults=defaults,
         copied_from_id=copied_from.id if copied_from else None,
         lifecycle=lifecycle,
+        tasks=tasks,
         checklists=checklists,
     )
     await TemplateRepository(session).add(template)
@@ -626,6 +649,9 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
             values.get("limited_group_ids", template.limited_group_ids) or [],
             for_requesters=changes.get("for_requesters", template.for_requesters),
         )
+        problems += codes
+    if "tasks" in values:  # REQ-INC-040: new records only; existing records keep their tasks
+        changes["tasks"], codes = _template_tasks(values["tasks"])
         problems += codes
     if "checklists" in values:  # REQ-INC-040: new records only; existing records keep theirs
         changes["checklists"], codes = _template_checklists(values["checklists"])
