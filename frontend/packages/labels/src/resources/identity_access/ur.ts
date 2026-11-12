@@ -791,6 +791,7 @@ export const ur: LabelResource = {
   'readiness_check.nats': 'میسج بس',
   'readiness_check.outbox_relay': 'واقعات ریلے',
   'readiness_check.realtime_fanout': 'براہ راست اپ ڈیٹس',
+  'readiness_check.session_keys': 'سائن اِن کی کلیدیں',
   'readiness_status.not_ready': 'تیار نہیں',
   'readiness_status.ready': 'تیار',
   'role.asset_manager': 'اثاثہ مینیجر',

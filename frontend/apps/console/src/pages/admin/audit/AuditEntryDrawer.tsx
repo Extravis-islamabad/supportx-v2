@@ -23,6 +23,7 @@ const NUMBER_DETAILS = new Set([
   'first_broken_seq',
   'unsealed_overdue',
   'personal_rows_removed',
+  'readable_keys',
 ]);
 // `status` (the HTTP status of a refused call) is never shown: the outcome line already says why
 // in words (AUD-01).

@@ -739,6 +739,7 @@ export const en = {
   'failure_reason.stale_heartbeat': 'No recent heartbeat',
   'failure_reason.stale_signatures': 'Virus signatures are out of date',
   'failure_reason.timeout': 'Timed out',
+  'failure_reason.too_many_keys': 'More sign-in keys are listed than needed',
   'failure_reason.unexpected_response': 'Unexpected response',
   'failure_reason.unreachable': 'Unreachable',
   'first_response_action.private_note': 'A private note',

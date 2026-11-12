@@ -242,6 +242,26 @@ _signature_age = metrics.get_meter("supportx.files").create_gauge(
 )
 
 
+class SessionKeysProbe:
+    """Informational: more sign-in keys listed than one overlap needs (D-162, ADR-048).
+
+    Old keys that are never retired keep every one of them able to open sessions. A warning in
+    /ready, never unready: sessions work either way. No I/O: the count is the settings'.
+    """
+
+    name = "session_keys"
+
+    def __init__(self, listed: int, *, most: int) -> None:
+        self._listed = listed
+        self._most = most
+
+    async def check(self, timeout_s: float) -> None:
+        """Raise ProbeFailedError(TOO_MANY_KEYS) above `most` listed keys."""
+        del timeout_s
+        if self._listed > self._most:
+            raise ProbeFailedError(FailureReason.TOO_MANY_KEYS)
+
+
 class MalwareSignaturesProbe:
     """Informational: are ClamAV's virus signatures fresh? Also records their age as a gauge.
 

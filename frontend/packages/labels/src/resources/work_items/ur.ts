@@ -740,6 +740,7 @@ export const ur: LabelResource = {
   'failure_reason.stale_heartbeat': 'حال ہی میں کوئی سگنل نہیں ملا',
   'failure_reason.stale_signatures': 'وائرس کی شناختی فہرست پرانی ہے',
   'failure_reason.timeout': 'وقت ختم ہو گیا',
+  'failure_reason.too_many_keys': 'ضرورت سے زیادہ سائن اِن کلیدیں فہرست میں ہیں',
   'failure_reason.unexpected_response': 'غیر متوقع جواب',
   'failure_reason.unreachable': 'رسائی ممکن نہیں',
   'first_response_action.private_note': 'نجی نوٹ',
