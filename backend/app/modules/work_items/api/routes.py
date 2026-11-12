@@ -84,6 +84,7 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, Work
 from app.modules.work_items.service import (
     asset_links,
     change_links,
+    record_copies,
     release_links,
     resolution,
     stage_approvals,
@@ -98,6 +99,7 @@ from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
 from app.modules.work_items.service.closing import MoveInput, requester_channel_states
+from app.modules.work_items.service.record_copies import RecordCopyPart
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
@@ -1637,6 +1639,21 @@ class ChangeCopyIn(BaseModel):
     parts: list[Literal["plans", "roles"]] = Field(default_factory=list, max_length=2)
 
 
+class RecordCopiesIn(BaseModel):
+    """How many copies, and what comes with their fields (REQ-INC-033)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    count: int = Field(default=1, ge=1, le=100, description="The type's limit applies (AC3).")
+    parts: list[RecordCopyPart] = Field(default_factory=list, max_length=len(RecordCopyPart))
+
+
+class RecordCopiesOut(BaseModel):
+    """The copies made, in order."""
+
+    items: list[WorkItemOut]
+
+
 class ChangePrefillOut(BaseModel):
     """A new change's starting values from another record (REQ-CHG-002)."""
 
@@ -2244,7 +2261,7 @@ async def _release_facts(
     }
 
 
-def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
+def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
         prefix=f"/{wtype.path}",
@@ -3708,6 +3725,45 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             next_cursor=None if next_cursor is None else _cursor_text(*next_cursor),
             people=_people(people),
         )
+
+    if wtype.code is WorkItemTypeCode.INCIDENT:  # WP-046a S5c: copy N times (REQ-INC-033)
+
+        @router.post(
+            "/{record_id}/copies",
+            summary=f"Copy the {name} one or more times",
+            status_code=status.HTTP_201_CREATED,
+            response_model=RecordCopiesOut,
+        )
+        async def copy_records(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: RecordCopiesIn,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+        ) -> Response:
+            """New records from this one's fields, each naming it in its history.
+
+            Never its conversation, worklogs, history or assignment to a person. Send an
+            Idempotency-Key: a retry returns the same 201.
+            """
+
+            async def run() -> Created:
+                made = await record_copies.copy_record(
+                    session,
+                    subject,
+                    wtype,
+                    record_id,
+                    count=body.count,
+                    parts_chosen=frozenset(body.parts),
+                    source=source_of(request),
+                    holders=policy,
+                )
+                views = [await service.get(session, subject, wtype, r.id) for r in made.records]
+                return Created(body=RecordCopiesOut(items=[WorkItemOut.of(v) for v in views]))
+
+            return await idempotency.run({"copy_of": str(record_id), **body.model_dump()}, run)
 
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)

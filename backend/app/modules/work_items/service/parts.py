@@ -342,7 +342,7 @@ async def create_task(  # noqa: PLR0913 - the record, the task and the source, e
     record = await _for_work(session, subject, wtype, record_id)
     existing = await _tasks(session, record_id)
     if len(existing) >= MAX_TASKS:
-        raise items.field_errors([("title", "too_many_items")], max=MAX_TASKS)
+        raise items.field_errors([("title", "too_many_items")], title={"max": MAX_TASKS})
     stages = await _stages_of(session, wtype, record)
     clean = _task_values(values, creating=True, stages=stages)
     if stages is not None and "stage" not in clean:
@@ -712,7 +712,9 @@ async def set_dependencies(  # noqa: PLR0913, PLR0917 - the task, what it waits 
     task = await _task(session, record_id, task_id)
     wanted = list(dict.fromkeys(depends_on))
     if len(wanted) > MAX_DEPENDENCIES:
-        raise items.field_errors([("depends_on", "too_many_items")], max=MAX_DEPENDENCIES)
+        raise items.field_errors(
+            [("depends_on", "too_many_items")], depends_on={"max": MAX_DEPENDENCIES}
+        )
     siblings = {t.id: t for t in await _tasks(session, record_id)}
     if any(d not in siblings for d in wanted):
         raise items.field_errors([("depends_on", "invalid_value")])
@@ -857,7 +859,7 @@ async def open_workflow_tasks(  # noqa: PLR0913 - the node's command, explicit
     """The node's checklist at the end of the record's tasks, each naming its node."""
     existing = await _tasks(session, record.id)
     if len(existing) + len(titles) > MAX_TASKS:
-        raise items.field_errors([("title", "too_many_items")], max=MAX_TASKS)
+        raise items.field_errors([("title", "too_many_items")], title={"max": MAX_TASKS})
     position = (existing[-1].position + 1) if existing else 0
     repository = TaskRepository(session)
     made: list[WorkItemTask] = []

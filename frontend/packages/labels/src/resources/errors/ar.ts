@@ -612,6 +612,7 @@ export const ar: LabelResource = {
   'errors.field.too_many_assets': 'يمكن أن يحتوي السجل على {{max}} أصول على الأكثر.',
   'errors.field.too_many_categories': 'يمكن أن يظهر العنصر في خمس فئات أخرى كحد أقصى.',
   'errors.field.too_many_conditions': 'يحتوي عامل التصفية على شروط كثيرة جدًا.',
+  'errors.field.too_many_copies': 'أنشئ من نسخة واحدة إلى {{max}} نسخة في كل مرة.',
   'errors.field.too_many_decimals': 'استخدم {{max}} منازل عشرية كحد أقصى.',
   'errors.field.too_many_items': 'عدد الإدخالات كبير جدًا.',
   'errors.field.too_many_keywords': 'استخدم 20 كلمة مفتاحية كحد أقصى لكل لغة.',
