@@ -275,6 +275,8 @@ export const ur: LabelResource = {
   'errors.entitlements_unavailable':
     'لائسنس کی معلومات عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
+  'errors.field.address_not_allowed':
+    'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
   'errors.field.already_linked': 'یہ ریکارڈ پہلے سے منسلک ہیں۔',
   'errors.field.announcement_message_required': 'وہ پیغام لکھیں جو لوگ دیکھیں گے۔',
   'errors.field.api_key_allowlist_invalid':
@@ -563,6 +565,7 @@ export const ur: LabelResource = {
   'errors.field.phone_not_valid': 'فون نمبر درج کریں: ہندسے، خالی جگہ، +، - اور قوسین۔',
   'errors.field.plain_connection_refused':
     'بغیر انکرپشن کنکشن رد کیا جاتا ہے جب تک آپ اجازت نہ دیں۔',
+  'errors.field.port_not_allowed': 'میل پورٹ استعمال کریں: 993 (TLS) یا 143۔',
   'errors.field.private_key_unreadable':
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
   'errors.field.range_end_before_start': 'اختتام آغاز کے بعد ہونا چاہیے۔',
@@ -862,6 +865,8 @@ export const ur: LabelResource = {
   'errors.linked_records_not_available': 'منسلک ریکارڈ ابھی دستیاب نہیں۔',
   'errors.list_not_found': 'یہ فہرست ترتیبات محفوظ نہیں کرتی۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
+  'errors.login_not_this_browser':
+    'یہ سائن اِن کسی اور براؤزر میں شروع ہوا تھا یا اس کی میعاد ختم ہو گئی ہے۔ براہِ کرم یہاں دوبارہ سائن اِن کریں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
   'errors.mail_attachment_type': 'اس قسم کی فائل ای میل سے نہیں بھیجی جا سکتی۔',
@@ -1016,6 +1021,8 @@ export const ur: LabelResource = {
     'یہ سرور شروع نہیں ہو سکتا: سائن اِن کی جو کلید اب فہرست میں نہیں، اس کی ابھی ضرورت ہے۔ کلید دوبارہ فہرست میں شامل کریں۔',
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
+  'errors.sign_in_unavailable':
+    'اس وقت سائن اِن دستیاب نہیں۔ براہِ کرم ایک منٹ انتظار کر کے دوبارہ کوشش کریں۔',
   'errors.sign_in_unknown_person':
     'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
   'errors.site_not_found': 'سائٹ نہیں ملی۔',

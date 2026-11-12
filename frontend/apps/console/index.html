@@ -9,6 +9,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#7e40d1" />
+    <script src="/theme-boot.js"></script>
     <style>
       /* Shown until the app's first render replaces #root. Self-contained (QA9-V-02): no image
          to load and no web font, so it never shows a broken picture or a serif fallback. */
@@ -20,7 +21,7 @@
         align-items: center;
         justify-content: center;
         gap: 20px;
-        background: #f4f5f7;
+        background: #f4f5f7; /* colorBgLayout, theme.ts */
         color: #1f1f1f;
         font-family:
           system-ui,
@@ -56,12 +57,30 @@
           animation-duration: 2.4s;
         }
       }
+      /* The remembered theme (theme-boot.js) wins; with none, the system's. The scrollbars
+         follow it too (color-scheme, QA 2026-11-12 V-02). */
+      :root {
+        color-scheme: light;
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+      }
+      :root[data-theme='dark'] #sx-splash {
+        background: #121317;
+        color: #f0f0f0;
+      }
+      :root[data-theme='dark'] #sx-splash .sx-word span {
+        color: #b48cf0;
+      }
       @media (prefers-color-scheme: dark) {
-        #sx-splash {
-          background: #141418;
+        :root:not([data-theme]) {
+          color-scheme: dark;
+        }
+        :root:not([data-theme]) #sx-splash {
+          background: #121317;
           color: #f0f0f0;
         }
-        #sx-splash .sx-word span {
+        :root:not([data-theme]) #sx-splash .sx-word span {
           color: #b48cf0;
         }
       }

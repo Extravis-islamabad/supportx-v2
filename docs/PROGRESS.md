@@ -38,6 +38,21 @@
   list has no row checkboxes or selection bar. It is built in **WP-047a** (SR V1, lane A). Until
   then the list shows no checkboxes at all, rather than dead ones.
 
+### Engineering-practices audit (#444), lane B security items
+
+Branch `fix/security-audit-a` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b.md):
+- [x] Row 4, login CSRF: each browser sign-in bound to its browser (per-sign-in cookie).
+- [ ] Row 3, egress: SaaS values profile with `networkPolicies.egress.enabled` on. **Blocked:**
+  no SaaS values file exists yet (WP-014d builds the SaaS cell); turn egress on there. The
+  `fetch.py` DNS-pin part is another lane's.
+- [x] Row 14, lane B's part: per-address limits on `/auth/login` and `/auth/callback` (fail
+  closed), public branding, domain check, public action links; `organization` limits on
+  `/organization/tenant` and `/organization/settings`. Still open: automation (lane C) and custom
+  fields (lane A) routes, `/auth/me`, `/auth/sessions`, realtime tokens, `/my-tasks`,
+  `/my-reminders`; API keys sharing their owner's budget.
+- [x] Row 15, HSTS on the console and portal nginx responses. Still open from the audit's HSTS
+  row: the chart's port-80 listener with an https redirect.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -323,7 +338,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Scope:** `values-saas.yaml`; External Secrets Operator; cert-manager with DNS-01 wildcard
   certificates; managed PostgreSQL option; admission-time signature verification; per-tenant
   hostnames (WP-017).
-- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite.
+- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite;
+  the egress NetworkPolicy allow-list (`networkPolicies.egress`) is ON in `values-saas.yaml`, with
+  the Kubernetes API addresses set, and the egress check passes on the cell (audit #3, the
+  coordinator 2026-11-12; until then the app-level pins are the protection: IMAP hosts #446,
+  fetch.py WP-057 S1, LDAP hosts lane B's security PR B).
 - **Depends on:** WP-014c, WP-017
 
 ### [ ] WP-015 — Clickable prototype of console and portal

@@ -2167,6 +2167,7 @@ export const ur: LabelResource = {
   'window_weekday.4': 'جمعہ',
   'window_weekday.5': 'ہفتہ',
   'window_weekday.6': 'اتوار',
+  'work_item.field.accepted_at': 'حل کے بغیر قبول',
   'work_item.field.actual_downtime_seconds': 'اصل بندش',
   'work_item.field.actual_end': 'اصل اختتام',
   'work_item.field.actual_start': 'اصل آغاز',

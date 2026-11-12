@@ -1,7 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { fakeIncident, fakeSession } from '@supportx/api-client/testing';
+import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
+import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
@@ -712,5 +714,34 @@ describe('console: changes', () => {
       expect(within(moves).queryByTestId('move-submission_awaiting_acceptance')).not.toBeNull();
     });
     expect(within(moves).queryByTestId('move-submission_more_info')).toBeNull(); // under More
+  });
+
+  it("QA 2026-11-12 F-01: a bulk job's list refresh for changes refetches the list", async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    try {
+      window.history.pushState({}, '', '/changes');
+      const fake = api();
+      render(<App />);
+      await screen.findByTestId('change-row-CHG-7');
+      const lists = () => fake.find('GET', '/api/v1/changes').length;
+      await waitFor(() => {
+        expect(lists()).toBeGreaterThan(0);
+      });
+      const before = lists();
+      act(() => {
+        // Another type's batch leaves the changes list alone.
+        realtime.publish(':broadcast', { type: 'work_items.lists_changed', ids: ['incident'] });
+      });
+      expect(lists()).toBe(before);
+      act(() => {
+        realtime.publish(':broadcast', { type: 'work_items.lists_changed', ids: ['change'] });
+      });
+      await waitFor(() => {
+        expect(lists()).toBeGreaterThan(before);
+      });
+    } finally {
+      setDefaultClientFactory(inertClientFactory);
+    }
   });
 });

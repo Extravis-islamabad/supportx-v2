@@ -8,6 +8,7 @@ export {
   isolateParams,
   isolateValue,
   isRtlLocale,
+  hasLabel,
   label,
   LOCALES,
   stripIsolates,

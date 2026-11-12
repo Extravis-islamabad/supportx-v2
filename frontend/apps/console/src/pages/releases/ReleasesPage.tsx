@@ -32,7 +32,7 @@ import { useDebounced } from '../../useDebounced';
 import { ChangeBulkCancel } from '../changes/ChangeBulkCancel';
 import { ChangeBulkClose } from '../changes/ChangeBulkClose';
 import { BulkBar, BulkDialog, BulkProgress } from '../incidents/list/bulk';
-import type { Selection } from '../incidents/list/model';
+import { useBulkRefresh, type Selection } from '../incidents/list/model';
 import { StatusTag } from '../incidents/tags';
 import { EMERGENCY_PATH, listValueName, stageName } from './labels';
 import { useOwnList } from './lists';
@@ -147,6 +147,9 @@ export function ReleasesPage() {
   });
   usePageCrumbs([{ label: t('nav.releases') }]); // the tab's title too (QA6-REL-04)
   useListChannel('releases', () => {
+    void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
+  });
+  useBulkRefresh('release', () => {
     void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
   });
   // Once per error, not on every render (lane A's review of #219).
