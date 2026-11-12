@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     valkey_sentinels: str | None = None
     valkey_sentinel_master: str = Field(default="supportx", min_length=1, max_length=64)
     valkey_sentinel_password: SecretStr | None = None  # None: the same as Valkey's own
+    # TLS to Valkey and its sentinels (audit row 5; the chart's internal CA in values-ha.yaml).
+    # Set: `valkey_url` must be valkeys:// (or rediss://), and every connection checks the server
+    # certificate against this CA and the host name dialled. Unset: as the URL says.
+    valkey_tls_ca_file: Path | None = None
     nats_url: SecretStr | None = None
     readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
@@ -459,6 +463,16 @@ class Settings(BaseSettings):
             on_loopback = any(network.overlaps(n) for n in loopback if n.version == network.version)
             if on_loopback and self.profile == "production":
                 msg = f"SUPPORTX_EGRESS_ALLOW: {entry} opens loopback (dev and test only)"
+                raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _valkey_tls_needs_a_tls_url(self) -> Self:
+        """A CA with a plaintext URL would look protected and be in clear: refused at start."""
+        if self.valkey_tls_ca_file is not None and self.valkey_url is not None:
+            scheme = urlsplit(self.valkey_url.get_secret_value()).scheme
+            if scheme not in {"valkeys", "rediss"}:
+                msg = "SUPPORTX_VALKEY_TLS_CA_FILE needs a valkeys:// SUPPORTX_VALKEY_URL"
                 raise ValueError(msg)
         return self
 

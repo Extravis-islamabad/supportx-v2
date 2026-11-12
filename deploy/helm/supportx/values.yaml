@@ -437,9 +437,27 @@ valkeyHa:
   downAfterMilliseconds: 5000
   failoverTimeoutMilliseconds: 60000
   maxmemory: 256mb
+  # TLS only between the app, Centrifugo, the servers and the sentinels (audit row 5), on the
+  # same ports, with a certificate from the internal CA (internalTls; cert-manager required).
+  # values-ha.yaml turns it on.
+  tls:
+    enabled: false
+    reloadIntervalSeconds: 3600     # how often Valkey checks its certificate files for a renewal
   resources:
     requests: {cpu: 50m, memory: 96Mi}
     limits: {cpu: 500m, memory: 384Mi}
+
+# --- Internal TLS (audit row 5; templates/internal-tls.yaml) -----------------------------------------
+# cert-manager signs the in-cluster servers' certificates (valkeyHa.tls, NATS) when any of them has
+# TLS on. Default: the chart's own CA, a self-signed root kept only in `caSecret`; pods get its
+# ca.crt, never its key. On-prem with your own PKI: set `issuerRef` to your cert-manager Issuer or
+# ClusterIssuer (CA, Vault, ...) and `caSecret` to a Secret holding its root as `ca.crt`.
+internalTls:
+  issuerRef: {}                     # e.g. {name: corp-ca, kind: ClusterIssuer}
+  caSecret: ""                      # default: <release>-internal-ca
+  caDuration: 87600h                # the chart's own root: ten years
+  duration: 8760h                   # each server certificate: a year, renewed 30 days before
+  renewBefore: 720h
 
 centrifugo:
   replicas: 1                       # more than one needs the Valkey engine: valkeyHa (ADR-038)

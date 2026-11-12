@@ -59,6 +59,10 @@ valkey:
   enabled: false
 valkeyHa:
   enabled: true
+  # TLS only (audit row 5): certificates from the chart's internal CA through cert-manager, a
+  # prerequisite of this profile like the CloudNativePG operator (deploy/k3d/prereqs.sh).
+  tls:
+    enabled: true
 
 # Realtime: three copies sharing the Valkey engine through the sentinels.
 centrifugo:
