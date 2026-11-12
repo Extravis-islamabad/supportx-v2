@@ -69,7 +69,6 @@ spec:
   dnsNames:
     - {{ printf "*.%s.%s.svc" $headless .Release.Namespace | quote }}
     - {{ printf "*.%s.%s.svc.cluster.local" $headless .Release.Namespace | quote }}
-    - {{ printf "*.%s" $headless | quote }}
     - localhost
   ipAddresses: [127.0.0.1]
   issuerRef:
