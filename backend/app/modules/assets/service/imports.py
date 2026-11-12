@@ -39,6 +39,10 @@ row; what changed is the work around them:
   refused batch) gives its numbers back.
 - The asset service reads the tenant's configuration once per (sub)transaction
   (service/memo.py).
+- **Rows written together (step B):** inside a batch savepoint, the rows' outbox events, field
+  history, audit entries and new valuations wait in a buffer and go in one INSERT per table
+  when the rows are done (app/shared/db/deferred.py): about one statement per asset instead of
+  seven. The row-by-row redo writes each row's at once, as before.
 """
 
 import contextlib
@@ -102,6 +106,7 @@ from app.modules.identity_access import Subject, subject_for
 from app.modules.licensing import LimitKey, remaining
 from app.modules.organization import find_site
 from app.shared import sheets
+from app.shared.db.deferred import deferred_writes
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history.conflicts import stale_version
@@ -468,10 +473,15 @@ async def _apply_chunk(
         await prefetch_unique(session, creates)
         use_tag_blocks(session, sum(1 for f in creates if not f.get("tag")))
     try:
-        for plan in plans:
-            if outcomes and time.monotonic() >= how.deadline:
-                break
-            outcomes.append(plan.problem or await execute_row(session, how, plan))
+        # The rows' outbox events, history, audit entries and valuations go in one INSERT per
+        # table when the block ends (step B; app/shared/db/deferred.py). A dry run drops them:
+        # its savepoint is rolled back anyway, and every check ran before a row was buffered.
+        # Closed before the savepoint ends, so a refusal (an exception) writes none of them.
+        async with deferred_writes(session, write=not how.dry_run):
+            for plan in plans:
+                if outcomes and time.monotonic() >= how.deadline:
+                    break
+                outcomes.append(plan.problem or await execute_row(session, how, plan))
     except (RowProblem, IntegrityError):
         await savepoint.rollback()  # nothing of the savepoint stays: redo each row on its own
         return await _one_by_one(session, how, plans[: len(outcomes) + 1], tally)
