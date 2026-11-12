@@ -625,7 +625,7 @@ export const en = {
   'assets.link.portal_placeholder': 'Choose your assets',
   'assets.link.remove': 'Unlink {{name}}',
   'assets.link.title': 'Assets',
-  'assets.linked.counts': '{{worked}} still worked of {{total}}',
+  'assets.linked.counts': '{{worked}} of {{total}} not yet closed',
   'assets.linked.done': 'Done',
   'assets.linked.none': 'No records you can see are linked to this asset.',
   'assets.linked.none_visible': 'None you can see.',

@@ -671,7 +671,7 @@ export const ar: LabelResource = {
   'assets.link.portal_placeholder': 'اختر أصولك',
   'assets.link.remove': 'فك ربط {{name}}',
   'assets.link.title': 'الأصول',
-  'assets.linked.counts': '{{worked}} قيد العمل من {{total}}',
+  'assets.linked.counts': '{{worked}} من {{total}} لم تُغلق بعد',
   'assets.linked.done': 'منتهٍ',
   'assets.linked.none': 'لا توجد سجلات يمكنك رؤيتها مرتبطة بهذا الأصل.',
   'assets.linked.none_visible': 'لا شيء يمكنك رؤيته.',

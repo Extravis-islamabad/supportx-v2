@@ -631,7 +631,7 @@ export const ur: LabelResource = {
   'assets.link.portal_placeholder': 'اپنے اثاثے چنیں',
   'assets.link.remove': '{{name}} الگ کریں',
   'assets.link.title': 'اثاثے',
-  'assets.linked.counts': '{{total}} میں سے {{worked}} پر ابھی کام جاری',
+  'assets.linked.counts': '{{total}} میں سے {{worked}} ابھی بند نہیں ہوئے',
   'assets.linked.done': 'مکمل',
   'assets.linked.none': 'اس اثاثے سے کوئی ایسا ریکارڈ منسلک نہیں جو آپ دیکھ سکیں۔',
   'assets.linked.none_visible': 'کوئی ایسا نہیں جو آپ دیکھ سکیں۔',

@@ -361,6 +361,29 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
     restore = fake.restore;
     render(<App />);
     const counter = await screen.findByTestId('asset-linked-incident');
-    expect(counter.textContent).toContain('1 still worked of 4');
+    expect(counter.textContent).toContain('1 of 4 not yet closed');
+  });
+
+  it('kinds with nothing linked are left out; none at all says so plainly (QA 2026-11-12 F-14)', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = viewsApi({
+      [`GET /api/v1/assets/${asset.id}`]: { body: asset, headers: { ETag: '"1"' } },
+      [`GET /api/v1/assets/${asset.id}/history`]: { body: { items: [], next_cursor: null } },
+      [`GET /api/v1/assets/${asset.id}/linked`]: {
+        body: {
+          available: true,
+          kinds: [
+            { kind: 'incident', still_worked: 0, total: 0 },
+            { kind: 'problem', still_worked: 0, total: 0 },
+          ],
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const none = await screen.findByTestId('asset-linked-none');
+    expect(none.textContent).toBe('No records you can see are linked to this asset.');
+    expect(screen.queryByTestId('asset-linked-incident')).toBeNull();
+    expect(document.body.textContent).not.toContain('of 0');
   });
 });
