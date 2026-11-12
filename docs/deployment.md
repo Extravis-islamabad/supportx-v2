@@ -214,6 +214,11 @@ hex values and never overwrites an existing one (its passwords are already insid
   removes its rules and pods reach CoreDNS directly. A crashed cache leaves its rules until the
   kubelet restarts it, within seconds, and that node's lookups fail meanwhile. On another
   distribution, use its NodeLocal DNSCache add-on (most managed clusters offer one).
+  The cache runs on the node's own network: it listens on port 53 (UDP and TCP) of
+  169.254.20.10 and the kube-dns address, its health check on 169.254.20.10:8080, and its
+  Prometheus metrics on port **9253 of every node address**. A host firewall must let the API
+  server (for the script's check) and your Prometheus reach 9253 from inside the cluster
+  network only.
   With the egress allow-list on, pods reach the cache from their node's network, not CoreDNS's
   pods: `values-ha.yaml` lists its addresses (`networkPolicies.egress.dnsAddresses`:
   169.254.20.10 and k3s's default kube-dns address 10.43.0.10). If your kube-dns address

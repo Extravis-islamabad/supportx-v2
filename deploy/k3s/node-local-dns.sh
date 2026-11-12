@@ -54,12 +54,29 @@ if [ "${ready:-0}" -lt "$want" ]; then
   exit 1
 fi
 
-# A pod's lookup now goes through its node's cache: resolve a cluster name from a throwaway pod.
+# A pod's lookup now goes through its node's cache: resolve a cluster name from a throwaway pod
+# on a chosen node, and check that this node's cache counted the request. CoreDNS answers the
+# kube-dns address too, so a lookup alone would pass without the cache (lane C).
 # The cache image has no shell; Valkey's image (already pinned and mirrored) has getent.
 probe_image="$(pinned valkey)"
+probe_node="$(kubectl get nodes -o json | jq -r '[.items[] | select(.spec.unschedulable != true)][0].metadata.name')"
+cache_pod="$(kubectl -n "$NS" get pods -l k8s-app=node-local-dns --field-selector "spec.nodeName=$probe_node" \
+  -o jsonpath='{.items[0].metadata.name}')"
+requests() {  # the cache's request counter on the probe's node, through the API server's pod proxy
+  kubectl get --raw "/api/v1/namespaces/$NS/pods/$cache_pod:9253/proxy/metrics" |
+    awk '/^coredns_dns_requests_total/ {sum += $NF} END {printf "%d", sum}'
+}
+before="$(requests)"
 if ! kubectl -n "$NS" run "node-local-dns-probe-$RANDOM" --rm -i --restart=Never --quiet \
-  --image="$probe_image" --command -- getent hosts kubernetes.default.svc.cluster.local; then
+  --image="$probe_image" --overrides="{\"spec\":{\"nodeName\":\"$probe_node\"}}" \
+  --command -- getent hosts kubernetes.default.svc.cluster.local; then
   echo "node-local-dns: a pod could not resolve kubernetes.default through the cache" >&2
+  exit 1
+fi
+after="$(requests)"
+if [ "$after" -le "$before" ]; then
+  echo "node-local-dns: a pod on $probe_node resolved a name, but its cache ($cache_pod) counted no" \
+    "request ($before before, $after after): lookups bypass the cache" >&2
   exit 1
 fi
 echo "node-local-dns: a ready cache on each of $want nodes (local $LOCAL_IP, kube-dns $dns_ip, $image)"
