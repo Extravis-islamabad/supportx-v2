@@ -1,7 +1,7 @@
 # ADR-049: Shared life cycle versions, for action-based and staged types
 
-- **Status:** Proposed (WP-046a S4, lane A; the shape approved by the coordinator, 2026-11-12;
-  lane C reviews the stage engine side, lane B the per-transition rights and conditions)
+- **Status:** Accepted (WP-046a S4, lane A; the shape and Amendment 1 approved by the
+  coordinator, 2026-11-12; lane B signed off §5–§7 and Amendment 1, lane C §8–§10)
 - **Date:** 2026-11-12
 - **Deciders:** Haider (Product Owner), the coordinator, lanes A, B and C
 
