@@ -26,6 +26,7 @@ answer 503 instead of running unlimited. Everything else keeps failing open.
 """
 
 import hashlib
+import ipaddress
 import time
 import uuid
 from dataclasses import dataclass
@@ -159,11 +160,12 @@ class RateLimiter:
 
         Its own key space (`rlip:`), so it never shares a counter with a user's or tenant's. The
         address is hashed: Valkey keys are listed by operators, and an IP address is personal data.
+        IPv6 addresses count per /64 (`address_bucket`).
         """
         now = self.clock()
         window = int(now // window_seconds)
         reset = max(1, int((window + 1) * window_seconds - now))
-        subject = hashlib.sha256(address.encode()).hexdigest()[:32]
+        subject = hashlib.sha256(address_bucket(address).encode()).hexdigest()[:32]
         (count,) = await self.client.eval(
             _ONE_SCRIPT, 1, f"{self.prefix}rlip:{group}:{window}:{subject}", reset + 1
         )
@@ -212,6 +214,27 @@ async def _address_outcome(
         params={"retry_after_seconds": decision.reset_seconds}, headers=decision.headers()
     )
     return AddressLimit(limited, {})
+
+
+IPV6_BUCKET_PREFIX = 64  # one customer's network: a home or office gets a whole /64 (RFC 6177)
+
+
+def address_bucket(address: str) -> str:
+    """What an address counts as: itself for IPv4, its /64 network for IPv6.
+
+    One IPv6 client holds a whole /64 and can pick a new address for every request; counted
+    per address it would never be limited. An IPv4-mapped address (::ffff:192.0.2.1) counts as
+    the IPv4 address. Anything that is not an address ("unknown") counts as itself.
+    """
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            return str(ip.ipv4_mapped)
+        return str(ipaddress.IPv6Network(f"{ip}/{IPV6_BUCKET_PREFIX}", strict=False))
+    return str(ip)
 
 
 def client_address(request: Request) -> str:

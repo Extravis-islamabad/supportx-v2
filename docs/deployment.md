@@ -121,7 +121,9 @@ so per-address rate limits are shared by everyone.
 ## Rate limits without a signed-in person
 
 Routes that nobody signs in for are limited per client address (the address above), each request
-counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/ratelimit.py`):
+counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/ratelimit.py`). An
+IPv4 address counts on its own; an IPv6 address counts as its whole /64 network, because one
+client holds a /64 and could pick a new address for every request:
 
 | Route | Per address, per minute | Valkey down |
 |---|---|---|
