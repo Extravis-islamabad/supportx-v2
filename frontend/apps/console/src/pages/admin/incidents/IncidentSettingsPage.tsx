@@ -13,6 +13,7 @@ import {
 } from '@supportx/ui';
 
 import { CategoriesTab } from './CategoriesTab';
+import { ChecklistLibraryTab } from './ChecklistLibraryTab';
 import { ClosingTab } from './ClosingTab';
 import { CustomFieldsTab } from './CustomFieldsTab';
 import { GeneralTab } from './GeneralTab';
@@ -27,6 +28,7 @@ import { RepeatRulesTab } from './RepeatRulesTab';
 const SECTIONS = [
   'general',
   'templates',
+  'checklists',
   'custom-fields',
   'statuses',
   'reasons',
@@ -134,6 +136,8 @@ export function IncidentSettingsPage() {
             values={cat.closure_codes}
           />
         );
+      case 'checklists':
+        return <ChecklistLibraryTab />;
       case 'closing':
         return <ClosingTab catalogue={cat} />;
       case 'repeat-rules':

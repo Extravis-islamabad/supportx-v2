@@ -12,6 +12,8 @@ data:
   # The browser's URLs (D3): console at /, portal at /portal.
   SUPPORTX_CONSOLE_URL: {{ .Values.publicUrl | quote }}
   SUPPORTX_PORTAL_URL: {{ printf "%s/portal" .Values.publicUrl | quote }}
+  # The mobile sign-in's verified return link (ADR-044 item 3), the path mobile-links.yaml lists.
+  SUPPORTX_MOBILE_REDIRECT_URI: {{ printf "%s%s" .Values.publicUrl .Values.mobile.returnPath | quote }}
   # Keycloak: public issuer for browsers and token checks; the API itself uses the in-cluster
   # address (back channel).
   SUPPORTX_OIDC_ISSUER: {{ printf "%s/auth/realms/supportx" .Values.publicUrl | quote }}

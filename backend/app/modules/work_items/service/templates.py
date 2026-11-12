@@ -24,6 +24,7 @@ from app.modules.organization import (
     existing_unit_ids,
     memberships,
 )
+from app.modules.work_items.domain.checklists import clean_items, item_problems
 from app.modules.work_items.domain.classification import Impact, Urgency
 from app.modules.work_items.domain.stages import (
     DEFAULT_PATH,
@@ -431,6 +432,37 @@ def _template_tasks(raw: Any) -> tuple[list[dict[str, Any]], list[tuple[str, str
     return tasks, problems
 
 
+MAX_TEMPLATE_CHECKLISTS = 10
+
+
+def _template_checklists(raw: Any) -> tuple[list[dict[str, Any]], list[tuple[str, str]]]:  # noqa: ANN401 - JSON
+    """A template's checklists (REQ-INC-040): a title, items, an optional list-filter condition."""
+    if raw in (None, []):
+        return [], []
+    if not isinstance(raw, list) or len(raw) > MAX_TEMPLATE_CHECKLISTS:
+        return [], [("checklists", "too_many_items")]
+    found: list[dict[str, Any]] = []
+    problems: list[tuple[str, str]] = []
+    for index, spec in enumerate(raw):
+        spec = spec if isinstance(spec, dict) else {}  # noqa: PLW2901 - the same entry, typed
+        title = " ".join(str(spec.get("title") or "").split())
+        cleaned = clean_items(spec.get("items") or [])
+        if not title:
+            problems.append((f"checklists.{index}.title", "required"))
+        problems += [(f"checklists.{index}.{f}", c) for f, c in item_problems(cleaned.items, 1000)]
+        condition = spec.get("condition")
+        if condition is not None:
+            try:
+                compile_filter(condition, FIELDS, now=datetime.now(UTC))
+            except ValidationFailed:
+                problems.append((f"checklists.{index}.condition", "invalid_value"))
+        found.append(
+            {"title": title, "items": cleaned.items}
+            | ({"condition": condition} if condition is not None else {})
+        )
+    return found, problems
+
+
 async def _lifecycle(
     session: AsyncSession, wtype: WorkItemType, value: object
 ) -> tuple[str | None, list[tuple[str, str]]]:
@@ -476,6 +508,10 @@ async def create_template(
     problems += codes
     tasks, codes = _template_tasks(values.get("tasks", copied_from.tasks if copied_from else None))
     problems += codes
+    checklists, codes = _template_checklists(
+        values.get("checklists", copied_from.checklists if copied_from else None)
+    )
+    problems += codes
     if await _name_taken(session, wtype, labels, exclude=None):
         problems.append(("labels", "duplicate_name"))
     stage_columns, codes = await _stage_settings(session, wtype, values, None)
@@ -511,6 +547,7 @@ async def create_template(
         copied_from_id=copied_from.id if copied_from else None,
         lifecycle=lifecycle,
         tasks=tasks,
+        checklists=checklists,
     )
     await TemplateRepository(session).add(template)
     await _changed(
@@ -615,6 +652,9 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         problems += codes
     if "tasks" in values:  # REQ-INC-040: new records only; existing records keep their tasks
         changes["tasks"], codes = _template_tasks(values["tasks"])
+        problems += codes
+    if "checklists" in values:  # REQ-INC-040: new records only; existing records keep theirs
+        changes["checklists"], codes = _template_checklists(values["checklists"])
         problems += codes
     if "lifecycle" in values:  # new records only: running ones keep theirs (REQ-INC-049 style)
         changes["lifecycle"], codes = await _lifecycle(session, wtype, values["lifecycle"])

@@ -42,6 +42,13 @@ from app.modules.identity_access.domain.identity import (
     safe_return_to,
     validate_claims,
 )
+from app.modules.identity_access.domain.mobile import (
+    HANDOFF_TTL,
+    SESSION_HEADER,
+    MobileStart,
+    app_return,
+    verifier_matches,
+)
 from app.modules.identity_access.domain.session import Session, TenantChoice
 from app.modules.identity_access.domain.sso import DEPARTMENT_ATTRIBUTE, SITE_ATTRIBUTE
 from app.modules.identity_access.infra.keycloak_admin import (
@@ -134,11 +141,20 @@ class LoginAddress:
 class LoginFailure(Exception):
     """A login that could not complete: which app it was for, and the problem to report."""
 
-    def __init__(self, app: AppName, problem: AppError, origin: str | None = None) -> None:
+    def __init__(
+        self,
+        app: AppName,
+        problem: AppError,
+        origin: str | None = None,
+        *,
+        mobile_return: str | None = None,
+    ) -> None:
         super().__init__(problem.instance_code)  # the code is a stable identifier, not prose
         self.app = app
         self.problem = problem
         self.origin = origin  # a tenant's own address the login started on (WP-017), if any
+        # A mobile sign-in (ADR-044): the browser goes back to the app with the error code.
+        self.mobile_return = mobile_return
 
 
 # My account's changes, as Keycloak's application-initiated actions (proved on 26.8.1).
@@ -174,12 +190,19 @@ class PortalInstead:
 
 
 class LoginResult:
-    """A completed login: the new session and where to send the browser."""
+    """A completed login: the new session and where to send the browser.
 
-    def __init__(self, session_id: str, session: Session, redirect_to: str) -> None:
+    `mobile`: the browser goes back to the app with a one-time hand-off code instead of a
+    session cookie (ADR-044); the app exchanges the code for the session ID.
+    """
+
+    def __init__(
+        self, session_id: str, session: Session, redirect_to: str, *, mobile: bool = False
+    ) -> None:
         self.session_id = session_id
         self.session = session
         self.redirect_to = redirect_to
+        self.mobile = mobile
 
 
 class AuthService:
@@ -272,7 +295,7 @@ class AuthService:
 
     # --- login ---------------------------------------------------------------------------------
 
-    async def start_login(
+    async def start_login(  # noqa: PLR0913 - the keyword-only options of one login
         self,
         app: AppName,
         return_to: str | None,
@@ -280,6 +303,7 @@ class AuthService:
         *,
         reauthenticate: bool = False,
         account_action: str | None = None,
+        mobile: MobileStart | None = None,
     ) -> str:
         """Remember a one-time login state and return Keycloak's authorization URL.
 
@@ -290,6 +314,9 @@ class AuthService:
 
         `reauthenticate` (a session of this browser timed out, REQ-SEC-029): Keycloak asks for
         the password again instead of reusing its own, longer session.
+
+        `mobile` (ADR-044): the mobile app's S256 challenge, platform and version. The login ends
+        with a hand-off code for the app instead of a session cookie.
         """
         origin = self.origin(app, address.host) if address is not None else None
         state, nonce, pkce = (
@@ -307,6 +334,7 @@ class AuthService:
                 "origin": origin,
                 "organization": address.organization if address is not None else None,
                 "account_action": account_action,
+                **(mobile.pending() if mobile is not None else {}),
             },
             LOGIN_STATE_TTL,
         )
@@ -344,34 +372,94 @@ class AuthService:
             return await sso_test.finish(self, pending, code=code, error=error)
         app: AppName = "portal" if pending["app"] == "portal" else "console"
         origin = pending.get("origin")
+        mobile = MobileStart.from_pending(pending)
+        mobile_return = self.settings.mobile_redirect_uri if mobile is not None else None
         if origin is not None and urlsplit(origin).netloc != host:
             # Started on another address than it finished on: never move a session across.
-            raise LoginFailure(app, BadRequest(code="login_failed"))
+            raise LoginFailure(app, BadRequest(code="login_failed"), mobile_return=mobile_return)
         if error or not code:
-            raise LoginFailure(app, BadRequest(code="login_failed"), origin)
+            raise LoginFailure(
+                app, BadRequest(code="login_failed"), origin, mobile_return=mobile_return
+            )
         try:
             session = await self._login(app, code, pending)
         except MfaEnrolmentDue:
             # Keycloak now holds the enrol actions on the account; signing in again (its own
             # session still stands) runs them before anything else (REQ-SEC-024 AC2).
-            query = urlencode({"app": app, "returnTo": pending["return_to"]})
-            return EnrolFirst(f"{origin or self.origin(app)}/api/v1/auth/login?{query}")
+            return EnrolFirst(self._login_again(app, origin, pending["return_to"], mobile))
         except AppError as exc:
-            raise LoginFailure(app, exc, origin) from exc
+            raise LoginFailure(app, exc, origin, mobile_return=mobile_return) from exc
         if previous_session_id:  # rotation: the pre-login session (if any) dies here
             await self.store.delete_session(previous_session_id)
         if app == "console" and await self._requester_only(session):
             # The console's paths mean nothing in the portal: its home, never return_to.
             log.info("login_sent_to_portal", subject=session.subject, tenant_id=session.tenant_id)
+            if mobile is not None:
+                # The mobile app serves both (D-160): it signs in again for a portal session.
+                # Keycloak's own session stands, so there is no second prompt.
+                return PortalInstead(self._login_again("portal", origin, "/", mobile))
             return PortalInstead(self.landing("portal", "/", origin))
+        return await self._finish_login(session, app, pending, action_status)
+
+    async def _finish_login(
+        self, session: Session, app: AppName, pending: dict[str, Any], action_status: str | None
+    ) -> LoginResult:
+        """Save the new session; say where the browser goes: the app (mobile) or the UI."""
+        mobile = MobileStart.from_pending(pending)
+        if mobile is not None:  # the person's session list names the phone (ADR-044 item 5)
+            session = replace(
+                session, device_platform=mobile.platform, app_version=mobile.app_version
+            )
         session_id = await self._save_new(session)
-        log.info("login", subject=session.subject, tenant_id=session.tenant_id, client=app)
+        log.info(
+            "login",
+            subject=session.subject,
+            tenant_id=session.tenant_id,
+            client=app,
+            via_app=mobile is not None,  # not mobile=: SENSITIVE_KEY_PARTS redacts it
+        )
+        if mobile is not None:
+            handoff = secrets.token_urlsafe(32)
+            await self.store.put_handoff(
+                handoff, {"session_id": session_id, "challenge": mobile.challenge}, HANDOFF_TTL
+            )
+            redirect = app_return(self.settings.mobile_redirect_uri, handoff=handoff)
+            return LoginResult(session_id, session, redirect, mobile=True)
+        origin = pending.get("origin")
         landing = self.landing(app, pending["return_to"], origin)
         if pending.get("account_action"):  # back to My account with Keycloak's result
             outcome = action_status if action_status in ACTION_STATUSES else "error"
             query = urlencode({"account_action": pending["account_action"], "status": outcome})
             landing += ("&" if "?" in landing else "?") + query
         return LoginResult(session_id, session, landing)
+
+    def _login_again(
+        self, app: AppName, origin: str | None, return_to: str, mobile: MobileStart | None
+    ) -> str:
+        """The BFF's own login address for another round (MFA enrolment, console to portal)."""
+        params = {"app": app, "returnTo": return_to}
+        if mobile is not None:
+            params |= mobile.query()
+        return f"{origin or self.origin(app)}/api/v1/auth/login?{urlencode(params)}"
+
+    async def exchange_handoff(self, handoff: str, verifier: str) -> tuple[str, Session]:
+        """The session a mobile hand-off code stands for (ADR-044), or 401 `handoff_invalid`.
+
+        The code is spent on the first try, right or wrong: a guessed or replayed code never
+        gets a second chance. Unknown, expired, used and mismatched codes look the same.
+        """
+        record = await self.store.take_handoff(handoff)
+        if record is None or not verifier_matches(verifier, str(record["challenge"])):
+            raise Unauthenticated(code="handoff_invalid")
+        session_id = str(record["session_id"])
+        data = await self.store.get_session(session_id)
+        if data is None:  # ended in the minute between sign-in and exchange
+            raise Unauthenticated(code="handoff_invalid")
+        return session_id, Session.from_dict(data)
+
+    def presented_session_id(self, request: Request) -> str | None:
+        """The session ID a request carries: the browser's cookie, else the mobile header."""
+        return request.cookies.get(self.cookie_name) or request.headers.get(SESSION_HEADER)
 
     async def quick_sign_in(self, who: quick.Persona, tenant_id: uuid.UUID) -> "LoginResult":
         """Dev-only quick sign-in (D-151): a showcase persona, through Keycloak, then a session.
@@ -550,8 +638,12 @@ class AuthService:
     # --- every request -------------------------------------------------------------------------
 
     async def session_for(self, request: Request) -> tuple[str, Session] | None:
-        """The request's valid session (refreshed if needed), None without a cookie or record."""
-        session_id = request.cookies.get(self.cookie_name)
+        """The request's valid session (refreshed if needed), None without a cookie or record.
+
+        The mobile app sends its session ID in a header instead of a cookie (ADR-044); the rest
+        (expiry, CSRF on writes, refresh) is the same.
+        """
+        session_id = self.presented_session_id(request)
         if not session_id:
             return None
         data = await self.store.get_session(session_id)

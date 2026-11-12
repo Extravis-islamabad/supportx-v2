@@ -44,6 +44,7 @@ from app.modules.work_items.api.change_window_routes import (
     release_router as release_window_router,
 )
 from app.modules.work_items.api.change_window_routes import router as change_window_router
+from app.modules.work_items.api.checklist_routes import my_reminders_router
 from app.modules.work_items.api.parts_routes import my_tasks_router
 from app.modules.work_items.api.portal_change_routes import router as portal_change_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
@@ -69,6 +70,7 @@ from app.modules.work_items.service import (
     bulk,
     change_notifications,
     change_reminders,
+    checklists,
     inbound_mail,
     notifications,
     parts,
@@ -77,6 +79,8 @@ from app.modules.work_items.service import (
     record_facts,
     release_closing,
     release_duties,
+    reminder_notifications,
+    reminders,
     repeat_rules,
     report_names,
     request_notifications,
@@ -122,6 +126,8 @@ def _register_parts() -> None:
     # by the "complete open work" setting (each closes through its own rules).
     register_open_work(OpenWorkKind.LINKED_CHANGES, release_closing.open_linked_changes, None)
     register_open_work(OpenWorkKind.CHILD_RELEASES, release_closing.open_sub_releases, None)
+    # WP-046a S2 (REQ-INC-077): unticked checklist items are open work too.
+    register_open_work(OpenWorkKind.CHECKLISTS, checklists.open_work, checklists.complete_work)
 
 
 _register_parts()
@@ -177,6 +183,7 @@ rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
 change_notifications.register()  # WP-045d S3: replaces the change reply-only source
 task_notifications.register()  # WP-046a S1: a task's owner hears of it (REQ-INC-076)
+reminder_notifications.register()  # WP-046a S2: personal reminders alert their owner
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
@@ -207,6 +214,7 @@ module = ModuleSpec(
         release_window_router,  # WP-058b S2: a release's freeze override
         portal_change_router,  # WP-045d S4a: requesters' changes in the portal
         my_tasks_router,  # WP-046a S1: your tasks on every type (REQ-INC-076)
+        my_reminders_router,  # WP-046a S2: your personal reminders (REQ-INC-082)
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
@@ -224,6 +232,7 @@ module = ModuleSpec(
         RELEASE.feature,  # a release's freeze override
         CHANGE.feature,  # requesters' changes in the portal
         None,  # your tasks: each type's own licence is checked per type in the service
+        None,  # your reminders: each record's own view rule decides what shows
     ],
     events=EVENTS,
     permissions=(
@@ -261,6 +270,10 @@ module = ModuleSpec(
             "work_items__task_reminders",
             task_reminders.EVERY_SECONDS,
             task_reminders.reminders_schedule,
+        ),
+        # WP-046a S2 (REQ-INC-082 AC1): personal reminders, each alert raised once.
+        ScheduleSpec(
+            "work_items__personal_reminders", reminders.EVERY_SECONDS, reminders.reminders_schedule
         ),
     ],
 )

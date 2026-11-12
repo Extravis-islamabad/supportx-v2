@@ -1285,6 +1285,20 @@ it with no reload (rule c). Not built yet.
   - add_child refuses any holding loop through lane C's `release_links.holds`.
   - **Still open:** the "caused incidents" change report field and the `caused_by_change` link
     kind (REQ-CHG-116) come once #396's type fields are on main.
+    The link kind's CHECK is already widened (0141), so that step needs no migration.
+- **S2 (0144; REQ-INC-040, -077, -078, -080, -082; #407):**
+  - Checklists: typed or from the library, several per record. A tick records who and when.
+    Unticked items are open work, completed by the system on close.
+  - Record templates add their checklists when their condition matches.
+  - The library has a read-only CSV import (5 MB, 5,000 rows, 40 columns; bad rows listed).
+  - A list past `checklist_item_max` (Admin › Incidents › Closing) is refused whole.
+  - All files: the record's own, its replies' and notes', listed in one tab and downloadable as
+    one zip. Lane B's rules apply: each file checked again, left-out files named in
+    `manifest.txt`, two downloads per person at once, 200 files and 500 MB, audited.
+  - Personal reminders: on the record and in the header drawer, the owner's only, alerted once
+    by a sweep, live on the personal channel.
+  - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
+    reserved for S3).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -1921,12 +1935,12 @@ it with no reload (rule c). Not built yet.
   RLS forced, no DELETE grant (soft delete), unique live start per person, an index for "the rate
   in force". The downgrade refuses per tenant while any rate exists (removed ones too).
 - [x] Rights `users.view_cost_rates` and `users.manage_cost_rates`: no built-in role but the
-  tenant admin holds them (role matrix unchanged). **Names pending Haider's naming.**
+  tenant admin holds them (role matrix unchanged); grantable to a custom role such as Finance (D-164, Haider 2026-11-12).
 - [x] API: `GET /api/v1/users/{id}/cost-rates` (view), `POST` (view + manage,
   Idempotency-Key), `PATCH /api/v1/users/{id}/cost-rates/{rate_id}` and `DELETE` (view + manage,
   If-Match). The current and upcoming rates may change; a superseded one is refused
   (`cost_rate_superseded`), a taken start too (`cost_rate_date_taken`); a service identity
-  gets `not_a_person`. Audited as `user.cost_rate_changed` (old and new rate and start). History
+  gets `not_a_person`. Audited as `user.cost_rate_changed` (old and new rate and start), and every read of a person's rates as `user.cost_rate_viewed` (D-164: which rates were shown, never amounts; the worklog cost snapshot through the port is not a view). History
   on the rate; the person's own history gets the rate's ID only. Event
   `identity_access.user_cost_rate.changed` (IDs and the kind of change) on the `user_cost_rates`
   list channel (users.view_cost_rates). Never in the person record, lists, search, exports or
