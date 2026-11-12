@@ -1,11 +1,11 @@
-"""Importing assets, consumables and vendors from CSV or Excel (WP-049b S4b; REQ-AST-053).
+"""Importing assets, consumables and vendors from CSV or Excel (WP-049b S4b, S4c; REQ-AST-053).
 
 The people import's job pattern (WP-021, identity_access/service/people_import.py): the API
 stores the file on a queued import and returns at once; the import job (a schedule in the
 consumers worker) reads it with WP-021's limits (app/shared/sheets.py; up to 20,000 rows here)
-and applies the rows in batches, one transaction per batch and one savepoint per row, so a bad
-row is reported (row, column, reason code) and the others are kept. Each batch commits its
-progress with an event, so the import screen moves live.
+and applies the rows in batches, one transaction per batch. A bad row is reported (row,
+column, reason code) and the others are kept. Each batch commits its progress with an event
+(`assets.import_progress` on the importer's own channel), so the import screen moves live.
 
 - **Dry run first (AC2):** every row goes through the same service calls inside a savepoint
   that is always rolled back, so nothing changes (no record, history, event or tag number); the
@@ -15,12 +15,38 @@ progress with an event, so the import screen moves live.
   number, a consumable's product, a vendor's name. No "delete existing and add" mode.
 - **As the importer:** each row is the importer's own change (scope, life cycle, licence slot,
   D-157 money), through `create_asset` / `update_asset`, the consumable calls, or
-  procurement's `create_vendor` / `update_vendor`.
+  procurement's `create_vendor` / `update_vendor`, one call per row: every record keeps its own
+  permission check, history, outbox event and audit entry.
+
+**Speed (S4c; 20,000 rows took 47 ms a row on CI).** The services are still called once per
+row; what changed is the work around them:
+
+- **Lookups once per job:** product, site and vendor names are resolved once per job
+  (`Lookups`: made by the job for its own tenant and importer, never shared, answering as the
+  row path's lookups do), and the records a batch's rows match are read in one query for the
+  whole batch instead of one per row.
+- **Check, then write:** each row is first checked without writing (columns, dates, money,
+  names, the mode against the records read), in the order the row path checked it. The rows
+  that pass go through the services together in one savepoint per batch (rolled back in a dry
+  run). If any is refused, that savepoint is rolled back and the batch is redone row by row,
+  each row in its own savepoint and checked afresh, so the problems are exactly the row path's.
+  A key twice in a batch splits the savepoint there, so the second row sees the first as the
+  row path did (in a dry run: does not).
+- **Short locks:** a save holds the tag counter row and the asset limit's lock until its
+  transaction commits, so a transaction ends after BATCH rows or BATCH_SECONDS, whichever comes
+  first; someone adding an asset meanwhile waits that long at most. Tag numbers are taken in the
+  caller's transaction (app/shared/db/display_ids.py), so a rolled-back savepoint (a dry run, a
+  refused batch) gives its numbers back.
+- The asset service reads the tenant's configuration once per (sub)transaction
+  (service/memo.py).
 """
 
+import contextlib
 import re
+import time
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
@@ -30,7 +56,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.database import Database
+from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import AppError, Conflict, NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
@@ -54,6 +80,7 @@ from app.modules.assets.events import AssetImportProgressed
 from app.modules.assets.infra.models import Asset, AssetConsumable, AssetImport, AssetProduct
 from app.modules.assets.service import consumables
 from app.modules.assets.service.assets import MANAGE, create_asset, update_asset
+from app.modules.assets.service.memo import keep_slot_count
 from app.modules.identity_access import Subject, subject_for
 from app.modules.organization import find_site
 from app.shared import sheets
@@ -63,7 +90,8 @@ from app.shared.history.conflicts import stale_version
 
 log = get_logger(__name__)
 
-BATCH = 100
+BATCH = 100  # rows per transaction at most
+BATCH_SECONDS = 2.0  # and at most about this long: the locks a save holds end with it
 SOURCE: Literal["import"] = "import"
 # File format names, sent as values so labels isolate them (as the people import does).
 FORMAT_WORDS = {
@@ -96,6 +124,8 @@ _VENDOR_TEXT = (
     "website",
 )
 _CURRENCY = re.compile(r"[A-Z]{3}")
+# What a row matches on, as compared: a lowered tag, serial or vendor name, a product's ID.
+type Key = str | uuid.UUID
 
 
 class ImportRepository(Repository[AssetImport]):
@@ -292,62 +322,182 @@ async def _run(database: Database, tenant: uuid.UUID, ref: tuple[uuid.UUID, uuid
             await _progress(session, job)
             return
         rows = sheet.rows
-        start = job.processed
+        offset = job.processed
         if job.status != AssetImportStatus.RUNNING:
             job.status, job.total = AssetImportStatus.RUNNING.value, len(rows)
             job.version += 1
             await _progress(session, job)
-    for offset in range(start, len(rows), BATCH):
+    lookups = Lookups(tenant=tenant, requester=importer)  # this job's own, never shared
+    while offset < len(rows):
         async with database.tenant_session(context) as session:
-            await _batch(session, tenant, import_id, rows[offset : offset + BATCH])
+            offset = await _batch(session, import_id, rows, offset, lookups)
     await _finish(database, tenant, ref)
+
+
+@dataclass(slots=True)
+class _Tally:
+    """One transaction's outcomes, written to the import once at its end."""
+
+    problems: list[dict[str, Any]]
+    created: int = 0
+    updated: int = 0
+    failed: int = 0
+
+    def add(self, number: int, outcome: ImportRowOutcome | RowProblem) -> None:
+        if isinstance(outcome, RowProblem):
+            self.failed += 1
+            if len(self.problems) < MAX_IMPORT_PROBLEMS:
+                self.problems.append({"row": number, "field": outcome.field, "code": outcome.code})
+        elif outcome == ImportRowOutcome.CREATED:
+            self.created += 1
+        else:
+            self.updated += 1
+
+
+@dataclass(frozen=True, slots=True)
+class _How:
+    """How the rows of one import are applied, and by whom."""
+
+    subject: Subject
+    kind: ImportKind
+    mode: ImportMode
+    match_on: ImportMatch
+    dry_run: bool
+    lookups: "Lookups"
+    deadline: float
 
 
 async def _batch(
     session: AsyncSession,
-    tenant: uuid.UUID,
     import_id: uuid.UUID,
-    rows: list[tuple[int, dict[str, str]]],
-) -> None:
+    rows: Sequence[tuple[int, dict[str, str]]],
+    offset: int,
+    lookups: "Lookups",
+) -> int:
+    """One transaction: up to BATCH rows from `offset`, or fewer once BATCH_SECONDS have passed.
+
+    Returns the offset to go on from. The time bound keeps the locks a save takes until commit
+    (the tag counter row, the asset limit's lock) short, so a person adding an asset meanwhile
+    waits about BATCH_SECONDS at most.
+    """
     job = await session.get(AssetImport, import_id, with_for_update=True)
     if job is None or job.created_by is None:  # pragma: no cover - never hard-deleted
-        return
-    subject = await subject_for(session, tenant, job.created_by)
-    kind, mode, match_on = ImportKind(job.kind), ImportMode(job.mode), ImportMatch(job.match_on)
-    problems = list(job.problems)
+        return len(rows)
+    how = _How(
+        subject=await subject_for(session, lookups.tenant, job.created_by),
+        kind=ImportKind(job.kind),
+        mode=ImportMode(job.mode),
+        match_on=ImportMatch(job.match_on),
+        dry_run=job.dry_run,
+        lookups=lookups,
+        deadline=time.monotonic() + BATCH_SECONDS,
+    )
+    batch = list(rows[offset : offset + BATCH])
+    tally = _Tally(problems=list(job.problems))
+    done = 0
+    found = await _prefetch(session, how, batch)
+    while done < len(batch) and (done == 0 or time.monotonic() < how.deadline):
+        plans = await _chunk(session, how, batch[done:], found)
+        applied = await _apply_chunk(session, how, plans, tally)
+        done += applied
+        if not how.dry_run and done < len(batch):
+            found = await _prefetch(session, how, batch[done:])  # what this run just made
+    job.processed += done
+    job.created_count += tally.created
+    job.updated_count += tally.updated
+    job.failed_count += tally.failed
+    job.problems = tally.problems
+    job.version += 1
+    await _progress(session, job)
+    return offset + done
+
+
+async def _chunk(
+    session: AsyncSession,
+    how: _How,
+    rows: Sequence[tuple[int, dict[str, str]]],
+    found: Mapping[Key, uuid.UUID],
+) -> list["Plan"]:
+    """Check the next rows without writing (AC2), up to a key a row before them already has.
+
+    A key twice in one savepoint would see the first row's write; split there, the second row
+    is checked once the first is done, as the row-by-row import always did.
+    """
+    plans: list[Plan] = []
+    keys: set[Key] = set()
     for number, values in rows:
+        plan = await prepare_row(session, how, number, values, found)
+        if plan.key is not None and plan.key in keys:
+            break
+        if plan.key is not None:
+            keys.add(plan.key)
+        plans.append(plan)
+    return plans
+
+
+async def _apply_chunk(
+    session: AsyncSession, how: _How, plans: Sequence["Plan"], tally: _Tally
+) -> int:
+    """The checked rows through the services in one savepoint; row by row once any is refused.
+
+    Returns how many rows it used (at least one; fewer than `plans` once the time is up).
+    """
+    outcomes: list[ImportRowOutcome | RowProblem] = []
+    savepoint = await session.begin_nested()
+    keep_slot_count(session)  # a refusal redoes the rows one by one, each counting afresh
+    try:
+        for plan in plans:
+            if outcomes and time.monotonic() >= how.deadline:
+                break
+            outcomes.append(plan.problem or await execute_row(session, how, plan))
+    except (RowProblem, IntegrityError):
+        await savepoint.rollback()  # nothing of the savepoint stays: redo each row on its own
+        return await _one_by_one(session, how, plans[: len(outcomes) + 1], tally)
+    except BaseException:
+        await savepoint.rollback()
+        raise
+    if how.dry_run:
+        await savepoint.rollback()  # AC2: a dry run changes nothing
+    else:
+        await savepoint.commit()
+    for plan, outcome in zip(plans, outcomes, strict=False):
+        tally.add(plan.number, outcome)
+    return len(outcomes)
+
+
+async def _one_by_one(
+    session: AsyncSession, how: _How, plans: Sequence["Plan"], tally: _Tally
+) -> int:
+    """Each row in its own savepoint, checked afresh: the per-row problems exactly as before."""
+    used = 0
+    for plan in plans:
+        if used and time.monotonic() >= how.deadline:
+            break
+        used += 1
         savepoint = await session.begin_nested()
         try:
-            outcome = await apply_row(
-                session, subject, kind=kind, mode=mode, match_on=match_on, values=values
-            )
+            fresh = await prepare_row(session, how, plan.number, plan.values, None)
+            outcome = fresh.problem or await execute_row(session, how, fresh)
         except (RowProblem, IntegrityError) as refused:
             await savepoint.rollback()
             # A value the database refuses (a CHECK the services do not repeat) is a bad row too.
-            problem = (
-                refused
-                if isinstance(refused, RowProblem)
-                else RowProblem(field="row", code="invalid_value")
-            )
-            job.failed_count += 1
-            if len(problems) < MAX_IMPORT_PROBLEMS:
-                problems.append({"row": number, "field": problem.field, "code": problem.code})
+            tally.add(plan.number, _problem(refused))
             continue
         except BaseException:
             await savepoint.rollback()
             raise
-        if job.dry_run:
-            await savepoint.rollback()  # AC2: a dry run changes nothing
+        if how.dry_run or isinstance(outcome, RowProblem):
+            await savepoint.rollback()
         else:
             await savepoint.commit()
-        if outcome == ImportRowOutcome.CREATED:
-            job.created_count += 1
-        else:
-            job.updated_count += 1
-    job.processed += len(rows)
-    job.problems = problems
-    job.version += 1
-    await _progress(session, job)
+        tally.add(plan.number, outcome)
+    return used
+
+
+def _problem(refused: Exception) -> RowProblem:
+    if isinstance(refused, RowProblem):
+        return refused
+    return RowProblem(field="row", code="invalid_value")
 
 
 async def _finish(
@@ -377,28 +527,177 @@ async def _finish(
 # --- one row ----------------------------------------------------------------------------------
 
 
-async def apply_row(  # noqa: PLR0913 - the row and how to apply it, explicit
+@dataclass(slots=True)
+class Lookups:
+    """Names a job's rows give, resolved once per job (S4c), for one tenant and one importer.
+
+    A job makes its own (never a module global, never shared with another job), and it refuses
+    a session of another tenant or person. It answers exactly as the row path did: the lookups
+    behind it (`find_site`, `find_vendor_id`, the product by name) read the tenant's live
+    records with no person's scope, so neither does the cache. What the importer may do with
+    the record a row names is still decided by the service, on every row.
+    """
+
+    tenant: uuid.UUID
+    requester: uuid.UUID
+    products: dict[str, uuid.UUID | str] = field(default_factory=dict)  # an ID, or a problem code
+    sites: dict[str, uuid.UUID | None] = field(default_factory=dict)
+    vendors: dict[str, uuid.UUID | None] = field(default_factory=dict)
+
+    def _check(self, session: AsyncSession) -> None:
+        context = session.info.get(SESSION_TENANT_KEY)
+        if not isinstance(context, TenantContext) or (context.tenant_id, context.user_id) != (
+            self.tenant,
+            self.requester,
+        ):
+            msg = "an import's lookups serve only its own tenant and importer"
+            raise RuntimeError(msg)
+
+    async def product(self, session: AsyncSession, name: str) -> uuid.UUID:
+        """The live product of this name (RowProblem: none, or more than one)."""
+        self._check(session)
+        wanted = " ".join(name.split()).lower()
+        if wanted not in self.products:
+            self.products[wanted] = await _product_id(session, wanted)
+        found = self.products[wanted]
+        if isinstance(found, str):
+            raise RowProblem(field="product", code=found)
+        return found
+
+    async def site(self, session: AsyncSession, name: str) -> uuid.UUID | None:
+        """`find_site`'s answer."""
+        self._check(session)
+        wanted = name.strip().lower()
+        if wanted not in self.sites:
+            self.sites[wanted] = await find_site(session, name)
+        return self.sites[wanted]
+
+    async def vendor(self, session: AsyncSession, name: str) -> uuid.UUID | None:
+        """`procurement.find_vendor_id`'s answer."""
+        self._check(session)
+        wanted = " ".join(name.split()).lower()
+        if wanted not in self.vendors:
+            self.vendors[wanted] = await procurement.find_vendor_id(session, name)
+        return self.vendors[wanted]
+
+
+@dataclass(frozen=True, slots=True)
+class Plan:
+    """A checked row: what it will do, or its problem. Nothing is written to make one."""
+
+    number: int
+    values: Mapping[str, str]
+    key: Key | None = None  # what the row matches on, as compared (None: matches nothing)
+    problem: RowProblem | None = None
+    fields: Mapping[str, Any] = field(default_factory=dict)
+    record_id: uuid.UUID | None = None  # the record it updates (None: it creates one)
+
+
+async def _prefetch(
+    session: AsyncSession, how: _How, rows: Sequence[tuple[int, dict[str, str]]]
+) -> dict[Key, uuid.UUID]:
+    """The existing records the rows match, in one query for all of them (S4c)."""
+    match how.kind:
+        case ImportKind.ASSETS:
+            column = Asset.tag if how.match_on == ImportMatch.TAG else Asset.serial_number
+            wanted = {values.get(how.match_on.value, "").lower() for _, values in rows} - {""}
+            if not wanted:
+                return {}
+            found = await session.execute(
+                select(func.lower(column), Asset.id).where(
+                    func.lower(column).in_(sorted(wanted)), Asset.deleted_at.is_(None)
+                )
+            )
+            # Keyed by lower() as the database lowers it: `get(key.lower())` is the row path's
+            # `lower(column) = key.lower()` exactly.
+            return {str(row[0]): row[1] for row in found}
+        case ImportKind.CONSUMABLES:
+            products: set[uuid.UUID] = set()
+            for _, values in rows:
+                if values.get("product"):
+                    with contextlib.suppress(RowProblem):  # the row's own check reports it
+                        products.add(await how.lookups.product(session, values["product"]))
+            if not products:
+                return {}
+            held = await session.execute(
+                select(AssetConsumable.product_id, AssetConsumable.id)
+                .where(
+                    AssetConsumable.product_id.in_(products), AssetConsumable.deleted_at.is_(None)
+                )
+                .order_by(AssetConsumable.id)
+            )
+            consumables: dict[Key, uuid.UUID] = {}
+            for product_id, consumable_id in held:
+                consumables.setdefault(product_id, consumable_id)
+            return consumables
+        case ImportKind.VENDORS:
+            names = [values.get("name", "") for _, values in rows]
+            vendors: dict[Key, uuid.UUID] = {}
+            vendors.update(await procurement.find_vendors(session, names))
+            return vendors
+
+
+async def _existing(
+    session: AsyncSession, how: _How, key: Key, found: Mapping[Key, uuid.UUID] | None
+) -> uuid.UUID | None:
+    """The record a row matches: from the batch's prefetch, or (`found` None) read now."""
+    if found is not None:
+        return found.get(key)
+    match how.kind:
+        case ImportKind.ASSETS:
+            column = Asset.tag if how.match_on == ImportMatch.TAG else Asset.serial_number
+            return await session.scalar(
+                select(Asset.id).where(func.lower(column) == key, Asset.deleted_at.is_(None))
+            )
+        case ImportKind.CONSUMABLES:
+            return await session.scalar(
+                select(AssetConsumable.id).where(
+                    AssetConsumable.product_id == key, AssetConsumable.deleted_at.is_(None)
+                )
+            )
+        case ImportKind.VENDORS:
+            vendor = await procurement.find_vendor(session, str(key))
+            return None if vendor is None else vendor.id
+
+
+async def prepare_row(
     session: AsyncSession,
-    subject: Subject,
-    *,
-    kind: ImportKind,
-    mode: ImportMode,
-    match_on: ImportMatch,
+    how: _How,
+    number: int,
     values: Mapping[str, str],
-) -> ImportRowOutcome:
-    """Create or update one record from a row; RowProblem when the row cannot be applied."""
+    found: Mapping[Key, uuid.UUID] | None,
+) -> Plan:
+    """Check one row without writing: columns, dates, money, names, and the mode (AC3).
+
+    The checks run in the order the row path always ran them, so the first problem found is the
+    one reported. `found`: the batch's prefetched records (None: look the row's up now).
+    """
     try:
-        match kind:
+        match how.kind:
             case ImportKind.ASSETS:
-                return await _asset_row(session, subject, mode, match_on, values)
+                return await _asset_plan(session, how, number, values, found)
             case ImportKind.CONSUMABLES:
-                return await _consumable_row(session, subject, mode, values)
+                return await _consumable_plan(session, how, number, values, found)
             case ImportKind.VENDORS:
-                return await _vendor_row(session, subject, mode, values)
+                return await _vendor_plan(session, how, number, values, found)
+    except RowProblem as problem:
+        return Plan(number=number, values=values, problem=problem)
+
+
+async def execute_row(session: AsyncSession, how: _How, plan: Plan) -> ImportRowOutcome:
+    """Apply a checked row through the services, as the importer; RowProblem when refused."""
+    try:
+        match how.kind:
+            case ImportKind.ASSETS:
+                return await _asset_row(session, how.subject, plan)
+            case ImportKind.CONSUMABLES:
+                return await _consumable_row(session, how.subject, plan)
+            case ImportKind.VENDORS:
+                return await _vendor_row(session, how.subject, plan)
     except ValidationFailed as invalid:
         first = invalid.errors[0] if invalid.errors else None
-        field = first.field.removeprefix("body.") if first else "row"
-        raise RowProblem(field, first.code if first else invalid.instance_code) from invalid
+        field_name = first.field.removeprefix("body.") if first else "row"
+        raise RowProblem(field_name, first.code if first else invalid.instance_code) from invalid
     except AppError as refused:  # permission, scope, licence slot, conflicts: the row is refused
         raise RowProblem(field="row", code=refused.instance_code) from refused
 
@@ -410,8 +709,8 @@ def _check_mode(mode: ImportMode, *, found: bool, key_field: str) -> None:
         raise RowProblem(field=key_field, code="asset_import_no_match")
 
 
-async def _product_id(session: AsyncSession, name: str) -> uuid.UUID:
-    wanted = " ".join(name.split()).lower()
+async def _product_id(session: AsyncSession, wanted: str) -> uuid.UUID | str:
+    """The live product named `wanted` (spaced and lowered), or the problem's code."""
     found = list(
         await session.scalars(
             select(AssetProduct.id)
@@ -420,9 +719,9 @@ async def _product_id(session: AsyncSession, name: str) -> uuid.UUID:
         )
     )
     if not found:
-        raise RowProblem(field="product", code="asset_product_not_found")
+        return "asset_product_not_found"
     if len(found) > 1:
-        raise RowProblem(field="product", code="asset_product_ambiguous")
+        return "asset_product_ambiguous"
     return found[0]
 
 
@@ -434,7 +733,7 @@ def _amount(name: str, value: str) -> Decimal:
 
 
 async def _asset_values(  # noqa: C901 - one rule per column, flat
-    session: AsyncSession, values: Mapping[str, str]
+    session: AsyncSession, lookups: Lookups, values: Mapping[str, str]
 ) -> dict[str, Any]:
     """The row's filled cells as the asset service takes them; an empty cell leaves a value."""
     fields: dict[str, Any] = {name: values[name] for name in _ASSET_TEXT if values.get(name)}
@@ -448,14 +747,14 @@ async def _asset_values(  # noqa: C901 - one rule per column, flat
         if values.get(name):
             fields[name] = _amount(name, values[name])
     if values.get("product"):
-        fields["product_id"] = await _product_id(session, values["product"])
+        fields["product_id"] = await lookups.product(session, values["product"])
     if values.get("site"):
-        site_id = await find_site(session, values["site"])
+        site_id = await lookups.site(session, values["site"])
         if site_id is None:
             raise RowProblem(field="site", code="site_not_found")
         fields["site_id"] = site_id
     if values.get("vendor"):
-        vendor_id = await procurement.find_vendor_id(session, values["vendor"])
+        vendor_id = await lookups.vendor(session, values["vendor"])
         if vendor_id is None:
             raise RowProblem(field="vendor", code="vendor_not_found")
         fields["vendor_id"] = vendor_id
@@ -471,53 +770,65 @@ def _currency(value: str) -> str:
     return code
 
 
-async def _asset_row(
+async def _asset_plan(
     session: AsyncSession,
-    subject: Subject,
-    mode: ImportMode,
-    match_on: ImportMatch,
+    how: _How,
+    number: int,
     values: Mapping[str, str],
-) -> ImportRowOutcome:
-    key = values.get(match_on.value, "")
-    column = Asset.tag if match_on == ImportMatch.TAG else Asset.serial_number
-    existing = (
-        await session.scalar(
-            select(Asset).where(func.lower(column) == key.lower(), Asset.deleted_at.is_(None))
-        )
-        if key
-        else None
+    found: Mapping[Key, uuid.UUID] | None,
+) -> Plan:
+    key = values.get(how.match_on.value, "")
+    existing = await _existing(session, how, key.lower(), found) if key else None
+    if not key and how.mode == ImportMode.UPDATE:
+        raise RowProblem(field=how.match_on.value, code="required")
+    _check_mode(how.mode, found=existing is not None, key_field=how.match_on.value)
+    fields = await _asset_values(session, how.lookups, values)
+    if existing is not None:
+        fields.pop(how.match_on.value, None)  # the key it was found by stays as it is
+    return Plan(
+        number=number,
+        values=values,
+        key=key.lower() or None,
+        fields=fields,
+        record_id=existing,
     )
-    if not key and mode == ImportMode.UPDATE:
-        raise RowProblem(field=match_on.value, code="required")
-    _check_mode(mode, found=existing is not None, key_field=match_on.value)
-    fields = await _asset_values(session, values)
-    if existing is None:
-        await create_asset(session, subject, fields, source=SOURCE)
+
+
+async def _version(
+    session: AsyncSession, model: type[Asset | AssetConsumable], row_id: uuid.UUID
+) -> int:
+    """The version the record has now: the service's If-Match, as when it was read per row."""
+    return await session.scalar(select(model.version).where(model.id == row_id)) or 0
+
+
+async def _asset_row(session: AsyncSession, subject: Subject, plan: Plan) -> ImportRowOutcome:
+    if plan.record_id is None:
+        await create_asset(session, subject, plan.fields, source=SOURCE)
         return ImportRowOutcome.CREATED
-    fields.pop(match_on.value, None)  # the key it was found by stays as it is
     await update_asset(
-        session, subject, existing.id, fields, expected_version=existing.version, source=SOURCE
-    )
+        session, subject, plan.record_id, plan.fields,
+        expected_version=await _version(session, Asset, plan.record_id), source=SOURCE,
+    )  # fmt: skip
     return ImportRowOutcome.UPDATED
 
 
-async def _consumable_row(
-    session: AsyncSession, subject: Subject, mode: ImportMode, values: Mapping[str, str]
-) -> ImportRowOutcome:
+async def _consumable_plan(
+    session: AsyncSession,
+    how: _How,
+    number: int,
+    values: Mapping[str, str],
+    found: Mapping[Key, uuid.UUID] | None,
+) -> Plan:
     if not values.get("product"):
         raise RowProblem(field="product", code="required")
-    product_id = await _product_id(session, values["product"])
-    existing = await session.scalar(
-        select(AssetConsumable).where(
-            AssetConsumable.product_id == product_id, AssetConsumable.deleted_at.is_(None)
-        )
-    )
-    _check_mode(mode, found=existing is not None, key_field="product")
+    product_id = await how.lookups.product(session, values["product"])
+    existing = await _existing(session, how, product_id, found)
+    _check_mode(how.mode, found=existing is not None, key_field="product")
     fields: dict[str, Any] = {k: values[k] for k in ("barcode", "comment") if values.get(k)}
     if values.get("unit_cost"):
         fields["unit_cost"] = _amount("unit_cost", values["unit_cost"])
     if values.get("vendor"):
-        vendor_id = await procurement.find_vendor_id(session, values["vendor"])
+        vendor_id = await how.lookups.vendor(session, values["vendor"])
         if vendor_id is None:
             raise RowProblem(field="vendor", code="vendor_not_found")
         fields["vendor_id"] = vendor_id
@@ -529,31 +840,50 @@ async def _consumable_row(
     if existing is None:
         fields["product_id"] = product_id
         fields["batch_tracked"] = bool(tracked)
-        await consumables.create_consumable(session, subject, fields)
-        return ImportRowOutcome.CREATED
-    if tracked is not None:
+    elif tracked is not None:
         fields["batch_tracked"] = tracked  # a change is refused: fixed when it was made (033)
+    return Plan(number=number, values=values, key=product_id, fields=fields, record_id=existing)
+
+
+async def _consumable_row(session: AsyncSession, subject: Subject, plan: Plan) -> ImportRowOutcome:
+    if plan.record_id is None:
+        await consumables.create_consumable(session, subject, plan.fields)
+        return ImportRowOutcome.CREATED
+    version = await _version(session, AssetConsumable, plan.record_id)
     await consumables.update_consumable(
-        session, subject, existing.id, fields, expected_version=existing.version
+        session, subject, plan.record_id, plan.fields, expected_version=version
     )
     return ImportRowOutcome.UPDATED
 
 
-async def _vendor_row(
-    session: AsyncSession, subject: Subject, mode: ImportMode, values: Mapping[str, str]
-) -> ImportRowOutcome:
+async def _vendor_plan(
+    session: AsyncSession,
+    how: _How,
+    number: int,
+    values: Mapping[str, str],
+    found: Mapping[Key, uuid.UUID] | None,
+) -> Plan:
     name = values.get("name", "")
     if not name:
         raise RowProblem(field="name", code="required")
-    existing = await procurement.find_vendor(session, name)
-    _check_mode(mode, found=existing is not None, key_field="name")
+    key = " ".join(name.split()).lower()
+    existing = await _existing(session, how, key, found) if key else None
+    _check_mode(how.mode, found=existing is not None, key_field="name")
     fields: dict[str, Any] = {k: values[k] for k in _VENDOR_TEXT if values.get(k)}
     if "currency" in fields:
         fields["currency"] = _currency(str(fields["currency"]))
     if existing is None:
-        await procurement.create_vendor(session, subject, {"name": name, **fields}, source=SOURCE)
+        fields = {"name": name, **fields}
+    return Plan(number=number, values=values, key=key or None, fields=fields, record_id=existing)
+
+
+async def _vendor_row(session: AsyncSession, subject: Subject, plan: Plan) -> ImportRowOutcome:
+    if plan.record_id is None:
+        await procurement.create_vendor(session, subject, plan.fields, source=SOURCE)
         return ImportRowOutcome.CREATED
+    vendor = await procurement.find_vendor(session, plan.values.get("name", ""))
     await procurement.update_vendor(
-        session, subject, existing.id, fields, expected_version=existing.version, source=SOURCE
-    )
+        session, subject, plan.record_id, plan.fields,
+        expected_version=0 if vendor is None else vendor.version, source=SOURCE,
+    )  # fmt: skip
     return ImportRowOutcome.UPDATED
