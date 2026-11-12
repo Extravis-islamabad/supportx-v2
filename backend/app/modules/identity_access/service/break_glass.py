@@ -239,3 +239,43 @@ async def policy_facts(
         mfa_enrolled=person.mfa_enrolled_at is not None,
     )
     return rule, facts, also_mfa
+
+
+@dataclass(frozen=True)
+class AdminRow:
+    """A tenant admin as the single sign-on card lists them."""
+
+    user_id: uuid.UUID
+    display_name: str
+    mfa_enrolled: bool
+    break_glass: bool
+    ip_exempt: bool
+    version: int
+
+
+async def tenant_admins(session: AsyncSession, *, limit: int = 100) -> list[AdminRow]:
+    """The tenant's active admins, named, with their break-glass marks (who may be one)."""
+    rows = await session.scalars(
+        select(User)
+        .join(UserRole, UserRole.user_id == User.id)
+        .join(Role, Role.id == UserRole.role_id)
+        .where(
+            Role.key == TENANT_ADMIN,
+            Role.deleted_at.is_(None),
+            User.status == "active",
+            User.deleted_at.is_(None),
+        )
+        .order_by(User.display_name, User.id)
+        .limit(limit)
+    )
+    return [
+        AdminRow(
+            user_id=u.id,
+            display_name=u.display_name,
+            mfa_enrolled=u.mfa_enrolled_at is not None,
+            break_glass=u.break_glass,
+            ip_exempt=u.break_glass_ip_exempt,
+            version=u.version,
+        )
+        for u in rows.unique()
+    ]

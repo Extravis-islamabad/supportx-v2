@@ -57,12 +57,15 @@ async def _second_admin(world: World, org: Org, *, mfa: bool) -> uuid.UUID:
 async def test_req_sec_009_ac2_requiring_sso_needs_a_break_glass_admin(world: World) -> None:
     a = world.a
     shown = (await world.call("GET", POLICY, a)).json()
+    admins = shown.pop("admins")
     assert shown == {
         "sso_required": "off",
         "sso_also_require_mfa": False,
         "break_glass_admins": 0,
         "version": 0,
     }
+    assert [x["user_id"] for x in admins] == [str(a.admin)]  # the tenant's admins, named
+    assert admins[0]["break_glass"] is False
     refused = await world.call(
         "PUT",
         POLICY,

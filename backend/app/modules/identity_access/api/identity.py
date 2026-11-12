@@ -356,12 +356,24 @@ class SsoPolicyBody(BaseModel):
     sso_also_require_mfa: bool
 
 
+class TenantAdminOut(BaseModel):
+    """A tenant admin, who may be named a break-glass admin (with MFA set up)."""
+
+    user_id: uuid.UUID
+    display_name: str
+    mfa_enrolled: bool
+    break_glass: bool
+    break_glass_ip_exempt: bool
+    version: int
+
+
 class SsoPolicyOut(BaseModel):
-    """The policy, how many active break-glass admins there are, and the version."""
+    """The policy, the tenant's admins with their break-glass marks, and the version."""
 
     sso_required: SsoRequired
     sso_also_require_mfa: bool
     break_glass_admins: int
+    admins: list[TenantAdminOut]
     version: int
 
 
@@ -370,6 +382,17 @@ async def _policy_out(session: TenantSession, policy: break_glass.SsoPolicy) -> 
         sso_required=policy.required,
         sso_also_require_mfa=policy.also_require_mfa,
         break_glass_admins=await break_glass.active_break_glass(session),
+        admins=[
+            TenantAdminOut(
+                user_id=a.user_id,
+                display_name=a.display_name,
+                mfa_enrolled=a.mfa_enrolled,
+                break_glass=a.break_glass,
+                break_glass_ip_exempt=a.ip_exempt,
+                version=a.version,
+            )
+            for a in await break_glass.tenant_admins(session)
+        ],
         version=policy.version,
     )
 
