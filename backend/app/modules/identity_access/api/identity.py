@@ -389,6 +389,7 @@ async def get_sso_policy(
 async def put_sso_policy(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     body: SsoPolicyBody,
     version: ExpectedVersion,
+    request: Request,
     response: Response,
     session: TenantSession,
     subject: Manage,
@@ -403,6 +404,13 @@ async def put_sso_policy(  # noqa: PLR0913, PLR0917 - FastAPI parameters
         also_require_mfa=body.sso_also_require_mfa,
         expected_version=version,
     )
+    changed = details.get("changed_fields")
+    if isinstance(changed, list) and "sso_also_require_mfa" in changed:
+        # The tenant's own identity providers ask for SupportX's code after sign-in, or stop
+        # (REQ-SEC-026). In the same request: if Keycloak refuses, the saved setting rolls back.
+        await sso.apply_post_broker_flow(
+            session, _admin(request), enabled=body.sso_also_require_mfa
+        )
     note.object_id = str(subject.tenant_id)
     note.details = details
     note.skip = not details

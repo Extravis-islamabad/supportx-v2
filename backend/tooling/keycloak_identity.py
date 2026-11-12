@@ -75,6 +75,7 @@ from typing import Any
 import httpx
 
 from app.modules.identity_access.domain.password_policy import PasswordPolicy, to_keycloak
+from app.modules.identity_access.domain.sso import POST_BROKER_FLOW
 from tooling.keycloak_theme import KeycloakUnavailableError, admin_token
 
 CLIENT_ID = "supportx-identity"
@@ -342,9 +343,6 @@ async def _ensure_idp_claim(
             fixed.raise_for_status()
             changes.append(f"{client_id}: sign-in identity provider claim set back")
     return changes
-
-
-POST_BROKER_FLOW = "supportx-otp-after-broker"
 
 
 async def _ensure_post_broker_flow(

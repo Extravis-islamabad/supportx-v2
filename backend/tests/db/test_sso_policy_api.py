@@ -142,3 +142,37 @@ async def test_the_last_break_glass_admin_stays_while_sso_is_required(world: Wor
 async def test_only_identity_managers_see_or_change_the_policy(world: World) -> None:
     a = world.a
     assert (await world.call("GET", POLICY, a, a.tech)).status_code == 403
+
+
+async def test_req_sec_026_ac2_only_this_tenants_providers_ask_for_the_code(world: World) -> None:
+    """Lane B: set on the tenant's own identity providers only, cleared when turned off."""
+    a, b = world.a, world.b
+    assert (await world.add_oidc(a)).status_code == 201
+    (mine,) = set(world.admin.providers)  # the alias is Keycloak's, not in the API's answer
+    assert (await world.add_oidc(b, domains=["beta.test"])).status_code == 201
+    (theirs,) = set(world.admin.providers) - {mine}
+
+    async def flow(alias: str) -> str:
+        stored = await world.admin.provider(alias)
+        assert stored is not None
+        return str(stored.get("postBrokerLoginFlowAlias") or "")
+
+    on = await world.call(
+        "PUT",
+        POLICY,
+        a,
+        json={"sso_required": "off", "sso_also_require_mfa": True},
+        headers={"If-Match": '"0"'},
+    )
+    assert on.status_code == 200, on.text
+    assert await flow(mine) == "supportx-otp-after-broker"
+    assert await flow(theirs) == ""  # another tenant's provider is never touched
+    off = await world.call(
+        "PUT",
+        POLICY,
+        a,
+        json={"sso_required": "off", "sso_also_require_mfa": False},
+        headers={"If-Match": f'"{on.json()["version"]}"'},
+    )
+    assert off.status_code == 200, off.text
+    assert await flow(mine) == ""

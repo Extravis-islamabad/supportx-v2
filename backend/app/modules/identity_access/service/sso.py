@@ -44,7 +44,7 @@ from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminRefused,
     Organization,
 )
-from app.modules.identity_access.infra.models import SsoProvider
+from app.modules.identity_access.infra.models import IdentitySettings, SsoProvider
 from app.modules.organization import get_current_tenant
 from app.shared.egress import Allowance
 from app.shared.events import record_event
@@ -443,6 +443,7 @@ async def create_provider(
         config=config,
         state="draft",
         client_secret=values.client_secret,
+        post_broker_flow=await _post_broker_flow(session),
     )
     mapping = values.mapping or (
         sso.SAML_MAPPING if values.protocol == "saml" else sso.OIDC_MAPPING
@@ -539,6 +540,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
                 config=config,
                 state=state,
                 client_secret=values.client_secret,
+                post_broker_flow=await _post_broker_flow(session),
             ),
         )
     except IdentityAdminRefused as exc:
@@ -677,3 +679,33 @@ async def get_provider(session: AsyncSession, provider_id: uuid.UUID) -> SsoView
     if row is None:
         raise NotFound(code="sso_provider_not_found")
     return _view(row)
+
+
+async def _post_broker_flow(session: AsyncSession) -> str | None:
+    """SupportX's code-after-sign-in flow while this tenant also requires its MFA, else None."""
+    on = await session.scalar(select(IdentitySettings.sso_also_require_mfa))
+    return sso.POST_BROKER_FLOW if on else None
+
+
+async def apply_post_broker_flow(
+    session: AsyncSession, admin: IdentityAdmin | None, *, enabled: bool
+) -> int:
+    """Point THIS tenant's identity providers at the flow, or away from it (REQ-SEC-026).
+
+    Only the tenant's own set-ups (its sso_providers rows, under RLS): never another tenant's
+    provider in the shared realm (lane B). Returns how many were changed.
+    """
+    keycloak = _require(admin)
+    wanted = sso.POST_BROKER_FLOW if enabled else ""
+    changed = 0
+    aliases = await session.scalars(
+        select(SsoProvider.alias).where(SsoProvider.deleted_at.is_(None))
+    )
+    for alias in aliases:
+        stored = await keycloak.provider(alias)
+        if stored is None or (stored.get("postBrokerLoginFlowAlias") or "") == wanted:
+            continue
+        stored["postBrokerLoginFlowAlias"] = wanted
+        await keycloak.update_provider(alias, stored)
+        changed += 1
+    return changed
