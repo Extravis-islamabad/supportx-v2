@@ -568,6 +568,7 @@ export const en = {
   'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
+  'errors.field.review_required_to_close': "Complete the release's review before closing it.",
   'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
   'errors.field.role_held_by_record':
     "This role follows the record's own field. Change it in the details panel.",
@@ -926,6 +927,8 @@ export const en = {
   'errors.record_not_editable': 'You need to be able to edit the record to do this.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
+  'errors.release_not_failed':
+    "Follow-ups are offered once the release's deployment has failed or been rolled back.",
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
   'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',

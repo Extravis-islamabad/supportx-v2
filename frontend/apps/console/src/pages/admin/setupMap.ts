@@ -116,6 +116,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'config.service_desk',
     also: 'settings.manage',
   },
+  // WP-058b S4: how releases close and what their stages hold; the release settings API's gate.
+  {
+    key: 'releases',
+    group: 'service_desk',
+    labelKey: 'nav.admin_releases',
+    permission: 'config.service_desk',
+    also: 'settings.manage',
+  },
   // The change screens: change advisory boards. The change manager and admins (Haider).
   {
     key: 'change-boards',

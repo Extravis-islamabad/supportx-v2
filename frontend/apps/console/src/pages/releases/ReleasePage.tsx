@@ -34,6 +34,8 @@ import { personName } from '../incidents/labels';
 
 import { EMERGENCY_PATH, stageName, statusName } from './labels';
 import { MoveDialog } from './MoveDialog';
+import { ReleaseCanceled } from './ReleaseCanceled';
+import { ReleaseFailed } from './ReleaseFailed';
 import {
   ApprovalsPart,
   DetailsPart,
@@ -265,6 +267,17 @@ export function ReleasePage() {
           }}
         />
       )}
+      {/* A failed deployment: its backout plan and "Mark rolled back" (REQ-REL-053 AC1). */}
+      {/* A canceled release offers to unlink the changes still in it (REQ-REL-054). */}
+      <ReleaseCanceled id={r.id} status={r.status} />
+      <ReleaseFailed
+        id={r.id}
+        displayId={r.display_id}
+        subject={r.subject}
+        status={r.status}
+        moves={moves}
+        onMove={setMoving}
+      />
       {/* A failed workflow step, named on the header with Retry (REQ-REL-021 AC1). */}
       <WorkflowFailureBanner
         recordType="release"
