@@ -141,6 +141,10 @@ else
   fi
 fi
 
+# Not checkable from inside the cluster, so a reminder, never a warning (docs/deployment.md,
+# "Front load balancer"): a lost or just-rejoined node drops requests only if the load balancer
+# in front of the nodes keeps sending to it.
+echo "note: the load balancer in front of the nodes must health-check each node's ingress port (80/443) and skip failing nodes; DNS round robin alone is not HA (docs/deployment.md)"
 [ "$advisories" -gt 0 ] && echo "ha-preflight: $advisories advisory warning(s) (never fail the check)"
 if [ "$warnings" -gt 0 ]; then
   echo "ha-preflight: $warnings warning(s)"

@@ -259,6 +259,29 @@ hex values and never overwrites an existing one (its passwords are already insid
   (a pod never starts as an empty master while a peer may hold data), but Valkey is unavailable
   meanwhile; Kubernetes restarts the pod, and it rejoins.
 
+## Front load balancer (HA installs)
+
+In an HA install on k3s, every node answers on the ingress ports (80/443): k3s's ServiceLB
+forwards each node's port to the Traefik Service, and inside the cluster kube-proxy only routes
+to Traefik copies that are Ready, on any node. The one place a lost or just-rejoined node can
+still drop requests is **in front of the cluster**: a load balancer (or DNS round robin) that
+keeps sending to a node that is down, or that has just come back and whose forwarding rules are
+still syncing (a few seconds after k3s starts on it).
+
+So the external load balancer in front of the nodes **must health-check every node's ingress
+port** and stop sending to a node that fails, for example:
+
+- a TCP check on each node's port 443 (or 80) every 2-5 s, marking a node down after 2 failures
+  and up again after 2 successes;
+- or, better, an HTTP check through the ingress to `https://<your host>/api/v1/health` with the
+  `Host` header set (expects 200), so a node whose Traefik or routing is not ready is skipped.
+
+DNS round robin without health checks is not enough for HA: clients keep a dead node's address
+until their cache expires. `deploy/k3s/ha-preflight.sh` prints this as a reminder; it cannot see
+your load balancer. In CI, k3d's own front proxy does not health-check, so the HA tests allow a
+node that just rejoined up to 30 s before the session must write again, and print how long it
+took (`write_after_return`, deploy/k3d/ha-lib.sh).
+
 ## Client addresses behind the gateway
 
 The API believes `X-Forwarded-For` only from `api.trustedProxies` (addresses or CIDRs; default
