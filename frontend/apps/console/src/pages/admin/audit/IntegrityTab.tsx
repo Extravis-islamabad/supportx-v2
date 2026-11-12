@@ -14,6 +14,7 @@ import { DateTimeRangeField, useAccess, useDateTime, useLabel } from '@supportx/
 
 import { ProblemAlert } from './ProblemAlert';
 import { StateTag } from './StateTag';
+import { TableRegion } from '../../../TableRegion';
 
 const RUN_COLOURS: Record<string, string> = {
   passed: 'success',
@@ -119,52 +120,54 @@ export function IntegrityTab() {
           {start.error !== null && <ProblemAlert error={start.error} />}
         </Card>
       )}
-      <Table<AuditRun>
-        rowKey="id"
-        size="small"
-        data-testid="audit-runs"
-        loading={runs.isPending}
-        dataSource={runs.data ?? []}
-        pagination={false}
-        columns={[
-          {
-            key: 'kind',
-            title: t('audit.ui.run.kind'),
-            render: (_, run) => t(`audit.run_kind.${run.kind}`),
-          },
-          { key: 'status', title: t('audit.ui.run.status'), render: (_, run) => runStatus(run) },
-          {
-            key: 'range',
-            title: t('audit.ui.run.range'),
-            render: (_, run) =>
-              run.range_from === null && run.range_to === null
-                ? t('audit.ui.run.everything')
-                : `${dates.format(run.range_from)} – ${dates.format(run.range_to)}`,
-          },
-          {
-            key: 'checked',
-            title: t('audit.ui.run.checked'),
-            render: (_, run) => run.entries_checked,
-          },
-          {
-            key: 'problem',
-            title: t('audit.ui.run.problem'),
-            render: (_, run) =>
-              run.problem === null ? null : (
-                <Space direction="vertical" size={0}>
-                  <Typography.Text type="danger">
-                    {t(`audit.problem.${run.problem}`)}
-                  </Typography.Text>
-                  {run.first_broken_seq !== null && (
-                    <Typography.Text type="secondary">
-                      {t('audit.ui.first_broken', { seq: run.first_broken_seq })}
+      <TableRegion label={t('audit.ui.tab.integrity')}>
+        <Table<AuditRun>
+          rowKey="id"
+          size="small"
+          data-testid="audit-runs"
+          loading={runs.isPending}
+          dataSource={runs.data ?? []}
+          pagination={false}
+          columns={[
+            {
+              key: 'kind',
+              title: t('audit.ui.run.kind'),
+              render: (_, run) => t(`audit.run_kind.${run.kind}`),
+            },
+            { key: 'status', title: t('audit.ui.run.status'), render: (_, run) => runStatus(run) },
+            {
+              key: 'range',
+              title: t('audit.ui.run.range'),
+              render: (_, run) =>
+                run.range_from === null && run.range_to === null
+                  ? t('audit.ui.run.everything')
+                  : `${dates.format(run.range_from)} – ${dates.format(run.range_to)}`,
+            },
+            {
+              key: 'checked',
+              title: t('audit.ui.run.checked'),
+              render: (_, run) => run.entries_checked,
+            },
+            {
+              key: 'problem',
+              title: t('audit.ui.run.problem'),
+              render: (_, run) =>
+                run.problem === null ? null : (
+                  <Space direction="vertical" size={0}>
+                    <Typography.Text type="danger">
+                      {t(`audit.problem.${run.problem}`)}
                     </Typography.Text>
-                  )}
-                </Space>
-              ),
-          },
-        ]}
-      />
+                    {run.first_broken_seq !== null && (
+                      <Typography.Text type="secondary">
+                        {t('audit.ui.first_broken', { seq: run.first_broken_seq })}
+                      </Typography.Text>
+                    )}
+                  </Space>
+                ),
+            },
+          ]}
+        />
+      </TableRegion>
     </Space>
   );
 }
