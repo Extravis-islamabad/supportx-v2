@@ -35,7 +35,10 @@ options:
       - arg: --kube-controller-manager-arg=node-monitor-grace-period=20s
         nodeFilters: [server:*]
 files:
-  # Traefik (bundled with k3s) also serves the Gateway API (D2).
-  - source: traefik-config.yaml
+  # Traefik (bundled with k3s) also serves the Gateway API (D2). HA: the customer k3s file itself,
+  # two copies with required anti-affinity (deploy/k3s/traefik-ha.yaml says why), so the
+  # node-loss test proves what an HA install runs. k3d resolves the source against this file's
+  # folder (as it does for cluster.yaml's traefik-config.yaml, which stays at one copy).
+  - source: ../k3s/traefik-ha.yaml
     destination: k3s-manifests-custom/traefik-config.yaml
     nodeFilters: [server:*]

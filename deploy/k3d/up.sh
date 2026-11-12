@@ -28,5 +28,9 @@ if [ "${HA_CLUSTER:-0}" = 1 ]; then
   # the node-loss test stopped its node, and Valkey could not fail over. The same script as an
   # on-prem HA install on k3s, then the same preflight, strict: any warning fails the bring-up.
   bash "$HERE/../k3s/cluster-dns-ha.sh"
+  # Traefik the same: two ready copies on two nodes (cluster-ha.yaml installs
+  # deploy/k3s/traefik-ha.yaml). With k3s's one copy, the node-loss test's stopped agent took the
+  # only ingress with it and no request was answered for 90 s, the API pods healthy.
+  bash "$HERE/../k3s/traefik-ha.sh"
   HA_PREFLIGHT_STRICT=1 bash "$HERE/../k3s/ha-preflight.sh"
 fi
