@@ -1,4 +1,4 @@
-# 2026-11-12: cost rates, every view audited (D-164), lane B
+### 2026-11-12 — Cost rates: every view audited (D-164; lane B)
 
 - **What:** Haider decided (D-164, written by lane A with the cost rates part from lane B) that
   every view of a person's cost rate is audited, not only changes. `GET /users/{id}/cost-rates`,
