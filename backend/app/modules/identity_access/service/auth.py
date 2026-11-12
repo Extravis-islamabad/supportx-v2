@@ -733,7 +733,13 @@ class AuthService:
         if request.method not in SAFE_METHODS:
             self._check_csrf(request, session)
         if session.needs_refresh(now):
-            session = await self._refresh(session_id, session)
+            refreshed = await self._refresh(session_id, session)
+            if refreshed is None:
+                # Another request holds the refresh: answer with what we read, but never save it.
+                # With refresh-token rotation (the realm's revokeRefreshToken, audit row 26) a
+                # save here could put back the token the other request has just spent.
+                return session_id, session
+            session = refreshed
         if session.needs_refresh(now) or now - session.last_seen_at >= TOUCH_INTERVAL:
             session = session.touched(now)
             await self._save(session_id, session)
@@ -830,13 +836,26 @@ class AuthService:
         parts = urlsplit(origin)
         return parts.scheme in schemes and parts.netloc == request.headers.get("host")
 
-    async def _refresh(self, session_id: str, session: Session) -> Session:
-        """Silent refresh. Keycloak refusing ends the session; Keycloak being down does not."""
+    async def _refresh(self, session_id: str, session: Session) -> Session | None:
+        """Silent refresh. Keycloak refusing ends the session; Keycloak being down does not.
+
+        None while another request is refreshing this session. Keycloak rotates refresh tokens
+        (revokeRefreshToken, refreshTokenMaxReuse 0; audit row 26): every refresh stores the new
+        token, and a spent one is never sent again.
+        """
         held = await self.store.lock(session_id, REFRESH_LOCK_TTL)
         if held is None:
-            return session  # another request is refreshing this session right now
+            return None
         client = self.client(_client_app(session))
         try:
+            stored = await self.store.get_session(session_id)
+            if stored is None:
+                # Signed out (or ended) since this request read it: never bring it back.
+                raise Unauthenticated(code="session_expired")
+            latest = Session.from_dict(stored)
+            if latest.refresh_token != session.refresh_token:
+                # Another request refreshed between our read and the lock: ours is spent.
+                return latest
             tokens = await self.oidc.refresh(client, session.refresh_token)
             identity = await self._identity(tokens, client, nonce=None)
         except (TokenRejectedError, BadRequest) as exc:

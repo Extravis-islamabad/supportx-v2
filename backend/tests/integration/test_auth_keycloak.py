@@ -17,8 +17,11 @@ import asyncpg
 import httpx
 import pytest
 import pytest_asyncio
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from app.modules.identity_access.domain.session import Session as BffSession
+from app.modules.identity_access.infra.oidc import TokenRejectedError
 from conftest import PRODUCTION_REQUIRED, make_settings
 from tests.db.test_api_tenancy import build_app
 from tests.db.test_rate_limit import valkey_url
@@ -60,6 +63,7 @@ def seeded(valkey: str, migrated_db: ThrowawayDatabase) -> ThrowawayDatabase:
 class Session:
     client: AsyncClient
     browser: KeycloakBrowser
+    app: FastAPI
 
     async def login(self, email: str, *, app: str = "console") -> httpx.Response:
         start = await self.client.get(
@@ -95,7 +99,7 @@ async def session(
         async with AsyncClient(transport=transport, base_url=CONSOLE) as client:
             browser = KeycloakBrowser()
             try:
-                yield Session(client, browser)
+                yield Session(client, browser, app)
             finally:
                 browser.close()
 
@@ -172,6 +176,22 @@ async def test_logout_ends_the_bff_and_keycloak_sessions(session: Session) -> No
         (await session.client.get("/api/v1/auth/login")).headers["location"]
     )
     assert KeycloakBrowser.shows_login_form(after), "Keycloak session survived the logout"
+
+
+async def test_audit_26_keycloak_refuses_a_refresh_token_used_once(session: Session) -> None:
+    """The BFF stores every new refresh token; the realm refuses the spent one."""
+    await session.login("tech@demo.test")
+    auth = session.app.state.auth
+    session_id = session.client.cookies.get(auth.cookie_name)
+    assert session_id is not None
+    record = await auth.store.get_session(session_id)
+    assert record is not None
+    spent = BffSession.from_dict(record).refresh_token
+    client = auth.client("console")
+    fresh = await auth.oidc.refresh(client, spent)
+    assert fresh.refresh_token != spent
+    with pytest.raises(TokenRejectedError):
+        await auth.oidc.refresh(client, spent)
 
 
 async def test_other_company_user_never_sees_demo_company(session: Session) -> None:
@@ -282,6 +302,8 @@ def test_realm_enforces_password_policy_and_brute_force_protection(
     with _admin(private_keycloak) as admin:
         realm = admin.get("").json()
         assert realm["bruteForceProtected"] is True
+        # Audit row 26: refresh tokens rotate, each works once.
+        assert (realm["revokeRefreshToken"], realm["refreshTokenMaxReuse"]) == (True, 0)
         assert realm["failureFactor"] == 5
         assert "length(12)" in realm["passwordPolicy"]
         assert realm["organizationsEnabled"] is True

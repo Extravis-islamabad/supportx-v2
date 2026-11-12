@@ -50,6 +50,10 @@ class FakeIdp:
     pending: dict[str, tuple[FakeUser, str, str]] = field(default_factory=dict)
     last_redirect_uri: str | None = None
     refresh_tokens: dict[str, tuple[FakeUser, str]] = field(default_factory=dict)
+    # Refresh tokens already used once: refused again, as the realm's revokeRefreshToken with
+    # refreshTokenMaxReuse 0 does (audit row 26). `refreshed_with` lists every one presented.
+    spent_refresh_tokens: set[str] = field(default_factory=set)
+    refreshed_with: list[str] = field(default_factory=list)
     ended_sessions: list[str] = field(default_factory=list)
     token_overrides: dict[str, Any] = field(default_factory=dict)
     now: Callable[[], float] = time.time  # point at a FrozenClock to keep token times in step
@@ -170,9 +174,12 @@ class FakeIdp:
             if form["grant_type"] == "password":
                 self.password_grants.append(form)
                 return self._password_grant(form)
-            entry2 = self.refresh_tokens.get(form["refresh_token"])
-            if entry2 is None or not self.refresh_ok:
+            presented = form["refresh_token"]
+            self.refreshed_with.append(presented)
+            entry2 = self.refresh_tokens.get(presented)
+            if entry2 is None or not self.refresh_ok or presented in self.spent_refresh_tokens:
                 return httpx.Response(400, json={"error": "invalid_grant"})
+            self.spent_refresh_tokens.add(presented)
             return httpx.Response(200, json=self._tokens(entry2[0], entry2[1], None))
         if path.endswith("/logout"):
             self.ended_sessions.append(form.get("refresh_token", ""))
