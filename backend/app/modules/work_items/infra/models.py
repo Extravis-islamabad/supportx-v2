@@ -1751,6 +1751,14 @@ class WorkItemRoleDef(TenantKeyed, Base):
         CheckConstraint(
             "eligibility IS NULL OR jsonb_typeof(eligibility) = 'object'", name="eligibility_object"
         ),
+        # WP-058b S5a (0149): at most one role per type is what Take makes you.
+        Index(
+            "uq_work_item_role_defs_take",
+            "tenant_id",
+            "type",
+            unique=True,
+            postgresql_where=text("taken_by_take"),
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -1763,6 +1771,9 @@ class WorkItemRoleDef(TenantKeyed, Base):
     eligibility: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
     system: Mapped[bool] = mapped_column(Boolean, server_default="false")
     disabled_at: Mapped[datetime | None]
+    # What Take makes you (REQ-REL-057 AC2): none marked means the type's default (a release's
+    # engineer); a tenant may mark its manager instead (Appendix A).
+    taken_by_take: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class WorkItemRoleHolder(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):

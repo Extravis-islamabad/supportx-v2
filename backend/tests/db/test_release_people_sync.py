@@ -110,3 +110,64 @@ def test_people_roles_cover_both_fields() -> None:
     from app.modules.work_items.domain.releases import PEOPLE_ROLES  # noqa: PLC0415
 
     assert PEOPLE_ROLES == PEOPLE
+
+
+async def _take(world: World, org: Org, item: dict[str, Any], user: Any) -> Any:  # noqa: ANN401
+    current = await _current(world, org, item)
+    return await world.call(
+        "POST",
+        f"{REL}/{item['id']}/take",
+        org,
+        user,
+        json={},
+        headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+    )
+
+
+async def test_req_rel_057_ac2_take_makes_you_the_engineer_or_the_marked_role(
+    world: World,
+) -> None:
+    a = world.a
+    await release_workers(world, a)
+    item = await a_release(world, a)
+    taken = await _take(world, a, item, a.admin)
+    assert taken.status_code == 200, taken.text
+    both = await _both(world, a, item)
+    assert both["release_engineer"] == ([str(a.admin)], str(a.admin))  # the default role
+    _equal(both)
+    again = await _take(world, a, item, a.admin)
+    assert (again.status_code, again.json()["code"]) == (409, "already_yours")
+    # The tenant says Take makes you the manager (Appendix A): the marker moves there.
+    settings = (await world.call("GET", f"{REL}/settings", a, a.admin)).json()
+    marked = await world.call(
+        "PATCH",
+        f"{REL}/settings/roles/release_manager",
+        a,
+        a.admin,
+        json={"take": True},
+        headers={"If-Match": f'"{settings["version"]}"', **CONSOLE},
+    )
+    assert marked.status_code == 200, marked.text
+    roles = (await world.call("GET", f"{REL}/settings/roles", a, a.admin)).json()
+    assert [r["code"] for r in roles if r["take"]] == ["release_manager"]
+    other = await a_release(world, a)
+    assert (await _take(world, a, other, a.admin)).status_code == 200
+    both = await _both(world, a, other)
+    assert both["release_manager"] == ([str(a.admin)], str(a.admin))
+    assert both["release_engineer"] == ([], None)
+    _equal(both)
+
+
+async def test_only_a_release_role_can_be_take_s_role(world: World) -> None:
+    a = world.a
+    settings = (await world.call("GET", "/changes/settings", a, a.admin)).json()
+    roles = (await world.call("GET", "/changes/settings/roles", a, a.admin)).json()
+    refused = await world.call(
+        "PATCH",
+        f"/changes/settings/roles/{roles[0]['code']}",
+        a,
+        a.admin,
+        json={"take": True},
+        headers={"If-Match": f'"{settings["version"]}"', **CONSOLE},
+    )
+    assert refused.status_code == 422, refused.text

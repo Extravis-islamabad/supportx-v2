@@ -3798,6 +3798,55 @@ async def _holder_problems(
     return problems + people, params
 
 
+async def taken_role(session: AsyncSession, wtype: WorkItemType) -> str:
+    """The role Take makes you: the one marked, else the type's default (a release's engineer)."""
+    definitions = await _role_defs(session, wtype)
+    marked = next((d.code for d in definitions if d.taken_by_take), None)
+    return marked or "release_engineer"
+
+
+async def take_role(  # noqa: PLR0913 - the record and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    *,
+    expected_version: int,
+    source: Source,
+    holders: PermissionHolders,
+) -> RolesView:
+    """Take a release: you become its Take role, when nobody holds it (REQ-REL-057 AC2).
+
+    The take right and the stage's access, then the role's own rules (eligibility), as the Roles
+    tab applies them; the manager and engineer fields follow (both written).
+    """
+    record = await _for_action(
+        session, subject, wtype, "take", record_id, stage_access=stage_service.EDIT
+    )
+    if record.version != expected_version:
+        raise await _conflict(session, _stale(record, expected_version), record.id)
+    role = await taken_role(session, wtype)
+    users, groups = (await _holders_of(session, record.id)).get(role, ([], []))
+    if users == [subject.user_id] and not groups:
+        raise Conflict(code="already_yours")
+    if users or groups:
+        names = await user_names(session, [str(u) for u in users])
+        taken_by = names.get(str(users[0]), "") if users else ""
+        raise Conflict(code="already_taken", params={"taken_by": taken_by})
+    return await _write_role(
+        session,
+        subject,
+        wtype,
+        record,
+        role,
+        user_ids=[subject.user_id],
+        group_ids=[],
+        expected_version=expected_version,
+        source=source,
+        holders=holders,
+    )
+
+
 async def _replace_holders(  # noqa: PLR0913, PLR0917 - the record's role and its holders
     session: AsyncSession,
     wtype: WorkItemType,
@@ -3922,6 +3971,34 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    return await _write_role(
+        session,
+        subject,
+        wtype,
+        record,
+        role,
+        user_ids=user_ids,
+        group_ids=group_ids,
+        expected_version=expected_version,
+        source=source,
+        holders=holders,
+    )
+
+
+async def _write_role(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record: WorkItem,
+    role: str,
+    *,
+    user_ids: Sequence[uuid.UUID],
+    group_ids: Sequence[uuid.UUID],
+    expected_version: int,
+    source: Source,
+    holders: PermissionHolders,
+) -> RolesView:
+    """`role`'s new holders on a record the caller may change (its right already checked)."""
     if _closed(record):
         raise Conflict(code="record_closed", params={"status": record.status})
     definition = next((d for d in await _role_defs(session, wtype) if d.code == role), None)
@@ -5130,7 +5207,21 @@ async def take(  # noqa: PLR0913 - the record and its context, explicit
     source: Source,
     holders: PermissionHolders,
 ) -> WorkItemView:
-    """Become the technician (REQ-INC-054); sets the group when only one of yours can apply."""
+    """Become the technician (REQ-INC-054); sets the group when only one of yours can apply.
+
+    A release has no technician to become: Take makes you its Take role (REQ-REL-057 AC2).
+    """
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        await take_role(
+            session,
+            subject,
+            wtype,
+            record_id,
+            expected_version=expected_version,
+            source=source,
+            holders=holders,
+        )
+        return await get(session, subject, wtype, record_id)
     record = await _for_action(session, subject, wtype, "take", record_id)
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)

@@ -37,10 +37,11 @@ from app.modules.work_items.domain.templates import (
     is_custom,
     rules_from_json,
 )
-from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType
+from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItemTemplate
 from app.modules.work_items.service import configuration
 from app.modules.work_items.service import templates as template_service
+from app.modules.work_items.service import work_items as items_service
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.history import source_of
@@ -216,6 +217,10 @@ class RoleDefOut(BaseModel):
     eligibility: EligibilityIO | None
     system: bool
     disabled: bool
+    take: bool = Field(
+        default=False,
+        description="Take makes you this role (releases; one per type, else the engineer).",
+    )
 
 
 class RoleDefIn(BaseModel):
@@ -238,6 +243,9 @@ class RoleDefPatch(BaseModel):
     description: dict[str, str] | None = None
     eligibility: EligibilityIO | None = None
     disabled: bool | None = None
+    take: bool | None = Field(
+        default=None, description="Releases: Take makes you this role (moves the marker here)."
+    )
 
 
 class ListOrderIn(BaseModel):
@@ -574,8 +582,14 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
 
         @router.get("/settings/roles", summary="Roles and who may hold them")
         async def get_role_defs(session: TenantSession, subject: Admin) -> list[RoleDefOut]:
-            """Every role in order, retired ones included (marked)."""
+            """Every role in order, retired ones included (marked); `take` on the Take role."""
             del subject
+            rows = await configuration.role_def_rows(session, wtype)
+            taken = (
+                await items_service.taken_role(session, wtype)
+                if wtype.code is WorkItemTypeCode.RELEASE
+                else None
+            )
             return [
                 RoleDefOut(
                     code=r.code,
@@ -587,8 +601,9 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
                     else None,
                     system=r.system,
                     disabled=r.disabled_at is not None,
+                    take=r.code == taken,
                 )
-                for r in await configuration.role_def_rows(session, wtype)
+                for r in rows
             ]
 
         @router.post(

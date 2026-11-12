@@ -1,11 +1,14 @@
-"""Release bulk role assignment (WP-058b S5a; REQ-REL-057), 0149.
+"""Release bulk role assignment and Take's role (WP-058b S5a; REQ-REL-057), 0149.
 
-Expand only, no data step: bulk action `assign_role`, setting a release role's holders (release
-manager, release engineer ...) on every chosen release, each through the single assign's own
-checks.
+Expand only, no data step:
+- bulk action `assign_role`, setting a release role's holders (release manager, release
+  engineer ...) on every chosen release, each through the single assign's own checks;
+- `work_item_role_defs.taken_by_take`: the role Take makes you, at most one per type (a partial
+  unique index). None marked means the type's default (a release's engineer), so no tenant's
+  rows need writing.
 
-The downgrade refuses while any tenant has an `assign_role` bulk job (rule 5h); otherwise it
-narrows the check again.
+The downgrade refuses while any tenant has an `assign_role` bulk job or a marked role (rule 5h);
+otherwise it drops both.
 
 Revision ID: 0149
 Revises: 0146
@@ -25,6 +28,8 @@ depends_on: str | Sequence[str] | None = None
 
 BULK_CHECK = "ck_work_item_bulk_jobs_action_code"
 TABLE = "work_item_bulk_jobs"
+ROLE_DEFS = "work_item_role_defs"
+TAKE_INDEX = "uq_work_item_role_defs_take"
 ADDED = ("assign_role",)
 GUARD = """
 DO $$
@@ -32,8 +37,11 @@ DECLARE t uuid;
 BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
-        IF EXISTS (SELECT 1 FROM work_item_bulk_jobs WHERE action = 'assign_role') THEN
-            RAISE EXCEPTION 'downgrade refused: tenant % has release role bulk jobs (rule 5h)', t;
+        IF EXISTS (SELECT 1 FROM work_item_bulk_jobs WHERE action = 'assign_role')
+           OR EXISTS (SELECT 1 FROM work_item_role_defs WHERE taken_by_take)
+        THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has role bulk jobs or a Take role'
+                ' (rule 5h)', t;
         END IF;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
@@ -60,12 +68,25 @@ def _replace(codes: Sequence[str]) -> None:
 
 
 def upgrade() -> None:
-    """The bulk action `assign_role`."""
+    """The bulk action `assign_role`, and the role Take makes you."""
     now = _codes_now()
     _replace([*now, *(c for c in ADDED if c not in now)])
+    op.add_column(
+        ROLE_DEFS,
+        sa.Column("taken_by_take", sa.Boolean(), server_default="false", nullable=False),
+    )
+    op.create_index(
+        TAKE_INDEX,
+        ROLE_DEFS,
+        ["tenant_id", "type"],
+        unique=True,
+        postgresql_where=sa.text("taken_by_take"),
+    )
 
 
 def downgrade() -> None:
     """Back to before (stops while any tenant has such a job)."""
     op.execute(GUARD)
+    op.drop_index(TAKE_INDEX, table_name=ROLE_DEFS)
+    op.drop_column(ROLE_DEFS, "taken_by_take")
     _replace([c for c in _codes_now() if c not in ADDED])
