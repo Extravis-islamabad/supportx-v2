@@ -125,6 +125,32 @@ hex values and never overwrites an existing one (its passwords are already insid
   before the install and after any cluster upgrade. `helm install` with `values-ha.yaml` also
   warns in its notes when `kube-system/coredns` runs one copy.
 
+  **Node-monitor grace period: 20 s recommended (not required).** Until Kubernetes marks a lost
+  node NotReady (the controller manager's `node-monitor-grace-period`, about 40-50 s by default),
+  Services keep routing to its pods: a dead CoreDNS copy swallows part of the cluster's DNS
+  queries, and the PgBouncer pooler and API copies on it keep getting requests. With 20 s these
+  endpoints drop in about 20 s. Pods are still evicted only after the default 300 s
+  not-ready/unreachable toleration, so a short network blip marks a node NotReady for a moment
+  without moving any workload. On k3s use `deploy/k3s/config-ha.yaml`
+  (`kube-controller-manager-arg: [node-monitor-grace-period=20s]` in each server's
+  `/etc/rancher/k3s/config.yaml`); the k3d HA cluster in CI runs it. On a customer-managed
+  cluster, set the same flag on kube-controller-manager if your platform allows it (managed
+  services often don't). 20 s is twice the kubelet's 10 s status renewal; don't go lower.
+  `ha-preflight.sh` can't read this setting (the controller manager runs inside k3s, not as a
+  pod), so it doesn't check it.
+
+  **The operator's rule: the DNS failover window must fit inside 10 × Sentinel's down-after.**
+  Valkey Sentinel resolves hostnames synchronously, about 4 s blocked per pass while a CoreDNS
+  endpoint is dead, so it enters TILT and notices a lost master late. It then promotes only a
+  replica whose link has been down for less than 10 × `valkeyHa.downAfterMilliseconds` plus the
+  master's SDOWN age: 100 s with our 10 s. The cluster's DNS failover window (roughly the
+  node-monitor grace period, until a lost node's CoreDNS endpoint drops) has to fit inside it. In
+  Cluster run 43148329223 SDOWN came 77 s after the node stop, past the 50 s that down-after 5 s
+  allowed, and every failover aborted (`-failover-abort-no-good-slave`). **Anyone raising the
+  grace period or lowering down-after must keep this true**, or a failover after a node loss can
+  abort for good. An aborted failover is retried after 2 × `failoverTimeoutMilliseconds` (30 s,
+  so 60 s later).
+
   Valkey's pods look names up with `ndots 1`, a 1 s timeout and 2 attempts (`dnsConfig` in
   `templates/valkey-ha.yaml`), and name every peer in full
   (`<pod>.supportx-valkey-headless.<namespace>.svc.<cluster domain>`, the domain read from the

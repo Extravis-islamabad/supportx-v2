@@ -20,6 +20,11 @@
 #     distribution, do the same to its DNS deployment (kubeadm, RKE2 and managed clusters
 #     usually run two copies already; check they sit on different nodes);
 #   - the CloudNativePG operator with two copies on different nodes (deploy/k3d/prereqs.sh).
+# Recommended, not required: node-monitor-grace-period 20 s on kube-controller-manager (k3s:
+# deploy/k3s/config-ha.yaml; CI runs it). A lost node's endpoints (CoreDNS, pooler, API) then
+# drop in about 20 s instead of 40-50 s; pods still move only after the default 300 s
+# toleration. Whatever you set, the DNS failover window (about the grace period) must stay inside
+# Sentinel's 10 x valkeyHa.downAfterMilliseconds (100 s): docs/deployment.md, Profiles.
 
 ha:
   enabled: true

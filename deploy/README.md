@@ -10,7 +10,8 @@ Everything needed to run SupportX outside a developer's editor (architecture.md 
 - `images/`: Dockerfiles of the two INTERNAL/DEV images (backend, web) and the web server config.
 - `k3d/`: the local cluster (k3s v1.36.5, D-038), its prerequisites and the e2e runner.
 - `k3s/`: for HA installs on k3s (and the k3d HA cluster): `cluster-dns-ha.sh` (two CoreDNS
-  copies on different nodes) and `ha-preflight.sh` (warns about unmet HA cluster requirements).
+  copies on different nodes) `ha-preflight.sh` (warns about unmet HA cluster requirements) and `config-ha.yaml`
+  (k3s server settings: node-monitor grace period 20 s).
 - `scripts/`: `secrets.sh` (random Secrets, never overwrites), `chart-lint.sh`.
 
 How to run, what runs where, secrets and CI: `docs/deployment.md`.

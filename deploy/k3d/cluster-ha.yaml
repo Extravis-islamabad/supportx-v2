@@ -30,6 +30,10 @@ options:
       # node-loss test can stop any agent, PostgreSQL's primary included, and keep the control plane.
       - arg: --node-taint=CriticalAddonsOnly=true:NoExecute
         nodeFilters: [server:*]
+      # As the shipped HA profile (deploy/k3s/config-ha.yaml, the reasons there): a lost node goes
+      # NotReady in about 20 s, so its endpoints (CoreDNS, the pooler, the API) drop then.
+      - arg: --kube-controller-manager-arg=node-monitor-grace-period=20s
+        nodeFilters: [server:*]
 files:
   # Traefik (bundled with k3s) also serves the Gateway API (D2).
   - source: traefik-config.yaml
