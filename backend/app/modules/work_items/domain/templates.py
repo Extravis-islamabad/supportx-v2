@@ -93,6 +93,23 @@ DEFAULT_LIST_VALUES: Mapping[PickList, tuple[str, ...]] = {
     ),
 }
 
+# A release closes with a code of its own kind (REQ-REL-050; 06-releases-projects.md §12):
+# never an incident's "fixed" or "workaround".
+RELEASE_CLOSURE_CODES: tuple[str, ...] = (
+    "completed",
+    "completed_with_issues",
+    "rolled_back",
+    "deferred",
+    "rejected",
+    "canceled",
+)
+
+
+def closure_codes_for(*, release: bool) -> tuple[str, ...]:
+    """The closure codes a type is seeded with."""
+    return RELEASE_CLOSURE_CODES if release else DEFAULT_LIST_VALUES[PickList.CLOSURE_CODE]
+
+
 # Which reason list a transition asks from when an admin turns its reason prompt on.
 ACTION_REASON_LIST: Mapping[WorkItemAction, ReasonList] = {
     WorkItemAction.WAIT_REQUESTER: ReasonList.PAUSE,

@@ -18,6 +18,8 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "ReleaseFollowUpIn.kind": "work_item_type",  # WP-058b S4
+    "ReleaseFollowUpOut.relation": "releases.failed.relation",
     "InstanceOut.status": "workflow_instance_status",  # WP-048b
     "WorkItemClosureOut.task_dependency_mode": "task_dependency_mode",  # WP-046a S1
     "WorkItemClosurePatch.task_dependency_mode": "task_dependency_mode",

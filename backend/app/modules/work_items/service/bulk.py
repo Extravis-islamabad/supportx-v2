@@ -41,7 +41,7 @@ from app.modules.work_items.domain.lists import (
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemBulkJobProgressed
 from app.modules.work_items.infra.models import WorkItem, WorkItemBulkJob
-from app.modules.work_items.service import closing
+from app.modules.work_items.service import change_close, closing
 from app.modules.work_items.service import problems as problem_links
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service import work_items as items
@@ -506,8 +506,21 @@ async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's v
     """Close a staged record (a change) by its own listed move that lands in closed (REQ-CHG-101).
 
     Its life cycle, closure rules and children decide, as for one change: the move the record
-    page would offer, with the code; none from where it is is a skip that says so.
+    page would offer, with the code; none from where it is is a skip that says so. A change
+    closes through `change_close`, the one close every flow shares (lane C's REQ-REL-052 too).
     """
+    if wtype.code is WorkItemTypeCode.CHANGE:
+        await change_close.close_change(
+            session,
+            subject,
+            record_id,
+            expected_version=version,
+            closure_code=changes.get("closure_code"),
+            resolution=changes.get("resolution"),
+            confirm_open_work=bool(changes.get("confirm_open_work")),
+            source=source,
+        )
+        return
     panel = await items.stage_panel(session, subject, wtype, record_id)
     # Closed by the type's own model (a release and a change each), never one type's constant.
     model = await stage_service.load_model(session, wtype, panel.record.lifecycle_version)
