@@ -507,8 +507,11 @@ random) as `sxstaging`:
    It refuses if the release does not exist yet (step 6 is by hand).
 9. `helm test` (the same filter as step 6).
 10. Smoke check: `curl` of `<PUBLIC_URL>/api/v1/ready` through Traefik, with the staging CA.
-11. `make e2e-smoke` against the laptop, **only once that target exists**: the browser smoke
-    suite is **(not yet in the repo)**, so today this step logs "skipped". Optional until then.
+11. Browser smoke: **skipped on purpose for now**, and the step says so in the log. `make
+    e2e-smoke` targets the dev servers, needs the cluster-e2e secrets (Keycloak admin, the
+    Centrifugo secret, persona passwords) and the staging CA, and would write e2e users and
+    records into staging, which is Haider's call. A `staging-e2e-smoke` target mirroring
+    cluster-e2e is **(not yet in the repo)**.
 12. Tidies up: removes Docker's copies of older SupportX images (k3s keeps its own copies for
     rollback), prunes build cache older than 7 days, deletes job logs older than 14 days.
 
@@ -527,6 +530,8 @@ Note what it does **not** cover:
 
 ```bash
 sudo cp /srv/supportx-staging/checkout/deploy/staging/staging.env.example /etc/supportx-staging/staging.env
+sudo chown root:root /etc/supportx-staging/staging.env
+sudo chmod 0644 /etc/supportx-staging/staging.env    # the job sources it as code: root writes it only
 sudo nano /etc/supportx-staging/staging.env          # PUBLIC_URL, if not https://sx-staging.lan
 sudo cp /srv/supportx-staging/checkout/deploy/staging/supportx-staging.service \
         /srv/supportx-staging/checkout/deploy/staging/supportx-staging.timer /etc/systemd/system/

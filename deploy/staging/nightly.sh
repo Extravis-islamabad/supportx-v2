@@ -19,6 +19,14 @@ set -euo pipefail
 main() {
   local config="${SUPPORTX_STAGING_CONFIG:-/etc/supportx-staging/staging.env}"
   if [[ -r "$config" ]]; then
+    # The file is sourced as shell code by a job that runs `git reset --hard` and Helm as this
+    # user: only root may be able to change it (install it root-owned, mode 0644).
+    local owner mode
+    read -r owner mode < <(stat -c '%u %a' "$config")
+    if [[ "$owner" != 0 || $((8#$mode & 8#022)) != 0 ]]; then
+      echo "nightly: $config must be owned by root and writable by root only (now uid $owner, mode $mode)" >&2
+      exit 1
+    fi
     # shellcheck source=/dev/null
     . "$config"
   fi
@@ -37,6 +45,7 @@ main() {
   STARTED="$(date -Is)"
   LOG="$LOG_DIR/nightly-$(date +%Y-%m-%d-%H%M%S).log"
   exec > >(tee -a "$LOG") 2>&1
+  TEE_PID=$!
 
   # One run at a time (a manual start while the timer's run is still going waits for it).
   exec 9>"$STATE_DIR/lock"
@@ -112,11 +121,12 @@ main() {
   echo
 
   step "browser smoke suite"
-  if grep -q '^e2e-smoke:' Makefile; then
-    SUPPORTX_PUBLIC_URL="$PUBLIC_URL" make e2e-smoke
-  else
-    echo "skipped: make e2e-smoke is not yet in the repo"
-  fi
+  # Skipped on purpose for now (lane C, #462): `make e2e-smoke` targets the dev servers
+  # (SUPPORTX_CONSOLE_URL/PORTAL_URL), and against a cluster it needs the SUPPORTX_E2E_* set
+  # (Keycloak admin, the Centrifugo secret, persona passwords) and the private CA, as the
+  # cluster-e2e job has. It would also write e2e users and records into staging, which is the
+  # product owner's call. A staging-e2e-smoke target mirroring cluster-e2e comes later.
+  echo "skipped: no staging browser smoke target yet (runbook 7.1, step 11)"
 
   step "tidy up"
   # Docker's copies are no longer needed once k3s holds them; older k3s images stay for rollback
@@ -138,6 +148,7 @@ step() {
   echo "== $(date -Is) $STEP"
 }
 
+# shellcheck disable=SC2317 # on_exit runs from the EXIT trap, which shellcheck cannot see
 on_exit() {
   local code="$1" result="ok"
   [[ "$code" == 0 && "$STEP" == "done" ]] || result="failed"
@@ -156,7 +167,12 @@ on_exit() {
     echo "== nightly run FAILED at step: $STEP (exit $code). The previous release keeps running."
     [[ "$code" != 0 ]] || code=1
   fi
+  # Let tee write the last lines to the log before the job ends (systemd would kill it).
+  exec >&- 2>&-
+  wait "$TEE_PID" 2>/dev/null || true
   exit "$code"
 }
 
-main "$@"
+# On one line: after `main` returns, bash would read the next line of this file at its old
+# offset, and `git reset --hard` may have replaced the file meanwhile.
+main "$@"; exit $?
