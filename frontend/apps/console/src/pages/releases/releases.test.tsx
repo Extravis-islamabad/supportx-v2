@@ -521,7 +521,7 @@ describe('console: releases', () => {
     });
     render(<App />);
     const offer = await screen.findByTestId('release-canceled-changes');
-    expect(offer.textContent).toContain('1 change is still in this canceled release');
+    expect(offer.textContent).toContain('1 change is still in this cancelled release');
     expect(offer.textContent).toContain('CHG-5 Database upgrade');
     fireEvent.click(screen.getByTestId('release-unlink-changes'));
     await waitFor(() => {
