@@ -95,3 +95,26 @@ async def test_req_sec_009_ac3_a_break_glass_admin_gets_in_audited_and_alerted(b
         "identity_access.break_glass.signed_in",
     )
     assert alerted[0]["n"] == 1
+
+
+async def test_a_mobile_sso_sign_in_carries_its_method_and_is_let_in(bff: Bff) -> None:
+    """Lane B: the app's tokens come from the console client (ADR-044), with `sx_idp` too."""
+    from tests.db.test_auth_mobile import handoff_of, mobile_login, new_verifier  # noqa: PLC0415
+
+    a, _b = bff.tenants
+    await _require(bff.db, a, "everyone")
+    sso = bff.user("a", email=_email("phone"), identity_provider="acme-entra")
+    answer = await mobile_login(bff, sso, new_verifier())
+    assert handoff_of(answer)  # the hand-off back to the app: let in
+    password = bff.user("a", email=_email("phone-pw"))
+    refused = await mobile_login(bff, password, new_verifier())
+    assert "auth_error=sso_required" in refused.headers["location"]
+    rows = await _sql(
+        bff.db,
+        "SELECT outcome, method, app FROM sign_in_events WHERE tenant_id = $1 ORDER BY occurred_at",
+        a,
+    )
+    assert [tuple(r) for r in rows] == [
+        ("success", "single_sign_on", "mobile"),
+        ("failed", "password", "mobile"),
+    ]
