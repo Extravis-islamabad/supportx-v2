@@ -1133,6 +1133,39 @@ export const en = {
   'security.sso.test_title': 'Test sign-in: {{name}}',
   'security.sso.tested_at': 'Tested {{when}}',
   'security.sso.title': 'Single sign-on',
+  'security.sso_policy.admin': 'Administrator',
+  'security.sso_policy.admin_saved': '{{name}} updated.',
+  'security.sso_policy.admins_intro_one':
+    '1 emergency administrator. Only another administrator can name or remove one, and only administrators with two-step sign-in can be named.',
+  'security.sso_policy.admins_intro_other':
+    '{{count}} emergency administrators. Only another administrator can name or remove one, and only administrators with two-step sign-in can be named.',
+  'security.sso_policy.admins_title': 'Emergency administrators',
+  'security.sso_policy.also_mfa': "Also ask for SupportX's two-step code after single sign-on",
+  'security.sso_policy.also_mfa_help':
+    "Off: your identity provider's own two-step sign-in is trusted. On: people who set up two-step sign-in in SupportX are asked for their code as well.",
+  'security.sso_policy.break_glass': 'Emergency administrator',
+  'security.sso_policy.break_glass_for': 'Emergency administrator: {{name}}',
+  'security.sso_policy.confirm_body':
+    'They will be able to sign in with their password and two-step code even while single sign-on is required. The other administrators are alerted every time they do.',
+  'security.sso_policy.confirm_ok': 'Make emergency administrator',
+  'security.sso_policy.confirm_title': 'Make {{name}} an emergency administrator?',
+  'security.sso_policy.effect_everyone':
+    'Everyone can sign in only through your identity provider. Emergency administrators keep their password.',
+  'security.sso_policy.effect_technicians':
+    'Technicians can sign in only through your identity provider. Requesters can still use a password. Emergency administrators keep their password.',
+  'security.sso_policy.intro':
+    'Make single sign-on the only way in for technicians or for everyone. Name at least one emergency administrator first: they keep a password and two-step sign-in, so you can still get in if your identity provider fails. Every emergency sign-in alerts the other administrators.',
+  'security.sso_policy.ip_exempt': 'Outside the IP allow-lists',
+  'security.sso_policy.ip_exempt_for': 'Outside the IP allow-lists: {{name}}',
+  'security.sso_policy.mfa': 'Two-step sign-in',
+  'security.sso_policy.mfa_off': 'Not set up',
+  'security.sso_policy.mfa_on': 'Set up',
+  'security.sso_policy.needs_mfa': 'Needs two-step sign-in first.',
+  'security.sso_policy.no_admins': 'No administrators yet.',
+  'security.sso_policy.not_yourself': 'Another administrator must name you.',
+  'security.sso_policy.required': 'Single sign-on required for',
+  'security.sso_policy.saved': 'Single sign-on settings saved.',
+  'security.sso_policy.title': 'Single sign-on required',
   'session.idle.body':
     'You will be signed out in {{time}} because nothing happened for a while. Anything you typed is kept and comes back when you sign in again.',
   'session.idle.sign_out': 'Sign out now',

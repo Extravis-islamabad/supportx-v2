@@ -20,6 +20,11 @@ export type AccountAction = 'password' | 'mfa' | 'recovery_codes';
 export type NetworkRules = components['schemas']['NetworkRulesOut'];
 export type NetworkRulesInput = components['schemas']['NetworkRulesBody'];
 export type SignInEvent = components['schemas']['SignInEventOut'];
+export type SsoPolicy = components['schemas']['SsoPolicyOut'];
+export type SsoPolicyInput = components['schemas']['SsoPolicyBody'];
+export type SsoRequired = components['schemas']['SsoRequired'];
+export type TenantAdmin = components['schemas']['TenantAdminOut'];
+export type BreakGlassInput = components['schemas']['BreakGlassBody'];
 export type SignInLogPage = components['schemas']['SignInLogPage'];
 export type SignInOutcome = SignInEvent['outcome'];
 export type SignInMethod = SignInEvent['method'];
@@ -434,5 +439,54 @@ export function useSignIns(filters: SignInFilters) {
   return useQuery({
     queryKey: queryKeys.identity.signIns({ ...filters }),
     queryFn: () => call(api.GET('/api/v1/identity/sign-ins', { params: { query: filters } })),
+  });
+}
+
+/** Single sign-on required, MFA after it, and the tenant's admins with their break-glass marks. */
+export function useSsoPolicy() {
+  return useQuery({
+    queryKey: queryKeys.identity.ssoPolicy,
+    queryFn: () => call(api.GET('/api/v1/identity/sso-policy')),
+    staleTime: 0,
+  });
+}
+
+/** Save the policy; turning it on without an emergency administrator is refused (409). */
+export function useSaveSsoPolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ body, version }: { body: SsoPolicyInput; version: number }) =>
+      call(api.PUT('/api/v1/identity/sso-policy', { params: { header: ifMatch(version) }, body })),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.identity.ssoPolicy, saved);
+    },
+    onError: onConflict(
+      () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.ssoPolicy }),
+    ),
+  });
+}
+
+/** Name or remove an emergency (break-glass) administrator; the policy is fetched again. */
+export function useSetBreakGlass() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      userId,
+      body,
+      version,
+    }: {
+      userId: string;
+      body: BreakGlassInput;
+      version: number;
+    }) =>
+      call(
+        api.PUT('/api/v1/identity/break-glass/{user_id}', {
+          params: { path: { user_id: userId }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.identity.ssoPolicy }),
   });
 }
