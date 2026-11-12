@@ -11,15 +11,18 @@ The coordinator's rules (2026-11-12), with lane B's condition 5:
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access.domain.permissions import TENANT_ADMIN
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.domain.sign_in_policy import SsoRequired, change_refusal
-from app.modules.identity_access.events import UserUpdated
+from app.modules.identity_access.events import IdentitySettingsChanged, UserUpdated
 from app.modules.identity_access.infra.models import IdentitySettings, Role, User, UserRole
 from app.shared.events import record_event
 from app.shared.history import stale_version
@@ -121,3 +124,83 @@ async def set_break_glass(  # noqa: PLR0913 - the change and who makes it, keywo
         {"changed_fields": changed, "before": before, "after": after} if changed else {}
     )
     return BreakGlassState(user_id, break_glass, ip_exempt, person.version), details
+
+
+@dataclass(frozen=True)
+class SsoPolicy:
+    """The tenant's single sign-on policy and the settings row's version."""
+
+    required: SsoRequired
+    also_require_mfa: bool
+    version: int
+
+
+async def get_sso_policy(session: AsyncSession) -> SsoPolicy:
+    """The policy (off, provider MFA trusted, version 0 when never saved)."""
+    row = await session.scalar(select(IdentitySettings))
+    if row is None:
+        return SsoPolicy(SsoRequired.OFF, also_require_mfa=False, version=0)
+    return SsoPolicy(SsoRequired(row.sso_required), row.sso_also_require_mfa, row.version)
+
+
+async def save_sso_policy(
+    session: AsyncSession,
+    *,
+    required: SsoRequired,
+    also_require_mfa: bool,
+    expected_version: int,
+) -> tuple[SsoPolicy, dict[str, object]]:
+    """Save the policy if the row is at `expected_version`; the audit details too.
+
+    Turning the requirement on is refused without an active break-glass admin (AC2).
+    """
+    refusal = change_refusal(required, await active_break_glass(session), removing_admin=False)
+    if refusal is not None:
+        raise Conflict(code=refusal)
+    current = await get_sso_policy(session)
+    if current.version != expected_version:
+        row = await session.scalar(select(IdentitySettings))
+        if row is not None:
+            raise await stale_version(session, row, expected_version=expected_version)
+        raise Conflict(code="version_conflict", params={"expected_version": expected_version})
+    columns = {"sso_required": required.value, "sso_also_require_mfa": also_require_mfa}
+    before = {
+        "sso_required": current.required.value,
+        "sso_also_require_mfa": current.also_require_mfa,
+    }
+    changed = [name for name in columns if columns[name] != before[name]]
+    if not changed:
+        return current, {}
+    context = session.info[SESSION_TENANT_KEY]
+    statement = (
+        insert(IdentitySettings)
+        .values(
+            tenant_id=context.tenant_id,
+            created_by=context.user_id,
+            updated_by=context.user_id,
+            version=1,
+            **columns,
+        )
+        .on_conflict_do_update(
+            index_elements=[IdentitySettings.tenant_id],
+            set_={
+                **columns,
+                "updated_at": datetime.now(UTC),
+                "updated_by": context.user_id,
+                "version": IdentitySettings.version + 1,
+            },
+            where=IdentitySettings.version == expected_version,
+        )
+        .returning(IdentitySettings.version)
+    )
+    version = await session.scalar(statement)
+    if version is None:  # changed by someone else between the read and the write
+        raise Conflict(code="version_conflict", params={"expected_version": expected_version})
+    await record_event(
+        session,
+        IdentitySettingsChanged(changed_fields=changed),
+        aggregate_id=context.tenant_id,
+        aggregate_version=version,
+    )
+    details: dict[str, object] = {"changed_fields": changed, "before": before, "after": columns}
+    return SsoPolicy(required, also_require_mfa, version), details
