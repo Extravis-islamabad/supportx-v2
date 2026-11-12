@@ -6,15 +6,17 @@ changes and releases; a closed change is locked, every write refused with a labe
 """
 
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
 
-from app.core.errors import AppError, Conflict, NotFound
+from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import subject_for
 from app.modules.work_items.service import change_close
+from app.shared.labels import has_label
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_changes_api import CHG, _approve_pending, a_change, move, new_change
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem
@@ -557,6 +559,7 @@ async def _close(
     org: Org,
     user: uuid.UUID,
     item: dict[str, Any],
+    without: frozenset[str] = frozenset(),
     **values: Any,  # noqa: ANN401 - the call's keywords
 ) -> Any:  # noqa: ANN401 - the view or the refusal
     """close_change as a closing release calls it: one savepoint per change, refusals returned."""
@@ -564,6 +567,9 @@ async def _close(
         TenantContext(org.tenant, user_id=user)
     ) as session:
         subject = await subject_for(session, org.tenant, user)
+        if without:  # the same person, short of these rights (a view-only role, in effect)
+            grants = {k: v for k, v in subject.grants.items() if k not in without}
+            subject = replace(subject, grants=grants, is_tenant_admin=False)
         try:
             async with session.begin_nested():
                 return await change_close.close_change(
@@ -614,3 +620,22 @@ async def test_close_change_closes_by_the_change_s_own_close_and_raises_its_refu
     # Someone who cannot see the change hears nothing about it.
     hidden = await _close(world, a, a.requester, await _in_review(world, a), closure_code=code)
     assert isinstance(hidden, NotFound)
+
+
+async def test_close_change_a_listed_close_you_may_not_run_says_why(world: World) -> None:
+    """Lane C's #429 review: the skip bulk close and a closing release show most. The close is
+    listed (the change is at its review), but this person may not run it: the code, and a
+    reason that has its own label."""
+    a = world.a
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    ready = await _in_review(world, a)
+    # The admin sees the change; without changes.edit the close is listed but not theirs to run.
+    refused = await _close(
+        world, a, a.admin, ready, without=frozenset({"changes.edit"}), closure_code=codes[0]["code"]
+    )
+    assert isinstance(refused, PermissionDenied), refused
+    assert refused.instance_code == "transition_not_allowed"
+    reason = refused.params["reason"]
+    assert isinstance(reason, str)
+    assert has_label(f"action_reason.{reason}"), reason
+    assert (await fresh(world, a, ready))["stage"] == "review"  # nothing moved
