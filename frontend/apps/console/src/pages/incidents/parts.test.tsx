@@ -194,6 +194,37 @@ describe('Incident parts (WP-020e)', () => {
     ).toBe(''); // cleared, not kept
   });
 
+  it('REQ-INC-071: the Time tab shows open and paused time, per status, in the hours it says', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'time');
+    api({
+      [`GET ${PATH}/time-analysis`]: {
+        body: {
+          business_hours: true,
+          as_of: '2026-11-12T10:00:00Z',
+          open_seconds: 3 * 3600,
+          paused_seconds: 3600,
+          by_status: [
+            { key: 'in_progress', seconds: 2 * 3600 },
+            { key: 'awaiting_requester', seconds: 3600 },
+          ],
+          by_group: [{ key: null, seconds: 3 * 3600 }],
+          by_technician: [{ key: null, seconds: 3 * 3600 }],
+        },
+      },
+    });
+    render(<App />);
+    const hours = await screen.findByTestId('inc-time-hours');
+    expect(hours.textContent).toContain('working hours'); // AC2: it says which
+    const totals = screen.getByTestId('inc-time-totals');
+    expect(totals.textContent).toContain('3 h 0 min');
+    expect(totals.textContent).toContain('1 h 0 min');
+    const statuses = screen.getByTestId('inc-time-status');
+    expect(statuses.textContent).toContain('2 h 0 min');
+    expect(screen.getByTestId('inc-time-group').textContent).toContain('No group');
+    expect(screen.getByTestId('inc-time-technician').textContent).toContain('Nobody');
+  });
+
   it('REQ-INC-084 AC3: a link to a record you cannot see shows without its ID or subject', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     rememberTab(SESSION_USER, 'links');

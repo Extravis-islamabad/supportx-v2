@@ -151,6 +151,7 @@ describe('One incident', () => {
       'Tasks',
       'Worklogs',
       'Links',
+      'Time',
       'History (1)',
       'Automation',
     ]);

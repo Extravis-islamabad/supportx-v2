@@ -9,6 +9,7 @@ export const RECORD_TABS = [
   'tasks',
   'worklogs',
   'links',
+  'time',
   'history',
   'automation',
 ] as const;

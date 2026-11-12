@@ -29,6 +29,9 @@ import {
   useIncidentLinks,
   useIncidentTasks,
   useIncidentWorklogs,
+  useIncidentCatalogue,
+  useTimeAnalysis,
+  useUnits,
   useLinkChange,
   useSession,
   useTaskChange,
@@ -49,6 +52,7 @@ import {
   SPACE,
   TimeZoneNote,
   ToneTag,
+  useAppearance,
   useDateTime,
   useLabel,
   WriteButton,
@@ -57,6 +61,7 @@ import { useListFormat } from '@supportx/labels';
 import { useRecordChannel } from '@supportx/realtime';
 
 import { IncidentPicker } from './IncidentPicker';
+import { statusLabel } from './labels';
 import { UserPicker } from './pickers';
 import { TaskDetails } from './TaskDetails';
 
@@ -360,6 +365,88 @@ export function IncidentTasks({
             setOpened(null);
           }}
         />
+      )}
+    </Space>
+  );
+}
+
+// --- time analysis (WP-046a S3, REQ-INC-071) ---------------------------------------------------
+
+/**
+ * Where the incident's time went: open and paused, per status, group and technician, in the
+ * hours its calendar counts (said above the figures, AC2). Live: the record's changes refresh it
+ * through its channel, and open time is fetched again each minute.
+ */
+export function IncidentTime({ item, base = 'incidents' }: { item: Incident; base?: PartsBase }) {
+  const t = useLabel();
+  const { locale } = useAppearance();
+  const duration = useDuration();
+  const queryClient = useQueryClient();
+  const found = useTimeAnalysis(item.id, true, base);
+  const catalogue = useIncidentCatalogue(base === 'incidents');
+  const groups = useUnits('groups');
+  useRecordChannel('wi', item.id, () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.timeAnalysis(item.id) });
+  });
+  const data = found.data;
+  const people = usePeople((data?.by_technician ?? []).map((row) => row.key));
+  if (data === undefined) return <EmptyText>{t('shell.loading')}</EmptyText>;
+  const minutes = (seconds: number) => duration(Math.round(seconds / 60));
+  const groupName = (id: string | null) =>
+    id === null
+      ? t('incidents.time.no_group')
+      : (groups.data?.find((g) => g.id === id)?.name ?? t('incidents.unknown_value'));
+  const personName = (id: string | null) =>
+    id === null ? t('incidents.time.nobody') : (people.get(id) ?? t('incidents.unknown_value'));
+  const section = (
+    testId: string,
+    title: string,
+    rows: { key: string | null; seconds: number }[],
+    name: (key: string | null) => string,
+  ) => (
+    <Descriptions
+      size="small"
+      column={1}
+      title={title}
+      data-testid={testId}
+      items={
+        rows.length === 0
+          ? [{ key: 'none', label: t('incidents.time.none'), children: '' }]
+          : rows.map((row) => ({
+              key: row.key ?? 'none',
+              label: name(row.key),
+              children: minutes(row.seconds),
+            }))
+      }
+    />
+  );
+  return (
+    <Space direction="vertical" size="middle" style={{ width: '100%' }} data-testid="inc-time">
+      <Typography.Text type="secondary" data-testid="inc-time-hours">
+        {t(data.business_hours ? 'incidents.time.business_hours' : 'incidents.time.all_hours')}
+      </Typography.Text>
+      <Descriptions
+        size="small"
+        column={1}
+        data-testid="inc-time-totals"
+        items={[
+          { key: 'open', label: t('incidents.time.open'), children: minutes(data.open_seconds) },
+          {
+            key: 'paused',
+            label: t('incidents.time.paused'),
+            children: minutes(data.paused_seconds),
+          },
+        ]}
+      />
+      {section('inc-time-status', t('incidents.time.by_status'), data.by_status, (code) =>
+        statusLabel(t, catalogue.data, code ?? '', locale),
+      )}
+      {section('inc-time-group', t('incidents.time.by_group'), data.by_group, groupName)}
+      {section(
+        'inc-time-technician',
+        t('incidents.time.by_technician'),
+        data.by_technician,
+        personName,
       )}
     </Space>
   );
