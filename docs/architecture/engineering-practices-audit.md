@@ -74,6 +74,7 @@ Security items are marked **(SEC)**. Per Haider, missing security items go to th
 | 29 | **No release feature flags (OpenFeature);** no bundle-size budget; no per-page web-vitals or Lighthouse budgets; no Vitest coverage floor; no list virtualisation | Low-medium | C + B | M | queued |
 | 30 | **No technical-debt register** (the PROGRESS open items are scattered; one must-fix entry is stale: worker restarts are already handled in `workers/resilience.py`) | Low | coordinator | S | this doc starts it |
 | 31 | Smaller items: no CI guard against editing merged migrations; only the API autoscales; no memory or soak test; env-var reference undocumented (17 of 156 in .env.example); no SemVer or changelog policy; Arabic `C` collation; a few re-order endpoints without If-Match; `docs/dev-setup.md:500-519` contradicts D-122 | Low | B mostly | S | backlog |
+| 32 | **(SEC) Rate limiter: fixed windows allow a 2× burst at the edge** (`app/shared/api/ratelimit.py`, `int(now // window)`): up to twice the limit across a window boundary (60 at :59 plus 60 at :00). Consider a sliding window or token bucket for the auth routes (found with the #457 test flake) | Low | B | S | later |
 
 ## Technical-debt register (started here)
 

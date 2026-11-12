@@ -45,6 +45,14 @@ spec:
   {{- end }}
   resources:
     {{- toYaml $pg.resources | nindent 4 }}
+  {{- if .Values.ha.enabled }}
+  # HA: CloudNativePG's own anti-affinity, required with ha.antiAffinity hard (its default is
+  # preferred, which lets two instances share a node and fall together).
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: {{ ternary "required" "preferred" (eq .Values.ha.antiAffinity "hard") }}
+    topologyKey: kubernetes.io/hostname
+  {{- end }}
   {{- if $pg.backup.enabled }}
   # WAL archiving and base backups through the Barman Cloud plugin (WP-014b).
   plugins:
