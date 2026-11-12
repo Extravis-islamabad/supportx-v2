@@ -75,6 +75,7 @@ import {
   Tabs,
 } from '@supportx/ui';
 
+import { CopyDialog } from './CopyDialog';
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
@@ -177,6 +178,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [changedBy, setChangedBy] = useState<string | null>(null);
   const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
@@ -417,6 +419,18 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           allowed: true,
           testId: 'inc-op-create-problem',
           onClick: () => void navigate(`/problems/new?incident=${item.id}`),
+        }
+      : null,
+    // WP-046a S5c (REQ-INC-033): copy it one or more times.
+    can('incidents.create')
+      ? {
+          key: 'copy',
+          label: t('incidents.copy.open'),
+          allowed: true,
+          testId: 'inc-op-copy',
+          onClick: () => {
+            setCopying(true);
+          },
         }
       : null,
     deleteOp !== undefined && deleteOp.reason !== 'no_permission'
@@ -689,6 +703,14 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         }
       >
         <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
+        <CopyDialog
+          open={copying}
+          recordId={item.id}
+          displayId={item.display_id}
+          onClose={() => {
+            setCopying(false);
+          }}
+        />
         <AssignDialog
           item={item}
           open={assigning}

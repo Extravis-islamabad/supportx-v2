@@ -153,6 +153,8 @@ export {
   useTakeIncident,
   useSingleFlight,
   useUpdateIncident,
+  useCopyIncident,
+  type RecordCopyPart,
   type ActionRun,
   type AssignChange,
   type PossibleDuplicates,
