@@ -18,6 +18,8 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "TemplateKind": "text_template_kind",  # WP-046a S5a
+    "TemplateVisibility": "text_template_visibility",
     "ReleaseFollowUpIn.kind": "work_item_type",  # WP-058b S4
     "ReleaseFollowUpOut.relation": "releases.failed.relation",
     "InstanceOut.status": "workflow_instance_status",  # WP-048b

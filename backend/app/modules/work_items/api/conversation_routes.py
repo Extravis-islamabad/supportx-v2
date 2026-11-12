@@ -29,12 +29,20 @@ from app.modules.work_items.domain.conversation import (
     ReplyMode,
     Visibility,
 )
+from app.modules.work_items.domain.text_templates import (
+    CATEGORIES_MAX,
+    GROUPS_MAX,
+    SUBJECT_MAX,
+    TemplateKind,
+    TemplateVisibility,
+)
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import (
     WorkItemConversation,
     WorkItemReplyTemplate,
 )
 from app.modules.work_items.service import conversations as service
+from app.modules.work_items.service import text_templates
 from app.modules.work_items.service.realtime import RECORD_KIND, TYPING
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -210,28 +218,87 @@ class CounterOut(BaseModel):
 
 
 class ReplyTemplateOut(BaseModel):
-    """A reply template."""
+    """A reply or resolution template (REQ-INC-041, -042)."""
 
     id: uuid.UUID
+    kind: TemplateKind
     name: str
-    body: str
+    subject: str | None
+    bodies: dict[str, str] = Field(description="The text per language (en, ar, ur).")
+    body: str = Field(description="One text, for older clients: the first language's.")
+    visibility: TemplateVisibility
+    mine: bool = Field(description="A personal template of the caller's own.")
+    group_ids: list[uuid.UUID]
+    category_ids: list[uuid.UUID]
+    may_edit: bool
     version: int
 
     @classmethod
-    def of(cls, row: WorkItemReplyTemplate) -> "ReplyTemplateOut":
-        """From the stored row."""
-        # Until S5a's own shapes: the pre-0154 text, else the first language's (0154).
-        text = row.body or next(iter(row.bodies.values()), "")
-        return cls(id=row.id, name=row.name, body=text, version=row.version)
+    def of(cls, row: WorkItemReplyTemplate, subject: Subject) -> "ReplyTemplateOut":
+        """From the stored row, as `subject` sees it."""
+        bodies = dict(row.bodies or {}) or ({"en": row.body} if row.body else {})
+        personal = row.visibility == TemplateVisibility.PERSONAL.value
+        return cls(
+            id=row.id,
+            kind=TemplateKind(row.kind),
+            name=row.name,
+            subject=row.subject,
+            bodies=bodies,
+            body=next(iter(bodies.values()), ""),
+            visibility=TemplateVisibility(row.visibility),
+            mine=personal and row.owner_id == subject.user_id,
+            group_ids=list(row.group_ids or []),
+            category_ids=list(row.category_ids or []),
+            may_edit=(personal and row.owner_id == subject.user_id)
+            or (not personal and text_templates.may_manage_shared(subject)),
+            version=row.version,
+        )
 
 
 class ReplyTemplateIn(BaseModel):
-    """A template's name and text (rich text, sanitised)."""
+    """A template: its kind, name, text per language (rich text, sanitised) and who has it."""
 
     model_config = ConfigDict(extra="forbid")
 
+    kind: TemplateKind = TemplateKind.REPLY
     name: str = Field(max_length=TEMPLATE_NAME_MAX * 2)
-    body: str = Field(max_length=BODY_MAX * 2)
+    subject: str | None = Field(default=None, max_length=SUBJECT_MAX * 2)
+    bodies: dict[str, str] = Field(default_factory=dict, max_length=3)
+    body: str | None = Field(
+        default=None, max_length=BODY_MAX * 2, description="Older clients: one English text."
+    )
+    visibility: TemplateVisibility = TemplateVisibility.SHARED
+    group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=GROUPS_MAX)
+    category_ids: list[uuid.UUID] = Field(default_factory=list, max_length=CATEGORIES_MAX)
+
+    def as_input(self) -> text_templates.TemplateInput:
+        """The service's input; an older client's one `body` is its English text."""
+        bodies = dict(self.bodies) or ({"en": self.body} if self.body else {})
+        return text_templates.TemplateInput(
+            kind=self.kind,
+            name=self.name,
+            subject=self.subject,
+            bodies=bodies,
+            visibility=self.visibility,
+            group_ids=self.group_ids,
+            category_ids=self.category_ids,
+        )
+
+
+class FilledTemplateIn(BaseModel):
+    """The language to fill in first (the requester's), if the screen knows it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    language: Literal["en", "ar", "ur"] | None = None
+
+
+class FilledTemplateOut(BaseModel):
+    """A template filled with a record's values, ready to insert."""
+
+    language: str
+    subject: str | None
+    body: str
 
 
 def _followers(found: service.Followers, me: uuid.UUID) -> FollowersOut:
@@ -255,9 +322,6 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
     """`/counters` and `/reply-templates` (before `/{record_id}`)."""
     perm = wtype.permission
     View = Annotated[Subject, Depends(require_permission(perm("view")))]  # noqa: N806 - type alias
-    Admin = Annotated[  # noqa: N806 - type alias
-        Subject, Depends(require_permission("config.service_desk", "settings.manage"))
-    ]
     audit = wtype.code.value  # audit codes: "incident.deleted", "service_request.deleted"
 
     @router.get("/counters", summary="Your personal counters")
@@ -266,15 +330,33 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
         found = await service.counters(session, subject, wtype, zone=request_zone(request))
         return [CounterOut(counter=c, count=n, capped=capped) for c, n, capped in found]
 
-    @router.get("/reply-templates", summary="Reply templates")
-    async def templates(session: TenantSession, subject: View) -> list[ReplyTemplateOut]:
-        """Texts to insert into a reply or note, by name."""
-        del subject
-        return [ReplyTemplateOut.of(r) for r in await service.templates(session, wtype)]
+    @router.get("/reply-templates", summary="Templates you may use")
+    async def templates(
+        session: TenantSession,
+        subject: View,
+        kind: Annotated[TemplateKind, Query()] = TemplateKind.REPLY,
+        category_id: Annotated[uuid.UUID | None, Query()] = None,
+    ) -> list[ReplyTemplateOut]:
+        """Shared ones (yours by group) and your own personal ones.
+
+        For a resolution, those of the record's category come first (REQ-INC-042 AC2).
+        """
+        rows = await text_templates.offered(session, subject, wtype, kind, category_id=category_id)
+        return [ReplyTemplateOut.of(r, subject) for r in rows]
+
+    @router.get("/reply-templates/manage", summary="Templates to manage")
+    async def manage_templates(
+        session: TenantSession,
+        subject: View,
+        kind: Annotated[TemplateKind, Query()] = TemplateKind.REPLY,
+    ) -> list[ReplyTemplateOut]:
+        """Every shared template, and your own personal ones; never another person's."""
+        rows = await text_templates.managed(session, subject, wtype, kind)
+        return [ReplyTemplateOut.of(r, subject) for r in rows]
 
     @router.post(
         "/reply-templates",
-        summary="Add a reply template",
+        summary="Add a template",
         status_code=status.HTTP_201_CREATED,
         response_model=ReplyTemplateOut,
         dependencies=[
@@ -284,24 +366,23 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
     async def create_template(
         body: ReplyTemplateIn,
         session: TenantSession,
-        subject: Admin,
+        subject: View,
         request: Request,
         idempotency: Idempotency,
     ) -> Response:
-        """Names are unique (ignoring case)."""
-        del subject
+        """A personal one is yours; a shared one needs the type's settings right."""
 
         async def run() -> Created:
-            row = await service.create_template(
-                session, wtype, name=body.name, body=body.body, source=source_of(request)
+            row = await text_templates.create(
+                session, subject, wtype, body.as_input(), source=source_of(request)
             )
-            return Created(body=ReplyTemplateOut.of(row))
+            return Created(body=ReplyTemplateOut.of(row, subject))
 
         return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.put(
         "/reply-templates/{template_id}",
-        summary="Change a reply template",
+        summary="Change a template",
         responses=CONFLICT_409,
         dependencies=[
             audited(
@@ -316,27 +397,26 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
         body: ReplyTemplateIn,
         version: ExpectedVersion,
         session: TenantSession,
-        subject: Admin,
+        subject: View,
         request: Request,
         response: Response,
     ) -> ReplyTemplateOut:
         """Needs If-Match."""
-        del subject
-        row = await service.update_template(
+        row = await text_templates.update(
             session,
+            subject,
             wtype,
             template_id,
+            body.as_input(),
             expected_version=version,
-            name=body.name,
-            body=body.body,
             source=source_of(request),
         )
         set_etag(response, row.version)
-        return ReplyTemplateOut.of(row)
+        return ReplyTemplateOut.of(row, subject)
 
     @router.delete(
         "/reply-templates/{template_id}",
-        summary="Remove a reply template",
+        summary="Remove a template",
         status_code=status.HTTP_204_NO_CONTENT,
         responses=CONFLICT_409,
         dependencies=[
@@ -351,15 +431,36 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
         template_id: uuid.UUID,
         version: ExpectedVersion,
         session: TenantSession,
-        subject: Admin,
+        subject: View,
         request: Request,
     ) -> Response:
-        """Needs If-Match. Text already inserted into replies stays."""
-        del subject
-        await service.delete_template(
-            session, wtype, template_id, expected_version=version, source=source_of(request)
+        """Needs If-Match. Text already inserted stays."""
+        await text_templates.delete(
+            session,
+            subject,
+            wtype,
+            template_id,
+            expected_version=version,
+            source=source_of(request),
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.post(
+        "/{record_id}/reply-templates/{template_id}/fill",
+        summary="A template filled with this record's values",
+    )
+    async def fill_template(
+        record_id: uuid.UUID,
+        template_id: uuid.UUID,
+        body: FilledTemplateIn,
+        session: TenantSession,
+        subject: View,
+    ) -> FilledTemplateOut:
+        """Variables filled in the record's language; an empty one reads "not set" (041)."""
+        filled = await text_templates.fill_for(
+            session, subject, wtype, template_id, record_id, languages=[body.language]
+        )
+        return FilledTemplateOut(language=filled.language, subject=filled.subject, body=filled.body)
 
 
 def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C901 - one route per operation
