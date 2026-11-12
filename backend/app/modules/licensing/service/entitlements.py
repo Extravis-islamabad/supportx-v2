@@ -170,6 +170,9 @@ class EntitlementService:
         # Taken once per transaction (an import's batch reserves per row: one lock round trip
         # each, WP-049b). The memo ends with the transaction and with any rolled-back savepoint,
         # which releases a lock it took, so a lock is never assumed after it was given up.
+        # That relies on every savepoint going through SQLAlchemy (begin_nested): a raw
+        # "ROLLBACK TO SAVEPOINT" statement would release the lock without clearing the memo,
+        # and the next reserve would count without holding it (lane C's note, step B).
         held = transaction_memo(session, "licensing.held_limits")
         if held is not None and key in held:
             return

@@ -43,9 +43,21 @@ while IFS= read -r name; do
   passed+=(-e "$name")
 done <<< "${PLAYWRIGHT_ENV_NAMES:-}"
 
+# One `host:ip` per entry: a DNS name, then an IPv4 address or docker's literal host-gateway.
+# Anything else fails here with the entry named, not later as an unclear docker error.
+octet='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
+ipv4="^${octet}\.${octet}\.${octet}\.${octet}$"
+hostname_re='^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$'
 hosts=()
 while IFS= read -r entry; do
   [[ -z "$entry" ]] && continue
+  host="${entry%%:*}"
+  ip="${entry#*:}"
+  if [[ "$entry" != *:* || ! "$host" =~ $hostname_re ]] \
+    || [[ "$ip" != "host-gateway" && ! "$ip" =~ $ipv4 ]]; then
+    echo "::error::add-hosts entry '$entry' is not host:ip (an IPv4 address or host-gateway)" >&2
+    exit 1
+  fi
   hosts+=(--add-host "$entry")
 done <<< "${PLAYWRIGHT_ADD_HOSTS:-}"
 

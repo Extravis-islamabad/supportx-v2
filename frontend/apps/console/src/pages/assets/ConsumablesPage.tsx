@@ -44,7 +44,7 @@ import { SitePicker } from '../incidents/pickers';
 import { okFooter } from './dialogOk';
 import { problemText } from './problemText';
 import { useConsumablesLive, useSiteNames } from './live';
-import { plainQuantity } from './quantity';
+import { plainQuantity, stockLevelKey } from './quantity';
 
 const COMMENT_MAX = 2000;
 /** A new consumable: a product of a consumable type; batch tracking is chosen now, for good. */
@@ -344,24 +344,28 @@ export function ConsumablesPage() {
             ...column('sites'),
             render: (_, row) => (
               <Flex vertical gap={2}>
-                {row.stocks.map((s) => (
-                  // One label with both values (QA 2026-11-12 V-14): the site and the amount are
-                  // isolated in it, so Arabic reads "<site>: 35" in order, never "35 :<site>".
-                  <Typography.Text key={s.id} data-testid={`consumable-stock-${s.id}`}>
-                    {t('assets.stock.site_quantity', {
-                      site: siteName(s.site_id),
-                      quantity: plainQuantity(s.quantity),
-                    })}
-                    {s.low && (
-                      <>
-                        {' '}
-                        <ToneTag tone="warning" testId={`consumable-low-${s.id}`}>
-                          {t('assets.stock.low')}
-                        </ToneTag>
-                      </>
-                    )}
-                  </Typography.Text>
-                ))}
+                {row.stocks.map((s) => {
+                  const level = stockLevelKey(s);
+                  return (
+                    // One label with both values (QA 2026-11-12 V-14): the site and the amount
+                    // are isolated in it, so Arabic reads "<site>: 35" in order, never "35 :<site>".
+                    // The level is below or at minimum (F-15, polish 4).
+                    <Typography.Text key={s.id} data-testid={`consumable-stock-${s.id}`}>
+                      {t('assets.stock.site_quantity', {
+                        site: siteName(s.site_id),
+                        quantity: plainQuantity(s.quantity),
+                      })}
+                      {level !== null && (
+                        <>
+                          {' '}
+                          <ToneTag tone="warning" testId={`consumable-low-${s.id}`}>
+                            {t(level)}
+                          </ToneTag>
+                        </>
+                      )}
+                    </Typography.Text>
+                  );
+                })}
                 {row.stocks.length === 0 && <EmptyText>{t('assets.stock.no_stock')}</EmptyText>}
               </Flex>
             ),

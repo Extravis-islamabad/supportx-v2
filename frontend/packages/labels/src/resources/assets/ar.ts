@@ -953,6 +953,7 @@ export const ar: LabelResource = {
   'assets.stock.batch_tracked_help':
     'يُختار الآن نهائيًا: تحتفظ كل دفعة عندها برقم التشغيلة وتاريخ الانتهاء.',
   'assets.stock.batches': 'الدفعات',
+  'assets.stock.below_minimum': 'دون الحد الأدنى',
   'assets.stock.by': 'بواسطة',
   'assets.stock.by_site': 'المخزون حسب الموقع',
   'assets.stock.change': 'التغيير',

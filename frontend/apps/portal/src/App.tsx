@@ -7,6 +7,7 @@ import { RealtimeProvider } from '@supportx/realtime';
 import {
   AddressBranding,
   AppearanceProvider,
+  storedLocale,
   createQueryClient,
   DevSignInPage,
   ErrorBoundary,
@@ -39,7 +40,7 @@ export function App({ navigate }: AppProps) {
   const [router] = useState(createRouter);
   return (
     <QueryClientProvider client={queryClient}>
-      <AppearanceProvider>
+      <AppearanceProvider initialLocale={storedLocale() ?? undefined}>
         <AddressBranding />
         <ErrorBoundary>
           <ErrorReporterProvider>

@@ -11,6 +11,10 @@ configuration is kept, and the products a save names (a batch names the same few
 of rows; one retired meanwhile counts as live until the batch ends, about two seconds). The
 site and the vendor of a save are still checked on every save. The other exception, the asset
 limit's count in an import's batch savepoint, is `keep_slot_count`'s, with its reasons.
+
+Unlike app/core/database.py's `transaction_memo`, which lives per session until the outermost
+transaction ends or any savepoint rolls back, this memo is per (sub)transaction: a new
+savepoint starts empty, even one that commits.
 """
 
 from typing import Any

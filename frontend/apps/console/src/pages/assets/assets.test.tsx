@@ -302,6 +302,11 @@ describe('console: assets', () => {
     restore = fake.restore;
     render(<App />);
     expect((await screen.findByTestId('asset-total')).textContent).toContain('1,170.00');
+    // The path in the top bar and the tab's title name the asset (QA 2026-11-11 F-17).
+    await waitFor(() => {
+      expect(document.title).toContain('Finance laptop');
+    });
+    expect(document.title).toContain('Assets');
     expect(screen.getByTestId('asset-state').textContent).toBe('In stock');
     fireEvent.click(screen.getByTestId('asset-edit'));
     fireEvent.change(await screen.findByTestId('asset-location'), {

@@ -891,6 +891,7 @@ export const en = {
   'assets.stock.batch_tracked_help':
     'Chosen now for good: each batch then keeps its lot number and expiry date.',
   'assets.stock.batches': 'Batches',
+  'assets.stock.below_minimum': 'Below minimum',
   'assets.stock.by': 'By',
   'assets.stock.by_site': 'Stock by site',
   'assets.stock.change': 'Change',
