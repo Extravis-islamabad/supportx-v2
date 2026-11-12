@@ -239,6 +239,11 @@ jobs:
       - name: Build, import and install the HA profile; helm test
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make deploy-ha
+      # The preflight again, now with the release in: NATS and PostgreSQL on distinct nodes and the
+      # single-copy workers' fast eviction (the bundled SeaweedFS is only an advisory warning).
+      - name: HA preflight on the installed release (strict)
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-preflight
       - name: Egress allow-list (values-ha-ci turns it on) keeps the outside out
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-egress

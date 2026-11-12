@@ -8,7 +8,10 @@
 #   3. CloudNativePG promotes a standby on another node;
 #   4. the same session still works and the same write succeeds, through the public URL (and
 #      which Valkey pod is master then is printed);
-#   5. the node starts again: its database rejoins as a standby (one primary, three ready).
+#   5. live updates resume: the fan-out (one copy by design, ADR-023) is ready on a live node
+#      (it moves when its node was the stopped one: ha.fastEvictionSeconds), and a write made
+#      after that reaches it through JetStream (its durable consumer acknowledges past it);
+#   6. the node starts again: its database rejoins as a standby (one primary, three ready).
 # The server node never runs our pods (cluster-ha.yaml taints it), so any agent may be stopped
 # without losing the control plane. Needs: make cluster-up-ha deploy-ha. Prints no secret.
 set -euo pipefail
@@ -31,6 +34,40 @@ cleanup() {
 trap cleanup EXIT
 
 pg() { kubectl -n "$NAMESPACE" get "clusters.postgresql.cnpg.io/$PG_CLUSTER" -o "jsonpath=$1"; }
+
+# The fan-out's durable consumer (backend/workers/realtime_fanout/runner.py CONSUMER_NAME) on the
+# events stream (app/shared/events/subjects.py). Read from NATS's monitoring endpoint inside each
+# server's own container (127.0.0.1:8222): no NATS credentials, no NetworkPolicy in the way.
+FANOUT_CONSUMER="realtime__fanout"
+EVENTS_STREAM="SUPPORTX_EVENTS"
+FANOUT_LABELS="app.kubernetes.io/part-of=supportx,app.kubernetes.io/component=fanout"
+FANOUT_BUDGET=90
+ready_pods() {  # ready_pods <label selector> <node to leave out>: ready pods elsewhere
+  kubectl -n "$NAMESPACE" get pods -l "$1" -o json | jq -r --arg n "$2" '.items[]
+    | select(.metadata.deletionTimestamp == null)
+    | select(.spec.nodeName != $n)
+    | select(any(.status.conditions[]?; .type == "Ready" and .status == "True"))
+    | .metadata.name'
+}
+fanout_ready_off() { [ -n "$(ready_pods "$FANOUT_LABELS" "$1")" ]; }
+# The highest value of a jq path in the events stream's details over the live NATS servers; the
+# highest, because a follower may trail the leader by a moment. 0 when none answers.
+nats_max() {  # nats_max <jq path within the stream detail> <node to leave out>
+  local pod best=0 value
+  for pod in $(ready_pods app.kubernetes.io/name=nats,app.kubernetes.io/component=nats "$2"); do
+    value="$(kubectl -n "$NAMESPACE" exec --request-timeout=10s "$pod" -c nats -- \
+      wget -qO- 'http://127.0.0.1:8222/jsz?accounts=true&streams=true&consumers=true' 2>/dev/null |
+      jq -r --arg s "$EVENTS_STREAM" --arg c "$FANOUT_CONSUMER" \
+        "[.account_details[]?.stream_detail[]? | select(.name == \$s) | $1] | max // 0")" || continue
+    [[ "$value" =~ ^[0-9]+$ ]] && [ "$value" -gt "$best" ] && best="$value"
+  done
+  echo "$best"
+}
+# Acknowledged past <sequence>: the fan-out received and handled an event written after it.
+fanout_acked_past() {  # fanout_acked_past <sequence> <node to leave out>
+  # shellcheck disable=SC2016 # $c is jq's variable (nats_max passes it), not this shell's
+  [ "$(nats_max '.consumer_detail[]? | select(.name == $c) | .ack_floor.stream_seq' "$2")" -gt "$1" ]
+}
 promoted() { [ "$(pg '{.status.currentPrimary}')" != "$1" ]; }
 three_ready() { [ "$(pg '{.status.readyInstances}')" = 3 ]; }
 
@@ -50,6 +87,7 @@ esac
 # survive this node (Cluster run 43082299609 stopped the node with the only CoreDNS copy).
 wait_settled 60 || exit 1
 dns_guard "$node" || exit 1
+fanout_node="$(kubectl -n "$NAMESPACE" get pods -l "$FANOUT_LABELS" -o jsonpath='{.items[0].spec.nodeName}')"
 echo "== stop $node (PostgreSQL primary $primary; also on it:" \
   "$(kubectl -n "$NAMESPACE" get pods --field-selector "spec.nodeName=$node" -o name | sed 's#pod/##' | tr '\n' ' '))"
 STOPPED="$node"
@@ -71,6 +109,28 @@ took="$(until_ok "$WRITE_BUDGET" save_locale '"ar"')" ||
   { echo "the session or the write did not come back within ${WRITE_BUDGET} s of the promotion (last answer: $(head -c 300 "$BODY"))"; show_write_trace; exit 1; }
 echo "the same session writes again after ${took}s more"
 show_write_trace
+
+# Live updates (ADR-023): the fan-out runs one copy on purpose, so after a node loss it must come
+# back by itself. On the stopped node it is evicted ha.fastEvictionSeconds (30 s) after the node
+# goes NotReady, not after the default 300 s, and starts on a live node; until then screens get
+# no live updates and reconcile when the realtime connection returns.
+if [ "$fanout_node" = "$node" ]; then
+  took="$(until_ok "$FANOUT_BUDGET" fanout_ready_off "$node")" ||
+    { echo "the fan-out was on $node and no ready copy runs elsewhere within ${FANOUT_BUDGET} s"
+      kubectl -n "$NAMESPACE" get pods -l "$FANOUT_LABELS" -o wide; exit 1; }
+  echo "the fan-out moved off $node: ready on another node after ${took}s more"
+else
+  echo "the fan-out was on ${fanout_node:-no node}, not on $node: it did not need to move"
+fi
+# Events flow again: a write after the move (identity_access.user.updated, a routed event) is
+# acknowledged by the fan-out's durable consumer. Proves the whole path relay -> NATS -> fan-out,
+# not only that a pod is ready.
+mark="$(nats_max '.state.last_seq' "$node")"
+[ "$mark" -gt 0 ] || { echo "cannot read the events stream from any live NATS server"; exit 1; }
+save_locale '"en"' || { echo "the write after the fan-out check failed (last answer: $(head -c 300 "$BODY"))"; exit 1; }
+took="$(until_ok "$FANOUT_BUDGET" fanout_acked_past "$mark" "$node")" ||
+  { echo "the fan-out did not acknowledge an event past stream sequence $mark within ${FANOUT_BUDGET} s"; exit 1; }
+echo "live updates flow: the fan-out acknowledged past sequence $mark after ${took}s"
 for pod in $VALKEY_PODS; do
   [ "$(node_of "$pod")" = "$node" ] && continue
   echo "Valkey master now: $(master_of "$pod" || true) (as $pod's sentinel names it)"

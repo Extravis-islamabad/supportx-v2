@@ -393,6 +393,9 @@ deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 20m
 	$(HELM_TEST)
 
+cluster-ha-preflight: ## HA preflight on the installed release, strict: Traefik, DNS, NATS/PostgreSQL spread, fast eviction (WP-014b)
+	@SUPPORTX_NAMESPACE=$(NAMESPACE) HA_PREFLIGHT_STRICT=1 bash deploy/k3s/ha-preflight.sh
+
 cluster-ha-smoke: ## HA smoke: the Valkey master dies, a signed-in session survives, no split brain (ADR-038)
 	@bash deploy/k3d/ha-smoke.sh
 
