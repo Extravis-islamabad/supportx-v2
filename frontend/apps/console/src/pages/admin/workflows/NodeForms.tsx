@@ -8,7 +8,7 @@ import { TranslatedField, lengthLimit, useLabel, type TranslatedValue } from '@s
 
 import { ConditionBuilder } from '../automation/fields';
 import { ApprovalForm, FieldUpdateForm, SetVariableForm, WebhookForm } from './MoreNodeForms';
-import { FunctionForm, JoinForm, SplitForm, SubFlowForm } from './StructureForms';
+import { FunctionForm, JoinForm, RetriesField, SplitForm, SubFlowForm } from './StructureForms';
 import { fieldOptions, fromTree, toTree, useFieldName, type Conditions } from '../automation/rules';
 
 // Settings forms for the node types people use most (WP-048b S4b). Each edits the node's
@@ -447,19 +447,22 @@ function WaitForm({ config, onChange, recordType, readOnly }: FormProps) {
 function SetStatusForm({ config, onChange, readOnly }: FormProps) {
   const t = useLabel();
   return (
-    <Form.Item label={t('workflows.form.action')} htmlFor="status-action">
-      <Select<string>
-        id="status-action"
-        value={typeof config.action === 'string' ? config.action : undefined}
-        placeholder={t('workflows.form.action')}
-        disabled={readOnly}
-        onChange={(action) => {
-          onChange({ ...config, action });
-        }}
-        options={ACTIONS.map((a) => ({ value: a, label: t(`work_item_action.${a}`) }))}
-        data-testid="status-action"
-      />
-    </Form.Item>
+    <>
+      <Form.Item label={t('workflows.form.action')} htmlFor="status-action">
+        <Select<string>
+          id="status-action"
+          value={typeof config.action === 'string' ? config.action : undefined}
+          placeholder={t('workflows.form.action')}
+          disabled={readOnly}
+          onChange={(action) => {
+            onChange({ ...config, action });
+          }}
+          options={ACTIONS.map((a) => ({ value: a, label: t(`work_item_action.${a}`) }))}
+          data-testid="status-action"
+        />
+      </Form.Item>
+      <RetriesField config={config} onChange={onChange} readOnly={readOnly} />
+    </>
   );
 }
 
@@ -494,6 +497,7 @@ function NoteForm({ config, onChange, readOnly }: FormProps) {
           {t('workflows.form.note_private')}
         </Checkbox>
       </Form.Item>
+      <RetriesField config={config} onChange={onChange} readOnly={readOnly} />
     </>
   );
 }
