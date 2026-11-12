@@ -1,0 +1,26 @@
+# The staging laptop's nightly run (D-169; docs/runbooks/staging-laptop.md, step 7).
+# Install: sudo cp deploy/staging/supportx-staging.{service,timer} /etc/systemd/system/
+# Started by supportx-staging.timer; start one run by hand with
+#   sudo systemctl start supportx-staging.service
+[Unit]
+Description=SupportX staging: pull main, build, upgrade and test (D-169)
+Wants=network-online.target
+After=network-online.target docker.service k3s.service
+Requires=docker.service k3s.service
+
+[Service]
+Type=oneshot
+User=sxstaging
+Group=sxstaging
+# Creates /var/log/supportx-staging and /var/lib/supportx-staging, owned by sxstaging.
+LogsDirectory=supportx-staging
+StateDirectory=supportx-staging
+Environment=SUPPORTX_STAGING_CONFIG=/etc/supportx-staging/staging.env
+Environment=PATH=/opt/node/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/srv/supportx-staging/checkout/deploy/staging/nightly.sh
+# A build plus a 15 minute upgrade fits easily; a run stuck longer is stopped and fails.
+TimeoutStartSec=2h
+# Builds are heavy: let anything interactive on the laptop go first.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
