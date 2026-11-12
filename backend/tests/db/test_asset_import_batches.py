@@ -125,7 +125,12 @@ async def test_two_imports_by_different_requesters_never_share_lookup_answers(
     await _site(world, a, late)
     manager = await _site_manager(world)
     second = await _checked(world, a, csv, user=manager)
-    assert (_counts(second), second["problems"]) == ((1, 0, 0), [])
+    # The site is found (no site_not_found, so the first job's answer was not reused); creating
+    # an asset there is refused only because this manager does not manage it (#423).
+    assert (_counts(second), second["problems"]) == (
+        (0, 0, 1),
+        [{"row": 2, "field": "row", "code": "asset_site_not_managed"}],
+    )
     # The same site name in two tenants: each tenant's job finds its own.
     twin = f"S4c twin site {uuid.uuid4().hex[:6]}"
     sites = {org.tenant: await _site(world, org, twin) for org in (a, b)}
@@ -163,10 +168,15 @@ async def test_a_mixed_batch_refuses_the_out_of_scope_rows_one_by_one(world: Wor
     ]
     product = f"S4c scope laptop {tag}"
     await _product(world, a, "laptop", product)
-    lines = ["Name,Product,Serial number,Location"]
+    # New assets go to the manager's own site (s1): since #423 one with no site, or at s2, is
+    # beyond a site-scoped manager.
+    own = (
+        await world.sql("SELECT name FROM sites WHERE tenant_id = $1 AND id = $2", a.tenant, a.s1)
+    )[0]["name"]
+    lines = ["Name,Product,Serial number,Location,Site"]
     order = [near[0], far[0], near[1], far[1], near[2], far[2]]
-    lines += [f",,{asset['serial_number']},Shelf S4c" for asset in order]
-    lines += [f"New {n},{product},S4C-P-{tag}-NEW{n},Shelf S4c" for n in range(2)]
+    lines += [f",,{asset['serial_number']},Shelf S4c," for asset in order]
+    lines += [f"New {n},{product},S4C-P-{tag}-NEW{n},Shelf S4c,{own}" for n in range(2)]
     content = ("\n".join(lines) + "\n").encode()
     refused = [
         {"row": row, "field": "row", "code": "permission_denied"} for row in (3, 5, 7)
