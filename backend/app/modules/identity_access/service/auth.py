@@ -832,6 +832,21 @@ class AuthService:
         if self.end_realtime is not None:
             await self.end_realtime(tenant_id, user_id)
 
+    async def check_address(self, request: Request) -> None:
+        """Refuse a signed-in request from outside its tenant's list for its app (REQ-SEC-034).
+
+        For what turns a session into more access between refreshes: the realtime tokens
+        (lane B's condition 3). An API key's call was checked when the key was (api_keys.py).
+        """
+        session_id = self.presented_session_id(request)
+        data = await self.store.get_session(session_id) if session_id else None
+        if data is None:
+            return
+        session = Session.from_dict(data)
+        address = client_address(request)
+        if not await self._admit(session.tenant_uuid, _client_app(session), address):
+            raise PermissionDenied(code=IP_NOT_ALLOWED)
+
     async def resolve(self, request: Request) -> TenantContext | None:
         """`SessionResolver` for app.core.tenancy: an API key's call, or the session's user.
 

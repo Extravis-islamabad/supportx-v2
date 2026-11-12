@@ -91,3 +91,15 @@ async def test_a_live_session_ends_at_its_next_refresh_once_restricted(bff: Bff)
     response = await bff.me()
     assert (response.status_code, response.json()["code"]) == (403, "ip_not_allowed")
     assert (await bff.me()).json()["code"] == "unauthenticated"  # the session is gone
+
+
+async def test_a_realtime_token_is_refused_once_the_tenant_restricts_the_address(bff: Bff) -> None:
+    """Lane B's condition 3: what turns a session into more access checks the list too."""
+    a, _b = bff.tenants
+    await bff.login(bff.user("a"))
+    csrf = await bff.csrf()
+    await _restrict(bff.db, a, "console_ip_allow", [ELSEWHERE])
+    minted = await bff.client.post(
+        "/api/v1/realtime/connection-token", headers={"X-CSRF-Token": csrf}
+    )
+    assert (minted.status_code, minted.json()["code"]) == (403, "ip_not_allowed")
