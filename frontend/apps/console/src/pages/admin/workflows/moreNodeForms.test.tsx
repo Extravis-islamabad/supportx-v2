@@ -114,6 +114,10 @@ function api(recordType = 'incident', roleDefs: object = ROLE_DEFS) {
       },
       'GET /api/v1/changes/settings/roles': roleDefs,
       'GET /api/v1/users': { body: { items: [], has_more: false, next_cursor: null } },
+      // The designer reads who the workflow runs as (#416): not made yet, nothing to give.
+      [`GET /api/v1/automation/workflows/${FLOW_ID}/run-as`]: {
+        body: { made: false, name: null, active: false, roles: [], offered: [] },
+      },
       'POST /api/v1/automation/workflows/node-ports': { body: [] },
       'GET /api/v1/automation/workflows': {
         body: [
