@@ -206,6 +206,7 @@ export const ar: LabelResource = {
   'nav.admin_notifications': 'الإشعارات',
   'nav.admin_organization': 'المؤسسة',
   'nav.admin_portal': 'البوابة',
+  'nav.admin_releases': 'إعدادات الإصدارات',
   'nav.admin_requests': 'طلبات الخدمة',
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'الأدوار',
@@ -372,6 +373,18 @@ export const ar: LabelResource = {
   'settings.closing.open_work': 'العمل المفتوح',
   'settings.closing.open_work_help':
     'ما يحدث عند حل الحادثة أو إغلاقها بينما لا يزال العمل عليها مفتوحًا. تبدأ هذه الفحوص بالعمل عند توفر المهام وقوائم التحقق والحوادث المرتبطة والموافقات.',
+  'settings.closing.release.close_requires_help': 'الحقول التي يجب ملؤها قبل إغلاق الإصدار.',
+  'settings.closing.release.complete_open_work_help':
+    'يؤدي إغلاق الإصدار إلى تعليم مهامه المفتوحة كمكتملة؛ ولا تُغلق معه التغييرات المرتبطة والإصدارات الفرعية أبدًا.',
+  'settings.closing.release.help':
+    'ما يلزم لحل الإصدار وإغلاقه، وما يحدث لعمله المفتوح: المهام والموافقات والتغييرات المرتبطة والإصدارات الفرعية.',
+  'settings.closing.release.open_work_help':
+    'ما يحدث عند حل الإصدار أو إغلاقه بينما لا يزال العمل عليه مفتوحًا.',
+  'settings.closing.release.resolve_requires_help': 'الحقول التي يجب ملؤها قبل حل الإصدار.',
+  'settings.closing.release.task_owner_access':
+    'يعمل مسؤولو المهام على مهامهم دون الوصول إلى الإصدار',
+  'settings.closing.release.task_owner_access_help':
+    'يرون مهمتهم ومعرّف الإصدار وموضوعه ويمكنهم تغيير حالة المهمة؛ ولا يرون الملاحظات أو الخطط أبدًا.',
   'settings.closing.reopen_window_days': 'مدة إعادة الفتح (بالأيام)',
   'settings.closing.reopen_window_help':
     'ردّ مقدّم الطلب خلال هذه الأيام بعد الحل يعيد فتح الحادثة؛ والرد اللاحق ينشئ حادثة جديدة. من 1 إلى 30.',
@@ -457,6 +470,8 @@ export const ar: LabelResource = {
   'settings.reason_prompts': 'الأسباب عند تغيير الحالة',
   'settings.reason_prompts_help':
     'اختر ما إذا كان كل تغيير يطلب سببًا. الإيقاف المؤقت والإلغاء وإعادة الفتح تختار من قوائم الأسباب.',
+  'settings.release_closure_codes_help':
+    'كيف انتهى الإصدار. يُختار عند إغلاق الإصدار؛ وتُجمِّع التقارير حسبه.',
   'settings.rename': 'إعادة تسمية',
   'settings.rename_value': 'إعادة تسمية "{{name}}"',
   'settings.resume_on_requester_reply': 'ردّ مقدّم الطلب يستأنفها',
@@ -492,6 +507,7 @@ export const ar: LabelResource = {
   'settings.section.reasons': 'الأسباب',
   'settings.section.reply-templates': 'قوالب الردود',
   'settings.section.routing': 'التوجيه والإسناد',
+  'settings.section.stages': 'المراحل',
   'settings.section.statuses': 'الحالات',
   'settings.section.task-templates': 'قوالب المهام',
   'settings.section.templates': 'القوالب',
@@ -499,6 +515,10 @@ export const ar: LabelResource = {
   'settings.section.triggers': 'المشغلات',
   'settings.shipped_name': 'الاسم المدمج: {{name}}',
   'settings.shipped_name_hint': 'الاسم المدمج: {{name}}. اترك الأسماء فارغة للإبقاء عليه.',
+  'settings.stages.open_tasks_block': 'مهام المرحلة المفتوحة تمنع مغادرتها',
+  'settings.stages.open_tasks_block_help':
+    'لا يمكن للإصدار مغادرة مرحلة ما دامت إحدى مهامها مفتوحة؛ ويذكر النقل المهمة. عند الإيقاف: يكتفي النقل بالتنبيه.',
+  'settings.stages.title': 'مهام المراحل',
   'settings.stale':
     'تم تغيير هذه الإعدادات في مكان آخر أثناء تحريرك. أعد التحميل لرؤيتها (ستفقد تعديلاتك غير المحفوظة هنا).',
   'settings.status_action': 'الإجراء',
@@ -582,6 +602,10 @@ export const ar: LabelResource = {
     'كل ما تفعله بوابة الخدمة الذاتية لمقدمي الطلبات، في صفحة واحدة.',
   'setup.page.portal.keywords':
     'البوابة، الخدمة الذاتية، البحث، مصادر البحث، إخفاء نموذج الحوادث، الموعد، تاريخ التسليم، نيابة عن، الموافقات، تسجيل الدخول، تعديل الملف، التذكيرات، التكلفة، الضيوف، التسجيل الذاتي',
+  'setup.page.releases.description':
+    'كيف تُغلق الإصدارات: رموز إغلاقها، وما يلزم للإغلاق، وأي عمل مفتوح يُنبّه أو يمنع، وهل تمنع مهام المرحلة المفتوحة مغادرة المرحلة.',
+  'setup.page.releases.keywords':
+    'إصدار, إعدادات الإصدارات, رموز الإغلاق, الإغلاق, التراجع, مهام المرحلة, النشر',
   'setup.page.requests.description':
     'طلبات الخدمة: نيابة عمن يمكن لمقدمي الطلبات تقديمها، وطرق عرض الطلبات.',
   'setup.page.requests.keywords': 'طلبات الخدمة، الكتالوج، نيابة عن، تقديم، طلبات، طرق العرض',
