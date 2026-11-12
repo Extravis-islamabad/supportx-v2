@@ -355,6 +355,7 @@ export const ur: LabelResource = {
   'settings.closing.complete_open_work': 'بندش پر کھلا کام مکمل کریں',
   'settings.closing.complete_open_work_help':
     'واقعہ بند کرنے سے اس کا کھلا کام مکمل نشان زد ہو جاتا ہے۔',
+  'settings.closing.condition.review_completed': 'جائزہ مکمل',
   'settings.closing.days_range': '{{min}} سے {{max}} کاروباری دن۔',
   'settings.closing.help':
     'واقعہ حل اور بند کرنے کے لیے کیا درکار ہے، کھلے کام کا کیا ہوتا ہے، اور درخواست گزار جواب دے کر کتنی دیر تک اسے دوبارہ کھول سکتا ہے۔',

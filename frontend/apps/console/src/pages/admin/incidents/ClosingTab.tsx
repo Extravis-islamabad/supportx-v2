@@ -49,6 +49,8 @@ interface ClosingProfile {
   /** The type whose custom fields can be required. */
   type: CustomFieldEntity;
   builtIn: readonly string[];
+  /** Conditions only the close rule may list (REQ-REL-051: a release's review completed). */
+  closeConditions: readonly string[];
   openWorkKinds: readonly string[];
   /** Auto-close and the reopen window (both follow requester replies). */
   requesterReplies: boolean;
@@ -60,6 +62,7 @@ const PROFILES: Record<SettingsBase, ClosingProfile> = {
   incidents: {
     type: 'incident',
     builtIn: BUILT_IN,
+    closeConditions: [],
     openWorkKinds: OPEN_WORK_KINDS,
     requesterReplies: true,
     prefix: '',
@@ -67,6 +70,7 @@ const PROFILES: Record<SettingsBase, ClosingProfile> = {
   releases: {
     type: 'release',
     builtIn: ['resolution', 'closure_code', 'group_id', 'technician_id', 'description', 'tags'],
+    closeConditions: ['review_completed'],
     openWorkKinds: ['tasks', 'approvals', 'linked_changes', 'child_releases'],
     requesterReplies: false,
     prefix: 'release.',
@@ -162,6 +166,10 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     if (autoCloseDays !== closure.auto_close_days) body.auto_close_days = autoCloseDays;
     save({ kind: 'closure', body }, reset, draftState.base);
   };
+  const conditionOptions = profile.closeConditions.map((name) => ({
+    value: name,
+    label: t(`settings.closing.condition.${name}`),
+  }));
   const fieldsSelect = (key: 'resolve' | 'close', field: string, testId: string) => (
     <Form.Item
       label={t(`settings.closing.${key}_requires`)}
@@ -173,7 +181,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
         id={testId}
         mode="multiple"
         value={draft[key]}
-        options={fieldOptions}
+        options={key === 'close' ? [...conditionOptions, ...fieldOptions] : fieldOptions}
         optionFilterProp="label"
         style={{ width: '100%' }}
         onChange={(values: string[]) => {

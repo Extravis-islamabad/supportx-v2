@@ -2198,17 +2198,22 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     release; `POST/GET /releases/{id}/follow-ups` (Idempotency-Key); a Failed view.
   - **Cancel and reopen (REQ-REL-054):** a cancelled release offers to unlink its visible changes;
     reopening keeps the closure in history and on the rail.
+  - **Closure rule "review completed" (REQ-REL-051 AC1):** a release's close rule may list it
+    (never its resolve rule, never another type's); closing before the review is completed is
+    refused with `review_required_to_close`; completing the review in the closing move passes;
+    an emergency release always needs it. Stored in `close_requires` (no migration).
   - **Admin › Releases (template E):** closure codes, Closing (release fields and kinds; no
     auto-close or reopen window, which follow requester replies) and Stages
     (`open_stage_tasks_block`). Lane A's PickListEditor and ClosingTab are shared through
     `SettingsBaseContext` and `useSettingsChange(base)`; incident behaviour unchanged.
   - **Tests:** test_release_closure_codes (2), test_release_open_work (3), test_release_flow
-    (reopen); Vitest releases.test.tsx (REL-052..054), release-settings.test.tsx (4).
+    (reopen), test_release_closure_rules (3); Vitest releases.test.tsx (REL-052..054),
+    release-settings.test.tsx (5).
   - **Open:**
-    - REQ-REL-051 AC1 ("review completed" as a closure condition) is not built; AC2 (bulk close
-      report) goes with S5's bulk actions. Placement asked of the coordinator.
-    - REQ-REL-052's offer to close the linked changes the user may close (through lane A's change
-      close path) is not built; the kinds warn and list only.
+    - REQ-REL-051 AC2 (bulk close report) goes with S5's bulk actions.
+    - REQ-REL-052's offer to close the linked changes the user may close → S5 (the coordinator,
+      2026-11-12), through lane A's public `close_change` (one savepoint per change; lane A's
+      small PR before S5). The kinds warn and list only until then.
     - Lane A lists `caused_by_release` / `follows` on the problem, incident and request pages in
       their next polish.
   S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).

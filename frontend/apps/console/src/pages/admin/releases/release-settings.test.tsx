@@ -102,6 +102,41 @@ describe('Admin › Releases', () => {
     expect(sent?.body).not.toHaveProperty('auto_close_days');
   });
 
+  it('REQ-REL-051 AC1: only the close rule offers "Review completed"', async () => {
+    const saved = releaseSettings();
+    saved.version = 2;
+    const fake = api({
+      me: ADMIN,
+      routes: { ...routes(), 'PATCH /api/v1/releases/settings/closure': { body: saved } },
+    });
+    open('/admin/releases/closing');
+    const options = async (testId: string) => {
+      const select = await screen.findByTestId(testId);
+      const selector = select.querySelector('.ant-select-selector');
+      if (selector === null) throw new Error('not an Ant Design Select');
+      fireEvent.mouseDown(selector);
+      return () =>
+        [...document.querySelectorAll('.ant-select-item-option-content')].map((o) => o.textContent);
+    };
+    const close = await options('settings-close-requires');
+    await waitFor(() => {
+      expect(close()).toContain('Review completed');
+    });
+    const option = [...document.querySelectorAll('.ant-select-item-option-content')].find(
+      (o) => o.textContent === 'Review completed',
+    );
+    if (option === undefined) throw new Error('no option');
+    fireEvent.click(option);
+    fireEvent.click(screen.getByTestId('settings-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/releases/settings/closure')).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', '/api/v1/releases/settings/closure');
+    expect((sent?.body as { close_requires: string[] }).close_requires).toContain(
+      'review_completed',
+    );
+  });
+
   it('REQ-REL-048: the stage tasks switch saves open_stage_tasks_block', async () => {
     const saved = releaseSettings();
     saved.version = 2;

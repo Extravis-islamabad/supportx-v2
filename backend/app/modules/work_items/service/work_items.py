@@ -3123,7 +3123,11 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     # The closing rules by category (WP-020f): entering resolved runs resolve's, closed close's,
     # leaving a final status clears the resolution as a reopen does.
     closing_step = await closing.before_move(
-        session, cat, record, _closing_action(record, move), given
+        session,
+        cat,
+        record,
+        _closing_action(record, move),
+        replace(given, passes_through=move.target.code),
     )
     before = _snapshot(record, (*STAMP_FIELDS, "stage"))
     from_stage = str(record.stage)

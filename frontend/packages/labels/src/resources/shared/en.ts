@@ -357,6 +357,7 @@ export const en = {
     'Fields that must be filled before an incident can be closed.',
   'settings.closing.complete_open_work': 'Complete open work on close',
   'settings.closing.complete_open_work_help': 'Closing an incident marks its open work as done.',
+  'settings.closing.condition.review_completed': 'Review completed',
   'settings.closing.days_range': 'From {{min}} to {{max}} business days.',
   'settings.closing.help':
     'What resolving and closing an incident need, what happens to open work, and how long a requester can reopen it with a reply.',
