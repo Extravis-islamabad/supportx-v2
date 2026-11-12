@@ -33,6 +33,14 @@
 # toleration. Whatever you set, the DNS failover window (about the grace period) must stay inside
 # Sentinel's 10 x valkeyHa.downAfterMilliseconds (100 s): docs/deployment.md, Profiles.
 
+# NodeLocal DNSCache (D-163, deploy/k3s/node-local-dns.sh): with the egress allow-list on, pods
+# reach DNS at the cache's link-local address and the kube-dns Service address, both on their own
+# node. 10.43.0.10 is k3s's default; if `kubectl -n kube-system get svc kube-dns` shows another,
+# list that one instead (ha-preflight.sh checks).
+networkPolicies:
+  egress:
+    dnsAddresses: [169.254.20.10/32, 10.43.0.10/32]
+
 ha:
   enabled: true
   antiAffinity: hard

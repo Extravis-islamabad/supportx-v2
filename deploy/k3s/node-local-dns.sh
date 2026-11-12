@@ -29,6 +29,15 @@ pinned() {  # pinned <images key>
   fi
   echo "$ref"
 }
+# k3s records each node's flags (its config file's included) in the k3s.io/node-args annotation.
+ipvs="$(kubectl get nodes -o json | jq -r '.items[]
+  | select((.metadata.annotations["k3s.io/node-args"] // "") | test("proxy-mode[=\\\",]+ipvs"))
+  | .metadata.name')"
+if [ -n "$ipvs" ]; then
+  echo "node-local-dns: kube-proxy runs in ipvs mode on $(echo "$ipvs" | paste -sd, -): the cache" \
+    "cannot take the kube-dns address there. Use k3s's default iptables mode" >&2
+  exit 1
+fi
 image="$(pinned nodeLocalDns)"
 dns_ip="$(kubectl -n "$NS" get svc kube-dns -o jsonpath='{.spec.clusterIP}')"
 [ -n "$dns_ip" ] || { echo "node-local-dns: the kube-dns Service has no address" >&2; exit 1; }
@@ -54,3 +63,7 @@ if ! kubectl -n "$NS" run "node-local-dns-probe-$RANDOM" --rm -i --restart=Never
   exit 1
 fi
 echo "node-local-dns: a ready cache on each of $want nodes (local $LOCAL_IP, kube-dns $dns_ip, $image)"
+if [ "$dns_ip" != 10.43.0.10 ]; then
+  echo "note: kube-dns is $dns_ip, not k3s's default 10.43.0.10. With the egress allow-list on, set" \
+    "networkPolicies.egress.dnsAddresses to [$LOCAL_IP/32, $dns_ip/32] (values-ha.yaml)"
+fi

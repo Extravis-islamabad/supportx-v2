@@ -113,6 +113,7 @@ hex values and never overwrites an existing one (its passwords are already insid
   | ClamAV | 2, spread | the Service balances scans over both; their signature pulls are staggered |
   | CoreDNS (k3s) | 2, spread *(preflight)* | `deploy/k3s/cluster-dns-ha.sh` (below) |
   | Traefik (k3s) | 2, spread *(preflight)* | `deploy/k3s/traefik-ha.yaml` (below) |
+  | NodeLocal DNSCache | 1 per node *(preflight)* | `deploy/k3s/node-local-dns.sh` (below); each node's pods use their own node's cache |
   | CloudNativePG operator | 2, hostname spread *(preflight)* | `deploy/k3d/prereqs.sh` shows how |
   | Barman Cloud plugin | 2, hostname spread | the same; the operator blocks a cluster's changes, failover included, while its plugin is unreachable |
   | **Single copy, and why that is acceptable** | | |
@@ -190,17 +191,46 @@ hex values and never overwrites an existing one (its passwords are already insid
   file (`deploy/k3d/cluster-ha.yaml`). On another distribution, run your ingress controller with
   two or more copies on different nodes.
 
-  **Preflight.** `deploy/k3s/ha-preflight.sh` checks a cluster for the HA profile, read-only:
-  three or more schedulable nodes, cluster DNS ready on two or more nodes, the CloudNativePG
-  operator ready on two or more nodes, Traefik ready on two or more nodes. Once SupportX is
-  installed in `SUPPORTX_NAMESPACE` (default `supportx`) it also checks the release: NATS servers
-  and PostgreSQL instances each on distinct nodes, and the fast-eviction tolerations on the
-  fan-out and index workers. Each unmet requirement prints a WARNING and how to fix it (exit 0;
-  `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make cluster-up-ha` does before the install
-  and `make cluster-ha-preflight` after it). The bundled SeaweedFS gets an advisory warning that
-  never fails, even when strict. Run it before the install, after it, and after any cluster
-  upgrade. `helm install` with `values-ha.yaml` also
-  warns in its notes when `kube-system/coredns` runs one copy.
+  **NodeLocal DNSCache: a DNS cache on every node (D-163).** Two CoreDNS copies keep names
+  resolving, but when a node is lost its copy stays behind the kube-dns Service until the node
+  goes NotReady (about 20 s). Lookups that land on it time out meanwhile. Valkey's sentinels
+  resolve synchronously, so they stall long enough to enter TILT, a fixed 30 s pause before they
+  may fail over: failover took about 50 s (Cluster runs 43153098860, 43157246881). A cache on
+  every node answers SupportX's names from memory and sends misses to CoreDNS over TCP, which
+  fails fast on a dead copy; failover then takes about 15 s and the node-loss tests allow 60 s
+  and fail on any TILT. After `cluster-dns-ha.sh`, and after every k3s upgrade:
+
+  ```
+  bash deploy/k3s/node-local-dns.sh   # waits for a ready cache on every node and a lookup through it
+  ```
+
+  It runs in transparent mode: the cache takes the kube-dns address on each node, so pods keep
+  their DNS settings and no k3s or kubelet flag changes. That needs kube-proxy in iptables mode,
+  k3s's default (the script refuses ipvs mode, and the preflight warns). All of k3s's own
+  CoreDNS settings still decide every answer: misses go to CoreDNS through a second Service,
+  `kube-dns-upstream`. The image (`registry.k8s.io/dns/k8s-dns-node-cache`, Apache-2.0) is
+  pinned by digest in `values.yaml` (`images.nodeLocalDns`), so the air-gapped mirror carries
+  it; `IMAGE_REGISTRY=<mirror>` points the script at the mirror. On a clean stop the cache
+  removes its rules and pods reach CoreDNS directly. A crashed cache leaves its rules until the
+  kubelet restarts it, within seconds, and that node's lookups fail meanwhile. On another
+  distribution, use its NodeLocal DNSCache add-on (most managed clusters offer one).
+  With the egress allow-list on, pods reach the cache from their node's network, not CoreDNS's
+  pods: `values-ha.yaml` lists its addresses (`networkPolicies.egress.dnsAddresses`:
+  169.254.20.10 and k3s's default kube-dns address 10.43.0.10). If your kube-dns address
+  differs, list yours. The script says so, and the preflight checks.
+
+  **Preflight.** `deploy/k3s/ha-preflight.sh` checks a cluster for the HA profile, read-only: three
+  or more schedulable nodes, cluster DNS ready on two or more nodes, the CloudNativePG operator
+  ready on two or more nodes, Traefik ready on two or more nodes, NodeLocal DNSCache ready on every
+  schedulable node and kube-proxy not in ipvs mode. Once SupportX is installed in
+  `SUPPORTX_NAMESPACE` (default `supportx`) it also checks the release: NATS servers and PostgreSQL
+  instances each on distinct nodes, the fast-eviction tolerations on the fan-out and index workers,
+  and, with the egress allow-list on, the cache's addresses in it. Each unmet requirement prints a
+  WARNING and how to fix it (exit 0; `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make
+  cluster-up-ha` does before the install and `make cluster-ha-preflight` after it). The bundled
+  SeaweedFS gets an advisory warning that never fails, even when strict. Run it before the install,
+  after it, and after any cluster upgrade. `helm install` with `values-ha.yaml` also warns in its
+  notes when `kube-system/coredns` runs one copy.
 
   **Node-monitor grace period: 20 s recommended (not required).** Until Kubernetes marks a lost
   node NotReady (the controller manager's `node-monitor-grace-period`, about 40-50 s by default),
@@ -318,8 +348,9 @@ one-time state lives there), so letting it through unlimited buys nothing; it an
 
 Ingress is always denied by default. Egress is open unless `networkPolicies.egress.enabled` is
 true (WP-014b). With it on, pods may reach:
-- **DNS and the namespace:** every pod may reach DNS (kube-dns) and the other pods of the
-  namespace.
+- **DNS and the namespace:** every pod may reach DNS (kube-dns, plus
+  `networkPolicies.egress.dnsAddresses`, which `values-ha.yaml` sets for NodeLocal DNSCache) and
+  the other pods of the namespace.
 - **The Kubernetes API:** CloudNativePG's pods and the API and worker pods (their
   wait-for-migrate step) may reach it, at its real addresses. The chart reads them from the
   `default/kubernetes` EndpointSlice at install time. Where it can't read the cluster (`helm

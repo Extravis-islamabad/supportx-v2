@@ -561,6 +561,11 @@ networkPolicies:
     # GitOps can't read it: set them, e.g. kubeApiCidrs: [10.0.0.10/32], kubeApiPorts: [6443].
     kubeApiCidrs: []
     kubeApiPorts: [6443]
+    # More DNS server addresses every pod may reach on port 53, as CIDRs. NodeLocal DNSCache
+    # (D-163, deploy/k3s/node-local-dns.sh) answers from the node's own network on a link-local
+    # address and on the kube-dns Service address itself, so the kube-dns pod rule above no
+    # longer matches its answers' path: values-ha.yaml lists both (k3s's default kube-dns address).
+    dnsAddresses: []
 
 # Extra annotations on SupportX's own pods (make deploy-dev sets one per build: dev images keep
 # the same tag, so this is what rolls them).
