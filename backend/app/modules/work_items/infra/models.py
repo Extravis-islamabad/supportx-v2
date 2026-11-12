@@ -436,6 +436,12 @@ class WorkItemTemplate(TenantEntity):
             name="stage_rules_object",
         ),
         CheckConstraint("cardinality(limited_group_ids) <= 50", name="limited_group_ids_count"),
+        # WP-046a S5b (0155): the designer's layout and the form rules.
+        CheckConstraint("layout IS NULL OR jsonb_typeof(layout) = 'object'", name="layout_object"),
+        CheckConstraint(
+            "jsonb_typeof(form_rules) = 'array' AND jsonb_array_length(form_rules) <= 50",
+            name="form_rules_array",
+        ),
         Index("ix_work_item_templates_tenant_type", "tenant_id", "type", "disabled_at"),
         Index(
             "uq_work_item_templates_tenant_type_default",
@@ -477,6 +483,12 @@ class WorkItemTemplate(TenantEntity):
     tasks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     # WP-046a S2 (0144, REQ-INC-040): the checklists a record made from this template gets.
     checklists: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )
+    # WP-046a S5b (0155; REQ-INC-036, -037): the create form's sections for technicians and
+    # requesters (NULL: one plain list), and the form rules the server enforces on every save.
+    layout: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    form_rules: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")
     )
 
