@@ -23,7 +23,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
 import {
@@ -31,6 +31,9 @@ import {
   useIncidentLinks,
   useIncidentTasks,
   useIncidentWorklogs,
+  useRecordTimer,
+  useTimerChange,
+  timerKeys,
   useLinkChange,
   useSession,
   useTaskChange,
@@ -56,7 +59,7 @@ import {
   WriteButton,
 } from '@supportx/ui';
 import { useListFormat } from '@supportx/labels';
-import { useRecordChannel } from '@supportx/realtime';
+import { usePersonalChannel, useRecordChannel } from '@supportx/realtime';
 
 import { NO_AMOUNT, useMoney } from '../assets/money';
 import { IncidentPicker } from './IncidentPicker';
@@ -74,6 +77,23 @@ const WORKLOG_TYPES: readonly WorklogType[] = [
   'travel',
   'other',
 ];
+
+/** Your timers changed (WP-046a S3): your personal channel only. */
+const MY_TIMERS_CHANGED = 'work_items.my_timers_changed';
+
+/** The time now, refreshed every `every` ms (a running timer's elapsed minutes). */
+function useNow(every: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setNow(Date.now());
+    }, every);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [every]);
+  return now;
+}
 
 /** Display names of the people a list mentions (looked up once per list). */
 /** After a save: empty a field only if it still holds what was sent, not what came since. */
@@ -429,6 +449,35 @@ export function IncidentWorklogs({
   const money = useMoney(currency);
   // The form opens on "Log time" and Cancel clears and closes it (template B, Haider 11-10).
   const [open, setOpen] = useState(false);
+  // WP-046a S3 (REQ-INC-069): your own timer here, live on your personal channel only.
+  const queryClient = useQueryClient();
+  const timer = useRecordTimer(item.id, base, canEdit);
+  const timerChange = useTimerChange(item.id, base);
+  usePersonalChannel((event) => {
+    if (event.type === MY_TIMERS_CHANGED) {
+      void queryClient.invalidateQueries({ queryKey: timerKeys.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
+    }
+  });
+  const now = useNow(30_000);
+  const running = timer.data ?? null;
+  const stopTimer = () => {
+    timerChange.mutate(
+      { kind: 'stop' },
+      {
+        onSuccess: (stopped) => {
+          if (stopped === null) return;
+          // The worklog form, prefilled: nothing is logged until you save it.
+          setStart(stopped.started_at);
+          setEnd(stopped.ended_at);
+          setMinutes(null);
+          setDescription(stopped.comment ?? '');
+          setOpen(true);
+        },
+        onError: reportError,
+      },
+    );
+  };
   const cancel = () => {
     setType('fix');
     setOwner(null);
@@ -588,6 +637,34 @@ export function IncidentWorklogs({
                   })}
                 </Typography.Text>
                 {row.billable && <Tag>{t('incidents.worklogs.billable')}</Tag>}
+                {row.draft && (
+                  // A timer saved when the record was resolved or closed: counted once confirmed.
+                  <>
+                    <Tag color="gold" data-testid={`inc-worklog-draft-${row.id}`}>
+                      {t('incidents.timer.draft')}
+                    </Tag>
+                    {row.owner_id === me && (
+                      <WriteButton
+                        size="small"
+                        loading={change.isPending}
+                        onClick={() => {
+                          change.mutate(
+                            {
+                              kind: 'confirm',
+                              worklogId: row.id,
+                              version: row.version,
+                              worklogType: row.worklog_type,
+                            },
+                            { onError: reportError },
+                          );
+                        }}
+                        data-testid={`inc-worklog-confirm-${row.id}`}
+                      >
+                        {t('incidents.timer.confirm')}
+                      </WriteButton>
+                    )}
+                  </>
+                )}
               </Flex>
               <Typography.Text type="secondary">
                 {t('incidents.worklogs.when', {
@@ -610,6 +687,48 @@ export function IncidentWorklogs({
           </List.Item>
         )}
       />
+      {canEdit && (
+        <Flex gap={SPACE.sm} align="center" wrap data-testid="inc-timer">
+          {running === null ? (
+            <WriteButton
+              loading={timerChange.isPending}
+              onClick={() => {
+                timerChange.mutate({ kind: 'start' }, { onError: reportError });
+              }}
+              data-testid="inc-timer-start"
+            >
+              {t('incidents.timer.start')}
+            </WriteButton>
+          ) : (
+            <>
+              <Typography.Text data-testid="inc-timer-running">
+                {t('incidents.timer.running', {
+                  since: dates.format(running.started_at),
+                  duration: duration(
+                    Math.max(0, Math.floor((now - Date.parse(running.started_at)) / 60_000)),
+                  ),
+                })}
+              </Typography.Text>
+              <WriteButton
+                loading={timerChange.isPending}
+                onClick={stopTimer}
+                data-testid="inc-timer-stop"
+              >
+                {t('incidents.timer.stop')}
+              </WriteButton>
+              <Button
+                type="text"
+                onClick={() => {
+                  timerChange.mutate({ kind: 'discard' }, { onError: reportError });
+                }}
+                data-testid="inc-timer-discard"
+              >
+                {t('incidents.timer.discard')}
+              </Button>
+            </>
+          )}
+        </Flex>
+      )}
       {canEdit && !open && (
         <Flex>
           <WriteButton

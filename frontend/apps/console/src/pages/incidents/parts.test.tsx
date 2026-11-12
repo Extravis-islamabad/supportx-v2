@@ -288,6 +288,88 @@ describe('Incident parts (WP-020e)', () => {
     expect(within(form).getByTestId('inc-cost-rate-0')).toBeTruthy();
   });
 
+  it('REQ-INC-069: start your timer; stopping opens the worklog form prefilled, logging nothing', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'worklogs');
+    const running = {
+      id: '01900000-0000-7000-8000-00000000c001',
+      work_item_id: ITEM.id,
+      started_at: '2026-11-12T09:00:00Z',
+      comment: 'Swapping the fuser',
+      auto_started: false,
+      version: 1,
+    };
+    let timer: typeof running | null = null;
+    const fake = api({
+      [`GET ${PATH}/timer`]: () => ({ body: timer }),
+      [`POST ${PATH}/timer`]: () => {
+        timer = running;
+        return { status: 201, body: running };
+      },
+      [`POST ${PATH}/timer/stop`]: () => {
+        timer = null;
+        return {
+          body: {
+            started_at: '2026-11-12T09:00:00Z',
+            ended_at: '2026-11-12T09:25:00Z',
+            minutes: 25,
+            comment: 'Swapping the fuser',
+          },
+        };
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('inc-timer-start'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/timer`)).toHaveLength(1);
+    });
+    fireEvent.click(await screen.findByTestId('inc-timer-stop'));
+    const form = await screen.findByTestId('inc-worklog-form');
+    expect(
+      within(form).getByRole<HTMLTextAreaElement>('textbox', { name: 'What was done' }).value,
+    ).toBe('Swapping the fuser');
+    expect(fake.find('POST', `${PATH}/worklogs`)).toHaveLength(0); // nothing logged yet
+  });
+
+  it('REQ-INC-069 AC2: a timer draft shows as such, and its owner confirms it', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'worklogs');
+    const draft = {
+      id: '01900000-0000-7000-8000-00000000d001',
+      owner_id: SESSION_USER,
+      worklog_type: 'other',
+      started_at: '2026-11-12T09:00:00Z',
+      ended_at: '2026-11-12T09:40:00Z',
+      minutes: 40,
+      description: null,
+      version: 1,
+      created_by: SESSION_USER,
+      stage: null,
+      billable: false,
+      draft: true,
+      money_hidden: true,
+      cost_rate: null,
+      technician_cost: null,
+      costs: [],
+    };
+    const fake = api({
+      [`GET ${PATH}/timer`]: { body: null },
+      [`GET ${PATH}/worklogs`]: {
+        body: { items: [draft], minutes: 0, by_owner: [], by_type: [], money_hidden: true },
+      },
+      [`PATCH ${PATH}/worklogs/${draft.id}`]: { body: { ...draft, draft: false, version: 2 } },
+    });
+    render(<App />);
+    expect(await screen.findByTestId(`inc-worklog-draft-${draft.id}`)).toBeTruthy();
+    fireEvent.click(screen.getByTestId(`inc-worklog-confirm-${draft.id}`));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `${PATH}/worklogs/${draft.id}`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `${PATH}/worklogs/${draft.id}`);
+    expect(sent?.headers.get('If-Match')).toBe('"1"');
+    expect(sent?.body).toEqual({ draft: false, worklog_type: 'other' });
+  });
+
   it('REQ-INC-084 AC3: a link to a record you cannot see shows without its ID or subject', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     rememberTab(SESSION_USER, 'links');
