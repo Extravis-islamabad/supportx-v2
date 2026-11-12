@@ -4005,16 +4005,22 @@ async def _mirror_details_to_roles(
     problems: list[tuple[str, str]] = []
     params: dict[str, Any] = {}
     changes: list[Change] = []
+    wanted = {
+        role: [changed[name]] if changed[name] is not None else []
+        for name, role in by_field.items()
+    }
+    # Check every role first, then write (lane A's #438 review): nothing half written.
     for name, role in by_field.items():
         definition = definitions.get(role)
-        value = changed[name]
-        users = [value] if value is not None else []
-        if definition is not None and holders is not None and users:
-            found, found_params = await _person_holder_problems(session, holders, definition, users)
+        if definition is not None and holders is not None and wanted[role]:
+            found, found_params = await _person_holder_problems(
+                session, holders, definition, wanted[role]
+            )
             problems += [(name, code) for _field, code in found]
             params |= found_params
-        if problems:
-            continue
+    if problems:
+        return problems, params, []
+    for role, users in wanted.items():
         before = held.get(role, ([], []))
         await _replace_holders(session, wtype, record_id, role, users, [])
         changes.append(

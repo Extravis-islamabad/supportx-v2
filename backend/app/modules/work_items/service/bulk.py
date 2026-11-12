@@ -29,7 +29,6 @@ from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import Subject, subject_for, worker_policy
-from app.modules.work_items.domain.changes import CANCELED_STATUS
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.lists import (
     BULK_BATCH,
@@ -568,11 +567,15 @@ async def _cancel_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's 
     point a cancel is offered (implementation in progress or later) is a skip that says so.
     """
     panel = await items.stage_panel(session, subject, wtype, record_id)
+    # Canceled by the type's own model (lane A's #438 review), as the close does.
+    model = await stage_service.load_model(session, wtype, panel.record.lifecycle_version)
     cancel = next(
         (
             m
             for m in panel.moves
-            if m.allowed and (m.lands_in or m.transition.to_status) == CANCELED_STATUS
+            if m.allowed
+            and model.status(m.lands_in or m.transition.to_status).category
+            is StatusCategory.CANCELED
         ),
         None,
     )
