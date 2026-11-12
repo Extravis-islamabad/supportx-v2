@@ -72,7 +72,7 @@ from app.modules.organization import (
     regional_defaults,
     tenant_for_host,
 )
-from app.shared.api.ratelimit import AddressLimit, ip_rate_limit
+from app.shared.api.ratelimit import AddressLimit, client_address, ip_rate_limit
 from app.shared.history import CLIENT_HEADER
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
@@ -379,6 +379,7 @@ async def _finish_callback(  # noqa: PLR0913, PLR0917 - the callback's parts, pa
             binding=binding,
             host=request.headers.get("host"),
             action_status=kc_action_status,
+            client_ip=client_address(request),  # REQ-SEC-034: before anyone is looked up
         )
     except LoginFailure as failure:
         return await _failure_response(request, auth, failure)
@@ -760,7 +761,9 @@ async def switch_tenant(
 ) -> MeResponse:
     """Make another of the user's tenants active. Issues a new session ID and CSRF token."""
     session_id, session = found
-    new_id, switched = await auth.switch_tenant(session_id, session, body.tenant_id)
+    new_id, switched = await auth.switch_tenant(
+        session_id, session, body.tenant_id, client_ip=client_address(request)
+    )
     await _audit_session(request, switched, "session.tenant_switched")
     if request.cookies.get(auth.cookie_name) is None and request.headers.get(SESSION_HEADER):
         # The mobile app (ADR-044): the new ID in the header only. A cookie would be kept by
