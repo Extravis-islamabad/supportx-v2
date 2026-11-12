@@ -685,6 +685,8 @@ data:
   # The browser's URLs (D3): console at /, portal at /portal.
   SUPPORTX_CONSOLE_URL: "https://supportx.example.com"
   SUPPORTX_PORTAL_URL: "https://supportx.example.com/portal"
+  # The mobile sign-in's verified return link (ADR-044 item 3), the path mobile-links.yaml lists.
+  SUPPORTX_MOBILE_REDIRECT_URI: "https://supportx.example.com/mobile/auth"
   # Keycloak: public issuer for browsers and token checks; the API itself uses the in-cluster
   # address (back channel).
   SUPPORTX_OIDC_ISSUER: "https://supportx.example.com/auth/realms/supportx"
@@ -2300,7 +2302,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: a76d0499f5ef31d1f45121cfea0817417e026ab6041d80b9308eb3ecaea896ee
+        checksum/env: 2af1b30a596a126c5d94be7fc1216dbcbd2b090d5608c2f3627fba378e4fcd98
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -2896,7 +2898,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: a76d0499f5ef31d1f45121cfea0817417e026ab6041d80b9308eb3ecaea896ee
+        checksum/env: 2af1b30a596a126c5d94be7fc1216dbcbd2b090d5608c2f3627fba378e4fcd98
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -3046,7 +3048,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: a76d0499f5ef31d1f45121cfea0817417e026ab6041d80b9308eb3ecaea896ee
+        checksum/env: 2af1b30a596a126c5d94be7fc1216dbcbd2b090d5608c2f3627fba378e4fcd98
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -3200,7 +3202,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: a76d0499f5ef31d1f45121cfea0817417e026ab6041d80b9308eb3ecaea896ee
+        checksum/env: 2af1b30a596a126c5d94be7fc1216dbcbd2b090d5608c2f3627fba378e4fcd98
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -3345,7 +3347,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: a76d0499f5ef31d1f45121cfea0817417e026ab6041d80b9308eb3ecaea896ee
+        checksum/env: 2af1b30a596a126c5d94be7fc1216dbcbd2b090d5608c2f3627fba378e4fcd98
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -3496,7 +3498,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: a76d0499f5ef31d1f45121cfea0817417e026ab6041d80b9308eb3ecaea896ee
+        checksum/env: 2af1b30a596a126c5d94be7fc1216dbcbd2b090d5608c2f3627fba378e4fcd98
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -3641,7 +3643,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: a76d0499f5ef31d1f45121cfea0817417e026ab6041d80b9308eb3ecaea896ee
+        checksum/env: 2af1b30a596a126c5d94be7fc1216dbcbd2b090d5608c2f3627fba378e4fcd98
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"

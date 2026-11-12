@@ -356,6 +356,26 @@ export const ar: LabelResource = {
     'فئة وفئة فرعية وعنصر. لا تُعرض الإدخالات المتوقفة في الحوادث الجديدة لكنها تبقى ظاهرة في الحوادث التي تستخدمها.',
   'settings.changed_elsewhere':
     'غيّر شخص آخر هذه الإعدادات للتو. يُعرض أحدث إصدار؛ يرجى إجراء تغييرك مرة أخرى.',
+  'settings.checklists.add': 'قائمة تحقق جديدة في المكتبة',
+  'settings.checklists.enabled_named': 'عرض {{name}}',
+  'settings.checklists.help':
+    'قوائم تحقق جاهزة يمكن للفني إضافتها إلى الحادث. يحصل الحادث على نسخته الخاصة: تغيير القائمة هنا لا يغيّر الحوادث التي أُضيفت إليها.',
+  'settings.checklists.import': 'إضافة عناصر من ملف CSV',
+  'settings.checklists.imported':
+    'تمت قراءة {{items}} عنصر، واستُبعد {{rejected}} صف. راجعها ثم احفظ.',
+  'settings.checklists.items': 'العناصر',
+  'settings.checklists.items_count_few': '{{count}} عناصر',
+  'settings.checklists.items_count_many': '{{count}} عنصرًا',
+  'settings.checklists.items_count_one': 'عنصر واحد',
+  'settings.checklists.items_count_other': '{{count}} عنصر',
+  'settings.checklists.items_count_two': 'عنصران',
+  'settings.checklists.items_count_zero': 'لا عناصر',
+  'settings.checklists.items_help': 'عنصر واحد في كل سطر. تُحذف الأسطر الفارغة.',
+  'settings.checklists.name': 'الاسم',
+  'settings.checklists.none': 'لا توجد قوائم تحقق في المكتبة بعد.',
+  'settings.checklists.rejected_row': 'الصف {{row}}: {{reason}}',
+  'settings.checklists.title': 'مكتبة قوائم التحقق',
+  'settings.checklists.why.name': 'أعطِ قائمة التحقق اسمًا أولًا.',
   'settings.closing.auto_close': 'إغلاق الحوادث المحلولة تلقائيًا',
   'settings.closing.auto_close_days': 'أيام العمل قبل الإغلاق التلقائي',
   'settings.closing.auto_close_help':
@@ -363,6 +383,9 @@ export const ar: LabelResource = {
   'settings.closing.auto_close_needs_notifications':
     'يتطلب إشعارات مقدّمي الطلبات: يبقى الإغلاق التلقائي متوقفًا حتى تتوفر قناة (البريد الإلكتروني أو البوابة) تُبلغ مقدّمي الطلبات بالحل. لا تُغلق أي حادثة لمقدّم طلب لم يُبلَّغ.',
   'settings.closing.channel_state': '{{channel}}: {{reason}}.',
+  'settings.closing.checklist_item_max': 'عناصر قوائم التحقق لكل سجل',
+  'settings.closing.checklist_item_max_help':
+    'كل قوائم التحقق في السجل معًا، من {{min}} إلى {{max}}. تُرفض القائمة الأطول ولا تُقتطع.',
   'settings.closing.close_requires': 'مطلوب قبل الإغلاق',
   'settings.closing.close_requires_help': 'الحقول التي يجب ملؤها قبل إغلاق الحادثة.',
   'settings.closing.complete_open_work': 'إكمال العمل المفتوح عند الإغلاق',
@@ -499,6 +522,7 @@ export const ar: LabelResource = {
     'مدى سرعة الإصلاح المطلوبة. القيم الأربع ثابتة؛ ويمكنك إعادة تسميتها.',
   'settings.section.business-rules': 'قواعد العمل',
   'settings.section.categories': 'الفئات',
+  'settings.section.checklists': 'قوائم التحقق',
   'settings.section.closing': 'الإغلاق',
   'settings.section.closure-codes': 'رموز الإغلاق',
   'settings.section.custom-fields': 'الحقول المخصصة',

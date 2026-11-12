@@ -2,7 +2,8 @@
 
 `/users/{id}/cost-rates`: reading needs `users.view_cost_rates`; setting, changing and removing
 need `users.manage_cost_rates` too. Creates take an Idempotency-Key, changes If-Match. Every
-change is audited as `user.cost_rate_changed` with the rate and start before and after.
+change is audited as `user.cost_rate_changed` with the rate and start before and after, and every
+read as `user.cost_rate_viewed` (D-164).
 Amounts are exact decimals (strings in JSON), in the currency each rate names.
 """
 
@@ -146,12 +147,29 @@ Audited = Annotated[
 ]
 
 
+# D-164 (Haider, 2026-11-12): every view of a person's rates is audited, one entry per person
+# read: the person card's load and each of its live refetches. Which rates were shown, never
+# their amounts. The worklog cost snapshot (`cost_rate`, the port) reads no route and is not a
+# view.
+Viewed = Annotated[
+    AuditNote, audited("user.cost_rate_viewed", object_type="user", object_param="user_id")
+]
+
+
 @router.get("/{user_id}/cost-rates", summary="A person's cost per hour")
 async def list_cost_rates(
-    user_id: uuid.UUID, session: TenantSession, subject: View
+    user_id: uuid.UUID, session: TenantSession, subject: View, note: Viewed
 ) -> CostRatesOut:
-    """Every live rate, newest start first, and the one in force now (`users.view_cost_rates`)."""
-    return _out(await service.list_rates(session, subject, user_id))
+    """Every live rate, newest start first, and the one in force now (`users.view_cost_rates`).
+
+    Audited as `user.cost_rate_viewed` (D-164).
+    """
+    person = await service.list_rates(session, subject, user_id)
+    note.details = {
+        "rate_ids": [str(v.row.id) for v in person.rates],
+        "current_rate_id": str(person.current.row.id) if person.current else None,
+    }
+    return _out(person)
 
 
 @router.post(
