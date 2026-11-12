@@ -449,6 +449,8 @@ export const SCREENS: Screen[] = [
   { key: 'profile', path: '/profile', app: 'console' },
   { key: 'not-found', path: '/no/such/page', app: 'console' },
   { key: 'admin', path: '/admin', app: 'console' },
+  // WP-057 S1a (REQ-AUD-015): Audit › Sign-ins.
+  { key: 'admin-audit-sign-ins', path: '/admin/audit?tab=sign_ins', app: 'console' },
   ...[
     'users',
     'roles',
