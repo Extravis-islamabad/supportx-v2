@@ -324,8 +324,8 @@ export function IncidentTasks({
             />
           </div>
           <DateTimeField value={due} onChange={setDue} testId="inc-task-due" />
+          {/* An inline row add stays secondary: the page has one primary (template A). */}
           <WriteButton
-            type="primary"
             disabled={title.trim() === ''}
             whyDisabled={t('why.task_title')}
             loading={change.isPending}
