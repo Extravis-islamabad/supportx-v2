@@ -329,6 +329,46 @@ class OverdueRuleChanged(DomainEvent):
     changed_count: int = 0
 
 
+BulkJobStatus = Literal["queued", "running", "done", "failed"]
+
+
+class AssetBulkJobProgressed(DomainEvent):
+    """A bulk job on assets moved on (REQ-AST-051): its requester's progress, one list refresh.
+
+    Sent when it is queued, after each batch and when it ends. Counts only.
+    """
+
+    event_type: ClassVar[str] = "assets.bulk_job.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_bulk_job"
+
+    job_id: uuid.UUID
+    requested_by: uuid.UUID
+    status: BulkJobStatus
+    processed: int
+    total: int
+
+
+ImportStatus = Literal["queued", "running", "checked", "done", "failed"]
+
+
+class AssetImportProgressed(DomainEvent):
+    """An asset, consumable or vendor import moved on (REQ-AST-053): its requester's progress.
+
+    Sent when it is queued, after each batch and when it ends (a dry run ends `checked`).
+    """
+
+    event_type: ClassVar[str] = "assets.import.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_import"
+
+    import_id: uuid.UUID
+    requested_by: uuid.UUID
+    status: ImportStatus
+    processed: int
+    total: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     CatalogueChanged,
     ProductChanged,
@@ -351,4 +391,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AuditItemChanged,
     ScanRecorded,
     OverdueRuleChanged,
+    AssetBulkJobProgressed,
+    AssetImportProgressed,
 )

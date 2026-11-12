@@ -307,6 +307,8 @@ export const ur: LabelResource = {
   'workflow_failure.webhook_unreachable': 'پتے تک نہیں پہنچا جا سکا۔',
   'workflow_failure.workflow_identity_missing':
     'ورک فلو کی اپنی شناخت موجود نہیں؛ اسے بند کر کے دوبارہ چالو کریں۔',
+  'workflow_failure.workflow_identity_not_permitted':
+    'ورک فلو کی شناخت کو یہ مرحلہ کرنے کا حق نہیں۔ «بطور چلتا ہے» میں اسے کردار دیں۔',
   'workflow_instance_status.cancelled': 'منسوخ',
   'workflow_instance_status.failed': 'ناکام',
   'workflow_instance_status.finished': 'مکمل',
@@ -611,6 +613,16 @@ export const ur: LabelResource = {
   'workflows.record.tab': 'ورک فلوز',
   'workflows.record.took': 'دورانیہ',
   'workflows.record_type': 'ریکارڈ کی قسم',
+  'workflows.run_as.help':
+    'ریکارڈ بدلنے والے مراحل (حالت مقرر کرنا، فیلڈ اپ ڈیٹ، نوٹ) اس ورک فلو کی اپنی شناخت سے چلتے ہیں، صرف ان کرداروں کے ساتھ جو آپ یہاں دیں۔',
+  'workflows.run_as.not_made': 'ورک فلو پہلی بار شائع ہونے پر بنتی ہے۔',
+  'workflows.run_as.publish_anyway': 'پھر بھی شائع کریں',
+  'workflows.run_as.publish_title': 'کردار کے بغیر شائع کریں؟',
+  'workflows.run_as.scope_help':
+    'اسے ایسا کردار دیں جو اس قسم کے ہر ریکارڈ تک پہنچے: اپنے گروپس تک محدود کردار کسی ریکارڈ تک نہیں پہنچتا، کیونکہ یہ شناخت کسی گروپ میں نہیں۔',
+  'workflows.run_as.tab': 'بطور چلتا ہے',
+  'workflows.run_as.warning':
+    'یہ ورک فلو ابھی ریکارڈ نہیں بدل سکتا: «بطور چلتا ہے» میں اس کی شناخت کو کردار دیں۔',
   'workflows.running': 'جاری رنز',
   'workflows.runs.all': 'تمام حالتیں',
   'workflows.runs.any_workflow': 'کوئی بھی ورک فلو',

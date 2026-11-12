@@ -87,6 +87,19 @@ class FakePort:
         del session
         return [ASSET] if any(r.id == work_item_id for r in self.records) else []
 
+    async def repoint_links(
+        self,
+        session: AsyncSession,
+        from_asset_id: uuid.UUID,
+        to_asset_id: uuid.UUID,
+        *,
+        from_label: str,
+        to_label: str,
+        source: str,
+    ) -> int:
+        del session, from_asset_id, to_asset_id, from_label, to_label, source
+        return 0
+
 
 @pytest.fixture(autouse=True)
 def _no_db(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
