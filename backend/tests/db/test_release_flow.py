@@ -88,10 +88,10 @@ async def _walk(world: World, org: Org) -> None:
     assert item["status"] == "review_in_progress"
     # Completing the review closes the release: it asks for the closure code too.
     item = await _moved_with(
-        world, org, item, "review_completed", resolution="Reviewed.", closure_code="fixed"
+        world, org, item, "review_completed", resolution="Reviewed.", closure_code="completed"
     )
     if item["status"] != "closure_closed":
-        item = await _moved_with(world, org, item, "closure_closed", closure_code="fixed")
+        item = await _moved_with(world, org, item, "closure_closed", closure_code="completed")
     assert (item["status"], item["status_category"]) == ("closure_closed", "closed")
 
 

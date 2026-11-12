@@ -1265,6 +1265,8 @@ export const ar: LabelResource = {
   'open_work_kind.approvals': 'الموافقات',
   'open_work_kind.checklists': 'قوائم التحقق',
   'open_work_kind.child_incidents': 'الحوادث الفرعية',
+  'open_work_kind.child_releases': 'الإصدارات الفرعية',
+  'open_work_kind.linked_changes': 'التغييرات المرتبطة',
   'open_work_kind.tasks': 'المهام',
   'open_work_mode.block': 'عدم السماح',
   'open_work_mode.warn': 'التنبيه وطلب التأكيد',

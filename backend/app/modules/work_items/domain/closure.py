@@ -61,6 +61,9 @@ class OpenWorkKind(StrEnum):
     CHECKLISTS = "checklists"  # WP-020e
     CHILD_INCIDENTS = "child_incidents"  # WP-020e links
     APPROVALS = "approvals"  # WP-030
+    # WP-058b S4 (REQ-REL-052), generic for any type that registers them:
+    LINKED_CHANGES = "linked_changes"  # open changes linked to the record (a release's changes)
+    CHILD_RELEASES = "child_releases"  # open sub-releases
 
 
 OPEN_WORK_DEFAULTS: Mapping[OpenWorkKind, OpenWorkMode] = {
@@ -68,6 +71,8 @@ OPEN_WORK_DEFAULTS: Mapping[OpenWorkKind, OpenWorkMode] = {
     OpenWorkKind.CHECKLISTS: OpenWorkMode.WARN,
     OpenWorkKind.CHILD_INCIDENTS: OpenWorkMode.WARN,
     OpenWorkKind.APPROVALS: OpenWorkMode.BLOCK,
+    OpenWorkKind.LINKED_CHANGES: OpenWorkMode.WARN,  # listed, with an offer to close them
+    OpenWorkKind.CHILD_RELEASES: OpenWorkMode.WARN,
 }
 
 

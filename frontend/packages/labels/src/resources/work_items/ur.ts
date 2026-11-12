@@ -1153,6 +1153,8 @@ export const ur: LabelResource = {
   'open_work_kind.approvals': 'منظوریاں',
   'open_work_kind.checklists': 'چیک لسٹس',
   'open_work_kind.child_incidents': 'ذیلی واقعات',
+  'open_work_kind.child_releases': 'ذیلی ریلیزز',
+  'open_work_kind.linked_changes': 'منسلک تبدیلیاں',
   'open_work_kind.tasks': 'ٹاسکس',
   'open_work_mode.block': 'اجازت نہ دیں',
   'open_work_mode.warn': 'خبردار کریں اور تصدیق مانگیں',

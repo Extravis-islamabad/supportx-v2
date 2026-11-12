@@ -1147,6 +1147,8 @@ export const en = {
   'open_work_kind.approvals': 'Approvals',
   'open_work_kind.checklists': 'Checklists',
   'open_work_kind.child_incidents': 'Child incidents',
+  'open_work_kind.child_releases': 'Sub-releases',
+  'open_work_kind.linked_changes': 'Linked changes',
   'open_work_kind.tasks': 'Tasks',
   'open_work_mode.block': 'Do not allow',
   'open_work_mode.warn': 'Warn and ask to confirm',
