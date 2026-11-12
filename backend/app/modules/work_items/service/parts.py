@@ -994,6 +994,9 @@ async def create_worklog(  # noqa: PLR0913 - the record, the worklog and the sou
             ended_at=times.ended_at,
             minutes=times.minutes,
             description=description,
+            # WP-058b S3 (0142): a staged record's worklog belongs to its stage then; set here,
+            # never sent by the client (lane A's OK). Other types keep none.
+            stage=record.stage if wtype.stages is not None else None,
         )
     )
     await _recorded(

@@ -255,6 +255,9 @@ async def _others(  # noqa: PLR0913 - the record, its range and what it may meet
             meets.append(
                 WorkItem.id.in_(
                     select(WorkItemDowntime.work_item_id).where(
+                        # The tenant explicitly too (lane A's #397 note): the tenant-leading
+                        # indexes serve it, not only RLS's filter.
+                        WorkItemDowntime.tenant_id == record.tenant_id,
                         WorkItemDowntime.phase == "planned",
                         WorkItemDowntime.deleted_at.is_(None),
                         or_(
@@ -272,16 +275,18 @@ async def _others(  # noqa: PLR0913 - the record, its range and what it may meet
             meets.append(
                 WorkItem.id.in_(
                     select(WorkItemReleaseDetails.work_item_id).where(
+                        WorkItemReleaseDetails.tenant_id == record.tenant_id,
                         or_(
                             WorkItemReleaseDetails.release_manager_id.in_(people),
                             WorkItemReleaseDetails.release_engineer_id.in_(people),
-                        )
+                        ),
                     )
                 )
             )
             meets.append(
                 WorkItem.id.in_(
                     select(WorkItemRoleHolder.work_item_id).where(
+                        WorkItemRoleHolder.tenant_id == record.tenant_id,
                         WorkItemRoleHolder.role.in_(RELEASE_ROLES),
                         WorkItemRoleHolder.user_id.in_(people),
                     )
@@ -301,6 +306,8 @@ async def _others(  # noqa: PLR0913 - the record, its range and what it may meet
                 )
                 .join(WorkItemStageSchedule, WorkItemStageSchedule.work_item_id == WorkItem.id)
                 .where(
+                    WorkItem.tenant_id == record.tenant_id,
+                    WorkItemStageSchedule.tenant_id == record.tenant_id,
                     WorkItem.type == wtype,
                     WorkItem.id != record.id,
                     WorkItem.deleted_at.is_(None),

@@ -35,6 +35,17 @@ _CONVERSATION = "work_items.conversation.added"
 CANCEL = "cancel"  # the life-cycle action automation stops a record's workflows on
 
 
+def _stage_of(type_code: object, status_code: object) -> str | None:
+    """The stage a staged type's status belongs to (None for other types or unknown codes)."""
+    wtype = next((w for w in TYPES.values() if w.code.value == type_code), None)
+    if wtype is None or wtype.stages is None or not isinstance(status_code, str):
+        return None
+    try:
+        return wtype.stages.status(status_code).stage
+    except KeyError:
+        return None
+
+
 async def read_event(
     session: AsyncSession, envelope: EventEnvelope
 ) -> automation.RecordEvent | None:
@@ -54,6 +65,12 @@ async def read_event(
     elif event == automation.TriggerEvent.STATUS_CHANGED:
         changed = ["status", "status_category"]
         known = {"status": payload.get("from_status")}
+        # A staged type's move into another stage is also a stage entry (WP-058b S3).
+        before = _stage_of(payload.get("type"), payload.get("from_status"))
+        after = _stage_of(payload.get("type"), payload.get("to_status"))
+        if after is not None and before != after:
+            changed.append("stage")
+            known["stage"] = before
         action = payload.get("action")
         if action != CANCEL and status_category(payload.get("type"), payload.get("to_status")) == (
             StatusCategory.CANCELED.value

@@ -1177,6 +1177,10 @@ class WorkItemCatalogueOut(BaseModel):
         default=False,
         description="Changes: outside every maintenance window blocks instead of warns (D-156).",
     )
+    open_stage_tasks_block: bool = Field(
+        default=True,
+        description="Releases: a stage with open tasks cannot be left (REQ-REL-048).",
+    )
     cab_every_match: bool = Field(
         default=False,
         description="Changes: every board the mapping matches reviews, not only the first.",
@@ -1226,6 +1230,7 @@ class WorkItemCatalogueOut(BaseModel):
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
             outside_maintenance_blocks=cat.outside_maintenance_blocks,
+            open_stage_tasks_block=cat.open_stage_tasks_block,
             cab_every_match=cat.cab_every_match,
             reapproval=ReapprovalPolicyIO.model_validate(
                 reapproval_rules.policy_json(reapproval_rules.policy_from(cat.reapproval))
@@ -1363,6 +1368,7 @@ class WorkItemSettingsPatch(BaseModel):
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
     outside_maintenance_blocks: bool | None = Field(default=None, description="Changes only.")
+    open_stage_tasks_block: bool | None = Field(default=None, description="Releases only.")
     cab_every_match: bool | None = Field(default=None, description="Changes only.")
     reapproval: ReapprovalPolicyIO | None = Field(
         default=None, description="Changes only. Null: the shipped policy."
@@ -2042,6 +2048,8 @@ class RailStageOut(BaseModel):
     state: RailState
     optional: bool
     entries: list[StageEntryOut]
+    tasks_done: int = Field(default=0, description="This stage's tasks done (WP-058b S3).")
+    tasks_total: int = Field(default=0, description="This stage's tasks, canceled ones left out.")
 
 
 class MissingFieldOut(BaseModel):
@@ -2096,6 +2104,8 @@ class StagePanelOut(BaseModel):
                     entries=[
                         StageEntryOut(entered_at=e.entered_at, left_at=e.left_at) for e in s.entries
                     ],
+                    tasks_done=panel.tasks.get(s.stage, (0, 0))[0],
+                    tasks_total=panel.tasks.get(s.stage, (0, 0))[1],
                 )
                 for s in panel.rail
             ],

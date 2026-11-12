@@ -2166,7 +2166,26 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     in the PR.
   - **Open:** per-environment guarding (WP-053); a release emergency route would be a new
     decision; GiST range index not needed (lane A, 7 ms worst case).
-- [ ] S3: stage on tasks and worklogs, page tabs. S4: closure and rollback.
+- [~] Session 3 (2026-11-11): stage work for releases. Migration 0142.
+  - **REQ-REL-048:** the stage-task refusal is shared with changes (lane A's OK) and names the
+    first open task (`task`, `task_id`, `tasks`, `more`; never its text). Releases can switch it
+    off (`open_stage_tasks_block`). The rail shows each stage's tasks done / total, live.
+  - **Worklogs:** they carry the staged record's stage, set by the server (lane A's WP-046a S3
+    builds on it).
+  - **REQ-REL-022 AC1:** trigger event `stage_entered`, with `stage` as a rule field for staged
+    types. It runs once per entry and is named in history. Notifications keep their own events
+    (lane A's `change.status_entered`); see the workflows guide.
+  - **REQ-REL-021 AC1:** a failed workflow step on the release header, with Retry.
+  - **Moved:**
+    - REQ-REL-020's default release workflows → S6. Their notices need the release-role
+      recipients that S6 brings; no stand-ins (the coordinator, 2026-11-11).
+    - REQ-REL-022 AC2 waits for custom menu actions (REQ-RUL-024, WP-048a, lane A). The release
+      scoping test is theirs to add, with my review.
+  - **REQ-REL-048 AC3** (a task from a template is created in the stage): delivered by lane A's
+    task templates (#398, WP-046a S1). Proved on a release by their
+    `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
+  - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
+- [ ] S4: closure and rollback.
   S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 
