@@ -144,5 +144,5 @@ kubectl wait --for=condition=Ready "node/$node" --timeout=300s
 took="$(until_ok 600 three_ready)" ||
   { echo "the database did not get back to three ready instances: $(pg '{.status.phase}')"; exit 1; }
 echo "three ready database instances after ${took}s; primary $(pg '{.status.currentPrimary}')"
-save_locale null || { echo "the write failed after the node returned"; exit 1; }
+write_after_return || { echo "the session did not write again within 30 s of the node's return (ingress ready first)"; exit 1; }
 echo "node-loss test passed: one agent lost, the database failed over, the session kept writing"

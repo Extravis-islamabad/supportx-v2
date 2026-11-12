@@ -56,6 +56,17 @@ until_ok() {  # until_ok <seconds> <command...>: retry every 3 s; the seconds it
 }
 node_of() { kubectl -n "$NAMESPACE" get pod "$1" -o jsonpath='{.spec.nodeName}'; }
 
+# After a stopped node is back: the ingress copy on it is Ready again, and the session writes
+# within 30 s. A node that just rejoined can drop a request or two before its kube-proxy rules
+# and its Traefik copy are in sync (Cluster run 43232617611: the first write after the return
+# got no answer while that node's Traefik was still 0/1). The write must come back soon after
+# the node does, not on the very first request.
+write_after_return() {  # write_after_return: 0 when the session writes again
+  kubectl -n kube-system wait --for=condition=Ready pod -l app.kubernetes.io/name=traefik \
+    --timeout=120s >/dev/null || return 1
+  until_ok 30 save_locale null >/dev/null
+}
+
 # valkey-cli inside a pod's container (valkey: port 6379, sentinel: 26379), bounded in time.
 vcli() {  # vcli <pod> <valkey|sentinel> <args...>
   local pod="$1" container="$2" port=6379

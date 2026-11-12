@@ -221,7 +221,7 @@ echo "$master is a replica again; one master"
 budget=$((300 - (SECONDS - started)))
 [ "$budget" -gt 0 ] || budget=1
 wait_settled "$budget" || exit 1
-save_locale null || { echo "the write failed after the node returned"; exit 1; }
+write_after_return || { echo "the session did not write again within 30 s of the node's return (ingress ready first)"; exit 1; }
 
 # Settled for node-loss.sh, which runs next: the database and cluster DNS whole again.
 took="$(until_ok 600 three_ready)" ||
