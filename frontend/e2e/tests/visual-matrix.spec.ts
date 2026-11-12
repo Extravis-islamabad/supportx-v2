@@ -214,6 +214,8 @@ export const SCREENS: Screen[] = [
   },
   { key: 'my-tasks', path: '/my-tasks', app: 'console' }, // WP-046a S1 (REQ-INC-076)
   { key: 'change-calendar', path: '/changes/calendar', app: 'console' }, // WP-045c S3
+  // WP-058b S5b (REQ-REL-056): releases by stage, the shared StageBoard.
+  { key: 'release-board', path: '/releases/board', app: 'console' },
   {
     // WP-058b S1: the shared staged calendar on releases, and its timeline view (the fifth).
     key: 'release-calendar',
