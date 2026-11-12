@@ -558,19 +558,25 @@ CANCEL_PERMISSION = "cancel"  # the lifecycle transitions' cancel right (domain 
 
 
 def cancel_move(moves: Sequence[StageOffer], model: StageModel) -> StageOffer | None:
-    """The bulk cancel's move: the allowed cancel transition, else any allowed move into canceled.
+    """The bulk cancel's move: the cancel transition, if it is offered at all.
 
-    Never by the order the moves come in (see _cancel_staged).
+    When the type offers its cancel transition (permission "cancel") from here, only that move
+    counts: not allowed for you means a skip, never another move into canceled, such as a
+    release's rejection (lane A's #452 review). Only a type with no cancel transition from here
+    falls back to an allowed move into canceled. Never by the order the moves come in.
     """
-    into_canceled = [
-        m
-        for m in moves
-        if m.allowed
-        and model.status(m.lands_in or m.transition.to_status).category is StatusCategory.CANCELED
-    ]
+    cancels = [m for m in moves if m.transition.permission == CANCEL_PERMISSION]
+    if cancels:
+        return next((m for m in cancels if m.allowed), None)
     return next(
-        (m for m in into_canceled if m.transition.permission == CANCEL_PERMISSION),
-        into_canceled[0] if into_canceled else None,
+        (
+            m
+            for m in moves
+            if m.allowed
+            and model.status(m.lands_in or m.transition.to_status).category
+            is StatusCategory.CANCELED
+        ),
+        None,
     )
 
 
