@@ -56,6 +56,7 @@ import {
   useMinWidth,
 } from '@supportx/ui';
 
+import { QuickCreateDialog } from './QuickCreateDialog';
 import { choiceName, fieldName } from '../customFields/values';
 import { useReportWords } from '../reports/names';
 import { useIncidentFieldName } from './conflict';
@@ -126,6 +127,7 @@ export function IncidentsPage() {
   const allowed = can('incidents.view');
   const [mode, setMode] = useState<'current' | 'trash'>('current');
   const [panel, setPanel] = useState<'exports' | 'bulk' | null>(null);
+  const [quick, setQuick] = useState(false);
   const wideWindow = useMinWidth(GROUP_DEFAULT_MIN_WIDTH);
   // A built-in view code, or `custom:<saved view id>`.
   const [view, setView] = useState<string>(DEFAULT_VIEW);
@@ -443,13 +445,24 @@ export function IncidentsPage() {
               primary={
                 // Nothing is made in the trash (QA10-P1-18).
                 can('incidents.create') && !trash ? (
-                  <WriteButton
-                    type="primary"
-                    onClick={() => void navigate('/incidents/new')}
-                    data-testid="inc-new"
-                  >
-                    {t('incidents.new')}
-                  </WriteButton>
+                  <Space.Compact>
+                    <WriteButton
+                      type="primary"
+                      onClick={() => void navigate('/incidents/new')}
+                      data-testid="inc-new"
+                    >
+                      {t('incidents.new')}
+                    </WriteButton>
+                    {/* Quick create without leaving the list (REQ-INC-018). */}
+                    <WriteButton
+                      onClick={() => {
+                        setQuick(true);
+                      }}
+                      data-testid="inc-quick-open"
+                    >
+                      {t('incidents.quick.open')}
+                    </WriteButton>
+                  </Space.Compact>
                 ) : undefined
               }
             />
@@ -457,6 +470,12 @@ export function IncidentsPage() {
         />
       }
     >
+      <QuickCreateDialog
+        open={quick}
+        onClose={() => {
+          setQuick(false);
+        }}
+      />
       <MyExportsButton
         button={false}
         open={panel === 'exports'}
