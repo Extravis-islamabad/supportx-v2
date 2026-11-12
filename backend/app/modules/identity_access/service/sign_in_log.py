@@ -21,9 +21,10 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
@@ -163,3 +164,16 @@ PERSON_ERASED = ConsumerSpec(
     event_types=("identity_access.user.status_changed",),
     handler=on_person_erased,
 )
+
+
+async def purge_schedule(database: Database, settings: Settings) -> None:
+    """Daily, in every tenant (each in its own session, RLS): entries past RETENTION go."""
+    del settings
+    async with database.platform_session() as platform:
+        tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
+    now = datetime.now(UTC)
+    for tenant in tenants:
+        async with database.tenant_session(TenantContext(tenant)) as session:
+            gone = await purge(session, now)
+        if gone:
+            log.info("sign_in_log_purged", tenant_id=str(tenant), entries=gone)

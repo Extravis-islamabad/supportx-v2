@@ -412,6 +412,7 @@ module = ModuleSpec(
     # Licensed technician seats (WP-009); requesters are never counted.
     usage_counters={"technicians": count_technicians},
     schedules=[
+        ScheduleSpec("identity_access__sign_in_log_purge", 86400, sign_in_log.purge_schedule),
         ScheduleSpec("identity_access__people_imports", 5, run_people_imports),
         # Past the MFA grace period: Keycloak's enrol actions (WP-039 session 3, REQ-SEC-024).
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
