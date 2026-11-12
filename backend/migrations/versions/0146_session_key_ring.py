@@ -20,7 +20,7 @@ Expand only, no data step. The downgrade drops the tables: they hold no business
 audit entries themselves stay), and the next start-up records the ring again.
 
 Revision ID: 0146
-Revises: 0140
+Revises: 0145
 Created: 2026-11-12
 """
 
@@ -34,7 +34,7 @@ from app.shared.db.rls import APP_ROLE
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0146"
-down_revision: str | None = "0140"
+down_revision: str | None = "0145"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
