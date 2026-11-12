@@ -1347,7 +1347,6 @@ it with no reload (rule c). Not built yet.
     by a sweep, live on the personal channel.
   - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
     reserved for S3).
-
 - **S5c part 1 (no migration; REQ-INC-018 quick create):**
   - Incidents list › Quick create: subject, requester and an optional priority (with its
     reason), without leaving the list.
