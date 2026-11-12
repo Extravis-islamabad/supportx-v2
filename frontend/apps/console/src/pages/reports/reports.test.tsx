@@ -381,6 +381,36 @@ describe('Reports', () => {
       expect(screen.getByTestId('report-drill-count').textContent).toBe('Records: 8');
     });
 
+    it.each([
+      ['releases', 'releases', 'REL-4'],
+      ['problems', 'problems', 'PRB-4'],
+      ['service-requests', 'requests', 'SR-4'],
+    ])(
+      'a %s report drills down to its own list (WP-058b S5b, REQ-REL-060)',
+      async (listPath, route, displayId) => {
+        const row = { ...fakeIncident({ display_id: displayId, subject: 'Payroll 4.2' }) };
+        const fake = api({
+          me: fakeSession(),
+          routes: routes({
+            'POST /api/v1/reports/run': { body: { ...RESULT, list_path: listPath } },
+            [`GET /api/v1/${listPath}`]: {
+              body: { ...EMPTY_LIST, items: [row], estimated_total: 8, people: [] },
+            },
+          }),
+        });
+        render(<App />);
+        const table = await screen.findByTestId('report-table');
+        fireEvent.click(within(table).getByText('P1 – Critical'));
+        const link = await screen.findByRole('link', { name: /Payroll 4\.2/ });
+        expect(link.getAttribute('href')).toBe(`/${route}/${row.id}`);
+        const drill = fake.find('GET', `/api/v1/${listPath}`).at(-1);
+        expect(JSON.parse(drill?.url.searchParams.get('filter') ?? 'null')).toEqual(
+          RESULT.rows[0]?.drill,
+        );
+        expect(fake.find('GET', '/api/v1/incidents')).toHaveLength(0);
+      },
+    );
+
     it('exports to a file in the background and lists my exports (REQ-RPT-058)', async () => {
       const ready = {
         id: '01900000-0000-7000-8000-00000000e001',

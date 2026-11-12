@@ -5,6 +5,9 @@ import {
   useChanges,
   useIncidentCatalogue,
   useIncidents,
+  useProblems,
+  useReleases,
+  useServiceRequests,
   type FilterExpression,
 } from '@supportx/api-client';
 import { useLabels } from '@supportx/labels';
@@ -27,20 +30,87 @@ const PAGE = 50;
  * It is the incident list itself with the row's filter: same scope, same count.
  */
 export function DrillDrawer({ drill, onClose }: { drill: Drill | null; onClose: () => void }) {
-  // A change report drills to the change list (WP-045d S4c, REQ-CHG-116 AC2).
-  if (drill?.listPath === 'changes') return <ChangeDrill drill={drill} onClose={onClose} />;
+  // Each work item type drills to its own list (WP-045d S4c for changes; WP-058b S5b for
+  // releases, problems and requests): the same scope and count as the chart.
+  const own = drill?.listPath === undefined ? undefined : LISTS[drill.listPath];
+  if (drill !== null && own !== undefined) {
+    return <RecordDrill drill={drill} onClose={onClose} useRows={own.useRows} route={own.route} />;
+  }
   return <IncidentDrill drill={drill} onClose={onClose} />;
 }
 
-/** The change list with the row's filter: same scope, same count as the chart. */
-function ChangeDrill({ drill, onClose }: { drill: Drill; onClose: () => void }) {
-  const t = useLabels();
+interface DrillRows {
+  rows: readonly { id: string; display_id: string; subject: string; status: string }[];
+  total: number | null;
+  pending: boolean;
+}
+
+function useChangeRows(filter: unknown): DrillRows {
   const list = useChanges({
-    filter: drill.filter == null ? undefined : JSON.stringify(drill.filter),
+    filter: filter == null ? undefined : JSON.stringify(filter),
     include_total: true,
   });
-  const rows = list.data?.items ?? [];
-  const total = list.data?.estimated_total ?? null;
+  return {
+    rows: list.data?.items ?? [],
+    total: list.data?.estimated_total ?? null,
+    pending: list.isPending,
+  };
+}
+
+function useReleaseRows(filter: unknown): DrillRows {
+  const list = useReleases({
+    filter: filter == null ? undefined : JSON.stringify(filter),
+    include_total: true,
+  });
+  return {
+    rows: list.data?.items ?? [],
+    total: list.data?.estimated_total ?? null,
+    pending: list.isPending,
+  };
+}
+
+function useProblemRows(filter: unknown): DrillRows {
+  const list = useProblems({ filter: (filter ?? undefined) as FilterExpression | undefined });
+  return {
+    rows: list.data?.items ?? [],
+    total: list.data?.estimated_total ?? null,
+    pending: list.isPending,
+  };
+}
+
+function useRequestRows(filter: unknown): DrillRows {
+  const list = useServiceRequests({
+    filter: (filter ?? undefined) as FilterExpression | undefined,
+  });
+  return {
+    rows: list.data?.items ?? [],
+    total: list.data?.estimated_total ?? null,
+    pending: list.isPending,
+  };
+}
+
+/** A report's `list_path` → its list's rows and where a row opens. Incidents are the default. */
+const LISTS: Record<string, { useRows: (filter: unknown) => DrillRows; route: string }> = {
+  changes: { useRows: useChangeRows, route: 'changes' },
+  releases: { useRows: useReleaseRows, route: 'releases' },
+  problems: { useRows: useProblemRows, route: 'problems' },
+  'service-requests': { useRows: useRequestRows, route: 'requests' },
+};
+
+/** A type's own list with the row's filter: same scope, same count as the chart. */
+function RecordDrill({
+  drill,
+  onClose,
+  useRows,
+  route,
+}: {
+  drill: Drill;
+  onClose: () => void;
+  useRows: (filter: unknown) => DrillRows;
+  route: string;
+}) {
+  const t = useLabels();
+  const { rows, total, pending } = useRows(drill.filter);
   return (
     <Drawer
       open
@@ -55,12 +125,12 @@ function ChangeDrill({ drill, onClose }: { drill: Drill; onClose: () => void }) 
           {t('reports.drill_count', { count: total ?? rows.length })}
         </Typography.Text>
         <List
-          loading={list.isPending}
-          dataSource={rows}
+          loading={pending}
+          dataSource={[...rows]}
           renderItem={(item) => (
             <List.Item>
               <Space direction="vertical" size={0} style={{ minWidth: 0 }}>
-                <Link to={`/changes/${item.id}`}>
+                <Link to={`/${route}/${item.id}`}>
                   <bdi>{item.display_id}</bdi> {item.subject}
                 </Link>
                 <Typography.Text type="secondary">
