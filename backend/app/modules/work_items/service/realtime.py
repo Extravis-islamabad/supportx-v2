@@ -561,6 +561,8 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     payload = envelope.payload
     record_id = uuid.UUID(str(payload["work_item_id"]))
     part_id = uuid.UUID(str(payload["part_id"]))
+    if payload["part"] == "timer":
+        return RealtimeEffects()  # S3 routes timers to their owner; nothing publishes one yet
     if payload["part"] == "reminder":
         # A personal reminder (WP-046a S2, REQ-INC-082 AC2): its owner's channel only, never the
         # record's, so nobody else even hears that one exists.

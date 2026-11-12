@@ -374,11 +374,12 @@ ApprovalChange = Literal["opened", "decided", "closed"]
 
 
 class WorkItemPartChangedV3(DomainEvent):
-    """As V2, with a record's checklists and personal reminders (WP-046a S2; REQ-INC-077, -082).
+    """As V2, with a record's checklists, personal reminders and timers (WP-046a S2/S3).
 
     New allowed values retype `part`, so a new schema version (docs/architecture/events.md
-    "Versioning"); v1 and v2 stay registered and keep publishing their parts. A reminder is its
-    owner's only: realtime tells their personal channel, never the record's.
+    "Versioning"); v1 and v2 stay registered and keep publishing their parts. A reminder or a
+    running timer (REQ-INC-082, -069) is its owner's only: realtime tells their personal
+    channel, never the record's. `timer` is reserved here for S3, so S3 needs no V4.
     """
 
     event_type: ClassVar[str] = "work_items.part.changed"
@@ -395,6 +396,7 @@ class WorkItemPartChangedV3(DomainEvent):
         "downtime",
         "checklist",
         "reminder",
+        "timer",
     ]
     part_id: uuid.UUID
     change: Literal["added", "changed", "removed"]

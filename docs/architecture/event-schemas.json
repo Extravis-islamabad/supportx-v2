@@ -5579,7 +5579,7 @@
         "type": "object"
       },
       "3": {
-        "description": "As V2, with a record's checklists and personal reminders (WP-046a S2; REQ-INC-077, -082).\n\nNew allowed values retype `part`, so a new schema version (docs/architecture/events.md\n\"Versioning\"); v1 and v2 stay registered and keep publishing their parts. A reminder is its\nowner's only: realtime tells their personal channel, never the record's.",
+        "description": "As V2, with a record's checklists, personal reminders and timers (WP-046a S2/S3).\n\nNew allowed values retype `part`, so a new schema version (docs/architecture/events.md\n\"Versioning\"); v1 and v2 stay registered and keep publishing their parts. A reminder or a\nrunning timer (REQ-INC-082, -069) is its owner's only: realtime tells their personal\nchannel, never the record's. `timer` is reserved here for S3, so S3 needs no V4.",
         "properties": {
           "change": {
             "enum": [
@@ -5599,7 +5599,8 @@
               "stage_schedule",
               "downtime",
               "checklist",
-              "reminder"
+              "reminder",
+              "timer"
             ],
             "title": "Part",
             "type": "string"
