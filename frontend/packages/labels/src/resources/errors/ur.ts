@@ -136,6 +136,8 @@ export const ur: LabelResource = {
   'errors.asset_product_type_in_use': 'پروڈکٹس ابھی یہ قسم استعمال کرتی ہیں ({{used}})۔',
   'errors.asset_product_type_not_found': 'پروڈکٹ کی یہ قسم موجود نہیں۔',
   'errors.asset_restore_merged': 'یہ اثاثہ {{asset}} میں ضم ہوا تھا۔ الگ بحال کرنے کی تصدیق کریں۔',
+  'errors.asset_site_not_managed':
+    'آپ صرف انہی سائٹس پر اثاثے شامل یا منتقل کر سکتے ہیں جن کا آپ انتظام کرتے ہیں۔',
   'errors.asset_state_in_use':
     'لائف سائیکلز کی منتقلیاں ابھی یہ حالت استعمال کرتی ہیں ({{used}})۔ پہلے انہیں ہٹائیں۔',
   'errors.asset_state_not_found': 'اثاثے کی یہ حالت موجود نہیں۔',
