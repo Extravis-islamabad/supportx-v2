@@ -72,8 +72,12 @@ workflowTimers:
 keycloak:
   replicas: 2
 
-# One primary and two standbys; CloudNativePG fails over to a standby by itself.
+# One primary and two standbys; CloudNativePG fails over to a standby by itself. Every app
+# connection verify-full against the cluster's own CA (audit row 5), through PgBouncer too; set
+# here as well as in values.yaml because the HA tests sit on values-dev.yaml, which turns it off.
 postgresql:
+  tls:
+    verify: true
   cnpg:
     instances: 3
     # PgBouncer is every API request's way to the database: two copies on different nodes, and

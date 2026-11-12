@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     # in transaction mode; `migration_database_url` is supportx_migrator straight to PostgreSQL,
     # used only by Alembic and dev tooling, never by the running API.
     migration_database_url: SecretStr | None = None
+    # TLS to PostgreSQL, verified (audit row 5): the CA the server's (or PgBouncer's) certificate
+    # chains to. Set: every connection is sslmode verify-full against it (the host name
+    # checked). Unset: asyncpg's default, which encrypts when the server offers it but checks
+    # nothing. The chart mounts CloudNativePG's own CA, or an external database's.
+    database_ssl_root_cert: Path | None = None
     db_pool_size: int = Field(default=10, ge=1, le=200)
     db_max_overflow: int = Field(default=10, ge=0, le=200)
     db_pool_timeout_seconds: float = Field(default=10.0, gt=0, le=120)

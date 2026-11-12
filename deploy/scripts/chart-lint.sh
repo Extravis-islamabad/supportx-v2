@@ -181,10 +181,10 @@ if helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=http
   echo "routing: TLS on with an http:// publicUrl must be refused" >&2; exit 1
 fi
 # shellcheck disable=SC2086
-helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=https://supportx.example.com \
+ISSUED="$(helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=https://supportx.example.com \
   --set routing.tls.issuerRef.name=corp --set routing.tls.issuerRef.kind=ClusterIssuer \
-  --show-only templates/routing.yaml | grep -q "kind: Certificate" ||
-  { echo "routing: issuerRef must render a cert-manager Certificate" >&2; exit 1; }
+  --show-only templates/routing.yaml)"
+grep -q "kind: Certificate" <<<"$ISSUED" || { echo "routing: issuerRef must render a cert-manager Certificate" >&2; exit 1; }
 echo "transport: HTTPS with an http redirect by default; dev plain http; misconfigurations refused"
 # Valkey TLS in the HA profiles (values-ha.yaml): servers and sentinels TLS only, the app on
 # valkeys:// with the internal CA, the CA's key in no pod; nothing of it without valkeyHa.tls.
@@ -207,6 +207,27 @@ for p in ha ha-ci; do
   grep -q '"http_port": 8222' "$OUT/$p.yaml" || { echo "$p: NATS monitoring must stay on http 8222" >&2; exit 1; }
 done
 grep -q 'value: "nats://supportx:' "$OUT/single-node.yaml" || { echo "single-node: NATS stays nats:// without TLS" >&2; exit 1; }
+# PostgreSQL verify-full in the HA profiles: the app, the workers and the migrate Job get
+# CloudNativePG's CA (ca.crt only) and the cluster's certificate names the pooler. An external
+# database with verification on needs its CA Secret. Dev and single-node: not yet (values files).
+for p in ha ha-ci; do
+  [ "$(grep -c 'secretName: supportx-pg-ca, items: \[{key: ca.crt' "$OUT/$p.yaml" || true)" -ge 3 ] ||
+    { echo "$p: the app, workers and migrate Job need CloudNativePG's CA" >&2; exit 1; }
+  grep -q -- '- supportx-pg-pooler.supportx.svc$' "$OUT/$p.yaml" || { echo "$p: the server certificate must name the pooler" >&2; exit 1; }
+  grep -q 'SUPPORTX_DATABASE_SSL_ROOT_CERT' "$OUT/$p.yaml" || { echo "$p: no verify-full to PostgreSQL" >&2; exit 1; }
+done
+grep -q 'SUPPORTX_DATABASE_SSL_ROOT_CERT' "$OUT/single-node.yaml" && { echo "single-node: PostgreSQL verification is HA-first" >&2; exit 1; }
+EXT_TLS="-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.tls.secretName=t --set postgresql.mode=external --set postgresql.external.host=db.example.com --set temporal.bundled.enabled=false --set temporal.address=temporal.example.com:7233"
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $EXT_TLS >/dev/null 2>&1; then
+  echo "postgresql: verify on with an external database and no caSecret must be refused" >&2; exit 1
+fi
+# Captured first: grep -q stops reading early, and pipefail would then count helm's broken pipe.
+# shellcheck disable=SC2086
+EXT_OUT="$(helm template supportx "$CHART" --namespace supportx $EXT_TLS --set postgresql.external.caSecret=db-ca)"
+grep -q 'secretName: db-ca, items' <<<"$EXT_OUT" || { echo "postgresql: the external CA Secret must be mounted" >&2; exit 1; }
+echo "transport: PostgreSQL verify-full in the HA profiles (CloudNativePG's CA, the pooler named); external needs its CA"
+
 HA_ARGS="-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.tls.secretName=t"
 # Your own issuer (on-prem PKI): no CA of the chart's, and the Secret with its root is required.
 # shellcheck disable=SC2086 # the flags are meant to be split

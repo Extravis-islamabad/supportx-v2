@@ -25,6 +25,10 @@ api:
     limits: {cpu: "2", memory: 1536Mi}
 
 postgresql:
+  # Verified TLS to the database (postgresql.tls, audit row 5) is proven on the HA cluster first
+  # (values-ha.yaml, the Cluster workflow); this profile turns it on once that run is green.
+  tls:
+    verify: false
   cnpg:
     instances: 1
     storage: {size: 100Gi}

@@ -293,6 +293,9 @@ server's certificate against a known CA and the host name it dialled.
 | Browser to gateway | plain http (local only) | **HTTPS**, HTTP answers 301 to https | **HTTPS**, HTTP answers 301 to https |
 | App, Centrifugo to Valkey (servers and sentinels) | plain (bundled single Valkey) | plain (bundled single Valkey) | **TLS only, verified** (internal CA) |
 | App to NATS; NATS server to server (routes) | plain | plain (one server) | **TLS, verified** (internal CA); routes mutual TLS |
+| App, workers, migrate Job to PostgreSQL (through PgBouncer, or direct) | encrypted, not verified (asyncpg's default) | encrypted, not verified (until the HA run proves verification) | **verify-full** (CloudNativePG's CA) |
+| PgBouncer to PostgreSQL | TLS, CA checked (CloudNativePG's own) | same | same |
+| Keycloak, Temporal to PostgreSQL | as their defaults (not changed here) | same | same |
 
 ### Browser to gateway (routing.tls)
 
@@ -314,6 +317,29 @@ balancer in front already terminates TLS, set `routing.tls.enabled: false` and k
 `https://`. Ingress mode serves the same Secret; its redirect is your ingress controller's own
 setting (Ingress has no portable way to say it). `routing.gateway.protocol` is gone: the chart
 refuses it and names `routing.tls.enabled` instead.
+
+### PostgreSQL (postgresql.tls.verify)
+
+CloudNativePG always serves TLS, with its own CA (Secret `<release>-pg-ca`, keys `ca.crt` and
+`ca.key`), and its PgBouncer connects to PostgreSQL with that CA checked. What `postgresql.tls`
+adds is the app's side: with `verify: true` the API, the workers and the migrate Job connect
+sslmode verify-full (`SUPPORTX_DATABASE_SSL_ROOT_CERT`, the chain checked against that CA and the
+host name against the certificate). They reach PostgreSQL through the pooler
+(`<release>-pg-pooler`), and CloudNativePG's PgBouncer serves the cluster's server certificate, so
+the chart adds the pooler's names to it (`spec.certificates.serverAltDNSNames`); the relay and the
+index worker go straight to `<release>-pg-rw`, which the operator's certificate already names.
+Pods mount `ca.crt` alone.
+
+On in `values.yaml` and `values-ha.yaml`. `values-single-node.yaml` and `values-dev.yaml` keep
+it off for now (encrypted, unchecked, as before): it is proven on the HA cluster first, then
+turned on for single-node.
+
+**External database:** set `postgresql.mode: external`, `postgresql.tls.verify: true` and
+`postgresql.external.caSecret` to a Secret in the release namespace holding your server's CA as
+`ca.crt` (`kubectl -n supportx create secret generic db-ca --from-file=ca.crt=root.pem`); the
+host names in `postgresql.external.host` and `poolerHost` must be in the server's (and your
+pooler's) certificate. The chart refuses verification without that Secret; a server without TLS
+needs `postgresql.tls.verify: false`, knowingly.
 
 ### The internal CA (internalTls)
 

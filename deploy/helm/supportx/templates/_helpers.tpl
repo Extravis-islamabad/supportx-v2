@@ -47,6 +47,9 @@ app.kubernetes.io/component: {{ .component }}
 {{- if not (has .Values.postgresql.mode (list "cnpg" "external")) -}}
 {{- fail "postgresql.mode must be cnpg or external" -}}
 {{- end -}}
+{{- if and (eq .Values.postgresql.mode "external") .Values.postgresql.tls.verify (not .Values.postgresql.external.caSecret) -}}
+{{- fail "postgresql.tls.verify with an external database needs postgresql.external.caSecret: a Secret whose ca.crt your server's certificate chains to (or set postgresql.tls.verify=false knowingly)" -}}
+{{- end -}}
 {{- if and .Values.internalTls.issuerRef.name (not .Values.internalTls.caSecret) -}}
 {{- fail "internalTls.issuerRef needs internalTls.caSecret: a Secret whose ca.crt is the root your issuer chains to (the pods trust only it)" -}}
 {{- end -}}
@@ -381,5 +384,34 @@ TLS; when any in-cluster server does (the CA is then made and mounted).
 {{- if include "supportx.internalTlsOn" . }}
 - name: internal-ca
   secret: {secretName: {{ include "supportx.internalCaSecret" . }}, items: [{key: ca.crt, path: ca.crt}]}
+{{- end }}
+{{- end -}}
+
+{{/*
+Verified TLS to PostgreSQL (audit row 5): "true" when on; the CA's Secret (CloudNativePG's own
+<cluster>-ca, or an external database's); its ca.crt mounted alone (never the CA's key).
+*/}}
+{{- define "supportx.dbTls" -}}
+{{- .Values.postgresql.tls.verify | toString -}}
+{{- end -}}
+
+{{- define "supportx.dbCaSecret" -}}
+{{- if eq .Values.postgresql.mode "cnpg" -}}
+{{- printf "%s-pg-ca" .Release.Name -}}
+{{- else -}}
+{{- .Values.postgresql.external.caSecret -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "supportx.dbCaMount" -}}
+{{- if eq (include "supportx.dbTls" .) "true" }}
+- {name: postgres-ca, mountPath: /etc/supportx/tls/postgres, readOnly: true}
+{{- end }}
+{{- end -}}
+
+{{- define "supportx.dbCaVolume" -}}
+{{- if eq (include "supportx.dbTls" .) "true" }}
+- name: postgres-ca
+  secret: {secretName: {{ include "supportx.dbCaSecret" . }}, items: [{key: ca.crt, path: ca.crt}]}
 {{- end }}
 {{- end -}}
