@@ -439,6 +439,65 @@ describe('Reports', () => {
       expect(fake.find('GET', '/api/v1/assets')).toHaveLength(0);
     });
 
+    it('QA 2026-11-12 F-02: a change report groups by its own fields, by name', async () => {
+      const riskGroup = { ...PRIORITY_GROUP, field: 'risk', label_prefix: 'risk_level' };
+      const byRisk = {
+        ...BUILTIN,
+        code: 'changes_by_risk',
+        folder: 'changes',
+        definition: {
+          ...BUILTIN.definition,
+          entity: 'change',
+          group_by: [{ field: 'risk', bucket: null }],
+        },
+      };
+      window.history.pushState({}, '', '/reports/builtin/changes_by_risk');
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'GET /api/v1/reports/library': {
+            body: { builtin: [byRisk], folders: [], reports: [], favourites: [] },
+          },
+          'GET /api/v1/reports/entities/change': {
+            body: {
+              ...ENTITY,
+              entity: 'change',
+              list_path: 'changes',
+              fields: [
+                ...ENTITY.fields,
+                { name: 'risk', type: 'enum', values: [], multiple: false, dimension: riskGroup },
+                {
+                  name: 'change_reason',
+                  type: 'enum',
+                  values: [],
+                  multiple: false,
+                  dimension: { ...riskGroup, field: 'change_reason', kind: 'admin_code' },
+                },
+              ],
+            },
+          },
+          'POST /api/v1/reports/run': {
+            body: {
+              ...RESULT,
+              entity: 'change',
+              list_path: 'changes',
+              groups: [riskGroup],
+              rows: [{ keys: ['high'], values: [3], drill: OPEN }],
+              totals: [3],
+            },
+          },
+        }),
+      });
+      render(<App />);
+      const group = await screen.findByTestId('report-group');
+      await waitFor(() => {
+        expect(group.textContent).toContain('Risk');
+      });
+      expect(group.textContent).not.toMatch(/\brisk\b/);
+      fireEvent.mouseDown(group.querySelector('.ant-select-selector') ?? group);
+      expect(await screen.findByTitle('Reason for change')).toBeDefined();
+    });
+
     it('exports to a file in the background and lists my exports (REQ-RPT-058)', async () => {
       const ready = {
         id: '01900000-0000-7000-8000-00000000e001',

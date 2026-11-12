@@ -63,3 +63,15 @@ def test_separate_dev_origins_are_unchanged() -> None:
     assert auth.landing("portal", "/") == "http://localhost:5174/"
     assert auth.landing("console", "/users") == "http://localhost:5173/users"
     assert auth.landing("portal", "/?from=console") == "http://localhost:5174/?from=console"
+
+
+def test_an_empty_query_or_fragment_lands_on_the_home() -> None:
+    """`/?` and `/#` pass safe_return_to as they are and land on the UI's own home, the empty
+    query or fragment dropped: never the shared host's root (the console's) for the portal."""
+    auth = service(
+        console_url="https://desk.example.com", portal_url="https://desk.example.com/portal"
+    )
+    for empty in ("/?", "/#"):
+        assert safe_return_to(empty) == empty
+        assert auth.landing("portal", safe_return_to(empty)) == "https://desk.example.com/portal/"
+        assert auth.landing("console", safe_return_to(empty)) == "https://desk.example.com/"

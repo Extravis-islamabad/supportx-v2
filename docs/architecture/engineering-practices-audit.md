@@ -45,7 +45,7 @@ Security items are marked **(SEC)**. Per Haider, missing security items go to th
 |---|---|---|---|---|---|
 | 1 | **Backups off in the production profiles** (`values.yaml:216`, only the HA CI profile turns them on); no backup for the file store (SeaweedFS) or NATS | High | B | M | queued, top |
 | 2 | **No alert rules or alert routing** (outbox, dead letters, consumer lag, backup and replication failures notify nobody; WP-014b's "alerts fire" is unchecked) | High | B | M | queued |
-| 3 | **(SEC) SSRF:** SSO metadata fetch (`identity_access/infra/fetch.py`) re-resolves DNS after its check and allows private ranges; IMAP and LDAP hosts are only syntax-checked; the egress NetworkPolicy is off by default; the pinned egress client is used only by automation | Medium-high (SaaS) | B (fetch, values) + A (IMAP/mail) | M | **top of queue** |
+| 3 | **(SEC) SSRF:** SSO metadata fetch (`identity_access/infra/fetch.py`) re-resolves DNS after its check and allows private ranges; IMAP and LDAP hosts are only syntax-checked; the egress NetworkPolicy is off by default; the pinned egress client is used only by automation | Medium-high (SaaS) | B (fetch, values) + A (IMAP/mail) | M | **top of queue**; IMAP pin done in #446 (lane A); fetch.py pin with lane C (WP-057 S1); LDAP pin in lane B security PR B; lane B's egress-on-in-SaaS **blocked on WP-014d** (no SaaS values file yet; in its acceptance list) |
 | 4 | **(SEC) Login CSRF:** the OIDC `state` isn't bound to the browser that started the login (`service/auth.py:321-371`) | Medium | B | S | **top of queue** |
 | 5 | **(SEC) Transport defaults:** the chart's default listener is plain HTTP with no redirect to HTTPS; in-cluster Valkey and NATS are plaintext; Postgres TLS is not verified (`_helpers.tpl:137-142`) | Medium | B | M | **top of queue** |
 | 6 | **E2E gates nothing, and merges need 0 approvals.** No e2e job is a required check (Stack smoke runs nightly only); the ruleset requires 0 approving reviews; CODEOWNERS is stale. Lane B's blocking security review is a convention only | Medium-high | B (+ Haider for the ruleset) | M | decision for Haider |
@@ -74,6 +74,7 @@ Security items are marked **(SEC)**. Per Haider, missing security items go to th
 | 29 | **No release feature flags (OpenFeature);** no bundle-size budget; no per-page web-vitals or Lighthouse budgets; no Vitest coverage floor; no list virtualisation | Low-medium | C + B | M | queued |
 | 30 | **No technical-debt register** (the PROGRESS open items are scattered; one must-fix entry is stale: worker restarts are already handled in `workers/resilience.py`) | Low | coordinator | S | this doc starts it |
 | 31 | Smaller items: no CI guard against editing merged migrations; only the API autoscales; no memory or soak test; env-var reference undocumented (17 of 156 in .env.example); no SemVer or changelog policy; Arabic `C` collation; a few re-order endpoints without If-Match; `docs/dev-setup.md:500-519` contradicts D-122 | Low | B mostly | S | backlog |
+| 32 | **(SEC) Rate limiter: fixed windows allow a 2× burst at the edge** (`app/shared/api/ratelimit.py`, `int(now // window)`): up to twice the limit across a window boundary (60 at :59 plus 60 at :00). Consider a sliding window or token bucket for the auth routes (found with the #457 test flake) | Low | B | S | later |
 
 ## Technical-debt register (started here)
 

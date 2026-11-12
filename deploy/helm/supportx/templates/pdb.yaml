@@ -17,6 +17,9 @@ budget: it would block every drain. The fan-out and index workers stay single by
 {{- $_ := set $copies "sla-timers" .Values.slaTimers.replicas }}
 {{- $_ := set $copies "workflow-timers" .Values.workflowTimers.replicas }}
 {{- end }}
+{{- if .Values.clamav.enabled }}
+{{- $_ := set $copies "clamav" .Values.clamav.replicas }}
+{{- end }}
 {{- if .Values.temporal.bundled.enabled }}
 {{- $_ := set $copies "temporal" .Values.temporal.bundled.replicas }}
 {{- end }}

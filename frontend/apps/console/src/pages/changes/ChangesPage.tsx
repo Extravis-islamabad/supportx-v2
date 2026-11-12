@@ -30,7 +30,7 @@ import {
 
 import { useDebounced } from '../../useDebounced';
 import { BulkBar, BulkDialog, BulkProgress } from '../incidents/list/bulk';
-import type { Selection } from '../incidents/list/model';
+import { useBulkRefresh, type Selection } from '../incidents/list/model';
 import { StatusTag } from '../incidents/tags';
 import { listValueName, stageName } from '../staged/labels';
 import { ChangeBulkCancel } from './ChangeBulkCancel';
@@ -130,6 +130,9 @@ export function ChangesPage() {
   });
   usePageCrumbs([{ label: t('nav.changes') }]);
   useListChannel('changes', () => {
+    void queryClient.invalidateQueries({ queryKey: changeKeys.list });
+  });
+  useBulkRefresh('change', () => {
     void queryClient.invalidateQueries({ queryKey: changeKeys.list });
   });
   useEffect(() => {

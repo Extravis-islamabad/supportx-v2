@@ -274,6 +274,8 @@ export const en = {
   'errors.entitlements_unavailable':
     'Licence information is temporarily unavailable. Please try again shortly.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
+  'errors.field.address_not_allowed':
+    "This server address can't be used. Use the mail server's public name.",
   'errors.field.already_linked': 'These records are already linked.',
   'errors.field.announcement_message_required': 'Write the message people will see.',
   'errors.field.api_key_allowlist_invalid':
@@ -558,6 +560,7 @@ export const en = {
   'errors.field.phone_not_valid': 'Enter a phone number: digits, spaces, +, - and brackets.',
   'errors.field.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
+  'errors.field.port_not_allowed': 'Use a mail port: 993 (TLS) or 143.',
   'errors.field.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.field.range_end_before_start': 'The end must be after the start.',
@@ -844,6 +847,8 @@ export const en = {
   'errors.linked_records_not_available': 'Linked records are not available yet.',
   'errors.list_not_found': 'This list does not keep settings.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
+  'errors.login_not_this_browser':
+    'This sign-in was started in another browser or has expired. Please sign in again here.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
   'errors.mail_attachment_type': 'This type of file cannot be sent by email.',
@@ -996,6 +1001,8 @@ export const en = {
     'This server cannot start: a sign-in key it no longer lists is still needed. List the key again.',
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
+  'errors.sign_in_unavailable':
+    'Signing in is not available right now. Please wait a minute and try again.',
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
   'errors.site_not_found': 'The site was not found.',

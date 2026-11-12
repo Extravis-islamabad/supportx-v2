@@ -2152,6 +2152,7 @@ export const en = {
   'window_weekday.4': 'Friday',
   'window_weekday.5': 'Saturday',
   'window_weekday.6': 'Sunday',
+  'work_item.field.accepted_at': 'Accepted without a fix',
   'work_item.field.actual_downtime_seconds': 'Actual downtime',
   'work_item.field.actual_end': 'Actual end',
   'work_item.field.actual_start': 'Actual start',

@@ -8,6 +8,8 @@ export const ar: LabelResource = {
   'age_bucket.over_30_days': 'أكثر من 30 يومًا',
   'age_bucket.under_1_day': 'أقل من يوم',
   'dashboard.changes': 'التغييرات',
+  'dashboard.changes.description':
+    'كيف تسير التغييرات وأين تقف: معدل النجاح والحالات الطارئة والنتائج والمخاطر والأسباب.',
   'dashboard.my_work': 'عملي',
   'dashboard.my_work.description': 'حوادثك المفتوحة وما حللته هذا الأسبوع وقائمة الانتظار.',
   'dashboard.releases': 'الإصدارات',

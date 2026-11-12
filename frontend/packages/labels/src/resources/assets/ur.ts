@@ -894,6 +894,7 @@ export const ur: LabelResource = {
   'assets.stock.batch_tracked_help':
     'یہ ابھی ہمیشہ کے لیے طے ہوتا ہے: پھر ہر بیچ اپنا لاٹ نمبر اور میعاد کی تاریخ رکھتا ہے۔',
   'assets.stock.batches': 'بیچز',
+  'assets.stock.below_minimum': 'کم از کم سے نیچے',
   'assets.stock.by': 'کس نے',
   'assets.stock.by_site': 'سائٹ کے لحاظ سے اسٹاک',
   'assets.stock.change': 'تبدیلی',

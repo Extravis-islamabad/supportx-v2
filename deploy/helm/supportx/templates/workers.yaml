@@ -41,6 +41,16 @@ spec:
       {{- include "supportx.pullSecrets" $ | nindent 6 }}
       {{- include "supportx.podSecurityContext" $ | nindent 6 }}
       {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
+      {{- /* The single-copy workers move off a lost node in seconds, not 300 (ha.fastEvictionSeconds). */}}
+      {{- if and $.Values.ha.enabled $.Values.ha.fastEvictionSeconds (has $w.component (list "fanout" "indexes")) }}
+      tolerations:
+        {{- range $taint := list "node.kubernetes.io/unreachable" "node.kubernetes.io/not-ready" }}
+        - key: {{ $taint }}
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: {{ int $.Values.ha.fastEvictionSeconds }}
+        {{- end }}
+      {{- end }}
       terminationGracePeriodSeconds: 30
       initContainers:
         {{- include "supportx.waitForMigrate" $ | nindent 8 }}
