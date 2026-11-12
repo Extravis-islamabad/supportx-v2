@@ -19,7 +19,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, CIDR, INET, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
 from app.shared.db.models import Actors, Base, TenantEntity, TenantKeyed, Timestamps, Versioned
@@ -366,6 +366,9 @@ MAX_IDLE_SECONDS = 86400
 PASSWORD_POLICY_STATES = ("default", "applying", "applied", "failed")
 
 
+IP_ALLOW_MAX = 50  # entries per app list (lane B: validated, capped)
+
+
 class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     """A tenant's sign-in settings (WP-039, REQ-SEC-017): sessions and people creation.
 
@@ -398,6 +401,13 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
             f"password_policy_state IN {PASSWORD_POLICY_STATES!r}", name="password_policy_state"
         ),
         CheckConstraint("mfa_grace_days BETWEEN 0 AND 30", name="mfa_grace_days_range"),
+        CheckConstraint(
+            f"cardinality(console_ip_allow) <= {IP_ALLOW_MAX}", name="console_ip_allow_size"
+        ),
+        CheckConstraint(
+            f"cardinality(portal_ip_allow) <= {IP_ALLOW_MAX}", name="portal_ip_allow_size"
+        ),
+        CheckConstraint(f"cardinality(api_ip_allow) <= {IP_ALLOW_MAX}", name="api_ip_allow_size"),
     )
 
     console_idle_seconds: Mapped[int] = mapped_column(
@@ -438,6 +448,17 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     # without an expiry date are allowed (off: 90 days by default, at most a year).
     people_may_create_keys: Mapped[bool] = mapped_column(server_default="false")
     allow_non_expiring_keys: Mapped[bool] = mapped_column(server_default="false")
+    # REQ-SEC-034 (WP-057 S1a, 0151): who may sign in or call, by address, per app. Empty = no
+    # restriction; at most IP_ALLOW_MAX entries each. The API's list applies to API keys.
+    console_ip_allow: Mapped[list[str]] = mapped_column(
+        ARRAY(CIDR), server_default=text("'{}'::cidr[]")
+    )
+    portal_ip_allow: Mapped[list[str]] = mapped_column(
+        ARRAY(CIDR), server_default=text("'{}'::cidr[]")
+    )
+    api_ip_allow: Mapped[list[str]] = mapped_column(
+        ARRAY(CIDR), server_default=text("'{}'::cidr[]")
+    )
 
 
 MFA_MODES = ("off", "optional", "required")
@@ -669,3 +690,79 @@ class SessionKeyAnnouncement(TenantKeyed, Timestamps, Actors, Base):
     event_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     key_id: Mapped[str] = mapped_column(String)
     action: Mapped[str] = mapped_column(String)
+
+
+SIGN_IN_OUTCOMES = ("success", "failed", "signed_out", "locked", "mfa_failed")
+SIGN_IN_METHODS = ("password", "single_sign_on", "directory", "mobile", "api_key", "unknown")
+SIGN_IN_APPS = ("console", "portal", "api", "mobile")
+SIGN_IN_SOURCES = ("bff", "keycloak")
+
+
+def _codes(column: str, codes: tuple[str, ...]) -> str:
+    return f"{column} IN ({', '.join(repr(c) for c in codes)})"
+
+
+class SignInEvent(TenantKeyed, Base):
+    """One sign-in event of a tenant (REQ-AUD-015; WP-057 S1a, migration 0151).
+
+    Append-only, like connector_runs: written by the BFF for what it decides and imported from
+    Keycloak's events for what Keycloak decides, only into the tenant whose own address or
+    organization the attempt carried. `ip` and `device` are personal data: nulled by erasure,
+    gone with the row after the retention. `user_id` only when the person is known: never the
+    name typed for an unknown one (people type passwords there).
+    """
+
+    __tablename__ = "sign_in_events"
+    __table_args__ = (
+        CheckConstraint(_codes("outcome", SIGN_IN_OUTCOMES), name="outcome_code"),
+        CheckConstraint(_codes("method", SIGN_IN_METHODS), name="method_code"),
+        CheckConstraint(_codes("app", SIGN_IN_APPS), name="app_code"),
+        CheckConstraint(_codes("source", SIGN_IN_SOURCES), name="source_code"),
+        CheckConstraint(
+            "(source = 'keycloak') = (keycloak_event_id IS NOT NULL)", name="keycloak_event_id"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_sign_in_events_user",
+        ),
+        Index("ix_sign_in_events_recent", "tenant_id", text("occurred_at DESC")),
+        Index(
+            "ix_sign_in_events_person",
+            "tenant_id",
+            "user_id",
+            text("occurred_at DESC"),
+            postgresql_where=text("user_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_sign_in_events_keycloak",
+            "tenant_id",
+            "keycloak_event_id",
+            unique=True,
+            postgresql_where=text("keycloak_event_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID | None]
+    occurred_at: Mapped[datetime]
+    outcome: Mapped[str] = mapped_column(String(20))
+    reason: Mapped[str | None] = mapped_column(String(60))
+    method: Mapped[str] = mapped_column(String(20))
+    app: Mapped[str] = mapped_column(String(10))
+    ip: Mapped[str | None] = mapped_column(INET)
+    device: Mapped[str | None] = mapped_column(String(120))
+    identity_provider: Mapped[str | None] = mapped_column(String(80))
+    source: Mapped[str] = mapped_column(String(10))
+    keycloak_event_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SignInImportCursor(Base):
+    """How far the Keycloak events import got, per realm (0151). Installation-wide."""
+
+    __tablename__ = "sign_in_import_cursor"
+
+    realm: Mapped[str] = mapped_column(String(60), primary_key=True)
+    last_time_ms: Mapped[int]
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
