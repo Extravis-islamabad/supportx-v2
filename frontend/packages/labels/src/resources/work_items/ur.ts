@@ -1587,6 +1587,11 @@ export const ur: LabelResource = {
   'releases.calendar.not_moved': 'ریلیز منتقل نہیں ہوئی۔',
   'releases.calendar.show_changes': 'تبدیلیاں دکھائیں',
   'releases.calendar.title': 'ریلیز کیلنڈر',
+  'releases.canceled.changes_help':
+    'تبدیلیاں کبھی اپنی ریلیز کے ساتھ منسوخ نہیں ہوتیں۔ انہیں الگ کریں تاکہ وہ کسی اور ریلیز میں شامل ہو سکیں، یا یہیں رکھیں۔',
+  'releases.canceled.changes_title_one': 'اس منسوخ ریلیز میں ابھی {{count}} تبدیلی ہے',
+  'releases.canceled.changes_title_other': 'اس منسوخ ریلیز میں ابھی {{count}} تبدیلیاں ہیں',
+  'releases.canceled.unlink': 'یہ تبدیلیاں الگ کریں',
   'releases.changes.add': 'تبدیلی شامل کریں',
   'releases.changes.hidden': 'ایک تبدیلی جو آپ نہیں دیکھ سکتے',
   'releases.changes.no_match': 'کوئی تبدیلی نہیں ملی۔',

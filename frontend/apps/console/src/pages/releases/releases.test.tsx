@@ -489,6 +489,48 @@ describe('console: releases', () => {
     );
   });
 
+  it('REQ-REL-054: a canceled release offers to unlink the changes still in it', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const CHG = '01a1a2b3-0000-7000-8000-00000058b201';
+    const canceled = { ...release, status: 'closure_canceled', stage: 'closure' };
+    const fake = api({
+      [`GET /api/v1/releases/${REL_ID}`]: { body: canceled, headers: { ETag: '"7"' } },
+      [`GET /api/v1/releases/${REL_ID}/changes`]: {
+        body: [
+          {
+            id: CHG,
+            visible: true,
+            display_id: 'CHG-5',
+            subject: 'Database upgrade',
+            stage: 'implementation',
+            status: 'implementation_scheduled',
+            status_category: 'open',
+          },
+          {
+            id: '01a1a2b3-0000-7000-8000-00000058b202',
+            visible: false,
+            display_id: null,
+            subject: null,
+            stage: null,
+            status: null,
+            status_category: null,
+          },
+        ],
+      },
+      [`DELETE /api/v1/releases/${REL_ID}/changes/${CHG}`]: { status: 204 },
+    });
+    render(<App />);
+    const offer = await screen.findByTestId('release-canceled-changes');
+    expect(offer.textContent).toContain('1 change is still in this canceled release');
+    expect(offer.textContent).toContain('CHG-5 Database upgrade');
+    fireEvent.click(screen.getByTestId('release-unlink-changes'));
+    await waitFor(() => {
+      expect(fake.find('DELETE', `/api/v1/releases/${REL_ID}/changes/${CHG}`)).toHaveLength(1);
+    });
+    // The hidden change is never unlinked from here.
+    expect(fake.calls.filter((c) => c.method === 'DELETE')).toHaveLength(1);
+  });
+
   it('the failed panel is absent while the deployment has not failed', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     api();

@@ -34,6 +34,7 @@ import { personName } from '../incidents/labels';
 
 import { EMERGENCY_PATH, stageName, statusName } from './labels';
 import { MoveDialog } from './MoveDialog';
+import { ReleaseCanceled } from './ReleaseCanceled';
 import { ReleaseFailed } from './ReleaseFailed';
 import {
   ApprovalsPart,
@@ -267,6 +268,8 @@ export function ReleasePage() {
         />
       )}
       {/* A failed deployment: its backout plan and "Mark rolled back" (REQ-REL-053 AC1). */}
+      {/* A canceled release offers to unlink the changes still in it (REQ-REL-054). */}
+      <ReleaseCanceled id={r.id} status={r.status} />
       <ReleaseFailed
         id={r.id}
         displayId={r.display_id}

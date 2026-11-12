@@ -1584,6 +1584,11 @@ export const en = {
   'releases.calendar.not_moved': 'The release was not moved.',
   'releases.calendar.show_changes': 'Show changes',
   'releases.calendar.title': 'Release calendar',
+  'releases.canceled.changes_help':
+    'Changes are never canceled with their release. Unlink them so they can join another release, or keep them here.',
+  'releases.canceled.changes_title_one': '{{count}} change is still in this canceled release',
+  'releases.canceled.changes_title_other': '{{count}} changes are still in this canceled release',
+  'releases.canceled.unlink': 'Unlink these changes',
   'releases.changes.add': 'Add a change',
   'releases.changes.hidden': "A change you can't see",
   'releases.changes.no_match': 'No change matches.',
