@@ -66,3 +66,47 @@ What asset managers and technicians use since WP-049b session 4a (parity 07 REQ-
 - The normal form then opens with the asset and the person who holds it filled in; everything
   stays editable. A change's form takes no asset yet, so only the person is filled in.
 - Once work items report it, the asset's history shows "INC-n raised from this asset".
+
+## Changing many assets at once
+
+- Pick rows (up to 1,000) and choose **Change selected**: edit a few shared fields (site,
+  location, cost centre, GL code), change their state, assign them to a person or a department
+  (or to no one), or move them to the trash.
+- The change runs in the background, as you. You can keep working; the dialog shows how far it
+  got, then lists every asset it skipped and why (an asset at a site you do not manage, a move
+  its life cycle does not allow, a change someone else made first). Nothing is changed silently.
+- Costs and identifiers (tag, serial number, barcode) are changed one asset at a time.
+- Moving to the trash never deletes: the assets can be restored from the trash.
+
+## Merging duplicates
+
+- Pick exactly two assets and choose **Merge**. The asset to keep comes first: the one
+  discovery found, or the one scanned most recently. **Keep the other one** swaps them.
+- For each field, choose whose value stays. Costs show only if you may see them.
+- You need to manage both assets. Assets at two sites can be merged only by someone who
+  manages both sites.
+- After the merge, the duplicate is in the trash. Its tag, serial number and barcode still find
+  the asset you kept, and opening the duplicate opens the asset you kept. Its linked records,
+  costs, notes, fitted parts, groups and relationships move to the asset you kept.
+- Restoring the duplicate from the trash asks first: it comes back on its own, and what moved
+  stays with the asset you kept.
+
+## Importing from a file
+
+- **Import** in the list's header takes a CSV (UTF-8) or Excel file of assets, consumables or
+  vendors, up to 5 MB and 20,000 rows. The first row names the columns (for assets: Name,
+  Product, Asset tag, Serial number, Barcode, Site, Location, Vendor, Acquired on, Warranty
+  expires on, Expires on, Description, Cost centre, GL code, Purchase price, Purchase tax,
+  Currency).
+- Choose whether rows only add, only update, or both, and how an existing record is found
+  (asset tag or serial number; a consumable by its product; a vendor by its name).
+- **Check the file** first: nothing changes. You see how many records would be added and
+  updated and every row with a problem; **Download the rows with problems** saves them as a
+  file. **Import now** then applies the same file.
+
+## Exporting the list
+
+- **Export** saves the list as you see it (the type tree node, your search, a saved view) as an
+  Excel or CSV file; it is prepared in the background and appears under **My exports**.
+- Costs (purchase price, tax, book value, total cost) are included only for people who may see
+  asset costs. A built-in view other than All assets cannot be exported; the button says so.

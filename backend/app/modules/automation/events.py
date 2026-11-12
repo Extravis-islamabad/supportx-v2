@@ -139,6 +139,23 @@ class WorkflowDeleted(DomainEvent):
     version: int
 
 
+class WorkflowRunAsChanged(DomainEvent):
+    """A role was given to, or taken from, a workflow's run-as identity (ADR-043 §6).
+
+    Its own event, so `automation.workflow.changed` v1 keeps its contract. The designer's
+    "Runs as" section refreshes; IDs and codes only, never the role's name.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.run_as_changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow"
+
+    workflow_id: uuid.UUID
+    record_type: str
+    change: Literal["role_added", "role_removed"]
+    version: int
+
+
 class WorkflowCommandFinished(DomainEvent):
     """A workflow command an owning module accepted for later is done (WP-048b S2, REQ-WF-014).
 
@@ -215,6 +232,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkflowInstanceChanged,
     WorkflowJobProgressed,
     WorkflowDeleted,
+    WorkflowRunAsChanged,
     AutomationChanged,
     AvailabilityChanged,
     AssignmentWaiting,

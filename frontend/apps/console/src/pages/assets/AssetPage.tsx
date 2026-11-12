@@ -12,15 +12,15 @@ import {
   Segmented,
   Select,
   Skeleton,
-  Tabs,
   Timeline,
   Typography,
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState, type ReactNode } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
+  ApiError,
   queryKeys,
   useAssetFinancials,
   useAssetAccess,
@@ -67,6 +67,7 @@ import {
   type PropertyItem,
   type RecordAction,
   type Tone,
+  Tabs,
 } from '@supportx/ui';
 
 import { Problems } from '../admin/incidents/shared';
@@ -161,6 +162,10 @@ const HISTORY_FIELDS = new Set([
   'note',
   'scan',
   'raised_work_item',
+  // WP-049b S4b (REQ-AST-052): a merge's lines on both assets.
+  'merged_into',
+  'merged_from',
+  'restored_after_merge',
   'product_id',
   'product_type_id',
   'state_id',
@@ -193,6 +198,14 @@ export function AssetPage() {
   const asset = useAssetRecord(access.can('assets.view') ? id : undefined);
   if (!access.can('assets.view')) return <NoAccess titleKey="nav.assets" />;
   if (asset.isLoading) return <Skeleton active />;
+  // A merged asset's ID opens the asset it went into (REQ-AST-052 AC2).
+  const survivor =
+    asset.error instanceof ApiError && asset.error.code === 'asset_merged'
+      ? asset.error.params.survivor_id
+      : undefined;
+  if (typeof survivor === 'string' && survivor !== '' && survivor !== id) {
+    return <Navigate to={`/assets/${survivor}`} replace />;
+  }
   if (asset.data === undefined) {
     return (
       <Alert

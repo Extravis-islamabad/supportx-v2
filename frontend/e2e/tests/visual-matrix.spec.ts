@@ -784,6 +784,12 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
       await page.waitForTimeout(500);
       if (screen.state) await screen.state.open(page);
     }
+    // A full-page shot keeps the window's own height for layout, so a footer bar sticky to the
+    // window's foot was drawn in the middle of a long form, over its fields (QA V-01). In the
+    // shot it sits where it ends up once the page is scrolled to the end.
+    await page
+      .addStyleTag({ content: '[data-sticky-footer] { position: static !important; }' })
+      .catch(() => undefined);
     await page.screenshot({
       path: `${OUT}/${shot.file}`,
       fullPage: true,
