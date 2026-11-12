@@ -393,7 +393,7 @@ deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 20m
 	$(HELM_TEST)
 
-cluster-ha-preflight: ## HA preflight on the installed release, strict: Traefik, DNS, NATS/PostgreSQL spread, fast eviction (WP-014b)
+cluster-ha-preflight: ## HA preflight on the installed release, strict: Traefik, DNS, NATS/PostgreSQL/SeaweedFS spread, replication, fast eviction (WP-014b, D-166)
 	@SUPPORTX_NAMESPACE=$(NAMESPACE) HA_PREFLIGHT_STRICT=1 bash deploy/k3s/ha-preflight.sh
 
 cluster-ha-smoke: ## HA smoke: the Valkey master dies, a signed-in session survives, no split brain (ADR-038)
@@ -410,6 +410,9 @@ cluster-ha-valkey-node-loss-dns: ## Worst case, forced: stop the node with the V
 
 cluster-ha-node-loss: ## Node-loss test: stop the agent with PostgreSQL's primary; the session keeps writing (WP-014b)
 	@bash deploy/k3d/node-loss.sh
+
+cluster-ha-objects-node-loss: ## Object-storage node-loss test: stop the node with the SeaweedFS leader and a volume server; files still read and write, copies come back (D-166)
+	@bash deploy/k3d/objects-node-loss.sh
 
 cluster-ha-dns-restart: ## Cluster DNS after a k3s server restart: still two CoreDNS copies on two nodes, anti-affinity kept (WP-014b)
 	@bash deploy/k3d/dns-after-restart.sh

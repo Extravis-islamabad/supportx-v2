@@ -239,8 +239,9 @@ jobs:
       - name: Build, import and install the HA profile; helm test
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make deploy-ha
-      # The preflight again, now with the release in: NATS and PostgreSQL on distinct nodes and the
-      # single-copy workers' fast eviction (the bundled SeaweedFS is only an advisory warning).
+      # The preflight again, now with the release in: NATS, PostgreSQL and SeaweedFS's masters and
+      # volume servers on distinct nodes, SeaweedFS's replication, and the single-copy workers' fast
+      # eviction.
       - name: HA preflight on the installed release (strict)
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-preflight
@@ -264,6 +265,12 @@ jobs:
       - name: Losing the node with PostgreSQL's primary keeps a signed-in session writing
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-node-loss
+      # HA SeaweedFS (D-166): the node with the raft leader and a volume server (placed so by the
+      # test, never by chance) is stopped; 20 attachments still download intact and 5 new ones
+      # upload within 60 s; after the return every volume has its two copies again.
+      - name: Losing the node with the SeaweedFS leader and a volume server keeps every attachment
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-objects-node-loss
       # k3s re-applies its packaged coredns.yaml at every start: prove it keeps the two copies and
       # the anti-affinity deploy/k3s/cluster-dns-ha.sh gave it (fails if k3s reset them).
       - name: Cluster DNS keeps two copies on two nodes through a k3s server restart
@@ -297,6 +304,9 @@ jobs:
             echo "== $d"; kubectl -n supportx logs "deploy/supportx-$d" --all-containers --tail=80 || true
           done
           echo "== migrate"; kubectl -n supportx logs -l app.kubernetes.io/component=migrate --tail=150 --prefix || true
+          for c in seaweedfs-master seaweedfs-volume seaweedfs-filer; do
+            echo "== $c"; kubectl -n supportx logs -l "app.kubernetes.io/component=$c" --tail=60 --prefix || true
+          done
           echo "== database"; kubectl -n supportx get clusters.postgresql.cnpg.io -o wide || true
           kubectl -n supportx describe clusters.postgresql.cnpg.io | tail -n 60 || true
           kubectl -n supportx get events --sort-by=.lastTimestamp | tail -n 50 || true
