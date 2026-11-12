@@ -31,7 +31,8 @@ async def pinned_address(
     """The one address to connect to for `host:port`, or EgressError.
 
     `address_not_allowed` when any answer is not reachable for a tenant; `unreachable` when the
-    name does not resolve. An address typed as such is judged the same way.
+    name does not resolve. An address typed as such is judged the same way. It never checks
+    `allowance.ports`: each caller limits its own protocol's ports (IMAP: `IMAP_PORTS`).
     """
     name = host.strip().strip("[]")
     try:
