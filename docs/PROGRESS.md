@@ -1885,12 +1885,12 @@ it with no reload (rule c). Not built yet.
   RLS forced, no DELETE grant (soft delete), unique live start per person, an index for "the rate
   in force". The downgrade refuses per tenant while any rate exists (removed ones too).
 - [x] Rights `users.view_cost_rates` and `users.manage_cost_rates`: no built-in role but the
-  tenant admin holds them (role matrix unchanged). **Names pending Haider's naming.**
+  tenant admin holds them (role matrix unchanged); grantable to a custom role such as Finance (D-164, Haider 2026-11-12).
 - [x] API: `GET /api/v1/users/{id}/cost-rates` (view), `POST` (view + manage,
   Idempotency-Key), `PATCH /api/v1/users/{id}/cost-rates/{rate_id}` and `DELETE` (view + manage,
   If-Match). The current and upcoming rates may change; a superseded one is refused
   (`cost_rate_superseded`), a taken start too (`cost_rate_date_taken`); a service identity
-  gets `not_a_person`. Audited as `user.cost_rate_changed` (old and new rate and start). History
+  gets `not_a_person`. Audited as `user.cost_rate_changed` (old and new rate and start), and every read of a person's rates as `user.cost_rate_viewed` (D-164: which rates were shown, never amounts; the worklog cost snapshot through the port is not a view). History
   on the rate; the person's own history gets the rate's ID only. Event
   `identity_access.user_cost_rate.changed` (IDs and the kind of change) on the `user_cost_rates`
   list channel (users.view_cost_rates). Never in the person record, lists, search, exports or

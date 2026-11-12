@@ -448,6 +448,7 @@ export const ar: LabelResource = {
   'audit.action.user.changed': 'عدّل بيانات شخص',
   'audit.action.user.contact_changed': 'غيّر بيانات الاتصال الخاصة به',
   'audit.action.user.cost_rate_changed': 'غيّر تكلفة الساعة لشخص',
+  'audit.action.user.cost_rate_viewed': 'اطّلع على تكلفة الساعة لشخص',
   'audit.action.user.created': 'أضاف شخصًا',
   'audit.action.user.deactivated': 'عطّل حساب شخص',
   'audit.action.user.mfa_reset': 'أعاد تعيين تسجيل الدخول بخطوتين لشخص',
