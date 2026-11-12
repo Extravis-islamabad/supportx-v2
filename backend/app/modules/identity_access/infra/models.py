@@ -23,6 +23,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, CIDR, INET, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
 from app.modules.identity_access.domain.network import IP_ALLOW_MAX
+from app.modules.identity_access.domain.sign_in import Method, Outcome, SignInApp, Source
 from app.shared.db.models import Actors, Base, TenantEntity, TenantKeyed, Timestamps, Versioned
 
 # Name and email; the email also split at its punctuation, so "ahmed" finds ahmed.ali@x.com.
@@ -690,10 +691,10 @@ class SessionKeyAnnouncement(TenantKeyed, Timestamps, Actors, Base):
     action: Mapped[str] = mapped_column(String)
 
 
-SIGN_IN_OUTCOMES = ("success", "failed", "signed_out", "locked", "mfa_failed")
-SIGN_IN_METHODS = ("password", "single_sign_on", "directory", "mobile", "api_key", "unknown")
-SIGN_IN_APPS = ("console", "portal", "api", "mobile")
-SIGN_IN_SOURCES = ("bff", "keycloak")
+SIGN_IN_OUTCOMES = tuple(o.value for o in Outcome)
+SIGN_IN_METHODS = tuple(m.value for m in Method)
+SIGN_IN_APPS = tuple(a.value for a in SignInApp)
+SIGN_IN_SOURCES = tuple(s.value for s in Source)
 
 
 def _codes(column: str, codes: tuple[str, ...]) -> str:
