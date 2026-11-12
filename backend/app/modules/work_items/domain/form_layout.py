@@ -101,7 +101,7 @@ def _section_problems(  # noqa: C901 - one check per part of a section, flat
         return [*problems, (f"{path}.fields", "invalid_value")]
     for index, name in enumerate(fields):
         if name not in known:
-            problems.append((f"{path}.fields.{index}", "unknown_field"))
+            problems.append((f"{path}.fields.{index}", "not_a_form_field"))
         elif name in placed:
             problems.append((f"{path}.fields.{index}", "duplicate_value"))
         else:

@@ -306,7 +306,7 @@
           "then": [{ "do": "require", "field": "site_id" }]
         }
       ],
-      "problems": [["form_rules.0.when.field", "unknown_field"]]
+      "problems": [["form_rules.0.when.field", "not_a_form_field"]]
     },
     {
       "name": "an operator outside the subset",
@@ -403,7 +403,7 @@
           "then": [{ "do": "require", "field": "site_id" }]
         }
       ],
-      "problems": [["form_rules.0.when.and.0.or.0.and.0", "too_deep"]]
+      "problems": [["form_rules.0.when.and.0.or.0.and.0", "rule_too_deep"]]
     }
   ]
 }

@@ -65,7 +65,7 @@ def test_problems_name_each_part() -> None:
         ("layout.technician.label_position", "invalid_choice"),
         ("layout.technician.sections.0.columns", "invalid_choice"),
         ("layout.technician.sections.0.collapsed", "needs_collapsible"),
-        ("layout.technician.sections.0.fields.0", "unknown_field"),
+        ("layout.technician.sections.0.fields.0", "not_a_form_field"),
         ("layout.technician.sections.1.id", "duplicate_value"),
         ("layout.technician.sections.1.names", "invalid_value"),
         ("layout.technician.sections.1.fields.0", "duplicate_value"),

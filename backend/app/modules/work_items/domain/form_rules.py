@@ -194,7 +194,7 @@ def _condition_problems(  # noqa: C901, PLR0911 - one check per part of a condit
             if len(node) != 1 or not isinstance(children, list) or not children:
                 return [(path, "invalid_value")]
             if depth >= DEPTH_MAX:
-                return [(path, "too_deep")]
+                return [(path, "rule_too_deep")]
             found: list[tuple[str, str]] = []
             for index, child in enumerate(children):
                 found += _condition_problems(
@@ -207,7 +207,7 @@ def _condition_problems(  # noqa: C901, PLR0911 - one check per part of a condit
     if set(node) - {"field", "op", "value"}:
         return [(path, "invalid_value")]
     if node.get("field") not in fields:
-        return [(f"{path}.field", "unknown_field")]
+        return [(f"{path}.field", "not_a_form_field")]
     if node.get("op") not in set(RuleOp):
         return [(f"{path}.op", "invalid_choice")]
     op, value = RuleOp(node["op"]), node.get("value")
@@ -276,7 +276,7 @@ def rule_problems(  # noqa: C901, PLR0912 - one check per part of a rule, flat
                 continue
             do, name = RuleAction(action["do"]), action.get("field")
             if name not in known:
-                problems.append((f"{at}.field", "unknown_field"))
+                problems.append((f"{at}.field", "not_a_form_field"))
             elif name in always and do in {RuleAction.HIDE, RuleAction.LOCK}:
                 problems.append((f"{at}.field", "field_always_required"))
             if do is RuleAction.SET and not _scalar(action.get("value")):

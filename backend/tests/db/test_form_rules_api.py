@@ -212,7 +212,7 @@ async def test_template_layout_and_rules_are_checked_when_saved(world: World) ->
         headers={"If-Match": f'"{template["version"]}"', **CONSOLE},
     )
     assert field_codes(bad) == {
-        "layout.technician.sections.0.fields.0": "unknown_field",
+        "layout.technician.sections.0.fields.0": "not_a_form_field",
         "form_rules.0.then.0.field": "field_always_required",
     }
     # A copy keeps the layout.
