@@ -33,11 +33,12 @@ from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemTask,
     WorkItemTaskTemplate,
+    WorkItemTimer,
     WorkItemWorklog,
     WorkItemWorklogCost,
 )
 from app.modules.work_items.service import parts as service
-from app.modules.work_items.service import task_templates
+from app.modules.work_items.service import task_templates, timers
 from app.shared.api.concurrency import ExpectedVersion, etag_for, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.history import source_of
@@ -303,6 +304,9 @@ class WorkItemWorklogPatch(BaseModel):
     minutes: int | None = Field(default=None, ge=0)
     description: str | None = Field(default=None, max_length=DESCRIPTION_MAX * 2)
     billable: bool | None = None
+    draft: Literal[False] | None = Field(
+        default=None, description="False confirms a timer's draft (REQ-INC-069 AC2)."
+    )
     costs: list[WorkItemWorklogCostIn] | None = Field(
         default=None, max_length=COSTS_MAX, description="Replaces all the worklog's other costs."
     )
@@ -460,6 +464,47 @@ async def _worklog_out(
     return WorkItemWorklogOut.of(row, costs.get(row.id), money=money)
 
 
+class WorkItemTimerIn(BaseModel):
+    """Start your timer; an optional note of what you are on."""
+
+    comment: str | None = Field(default=None, max_length=COMMENT_MAX * 2)
+
+
+class WorkItemTimerOut(BaseModel):
+    """Your running timer on a record (only ever yours, REQ-INC-069)."""
+
+    id: uuid.UUID
+    work_item_id: uuid.UUID
+    started_at: datetime
+    comment: str | None
+    auto_started: bool
+    version: int
+
+    @classmethod
+    def of(cls, row: WorkItemTimer) -> "WorkItemTimerOut":
+        """From a row."""
+        return cls.model_validate(row, from_attributes=True)
+
+
+class WorkItemTimerStoppedOut(BaseModel):
+    """What a stopped timer prefills a new worklog with; nothing is logged until it is saved."""
+
+    started_at: datetime
+    ended_at: datetime
+    minutes: int
+    comment: str | None
+
+
+class MyTimerOut(BaseModel):
+    """One of your running timers, with its record (the header's list)."""
+
+    timer: WorkItemTimerOut
+    work_item_id: uuid.UUID
+    record_type: WorkItemTypeCode
+    display_id: str
+    subject: str
+
+
 class AllMyTaskOut(WorkItemMyTaskOut):
     """A task you own on any work item type, with its record's type (REQ-INC-076)."""
 
@@ -483,6 +528,26 @@ async def all_my_tasks(
             record_type=WorkItemTypeCode(record.type),
         )
         for task, record in await service.all_my_tasks(session, subject)
+    ]
+
+
+my_timers_router = APIRouter(prefix="/my-timers", tags=["work_items"])
+
+
+@my_timers_router.get("", summary="Your running timers on every type")
+async def all_my_timers(
+    session: TenantSession, subject: Annotated[Subject, Depends(require_signed_in())]
+) -> list[MyTimerOut]:
+    """Oldest first; only records you may still see (REQ-INC-069: shown on every screen)."""
+    return [
+        MyTimerOut(
+            timer=WorkItemTimerOut.of(timer),
+            work_item_id=record.id,
+            record_type=WorkItemTypeCode(record.type),
+            display_id=record.display_id,
+            subject=record.subject,
+        )
+        for timer, record in await timers.mine(session, subject)
     ]
 
 
@@ -744,6 +809,68 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
         )
         rows = await service.tasks(session, subject, wtype, record_id)
         return _tasks_out(rows, await service.dependencies_of(session, record_id))
+
+    # --- your timer (WP-046a S3, REQ-INC-069) ----------------------------------------------------
+
+    @router.get("/{record_id}/timer", summary="Your timer on this record")
+    async def my_timer(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> WorkItemTimerOut | None:
+        """Yours only, or null."""
+        row = await timers.mine_on(session, subject, wtype, record_id)
+        return None if row is None else WorkItemTimerOut.of(row)
+
+    @router.post(
+        "/{record_id}/timer",
+        summary="Start your timer",
+        status_code=status.HTTP_201_CREATED,
+        responses=CONFLICT_409,
+    )
+    async def start_timer(
+        record_id: uuid.UUID, body: WorkItemTimerIn, session: TenantSession, subject: View
+    ) -> WorkItemTimerOut:
+        """As logging time: the record's edit right, or an investigator. One running per record."""
+        return WorkItemTimerOut.of(
+            await timers.start(session, subject, wtype, record_id, comment=body.comment)
+        )
+
+    @router.post("/{record_id}/timer/stop", summary="Stop your timer", responses=CONFLICT_409)
+    async def stop_timer(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> WorkItemTimerStoppedOut:
+        """Ends it and returns the worklog to prefill; log it to keep the time."""
+        stopped = await timers.stop(session, subject, wtype, record_id)
+        return WorkItemTimerStoppedOut(
+            started_at=stopped.started_at,
+            ended_at=stopped.ended_at,
+            minutes=stopped.minutes,
+            comment=stopped.comment,
+        )
+
+    @router.delete(
+        "/{record_id}/timer",
+        summary="Discard your timer",
+        status_code=status.HTTP_204_NO_CONTENT,
+        responses=CONFLICT_409,
+    )
+    async def discard_timer(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> Response:
+        """Ends it without logging anything."""
+        await timers.discard(session, subject, wtype, record_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.post("/{record_id}/timer/auto", summary="Start your timer if the type does so")
+    async def auto_start_timer(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> WorkItemTimerOut | None:
+        """The record page calls it when it opens (null when nothing started).
+
+        With the type's setting on, a record you are the technician of starts your timer once,
+        never again after it ran.
+        """
+        row = await timers.auto_start(session, subject, wtype, record_id)
+        return None if row is None else WorkItemTimerOut.of(row)
 
     # --- worklogs ---------------------------------------------------------------------------------
 

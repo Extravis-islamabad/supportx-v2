@@ -1052,6 +1052,10 @@ export const ur: LabelResource = {
   'errors.tenant_not_provisioned':
     'آپ کا ادارہ ابھی SupportX میں ترتیب نہیں دیا گیا۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
   'errors.tenant_suspended': 'آپ کے ادارے کی رسائی معطل ہے۔',
+  'errors.timer_not_running': 'اس ریکارڈ پر آپ کا کوئی ٹائمر نہیں چل رہا۔',
+  'errors.timer_record_done':
+    'یہ ریکارڈ حل یا بند ہو چکا ہے۔ اس کے بجائے وقت کو ورک لاگ کے طور پر درج کریں۔',
+  'errors.timer_running': 'اس ریکارڈ پر آپ کا ٹائمر پہلے سے چل رہا ہے۔',
   'errors.too_many_favourites': 'آپ زیادہ سے زیادہ {{max}} رپورٹس کو ستارہ لگا سکتے ہیں۔',
   'errors.too_many_files': 'ایک ساتھ بہت زیادہ فائلیں: زیادہ سے زیادہ {{max}}۔',
   'errors.too_many_rules': 'ہر ریکارڈ قسم کے لیے زیادہ سے زیادہ {{max}} قاعدے۔',

@@ -1049,6 +1049,10 @@ export const en = {
   'errors.tenant_not_provisioned':
     'Your organisation is not set up in SupportX yet. Please contact your administrator.',
   'errors.tenant_suspended': 'Your organisation’s access is suspended.',
+  'errors.timer_not_running': 'You have no timer running on this record.',
+  'errors.timer_record_done':
+    'This record is resolved or closed. Log the time as a worklog instead.',
+  'errors.timer_running': 'Your timer is already running on this record.',
   'errors.too_many_favourites': 'You can star up to {{max}} reports.',
   'errors.too_many_files': 'Too many files at once: at most {{max}}.',
   'errors.too_many_rules': 'At most {{max}} rules per record type.',

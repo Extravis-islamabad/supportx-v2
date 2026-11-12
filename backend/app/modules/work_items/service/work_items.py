@@ -83,6 +83,7 @@ from app.modules.work_items.domain.classification import (
 from app.modules.work_items.domain.closure import MOVE_FIELDS, missing_fields, within_reopen_window
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
+    DONE_CATEGORIES,
     FINAL_CATEGORIES,
     PauseClock,
     ReasonList,
@@ -1913,6 +1914,17 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await _end_timers(session, record)
+
+
+async def _end_timers(session: AsyncSession, record: WorkItem) -> None:
+    """Resolved, closed or canceled: running timers become their owners' drafts (REQ-INC-069)."""
+    if StatusCategory(record.status_category) not in DONE_CATEGORIES:
+        return
+    # Imported here: the timer service builds on this module (WP-046a S3).
+    from app.modules.work_items.service import timers  # noqa: PLC0415 - see above
+
+    await timers.save_drafts(session, record)
 
 
 def _closed(record: WorkItem) -> bool:
@@ -3338,6 +3350,7 @@ async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its s
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await _end_timers(session, record)
     if entries:
         await record_event(
             session,

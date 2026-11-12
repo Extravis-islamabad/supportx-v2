@@ -170,6 +170,10 @@ async def _work_access(
     return record, full
 
 
+# Timers (WP-046a S3) log time as worklogs do: the same access.
+work_access = _work_access
+
+
 async def _for_work(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> WorkItem:
@@ -1061,6 +1065,10 @@ async def _cost_snapshot(
     return (rate, technician_cost(minutes, rate)) if rate is not None else (None, None)
 
 
+# A timer's draft worklog takes its cost as a logged one does (WP-046a S3).
+cost_snapshot = _cost_snapshot
+
+
 async def _cost_lines(session: AsyncSession, values: Any) -> list[CostLine]:  # noqa: ANN401 - the API's list of dicts, checked here
     """Other costs as sent, each checked; problems name the line (`costs.<n>.<field>`)."""
     if not isinstance(values, list):
@@ -1172,6 +1180,16 @@ async def _worklog(
     return found
 
 
+def _worklog_flags(values: dict[str, Any]) -> dict[str, Any]:
+    """Billable, and a timer's draft confirmed by its owner (REQ-INC-068, -069)."""
+    flags: dict[str, Any] = {}
+    if values.get("billable") is not None:
+        flags["billable"] = bool(values["billable"])
+    if values.get("draft") is False:  # only ever confirmed, never made a draft again
+        flags["draft"] = False
+    return flags
+
+
 def _changed_times(row: WorkItemWorklog, values: dict[str, Any]) -> WorklogTimes:
     """The worklog's times with the change, checked together again."""
     merged = {
@@ -1216,8 +1234,7 @@ async def update_worklog(  # noqa: PLR0913, PLR0917 - the worklog, its version, 
     for name in ("owner_id", "worklog_type"):
         if values.get(name) is not None:
             changes[name] = values[name]
-    if values.get("billable") is not None:
-        changes["billable"] = bool(values["billable"])
+    changes |= _worklog_flags(values)
     if "description" in values:
         changes["description"] = _text(
             values["description"], "description", DESCRIPTION_MAX, problems
