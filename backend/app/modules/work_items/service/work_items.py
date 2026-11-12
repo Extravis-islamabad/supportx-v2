@@ -1122,6 +1122,11 @@ PERSON_FIELDS = frozenset(
 )
 
 
+# History fields whose values only the record's editors read; others see them as MASKED.
+EDITORS_ONLY = frozenset({"task.extra_cost"})
+MASKED: dict[str, bool] = {"masked": True}
+
+
 async def history(  # noqa: PLR0913 - paging options, explicit
     session: AsyncSession,
     subject: Subject,
@@ -1145,6 +1150,21 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     if hidden:  # the root cause stays out of the history too (D-140 Q7)
         entries = [
             replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+        ]
+    # A task's extra cost is for those who may edit the record (WP-046a S1, lane B's #398
+    # review): others keep the line (that it changed, when, by whom) but never the amounts.
+    if any(c.field in EDITORS_ONLY for e in entries for c in e.changes) and not await _may(
+        session, subject, wtype, "edit", record_id
+    ):
+        entries = [
+            replace(
+                e,
+                changes=[
+                    Change(c.field, MASKED, MASKED) if c.field in EDITORS_ONLY else c
+                    for c in e.changes
+                ],
+            )
+            for e in entries
         ]
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
@@ -2489,6 +2509,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     await approval_stage.after_submission(  # REQ-SR-021
         session, record, item, source=source, holders=holders
     )
+    if template.tasks:  # REQ-INC-040: the template's tasks whose condition the record matches
+        # Imported here: the task service builds on this module (WP-046a S1).
+        from app.modules.work_items.service import task_templates  # noqa: PLC0415 - see above
+
+        await task_templates.add_template_tasks(
+            session, subject, wtype, record, template.tasks, source=source
+        )
     if change_types.pre_approved(new_change):  # REQ-CHG-006: a standard change, approved now
         record = await _stage_move(
             session,

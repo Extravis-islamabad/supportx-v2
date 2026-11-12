@@ -64,10 +64,15 @@ MONEY_FIELDS = {
         select(AssetValuation.total_cost).where(_VALUATION).scalar_subquery(),
         FieldType.DECIMAL,
     ),
+    # WP-049b S4b (REQ-AST-053, D-157): the list export's price and tax, money too.
+    "purchase_price": FilterField(Asset.purchase_price, FieldType.DECIMAL),
+    "purchase_tax": FilterField(Asset.purchase_tax, FieldType.DECIMAL),
 }
 MONEY_DIMENSIONS: Mapping[str, Dimension] = {
     "book_value": Dimension(_D.NUMBER),
     "total_cost": Dimension(_D.NUMBER),
+    "purchase_price": Dimension(_D.NUMBER),
+    "purchase_tax": Dimension(_D.NUMBER),
 }
 FREE_TEXT = ("cost_centre", "gl_code")
 

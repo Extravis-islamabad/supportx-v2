@@ -1027,6 +1027,10 @@ class WorkItemClosureOut(BaseModel):
     task_owner_access: bool = Field(
         description="A task's owner may work on it without access to the record (D-112)."
     )
+    task_dependency_mode: Literal["block", "warn"] = Field(
+        default="block",
+        description="An open predecessor refuses a task's start or completion, or only warns.",
+    )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
     )
@@ -1309,6 +1313,9 @@ class WorkItemCatalogueOut(BaseModel):
                 auto_close_days=cat.closure.auto_close_days,
                 reopen_window_days=cat.closure.reopen_window_days,
                 task_owner_access=cat.closure.task_owner_access,
+                task_dependency_mode=cast(
+                    'Literal["block", "warn"]', cat.closure.task_dependency_mode
+                ),
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1332,6 +1339,7 @@ class WorkItemClosurePatch(BaseModel):
     )
     reopen_window_days: int | None = None
     task_owner_access: bool | None = None
+    task_dependency_mode: Literal["block", "warn"] | None = None
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -1425,6 +1433,23 @@ class WorkItemFieldChangeOut(BaseModel):
     field: str
     old: Any = None
     new: Any = None
+    # Additive and only where it applies (#398 CI): an ordinary line stays exactly {field, old,
+    # new} for every reader that compares or stores it; only a masked line says hidden.
+    hidden: bool = Field(
+        default=False,
+        exclude_if=lambda value: not value,
+        description=(
+            "Present (true) only when the values are not yours to see (a task's extra cost): "
+            "only that it changed. Absent on every other line, which keeps its old shape."
+        ),
+    )
+
+    @classmethod
+    def of(cls, change: Any) -> "WorkItemFieldChangeOut":  # noqa: ANN401 - a history Change
+        """One change, masked values as `hidden` with no old or new."""
+        if change.old == service.MASKED and change.new == service.MASKED:
+            return cls(field=change.field, hidden=True)
+        return cls(field=change.field, old=change.old, new=change.new)
 
 
 class WorkItemHistoryEntryOut(BaseModel):
@@ -1471,9 +1496,7 @@ class WorkItemHistoryEntryOut(BaseModel):
             reason=entry.reason,
             automation=entry.automation_ref if isinstance(entry.automation_ref, dict) else None,
             bulk_job_id=entry.batch_id,
-            changes=[
-                WorkItemFieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes
-            ],
+            changes=[WorkItemFieldChangeOut.of(c) for c in entry.changes],
             audit_entry_id=(audit or {}).get(entry.change_id),
         )
 

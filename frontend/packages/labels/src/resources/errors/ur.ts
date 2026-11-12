@@ -58,6 +58,7 @@ export const ur: LabelResource = {
   'errors.asset_booking_taken':
     'یہ وقت پہلے سے لیا جا چکا ہے۔ اگلا خالی دن {{next_free}} سے شروع ہوتا ہے۔',
   'errors.asset_bulk_empty': 'کم از کم ایک اثاثہ منتخب کریں۔',
+  'errors.asset_bulk_job_not_found': 'یہ اجتماعی تبدیلی نہیں ملی۔',
   'errors.asset_bulk_too_many': 'ایک بار میں زیادہ سے زیادہ {{max}} اثاثے منتخب کریں۔',
   'errors.asset_consumable_batch_tracking_fixed':
     'بیچ ٹریکنگ قابلِ صرف شے شامل کرتے وقت طے ہوتی ہے اور بعد میں نہیں بدلتی۔ اس کے بجائے پروڈکٹ کو نئی شے کے طور پر شامل کریں۔',
@@ -78,6 +79,16 @@ export const ur: LabelResource = {
   'errors.asset_group_not_found': 'یہ گروپ اب موجود نہیں۔',
   'errors.asset_has_components':
     'اس پر پرزے لگے ہیں ({{count}}): انہیں الگ کریں یا انہیں بھی تلف کریں۔',
+  'errors.asset_import_exists': 'اس کلید والا ریکارڈ پہلے سے موجود ہے، اور درآمد صرف شامل کرتی ہے۔',
+  'errors.asset_import_file_not_readable': 'CSV فائل یا Excel ورک بُک ({{xlsx}}) استعمال کریں۔',
+  'errors.asset_import_file_not_utf8': 'CSV فائل کو UTF-8 میں محفوظ کر کے دوبارہ کوشش کریں۔',
+  'errors.asset_import_file_too_large': 'فائل {{max_mb}} MB سے بڑی ہے۔',
+  'errors.asset_import_file_unsafe':
+    'ورک بُک کھلنے پر اپنے سائز سے کہیں بڑی ہو جاتی ہے، اس لیے نہیں کھولی گئی۔',
+  'errors.asset_import_match_invalid': 'اس قسم کی فائل کو اس طرح نہیں ملایا جا سکتا۔',
+  'errors.asset_import_no_match': 'کوئی ریکارڈ اس قطار سے نہیں ملتا، اور درآمد صرف اپ ڈیٹ کرتی ہے۔',
+  'errors.asset_import_not_checked': 'صرف جانچی ہوئی فائل درآمد ہو سکتی ہے۔ اسے دوبارہ جانچیں۔',
+  'errors.asset_import_not_found': 'یہ درآمد نہیں ملی۔',
   'errors.asset_label_job_not_found': 'یہ لیبل موجود نہیں، یا کسی اور نے مانگے تھے۔',
   'errors.asset_label_job_not_ready': 'لیبل ڈاؤن لوڈ کے لیے تیار نہیں۔',
   'errors.asset_label_print_not_found': 'یہ پرنٹ اب لیبل کی تاریخ میں نہیں۔',
@@ -93,6 +104,13 @@ export const ur: LabelResource = {
   'errors.asset_link_exists': 'یہ دونوں اثاثے پہلے ہی اس طرح جڑے ہوئے ہیں۔',
   'errors.asset_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.asset_loan_not_found': 'یہ ادھار بند ہو چکا ہے یا اب موجود نہیں۔',
+  'errors.asset_merge_booked': '{{asset}} پیشگی بک ہے۔ ضم کرنے سے پہلے بکنگ منسوخ کریں۔',
+  'errors.asset_merge_nested': 'ان میں سے ایک اثاثہ دوسرے میں لگا ہے۔ پہلے اسے نکالیں۔',
+  'errors.asset_merge_on_loan': '{{asset}} ادھار پر ہے۔ ضم کرنے سے پہلے اسے واپس لیں۔',
+  'errors.asset_merge_same': 'دو مختلف اثاثے منتخب کریں۔',
+  'errors.asset_merge_site_not_managed':
+    'آپ دونوں سائٹس کے اثاثوں کا انتظام نہیں کرتے، اس لیے یہ ضم نہیں ہو سکتے۔',
+  'errors.asset_merged': 'یہ اثاثہ کسی دوسرے میں ضم ہو چکا ہے۔',
   'errors.asset_move_not_allowed': 'یہ اثاثہ اپنی موجودہ حالت سے اس حالت میں نہیں جا سکتا۔',
   'errors.asset_move_not_allowed_through_ticket':
     'اثاثے کو ریٹائر یا تلف کرنا ٹکٹ کے ذریعے نہیں ہوتا۔ اثاثہ مینیجر سے کہیں۔',
@@ -111,11 +129,13 @@ export const ur: LabelResource = {
   'errors.asset_note_not_found': 'یہ نوٹ اب موجود نہیں۔',
   'errors.asset_on_loan': '{{asset}} پہلے ہی ادھار پر ہے۔',
   'errors.asset_portal_booking_off': 'آپ کا ادارہ پورٹل سے بکنگ نہیں لیتا۔',
+  'errors.asset_product_ambiguous': 'اس نام کی ایک سے زیادہ پروڈکٹس ہیں۔',
   'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
   'errors.asset_product_type_has_children':
     'اس کے نیچے دوسری پروڈکٹ اقسام ہیں ({{used}})۔ پہلے انہیں منتقل یا حذف کریں۔',
   'errors.asset_product_type_in_use': 'پروڈکٹس ابھی یہ قسم استعمال کرتی ہیں ({{used}})۔',
   'errors.asset_product_type_not_found': 'پروڈکٹ کی یہ قسم موجود نہیں۔',
+  'errors.asset_restore_merged': 'یہ اثاثہ {{asset}} میں ضم ہوا تھا۔ الگ بحال کرنے کی تصدیق کریں۔',
   'errors.asset_state_in_use':
     'لائف سائیکلز کی منتقلیاں ابھی یہ حالت استعمال کرتی ہیں ({{used}})۔ پہلے انہیں ہٹائیں۔',
   'errors.asset_state_not_found': 'اثاثے کی یہ حالت موجود نہیں۔',
@@ -355,6 +375,8 @@ export const ur: LabelResource = {
   'errors.field.default_required':
     'ہمیشہ ایک ڈیفالٹ سانچہ ہوتا ہے۔ اس کے بجائے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.department_not_found': 'کوئی فعال شعبہ منتخب کریں۔',
+  'errors.field.dependency_loop':
+    'کوئی کام خود اپنا انتظار نہیں کر سکتا، براہ راست یا دوسرے کاموں کے ذریعے۔',
   'errors.field.desk_not_found': 'کوئی فعال ڈیسک منتخب کریں۔',
   'errors.field.dimension_not_groupable':
     'متعدد انتخاب والی فیلڈز ابھی گروپ بندی کے لیے استعمال نہیں ہو سکتیں۔',
@@ -479,6 +501,7 @@ export const ur: LabelResource = {
   'errors.field.name_needs_letters': 'نام میں کم از کم ایک حرف یا ہندسہ استعمال کریں۔',
   'errors.field.name_required': 'نام درج کریں۔',
   'errors.field.name_taken': 'یہ نام پہلے سے استعمال میں ہے۔',
+  'errors.field.needs_scheduled_start': 'آغاز سے پہلے یاد دہانی کے لیے طے شدہ آغاز ضروری ہے۔',
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
   'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
   'errors.field.not_a_technician':
@@ -722,18 +745,21 @@ export const ur: LabelResource = {
   'errors.internal_error': 'ہماری طرف کچھ غلط ہو گیا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.invalid_choice': 'یہ قدر دستیاب انتخاب میں سے نہیں۔',
   'errors.invalid_cursor': 'یہ صفحہ لنک اب درست نہیں۔ پہلے صفحے سے شروع کریں۔',
+  'errors.invalid_date': 'تاریخ لکھیں، جیسے 2026-11-30۔',
   'errors.invalid_etag':
     'اس تبدیلی کے ساتھ بھیجا گیا آئٹم کا ورژن درست نہیں۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.invalid_filter': 'فلٹر لاگو نہیں ہو سکا۔ نمایاں کی گئی شرط دیکھیں۔',
   'errors.invalid_idempotency_key': 'درخواست کا شناخت کنندہ درست نہیں۔',
   'errors.invalid_login_state':
     'اس سائن اِن لنک کی میعاد ختم ہو گئی ہے۔ براہِ کرم دوبارہ شروع کریں۔',
+  'errors.invalid_number': 'عدد لکھیں۔',
   'errors.invalid_page_size': 'ایک صفحے کے لیے بہت زیادہ قطاریں مانگی گئیں۔',
   'errors.invalid_report': 'یہ رپورٹ اس حالت میں نہیں چل سکتی۔ نمایاں حصے چیک کریں۔',
   'errors.invalid_sort': 'فہرست کو اس طرح ترتیب نہیں دیا جا سکتا۔',
   'errors.invalid_tenant_id': 'ادارے کا شناخت کنندہ درست نہیں۔',
   'errors.invalid_transition':
     'موجودہ حیثیت میں یہ ممکن نہیں۔ تازہ ترین دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.invalid_value': 'یہ قدر درست نہیں۔',
   'errors.investigator_not_found': 'یہ شخص اس مسئلے کا تفتیش کار نہیں ہے۔',
   'errors.invitation_already_signed_in':
     'یہ شخص پہلے ہی سائن اِن کر چکا ہے، اس لیے دعوت کی ضرورت نہیں۔',
@@ -986,6 +1012,8 @@ export const ur: LabelResource = {
   'errors.system_role_immutable': 'پہلے سے موجود کردار تبدیل یا حذف نہیں کیے جا سکتے۔',
   'errors.system_role_not_deletable':
     'بلٹ ان رولز حذف نہیں کیے جا سکتے۔ اپنا ورژن بنانے کے لیے رول کی نقل بنائیں۔',
+  'errors.task_blocked': 'یہ کام پہلے {{task}} کے مکمل ہونے کا انتظار کرتا ہے۔',
+  'errors.task_template_not_found': 'کاموں کا یہ سانچہ اب موجود یا پیش نہیں ہے۔',
   'errors.technician_limit_reached':
     'آپ کے ادارے کے پلان میں ٹیکنیشن کی تمام نشستیں استعمال میں ہیں۔ نشست خالی کرنے یا مزید شامل کرنے کے لیے اپنے منتظم سے کہیں۔',
   'errors.technicians_only': 'صرف ٹیکنیشن دوسرے صارفین کو دیکھ سکتا ہے۔',

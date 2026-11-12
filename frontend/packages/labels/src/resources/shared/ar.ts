@@ -230,6 +230,7 @@ export const ar: LabelResource = {
   'nav.main': 'التنقل الرئيسي',
   'nav.more': 'المزيد',
   'nav.my_requests': 'طلباتي',
+  'nav.my_tasks': 'مهامي',
   'nav.open_menu': 'افتح القائمة',
   'nav.problems': 'المشكلات',
   'nav.profile': 'ملفي الشخصي',
@@ -376,6 +377,9 @@ export const ar: LabelResource = {
     'ردّ مقدّم الطلب خلال هذه الأيام بعد الحل يعيد فتح الحادثة؛ والرد اللاحق ينشئ حادثة جديدة. من 1 إلى 30.',
   'settings.closing.resolve_requires': 'مطلوب قبل الحل',
   'settings.closing.resolve_requires_help': 'الحقول التي يجب ملؤها قبل حل الحادثة.',
+  'settings.closing.task_dependency_mode': 'منع المهام المنتظرة',
+  'settings.closing.task_dependency_mode_help':
+    'لا يمكن بدء مهمة أو إنجازها ما دامت مهمة تنتظرها مفتوحة. عند الإيقاف: تظهر فقط كمنتظرة.',
   'settings.closing.task_owner_access': 'يعمل مسؤولو المهام على مهامهم دون الوصول إلى الحادثة',
   'settings.closing.task_owner_access_help':
     'يرون مهمتهم ومعرّف الحادثة وموضوعها ويمكنهم تغيير حالة المهمة؛ ولا يرون المحادثة أو الملاحظات أبدًا.',
@@ -489,6 +493,7 @@ export const ar: LabelResource = {
   'settings.section.reply-templates': 'قوالب الردود',
   'settings.section.routing': 'التوجيه والإسناد',
   'settings.section.statuses': 'الحالات',
+  'settings.section.task-templates': 'قوالب المهام',
   'settings.section.templates': 'القوالب',
   'settings.section.transitions': 'انتقالات الحالة',
   'settings.section.triggers': 'المشغلات',

@@ -124,6 +124,7 @@ class ClosureSettings:
     auto_close_days: int | None
     reopen_window_days: int
     task_owner_access: bool = False  # WP-020e (D-112)
+    task_dependency_mode: str = "block"  # WP-046a S1 (REQ-INC-075): block or warn
 
 
 @dataclass(frozen=True)
@@ -766,6 +767,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             auto_close_days=settings.auto_close_days,
             reopen_window_days=settings.reopen_window_days,
             task_owner_access=settings.task_owner_access,
+            task_dependency_mode=settings.task_dependency_mode,
         ),
         last_number=await last_number(session, wtype.counter_key),
     )
