@@ -52,7 +52,7 @@ from app.modules.identity_access.domain.mobile import (
 )
 from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.session import Session, TenantChoice
-from app.modules.identity_access.domain.sign_in import Method, Outcome, SignInApp
+from app.modules.identity_access.domain.sign_in import SignInApp, SignInMethod, SignInOutcome
 from app.modules.identity_access.domain.sso import DEPARTMENT_ATTRIBUTE, SITE_ATTRIBUTE
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminNotConfigured,
@@ -102,13 +102,13 @@ class Attempt:
     mobile: bool = False
 
     def facts(
-        self, outcome: Outcome, user_id: uuid.UUID | None, *, reason: str | None = None
+        self, outcome: SignInOutcome, user_id: uuid.UUID | None, *, reason: str | None = None
     ) -> sign_in_log.SignInFacts:
         """The log's facts for this attempt. The method is S1b's (the verified IdP claim)."""
         return sign_in_log.SignInFacts(
             outcome=outcome,
             app=SignInApp.MOBILE if self.mobile else SignInApp(self.app),
-            method=Method.MOBILE if self.mobile else Method.UNKNOWN,
+            method=SignInMethod.MOBILE if self.mobile else SignInMethod.UNKNOWN,
             user_id=user_id,
             reason=reason,
             ip=self.ip,
@@ -506,9 +506,8 @@ class AuthService:
                 return PortalInstead(self._login_again("portal", origin, "/", mobile))
             return PortalInstead(self.landing("portal", "/", origin))
         finished = await self._finish_login(session, app, pending, action_status)
-        await sign_in_log.record(
-            self.database, session.tenant_uuid, attempt.facts(Outcome.SUCCESS, session.user_uuid)
-        )
+        facts = attempt.facts(SignInOutcome.SUCCESS, session.user_uuid)
+        await sign_in_log.record(self.database, session.tenant_uuid, facts)
         return finished
 
     async def _finish_login(
@@ -681,7 +680,7 @@ class AuthService:
         for tenant in tenant_ids:
             tenant_id = uuid.UUID(tenant)
             known = await known_user_id(self.database, tenant_id, identity.subject)
-            facts = attempt.facts(Outcome.FAILED, known, reason=IP_NOT_ALLOWED)
+            facts = attempt.facts(SignInOutcome.FAILED, known, reason=IP_NOT_ALLOWED)
             await sign_in_log.record(self.database, tenant_id, facts)
 
     async def _new_session(
@@ -977,7 +976,7 @@ class AuthService:
     ) -> None:
         """End the local session and the Keycloak SSO session (back channel)."""
         if attempt is not None:  # the sign-in log (REQ-AUD-015): a sign-out
-            facts = attempt.facts(Outcome.SIGNED_OUT, session.user_uuid)
+            facts = attempt.facts(SignInOutcome.SIGNED_OUT, session.user_uuid)
             await sign_in_log.record(self.database, session.tenant_uuid, facts)
         await self.store.delete_session(session_id)
         await self._sessions_changed(session.tenant_uuid, session.user_uuid)
@@ -1030,7 +1029,7 @@ class AuthService:
             raise ServiceUnavailable(code="database_not_configured")
         if not await self._admit(tenant_id, _client_app(session), client_ip):
             attempt = Attempt(_client_app(session), client_ip, None)
-            facts = attempt.facts(Outcome.FAILED, None, reason=IP_NOT_ALLOWED)
+            facts = attempt.facts(SignInOutcome.FAILED, None, reason=IP_NOT_ALLOWED)
             known = await known_user_id(self.database, tenant_id, session.subject)
             await sign_in_log.record(self.database, tenant_id, replace(facts, user_id=known))
             raise PermissionDenied(code=IP_NOT_ALLOWED)  # before the person is looked up

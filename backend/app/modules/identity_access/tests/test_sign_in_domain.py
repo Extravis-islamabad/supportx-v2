@@ -4,7 +4,7 @@ import pytest
 
 from app.modules.identity_access.domain.sign_in import (
     OTHER_REASON,
-    Outcome,
+    SignInOutcome,
     device,
     keycloak_outcome,
     keycloak_reason,
@@ -51,15 +51,15 @@ def test_keycloak_errors_become_our_reasons_and_unknown_ones_other() -> None:
 @pytest.mark.parametrize(
     ("event_type", "error", "outcome"),
     [
-        ("LOGIN", None, Outcome.SUCCESS),
-        ("LOGIN_ERROR", "invalid_user_credentials", Outcome.FAILED),
-        ("LOGIN_ERROR", "user_temporarily_disabled", Outcome.LOCKED),
-        ("LOGIN_ERROR", "invalid_totp", Outcome.MFA_FAILED),
-        ("IDENTITY_PROVIDER_LOGIN_ERROR", "identity_provider_error", Outcome.FAILED),
-        ("LOGOUT", None, Outcome.SIGNED_OUT),
+        ("LOGIN", None, SignInOutcome.SUCCESS),
+        ("LOGIN_ERROR", "invalid_user_credentials", SignInOutcome.FAILED),
+        ("LOGIN_ERROR", "user_temporarily_disabled", SignInOutcome.LOCKED),
+        ("LOGIN_ERROR", "invalid_totp", SignInOutcome.MFA_FAILED),
+        ("IDENTITY_PROVIDER_LOGIN_ERROR", "identity_provider_error", SignInOutcome.FAILED),
+        ("LOGOUT", None, SignInOutcome.SIGNED_OUT),
     ],
 )
 def test_keycloak_events_map_to_outcomes(
-    event_type: str, error: str | None, outcome: Outcome
+    event_type: str, error: str | None, outcome: SignInOutcome
 ) -> None:
     assert keycloak_outcome(event_type, error) is outcome

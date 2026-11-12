@@ -30,7 +30,7 @@ from app.modules.identity_access.api.sessions import ListedSessionOut, listed_ou
 from app.modules.identity_access.domain import sso as sso_rules
 from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.policy import Subject
-from app.modules.identity_access.domain.sign_in import Method, Outcome, SignInApp
+from app.modules.identity_access.domain.sign_in import SignInApp, SignInMethod, SignInOutcome
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
@@ -227,9 +227,9 @@ class SignInEventOut(BaseModel):
 
     id: uuid.UUID
     occurred_at: datetime
-    outcome: Outcome
+    outcome: SignInOutcome
     reason: str | None
-    method: Method
+    method: SignInMethod
     app: SignInApp
     user_id: uuid.UUID | None
     ip: str | None
@@ -257,8 +257,8 @@ async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of 
     request: Request,
     session: TenantSession,
     subject: ViewSignIns,
-    outcome: Annotated[list[Outcome] | None, Query()] = None,
-    method: Annotated[list[Method] | None, Query()] = None,
+    outcome: Annotated[list[SignInOutcome] | None, Query()] = None,
+    method: Annotated[list[SignInMethod] | None, Query()] = None,
     user_id: uuid.UUID | None = None,
     since: datetime | None = None,
     until: datetime | None = None,
@@ -306,9 +306,9 @@ async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of 
             SignInEventOut(
                 id=r.id,
                 occurred_at=r.occurred_at,
-                outcome=Outcome(r.outcome),
+                outcome=SignInOutcome(r.outcome),
                 reason=r.reason,
-                method=Method(r.method),
+                method=SignInMethod(r.method),
                 app=SignInApp(r.app),
                 user_id=r.user_id,
                 ip=str(r.ip) if r.ip is not None else None,

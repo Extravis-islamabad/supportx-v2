@@ -75,7 +75,7 @@ from app.modules.identity_access.infra.crypto import SessionCipher, session_ring
 from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
-from app.modules.identity_access.service import directory, mfa
+from app.modules.identity_access.service import directory, mfa, sign_in_log
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
 from app.modules.identity_access.service.cost_rates import cost_rate
@@ -403,7 +403,7 @@ module = ModuleSpec(
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
-    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY, mfa.MFA_ROLES],
+    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY, mfa.MFA_ROLES, sign_in_log.PERSON_ERASED],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
     realtime=ROUTES,

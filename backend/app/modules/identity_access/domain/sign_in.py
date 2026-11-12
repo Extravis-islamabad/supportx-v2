@@ -13,7 +13,7 @@ from enum import StrEnum
 DEVICE_MAX = 120
 
 
-class Outcome(StrEnum):
+class SignInOutcome(StrEnum):
     """What happened (sign_in_events.outcome)."""
 
     SUCCESS = "success"
@@ -23,7 +23,7 @@ class Outcome(StrEnum):
     MFA_FAILED = "mfa_failed"
 
 
-class Method(StrEnum):
+class SignInMethod(StrEnum):
     """How the person signed in (sign_in_events.method)."""
 
     PASSWORD = "password"  # noqa: S105 - a sign-in method code, not a secret
@@ -75,17 +75,17 @@ def keycloak_reason(error: str | None) -> str | None:
     return KEYCLOAK_REASONS.get(error, OTHER_REASON)
 
 
-def keycloak_outcome(event_type: str, error: str | None) -> Outcome:
+def keycloak_outcome(event_type: str, error: str | None) -> SignInOutcome:
     """The outcome of a Keycloak login event."""
     if error == "user_temporarily_disabled":
-        return Outcome.LOCKED
+        return SignInOutcome.LOCKED
     if error == "invalid_totp":
-        return Outcome.MFA_FAILED
+        return SignInOutcome.MFA_FAILED
     if event_type.endswith("_ERROR") or error:
-        return Outcome.FAILED
+        return SignInOutcome.FAILED
     if event_type == "LOGOUT":
-        return Outcome.SIGNED_OUT
-    return Outcome.SUCCESS
+        return SignInOutcome.SIGNED_OUT
+    return SignInOutcome.SUCCESS
 
 
 _BROWSERS = (  # first match wins: Edge and Opera also say "Chrome", Chrome also says "Safari"

@@ -28,13 +28,14 @@ from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain.sign_in import (
-    Method,
-    Outcome,
     SignInApp,
+    SignInMethod,
+    SignInOutcome,
     Source,
     device,
 )
 from app.modules.identity_access.infra.models import SignInEvent
+from app.shared.events import ConsumerSpec, EventEnvelope
 from app.shared.ids import new_id
 
 log = get_logger(__name__)
@@ -47,9 +48,9 @@ PAGE_MAX = 200
 class SignInFacts:
     """One event, as the BFF knows it."""
 
-    outcome: Outcome
+    outcome: SignInOutcome
     app: SignInApp
-    method: Method = Method.UNKNOWN
+    method: SignInMethod = SignInMethod.UNKNOWN
     user_id: uuid.UUID | None = None
     reason: str | None = None
     ip: str | None = None
@@ -93,8 +94,8 @@ async def record(
 class LogFilter:
     """The admin list's filters (AC2: "failed" in the last 24 hours lists only those)."""
 
-    outcomes: tuple[Outcome, ...] = ()
-    methods: tuple[Method, ...] = ()
+    outcomes: tuple[SignInOutcome, ...] = ()
+    methods: tuple[SignInMethod, ...] = ()
     user_id: uuid.UUID | None = None
     since: datetime | None = None
     until: datetime | None = None
@@ -145,3 +146,20 @@ async def purge(session: AsyncSession, now: datetime) -> int:
         .execution_options(synchronize_session=False)
     )
     return int(result.rowcount or 0)  # type: ignore[attr-defined]  # a CursorResult for a DELETE
+
+
+async def on_person_erased(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer: a person was erased (GDPR), so their entries lose address and device."""
+    assert session is not None  # noqa: S101 - transactional consumer
+    if envelope.payload.get("reason") != "erasure":
+        return
+    forgotten = await forget_person(session, uuid.UUID(str(envelope.payload["user_id"])))
+    if forgotten:
+        log.info("sign_in_log_erased", entries=forgotten)
+
+
+PERSON_ERASED = ConsumerSpec(
+    name="identity_access__sign_ins_erased",
+    event_types=("identity_access.user.status_changed",),
+    handler=on_person_erased,
+)
