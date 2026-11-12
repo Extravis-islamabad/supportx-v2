@@ -19,6 +19,7 @@ from app.core.errors import Conflict
 from app.core.request_context import current_request_id
 from app.core.tenancy import TenantContext
 from app.shared.clock import system_clock
+from app.shared.db.deferred import deferred
 from app.shared.db.models import Base, TenantScoped, UuidPrimaryKey
 from app.shared.ids import new_id
 
@@ -389,8 +390,11 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     if isinstance(context, TenantContext):
         for row in rows:
             row.tenant_id = context.tenant_id
-    session.add_all(rows)
-    await session.flush()
+    if (buffer := deferred(session)) is not None:  # an import batch: one INSERT for all (step B)
+        buffer.add(*rows)
+    else:
+        session.add_all(rows)
+        await session.flush()
     # The audit log links its entry for this request to the history it wrote (REQ-AUD-006).
     session.info.setdefault(CHANGE_IDS_KEY, []).append(change_id)
     sink = _audit_sink
