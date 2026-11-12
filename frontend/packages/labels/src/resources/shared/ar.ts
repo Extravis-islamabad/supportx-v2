@@ -79,7 +79,7 @@ export const ar: LabelResource = {
     'توقفت الصفحة عن العمل. غالبًا ما تحل إعادة التحميل المشكلة. إذا تكرر ذلك، أرسل إلينا المرجع.',
   'crash.reload': 'إعادة تحميل الصفحة',
   'crash.title': 'حدث خطأ في هذه الصفحة',
-  'datetime.time_zone_note': 'الأوقات بتوقيت {{zone}}.',
+  'datetime.time_zone_note': 'الأوقات حسب {{zone}}.',
   'dev.chart_aria': 'مخطط أعمدة لأعداد تذاكر تجريبية لكل يوم عمل.',
   'dev.chart_title': 'عرض توضيحي: التذاكر حسب اليوم',
   'dev.errors': 'رسائل الأخطاء',
