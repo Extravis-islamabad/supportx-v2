@@ -91,6 +91,9 @@ announcement and a migration path that removes nothing silently (Haider's rule).
 - `values-single-node.yaml`: one k3s VM (8 vCPU / 32 GB / 500 GB), production profile, HTTPS on
   Traefik's websecure listener with your certificate Secret, the base realm (no users). **Internal
   evaluation only** until backups (WP-014b) and Nuitka images exist.
+- `values-staging.yaml` (D-169): on top of `values-single-node.yaml`, the staging laptop: its
+  LAN name, its own CA's certificate, locally built images, demo data, laptop sizes. Only with
+  [the staging laptop runbook](runbooks/staging-laptop.md).
 - `values-ha.yaml` (WP-014b, ADR-038): three or more nodes. Two or three copies of every stateless
   component, PostgreSQL with one primary and two standbys, two PgBouncer copies, a three-server
   NATS cluster and Valkey with Sentinel. Copies sit on different nodes, each with a
@@ -425,6 +428,13 @@ Jaeger, Perses) come with WP-014b.
 | Cluster › `smoke` | same | k3d with the pinned k3s, `make deploy-dev` (incl. `helm test`), public routes through the gateway |
 | Cluster › `e2e` | nightly, on demand | everything above, then every Playwright journey against the cluster |
 | Cluster › `ha-smoke` | nightly, on demand, PRs labelled `full-ci` | a four-node k3d cluster with `values-ha.yaml`. The bring-up gives CoreDNS two copies on different nodes and runs the HA preflight (strict). First the Valkey master is killed (the session survives, no split brain). Then the node with the promoted Valkey master is stopped (`make cluster-ha-valkey-node-loss`): Sentinel promotes again within 60 s, the session writes again, the old master returns as a replica. The same again in the worst case, forced by the test (`make cluster-ha-valkey-node-loss-dns`): the stopped node holds the Valkey master and a CoreDNS copy. Then the agent with PostgreSQL's primary is stopped (`make cluster-ha-node-loss`): a standby is promoted, the session writes again, and the node rejoins as a standby. Then the k3s server restarts (`make cluster-ha-dns-restart`): CoreDNS keeps two copies on two nodes and its anti-affinity |
+
+## Runbooks
+
+| Runbook | What for |
+|---|---|
+| [restore.md](runbooks/restore.md) | Restore the database to a chosen moment from its backups (WP-014b) |
+| [staging-laptop.md](runbooks/staging-laptop.md) | Staging on a spare laptop: OS, k3s, first install, the nightly pull-based upgrade (D-169) |
 
 ## Troubleshooting
 

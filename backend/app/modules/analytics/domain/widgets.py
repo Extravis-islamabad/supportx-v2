@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-from app.modules.analytics.domain.builtin import BUILTIN_REPORTS, CHANGES, INCIDENTS
+from app.modules.analytics.domain.builtin import BUILTIN_REPORTS, CHANGES, INCIDENTS, RELEASES
 from app.modules.analytics.domain.dashboard import ME, MY_GROUPS, DashboardBody, Widget
 
 KEY_NUMBERS = "key_numbers"
@@ -320,6 +320,24 @@ CHANGE_WIDGETS: tuple[WidgetTemplate, ...] = (
     _change_kpi("change_freeze_overrides", "freeze_override_count"),
 )
 
+# Releases' key numbers (WP-058b S5b, REQ-REL-060 AC1): open now, then how the last 90 days went.
+_RELEASE_90 = {"field": "created_at", "op": "last_n_days", "value": 90}
+
+
+def _release_kpi(code: str, measure: str, *, recent: bool = True) -> WidgetTemplate:
+    report: dict[str, Any] = {"entity": "release", "measures": [measure], "chart": "kpi"}
+    if recent:
+        report["filter"] = _RELEASE_90
+    return WidgetTemplate(code, RELEASES, KEY_NUMBERS, KPI_SIZE, {"report": report})
+
+
+RELEASE_WIDGETS: tuple[WidgetTemplate, ...] = (
+    _release_kpi("release_open", "open_count", recent=False),
+    _release_kpi("release_on_time_rate", "on_time_rate"),
+    _release_kpi("release_failed", "failed_count"),
+    _release_kpi("release_overdue", "overdue_count", recent=False),
+)
+
 # Every built-in report, as a chart or table widget (product owner, 2026-10-28).
 FROM_REPORTS: tuple[WidgetTemplate, ...] = tuple(
     WidgetTemplate(
@@ -334,7 +352,7 @@ FROM_REPORTS: tuple[WidgetTemplate, ...] = tuple(
 )
 
 CATALOGUE: Mapping[str, WidgetTemplate] = MappingProxyType(
-    {t.code: t for t in (*CURATED, *CHANGE_WIDGETS, *FROM_REPORTS)}
+    {t.code: t for t in (*CURATED, *CHANGE_WIDGETS, *RELEASE_WIDGETS, *FROM_REPORTS)}
 )
 
 
@@ -385,6 +403,22 @@ BUILTIN_DASHBOARDS: Mapping[str, DashboardBody] = MappingProxyType(
             ("report_changes_open_by_technician", 6, 14, 6, 4),
             ("report_changes_by_reason", 0, 18, 6, 4),
             ("report_changes_downtime_per_month", 6, 18, 6, 4),
+        ),
+        # Releases (WP-058b S5b, REQ-REL-060 AC1): open by stage (live as releases move), how
+        # deployments went, and where they wait.
+        "releases": _place(
+            ("release_open", 0, 0, 3, 2),
+            ("release_on_time_rate", 3, 0, 3, 2),
+            ("release_failed", 6, 0, 3, 2),
+            ("release_overdue", 9, 0, 3, 2),
+            ("report_releases_open_by_stage", 0, 2, 6, 4),
+            ("report_releases_on_time_per_month", 6, 2, 6, 4),
+            ("report_releases_by_type", 0, 6, 6, 4),
+            ("report_releases_by_risk", 6, 6, 6, 4),
+            ("report_releases_failed_by_type", 0, 10, 6, 4),
+            ("report_releases_by_closure_code", 6, 10, 6, 4),
+            ("report_releases_overdue_by_manager", 0, 14, 6, 4),
+            ("report_releases_approval_time_by_type", 6, 14, 6, 4),
         ),
         # "My work": a technician's own queue (the technician role's home, REQ-DSH-002).
         "my_work": _place(

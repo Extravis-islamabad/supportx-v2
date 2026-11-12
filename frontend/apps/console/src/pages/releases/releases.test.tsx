@@ -1139,6 +1139,62 @@ describe('console: releases', () => {
   });
 });
 
+describe('console: releases by stage (WP-058b S5b)', () => {
+  const toTesting = {
+    to_status: 'testing_in_progress',
+    to_stage: 'testing',
+    reason_mode: 'none',
+    reason_list: null,
+    required_fields: [],
+    allowed: true,
+    reason: null,
+    missing: [],
+  };
+
+  async function moveTo(stage: string) {
+    fireEvent.click(await screen.findByTestId(`release-board-move-${REL_ID}`));
+    const menus = await screen.findAllByRole('menu');
+    const menu = menus.at(-1);
+    if (menu === undefined) throw new Error('no menu');
+    fireEvent.click(within(menu).getByText(stage));
+  }
+
+  it('REQ-REL-056: the release list opens the board', async () => {
+    window.history.pushState({}, '', '/releases');
+    api();
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('releases-board-open'));
+    expect(await screen.findByTestId('release-board-column-build')).toBeTruthy();
+    expect(window.location.pathname).toBe('/releases/board');
+  });
+
+  it('REQ-REL-056: a release sits in its stage; moving it opens its own move dialog', async () => {
+    window.history.pushState({}, '', '/releases/board');
+    api({ [`GET /api/v1/releases/${REL_ID}/stages`]: { body: { ...panel, moves: [toTesting] } } });
+    render(<App />);
+    const build = await screen.findByTestId('release-board-column-build');
+    expect(await within(build).findByText('REL-1')).toBeTruthy();
+    await moveTo('Testing');
+    expect(await screen.findByTestId('move-dialog')).toBeTruthy();
+  });
+
+  it('REQ-REL-056 AC1: a stage it cannot reach is refused in words and the card stays', async () => {
+    window.history.pushState({}, '', '/releases/board');
+    api();
+    render(<App />);
+    const build = await screen.findByTestId('release-board-column-build');
+    await within(build).findByText('REL-1');
+    await moveTo('Deployment');
+    await waitFor(() => {
+      expect(screen.getByTestId('release-board-refusal').textContent).toContain(
+        'cannot move to Deployment',
+      );
+    });
+    expect(within(build).getByText('REL-1')).toBeTruthy();
+    expect(screen.queryByTestId('move-dialog')).toBeNull();
+  });
+});
+
 describe('console: the release list (WP-058b S5a)', () => {
   const MANAGER = '01a1a2b3-0000-7000-8000-0000000e0901';
   const listed = {

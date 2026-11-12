@@ -159,6 +159,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-058b S5b (REQ-REL-056): releases by stage.
+            path: 'board',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleaseBoardPage')).ReleaseBoardPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({
               Component: (await import('./pages/releases/ReleasePage')).ReleasePage,
