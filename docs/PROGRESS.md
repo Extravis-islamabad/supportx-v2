@@ -38,6 +38,21 @@
   list has no row checkboxes or selection bar. It is built in **WP-047a** (SR V1, lane A). Until
   then the list shows no checkboxes at all, rather than dead ones.
 
+### Engineering-practices audit (#444), lane B security items
+
+Branch `fix/security-audit-a` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b.md):
+- [x] Row 4, login CSRF: each browser sign-in bound to its browser (per-sign-in cookie).
+- [ ] Row 3, egress: SaaS values profile with `networkPolicies.egress.enabled` on. **Blocked:**
+  no SaaS values file exists yet (WP-014d builds the SaaS cell); turn egress on there. The
+  `fetch.py` DNS-pin part is another lane's.
+- [x] Row 14, lane B's part: per-address limits on `/auth/login` and `/auth/callback` (fail
+  closed), public branding, domain check, public action links; `organization` limits on
+  `/organization/tenant` and `/organization/settings`. Still open: automation (lane C) and custom
+  fields (lane A) routes, `/auth/me`, `/auth/sessions`, realtime tokens, `/my-tasks`,
+  `/my-reminders`; API keys sharing their owner's budget.
+- [x] Row 15, HSTS on the console and portal nginx responses. Still open from the audit's HSTS
+  row: the chart's port-80 listener with an https redirect.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -323,7 +338,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Scope:** `values-saas.yaml`; External Secrets Operator; cert-manager with DNS-01 wildcard
   certificates; managed PostgreSQL option; admission-time signature verification; per-tenant
   hostnames (WP-017).
-- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite.
+- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite;
+  the egress NetworkPolicy allow-list (`networkPolicies.egress`) is ON in `values-saas.yaml`, with
+  the Kubernetes API addresses set, and the egress check passes on the cell (audit #3, the
+  coordinator 2026-11-12; until then the app-level pins are the protection: IMAP hosts #446,
+  fetch.py WP-057 S1, LDAP hosts lane B's security PR B).
 - **Depends on:** WP-014c, WP-017
 
 ### [ ] WP-015 — Clickable prototype of console and portal
@@ -1843,6 +1862,28 @@ it with no reload (rule c). Not built yet.
   - **Follow-up (WP-049b):** batched inserts for imports (rows written in batches, not one
     savepoint per row). If a 20,000-row run takes more than about 10 minutes on the stack, this
     is done before the polish round, not after QA (coordinator, 2026-11-11).
+  - **S4c result (#434, 2026-11-12): below target.** CI, 20,000 rows: dry run 596 → 425 s, real
+    run 936 → 589 s (29.4 ms a row), against targets of 120 s and 240 s. The coordinator shipped it
+    as it was (correct, reviewed, 35-40% faster) and asked for a profile by phase.
+  - **Profile (2026-11-12):** SQL is about 87% of the time: about 16 statements per created row
+    at about 1 ms each, none slow. The dry run costs as much as the run (it writes, then rolls
+    back).
+  - **Step A (assets only, this PR):** 27,072 → 14,862 statements for a 1,000-row dry run plus
+    run (−45%), about 7.4 per created row, all of them inserts:
+    - #435's per-transaction definitions memo (custom fields): 2 reads a row gone;
+    - the asset limit's advisory lock taken once per transaction (taken again after a rolled-back
+      savepoint, which releases it);
+    - a new asset's INSERT returns its defaults (no SELECT after it);
+    - the product kept for the (sub)transaction;
+    - no scope query for a just-saved asset when the manage grant is scope "all" without a
+      condition (`unrestricted`);
+    - the batch's taken tags and serials in one query (in-batch duplicates still refused);
+    - tag numbers in one block per batch, the unused rest handed back before the savepoint is
+      released. A dry run takes none, a batch with a refused row redoes row by row, and no gap
+      is left (the coordinator's rule; tested).
+    The CI figure goes in the PR (one Audit scale run).
+  - **Step B (approved in principle, sketch first):** multi-row inserts for the outbox,
+    field_changes, audit and valuations, and a dry run that skips the writes it rolls back.
   - **Merge and links:** the merge moves every live work-item link of the duplicate, including
     records the merging person may not see (only a count comes back to them), inside the
     merge's own transaction (lane A's note).
@@ -2269,7 +2310,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     task templates (#398, WP-046a S1). Proved on a release by their
     `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
   - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
-- [~] Session 4 (2026-11-12): closure and rollback. No migration (seed version 5).
+- [x] Session 4 (2026-11-12): closure and rollback. No migration (seed version 5). #428.
   - **Closure codes (REQ-REL-050):** releases close with their own codes (completed, completed
     with issues, rolled back, deferred, rejected, cancelled). Older tenants are topped up once:
     an incident-style code is switched off only while untouched and unused by any release; one
@@ -2300,7 +2341,30 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
       small PR before S5). The kinds warn and list only until then.
     - Lane A lists `caused_by_release` / `follows` on the problem, incident and request pages in
       their next polish.
-  S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
+- [~] Session 5a (2026-11-12): the release list, views and bulk actions. Migration 0149.
+  - **Views (REQ-REL-055 AC1, AC2):** my releases (any release role, both stores), unassigned
+    (no manager or engineer), scheduled, unscheduled, deployed (not closed), failed, cancelled,
+    closed. The list carries each row's type, version, scheduled end, manager, engineer (named)
+    and task progress in a few reads per page.
+  - **Bulk (REQ-REL-057):** assign, a new `assign_role` (manager or engineer, through the Roles
+    tab's own checks, per release), take, close (the type's closed category, not the change's
+    code), cancel and trash; skips with their reasons. The change list's close and cancel dialogs
+    and the bulk hooks take a base (lane A's, rule 8 notice sent).
+  - **Take (AC2):** makes you the release's Take role: the engineer, or the role the tenant marks
+    in Release settings › Roles (`work_item_role_defs.taken_by_take`, one per type).
+  - **Manager and engineer in two stores** (release_details.*_id and the role holders): every
+    write path (the Roles tab, the details panel, bulk assign_role, Take) writes both in one
+    transaction, with one test per path; the details panel now checks eligibility as the Roles
+    tab does (the coordinator, after F-02). **Later cleanup:** make them one store.
+  - **REQ-REL-052's offer:** a closing release's move dialog closes the changes you may close,
+    each through lane A's `close_change` in its own savepoint; each result closed or why not.
+  - **Tests:** test_release_bulk_api (4), test_release_people_sync (6), test_release_views_api
+    (4), test_release_close_changes_api (1), test_release_bulk_role_migration; Vitest
+    releases.test.tsx (2 more), release-close-changes.test.tsx (2), release-settings.test.tsx (1
+    more).
+  S5b: staged board, reporting and the release dashboard (after #396; costs behind
+  `releases.view_costs`, D-164), REQ-REL-058's inline-edit switch and live association counts.
+  S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)

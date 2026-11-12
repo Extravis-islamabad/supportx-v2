@@ -230,11 +230,12 @@ export function BulkDialog({
           confirm_open_work: openWork,
         };
       // Started from the problem screens (WP-044a/b), and the change list's own cancel and trash
-      // dialog (REQ-CHG-101): never this dialog.
+      // dialog (REQ-CHG-101), and the release list's role dialog (REQ-REL-057): never this dialog.
       case 'link_problem':
       case 'unlink_problem':
       case 'cancel':
       case 'delete':
+      case 'assign_role':
         return {};
     }
   };

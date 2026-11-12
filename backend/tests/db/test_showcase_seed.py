@@ -310,7 +310,7 @@ class SeedStock:
     lots: dict[str, tuple[str, int]]  # product -> (lot number, days from today to expiry)
     movements: dict[tuple[str, str], int]  # (product, kind) -> how many
     rules: dict[str, tuple[str, str]]  # product -> (site, minimum)
-    bookings: dict[str, tuple[str, str, int]]  # asset tag -> (borrower, status, days ahead)
+    bookings: dict[str, tuple[str, str, datetime]]  # asset tag -> (borrower, status, starts at)
 
 
 def _qty(value: Any) -> str:  # noqa: ANN401 - asyncpg's Decimal
@@ -360,7 +360,10 @@ async def _seed_stock(url: str) -> SeedStock:
             )
             bookings = await conn.fetch(
                 "SELECT a.tag, u.email, b.status,"
-                " extract(day FROM b.starts_at - now())::int AS days FROM asset_bookings b"
+                # The stored start itself, not "days from now": the seed books 09:00 UTC on a
+                # day ahead, so a count from now() changed as the clock passed 09:00 between
+                # the reads before and after a re-run (flake, 2026-11-12, lane A's review).
+                " b.starts_at FROM asset_bookings b"
                 " JOIN assets a ON a.id = b.asset_id JOIN users u ON u.id = b.borrower_id"
                 " WHERE b.tenant_id = $1 AND b.deleted_at IS NULL",
                 seed.TENANT_ID,
@@ -373,7 +376,7 @@ async def _seed_stock(url: str) -> SeedStock:
         lots={r["name"]: (r["lot_number"], r["days"]) for r in lots},
         movements={(r["name"], r["kind"]): r["n"] for r in movements},
         rules={r["name"]: (r["site"], _qty(r["min_quantity"])) for r in rules},
-        bookings={r["tag"]: (r["email"], r["status"], r["days"]) for r in bookings},
+        bookings={r["tag"]: (r["email"], r["status"], r["starts_at"]) for r in bookings},
     )
 
 
@@ -452,9 +455,10 @@ async def _first_stock(first: seed.Report, database: db_testing.ThrowawayDatabas
         (keys, "receive"): 1, (keys, "allocate"): 1,
     }  # fmt: skip
     assert found.rules == {toner: (hq, "5")}
-    borrower, status, days = found.bookings[assets.BOOKED]
+    borrower, status, starts = found.bookings[assets.BOOKED]
     assert (borrower, status) == (seed.REQUESTER.email, "booked")
-    assert assets.LOAN_DAYS < days <= assets.BOOKING_IN_DAYS  # after the loan, from now
+    days = (starts.date() - datetime.now(UTC).date()).days  # calendar days, whatever the hour
+    assert assets.LOAN_DAYS < days <= assets.BOOKING_IN_DAYS  # after the loan, from today
     assert len(found.bookings) == 1
     # The visual matrix's `consumable` lookup: the first of this list, with the "low" state.
     listed = await _consumables_listed(database)

@@ -777,6 +777,8 @@ export const ar: LabelResource = {
   'errors.linked_records_not_available': 'السجلات المرتبطة غير متاحة بعد.',
   'errors.list_not_found': 'هذه القائمة لا تحتفظ بإعدادات.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
+  'errors.login_not_this_browser':
+    'بدأ تسجيل الدخول هذا في متصفح آخر أو انتهت صلاحيته. يرجى تسجيل الدخول من جديد هنا.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
   'errors.mail_attachment_type': 'لا يمكن إرسال هذا النوع من الملفات بالبريد.',
@@ -825,6 +827,7 @@ export const ar: LabelResource = {
   'errors.not_known_error': '{{display_id}} ليس خطأً معروفًا.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
   'errors.not_resolved': 'لم يعد هذا بانتظار ردّك: لم يعد محلولًا الآن.',
+  'errors.not_visible': 'لا يمكنك رؤية هذا التغيير، لذا تُرك كما هو.',
   'errors.nothing_to_override': 'هذا التغيير لا ينتظر الموافقة مجددًا، فلا يوجد ما يُتجاوز.',
   'errors.nothing_to_retry': 'لا توجد خطوة فاشلة لتشغيلها مرة أخرى.',
   'errors.notification_event_not_found': 'حدث الإشعار هذا غير موجود.',
@@ -918,6 +921,8 @@ export const ar: LabelResource = {
     'لا يمكن تشغيل هذا الخادم: مفتاح تسجيل دخول لم يعد مُدرجًا ما زال مطلوبًا. أدرِج المفتاح مرة أخرى.',
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
+  'errors.sign_in_unavailable':
+    'تسجيل الدخول غير متاح الآن. يرجى الانتظار دقيقة ثم المحاولة مرة أخرى.',
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
   'errors.site_not_found': 'الموقع غير موجود.',
