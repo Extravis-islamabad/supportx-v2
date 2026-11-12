@@ -10,6 +10,7 @@ export {
 } from './appearance';
 export { useAccess, type Access } from './access';
 export * from './announcements';
+export * from './board';
 export * from './brand';
 export * from './dates';
 export { AppearanceControls } from './AppearanceControls';

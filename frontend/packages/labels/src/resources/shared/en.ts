@@ -58,6 +58,8 @@ export const en = {
   'appearance.theme.light': 'Light',
   'appearance.theme.system': 'Follow the system',
   'appearance.title': 'Appearance',
+  'board.move_named': 'Move {{name}} to…',
+  'board.move_to': 'Move to…',
   'check_status.failed': 'Failed',
   'check_status.not_configured': 'Not configured',
   'check_status.ok': 'OK',
