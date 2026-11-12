@@ -426,8 +426,17 @@ valkeyHa:
   enabled: false
   replicas: 3
   quorum: 2                         # sentinels that must agree the master is down
-  downAfterMilliseconds: 5000
-  failoverTimeoutMilliseconds: 60000
+  # Sentinel promotes only a replica whose link to the master has been down for less than
+  # 10 x down-after plus the master's SDOWN age. Losing a node can also stall DNS (a dead CoreDNS
+  # endpoint until the node goes NotReady), and the sentinels, which resolve hostnames
+  # synchronously, then reach SDOWN late: 77 s after the stop in Cluster run 43148329223, when
+  # 5 s (a 50 s allowance) ruled out every replica (-failover-abort-no-good-slave). 10 s gives a
+  # 100 s allowance; keep the DNS failover window (about the node-monitor grace period,
+  # docs/deployment.md) inside it. Do not lower this without that check.
+  downAfterMilliseconds: 10000
+  # An aborted failover (e.g. -failover-abort-no-good-slave) is retried only after 2 x this:
+  # 30 s gives a retry 60 s later (60 s gave 120 s, with the API unready on Valkey meanwhile).
+  failoverTimeoutMilliseconds: 30000
   maxmemory: 256mb
   resources:
     requests: {cpu: 50m, memory: 96Mi}
