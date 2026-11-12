@@ -12,11 +12,12 @@ cross-type links (#211).
 
 import uuid
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound
+from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
@@ -90,8 +91,11 @@ CONTAINED_IN = (SUB, LinkKind.PART_OF_CHANGE.value, LinkKind.IN_RELEASE.value)
 CHANGE_WOULD_LOOP = "change_would_loop"  # lane A's code and label (WP-045d)
 
 
-async def _holds(session: AsyncSession, outer: uuid.UUID, inner: uuid.UUID) -> bool:
-    """Whether `outer` already holds `inner`, through any chain of holding links (bounded)."""
+async def holds(session: AsyncSession, outer: uuid.UUID, inner: uuid.UUID) -> bool:
+    """Whether `outer` already holds `inner`, through any chain of holding links (bounded).
+
+    Shared with change_links.add_child (lane A, WP-046a S1 PR 2), which refuses the same loops.
+    """
     seen: set[uuid.UUID] = {inner}
     level = [inner]
     for _ in range(MAX_DEPTH):
@@ -351,7 +355,7 @@ async def add_change(  # noqa: PLR0913 - the change and its context, explicit
     await session.get(WorkItem, change.id, with_for_update=True)
     # The change already holds this release (the release is part of it, directly or through
     # its parents or child changes): putting the change in the release would loop (lane A).
-    if await _holds(session, change.id, release.id):
+    if await holds(session, change.id, release.id):
         raise items.field_errors([("change_id", CHANGE_WOULD_LOOP)])
     held = await _open_release_of(session, change.id)
     if held is not None:
@@ -420,3 +424,109 @@ async def _changed(  # noqa: PLR0913 - both records, the link and what happened,
             else [Change("link", value, None)]
         )
         await parts.recorded(session, this, "link", link.id, kind, changes, source)  # type: ignore[arg-type]  # one of the part kinds
+
+
+# --- after a failed deployment (WP-058b S4; REQ-REL-053 AC2) -----------------------------------
+
+FAILED_STATUSES = ("deployment_failed", "deployment_rolled_back")
+RELEASE_NOT_FAILED = "release_not_failed"  # a follow-up is offered only after a failure
+CAUSED = LinkKind.CAUSED_BY_RELEASE.value  # the problem -> the release that caused it
+FOLLOWS = LinkKind.FOLLOWS.value  # the follow-up release -> the failed one
+
+
+@dataclass(frozen=True)
+class FollowUp:
+    """A record made after the release failed, as the release lists it (only what you see)."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    type: str
+    relation: str  # "caused_problem" | "follow_up_release"
+    status_category: str
+
+
+async def create_follow_up(  # noqa: PLR0913 - the release, what to make and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    release_id: uuid.UUID,
+    *,
+    kind: str,
+    title: str,
+    holders: Any,  # noqa: ANN401 - the create path's permission holders
+    source: Source,
+) -> WorkItem:
+    """A problem caused by the failed release, or a release that follows it up, linked at once.
+
+    The release must be visible to you and have failed (or been rolled back); you need the new
+    record's own create permission. The record is made through the type's own create path (its
+    rules, numbering and history), and the link is written with it, history on both.
+    """
+    from app.modules.work_items.domain.types import PROBLEM  # noqa: PLC0415 - one module
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - cycle
+
+    target_type = PROBLEM if kind == "problem" else RELEASE
+    if not subject.holds(target_type.permission("create")):
+        raise PermissionDenied(params={"permission": target_type.permission("create")})
+    release = await items.visible_record(session, subject, RELEASE, release_id)
+    if release.status not in FAILED_STATUSES:
+        raise Conflict(code=RELEASE_NOT_FAILED)
+    # The failed release's requester is the follow-up's: the same people are affected.
+    values = {"subject": title, "requester_id": release.requester_id}
+    made = await items.create(session, subject, target_type, values, source=source, holders=holders)
+    new = made.record
+    link_kind = CAUSED if kind == "problem" else FOLLOWS
+    from app.modules.work_items.service import parts  # noqa: PLC0415 - cycle
+
+    link = await parts.LinkRepository(session).add(
+        WorkItemLink(source_id=new.id, target_id=release.id, kind=link_kind)
+    )
+    for this, that in ((new, release), (release, new)):
+        value = {"kind": link_kind, "id": str(that.id), "display_id": that.display_id}
+        await parts.recorded(
+            session, this, "link", link.id, "child_added", [Change("link", None, value)], source
+        )
+    return new
+
+
+async def follow_ups(
+    session: AsyncSession, subject: Subject, release_id: uuid.UUID
+) -> list[FollowUp]:
+    """The problems a release caused and the releases that follow it up, that you may see."""
+    from app.modules.work_items.domain.types import PROBLEM  # noqa: PLC0415 - one module
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - cycle
+
+    release = await items.visible_record(session, subject, RELEASE, release_id)
+    rows = await session.execute(
+        select(WorkItem, WorkItemLink.kind)
+        .join(
+            WorkItemLink,
+            (WorkItemLink.source_id == WorkItem.id)
+            & (WorkItemLink.tenant_id == WorkItem.tenant_id),
+        )
+        .where(
+            WorkItemLink.tenant_id == release.tenant_id,
+            WorkItemLink.target_id == release.id,
+            WorkItemLink.kind.in_((CAUSED, FOLLOWS)),
+            WorkItem.deleted_at.is_(None),
+        )
+        .order_by(WorkItem.created_at)
+    )
+    found: list[FollowUp] = []
+    for record, kind in rows:
+        if kind == FOLLOWS and record.type != RELEASE.code.value:
+            continue  # an incident's follow-up record is not a release's
+        own = PROBLEM if record.type == PROBLEM.code.value else RELEASE
+        if not await items.may_view(session, subject, own, record.id):
+            continue
+        found.append(
+            FollowUp(
+                id=record.id,
+                display_id=record.display_id,
+                subject=record.subject,
+                type=record.type,
+                relation="caused_problem" if kind == CAUSED else "follow_up_release",
+                status_category=record.status_category,
+            )
+        )
+    return found

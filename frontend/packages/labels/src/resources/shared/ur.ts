@@ -195,6 +195,7 @@ export const ur: LabelResource = {
   'nav.admin_notifications': 'اطلاعات',
   'nav.admin_organization': 'ادارہ',
   'nav.admin_portal': 'پورٹل',
+  'nav.admin_releases': 'ریلیز کی ترتیبات',
   'nav.admin_requests': 'سروس درخواستیں',
   'nav.admin_roles': 'کردار',
   'nav.admin_security': 'سائن اِن اور سیکیورٹی',
@@ -342,6 +343,22 @@ export const ur: LabelResource = {
     'زمرہ، ذیلی زمرہ اور آئٹم۔ ریٹائرڈ اندراجات نئے واقعات پر پیش نہیں ہوتے لیکن انہیں استعمال کرنے والے واقعات پر نظر آتے رہتے ہیں۔',
   'settings.changed_elsewhere':
     'کسی اور نے ابھی یہ ترتیبات بدلی ہیں۔ تازہ ترین ورژن دکھایا گیا ہے؛ براہِ کرم اپنی تبدیلی دوبارہ کریں۔',
+  'settings.checklists.add': 'نئی لائبریری چیک لسٹ',
+  'settings.checklists.enabled_named': '{{name}} پیش کریں',
+  'settings.checklists.help':
+    'تیار چیک لسٹس جو ٹیکنیشن کسی واقعے میں شامل کر سکتا ہے۔ واقعے کو اپنی نقل ملتی ہے: یہاں تبدیلی ان واقعات کو نہیں بدلتی جن میں یہ پہلے سے ہے۔',
+  'settings.checklists.import': 'CSV فائل سے آئٹمز شامل کریں',
+  'settings.checklists.imported':
+    '{{items}} آئٹمز پڑھے گئے، {{rejected}} قطاریں شامل نہیں ہوئیں۔ جائزہ لیں، پھر محفوظ کریں۔',
+  'settings.checklists.items': 'آئٹمز',
+  'settings.checklists.items_count_one': '{{count}} آئٹم',
+  'settings.checklists.items_count_other': '{{count}} آئٹمز',
+  'settings.checklists.items_help': 'ہر سطر میں ایک آئٹم۔ خالی سطریں شامل نہیں ہوتیں۔',
+  'settings.checklists.name': 'نام',
+  'settings.checklists.none': 'لائبریری میں ابھی کوئی چیک لسٹ نہیں۔',
+  'settings.checklists.rejected_row': 'قطار {{row}}: {{reason}}',
+  'settings.checklists.title': 'چیک لسٹ لائبریری',
+  'settings.checklists.why.name': 'پہلے چیک لسٹ کا نام دیں۔',
   'settings.closing.auto_close': 'حل شدہ واقعات خودکار طور پر بند کریں',
   'settings.closing.auto_close_days': 'خودکار بندش سے پہلے کاروباری دن',
   'settings.closing.auto_close_help':
@@ -349,17 +366,35 @@ export const ur: LabelResource = {
   'settings.closing.auto_close_needs_notifications':
     'درخواست گزاروں کی اطلاعات درکار ہیں: خودکار بندش اس وقت تک بند رہتی ہے جب تک کوئی چینل (ای میل یا پورٹل) درخواست گزاروں کو حل کی اطلاع نہ دے سکے۔ کسی ایسے درخواست گزار کا واقعہ کبھی بند نہیں ہوتا جسے اطلاع نہ دی گئی ہو۔',
   'settings.closing.channel_state': '{{channel}}: {{reason}}۔',
+  'settings.closing.checklist_item_max': 'ہر ریکارڈ میں چیک لسٹ آئٹمز',
+  'settings.closing.checklist_item_max_help':
+    'ریکارڈ کی تمام چیک لسٹس ملا کر، {{min}} سے {{max}} تک۔ لمبی فہرست رد کی جاتی ہے، کاٹی نہیں جاتی۔',
   'settings.closing.close_requires': 'بندش سے پہلے درکار',
   'settings.closing.close_requires_help': 'وہ فیلڈز جو واقعہ بند کرنے سے پہلے بھرنا ضروری ہیں۔',
   'settings.closing.complete_open_work': 'بندش پر کھلا کام مکمل کریں',
   'settings.closing.complete_open_work_help':
     'واقعہ بند کرنے سے اس کا کھلا کام مکمل نشان زد ہو جاتا ہے۔',
+  'settings.closing.condition.review_completed': 'جائزہ مکمل',
   'settings.closing.days_range': '{{min}} سے {{max}} کاروباری دن۔',
   'settings.closing.help':
     'واقعہ حل اور بند کرنے کے لیے کیا درکار ہے، کھلے کام کا کیا ہوتا ہے، اور درخواست گزار جواب دے کر کتنی دیر تک اسے دوبارہ کھول سکتا ہے۔',
   'settings.closing.open_work': 'کھلا کام',
   'settings.closing.open_work_help':
     'جب واقعہ حل یا بند کیا جائے اور اس پر کام ابھی کھلا ہو تو کیا ہوتا ہے۔ یہ جانچ ٹاسکس، چیک لسٹس، منسلک واقعات اور منظوریاں آنے پر کام شروع کریں گی۔',
+  'settings.closing.release.close_requires_help':
+    'وہ فیلڈز جو ریلیز بند کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.release.complete_open_work_help':
+    'ریلیز بند کرنے سے اس کے کھلے کام مکمل نشان زد ہو جاتے ہیں؛ منسلک تبدیلیاں اور ذیلی ریلیز اس کے ساتھ کبھی بند نہیں ہوتیں۔',
+  'settings.closing.release.help':
+    'ریلیز حل اور بند کرنے کے لیے کیا درکار ہے، اور اس کے کھلے کام کا کیا ہوتا ہے: کام، منظوریاں، منسلک تبدیلیاں اور ذیلی ریلیز۔',
+  'settings.closing.release.open_work_help':
+    'جب ریلیز حل یا بند کی جائے اور اس پر کام ابھی کھلا ہو تو کیا ہوتا ہے۔',
+  'settings.closing.release.resolve_requires_help':
+    'وہ فیلڈز جو ریلیز حل کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.release.task_owner_access':
+    'کام کے ذمہ دار ریلیز تک رسائی کے بغیر اپنے کام پر کام کریں',
+  'settings.closing.release.task_owner_access_help':
+    'وہ اپنا کام اور ریلیز کی شناخت اور موضوع دیکھتے ہیں اور کام کی حالت بدل سکتے ہیں؛ نوٹس یا منصوبے کبھی نہیں۔',
   'settings.closing.reopen_window_days': 'دوبارہ کھولنے کی مدت (دن)',
   'settings.closing.reopen_window_help':
     'حل کے بعد اتنے دنوں میں درخواست گزار کا جواب واقعہ دوبارہ کھولتا ہے؛ بعد کا جواب نیا واقعہ شروع کرتا ہے۔ 1 سے 30 تک۔',
@@ -446,6 +481,8 @@ export const ur: LabelResource = {
   'settings.reason_prompts': 'حالت بدلنے پر وجوہات',
   'settings.reason_prompts_help':
     'منتخب کریں کہ ہر تبدیلی وجہ پوچھے یا نہیں۔ روکنا، منسوخ کرنا اور دوبارہ کھولنا وجوہات کی فہرستوں سے انتخاب کرتے ہیں۔',
+  'settings.release_closure_codes_help':
+    'ریلیز کیسے ختم ہوئی۔ ریلیز بند کرتے وقت چنا جاتا ہے؛ رپورٹس اسی کے مطابق گروپ ہوتی ہیں۔',
   'settings.rename': 'نام بدلیں',
   'settings.rename_value': '"{{name}}" کا نام بدلیں',
   'settings.resume_on_requester_reply': 'درخواست گزار کا جواب اسے دوبارہ شروع کرتا ہے',
@@ -470,6 +507,7 @@ export const ur: LabelResource = {
     'اسے کتنی جلدی ٹھیک کرنا ہے۔ چار قدریں مقرر ہیں؛ آپ ان کا نام بدل سکتے ہیں۔',
   'settings.section.business-rules': 'کاروباری اصول',
   'settings.section.categories': 'زمرے',
+  'settings.section.checklists': 'چیک لسٹس',
   'settings.section.closing': 'بندش',
   'settings.section.closure-codes': 'بندش کے کوڈ',
   'settings.section.custom-fields': 'اپنی مرضی کے خانے',
@@ -479,6 +517,7 @@ export const ur: LabelResource = {
   'settings.section.reasons': 'وجوہات',
   'settings.section.reply-templates': 'جوابی سانچے',
   'settings.section.routing': 'روٹنگ اور تفویض',
+  'settings.section.stages': 'مراحل',
   'settings.section.statuses': 'حالتیں',
   'settings.section.task-templates': 'کاموں کے سانچے',
   'settings.section.templates': 'سانچے',
@@ -486,6 +525,10 @@ export const ur: LabelResource = {
   'settings.section.triggers': 'ٹرگرز',
   'settings.shipped_name': 'بلٹ اِن نام: {{name}}',
   'settings.shipped_name_hint': 'بلٹ اِن نام: {{name}}۔ اسے رکھنے کے لیے نام خالی چھوڑ دیں۔',
+  'settings.stages.open_tasks_block': 'کھلے مرحلہ کام مرحلے کو روکتے ہیں',
+  'settings.stages.open_tasks_block_help':
+    'جب تک کسی مرحلے کا کوئی کام کھلا ہے، ریلیز وہ مرحلہ نہیں چھوڑ سکتی؛ منتقلی اس کام کا نام بتاتی ہے۔ بند: منتقلی صرف انتباہ دیتی ہے۔',
+  'settings.stages.title': 'مرحلہ کام',
   'settings.stale':
     'آپ کے ترمیم کرتے دوران یہ ترتیبات کہیں اور بدل دی گئیں۔ انہیں دیکھنے کے لیے ری لوڈ کریں (یہاں آپ کی غیر محفوظ تبدیلیاں ضائع ہو جائیں گی)۔',
   'settings.status_action': 'کارروائی',
@@ -567,6 +610,10 @@ export const ur: LabelResource = {
     'سیلف سروس پورٹل درخواست گزاروں کے لیے جو کچھ کرتا ہے، ایک صفحے پر۔',
   'setup.page.portal.keywords':
     'پورٹل، سیلف سروس، تلاش، تلاش کے ذرائع، واقعہ فارم چھپائیں، وقت، ترسیل کی تاریخ، کی طرف سے، منظوریاں، سائن اِن، پروفائل، یاد دہانیاں، لاگت، مہمان، خود رجسٹریشن',
+  'setup.page.releases.description':
+    'ریلیز کیسے بند ہوتی ہیں: ان کے بندش کوڈ، بندش کے لیے کیا درکار ہے، کون سا کھلا کام انتباہ دیتا یا روکتا ہے، اور کیا کھلے مرحلہ کام مرحلے کو روکتے ہیں۔',
+  'setup.page.releases.keywords':
+    'ریلیز, ریلیز کی ترتیبات, بندش کوڈ, بندش, واپسی, مرحلہ کام, تعیناتی',
   'setup.page.requests.description':
     'سروس کی درخواستیں: درخواست گزار کس کی طرف سے انہیں درج کر سکتے ہیں، اور درخواستوں کے منظر۔',
   'setup.page.requests.keywords': 'سروس درخواستیں، کیٹلاگ، کی طرف سے، درج کریں، درخواستیں، منظر',

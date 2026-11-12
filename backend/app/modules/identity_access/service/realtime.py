@@ -54,6 +54,9 @@ IDENTITY_LIST = LiveList("identity", "identity.manage")
 INVITATIONS_LIST = LiveList("invitations", "users.manage")
 # API keys (WP-041): every key for key managers; each owner hears of their own on their channel.
 API_KEYS_LIST = LiveList("api_keys", "api_keys.manage")
+# A person's cost per hour (REQ-INC-068): only for those who may see cost rates. The message
+# names the person only; the screen refetches their rates (never an amount on a channel).
+COST_RATES_LIST = LiveList("user_cost_rates", "users.view_cost_rates")
 KEY_SETTINGS = frozenset({"people_may_create_keys", "allow_non_expiring_keys"})
 
 # Changes to these user fields change what the user may do: their connections are cut.
@@ -96,6 +99,7 @@ CHANNELS = [
     IDENTITY_LIST.spec(),
     INVITATIONS_LIST.spec(),
     API_KEYS_LIST.spec(),
+    COST_RATES_LIST.spec(),
 ]
 
 
@@ -313,6 +317,19 @@ async def _api_key_changed(envelope: EventEnvelope, session: AsyncSession) -> Re
     )
 
 
+async def _cost_rate_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A person's rate was set, changed or removed: open rate cards of that person refetch."""
+    del session
+    return RealtimeEffects(
+        publications=COST_RATES_LIST.publications(
+            envelope.tenant_id,
+            "user_cost_rates.changed",
+            uuid.UUID(str(envelope.payload["user_id"])),
+            actor_id=_actor(envelope),
+        )
+    )
+
+
 async def _plan_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """The tenant's plan changed: permissions depend on features, so everyone rejoins.
 
@@ -353,4 +370,5 @@ ROUTES = [
     ),
     RealtimeRoute(("identity_access.invitation.changed",), _invitation_changed),
     RealtimeRoute(("identity_access.api_key.changed",), _api_key_changed),
+    RealtimeRoute(("identity_access.user_cost_rate.changed",), _cost_rate_changed),
 ]

@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights \
+.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights ci-metrics \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -249,6 +249,12 @@ backend-shard-weights: ## Refresh tests/shard_weights.json from a CI run's file 
 	dir=$$(mktemp -d); gh run download "$$run" --pattern 'backend-timings-*' --dir "$$dir"; \
 	jq -s 'add | to_entries | sort_by(.key) | from_entries' "$$dir"/*/timings.json > backend/tests/shard_weights.json; \
 	rm -r "$$dir"; echo "tests/shard_weights.json from CI run $$run"
+
+# Read-only: merge-queue runs, PRs merged, merge-group size and PR shard minutes per day, to see
+# what CI test selection saves (tooling/ci_metrics.py). CSV=<path> also writes a CSV.
+DAYS ?= 1
+ci-metrics: ## Daily CI numbers from GitHub, read-only (DAYS=1, CSV=<path>)
+	$(BACKEND) uv run python -m tooling.ci_metrics --days $(DAYS) $(if $(CSV),--csv $(abspath $(CSV)))
 
 # Exactly CI's install (WP-012 follow-up d): fails here, not after a push, when the lockfile or
 # pnpm's build-script approvals (pnpm-workspace.yaml allowBuilds) are out of date.

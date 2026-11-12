@@ -6,11 +6,17 @@ changes and releases; a closed change is locked, every write refused with a labe
 """
 
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
 
+from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
+from app.core.tenancy import TenantContext
+from app.modules.identity_access import subject_for
+from app.modules.work_items.service import change_close
+from app.shared.labels import has_label
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_changes_api import CHG, _approve_pending, a_change, move, new_change
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem
@@ -505,3 +511,131 @@ async def test_req_chg_101_bulk_assign_and_take_follow_the_group_rule(world: Wor
     taken = await _bulk(world, a, "take", [third], user=a.tech_a)
     assert taken["done_count"] == 1, taken
     assert (await fresh(world, a, third))["technician_id"] == str(a.tech_a)
+
+
+async def test_req_chg_101_bulk_cancel_with_a_reason_and_bulk_delete(world: World) -> None:
+    """WP-046a S1 PR 2: cancel takes each change's own listed cancel move with the reason;
+    one past the point a cancel is offered is skipped and says why; delete moves to the trash.
+    """
+    a = world.a
+    first, second, gone = [await a_change(world, a) for _ in range(3)]
+    without = await world.call(
+        "POST",
+        f"{CHG}/bulk",
+        a,
+        a.admin,
+        json={"action": "cancel", "changes": {}, "record_ids": [first["id"]]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert without.status_code == 422, without.text  # a cancel says why
+    job = await _bulk(world, a, "cancel", [first, second], reason_text="Superseded by CHG-9")
+    assert job["done_count"] == 2, job
+    for item in (first, second):
+        now = await fresh(world, a, item)
+        assert (now["status"], now["status_category"]) == ("closure_canceled", "canceled")
+    again = await _bulk(world, a, "cancel", [first], reason_text="Twice")
+    assert again["results"][0]["outcome"] == "skipped", again
+    removed = await _bulk(world, a, "delete", [gone])
+    assert removed["done_count"] == 1, removed
+    shown = await world.call("GET", f"{CHG}/{gone['id']}", a, a.admin)
+    assert shown.status_code == 404, shown.text
+    # Incidents cancel through their own life cycle, never this action.
+    refused = await world.call(
+        "POST",
+        "/incidents/bulk",
+        a,
+        a.admin,
+        json={"action": "delete", "changes": {}, "record_ids": [str(uuid.uuid4())]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert refused.status_code == 422, refused.text
+
+
+# --- close_change: one change's close for other flows (lane C's REQ-REL-052) ---------------------
+
+
+async def _close(
+    world: World,
+    org: Org,
+    user: uuid.UUID,
+    item: dict[str, Any],
+    without: frozenset[str] = frozenset(),
+    **values: Any,  # noqa: ANN401 - the call's keywords
+) -> Any:  # noqa: ANN401 - the view or the refusal
+    """close_change as a closing release calls it: one savepoint per change, refusals returned."""
+    async with world.app.state.db.tenant_session(
+        TenantContext(org.tenant, user_id=user)
+    ) as session:
+        subject = await subject_for(session, org.tenant, user)
+        if without:  # the same person, short of these rights (a view-only role, in effect)
+            grants = {k: v for k, v in subject.grants.items() if k not in without}
+            subject = replace(subject, grants=grants, is_tenant_admin=False)
+        try:
+            async with session.begin_nested():
+                return await change_close.close_change(
+                    session,
+                    subject,
+                    uuid.UUID(item["id"]),
+                    expected_version=values.pop("version", item["version"]),
+                    source="api",
+                    **values,
+                )
+        except AppError as refused:
+            return refused
+
+
+async def test_close_change_closes_by_the_change_s_own_close_and_raises_its_refusals(
+    world: World,
+) -> None:
+    a = world.a
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    code = codes[0]["code"]
+    ready = await _in_review(world, a)
+    # The closing rules: the code is asked for, as on the change screen.
+    missing = await _close(world, a, a.admin, ready, closure_code=None)
+    assert isinstance(missing, AppError)
+    assert (await fresh(world, a, ready))["stage"] == "review"
+    stale = await _close(world, a, a.admin, ready, closure_code=code, version=ready["version"] - 1)
+    assert isinstance(stale, Conflict)
+    closed = await _close(world, a, a.admin, ready, closure_code=code)
+    assert not isinstance(closed, AppError), closed
+    after = await fresh(world, a, ready)
+    assert (after["status"], after["closure_code"]) == ("closure_closed", code)
+    # History records it as any close (one saved change, by the person).
+    assert "status" in {
+        c["field"]
+        for e in (await world.call("GET", f"{CHG}/{ready['id']}/history", a, a.admin)).json()[
+            "items"
+        ]
+        for c in e["changes"]
+    }
+    # Not at its review: no close is listed from here.
+    early = await a_change(world, a)
+    refused = await _close(world, a, a.admin, early, closure_code=code)
+    assert isinstance(refused, Conflict)
+    assert (refused.instance_code, refused.params) == (
+        "not_closable_from_here",
+        {"status": early["status"]},
+    )
+    # Someone who cannot see the change hears nothing about it.
+    hidden = await _close(world, a, a.requester, await _in_review(world, a), closure_code=code)
+    assert isinstance(hidden, NotFound)
+
+
+async def test_close_change_a_listed_close_you_may_not_run_says_why(world: World) -> None:
+    """Lane C's #429 review: the skip bulk close and a closing release show most. The close is
+    listed (the change is at its review), but this person may not run it: the code, and a
+    reason that has its own label."""
+    a = world.a
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    ready = await _in_review(world, a)
+    # The admin sees the change; without changes.edit the close is listed but not theirs to run.
+    refused = await _close(
+        world, a, a.admin, ready, without=frozenset({"changes.edit"}), closure_code=codes[0]["code"]
+    )
+    assert isinstance(refused, PermissionDenied), refused
+    assert refused.instance_code == "transition_not_allowed"
+    reason = refused.params["reason"]
+    assert isinstance(reason, str)
+    assert has_label(f"action_reason.{reason}"), reason
+    assert (await fresh(world, a, ready))["stage"] == "review"  # nothing moved

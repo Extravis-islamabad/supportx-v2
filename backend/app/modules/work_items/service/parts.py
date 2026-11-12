@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied
@@ -49,7 +49,7 @@ from app.modules.work_items.domain.tasks import (
     open_predecessors,
 )
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
-from app.modules.work_items.events import WorkItemPartChanged
+from app.modules.work_items.events import WorkItemPartChanged, WorkItemTaskAssigned
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemLink,
@@ -161,6 +161,16 @@ async def _for_work(
     """Tasks: `edit`, or an investigator of this record (ADR-040), nothing wider."""
     record, _full = await _work_access(session, subject, wtype, record_id)
     return record
+
+
+async def for_work(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> WorkItem:
+    """The record, if the subject may work on its parts (tasks, checklists).
+
+    `edit`, or an investigator of it; a closed change is locked (REQ-CHG-097).
+    """
+    return await _for_work(session, subject, wtype, record_id)
 
 
 def _own_time_only(wtype: WorkItemType, subject: Subject, owner_id: uuid.UUID | None) -> None:
@@ -349,6 +359,7 @@ async def create_task(  # noqa: PLR0913 - the record, the task and the source, e
     await _recorded(
         session, record, "task", row.id, "child_added", _task_history(None, row), source
     )
+    await _assigned(session, record, row, before=None)
     return row
 
 
@@ -386,6 +397,20 @@ async def create_template_task(
         source,
     )
     return row
+
+
+async def _assigned(
+    session: AsyncSession, record: WorkItem, task: WorkItemTask, *, before: uuid.UUID | None
+) -> None:
+    """A task given to someone new tells them (WP-046a S1; REQ-INC-076 AC1)."""
+    if task.owner_id is None or task.owner_id == before:
+        return
+    await record_event(
+        session,
+        WorkItemTaskAssigned(work_item_id=record.id, task_id=task.id, owner_id=task.owner_id),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
 
 
 async def _task(session: AsyncSession, record_id: uuid.UUID, task_id: uuid.UUID) -> WorkItemTask:
@@ -500,6 +525,7 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
     changes = _task_history(before, updated)
     if len(changes) > 1:  # something besides the task's name changed
         await _recorded(session, record, "task", updated.id, "child_changed", changes, source)
+    await _assigned(session, record, updated, before=before["owner_id"])
     if "status" in clean and updated.workflow_instance_id is not None:
         await workflow_task_settled(session, updated)
     if "status" in clean and updated.from_plan:
@@ -978,6 +1004,9 @@ async def create_worklog(  # noqa: PLR0913 - the record, the worklog and the sou
             ended_at=times.ended_at,
             minutes=times.minutes,
             description=description,
+            # WP-058b S3 (0142): a staged record's worklog belongs to its stage then; set here,
+            # never sent by the client (lane A's OK). Other types keep none.
+            stage=record.stage if wtype.stages is not None else None,
         )
     )
     await _recorded(
@@ -1111,8 +1140,15 @@ async def links(
     rows = await session.scalars(
         select(WorkItemLink)
         .where(
-            or_(WorkItemLink.source_id == record_id, WorkItemLink.target_id == record_id),
-            WorkItemLink.kind.in_(_LISTED),
+            or_(
+                and_(
+                    or_(WorkItemLink.source_id == record_id, WorkItemLink.target_id == record_id),
+                    WorkItemLink.kind.in_(_LISTED),
+                ),
+                # The release's own links show on the record it caused or started; the release
+                # page lists those itself (lane C's follow-ups), so only from this side.
+                and_(WorkItemLink.source_id == record_id, WorkItemLink.kind.in_(_TO_RELEASE)),
+            ),
             WorkItemLink.deleted_at.is_(None),
         )
         .order_by(WorkItemLink.created_at, WorkItemLink.id)
@@ -1153,10 +1189,21 @@ _LISTED = (
     LinkKind.CAUSED_BY.value,
     LinkKind.MERGED_INTO.value,
 )
+# A record to the release that caused it or that it started (lane C's WP-058b), listed only on
+# the record's side.
+_TO_RELEASE = (LinkKind.CAUSED_BY_RELEASE.value, LinkKind.STARTED_RELEASE.value)
 
 
 Relation = Literal[
-    "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
+    "related",
+    "follows",
+    "followed_by",
+    "caused_by",
+    "causes",
+    "merged_into",
+    "merged_from",
+    "caused_by_release",
+    "started_release",
 ]
 
 
@@ -1171,7 +1218,11 @@ def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
             return "caused_by" if mine_is_source else "causes"
         case LinkKind.MERGED_INTO:
             return "merged_into" if mine_is_source else "merged_from"
-        case _:  # never listed (_LISTED)
+        case LinkKind.CAUSED_BY_RELEASE if mine_is_source:
+            return "caused_by_release"
+        case LinkKind.STARTED_RELEASE if mine_is_source:
+            return "started_release"
+        case _:  # never listed (_LISTED, _TO_RELEASE from the record's side)
             msg = f"link kind {kind} is not listed here"
             raise ValueError(msg)
 

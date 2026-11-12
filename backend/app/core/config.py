@@ -13,9 +13,12 @@ interface only (CLAUDE.md rule f).
 """
 
 import ipaddress
+import json
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Self
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +27,15 @@ Profile = Literal["dev", "test", "production"]
 LogFormat = Literal["console", "json"]
 TraceExporter = Literal["none", "console"]
 MetricsExporter = Literal["none", "console", "prometheus"]
+
+# Session key IDs (ADR-048): the codec's own rule (app/shared/crypto/codec.py), repeated here
+# because core never imports shared; a test keeps the two equal.
+SESSION_KEY_ID_PATTERN = re.compile(r"^[a-z0-9_-]{1,32}$")
+# The ID SUPPORTX_SESSION_SECRET has as a one-key ring (D-162).
+LEGACY_SESSION_KEY_ID = "legacy"
+SESSION_KEY_MIN_LENGTH = 32  # characters, in production (every key, legacy included)
+# Every ring key but "legacy" (the pre-D-162 secret, accepted as it was), in every profile.
+SESSION_KEY_MIN_BYTES = 32
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ENV_FILE = BACKEND_DIR / ".env"
@@ -38,6 +50,8 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         frozen=True,
+        # A refused setting's error never repeats the input: it holds every secret (D-162).
+        hide_input_in_errors=True,
     )
 
     profile: Profile = "dev"
@@ -163,6 +177,12 @@ class Settings(BaseSettings):
     # the UI's own base path.
     console_url: str = "http://localhost:5173"
     portal_url: str = "http://localhost:5174"
+    # The mobile app's sign-in return address (ADR-044 item 3): the browser is sent here with a
+    # one-time hand-off code instead of a cookie. A verified link on the SupportX host (Universal
+    # Link / App Link: the host's .well-known files name the trusted app builds), never a custom
+    # scheme any app can claim. Fixed per installation (the chart: publicUrl + mobile.returnPath),
+    # never taken from a request. Plain http only for the local dev stack and tests.
+    mobile_redirect_uri: str = "http://localhost:5173/mobile/auth"
     # Tenant addresses (WP-017): each tenant is also reached on `<slug>.<tenant_base_domain>`
     # (e.g. acme.support.example.com). None = no subdomains (on-prem single installation domain);
     # verified custom domains still resolve. The address only pre-selects where to sign in.
@@ -172,8 +192,16 @@ class Settings(BaseSettings):
     # or the operator configures it (on-prem single node).
     domain_certificates_managed: bool = False
 
-    # BFF sessions: opaque cookie, records encrypted in Valkey (D-021).
+    # BFF sessions: opaque cookie, records encrypted in Valkey (D-021) under a key ring (D-162,
+    # ADR-048). `session_keys`: JSON, newest first, '[{"id": "2026-11", "secret": "..."}, ...]';
+    # the newest seals, every listed key still opens (the overlap: keep an old key listed for at
+    # least the absolute session lifetime). `session_secret` alone is a one-key ring with the ID
+    # "legacy"; with both, the ring is `session_keys`, which may list {"id": "legacy"} (its
+    # secret is then `session_secret`) to keep reading records sealed before. `session_secret`
+    # also stays the fallback of the cursor, API-key and domain-proof keys below, never the ring:
+    # rotating the ring never touches them. See docs/guides/rotating-the-sign-in-key.md.
     session_secret: SecretStr | None = None
+    session_keys: SecretStr | None = None
     session_idle_timeout_seconds: int = Field(default=1800, ge=60, le=86400)
     session_absolute_timeout_seconds: int = Field(default=43200, ge=300, le=7 * 86400)
     # None = derived: Secure everywhere except the dev profile (plain-http localhost).
@@ -263,6 +291,9 @@ class Settings(BaseSettings):
     # None = derived from SUPPORTX_SESSION_SECRET; with neither, API keys are unavailable (never a
     # random key: every key would stop working at the next restart). Rotating it ends every key.
     api_key_secret: SecretStr | None = None
+    # The key behind custom-domain verification proofs (WP-017). None = SUPPORTX_SESSION_SECRET
+    # (the legacy secret, as before D-162), never the session key ring.
+    domain_proof_secret: SecretStr | None = None
     page_size_default: int = Field(default=50, ge=1, le=500)
     page_size_max: int = Field(default=200, ge=1, le=1000)
     idempotency_ttl_hours: int = Field(default=24, ge=1, le=720)
@@ -394,6 +425,21 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def _mobile_return_is_a_verified_link(self) -> Self:
+        # see ADR-044 item 3: never a custom scheme (supportx://), which any app can claim. https
+        # in every installation: the chart builds it from publicUrl, which is https there; http
+        # stays possible for the local dev stack and tests, as for console_url.
+        parts = urlsplit(self.mobile_redirect_uri)
+        if parts.scheme not in {"https", "http"} or not parts.netloc or not parts.path.strip("/"):
+            msg = (
+                "SUPPORTX_MOBILE_REDIRECT_URI must be an https address on the SupportX host with "
+                f"a path, e.g. https://support.example.com/mobile/auth (ADR-044), not "
+                f"{self.mobile_redirect_uri!r}"
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
     def _egress_allow_is_narrow(self) -> Self:
         """No allow-list entry wider than /8 or /16, nor loopback outside dev and test (ADR-043 §8).
 
@@ -426,12 +472,13 @@ class Settings(BaseSettings):
                 "oidc_issuer",
                 "oidc_console_client_secret",
                 "oidc_portal_client_secret",
-                "session_secret",
                 "centrifugo_api_url",
                 "centrifugo_api_key",
                 "centrifugo_token_secret",
             )
             missing = [name for name in required if getattr(self, name) is None]
+            if self.session_secret is None and self.session_keys is None:
+                missing.append("session_secret")  # or SUPPORTX_SESSION_KEYS (D-162)
             if missing:
                 names = ", ".join(f"SUPPORTX_{m.upper()}" for m in missing)
                 msg = f"production profile requires: {names}"
@@ -439,13 +486,85 @@ class Settings(BaseSettings):
             if self.session_cookie_secure is False:
                 msg = "SUPPORTX_SESSION_COOKIE_SECURE cannot be false in production"
                 raise ValueError(msg)
-            if self.session_secret is not None and len(self.session_secret.get_secret_value()) < 32:  # noqa: PLR2004 - minimum key material
+            if (
+                self.session_secret is not None
+                and len(self.session_secret.get_secret_value()) < SESSION_KEY_MIN_LENGTH
+            ):
                 msg = "SUPPORTX_SESSION_SECRET must be at least 32 characters in production"
                 raise ValueError(msg)
+            if urlsplit(self.mobile_redirect_uri).scheme != "https":
+                # see ADR-044 item 3: a mis-set chart value would send every hand-off code in
+                # clear text, and Universal Link / App Link verification needs https anyway.
+                msg = (
+                    "SUPPORTX_MOBILE_REDIRECT_URI must be https in production (ADR-044 item 3), "
+                    f"not {self.mobile_redirect_uri!r}"
+                )
+                raise ValueError(msg)
+            self._production_session_keys()
         if self.entitlement_provider == "licence_file" and self.licence_file is None:
             msg = "SUPPORTX_ENTITLEMENT_PROVIDER=licence_file requires SUPPORTX_LICENCE_FILE"
             raise ValueError(msg)
         return self
+
+    @model_validator(mode="after")
+    def _session_keys_are_well_formed(self) -> Self:
+        self.session_key_entries()  # raises ValueError on a malformed SUPPORTX_SESSION_KEYS
+        return self
+
+    def _production_session_keys(self) -> None:
+        """D-162: production refuses a ring that would silently end API keys and more."""
+        for key_id, secret in self.session_key_entries():
+            if len(secret) < SESSION_KEY_MIN_LENGTH:
+                msg = (
+                    f"SUPPORTX_SESSION_KEYS: the secret of key {key_id!r} must be at least 32 "
+                    "characters in production"
+                )
+                raise ValueError(msg)
+        if self.session_keys is None or self.session_secret is not None:
+            return
+        # Without SUPPORTX_SESSION_SECRET these fall back to nothing: every API key would stop
+        # working, list cursors would differ per replica and domain proofs would fail.
+        needed = {
+            "SUPPORTX_API_KEY_SECRET": self.api_key_secret,
+            "SUPPORTX_CURSOR_SECRET": self.cursor_secret,
+            "SUPPORTX_DOMAIN_PROOF_SECRET": self.domain_proof_secret,
+        }
+        missing = [name for name, value in needed.items() if value is None]
+        if missing:
+            msg = (
+                "session_keys_need_legacy_secret: SUPPORTX_SESSION_KEYS is set without "
+                "SUPPORTX_SESSION_SECRET, so production also needs "
+                f"{', '.join(missing)}. Keep SUPPORTX_SESSION_SECRET set (it no longer seals "
+                "sessions once 'legacy' leaves the ring), or set these; a new "
+                "SUPPORTX_API_KEY_SECRET ends every existing API key "
+                "(docs/guides/rotating-the-sign-in-key.md, upgrade notes)"
+            )
+            raise ValueError(msg)
+
+    def session_key_entries(self) -> tuple[tuple[str, str], ...]:
+        """The session key ring as (key ID, secret) pairs, newest first; () when not configured.
+
+        Raises ValueError for a malformed SUPPORTX_SESSION_KEYS. Messages name key IDs only,
+        never a secret.
+        """
+        legacy = self.session_secret.get_secret_value() if self.session_secret else None
+        if self.session_keys is None:
+            return ((LEGACY_SESSION_KEY_ID, legacy),) if legacy else ()
+        try:
+            listed = json.loads(self.session_keys.get_secret_value())
+        except json.JSONDecodeError:
+            # `from None`: the decoder's error holds the text, which holds the secrets.
+            msg = 'SUPPORTX_SESSION_KEYS must be JSON: a list of {"id": ..., "secret": ...}'
+            raise ValueError(msg) from None
+        if not isinstance(listed, list) or not listed:
+            msg = "SUPPORTX_SESSION_KEYS must be a non-empty list, newest key first"
+            raise ValueError(msg)
+        entries = [_session_key_entry(item, legacy) for item in listed]
+        ids = [key_id for key_id, _ in entries]
+        if len(set(ids)) != len(ids):
+            msg = "SUPPORTX_SESSION_KEYS: every key ID must be unique"
+            raise ValueError(msg)
+        return tuple(entries)
 
     @property
     def effective_session_cookie_secure(self) -> bool:
@@ -476,7 +595,7 @@ class Settings(BaseSettings):
         return (
             self.oidc_issuer is not None
             and self.valkey_url is not None
-            and self.session_secret is not None
+            and (self.session_secret is not None or self.session_keys is not None)
         )
 
     @classmethod
@@ -498,6 +617,33 @@ class Settings(BaseSettings):
         if self.api_docs_enabled is not None:
             return self.api_docs_enabled
         return self.profile != "production"
+
+
+def _session_key_entry(item: object, legacy: str | None) -> tuple[str, str]:
+    """One SUPPORTX_SESSION_KEYS item as (ID, secret); {"id": "legacy"} takes SESSION_SECRET."""
+    if not isinstance(item, dict) or not set(item) <= {"id", "secret"}:
+        msg = 'SUPPORTX_SESSION_KEYS: each key is {"id": ..., "secret": ...} and nothing else'
+        raise ValueError(msg)
+    key_id = item.get("id")
+    if not isinstance(key_id, str) or not SESSION_KEY_ID_PATTERN.fullmatch(key_id):
+        msg = "SUPPORTX_SESSION_KEYS: key IDs are 1 to 32 of a-z, 0-9, '_' and '-'"
+        raise ValueError(msg)
+    secret = item.get("secret")
+    if secret is None and key_id == LEGACY_SESSION_KEY_ID and legacy:
+        return key_id, legacy
+    if not isinstance(secret, str) or not secret:
+        msg = f"SUPPORTX_SESSION_KEYS: key {key_id!r} needs a secret"
+        raise ValueError(msg)
+    if key_id != LEGACY_SESSION_KEY_ID and len(secret.encode()) < SESSION_KEY_MIN_BYTES:
+        msg = f"SUPPORTX_SESSION_KEYS: the secret of key {key_id!r} needs at least 32 bytes"
+        raise ValueError(msg)
+    if key_id == LEGACY_SESSION_KEY_ID and legacy is not None and secret != legacy:
+        msg = (
+            "SUPPORTX_SESSION_KEYS: key 'legacy' must be SUPPORTX_SESSION_SECRET's secret "
+            '(list it as {"id": "legacy"})'
+        )
+        raise ValueError(msg)
+    return key_id, secret
 
 
 @lru_cache(maxsize=1)

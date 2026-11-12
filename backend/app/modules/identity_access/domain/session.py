@@ -28,6 +28,9 @@ class TenantChoice:
     name: str
 
 
+_DEVICE_FIELDS = ("device_platform", "app_version")
+
+
 @dataclass(frozen=True)
 class Session:
     """Everything the BFF knows about a logged-in browser. Never sent to the browser."""
@@ -57,6 +60,10 @@ class Session:
     # MFA required here but not set up yet (WP-039 session 3): enrol by then (ISO time), else
     # None. The console and portal show a reminder with a button to set it up.
     mfa_due_at: str | None = None
+    # The mobile app's sessions only (ADR-044 item 5): ios or android, and the app's version,
+    # shown in the person's session list. None for the web apps.
+    device_platform: str | None = None
+    app_version: str | None = None
 
     def limits(self, *, idle: timedelta, absolute: timedelta) -> tuple[timedelta, timedelta]:
         """The (idle, absolute) limits of the session; `idle` and `absolute` when it has none."""
@@ -102,6 +109,11 @@ class Session:
         data = asdict(self)
         for key in ("created_at", "last_seen_at", "access_expires_at"):
             data[key] = getattr(self, key).isoformat()
+        for key in _DEVICE_FIELDS:
+            # Web sessions keep the record they had: a pod of the previous release (rolling
+            # update, §14.3) still reads them. Only the new mobile sessions carry these.
+            if data[key] is None:
+                del data[key]
         return data
 
     @classmethod

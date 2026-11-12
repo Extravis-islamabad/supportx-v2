@@ -1,5 +1,12 @@
 // errors labels (see ../README.md). English is the reference.
 export const en = {
+  'checklist_import_failure.not_text': 'The file is not a UTF-8 text (CSV) file.',
+  'checklist_import_failure.too_large': 'The file is larger than 5 MB.',
+  'checklist_import_failure.too_many_columns': 'A row has more than 40 columns.',
+  'checklist_import_failure.too_many_rows': 'The file has more than 5,000 rows.',
+  'checklist_import_reason.empty': 'Empty row',
+  'checklist_import_reason.too_many_items': "Past the checklist's item limit",
+  'checklist_import_reason.value_too_long': 'Longer than 500 characters',
   'errors.action_link_expired': 'This link has expired. Open the request in the app instead.',
   'errors.action_link_not_found': 'This link is not valid.',
   'errors.action_link_revoked': 'This is no longer needed: the request was decided or withdrawn.',
@@ -36,6 +43,9 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.archive_busy': 'You already have two downloads running. Try again in a minute.',
+  'errors.archive_too_large': 'These files come to more than {{max_mb}} MB. Pick fewer files.',
+  'errors.archive_too_many_files': 'You can download up to {{max}} files at once.',
   'errors.asset_acknowledgement_answered': 'You have already answered this one.',
   'errors.asset_acknowledgement_not_found':
     "That acknowledgement isn't yours, or no longer exists.",
@@ -135,6 +145,7 @@ export const en = {
   'errors.asset_product_type_not_found': 'This product type does not exist.',
   'errors.asset_restore_merged':
     'This asset was merged into {{asset}}. Confirm to restore it on its own.',
+  'errors.asset_site_not_managed': 'You can only add or move assets to the sites you manage.',
   'errors.asset_state_in_use':
     'Moves in life cycles still use this state ({{used}}). Remove them first.',
   'errors.asset_state_not_found': 'This asset state does not exist.',
@@ -190,6 +201,10 @@ export const en = {
   'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.change_window_blocked':
     'A freeze blocks this time. Choose another time, or someone allowed to may let it go ahead with a reason.',
+  'errors.checklist_item_not_found': 'This checklist item is no longer there.',
+  'errors.checklist_library_not_found':
+    'This library checklist is no longer there or is no longer offered.',
+  'errors.checklist_not_found': 'This checklist is no longer there.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -200,6 +215,11 @@ export const en = {
     'Your organisation does not let you change your contact details here. Ask your service desk.',
   'errors.conversation_entry_not_found': 'This reply or note no longer exists.',
   'errors.copy_reference': 'Copy reference',
+  'errors.cost_rate_date_taken':
+    'This person already has a rate from that moment. Change that one instead.',
+  'errors.cost_rate_not_found': 'The rate was not found.',
+  'errors.cost_rate_superseded':
+    'A later rate is already in force, so this one can no longer change. Set a new rate instead.',
   'errors.csrf_failed': 'This request could not be verified. Please reload the page and try again.',
   'errors.currency_change_needs_confirmation':
     'Changing the base currency needs a confirmation: amounts already recorded stay in the old one.',
@@ -567,6 +587,7 @@ export const en = {
   'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
+  'errors.field.review_required_to_close': "Complete the release's review before closing it.",
   'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
   'errors.field.role_held_by_record':
     "This role follows the record's own field. Change it in the details panel.",
@@ -713,6 +734,7 @@ export const en = {
   'errors.follower_not_found': 'This person is not following it.',
   'errors.group_not_found': 'The support group was not found.',
   'errors.group_not_led': 'You can only manage the groups you lead.',
+  'errors.handoff_invalid': 'This sign-in has expired or was already used. Please sign in again.',
   'errors.holiday_list_not_found': 'This holiday list does not exist or was deleted.',
   'errors.holiday_not_found': 'This holiday does not exist or was deleted.',
   'errors.ical_too_large': 'The file is larger than 1 MB.',
@@ -746,6 +768,8 @@ export const en = {
   'errors.invalid_filter': 'The filter could not be applied. Check the highlighted condition.',
   'errors.invalid_idempotency_key': 'The request identifier is not valid.',
   'errors.invalid_login_state': 'This sign-in link has expired. Please start again.',
+  'errors.invalid_mobile_challenge':
+    'The app could not start signing in. Please update the app and try again.',
   'errors.invalid_number': 'Enter a number.',
   'errors.invalid_page_size': 'Too many rows were requested for one page.',
   'errors.invalid_report': 'This report cannot run as it is. Check the highlighted parts.',
@@ -860,8 +884,10 @@ export const en = {
   'errors.node_not_found': 'That step is not in this version of the workflow.',
   'errors.node_not_mapped': 'A step this run is at has no place in the new version: map it to one.',
   'errors.not_a_member': 'You are not a member of that organisation.',
+  'errors.not_a_person': 'This is a service identity, not a person: it has no cost per hour.',
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
+  'errors.not_cancelable_from_here': 'It cannot be cancelled from where it is now.',
   'errors.not_closable_from_here': 'It cannot be closed from where it is now. Move it on first.',
   'errors.not_found': 'The item was not found.',
   'errors.not_known_error': '{{display_id}} is not a known error.',
@@ -920,10 +946,13 @@ export const en = {
     'Live updates are not set up on this server. Reload the page to see the latest data.',
   'errors.recipient_deferred': "The recipient's mail server asked to try later.",
   'errors.recipient_refused': 'The mail server refused the recipient.',
-  'errors.record_closed': 'Closed and canceled records cannot be changed.',
+  'errors.record_closed': 'Closed and cancelled records cannot be changed.',
   'errors.record_not_editable': 'You need to be able to edit the record to do this.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
+  'errors.release_not_failed':
+    "Follow-ups are offered once the release's deployment has failed or been rolled back.",
+  'errors.reminder_not_found': 'This reminder is no longer there.',
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
   'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',
@@ -962,6 +991,8 @@ export const en = {
     'A workflow’s or connector’s own identity gets its roles from its own settings, not here.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
   'errors.session_expired': 'Your session has ended. Please sign in again.',
+  'errors.session_key_still_in_use':
+    'This server cannot start: a sign-in key it no longer lists is still needed. List the key again.',
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unknown_person':

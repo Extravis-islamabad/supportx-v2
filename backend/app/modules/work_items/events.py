@@ -373,6 +373,35 @@ class WorkItemPartChangedV2(DomainEvent):
 ApprovalChange = Literal["opened", "decided", "closed"]
 
 
+class WorkItemPartChangedV3(DomainEvent):
+    """As V2, with a record's checklists, personal reminders and timers (WP-046a S2/S3).
+
+    New allowed values retype `part`, so a new schema version (docs/architecture/events.md
+    "Versioning"); v1 and v2 stay registered and keep publishing their parts. A reminder or a
+    running timer (REQ-INC-082, -069) is its owner's only: realtime tells their personal
+    channel, never the record's. `timer` is reserved here for S3, so S3 needs no V4.
+    """
+
+    event_type: ClassVar[str] = "work_items.part.changed"
+    schema_version: ClassVar[int] = 3
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    part: Literal[
+        "task",
+        "worklog",
+        "link",
+        "plan_section",
+        "stage_schedule",
+        "downtime",
+        "checklist",
+        "reminder",
+        "timer",
+    ]
+    part_id: uuid.UUID
+    change: Literal["added", "changed", "removed"]
+
+
 class WorkItemApprovalChanged(DomainEvent):
     """An approval was opened, decided, closed or withdrawn (WP-030 s2, REQ-SR-024).
 
@@ -457,6 +486,58 @@ class ChangeReminderDue(DomainEvent):
     member_id: uuid.UUID | None = None
 
 
+class WorkItemTaskAssigned(DomainEvent):
+    """A task was given to someone (WP-046a S1; REQ-INC-076 AC1): its owner is told.
+
+    Raised when a task is made with an owner or its owner changes to another person. IDs only;
+    the notification source reads the task and its record at send time.
+    """
+
+    event_type: ClassVar[str] = "work_items.task.assigned"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    task_id: uuid.UUID
+    owner_id: uuid.UUID
+
+
+class WorkItemTaskReminderDue(DomainEvent):
+    """A task's reminder is due (WP-046a S1; REQ-INC-073 AC2, -076), claimed once by the sweep.
+
+    `kind`: `starts_soon` (its owner's reminder before the scheduled start) or `overdue` (open
+    past its due time). `at` is the time it was claimed for: the source re-reads the task at
+    send time and says nothing if that time moved meanwhile. IDs and times only.
+    """
+
+    event_type: ClassVar[str] = "work_items.task.reminder_due"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    task_id: uuid.UUID
+    kind: str
+    at: datetime
+
+
+class WorkItemReminderDue(DomainEvent):
+    """A person's own reminder on a record alerts them (WP-046a S2; REQ-INC-082 AC1).
+
+    Raised once by the sweep at its time minus its lead. IDs only; the source re-reads the
+    reminder at send time and says nothing if it moved, was completed, or its owner can no
+    longer see the record (the coordinator).
+    """
+
+    event_type: ClassVar[str] = "work_items.reminder.due"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    reminder_id: uuid.UUID
+    user_id: uuid.UUID
+    remind_at: datetime
+
+
 class ProblemRepeatDetected(DomainEvent):
     """A repeat incident rule found a new set (WP-044c D16, REQ-PRB-068): the group is told.
 
@@ -527,11 +608,15 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemBulkJobProgressed,
     WorkItemPartChanged,
     WorkItemPartChangedV2,
+    WorkItemPartChangedV3,
+    WorkItemReminderDue,
     WorkItemApprovalChanged,
     ChangeBoardChanged,
     ChangeWindowChanged,
     ChangeApprovalNotice,
     ChangeReminderDue,
+    WorkItemTaskAssigned,
+    WorkItemTaskReminderDue,
     ProblemRepeatDetected,
     ProblemRepeatChanged,
 )

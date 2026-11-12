@@ -51,6 +51,14 @@ images:
 secrets:
   app: supportx-app                 # Opaque: app keys, role passwords, NATS/Valkey passwords
   keycloakDb: supportx-db-keycloak  # kubernetes.io/basic-auth for the keycloak database owner
+  # Sign-in key ring (D-162, ADR-048; docs/guides/rotating-the-sign-in-key.md), newest first.
+  # Each entry names its key ID and the key of `app` holding its secret (hex or base64url, at
+  # least 32 characters); never the secret itself. {id: legacy} without `key` is session-secret.
+  # Empty: session-secret alone, as before (a one-key ring called "legacy").
+  #   sessionKeys:
+  #     - {id: "2026-11", key: session-key-2026-11}
+  #     - {id: legacy}
+  sessionKeys: []
 
 # --- application settings (SUPPORTX_*) ---------------------------------------------------------------
 app:

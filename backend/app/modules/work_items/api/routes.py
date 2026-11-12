@@ -23,6 +23,10 @@ from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.asset_routes import add_asset_routes
+from app.modules.work_items.api.checklist_routes import (
+    add_checklist_collection_routes,
+    add_checklist_routes,
+)
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
@@ -1031,6 +1035,9 @@ class WorkItemClosureOut(BaseModel):
         default="block",
         description="An open predecessor refuses a task's start or completion, or only warns.",
     )
+    checklist_item_max: int = Field(
+        default=100, description="Checklist items per record, all its checklists (1 to 1000)."
+    )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
     )
@@ -1177,6 +1184,10 @@ class WorkItemCatalogueOut(BaseModel):
         default=False,
         description="Changes: outside every maintenance window blocks instead of warns (D-156).",
     )
+    open_stage_tasks_block: bool = Field(
+        default=True,
+        description="Releases: a stage with open tasks cannot be left (REQ-REL-048).",
+    )
     cab_every_match: bool = Field(
         default=False,
         description="Changes: every board the mapping matches reviews, not only the first.",
@@ -1226,6 +1237,7 @@ class WorkItemCatalogueOut(BaseModel):
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
             outside_maintenance_blocks=cat.outside_maintenance_blocks,
+            open_stage_tasks_block=cat.open_stage_tasks_block,
             cab_every_match=cat.cab_every_match,
             reapproval=ReapprovalPolicyIO.model_validate(
                 reapproval_rules.policy_json(reapproval_rules.policy_from(cat.reapproval))
@@ -1311,6 +1323,7 @@ class WorkItemCatalogueOut(BaseModel):
                 task_dependency_mode=cast(
                     'Literal["block", "warn"]', cat.closure.task_dependency_mode
                 ),
+                checklist_item_max=cat.closure.checklist_item_max,
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1335,6 +1348,7 @@ class WorkItemClosurePatch(BaseModel):
     reopen_window_days: int | None = None
     task_owner_access: bool | None = None
     task_dependency_mode: Literal["block", "warn"] | None = None
+    checklist_item_max: int | None = Field(default=None, description="1 to 1000.")
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -1363,6 +1377,7 @@ class WorkItemSettingsPatch(BaseModel):
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
     outside_maintenance_blocks: bool | None = Field(default=None, description="Changes only.")
+    open_stage_tasks_block: bool | None = Field(default=None, description="Releases only.")
     cab_every_match: bool | None = Field(default=None, description="Changes only.")
     reapproval: ReapprovalPolicyIO | None = Field(
         default=None, description="Changes only. Null: the shipped policy."
@@ -1996,6 +2011,26 @@ class ParentIn(BaseModel):
     parent_id: uuid.UUID | None
 
 
+class ReleaseFollowUpIn(BaseModel):
+    """What to make after a failed deployment (REQ-REL-053 AC2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["problem", "release"]
+    subject: str = Field(min_length=1, max_length=200)
+
+
+class ReleaseFollowUpOut(BaseModel):
+    """A problem the release caused, or a release that follows it up."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    type: str
+    relation: Literal["caused_problem", "follow_up_release"]
+    status_category: str
+
+
 class ParentOut(BaseModel):
     """The release's parent now."""
 
@@ -2042,6 +2077,8 @@ class RailStageOut(BaseModel):
     state: RailState
     optional: bool
     entries: list[StageEntryOut]
+    tasks_done: int = Field(default=0, description="This stage's tasks done (WP-058b S3).")
+    tasks_total: int = Field(default=0, description="This stage's tasks, canceled ones left out.")
 
 
 class MissingFieldOut(BaseModel):
@@ -2096,6 +2133,8 @@ class StagePanelOut(BaseModel):
                     entries=[
                         StageEntryOut(entered_at=e.entered_at, left_at=e.left_at) for e in s.entries
                     ],
+                    tasks_done=panel.tasks.get(s.stage, (0, 0))[0],
+                    tasks_total=panel.tasks.get(s.stage, (0, 0))[1],
                 )
                 for s in panel.rail
             ],
@@ -2510,6 +2549,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
     add_parts_collection_routes(router, wtype)
+    add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
 
@@ -2973,6 +3013,61 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 session, subject, wtype, record_id, body.parent_id, source=source_of(request)
             )
             return ParentOut(parent_id=parent)
+
+        @router.get("/{record_id}/follow-ups", summary="What was made after the release failed")
+        async def get_follow_ups(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[ReleaseFollowUpOut]:
+            """The problems it caused and the releases that follow it up, those you may see."""
+            found = await release_links.follow_ups(session, subject, record_id)
+            return [ReleaseFollowUpOut(**vars(f)) for f in found]
+
+        @router.post(
+            "/{record_id}/follow-ups",
+            summary="Make a problem or a follow-up release after a failed deployment",
+            status_code=status.HTTP_201_CREATED,
+            response_model=ReleaseFollowUpOut,
+            responses=CONFLICT,
+        )
+        async def post_follow_up(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ReleaseFollowUpIn,
+            session: TenantSession,
+            subject: View,
+            policy: Policy,
+            idempotency: Idempotency,
+            request: Request,
+        ) -> Response:
+            """Only on a failed or rolled-back release (409 release_not_failed, REQ-REL-053 AC2).
+
+            Needs the new record's create permission. The problem is linked as caused by the
+            release, the release as following it, and both records keep the link in history.
+            """
+
+            async def run() -> Created:
+                made = await release_links.create_follow_up(
+                    session,
+                    subject,
+                    record_id,
+                    kind=body.kind,
+                    title=body.subject.strip(),
+                    holders=policy,
+                    source=source_of(request),
+                )
+                return Created(
+                    body=ReleaseFollowUpOut(
+                        id=made.id,
+                        display_id=made.display_id,
+                        subject=made.subject,
+                        type=made.type,
+                        relation="caused_problem"
+                        if body.kind == "problem"
+                        else "follow_up_release",
+                        status_category=made.status_category,
+                    )
+                )
+
+            return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
         # WP-058b S1 (REQ-REL-033): the changes in the release, live on both records.
         @router.get("/{record_id}/changes", summary="The changes in the release")
@@ -3504,6 +3599,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
 
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
+    add_checklist_routes(router, wtype)  # WP-046a S2: checklists and personal reminders
     # REQ-AST-025: assets on incidents and requests (the forms and the e-mail ask for them).
     if wtype.code in _WITH_ASSETS:
         add_asset_routes(router, wtype)

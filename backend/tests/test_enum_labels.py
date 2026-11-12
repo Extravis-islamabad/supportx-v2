@@ -18,6 +18,8 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "ReleaseFollowUpIn.kind": "work_item_type",  # WP-058b S4
+    "ReleaseFollowUpOut.relation": "releases.failed.relation",
     "InstanceOut.status": "workflow_instance_status",  # WP-048b
     "WorkItemClosureOut.task_dependency_mode": "task_dependency_mode",  # WP-046a S1
     "WorkItemClosurePatch.task_dependency_mode": "task_dependency_mode",
@@ -60,6 +62,7 @@ ENUM_PREFIXES: dict[str, str] = {
     # Asset financials (WP-049b s2)
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",
+    "RateState": "people.cost_rate.state",  # a person's cost per hour (REQ-INC-068)
     "TermsSource": "asset_terms_source",
     # Labels, audits, scans and the overdue rule (WP-049b s3)
     "AssetChangeOriginOut.kind": "asset_change_origin",
@@ -183,6 +186,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFormatsOut.formats[]": "report_export_format",
     "ReportExportIn.language": "locale",
     "ReportRunIn.language": "locale",
+    "ArchiveIn.language": "locale",  # WP-046a S2: the zip manifest's language
     "ReportExportOut.status": "report_export_status",
     "ReportSettingsOut.week_start": "report_week_start",
     "ReportSettingsPatch.week_start": "report_week_start",

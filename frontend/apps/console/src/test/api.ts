@@ -80,6 +80,8 @@ export function consoleApi({
     },
     // The approvals drawer in the header (WP-030 s2): nothing waits unless a test says otherwise.
     'GET /api/v1/service-requests/my-approvals': { body: { items: [], people: {} } },
+    // Your reminders in the header (WP-046a S2): none unless a test says otherwise.
+    'GET /api/v1/my-reminders': { body: [] },
     ...routes,
   });
 }

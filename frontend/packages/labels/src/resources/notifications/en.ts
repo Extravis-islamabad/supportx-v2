@@ -40,8 +40,10 @@ export const en = {
   'notification_area.problem': 'Problems',
   'notification_area.problem_repeat': 'Problems',
   'notification_area.release': 'Releases',
+  'notification_area.reminder': 'Reminders',
   'notification_area.rule_step': 'Rules and escalations',
   'notification_area.service_request': 'Service requests',
+  'notification_area.task': 'Tasks',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
   'notification_category.conversation': 'Replies and notes',
@@ -88,7 +90,7 @@ export const en = {
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
-  'notification_event.incident.canceled': 'Incident canceled',
+  'notification_event.incident.canceled': 'Incident cancelled',
   'notification_event.incident.closed': 'Incident closed',
   'notification_event.incident.created': 'New incident: acknowledgement',
   'notification_event.incident.created_in_group': 'New incident in a group',
@@ -126,6 +128,7 @@ export const en = {
   'notification_event.problem.target_warning': 'Problem target date close',
   'notification_event.problem_repeat.detected': 'Repeated incidents found',
   'notification_event.release.public_reply': 'Reply to the requester',
+  'notification_event.reminder.due': 'Your reminder',
   'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
@@ -136,6 +139,9 @@ export const en = {
   'notification_event.service_request.received': 'Request received: acknowledgement',
   'notification_event.service_request.rejected': 'Request rejected',
   'notification_event.service_request.withdrawn': 'Request withdrawn',
+  'notification_event.task.assigned': 'A task is given to you',
+  'notification_event.task.overdue': 'Your task is overdue',
+  'notification_event.task.starts_soon': 'Your task starts soon',
   'notification_preferences.col.category': 'Kind',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
@@ -399,10 +405,10 @@ export const en = {
   'notification_template.incident.assigned.subject':
     'Assigned to {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
-    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was canceled.',
-  'notification_template.incident.canceled.in_app': '{{ record.display_id }} was canceled',
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was cancelled.',
+  'notification_template.incident.canceled.in_app': '{{ record.display_id }} was cancelled',
   'notification_template.incident.canceled.subject':
-    'Canceled: {{ record.display_id }} {{ record.title }}',
+    'Cancelled: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.closed.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now closed.',
   'notification_template.incident.closed.in_app': '{{ record.display_id }} was closed',
@@ -617,6 +623,11 @@ export const en = {
     '{{ conversation.author }} replied on {{ record.display_id }}',
   'notification_template.release.public_reply.subject':
     'New reply on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.reminder.due.body':
+    'Hello {{ recipient.name }},\n\nYour reminder on {{ record.display_id }} "{{ record.title }}" is at {{ reminder.at }}:\n\n{{ reminder.note }}',
+  'notification_template.reminder.due.in_app': 'Reminder at {{ reminder.at }}: {{ reminder.note }}',
+  'notification_template.reminder.due.subject':
+    'Reminder: {{ reminder.note }} ({{ record.display_id }})',
   'notification_template.rule_step.assignee_unavailable.body':
     'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -677,6 +688,23 @@ export const en = {
     '{{ record.display_id }} was withdrawn: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'Withdrawn: {{ record.display_id }} {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'Hello {{ recipient.name }},\n\nThe task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" is now yours.',
+  'notification_template.task.assigned.in_app':
+    '{{ task.title }} on {{ record.display_id }} is yours',
+  'notification_template.task.assigned.subject':
+    'Task for you: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'Hello {{ recipient.name }},\n\nYour task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" was due at {{ task.due_at }} and is still open.',
+  'notification_template.task.overdue.in_app': '{{ task.title }} was due at {{ task.due_at }}',
+  'notification_template.task.overdue.subject':
+    'Overdue: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'Hello {{ recipient.name }},\n\nYour task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" starts at {{ task.starts_at }}.',
+  'notification_template.task.starts_soon.in_app':
+    '{{ task.title }} starts at {{ task.starts_at }}',
+  'notification_template.task.starts_soon.subject':
+    'Starts soon: {{ task.title }} ({{ record.display_id }})',
   'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
   'notification_variable.approval.comment': 'Approval › Comment',
@@ -705,12 +733,17 @@ export const en = {
   'notification_variable.record.priority': 'Record › Priority',
   'notification_variable.record.status': 'Record › Status',
   'notification_variable.record.title': 'Record › Subject',
+  'notification_variable.reminder.at': 'Reminder time',
+  'notification_variable.reminder.note': 'Reminder note',
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
   'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
   'notification_variable.stock.minimum': 'Stock › Minimum',
   'notification_variable.stock.quantity': 'Stock › Quantity',
+  'notification_variable.task.due_at': 'Task due time',
+  'notification_variable.task.starts_at': 'Task scheduled start',
+  'notification_variable.task.title': 'Task title',
   'notification_variable.unavailable.person': 'Unassigned › Person',
   'notification_variable.unavailable.reason': 'Unassigned › Why',
   'notification_variable.warranty.ends_on': 'Warranty › Ends on',

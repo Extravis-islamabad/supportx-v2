@@ -42,8 +42,10 @@ export const ar: LabelResource = {
   'notification_area.problem': 'المشكلات',
   'notification_area.problem_repeat': 'المشكلات',
   'notification_area.release': 'الإصدارات',
+  'notification_area.reminder': 'التذكيرات',
   'notification_area.rule_step': 'القواعد والتصعيدات',
   'notification_area.service_request': 'طلبات الخدمة',
+  'notification_area.task': 'المهام',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
   'notification_category.conversation': 'الردود والملاحظات',
@@ -129,6 +131,7 @@ export const ar: LabelResource = {
   'notification_event.problem.target_warning': 'اقترب الموعد المستهدف لمشكلة',
   'notification_event.problem_repeat.detected': 'وُجدت حوادث متكررة',
   'notification_event.release.public_reply': 'رد على مقدم الطلب',
+  'notification_event.reminder.due': 'تذكيرك',
   'notification_event.rule_step.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
@@ -139,6 +142,9 @@ export const ar: LabelResource = {
   'notification_event.service_request.received': 'استلام الطلب: إشعار',
   'notification_event.service_request.rejected': 'رفض الطلب',
   'notification_event.service_request.withdrawn': 'سحب الطلب',
+  'notification_event.task.assigned': 'أُسندت إليك مهمة',
+  'notification_event.task.overdue': 'مهمتك متأخرة',
+  'notification_event.task.starts_soon': 'مهمتك تبدأ قريبًا',
   'notification_preferences.col.category': 'النوع',
   'notification_preferences.dnd_help':
     'لا نوافذ منبثقة ولا بريد إلا العاجل والإلزامي؛ ويبقى كل شيء في إشعاراتك.',
@@ -618,6 +624,11 @@ export const ar: LabelResource = {
     'ردّ {{ conversation.author }} على {{ record.display_id }}',
   'notification_template.release.public_reply.subject':
     'رد جديد على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.reminder.due.body':
+    'مرحبًا {{ recipient.name }}،\n\nتذكيرك على {{ record.display_id }} "{{ record.title }}" في {{ reminder.at }}:\n\n{{ reminder.note }}',
+  'notification_template.reminder.due.in_app': 'تذكير في {{ reminder.at }}: {{ reminder.note }}',
+  'notification_template.reminder.due.subject':
+    'تذكير: {{ reminder.note }} ({{ record.display_id }})',
   'notification_template.rule_step.assignee_unavailable.body':
     'مرحبًا {{ recipient.name }}،\n\nكان على قاعدة أو تصعيد إسناد {{ record.display_id }} "{{ record.title }}" إلى {{ unavailable.person }}، الذي {{ unavailable.reason }}. انتقل إلى المجموعة دون أن يُسند إلى أحد. يُرجى إسناده إلى شخص ما أو تعديل القاعدة.',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -678,6 +689,22 @@ export const ar: LabelResource = {
     'سُحب {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'تم السحب: {{ record.display_id }} {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأصبحت المهمة "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" لك الآن.',
+  'notification_template.task.assigned.in_app':
+    '{{ task.title }} على {{ record.display_id }} أصبحت لك',
+  'notification_template.task.assigned.subject':
+    'مهمة لك: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'مرحبًا {{ recipient.name }}،\n\nكان موعد مهمتك "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" في {{ task.due_at }} وما زالت مفتوحة.',
+  'notification_template.task.overdue.in_app': 'كان موعد {{ task.title }} في {{ task.due_at }}',
+  'notification_template.task.overdue.subject':
+    'متأخرة: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'مرحبًا {{ recipient.name }}،\n\nتبدأ مهمتك "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" في {{ task.starts_at }}.',
+  'notification_template.task.starts_soon.in_app': 'تبدأ {{ task.title }} في {{ task.starts_at }}',
+  'notification_template.task.starts_soon.subject':
+    'تبدأ قريبًا: {{ task.title }} ({{ record.display_id }})',
   'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
   'notification_variable.approval.comment': 'تعليق الموافِق',
@@ -706,12 +733,17 @@ export const ar: LabelResource = {
   'notification_variable.record.priority': 'السجل › الأولوية',
   'notification_variable.record.status': 'السجل › الحالة',
   'notification_variable.record.title': 'السجل › الموضوع',
+  'notification_variable.reminder.at': 'وقت التذكير',
+  'notification_variable.reminder.note': 'ملاحظة التذكير',
   'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
   'notification_variable.rule.name': 'القاعدة',
   'notification_variable.site.name': 'الموقع',
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
   'notification_variable.stock.minimum': 'المخزون › الحد الأدنى',
   'notification_variable.stock.quantity': 'المخزون › الكمية',
+  'notification_variable.task.due_at': 'موعد استحقاق المهمة',
+  'notification_variable.task.starts_at': 'البدء المجدول للمهمة',
+  'notification_variable.task.title': 'عنوان المهمة',
   'notification_variable.unavailable.person': 'غير مُسند › الشخص',
   'notification_variable.unavailable.reason': 'غير مُسند › السبب',
   'notification_variable.warranty.ends_on': 'الضمان › ينتهي في',

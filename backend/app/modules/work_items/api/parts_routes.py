@@ -280,6 +280,9 @@ class WorkItemWorklogOut(BaseModel):
     description: str | None
     version: int
     created_by: uuid.UUID | None
+    stage: str | None = Field(
+        default=None, description="A staged record's stage when it was logged (WP-058b S3)."
+    )
 
     @classmethod
     def of(cls, row: WorkItemWorklog) -> "WorkItemWorklogOut":
@@ -315,9 +318,7 @@ class WorkItemLinkOut(BaseModel):
 
     id: uuid.UUID
     kind: LinkKind
-    relation: Literal[
-        "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
-    ]
+    relation: service.Relation
     other_id: uuid.UUID | None = Field(description="Only when you may see the other record.")
     other_type: WorkItemTypeCode | None = Field(
         default=None, description="The other record's type, when you may see it (WP-044a)."

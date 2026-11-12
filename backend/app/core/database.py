@@ -222,6 +222,33 @@ def _apply_context(
         connection.execute(_SET_REPORT_ROLE)
 
 
+TRANSACTION_MEMO_KEY = "supportx.transaction_memo"
+
+
+def transaction_memo(session: AsyncSession, namespace: str) -> dict[Any, Any] | None:
+    """A dict that lives until the session's transaction ends, for reads repeated within it.
+
+    Cleared on commit, rollback and savepoint rollback (below), so a memo never outlives what
+    it read, and a later transaction always reads again. Whoever writes the memoised rows pops
+    their entry in the same transaction. None for a platform session, which may switch tenant
+    between statements: nothing is memoised there.
+    """
+    info = session.info
+    if not isinstance(info.get(SESSION_TENANT_KEY), TenantContext):
+        return None
+    memos: dict[str, dict[Any, Any]] = info.setdefault(TRANSACTION_MEMO_KEY, {})
+    return memos.setdefault(namespace, {})
+
+
+def _forget_memos(session: Session, *_args: object) -> None:
+    session.info.pop(TRANSACTION_MEMO_KEY, None)
+
+
+# after_soft_rollback also covers a rolled-back savepoint, whose writes the memo may have seen.
+for _name in ("after_commit", "after_rollback", "after_soft_rollback"):
+    event.listen(TenantAwareSession, _name, _forget_memos)
+
+
 class Database:
     """Engine plus session factories for one process."""
 

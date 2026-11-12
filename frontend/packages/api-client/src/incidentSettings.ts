@@ -25,6 +25,24 @@ type MatrixCell = components['schemas']['MatrixCellIn'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
+/**
+ * Whose settings a change writes (WP-058b S4): incidents and releases serve the same settings
+ * resources under their own path with the same shapes (WorkItemCatalogueOut), so the settings
+ * screens are shared and only the path and the cached catalogue differ. The incident paths
+ * stand for both in the typed client, as staged.ts's `at()` does for the stage engine.
+ */
+export type SettingsBase = 'incidents' | 'releases';
+type SettingsPath = `/api/v1/incidents/settings${string}`;
+const at = <P extends SettingsPath>(base: SettingsBase, path: P): P =>
+  path.replace('/api/v1/incidents', `/api/v1/${base}`) as P;
+
+/** The cached catalogue of `base`: the incident catalogue, or the release settings. */
+export function settingsKey(base: SettingsBase): readonly string[] {
+  // The release key is releaseKeys.settings (and stagedKeys('releases').settings), spelled out
+  // here so this file does not import releases.ts.
+  return base === 'incidents' ? queryKeys.incidents.catalogue : ['releases', 'settings'];
+}
+
 /** Every template, the default first; disabled ones are included (they name old records). */
 export function useIncidentTemplates(enabled = true) {
   return useQuery({
@@ -55,27 +73,37 @@ export type SettingsChange =
   | { kind: 'value'; list: PickList; code: string; body: components['schemas']['ListValuePatch'] }
   | { kind: 'order'; list: PickList; codes: string[] };
 
-function send(change: SettingsChange, version: number): Promise<IncidentCatalogue> {
+function send(
+  base: SettingsBase,
+  change: SettingsChange,
+  version: number,
+): Promise<IncidentCatalogue> {
   const header = ifMatch(version);
   switch (change.kind) {
     case 'settings':
       return call(
-        api.PATCH('/api/v1/incidents/settings', { params: { header }, body: change.body }),
+        api.PATCH(at(base, '/api/v1/incidents/settings'), {
+          params: { header },
+          body: change.body,
+        }),
       );
     case 'closure':
       return call(
-        api.PATCH('/api/v1/incidents/settings/closure', { params: { header }, body: change.body }),
+        api.PATCH(at(base, '/api/v1/incidents/settings/closure'), {
+          params: { header },
+          body: change.body,
+        }),
       );
     case 'status':
       return call(
-        api.PATCH('/api/v1/incidents/settings/statuses/{code}', {
+        api.PATCH(at(base, '/api/v1/incidents/settings/statuses/{code}'), {
           params: { header, path: { code: change.code } },
           body: change.body,
         }),
       );
     case 'transition':
       return call(
-        api.PATCH('/api/v1/incidents/settings/transitions/{from_status}/{action}', {
+        api.PATCH(at(base, '/api/v1/incidents/settings/transitions/{from_status}/{action}'), {
           params: {
             header,
             path: {
@@ -88,35 +116,35 @@ function send(change: SettingsChange, version: number): Promise<IncidentCatalogu
       );
     case 'scale':
       return call(
-        api.PATCH('/api/v1/incidents/settings/scales/{scale}/{code}', {
+        api.PATCH(at(base, '/api/v1/incidents/settings/scales/{scale}/{code}'), {
           params: { header, path: { scale: change.scale, code: change.code } },
           body: change.body,
         }),
       );
     case 'matrix':
       return call(
-        api.PUT('/api/v1/incidents/settings/matrix', {
+        api.PUT(at(base, '/api/v1/incidents/settings/matrix'), {
           params: { header },
           body: { cells: change.cells },
         }),
       );
     case 'add_value':
       return call(
-        api.POST('/api/v1/incidents/settings/lists/{list_name}/values', {
+        api.POST(at(base, '/api/v1/incidents/settings/lists/{list_name}/values'), {
           params: { header, path: { list_name: change.list } },
           body: { labels: change.labels, colour: change.colour ?? null },
         }),
       );
     case 'value':
       return call(
-        api.PATCH('/api/v1/incidents/settings/lists/{list_name}/values/{code}', {
+        api.PATCH(at(base, '/api/v1/incidents/settings/lists/{list_name}/values/{code}'), {
           params: { header, path: { list_name: change.list, code: change.code } },
           body: change.body,
         }),
       );
     case 'order':
       return call(
-        api.PUT('/api/v1/incidents/settings/lists/{list_name}/order', {
+        api.PUT(at(base, '/api/v1/incidents/settings/lists/{list_name}/order'), {
           params: { header, path: { list_name: change.list } },
           body: { codes: change.codes },
         }),
@@ -126,35 +154,46 @@ function send(change: SettingsChange, version: number): Promise<IncidentCatalogu
 
 // Catalogue versions this tab's own saves produced (QA BUG-02): a screen holding unsaved
 // edits must not call those "changed elsewhere".
-const ownVersions = new Set<number>();
+// Per base: each type's catalogue counts its own versions.
+const ownVersions: Record<SettingsBase, Set<number>> = {
+  incidents: new Set(),
+  releases: new Set(),
+};
 
-/** Whether this tab's own save produced catalogue `version`. */
-export function isOwnSettingsVersion(version: number): boolean {
-  return ownVersions.has(version);
+/** Whether this tab's own save produced `base`'s catalogue `version`. */
+export function isOwnSettingsVersion(version: number, base: SettingsBase = 'incidents'): boolean {
+  return ownVersions[base].has(version);
 }
 
 /**
- * Change the incident configuration (settings.manage). Each call uses the version of the cached
- * catalogue unless the caller passes one, so two quick edits in a row do not collide.
+ * Change a type's configuration (settings.manage): the incidents' or, with `base`, the
+ * releases'. Each call uses the version of the cached catalogue unless the caller passes one,
+ * so two quick edits in a row do not collide.
  */
-export function useIncidentSettingsChange() {
+export function useSettingsChange(base: SettingsBase) {
   const queryClient = useQueryClient();
+  const key = settingsKey(base);
   return useMutation({
     // Screens show field errors next to the value; anything else goes through reportError.
     meta: { silent: true },
     mutationFn: ({ change, version }: { change: SettingsChange; version?: number }) => {
-      const cached = queryClient.getQueryData<IncidentCatalogue>(queryKeys.incidents.catalogue);
-      return send(change, version ?? cached?.version ?? 0);
+      const cached = queryClient.getQueryData<IncidentCatalogue>(key);
+      return send(base, change, version ?? cached?.version ?? 0);
     },
     onSuccess: (catalogue) => {
-      ownVersions.add(catalogue.version);
-      queryClient.setQueryData(queryKeys.incidents.catalogue, catalogue);
+      ownVersions[base].add(catalogue.version);
+      queryClient.setQueryData(key, catalogue);
     },
     onError: () => {
       // A conflict or refusal: show what is saved now.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.catalogue });
+      void queryClient.invalidateQueries({ queryKey: key });
     },
   });
+}
+
+/** Change the incident configuration (settings.manage); see useSettingsChange. */
+export function useIncidentSettingsChange() {
+  return useSettingsChange('incidents');
 }
 
 export type TemplateChange =

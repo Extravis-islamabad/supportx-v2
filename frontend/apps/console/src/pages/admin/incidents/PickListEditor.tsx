@@ -2,11 +2,11 @@ import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { Badge, Card, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import { useState } from 'react';
 
-import { useIncidentCatalogue, type Labels, type PickList } from '@supportx/api-client';
+import type { Labels, PickList } from '@supportx/api-client';
 import { ConflictDialog, EmptyText, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { labelled } from '../../incidents/labels';
-import { shippedKey, useOpenedVersion, useSettingsSave } from './helpers';
+import { shippedKey, useOpenedVersion, useSettingsCatalogue, useSettingsSave } from './helpers';
 import { ValueDialog } from './shared';
 
 export interface PickValue {
@@ -40,7 +40,7 @@ export function PickListEditor({
   const { locale } = useAppearance();
   const { save, conflictDialog, pending, problems, clear } = useSettingsSave();
   const [editing, setEditing] = useState<PickValue | 'new' | null>(null);
-  const catalogue = useIncidentCatalogue();
+  const catalogue = useSettingsCatalogue();
   const opened = useOpenedVersion(editing !== null, catalogue.data?.version ?? 0);
   const name = (v: PickValue) => labelled(v.labels, locale, () => t(shippedKey(list, v.code)));
   const move = (index: number, delta: number) => {

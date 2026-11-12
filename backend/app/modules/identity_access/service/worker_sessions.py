@@ -26,14 +26,14 @@ TenantSessionEnder = Callable[[uuid.UUID, uuid.UUID], Awaitable[None]]
 
 def worker_session_ender(settings: Settings) -> TenantSessionEnder | None:
     """`end(tenant_id, user_id)`, or None where sessions are not configured (tests, dev)."""
-    if settings.valkey_url is None or settings.session_secret is None:
+    cipher = SessionCipher.from_settings(settings)
+    if settings.valkey_url is None or cipher is None:
         return None
-    secret = settings.session_secret.get_secret_value()
 
     async def end(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         kv = valkey_client(settings)
         try:
-            store = SessionStore(ValkeyKeyValue(kv), SessionCipher(secret))
+            store = SessionStore(ValkeyKeyValue(kv), cipher)
             await store.end_user_sessions(
                 user_key(str(tenant_id), str(user_id)), system_clock.now(), MAX_SESSION
             )
