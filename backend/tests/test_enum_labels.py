@@ -204,6 +204,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "SignInOutcome": "sign_in_outcome",  # WP-057 S1a (REQ-AUD-015)
     "SignInMethod": "sign_in_method",
     "SignInApp": "sign_in_app",
+    "SsoRequired": "sso_required_mode",  # WP-057 S1b (REQ-SEC-009)
     "FingerprintStatus": "audit_fingerprint_status",  # WP-064 S2 (ADR-046)
     "ExportFilter": "audit_export_filter",
     "AuditExportIn.format": "audit_export_format",
