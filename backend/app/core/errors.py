@@ -368,6 +368,15 @@ async def notify_error(request: Request, status: int, code: str) -> None:
 
 async def _app_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AppError)  # noqa: S101 - registered for AppError only
+    return await app_error_response(request, exc)
+
+
+async def app_error_response(request: Request, exc: AppError) -> JSONResponse:
+    """The problem response the handler would send, for a route that must add to it.
+
+    E.g. the sign-in callback clears its login-binding cookie on a failure too, which a raised
+    error cannot carry.
+    """
     if exc.status >= HTTPStatus.INTERNAL_SERVER_ERROR:
         log.error("app_error", code=exc.instance_code, status=exc.status.value)
     await notify_error(request, exc.status.value, exc.instance_code)

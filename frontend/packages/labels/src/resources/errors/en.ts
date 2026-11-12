@@ -844,6 +844,8 @@ export const en = {
   'errors.linked_records_not_available': 'Linked records are not available yet.',
   'errors.list_not_found': 'This list does not keep settings.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
+  'errors.login_not_this_browser':
+    'This sign-in was started in another browser or has expired. Please sign in again here.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
   'errors.mail_attachment_type': 'This type of file cannot be sent by email.',

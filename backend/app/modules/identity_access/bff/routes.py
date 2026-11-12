@@ -19,12 +19,19 @@ from app.core.errors import (
     RateLimited,
     ServiceUnavailable,
     Unauthenticated,
+    app_error_response,
 )
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.api.sessions import ListedSessionOut, listed_out
-from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
+from app.modules.identity_access.bff.cookies import (
+    clear_login_cookie,
+    clear_session_cookie,
+    login_cookie_name,
+    set_login_cookie,
+    set_session_cookie,
+)
 from app.modules.identity_access.domain.identity import (
     DEFAULT_TEXT_SCALE,
     Digits,
@@ -48,11 +55,13 @@ from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import password_reset as password_reset_service
 from app.modules.identity_access.service import sso
 from app.modules.identity_access.service.auth import (
+    LOGIN_STATE_TTL,
     AccountAction,
     AuthService,
     EnrolFirst,
     LoginAddress,
     LoginFailure,
+    LoginStarted,
     PortalInstead,
 )
 from app.modules.identity_access.service.sso_test import TestFinished
@@ -256,14 +265,27 @@ async def login(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of one sig
     # Keycloak's own session must not sign it back in without the password (REQ-SEC-029).
     previous = request.cookies.get(auth.cookie_name)
     timed_out = previous is not None and await auth.store.get_session(previous) is None
-    url = await auth.start_login(
+    started = await auth.start_login(
         app,
         return_to,
         await _address(request),
         reauthenticate=timed_out,
         mobile=mobile,
     )
-    return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
+    return _to_keycloak(auth, started)
+
+
+def _to_keycloak(auth: AuthService, started: LoginStarted) -> RedirectResponse:
+    """Send the browser to Keycloak, holding its login-binding cookie (audit row 4).
+
+    Every browser start of a sign-in goes through here, so every callback can be checked
+    against the browser that started it. The app's sign-in has no binding (ADR-044).
+    """
+    response = RedirectResponse(started.url, status_code=status.HTTP_302_FOUND)
+    if started.binding is not None:
+        max_age = int(LOGIN_STATE_TTL.total_seconds())
+        set_login_cookie(response, auth.settings, started.state, started.binding, max_age)
+    return response
 
 
 @router.get(
@@ -281,34 +303,43 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
     state: str | None = None,
     error: str | None = None,
     kc_action_status: str | None = None,
-) -> RedirectResponse:
+) -> Response:
     """Keycloak sends the browser here. Creates a new session and sets the session cookie.
 
     Failures are RFC 9457 problems for API clients. A browser navigation (Accept: text/html) is
     sent back to its app with `?auth_error=<code>` instead, which the app shows as a translated
     message (CLAUDE.md rule d: no raw codes or JSON on screen).
+
+    The browser must hold the login-binding cookie its sign-in started with (audit row 4); the
+    cookie is spent here, whether the sign-in succeeds or fails.
     """
+    response = await _finish_callback(request, auth, code, state, error, kc_action_status)
+    if state and login_cookie_name(auth.settings, state) in request.cookies:
+        clear_login_cookie(response, auth.settings, state)
+    return response
+
+
+async def _finish_callback(  # noqa: PLR0913, PLR0917 - the callback's parts, passed on
+    request: Request,
+    auth: AuthService,
+    code: str | None,
+    state: str | None,
+    error: str | None,
+    kc_action_status: str | None,
+) -> Response:
+    binding = request.cookies.get(login_cookie_name(auth.settings, state)) if state else None
     try:
         result = await auth.complete_login(
             code=code,
             state=state,
             error=error,
             previous_session_id=request.cookies.get(auth.cookie_name),
+            binding=binding,
             host=request.headers.get("host"),
             action_status=kc_action_status,
         )
     except LoginFailure as failure:
-        if failure.mobile_return is not None:  # back to the app, which shows the label
-            target = app_return(failure.mobile_return, auth_error=failure.problem.instance_code)
-            return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
-        if "text/html" not in request.headers.get("accept", ""):
-            raise failure.problem from failure
-        query = urlencode({"auth_error": failure.problem.instance_code})
-        base = auth.base_url(failure.app)
-        if failure.origin is not None:  # back to the tenant's own address (WP-017)
-            base = failure.origin + urlsplit(base).path.rstrip("/")
-        target = f"{base}/?{query}"
-        return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+        return await _failure_response(request, auth, failure)
     if isinstance(result, EnrolFirst):  # past the MFA grace period: Keycloak makes them enrol
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     if isinstance(result, PortalInstead):  # a requester on the console: no session, the portal
@@ -321,6 +352,24 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
     if not result.mobile:  # the app gets a hand-off code in the address instead (ADR-044)
         set_session_cookie(response, auth.settings, result.session_id)
     return response
+
+
+async def _failure_response(request: Request, auth: AuthService, failure: LoginFailure) -> Response:
+    """A failed sign-in: back to the app (mobile), back to the UI with a code, or a problem.
+
+    A problem response, not a raised error: the callback still adds its cookie clearing to it.
+    """
+    if failure.mobile_return is not None:  # back to the app, which shows the label
+        target = app_return(failure.mobile_return, auth_error=failure.problem.instance_code)
+        return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+    if "text/html" not in request.headers.get("accept", ""):
+        return await app_error_response(request, failure.problem)
+    query = urlencode({"auth_error": failure.problem.instance_code})
+    base = auth.base_url(failure.app)
+    if failure.origin is not None:  # back to the tenant's own address (WP-017)
+        base = failure.origin + urlsplit(base).path.rstrip("/")
+    target = f"{base}/?{query}"
+    return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
 
 
 class MobileExchangeIn(BaseModel):
@@ -606,8 +655,8 @@ async def account_action(
     _session_id, session = found
     address = await _address(request)
     app: Literal["console", "portal"] = "portal" if session.client == "portal" else "console"
-    url = await auth.start_login(app, return_to, address, account_action=action)
-    return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
+    started = await auth.start_login(app, return_to, address, account_action=action)
+    return _to_keycloak(auth, started)
 
 
 @router.get("/sessions", summary="Your signed-in browsers and devices")

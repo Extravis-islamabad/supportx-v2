@@ -848,6 +848,8 @@ export const ur: LabelResource = {
   'errors.linked_records_not_available': 'منسلک ریکارڈ ابھی دستیاب نہیں۔',
   'errors.list_not_found': 'یہ فہرست ترتیبات محفوظ نہیں کرتی۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
+  'errors.login_not_this_browser':
+    'یہ سائن اِن کسی اور براؤزر میں شروع ہوا تھا یا اس کی میعاد ختم ہو گئی ہے۔ براہِ کرم یہاں دوبارہ سائن اِن کریں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
   'errors.mail_attachment_type': 'اس قسم کی فائل ای میل سے نہیں بھیجی جا سکتی۔',
