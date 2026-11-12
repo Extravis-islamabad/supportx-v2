@@ -11,6 +11,8 @@ import {
 } from '@supportx/api-client';
 import { PageHeader, reportError, SettingsCard, StickySaveBar, useLabel } from '@supportx/ui';
 
+import { LifecycleTab } from '../incidents/LifecycleTab';
+
 // Whom a requester may raise a request for (REQ-SR-011), widest last. Staff raise for anyone;
 // a requester always may raise for their own direct reports.
 const SCOPES: OnBehalfScope[] = ['same_department', 'same_site', 'all_requesters', 'all_users'];
@@ -187,6 +189,7 @@ export function RequestSettingsPage() {
         onSave={submit}
         testId="sr-settings-save-bar"
       />
+      <LifecycleTab catalogue={saved} base="service-requests" />
     </Flex>
   );
 }

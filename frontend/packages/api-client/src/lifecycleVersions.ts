@@ -13,7 +13,7 @@ export type LifecycleProblem = components['schemas']['LifecycleProblemOut'];
 export type LifecycleDraft = components['schemas']['LifecycleDraftOut'];
 
 /** The types whose life cycles are action-based (staged types version with their stages). */
-export type LifecycleBase = 'incidents' | 'requests' | 'problems';
+export type LifecycleBase = 'incidents' | 'service-requests' | 'problems';
 type Path = `/api/v1/incidents/settings/lifecycles${string}`;
 // The incident paths stand for every base in the typed client: same shapes under each path.
 const at = <P extends Path>(base: LifecycleBase, path: P): P =>

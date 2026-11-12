@@ -52,8 +52,14 @@ const FIELDS = [
 ] as const;
 const TYPE_OF: Record<LifecycleBase, 'incident' | 'service_request' | 'problem'> = {
   incidents: 'incident',
-  requests: 'service_request',
+  'service-requests': 'service_request',
   problems: 'problem',
+};
+// Each type's own rights (the server's permission_prefix): an extra right is one of these.
+const RIGHTS_PREFIX: Record<LifecycleBase, string> = {
+  incidents: 'incidents.',
+  'service-requests': 'requests.',
+  problems: 'problems.',
 };
 
 type Translate = ReturnType<typeof useLabel>;
@@ -119,7 +125,7 @@ export function LifecycleTab({
   const actions = [
     ...new Set([...catalogue.transitions.map((m) => m.action), ...moves.map((m) => m.action)]),
   ];
-  const prefix = `${base}.`;
+  const prefix = RIGHTS_PREFIX[base];
   const rightOptions = (rights.data ?? [])
     .filter((p) => p.key.startsWith(prefix))
     .map((p) => ({ value: p.key, label: t(`permission.${p.key}`) }));
