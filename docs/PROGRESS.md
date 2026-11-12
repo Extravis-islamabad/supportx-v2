@@ -1312,7 +1312,7 @@ it with no reload (rule c). Not built yet.
   - Personal timers: one per person per record, on the server; stop prefills a worklog; resolve,
     close or cancel turns running timers into drafts that count once their owner confirms them;
     auto-start once for the record's technician. Live on the personal channel only.
-- **S3 PR 2 (no migration; REQ-INC-071; #432, merged):** time analysis per status, group and
+- **S3 PR 2 (no migration; REQ-INC-071; #432):** time analysis per status, group and
   technician, open and paused, on the record's calendar; the incident's Time tab.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
