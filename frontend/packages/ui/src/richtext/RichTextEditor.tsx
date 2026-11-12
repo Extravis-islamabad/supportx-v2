@@ -48,6 +48,7 @@ import { queryKeys, useFileRules, type FileRules } from '@supportx/api-client';
 import { usePersonalChannel } from '@supportx/realtime';
 
 import { useAppearance, useLabel } from '../appearance';
+import { reportError } from '../errors/reporter';
 import {
   BlockFormat,
   CALLOUTS,
@@ -395,6 +396,30 @@ function Toolbar({
 }) {
   const t = useLabel();
   const { direction } = useAppearance();
+  // Templates the server is filling for this record (WP-046a S5a; lane C's conditions): the
+  // text goes where the click was, once, and only while the editor is still open. A failed
+  // fill inserts nothing (never the raw text with its {{ variables }}) and is reported.
+  const [filling, setFilling] = useState<ReadonlySet<string>>(new Set());
+  const pending = useRef(new Set<string>());
+  const insertFilled = (id: string, fill: () => Promise<string>): void => {
+    if (pending.current.has(id)) return;
+    pending.current.add(id);
+    setFilling(new Set(pending.current));
+    const { from, to } = editor.state.selection;
+    const done = (): void => {
+      pending.current.delete(id);
+      setFilling(new Set(pending.current));
+    };
+    fill()
+      .then((html) => {
+        if (!html || editor.isDestroyed) return;
+        const size = editor.state.doc.content.size;
+        if (to <= size) editor.chain().focus().insertContentAt({ from, to }, html).run();
+        else editor.chain().focus().insertContent(html).run();
+      })
+      .catch(reportError)
+      .finally(done);
+  };
   const [linking, setLinking] = useState(false);
   const [href, setHref] = useState('');
   // How much of the toolbar fits on one row, measured rather than guessed from fixed widths: a
@@ -801,7 +826,14 @@ function Toolbar({
                 : templates.map((template) => ({
                     key: template.id,
                     label: <bdi dir="auto">{template.name}</bdi>,
-                    onClick: () => chain().insertContent(template.body).run(),
+                    disabled: filling.has(template.id),
+                    onClick: () => {
+                      if (template.fill === undefined) {
+                        chain().insertContent(template.body).run();
+                        return;
+                      }
+                      insertFilled(template.id, template.fill);
+                    },
                   }))),
               ...(onManageTemplates === undefined
                 ? []

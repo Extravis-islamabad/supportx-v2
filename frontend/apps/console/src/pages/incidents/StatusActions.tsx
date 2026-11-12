@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import {
   ApiError,
   attachDrafts,
+  type ConversationBase,
   useIncidentAction,
   type Incident,
   type IncidentAction,
@@ -72,6 +73,11 @@ export function useStatusActions(
   catalogue: IncidentCatalogue | undefined,
   /** Another type's action mutation (problems, WP-044a); the incident one by default. */
   override?: ReturnType<typeof useIncidentAction>,
+  /**
+   * Whose resolution templates the resolution editor offers (WP-046a S5a): the incident's by
+   * default, another type's route prefix when it passes one, none when it passes null.
+   */
+  templateBase: ConversationBase | null = override === undefined ? 'incidents' : null,
 ): { actions: RecordAction[]; dialogs: ReactNode } {
   const t = useLabel();
   const reasonText = useActionReason();
@@ -226,6 +232,11 @@ export function useStatusActions(
             previous: previousResolution,
           }}
           catalogue={catalogue}
+          templates={
+            templateBase === null
+              ? undefined
+              : { recordId: item.id, categoryId: item.category_id, base: templateBase }
+          }
           pending={act.isPending}
           error={act.error}
           problem={problem}

@@ -202,12 +202,13 @@ export function useReplyTemplates(
   enabled = true,
   kind: ReplyTemplateKind = 'reply',
   categoryId?: string | null,
+  base: ConversationBase = 'incidents',
 ) {
   return useQuery({
-    queryKey: [...queryKeys.incidents.replyTemplates, kind, categoryId ?? null],
+    queryKey: [...queryKeys.incidents.replyTemplates, base, kind, categoryId ?? null],
     queryFn: () =>
       call(
-        api.GET('/api/v1/incidents/reply-templates', {
+        api.GET(at(base, '/api/v1/incidents/reply-templates'), {
           params: { query: { kind, category_id: categoryId ?? undefined } },
         }),
       ),
@@ -231,9 +232,10 @@ export function fillReplyTemplate(
   recordId: string,
   templateId: string,
   language?: 'en' | 'ar' | 'ur' | null,
+  base: ConversationBase = 'incidents',
 ): Promise<FilledTemplate> {
   return call(
-    api.POST('/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill', {
+    api.POST(at(base, '/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill'), {
       params: { path: { record_id: recordId, template_id: templateId } },
       body: { language: language ?? null },
     }),

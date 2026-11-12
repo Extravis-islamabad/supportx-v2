@@ -309,7 +309,7 @@ export const en = {
   'richtext.table': 'Insert table',
   'richtext.templates': 'Templates',
   'richtext.templates_manage': 'Manage templates…',
-  'richtext.templates_none': 'No reply templates yet',
+  'richtext.templates_none': 'No templates yet',
   'richtext.text_colour': 'Text colour',
   'richtext.text_style': 'Text style',
   'richtext.toolbar': 'Formatting',

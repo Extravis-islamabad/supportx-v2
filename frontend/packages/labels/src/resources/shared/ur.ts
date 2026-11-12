@@ -307,7 +307,7 @@ export const ur: LabelResource = {
   'richtext.table': 'جدول شامل کریں',
   'richtext.templates': 'سانچے',
   'richtext.templates_manage': 'سانچوں کا انتظام…',
-  'richtext.templates_none': 'ابھی کوئی جواب کا سانچہ نہیں',
+  'richtext.templates_none': 'ابھی کوئی سانچہ نہیں',
   'richtext.text_colour': 'متن کا رنگ',
   'richtext.text_style': 'متن کا انداز',
   'richtext.toolbar': 'فارمیٹنگ',

@@ -320,7 +320,7 @@ export const ar: LabelResource = {
   'richtext.table': 'إدراج جدول',
   'richtext.templates': 'القوالب',
   'richtext.templates_manage': 'إدارة القوالب…',
-  'richtext.templates_none': 'لا توجد قوالب رد بعد',
+  'richtext.templates_none': 'لا توجد قوالب بعد',
   'richtext.text_colour': 'لون النص',
   'richtext.text_style': 'نمط النص',
   'richtext.toolbar': 'التنسيق',

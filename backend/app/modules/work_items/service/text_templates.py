@@ -410,7 +410,9 @@ async def fill_for(  # noqa: PLR0913 - the template, the record and the reader, 
     return Filled(
         language=language,
         subject=fill(row.subject, values, not_set) if row.subject else None,
-        body=fill(bodies.get(language, ""), values, not_set),
+        # Sanitised again once filled (lane C): the values went in escaped, and the text meets
+        # the editor's allow-list whatever was stored before the allow-list last changed.
+        body=sanitize_html(fill(bodies.get(language, ""), values, not_set)),
     )
 
 
