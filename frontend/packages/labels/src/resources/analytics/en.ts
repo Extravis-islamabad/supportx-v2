@@ -5,6 +5,7 @@ export const en = {
   'age_bucket.7_to_30_days': '7 to 30 days',
   'age_bucket.over_30_days': 'Over 30 days',
   'age_bucket.under_1_day': 'Under 1 day',
+  'dashboard.changes': 'Changes',
   'dashboard.my_work': 'My work',
   'dashboard.my_work.description':
     'Your open incidents, what you resolved this week and the queue.',
@@ -23,6 +24,18 @@ export const en = {
   'dashboard_widget.backlog_trend': 'Backlog trend',
   'dashboard_widget.backlog_trend.description':
     'Incidents still open at the end of each week, the last 90 days.',
+  'dashboard_widget.change_emergency_share': 'Emergency changes',
+  'dashboard_widget.change_emergency_share.description':
+    'Share of changes raised in the last 90 days that took the emergency path.',
+  'dashboard_widget.change_failed': 'Failed or backed out',
+  'dashboard_widget.change_failed.description':
+    'Changes raised in the last 90 days whose implementation failed or was backed out.',
+  'dashboard_widget.change_freeze_overrides': 'Freeze overrides',
+  'dashboard_widget.change_freeze_overrides.description':
+    'Changes raised in the last 90 days that went ahead in a blocking freeze.',
+  'dashboard_widget.change_success_rate': 'Change success rate',
+  'dashboard_widget.change_success_rate.description':
+    'Share of changes raised in the last 90 days whose implementation passed, of those with an outcome.',
   'dashboard_widget.created_vs_resolved': 'Created vs resolved',
   'dashboard_widget.created_vs_resolved.description':
     'Incidents created and resolved each day of the last 30 days.',
@@ -218,6 +231,28 @@ export const en = {
   'measure.asset.total_cost_total': 'Total cost of ownership',
   'measure.asset.total_cost_total.help':
     'What the assets cost to buy and keep (service, moves, contracts and other costs), added up, in the base currency.',
+  'measure.change.actual_downtime_total': 'Actual downtime',
+  'measure.change.actual_downtime_total.help':
+    'Total downtime that actually happened during the changes.',
+  'measure.change.average_implementation_time': 'Average implementation time',
+  'measure.change.average_implementation_time.help':
+    'Mean time from the actual start to the actual end of implementation, for changes with both.',
+  'measure.change.count': 'Changes',
+  'measure.change.count.help': 'Every change that matches the filters and that you may see.',
+  'measure.change.emergency_share': 'Emergency share',
+  'measure.change.emergency_share.help': 'Share of changes that took the emergency path.',
+  'measure.change.failed_count': 'Failed or backed out',
+  'measure.change.failed_count.help': 'Changes whose implementation failed or was backed out.',
+  'measure.change.freeze_override_count': 'Freeze overrides',
+  'measure.change.freeze_override_count.help':
+    "Changes that went ahead in a blocking freeze, by an override or an emergency board's decision.",
+  'measure.change.planned_downtime_total': 'Planned downtime',
+  'measure.change.planned_downtime_total.help': 'Total downtime planned for the changes.',
+  'measure.change.retrospective_share': 'Retrospective share',
+  'measure.change.retrospective_share.help': 'Share of changes recorded after the work was done.',
+  'measure.change.success_rate': 'Success rate',
+  'measure.change.success_rate.help':
+    'Share of changes whose implementation passed, of the changes whose implementation has an outcome. No outcome yet means no rate.',
   'measure.incident.average_reassignments': 'Average reassignments',
   'measure.incident.average_reassignments.help':
     'Average number of times an incident moved to another group or technician.',
@@ -282,6 +317,53 @@ export const en = {
   'report.assets_warranty_ending': 'Warranties ending in the next 90 days',
   'report.assets_warranty_ending.description':
     'Assets whose warranty ends within 90 days, by the month it ends.',
+  'report.changes_by_outcome': 'Changes by outcome',
+  'report.changes_by_outcome.description':
+    'Changes raised in the last 90 days whose implementation has an outcome, by that outcome.',
+  'report.changes_by_reason': 'Changes by reason',
+  'report.changes_by_reason.description':
+    'Changes raised in the last 90 days, by the reason for the change.',
+  'report.changes_by_risk': 'Changes by risk',
+  'report.changes_by_risk.description': 'Changes raised in the last 90 days, by risk level.',
+  'report.changes_by_status': 'Changes by status',
+  'report.changes_by_status.description': 'Changes raised in the period, by their current status.',
+  'report.changes_by_type': 'Changes by type',
+  'report.changes_by_type.description': 'Changes raised in the last 90 days, by change type.',
+  'report.changes_downtime_per_month': 'Planned and actual downtime per month',
+  'report.changes_downtime_per_month.description':
+    'Downtime planned and downtime that happened, month by month over a year.',
+  'report.changes_emergency_share_per_month': 'Emergency share per month',
+  'report.changes_emergency_share_per_month.description':
+    'Share of changes that took the emergency path, month by month over a year.',
+  'report.changes_freeze_overrides_by_group': 'Freeze overrides by group',
+  'report.changes_freeze_overrides_by_group.description':
+    'Changes raised in the last 90 days that went ahead in a blocking freeze, by support group.',
+  'report.changes_implementation_time_by_type': 'Implementation time by change type',
+  'report.changes_implementation_time_by_type.description':
+    'Mean actual implementation time of changes raised in the last 90 days, by change type.',
+  'report.changes_open_ageing': 'Ageing of open changes',
+  'report.changes_open_ageing.description': 'How long open and waiting changes have been open.',
+  'report.changes_open_by_group': 'Open changes by group',
+  'report.changes_open_by_group.description': 'Open and waiting changes, by support group.',
+  'report.changes_open_by_priority': 'Open changes by priority',
+  'report.changes_open_by_priority.description': 'Open and waiting changes, by priority.',
+  'report.changes_open_by_stage': 'Open changes by stage',
+  'report.changes_open_by_stage.description': 'Open and waiting changes, by the stage they are in.',
+  'report.changes_open_by_status': 'Open changes by status',
+  'report.changes_open_by_status.description': 'Open and waiting changes, by status.',
+  'report.changes_open_by_technician': 'Open changes by owner',
+  'report.changes_open_by_technician.description':
+    'Open and waiting changes, by the person who owns them.',
+  'report.changes_received_per_week': 'Changes raised per week',
+  'report.changes_received_per_week.description': 'New changes each week, over six months.',
+  'report.changes_resolved_per_week': 'Changes completed per week',
+  'report.changes_resolved_per_week.description': 'Changes completed each week, over six months.',
+  'report.changes_success_rate_by_group': 'Success rate by group',
+  'report.changes_success_rate_by_group.description':
+    'Success rate and number of changes raised in the last 90 days, by support group.',
+  'report.changes_success_rate_by_type': 'Success rate by change type',
+  'report.changes_success_rate_by_type.description':
+    'Success rate and number of changes raised in the last 90 days, by change type.',
   'report.incidents_all': 'All incidents',
   'report.incidents_all.description': 'Every incident created in the period, by status.',
   'report.incidents_by_status': 'Incidents by status',

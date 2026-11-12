@@ -95,12 +95,14 @@ export function fetchUser(id: string): Promise<UserDetail> {
 }
 
 /** One user; its ETag is remembered by the client for the next PATCH (If-Match). */
-export function useUser(id: string | undefined) {
+export function useUser(id: string | undefined, options: { silent?: boolean } = {}) {
   return useQuery({
     queryKey: queryKeys.users.detail(id ?? ''),
     queryFn: () =>
       call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: id ?? '' } } })),
     enabled: id !== undefined,
+    // `silent`: the caller shows the failure in place (a picker naming someone you can't see).
+    meta: { silent: options.silent === true },
   });
 }
 

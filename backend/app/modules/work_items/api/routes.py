@@ -23,6 +23,10 @@ from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.asset_routes import add_asset_routes
+from app.modules.work_items.api.checklist_routes import (
+    add_checklist_collection_routes,
+    add_checklist_routes,
+)
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
@@ -903,6 +907,18 @@ class ListChangeFactsOut(BaseModel):
     risk: RiskLevel | None
 
 
+class ListReleaseFactsOut(BaseModel):
+    """A release's own columns for its list row (REQ-REL-055)."""
+
+    release_type: str | None
+    release_version: str | None
+    scheduled_end: datetime | None
+    release_manager_id: uuid.UUID | None
+    release_engineer_id: uuid.UUID | None
+    tasks_done: int
+    tasks_total: int = Field(description="Its tasks, canceled ones not counted.")
+
+
 class WorkItemPage(Page[WorkItemListItem]):
     """One page of a list, with the display names of the people on it."""
 
@@ -910,6 +926,10 @@ class WorkItemPage(Page[WorkItemListItem]):
     changes: dict[str, ListChangeFactsOut] = Field(
         default_factory=dict,
         description="Changes only: each row's type and risk (the effective one), by record ID.",
+    )
+    releases: dict[str, ListReleaseFactsOut] = Field(
+        default_factory=dict,
+        description="Releases only: each row's own columns, by record ID.",
     )
 
 
@@ -1030,6 +1050,9 @@ class WorkItemClosureOut(BaseModel):
     task_dependency_mode: Literal["block", "warn"] = Field(
         default="block",
         description="An open predecessor refuses a task's start or completion, or only warns.",
+    )
+    checklist_item_max: int = Field(
+        default=100, description="Checklist items per record, all its checklists (1 to 1000)."
     )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
@@ -1316,6 +1339,7 @@ class WorkItemCatalogueOut(BaseModel):
                 task_dependency_mode=cast(
                     'Literal["block", "warn"]', cat.closure.task_dependency_mode
                 ),
+                checklist_item_max=cat.closure.checklist_item_max,
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1340,6 +1364,7 @@ class WorkItemClosurePatch(BaseModel):
     reopen_window_days: int | None = None
     task_owner_access: bool | None = None
     task_dependency_mode: Literal["block", "warn"] | None = None
+    checklist_item_max: int | None = Field(default=None, description="1 to 1000.")
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -2002,6 +2027,28 @@ class ParentIn(BaseModel):
     parent_id: uuid.UUID | None
 
 
+class CloseLinkedChangesIn(BaseModel):
+    """The closure code the release's changes close with (WP-058b S5a; REQ-REL-052)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    closure_code: str = Field(min_length=1, max_length=40)
+
+
+class LinkedChangeClosedOut(BaseModel):
+    """One linked change: closed, or skipped and why (a code the UI words).
+
+    A change you may not see has no ID, number or title (`not_visible`).
+    """
+
+    id: uuid.UUID | None
+    display_id: str | None
+    closed: bool
+    code: str | None = None
+    params: dict[str, Any] | None = None
+    field: str | None = Field(default=None, description="A field problem's field, if any.")
+
+
 class ReleaseFollowUpIn(BaseModel):
     """What to make after a failed deployment (REQ-REL-053 AC2)."""
 
@@ -2176,6 +2223,27 @@ async def _change_facts(
     }
 
 
+async def _release_facts(
+    session: AsyncSession, wtype: WorkItemType, ids: list[uuid.UUID]
+) -> dict[str, ListReleaseFactsOut]:
+    """A release list's own columns per row: a few reads for the page (REQ-REL-055)."""
+    if wtype.code is not WorkItemTypeCode.RELEASE or not ids:
+        return {}
+    facts = await service.release_list_facts(session, ids)
+    return {
+        str(i): ListReleaseFactsOut(
+            release_type=f.release_type,
+            release_version=f.release_version,
+            scheduled_end=f.scheduled_end,
+            release_manager_id=f.release_manager_id,
+            release_engineer_id=f.release_engineer_id,
+            tasks_done=f.tasks_done,
+            tasks_total=f.tasks_total,
+        )
+        for i, f in facts.items()
+    }
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -2207,8 +2275,18 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         session: Any,  # noqa: ANN401 - TenantSession (an AsyncSession) from the route
         page: PageResult[WorkItem],
     ) -> WorkItemPage:
+        ids = [r.id for r in page.rows]
+        releases = await _release_facts(session, wtype, ids)
+        # A release's manager and engineer are named on its row too.
+        named = {
+            str(u)
+            for f in releases.values()
+            for u in (f.release_manager_id, f.release_engineer_id)
+            if u is not None
+        }
         people = sorted(
             {str(u) for r in page.rows for u in (r.requester_id, r.technician_id) if u is not None}
+            | named
         )
         return WorkItemPage(
             items=[_item(r) for r in page.rows],
@@ -2216,7 +2294,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             has_more=page.has_more,
             estimated_total=page.estimated_total,
             people=_people(await user_contacts(session, people)),
-            changes=await _change_facts(session, wtype, [r.id for r in page.rows]),
+            changes=await _change_facts(session, wtype, ids),
+            releases=releases,
         )
 
     @router.get("", summary=f"List {wtype.path}")
@@ -2540,6 +2619,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
     add_parts_collection_routes(router, wtype)
+    add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
 
@@ -3004,6 +3084,33 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             )
             return ParentOut(parent_id=parent)
 
+        @router.post(
+            "/{record_id}/changes/close",
+            summary="Close the release's changes you may close",
+            responses=CONFLICT,
+        )
+        async def close_release_changes(
+            record_id: uuid.UUID,
+            body: CloseLinkedChangesIn,
+            session: TenantSession,
+            subject: View,
+            request: Request,
+        ) -> list[LinkedChangeClosedOut]:
+            """REQ-REL-052: each change not closed yet closes by its own close, with this code.
+
+            As you: one you may not close (your right, its life cycle, its rules or open work) is
+            skipped with why, never forced. Nothing on the release itself changes.
+            """
+            found = await release_links.close_linked_changes(
+                session,
+                subject,
+                wtype,
+                record_id,
+                closure_code=body.closure_code,
+                source=source_of(request),
+            )
+            return [LinkedChangeClosedOut(**vars(f)) for f in found]
+
         @router.get("/{record_id}/follow-ups", summary="What was made after the release failed")
         async def get_follow_ups(
             record_id: uuid.UUID, session: TenantSession, subject: View
@@ -3167,8 +3274,12 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             subject: Edit,
             response: Response,
             request: Request,
+            policy: Policy,
         ) -> ReleaseDetailsOut:
-            """Needs If-Match (the release's version). A risk change needs `risk_reason`."""
+            """Needs If-Match (the release's version). A risk change needs `risk_reason`.
+
+            The manager and engineer are the release's roles too: only eligible people.
+            """
             sent = body.model_dump(include=body.model_fields_set - {"risk_reason"})
             view = await service.update_release_details(
                 session,
@@ -3179,6 +3290,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 values=sent,
                 source=source_of(request),
                 risk_reason=body.risk_reason,
+                holders=policy,
             )
             set_etag(response, view.record.version)
             return ReleaseDetailsOut.of(view)
@@ -3589,6 +3701,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
 
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
+    add_checklist_routes(router, wtype)  # WP-046a S2: checklists and personal reminders
     # REQ-AST-025: assets on incidents and requests (the forms and the e-mail ask for them).
     if wtype.code in _WITH_ASSETS:
         add_asset_routes(router, wtype)

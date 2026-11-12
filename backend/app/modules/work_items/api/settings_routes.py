@@ -37,10 +37,11 @@ from app.modules.work_items.domain.templates import (
     is_custom,
     rules_from_json,
 )
-from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType
+from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItemTemplate
 from app.modules.work_items.service import configuration
 from app.modules.work_items.service import templates as template_service
+from app.modules.work_items.service import work_items as items_service
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.history import source_of
@@ -216,6 +217,10 @@ class RoleDefOut(BaseModel):
     eligibility: EligibilityIO | None
     system: bool
     disabled: bool
+    take: bool = Field(
+        default=False,
+        description="Take makes you this role (releases; one per type, else the engineer).",
+    )
 
 
 class RoleDefIn(BaseModel):
@@ -238,6 +243,9 @@ class RoleDefPatch(BaseModel):
     description: dict[str, str] | None = None
     eligibility: EligibilityIO | None = None
     disabled: bool | None = None
+    take: bool | None = Field(
+        default=None, description="Releases: Take makes you this role (moves the marker here)."
+    )
 
 
 class ListOrderIn(BaseModel):
@@ -303,6 +311,19 @@ class TemplateTaskIO(BaseModel):
     )
 
 
+class TemplateChecklistIO(BaseModel):
+    """A checklist the template adds to each new record, if its condition matches (INC-040)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(max_length=400)
+    items: list[str] = Field(default_factory=list, max_length=1000)
+    condition: Any = Field(
+        default=None,
+        description="A filter over the record's list fields (the list filter DSL); null: always.",
+    )
+
+
 class TemplateOut(BaseModel):
     """A template as admins and the create form see it."""
 
@@ -336,6 +357,9 @@ class TemplateOut(BaseModel):
     tasks: list[TemplateTaskIO] = Field(
         default_factory=list, description="Tasks each new record gets (REQ-INC-040)."
     )
+    checklists: list[TemplateChecklistIO] = Field(
+        default_factory=list, description="Checklists each new record gets (REQ-INC-040)."
+    )
     version: int
 
     @classmethod
@@ -368,6 +392,7 @@ class TemplateOut(BaseModel):
             stage_path=row.stage_path,
             stage_rules=row.stage_rules,
             tasks=[TemplateTaskIO.model_validate(t) for t in row.tasks or []],
+            checklists=[TemplateChecklistIO.model_validate(c) for c in row.checklists or []],
             version=row.version,
         )
 
@@ -403,6 +428,12 @@ class TemplateIn(BaseModel):
         description="Tasks each new record gets, if their condition matches (REQ-INC-040)."
         " Replaces all of them; existing records keep theirs.",
     )
+    checklists: list[TemplateChecklistIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
+    )
 
 
 class TemplatePatch(BaseModel):
@@ -436,6 +467,12 @@ class TemplatePatch(BaseModel):
         default=None,
         max_length=20,
         description="Tasks each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
+    )
+    checklists: list[TemplateChecklistIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
         " Replaces all of them; existing records keep theirs.",
     )
 
@@ -574,8 +611,14 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
 
         @router.get("/settings/roles", summary="Roles and who may hold them")
         async def get_role_defs(session: TenantSession, subject: Admin) -> list[RoleDefOut]:
-            """Every role in order, retired ones included (marked)."""
+            """Every role in order, retired ones included (marked); `take` on the Take role."""
             del subject
+            rows = await configuration.role_def_rows(session, wtype)
+            taken = (
+                await items_service.taken_role(session, wtype)
+                if wtype.code is WorkItemTypeCode.RELEASE
+                else None
+            )
             return [
                 RoleDefOut(
                     code=r.code,
@@ -587,8 +630,9 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
                     else None,
                     system=r.system,
                     disabled=r.disabled_at is not None,
+                    take=r.code == taken,
                 )
-                for r in await configuration.role_def_rows(session, wtype)
+                for r in rows
             ]
 
         @router.post(

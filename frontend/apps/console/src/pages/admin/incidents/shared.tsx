@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { Labels } from '@supportx/api-client';
 import { useLabelsIn } from '@supportx/labels';
-import { useLabel, lengthLimit } from '@supportx/ui';
+import { useLabel, lengthLimit, WriteButton } from '@supportx/ui';
 
 import { cleanLabels } from './helpers';
 
@@ -158,13 +158,24 @@ export function ValueDialog({
     <Modal
       open={open}
       title={title}
-      okText={t('actions.save')}
       cancelText={t('actions.cancel')}
-      confirmLoading={pending}
       onCancel={onCancel}
-      onOk={() => {
-        onSave(shippedName ? null : (cleanLabels(names) ?? {}), hex);
-      }}
+      // Save is a WriteButton: in read-only mode it is disabled and says why (lane C's §17).
+      footer={(_, { CancelBtn }) => (
+        <>
+          <CancelBtn />
+          <WriteButton
+            type="primary"
+            loading={pending}
+            onClick={() => {
+              onSave(shippedName ? null : (cleanLabels(names) ?? {}), hex);
+            }}
+            data-testid={`${testId}-save`}
+          >
+            {t('actions.save')}
+          </WriteButton>
+        </>
+      )}
       destroyOnHidden
       data-testid={testId}
     >

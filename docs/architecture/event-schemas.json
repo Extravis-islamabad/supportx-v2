@@ -3196,6 +3196,33 @@
         "type": "object"
       }
     },
+    "identity_access.user_cost_rate.changed": {
+      "1": {
+        "description": "A person's cost per hour was set, changed or removed (REQ-INC-068).\n\nIDs and the kind of change only, never the amount: screens with `users.view_cost_rates`\nrefetch the person's rates.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "change"
+        ],
+        "title": "UserCostRateChanged",
+        "type": "object"
+      }
+    },
     "identity_access.user_role.changed": {
       "1": {
         "description": "A role was assigned to or removed from a user (WP-016).",
@@ -5762,6 +5789,53 @@
         ],
         "title": "WorkItemPartChangedV2",
         "type": "object"
+      },
+      "3": {
+        "description": "As V2, with a record's checklists, personal reminders and timers (WP-046a S2/S3).\n\nNew allowed values retype `part`, so a new schema version (docs/architecture/events.md\n\"Versioning\"); v1 and v2 stay registered and keep publishing their parts. A reminder or a\nrunning timer (REQ-INC-082, -069) is its owner's only: realtime tells their personal\nchannel, never the record's. `timer` is reserved here for S3, so S3 needs no V4.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "task",
+              "worklog",
+              "link",
+              "plan_section",
+              "stage_schedule",
+              "downtime",
+              "checklist",
+              "reminder",
+              "timer"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "part",
+          "part_id",
+          "change"
+        ],
+        "title": "WorkItemPartChangedV3",
+        "type": "object"
       }
     },
     "work_items.portal_settings.changed": {
@@ -5847,6 +5921,41 @@
           "incident_count"
         ],
         "title": "ProblemRepeatDetected",
+        "type": "object"
+      }
+    },
+    "work_items.reminder.due": {
+      "1": {
+        "description": "A person's own reminder on a record alerts them (WP-046a S2; REQ-INC-082 AC1).\n\nRaised once by the sweep at its time minus its lead. IDs only; the source re-reads the\nreminder at send time and says nothing if it moved, was completed, or its owner can no\nlonger see the record (the coordinator).",
+        "properties": {
+          "remind_at": {
+            "format": "date-time",
+            "title": "Remind At",
+            "type": "string"
+          },
+          "reminder_id": {
+            "format": "uuid",
+            "title": "Reminder Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "reminder_id",
+          "user_id",
+          "remind_at"
+        ],
+        "title": "WorkItemReminderDue",
         "type": "object"
       }
     },

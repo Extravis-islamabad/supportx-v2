@@ -233,11 +233,11 @@ export function useSaveListSetting(kind: ListKind = 'incidents') {
 }
 
 /** The lists whose bulk jobs a screen follows: each type keeps its own jobs. */
-export type BulkBase = 'incidents' | 'changes';
+export type BulkBase = 'incidents' | 'changes' | 'releases';
 
 /** One bulk job's cache key, by the list it was started from. */
 export const bulkJobKey = (base: BulkBase, id: string) =>
-  base === 'incidents' ? queryKeys.incidents.bulkJob(id) : (['changes', 'bulk-jobs', id] as const);
+  base === 'incidents' ? queryKeys.incidents.bulkJob(id) : ([base, 'bulk-jobs', id] as const);
 
 /** What a bulk job is asked for: picked rows, or every record of the list as shown. */
 export interface BulkRequest {
@@ -291,10 +291,12 @@ export function useBulkJob(id: string | undefined, base: BulkBase = 'incidents')
     queryKey: bulkJobKey(base, id ?? ''),
     queryFn: () => {
       const params = { params: { path: { job_id: id ?? '' } } };
+      // Every type's job route has the incident route's shape; only the prefix differs.
       return call(
-        base === 'incidents'
-          ? api.GET('/api/v1/incidents/bulk-jobs/{job_id}', params)
-          : api.GET('/api/v1/changes/bulk-jobs/{job_id}', params),
+        api.GET(
+          `/api/v1/${base}/bulk-jobs/{job_id}` as '/api/v1/incidents/bulk-jobs/{job_id}',
+          params,
+        ),
       );
     },
     enabled: id !== undefined,

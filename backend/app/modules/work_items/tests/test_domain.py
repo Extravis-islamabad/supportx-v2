@@ -53,6 +53,7 @@ from app.modules.work_items.domain.types import (
     parse_display_id,
 )
 from app.modules.work_items.service.change_windows import FIELD_PROBLEMS as WINDOW_PROBLEMS
+from app.modules.work_items.service.work_items import RELEASE_DEPLOYED_STAGES
 from app.shared.domain import InvalidTransition
 
 S = DefaultStatus
@@ -294,6 +295,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     }
     found -= {s.code for s in RELEASE_MODEL.statuses}  # releases' seeded moves (from, to)
     found -= {s.code for s in CHANGE_MODEL.statuses}  # changes' seeded moves (WP-045a)
+    found -= set(RELEASE_DEPLOYED_STAGES)  # the stages a "deployed" release is in (WP-058b S5a)
     # A release's own field names: (start, end) pairs and (name, limit) checks, not problems.
     found -= set(DETAIL_FIELDS) | {"change_reason", "risk_chosen"}  # change field-name pairs too
     found -= {"stage_rules"}  # a template's stage settings, ("stage_path", "stage_rules")

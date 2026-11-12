@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied
@@ -161,6 +161,16 @@ async def _for_work(
     """Tasks: `edit`, or an investigator of this record (ADR-040), nothing wider."""
     record, _full = await _work_access(session, subject, wtype, record_id)
     return record
+
+
+async def for_work(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> WorkItem:
+    """The record, if the subject may work on its parts (tasks, checklists).
+
+    `edit`, or an investigator of it; a closed change is locked (REQ-CHG-097).
+    """
+    return await _for_work(session, subject, wtype, record_id)
 
 
 def _own_time_only(wtype: WorkItemType, subject: Subject, owner_id: uuid.UUID | None) -> None:
@@ -1130,8 +1140,15 @@ async def links(
     rows = await session.scalars(
         select(WorkItemLink)
         .where(
-            or_(WorkItemLink.source_id == record_id, WorkItemLink.target_id == record_id),
-            WorkItemLink.kind.in_(_LISTED),
+            or_(
+                and_(
+                    or_(WorkItemLink.source_id == record_id, WorkItemLink.target_id == record_id),
+                    WorkItemLink.kind.in_(_LISTED),
+                ),
+                # The release's own links show on the record it caused or started; the release
+                # page lists those itself (lane C's follow-ups), so only from this side.
+                and_(WorkItemLink.source_id == record_id, WorkItemLink.kind.in_(_TO_RELEASE)),
+            ),
             WorkItemLink.deleted_at.is_(None),
         )
         .order_by(WorkItemLink.created_at, WorkItemLink.id)
@@ -1172,10 +1189,21 @@ _LISTED = (
     LinkKind.CAUSED_BY.value,
     LinkKind.MERGED_INTO.value,
 )
+# A record to the release that caused it or that it started (lane C's WP-058b), listed only on
+# the record's side.
+_TO_RELEASE = (LinkKind.CAUSED_BY_RELEASE.value, LinkKind.STARTED_RELEASE.value)
 
 
 Relation = Literal[
-    "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
+    "related",
+    "follows",
+    "followed_by",
+    "caused_by",
+    "causes",
+    "merged_into",
+    "merged_from",
+    "caused_by_release",
+    "started_release",
 ]
 
 
@@ -1190,7 +1218,11 @@ def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
             return "caused_by" if mine_is_source else "causes"
         case LinkKind.MERGED_INTO:
             return "merged_into" if mine_is_source else "merged_from"
-        case _:  # never listed (_LISTED)
+        case LinkKind.CAUSED_BY_RELEASE if mine_is_source:
+            return "caused_by_release"
+        case LinkKind.STARTED_RELEASE if mine_is_source:
+            return "started_release"
+        case _:  # never listed (_LISTED, _TO_RELEASE from the record's side)
             msg = f"link kind {kind} is not listed here"
             raise ValueError(msg)
 

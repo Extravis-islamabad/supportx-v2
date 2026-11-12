@@ -131,6 +131,7 @@ class ClosureSettings:
     reopen_window_days: int
     task_owner_access: bool = False  # WP-020e (D-112)
     task_dependency_mode: str = "block"  # WP-046a S1 (REQ-INC-075): block or warn
+    checklist_item_max: int = 100  # WP-046a S2: items per record, all its checklists
 
 
 @dataclass(frozen=True)
@@ -863,6 +864,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             reopen_window_days=settings.reopen_window_days,
             task_owner_access=settings.task_owner_access,
             task_dependency_mode=settings.task_dependency_mode,
+            checklist_item_max=settings.checklist_item_max,
         ),
         last_number=await last_number(session, wtype.counter_key),
     )

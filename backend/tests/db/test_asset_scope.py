@@ -186,3 +186,37 @@ async def test_a_product_change_keeps_the_site_and_is_allowed(world: World) -> N
         headers={"If-Match": f'"{asset["version"]}"'},
     )  # fmt: skip
     assert changed.status_code == 200, changed.text
+
+
+async def test_a_scoped_manager_s_import_refuses_other_site_rows_one_by_one(world: World) -> None:
+    """Imports create through create_asset row by row (S4c's batches included), so a site-scoped
+    manager's rows for another site are refused each with asset_site_not_managed, and their own
+    site's rows are made (lane A's #423 note)."""
+    from app.modules.assets.service.imports import run_asset_imports  # noqa: PLC0415
+    from tests.db.test_asset_bulk_merge_import_api import _import, _run  # noqa: PLC0415
+
+    a = world.a
+    tech = await _site_manager(world)
+    product = f"Import scope {uuid.uuid4().hex[:6]}"
+    await _product(world, a, "laptop", product)
+    rows = await world.sql(
+        "SELECT id, name FROM sites WHERE tenant_id = $1 AND id = ANY($2::uuid[])",
+        a.tenant,
+        [a.s1, a.s2],
+    )
+    names = {r["id"]: r["name"] for r in rows}
+    csv = (
+        "Name,Product,Serial number,Site\n"
+        f"Own site,{product},ISC-1,{names[a.s1]}\n"
+        f"Other site,{product},ISC-2,{names[a.s2]}\n"
+        f"Own again,{product},ISC-3,{names[a.s1]}\n"
+    ).encode()
+    started = await _import(world, a, csv, user=tech, mode="add")
+    assert started.status_code == 201, started.text
+    await _run(world, run_asset_imports)
+    # An import is its requester's own: read it as the technician.
+    found = await world.call("GET", f"{BASE}/imports/{started.json()['id']}", a, tech)
+    assert found.status_code == 200, found.text
+    checked = found.json()
+    assert (checked["created_count"], checked["failed_count"]) == (2, 1), checked
+    assert checked["problems"] == [{"row": 3, "field": "row", "code": "asset_site_not_managed"}]

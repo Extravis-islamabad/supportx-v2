@@ -260,6 +260,9 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
     return await config.load(session, wtype)
 
 
+# Items per record across its checklists (the column's check, migration 0144).
+CHECKLIST_MIN, CHECKLIST_MAX = 1, 1000
+
 CLOSURE_FIELDS = (
     "resolve_requires",
     "close_requires",
@@ -267,6 +270,7 @@ CLOSURE_FIELDS = (
     "complete_open_work",
     "auto_close_days",
     "reopen_window_days",
+    "checklist_item_max",
 )
 
 
@@ -281,6 +285,7 @@ def _closure_before(current: Catalogue) -> dict[str, Any]:
         "reopen_window_days": c.reopen_window_days,
         "task_owner_access": c.task_owner_access,
         "task_dependency_mode": c.task_dependency_mode,
+        "checklist_item_max": c.checklist_item_max,
     }
 
 
@@ -302,7 +307,7 @@ def _conditions(wtype: WorkItemType, rule: str) -> frozenset[str]:
     return RELEASE_CONDITIONS - {REVIEW_COMPLETED}
 
 
-async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per setting, flat
+async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
     *,
@@ -344,6 +349,10 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         if values["task_dependency_mode"] not in {"block", "warn"}:
             problem("task_dependency_mode", "invalid_choice")
         changes["task_dependency_mode"] = values["task_dependency_mode"]
+    if "checklist_item_max" in values:  # WP-046a S2 (REQ-INC-040): the column's own range
+        if _days(values["checklist_item_max"], CHECKLIST_MIN, CHECKLIST_MAX) is None:
+            problem("checklist_item_max", "out_of_range", min=CHECKLIST_MIN, max=CHECKLIST_MAX)
+        changes["checklist_item_max"] = values["checklist_item_max"]
     if "auto_close_days" in values:
         days = values["auto_close_days"]
         if days is not None and _days(days, AUTO_CLOSE_MIN, AUTO_CLOSE_MAX) is None:

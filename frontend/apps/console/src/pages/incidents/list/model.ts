@@ -238,6 +238,7 @@ export function draftOf(view: SavedView | undefined): ViewDraft {
 export const BULK_ACTIONS: readonly BulkAction[] = [
   'edit',
   'assign',
+  'assign_role', // releases (WP-058b S5a)
   'take',
   'resolve',
   'close',

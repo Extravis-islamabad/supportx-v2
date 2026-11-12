@@ -1285,6 +1285,20 @@ it with no reload (rule c). Not built yet.
   - add_child refuses any holding loop through lane C's `release_links.holds`.
   - **Still open:** the "caused incidents" change report field and the `caused_by_change` link
     kind (REQ-CHG-116) come once #396's type fields are on main.
+    The link kind's CHECK is already widened (0141), so that step needs no migration.
+- **S2 (0144; REQ-INC-040, -077, -078, -080, -082; #407):**
+  - Checklists: typed or from the library, several per record. A tick records who and when.
+    Unticked items are open work, completed by the system on close.
+  - Record templates add their checklists when their condition matches.
+  - The library has a read-only CSV import (5 MB, 5,000 rows, 40 columns; bad rows listed).
+  - A list past `checklist_item_max` (Admin › Incidents › Closing) is refused whole.
+  - All files: the record's own, its replies' and notes', listed in one tab and downloadable as
+    one zip. Lane B's rules apply: each file checked again, left-out files named in
+    `manifest.txt`, two downloads per person at once, 200 files and 500 MB, audited.
+  - Personal reminders: on the record and in the header drawer, the owner's only, alerted once
+    by a sweep, live on the personal channel.
+  - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
+    reserved for S3).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -1594,7 +1608,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11; 4c 2026-11-12)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1829,6 +1843,28 @@ it with no reload (rule c). Not built yet.
   - **Follow-up (WP-049b):** batched inserts for imports (rows written in batches, not one
     savepoint per row). If a 20,000-row run takes more than about 10 minutes on the stack, this
     is done before the polish round, not after QA (coordinator, 2026-11-11).
+  - **S4c result (#434, 2026-11-12): below target.** CI, 20,000 rows: dry run 596 → 425 s, real
+    run 936 → 589 s (29.4 ms a row), against targets of 120 s and 240 s. The coordinator shipped it
+    as it was (correct, reviewed, 35-40% faster) and asked for a profile by phase.
+  - **Profile (2026-11-12):** SQL is about 87% of the time: about 16 statements per created row
+    at about 1 ms each, none slow. The dry run costs as much as the run (it writes, then rolls
+    back).
+  - **Step A (assets only, this PR):** 27,072 → 14,862 statements for a 1,000-row dry run plus
+    run (−45%), about 7.4 per created row, all of them inserts:
+    - #435's per-transaction definitions memo (custom fields): 2 reads a row gone;
+    - the asset limit's advisory lock taken once per transaction (taken again after a rolled-back
+      savepoint, which releases it);
+    - a new asset's INSERT returns its defaults (no SELECT after it);
+    - the product kept for the (sub)transaction;
+    - no scope query for a just-saved asset when the manage grant is scope "all" without a
+      condition (`unrestricted`);
+    - the batch's taken tags and serials in one query (in-batch duplicates still refused);
+    - tag numbers in one block per batch, the unused rest handed back before the savepoint is
+      released. A dry run takes none, a batch with a refused row redoes row by row, and no gap
+      is left (the coordinator's rule; tested).
+    The CI figure goes in the PR (one Audit scale run).
+  - **Step B (approved in principle, sketch first):** multi-row inserts for the outbox,
+    field_changes, audit and valuations, and a dry run that skips the writes it rolls back.
   - **Merge and links:** the merge moves every live work-item link of the duplicate, including
     records the merging person may not see (only a count comes back to them), inside the
     merge's own transaction (lane A's note).
@@ -1851,7 +1887,43 @@ it with no reload (rule c). Not built yet.
     (change product as such, add to group and loanable stay synchronous, depreciation, labels,
     scan now), field mapping in the import wizard (fixed headings for now), imports of licences,
     CIs, contracts and POs (their modules), loans and bookings moving on merge (refused
-    instead), a faster import path for 20,000 rows, the e2e journey.
+    instead), the e2e journey.
+- [x] **Session 4c (no migration; faster asset imports, the S4b follow-up; coordinator
+  conditions 2026-11-12):** each row still goes through `create_asset` / `update_asset` (or the
+  consumable and vendor calls) with its own permission check, history, outbox event and audit
+  entry; no bulk INSERT. What changed around them (`service/imports.py`):
+  - Product, site and vendor names resolved once per job (`Lookups`: made per job for its
+    tenant and importer, refuses any other session, answers as `find_site` / `find_vendor_id`
+    do, which apply no person's scope); the records a batch matches read in one query
+    (assets by lower(tag or serial), consumables by product, vendors by name through
+    procurement's new `find_vendors`).
+  - Rows checked first without writing, in the row path's order; the passing rows of a batch
+    go through the services in one savepoint (rolled back in a dry run); any refusal rolls it
+    back and redoes those rows one by one, each in its own savepoint and checked afresh, so the
+    problems are exactly the row path's. A key twice in a batch splits the savepoint there.
+  - A transaction ends after 100 rows or about 2 s (`BATCH_SECONDS`), so the tag counter row
+    and the asset limit's lock are held briefly; tag numbers still come from the caller's
+    transaction, so a dry run gives them all back.
+  - The asset service reads tenant configuration (defaults, the default state, settings, the
+    type tree, the time zone) once per (sub)transaction (`service/memo.py`), skips reads a new
+    asset cannot need (cost lines, disposal, custom-field definitions without custom values,
+    a second UPDATE, a second advisory lock), and in an import's batch savepoint counts the
+    asset limit once under its lock, then adds one per slot taken (a refusal redoes the rows
+    one by one with fresh counts).
+  - Measured locally (backend/tests/db/test_asset_import_scale.py, 2,000 rows, the loaded
+    shared Mac): before 70.5 s dry run, 75.1 s run (35 and 38 ms a row); after 32.8 s and 33.2 s
+    (16 and 17 ms a row). The CI figure for 20,000 rows comes from an audit-scale dispatch
+    (`asset_import_rows`), not from this Mac.
+  - Tests: tests/db/test_asset_import_batches.py (8: lookups per job, tenant and importer;
+    the out-of-scope rows of a mixed batch refused one by one; one refused row in a full batch
+    with exact problems; tag numbers untouched by a dry run and one per saved row; a manual add
+    waits about one 2 s transaction (measured 2.0 s); consumables matched as before); the S4b
+    import tests unchanged.
+  - **Open:** the remaining per-row reads are other modules' (custom-field definitions three
+    times, the licence count and lock, the audit entry) or the save itself; a further step
+    (a per-transaction cache of metadata's definitions, eager server defaults instead of the
+    refresh after insert) needs those owners. The import of a site-scoped manager may add
+    assets at any site, as `create_asset` allows today (only updates are scope-checked).
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
@@ -1877,6 +1949,33 @@ it with no reload (rule c). Not built yet.
   the save-latency check.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
+
+### [~] User cost rates — a person's cost per hour for worklog costs (lane B; for lane A's WP-046a S3, REQ-INC-068; migration 0148; built 2026-11-12)
+
+- [x] `user_cost_rates` (identity_access; migration 0148, down revision 0142, re-pointed at the
+  queue turn): rate Numeric(12, 2) ≥ 0, the tenant's base currency when set, `effective_from`;
+  RLS forced, no DELETE grant (soft delete), unique live start per person, an index for "the rate
+  in force". The downgrade refuses per tenant while any rate exists (removed ones too).
+- [x] Rights `users.view_cost_rates` and `users.manage_cost_rates`: no built-in role but the
+  tenant admin holds them (role matrix unchanged); grantable to a custom role such as Finance (D-164, Haider 2026-11-12).
+- [x] API: `GET /api/v1/users/{id}/cost-rates` (view), `POST` (view + manage,
+  Idempotency-Key), `PATCH /api/v1/users/{id}/cost-rates/{rate_id}` and `DELETE` (view + manage,
+  If-Match). The current and upcoming rates may change; a superseded one is refused
+  (`cost_rate_superseded`), a taken start too (`cost_rate_date_taken`); a service identity
+  gets `not_a_person`. Audited as `user.cost_rate_changed` (old and new rate and start), and every read of a person's rates as `user.cost_rate_viewed` (D-164: which rates were shown, never amounts; the worklog cost snapshot through the port is not a view). History
+  on the rate; the person's own history gets the rate's ID only. Event
+  `identity_access.user_cost_rate.changed` (IDs and the kind of change) on the `user_cost_rates`
+  list channel (users.view_cost_rates). Never in the person record, lists, search, exports or
+  /me (tested).
+- [x] Read port `app.modules.identity_access.cost_rate(session, user_id, at) -> Decimal | None`:
+  the rate in force at `at` (aware, else ValueError), through RLS, no permission check (for
+  snapshots; the caller gates who sees money).
+- [x] Console: the person drawer's "Cost per hour" tab (view right only), with set, change and
+  remove for the manage right; live; en/ar/ur.
+- [ ] **Follow-up when lane A's `CostRates` port is on main:** add
+  `work_items/service/cost_rate_port.py`, the adapter calling `identity_access.cost_rate`. Not
+  built here, since lane A's port (default None) is not on main yet.
+- [ ] No people admin guide exists yet: the cost rate line goes in when one is written.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
@@ -2192,7 +2291,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     task templates (#398, WP-046a S1). Proved on a release by their
     `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
   - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
-- [~] Session 4 (2026-11-12): closure and rollback. No migration (seed version 5).
+- [x] Session 4 (2026-11-12): closure and rollback. No migration (seed version 5). #428.
   - **Closure codes (REQ-REL-050):** releases close with their own codes (completed, completed
     with issues, rolled back, deferred, rejected, cancelled). Older tenants are topped up once:
     an incident-style code is switched off only while untouched and unused by any release; one
@@ -2223,7 +2322,30 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
       small PR before S5). The kinds warn and list only until then.
     - Lane A lists `caused_by_release` / `follows` on the problem, incident and request pages in
       their next polish.
-  S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
+- [~] Session 5a (2026-11-12): the release list, views and bulk actions. Migration 0149.
+  - **Views (REQ-REL-055 AC1, AC2):** my releases (any release role, both stores), unassigned
+    (no manager or engineer), scheduled, unscheduled, deployed (not closed), failed, cancelled,
+    closed. The list carries each row's type, version, scheduled end, manager, engineer (named)
+    and task progress in a few reads per page.
+  - **Bulk (REQ-REL-057):** assign, a new `assign_role` (manager or engineer, through the Roles
+    tab's own checks, per release), take, close (the type's closed category, not the change's
+    code), cancel and trash; skips with their reasons. The change list's close and cancel dialogs
+    and the bulk hooks take a base (lane A's, rule 8 notice sent).
+  - **Take (AC2):** makes you the release's Take role: the engineer, or the role the tenant marks
+    in Release settings › Roles (`work_item_role_defs.taken_by_take`, one per type).
+  - **Manager and engineer in two stores** (release_details.*_id and the role holders): every
+    write path (the Roles tab, the details panel, bulk assign_role, Take) writes both in one
+    transaction, with one test per path; the details panel now checks eligibility as the Roles
+    tab does (the coordinator, after F-02). **Later cleanup:** make them one store.
+  - **REQ-REL-052's offer:** a closing release's move dialog closes the changes you may close,
+    each through lane A's `close_change` in its own savepoint; each result closed or why not.
+  - **Tests:** test_release_bulk_api (4), test_release_people_sync (6), test_release_views_api
+    (4), test_release_close_changes_api (1), test_release_bulk_role_migration; Vitest
+    releases.test.tsx (2 more), release-close-changes.test.tsx (2), release-settings.test.tsx (1
+    more).
+  S5b: staged board, reporting and the release dashboard (after #396; costs behind
+  `releases.view_costs`, D-164), REQ-REL-058's inline-edit switch and live association counts.
+  S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)

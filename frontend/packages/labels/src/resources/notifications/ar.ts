@@ -42,6 +42,7 @@ export const ar: LabelResource = {
   'notification_area.problem': 'المشكلات',
   'notification_area.problem_repeat': 'المشكلات',
   'notification_area.release': 'الإصدارات',
+  'notification_area.reminder': 'التذكيرات',
   'notification_area.rule_step': 'القواعد والتصعيدات',
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_area.task': 'المهام',
@@ -130,6 +131,7 @@ export const ar: LabelResource = {
   'notification_event.problem.target_warning': 'اقترب الموعد المستهدف لمشكلة',
   'notification_event.problem_repeat.detected': 'وُجدت حوادث متكررة',
   'notification_event.release.public_reply': 'رد على مقدم الطلب',
+  'notification_event.reminder.due': 'تذكيرك',
   'notification_event.rule_step.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
@@ -622,6 +624,11 @@ export const ar: LabelResource = {
     'ردّ {{ conversation.author }} على {{ record.display_id }}',
   'notification_template.release.public_reply.subject':
     'رد جديد على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.reminder.due.body':
+    'مرحبًا {{ recipient.name }}،\n\nتذكيرك على {{ record.display_id }} "{{ record.title }}" في {{ reminder.at }}:\n\n{{ reminder.note }}',
+  'notification_template.reminder.due.in_app': 'تذكير في {{ reminder.at }}: {{ reminder.note }}',
+  'notification_template.reminder.due.subject':
+    'تذكير: {{ reminder.note }} ({{ record.display_id }})',
   'notification_template.rule_step.assignee_unavailable.body':
     'مرحبًا {{ recipient.name }}،\n\nكان على قاعدة أو تصعيد إسناد {{ record.display_id }} "{{ record.title }}" إلى {{ unavailable.person }}، الذي {{ unavailable.reason }}. انتقل إلى المجموعة دون أن يُسند إلى أحد. يُرجى إسناده إلى شخص ما أو تعديل القاعدة.',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -726,6 +733,8 @@ export const ar: LabelResource = {
   'notification_variable.record.priority': 'السجل › الأولوية',
   'notification_variable.record.status': 'السجل › الحالة',
   'notification_variable.record.title': 'السجل › الموضوع',
+  'notification_variable.reminder.at': 'وقت التذكير',
+  'notification_variable.reminder.note': 'ملاحظة التذكير',
   'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
   'notification_variable.rule.name': 'القاعدة',
   'notification_variable.site.name': 'الموقع',
