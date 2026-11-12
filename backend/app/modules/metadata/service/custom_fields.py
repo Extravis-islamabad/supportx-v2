@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import transaction_memo
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.modules.identity_access import display_names, user_names
 from app.modules.metadata.domain.fields import (
@@ -148,21 +149,52 @@ async def list_fields(
     """Every field of an entity in display order, retired ones included (marked).
 
     `removed`: also fields removed while in use, for history and old values (AC4).
+    Read once per transaction: one save checks, filters and indexes the same definitions
+    several times (`_memo`).
     """
     kind = _entity(entity)
+    memo = _memo(session)
+    if memo is not None and (kind, "rows", removed) in memo:
+        return list(memo[(kind, "rows", removed)])
     query = select(CustomField).where(CustomField.entity == kind)
     if not removed:
         query = query.where(CustomField.deleted_at.is_(None))
-    return list(
+    rows = list(
         await session.scalars(
             query.order_by(CustomField.sort_order, CustomField.created_at, CustomField.id)
         )
     )
+    if memo is not None:
+        memo[(kind, "rows", removed)] = rows
+    return list(rows)
 
 
 async def definitions(session: AsyncSession, entity: str) -> dict[str, Definition]:
     """Every field of an entity by key (retired ones too: old values keep their rules)."""
-    return {row.key: definition_of(row) for row in await list_fields(session, entity)}
+    kind = _entity(entity)
+    memo = _memo(session)
+    if memo is not None and (kind, "definitions") in memo:
+        return dict(memo[(kind, "definitions")])
+    found = {row.key: definition_of(row) for row in await list_fields(session, kind)}
+    if memo is not None:
+        memo[(kind, "definitions")] = found
+    return dict(found)
+
+
+_MEMO = "metadata.definitions"
+
+
+def _memo(session: AsyncSession) -> dict[Any, Any] | None:
+    """The reads of field definitions in this transaction, by entity (None: not memoised)."""
+    return transaction_memo(session, _MEMO)
+
+
+def _forget(session: AsyncSession, entity: str) -> None:
+    """Every write of an entity's fields drops what this transaction read of them."""
+    memo = _memo(session)
+    if memo is not None:
+        for key in [k for k in memo if k[0] == entity]:
+            del memo[key]
 
 
 async def _get(session: AsyncSession, field_id: uuid.UUID) -> CustomField:
@@ -283,6 +315,7 @@ async def _changed(  # noqa: PLR0913 - the row, its change and context
     change: str,
     source: Source,
 ) -> None:
+    _forget(session, row.entity)
     await record_changes(
         session,
         record_type=RECORD_TYPE,
@@ -542,6 +575,7 @@ async def reorder(
                 .values(sort_order=order, version=CustomField.version + 1)
             )
     session.expire_all()
+    _forget(session, _entity(entity))
     fresh = await list_fields(session, entity)
     if fresh:
         await _changed(
@@ -689,6 +723,7 @@ async def mark_used(session: AsyncSession, entity: str, keys: Sequence[str]) -> 
         )
         .values(first_used_at=datetime.now(UTC))
     )
+    _forget(session, _entity(entity))
 
 
 _FILTER_TYPES: Mapping[FieldType, FilterType] = {

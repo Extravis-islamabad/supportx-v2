@@ -195,6 +195,7 @@ export const en = {
   'nav.admin_notifications': 'Notifications',
   'nav.admin_organization': 'Organisation',
   'nav.admin_portal': 'Portal',
+  'nav.admin_releases': 'Release settings',
   'nav.admin_requests': 'Service requests',
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'Roles',
@@ -375,12 +376,27 @@ export const en = {
     'Fields that must be filled before an incident can be closed.',
   'settings.closing.complete_open_work': 'Complete open work on close',
   'settings.closing.complete_open_work_help': 'Closing an incident marks its open work as done.',
+  'settings.closing.condition.review_completed': 'Review completed',
   'settings.closing.days_range': 'From {{min}} to {{max}} business days.',
   'settings.closing.help':
     'What resolving and closing an incident need, what happens to open work, and how long a requester can reopen it with a reply.',
   'settings.closing.open_work': 'Open work',
   'settings.closing.open_work_help':
     'What happens when an incident is resolved or closed while work on it is still open. These checks start working when tasks, checklists, linked incidents and approvals arrive.',
+  'settings.closing.release.close_requires_help':
+    'Fields that must be filled before a release can be closed.',
+  'settings.closing.release.complete_open_work_help':
+    'Closing a release marks its open tasks as done; linked changes and sub-releases are never closed with it.',
+  'settings.closing.release.help':
+    'What resolving and closing a release need, and what happens to its open work: tasks, approvals, linked changes and sub-releases.',
+  'settings.closing.release.open_work_help':
+    'What happens when a release is resolved or closed while work on it is still open.',
+  'settings.closing.release.resolve_requires_help':
+    'Fields that must be filled before a release can be resolved.',
+  'settings.closing.release.task_owner_access':
+    'Task owners work on their tasks without access to the release',
+  'settings.closing.release.task_owner_access_help':
+    'They see their task and the release’s ID and subject, and can change the task’s status; never the notes or plans.',
   'settings.closing.reopen_window_days': 'Reopen window (days)',
   'settings.closing.reopen_window_help':
     'A requester reply within this many days of resolving reopens the incident; a later reply starts a new one. From 1 to 30.',
@@ -465,6 +481,8 @@ export const en = {
   'settings.reason_prompts': 'Reasons when the status changes',
   'settings.reason_prompts_help':
     'Choose whether each change asks for a reason. Pausing, cancelling and reopening pick from the reason lists.',
+  'settings.release_closure_codes_help':
+    'How a release ended. Picked when a release is closed; reports group by it.',
   'settings.rename': 'Rename',
   'settings.rename_value': 'Rename "{{name}}"',
   'settings.resume_on_requester_reply': 'A requester reply resumes it',
@@ -498,6 +516,7 @@ export const en = {
   'settings.section.reasons': 'Reasons',
   'settings.section.reply-templates': 'Reply templates',
   'settings.section.routing': 'Routing and assignment',
+  'settings.section.stages': 'Stages',
   'settings.section.statuses': 'Statuses',
   'settings.section.task-templates': 'Task templates',
   'settings.section.templates': 'Templates',
@@ -505,6 +524,10 @@ export const en = {
   'settings.section.triggers': 'Triggers',
   'settings.shipped_name': 'Built-in name: {{name}}',
   'settings.shipped_name_hint': 'Built-in name: {{name}}. Leave the names empty to keep it.',
+  'settings.stages.open_tasks_block': 'Open stage tasks hold the stage',
+  'settings.stages.open_tasks_block_help':
+    'A release cannot leave a stage while one of its tasks is open; the move names the task. Off: the move only warns.',
+  'settings.stages.title': 'Stage tasks',
   'settings.stale':
     'These settings were changed elsewhere while you were editing. Reload to see them (your unsaved edits here will be lost).',
   'settings.status_action': 'Action',
@@ -598,6 +621,10 @@ export const en = {
     'Everything the self-service portal does for requesters, on one page.',
   'setup.page.portal.keywords':
     'portal, self-service, search, search sources, hide incident form, due time, delivery date, on behalf, approvals, sign in, profile editing, reminders, cost, guest, self-registration',
+  'setup.page.releases.description':
+    'How releases close: their closure codes, what closing needs, which open work warns or blocks, and whether open stage tasks hold a stage.',
+  'setup.page.releases.keywords':
+    'release, release settings, closure codes, closing, rollback, stage tasks, deployment',
   'setup.page.requests.description':
     'Service requests: on whose behalf requesters may raise them, and the request views.',
   'setup.page.requests.keywords':

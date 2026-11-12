@@ -181,6 +181,8 @@ export {
   isOwnSettingsVersion,
   useIncidentCategoryChange,
   useIncidentSettingsChange,
+  useSettingsChange,
+  settingsKey,
   useIncidentTemplateChange,
   useIncidentTemplates,
   type CategoryChange,
@@ -195,6 +197,7 @@ export {
   type ListValue,
   type PickList,
   type ReasonMode,
+  type SettingsBase,
   type SettingsChange,
   type TemplateChange,
   type TemplateField,
@@ -618,6 +621,15 @@ export {
   type Reactivation,
   type TechnicianScope,
 } from './people';
+export {
+  useCostRateActions,
+  useCostRates,
+  type CostRate,
+  type CostRateInput,
+  type CostRatePatch,
+  type CostRateState,
+  type CostRates,
+} from './costRates';
 export {
   useAutomationChange,
   useAvailability,
@@ -1196,6 +1208,9 @@ export {
   useDowntimes,
   useMoveRelease,
   usePlanSections,
+  useReleaseFollowUps,
+  useCreateReleaseFollowUp,
+  type ReleaseFollowUpOut,
   useRelease,
   useReleaseApprovals,
   useReleaseDetails,

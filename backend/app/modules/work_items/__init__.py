@@ -77,6 +77,7 @@ from app.modules.work_items.service import (
     portal,
     problem_notifications,
     record_facts,
+    release_closing,
     release_duties,
     reminder_notifications,
     reminders,
@@ -109,6 +110,7 @@ from app.modules.work_items.service.reporting import register_sources, unregiste
 from app.modules.work_items.service.sla import register_sla
 from app.modules.work_items.service.stage_approvals import register as register_stage_approvals
 from app.modules.work_items.service.usage import register_record_usage
+from app.modules.work_items.service.work_items import labels_of
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 from app.shared.schedules import ScheduleSpec
 
@@ -120,6 +122,10 @@ def _register_parts() -> None:
     test unregistered it).
     """
     register_open_work(OpenWorkKind.TASKS, parts.open_tasks, parts.complete_tasks)
+    # A release's open changes and sub-releases (WP-058b S4): listed, never closed for the user
+    # by the "complete open work" setting (each closes through its own rules).
+    register_open_work(OpenWorkKind.LINKED_CHANGES, release_closing.open_linked_changes, None)
+    register_open_work(OpenWorkKind.CHILD_RELEASES, release_closing.open_sub_releases, None)
     # WP-046a S2 (REQ-INC-077): unticked checklist items are open work too.
     register_open_work(OpenWorkKind.CHECKLISTS, checklists.open_work, checklists.complete_work)
 
@@ -278,6 +284,9 @@ __all__ = [
     "OpenWorkKind",
     "RequesterReply",
     "add_requester_reply",
+    # Display IDs and subjects of records another module already checked (lane B's asset history,
+    # WP-049b S4a; the workflow overview).
+    "labels_of",
     "module",
     "register_open_work",
     "register_requester_channel",

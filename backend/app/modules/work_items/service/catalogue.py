@@ -18,6 +18,7 @@ moves its `seed_version` forward first (UPDATE ... WHERE seed_version < n RETURN
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import or_, select, update
@@ -53,7 +54,9 @@ from app.modules.work_items.domain.templates import (
     CONFIRMED_BY_REQUESTER,
     DEFAULT_LIST_VALUES,
     PROBLEM_LIST_VALUES,
+    RELEASE_CLOSURE_CODES,
     PickList,
+    closure_codes_for,
     default_rules,
     rules_to_json,
 )
@@ -65,6 +68,7 @@ from app.modules.work_items.domain.types import (
     WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import (
+    WorkItem,
     WorkItemCategory,
     WorkItemPathStage,
     WorkItemPriorityCell,
@@ -94,7 +98,9 @@ def settings_record_id(code: str) -> uuid.UUID:
     return uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{code}")
 
 
-SEED_VERSION = 4  # 3: the closure code "confirmed by requester" (D-107); 4: staged roles, approvals
+# 3: the closure code "confirmed by requester" (D-107); 4: staged roles and stage approvals;
+# 5: a release's own closure codes (WP-058b S4, REQ-REL-050).
+SEED_VERSION = 5
 STANDARD_TEMPLATE = "standard"
 MAJOR_PROBLEM_TEMPLATE = "major_problem"  # REQ-PRB-017, Appendix A: the guided life cycle
 
@@ -506,6 +512,9 @@ def _seed_v2(session: AsyncSession, wtype: WorkItemType, tenant: Any, desk: Any)
             WorkItemReason(tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i)
             for lst, codes in {
                 **DEFAULT_LIST_VALUES,
+                PickList.CLOSURE_CODE: closure_codes_for(
+                    release=wtype.code is WorkItemTypeCode.RELEASE
+                ),
                 **(PROBLEM_LIST_VALUES if wtype.code is WorkItemTypeCode.PROBLEM else {}),
             }.items()
             for i, code in enumerate(codes)
@@ -559,6 +568,90 @@ async def _top_up(
     if existing < 4:  # noqa: PLR2004 - the seed version that tops up a staged type's roles
         await _seed_v4(session, wtype, tenant)
         await session.flush()
+    if existing < 5:  # noqa: PLR2004 - the seed version that gives releases their own codes
+        await _seed_v5(session, wtype, tenant)
+        await session.flush()
+
+
+async def _seed_v5(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:
+    """A release type seeded with an incident's closure codes gets its own (REQ-REL-050).
+
+    The release codes are added where missing (a tenant's own code of the same name is kept).
+    An incident-style code is switched off only while it is still the untouched seeded one (no
+    name, no colour of the tenant's) and no release has ever closed with it: a code someone used
+    or renamed stays as it is (the coordinator's terms, 2026-11-12). One audit entry per tenant.
+    """
+    if wtype.code is not WorkItemTypeCode.RELEASE:
+        return
+    closure = PickList.CLOSURE_CODE.value
+    have = {
+        row.code: row
+        for row in await session.scalars(
+            select(WorkItemReason).where(
+                WorkItemReason.tenant_id == tenant,
+                WorkItemReason.type == wtype.code,
+                WorkItemReason.list == closure,
+            )
+        )
+    }
+    added = [code for code in RELEASE_CLOSURE_CODES if code not in have]
+    start = len(have)
+    for i, code in enumerate(added):
+        await session.execute(
+            insert(WorkItemReason)
+            .values(
+                tenant_id=tenant, type=wtype.code, list=closure, code=code, sort_order=start + i
+            )
+            .on_conflict_do_nothing()
+        )
+    used = set(
+        (
+            await session.scalars(
+                select(WorkItem.closure_code)
+                .where(
+                    WorkItem.tenant_id == tenant,
+                    WorkItem.type == wtype.code,
+                    WorkItem.closure_code.is_not(None),
+                )
+                .distinct()
+            )
+        ).all()
+    )
+    incident_style = set(DEFAULT_LIST_VALUES[PickList.CLOSURE_CODE]) | {CONFIRMED_BY_REQUESTER}
+    disabled = [
+        row.code
+        for row in have.values()
+        if row.code in incident_style
+        and row.code not in RELEASE_CLOSURE_CODES
+        and row.disabled_at is None
+        and not row.labels
+        and row.colour is None
+        and row.code not in used
+    ]
+    if disabled:
+        await session.execute(
+            update(WorkItemReason)
+            .where(
+                WorkItemReason.tenant_id == tenant,
+                WorkItemReason.type == wtype.code,
+                WorkItemReason.list == closure,
+                WorkItemReason.code.in_(disabled),
+            )
+            .values(disabled_at=datetime.now(UTC))
+        )
+    if added or disabled:
+        await record_audit(
+            session,
+            action_code="work_item.settings_topped_up",
+            facts=AUDIT_WORKER,
+            object_type="work_item_settings",
+            object_id=settings_record_id(wtype.code),
+            details={
+                "type": wtype.code,
+                "closure_codes_added": added,
+                "closure_codes_disabled": sorted(disabled),
+            },
+        )
 
 
 async def _seed_v4(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:
@@ -640,6 +733,8 @@ async def _seed_v4(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID
 
 async def _seed_v3(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:
     """The closure code "confirmed by requester" (D-107); kept when a tenant already has it."""
+    if wtype.code is WorkItemTypeCode.RELEASE:  # a release is never confirmed by its requester
+        return
     await session.execute(
         insert(WorkItemReason)
         .values(

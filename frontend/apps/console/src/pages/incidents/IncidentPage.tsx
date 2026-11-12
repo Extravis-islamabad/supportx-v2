@@ -191,6 +191,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const justMade = (useLocation().state as { justMade?: boolean } | null)?.justMade === true;
   const [tab, setTab] = useState<string>(() => (justMade ? DEFAULT_TAB : lastTab(me)));
   const [replyRequest, setReplyRequest] = useState(0);
+  // A composer is open: its Send is the one primary action, so the header's buttons go quiet.
+  const [composing, setComposing] = useState(false);
   const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   // Tasks, worklogs and links follow the record's edit permission (WP-020e).
   const canEditParts = item.operations.find((o) => o.action === 'edit')?.allowed === true;
@@ -523,6 +525,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           <ActionBar
             actions={actions}
             max={3}
+            quiet={composing}
             testId="inc-operations"
             lead={
               <>
@@ -711,6 +714,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   typing={typing}
                   replyRequest={replyRequest}
                   replyMode={replyMode}
+                  onComposingChange={setComposing}
                 />
               ),
             },

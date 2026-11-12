@@ -470,6 +470,10 @@ export const SCREENS: Screen[] = [
     'catalog',
     'workflows',
     'change-windows', // WP-045c S3 (lane C's #381 review)
+    // WP-058b S4: Admin › Releases, each section (template E).
+    'releases/closure-codes',
+    'releases/closing',
+    'releases/stages',
   ].map<Screen>((page) => ({
     key: `admin-${page.replace('/', '-')}`,
     path: `/admin/${page}`,

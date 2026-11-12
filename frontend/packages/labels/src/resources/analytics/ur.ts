@@ -7,6 +7,7 @@ export const ur: LabelResource = {
   'age_bucket.7_to_30_days': '7 سے 30 دن',
   'age_bucket.over_30_days': '30 دن سے زیادہ',
   'age_bucket.under_1_day': '1 دن سے کم',
+  'dashboard.changes': 'تبدیلیاں',
   'dashboard.my_work': 'میرا کام',
   'dashboard.my_work.description': 'آپ کے کھلے واقعات، اس ہفتے آپ نے کیا حل کیا اور قطار۔',
   'dashboard.service_desk': 'سروس ڈیسک',
@@ -24,6 +25,18 @@ export const ur: LabelResource = {
   'dashboard_widget.backlog_trend': 'زیر التوا رجحان',
   'dashboard_widget.backlog_trend.description':
     'پچھلے 90 دن میں ہر ہفتے کے آخر تک کھلے رہنے والے واقعات۔',
+  'dashboard_widget.change_emergency_share': 'ہنگامی تبدیلیاں',
+  'dashboard_widget.change_emergency_share.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں میں سے ہنگامی راستہ لینے والی کا حصہ۔',
+  'dashboard_widget.change_failed': 'ناکام یا واپس لی گئیں',
+  'dashboard_widget.change_failed.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں جن کا نفاذ ناکام ہوا یا واپس لیا گیا۔',
+  'dashboard_widget.change_freeze_overrides': 'فریز سے استثنا',
+  'dashboard_widget.change_freeze_overrides.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں جو روکنے والے فریز کے دوران آگے بڑھیں۔',
+  'dashboard_widget.change_success_rate': 'تبدیلیوں کی کامیابی کی شرح',
+  'dashboard_widget.change_success_rate.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں میں سے، جن کا نتیجہ ہے، کتنی کا نفاذ کامیاب رہا۔',
   'dashboard_widget.created_vs_resolved': 'درج بمقابلہ حل شدہ',
   'dashboard_widget.created_vs_resolved.description':
     'پچھلے 30 دن میں ہر روز درج اور حل ہونے والے واقعات۔',
@@ -219,6 +232,27 @@ export const ur: LabelResource = {
   'measure.asset.total_cost_total': 'ملکیت کی کل لاگت',
   'measure.asset.total_cost_total.help':
     'اثاثے خریدنے اور رکھنے کی مجموعی لاگت (سروس، منتقلی، معاہدے اور دیگر)، بنیادی کرنسی میں۔',
+  'measure.change.actual_downtime_total': 'اصل بندش',
+  'measure.change.actual_downtime_total.help': 'تبدیلیوں کے دوران اصل میں ہونے والی کل بندش۔',
+  'measure.change.average_implementation_time': 'نفاذ کا اوسط وقت',
+  'measure.change.average_implementation_time.help':
+    'نفاذ کے اصل آغاز سے اصل اختتام تک کا اوسط وقت، ان تبدیلیوں کے لیے جن کے دونوں ہیں۔',
+  'measure.change.count': 'تبدیلیاں',
+  'measure.change.count.help': 'ہر وہ تبدیلی جو فلٹرز سے ملتی ہے اور جسے آپ دیکھ سکتے ہیں۔',
+  'measure.change.emergency_share': 'ہنگامی حصہ',
+  'measure.change.emergency_share.help': 'ہنگامی راستہ لینے والی تبدیلیوں کا حصہ۔',
+  'measure.change.failed_count': 'ناکام یا واپس لی گئیں',
+  'measure.change.failed_count.help': 'وہ تبدیلیاں جن کا نفاذ ناکام ہوا یا واپس لیا گیا۔',
+  'measure.change.freeze_override_count': 'فریز سے استثنا',
+  'measure.change.freeze_override_count.help':
+    'وہ تبدیلیاں جو روکنے والے فریز میں استثنا یا ہنگامی بورڈ کے فیصلے سے آگے بڑھیں۔',
+  'measure.change.planned_downtime_total': 'منصوبہ بند بندش',
+  'measure.change.planned_downtime_total.help': 'تبدیلیوں کے لیے منصوبہ بند کل بندش۔',
+  'measure.change.retrospective_share': 'بعد میں درج حصہ',
+  'measure.change.retrospective_share.help': 'کام ہو جانے کے بعد درج کی گئی تبدیلیوں کا حصہ۔',
+  'measure.change.success_rate': 'کامیابی کی شرح',
+  'measure.change.success_rate.help':
+    'جن تبدیلیوں کے نفاذ کا نتیجہ ہے، ان میں سے کامیاب نفاذ کا حصہ۔ ابھی کوئی نتیجہ نہیں تو کوئی شرح نہیں۔',
   'measure.incident.average_reassignments': 'دوبارہ تفویض کی اوسط تعداد',
   'measure.incident.average_reassignments.help':
     'کسی واقعے کے دوسرے گروپ یا ٹیکنیشن کو منتقل ہونے کی اوسط تعداد۔',
@@ -284,6 +318,56 @@ export const ur: LabelResource = {
   'report.assets_warranty_ending': 'اگلے 90 دنوں میں ختم ہونے والی وارنٹیاں',
   'report.assets_warranty_ending.description':
     'وہ اثاثے جن کی وارنٹی 90 دنوں میں ختم ہو رہی ہے، ختم ہونے کے مہینے کے مطابق۔',
+  'report.changes_by_outcome': 'نتیجے کے مطابق تبدیلیاں',
+  'report.changes_by_outcome.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں جن کے نفاذ کا نتیجہ ہے، اس نتیجے کے مطابق۔',
+  'report.changes_by_reason': 'وجہ کے مطابق تبدیلیاں',
+  'report.changes_by_reason.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں، تبدیلی کی وجہ کے مطابق۔',
+  'report.changes_by_risk': 'خطرے کے مطابق تبدیلیاں',
+  'report.changes_by_risk.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں، خطرے کی سطح کے مطابق۔',
+  'report.changes_by_status': 'حیثیت کے مطابق تبدیلیاں',
+  'report.changes_by_status.description': 'مدت میں مانگی گئی تبدیلیاں، موجودہ حیثیت کے مطابق۔',
+  'report.changes_by_type': 'قسم کے مطابق تبدیلیاں',
+  'report.changes_by_type.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں، تبدیلی کی قسم کے مطابق۔',
+  'report.changes_downtime_per_month': 'ماہانہ منصوبہ بند اور اصل بندش',
+  'report.changes_downtime_per_month.description':
+    'منصوبہ بند بندش اور اصل میں ہونے والی بندش، ایک سال میں ہر ماہ۔',
+  'report.changes_emergency_share_per_month': 'ماہانہ ہنگامی حصہ',
+  'report.changes_emergency_share_per_month.description':
+    'ہنگامی راستہ لینے والی تبدیلیوں کا حصہ، ایک سال میں ہر ماہ۔',
+  'report.changes_freeze_overrides_by_group': 'گروپ کے مطابق فریز سے استثنا',
+  'report.changes_freeze_overrides_by_group.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں جو روکنے والے فریز میں آگے بڑھیں، سپورٹ گروپ کے مطابق۔',
+  'report.changes_implementation_time_by_type': 'تبدیلی کی قسم کے مطابق نفاذ کا وقت',
+  'report.changes_implementation_time_by_type.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں کا اوسط اصل نفاذ وقت، قسم کے مطابق۔',
+  'report.changes_open_ageing': 'کھلی تبدیلیوں کی عمر',
+  'report.changes_open_ageing.description': 'کھلی اور انتظار والی تبدیلیاں کتنے عرصے سے کھلی ہیں۔',
+  'report.changes_open_by_group': 'گروپ کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_group.description': 'کھلی اور انتظار والی تبدیلیاں، سپورٹ گروپ کے مطابق۔',
+  'report.changes_open_by_priority': 'ترجیح کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_priority.description': 'کھلی اور انتظار والی تبدیلیاں، ترجیح کے مطابق۔',
+  'report.changes_open_by_stage': 'مرحلے کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_stage.description':
+    'کھلی اور انتظار والی تبدیلیاں، ان کے موجودہ مرحلے کے مطابق۔',
+  'report.changes_open_by_status': 'حیثیت کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_status.description': 'کھلی اور انتظار والی تبدیلیاں، حیثیت کے مطابق۔',
+  'report.changes_open_by_technician': 'ذمہ دار کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_technician.description':
+    'کھلی اور انتظار والی تبدیلیاں، ان کے ذمہ دار شخص کے مطابق۔',
+  'report.changes_received_per_week': 'ہفتہ وار مانگی گئی تبدیلیاں',
+  'report.changes_received_per_week.description': 'چھ ماہ میں ہر ہفتے نئی تبدیلیاں۔',
+  'report.changes_resolved_per_week': 'ہفتہ وار مکمل تبدیلیاں',
+  'report.changes_resolved_per_week.description': 'چھ ماہ میں ہر ہفتے مکمل ہونے والی تبدیلیاں۔',
+  'report.changes_success_rate_by_group': 'گروپ کے مطابق کامیابی کی شرح',
+  'report.changes_success_rate_by_group.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں کی کامیابی کی شرح اور تعداد، سپورٹ گروپ کے مطابق۔',
+  'report.changes_success_rate_by_type': 'تبدیلی کی قسم کے مطابق کامیابی کی شرح',
+  'report.changes_success_rate_by_type.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں کی کامیابی کی شرح اور تعداد، قسم کے مطابق۔',
   'report.incidents_all': 'تمام واقعات',
   'report.incidents_all.description': 'مدت میں بننے والا ہر واقعہ، حیثیت کے مطابق۔',
   'report.incidents_by_status': 'حیثیت کے مطابق واقعات',

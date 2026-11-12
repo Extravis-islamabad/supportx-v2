@@ -22,6 +22,8 @@ from app.modules.work_items.domain.classification import Impact, Priority, Urgen
 from app.modules.work_items.domain.closure import (
     AUTO_CLOSE_MAX,
     AUTO_CLOSE_MIN,
+    RELEASE_CONDITIONS,
+    REVIEW_COMPLETED,
     WINDOW_MAX,
     WINDOW_MIN,
     OpenWorkKind,
@@ -293,6 +295,18 @@ def _days(value: Any, low: int, high: int) -> int | None:  # noqa: ANN401 - JSON
     return value
 
 
+def _conditions(wtype: WorkItemType, rule: str) -> frozenset[str]:
+    """A type's own closure conditions for `rule` (REQ-REL-051): a release's, before closing.
+
+    The review comes after a release is resolved (deployed), so it is never needed to resolve.
+    """
+    if wtype.code != WorkItemTypeCode.RELEASE:
+        return frozenset()
+    if rule == "close_requires":
+        return RELEASE_CONDITIONS
+    return RELEASE_CONDITIONS - {REVIEW_COMPLETED}
+
+
 async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
@@ -318,7 +332,7 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - on
     for name in ("resolve_requires", "close_requires"):
         if name in values:
             chosen = list(dict.fromkeys(values[name] or []))
-            if rule_field_problems(chosen, custom):
+            if rule_field_problems(chosen, custom, _conditions(wtype, name)):
                 problem(name, "invalid_choice")
             changes[name] = chosen
     if "open_work" in values:

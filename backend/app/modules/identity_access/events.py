@@ -289,6 +289,21 @@ class ApiKeyChanged(DomainEvent):
     owner_id: uuid.UUID
 
 
+class UserCostRateChanged(DomainEvent):
+    """A person's cost per hour was set, changed or removed (REQ-INC-068).
+
+    IDs and the kind of change only, never the amount: screens with `users.view_cost_rates`
+    refetch the person's rates.
+    """
+
+    event_type: ClassVar[str] = "identity_access.user_cost_rate.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user_cost_rate"
+
+    user_id: uuid.UUID
+    change: Literal["created", "updated", "deleted"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -311,4 +326,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SsoProviderChanged,
     InvitationChanged,
     ApiKeyChanged,
+    UserCostRateChanged,
 )

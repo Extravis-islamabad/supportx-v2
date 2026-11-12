@@ -8,7 +8,8 @@ assignments and the one policy service the API, search, realtime and AI agents u
 Public interface for other modules: `UserType`, `Subject`, `ResourceType`, `authorize`,
 `authorize_stored`, `scope_filter`, `visible`, `require`, `user_names`, `user_contacts`,
 `register_duties` with `DutyLookup` and `OpenDuty` (REQ-REL-024 AC2: a module's open duties for
-the role editor's preview), and
+the role editor's preview), `cost_rate` (a person's cost per hour at a moment, for worklog cost
+snapshots; no permission check inside, the caller gates who sees money), and
 `get_policy` (FastAPI dependency giving the policy service, e.g. who holds a permission, for
 owner pickers). Sessions reach the rest of the app only as the `TenantContext` resolved by
 app.core.tenancy; routes declare permissions with app.core.authorization.require_permission.
@@ -36,6 +37,7 @@ from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.account import router as account_router
 from app.modules.identity_access.api.api_keys import router as api_keys_router
+from app.modules.identity_access.api.cost_rates import router as cost_rates_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
@@ -75,6 +77,7 @@ from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import directory, mfa
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
+from app.modules.identity_access.service.cost_rates import cost_rate
 from app.modules.identity_access.service.directory import (
     MailRecipient,
     NotifiablePerson,
@@ -386,6 +389,7 @@ module = ModuleSpec(
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
         people_router,
         users_router,
+        cost_rates_router,
         imports_router,
         access_router,
         access_settings_router,
@@ -460,6 +464,7 @@ __all__ = [
     "authorize",
     "authorize_stored",
     "check_group_grantable",
+    "cost_rate",
     "create_requester_from_mail",
     "create_service_identity",
     "direct_reports",
