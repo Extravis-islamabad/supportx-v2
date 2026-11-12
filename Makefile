@@ -396,6 +396,9 @@ cluster-ha-egress: ## Egress allow-list on the HA cluster: the namespace reachab
 cluster-ha-valkey-node-loss: ## Valkey node-loss test: stop the node with the Valkey master after a failover; Sentinel promotes, the session keeps writing (WP-014b)
 	@bash deploy/k3d/valkey-node-loss.sh
 
+cluster-ha-valkey-node-loss-dns: ## Worst case, forced: stop the node with the Valkey master AND a CoreDNS copy; Sentinel promotes, the session keeps writing (WP-014b)
+	@VALKEY_NODE_LOSS_CASE=master-with-dns bash deploy/k3d/valkey-node-loss.sh
+
 cluster-ha-node-loss: ## Node-loss test: stop the agent with PostgreSQL's primary; the session keeps writing (WP-014b)
 	@bash deploy/k3d/node-loss.sh
 

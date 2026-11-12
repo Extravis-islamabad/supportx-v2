@@ -200,7 +200,7 @@ jobs:
     # core profile and e2e, not the HA cluster.
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -251,6 +251,11 @@ jobs:
       - name: Losing the node with the Valkey master (after a failover) keeps a signed-in session writing
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-valkey-node-loss
+      # The worst case on purpose (Cluster run 43148329223): the stopped node holds the Valkey
+      # master and a CoreDNS copy, placed so by the test itself, never by chance.
+      - name: Losing the node with the Valkey master and a CoreDNS copy keeps a signed-in session writing
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-valkey-node-loss-dns
       - name: Losing the node with PostgreSQL's primary keeps a signed-in session writing
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-node-loss

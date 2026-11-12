@@ -298,6 +298,14 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   pods use short lookups of fully qualified names (`dnsConfig`), node-loss.sh waits for Sentinel
   to settle first, and a new test stops the node with the Valkey master after a failover
   (`make cluster-ha-valkey-node-loss`). Proven only by the next Cluster dispatch.
+  Round 2 (proving run 43148329223, node-loss red: the stopped node held the PG primary, the
+  Valkey master and a CoreDNS copy; SDOWN 77 s after the stop, every failover aborted): Sentinel
+  down-after 10 s (a 100 s replica allowance) and failover-timeout 30 s (an aborted failover
+  retries after 60 s); node-monitor grace period 20 s in `deploy/k3s/config-ha.yaml` and the k3d
+  HA cluster; a forced worst-case test, master plus CoreDNS on the stopped node
+  (`make cluster-ha-valkey-node-loss-dns`).
+  - [ ] **Later:** NodeLocal DNSCache to remove the dead-endpoint window, without a shorter
+    grace period; weigh it after this lands.
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.

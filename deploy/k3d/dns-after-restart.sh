@@ -65,12 +65,16 @@ check_dns() {  # check_dns <when>
   }
   echo "$1: CoreDNS replicas ${spec% *}, anti-affinity kept, ready on $(dns_nodes) nodes (after ${took}s)"
 }
-applied_since() {  # a coredns ApplyingManifest event on its Addon at or after $1 (RFC 3339)
-  kubectl -n kube-system get events -o json | jq -e --arg since "$1" '[.items[]
-    | select(.involvedObject.kind == "Addon" and .involvedObject.name == "coredns"
-             and .reason == "ApplyingManifest")
-    | (.lastTimestamp // .eventTime // .series.lastObservedTime // "")
-    | select(. >= $since)] | length > 0'
+applied_since() {  # a coredns ApplyingManifest event on its Addon at or after $1 (RFC 3339, UTC)
+  # Compared as times, not strings: eventTime carries microseconds, lastTimestamp does not.
+  kubectl -n kube-system get events -o json | jq -e --arg since "$1" '
+    def secs: sub("\\.[0-9]+"; "") | fromdateiso8601;  # Kubernetes writes UTC, "Z"
+    ($since | secs) as $t
+    | [.items[]
+       | select(.involvedObject.kind == "Addon" and .involvedObject.name == "coredns"
+                and .reason == "ApplyingManifest")
+       | (.lastTimestamp // .series.lastObservedTime // .eventTime // empty)
+       | select(secs >= $t)] | length > 0'
 }
 app_ready() { [ "$(curl -s -m 10 -o /dev/null -w '%{http_code}' "$PUBLIC_URL/api/v1/ready")" = 200 ]; }
 
