@@ -89,6 +89,7 @@ from app.modules.work_items.domain.lifecycle import (
     ReasonList,
     ReasonMode,
     StatusCategory,
+    TransitionDef,
     WorkItemAction,
     after_assignment,
     move_pause_clock,
@@ -431,6 +432,28 @@ async def _relatives(
     return frozenset(found)
 
 
+# A who-may-run refusal (WP-029's transition settings) on a move: 403 with only its kind
+# (`not_offered` or `not_for_you`), never who it is limited to (ADR-049 §5, lane B).
+CONDITION_NOT_MET = "transition_condition_not_met"
+
+
+async def _move_refusal(
+    subject: Subject,
+    transitions: "_Transitions",
+    action: WorkItemAction,
+    step: TransitionDef | None,
+) -> str | None:
+    """ADR-049 §5 steps 3 and 4, for the offer and the move alike (one function, lane B).
+
+    Steps 1 and 2 (the record in scope, the type's right for the action) come first, as
+    before. Then the version's extra right, then who may run it and when it is offered; a
+    condition never stands in for a missing right.
+    """
+    if step is not None and step.permission is not None and not subject.holds(step.permission):
+        return NO_PERMISSION
+    return await transitions.refusal(action.value)
+
+
 class _Transitions:
     """A record's transition settings, checked for one subject (loaded once per view)."""
 
@@ -529,8 +552,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         ):
             refused = CANNOT_TAKE
         if refused is None:
-            # Who may run it and when it is offered (REQ-WF-003, 004).
-            refused = await transitions.refusal(action.value)
+            # The version's extra right, then who may run it and when (REQ-WF-003, 004).
+            refused = await _move_refusal(subject, transitions, action, transition)
         actions.append(
             ActionState(
                 action,
@@ -543,9 +566,14 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
                     await transitions.allowed_for(action.value) if refused == NOT_FOR_YOU else None
                 ),
                 missing=tuple(
-                    name
-                    for name in await closing.missing_for(session, cat, record, action)
-                    if name not in MOVE_FIELDS
+                    dict.fromkeys(
+                        name
+                        for name in (
+                            *await closing.missing_for(session, cat, record, action),
+                            *(closing.move_missing(record, transition) if transition else ()),
+                        )
+                        if name not in MOVE_FIELDS
+                    )
                 ),
             )
         )
@@ -2859,10 +2887,8 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     """
     if action not in ACTION_PERMISSION:
         raise Conflict(code="invalid_transition", params={"action": action})
+    # ADR-049 §5 steps 1-2: in scope (404 otherwise) and the type's right for the action.
     record = await _for_action(session, subject, wtype, ACTION_PERMISSION[action], record_id)
-    refused = await _Transitions(session, subject, record).refusal(action.value)
-    if refused is not None:
-        raise PermissionDenied(code="transition_not_allowed", params={"reason": refused})
     cat = await config.load(session, wtype)
     try:
         step = cat.lifecycle_for(record).transition(record.status, action)
@@ -2878,6 +2904,14 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         raise _errors(problems, reason_text={"max_length": 500})
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
+    # Steps 3-4, with the facts read now, after the If-Match check and in this transaction
+    # (the group, the requester or a manager may have changed since the buttons were shown).
+    refused = await _move_refusal(subject, _Transitions(session, subject, record), action, step)
+    if refused == NO_PERMISSION:
+        raise PermissionDenied(params={"permission": step.permission, "reason": NO_PERMISSION})
+    if refused is not None:
+        raise PermissionDenied(code=CONDITION_NOT_MET, params={"kind": refused})
+    closing.check_move_fields(record, step)
     if action == WorkItemAction.START_WORK and record.technician_id is None:
         if await _reason_for(session, subject, wtype, "take", record.id) is not None:
             raise PermissionDenied(

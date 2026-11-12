@@ -691,6 +691,7 @@ export const en = {
     'Someone chosen is no longer active, or a group no longer exists.',
   'errors.field.unknown_record_type': 'Choose what the rule applies to.',
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
+  'errors.field.unknown_role': 'This role does not exist here. Choose one from the list.',
   'errors.field.unknown_sort_field': 'The list cannot be sorted by this field.',
   'errors.field.unknown_stage': 'This type has no such stage.',
   'errors.field.unknown_time_zone': 'Choose a time zone from the list.',
@@ -1067,6 +1068,8 @@ export const en = {
   'errors.too_many_files': 'Too many files at once: at most {{max}}.',
   'errors.too_many_moves': 'A life cycle can have at most {{max}} moves.',
   'errors.too_many_rules': 'At most {{max}} rules per record type.',
+  'errors.transition_condition_not_met':
+    'This status change is not available to you on this record now.',
   'errors.transition_not_allowed': 'This status change is not available to you on this record.',
   'errors.transition_not_found': 'That status change is not part of the life cycle.',
   'errors.unauthenticated': 'Please sign in to continue.',

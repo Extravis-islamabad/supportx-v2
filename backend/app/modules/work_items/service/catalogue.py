@@ -832,6 +832,8 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
                     t.to_status,
                     ReasonMode(t.reason_mode),
                     ReasonList(t.reason_list) if t.reason_list else None,
+                    permission=t.permission,
+                    required_fields=tuple(t.required_fields or ()),
                 )
                 for t in transition_rows
                 if (t.lifecycle, t.lifecycle_version) == key

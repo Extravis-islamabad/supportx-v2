@@ -696,6 +696,7 @@ export const ur: LabelResource = {
   'errors.field.unknown_recipient': 'منتخب کردہ کوئی شخص اب فعال نہیں یا کوئی گروپ اب موجود نہیں۔',
   'errors.field.unknown_record_type': 'منتخب کریں کہ قاعدہ کس پر لاگو ہو۔',
   'errors.field.unknown_reference': 'یہاں بتایا گیا کوئی شخص یا گروپ اب موجود نہیں۔',
+  'errors.field.unknown_role': 'یہ کردار یہاں موجود نہیں۔ فہرست میں سے کوئی منتخب کریں۔',
   'errors.field.unknown_sort_field': 'فہرست کو اس فیلڈ کے لحاظ سے ترتیب نہیں دیا جا سکتا۔',
   'errors.field.unknown_stage': 'اس قسم میں ایسا کوئی مرحلہ نہیں۔',
   'errors.field.unknown_time_zone': 'فہرست سے ٹائم زون منتخب کریں۔',
@@ -1072,6 +1073,8 @@ export const ur: LabelResource = {
   'errors.too_many_files': 'ایک ساتھ بہت زیادہ فائلیں: زیادہ سے زیادہ {{max}}۔',
   'errors.too_many_moves': 'ایک لائف سائیکل میں زیادہ سے زیادہ {{max}} منتقلیاں ہو سکتی ہیں۔',
   'errors.too_many_rules': 'ہر ریکارڈ قسم کے لیے زیادہ سے زیادہ {{max}} قاعدے۔',
+  'errors.transition_condition_not_met':
+    'حالت کی یہ تبدیلی اس وقت اس ریکارڈ پر آپ کے لیے دستیاب نہیں۔',
   'errors.transition_not_allowed': 'حالت کی یہ تبدیلی اس ریکارڈ پر آپ کے لیے دستیاب نہیں۔',
   'errors.transition_not_found': 'حالت کی یہ تبدیلی لائف سائیکل کا حصہ نہیں۔',
   'errors.unauthenticated': 'جاری رکھنے کے لیے براہِ کرم سائن اِن کریں۔',
