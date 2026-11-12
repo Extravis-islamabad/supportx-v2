@@ -34,6 +34,7 @@ from app.shared.files.domain.types import extension
 from app.shared.files.events import FileUploaded
 from app.shared.files.infra import blobs
 from app.shared.files.infra.models import FileLink, StoredFile
+from app.shared.files.keyring import KeyRing
 from app.shared.files.ports import Action, Actor, OwnerType, owner_access
 from app.shared.files.service.core import (
     MB,
@@ -47,6 +48,7 @@ from app.shared.files.service.core import (
 )
 from app.shared.files.service.uploads import _check_quota, _forget, _gate, initial_state
 from app.shared.ids import new_id
+from app.shared.storage import ObjectStorage
 
 log = get_logger(__name__)
 
@@ -136,72 +138,12 @@ async def copy_to_drafts(  # noqa: C901, PLR0912, PLR0913, PLR0915 - the rules a
     try:
         async with _gate(services.upload_concurrency):
             for source in eligible:
-                source_key = await data_key(session, keyring, source.data_key_id)
-                copy_id = new_id()
-                target = object_key(tenant, copy_id)
-                result = await blobs.write(
-                    storage,
-                    target,
-                    data_key=key,
-                    data_key_id=key_id,
-                    file_id=copy_id,
-                    source=blobs.read(
-                        storage,
-                        source.object_key,
-                        data_key=source_key,
-                        file_id=source.id,
-                        size=source.size,
-                    ),
-                    limit=source.size,
+                stored, keys = await _copy_one(
+                    session, services, storage, keyring, source, key_id=key_id, key=key
                 )
-                written.append(target)
-                if result.sha256 != source.sha256 or result.size != source.size:
-                    raise CopyIntegrityError(str(source.id))  # noqa: TRY301 - cleaned up below
-                thumb_key: str | None = None
-                thumb_size: int | None = None
-                if source.thumb_key is not None and source.thumb_size is not None:
-                    thumb_key = object_key(tenant, copy_id, thumbnail=True)
-                    thumb = await blobs.write(
-                        storage,
-                        thumb_key,
-                        data_key=key,
-                        data_key_id=key_id,
-                        file_id=copy_id,
-                        source=blobs.read(
-                            storage,
-                            source.thumb_key,
-                            data_key=source_key,
-                            file_id=source.id,
-                            size=source.thumb_size,
-                        ),
-                        limit=source.thumb_size,
-                    )
-                    written.append(thumb_key)
-                    thumb_size = thumb.size
-                clean = FileState(source.state) == FileState.CLEAN
-                made.append(
-                    StoredFile(
-                        id=copy_id,
-                        tenant_id=tenant,
-                        name=source.name,
-                        size=result.size,
-                        sha256=result.sha256,
-                        content_type=source.content_type,
-                        kind=source.kind,
-                        active_markup=source.active_markup,
-                        state=(FileState.CLEAN if clean else initial_state(services)).value,
-                        scan_signature=source.scan_signature if clean else None,
-                        scanned_at=source.scanned_at if clean else None,
-                        metadata_stripped=source.metadata_stripped,
-                        data_key_id=key_id,
-                        object_key=target,
-                        stored_size=result.stored_size,
-                        thumb_key=thumb_key,
-                        thumb_size=thumb_size,
-                        source=SOURCE,
-                        copied_from=source.id,
-                    )
-                )
+                written.extend(keys)
+                made.append(stored)
+                copy_id = stored.id
                 copied[source.id] = copy_id
         for stored in made:
             session.add(stored)
@@ -234,3 +176,96 @@ async def copy_to_drafts(  # noqa: C901, PLR0912, PLR0913, PLR0915 - the rules a
         raise
     log.info("files_copied", count=len(made), not_copied=len(not_copied))
     return Copies(copied, not_copied)
+
+
+async def _copy_one(  # noqa: PLR0913 - the source and where its copy goes, explicit
+    session: AsyncSession,
+    services: FileServices,
+    storage: ObjectStorage,
+    keyring: KeyRing,
+    source: StoredFile,
+    *,
+    key_id: uuid.UUID,
+    key: bytes,
+    origin: str = SOURCE,
+) -> tuple[StoredFile, list[str]]:
+    """One file copied: decrypted, encrypted again under its new ID, checked, not yet added.
+
+    The bytes are checked against the source's sha256 and size while streaming
+    (CopyIntegrityError); the thumbnail comes too; clean stays clean, anything else starts as a
+    new upload would. Returns the new row (unsaved) and every object key written, so the caller
+    removes them on any failure (lane B's rules, D-121 and REQ-INC-033).
+    """
+    tenant = tenant_of(session)
+    written: list[str] = []
+    try:
+        source_key = await data_key(session, keyring, source.data_key_id)
+        copy_id = new_id()
+        target = object_key(tenant, copy_id)
+        result = await blobs.write(
+            storage,
+            target,
+            data_key=key,
+            data_key_id=key_id,
+            file_id=copy_id,
+            source=blobs.read(
+                storage,
+                source.object_key,
+                data_key=source_key,
+                file_id=source.id,
+                size=source.size,
+            ),
+            limit=source.size,
+        )
+        written.append(target)
+        if result.sha256 != source.sha256 or result.size != source.size:
+            raise CopyIntegrityError(str(source.id))  # noqa: TRY301 - cleaned up below
+        thumb_key: str | None = None
+        thumb_size: int | None = None
+        if source.thumb_key is not None and source.thumb_size is not None:
+            thumb_key = object_key(tenant, copy_id, thumbnail=True)
+            thumb = await blobs.write(
+                storage,
+                thumb_key,
+                data_key=key,
+                data_key_id=key_id,
+                file_id=copy_id,
+                source=blobs.read(
+                    storage,
+                    source.thumb_key,
+                    data_key=source_key,
+                    file_id=source.id,
+                    size=source.thumb_size,
+                ),
+                limit=source.thumb_size,
+            )
+            written.append(thumb_key)
+            thumb_size = thumb.size
+    except BaseException:
+        # Nothing of a failed copy stays: the caller only knows the keys of finished ones.
+        for key_written in written:
+            await _forget(services, key_written)
+        raise
+    clean = FileState(source.state) == FileState.CLEAN
+    stored = StoredFile(
+        id=copy_id,
+        tenant_id=tenant,
+        name=source.name,
+        size=result.size,
+        sha256=result.sha256,
+        content_type=source.content_type,
+        kind=source.kind,
+        active_markup=source.active_markup,
+        state=(FileState.CLEAN if clean else initial_state(services)).value,
+        scan_signature=source.scan_signature if clean else None,
+        scanned_at=source.scanned_at if clean else None,
+        metadata_stripped=source.metadata_stripped,
+        data_key_id=key_id,
+        object_key=target,
+        stored_size=result.stored_size,
+        thumb_key=thumb_key,
+        thumb_size=thumb_size,
+        source=origin,
+        copied_from=source.id,
+    )
+    return stored, written
