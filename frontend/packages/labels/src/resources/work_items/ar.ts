@@ -623,6 +623,7 @@ export const ar: LabelResource = {
   'changes.freeze.override': 'المتابعة على أي حال',
   'changes.freeze.override_confirm': 'متابعة',
   'changes.freeze.override_reason': 'لماذا لا يمكن الانتظار',
+  'changes.freeze.override_reason_needed': 'اذكر سبب المتابعة خلال فترة التجميد.',
   'changes.freeze.override_title': 'المتابعة خلال فترة تجميد',
   'changes.freeze.override_warning_few':
     'يمضي هذا التغيير خلال {{count}} فترات تجميد تمنعه. يُسجَّل سببك في سجله وفي سجل التدقيق، ولا يُتجاوز سواها.',

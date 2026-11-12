@@ -552,6 +552,7 @@ export const en = {
   'changes.freeze.override': 'Go ahead anyway',
   'changes.freeze.override_confirm': 'Go ahead',
   'changes.freeze.override_reason': 'Why it cannot wait',
+  'changes.freeze.override_reason_needed': 'Give the reason for going ahead in the freeze.',
   'changes.freeze.override_title': 'Go ahead in a freeze',
   'changes.freeze.override_warning_one':
     'This change goes ahead in the freeze that blocks it. Your reason is recorded in its history and the audit log, and only this freeze is passed.',

@@ -553,6 +553,7 @@ export const ur: LabelResource = {
   'changes.freeze.override': 'پھر بھی آگے بڑھیں',
   'changes.freeze.override_confirm': 'آگے بڑھیں',
   'changes.freeze.override_reason': 'انتظار کیوں نہیں ہو سکتا',
+  'changes.freeze.override_reason_needed': 'فریز میں آگے بڑھنے کی وجہ لکھیں۔',
   'changes.freeze.override_title': 'فریز کے دوران آگے بڑھیں',
   'changes.freeze.override_warning_one':
     'یہ تبدیلی اسے روکنے والے فریز کے دوران آگے بڑھتی ہے۔ آپ کی وجہ اس کی تاریخ اور آڈٹ لاگ میں درج ہوتی ہے، اور صرف یہی فریز پار ہوتا ہے۔',
