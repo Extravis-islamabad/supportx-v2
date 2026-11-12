@@ -117,7 +117,9 @@ async def _log(db: ThrowawayDatabase, tenant: uuid.UUID) -> list[asyncpg.Record]
         await conn.close()
 
 
-async def test_req_aud_015_the_bff_writes_refusals_sign_ins_and_sign_outs(bff: Bff) -> None:
+async def test_req_aud_015_the_bff_writes_sign_ins_and_sign_outs_with_a_device_code(
+    bff: Bff,
+) -> None:
     """The log names the person only where they exist, and keeps a device code, never the UA."""
     a, _b = bff.tenants
     chrome = (
@@ -125,28 +127,41 @@ async def test_req_aud_015_the_bff_writes_refusals_sign_ins_and_sign_outs(bff: B
         "Chrome/131.0.0.0 Safari/537.36"
     )
     bff.client.headers["User-Agent"] = chrome
-    await _restrict(bff.db, a, "console_ip_allow", [ELSEWHERE])
-    await bff.login(bff.user("a", email="newcomer@demo.test"))
-    (refused,) = await _log(bff.db, a)
-    assert (refused["outcome"], refused["reason"], refused["user_id"]) == (
-        "failed",
-        "ip_not_allowed",
-        None,  # never created, so never named (and never the e-mail they typed)
-    )
-    assert (refused["ip"], refused["device"], refused["source"]) == (
-        "127.0.0.1/32",
-        "chrome:windows",
-        "bff",
-    )
-    await _restrict(bff.db, a, "console_ip_allow", [])
     assert (await bff.login(bff.user("a", email="newcomer@demo.test"))).status_code == 302
     csrf = await bff.csrf()
     assert (
         await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
     ).status_code == 204
     rows = await _log(bff.db, a)
-    assert [r["outcome"] for r in rows] == ["failed", "success", "signed_out"]
-    (person,) = await user_rows(bff.db, "newcomer@demo.test")
-    assert rows[1]["user_id"] == rows[2]["user_id"] is not None
-    assert rows[1]["app"] == "console"
-    assert person is not None
+    assert [r["outcome"] for r in rows] == ["success", "signed_out"]
+    assert rows[0]["user_id"] == rows[1]["user_id"] is not None
+    assert (rows[0]["ip"], rows[0]["device"], rows[0]["source"], rows[0]["app"]) == (
+        "127.0.0.1/32",
+        "chrome:windows",
+        "bff",
+        "console",
+    )
+
+
+async def test_a_refusal_is_logged_only_in_the_tenant_it_was_aimed_at(bff: Bff) -> None:
+    """Lane B's #455 review: never a fan-out to every tenant the person belongs to."""
+    a, b = bff.tenants
+    # Signed in with no tenant address and refused by both: aimed at none, so logged in none.
+    await _restrict(bff.db, a, "console_ip_allow", [ELSEWHERE])
+    await _restrict(bff.db, b, "console_ip_allow", [ELSEWHERE])
+    refused = await bff.login(bff.user("a", "b", email="both@demo.test"))
+    assert refused.json()["code"] == "ip_not_allowed"
+    assert await _log(bff.db, a) == []
+    assert await _log(bff.db, b) == []
+    # Tenant B opens up; a switch into tenant A is aimed at A: logged in A only, never in B.
+    await _restrict(bff.db, b, "console_ip_allow", [])
+    assert (await bff.login(bff.user("a", "b", email="both@demo.test"))).status_code == 302
+    switched = await bff.client.post(
+        "/api/v1/auth/switch-tenant",
+        json={"tenant_id": str(a)},
+        headers={"X-CSRF-Token": await bff.csrf()},
+    )
+    assert switched.json()["code"] == "ip_not_allowed"
+    (in_a,) = await _log(bff.db, a)
+    assert (in_a["outcome"], in_a["reason"], in_a["user_id"]) == ("failed", "ip_not_allowed", None)
+    assert [r["outcome"] for r in await _log(bff.db, b)] == ["success"]  # their own sign-in only

@@ -100,6 +100,8 @@ class Attempt:
     ip: str | None
     user_agent: str | None
     mobile: bool = False
+    # The organization alias of the tenant address the sign-in started on (its pending login).
+    organization: str | None = None
 
     def facts(
         self, outcome: SignInOutcome, user_id: uuid.UUID | None, *, reason: str | None = None
@@ -484,7 +486,13 @@ class AuthService:
                 app, BadRequest(code="login_failed"), origin, mobile_return=mobile_return
             )
         try:
-            attempt = Attempt(app, client_ip, user_agent, mobile=mobile is not None)
+            attempt = Attempt(
+                app,
+                client_ip,
+                user_agent,
+                mobile=mobile is not None,
+                organization=pending.get("organization"),
+            )
             session = await self._login(app, code, pending, attempt)
         except MfaEnrolmentDue:
             # Keycloak now holds the enrol actions on the account; signing in again (its own
@@ -672,16 +680,30 @@ class AuthService:
         return admitted(rules, NetworkApp(app), address_of(address))
 
     async def _log_refusal(
-        self, identity: Identity, tenant_ids: list[str], attempt: "Attempt | None"
+        self, identity: Identity, active: uuid.UUID | None, attempt: "Attempt | None"
     ) -> None:
-        """An IP refusal in each tenant that refused, naming the person only where they exist."""
+        """An IP refusal, logged ONLY in the tenant the attempt was aimed at (lane B's #455 review).
+
+        The tenant whose own address (organization) the sign-in started on, else the one asked
+        for (a tenant switch or a quick sign-in), else none: never every tenant the person is in,
+        which would tell one tenant about attempts on another. The person is named only where
+        they exist.
+        """
         if attempt is None or self.database is None:
             return
-        for tenant in tenant_ids:
-            tenant_id = uuid.UUID(tenant)
-            known = await known_user_id(self.database, tenant_id, identity.subject)
-            facts = attempt.facts(SignInOutcome.FAILED, known, reason=IP_NOT_ALLOWED)
-            await sign_in_log.record(self.database, tenant_id, facts)
+        aimed = next(
+            (
+                m.tenant_id
+                for m in identity.memberships
+                if attempt.organization is not None and m.alias == attempt.organization
+            ),
+            active,
+        )
+        if aimed is None:
+            return
+        known = await known_user_id(self.database, aimed, identity.subject)
+        facts = attempt.facts(SignInOutcome.FAILED, known, reason=IP_NOT_ALLOWED)
+        await sign_in_log.record(self.database, aimed, facts)
 
     async def _new_session(
         self,
@@ -709,12 +731,12 @@ class AuthService:
             c for c in choices if await self._admit(uuid.UUID(c.tenant_id), app, client_ip)
         ]
         if not admitted_choices:
-            await self._log_refusal(identity, [c.tenant_id for c in choices], attempt)
+            await self._log_refusal(identity, active, attempt)
             raise PermissionDenied(code=IP_NOT_ALLOWED)
         target = next((c for c in admitted_choices if active and c.tenant_id == str(active)), None)
         if target is None:
             if active is not None:  # asked for one tenant, and that one refuses the address
-                await self._log_refusal(identity, [str(active)], attempt)
+                await self._log_refusal(identity, active, attempt)
                 raise PermissionDenied(code=IP_NOT_ALLOWED)
             target = admitted_choices[0]
         user = await provision_user(

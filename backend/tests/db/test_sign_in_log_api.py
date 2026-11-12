@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import httpx
+import pytest
 
 from tests.db.test_access_api import Org
 from tests.db.test_identity_api import World, world
@@ -124,3 +125,26 @@ async def test_erasure_clears_address_and_device_and_old_entries_go(world: World
     found = {r["id"]: (r["ip"], r["device"]) for r in rows}
     assert found[kept] == (None, None)  # erased: no address, no device
     assert theirs in found  # the other tenant's old entry is its own purge's business (RLS)
+
+
+async def test_the_log_is_append_only_for_the_app(world: World) -> None:
+    """Lane B's #455 review: UPDATE only of ip and device; DELETE only past the retention."""
+    fresh = await _event(world, world.a, outcome="failed", ago=timedelta(hours=1))
+    conn = await asyncpg.connect(world.db.app_url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(world.a.tenant))
+            # Erasure may clear the address and device.
+            cleared = await conn.execute(
+                "UPDATE sign_in_events SET ip = NULL, device = NULL WHERE id = $1", fresh
+            )
+            assert cleared == "UPDATE 1"
+            # A fresh entry is never deleted (only the purge, past 90 days).
+            assert await conn.execute("DELETE FROM sign_in_events WHERE id = $1", fresh) == (
+                "DELETE 0"
+            )
+        # What happened is never rewritten (a column privilege: checked before any row).
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await conn.execute("UPDATE sign_in_events SET outcome = 'success' WHERE id = $1", fresh)
+    finally:
+        await conn.close()

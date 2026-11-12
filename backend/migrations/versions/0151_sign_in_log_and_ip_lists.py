@@ -1,7 +1,8 @@
 """The sign-in log and the IP allow-lists (identity_access; WP-057 S1a: REQ-AUD-015, REQ-SEC-034).
 
 Expand only, no data step:
-- `sign_in_events`: one row per sign-in event of a tenant: success, a refusal with its reason,
+- `sign_in_events`: one row per sign-in event of a tenant (append-only: UPDATE of ip and device
+  only, DELETE only past 90 days): success, a refusal with its reason,
   sign-out, lock-out, a failed MFA code. Written by the BFF for what it decides, and imported from
   Keycloak's events for what Keycloak decides (a wrong password), only into the tenant whose own
   address or organization the attempt carried (lane B's review: never every tenant a person is
@@ -27,7 +28,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-from app.shared.db.rls import APP_ROLE
+from app.shared.db.rls import APP_ROLE, CURRENT_TENANT_SQL
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0151"
@@ -44,6 +45,7 @@ OUTCOMES = ("success", "failed", "signed_out", "locked", "mfa_failed")
 METHODS = ("password", "single_sign_on", "directory", "mobile", "api_key", "unknown")
 APPS = ("console", "portal", "api", "mobile")
 SOURCES = ("bff", "keycloak")
+RETENTION_DAYS = 90  # service/sign_in_log.RETENTION
 
 
 def _in(column: str, codes: tuple[str, ...]) -> str:
@@ -110,8 +112,18 @@ def upgrade() -> None:
         postgresql_where=sa.text("keycloak_event_id IS NOT NULL"),
     )
     enable_tenant_rls(EVENTS)
-    # UPDATE: erasure nulls ip and device; DELETE: the 90-day retention. Never TRUNCATE.
-    grant_app(EVENTS, ("SELECT", "INSERT", "UPDATE", "DELETE"))
+    # Append-only (lane B's #455 review): UPDATE only of ip and device (the GDPR erasure nulls
+    # them), never of what happened; DELETE only of rows past the retention (the restrictive
+    # policy below), so no code path can rewrite or trim the log early. Never TRUNCATE.
+    grant_app(EVENTS, ("SELECT", "INSERT", "DELETE"))
+    op.execute(f"GRANT UPDATE (ip, device) ON {EVENTS} TO {APP_ROLE}")
+    # Restrictive: ANDed with the tenant policy; it repeats the tenant match, as every policy
+    # here does (tooling/rls_guard.py).
+    op.execute(
+        f"CREATE POLICY {EVENTS}_retention_only ON {EVENTS} AS RESTRICTIVE FOR DELETE "
+        f"TO {APP_ROLE} USING (tenant_id = {CURRENT_TENANT_SQL} "
+        f"AND occurred_at < now() - interval '{RETENTION_DAYS} days')"
+    )
 
     op.create_table(
         CURSOR,
