@@ -186,10 +186,21 @@ postgresql:
   # external: a DBA-managed server; set the host and run tooling/sql once as superuser.
   mode: cnpg
   database: supportx
+  # TLS to the database, verified (audit row 5; docs/deployment.md, Transport security): the API,
+  # the workers and the migrate Job connect with sslmode verify-full against the server's CA
+  # (SUPPORTX_DATABASE_SSL_ROOT_CERT). cnpg: the cluster's own CA (Secret <release>-pg-ca, made
+  # by CloudNativePG); its PgBouncer serves the cluster's server certificate, which then also
+  # names the pooler. external: your server's CA in external.caSecret. Off: asyncpg's default,
+  # encrypted when the server offers TLS but nothing checked.
+  tls:
+    verify: true
   external:
     host: ""
     port: 5432
     poolerHost: ""                  # PgBouncer in transaction mode, if any (else = host)
+    # With tls.verify: a Secret holding the CA your server's (and pooler's) certificate chains
+    # to, as `ca.crt`. The host names above must be in that certificate.
+    caSecret: ""
   cnpg:
     instances: 1
     storage: {size: 20Gi, storageClass: ""}

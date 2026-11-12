@@ -27,6 +27,10 @@ keycloak:
     limits: {cpu: "2", memory: 1Gi}
 
 postgresql:
+  # The local cluster keeps asyncpg's default (encrypted, unchecked), as before; values-ha.yaml
+  # turns verification on for the HA tests that sit on top of this file.
+  tls:
+    verify: false
   cnpg:
     devNodePort: 30432          # 127.0.0.1:25433 on the host (deploy/k3d/cluster.yaml)
     storage: {size: 2Gi}

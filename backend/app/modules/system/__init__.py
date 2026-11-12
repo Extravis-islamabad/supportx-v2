@@ -25,6 +25,7 @@ from fastapi import FastAPI
 
 from app.core.authorization import PermissionSpec
 from app.core.config import Settings
+from app.core.database import database_ssl
 from app.core.modules import ModuleSpec
 from app.modules.system.api.action_links import public_router as public_links_router
 from app.modules.system.api.action_links import router as action_links_router
@@ -75,6 +76,8 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
             found = url.get_secret_value()
             if probe_type is ValkeyProbe:
                 probes.append(ValkeyProbe(found, settings))
+            elif probe_type is PostgresProbe:
+                probes.append(PostgresProbe(found, database_ssl(settings.database_ssl_root_cert)))
             elif probe_type is NatsProbe:
                 probes.append(NatsProbe(found, settings.nats_tls_ca_file))
             else:

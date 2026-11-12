@@ -21,9 +21,11 @@ recommends. This works with any transaction-mode pooler and PgBouncer version a 
 on-prem; the cost is one extra parse per statement. See docs/architecture/tenancy.md.
 """
 
+import ssl
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Depends, Request
@@ -42,6 +44,7 @@ from app.core.config import Settings
 from app.core.errors import ServiceUnavailable
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext, resolve_tenant
+from app.core.tls import verified_context
 
 TENANT_SETTING = "app.tenant_id"
 USER_SETTING = "app.user_id"
@@ -92,6 +95,16 @@ def to_async_url(url: str) -> str:
     raise ValueError(msg)
 
 
+def database_ssl(root_cert: Path | None) -> ssl.SSLContext | None:
+    """Asyncpg's `ssl` for verify-full against `root_cert`; None leaves asyncpg's default.
+
+    asyncpg takes the context as it is: a checked chain and host name is sslmode verify-full
+    (audit row 5). The URL cannot carry sslmode here: SQLAlchemy would pass it to asyncpg as an
+    unknown keyword.
+    """
+    return verified_context(root_cert) if root_cert is not None else None
+
+
 def _unique_statement_name() -> str:
     return f"__supportx_{uuid.uuid4().hex}__"
 
@@ -116,18 +129,21 @@ def create_engine(  # noqa: PLR0913 - keyword-only pool settings, all optional
     use_null_pool: bool = False,
     connect_timeout: float | None = None,
     command_timeout: float | None = None,
+    ssl: ssl.SSLContext | None = None,
 ) -> AsyncEngine:
     """Async engine for the application role. `use_null_pool` is for tests and one-shot tools.
 
     `connect_timeout` and `command_timeout` (seconds) bound how long asyncpg waits on a server
     that stopped answering; None keeps asyncpg's own behaviour (no limit on commands), for work
-    that may legitimately run long, such as index builds.
+    that may legitimately run long, such as index builds. `ssl` comes from `database_ssl`.
     """
     connect_args = pgbouncer_safe_connect_args(application_name)
     if connect_timeout is not None:
         connect_args["timeout"] = connect_timeout
     if command_timeout is not None:
         connect_args["command_timeout"] = command_timeout
+    if ssl is not None:
+        connect_args["ssl"] = ssl
     pool_args: dict[str, Any] = (
         {"poolclass": NullPool}
         if use_null_pool
@@ -232,6 +248,7 @@ class Database:
                 pool_timeout=settings.db_pool_timeout_seconds,
                 connect_timeout=settings.db_connect_timeout_seconds,
                 command_timeout=settings.db_command_timeout_seconds,
+                ssl=database_ssl(settings.database_ssl_root_cert),
             ),
             settings,
         )
@@ -266,6 +283,7 @@ class Database:
                 pool_timeout=settings.db_pool_timeout_seconds,
                 connect_timeout=settings.db_connect_timeout_seconds,
                 command_timeout=reporting_command_timeout(settings),
+                ssl=database_ssl(settings.database_ssl_root_cert),
             )
         )
 

@@ -11,6 +11,7 @@ import math
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from ssl import SSLContext
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -37,14 +38,15 @@ class PostgresProbe:
 
     name = "postgres"
 
-    def __init__(self, dsn: str) -> None:
+    def __init__(self, dsn: str, ssl: SSLContext | None = None) -> None:
         self._dsn = dsn
+        self._ssl = ssl  # verify-full when set (app.core.database.database_ssl)
 
     async def check(self, timeout_s: float) -> None:
         """Connect, run `SELECT 1`, disconnect."""
         try:
             connection = await asyncpg.connect(
-                self._dsn, timeout=timeout_s, command_timeout=timeout_s
+                self._dsn, timeout=timeout_s, command_timeout=timeout_s, ssl=self._ssl
             )
         except asyncpg.InvalidAuthorizationSpecificationError as exc:
             raise ProbeFailedError(FailureReason.AUTH_FAILED) from exc

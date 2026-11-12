@@ -31,6 +31,17 @@ spec:
       {{- range $k, $v := $pg.parameters }}
       {{ $k }}: {{ $v | quote }}
       {{- end }}
+  {{- if eq (include "supportx.dbTls" .) "true" }}
+  certificates:
+    # The app reaches PostgreSQL through the pooler, and CloudNativePG's PgBouncer serves this
+    # cluster's server certificate: it names the pooler's service too, so verify-full (the host
+    # name checked, audit row 5) holds on that hop. The operator adds these to its own names.
+    serverAltDNSNames:
+      - {{ .Release.Name }}-pg-pooler
+      - {{ .Release.Name }}-pg-pooler.{{ .Release.Namespace }}
+      - {{ .Release.Name }}-pg-pooler.{{ .Release.Namespace }}.svc
+      - {{ .Release.Name }}-pg-pooler.{{ .Release.Namespace }}.svc.cluster.local
+  {{- end }}
   storage:
     size: {{ $pg.storage.size }}
     {{- with $pg.storage.storageClass }}
