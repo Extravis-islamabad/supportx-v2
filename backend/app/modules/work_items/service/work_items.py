@@ -2588,6 +2588,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         await task_templates.add_template_tasks(
             session, subject, wtype, record, template.tasks, source=source
         )
+    if template.checklists:  # REQ-INC-040: the template's checklists whose condition matches
+        # Imported here: the checklist service builds on this module (WP-046a S2).
+        from app.modules.work_items.service import checklists  # noqa: PLC0415 - see above
+
+        await checklists.add_template_checklists(
+            session, wtype, record, template.checklists, source=source
+        )
     if change_types.pre_approved(new_change):  # REQ-CHG-006: a standard change, approved now
         record = await _stage_move(
             session,

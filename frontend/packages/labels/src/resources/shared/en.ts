@@ -345,6 +345,22 @@ export const en = {
     'Category, subcategory and item. Retired entries are not offered on new incidents but still show on the incidents that use them.',
   'settings.changed_elsewhere':
     'Someone else changed these settings just now. The latest version is shown; please make your change again.',
+  'settings.checklists.add': 'New library checklist',
+  'settings.checklists.enabled_named': 'Offer {{name}}',
+  'settings.checklists.help':
+    'Ready-made checklists a technician can add to an incident. The incident gets its own copy: changing one here never changes incidents that already have it.',
+  'settings.checklists.import': 'Add items from a CSV file',
+  'settings.checklists.imported':
+    '{{items}} items read, {{rejected}} rows left out. Review them, then save.',
+  'settings.checklists.items': 'Items',
+  'settings.checklists.items_count_one': '{{count}} item',
+  'settings.checklists.items_count_other': '{{count}} items',
+  'settings.checklists.items_help': 'One item per line. Empty lines are left out.',
+  'settings.checklists.name': 'Name',
+  'settings.checklists.none': 'No library checklists yet.',
+  'settings.checklists.rejected_row': 'Row {{row}}: {{reason}}',
+  'settings.checklists.title': 'Checklist library',
+  'settings.checklists.why.name': 'Give the checklist a name first.',
   'settings.closing.auto_close': 'Close resolved incidents automatically',
   'settings.closing.auto_close_days': 'Business days before auto-close',
   'settings.closing.auto_close_help':
@@ -352,6 +368,9 @@ export const en = {
   'settings.closing.auto_close_needs_notifications':
     'Requires requester notifications: auto-close stays off until a channel (e-mail or the portal) can tell requesters of a resolution. An incident is never closed for a requester who was never told.',
   'settings.closing.channel_state': '{{channel}}: {{reason}}.',
+  'settings.closing.checklist_item_max': 'Checklist items per record',
+  'settings.closing.checklist_item_max_help':
+    "All of a record's checklists together, {{min}} to {{max}}. A longer list is refused, never cut.",
   'settings.closing.close_requires': 'Needed before closing',
   'settings.closing.close_requires_help':
     'Fields that must be filled before an incident can be closed.',
@@ -490,6 +509,7 @@ export const en = {
     'How fast it must be fixed. The four values are fixed; you can rename them.',
   'settings.section.business-rules': 'Business rules',
   'settings.section.categories': 'Categories',
+  'settings.section.checklists': 'Checklists',
   'settings.section.closing': 'Closing',
   'settings.section.closure-codes': 'Closure codes',
   'settings.section.custom-fields': 'Custom fields',

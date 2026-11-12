@@ -1,5 +1,12 @@
 // errors labels (see ../README.md). English is the reference.
 export const en = {
+  'checklist_import_failure.not_text': 'The file is not a UTF-8 text (CSV) file.',
+  'checklist_import_failure.too_large': 'The file is larger than 5 MB.',
+  'checklist_import_failure.too_many_columns': 'A row has more than 40 columns.',
+  'checklist_import_failure.too_many_rows': 'The file has more than 5,000 rows.',
+  'checklist_import_reason.empty': 'Empty row',
+  'checklist_import_reason.too_many_items': "Past the checklist's item limit",
+  'checklist_import_reason.value_too_long': 'Longer than 500 characters',
   'errors.action_link_expired': 'This link has expired. Open the request in the app instead.',
   'errors.action_link_not_found': 'This link is not valid.',
   'errors.action_link_revoked': 'This is no longer needed: the request was decided or withdrawn.',
@@ -36,6 +43,9 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.archive_busy': 'You already have two downloads running. Try again in a minute.',
+  'errors.archive_too_large': 'These files come to more than {{max_mb}} MB. Pick fewer files.',
+  'errors.archive_too_many_files': 'You can download up to {{max}} files at once.',
   'errors.asset_acknowledgement_answered': 'You have already answered this one.',
   'errors.asset_acknowledgement_not_found':
     "That acknowledgement isn't yours, or no longer exists.",
@@ -191,6 +201,10 @@ export const en = {
   'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.change_window_blocked':
     'A freeze blocks this time. Choose another time, or someone allowed to may let it go ahead with a reason.',
+  'errors.checklist_item_not_found': 'This checklist item is no longer there.',
+  'errors.checklist_library_not_found':
+    'This library checklist is no longer there or is no longer offered.',
+  'errors.checklist_not_found': 'This checklist is no longer there.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -720,6 +734,7 @@ export const en = {
   'errors.follower_not_found': 'This person is not following it.',
   'errors.group_not_found': 'The support group was not found.',
   'errors.group_not_led': 'You can only manage the groups you lead.',
+  'errors.handoff_invalid': 'This sign-in has expired or was already used. Please sign in again.',
   'errors.holiday_list_not_found': 'This holiday list does not exist or was deleted.',
   'errors.holiday_not_found': 'This holiday does not exist or was deleted.',
   'errors.ical_too_large': 'The file is larger than 1 MB.',
@@ -753,6 +768,8 @@ export const en = {
   'errors.invalid_filter': 'The filter could not be applied. Check the highlighted condition.',
   'errors.invalid_idempotency_key': 'The request identifier is not valid.',
   'errors.invalid_login_state': 'This sign-in link has expired. Please start again.',
+  'errors.invalid_mobile_challenge':
+    'The app could not start signing in. Please update the app and try again.',
   'errors.invalid_number': 'Enter a number.',
   'errors.invalid_page_size': 'Too many rows were requested for one page.',
   'errors.invalid_report': 'This report cannot run as it is. Check the highlighted parts.',
@@ -936,6 +953,7 @@ export const en = {
   'errors.reference_is': 'Reference: {{reference}}',
   'errors.release_not_failed':
     "Follow-ups are offered once the release's deployment has failed or been rolled back.",
+  'errors.reminder_not_found': 'This reminder is no longer there.',
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
   'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',

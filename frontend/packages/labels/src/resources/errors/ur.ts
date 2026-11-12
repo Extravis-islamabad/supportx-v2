@@ -2,6 +2,13 @@ import type { LabelResource } from '../en';
 
 // errors labels (see ../README.md).
 export const ur: LabelResource = {
+  'checklist_import_failure.not_text': 'فائل UTF-8 متن (CSV) فائل نہیں ہے۔',
+  'checklist_import_failure.too_large': 'فائل 5 MB سے بڑی ہے۔',
+  'checklist_import_failure.too_many_columns': 'ایک قطار میں 40 سے زیادہ کالم ہیں۔',
+  'checklist_import_failure.too_many_rows': 'فائل میں 5,000 سے زیادہ قطاریں ہیں۔',
+  'checklist_import_reason.empty': 'خالی قطار',
+  'checklist_import_reason.too_many_items': 'چیک لسٹ کی آئٹم حد سے زیادہ',
+  'checklist_import_reason.value_too_long': '500 حروف سے لمبی',
   'errors.action_link_expired':
     'اس لنک کی میعاد ختم ہو گئی ہے۔ اس کے بجائے درخواست ایپ میں کھولیں۔',
   'errors.action_link_not_found': 'یہ لنک درست نہیں۔',
@@ -38,6 +45,10 @@ export const ur: LabelResource = {
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_pending': '{{display_id}} پہلے ہی منظوری کا منتظر ہے۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
+  'errors.archive_busy': 'آپ کے دو ڈاؤن لوڈ پہلے سے چل رہے ہیں۔ ایک منٹ بعد دوبارہ کوشش کریں۔',
+  'errors.archive_too_large': 'ان فائلوں کا حجم {{max_mb}} MB سے زیادہ ہے۔ کم فائلیں منتخب کریں۔',
+  'errors.archive_too_many_files':
+    'آپ ایک وقت میں زیادہ سے زیادہ {{max}} فائلیں ڈاؤن لوڈ کر سکتے ہیں۔',
   'errors.asset_acknowledgement_answered': 'آپ اس کا جواب پہلے ہی دے چکے ہیں۔',
   'errors.asset_acknowledgement_not_found': 'یہ تصدیق آپ کی نہیں، یا اب موجود نہیں۔',
   'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',
@@ -191,6 +202,9 @@ export const ur: LabelResource = {
   'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
   'errors.change_window_blocked':
     'ایک فریز اس وقت کو روکتا ہے۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
+  'errors.checklist_item_not_found': 'چیک لسٹ کا یہ آئٹم اب موجود نہیں۔',
+  'errors.checklist_library_not_found': 'لائبریری کی یہ چیک لسٹ اب موجود یا پیش نہیں۔',
+  'errors.checklist_not_found': 'یہ چیک لسٹ اب موجود نہیں۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.command_in_flight':
@@ -726,6 +740,8 @@ export const ur: LabelResource = {
   'errors.follower_not_found': 'یہ شخص اسے فالو نہیں کر رہا۔',
   'errors.group_not_found': 'سپورٹ گروپ نہیں ملا۔',
   'errors.group_not_led': 'آپ صرف ان گروپس کا انتظام کر سکتے ہیں جن کی آپ قیادت کرتے ہیں۔',
+  'errors.handoff_invalid':
+    'یہ سائن اِن ختم ہو چکا ہے یا پہلے استعمال ہو چکا ہے۔ براہِ کرم دوبارہ سائن اِن کریں۔',
   'errors.holiday_list_not_found': 'تعطیلات کی یہ فہرست موجود نہیں یا حذف ہو چکی ہے۔',
   'errors.holiday_not_found': 'یہ تعطیل موجود نہیں یا حذف ہو چکی ہے۔',
   'errors.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
@@ -759,6 +775,8 @@ export const ur: LabelResource = {
   'errors.invalid_idempotency_key': 'درخواست کا شناخت کنندہ درست نہیں۔',
   'errors.invalid_login_state':
     'اس سائن اِن لنک کی میعاد ختم ہو گئی ہے۔ براہِ کرم دوبارہ شروع کریں۔',
+  'errors.invalid_mobile_challenge':
+    'ایپ سائن اِن شروع نہیں کر سکی۔ براہِ کرم ایپ اپ ڈیٹ کر کے دوبارہ کوشش کریں۔',
   'errors.invalid_number': 'عدد لکھیں۔',
   'errors.invalid_page_size': 'ایک صفحے کے لیے بہت زیادہ قطاریں مانگی گئیں۔',
   'errors.invalid_report': 'یہ رپورٹ اس حالت میں نہیں چل سکتی۔ نمایاں حصے چیک کریں۔',
@@ -940,6 +958,7 @@ export const ur: LabelResource = {
   'errors.reference_is': 'حوالہ: {{reference}}',
   'errors.release_not_failed':
     'فالو اپ تب پیش کیے جاتے ہیں جب ریلیز کی تعیناتی ناکام ہو یا واپس لی جائے۔',
+  'errors.reminder_not_found': 'یہ یاد دہانی اب موجود نہیں۔',
   'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
   'errors.repeat_rule_not_found': 'بار بار واقعات کا یہ اصول اب موجود نہیں۔',
   'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',

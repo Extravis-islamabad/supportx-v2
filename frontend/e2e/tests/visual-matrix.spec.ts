@@ -115,6 +115,7 @@ const ADMIN_SECTIONS: Record<string, string[]> = {
   incidents: [
     'general',
     'templates',
+    'checklists', // WP-046a S2: the checklist library
     'custom-fields',
     'statuses',
     'reasons',
@@ -392,6 +393,26 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.workflowRun ? `/incidents/${r.workflowRun}` : undefined),
     app: 'console',
     state: { name: 'workflows', open: tab('workflows') },
+  },
+  // WP-046a S2: a record's checklists and all its files (template A's tabs), and your
+  // reminders in the header (lane C's condition: 390 and 1280, en/ar, top/side).
+  {
+    key: 'incident-checklists',
+    path: incident,
+    app: 'console',
+    state: { name: 'checklists', open: tab('checklists') },
+  },
+  {
+    key: 'incident-files',
+    path: incident,
+    app: 'console',
+    state: { name: 'files', open: tab('files') },
+  },
+  {
+    key: 'home-reminders',
+    path: '/',
+    app: 'console',
+    state: { name: 'reminders', open: click('reminders-drawer-open') },
   },
   // WP-048b S4: the designer, "template A header + canvas body"; its outline and problems.
   {

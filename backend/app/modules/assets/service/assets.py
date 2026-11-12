@@ -63,6 +63,7 @@ from app.modules.assets.infra.models import (
 from app.modules.assets.service import catalogue as catalogue_money
 from app.modules.assets.service import ticket_access, valuations
 from app.modules.assets.service.catalogue import TEXT_MAX, ensure_defaults
+from app.modules.assets.service.memo import memo
 from app.modules.assets.service.valuations import VALUED_FIELDS
 from app.modules.identity_access import (
     ResourceType,
@@ -70,7 +71,7 @@ from app.modules.identity_access import (
     authorize_stored,
     scope_filter,
 )
-from app.modules.licensing import LimitKey, hold_limit, reserve_capacity
+from app.modules.licensing import LimitKey, reserve_capacity
 from app.modules.organization import existing_unit_ids
 from app.modules.procurement import vendor_problem
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
@@ -360,14 +361,26 @@ async def _product(session: AsyncSession, product_id: uuid.UUID) -> AssetProduct
 
 
 async def _type(session: AsyncSession, type_id: uuid.UUID) -> AssetProductType:
-    found = await session.get(AssetProductType, type_id)
+    found = await _held_type(session, type_id)
     if found is None:  # a foreign key holds it
         msg = f"asset product type {type_id} is missing"
         raise RuntimeError(msg)
     return found
 
 
+async def _held_type(session: AsyncSession, type_id: uuid.UUID) -> AssetProductType | None:
+    """A product type, kept for the transaction (the identity map alone forgets it: S4c)."""
+    types: dict[uuid.UUID, AssetProductType | None] = memo(session).setdefault("types", {})
+    if type_id not in types:
+        types[type_id] = await session.get(AssetProductType, type_id)
+    return types[type_id]
+
+
 async def _default_state(session: AsyncSession) -> AssetState:
+    known = memo(session)
+    if "default_state" in known:
+        state: AssetState = known["default_state"]
+        return state
     found = await session.scalar(
         select(AssetState).where(
             AssetState.category == AssetStateCategory.IN_STOCK,
@@ -378,6 +391,7 @@ async def _default_state(session: AsyncSession) -> AssetState:
     if found is None:  # ensure_defaults made one; an admin cannot remove a default
         msg = "no default in-stock state"
         raise RuntimeError(msg)
+    known["default_state"] = found
     return found
 
 
@@ -388,9 +402,15 @@ async def _counts(session: AsyncSession, type_id: uuid.UUID, state_id: uuid.UUID
 
 
 async def _reserve(session: AsyncSession) -> None:
-    """Take one managed-asset slot, or refuse (403 asset_limit_reached), race-safely."""
-    await hold_limit(session, LimitKey.ASSETS)
+    """Take one managed-asset slot, or refuse (403 asset_limit_reached), race-safely.
+
+    `reserve_capacity` takes the limit's lock itself before it counts (a second `hold_limit`
+    first was one more round trip per asset, S4c).
+    """
     await reserve_capacity(session, LimitKey.ASSETS, code=LIMIT_CODE)
+    known = memo(session)
+    if "slots" in known:  # memo.keep_slot_count: one more slot taken in this savepoint
+        known["slots"] += 1
 
 
 async def _next_tag(session: AsyncSession, product_type: AssetProductType) -> str:
@@ -400,10 +420,11 @@ async def _next_tag(session: AsyncSession, product_type: AssetProductType) -> st
         if node.tag_pattern:
             number = await next_display_number(session, tag_counter_key(str(node.id)))
             return format_tag(node.tag_pattern, number)
-        node = (
-            None if node.parent_id is None else await session.get(AssetProductType, node.parent_id)
-        )
-    settings = await session.get(AssetSettings, _tenant(session))
+        node = None if node.parent_id is None else await _held_type(session, node.parent_id)
+    known = memo(session)
+    if "settings" not in known:
+        known["settings"] = await session.get(AssetSettings, _tenant(session))
+    settings: AssetSettings | None = known["settings"]
     pattern = settings.tag_pattern if settings is not None else "AST-{n}"
     return format_tag(pattern, await next_display_number(session, tag_counter_key(None)))
 
@@ -419,7 +440,7 @@ async def _custom(
     cleaned, found = await metadata.clean(
         session, ENTITY, sent or {}, current=before, creating=creating, defaults=creating
     )
-    params = await metadata.problem_params(session, ENTITY, found)
+    params = await metadata.problem_params(session, ENTITY, found) if found else {}
     problems = [Problem(path, code, tuple(params.get(path, {}).items())) for path, code in found]
     merged = {**before, **cleaned}
     return {k: v for k, v in merged.items() if v is not None}, problems
@@ -465,7 +486,8 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
         aggregate_version=row.version,
     )
     if action == "created" or VALUED_FIELDS & {c.field for c in changes}:
-        await valuations.refresh(session, row)  # reports see the new figures at once
+        # Reports see the new figures at once. A new asset has no cost lines or disposal yet.
+        await valuations.refresh(session, row, new=action == "created")
 
 
 def staff_rows(subject: Subject, *, trash: bool = False) -> Select[Asset]:
@@ -584,10 +606,12 @@ async def create_asset(
         id=new_id(),
         tenant_id=_tenant(session),
         created_by=subject.user_id,
+        updated_by=subject.user_id,  # as `_saved` sets it: no second UPDATE of the new row (S4c)
         product_type_id=product_type.id,
         state_id=state.id,
         custom=custom or {},
-        custom_text=await metadata.text_for_search(session, ENTITY, custom or {}),
+        # No custom values, no search text (S4c: skips reading the definitions for nothing).
+        custom_text=await metadata.text_for_search(session, ENTITY, custom) if custom else None,
         **cleaned,
     )
     session.add(row)
@@ -766,7 +790,14 @@ def purchase_total(row: Asset) -> Decimal | None:
 
 
 async def count_managed_assets(session: AsyncSession) -> int:
-    """Assets using a slot of the plan's asset limit (REQ-AST-002, D-141)."""
+    """Assets using a slot of the plan's asset limit (REQ-AST-002, D-141).
+
+    In an import's batch savepoint (`memo.keep_slot_count`) counted once, then kept up to date.
+    """
+    known = memo(session)
+    if known.get("keep_slot_count") and "slots" in known:
+        slots: int = known["slots"]
+        return slots
     found = await session.scalar(
         select(func.count())
         .select_from(Asset)
@@ -779,6 +810,8 @@ async def count_managed_assets(session: AsyncSession) -> int:
             AssetState.category != AssetStateCategory.DISPOSED,
         )
     )
+    if known.get("keep_slot_count"):
+        known["slots"] = int(found or 0)
     return int(found or 0)
 
 

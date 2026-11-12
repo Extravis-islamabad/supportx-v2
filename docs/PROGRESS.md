@@ -1285,6 +1285,20 @@ it with no reload (rule c). Not built yet.
   - add_child refuses any holding loop through lane C's `release_links.holds`.
   - **Still open:** the "caused incidents" change report field and the `caused_by_change` link
     kind (REQ-CHG-116) come once #396's type fields are on main.
+    The link kind's CHECK is already widened (0141), so that step needs no migration.
+- **S2 (0144; REQ-INC-040, -077, -078, -080, -082; #407):**
+  - Checklists: typed or from the library, several per record. A tick records who and when.
+    Unticked items are open work, completed by the system on close.
+  - Record templates add their checklists when their condition matches.
+  - The library has a read-only CSV import (5 MB, 5,000 rows, 40 columns; bad rows listed).
+  - A list past `checklist_item_max` (Admin › Incidents › Closing) is refused whole.
+  - All files: the record's own, its replies' and notes', listed in one tab and downloadable as
+    one zip. Lane B's rules apply: each file checked again, left-out files named in
+    `manifest.txt`, two downloads per person at once, 200 files and 500 MB, audited.
+  - Personal reminders: on the record and in the header drawer, the owner's only, alerted once
+    by a sweep, live on the personal channel.
+  - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
+    reserved for S3).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -1594,7 +1608,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11; 4c 2026-11-12)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1851,7 +1865,43 @@ it with no reload (rule c). Not built yet.
     (change product as such, add to group and loanable stay synchronous, depreciation, labels,
     scan now), field mapping in the import wizard (fixed headings for now), imports of licences,
     CIs, contracts and POs (their modules), loans and bookings moving on merge (refused
-    instead), a faster import path for 20,000 rows, the e2e journey.
+    instead), the e2e journey.
+- [x] **Session 4c (no migration; faster asset imports, the S4b follow-up; coordinator
+  conditions 2026-11-12):** each row still goes through `create_asset` / `update_asset` (or the
+  consumable and vendor calls) with its own permission check, history, outbox event and audit
+  entry; no bulk INSERT. What changed around them (`service/imports.py`):
+  - Product, site and vendor names resolved once per job (`Lookups`: made per job for its
+    tenant and importer, refuses any other session, answers as `find_site` / `find_vendor_id`
+    do, which apply no person's scope); the records a batch matches read in one query
+    (assets by lower(tag or serial), consumables by product, vendors by name through
+    procurement's new `find_vendors`).
+  - Rows checked first without writing, in the row path's order; the passing rows of a batch
+    go through the services in one savepoint (rolled back in a dry run); any refusal rolls it
+    back and redoes those rows one by one, each in its own savepoint and checked afresh, so the
+    problems are exactly the row path's. A key twice in a batch splits the savepoint there.
+  - A transaction ends after 100 rows or about 2 s (`BATCH_SECONDS`), so the tag counter row
+    and the asset limit's lock are held briefly; tag numbers still come from the caller's
+    transaction, so a dry run gives them all back.
+  - The asset service reads tenant configuration (defaults, the default state, settings, the
+    type tree, the time zone) once per (sub)transaction (`service/memo.py`), skips reads a new
+    asset cannot need (cost lines, disposal, custom-field definitions without custom values,
+    a second UPDATE, a second advisory lock), and in an import's batch savepoint counts the
+    asset limit once under its lock, then adds one per slot taken (a refusal redoes the rows
+    one by one with fresh counts).
+  - Measured locally (backend/tests/db/test_asset_import_scale.py, 2,000 rows, the loaded
+    shared Mac): before 70.5 s dry run, 75.1 s run (35 and 38 ms a row); after 32.8 s and 33.2 s
+    (16 and 17 ms a row). The CI figure for 20,000 rows comes from an audit-scale dispatch
+    (`asset_import_rows`), not from this Mac.
+  - Tests: tests/db/test_asset_import_batches.py (8: lookups per job, tenant and importer;
+    the out-of-scope rows of a mixed batch refused one by one; one refused row in a full batch
+    with exact problems; tag numbers untouched by a dry run and one per saved row; a manual add
+    waits about one 2 s transaction (measured 2.0 s); consumables matched as before); the S4b
+    import tests unchanged.
+  - **Open:** the remaining per-row reads are other modules' (custom-field definitions three
+    times, the licence count and lock, the audit entry) or the save itself; a further step
+    (a per-transaction cache of metadata's definitions, eager server defaults instead of the
+    refresh after insert) needs those owners. The import of a site-scoped manager may add
+    assets at any site, as `create_asset` allows today (only updates are scope-checked).
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
@@ -1885,12 +1935,12 @@ it with no reload (rule c). Not built yet.
   RLS forced, no DELETE grant (soft delete), unique live start per person, an index for "the rate
   in force". The downgrade refuses per tenant while any rate exists (removed ones too).
 - [x] Rights `users.view_cost_rates` and `users.manage_cost_rates`: no built-in role but the
-  tenant admin holds them (role matrix unchanged). **Names pending Haider's naming.**
+  tenant admin holds them (role matrix unchanged); grantable to a custom role such as Finance (D-164, Haider 2026-11-12).
 - [x] API: `GET /api/v1/users/{id}/cost-rates` (view), `POST` (view + manage,
   Idempotency-Key), `PATCH /api/v1/users/{id}/cost-rates/{rate_id}` and `DELETE` (view + manage,
   If-Match). The current and upcoming rates may change; a superseded one is refused
   (`cost_rate_superseded`), a taken start too (`cost_rate_date_taken`); a service identity
-  gets `not_a_person`. Audited as `user.cost_rate_changed` (old and new rate and start). History
+  gets `not_a_person`. Audited as `user.cost_rate_changed` (old and new rate and start), and every read of a person's rates as `user.cost_rate_viewed` (D-164: which rates were shown, never amounts; the worklog cost snapshot through the port is not a view). History
   on the rate; the person's own history gets the rate's ID only. Event
   `identity_access.user_cost_rate.changed` (IDs and the kind of change) on the `user_cost_rates`
   list channel (users.view_cost_rates). Never in the person record, lists, search, exports or

@@ -263,6 +263,7 @@ def test_app_consumers_are_valid_and_the_dev_logger_is_dev_only() -> None:
     assert logger.enabled(make_settings(profile="test", dev_event_logger=True))
     production = make_settings(
         profile="production",
+        mobile_redirect_uri="https://sx.example.com/mobile/auth",
         dev_event_logger=True,
         database_url="postgresql://u:p@h:1/d",
         valkey_url="valkey://h:1/0",
