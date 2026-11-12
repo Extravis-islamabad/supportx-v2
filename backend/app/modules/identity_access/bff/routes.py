@@ -353,7 +353,8 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
     cookie is spent here, whether the sign-in succeeds or fails.
     """
     if limited.refusal is not None:  # the state is left alone: a retry in its 10 minutes works
-        return await _failure_response(request, auth, LoginFailure("console", limited.refusal))
+        failure = await auth.refused_callback(state, limited.refusal)
+        return await _failure_response(request, auth, failure)
     response = await _finish_callback(request, auth, code, state, error, kc_action_status)
     response.headers.update(limited.headers)  # a returned Response gets no injected headers
     if state and login_cookie_name(auth.settings, state) in request.cookies:

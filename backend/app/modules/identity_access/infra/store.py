@@ -223,6 +223,12 @@ class SessionStore:
         blob = await self._kv.getdel(key)
         return self._cipher.decrypt(blob, bound_to=key) if blob else None
 
+    async def peek_login(self, state: str) -> dict[str, Any] | None:
+        """Read a pending login without spending it (where a refused callback goes back to)."""
+        key = _hashed(LOGIN_PREFIX, state)
+        blob = await self._kv.get(key)
+        return self._cipher.decrypt(blob, bound_to=key) if blob else None
+
     async def take_login(self, state: str) -> dict[str, Any] | None:
         """Fetch and delete a pending login: each state is usable exactly once."""
         key = _hashed(LOGIN_PREFIX, state)

@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlencode, urlsplit
 
+import valkey.exceptions
 from fastapi import Request
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -29,6 +30,7 @@ from app.core.errors import (
     BadRequest,
     Conflict,
     PermissionDenied,
+    RateLimited,
     ServiceUnavailable,
     Unauthenticated,
 )
@@ -405,6 +407,27 @@ class AuthService:
             action=None if account_action is None else ACCOUNT_ACTIONS[account_action],
         )
         return LoginStarted(url, state, binding)
+
+    async def refused_callback(self, state: str | None, refusal: AppError) -> LoginFailure:
+        """A callback the address limit refused, sent back to the app its sign-in started in.
+
+        The pending login is read, never spent: a retry within its 10 minutes still works. Only
+        for the rate limit (429), when Valkey has just answered; with Valkey down (503
+        `sign_in_unavailable`) the state cannot be read, so the browser goes to the console as
+        before, and an unknown state (a scripted flood) does too.
+        """
+        if not isinstance(refusal, RateLimited) or not state:
+            return LoginFailure("console", refusal)
+        try:
+            pending = await self.store.peek_login(state)
+        except (valkey.exceptions.ValkeyError, OSError):
+            pending = None
+        if pending is None or pending.get("test"):
+            return LoginFailure("console", refusal)
+        app: AppName = "portal" if pending.get("app") == "portal" else "console"
+        mobile = MobileStart.from_pending(pending) is not None
+        mobile_return = self.settings.mobile_redirect_uri if mobile else None
+        return LoginFailure(app, refusal, pending.get("origin"), mobile_return=mobile_return)
 
     async def complete_login(  # noqa: PLR0913 - keyword-only parts of the callback
         self,

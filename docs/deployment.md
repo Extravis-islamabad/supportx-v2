@@ -136,7 +136,9 @@ client holds a /64 and could pick a new address for every request:
 The budgets are wide on purpose: an office behind one NAT address signs many people in at once,
 and a sign-in is one `/login` and one `/callback` (two of each with an MFA enrolment). They stop
 scripted floods. Over a budget the API answers 429 `rate_limited` with `Retry-After`; a browser
-is sent back to its app, which shows the message.
+is sent back to its app, which shows the message. A refused `/callback` goes back to the app its
+sign-in started in (console, portal or the mobile app), read from the pending sign-in without
+spending it; with Valkey down that cannot be read, so it goes to the console.
 
 **The sign-in routes fail closed.** Every other route allows requests while Valkey is down (losing
 rate limiting for a moment beats losing the API, ADR-020). A sign-in needs Valkey anyway (its
