@@ -16,3 +16,8 @@
   tests/ha/test_valkey_failover under TLS (Docker, the scripts as shipped), chart-lint transport
   checks for every profile; by hand on Docker: Centrifugo's engine through TLS sentinels, a TLS
   NATS cluster of three with an R3 stream, asyncpg verify-full against a TLS PostgreSQL.
+- **After #425 (2026-11-13):** rebased onto main.
+  - Valkey's `common.sh` keeps #425's cluster-domain names and uses `vcli` for every call.
+  - `values-ha.yaml` carries both NATS's anti-affinity and its TLS.
+  - `deploy/k3d/ha-lib.sh`'s `vcli` sources the chart's TLS-aware one.
+  - Traefik's `websecure` entry point gets the same open realtime timeouts as `web`, in `deploy/k3s/traefik-ha.yaml` and `deploy/k3d/traefik-config.yaml`, guarded by `tests/test_traefik_streaming_timeouts.py`.
