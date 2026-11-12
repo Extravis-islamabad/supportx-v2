@@ -99,3 +99,90 @@ async def test_an_all_scope_manager_still_adds_anywhere(world: World) -> None:
     for name, site in (("Admin S2", str(a.s2)), ("Admin none", None)):
         made = await _add(world, a, {"name": name, "product_id": product, "site_id": site})
         assert made.status_code == 201, made.text
+
+
+# --- every other path that can change an asset's site (coordinator, #423) -----------------------
+
+
+async def test_a_holder_change_never_moves_the_asset_out_of_reach(world: World) -> None:
+    """With "assets follow their holder's site" on, giving the asset to a person at another site
+    moves it there: refused for a site-scoped manager, the asset and its holder unchanged."""
+    a = world.a
+    tech = await _site_manager(world)
+    settings = (await world.call("GET", f"{BASE}/settings", a, a.admin)).json()
+    on = await world.call(
+        "PATCH", f"{BASE}/settings", a, a.admin, json={"site_follows_owner": True},
+        headers={"If-Match": f'"{settings["version"]}"'},
+    )  # fmt: skip
+    assert on.status_code == 200, on.text
+    try:
+        product = await _product(world, a, "laptop", f"Hold laptop {uuid.uuid4().hex[:6]}")
+        made = await _add(
+            world, a, {"name": "Scope held", "product_id": product, "site_id": str(a.s1)}, user=tech
+        )
+        assert made.status_code == 201, made.text
+        asset = made.json()
+        await world.sql(
+            "UPDATE users SET site_id = $1 WHERE tenant_id = $2 AND id = $3",
+            a.s2, a.tenant, a.requester2,
+        )  # fmt: skip
+        held = await world.call(
+            "PUT", f"{BASE}/{asset['id']}/holder", a, tech,
+            json={"kind": "user", "id": str(a.requester2)},
+            headers={"If-Match": f'"{asset["version"]}"'},
+        )  # fmt: skip
+        assert problem(held) == (403, "asset_site_not_managed")
+        rows = await world.sql(
+            "SELECT site_id, owner_user_id FROM assets WHERE id = $1", uuid.UUID(asset["id"])
+        )
+        assert (rows[0]["site_id"], rows[0]["owner_user_id"]) == (a.s1, None)
+    finally:
+        now = (await world.call("GET", f"{BASE}/settings", a, a.admin)).json()
+        await world.call(
+            "PATCH", f"{BASE}/settings", a, a.admin, json={"site_follows_owner": False},
+            headers={"If-Match": f'"{now["version"]}"'},
+        )  # fmt: skip
+
+
+async def test_a_bulk_edit_skips_a_move_out_of_reach_row_by_row(world: World) -> None:
+    """Bulk edits go through update_asset, so each asset moved to another site is skipped with
+    asset_site_not_managed, and stays where it was."""
+    from app.modules.assets.service.bulk_jobs import run_asset_bulk_jobs  # noqa: PLC0415
+    from tests.db.test_asset_bulk_merge_import_api import _bulk, _run  # noqa: PLC0415
+
+    a = world.a
+    tech = await _site_manager(world)
+    product = await _product(world, a, "laptop", f"Bulk laptop {uuid.uuid4().hex[:6]}")
+    made = await _add(
+        world, a, {"name": "Scope bulk", "product_id": product, "site_id": str(a.s1)}, user=tech
+    )
+    assert made.status_code == 201, made.text
+    started = await _bulk(
+        world, a, tech,
+        {"action": "edit", "asset_ids": [made.json()["id"]], "changes": {"site_id": str(a.s2)}},
+    )  # fmt: skip
+    assert started.status_code == 202, started.text
+    await _run(world, run_asset_bulk_jobs)
+    done = (await world.call("GET", f"{BASE}/bulk-jobs/{started.json()['id']}", a, tech)).json()
+    (result,) = done["results"]
+    assert (result["outcome"], result["code"]) == ("skipped", "asset_site_not_managed")
+    rows = await world.sql("SELECT site_id FROM assets WHERE id = $1", uuid.UUID(made.json()["id"]))
+    assert rows[0]["site_id"] == a.s1
+
+
+async def test_a_product_change_keeps_the_site_and_is_allowed(world: World) -> None:
+    """A product (and so product type) change never touches the site: still allowed in scope."""
+    a = world.a
+    tech = await _site_manager(world)
+    first = await _product(world, a, "laptop", f"Type A {uuid.uuid4().hex[:6]}")
+    second = await _product(world, a, "laptop", f"Type B {uuid.uuid4().hex[:6]}")
+    made = await _add(
+        world, a, {"name": "Scope retype", "product_id": first, "site_id": str(a.s1)}, user=tech
+    )
+    assert made.status_code == 201, made.text
+    asset = made.json()
+    changed = await world.call(
+        "PATCH", f"{BASE}/{asset['id']}", a, tech, json={"product_id": second},
+        headers={"If-Match": f'"{asset["version"]}"'},
+    )  # fmt: skip
+    assert changed.status_code == 200, changed.text
