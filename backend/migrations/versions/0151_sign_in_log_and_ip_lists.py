@@ -18,7 +18,7 @@ The downgrade refuses while any tenant has a sign-in event or an allow-list entr
 with app.tenant_id set (rule 5h).
 
 Revision ID: 0151
-Revises: 0150
+Revises: 0147
 Created: 2026-11-12
 """
 
@@ -32,7 +32,7 @@ from app.shared.db.rls import APP_ROLE, CURRENT_TENANT_SQL
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0151"
-down_revision: str | None = "0150"
+down_revision: str | None = "0147"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
