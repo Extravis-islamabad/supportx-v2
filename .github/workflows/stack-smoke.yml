@@ -230,7 +230,9 @@ jobs:
     # two in step (actionlint 1.7.7 refuses YAML aliases, so the steps are repeated).
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.suite == 'smoke') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # 30, not 20 (lane C's #461 review): setup is about 3.5 min warm, Playwright's step 12 min,
+    # and a cold ClamAV cache in a new ISO week adds up to 10 min; never cut before it reports.
+    timeout-minutes: 30
     env:
       SUPPORTX_AI_FAKE_ECHO: "true"
     steps:

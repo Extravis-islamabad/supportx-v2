@@ -504,7 +504,7 @@ def test_the_smoke_job_runs_nightly_and_on_demand_only() -> None:
     assert {"schedule", "workflow_dispatch"} <= set(triggers)
     assert "merge_group" not in triggers
     text = "\n".join(job)
-    assert "timeout-minutes: 20" in text
+    assert "timeout-minutes: 30" in text
     assert "uses: ./.github/actions/playwright-in-image" in text
     run = text.split("args: |", 1)[1].split("env: |", 1)[0].split()
     assert run[:3] == ["test", "--grep", "@smoke"], run
@@ -516,7 +516,7 @@ def test_the_smoke_job_is_not_a_required_check() -> None:
 
 
 def test_the_smoke_suite_covers_every_journey_and_stays_small() -> None:
-    """At least the 12 journeys, at most 16 tests: the suite cannot silently balloon."""
+    """At least the 13 journeys, at most 16 tests: the suite cannot silently balloon."""
     counts = {
         path.name: _smoke_count(path.read_text(encoding="utf-8"))
         for path in sorted(E2E_TESTS.glob("*.spec.ts"))
