@@ -1,6 +1,7 @@
 """Guard: every API route counts against a rate-limit budget (audit #14; architecture.md §10).
 
-A route is limited when `rate_limit(group)` is among its dependencies (app/shared/api/ratelimit.py).
+A route is limited when `rate_limit(group)`, or `ip_rate_limit(...)` for routes with nobody
+signed in (lane B's #447), is among its dependencies (app/shared/api/ratelimit.py).
 KNOWN_UNLIMITED lists today's exceptions, each with its owning module. It is a ratchet:
 
 - a new route without a limit fails here;
@@ -17,7 +18,7 @@ from conftest import make_settings
 from tests.test_route_permissions import _dependencies, api_routes
 
 # Lower this in the same PR that removes a row; never raise it.
-PINNED = 31
+PINNED = 20
 
 KNOWN_UNLIMITED = frozenset(
     {
@@ -29,23 +30,12 @@ KNOWN_UNLIMITED = frozenset(
         "POST /api/v1/realtime/subscription-token",  # identity_access.bff.realtime
         "DELETE /api/v1/auth/sessions/{listed_id}",  # identity_access.bff.routes
         "GET /api/v1/auth/account-action",  # identity_access.bff.routes
-        "GET /api/v1/auth/callback",  # identity_access.bff.routes
-        "GET /api/v1/auth/login",  # identity_access.bff.routes
         "GET /api/v1/auth/me",  # identity_access.bff.routes
         "GET /api/v1/auth/sessions",  # identity_access.bff.routes
         "POST /api/v1/auth/logout",  # identity_access.bff.routes
         "POST /api/v1/auth/mobile/exchange",  # identity_access.bff.routes
         "POST /api/v1/auth/password-reset",  # identity_access.bff.routes
         "POST /api/v1/auth/switch-tenant",  # identity_access.bff.routes
-        "GET /api/v1/public/branding",  # organization.api.branding
-        "GET /api/v1/public/branding/{tenant_ref}/login.css",  # organization.api.branding
-        "GET /api/v1/public/branding/{tenant_ref}/{name}",  # organization.api.branding
-        "GET /api/v1/public/domain-check/{token}",  # organization.api.domains
-        "GET /api/v1/organization/settings",  # organization.api.routes
-        "GET /api/v1/organization/tenant",  # organization.api.routes
-        "PATCH /api/v1/organization/settings",  # organization.api.routes
-        "POST /api/v1/public/action-links/peek",  # system.api.action_links
-        "POST /api/v1/public/action-links/use",  # system.api.action_links
         "GET /api/v1/health",  # system: a probe; kubelet calls it, never limited
         "GET /api/v1/ready",  # system: a probe; a 429 would fail readiness, never limited
         "DELETE /api/v1/my-reminders/{reminder_id}",  # work_items.api.checklist_routes
@@ -58,7 +48,7 @@ KNOWN_UNLIMITED = frozenset(
 
 def _limited(dependant: object) -> bool:
     return any(
-        getattr(call, "__qualname__", "").startswith("rate_limit.")
+        getattr(call, "__qualname__", "").startswith(("rate_limit.", "ip_rate_limit."))
         for call in _dependencies(dependant)
     )
 
