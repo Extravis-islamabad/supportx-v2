@@ -20,6 +20,11 @@ __all__ = ["bff"]  # the fixture, re-used
 ELSEWHERE = "10.20.0.0/16"  # an office network the test client is not in
 
 
+def _email(tag: str) -> str:
+    """A new person per test: other test files share this database (test_auth_bff's users)."""
+    return f"{tag}-{uuid.uuid4().hex[:8]}@demo.test"
+
+
 async def _restrict(
     db: ThrowawayDatabase, tenant: uuid.UUID, column: str, ranges: list[str]
 ) -> None:
@@ -40,12 +45,13 @@ async def test_req_sec_034_ac1_a_sign_in_from_outside_the_console_list_is_refuse
 ) -> None:
     a, _b = bff.tenants
     await _restrict(bff.db, a, "console_ip_allow", [ELSEWHERE])
-    response = await bff.login(bff.user("a", email="outside@demo.test"))
+    outside = _email("outside")
+    response = await bff.login(bff.user("a", email=outside))
     assert (response.status_code, response.json()["code"]) == (403, "ip_not_allowed")
     assert bff.cookie() is None
     assert len(bff.idp.ended_sessions) == 1  # Keycloak's own session ends too
     # Refused before the person was looked up: no row, no seat (lane B's condition 1).
-    assert await user_rows(bff.db, "outside@demo.test") == []
+    assert await user_rows(bff.db, outside) == []
 
 
 async def test_req_sec_034_ac3_the_portal_stays_open_when_only_the_console_is_restricted(
@@ -53,7 +59,7 @@ async def test_req_sec_034_ac3_the_portal_stays_open_when_only_the_console_is_re
 ) -> None:
     a, _b = bff.tenants
     await _restrict(bff.db, a, "console_ip_allow", [ELSEWHERE])
-    portal = await bff.login(bff.user("a", email="requester@demo.test"), app="portal")
+    portal = await bff.login(bff.user("a", email=_email("requester")), app="portal")
     assert portal.status_code == 302, portal.text
     assert (await bff.me()).json()["tenant"]["id"] == str(a)
 
@@ -67,7 +73,8 @@ async def test_a_list_holding_the_address_lets_the_sign_in_through(bff: Bff) -> 
 async def test_a_person_in_two_tenants_lands_in_the_one_that_admits_them(bff: Bff) -> None:
     a, b = bff.tenants
     await _restrict(bff.db, a, "console_ip_allow", [ELSEWHERE])
-    assert (await bff.login(bff.user("a", "b", email="both@demo.test"))).status_code == 302
+    both = _email("both")
+    assert (await bff.login(bff.user("a", "b", email=both))).status_code == 302
     me = (await bff.me()).json()
     assert me["tenant"]["id"] == str(b)
     # Switching into the restricted tenant is refused, before anyone is looked up there.
@@ -77,7 +84,7 @@ async def test_a_person_in_two_tenants_lands_in_the_one_that_admits_them(bff: Bf
         headers={"X-CSRF-Token": me["csrf_token"]},
     )
     assert (switched.status_code, switched.json()["code"]) == (403, "ip_not_allowed")
-    rows = await user_rows(bff.db, "both@demo.test")
+    rows = await user_rows(bff.db, both)
     assert {r["tenant_id"] for r in rows} == {b}
 
 
@@ -127,7 +134,7 @@ async def test_req_aud_015_the_bff_writes_sign_ins_and_sign_outs_with_a_device_c
         "Chrome/131.0.0.0 Safari/537.36"
     )
     bff.client.headers["User-Agent"] = chrome
-    assert (await bff.login(bff.user("a", email="newcomer@demo.test"))).status_code == 302
+    assert (await bff.login(bff.user("a", email=_email("newcomer")))).status_code == 302
     csrf = await bff.csrf()
     assert (
         await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
@@ -149,13 +156,14 @@ async def test_a_refusal_is_logged_only_in_the_tenant_it_was_aimed_at(bff: Bff) 
     # Signed in with no tenant address and refused by both: aimed at none, so logged in none.
     await _restrict(bff.db, a, "console_ip_allow", [ELSEWHERE])
     await _restrict(bff.db, b, "console_ip_allow", [ELSEWHERE])
-    refused = await bff.login(bff.user("a", "b", email="both@demo.test"))
+    both = _email("both")
+    refused = await bff.login(bff.user("a", "b", email=both))
     assert refused.json()["code"] == "ip_not_allowed"
     assert await _log(bff.db, a) == []
     assert await _log(bff.db, b) == []
     # Tenant B opens up; a switch into tenant A is aimed at A: logged in A only, never in B.
     await _restrict(bff.db, b, "console_ip_allow", [])
-    assert (await bff.login(bff.user("a", "b", email="both@demo.test"))).status_code == 302
+    assert (await bff.login(bff.user("a", "b", email=both))).status_code == 302
     switched = await bff.client.post(
         "/api/v1/auth/switch-tenant",
         json={"tenant_id": str(a)},
