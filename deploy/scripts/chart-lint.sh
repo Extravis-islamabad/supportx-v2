@@ -101,6 +101,51 @@ echo "HA: every multi-copy component has a PodDisruptionBudget and anti-affinity
   { echo "HA: Valkey needs its dnsConfig (ndots 1) and fully qualified peer names"; exit 1; }
 echo "HA: Valkey resolves fully qualified peer names with short lookups"
 
+# HA SeaweedFS (D-166): the HA profile runs SeaweedFS's own replication (three masters in one raft
+# group with replication 001, three volume servers, two filers behind the app's unchanged S3
+# Service), its filers' role signs in to its own database only, and the store's password is never
+# in a ConfigMap. Single-node keeps the one pod; external object storage renders none of it.
+HA_ARGS=""
+for entry in "${PROFILES[@]}"; do [ "${entry%%|*}" = ha ] && HA_ARGS="${entry#*|}"; done
+[ -n "$HA_ARGS" ] || { echo "chart-lint: no ha profile" >&2; exit 1; }
+sw_fail() { echo "seaweedfs-ha: $*" >&2; exit 1; }
+copies_of() {  # copies_of <file> <kind> <name>: spec.replicas of that object
+  awk -v kind="$2" -v name="$3" '/^---/ { k = ""; n = "" } /^kind: / { k = $2 }
+    /^  name: / && n == "" { n = $2 } k == kind && n == name && /^  replicas: / { print $2; exit }' "$1"
+}
+[ "$(copies_of "$OUT/ha.yaml" StatefulSet supportx-seaweedfs-master)" = 3 ] || sw_fail "three masters"
+[ "$(copies_of "$OUT/ha.yaml" StatefulSet supportx-seaweedfs-volume)" = 3 ] || sw_fail "three volume servers"
+[ "$(copies_of "$OUT/ha.yaml" Deployment supportx-seaweedfs-filer)" = 2 ] || sw_fail "two filers"
+grep -q -- '- -defaultReplication=001$' "$OUT/ha.yaml" || sw_fail "replication 001"
+grep -q -- '- -peers=supportx-seaweedfs-master-0.supportx-seaweedfs-master:9333,supportx-seaweedfs-master-1.supportx-seaweedfs-master:9333,supportx-seaweedfs-master-2.supportx-seaweedfs-master:9333$' "$OUT/ha.yaml" ||
+  sw_fail "the masters' raft peers"
+[ "$(grep -c -- '- -telemetry=false$' "$OUT/ha.yaml" || true)" = 1 ] || sw_fail "the masters send no usage statistics"
+# The app's S3 Service keeps its name and port and now selects the filers.
+awk '/^---/ { svc = 0 } /^kind: Service$/ { svc = 1 } svc && /^  name: supportx-seaweedfs$/ { found = 1 }
+  found && /app.kubernetes.io\/component: seaweedfs-filer/ { ok = 1; exit } END { exit !ok }' "$OUT/ha.yaml" ||
+  sw_fail "the supportx-seaweedfs Service selects the filers"
+grep -q -- '- hostssl seaweedfs_filer seaweedfs_filer all scram-sha-256$' "$OUT/ha.yaml" || sw_fail "the filers' role signs in to its own database"
+grep -q -- '- host all seaweedfs_filer all reject$' "$OUT/ha.yaml" || sw_fail "the filers' role is refused everywhere else"
+grep -q '^    password = ""$' "$OUT/ha.yaml" || sw_fail "filer.toml carries no password"
+grep -q 'name: WEED_POSTGRES2_PASSWORD' "$OUT/ha.yaml" || sw_fail "the filer's store password from its Secret"
+for name in single-node dev; do
+  grep -q 'seaweedfs-master\|seaweedfs_filer' "$OUT/$name.yaml" && sw_fail "$name must keep the single SeaweedFS pod"
+done
+# shellcheck disable=SC2086 # the flags are meant to be split
+helm template supportx "$CHART" --namespace supportx $HA_ARGS --set objectStorage.mode=external \
+  --set objectStorage.external.endpoint=https://s3.example.com | grep -q 'seaweedfs' &&
+  sw_fail "external object storage renders no SeaweedFS"
+# shellcheck disable=SC2086
+if helm template supportx "$CHART" --namespace supportx $HA_ARGS --set objectStorage.seaweedfs.ha.replication=000 >/dev/null 2>&1; then
+  sw_fail "the chart must refuse replication 000"
+fi
+# shellcheck disable=SC2086
+if helm template supportx "$CHART" --namespace supportx $HA_ARGS --set postgresql.mode=external \
+  --set postgresql.external.host=db.example.com --set temporal.bundled.enabled=false >/dev/null 2>&1; then
+  sw_fail "the chart must refuse HA SeaweedFS without this release's CloudNativePG cluster"
+fi
+echo "seaweedfs-ha: 3 masters (001), 3 volume servers, 2 filers behind the same Service; filer role confined; single-node and external unchanged"
+
 # Egress allow-list (WP-014b): offline (helm template, GitOps) the chart can't read the control
 # plane's addresses, so with egress on and no kubeApiCidrs it must refuse, never fall back to an
 # open 0.0.0.0/0. With them set (the ha-ci profile above) every kube-API rule uses exactly them.

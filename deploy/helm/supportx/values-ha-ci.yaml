@@ -22,6 +22,21 @@ postgresql:
 valkeyHa:
   resources:
     requests: {cpu: 20m, memory: 32Mi}
+# HA SeaweedFS (D-166): eight small pods beside everything else.
+objectStorage:
+  seaweedfs:
+    ha:
+      master:
+        storage: {size: 256Mi}
+        resources:
+          requests: {cpu: 20m, memory: 32Mi}
+      volume:
+        storage: {size: 2Gi}
+        resources:
+          requests: {cpu: 20m, memory: 64Mi}
+      filer:
+        resources:
+          requests: {cpu: 20m, memory: 64Mi}
 # Two clamd copies (values-ha.yaml): small requests so both fit beside everything else.
 clamav:
   resources:
