@@ -62,6 +62,7 @@ import {
   useDateTime,
   useLabel,
   useMinWidth,
+  usePageCrumbs,
   WriteButton,
   type PanelSection,
   type PropertyItem,
@@ -229,6 +230,8 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const me = useSession().data?.user.id;
   const [params, setParams] = useSearchParams();
   // Money (REQ-AST-036..038) only for people with assets.view_financials: no tab, no figures.
+  // The path in the top bar and the tab's title: Assets › Finance laptop 01 (QA 2026-11-11 F-17).
+  usePageCrumbs([{ label: t('nav.assets'), path: '/assets' }, { label: asset.name }]);
   const seesMoney = access.can('assets.view_financials');
   const asked = params.get('tab') as TabKey;
   const tab: TabKey =
