@@ -11,6 +11,10 @@ from typing import Any
 
 import httpx
 
+from app.core.errors import AppError, Conflict, NotFound
+from app.core.tenancy import TenantContext
+from app.modules.identity_access import subject_for
+from app.modules.work_items.service import change_close
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_changes_api import CHG, _approve_pending, a_change, move, new_change
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem
@@ -543,3 +547,70 @@ async def test_req_chg_101_bulk_cancel_with_a_reason_and_bulk_delete(world: Worl
         headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
     )
     assert refused.status_code == 422, refused.text
+
+
+# --- close_change: one change's close for other flows (lane C's REQ-REL-052) ---------------------
+
+
+async def _close(
+    world: World,
+    org: Org,
+    user: uuid.UUID,
+    item: dict[str, Any],
+    **values: Any,  # noqa: ANN401 - the call's keywords
+) -> Any:  # noqa: ANN401 - the view or the refusal
+    """close_change as a closing release calls it: one savepoint per change, refusals returned."""
+    async with world.app.state.db.tenant_session(
+        TenantContext(org.tenant, user_id=user)
+    ) as session:
+        subject = await subject_for(session, org.tenant, user)
+        try:
+            async with session.begin_nested():
+                return await change_close.close_change(
+                    session,
+                    subject,
+                    uuid.UUID(item["id"]),
+                    expected_version=values.pop("version", item["version"]),
+                    source="api",
+                    **values,
+                )
+        except AppError as refused:
+            return refused
+
+
+async def test_close_change_closes_by_the_change_s_own_close_and_raises_its_refusals(
+    world: World,
+) -> None:
+    a = world.a
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    code = codes[0]["code"]
+    ready = await _in_review(world, a)
+    # The closing rules: the code is asked for, as on the change screen.
+    missing = await _close(world, a, a.admin, ready, closure_code=None)
+    assert isinstance(missing, AppError)
+    assert (await fresh(world, a, ready))["stage"] == "review"
+    stale = await _close(world, a, a.admin, ready, closure_code=code, version=ready["version"] - 1)
+    assert isinstance(stale, Conflict)
+    closed = await _close(world, a, a.admin, ready, closure_code=code)
+    assert not isinstance(closed, AppError), closed
+    after = await fresh(world, a, ready)
+    assert (after["status"], after["closure_code"]) == ("closure_closed", code)
+    # History records it as any close (one saved change, by the person).
+    assert "status" in {
+        c["field"]
+        for e in (await world.call("GET", f"{CHG}/{ready['id']}/history", a, a.admin)).json()[
+            "items"
+        ]
+        for c in e["changes"]
+    }
+    # Not at its review: no close is listed from here.
+    early = await a_change(world, a)
+    refused = await _close(world, a, a.admin, early, closure_code=code)
+    assert isinstance(refused, Conflict)
+    assert (refused.instance_code, refused.params) == (
+        "not_closable_from_here",
+        {"status": early["status"]},
+    )
+    # Someone who cannot see the change hears nothing about it.
+    hidden = await _close(world, a, a.requester, await _in_review(world, a), closure_code=code)
+    assert isinstance(hidden, NotFound)
