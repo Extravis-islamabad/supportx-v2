@@ -72,6 +72,7 @@ from app.modules.organization import (
     regional_defaults,
     tenant_for_host,
 )
+from app.shared.api.ratelimit import AddressLimit, ip_rate_limit
 from app.shared.history import CLIENT_HEADER
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
@@ -87,6 +88,34 @@ if TYPE_CHECKING:
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 log = get_logger(__name__)
+
+# Per client address (audit row 14). Generous on purpose: an office behind one NAT address signs
+# many people in at nine, and a sign-in is one /login and one /callback (two of each with an MFA
+# enrolment or the console-to-portal hand-off). They stop scripted floods, which would otherwise
+# fill Valkey with login states and hammer Keycloak. Fail closed: with Valkey down the sign-in
+# could not work anyway (its state lives there), so 503 `sign_in_unavailable`, never unlimited.
+LOGINS_PER_ADDRESS = 60  # a minute
+CALLBACKS_PER_ADDRESS = 60  # a minute
+SIGN_IN_UNAVAILABLE = "sign_in_unavailable"
+LoginLimit = Annotated[
+    AddressLimit,
+    Depends(
+        ip_rate_limit(
+            "auth_login", LOGINS_PER_ADDRESS, fail_closed_code=SIGN_IN_UNAVAILABLE, defer=True
+        )
+    ),
+]
+CallbackLimit = Annotated[
+    AddressLimit,
+    Depends(
+        ip_rate_limit(
+            "auth_callback",
+            CALLBACKS_PER_ADDRESS,
+            fail_closed_code=SIGN_IN_UNAVAILABLE,
+            defer=True,
+        )
+    ),
+]
 
 
 def get_auth(request: Request) -> AuthService:
@@ -239,12 +268,13 @@ class SwitchTenantRequest(BaseModel):
 async def login(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of one sign-in
     request: Request,
     auth: Auth,
+    limited: LoginLimit,
     app: Annotated[Literal["console", "portal"], Query()] = "console",
     return_to: Annotated[str | None, Query(alias="returnTo", max_length=2048)] = None,
     mobile_challenge: Annotated[str | None, Query(max_length=43)] = None,
     mobile_platform: Annotated[Literal["ios", "android"] | None, Query()] = None,
     mobile_version: Annotated[str | None, Query(max_length=24)] = None,
-) -> RedirectResponse:
+) -> Response:
     """Redirect the browser to Keycloak (authorization code + PKCE, state, nonce).
 
     `returnTo` must be a same-origin relative path; anything else lands on `/`. On a tenant's
@@ -255,6 +285,12 @@ async def login(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of one sig
     verified return link. `mobile_platform` and `mobile_version` name the phone in the person's
     session list (ADR-044 item 5); they are ignored without a challenge.
     """
+    if limited.refusal is not None:  # too many sign-ins from this address, or Valkey is down
+        mobile_return = auth.settings.mobile_redirect_uri if mobile_challenge else None
+        address = await _address(request)
+        origin = auth.origin(app, address.host) if address is not None else None
+        failure = LoginFailure(app, limited.refusal, origin, mobile_return=mobile_return)
+        return await _failure_response(request, auth, failure)
     mobile: MobileStart | None = None
     if mobile_challenge is not None:
         if not valid_challenge(mobile_challenge):
@@ -272,7 +308,9 @@ async def login(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of one sig
         reauthenticate=timed_out,
         mobile=mobile,
     )
-    return _to_keycloak(auth, started)
+    response = _to_keycloak(auth, started)
+    response.headers.update(limited.headers)  # a returned Response gets no injected headers
+    return response
 
 
 def _to_keycloak(auth: AuthService, started: LoginStarted) -> RedirectResponse:
@@ -299,6 +337,7 @@ def _to_keycloak(auth: AuthService, started: LoginStarted) -> RedirectResponse:
 async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback's query
     request: Request,
     auth: Auth,
+    limited: CallbackLimit,
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
@@ -313,7 +352,10 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
     The browser must hold the login-binding cookie its sign-in started with (audit row 4); the
     cookie is spent here, whether the sign-in succeeds or fails.
     """
+    if limited.refusal is not None:  # the state is left alone: a retry in its 10 minutes works
+        return await _failure_response(request, auth, LoginFailure("console", limited.refusal))
     response = await _finish_callback(request, auth, code, state, error, kc_action_status)
+    response.headers.update(limited.headers)  # a returned Response gets no injected headers
     if state and login_cookie_name(auth.settings, state) in request.cookies:
         clear_login_cookie(response, auth.settings, state)
     return response

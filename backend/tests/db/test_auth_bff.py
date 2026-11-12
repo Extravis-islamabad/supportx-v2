@@ -37,6 +37,8 @@ from app.modules.identity_access.infra.store import SessionStore
 from app.modules.identity_access.service import sso_test
 from app.modules.identity_access.service.auth import AuthService, binding_digest
 from app.modules.identity_access.tests.fake_idp import ISSUER, FakeIdp, FakeUser, MemoryKeyValue
+from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
+from app.shared.api.tests.test_ip_rate_limit import CountingValkey
 from app.shared.clock import FrozenClock
 from app.shared.crypto import key_id_of
 from conftest import make_settings
@@ -125,6 +127,12 @@ async def bff(
         )
         app.state.auth = service
         app.state.session_resolver = service.resolve
+        # Rate limits on memory too: the settings' Valkey is unreachable on purpose, and the
+        # sign-in routes fail closed without one (audit row 14).
+        limiter = RateLimiter(
+            CountingValkey(), prefix="t:", provider=SettingsPolicyProvider(settings)
+        )
+        setattr(app.state, RATE_LIMITER_STATE, limiter)
         transport = ASGITransport(app=app, raise_app_exceptions=False)
         async with AsyncClient(transport=transport, base_url=CONSOLE) as client:
             yield Bff(app, client, idp, kv, clock, settings, tenant_pair, migrated_db)
