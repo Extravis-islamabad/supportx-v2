@@ -398,6 +398,14 @@ def test_the_shards_take_their_count_and_selection_from_backend_paths() -> None:
     assert select.endswith("|| '' }}"), select
 
 
+def test_a_shard_that_cannot_get_its_selection_fails_at_once() -> None:
+    """Lane C's #437 review: a run sized for its selection must not fall back to a share of
+    everything on its 1-2 shards (that only times out 20 minutes later)."""
+    steps = _steps(_all_jobs()[SHARD_JOB])
+    (download,) = [s for s in steps if any("name: test-selection" in line for line in s)]
+    assert not any("continue-on-error" in line for line in download), download
+
+
 def test_the_backend_check_requires_all_eight_shards_on_a_full_run() -> None:
     """A failed or cancelled shard still fails `backend`, and a queue or nightly run that ran
     fewer than 8 shards, or a selection, fails it too."""

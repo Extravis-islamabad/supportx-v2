@@ -473,11 +473,11 @@ jobs:
         with:
           name: shard-weights
           path: ${{ runner.temp }}/shard-weights
-      # A PR run with a selection runs only its files (tooling/test_select.py). Should the
-      # download fail, tooling/pytest_shards.py warns and runs this shard's share of everything.
+      # A PR run with a selection runs only its files (tooling/test_select.py). A failed
+      # download fails the shard at once (lane C's #437 review): the run was sized for the
+      # selection, so this shard's share of everything would only time out 20 minutes later.
       - name: The run's test selection (PR runs that select only)
         if: ${{ steps.changes.outputs.run == 'true' && github.event_name == 'pull_request' && needs.backend-paths.outputs.partial == 'true' }}
-        continue-on-error: true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: test-selection
