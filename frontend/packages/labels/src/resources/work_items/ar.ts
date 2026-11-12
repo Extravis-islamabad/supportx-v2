@@ -2034,6 +2034,8 @@ export const ar: LabelResource = {
   'staged.downtime.none': 'لا يوجد توقف مخطط.',
   'staged.move.closing_description': 'وصف الإغلاق',
   'staged.move.confirm': 'نقل',
+  'staged.move.open_work_confirm':
+    'أكِّد للمتابعة مع بقاء هذه مفتوحة؛ يُحفظ تأكيدك في السجل. أغلق أي تغيير مرتبط من صفحته، حيث تنطبق قواعده.',
   'staged.move.plan_needed': 'اكتب {{section}} في تبويب الخطط أولًا.',
   'staged.move.reason': 'السبب',
   'staged.move.title': 'النقل إلى {{status}}',

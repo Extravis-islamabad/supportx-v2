@@ -1841,6 +1841,8 @@ export const ur: LabelResource = {
   'staged.downtime.none': 'کوئی بندش طے نہیں۔',
   'staged.move.closing_description': 'بندش کی تفصیل',
   'staged.move.confirm': 'منتقل کریں',
+  'staged.move.open_work_confirm':
+    'ان کے کھلے رہتے آگے بڑھنے کی تصدیق کریں؛ آپ کی تصدیق تاریخ میں محفوظ رہتی ہے۔ منسلک تبدیلی کو اس کے اپنے صفحے سے بند کریں، جہاں اس کے اپنے قواعد لاگو ہوتے ہیں۔',
   'staged.move.plan_needed': 'پہلے منصوبے ٹیب پر {{section}} لکھیں۔',
   'staged.move.reason': 'وجہ',
   'staged.move.title': '{{status}} پر منتقل کریں',

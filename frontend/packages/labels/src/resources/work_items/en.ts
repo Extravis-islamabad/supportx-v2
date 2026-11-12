@@ -1837,6 +1837,8 @@ export const en = {
   'staged.downtime.none': 'No downtime planned.',
   'staged.move.closing_description': 'Closing description',
   'staged.move.confirm': 'Move',
+  'staged.move.open_work_confirm':
+    'Confirm to go ahead with these still open; your confirmation is kept in the history. Close a linked change on its own page, where its own rules apply.',
   'staged.move.plan_needed': 'Write the {{section}} on the Plans tab first.',
   'staged.move.reason': 'Reason',
   'staged.move.title': 'Move to {{status}}',

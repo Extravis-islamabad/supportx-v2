@@ -371,6 +371,41 @@ describe('console: releases', () => {
     });
   });
 
+  it('REQ-REL-052 AC1: open work is named, and the move goes on only once confirmed', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    let tries = 0;
+    const fake = api({
+      [`POST /api/v1/releases/${REL_ID}/moves`]: () => {
+        tries += 1;
+        return tries === 1
+          ? {
+              status: 409,
+              body: problem(409, 'open_work_unconfirmed', {
+                params: { count: 1, items: 'CHG-12 Core switch firmware' },
+              }),
+            }
+          : { body: { ...release, version: 8 } };
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('release-more'));
+    fireEvent.click(await screen.findByTestId('move-build_completed'));
+    fireEvent.change(await screen.findByTestId('move-field-release_version'), {
+      target: { value: '4.2.0' },
+    });
+    fireEvent.click(screen.getByTestId('move-ok'));
+    const open = await screen.findByTestId('move-open-work');
+    expect(open.textContent).toContain('CHG-12 Core switch firmware');
+    expect(screen.getByTestId('move-ok').textContent).toBe('Confirm and continue');
+    fireEvent.click(screen.getByTestId('move-ok'));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/moves`)).toHaveLength(2);
+    });
+    const [first, second] = fake.find('POST', `/api/v1/releases/${REL_ID}/moves`);
+    expect(first?.body).toMatchObject({ confirm_open_work: false });
+    expect(second?.body).toMatchObject({ confirm_open_work: true });
+  });
+
   it('asks for the reason of a rejection and the comment a level requires, then decides', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     const fake = api();
