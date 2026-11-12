@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound, ValidationFailed
+from app.core.errors import NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
 from app.shared.events import record_event
 from app.shared.files.domain.states import FileState, openable
@@ -176,6 +176,148 @@ async def copy_to_drafts(  # noqa: C901, PLR0912, PLR0913, PLR0915 - the rules a
         raise
     log.info("files_copied", count=len(made), not_copied=len(not_copied))
     return Copies(copied, not_copied)
+
+
+# --- copies onto other records (WP-046a S5c; REQ-INC-033; lane B's conditions) -----------------
+
+RECORD_COPY_SOURCE = "copy"
+MAX_COPY_PAIRS = 200  # source files x target records per call (lane B)
+MAX_COPY_BYTES = 4 * MAX_INSERT_BYTES  # 100 MB per call (lane B: drop to 50 MB if it is slow)
+
+
+@dataclass(frozen=True)
+class RecordCopies:
+    """{target record: {source file id: copy id}}, and the source files not copied."""
+
+    copied: dict[uuid.UUID, dict[uuid.UUID, uuid.UUID]]
+    not_copied: list[NotCopied]
+
+
+async def copy_to_records(  # noqa: C901, PLR0912, PLR0913, PLR0915 - lane B's rules, in order
+    session: AsyncSession,
+    services: FileServices,
+    actor: Actor,
+    *,
+    owner_type: OwnerType,
+    source_id: uuid.UUID,
+    target_ids: Iterable[uuid.UUID],
+) -> RecordCopies:
+    """Copy one record's own files onto each of `target_ids` (records of the same owner type).
+
+    Lane B's rules:
+    1. The actor may view the source and attach to every target, checked before anything is
+       read; one target they may not use refuses the whole call (404, nothing copied).
+    2. Only files linked to exactly that record: never a reply's or note's (they link to their
+       entry), never drafts.
+    3. Each copy is a new file under its own ID (`_copy_one`); files that cannot be opened now,
+       are too large or blocked are named in `not_copied`.
+    4. Limits before any write: the tenant's batch size, at most MAX_COPY_PAIRS files x records
+       and MAX_COPY_BYTES per call, and one quota lock for all of it.
+    5. Under the uploads gate, all or nothing: every object written is removed on any failure.
+    6. Each copy emits `system.file.uploaded`; its stored source is `copy`.
+    """
+    storage, keyring = services.require_storage()
+    targets = list(dict.fromkeys(target_ids))
+    if not targets:
+        return RecordCopies({}, [])
+    access = owner_access(owner_type)
+    try:
+        await access.check(session, actor, owner_type, source_id, Action.VIEW)
+        for target in targets:
+            await access.check(session, actor, owner_type, target, Action.ATTACH)
+    except PermissionDenied as error:
+        # One record they may not use refuses the whole call, as not found (lane B).
+        raise NotFound(code="work_item_not_found") from error
+    links = list(
+        await session.execute(
+            select(FileLink.file_id, FileLink.inline).where(
+                FileLink.owner_type == owner_type.value, FileLink.owner_id == source_id
+            )
+        )
+    )
+    if not links:
+        return RecordCopies({t: {} for t in targets}, [])
+    inline = {row.file_id: row.inline for row in links}
+    tenant_rules = await rules(session)
+    if len(inline) > tenant_rules.max_batch:
+        raise ValidationFailed(code="too_many_files", params={"max": tenant_rules.max_batch})
+    if len(inline) * len(targets) > MAX_COPY_PAIRS:
+        raise ValidationFailed(code="too_many_files", params={"max": MAX_COPY_PAIRS})
+    sources = {
+        s.id: s
+        for s in await session.scalars(select(StoredFile).where(StoredFile.id.in_(list(inline))))
+    }
+    not_copied: list[NotCopied] = []
+    eligible: list[StoredFile] = []
+    for file_id in inline:
+        stored = sources.get(file_id)
+        state = FileState(stored.state) if stored is not None else FileState.DELETED
+        if stored is None or not openable(state, scan_required=services.scan_required):
+            not_copied.append(NotCopied(file_id, state.value))
+        elif stored.size > tenant_rules.max_file_bytes:
+            not_copied.append(NotCopied(file_id, "too_large"))
+        elif extension(stored.name) in tenant_rules.blocked:
+            not_copied.append(NotCopied(file_id, "blocked"))
+        else:
+            eligible.append(stored)
+    total = sum(s.size + (s.thumb_size or 0) for s in eligible) * len(targets)
+    if total > MAX_COPY_BYTES:
+        raise ValidationFailed(code="insert_too_large", params={"limit_mb": MAX_COPY_BYTES // MB})
+    if not eligible:
+        return RecordCopies({t: {} for t in targets}, not_copied)
+    added = sum(s.size for s in eligible) * len(targets)
+    await _check_quota(session, added, lock=True)  # one lock for the whole batch
+    tenant = tenant_of(session)
+    key_id, key = await current_data_key(session, keyring)
+    written: list[str] = []
+    copied: dict[uuid.UUID, dict[uuid.UUID, uuid.UUID]] = {t: {} for t in targets}
+    made: list[tuple[uuid.UUID, StoredFile, bool]] = []
+    try:
+        async with _gate(services.upload_concurrency):
+            for target in targets:
+                for source in eligible:
+                    stored, keys = await _copy_one(
+                        session,
+                        services,
+                        storage,
+                        keyring,
+                        source,
+                        key_id=key_id,
+                        key=key,
+                        origin=RECORD_COPY_SOURCE,
+                    )
+                    written.extend(keys)
+                    made.append((target, stored, inline[source.id]))
+                    copied[target][source.id] = stored.id
+        for _target, stored, _inline in made:
+            session.add(stored)
+        await session.flush()  # the files first: no ORM relationship orders the inserts
+        for target, stored, is_inline in made:
+            session.add(
+                FileLink(
+                    tenant_id=tenant,
+                    file_id=stored.id,
+                    owner_type=owner_type.value,
+                    owner_id=target,
+                    inline=is_inline,
+                )
+            )
+        counter = await lock_usage(session)
+        counter.bytes_used += added
+        counter.files_count += len(made)
+        await session.flush()
+        for target, stored, _inline in made:
+            await record_event(
+                session,
+                FileUploaded(file_id=stored.id, owner_type=owner_type.value, owner_id=target),
+                aggregate_id=stored.id,
+            )
+    except BaseException:
+        for key_written in written:
+            await _forget(services, key_written)
+        raise
+    log.info("files_copied_to_records", count=len(made), not_copied=len(not_copied))
+    return RecordCopies(copied, not_copied)
 
 
 async def _copy_one(  # noqa: PLR0913 - the source and where its copy goes, explicit
