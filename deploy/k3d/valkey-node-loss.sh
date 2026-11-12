@@ -11,7 +11,7 @@
 #      node-loss.sh's); then it settles again;
 #   4. stop that node (k3d node stop), as a node that loses power, once cluster DNS is sure to
 #      survive it (two CoreDNS copies, deploy/k3s/cluster-dns-ha.sh);
-#   5. within 60 s the live sentinels name one new master on a live node; within 120 s more the
+#   5. within 90 s the live sentinels name one new master on a live node; within 120 s more the
 #      same session's write succeeds (the stopped node's API copy keeps its endpoints until
 #      Kubernetes marks the node NotReady, about 50 s);
 #   6. the node starts again: within 300 s the old master is a replica, exactly one master runs,
@@ -182,8 +182,15 @@ echo "== stop $node (Valkey master $master; also on it:" \
 STOPPED="$node"
 k3d node stop "$node"
 
-took="$(until_ok 60 failed_over "$master" "$node")" ||
-  { echo "the live sentinels named no new master on a live node within 60 s"
+# 90 s, not 60 (the coordinator, #425): after a node loss the sentinels stall on lookups that
+# reach the lost node's CoreDNS endpoint (until it drops, about 20 s with the shipped grace
+# period); Sentinel resolves synchronously, so a stall over 2 s puts it in TILT, which lasts a
+# fixed 30 s (not configurable). Failover then takes about 50 s (runs 43153098860 and
+# 43157246881: 37-54 s). NodeLocal DNSCache, the next lane B PR, removes the stall and brings
+# these back to 60 s or less.
+PROMOTE_BUDGET=90
+took="$(until_ok "$PROMOTE_BUDGET" failed_over "$master" "$node")" ||
+  { echo "the live sentinels named no new master on a live node within ${PROMOTE_BUDGET} s"
     for pod in $VALKEY_PODS; do
       [ "$(node_of "$pod")" = "$node" ] && continue
       echo "  $pod's sentinel names: $(master_of "$pod" || true)"

@@ -151,6 +151,13 @@ hex values and never overwrites an existing one (its passwords are already insid
   abort for good. An aborted failover is retried after 2 × `failoverTimeoutMilliseconds` (30 s,
   so 60 s later).
 
+  **What to expect today: about 1 minute of failover after a node loss** (Valkey's new master
+  and the sessions writing again; PostgreSQL promotes in under a minute too). While a lost
+  node's CoreDNS endpoint is still listed (about 20 s), lookups that reach it time out; Sentinel
+  resolves hostnames synchronously, so the stall puts it in TILT, a fixed 30 s pause, before it
+  fails over. A node-local DNS cache (NodeLocal DNSCache, next in the HA work) removes that stall
+  and brings failover down to about 15 s. The HA tests allow 90 s until then.
+
   Valkey's pods look names up with `ndots 1`, a 1 s timeout and 2 attempts (`dnsConfig` in
   `templates/valkey-ha.yaml`), and name every peer in full
   (`<pod>.supportx-valkey-headless.<namespace>.svc.<cluster domain>`, the domain read from the
