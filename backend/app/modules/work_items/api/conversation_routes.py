@@ -220,7 +220,9 @@ class ReplyTemplateOut(BaseModel):
     @classmethod
     def of(cls, row: WorkItemReplyTemplate) -> "ReplyTemplateOut":
         """From the stored row."""
-        return cls(id=row.id, name=row.name, body=row.body, version=row.version)
+        # Until S5a's own shapes: the pre-0154 text, else the first language's (0154).
+        text = row.body or next(iter(row.bodies.values()), "")
+        return cls(id=row.id, name=row.name, body=text, version=row.version)
 
 
 class ReplyTemplateIn(BaseModel):
