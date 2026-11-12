@@ -28,6 +28,9 @@ class BulkAction(StrEnum):
     CLOSE = "close"
     LINK_PROBLEM = "link_problem"  # WP-044a: incidents caused by one problem (REQ-PRB-012)
     UNLINK_PROBLEM = "unlink_problem"  # WP-044b: incidents no longer caused by their problem
+    # WP-046a S1 (0141; REQ-CHG-101): the change list's cancel (with a reason) and trash.
+    CANCEL = "cancel"
+    DELETE = "delete"
 
 
 class BulkStatus(StrEnum):
