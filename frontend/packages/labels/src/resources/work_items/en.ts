@@ -458,7 +458,7 @@ export const en = {
   'changes.bulk.as_you':
     'Each change is changed as you, with its own rules. Any that cannot be changed are skipped and listed with the reason.',
   'changes.bulk.cancel_ok': 'Cancel them',
-  'changes.bulk.cancel_reason': 'Why they are canceled',
+  'changes.bulk.cancel_reason': 'Why they are cancelled',
   'changes.bulk.cancel_title_one': 'Cancel 1 change',
   'changes.bulk.cancel_title_other': 'Cancel {{count}} changes',
   'changes.bulk.close_help':
