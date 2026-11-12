@@ -480,10 +480,13 @@ export const ur: LabelResource = {
     'جن گروپس کی آپ قیادت کرتے ہیں ان کے ارکان کی دستیابی، تفویض، جوابی سانچے، محفوظ مناظر اور ڈیش بورڈز؛ دوسرے گروپس یا تنظیم کی ترتیبات نہیں۔',
   'permission.groups.view': 'سپورٹ گروپس دیکھیں',
   'permission.groups.view.description': 'سپورٹ گروپس اور ان کے ارکان دیکھیں۔',
-  // WP-039 identity: sign-in settings and single sign-on
   'permission.identity.manage': 'سائن اِن اور سیکیورٹی کا انتظام',
   'permission.identity.manage.description':
     'سنگل سائن آن، سیشن کی مہلتیں اور پہلی بار سائن اِن کرنے والوں کی ترتیب۔',
+  // WP-039 identity: sign-in settings and single sign-on
+  'permission.identity.view_sign_ins': 'سائن اِن لاگ دیکھیں',
+  'permission.identity.view_sign_ins.description':
+    'تنظیم کے ہر سائن اِن، انکار اور سائن آؤٹ کا ریکارڈ، پتے اور ڈیوائس کے ساتھ۔',
   // WP-020b: conversation, notes, followers, editor
   'permission.incidents.add_note': 'نجی نوٹس شامل کریں',
   'permission.incidents.add_note.description': 'واقعات پر صرف عملے کے لیے نوٹس لکھیں۔',

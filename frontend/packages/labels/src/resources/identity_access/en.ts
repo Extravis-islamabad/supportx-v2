@@ -478,10 +478,13 @@ export const en = {
     'Members’ availability, assignment, reply templates, saved views and dashboards of the groups you lead; not other groups or tenant settings.',
   'permission.groups.view': 'View support groups',
   'permission.groups.view.description': 'See the support groups and their members.',
-  // WP-039 identity: sign-in settings and single sign-on
   'permission.identity.manage': 'Manage sign-in and security',
   'permission.identity.manage.description':
     'Set up single sign-on, session timeouts and who may sign in for the first time.',
+  // WP-039 identity: sign-in settings and single sign-on
+  'permission.identity.view_sign_ins': 'View the sign-in log',
+  'permission.identity.view_sign_ins.description':
+    'Every sign-in, refusal and sign-out of the organisation, with the address and device.',
   // WP-020b: conversation, notes, followers, editor
   'permission.incidents.add_note': 'Add private notes',
   'permission.incidents.add_note.description': 'Write staff-only notes on incidents.',

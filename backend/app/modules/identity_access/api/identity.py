@@ -18,8 +18,9 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
@@ -29,11 +30,17 @@ from app.modules.identity_access.api.sessions import ListedSessionOut, listed_ou
 from app.modules.identity_access.domain import sso as sso_rules
 from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.policy import Subject
+from app.modules.identity_access.domain.sign_in import Method, Outcome, SignInApp
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
 )
-from app.modules.identity_access.infra.models import MAX_IDLE_SECONDS, MIN_IDLE_SECONDS, User
+from app.modules.identity_access.infra.models import (
+    MAX_IDLE_SECONDS,
+    MIN_IDLE_SECONDS,
+    SignInEvent,
+    User,
+)
 from app.modules.identity_access.service import (
     api_keys,
     identity_settings,
@@ -41,13 +48,16 @@ from app.modules.identity_access.service import (
     mfa,
     network_rules,
     password_reset,
+    sign_in_log,
     sso,
     sso_test,
 )
 from app.modules.identity_access.service.auth import AuthService
 from app.modules.organization import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.filters import FieldType
 from app.shared.api.idempotency import Created, Idempotency
+from app.shared.api.listing import CursorScope, SortKey, get_cursor_codec
 from app.shared.api.ratelimit import client_address, rate_limit
 from app.shared.egress import Allowance, installation_allowance
 
@@ -201,6 +211,119 @@ async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, ve
     note.skip = not details
     set_etag(response, saved.version)
     return _out(saved, request)
+
+
+# --- the sign-in log (REQ-AUD-015; WP-057 S1a) ---------------------------------------------------
+
+ViewSignIns = Annotated[Subject, Depends(require_permission("identity.view_sign_ins"))]
+_LOG_KEYS = (
+    SortKey("occurred_at", SignInEvent.occurred_at, FieldType.DATETIME, descending=True),
+    SortKey("id", SignInEvent.id, FieldType.UUID, descending=True),
+)
+
+
+class SignInEventOut(BaseModel):
+    """One entry: codes the UI labels (outcome, reason, method, app, device), never raw text."""
+
+    id: uuid.UUID
+    occurred_at: datetime
+    outcome: Outcome
+    reason: str | None
+    method: Method
+    app: SignInApp
+    user_id: uuid.UUID | None
+    ip: str | None
+    device: str | None
+    identity_provider: str | None
+
+
+class SignInPersonOut(BaseModel):
+    """A person the page names."""
+
+    display_name: str
+    email: str | None
+
+
+class SignInLogPage(BaseModel):
+    """A page of the log, newest first, and the people it names."""
+
+    items: list[SignInEventOut]
+    people: dict[str, SignInPersonOut]
+    next_cursor: str | None
+
+
+@router.get("/sign-ins", summary="The sign-in log")
+async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of one list
+    request: Request,
+    session: TenantSession,
+    subject: ViewSignIns,
+    outcome: Annotated[list[Outcome] | None, Query()] = None,
+    method: Annotated[list[Method] | None, Query()] = None,
+    user_id: uuid.UUID | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    cursor: Annotated[str | None, Query(max_length=2048)] = None,
+    limit: Annotated[int, Query(ge=1, le=sign_in_log.PAGE_MAX)] = 50,
+) -> SignInLogPage:
+    """Every sign-in event of the organisation, newest first (AC2: by outcome and time)."""
+    scope = CursorScope(
+        endpoint="identity.sign_ins",
+        tenant_id=subject.tenant_id,
+        user_id=subject.user_id,
+        sort="occurred_at.desc,id.desc",
+        # The filters a cursor belongs to: the same list, never another one's page.
+        filter_fingerprint=repr(
+            (sorted(outcome or ()), sorted(method or ()), user_id, since, until, limit)
+        ),
+    )
+    codec = get_cursor_codec(request)
+    before = None
+    if cursor is not None:
+        at, last = codec.decode(cursor, scope, _LOG_KEYS)
+        before = (at, last)
+    rows = await sign_in_log.list_events(
+        session,
+        sign_in_log.LogFilter(
+            outcomes=tuple(outcome or ()),
+            methods=tuple(method or ()),
+            user_id=user_id,
+            since=since,
+            until=until,
+            before=before,
+            limit=limit + 1,
+        ),
+    )
+    more = len(rows) > limit
+    rows = rows[:limit]
+    named = {r.user_id for r in rows if r.user_id is not None}
+    people = {
+        str(person.id): SignInPersonOut(display_name=person.display_name, email=person.email)
+        for person in await session.scalars(select(User).where(User.id.in_(named)))
+    }
+    last_row = rows[-1] if rows else None
+    return SignInLogPage(
+        items=[
+            SignInEventOut(
+                id=r.id,
+                occurred_at=r.occurred_at,
+                outcome=Outcome(r.outcome),
+                reason=r.reason,
+                method=Method(r.method),
+                app=SignInApp(r.app),
+                user_id=r.user_id,
+                ip=str(r.ip) if r.ip is not None else None,
+                device=r.device,
+                identity_provider=r.identity_provider,
+            )
+            for r in rows
+        ],
+        people=people,
+        next_cursor=(
+            codec.encode(scope, _LOG_KEYS, (last_row.occurred_at, last_row.id))
+            if more and last_row is not None
+            else None
+        ),
+    )
 
 
 # --- IP allow-lists (REQ-SEC-034; WP-057 S1a) ---------------------------------------------------

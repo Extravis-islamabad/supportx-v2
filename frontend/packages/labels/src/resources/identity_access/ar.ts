@@ -469,10 +469,13 @@ export const ar: LabelResource = {
     'توفّر الأعضاء والتعيين وقوالب الردود وطرق العرض المحفوظة ولوحات المعلومات للمجموعات التي تقودها، دون المجموعات الأخرى أو إعدادات المؤسسة.',
   'permission.groups.view': 'عرض مجموعات الدعم',
   'permission.groups.view.description': 'رؤية مجموعات الدعم وأعضائها.',
-  // WP-039 identity: sign-in settings and single sign-on
   'permission.identity.manage': 'إدارة تسجيل الدخول والأمان',
   'permission.identity.manage.description':
     'إعداد تسجيل الدخول الموحّد ومهل الجلسات ومن يمكنه تسجيل الدخول لأول مرة.',
+  // WP-039 identity: sign-in settings and single sign-on
+  'permission.identity.view_sign_ins': 'عرض سجل تسجيل الدخول',
+  'permission.identity.view_sign_ins.description':
+    'كل عمليات تسجيل الدخول والرفض وتسجيل الخروج في المؤسسة، مع العنوان والجهاز.',
   // WP-020b: conversation, notes, followers, editor
   'permission.incidents.add_note': 'إضافة ملاحظات خاصة',
   'permission.incidents.add_note.description': 'كتابة ملاحظات للموظفين فقط على الحوادث.',
