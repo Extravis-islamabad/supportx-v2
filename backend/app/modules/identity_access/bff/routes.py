@@ -399,10 +399,10 @@ async def _finish_callback(  # noqa: PLR0913, PLR0917 - the callback's parts, pa
     if result.session.break_glass:
         # A break-glass password sign-in is rarer than any other: its own, stricter budget per
         # address (lane B's review), closed when Valkey is down. Over it, the session it just
-        # made ends and the sign-in is refused like any other.
+        # made ends, Keycloak's too, and the sign-in is refused like any other.
         counted = await _BREAK_GLASS_LIMIT(request, Response())
         if counted.refusal is not None:
-            await auth.store.delete_session(result.session_id)
+            await auth.withdraw_sign_in(result.session_id, result.session)
             app: Literal["console", "portal"] = (
                 "portal" if result.session.client == "portal" else "console"
             )

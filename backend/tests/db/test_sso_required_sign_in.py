@@ -10,7 +10,11 @@ token's `sx_idp` (lane B's condition 2) and is logged.
 import uuid
 
 import asyncpg
+import pytest
 
+from app.core.errors import RateLimited
+from app.modules.identity_access.bff import routes
+from app.shared.api.ratelimit import AddressLimit
 from tests.db.test_auth_bff import Bff, bff
 from tooling.db_testing import ThrowawayDatabase
 
@@ -118,3 +122,31 @@ async def test_a_mobile_sso_sign_in_carries_its_method_and_is_let_in(bff: Bff) -
         ("success", "single_sign_on", "mobile"),
         ("failed", "password", "mobile"),
     ]
+
+
+async def test_a_break_glass_sign_in_over_its_budget_ends_both_sessions(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane B (#459): over the budget, ours ends and Keycloak's too, as the other refusals."""
+    a, _b = bff.tenants
+    email = _email("budget")
+    admin = bff.user("a", email=email, roles=("tenant_admin", "technician"))
+    assert (await bff.login(admin)).status_code == 302
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": await bff.csrf()})
+    await _require(bff.db, a, "everyone")
+    await _sql(
+        bff.db,
+        "UPDATE users SET break_glass = true, mfa_enrolled_at = now() WHERE email = $1",
+        email,
+    )
+
+    async def spent(request: object, response: object) -> AddressLimit:
+        del request, response
+        return AddressLimit(refusal=RateLimited(code="rate_limited"), headers={})
+
+    monkeypatch.setattr(routes, "_BREAK_GLASS_LIMIT", spent)
+    ended_before = len(bff.idp.ended_sessions)
+    refused = await bff.login(admin)
+    assert refused.status_code == 429, refused.text
+    assert len(bff.idp.ended_sessions) == ended_before + 1  # Keycloak's session ended too
+    assert (await bff.client.get("/api/v1/auth/me")).status_code == 401  # and ours never began

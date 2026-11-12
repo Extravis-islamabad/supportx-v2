@@ -1143,6 +1143,20 @@ class AuthService:
             except (SQLAlchemyError, OSError):
                 log.exception("logout_event_not_recorded", subject=session.subject)
 
+    async def withdraw_sign_in(self, session_id: str, session: Session) -> None:
+        """Undo a sign-in refused after its session was made: ours and Keycloak's both end.
+
+        As the other refusals (SIGN_IN_REFUSALS), so the person is asked again next time rather
+        than walked straight back in by Keycloak's still-open session (lane B, #459).
+        """
+        await self.store.delete_session(session_id)
+        try:
+            await self._end_keycloak_session(
+                self.client(_client_app(session)), session.refresh_token
+            )
+        except IdentityProviderUnavailable:
+            log.warning("keycloak_logout_failed", subject=session.subject)
+
     async def _end_keycloak_session(self, client: ClientCredentials, refresh_token: str) -> None:
         if not await self.oidc.end_session(client, refresh_token):
             log.warning("keycloak_logout_refused")
