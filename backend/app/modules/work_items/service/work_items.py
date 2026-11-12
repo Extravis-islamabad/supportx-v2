@@ -161,7 +161,7 @@ from app.modules.work_items.service import (
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service import stages as stage_service
-from app.modules.work_items.service.access import RESOURCE
+from app.modules.work_items.service.access import COST_TYPES, RESOURCE, VIEW_COSTS
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.display_ids import next_display_number
@@ -1131,8 +1131,9 @@ PERSON_FIELDS = frozenset(
 )
 
 
-# History fields whose values only the record's editors read; others see them as MASKED.
-EDITORS_ONLY = frozenset({"task.extra_cost"})
+# History fields that are money: their values only for those who may see the record's costs
+# (D-164: `<type>.view_costs`); others see them as MASKED.
+MONEY_FIELDS = frozenset({"task.extra_cost"})
 MASKED: dict[str, bool] = {"masked": True}
 
 
@@ -1160,16 +1161,18 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         entries = [
             replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
         ]
-    # A task's extra cost is for those who may edit the record (WP-046a S1, lane B's #398
-    # review): others keep the line (that it changed, when, by whom) but never the amounts.
-    if any(c.field in EDITORS_ONLY for e in entries for c in e.changes) and not await _may(
-        session, subject, wtype, "edit", record_id
+    # A task's extra cost is money (D-164): only with the type's cost right, as the task API
+    # shows it (lane B's #442 review). Others keep the line (that it changed, when, by whom) but
+    # never the amounts. A type without the right keeps S1's rule, those who may edit.
+    money_right = VIEW_COSTS if wtype.code in COST_TYPES else "edit"
+    if any(c.field in MONEY_FIELDS for e in entries for c in e.changes) and not await _may(
+        session, subject, wtype, money_right, record_id
     ):
         entries = [
             replace(
                 e,
                 changes=[
-                    Change(c.field, MASKED, MASKED) if c.field in EDITORS_ONLY else c
+                    Change(c.field, MASKED, MASKED) if c.field in MONEY_FIELDS else c
                     for c in e.changes
                 ],
             )
