@@ -79,6 +79,7 @@ from app.modules.identity_access.service import (
     break_glass_notifications,
     directory,
     mfa,
+    sign_in_import,
     sign_in_log,
 )
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
@@ -421,6 +422,8 @@ module = ModuleSpec(
     schedules=[
         ScheduleSpec("identity_access__sign_in_log_purge", 86400, sign_in_log.purge_schedule),
         ScheduleSpec("identity_access__people_imports", 5, run_people_imports),
+        # Keycloak's login errors into the sign-in log (WP-057 S1b; supportx-events, view-events).
+        ScheduleSpec("identity_access__sign_in_import", 60, sign_in_import.import_schedule),
         # Past the MFA grace period: Keycloak's enrol actions (WP-039 session 3, REQ-SEC-024).
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
         # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
