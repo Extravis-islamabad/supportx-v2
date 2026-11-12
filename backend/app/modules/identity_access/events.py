@@ -304,6 +304,19 @@ class UserCostRateChanged(DomainEvent):
     change: Literal["created", "updated", "deleted"]
 
 
+class SignInRecorded(DomainEvent):
+    """A sign-in event was written to the tenant's log (REQ-AUD-015; WP-057 S1a).
+
+    The outcome only, never the person, address or device: open sign-in logs refetch.
+    """
+
+    event_type: ClassVar[str] = "identity_access.sign_in.recorded"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sign_in_event"
+
+    outcome: Literal["success", "failed", "signed_out", "locked", "mfa_failed"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -327,4 +340,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     InvitationChanged,
     ApiKeyChanged,
     UserCostRateChanged,
+    SignInRecorded,
 )

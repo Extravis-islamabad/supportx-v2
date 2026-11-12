@@ -35,8 +35,9 @@ from app.modules.identity_access.domain.sign_in import (
     Source,
     device,
 )
+from app.modules.identity_access.events import SignInRecorded
 from app.modules.identity_access.infra.models import SignInEvent
-from app.shared.events import ConsumerSpec, EventEnvelope
+from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 from app.shared.ids import new_id
 
 log = get_logger(__name__)
@@ -70,11 +71,12 @@ async def record(
     if database is None:
         return
     try:
+        event_id = new_id()
         async with database.tenant_session(TenantContext(tenant_id)) as session:
             session.add(
                 SignInEvent(
                     tenant_id=tenant_id,
-                    id=new_id(),
+                    id=event_id,
                     user_id=facts.user_id,
                     occurred_at=at or datetime.now(UTC),
                     outcome=facts.outcome.value,
@@ -86,6 +88,13 @@ async def record(
                     identity_provider=facts.identity_provider,
                     source=Source.BFF.value,
                 )
+            )
+            # Open sign-in logs follow it live (rule 5c), in the same transaction (rule 5b).
+            await record_event(
+                session,
+                SignInRecorded(outcome=facts.outcome.value),
+                aggregate_id=event_id,
+                aggregate_version=1,
             )
     except Exception:  # noqa: BLE001 - the log must never break a sign-in; it says so instead
         log.warning("sign_in_log_unwritten", tenant_id=str(tenant_id), outcome=facts.outcome)

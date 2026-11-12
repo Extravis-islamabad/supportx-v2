@@ -2851,6 +2851,29 @@
         "type": "object"
       }
     },
+    "identity_access.sign_in.recorded": {
+      "1": {
+        "description": "A sign-in event was written to the tenant's log (REQ-AUD-015; WP-057 S1a).\n\nThe outcome only, never the person, address or device: open sign-in logs refetch.",
+        "properties": {
+          "outcome": {
+            "enum": [
+              "success",
+              "failed",
+              "signed_out",
+              "locked",
+              "mfa_failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "SignInRecorded",
+        "type": "object"
+      }
+    },
     "identity_access.sso_provider.changed": {
       "1": {
         "description": "A single sign-on set-up was added, changed, tested, switched on or off, or removed.",

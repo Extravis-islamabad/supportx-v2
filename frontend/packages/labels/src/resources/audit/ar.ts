@@ -933,6 +933,7 @@ export const ar: LabelResource = {
   'event_type.identity_access.people_import.progressed': 'تقدّم استيراد الأشخاص',
   'event_type.identity_access.role.changed': 'تم تغيير دور',
   'event_type.identity_access.session.tenant_switched': 'تم تبديل المؤسسة',
+  'event_type.identity_access.sign_in.recorded': 'سُجّل تسجيل دخول',
   'event_type.identity_access.sso_provider.changed': 'تغيّر إعداد تسجيل الدخول الموحّد',
   'event_type.identity_access.user.created': 'أُضيف شخص',
   'event_type.identity_access.user.logged_in': 'تسجيل الدخول',
