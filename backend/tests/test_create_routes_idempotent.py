@@ -21,8 +21,6 @@ from tests.test_route_permissions import _dependencies
 KNOWN_GAPS: frozenset[str] = frozenset(
     {
         "POST /api/v1/audit/saved-searches",  # audit (lane B)
-        "POST /api/v1/custom-fields",  # metadata (lane C)
-        "POST /api/v1/knowledge/articles/{article_id}/drafts/{language}",  # knowledge (lane C)
     }
 )
 

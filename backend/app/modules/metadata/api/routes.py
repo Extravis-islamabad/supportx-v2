@@ -27,6 +27,7 @@ from app.modules.metadata.domain.fields import (
 from app.modules.metadata.infra.models import CustomField
 from app.modules.metadata.service import custom_fields as service
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.idempotency import Created, Idempotency
 from app.shared.history import source_of
 
 router = APIRouter(
@@ -199,8 +200,13 @@ async def list_fields(
     return [CustomFieldOut.of(r, names.get(r.id)) for r in rows]
 
 
-@router.post("", summary="Add a custom field", status_code=status.HTTP_201_CREATED)
-async def create_field(
+@router.post(
+    "",
+    summary="Add a custom field",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CustomFieldOut,
+)
+async def create_field(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     body: CustomFieldIn,
     session: TenantSession,
     subject: Admin,
@@ -208,15 +214,26 @@ async def create_field(
     note: Annotated[
         AuditNote, audited("metadata.custom_field_created", object_type="custom_field")
     ],
-) -> CustomFieldOut:
-    """A new field at the end of the entity's list. Its key comes from the English name."""
+    idempotency: Idempotency,
+) -> Response:
+    """A new field at the end of the entity's list. Its key comes from the English name.
+
+    Idempotency-Key (audit #19): a retried save replays the first answer, never a second field;
+    the audit entry is written only by the run that made it.
+    """
     del subject
-    row = await service.create_field(
-        session, body.entity, body.model_dump(mode="json"), source=source_of(request)
-    )
-    note.object_id = str(row.id)
-    note.details = {"entity": row.entity, "key": row.key, "field_type": row.field_type}
-    return CustomFieldOut.of(row)
+    note.skip = True
+
+    async def operation() -> Created:
+        row = await service.create_field(
+            session, body.entity, body.model_dump(mode="json"), source=source_of(request)
+        )
+        note.skip = False
+        note.object_id = str(row.id)
+        note.details = {"entity": row.entity, "key": row.key, "field_type": row.field_type}
+        return Created(CustomFieldOut.of(row), {})
+
+    return await idempotency.run(body, operation)
 
 
 @router.put("/order", summary="Reorder custom fields")
