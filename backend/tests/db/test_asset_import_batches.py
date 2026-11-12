@@ -5,7 +5,8 @@ batch matches in one query, writes a batch's rows in one savepoint (redone row b
 is refused) and ends each transaction after 100 rows or about 2 s. These tests hold it to the
 row path's outcomes: lookups never shared between jobs, tenants or importers (1), permission
 per row (2), exact per-row problems when a batch is redone (3), tag numbers only for saved rows
-(4), short locks (5), and the same caching for consumables.
+(4), short locks (5), the same caching for consumables, and a dry run that counts the asset
+limit as the run will (lane A, #434).
 
 The incident world: org A's admin holds everything; technicians hold assets.view at all and no
 assets.manage (D-157). `_site_manager` gives tech A (at site s1) assets.manage at site scope.
@@ -14,6 +15,8 @@ assets.manage (D-157). `_site_manager` gives tech A (at site s1) assets.manage a
 import asyncio
 import time
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 
@@ -23,6 +26,7 @@ from app.core.database import SESSION_TENANT_KEY
 from app.core.tenancy import TenantContext
 from app.modules.assets.domain.assets import NAME_MAX, SHARED_COUNTER_KEY
 from app.modules.assets.service import imports
+from app.modules.assets.service.assets import count_managed_assets
 from app.modules.assets.service.imports import Lookups, run_asset_imports
 from app.modules.organization import find_site
 from app.modules.organization.service import structure
@@ -340,7 +344,6 @@ async def test_a_manual_asset_waits_at_most_about_one_transaction_of_a_running_i
         await running
     done = await _job(world, a, job)
     assert (done["status"], done["created_count"]) == ("done", rows)
-    print(f"manual add waited {waited:.2f} s for a running import")  # noqa: T201 - the figure
 
 
 # --- consumables -----------------------------------------------------------------------------
@@ -397,3 +400,105 @@ async def test_the_lookups_cache_answers_as_find_site_does(world: World) -> None
         assert await lookups.site(session, site_name) == a.s2
         assert await lookups.site(session, f"Nowhere {uuid.uuid4().hex[:6]}") is None
         assert len(lookups.sites) == 2  # one entry per name as compared, answers kept
+
+
+# --- the asset limit (lane A's #434 review) -----------------------------------------------------
+#
+# A dry run rolls every row back, so the service's own reservation never sees the slots the
+# earlier rows would take; the import's plan takes and frees them in file order instead (dry
+# runs only; a real run's `reserve_capacity` under the lock stays the judge). Imports set no
+# state, so only a create and a product change (IT asset <-> non-IT) switch counting.
+
+
+@asynccontextmanager
+async def _asset_limit(world: World, org: Org, free: int) -> AsyncIterator[None]:
+    """The tenant's asset limit at what it uses now plus `free`, restored afterwards."""
+    before = await world.sql(
+        "SELECT limits FROM tenant_subscriptions WHERE tenant_id = $1", org.tenant
+    )
+    async with world.app.state.db.tenant_session(TenantContext(org.tenant, org.admin)) as session:
+        used = await count_managed_assets(session)
+    await world.sql(
+        "UPDATE tenant_subscriptions SET limits = jsonb_set(coalesce(limits, '{}'::jsonb),"
+        " '{assets}', to_jsonb($2::int)) WHERE tenant_id = $1",
+        org.tenant,
+        used + free,
+    )
+    await world.app.state.entitlements.invalidate(org.tenant)
+    try:
+        yield
+    finally:
+        await world.sql(
+            "UPDATE tenant_subscriptions SET limits = $2::jsonb WHERE tenant_id = $1",
+            org.tenant,
+            before[0]["limits"],
+        )
+        await world.app.state.entitlements.invalidate(org.tenant)
+
+
+async def _both_runs(
+    world: World, org: Org, content: bytes
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    checked = await _checked(world, org, content)
+    return checked, await _run_for_real(world, org, checked, org.admin)
+
+
+async def _over_the_limit(world: World) -> None:
+    a = world.a
+    product = f"S4c limit laptop {uuid.uuid4().hex[:6]}"
+    await _product(world, a, "laptop", product)
+    tag = uuid.uuid4().hex[:6]
+    lines = ["Name,Product,Serial number"]
+    lines += [f"Limit {n},{product},S4C-LIM-{tag}-{n}" for n in range(4)]
+    content = ("\n".join(lines) + "\n").encode()
+    refused = [{"row": row, "field": "row", "code": "asset_limit_reached"} for row in (4, 5)]
+    async with _asset_limit(world, a, 2):
+        checked, done = await _both_runs(world, a, content)
+    assert (_counts(checked), checked["problems"]) == ((2, 0, 2), refused)  # the dry run knew
+    assert (_counts(done), done["problems"]) == ((2, 0, 2), refused)
+    made = await world.sql(
+        "SELECT count(*) AS n FROM assets WHERE tenant_id = $1 AND serial_number LIKE $2",
+        a.tenant,
+        f"S4C-LIM-{tag}-%",
+    )
+    assert made[0]["n"] == 2  # nothing past the limit was kept
+
+
+async def test_an_import_that_crosses_the_asset_limit_in_one_batch_stops_where_the_row_path_does(
+    world: World,
+) -> None:
+    """Limit at existing + 2, four new IT assets: rows 4 and 5 refused, dry run and run alike."""
+    await _over_the_limit(world)
+
+
+async def test_the_dry_run_counts_the_asset_limit_across_batches(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two rows a batch: the dry run's second batch knows the slots the first one took."""
+    monkeypatch.setattr(imports, "BATCH", 2)
+    await _over_the_limit(world)
+
+
+async def test_a_slot_freed_by_an_earlier_row_lets_a_later_new_asset_in(world: World) -> None:
+    """Row 2 moves a counting asset to a non-IT product; row 5's new IT asset then fits."""
+    a = world.a
+    tag = uuid.uuid4().hex[:6]
+    laptop, desk = f"S4c free laptop {tag}", f"S4c free desk {tag}"
+    await _product(world, a, "laptop", laptop)
+    await _product(world, a, "furniture", desk)
+    moved = await _asset(world, a, "Moves to furniture", serial_number=f"S4C-FREE-{tag}-0")
+    lines = [
+        "Name,Product,Serial number",
+        f",{desk},S4C-FREE-{tag}-0",  # row 2: frees its slot
+        f"New 1,{laptop},S4C-FREE-{tag}-1",  # row 3: takes the one free slot
+        f"Desk,{desk},S4C-FREE-{tag}-2",  # row 4: never counts
+        f"New 2,{laptop},S4C-FREE-{tag}-3",  # row 5: takes the freed slot
+        f"New 3,{laptop},S4C-FREE-{tag}-4",  # row 6: none left
+    ]
+    content = ("\n".join(lines) + "\n").encode()
+    refused = [{"row": 6, "field": "row", "code": "asset_limit_reached"}]
+    async with _asset_limit(world, a, 1):
+        checked, done = await _both_runs(world, a, content)
+    assert (_counts(checked), checked["problems"]) == ((3, 1, 1), refused)
+    assert (_counts(done), done["problems"]) == ((3, 1, 1), refused)
+    assert (await _fresh(world, a, moved))["product_id"] != moved["product_id"]
