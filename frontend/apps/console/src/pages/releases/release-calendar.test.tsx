@@ -1,10 +1,32 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fakeIncident, fakeSession, problem } from '@supportx/api-client/testing';
+import { fakeSession, problem } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
+
+// The override dialog is a stand-in here (see the REQ-REL-040 AC2 test).
+vi.mock('./ReleaseConflicts', async (actual) => ({
+  ...(await actual<typeof import('./ReleaseConflicts')>()),
+  ReleaseOverride: ({
+    id,
+    windowIds,
+    onDone,
+  }: {
+    id: string;
+    windowIds: string[];
+    onDone: () => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="override-stand-in"
+      data-release={id}
+      data-windows={windowIds.join(',')}
+      onClick={onDone}
+    />
+  ),
+}));
 
 // WP-058b S1 (REQ-REL-038): the release calendar on the shared staged calendar. Releases by
 // their deployment window, the timeline view, the quick view, and a move by keyboard that writes
@@ -227,77 +249,46 @@ describe('console: the release calendar (WP-058b S1)', () => {
     expect(badge?.textContent).toBe('2 conflicts');
   });
 
-  it(
-    'REQ-REL-040 AC2: a move refused by a freeze offers the override in place, then moves',
-    { timeout: 60_000 },
-    async () => {
-      const FREEZE = '01a1a2b3-0000-7000-8000-00000058c101';
-      window.history.pushState({}, '', '/releases/calendar');
-      let tries = 0;
-      const fake = api(['releases.view', 'releases.edit', 'releases.override_freeze'], {
-        [`PATCH /api/v1/releases/${REL_ID}/schedule/deployment`]: () => {
-          tries += 1;
-          return tries === 1
-            ? {
-                status: 409,
-                body: problem(409, 'change_window_blocked', {
-                  params: { kind: 'freeze', window_id: FREEZE, window_ids: FREEZE, count: 1 },
-                }),
-              }
-            : { body: { stage: 'deployment', version: 3 } };
-        },
-        [`GET /api/v1/releases/${REL_ID}`]: {
-          body: {
-            ...fakeIncident({ id: REL_ID, display_id: 'REL-7' }),
-            type: 'release',
-            version: 9,
-          },
-          headers: { ETag: '"9"' },
-        },
-        [`POST /api/v1/releases/${REL_ID}/freeze-override`]: { body: { version: 10 } },
-      });
-      render(<App />);
-      const [first] = await screen.findAllByTestId('calendar-move-REL-7');
-      if (first === undefined) throw new Error('no move button');
-      fireEvent.click(first);
-      const input = await screen.findByTestId('calendar-move-day');
-      fireEvent.mouseDown(input);
-      fireEvent.change(input, { target: { value: '12 Mar 2027' } });
-      fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
-      fireEvent.click(screen.getByTestId('calendar-move-ok'));
-      fireEvent.change(await screen.findByTestId('release-override-reason'), {
-        target: { value: 'Payroll must go out' },
-      });
-      // Ready means enabled and no longer loading: the button shows loading until the release
-      // (its If-Match) has arrived, and Ant Design drops a click on a loading button, which is
-      // how this flaked under CI load even with the waits below (#421's run).
-      await waitFor(
-        () => {
-          const ok = screen.getByTestId('release-override-ok');
-          expect(ok.hasAttribute('disabled')).toBe(false);
-          expect(ok.classList.contains('ant-btn-loading')).toBe(false);
-        },
-        { timeout: 15_000 },
-      );
-      fireEvent.click(screen.getByTestId('release-override-ok'));
-      // Wait on each state in turn, never on how long it takes: the override is granted, its
-      // dialog closes, then the move is sent again. Under CI load the chain took over the default
-      // 5 s (lane B's #404, run 43055376792), so each step gets its own wider ceiling.
-      const LOADED = { timeout: 15_000 };
-      await waitFor(() => {
-        expect(fake.find('POST', `/api/v1/releases/${REL_ID}/freeze-override`)).toHaveLength(1);
-      }, LOADED);
-      await waitFor(() => {
-        expect(screen.queryByTestId('release-override-ok')).toBeNull();
-      }, LOADED);
-      await waitFor(() => {
-        expect(fake.find('PATCH', `/api/v1/releases/${REL_ID}/schedule/deployment`)).toHaveLength(
-          2,
-        );
-      }, LOADED);
-      const [passed] = fake.find('POST', `/api/v1/releases/${REL_ID}/freeze-override`);
-      expect(passed?.body).toEqual({ reason: 'Payroll must go out', window_ids: [FREEZE] });
-      expect(passed?.headers.get('If-Match')).toBe('"9"');
-    },
-  );
+  it('REQ-REL-040 AC2: a move refused by a freeze offers the override in place, then moves', async () => {
+    // The override dialog itself is release-override.test.tsx's: here it is a stand-in, so this
+    // test is only the calendar's part (offer it for the refusing freezes, then move again), and
+    // never waits on the dialog's own loads under CI load (the coordinator, after #418's flake).
+    const FREEZE = '01a1a2b3-0000-7000-8000-00000058c101';
+    window.history.pushState({}, '', '/releases/calendar');
+    let tries = 0;
+    const fake = api(['releases.view', 'releases.edit', 'releases.override_freeze'], {
+      [`PATCH /api/v1/releases/${REL_ID}/schedule/deployment`]: () => {
+        tries += 1;
+        return tries === 1
+          ? {
+              status: 409,
+              body: problem(409, 'change_window_blocked', {
+                params: { kind: 'freeze', window_id: FREEZE, window_ids: FREEZE, count: 1 },
+              }),
+            }
+          : { body: { stage: 'deployment', version: 3 } };
+      },
+    });
+    render(<App />);
+    const [first] = await screen.findAllByTestId('calendar-move-REL-7');
+    if (first === undefined) throw new Error('no move button');
+    fireEvent.click(first);
+    const input = await screen.findByTestId('calendar-move-day');
+    fireEvent.mouseDown(input);
+    fireEvent.change(input, { target: { value: '12 Mar 2027' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    fireEvent.click(screen.getByTestId('calendar-move-ok'));
+    const offered = await screen.findByTestId('override-stand-in');
+    expect(offered.getAttribute('data-release')).toBe(REL_ID);
+    expect(offered.getAttribute('data-windows')).toBe(FREEZE);
+    fireEvent.click(offered);
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/releases/${REL_ID}/schedule/deployment`)).toHaveLength(2);
+    });
+    const [, again] = fake.find('PATCH', `/api/v1/releases/${REL_ID}/schedule/deployment`);
+    expect(again?.body).toEqual({
+      scheduled_start: '2027-03-12T09:00:00.000Z',
+      scheduled_end: '2027-03-13T11:00:00.000Z',
+    });
+  });
 });
