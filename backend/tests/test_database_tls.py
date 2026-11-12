@@ -3,6 +3,7 @@
 No database and no network: the connect arguments are caught before asyncpg dials anything.
 """
 
+import ast
 import ssl
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,8 @@ from sqlalchemy import event
 from app.core.config import Settings
 from app.core.database import Database, create_engine, database_ssl
 from tests.tls_certs import make_certs
-from tooling.deploy_migrate import DeployConfig
+from tooling import deploy_migrate
+from tooling.deploy_migrate import DeployConfig, alembic_config
 
 
 class _Caught(Exception):
@@ -93,3 +95,37 @@ def test_the_deploy_job_reads_the_root_cert(tmp_path: Path) -> None:
     found = config.ssl
     assert found is not None
     assert found.check_hostname is True
+
+
+def test_the_deploy_job_hands_its_context_to_every_migration_run(tmp_path: Path) -> None:
+    """migrations/env.py uses the code-passed URL with the code-passed context, or none at all:
+    a URL handed over without the context would connect unverified (lane C, #466)."""
+    ca = make_certs(tmp_path, ["pg-rw"]).ca
+    context = DeployConfig.from_env(
+        {"SUPPORTX_MIGRATION_DATABASE_URL": "postgresql://m@db/x",
+         "SUPPORTX_DATABASE_SSL_ROOT_CERT": str(ca)}
+    ).ssl  # fmt: skip
+    assert alembic_config("postgresql://m@db/x", context).attributes["database_ssl"] is context
+    # Every alembic_config call that runs a command passes the context; reading the script
+    # directory (ScriptDirectory.from_config) opens no connection and may leave it out.
+    tree = ast.parse(Path(deploy_migrate.__file__).read_text())
+    readers = {
+        id(arg)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "from_config"
+        for arg in node.args
+    }
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "alembic_config"
+    ]
+    assert calls
+    for call in calls:
+        if id(call) in readers:
+            continue
+        assert len(call.args) + len(call.keywords) >= 2, f"line {call.lineno}: no ssl context"

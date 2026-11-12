@@ -135,13 +135,29 @@ spec:
     {{- end }}
 {{- else if eq .Values.routing.mode "ingress" }}
 {{- $ing := .Values.routing.ingress -}}
+{{- /* With TLS on, the app is never served in clear (audit row 5, lane C): an Ingress alone
+says nothing about plain HTTP, and a first visit could sign in over http before HSTS. Traefik
+serves the routes on websecure only (http then has no route); ingress-nginx redirects to https.
+Any other class must enforce HTTPS itself, and the chart wants that said. Your own annotations
+go on top. */ -}}
+{{- $httpsOnly := dict -}}
+{{- if $tls.enabled }}
+{{- if eq $ing.className "traefik" }}
+{{- $httpsOnly = dict "traefik.ingress.kubernetes.io/router.entrypoints" "websecure" "traefik.ingress.kubernetes.io/router.tls" "true" }}
+{{- else if eq $ing.className "nginx" }}
+{{- $httpsOnly = dict "nginx.ingress.kubernetes.io/ssl-redirect" "true" "nginx.ingress.kubernetes.io/force-ssl-redirect" "true" }}
+{{- else if not $ing.enforcesHttps }}
+{{- fail (printf "routing.mode=ingress with class %q: the chart can only make Traefik and ingress-nginx refuse plain HTTP. Make %q redirect or refuse http yourself, then set routing.ingress.enforcesHttps=true" $ing.className $ing.className) }}
+{{- end }}
+{{- end }}
+{{- $annotations := merge (deepCopy ($ing.annotations | default dict)) $httpsOnly }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Release.Name }}
   labels:
     {{- include "supportx.labels" $c | nindent 4 }}
-  {{- with $ing.annotations }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}

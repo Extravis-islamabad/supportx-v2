@@ -563,8 +563,8 @@ routing:
     # A cert-manager Issuer or ClusterIssuer (e.g. {name: letsencrypt, kind: ClusterIssuer}):
     # the chart then asks it for a certificate for `hostnames` (or publicUrl's host).
     issuerRef: {}
-    # Plain HTTP answers only with a 301 to https (gateway mode). Ingress mode: use your ingress
-    # controller's own redirect (an annotation), as Ingress has no portable way to say it.
+    # Plain HTTP answers only with a 301 to https (gateway mode). Ingress mode: Traefik serves the
+    # app on HTTPS only and ingress-nginx redirects (see routing.ingress.enforcesHttps).
     redirectHttp: true
   gateway:
     create: true                    # false = attach the routes to an existing Gateway
@@ -581,6 +581,10 @@ routing:
   ingress:
     className: traefik
     annotations: {}
+    # With routing.tls on, the chart keeps the app off plain HTTP for the classes it knows
+    # (traefik: websecure only; nginx: redirect to https). Any other class: make it redirect or
+    # refuse http yourself, then set this to true, or the chart refuses to render.
+    enforcesHttps: false
     tlsSecret: ""                   # older name of routing.tls.secretName
 
 # --- observability ------------------------------------------------------------------------------------

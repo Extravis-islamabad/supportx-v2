@@ -314,9 +314,19 @@ plain HTTP (`listenerName`, 8000) whose only route is a `RequestRedirect` to htt
 
 The chart refuses TLS without either, and TLS with an `http://` `publicUrl`. Where a load
 balancer in front already terminates TLS, set `routing.tls.enabled: false` and keep `publicUrl`
-`https://`. Ingress mode serves the same Secret; its redirect is your ingress controller's own
-setting (Ingress has no portable way to say it). `routing.gateway.protocol` is gone: the chart
-refuses it and names `routing.tls.enabled` instead.
+`https://`. `routing.gateway.protocol` is gone: the chart refuses it and names
+`routing.tls.enabled` instead.
+
+**Ingress mode** serves the same Secret, and with TLS on it never serves the app over plain HTTP,
+since a first visit could otherwise sign in over http before HSTS applies:
+
+- `className: traefik`: the routes are on the `websecure` entry point only, so plain HTTP has
+  no route. For a 301 as well, turn on Traefik's own entry-point redirect
+  (`ports.web.redirections.entryPoint: {to: websecure, scheme: https}` in its values).
+- `className: nginx`: `ssl-redirect` and `force-ssl-redirect`, so plain HTTP answers 308 to
+  https.
+- Any other class: the chart refuses to render until you make that controller redirect or
+  refuse http yourself and set `routing.ingress.enforcesHttps: true`.
 
 ### PostgreSQL (postgresql.tls.verify)
 
