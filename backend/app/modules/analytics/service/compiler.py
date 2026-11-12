@@ -97,7 +97,7 @@ def available_measures(source: ReportingSource) -> dict[str, MeasureSpec]:
     out: dict[str, MeasureSpec] = {}
     for code, spec in measures_of(source.entity).items():
         names = [n for n in (spec.field, spec.start, spec.end, spec.minus) if n is not None]
-        names += _filter_fields(spec.where)
+        names += _filter_fields(spec.where) + _filter_fields(spec.of)
         if all(source.fields.get(n) is not None for n in names):
             out[code] = spec
     return out
@@ -136,12 +136,18 @@ def _measure_sql(
     spec: MeasureSpec, source: ReportingSource, now: datetime, path: str
 ) -> ColumnElement[Any]:
     if spec.kind in {MeasureKind.COUNT_WHERE, MeasureKind.RATE}:
-        matched = func.count().filter(
-            compile_filter(spec.where, source.fields, now=now, path=f"{path}.where")
-        )
+        where = compile_filter(spec.where, source.fields, now=now, path=f"{path}.where")
         if spec.kind == MeasureKind.COUNT_WHERE:
-            return matched
-        return case((func.count() == 0, None), else_=100.0 * cast(matched, Float) / func.count())
+            return func.count().filter(where)
+        # The share is of `of` when given (success of changes with an outcome), else of all; a
+        # group with none of them has no rate, never 0% and never a division by zero.
+        base: ColumnElement[Any] = func.count()
+        if spec.of is not None:
+            of = compile_filter(spec.of, source.fields, now=now, path=f"{path}.of")
+            base = func.count().filter(of)
+            where = and_(where, of)
+        matched = func.count().filter(where)
+        return case((base == 0, None), else_=100.0 * cast(matched, Float) / base)
     if spec.kind == MeasureKind.AVERAGE:
         return func.avg(_column(source, spec.field, path))
     if spec.kind == MeasureKind.TOTAL:
