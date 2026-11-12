@@ -764,4 +764,4 @@ class SignInImportCursor(Base):
 
     realm: Mapped[str] = mapped_column(String(60), primary_key=True)
     last_time_ms: Mapped[int]
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

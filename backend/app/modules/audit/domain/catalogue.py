@@ -193,6 +193,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("desk.changed", AuditCategory.CONFIGURATION, "organization"),
     # branding and addresses (WP-017)
     ("identity.settings_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.network_rules_changed", AuditCategory.SECURITY, "identity_access"),
     # the service catalog (WP-030)
     ("catalog.item_changed", AuditCategory.CONFIGURATION, "service_catalog"),
     ("catalog.category_changed", AuditCategory.CONFIGURATION, "service_catalog"),

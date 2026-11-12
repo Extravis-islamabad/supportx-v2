@@ -213,6 +213,7 @@ export const ur: LabelResource = {
   'audit.action.group.member_removed': 'کسی فرد کو گروپ سے ہٹایا',
   'audit.action.group.renamed': 'گروپ کا نام بدلا',
   'audit.action.identity.mfa_policy_changed': 'دو مرحلہ سائن اِن کی پالیسی بدلی',
+  'audit.action.identity.network_rules_changed': 'IP اجازت فہرستیں بدلیں',
   'audit.action.identity.password_policy_reapplied': 'پاس ورڈ پالیسی دوبارہ لاگو کی',
   'audit.action.identity.settings_changed': 'سائن اِن کی ترتیبات بدلیں',
   'audit.action.incident.access_changed': 'واقعے تک رسائی رکھنے والے بدلے',

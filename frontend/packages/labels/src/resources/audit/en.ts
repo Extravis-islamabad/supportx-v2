@@ -216,6 +216,7 @@ export const en = {
   'audit.action.group.member_removed': 'Removed a person from a group',
   'audit.action.group.renamed': 'Renamed a group',
   'audit.action.identity.mfa_policy_changed': 'Changed the two-step sign-in policy',
+  'audit.action.identity.network_rules_changed': 'Changed the IP allow-lists',
   'audit.action.identity.password_policy_reapplied': 'Applied the password policy again',
   'audit.action.identity.settings_changed': 'Changed the sign-in settings',
   'audit.action.incident.access_changed': 'Changed who can see or work on an incident',

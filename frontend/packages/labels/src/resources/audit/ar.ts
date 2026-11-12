@@ -213,6 +213,7 @@ export const ar: LabelResource = {
   'audit.action.group.member_removed': 'أزال شخصًا من مجموعة',
   'audit.action.group.renamed': 'أعاد تسمية مجموعة',
   'audit.action.identity.mfa_policy_changed': 'غيّر سياسة تسجيل الدخول بخطوتين',
+  'audit.action.identity.network_rules_changed': 'غيّر قوائم عناوين IP المسموح بها',
   'audit.action.identity.password_policy_reapplied': 'طبّق سياسة كلمات المرور مجددًا',
   'audit.action.identity.settings_changed': 'غيّر إعدادات تسجيل الدخول',
   'audit.action.incident.access_changed': 'غيّر صلاحيات الوصول إلى حادثة',

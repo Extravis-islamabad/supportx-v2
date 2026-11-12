@@ -27,6 +27,7 @@ from app.core.errors import NotFound, ProblemDetail
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.api.sessions import ListedSessionOut, listed_out
 from app.modules.identity_access.domain import sso as sso_rules
+from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
@@ -34,9 +35,11 @@ from app.modules.identity_access.infra.keycloak_admin import (
 )
 from app.modules.identity_access.infra.models import MAX_IDLE_SECONDS, MIN_IDLE_SECONDS, User
 from app.modules.identity_access.service import (
+    api_keys,
     identity_settings,
     invitations,
     mfa,
+    network_rules,
     password_reset,
     sso,
     sso_test,
@@ -45,7 +48,7 @@ from app.modules.identity_access.service.auth import AuthService
 from app.modules.organization import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
-from app.shared.api.ratelimit import rate_limit
+from app.shared.api.ratelimit import client_address, rate_limit
 from app.shared.egress import Allowance, installation_allowance
 
 RESPONSES: dict[int | str, dict[str, Any]] = {
@@ -198,6 +201,86 @@ async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, ve
     note.skip = not details
     set_etag(response, saved.version)
     return _out(saved, request)
+
+
+# --- IP allow-lists (REQ-SEC-034; WP-057 S1a) ---------------------------------------------------
+
+
+class NetworkRulesBody(BaseModel):
+    """The three lists, each in full (CIDR ranges or single addresses; empty = no restriction)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    console_ip_allow: list[str] = Field(max_length=200)
+    portal_ip_allow: list[str] = Field(max_length=200)
+    api_ip_allow: list[str] = Field(max_length=200)
+
+
+class NetworkRulesOut(BaseModel):
+    """The lists as saved, the address this request comes from (to add it), and the version."""
+
+    console_ip_allow: list[str]
+    portal_ip_allow: list[str]
+    api_ip_allow: list[str]
+    your_address: str | None
+    version: int
+
+
+def _rules_out(rules: network_rules.NetworkRules, request: Request) -> NetworkRulesOut:
+    here = address_of(client_address(request))
+    return NetworkRulesOut(
+        console_ip_allow=list(rules.lists[NetworkApp.CONSOLE]),
+        portal_ip_allow=list(rules.lists[NetworkApp.PORTAL]),
+        api_ip_allow=list(rules.lists[NetworkApp.API]),
+        your_address=str(here) if here is not None else None,
+        version=rules.version,
+    )
+
+
+@router.get("/network-rules", summary="IP allow-lists")
+async def get_network_rules(
+    request: Request, response: Response, session: TenantSession, subject: Manage
+) -> NetworkRulesOut:
+    """Who may sign in to the console and the portal, and call the API, by address."""
+    del subject
+    rules = await network_rules.get_network_rules(session)
+    set_etag(response, rules.version)
+    return _rules_out(rules, request)
+
+
+@router.put("/network-rules", summary="Save the IP allow-lists")
+async def put_network_rules(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, request, response, session, subject, audit note
+    body: NetworkRulesBody,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote, audited("identity.network_rules_changed", object_type="identity_settings")
+    ],
+) -> NetworkRulesOut:
+    """Save all three lists. Refused, at the list, when it would shut you out (AC2).
+
+    Applies to sign-ins and tenant switches at once, and to signed-in sessions at their next
+    refresh (within minutes).
+    """
+    saved, details = await network_rules.save_network_rules(
+        session,
+        {
+            NetworkApp.CONSOLE: body.console_ip_allow,
+            NetworkApp.PORTAL: body.portal_ip_allow,
+            NetworkApp.API: body.api_ip_allow,
+        },
+        expected_version=version,
+        admin_address=address_of(client_address(request)),
+        via_api_key=api_keys.bearer(request.headers.get("authorization")) is not None,
+    )
+    note.object_id = str(subject.tenant_id)
+    note.details = details
+    note.skip = not details
+    set_etag(response, saved.version)
+    return _rules_out(saved, request)
 
 
 @router.post("/settings/password-policy/apply", summary="Apply the password policy again")
