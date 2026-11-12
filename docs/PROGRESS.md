@@ -1347,6 +1347,36 @@ it with no reload (rule c). Not built yet.
     by a sweep, live on the personal channel.
   - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
     reserved for S3).
+- **S5b (0155; REQ-INC-036, -037; form designer and form rules):**
+  - Migration 0155 adds `work_item_templates.layout` and `form_rules` (expand only).
+  - Layouts: sections with names in en, ar and ur, one or two columns, collapsible (optionally
+    starting closed), and labels above or beside. Requesters get their own layout or the
+    technician one. A field no section names goes at the end, so a new custom field is never
+    lost.
+  - Form rules: show, hide (optionally keeping the value), require, lock or set, on a condition.
+    Conditions are a bounded part of the filter DSL: eq, ne, in, not_in, is_null and
+    is_not_null, with and/or nesting at most 3 deep and at most 20 conditions.
+  - The Python and TypeScript evaluators run the same vectors
+    (`docs/architecture/form-rule-vectors.json`, AC3).
+  - The server enforces the rules on every create and edit, from the console, portal, e-mail
+    or API:
+    - a rule's `required` is the same field error as the browser's (AC1);
+    - a hidden field is cleared, through history, unless the rule keeps it (AC2);
+    - a locked field changed by hand is `field_locked`;
+    - a rule's value fills an empty field.
+    - On an edit, a field is required only when the edit newly requires it or empties it
+      (D-086).
+  - The portal gets only the rules and sections over the requester's own fields (036 AC2).
+  - The designer in Admin › Incidents › Templates is keyboard-first: every move is a button or
+    a choice. It previews the technician and requester forms in both reading directions
+    (036 AC3) and links to making a new custom field.
+  - **Still open:**
+    - drag to reorder (keyboard moves for V1, plan answer 3);
+    - the portal form draws only subject and description today, so requester sections take
+      effect there once it shows more fields;
+    - rules over assignment fields don't run on the assign route;
+    - a rule (or a template setting) that requires a field requesters can't fill blocks portal
+      creates from that template, as base template settings already do.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
