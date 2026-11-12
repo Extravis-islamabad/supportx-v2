@@ -491,7 +491,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
     cat = await config.load(session, wtype)
-    lifecycle = cat.lifecycle_of(record.lifecycle)
+    lifecycle = cat.lifecycle_for(record)
     final = StatusCategory(record.status_category) in FINAL_CATEGORIES
     allowed_now = set(lifecycle.actions_from(record.status))
     reasons: dict[str, str | None] = {}
@@ -2431,6 +2431,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     stage_columns = await _first_stage(
         session, wtype, template, new_change.path if new_change is not None else None
     )
+    chosen_lifecycle = (
+        template.lifecycle if template.lifecycle in cat.lifecycles else STANDARD_LIFECYCLE
+    )
     await change_types.retrospective_start(session, wtype, new_change, stage_columns)
     initial, group_id, technician_id = _from_item(
         started,
@@ -2502,10 +2505,15 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         level=cleaned.get("level"),
         **{name: cleaned.get(name) for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS)},
         template_id=template.id,
-        # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025).
-        lifecycle=template.lifecycle
-        if template.lifecycle in cat.lifecycles
-        else STANDARD_LIFECYCLE,
+        # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025), at its
+        # latest published version: the record keeps that version (ADR-049 §3). A staged type's
+        # version comes with its stage columns.
+        lifecycle=chosen_lifecycle,
+        **(
+            {}
+            if "lifecycle_version" in stage_columns
+            else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
+        ),
         **_item_columns(item, values),
         custom=custom or {},
         custom_text=await _custom_text(session, wtype, custom or {}),
@@ -2610,16 +2618,14 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         )
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle_of(record.lifecycle),
+            cat.lifecycle_for(record),
             record.status,
             had_technician=False,
             has_technician=True,
         )
         if move is not None:
             before = _snapshot(record, STAMP_FIELDS)
-            target = cat.lifecycle_of(record.lifecycle).target(
-                record.status, move, before_cancel=None
-            )
+            target = cat.lifecycle_for(record).target(record.status, move, before_cancel=None)
             changes = await _status_change(
                 session, wtype, record, move, target=target, reason_code=None, reason_text=None
             )
@@ -2859,7 +2865,7 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         raise PermissionDenied(code="transition_not_allowed", params={"reason": refused})
     cat = await config.load(session, wtype)
     try:
-        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
+        step = cat.lifecycle_for(record).transition(record.status, action)
     except InvalidTransition as error:
         raise Conflict(
             code="invalid_transition", params={"from": record.status, "action": action}
@@ -2894,8 +2900,8 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         record = taken.record
         expected_version = record.version
     try:
-        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
-        target = cat.lifecycle_of(record.lifecycle).target(
+        step = cat.lifecycle_for(record).transition(record.status, action)
+        target = cat.lifecycle_for(record).target(
             record.status,
             action,
             before_cancel=record.status_before_cancel,
@@ -4795,7 +4801,7 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     BUG-03): history keeps them as the person, from their channel, with `requester_action`
     saying what they did. Only the system's own moves (auto-close) are automatic.
     """
-    target = cat.lifecycle_of(record.lifecycle).target(
+    target = cat.lifecycle_for(record).target(
         record.status,
         action,
         before_cancel=record.status_before_cancel,
@@ -4913,7 +4919,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     channel, with the record's new approval status. On approval the item's technician (after
     approval, REQ-SR-008 AC2) is set in the same save, then the usual move to "assigned".
     """
-    target = cat.lifecycle_of(record.lifecycle).target(
+    target = cat.lifecycle_for(record).target(
         record.status,
         action,
         before_cancel=record.status_before_cancel,
@@ -4961,7 +4967,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     )
     move = (
         after_assignment(
-            cat.lifecycle_of(updated.lifecycle),
+            cat.lifecycle_for(updated),
             updated.status,
             had_technician=False,
             has_technician=True,
@@ -4977,7 +4983,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
         wtype,
         updated,
         move,
-        target=cat.lifecycle_of(updated.lifecycle).target(updated.status, move, before_cancel=None),
+        target=cat.lifecycle_for(updated).target(updated.status, move, before_cancel=None),
         reason_code=None,
         reason_text=None,
     )
@@ -5011,7 +5017,7 @@ async def on_requester_reply(  # noqa: PLR0913 - the reply and its context, expl
     """
     cat = await config.load(session, wtype)
     category = StatusCategory(record.status_category)
-    allowed = set(cat.lifecycle_of(record.lifecycle).actions_from(record.status))
+    allowed = set(cat.lifecycle_for(record).actions_from(record.status))
     if category == StatusCategory.PAUSED:
         status = next((s for s in cat.statuses if s.code == record.status), None)
         resumes = status is not None and status.resume_on_requester_reply
@@ -5208,16 +5214,14 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
     )
     if cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle_of(updated.lifecycle),
+            cat.lifecycle_for(updated),
             updated.status,
             had_technician=had_technician,
             has_technician=technician_id is not None,
         )
         if move is not None:
             stamps = _snapshot(updated, STAMP_FIELDS)
-            target = cat.lifecycle_of(updated.lifecycle).target(
-                updated.status, move, before_cancel=None
-            )
+            target = cat.lifecycle_for(updated).target(updated.status, move, before_cancel=None)
             status_columns = await _status_change(
                 session, wtype, updated, move, target=target, reason_code=None, reason_text=None
             )
