@@ -136,6 +136,8 @@ export const ur: LabelResource = {
   'errors.asset_product_type_in_use': 'پروڈکٹس ابھی یہ قسم استعمال کرتی ہیں ({{used}})۔',
   'errors.asset_product_type_not_found': 'پروڈکٹ کی یہ قسم موجود نہیں۔',
   'errors.asset_restore_merged': 'یہ اثاثہ {{asset}} میں ضم ہوا تھا۔ الگ بحال کرنے کی تصدیق کریں۔',
+  'errors.asset_site_not_managed':
+    'آپ صرف انہی سائٹس پر اثاثے شامل یا منتقل کر سکتے ہیں جن کا آپ انتظام کرتے ہیں۔',
   'errors.asset_state_in_use':
     'لائف سائیکلز کی منتقلیاں ابھی یہ حالت استعمال کرتی ہیں ({{used}})۔ پہلے انہیں ہٹائیں۔',
   'errors.asset_state_not_found': 'اثاثے کی یہ حالت موجود نہیں۔',
@@ -200,6 +202,10 @@ export const ur: LabelResource = {
     'آپ کی تنظیم یہاں رابطے کی تفصیلات بدلنے کی اجازت نہیں دیتی۔ سروس ڈیسک سے پوچھیں۔',
   'errors.conversation_entry_not_found': 'یہ جواب یا نوٹ اب موجود نہیں ہے۔',
   'errors.copy_reference': 'حوالہ کاپی کریں',
+  'errors.cost_rate_date_taken': 'اس فرد کی اسی وقت سے ایک لاگت پہلے سے ہے۔ اسی کو بدلیں۔',
+  'errors.cost_rate_not_found': 'لاگت نہیں ملی۔',
+  'errors.cost_rate_superseded':
+    'اس کے بعد کی لاگت نافذ ہو چکی ہے، اس لیے یہ اب نہیں بدل سکتی۔ نئی لاگت مقرر کریں۔',
   'errors.csrf_failed':
     'اس درخواست کی تصدیق نہیں ہو سکی۔ براہِ کرم صفحہ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.currency_change_needs_confirmation':
@@ -571,6 +577,7 @@ export const ur: LabelResource = {
   'errors.field.required_to_leave_stage': 'اس مرحلے سے نکلنے سے پہلے یہ بھریں۔',
   'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
   'errors.field.review_date_past': 'آج یا بعد کی تاریخ منتخب کریں۔',
+  'errors.field.review_required_to_close': 'ریلیز بند کرنے سے پہلے اس کا جائزہ مکمل کریں۔',
   'errors.field.role_disabled': 'یہ کردار ختم کیا جا چکا ہے: کسی نئے کو نہیں دیا جا سکتا۔',
   'errors.field.role_held_by_record':
     'یہ کردار ریکارڈ کے اپنے فیلڈ سے آتا ہے۔ اسے تفصیلات کے پینل میں بدلیں۔',
@@ -865,6 +872,7 @@ export const ur: LabelResource = {
   'errors.node_not_mapped':
     'یہ رن جس مرحلے پر ہے اس کی نئے ورژن میں جگہ نہیں: اسے کسی مرحلے سے جوڑیں۔',
   'errors.not_a_member': 'آپ اس ادارے کے رکن نہیں ہیں۔',
+  'errors.not_a_person': 'یہ سروس شناخت ہے، فرد نہیں: اس کی کوئی فی گھنٹہ لاگت نہیں۔',
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
   'errors.not_cancelable_from_here': 'اسے اس کی موجودہ جگہ سے منسوخ نہیں کیا جا سکتا۔',
@@ -929,6 +937,8 @@ export const ur: LabelResource = {
   'errors.record_not_editable': 'یہ کرنے کے لیے آپ کو ریکارڈ میں ترمیم کا اختیار ہونا چاہیے۔',
   'errors.reference_copied': 'حوالہ کاپی ہو گیا',
   'errors.reference_is': 'حوالہ: {{reference}}',
+  'errors.release_not_failed':
+    'فالو اپ تب پیش کیے جاتے ہیں جب ریلیز کی تعیناتی ناکام ہو یا واپس لی جائے۔',
   'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
   'errors.repeat_rule_not_found': 'بار بار واقعات کا یہ اصول اب موجود نہیں۔',
   'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',
@@ -968,6 +978,8 @@ export const ur: LabelResource = {
   'errors.service_unavailable':
     'سروس عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.session_expired': 'آپ کا سیشن ختم ہو گیا ہے۔ براہِ کرم دوبارہ سائن اِن کریں۔',
+  'errors.session_key_still_in_use':
+    'یہ سرور شروع نہیں ہو سکتا: سائن اِن کی جو کلید اب فہرست میں نہیں، اس کی ابھی ضرورت ہے۔ کلید دوبارہ فہرست میں شامل کریں۔',
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unknown_person':

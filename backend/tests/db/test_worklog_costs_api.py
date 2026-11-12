@@ -270,3 +270,26 @@ async def test_cost_lines_are_isolated_by_rls(world: World, rates: FakeRates) ->
         uuid.UUID(item["id"]),
     )
     assert rows[0]["n"] == 1
+
+
+async def test_req_inc_068_the_rate_comes_from_the_person_s_own_cost_rate(world: World) -> None:
+    """No fake: lane B's identity_access rate (#427) is what the worklog snapshots (D-164)."""
+    a = world.a
+    set_rate = await world.call(
+        "POST",
+        f"/users/{a.tech_b}/cost-rates",
+        a,
+        a.admin,
+        json={"rate": "30.00", "effective_from": "2026-01-01T00:00:00+00:00"},
+    )
+    assert set_rate.status_code == 201, set_rate.text
+    item = await world.create(a, a.admin, group_id=str(a.ga))
+    logged = await log(
+        world, a, a.admin, item, owner_id=str(a.tech_b), worklog_type="fix",
+        started_at=START, minutes=30,
+    )  # fmt: skip
+    assert logged.status_code == 201, logged.text
+    assert (Decimal(logged.json()["cost_rate"]), Decimal(logged.json()["technician_cost"])) == (
+        Decimal("30.00"),
+        Decimal("15.00"),
+    )

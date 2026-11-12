@@ -659,4 +659,58 @@ describe('console: changes', () => {
     expect(one?.headers.get('Idempotency-Key')).toBeTruthy();
     expect(two?.headers.get('Idempotency-Key')).toBe(one?.headers.get('Idempotency-Key'));
   });
+
+  it('QA-2026-11-11 F-09: in Submission the primary move is the step forward, never a paused one', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}`);
+    const move = (to_status: string) => ({
+      to_status,
+      to_stage: 'submission',
+      lands_in: to_status,
+      reason_mode: 'none',
+      reason_list: null,
+      required_fields: [],
+      allowed: true,
+      reason: null,
+      missing: [],
+    });
+    const status = (code: string, category: string) => ({
+      code,
+      category,
+      colour: '#1677ff',
+      labels: null,
+      system: false,
+      disabled: false,
+      resume_on_requester_reply: false,
+    });
+    api({
+      [`GET /api/v1/changes/${CHG_ID}`]: {
+        body: { ...change, stage: 'submission', status: 'submission_submitted' },
+        headers: { ETag: '"4"' },
+      },
+      [`GET /api/v1/changes/${CHG_ID}/stages`]: {
+        body: {
+          ...panel,
+          stage: 'submission',
+          moves: [move('submission_more_info'), move('submission_awaiting_acceptance')],
+        },
+      },
+      'GET /api/v1/changes/settings': {
+        body: {
+          statuses: [
+            status('submission_submitted', 'open'),
+            status('submission_more_info', 'paused'),
+            status('submission_awaiting_acceptance', 'open'),
+          ],
+          closure_codes: [],
+          own_lists: {},
+        },
+      },
+    });
+    render(<App />);
+    const moves = await screen.findByTestId('change-moves');
+    await waitFor(() => {
+      expect(within(moves).queryByTestId('move-submission_awaiting_acceptance')).not.toBeNull();
+    });
+    expect(within(moves).queryByTestId('move-submission_more_info')).toBeNull(); // under More
+  });
 });

@@ -8,7 +8,8 @@ assignments and the one policy service the API, search, realtime and AI agents u
 Public interface for other modules: `UserType`, `Subject`, `ResourceType`, `authorize`,
 `authorize_stored`, `scope_filter`, `visible`, `require`, `user_names`, `user_contacts`,
 `register_duties` with `DutyLookup` and `OpenDuty` (REQ-REL-024 AC2: a module's open duties for
-the role editor's preview), and
+the role editor's preview), `cost_rate` (a person's cost per hour at a moment, for worklog cost
+snapshots; no permission check inside, the caller gates who sees money), and
 `get_policy` (FastAPI dependency giving the policy service, e.g. who holds a permission, for
 owner pickers). Sessions reach the rest of the app only as the `TenantContext` resolved by
 app.core.tenancy; routes declare permissions with app.core.authorization.require_permission.
@@ -16,10 +17,10 @@ app.core.tenancy; routes declare permissions with app.core.authorization.require
 
 import functools
 import uuid
-from typing import TYPE_CHECKING
 
 import httpx
 from fastapi import FastAPI
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import (
@@ -27,6 +28,7 @@ from app.core.authorization import (
     register_access_invalidator,
     unregister_access_invalidator,
 )
+from app.core.config import Settings
 from app.core.logging import get_logger
 from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
 from app.core.tenancy import SESSION_RESOLVER_STATE
@@ -35,6 +37,7 @@ from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.account import router as account_router
 from app.modules.identity_access.api.api_keys import router as api_keys_router
+from app.modules.identity_access.api.cost_rates import router as cost_rates_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
@@ -67,13 +70,14 @@ from app.modules.identity_access.domain.permissions import (
 )
 from app.modules.identity_access.domain.policy import AccessRule, RecordFacts, Subject
 from app.modules.identity_access.events import EVENTS
-from app.modules.identity_access.infra.crypto import SessionCipher
+from app.modules.identity_access.infra.crypto import SessionCipher, session_ring
 from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import directory, mfa
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
+from app.modules.identity_access.service.cost_rates import cost_rate
 from app.modules.identity_access.service.directory import (
     MailRecipient,
     NotifiablePerson,
@@ -144,6 +148,10 @@ from app.modules.identity_access.service.service_identities import (
     service_identity,
     set_service_identity_active,
 )
+from app.modules.identity_access.service.session_keys import (
+    announce_session_keys,
+    sync_session_keys,
+)
 from app.modules.identity_access.service.users import count_technicians
 from app.modules.identity_access.service.worker_sessions import (
     TenantSessionEnder,
@@ -173,9 +181,6 @@ from app.shared.realtime import (
 from app.shared.schedules import ScheduleSpec
 
 log = get_logger(__name__)
-
-if TYPE_CHECKING:
-    from app.core.config import Settings
 
 
 def build_catalogue(registry: ModuleRegistry) -> Catalogue:
@@ -283,27 +288,37 @@ def _start_policy(app: FastAPI, settings: "Settings") -> None:
     register_site_people_counter(directory.people_by_site)
 
 
+async def _record_session_keys(app: FastAPI, settings: Settings) -> None:
+    """Record the sign-in key ring and audit its changes once (D-162); refuse a key in use."""
+    database = getattr(app.state, "db", None)
+    ring = session_ring(settings)
+    if database is None or ring is None:
+        return
+    try:
+        await sync_session_keys(database, ring.ids)
+    except (DBAPIError, OSError):
+        # The database is down or not migrated yet: the ring still works, the record waits for
+        # the next start. A key still in use (KeyStillInUseError) is never caught here.
+        log.warning("session_keys_not_recorded", exc_info=True)
+
+
 async def _startup(app: FastAPI) -> None:
     settings: Settings = app.state.settings
     _start_policy(app, settings)
+    await _record_session_keys(app, settings)
     app.state.auth = None
     # Keycloak's admin API as the identity service account (WP-039); None until it is set up.
     app.state.identity_admin = KeycloakAdmin.from_settings(settings)
     if not settings.auth_configured:
         return
-    if (
-        settings.oidc_issuer is None
-        or settings.valkey_url is None
-        or settings.session_secret is None
-    ):
+    cipher = SessionCipher.from_settings(settings)
+    if settings.oidc_issuer is None or settings.valkey_url is None or cipher is None:
         return  # unreachable: auth_configured checked these; narrows the types for mypy
     http = httpx.AsyncClient(timeout=settings.oidc_timeout_seconds, follow_redirects=False)
     kv = valkey_client(settings)
     service = AuthService(
         settings=settings,
-        store=SessionStore(
-            ValkeyKeyValue(kv), SessionCipher(settings.session_secret.get_secret_value())
-        ),
+        store=SessionStore(ValkeyKeyValue(kv), cipher),
         oidc=OidcClient(settings.oidc_issuer, http, settings.oidc_internal_url),
         database=app.state.db,
         clock=system_clock,
@@ -374,6 +389,7 @@ module = ModuleSpec(
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
         people_router,
         users_router,
+        cost_rates_router,
         imports_router,
         access_router,
         access_settings_router,
@@ -397,6 +413,8 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__people_imports", 5, run_people_imports),
         # Past the MFA grace period: Keycloak's enrol actions (WP-039 session 3, REQ-SEC-024).
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
+        # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
+        ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
     ],
 )
 
@@ -446,6 +464,7 @@ __all__ = [
     "authorize",
     "authorize_stored",
     "check_group_grantable",
+    "cost_rate",
     "create_requester_from_mail",
     "create_service_identity",
     "direct_reports",

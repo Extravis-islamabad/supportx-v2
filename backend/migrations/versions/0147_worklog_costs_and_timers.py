@@ -17,7 +17,7 @@ Expand only, no data step:
 The downgrade refuses while any tenant uses what it would drop (rule 5h); otherwise it drops it.
 
 Revision ID: 0147
-Revises: 0142
+Revises: 0148
 Created: 2026-11-12
 """
 
@@ -30,7 +30,7 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0147"
-down_revision: str | None = "0142"  # re-pointed at its turn (ready-first after 0144)
+down_revision: str | None = "0148"  # re-pointed at its turn (ready-first after 0144)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

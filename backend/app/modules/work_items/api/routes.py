@@ -2018,6 +2018,26 @@ class ParentIn(BaseModel):
     parent_id: uuid.UUID | None
 
 
+class ReleaseFollowUpIn(BaseModel):
+    """What to make after a failed deployment (REQ-REL-053 AC2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["problem", "release"]
+    subject: str = Field(min_length=1, max_length=200)
+
+
+class ReleaseFollowUpOut(BaseModel):
+    """A problem the release caused, or a release that follows it up."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    type: str
+    relation: Literal["caused_problem", "follow_up_release"]
+    status_category: str
+
+
 class ParentOut(BaseModel):
     """The release's parent now."""
 
@@ -2999,6 +3019,61 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 session, subject, wtype, record_id, body.parent_id, source=source_of(request)
             )
             return ParentOut(parent_id=parent)
+
+        @router.get("/{record_id}/follow-ups", summary="What was made after the release failed")
+        async def get_follow_ups(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[ReleaseFollowUpOut]:
+            """The problems it caused and the releases that follow it up, those you may see."""
+            found = await release_links.follow_ups(session, subject, record_id)
+            return [ReleaseFollowUpOut(**vars(f)) for f in found]
+
+        @router.post(
+            "/{record_id}/follow-ups",
+            summary="Make a problem or a follow-up release after a failed deployment",
+            status_code=status.HTTP_201_CREATED,
+            response_model=ReleaseFollowUpOut,
+            responses=CONFLICT,
+        )
+        async def post_follow_up(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ReleaseFollowUpIn,
+            session: TenantSession,
+            subject: View,
+            policy: Policy,
+            idempotency: Idempotency,
+            request: Request,
+        ) -> Response:
+            """Only on a failed or rolled-back release (409 release_not_failed, REQ-REL-053 AC2).
+
+            Needs the new record's create permission. The problem is linked as caused by the
+            release, the release as following it, and both records keep the link in history.
+            """
+
+            async def run() -> Created:
+                made = await release_links.create_follow_up(
+                    session,
+                    subject,
+                    record_id,
+                    kind=body.kind,
+                    title=body.subject.strip(),
+                    holders=policy,
+                    source=source_of(request),
+                )
+                return Created(
+                    body=ReleaseFollowUpOut(
+                        id=made.id,
+                        display_id=made.display_id,
+                        subject=made.subject,
+                        type=made.type,
+                        relation="caused_problem"
+                        if body.kind == "problem"
+                        else "follow_up_release",
+                        status_category=made.status_category,
+                    )
+                )
+
+            return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
         # WP-058b S1 (REQ-REL-033): the changes in the release, live on both records.
         @router.get("/{record_id}/changes", summary="The changes in the release")
