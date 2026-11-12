@@ -6,7 +6,8 @@ Also the authorization policy layer (WP-016, architecture.md §11.2): permission
 assignments and the one policy service the API, search, realtime and AI agents use.
 
 Public interface for other modules: `UserType`, `Subject`, `ResourceType`, `authorize`,
-`authorize_stored`, `scope_filter`, `visible`, `require`, `user_names`, `user_contacts`,
+`authorize_stored`, `unrestricted`, `scope_filter`, `visible`, `require`, `user_names`,
+`user_contacts`,
 `register_duties` with `DutyLookup` and `OpenDuty` (REQ-REL-024 AC2: a module's open duties for
 the role editor's preview), `cost_rate` (a person's cost per hour at a moment, for worklog cost
 snapshots; no permission check inside, the caller gates who sees money), and
@@ -127,6 +128,7 @@ from app.modules.identity_access.service.policy import (
     authorize_stored,
     require,
     scope_filter,
+    unrestricted,
     visible,
 )
 from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
@@ -495,6 +497,7 @@ __all__ = [
     "subject_for",
     "sync_directory_person",
     "sync_ldap_federation",
+    "unrestricted",
     "user_contacts",
     "user_names",
     "visible",

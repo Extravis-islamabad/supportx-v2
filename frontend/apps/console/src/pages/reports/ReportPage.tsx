@@ -82,7 +82,7 @@ import { DrillDrawer, type Drill } from './DrillDrawer';
 import { ExportButton, MyExportsButton } from './exports';
 import { useLiveReportRefresh } from './liveRefresh';
 import { ScheduleButton } from './schedules';
-import { INCIDENT_REPORT_FIELDS, useReportWords, type ReportWords } from './names';
+import { reportFieldOffered, useReportWords, type ReportWords } from './names';
 
 const CHARTS: ChartType[] = [
   'bar',
@@ -231,11 +231,7 @@ function ReportView({ latest }: { latest: Base }) {
   useLiveReportRefresh(result?.list_path ?? null);
 
   const fields = entity.data?.fields ?? [];
-  const offered = fields.filter(
-    (f) =>
-      (INCIDENT_REPORT_FIELDS as readonly string[]).includes(f.name) ||
-      f.name.startsWith('custom.'),
-  );
+  const offered = fields.filter((f) => reportFieldOffered(base.definition.entity, f.name));
   const filterFields: FilterFieldOption[] = offered
     .filter((f) => !(f.dimension?.reference === 'user'))
     .map((f) => ({

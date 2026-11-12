@@ -16,6 +16,7 @@ from app.core.database import TenantSession
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.types import CHANGE
 from app.modules.work_items.service import change_links as service
+from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
@@ -74,19 +75,25 @@ async def list_children(
     "/{record_id}/children",
     summary="Make a change or a release part of this change",
     status_code=status.HTTP_201_CREATED,
+    response_model=dict[str, uuid.UUID],
 )
-async def add_child(
+async def add_child(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     record_id: uuid.UUID,
     body: ChildIn,
     session: TenantSession,
     subject: Edit,
     request: Request,
-) -> dict[str, uuid.UUID]:
-    """One parent each, never itself or one of its own parents."""
-    link = await service.add_child(
-        session, subject, record_id, body.child_id, source=source_of(request)
-    )
-    return {"link_id": link.id}
+    idempotency: Idempotency,
+) -> Response:
+    """One parent each, never itself or one of its own parents (Idempotency-Key: audit #19)."""
+
+    async def run() -> Created:
+        link = await service.add_child(
+            session, subject, record_id, body.child_id, source=source_of(request)
+        )
+        return Created(body={"link_id": str(link.id)})
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
 @router.delete(

@@ -291,6 +291,29 @@ choose its own. Set it to your cluster's pod CIDR, or to your load balancer's ad
 sits in front of the gateway. If it doesn't match, every request seems to come from the gateway,
 so per-address rate limits are shared by everyone.
 
+## Rate limits without a signed-in person
+
+Routes that nobody signs in for are limited per client address (the address above), each request
+counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/ratelimit.py`):
+
+| Route | Per address, per minute | Valkey down |
+|---|---|---|
+| `GET /api/v1/auth/login` | 60 | **refused:** 503 `sign_in_unavailable` |
+| `GET /api/v1/auth/callback` | 60 | **refused:** 503 `sign_in_unavailable` |
+| `GET /api/v1/public/branding`, `/{tenant}/login.css`, `/{tenant}/{image}` | 300 | allowed |
+| `GET /api/v1/public/domain-check/{token}` | 30 | allowed |
+| `POST /api/v1/public/action-links/peek`, `/use` | 120 (an outer cap; the links' own budgets stay) | allowed |
+
+The budgets are wide on purpose: an office behind one NAT address signs many people in at once,
+and a sign-in is one `/login` and one `/callback` (two of each with an MFA enrolment). They stop
+scripted floods. Over a budget the API answers 429 `rate_limited` with `Retry-After`; a browser
+is sent back to its app, which shows the message.
+
+**The sign-in routes fail closed.** Every other route allows requests while Valkey is down (losing
+rate limiting for a moment beats losing the API, ADR-020). A sign-in needs Valkey anyway (its
+one-time state lives there), so letting it through unlimited buys nothing; it answers 503
+`sign_in_unavailable` with `Retry-After: 2`, and the sign-in page says to try again in a minute.
+
 ## Egress allow-list (opt-in)
 
 Ingress is always denied by default. Egress is open unless `networkPolicies.egress.enabled` is

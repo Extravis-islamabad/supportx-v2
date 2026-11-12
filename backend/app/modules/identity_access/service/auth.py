@@ -10,6 +10,7 @@ expiry checks → CSRF check on state-changing methods → silent token refresh 
 expires (if Keycloak refuses, the session ends) → TenantContext for the database.
 """
 
+import hashlib
 import hmac
 import secrets
 import uuid
@@ -179,6 +180,56 @@ class EnrolFirst:
 
 
 @dataclass(frozen=True)
+class LoginStarted:
+    """Where the browser goes to sign in, and what binds the sign-in to that browser.
+
+    `binding` is a fresh random token for the login-binding cookie (audit row 4): the pending
+    login keeps only its SHA-256, and the callback is refused unless the browser presents it.
+    None for the mobile app's sign-in, which its S256 challenge binds instead (ADR-044).
+    """
+
+    url: str
+    state: str
+    binding: str | None
+
+
+def binding_digest(token: str) -> str:
+    """The SHA-256 of a login-binding token: what the pending login stores, never the token."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _bound_to_this_browser(pending: dict[str, Any], binding: str | None) -> bool:
+    """True when the callback's browser holds the token its login started with.
+
+    Login CSRF (audit row 4): without this, anyone could start a sign-in to their own account,
+    stop at Keycloak's redirect and send the callback link to someone else, whose browser would
+    then be signed in as them. Constant-time compare: the digest is a secret's stand-in.
+    """
+    expected = pending.get("binding")
+    if not isinstance(expected, str) or binding is None:
+        return False
+    return hmac.compare_digest(expected, binding_digest(binding))
+
+
+def _check_same_browser(  # noqa: PLR0913 - the callback's facts, keyword-only
+    pending: dict[str, Any],
+    app: AppName,
+    *,
+    mobile: bool,
+    mobile_return: str | None,
+    binding: str | None,
+    host: str | None,
+) -> None:
+    """Refuse a callback that is not finishing where its sign-in started (LoginFailure)."""
+    origin = pending.get("origin")
+    if not mobile and not _bound_to_this_browser(pending, binding):
+        raise LoginFailure(app, BadRequest(code="login_not_this_browser"), origin)
+    if origin is not None and urlsplit(origin).netloc != host:
+        # Started on another address than it finished on: never move a session across.
+        raise LoginFailure(app, BadRequest(code="login_failed"), mobile_return=mobile_return)
+
+
+@dataclass(frozen=True)
 class PortalInstead:
     """A requester signed in on the console: no console session; the portal signs them in.
 
@@ -304,8 +355,8 @@ class AuthService:
         reauthenticate: bool = False,
         account_action: str | None = None,
         mobile: MobileStart | None = None,
-    ) -> str:
-        """Remember a one-time login state and return Keycloak's authorization URL.
+    ) -> LoginStarted:
+        """Remember a one-time login state; Keycloak's authorization URL and the browser binding.
 
         On a tenant's own address (WP-017, REQ-SEC-004) the callback stays on that address and
         Keycloak is asked for that tenant's organization: its sign-in page shows the tenant's
@@ -316,7 +367,9 @@ class AuthService:
         the password again instead of reusing its own, longer session.
 
         `mobile` (ADR-044): the mobile app's S256 challenge, platform and version. The login ends
-        with a hand-off code for the app instead of a session cookie.
+        with a hand-off code for the app instead of a session cookie, and no browser binding: the
+        app's challenge binds it (only the app holds the verifier), and the system browser that
+        finishes it may not be the one that started it.
         """
         origin = self.origin(app, address.host) if address is not None else None
         state, nonce, pkce = (
@@ -324,6 +377,7 @@ class AuthService:
             secrets.token_urlsafe(32),
             PkcePair.generate(),
         )
+        binding = secrets.token_urlsafe(32) if mobile is None else None
         await self.store.put_login(
             state,
             {
@@ -334,11 +388,12 @@ class AuthService:
                 "origin": origin,
                 "organization": address.organization if address is not None else None,
                 "account_action": account_action,
+                "binding": binding_digest(binding) if binding is not None else None,
                 **(mobile.pending() if mobile is not None else {}),
             },
             LOGIN_STATE_TTL,
         )
-        return await self.oidc.authorization_url(
+        url = await self.oidc.authorization_url(
             self.client(app, origin),
             state=state,
             nonce=nonce,
@@ -349,6 +404,7 @@ class AuthService:
             prompt="login" if reauthenticate or account_action is not None else None,
             action=None if account_action is None else ACCOUNT_ACTIONS[account_action],
         )
+        return LoginStarted(url, state, binding)
 
     async def complete_login(  # noqa: PLR0913 - keyword-only parts of the callback
         self,
@@ -357,6 +413,7 @@ class AuthService:
         state: str | None,
         error: str | None,
         previous_session_id: str | None,
+        binding: str | None = None,
         host: str | None = None,
         action_status: str | None = None,
     ) -> "LoginResult | EnrolFirst | PortalInstead | sso_test.TestFinished":
@@ -364,6 +421,12 @@ class AuthService:
 
         Any failure is raised as LoginFailure carrying the app it belongs to, so the BFF can send a
         browser back to the right app with a translatable error code.
+
+        `binding` is the token from the browser's login-binding cookie. A browser sign-in is
+        refused with `login_not_this_browser` unless it matches the one its login started with.
+        Two sign-ins are not bound: the mobile app's (its S256 challenge binds it, ADR-044) and an
+        admin's SSO test, which is opened in a private window by design (WP-039) and creates no
+        session.
         """
         pending = await self.store.take_login(state) if state else None
         if pending is None:
@@ -374,9 +437,14 @@ class AuthService:
         origin = pending.get("origin")
         mobile = MobileStart.from_pending(pending)
         mobile_return = self.settings.mobile_redirect_uri if mobile is not None else None
-        if origin is not None and urlsplit(origin).netloc != host:
-            # Started on another address than it finished on: never move a session across.
-            raise LoginFailure(app, BadRequest(code="login_failed"), mobile_return=mobile_return)
+        _check_same_browser(
+            pending,
+            app,
+            mobile=mobile is not None,
+            mobile_return=mobile_return,
+            binding=binding,
+            host=host,
+        )
         if error or not code:
             raise LoginFailure(
                 app, BadRequest(code="login_failed"), origin, mobile_return=mobile_return
@@ -389,7 +457,10 @@ class AuthService:
             return EnrolFirst(self._login_again(app, origin, pending["return_to"], mobile))
         except AppError as exc:
             raise LoginFailure(app, exc, origin, mobile_return=mobile_return) from exc
-        if previous_session_id:  # rotation: the pre-login session (if any) dies here
+        if previous_session_id and mobile is None:
+            # Rotation: the browser's pre-login session (if any) dies here. Never on the app's
+            # sign-in: the system browser's session is not the app's, and an unbound callback
+            # link must not be able to end someone's browser session.
             await self.store.delete_session(previous_session_id)
         if app == "console" and await self._requester_only(session):
             # The console's paths mean nothing in the portal: its home, never return_to.

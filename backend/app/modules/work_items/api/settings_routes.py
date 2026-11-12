@@ -37,12 +37,14 @@ from app.modules.work_items.domain.templates import (
     is_custom,
     rules_from_json,
 )
-from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType
+from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItemTemplate
 from app.modules.work_items.service import configuration
 from app.modules.work_items.service import templates as template_service
+from app.modules.work_items.service import work_items as items_service
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.idempotency import Created, Idempotency
 from app.shared.history import source_of
 
 CONFLICT: dict[int | str, dict[str, Any]] = {
@@ -216,6 +218,10 @@ class RoleDefOut(BaseModel):
     eligibility: EligibilityIO | None
     system: bool
     disabled: bool
+    take: bool = Field(
+        default=False,
+        description="Take makes you this role (releases; one per type, else the engineer).",
+    )
 
 
 class RoleDefIn(BaseModel):
@@ -238,6 +244,9 @@ class RoleDefPatch(BaseModel):
     description: dict[str, str] | None = None
     eligibility: EligibilityIO | None = None
     disabled: bool | None = None
+    take: bool | None = Field(
+        default=None, description="Releases: Take makes you this role (moves the marker here)."
+    )
 
 
 class ListOrderIn(BaseModel):
@@ -603,8 +612,14 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
 
         @router.get("/settings/roles", summary="Roles and who may hold them")
         async def get_role_defs(session: TenantSession, subject: Admin) -> list[RoleDefOut]:
-            """Every role in order, retired ones included (marked)."""
+            """Every role in order, retired ones included (marked); `take` on the Take role."""
             del subject
+            rows = await configuration.role_def_rows(session, wtype)
+            taken = (
+                await items_service.taken_role(session, wtype)
+                if wtype.code is WorkItemTypeCode.RELEASE
+                else None
+            )
             return [
                 RoleDefOut(
                     code=r.code,
@@ -616,8 +631,9 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
                     else None,
                     system=r.system,
                     disabled=r.disabled_at is not None,
+                    take=r.code == taken,
                 )
-                for r in await configuration.role_def_rows(session, wtype)
+                for r in rows
             ]
 
         @router.post(
@@ -929,8 +945,13 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             TemplateOut.of(t) for t in await template_service.offered_to(session, subject, rows)
         ]
 
-    @router.post("/templates", summary="Add a template", status_code=status.HTTP_201_CREATED)
-    async def create_template(
+    @router.post(
+        "/templates",
+        summary="Add a template",
+        status_code=status.HTTP_201_CREATED,
+        response_model=TemplateOut,
+    )
+    async def create_template(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         body: TemplateIn,
         session: TenantSession,
         subject: Admin,
@@ -938,23 +959,29 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         note: Annotated[
             AuditNote, audited(f"{audit}.template_created", object_type=f"{audit}_template")
         ],
-    ) -> TemplateOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """A new template (never the default until made so)."""
         del subject
-        row = await template_service.create_template(
-            session,
-            wtype,
-            # exclude_unset: a field rule changes only the flags sent (the rest keep theirs).
-            body.model_dump(exclude_unset=True, exclude_none=True, mode="json"),
-            source=source_of(request),
-        )
-        note.object_id = str(row.id)
-        return TemplateOut.of(row)
+
+        async def run() -> Created:
+            row = await template_service.create_template(
+                session,
+                wtype,
+                # exclude_unset: a field rule changes only the flags sent (the rest keep theirs).
+                body.model_dump(exclude_unset=True, exclude_none=True, mode="json"),
+                source=source_of(request),
+            )
+            note.object_id = str(row.id)
+            return Created(body=TemplateOut.of(row))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.post(
         "/templates/{template_id}/copy",
         summary="Copy a template",
         status_code=status.HTTP_201_CREATED,
+        response_model=TemplateOut,
     )
     async def copy_template(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         template_id: uuid.UUID,
@@ -965,15 +992,20 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         note: Annotated[
             AuditNote, audited(f"{audit}.template_created", object_type=f"{audit}_template")
         ],
-    ) -> TemplateOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """An independent copy, marked as a copy of the original (REQ-INC-035 AC3)."""
         del subject
-        row = await template_service.copy_template(
-            session, wtype, template_id, labels=body.labels, source=source_of(request)
-        )
-        note.object_id = str(row.id)
-        note.details = {"copied_from_id": str(template_id)}
-        return TemplateOut.of(row)
+
+        async def run() -> Created:
+            row = await template_service.copy_template(
+                session, wtype, template_id, labels=body.labels, source=source_of(request)
+            )
+            note.object_id = str(row.id)
+            note.details = {"copied_from_id": str(template_id)}
+            return Created(body=TemplateOut.of(row))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.patch("/templates/{template_id}", summary="Change a template", responses=CONFLICT)
     async def patch_template(  # noqa: PLR0913, PLR0917 - FastAPI dependencies

@@ -80,7 +80,54 @@ async def next_display_number(session: AsyncSession, counter_key: str) -> int:
     return await _next_value(session, counter_key)
 
 
-async def _next_value(session: AsyncSession, key: str) -> int:
+async def reserve_display_numbers(session: AsyncSession, counter_key: str, count: int) -> int:
+    """Reserve `count` consecutive numbers of a counter at once; returns the first.
+
+    For a batch that creates many records in one transaction (an asset import, WP-049b): one
+    upsert instead of one per record. Same contract as `next_display_number` (row lock until the
+    transaction ends, rolled back with it). A caller that uses fewer must hand the rest back with
+    `return_display_numbers` before its transaction or savepoint ends, so no gap is left.
+    """
+    if not _KEY.fullmatch(counter_key):
+        msg = f"counter key must match {KEY_PATTERN}, got {counter_key!r}"
+        raise ValueError(msg)
+    if count < 1:
+        msg = f"count must be at least 1, got {count}"
+        raise ValueError(msg)
+    return await _next_value(session, counter_key, count) - count + 1
+
+
+async def return_display_numbers(
+    session: AsyncSession, counter_key: str, last_used: int, last_reserved: int
+) -> None:
+    """Hand back the numbers after `last_used` of a block `reserve_display_numbers` gave.
+
+    The caller still holds the counter row's lock (its transaction reserved the block), so
+    nobody took a number since: the counter goes back to `last_used`, and the next caller gets
+    `last_used + 1`. `last_used` must be at least 1 (reserve the block when the first number is
+    needed): a counter never goes back to 0. The WHERE on `last_reserved` makes a misuse change
+    nothing rather than reuse a number.
+    """
+    if last_used < 1 or last_used >= last_reserved:
+        return
+    context = session.info.get(SESSION_TENANT_KEY)
+    if not isinstance(context, TenantContext):
+        msg = "return_display_numbers needs a tenant session"
+        raise TypeError(msg)
+    await session.execute(
+        update(DisplayIdSequence)
+        .where(
+            # RLS already limits it to the session's tenant; named too, as a shared helper
+            # should (lane A's #439 review).
+            DisplayIdSequence.tenant_id == context.tenant_id,
+            DisplayIdSequence.prefix == counter_key,
+            DisplayIdSequence.last_value == last_reserved,
+        )
+        .values(last_value=last_used, updated_at=func.now())
+    )
+
+
+async def _next_value(session: AsyncSession, key: str, count: int = 1) -> int:
     context = session.info.get(SESSION_TENANT_KEY)
     if not isinstance(context, TenantContext):
         msg = "next_display_id needs a tenant session"
@@ -88,10 +135,10 @@ async def _next_value(session: AsyncSession, key: str) -> int:
     sequence = DisplayIdSequence
     statement = (
         insert(sequence)
-        .values(tenant_id=context.tenant_id, prefix=key, last_value=1)
+        .values(tenant_id=context.tenant_id, prefix=key, last_value=count)
         .on_conflict_do_update(
             index_elements=[sequence.tenant_id, sequence.prefix],
-            set_={"last_value": sequence.last_value + 1, "updated_at": func.now()},
+            set_={"last_value": sequence.last_value + count, "updated_at": func.now()},
         )
         .returning(sequence.last_value)
     )
