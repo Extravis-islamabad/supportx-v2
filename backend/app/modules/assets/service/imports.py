@@ -350,7 +350,11 @@ async def _run(database: Database, tenant: uuid.UUID, ref: tuple[uuid.UUID, uuid
             job.status, job.total = AssetImportStatus.RUNNING.value, len(rows)
             job.version += 1
             await _progress(session, job)
-    lookups = Lookups(tenant=tenant, requester=importer)  # this job's own, never shared
+    # This job's own, never shared. A dry run resumed in a fresh worker (a retry after a crash)
+    # starts a new Lookups, so it re-reads the asset-limit slots and forgets the tally of the
+    # slices before it: its "limit reached" rows are then advisory only. Rare, and harmless: the
+    # real run counts afresh under the limit's lock (`reserve_capacity` on each asset it makes).
+    lookups = Lookups(tenant=tenant, requester=importer)
     while offset < len(rows):
         async with database.tenant_session(context) as session:
             offset = await _batch(session, import_id, rows, offset, lookups)

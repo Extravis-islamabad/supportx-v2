@@ -131,6 +131,22 @@ describe('asset audits (REQ-AST-042, 043)', () => {
     expect(await within(table).findByText('1 of 2 found')).toBeTruthy();
   });
 
+  it('the bar fills by the found share, as its text says: 1 of 6 found is a sixth (V-15)', async () => {
+    window.history.pushState({}, '', '/assets/audits');
+    const sixth = { ...audit, progress: { ...audit.progress, expected: 6, marked: 3, found: 1 } };
+    const fake = api(['tenant_admin'], { 'GET /api/v1/assets/audits': { body: [sixth] } });
+    restore = fake.restore;
+    render(<App />);
+    const table = await screen.findByTestId('asset-audits');
+    expect(await within(table).findByText('1 of 6 found')).toBeTruthy();
+    const bar = within(table).getByRole('progressbar');
+    expect(bar.getAttribute('aria-valuenow')).toBe('17');
+    // The marked share is in the name, not drawn as a second, longer fill.
+    expect(bar.getAttribute('aria-label')).toBe('3 of 6 marked, 1 found');
+    expect(bar.querySelectorAll('.ant-progress-bg')).toHaveLength(1);
+    expect(bar.querySelector<HTMLElement>('.ant-progress-bg')?.style.width).toBe('17%');
+  });
+
   it('plans an audit with an Idempotency-Key', async () => {
     window.history.pushState({}, '', '/assets/audits');
     const fake = api(['tenant_admin'], {

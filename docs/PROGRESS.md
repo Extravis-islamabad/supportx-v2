@@ -311,6 +311,35 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   every replica connected to it (master); afterwards only the server counts. Tests in
   `backend/tests/ha/test_valkey_failover.py`; the remaining unplanned-crash gap is in
   [deployment.md](deployment.md) (Profiles, "Valkey failover and readiness").
+  **HA cluster DNS fix (2026-11-12, lane B, branch `fix/ha-cluster-dns-valkey`):** Cluster run
+  43082299609 stopped the node with k3s's only CoreDNS copy; for about six minutes nothing
+  resolved, the sentinels kept entering TILT and every later failover aborted
+  (`-failover-abort-no-good-slave`). Now cluster DNS runs two copies on different nodes
+  (`deploy/k3s/cluster-dns-ha.sh`, run by `make cluster-up-ha` and documented for on-prem and
+  customer-managed clusters), `deploy/k3s/ha-preflight.sh` warns about a single copy, Valkey's
+  pods use short lookups of fully qualified names (`dnsConfig`), node-loss.sh waits for Sentinel
+  to settle first, and a new test stops the node with the Valkey master after a failover
+  (`make cluster-ha-valkey-node-loss`). Proven only by the next Cluster dispatch.
+  Round 2 (proving run 43148329223, node-loss red: the stopped node held the PG primary, the
+  Valkey master and a CoreDNS copy; SDOWN 77 s after the stop, every failover aborted): Sentinel
+  down-after 10 s (a 100 s replica allowance) and failover-timeout 30 s (an aborted failover
+  retries after 60 s); node-monitor grace period 20 s in `deploy/k3s/config-ha.yaml` and the k3d
+  HA cluster; a forced worst-case test, master plus CoreDNS on the stopped node
+  (`make cluster-ha-valkey-node-loss-dns`).
+  - [ ] **Later:** NodeLocal DNSCache to remove the dead-endpoint window, without a shorter
+    grace period; weigh it after this lands.
+  Round 3 (2026-11-12, the coordinator's sweep of single copies in the HA profile; the proving
+  run lost k3s's only Traefik copy with the stopped node and no request was answered for 90 s):
+  Traefik two copies with required anti-affinity (`deploy/k3s/traefik-ha.yaml`, a
+  HelmChartConfig; the k3d HA cluster uses the same file, `deploy/k3s/traefik-ha.sh` checks);
+  NATS and the CloudNativePG cluster with required anti-affinity; workflow timers 2; ClamAV 2
+  with staggered signature pulls; fast eviction (30 s) for the single-copy fan-out and index
+  workers; the preflight checks all of it (`make cluster-ha-preflight` after the install, CI
+  too) and node-loss.sh proves live updates resume after the fan-out moves. What runs how many
+  copies: [deployment.md](deployment.md) (Profiles).
+  - [ ] **Open: bundled HA SeaweedFS (3 masters, replicated volumes, filer ×2): pending Haider
+    (roadmap call).** Until then HA installs use their own S3-compatible store (decision b,
+    2026-11-12); the preflight warns (advisory) when the bundled single SeaweedFS runs.
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -2404,8 +2433,26 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     (4), test_release_close_changes_api (1), test_release_bulk_role_migration; Vitest
     releases.test.tsx (2 more), release-close-changes.test.tsx (2), release-settings.test.tsx (1
     more).
-  S5b: staged board, reporting and the release dashboard (after #396; costs behind
-  `releases.view_costs`, D-164), REQ-REL-058's inline-edit switch and live association counts.
+- [~] Session 5b (2026-11-12): the board, reporting and the record page's rest. Migration 0150.
+  - **Board (REQ-REL-056):** `StageBoard` in packages/ui (domain-free; WP-046 can reuse it):
+    drag a card or use its "Move to" menu (keyboard, either direction); a refused move stays and
+    says why in a live region (AC1). /releases/board: a drop runs the release's own move through
+    its move dialog, or names why not; other viewers see moves live (AC2).
+  - **Reporting (REQ-REL-060):** release fields (stage, path, type, reason, risk, manager,
+    engineer, deployment ended, deployed on time, stage overdue, approval turnaround), measures
+    (open, on-time rate of the deployments that ended (AC2), overdue stages, failed or rolled
+    back, approval turnaround), 8 built-in reports, KPIs and the Releases dashboard (AC1).
+    Measures count only the releases the viewer may list (group-scope test). No cost fields:
+    D-164's `releases.view_costs` gate applies once release costs exist.
+  - **0150:** column-level SELECT for supportx_report on release details (not the notes) and on
+    approvals (times only); the comment, decider and notes are refused (test), RLS holds.
+  - **Drill-down:** a report drills to its own type's list: releases, problems, requests and
+    assets as well as changes (the item from polish #433; lane B told for assets).
+  - **REQ-REL-058:** live association counts in the side panel (AC3); AC2 holds by design (the
+    release page has no inline edit, fields change only through the edit form), so no switch.
+  - **Tests:** test_release_reports (4); Vitest board (4), releases.test.tsx board (2),
+    release-associations (1), reports drill-down (4).
+  - **Board button** on the release list (after #438).
   S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 

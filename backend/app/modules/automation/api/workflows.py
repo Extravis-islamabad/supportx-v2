@@ -55,8 +55,14 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query, paginate
+from app.shared.api.ratelimit import rate_limit
 
-router = APIRouter(prefix="/automation/workflows", tags=["automation"])
+# Every workflow route counts against its own budget (audit #14; architecture.md §10).
+router = APIRouter(
+    prefix="/automation/workflows",
+    tags=["automation"],
+    dependencies=[Depends(rate_limit("workflows"))],
+)
 Manage = Annotated[Subject, Depends(require_permission("workflows.manage"))]
 Run = Annotated[Subject, Depends(require_permission("workflows.run"))]
 Policy = Annotated[PolicyService, Depends(get_policy)]

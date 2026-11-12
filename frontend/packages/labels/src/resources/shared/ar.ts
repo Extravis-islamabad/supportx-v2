@@ -60,6 +60,7 @@ export const ar: LabelResource = {
   'appearance.theme.light': 'فاتح',
   'appearance.theme.system': 'اتباع النظام',
   'appearance.title': 'المظهر',
+  'board.move_to': 'نقل إلى…',
   'check_status.failed': 'فشل',
   'check_status.not_configured': 'غير مُهيّأ',
   'check_status.ok': 'سليم',
