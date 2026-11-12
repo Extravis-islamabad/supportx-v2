@@ -278,7 +278,7 @@ test('REQ-WF-024 AC2: a failed step is skipped from the incident, with a confirm
     await page.getByRole('tab', { name: 'Workflows' }).click();
     const panel = page.getByTestId('record-workflows');
     await expect(panel).toContainText('Failed', LIVE);
-    await expect(panel).toContainText('Stopped at the step set');
+    await expect(panel).toContainText('Stopped at the step Update fields'); // its type, never its ID (F-07)
     await expect(panel).toContainText(
       "The workflow's run-as identity has no right to do this step",
     );
