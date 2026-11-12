@@ -10,6 +10,7 @@ from sqlalchemy import (
     Computed,
     ForeignKeyConstraint,
     Index,
+    Integer,
     LargeBinary,
     Numeric,
     SmallInteger,
@@ -781,7 +782,10 @@ class SignInImportCursor(Base):
     """How far the Keycloak events import got, per realm (0151). Installation-wide."""
 
     __tablename__ = "sign_in_import_cursor"
+    __table_args__ = (CheckConstraint("last_offset >= 0", name="last_offset_not_negative"),)
 
     realm: Mapped[str] = mapped_column(String(60), primary_key=True)
     last_time_ms: Mapped[int]
+    # Events of last_time_ms already read, when one millisecond held more than a run (0153).
+    last_offset: Mapped[int] = mapped_column(Integer, server_default="0")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

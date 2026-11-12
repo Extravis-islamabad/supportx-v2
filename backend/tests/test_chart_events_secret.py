@@ -27,12 +27,22 @@ _KIND = re.compile(r"^kind: (\w+)$", re.MULTILINE)
 _NAME = re.compile(r"^metadata:\n  name: ([\w.-]+)$", re.MULTILINE)
 
 
-def _holders() -> set[str]:
+SINGLE_NODE = (
+    "-f", str(CHART / "values-single-node.yaml"), "--set", "publicUrl=https://x.example.com",
+    "--set", "routing.hostnames={x.example.com}", "--set", "routing.gateway.tlsSecret=t",
+)  # fmt: skip
+# As chart-lint.sh renders HA (lane B: the HA workers have their own replicas and settings).
+HA = (
+    "-f", str(CHART / "values-dev.yaml"), "-f", str(CHART / "values-ha.yaml"),
+    "-f", str(CHART / "values-ha-ci.yaml"),
+    "--set", "networkPolicies.egress.kubeApiCidrs={10.0.0.10/32}",
+)  # fmt: skip
+
+
+def _holders(profile: tuple[str, ...]) -> set[str]:
     """`<kind>/<name>` of every rendered object whose env names the variable."""
     done = subprocess.run(  # noqa: S603 - the test's own helm call
-        ["helm", "template", "supportx", str(CHART), "-n", "supportx",  # noqa: S607
-         "-f", str(CHART / "values-single-node.yaml"), "--set", "publicUrl=https://x.example.com",
-         "--set", "routing.hostnames={x.example.com}", "--set", "routing.gateway.tlsSecret=t"],
+        ["helm", "template", "supportx", str(CHART), "-n", "supportx", *profile],  # noqa: S607
         capture_output=True, text=True, check=True,
     )  # fmt: skip
     found: set[str] = set()
@@ -46,8 +56,11 @@ def _holders() -> set[str]:
     return found
 
 
-def test_only_the_consumers_worker_and_the_identity_job_hold_the_events_secret() -> None:
-    holders = _holders()
+@pytest.mark.parametrize("profile", [SINGLE_NODE, HA], ids=["single-node", "ha"])
+def test_only_the_consumers_worker_and_the_identity_job_hold_the_events_secret(
+    profile: tuple[str, ...],
+) -> None:
+    holders = _holders(profile)
     assert len(holders) == 2, holders
     assert any(h.startswith("Deployment/") and "consumers" in h for h in holders), holders
     assert any(h.startswith("Job/") and "keycloak-identity" in h for h in holders), holders

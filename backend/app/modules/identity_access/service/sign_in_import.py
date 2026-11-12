@@ -8,7 +8,10 @@ tenant it belongs to (domain/sign_in_import.py says which, and what is read at a
 - **The cursor** (`sign_in_import_cursor`, one row per realm) moves on only after the tenants'
   rows are committed, so a failed run is read again; Keycloak's `dateFrom` is inclusive and the
   rows are unique on (tenant, Keycloak event ID), so re-reading writes nothing twice.
-- **At most IMPORT_CAP events a run**; a backlog drains over the next runs.
+- **At most IMPORT_CAP events a run**; a backlog drains over the next runs. The cursor is a
+  millisecond and an offset into it: when a whole run fell inside one millisecond (a burst), the
+  next run reads on from the offset (`first`), so nothing in a burst is ever skipped (lane B).
+  Otherwise it starts at the newest millisecond again with offset 0 and re-reads those few.
 - **Unattributed** events (the shared address, no identity provider) are counted in
   `supportx_sign_in_import_unattributed`, never written to a guessed tenant.
 """
@@ -18,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from opentelemetry import metrics
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.config import Settings
@@ -106,12 +109,14 @@ class _Attribution:
         return tenant
 
 
-async def _read(reader: EventsReader, since_ms: int) -> list[KeycloakEvent]:
-    """Up to IMPORT_CAP events from `since_ms`, oldest first."""
+async def _read(reader: EventsReader, since_ms: int, offset: int) -> list[KeycloakEvent]:
+    """Up to IMPORT_CAP events from `since_ms`, skipping the `offset` read before, oldest first."""
     events: list[KeycloakEvent] = []
     while len(events) < IMPORT_CAP:
         asked = min(PAGE, IMPORT_CAP - len(events))
-        page = await reader.realm_events(IMPORT_TYPES, since_ms, first=len(events), limit=asked)
+        page = await reader.realm_events(
+            IMPORT_TYPES, since_ms, first=offset + len(events), limit=asked
+        )
         events.extend(page)
         if len(page) < asked:
             break
@@ -171,35 +176,31 @@ async def _write(database: Database, tenant_id: uuid.UUID, events: list[Keycloak
     return written
 
 
-async def _advance(database: Database, realm: str, last_ms: int) -> None:
+async def _advance(database: Database, realm: str, last_ms: int, offset: int) -> None:
+    """Move the cursor forward to (last_ms, offset); never back (another run got further)."""
     async with database.platform_session() as session:
-        statement = insert(SignInImportCursor).values(realm=realm, last_time_ms=last_ms)
+        statement = insert(SignInImportCursor).values(
+            realm=realm, last_time_ms=last_ms, last_offset=offset
+        )
+        current = tuple_(SignInImportCursor.last_time_ms, SignInImportCursor.last_offset)
         await session.execute(
             statement.on_conflict_do_update(
                 index_elements=[SignInImportCursor.realm],
                 set_={
-                    "last_time_ms": func.greatest(
-                        SignInImportCursor.last_time_ms, statement.excluded.last_time_ms
-                    ),
+                    "last_time_ms": statement.excluded.last_time_ms,
+                    "last_offset": statement.excluded.last_offset,
                     "updated_at": func.now(),
                 },
+                where=current
+                < tuple_(statement.excluded.last_time_ms, statement.excluded.last_offset),
             )
         )
 
 
-async def import_once(
-    database: Database, reader: EventsReader, *, base_domain: str | None, now_ms: int
-) -> int:
-    """One run: read, write per tenant, then move the cursor; how many rows were new."""
-    async with database.platform_session() as session:
-        cursor = await session.get(SignInImportCursor, reader.realm)
-    since = cursor.last_time_ms if cursor is not None else now_ms - FIRST_RUN_LOOKBACK_MS
-    events = await _read(reader, since)
-    if not events:
-        if cursor is None:
-            await _advance(database, reader.realm, since)
-        return 0
-    attribution = _Attribution(database, base_domain)
+async def _group(
+    attribution: _Attribution, events: list[KeycloakEvent]
+) -> tuple[dict[uuid.UUID, list[KeycloakEvent]], int]:
+    """The events each tenant gets, and how many named no tenant."""
     by_tenant: dict[uuid.UUID, list[KeycloakEvent]] = {}
     unattributed = 0
     for event in events:
@@ -210,15 +211,35 @@ async def import_once(
             unattributed += 1
             continue
         by_tenant.setdefault(tenant, []).append(event)
+    return by_tenant, unattributed
+
+
+async def import_once(
+    database: Database, reader: EventsReader, *, base_domain: str | None, now_ms: int
+) -> int:
+    """One run: read, write per tenant, then move the cursor; how many rows were new."""
+    async with database.platform_session() as session:
+        cursor = await session.get(SignInImportCursor, reader.realm)
+    if cursor is None:
+        since, offset = now_ms - FIRST_RUN_LOOKBACK_MS, 0
+    else:
+        since, offset = cursor.last_time_ms, cursor.last_offset
+    events = await _read(reader, since, offset)
+    if not events:
+        if cursor is None:
+            await _advance(database, reader.realm, since, 0)
+        return 0
+    by_tenant, unattributed = await _group(_Attribution(database, base_domain), events)
     written = 0
     for tenant, items in by_tenant.items():
         written += await _write(database, tenant, items)
     newest = max(e.time_ms for e in events)
-    if len(events) == IMPORT_CAP and newest == since:
-        # A full run inside one millisecond would read the same page for ever: step past it.
-        log.warning("sign_in_import_millisecond_full", realm=reader.realm)
-        newest += 1
-    await _advance(database, reader.realm, newest)
+    if newest == since:
+        # Still inside the cursor's millisecond: read on from here next time, skip nothing.
+        await _advance(database, reader.realm, since, offset + len(events))
+    else:
+        # Past it: the newest millisecond is read again from its start (rows are unique).
+        await _advance(database, reader.realm, newest, 0)
     if unattributed:
         _unattributed.add(unattributed)
     if written:

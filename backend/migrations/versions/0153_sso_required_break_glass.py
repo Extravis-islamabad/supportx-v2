@@ -10,6 +10,9 @@ Expand only, no data step (REQ-SEC-009, REQ-SEC-026):
   locked out if its identity provider fails. `users.break_glass_ip_exempt`: also outside the IP
   allow-lists (its own audited setting, lane B's condition 5). Both off by default; only a tenant
   admin sets them (the service), every change audited.
+- `sign_in_import_cursor.last_offset`: how many events of `last_time_ms` the Keycloak import
+  already read when one millisecond held more than a run takes (lane B: page inside it, never
+  skip it, so a burst of failed sign-ins is never dropped). 0 by default.
 
 The downgrade refuses while any tenant uses any of them, per tenant with app.tenant_id set
 (rule 5h).
@@ -32,6 +35,7 @@ depends_on: str | Sequence[str] | None = None
 
 SETTINGS = "identity_settings"
 USERS = "users"
+CURSOR = "sign_in_import_cursor"
 SSO_REQUIRED = ("off", "technicians", "everyone")
 
 
@@ -63,6 +67,12 @@ def upgrade() -> None:
         USERS,
         "break_glass OR NOT break_glass_ip_exempt",
     )
+    op.add_column(
+        CURSOR, sa.Column("last_offset", sa.Integer(), server_default="0", nullable=False)
+    )
+    op.create_check_constraint(
+        op.f(f"ck_{CURSOR}_last_offset_not_negative"), CURSOR, "last_offset >= 0"
+    )
 
 
 _REFUSE_IF_ANY = f"""
@@ -85,6 +95,9 @@ END $$;
 def downgrade() -> None:
     """Drops the columns only while no tenant uses them; otherwise refuses."""
     op.execute(_REFUSE_IF_ANY)
+    # Only where the import was inside one millisecond; it re-reads it (rows are unique).
+    op.drop_constraint(op.f(f"ck_{CURSOR}_last_offset_not_negative"), CURSOR, type_="check")
+    op.drop_column(CURSOR, "last_offset")
     op.drop_constraint(
         op.f(f"ck_{USERS}_break_glass_ip_exempt_needs_break_glass"), USERS, type_="check"
     )

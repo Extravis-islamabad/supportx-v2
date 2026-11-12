@@ -8,8 +8,11 @@ same events writes nothing twice; the cursor moves on after the rows are in.
 import uuid
 from dataclasses import dataclass, field
 
+import pytest
+
 from app.core.database import Database, create_engine
 from app.modules.identity_access.domain.sign_in_import import KeycloakEvent
+from app.modules.identity_access.service import sign_in_import
 from app.modules.identity_access.service.sign_in_import import import_once
 from tests.db.test_identity_api import World, _admin_rows, world
 
@@ -17,7 +20,6 @@ __all__ = ["world"]  # the fixture, re-used
 
 BASE = "tenants.test"
 NOW_MS = 1_800_000_000_000
-REALM = "supportx-import-test"
 
 
 @dataclass
@@ -25,7 +27,7 @@ class FakeReader:
     """The realm's events, served oldest first from `since_ms` like Keycloak (inclusive)."""
 
     events: list[KeycloakEvent]
-    realm: str = REALM
+    realm: str = field(default_factory=lambda: f"import-test-{uuid.uuid4().hex[:8]}")
     asked_since: list[int] = field(default_factory=list)
 
     async def realm_events(
@@ -141,7 +143,7 @@ async def test_events_land_in_the_one_tenant_they_name_once(world: World) -> Non
     )
     assert host_row["method"] == "password"
     (cursor,) = await _admin_rows(
-        world.db, "SELECT last_time_ms FROM sign_in_import_cursor WHERE realm = $1", REALM
+        world.db, "SELECT last_time_ms FROM sign_in_import_cursor WHERE realm = $1", reader.realm
     )
     assert cursor["last_time_ms"] == NOW_MS - 500
     # The first run read the last day; the second began at the cursor.
@@ -156,3 +158,38 @@ async def test_events_land_in_the_one_tenant_they_name_once(world: World) -> Non
         [a.tenant, b.tenant],
     )
     assert announced[0]["n"] == 2
+
+
+async def test_a_burst_inside_one_millisecond_is_read_on_never_skipped(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane B: more events in one millisecond than a run takes are paged, not stepped over."""
+    monkeypatch.setattr(sign_in_import, "IMPORT_CAP", 3)
+    monkeypatch.setattr(sign_in_import, "PAGE", 2)
+    b = world.b
+    host = f"https://{await _slug(world, b.tenant)}.{BASE}/api/v1/auth/callback"
+    burst = [_event(f"burst-{n}", NOW_MS - 100, redirect_uri=host) for n in range(7)]
+    reader = FakeReader([*burst, _event("after", NOW_MS - 50, redirect_uri=host)])
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    try:
+        await _admin_rows(
+            world.db,
+            "INSERT INTO sign_in_import_cursor (realm, last_time_ms) VALUES ($1, $2)",
+            reader.realm,
+            NOW_MS - 100,
+        )
+        written = [
+            await import_once(database, reader, base_domain=BASE, now_ms=NOW_MS) for _ in range(4)
+        ]
+    finally:
+        await database.dispose()
+    assert sum(written) == 8, written
+    ids = {r["keycloak_event_id"] for r in await _rows(world, b.tenant)}
+    assert ids == {*(e.id for e in burst), "after"}
+    (cursor,) = await _admin_rows(
+        world.db,
+        "SELECT last_time_ms, last_offset FROM sign_in_import_cursor WHERE realm = $1",
+        reader.realm,
+    )
+    # The last run stayed at "after"'s millisecond and read its one event: on from there.
+    assert (cursor["last_time_ms"], cursor["last_offset"]) == (NOW_MS - 50, 1)
