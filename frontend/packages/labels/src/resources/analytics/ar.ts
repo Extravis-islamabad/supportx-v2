@@ -10,6 +10,7 @@ export const ar: LabelResource = {
   'dashboard.changes': 'التغييرات',
   'dashboard.my_work': 'عملي',
   'dashboard.my_work.description': 'حوادثك المفتوحة وما حللته هذا الأسبوع وقائمة الانتظار.',
+  'dashboard.releases': 'الإصدارات',
   'dashboard.service_desk': 'مكتب الخدمة',
   'dashboard.service_desk.description':
     'العمل المفتوح في المكتب: قوائم الانتظار والأولويات والقنوات والتدفق اليومي.',
@@ -97,6 +98,17 @@ export const ar: LabelResource = {
   'dashboard_widget.received_today.description': 'الحوادث المسجلة في آخر 24 ساعة.',
   'dashboard_widget.recently_updated': 'المحدثة مؤخرًا',
   'dashboard_widget.recently_updated.description': 'الحوادث التي تغيرت مؤخرًا.',
+  'dashboard_widget.release_failed': 'فشلت أو تم التراجع عنها',
+  'dashboard_widget.release_failed.description':
+    'الإصدارات المرفوعة خلال آخر 90 يومًا التي فشل نشرها أو تم التراجع عنه.',
+  'dashboard_widget.release_on_time_rate': 'نُشرت في الموعد',
+  'dashboard_widget.release_on_time_rate.description':
+    'من الإصدارات المرفوعة خلال آخر 90 يومًا والتي انتهى نشرها، نسبة ما انتهى قبل نهاية مرحلة النشر المجدولة.',
+  'dashboard_widget.release_open': 'الإصدارات المفتوحة',
+  'dashboard_widget.release_open.description': 'الإصدارات التي لم تُغلق أو تُلغَ بعد.',
+  'dashboard_widget.release_overdue': 'مراحل متأخرة',
+  'dashboard_widget.release_overdue.description':
+    'إصدارات مفتوحة لها مرحلة تجاوزت نهايتها المجدولة ولم تكتمل بعد.',
   'dashboard_widget.reopened_30_days': 'أعيد فتحها (30 يومًا)',
   'dashboard_widget.reopened_30_days.description': 'حوادث آخر 30 يومًا التي أعيد فتحها.',
   'dashboard_widget.reopened_by_group': 'أعيد فتحها حسب المجموعة',
@@ -290,8 +302,21 @@ export const ar: LabelResource = {
   'measure.incident.unassigned_open_count.help': 'حوادث مفتوحة أو قيد الانتظار بلا مجموعة ولا فني.',
   'measure.problem.count': 'المشكلات',
   'measure.problem.count.help': 'كل مشكلة تطابق عوامل التصفية ويمكنك رؤيتها.',
+  'measure.release.average_approval_turnaround': 'مدة الموافقة',
+  'measure.release.average_approval_turnaround.help':
+    'متوسط الوقت من طلب الموافقة حتى قرارها، على الموافقات التي بُتّ فيها.',
   'measure.release.count': 'الإصدارات',
   'measure.release.count.help': 'كل إصدار يطابق عوامل التصفية ويمكنك رؤيته.',
+  'measure.release.failed_count': 'فشلت أو تم التراجع عنها',
+  'measure.release.failed_count.help': 'الإصدارات التي فشل نشرها أو تم التراجع عنه.',
+  'measure.release.on_time_rate': 'التسليم في الموعد',
+  'measure.release.on_time_rate.help':
+    'من الإصدارات التي انتهى نشرها، نسبة ما انتهى قبل نهاية مرحلة النشر المجدولة. لا يُحتسب إصدار ما زال قيد النشر.',
+  'measure.release.open_count': 'الإصدارات المفتوحة',
+  'measure.release.open_count.help': 'الإصدارات التي لم تُغلق أو تُلغَ بعد.',
+  'measure.release.overdue_count': 'مراحل متأخرة',
+  'measure.release.overdue_count.help':
+    'إصدارات مفتوحة لها مرحلة تجاوزت نهايتها المجدولة ولم تكتمل بعد.',
   'measure.service_request.count': 'طلبات الخدمة',
   'measure.service_request.count.help': 'كل طلب خدمة يطابق عوامل التصفية ويمكنك رؤيته.',
   'report.assets_book_value_by_cost_centre': 'القيمة الدفترية حسب مركز التكلفة',
@@ -429,19 +454,40 @@ export const ar: LabelResource = {
   'report.problems_received_per_week.description': 'المشكلات الجديدة كل أسبوع على مدى ستة أشهر.',
   'report.problems_resolved_per_week': 'المشكلات المحلولة أسبوعيًا',
   'report.problems_resolved_per_week.description': 'المشكلات التي حُلّت كل أسبوع على مدى ستة أشهر.',
+  'report.releases_approval_time_by_type': 'مدة الموافقة حسب النوع',
+  'report.releases_approval_time_by_type.description':
+    'متوسط مدة الموافقة للإصدارات المرفوعة خلال آخر 90 يومًا، حسب نوع الإصدار.',
+  'report.releases_by_closure_code': 'الإصدارات حسب رمز الإغلاق',
+  'report.releases_by_closure_code.description':
+    'الإصدارات المغلقة المرفوعة خلال آخر 90 يومًا حسب طريقة انتهائها.',
+  'report.releases_by_risk': 'الإصدارات حسب المخاطر',
+  'report.releases_by_risk.description': 'الإصدارات المرفوعة خلال آخر 90 يومًا حسب المخاطر.',
   'report.releases_by_status': 'الإصدارات حسب الحالة',
   'report.releases_by_status.description': 'الإصدارات المنشأة في الفترة حسب حالتها الحالية.',
+  'report.releases_by_type': 'الإصدارات حسب النوع',
+  'report.releases_by_type.description': 'الإصدارات المرفوعة خلال آخر 90 يومًا حسب نوع الإصدار.',
+  'report.releases_failed_by_type': 'الإصدارات الفاشلة حسب النوع',
+  'report.releases_failed_by_type.description':
+    'الإصدارات المرفوعة خلال آخر 90 يومًا التي فشلت أو تم التراجع عنها مقارنة بالكل، حسب نوع الإصدار.',
+  'report.releases_on_time_per_month': 'التسليم في الموعد شهريًا',
+  'report.releases_on_time_per_month.description':
+    'نسبة عمليات النشر التي انتهت في موعدها، شهرًا بشهر خلال العام الماضي.',
   'report.releases_open_ageing': 'أعمار الإصدارات المفتوحة',
   'report.releases_open_ageing.description': 'منذ متى والإصدارات المفتوحة وقيد الانتظار مفتوحة.',
   'report.releases_open_by_group': 'الإصدارات المفتوحة حسب المجموعة',
   'report.releases_open_by_group.description': 'الإصدارات المفتوحة وقيد الانتظار حسب مجموعة الدعم.',
   'report.releases_open_by_priority': 'الإصدارات المفتوحة حسب الأولوية',
   'report.releases_open_by_priority.description': 'الإصدارات المفتوحة وقيد الانتظار حسب الأولوية.',
+  'report.releases_open_by_stage': 'الإصدارات المفتوحة حسب المرحلة',
+  'report.releases_open_by_stage.description': 'الإصدارات المفتوحة حسب المرحلة التي هي فيها.',
   'report.releases_open_by_status': 'الإصدارات المفتوحة حسب الحالة',
   'report.releases_open_by_status.description': 'الإصدارات المفتوحة وقيد الانتظار حسب الحالة.',
   'report.releases_open_by_technician': 'الإصدارات المفتوحة حسب الفني',
   'report.releases_open_by_technician.description':
     'الإصدارات المفتوحة وقيد الانتظار حسب الفني المكلف.',
+  'report.releases_overdue_by_manager': 'المراحل المتأخرة حسب مدير الإصدار',
+  'report.releases_overdue_by_manager.description':
+    'الإصدارات المفتوحة التي لها مرحلة متأخرة، حسب مدير الإصدار.',
   'report.releases_received_per_week': 'الإصدارات المستلمة أسبوعيًا',
   'report.releases_received_per_week.description': 'الإصدارات الجديدة كل أسبوع على مدى ستة أشهر.',
   'report.releases_resolved_per_week': 'الإصدارات المكتملة أسبوعيًا',

@@ -19,6 +19,7 @@ NULL never equals anything, so without a tenant every policy is false: zero rows
 """
 
 import re
+from collections.abc import Sequence
 
 APP_ROLE = "supportx_app"
 MIGRATOR_ROLE = "supportx_migrator"
@@ -87,6 +88,23 @@ def report_grant_statements(table: str) -> list[str]:
     """Let the reporting role read `table` (SELECT only; RLS still filters by tenant)."""
     t = _check(table)
     return [f"REVOKE ALL ON {t} FROM {REPORT_ROLE}", f"GRANT SELECT ON {t} TO {REPORT_ROLE}"]
+
+
+def report_column_grant_statements(table: str, columns: Sequence[str]) -> list[str]:
+    """Let the reporting role read only `columns` of `table` (SELECT; RLS still filters).
+
+    For a table that also holds free text or people's words (an approval's comment): the grant
+    is the boundary, so a later report can never read a column nobody granted.
+    """
+    t = _check(table)
+    if not columns:
+        msg = "a column grant needs at least one column"
+        raise ValueError(msg)
+    listed = ", ".join(_check(c) for c in columns)
+    return [
+        f"REVOKE ALL ON {t} FROM {REPORT_ROLE}",
+        f"GRANT SELECT ({listed}) ON {t} TO {REPORT_ROLE}",
+    ]
 
 
 def report_revoke_statements(table: str) -> list[str]:
