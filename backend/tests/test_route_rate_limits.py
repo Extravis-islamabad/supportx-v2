@@ -46,8 +46,8 @@ KNOWN_UNLIMITED = frozenset(
         "PATCH /api/v1/organization/settings",  # organization.api.routes
         "POST /api/v1/public/action-links/peek",  # system.api.action_links
         "POST /api/v1/public/action-links/use",  # system.api.action_links
-        "GET /api/v1/health",  # system.api.routes
-        "GET /api/v1/ready",  # system.api.routes
+        "GET /api/v1/health",  # system: a probe; kubelet calls it, never limited
+        "GET /api/v1/ready",  # system: a probe; a 429 would fail readiness, never limited
         "DELETE /api/v1/my-reminders/{reminder_id}",  # work_items.api.checklist_routes
         "GET /api/v1/my-reminders",  # work_items.api.checklist_routes
         "PATCH /api/v1/my-reminders/{reminder_id}",  # work_items.api.checklist_routes
