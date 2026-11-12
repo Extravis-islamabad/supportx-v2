@@ -26,6 +26,7 @@ from sqlalchemy import ColumnElement, and_, false, or_, select
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import (
+    CHANGE_MANAGER,
     PROBLEM_MANAGER,
     RELEASE_MANAGER,
     REPORT_VIEWER,
@@ -337,11 +338,11 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     )
 
 
-# WP-046a S3 (REQ-INC-068 AC2), PENDING HAIDER (the coordinator, 2026-11-12): who sees money on a
-# record: worklog cost rates, technician and other costs, cost totals, and a task's extra cost.
-# One right per type with worklogs; without it the API, UI and exports show none of it. Seeded
-# for the service desk manager (tenant admins hold every right). Named here once, so Haider's
-# answer changes one place.
+# WP-046a S3 (REQ-INC-068 AC2, D-164): who sees money on a record: worklog cost rates,
+# technician and other costs, cost totals, and a task's extra cost. One right per type with
+# worklogs; without it the API, UI and exports show none of it. Seeded for the service desk
+# manager on every type, the change manager on changes and the release manager on releases
+# (tenant admins hold every right); team leads only if an admin grants it.
 VIEW_COSTS = "view_costs"
 COST_TYPES = frozenset(
     {
@@ -360,9 +361,16 @@ def _cost_spec(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
             wtype.permission(VIEW_COSTS),
             wtype.feature,
             ALL_SCOPES,
-            defaults=((SERVICE_DESK_MANAGER, "all"),),
+            defaults=((SERVICE_DESK_MANAGER, "all"), *_COST_MANAGERS.get(wtype.code, ())),
         ),
     )
+
+
+# D-164: the type's own manager sees its costs too.
+_COST_MANAGERS: dict[WorkItemTypeCode, tuple[tuple[str, Scope], ...]] = {
+    WorkItemTypeCode.CHANGE: ((CHANGE_MANAGER, "all"),),
+    WorkItemTypeCode.RELEASE: ((RELEASE_MANAGER, "all"),),
+}
 
 
 # Problems only (WP-044b, REQ-PRB-070, D-140 Q7): changing the analysis, and seeing the root

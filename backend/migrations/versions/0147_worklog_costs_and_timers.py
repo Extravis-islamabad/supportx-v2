@@ -7,7 +7,7 @@ Expand only, no data step:
   record was resolved or closed (REQ-INC-069 AC2), counted only once confirmed;
 - `work_item_worklog_costs` (RLS): a worklog's other costs, in the tenant's base currency, with
   the original amount, currency and the rate the person entered when it was paid in another
-  (pending Haider: no automatic exchange rates, D-163 to come);
+  (no automatic exchange rates, D-164);
 - `work_item_timers` (RLS): one running timer per person per record (REQ-INC-069), so it
   survives a reload and shows on every screen;
 - `work_item_type_settings`: `worklog_block_closed` (refuse worklogs on closed records),

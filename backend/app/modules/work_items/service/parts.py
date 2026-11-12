@@ -634,7 +634,7 @@ async def may_see_money(
 ) -> bool:
     """Money on a record: worklog rates and costs, cost totals and a task's extra cost (S3).
 
-    One right, `<type>.view_costs` (REQ-INC-068 AC2, pending Haider); a type without it (no
+    One right, `<type>.view_costs` (REQ-INC-068 AC2, D-164); a type without it (no
     worklog costs) keeps S1's rule, those who may edit the record.
     """
     if wtype.code in COST_TYPES:

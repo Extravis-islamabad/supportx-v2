@@ -154,7 +154,7 @@ def cost_line(  # noqa: PLR0911 - one return per rule, in the order they are che
 
     In the base currency: `amount`. In another: `original_amount`, `original_currency` and the
     `exchange_rate` the person entered (to the base currency); the amount is computed from them,
-    to the cent (no automatic rates, pending Haider).
+    to the cent (no automatic rates, D-164).
     """
     note = value.get("note")
     if note is not None and len(str(note)) > COST_NOTE_MAX:

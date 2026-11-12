@@ -1276,7 +1276,7 @@ class WorkItemWorklogCost(TenantEntity):
     """A worklog's other cost (WP-046a S3, REQ-INC-068), in the tenant's base currency.
 
     Paid in another currency: the original amount, its currency and the rate the person entered
-    (no automatic exchange rates; pending Haider).
+    (no automatic exchange rates; D-164).
     """
 
     __tablename__ = "work_item_worklog_costs"
