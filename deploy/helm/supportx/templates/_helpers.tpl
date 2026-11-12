@@ -143,6 +143,11 @@ securityContext:
 - name: SUPPORTX_SESSION_SECRET
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: session-secret}}
 {{- include "supportx.sessionKeysEnv" . }}
+{{- /* Audit row 26: API keys are hashed under a key of their own, never the session secret. Optional
+here so a Secret from before it gets the application's own clear startup refusal in production
+(SUPPORTX_API_KEY_SECRET is required) instead of a pod stuck on a missing key; secrets.sh adds it. */}}
+- name: SUPPORTX_API_KEY_SECRET
+  valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: api-key-secret, optional: true}}
 - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: oidc-console-secret}}
 - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
