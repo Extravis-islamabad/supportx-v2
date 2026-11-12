@@ -31,6 +31,10 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   secret (SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET) only on an on-prem install that turned
   LDAP on, never on SaaS. Without the secret an existing client is switched off, never deleted,
   so nothing can use it; the identity account never gets manage-realm;
+- the console and portal clients put the identity provider a person signed in through into the
+  ID and access tokens as `sx_idp` (WP-057 S1b, lane B's review): a user-session note only
+  Keycloak's broker writes, never a user attribute and never userinfo, so a password, LDAP or
+  direct-grant token never carries it. SupportX's "single sign-on required" reads it;
 - a realm still on the password policy SupportX shipped before WP-039 gets the new default
   (Appendix A, with the breached list); a policy anyone chose is never touched;
 - the browser flow offers recovery codes as a second step (REQ-SEC-025): Keycloak ships that
@@ -281,6 +285,62 @@ async def _ensure_events(
     return ["login events on"]
 
 
+IDP_CLAIM_MAPPER: dict[str, Any] = {
+    "name": "sign-in-identity-provider",
+    "protocol": "openid-connect",
+    "protocolMapper": "oidc-usersessionmodel-note-mapper",
+    "consentRequired": False,
+    "config": {
+        "user.session.note": "identity_provider",
+        "claim.name": "sx_idp",
+        "jsonType.label": "String",
+        "id.token.claim": "true",
+        "access.token.claim": "true",
+        "introspection.token.claim": "true",
+        "userinfo.token.claim": "false",
+    },
+}
+APP_CLIENTS = ("supportx-console", "supportx-portal")
+
+
+async def _ensure_idp_claim(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """The `sx_idp` mapper on the app clients (the realm import has it; older realms get it)."""
+    changes: list[str] = []
+    base = f"/admin/realms/{realm}/clients"
+    for client_id in APP_CLIENTS:
+        found = await client.get(base, headers=headers, params={"clientId": client_id})
+        found.raise_for_status()
+        if not found.json():
+            continue  # a realm without the app client (a bare test realm): nothing to add to
+        internal = str(found.json()[0]["id"])
+        mappers = await client.get(f"{base}/{internal}/protocol-mappers/models", headers=headers)
+        mappers.raise_for_status()
+        current = next(
+            (m for m in mappers.json() if m.get("name") == IDP_CLAIM_MAPPER["name"]), None
+        )
+        if current is None:
+            made = await client.post(
+                f"{base}/{internal}/protocol-mappers/models", headers=headers, json=IDP_CLAIM_MAPPER
+            )
+            made.raise_for_status()
+            changes.append(f"{client_id}: sign-in identity provider claim added")
+        elif (
+            current.get("config") != IDP_CLAIM_MAPPER["config"]
+            or current.get("protocolMapper") != IDP_CLAIM_MAPPER["protocolMapper"]
+        ):
+            # Drifted (say userinfo turned on by hand): put back exactly what SupportX trusts.
+            fixed = await client.put(
+                f"{base}/{internal}/protocol-mappers/models/{current['id']}",
+                headers=headers,
+                json={**IDP_CLAIM_MAPPER, "id": current["id"]},
+            )
+            fixed.raise_for_status()
+            changes.append(f"{client_id}: sign-in identity provider claim set back")
+    return changes
+
+
 async def _ensure_sso_session(
     client: httpx.AsyncClient, headers: dict[str, str], realm: str
 ) -> list[str]:
@@ -490,6 +550,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     changes += await _upgrade_lockout(client, headers, target.realm)
     changes += await _enable_recovery_codes(client, headers, target.realm)
     changes += await _ensure_events(client, headers, target.realm)
+    changes += await _ensure_idp_claim(client, headers, target.realm)
     changes += await _ensure_sso_session(client, headers, target.realm)
     changes += await _ensure_user_profile(client, headers, target.realm)
     changes += await _ensure_smtp(client, headers, target.realm, target.smtp)
