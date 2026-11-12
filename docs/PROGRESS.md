@@ -1347,6 +1347,21 @@ it with no reload (rule c). Not built yet.
     by a sweep, live on the personal channel.
   - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
     reserved for S3).
+- **S3 PR 1 (0147; REQ-INC-068, -069, -070; D-164):**
+  - Worklogs are billable or not, and take their owner's cost per hour when the time started
+    (lane B's `cost_rate`, #427; a snapshot, never rewritten). Other-cost lines are in the base
+    currency, or another currency with the rate entered (D-164: no automatic rates).
+  - Totals: billable and non-billable time, technician, other and total cost.
+  - `<type>.view_costs` (D-164) gates every cost on incidents, requests, problems, changes and
+    releases, a task's extra cost included: the service desk manager everywhere, the change
+    manager on changes, the release manager on releases. Without it the API hides them.
+  - Closure settings: no time on closed records (409), count non-working hours, timer
+    auto-start (off by default).
+  - Personal timers: one per person per record, on the server; stop prefills a worklog; resolve,
+    close or cancel turns running timers into drafts that count once their owner confirms them;
+    auto-start once for the record's technician. Live on the personal channel only.
+- **S3 PR 2 (no migration; REQ-INC-071; #432):** time analysis per status, group and
+  technician, open and paused, on the record's calendar; the incident's Time tab.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2401,8 +2416,26 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     (4), test_release_close_changes_api (1), test_release_bulk_role_migration; Vitest
     releases.test.tsx (2 more), release-close-changes.test.tsx (2), release-settings.test.tsx (1
     more).
-  S5b: staged board, reporting and the release dashboard (after #396; costs behind
-  `releases.view_costs`, D-164), REQ-REL-058's inline-edit switch and live association counts.
+- [~] Session 5b (2026-11-12): the board, reporting and the record page's rest. Migration 0150.
+  - **Board (REQ-REL-056):** `StageBoard` in packages/ui (domain-free; WP-046 can reuse it):
+    drag a card or use its "Move to" menu (keyboard, either direction); a refused move stays and
+    says why in a live region (AC1). /releases/board: a drop runs the release's own move through
+    its move dialog, or names why not; other viewers see moves live (AC2).
+  - **Reporting (REQ-REL-060):** release fields (stage, path, type, reason, risk, manager,
+    engineer, deployment ended, deployed on time, stage overdue, approval turnaround), measures
+    (open, on-time rate of the deployments that ended (AC2), overdue stages, failed or rolled
+    back, approval turnaround), 8 built-in reports, KPIs and the Releases dashboard (AC1).
+    Measures count only the releases the viewer may list (group-scope test). No cost fields:
+    D-164's `releases.view_costs` gate applies once release costs exist.
+  - **0150:** column-level SELECT for supportx_report on release details (not the notes) and on
+    approvals (times only); the comment, decider and notes are refused (test), RLS holds.
+  - **Drill-down:** a report drills to its own type's list: releases, problems, requests and
+    assets as well as changes (the item from polish #433; lane B told for assets).
+  - **REQ-REL-058:** live association counts in the side panel (AC3); AC2 holds by design (the
+    release page has no inline edit, fields change only through the edit form), so no switch.
+  - **Tests:** test_release_reports (4); Vitest board (4), releases.test.tsx board (2),
+    release-associations (1), reports drill-down (4).
+  - **Board button** on the release list (after #438).
   S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 

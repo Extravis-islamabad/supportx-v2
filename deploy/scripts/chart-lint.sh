@@ -22,6 +22,7 @@ CRDS_CATALOG="https://raw.githubusercontent.com/datreeio/CRDs-catalog/501527ab9c
 PROFILES=(
   "dev|-f $CHART/values-dev.yaml"
   "single-node|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
+  "staging|-f $CHART/values-single-node.yaml -f $CHART/values-staging.yaml"
   "ingress|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.mode=ingress --set routing.ingress.tlsSecret=supportx-tls --set routing.hostnames={supportx.example.com}"
   "external-db|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.gateway.tlsSecret=supportx-tls --set postgresql.mode=external --set postgresql.external.host=db.example.com --set temporal.bundled.enabled=false --set temporal.address=temporal.example.com:7233"
   "podmonitors|-f $CHART/values-dev.yaml --set metrics.podMonitors=true"

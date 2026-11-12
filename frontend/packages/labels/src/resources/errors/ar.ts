@@ -974,6 +974,9 @@ export const ar: LabelResource = {
   'errors.tenant_not_found': 'تعذّر العثور على مؤسستك.',
   'errors.tenant_not_provisioned': 'لم يتم إعداد مؤسستك في SupportX بعد. يرجى التواصل مع المسؤول.',
   'errors.tenant_suspended': 'تم تعليق وصول مؤسستك.',
+  'errors.timer_not_running': 'ليس لديك مؤقت يعمل على هذا السجل.',
+  'errors.timer_record_done': 'هذا السجل محلول أو مغلق. سجّل الوقت كسجل عمل بدلاً من ذلك.',
+  'errors.timer_running': 'مؤقتك يعمل بالفعل على هذا السجل.',
   'errors.too_many_favourites': 'يمكنك تمييز {{max}} تقريرًا كحد أقصى.',
   'errors.too_many_files': 'ملفات كثيرة دفعة واحدة: {{max}} على الأكثر.',
   'errors.too_many_rules': '{{max}} قاعدة كحد أقصى لكل نوع سجل.',
@@ -1005,5 +1008,6 @@ export const ar: LabelResource = {
   'errors.workflow_instance_not_found': 'لم يُعثر على تشغيل سير العمل هذا.',
   'errors.workflow_job_not_found': 'لم يُعثر على هذه المهمة.',
   'errors.workflow_version_not_found': 'لم يُعثر على هذا الإصدار من سير العمل.',
+  'errors.worklog_record_closed': 'لا يمكن تسجيل الوقت أو تغييره في سجل مغلق هنا.',
   'errors.would_lose_access': 'بعد هذا التغيير لن ترى {{display_id}} بعد الآن. أكّد لتسليمه.',
 };

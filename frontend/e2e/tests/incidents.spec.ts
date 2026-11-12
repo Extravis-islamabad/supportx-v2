@@ -139,7 +139,7 @@ test.afterAll(async ({ browser }) => {
   await admin.context.close();
 });
 
-test('a new incident with rich text appears live for the technician; edits reach the open record; a status change asks for its reason', async ({
+test('a new incident with rich text appears live for the technician; edits reach the open record; a status change asks for its reason @smoke', async ({
   browser,
 }) => {
   test.setTimeout(180_000);

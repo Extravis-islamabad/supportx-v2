@@ -276,7 +276,7 @@ test('an admin is never offered a reset of their own MFA', async ({ page }) => {
   await expect(page.getByTestId('person-reset-mfa')).toHaveCount(0);
 });
 
-test('a new incident keeps what was typed through the end of the session (REQ-SEC-029 AC2)', async ({
+test('a new incident keeps what was typed through the end of the session (REQ-SEC-029 AC2) @smoke', async ({
   page,
 }) => {
   await signInAs(page, 'admin', '/incidents/new');
