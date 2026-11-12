@@ -843,6 +843,21 @@ data:
                 "introspection.token.claim": "true",
                 "userinfo.token.claim": "false"
               }
+            },
+            {
+              "name": "sign-in-identity-provider",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "identity_provider",
+                "claim.name": "sx_idp",
+                "jsonType.label": "String",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "introspection.token.claim": "true",
+                "userinfo.token.claim": "false"
+              }
             }
           ]
         },
@@ -896,6 +911,21 @@ data:
                 "claim.name": "supportx_roles",
                 "jsonType.label": "String",
                 "multivalued": "true",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "introspection.token.claim": "true",
+                "userinfo.token.claim": "false"
+              }
+            },
+            {
+              "name": "sign-in-identity-provider",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usersessionmodel-note-mapper",
+              "consentRequired": false,
+              "config": {
+                "user.session.note": "identity_provider",
+                "claim.name": "sx_idp",
+                "jsonType.label": "String",
                 "id.token.claim": "true",
                 "access.token.claim": "true",
                 "introspection.token.claim": "true",
@@ -3135,6 +3165,9 @@ spec:
             # Applies the password policy admins save (manage-realm); no other pod holds it.
             - name: SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-realm-secret, optional: true}}
+            # Reads Keycloak's login events into the sign-in log (view-events); no other pod holds it.
+            - name: SUPPORTX_KEYCLOAK_EVENTS_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-events-client-secret, optional: true}}
           ports:
             - {name: metrics, containerPort: 9464}
           startupProbe:
@@ -4214,6 +4247,9 @@ spec:
             # supportx-realm (manage-realm, the password policy); without it the client is not made.
             - name: SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-realm-secret, optional: true}}
+            # supportx-events (view-events only, the sign-in log's import); without it not made.
+            - name: SUPPORTX_KEYCLOAK_EVENTS_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-events-client-secret, optional: true}}
             - {name: SUPPORTX_KEYCLOAK_WAIT_SECONDS, value: "600"}
           securityContext:
             allowPrivilegeEscalation: false
