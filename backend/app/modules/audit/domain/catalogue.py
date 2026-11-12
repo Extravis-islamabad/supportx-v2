@@ -160,6 +160,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.created", AuditCategory.ACCESS, "identity_access"),
     ("user.changed", AuditCategory.ACCESS, "identity_access"),
     ("user.type_changed", AuditCategory.ACCESS, "identity_access"),
+    # a person's cost per hour (REQ-INC-068): old and new rate and start in the details
+    ("user.cost_rate_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.sign_in_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.deactivated", AuditCategory.ACCESS, "identity_access"),
     ("user.reactivated", AuditCategory.ACCESS, "identity_access"),

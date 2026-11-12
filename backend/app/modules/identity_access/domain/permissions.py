@@ -90,6 +90,10 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
     # API keys for service identities and every key of the tenant (WP-041, D-128). The key
     # screens are for the browser only: no key ever reaches them, whatever its scopes.
     PermissionSpec("api_keys.manage"),
+    # A person's cost per hour (REQ-INC-068, for worklog costs): money, so no built-in role but
+    # the tenant admin holds them (no defaults). Names pending Haider's naming (PROGRESS.md).
+    PermissionSpec("users.view_cost_rates"),
+    PermissionSpec("users.manage_cost_rates"),
 )
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
