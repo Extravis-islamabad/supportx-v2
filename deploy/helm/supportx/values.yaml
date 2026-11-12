@@ -256,6 +256,9 @@ files:
   scanRequired: true
 clamav:
   enabled: true
+  # Copies of clamd (each with its own signatures volume and freshclam); values-ha.yaml runs two.
+  # The consumers worker reaches them through one Service, which balances its connections.
+  replicas: 1
   # Signature updates. Default: ClamAV's public mirrors. Air-gapped: a private mirror on the
   # internal network (e.g. http://mirror.internal/clamav), or none at all and the offline bundle
   # loaded with deploy/scripts/clamav-signatures.sh. Signatures older than 7 days raise an alert.
@@ -567,6 +570,10 @@ ha:
   # Kept during a voluntary disruption (a node drain, an upgrade) for every component running
   # more than one copy.
   minAvailable: 1
+  # Seconds the single-copy workers (fan-out, custom field indexes) stay on a NotReady or
+  # unreachable node before Kubernetes evicts them; 0 = Kubernetes' default (300 s).
+  # values-ha.yaml sets it.
+  fastEvictionSeconds: 0
 
 podAnnotations: {}
 

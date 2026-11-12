@@ -19,7 +19,14 @@
 #     (k3s's CoreDNS is a plain manifest, so a HelmChartConfig does not reach it). On another
 #     distribution, do the same to its DNS deployment (kubeadm, RKE2 and managed clusters
 #     usually run two copies already; check they sit on different nodes);
-#   - the CloudNativePG operator with two copies on different nodes (deploy/k3d/prereqs.sh).
+#   - the CloudNativePG operator with two copies on different nodes (deploy/k3d/prereqs.sh);
+#   - the ingress: two copies on different nodes. k3s ships one Traefik copy: copy
+#     deploy/k3s/traefik-ha.yaml into /var/lib/rancher/k3s/server/manifests/ (a HelmChartConfig,
+#     kept through restarts) and check with deploy/k3s/traefik-ha.sh;
+#   - object storage: the bundled SeaweedFS (objectStorage.mode seaweedfs) is ONE copy, not HA.
+#     Point the chart at your own S3-compatible store (objectStorage.mode external; the preflight
+#     warns, advisory only, while the bundled one runs). docs/deployment.md, Profiles, lists what
+#     runs how many copies.
 # Recommended, not required: node-monitor-grace-period 20 s on kube-controller-manager (k3s:
 # deploy/k3s/config-ha.yaml; CI runs it). A lost node's endpoints (CoreDNS, pooler, API) then
 # drop in about 20 s instead of 40-50 s; pods still move only after the default 300 s
@@ -30,6 +37,14 @@ ha:
   enabled: true
   antiAffinity: hard
   minAvailable: 1
+  # The fan-out (ADR-023: exactly one copy, its merge windows are in memory) and the custom field
+  # index worker (D-088: one builder behind a lock) cannot run a second copy to take over. Without
+  # this, a pod on a lost node is evicted only after Kubernetes' default 300 s toleration; live
+  # updates stop for those five minutes. 30 s after the node goes NotReady (about 20 s with
+  # deploy/k3s/config-ha.yaml) they are evicted and start elsewhere: about 50 s in all. Not
+  # shorter: a brief network blip would then move them for nothing. Screens reconcile by refetch
+  # when the realtime connection comes back (architecture.md §8.3).
+  fastEvictionSeconds: 30
 
 api:
   autoscaling: {enabled: true, minReplicas: 3, maxReplicas: 6, targetCPUPercent: 70}
@@ -49,6 +64,10 @@ consumers:
 slaTimers:
   replicas: 2
 
+# The workflow timers share Temporal's task queue like the SLA timers; a repeated task is a no-op.
+workflowTimers:
+  replicas: 2
+
 # Infinispan between the copies (the chart switches the cache stack above one replica).
 keycloak:
   replicas: 2
@@ -63,12 +82,26 @@ postgresql:
       instances: 2
       tcpUserTimeoutMs: "10000"
 
-# A three-server NATS cluster; streams keep three replicas.
+# A three-server NATS cluster; streams keep three replicas. Required anti-affinity: two servers
+# on one node would lose JetStream's quorum (2 of 3) with that node. The upstream chart's own
+# pod-template merge (nats 2.15.1, podTemplate.merge, not templated, so its selector labels are
+# written out: app.kubernetes.io/name and component are both "nats"; the rule is per namespace).
 nats:
   config:
     cluster:
       enabled: true
       replicas: 3
+  podTemplate:
+    merge:
+      spec:
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: nats
+                    app.kubernetes.io/component: nats
 
 # Valkey with Sentinel (ADR-038): three pods, each a server and a sentinel; the app follows a
 # failover by itself. It replaces the bundled single Valkey.
@@ -76,6 +109,12 @@ valkey:
   enabled: false
 valkeyHa:
   enabled: true
+
+# Malware scanning: two clamd copies on different nodes, so uploads keep being scanned when a node
+# is lost (files wait as "scanning" while no scanner answers). Each copy pulls its own signatures;
+# the chart staggers their freshclam checks so the mirror never takes two at once.
+clamav:
+  replicas: 2
 
 # Realtime: three copies sharing the Valkey engine through the sentinels.
 centrifugo:
