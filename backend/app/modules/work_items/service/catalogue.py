@@ -98,10 +98,9 @@ def settings_record_id(code: str) -> uuid.UUID:
     return uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{code}")
 
 
-SEED_VERSION = (
-    5  # 3: the closure code "confirmed by requester" (D-107); 4: staged roles, approvals;
-)
-# 5: a release's own closure codes (WP-058b S4, REQ-REL-050)
+# 3: the closure code "confirmed by requester" (D-107); 4: staged roles and stage approvals;
+# 5: a release's own closure codes (WP-058b S4, REQ-REL-050).
+SEED_VERSION = 5
 STANDARD_TEMPLATE = "standard"
 MAJOR_PROBLEM_TEMPLATE = "major_problem"  # REQ-PRB-017, Appendix A: the guided life cycle
 
