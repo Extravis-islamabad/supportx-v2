@@ -52,6 +52,7 @@ export {
 } from './rules/evaluate';
 export {
   arrangeFields,
+  completeLayout,
   type ArrangedForm,
   type ArrangedSection,
   type FormLayout,

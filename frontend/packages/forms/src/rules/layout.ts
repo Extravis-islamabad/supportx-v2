@@ -9,7 +9,7 @@ export type LayoutAudience = 'technician' | 'requester';
 
 export interface LayoutSection {
   id: string;
-  names?: Partial<Record<string, string>>;
+  names?: Record<string, string>;
   columns?: number;
   collapsible?: boolean;
   collapsed?: boolean;
@@ -28,7 +28,7 @@ export interface FormLayout {
 
 export interface ArrangedSection {
   id: string;
-  names: Partial<Record<string, string>>;
+  names: Record<string, string>;
   columns: 1 | 2;
   collapsible: boolean;
   collapsed: boolean;
@@ -82,4 +82,26 @@ export function arrangeFields(
   const last = sections[sections.length - 1];
   if (rest.length > 0 && last !== undefined) last.fields.push(...rest);
   return { labelPosition: part.label_position ?? 'top', sections };
+}
+
+/** A layout with every default written out, as the API takes it. */
+export function completeLayout(layout: FormLayout): {
+  technician: Required<LayoutPart> & { sections: Required<LayoutSection>[] };
+  requester: (Required<LayoutPart> & { sections: Required<LayoutSection>[] }) | null;
+} {
+  const part = (p: LayoutPart) => ({
+    label_position: p.label_position ?? 'top',
+    sections: p.sections.map((s) => ({
+      id: s.id,
+      names: s.names ?? {},
+      columns: s.columns ?? 1,
+      collapsible: s.collapsible ?? false,
+      collapsed: s.collapsed ?? false,
+      fields: s.fields ?? [],
+    })),
+  });
+  return {
+    technician: part(layout.technician),
+    requester: layout.requester ? part(layout.requester) : null,
+  };
 }
