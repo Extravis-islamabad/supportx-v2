@@ -10,7 +10,7 @@ import {
   useStagedSettings,
   type ChangeListItem,
 } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
+import { useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   CellText,
   loadedEmpty,
@@ -30,7 +30,7 @@ import {
 
 import { useDebounced } from '../../useDebounced';
 import { BulkBar, BulkDialog, BulkProgress } from '../incidents/list/bulk';
-import type { Selection } from '../incidents/list/model';
+import { useBulkLive, type Selection } from '../incidents/list/model';
 import { StatusTag } from '../incidents/tags';
 import { listValueName, stageName } from '../staged/labels';
 import { ChangeBulkCancel } from './ChangeBulkCancel';
@@ -81,6 +81,8 @@ function searchFilter(text: string): string | undefined {
   });
 }
 
+const LISTS_CHANGED = 'work_items.lists_changed';
+const CHANGE_TYPE = 'change';
 /**
  * The changes list on template C (D-147): the header with its count and New change, one filter
  * bar (the view and the search), then the table where the title takes the width left. Number,
@@ -132,6 +134,14 @@ export function ChangesPage() {
   useListChannel('changes', () => {
     void queryClient.invalidateQueries({ queryKey: changeKeys.list });
   });
+  // A bulk job's records do not each reach the list channel: the job says once per batch which
+  // type's lists changed (QA 2026-11-12 F-01), and its progress drawer follows the job.
+  useTenantChannel((message) => {
+    if (message.type === LISTS_CHANGED && message.ids.includes(CHANGE_TYPE)) {
+      void queryClient.invalidateQueries({ queryKey: changeKeys.list });
+    }
+  });
+  useBulkLive();
   useEffect(() => {
     if (list.error) reportError(list.error);
   }, [list.error]);

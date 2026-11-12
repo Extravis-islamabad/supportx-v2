@@ -2320,6 +2320,7 @@ export const ar: LabelResource = {
   'window_weekday.4': 'الجمعة',
   'window_weekday.5': 'السبت',
   'window_weekday.6': 'الأحد',
+  'work_item.field.accepted_at': 'قُبلت دون إصلاح',
   'work_item.field.actual_downtime_seconds': 'التوقف الفعلي',
   'work_item.field.actual_end': 'الانتهاء الفعلي',
   'work_item.field.actual_start': 'البدء الفعلي',

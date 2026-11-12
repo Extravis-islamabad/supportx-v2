@@ -8,6 +8,8 @@ export const ur: LabelResource = {
   'age_bucket.over_30_days': '30 دن سے زیادہ',
   'age_bucket.under_1_day': '1 دن سے کم',
   'dashboard.changes': 'تبدیلیاں',
+  'dashboard.changes.description':
+    'تبدیلیاں کیسی جا رہی ہیں اور کہاں کھڑی ہیں: کامیابی کی شرح، ہنگامی تبدیلیاں، نتائج، خطرہ اور وجوہات۔',
   'dashboard.my_work': 'میرا کام',
   'dashboard.my_work.description': 'آپ کے کھلے واقعات، اس ہفتے آپ نے کیا حل کیا اور قطار۔',
   'dashboard.service_desk': 'سروس ڈیسک',
