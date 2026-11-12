@@ -99,6 +99,7 @@ export const ar: LabelResource = {
   'board_rule.majority': 'توافق الأغلبية',
   'board_rule.majority_with_chair': 'الأغلبية، ويحسم الرئيس التعادل',
   'bulk_action.assign': 'إسناد',
+  'bulk_action.assign_role': 'إسناد دور',
   'bulk_action.cancel': 'إلغاء',
   'bulk_action.close': 'إغلاق',
   'bulk_action.delete': 'نقل إلى سلة المهملات',

@@ -95,6 +95,7 @@ export const ur: LabelResource = {
   'board_rule.majority': 'اکثریت منظور کرے',
   'board_rule.majority_with_chair': 'اکثریت؛ برابری پر چیئر فیصلہ کرے',
   'bulk_action.assign': 'تفویض',
+  'bulk_action.assign_role': 'کردار تفویض کریں',
   'bulk_action.cancel': 'منسوخ کریں',
   'bulk_action.close': 'بند کریں',
   'bulk_action.delete': 'کوڑے دان میں منتقل کریں',

@@ -92,6 +92,7 @@ export const en = {
   'board_rule.majority': 'A majority approves',
   'board_rule.majority_with_chair': 'A majority; the chair breaks ties',
   'bulk_action.assign': 'Assign',
+  'bulk_action.assign_role': 'Assign a role',
   'bulk_action.cancel': 'Cancel',
   'bulk_action.close': 'Close',
   'bulk_action.delete': 'Move to trash',

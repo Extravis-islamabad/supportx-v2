@@ -63,6 +63,8 @@ _PERMISSION = {
     BulkAction.UNLINK_PROBLEM: "edit",
     BulkAction.CANCEL: "cancel",
     BulkAction.DELETE: "delete",
+    # A release role's holders: the record's edit right, checked again on each one (set_role).
+    BulkAction.ASSIGN_ROLE: "edit",
 }
 _KEYS = {
     BulkAction.EDIT: None,  # any field the edit form has; the update checks each one
@@ -75,9 +77,12 @@ _KEYS = {
     BulkAction.UNLINK_PROBLEM: {"problem_id"},
     BulkAction.CANCEL: {"reason_text"},
     BulkAction.DELETE: set(),
+    BulkAction.ASSIGN_ROLE: {"role", "user_ids", "group_ids"},
 }
-# The staged list's own actions (REQ-CHG-101): other types cancel through their life cycle.
+# The staged lists' own actions (REQ-CHG-101, REQ-REL-057): other types cancel through their
+# life cycle, and only a type with record roles has role holders to set.
 STAGED_ONLY = frozenset({BulkAction.CANCEL, BulkAction.DELETE})
+ROLES_ONLY = frozenset({BulkAction.ASSIGN_ROLE})
 
 
 class JobRepository(Repository[WorkItemBulkJob]):
@@ -97,6 +102,11 @@ def _check_changes(action: BulkAction, changes: dict[str, Any]) -> dict[str, Any
         problems.append(("changes", "required"))
     if action == BulkAction.CANCEL and not str(changes.get("reason_text") or "").strip():
         problems.append(("changes", "required"))  # a cancel says why, for every change
+    if action == BulkAction.ASSIGN_ROLE and (
+        not isinstance(changes.get("role"), str)
+        or not (changes.get("user_ids") or changes.get("group_ids"))
+    ):
+        problems.append(("changes", "required"))  # a role, and someone to hold it
     if action == BulkAction.ASSIGN and not (
         changes.get("group_id") or changes.get("technician_id")
     ):
@@ -151,8 +161,10 @@ async def start(  # noqa: PLR0913 - the job's inputs, explicit
         and wtype.code is not WorkItemTypeCode.INCIDENT
     ):
         raise items.field_errors([("action", "invalid_choice")])  # only incidents have a cause
-    if action in STAGED_ONLY and wtype.code is not WorkItemTypeCode.CHANGE:
-        raise items.field_errors([("action", "invalid_choice")])  # the change list's (CHG-101)
+    if action in STAGED_ONLY and wtype.stages is None:
+        raise items.field_errors([("action", "invalid_choice")])  # the staged lists' (CHG-101)
+    if action in ROLES_ONLY and not wtype.roles:
+        raise items.field_errors([("action", "invalid_choice")])  # REQ-REL-057
     clean = _check_changes(action, changes)
     ids = list(dict.fromkeys(record_ids))
     if not ids:
@@ -443,6 +455,19 @@ async def _apply(  # noqa: C901 - one case per bulk action, flat
         case BulkAction.DELETE:
             await items.remove(
                 session, subject, wtype, record_id, expected_version=version, source=source
+            )
+        case BulkAction.ASSIGN_ROLE:
+            await items.set_role(
+                session,
+                subject,
+                wtype,
+                record_id,
+                str(changes["role"]),
+                user_ids=[uuid.UUID(str(u)) for u in changes.get("user_ids") or []],
+                group_ids=[uuid.UUID(str(g)) for g in changes.get("group_ids") or []],
+                expected_version=version,
+                source=source,
+                holders=holders,
             )
         case BulkAction.CLOSE if wtype.stages is not None:
             await _close_staged(session, subject, wtype, record_id, version, changes, source)
