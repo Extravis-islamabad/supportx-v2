@@ -52,7 +52,11 @@ OWNERS_MAX = 500  # one per connector instance: far more than any tenant runs
 
 
 def server_key(settings: Settings) -> bytes | None:
-    """The key secrets are hashed under: its own setting, else derived from the session secret."""
+    """The key secrets are hashed under: its own setting, else derived from the session secret.
+
+    Only SUPPORTX_SESSION_SECRET (the legacy secret), never the session key ring (D-162):
+    rotating sign-in keys must never end API keys. Production refuses a ring without either.
+    """
     if settings.api_key_secret is not None:
         return settings.api_key_secret.get_secret_value().encode()
     if settings.session_secret is not None:

@@ -90,6 +90,13 @@ export const routes: RouteObject[] = [
         ],
       },
       {
+        // WP-046a S1 (REQ-INC-076): your open tasks on every type.
+        path: 'my-tasks',
+        lazy: async () => ({
+          Component: (await import('./pages/tasks/MyTasksPage')).MyTasksPage,
+        }),
+      },
+      {
         // The change screens (WP-045d D19, taken forward): the list, a new change, the record.
         path: 'changes',
         handle: { section: 'changes' },
@@ -119,6 +126,12 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/changes/ChangePage')).ChangePage,
             }),
           },
+          {
+            path: ':id/pack',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangePack')).ChangePack,
+            }),
+          },
         ],
       },
       {
@@ -136,6 +149,13 @@ export const routes: RouteObject[] = [
             path: 'new',
             lazy: async () => ({
               Component: (await import('./pages/releases/NewReleasePage')).NewReleasePage,
+            }),
+          },
+          {
+            // WP-058b S1: the release calendar (the shared staged calendar).
+            path: 'calendar',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleaseCalendarPage')).ReleaseCalendarPage,
             }),
           },
           {
@@ -383,6 +403,14 @@ export const routes: RouteObject[] = [
             lazy: async () => ({
               Component: (await import('./pages/admin/incidents/IncidentSettingsPage'))
                 .IncidentSettingsPage,
+            }),
+          },
+          {
+            // WP-058b S4: release closure codes, closing and stages (template E).
+            path: 'releases/:section?',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/releases/ReleaseSettingsPage'))
+                .ReleaseSettingsPage,
             }),
           },
           {

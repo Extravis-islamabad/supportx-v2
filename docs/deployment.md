@@ -71,7 +71,7 @@ hex values and never overwrites an existing one (its passwords are already insid
 
 | Secret | Keys |
 |---|---|
-| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027), `temporal-db-password` (the bundled Temporal's `temporal` role, with `temporal.bundled.enabled`) |
+| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, any `session-key-*` listed in `secrets.sessionKeys` (the sign-in key ring, D-162; [rotating it](guides/rotating-the-sign-in-key.md)), `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027), `temporal-db-password` (the bundled Temporal's `temporal` role, with `temporal.bundled.enabled`) |
 | `supportx-db-keycloak` (basic-auth) | `username` = `keycloak`, `password` |
 | `supportx-pg-superuser` | created by CloudNativePG; used only by the migrate Job |
 
@@ -94,6 +94,20 @@ hex values and never overwrites an existing one (its passwords are already insid
   Measured on the k3d HA cluster (node-loss test, 2026-11-04): the agent with the primary is
   stopped; a standby is promoted after about 70 s, and the same signed-in session writes again
   about 30 s after that.
+
+  **Valkey failover and readiness.** Sentinel learns a master's replicas only from the master's
+  INFO, which it reads every 10 s (fixed in Valkey). A master stopped before its sentinels saw
+  its replicas cannot fail over: every attempt aborts with `-failover-abort-no-good-slave` until
+  it is back. So a Valkey pod becomes Ready only once its own sentinel knows it in its role
+  (`ready.sh` in `templates/valkey-ha.yaml`): a replica when it is synced and its sentinel lists
+  it, a master when its sentinel lists every replica connected to it. After that first readiness
+  only the server counts, so a sentinel that restarts never makes Valkey unready; a promotion,
+  a demotion or a container restart gates again. `kubectl describe pod` shows what a pod waits
+  for. Planned restarts, rolling updates and drains (which wait for Ready) are therefore covered.
+  **The remaining gap:** an unplanned crash of a master within about 10 s of a fresh start, before
+  the sentinels' next INFO, can still miss the failover until that pod is back. No data is lost
+  (a pod never starts as an empty master while a peer may hold data), but Valkey is unavailable
+  meanwhile; Kubernetes restarts the pod, and it rejoins.
 
 ## Client addresses behind the gateway
 

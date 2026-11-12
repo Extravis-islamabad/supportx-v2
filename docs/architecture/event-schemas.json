@@ -1031,6 +1031,50 @@
         "type": "object"
       }
     },
+    "assets.bulk_job.progressed": {
+      "1": {
+        "description": "A bulk job on assets moved on (REQ-AST-051): its requester's progress, one list refresh.\n\nSent when it is queued, after each batch and when it ends. Counts only.",
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id",
+          "requested_by",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "AssetBulkJobProgressed",
+        "type": "object"
+      }
+    },
     "assets.catalogue.changed": {
       "1": {
         "description": "A product type, state, life cycle or the asset settings changed (admin set-up).",
@@ -1203,6 +1247,51 @@
           "people"
         ],
         "title": "AssetHolderChanged",
+        "type": "object"
+      }
+    },
+    "assets.import.progressed": {
+      "1": {
+        "description": "An asset, consumable or vendor import moved on (REQ-AST-053): its requester's progress.\n\nSent when it is queued, after each batch and when it ends (a dry run ends `checked`).",
+        "properties": {
+          "import_id": {
+            "format": "uuid",
+            "title": "Import Id",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "checked",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "import_id",
+          "requested_by",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "AssetImportProgressed",
         "type": "object"
       }
     },
@@ -2263,6 +2352,42 @@
         "type": "object"
       }
     },
+    "automation.workflow.run_as_changed": {
+      "1": {
+        "description": "A role was given to, or taken from, a workflow's run-as identity (ADR-043 §6).\n\nIts own event, so `automation.workflow.changed` v1 keeps its contract. The designer's\n\"Runs as\" section refreshes; IDs and codes only, never the role's name.",
+        "properties": {
+          "change": {
+            "enum": [
+              "role_added",
+              "role_removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "record_type",
+          "change",
+          "version"
+        ],
+        "title": "WorkflowRunAsChanged",
+        "type": "object"
+      }
+    },
     "automation.workflow.webhook_requested": {
       "1": {
         "description": "A webhook node asks the worker to make one guarded call (WP-048b S2; ADR-043 §8).\n\nNever sent from a request: the worker's consumer sends it through the shared egress client\nand reports back as `WorkflowCommandFinished`. The record's fields are read by the worker,\nso the outbox holds only their names.",
@@ -3071,6 +3196,33 @@
         "type": "object"
       }
     },
+    "identity_access.user_cost_rate.changed": {
+      "1": {
+        "description": "A person's cost per hour was set, changed or removed (REQ-INC-068).\n\nIDs and the kind of change only, never the amount: screens with `users.view_cost_rates`\nrefetch the person's rates.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "change"
+        ],
+        "title": "UserCostRateChanged",
+        "type": "object"
+      }
+    },
     "identity_access.user_role.changed": {
       "1": {
         "description": "A role was assigned to or removed from a user (WP-016).",
@@ -3731,6 +3883,34 @@
           "state"
         ],
         "title": "DeliveryRecorded",
+        "type": "object"
+      }
+    },
+    "notifications.mail.not_sent_summary": {
+      "1": {
+        "description": "One run gave up on e-mails that waited 7 days for outgoing mail to be set up (D-157).\n\nOne per run and tenant, whatever the count: the people who set mail up hear it once, in the\napp (the summary is no e-mail: there is no mail to send it with). Counts and a time only.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "oldest_at": {
+            "format": "date-time",
+            "title": "Oldest At",
+            "type": "string"
+          },
+          "summary_id": {
+            "format": "uuid",
+            "title": "Summary Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary_id",
+          "count",
+          "oldest_at"
+        ],
+        "title": "MailNotSentSummary",
         "type": "object"
       }
     },
@@ -4855,6 +5035,38 @@
         "type": "object"
       }
     },
+    "system.list_settings.changed": {
+      "1": {
+        "description": "A person's settings or saved view of one list changed: their other windows follow.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "list_key": {
+            "title": "List Key",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "view_key": {
+            "title": "View Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "list_key",
+          "view_key",
+          "change"
+        ],
+        "title": "ListSettingsChanged",
+        "type": "object"
+      }
+    },
     "system.mail.queued": {
       "1": {
         "description": "A message was queued; the mail worker sends it.",
@@ -5011,6 +5223,11 @@
             "title": "Asset Id",
             "type": "string"
           },
+          "at_creation": {
+            "default": false,
+            "title": "At Creation",
+            "type": "boolean"
+          },
           "change": {
             "enum": [
               "added",
@@ -5136,6 +5353,54 @@
           "board_id"
         ],
         "title": "ChangeApprovalNotice",
+        "type": "object"
+      }
+    },
+    "work_items.change.reminder_due": {
+      "1": {
+        "description": "A change's reminder is due (WP-045d S3; REQ-CHG-091, -105), claimed once by the sweep.\n\n`kind`: `window_start` (an hour before the implementation window), `implementation_overdue`\n(the window ended with implementation not complete), `cab_waiting` (it starts within a day\nand `member_id` has not decided) or `review_due`. `window_start` is the window it was\nclaimed for: the source re-reads the change at send time and says nothing if the window\nmoved meanwhile (lane B). IDs and times only.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Member Id"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Window Start"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "kind"
+        ],
+        "title": "ChangeReminderDue",
         "type": "object"
       }
     },
@@ -5524,6 +5789,53 @@
         ],
         "title": "WorkItemPartChangedV2",
         "type": "object"
+      },
+      "3": {
+        "description": "As V2, with a record's checklists, personal reminders and timers (WP-046a S2/S3).\n\nNew allowed values retype `part`, so a new schema version (docs/architecture/events.md\n\"Versioning\"); v1 and v2 stay registered and keep publishing their parts. A reminder or a\nrunning timer (REQ-INC-082, -069) is its owner's only: realtime tells their personal\nchannel, never the record's. `timer` is reserved here for S3, so S3 needs no V4.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "task",
+              "worklog",
+              "link",
+              "plan_section",
+              "stage_schedule",
+              "downtime",
+              "checklist",
+              "reminder",
+              "timer"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "part",
+          "part_id",
+          "change"
+        ],
+        "title": "WorkItemPartChangedV3",
+        "type": "object"
       }
     },
     "work_items.portal_settings.changed": {
@@ -5609,6 +5921,41 @@
           "incident_count"
         ],
         "title": "ProblemRepeatDetected",
+        "type": "object"
+      }
+    },
+    "work_items.reminder.due": {
+      "1": {
+        "description": "A person's own reminder on a record alerts them (WP-046a S2; REQ-INC-082 AC1).\n\nRaised once by the sweep at its time minus its lead. IDs only; the source re-reads the\nreminder at send time and says nothing if it moved, was completed, or its owner can no\nlonger see the record (the coordinator).",
+        "properties": {
+          "remind_at": {
+            "format": "date-time",
+            "title": "Remind At",
+            "type": "string"
+          },
+          "reminder_id": {
+            "format": "uuid",
+            "title": "Reminder Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "reminder_id",
+          "user_id",
+          "remind_at"
+        ],
+        "title": "WorkItemReminderDue",
         "type": "object"
       }
     },
@@ -5705,6 +6052,69 @@
           "changed_fields"
         ],
         "title": "WorkItemSettingsChanged",
+        "type": "object"
+      }
+    },
+    "work_items.task.assigned": {
+      "1": {
+        "description": "A task was given to someone (WP-046a S1; REQ-INC-076 AC1): its owner is told.\n\nRaised when a task is made with an owner or its owner changes to another person. IDs only;\nthe notification source reads the task and its record at send time.",
+        "properties": {
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "task_id",
+          "owner_id"
+        ],
+        "title": "WorkItemTaskAssigned",
+        "type": "object"
+      }
+    },
+    "work_items.task.reminder_due": {
+      "1": {
+        "description": "A task's reminder is due (WP-046a S1; REQ-INC-073 AC2, -076), claimed once by the sweep.\n\n`kind`: `starts_soon` (its owner's reminder before the scheduled start) or `overdue` (open\npast its due time). `at` is the time it was claimed for: the source re-reads the task at\nsend time and says nothing if that time moved meanwhile. IDs and times only.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "task_id",
+          "kind",
+          "at"
+        ],
+        "title": "WorkItemTaskReminderDue",
         "type": "object"
       }
     },

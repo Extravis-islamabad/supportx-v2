@@ -1,11 +1,13 @@
 import { Button, Form, Input, Tag, Typography } from 'antd';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import {
   useCatalogCategories,
   useCatalogItem,
   useCatalogItems,
+  useKnownAsset,
+  useKnownUser,
   useRaiseServiceRequest,
   useSession,
 } from '@supportx/api-client';
@@ -31,7 +33,9 @@ import {
   useLicence,
 } from '@supportx/ui';
 
+import { useFormKey } from '../formKey';
 import { UserPicker } from '../incidents/pickers';
+import { pickedOf } from '../assets/raise';
 import { AssetPickerField } from '../incidents/RecordAssets';
 import { plainText } from '../incidents/writingText';
 import { deliveryText, itemName } from './items';
@@ -48,18 +52,29 @@ export function NewRequestPage() {
   const { locale } = useAppearance();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const itemId = params.get('item') ?? undefined;
   const items = useCatalogItems();
+  // An item from the address is used only once the catalogue lists it for this person: an
+  // unknown or not-allowed one leaves the library open, with no message (REQ-AST-045).
+  const asked = params.get('item') ?? undefined;
+  const itemId = items.data?.some((i) => i.id === asked) === true ? asked : undefined;
   const categories = useCatalogCategories();
   const item = useCatalogItem(itemId);
   const me = useSession().data?.user.id ?? null;
   const raise = useRaiseServiceRequest();
-  const key = useMemo(() => crypto.randomUUID(), []);
+  const { key, done } = useFormKey('new-request'); // QA-2026-11-11 F-01: kept across a remount
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('');
-  const [assetIds, setAssetIds] = useState<string[]>([]);
+  // Raised from an asset (REQ-AST-045): `?asset=` and `?requester=` (its holder) fill the form
+  // once each is known to exist for this person; an unknown one leaves its field as it was.
+  const [pickedAssets, setAssetIds] = useState<string[] | null>(null);
   const hasAssets = useLicence().has('assets');
-  const [requester, setRequester] = useState<string | null>(me);
+  const [pickedRequester, setRequester] = useState<string | null | undefined>(undefined);
+  const knownAsset = useKnownAsset(params.get('asset'), hasAssets);
+  const knownRequester = useKnownUser(params.get('requester'));
+  const knownPicked = knownAsset.data === undefined ? [] : [pickedOf(knownAsset.data)];
+  const assetIds = pickedAssets ?? (knownAsset.data === undefined ? [] : [knownAsset.data.id]);
+  const requester =
+    pickedRequester !== undefined ? pickedRequester : (knownRequester.data?.id ?? me);
   const [answers, setAnswers] = useState<Record<string, QuestionValue> | null>(null);
 
   if (itemId === undefined || item.data === undefined) {
@@ -179,8 +194,8 @@ export function NewRequestPage() {
   const onBehalf = requester !== null && requester !== me;
   const send = () => {
     if (!ready) return;
-    raise.mutate(
-      {
+    raise
+      .mutateAsync({
         key,
         body: {
           subject: subject.trim(),
@@ -190,12 +205,10 @@ export function NewRequestPage() {
           confirm_lose_access: false,
           ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
         },
-      },
-      {
-        onSuccess: (made) => void navigate(`/requests/${made.id}`, { replace: true }),
-        onError: reportError,
-      },
-    );
+      })
+      .then((made) => {
+        done(`/requests/${made.id}`, { replace: true });
+      }, reportError);
   };
   return (
     // Template B (D-147, Haider 2026-11-10): the item's context, the request, its questions;
@@ -303,6 +316,7 @@ export function NewRequestPage() {
                 onChange={setAssetIds}
                 forUser={requester}
                 testId="sr-assets"
+                known={knownPicked}
               />
             </Form.Item>
           )}

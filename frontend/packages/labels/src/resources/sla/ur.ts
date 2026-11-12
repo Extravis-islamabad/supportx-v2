@@ -91,7 +91,10 @@ export const ur: LabelResource = {
   'sla.policies.move_down': 'نیچے لے جائیں',
   'sla.policies.move_up': 'اوپر لے جائیں',
   'sla.policies.never_matches': 'کبھی لاگو نہیں ہوتی: اس سے پہلے کی ایک پالیسی ہمیشہ پہلے ملتی ہے',
+  'sla.policies.no_targets':
+    'ابھی کسی {{type}} کا SLA نہیں: شروع کرنے کے لیے کسی پالیسی میں اہداف شامل کریں۔',
   'sla.policies.off': 'بند',
+  'sla.policies.record_type': 'ریکارڈ کی قسم',
   'sla.policies.running_records_keep':
     'تبدیلیاں نئے واقعات اور ان واقعات پر لاگو ہوتی ہیں جن کے فیلڈ بدلیں۔ جاری واقعات اپنے موجودہ اہداف برقرار رکھتے ہیں۔',
   'sla.policies.targets_explain':

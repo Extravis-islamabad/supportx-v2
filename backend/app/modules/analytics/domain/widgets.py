@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-from app.modules.analytics.domain.builtin import BUILTIN_REPORTS, INCIDENTS
+from app.modules.analytics.domain.builtin import BUILTIN_REPORTS, CHANGES, INCIDENTS
 from app.modules.analytics.domain.dashboard import ME, MY_GROUPS, DashboardBody, Widget
 
 KEY_NUMBERS = "key_numbers"
@@ -292,6 +292,34 @@ CURATED: tuple[WidgetTemplate, ...] = (
     _later("pending_approvals", "approvals"),
 )
 
+# Changes' key numbers (WP-045d S4c, REQ-CHG-116 AC1), over the changes raised in the last 90 days.
+_CHANGE_90 = {"field": "created_at", "op": "last_n_days", "value": 90}
+
+
+def _change_kpi(code: str, measure: str) -> WidgetTemplate:
+    return WidgetTemplate(
+        code,
+        CHANGES,
+        KEY_NUMBERS,
+        KPI_SIZE,
+        {
+            "report": {
+                "entity": "change",
+                "measures": [measure],
+                "chart": "kpi",
+                "filter": _CHANGE_90,
+            }
+        },
+    )
+
+
+CHANGE_WIDGETS: tuple[WidgetTemplate, ...] = (
+    _change_kpi("change_success_rate", "success_rate"),
+    _change_kpi("change_emergency_share", "emergency_share"),
+    _change_kpi("change_failed", "failed_count"),
+    _change_kpi("change_freeze_overrides", "freeze_override_count"),
+)
+
 # Every built-in report, as a chart or table widget (product owner, 2026-10-28).
 FROM_REPORTS: tuple[WidgetTemplate, ...] = tuple(
     WidgetTemplate(
@@ -306,7 +334,7 @@ FROM_REPORTS: tuple[WidgetTemplate, ...] = tuple(
 )
 
 CATALOGUE: Mapping[str, WidgetTemplate] = MappingProxyType(
-    {t.code: t for t in (*CURATED, *FROM_REPORTS)}
+    {t.code: t for t in (*CURATED, *CHANGE_WIDGETS, *FROM_REPORTS)}
 )
 
 
@@ -341,6 +369,23 @@ BUILTIN_DASHBOARDS: Mapping[str, DashboardBody] = MappingProxyType(
             ("overdue_list", 0, 16, 6, 4),
             ("unassigned_list", 6, 16, 6, 4),
         ),
+        # Changes (WP-045d S4c, REQ-CHG-116 AC1): how they go, where they stand, and why.
+        "changes": _place(
+            ("change_success_rate", 0, 0, 3, 2),
+            ("change_emergency_share", 3, 0, 3, 2),
+            ("change_failed", 6, 0, 3, 2),
+            ("change_freeze_overrides", 9, 0, 3, 2),
+            ("report_changes_open_by_stage", 0, 2, 6, 4),
+            ("report_changes_by_outcome", 6, 2, 6, 4),
+            ("report_changes_by_type", 0, 6, 6, 4),
+            ("report_changes_by_risk", 6, 6, 6, 4),
+            ("report_changes_success_rate_by_group", 0, 10, 6, 4),
+            ("report_changes_emergency_share_per_month", 6, 10, 6, 4),
+            ("report_changes_open_by_group", 0, 14, 6, 4),
+            ("report_changes_open_by_technician", 6, 14, 6, 4),
+            ("report_changes_by_reason", 0, 18, 6, 4),
+            ("report_changes_downtime_per_month", 6, 18, 6, 4),
+        ),
         # "My work": a technician's own queue (the technician role's home, REQ-DSH-002).
         "my_work": _place(
             ("my_open", 0, 0, 3, 2),
@@ -354,6 +399,27 @@ BUILTIN_DASHBOARDS: Mapping[str, DashboardBody] = MappingProxyType(
             ("recently_updated", 0, 10, 12, 4),
         ),
     }
+)
+
+
+def entities_of(body: DashboardBody) -> frozenset[str]:
+    """The entities a dashboard's widgets report on (a built-in report by its own entity)."""
+    found: set[str] = set()
+    for widget in body.widgets:
+        if widget.report is not None:
+            found.add(widget.report.entity)
+        elif widget.records is not None:
+            found.add(widget.records.entity)
+        elif (ref := (widget.report_ref or "").removeprefix("builtin:")) in BUILTIN_BY_CODE:
+            found.add(BUILTIN_BY_CODE[ref].definition.entity)
+    return frozenset(found)
+
+
+BUILTIN_BY_CODE = MappingProxyType({r.code: r for r in BUILTIN_REPORTS})
+# What each built-in dashboard needs (WP-045d S4c): the list offers it only to a viewer who may
+# report on every one of them, so a technician without changes never gets a page of failing tiles.
+BUILTIN_ENTITIES: Mapping[str, frozenset[str]] = MappingProxyType(
+    {code: entities_of(body) for code, body in BUILTIN_DASHBOARDS.items()}
 )
 
 # Home dashboards of the built-in roles until an admin sets others (REQ-DSH-002 AC1).

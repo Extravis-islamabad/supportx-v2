@@ -256,6 +256,43 @@ async def vendor_problem(
     return None
 
 
+async def find_vendor(session: AsyncSession, name: str) -> Vendor | None:
+    """The live vendor of this name, case and spacing aside (imports match rows by it)."""
+    wanted = " ".join(name.split()).lower()
+    if not wanted:
+        return None
+    found: Vendor | None = await session.scalar(
+        select(Vendor).where(func.lower(Vendor.name) == wanted, Vendor.deleted_at.is_(None))
+    )
+    return found
+
+
+async def find_vendors(session: AsyncSession, names: Sequence[str]) -> dict[str, uuid.UUID]:
+    """The live vendors of these names in one query (an import's batch, WP-049b S4c).
+
+    Keyed by `lower(name)` as the database lowers it, so `found.get(wanted)` with `wanted`
+    spaced and lowered as `find_vendor` does gives exactly the vendor `find_vendor` would.
+    """
+    wanted = sorted({" ".join(name.split()).lower() for name in names} - {""})
+    if not wanted:
+        return {}
+    rows = await session.execute(
+        select(func.lower(Vendor.name), Vendor.id)
+        .where(func.lower(Vendor.name).in_(wanted), Vendor.deleted_at.is_(None))
+        .order_by(Vendor.id)
+    )
+    found: dict[str, uuid.UUID] = {}
+    for lowered, vendor_id in rows:
+        found.setdefault(lowered, vendor_id)
+    return found
+
+
+async def find_vendor_id(session: AsyncSession, name: str) -> uuid.UUID | None:
+    """The ID of the live vendor of this name (an asset import's vendor column)."""
+    found = await find_vendor(session, name)
+    return None if found is None else found.id
+
+
 async def vendor_names(session: AsyncSession, vendor_ids: Sequence[uuid.UUID]) -> dict[str, str]:
     """{vendor id: name} for display (deleted vendors too: old records still name them)."""
     if not vendor_ids:

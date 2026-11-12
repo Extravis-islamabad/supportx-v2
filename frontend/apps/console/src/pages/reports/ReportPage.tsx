@@ -484,10 +484,16 @@ function ReportView({ latest }: { latest: Base }) {
                 title: rowTitle(row),
                 filter: row.drill,
                 count: typeof row.values[0] === 'number' ? row.values[0] : null,
+                listPath: result.list_path,
               });
             }}
             onDrillAll={() => {
-              setDrill({ title: t('reports.all_records'), filter: result.drill_all, count: null });
+              setDrill({
+                title: t('reports.all_records'),
+                filter: result.drill_all,
+                count: null,
+                listPath: result.list_path,
+              });
             }}
           />
           <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>

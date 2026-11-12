@@ -37,6 +37,10 @@ RULE_FIELDS = frozenset(
         "tags",
     }
 )
+# Conditions a closure rule can list beside fields (REQ-REL-051): a release's review completed.
+# Only a release may list it; an emergency release always needs it (REQ-REL-012 AC2).
+REVIEW_COMPLETED = "review_completed"
+RELEASE_CONDITIONS = frozenset({REVIEW_COMPLETED})
 # Asked by the move dialog itself, on either move when the rules list them (a closure code
 # before resolving, a resolution before closing); the rest are filled on the record.
 MOVE_FIELDS = frozenset({RESOLUTION, CLOSURE_CODE})
@@ -61,6 +65,9 @@ class OpenWorkKind(StrEnum):
     CHECKLISTS = "checklists"  # WP-020e
     CHILD_INCIDENTS = "child_incidents"  # WP-020e links
     APPROVALS = "approvals"  # WP-030
+    # WP-058b S4 (REQ-REL-052), generic for any type that registers them:
+    LINKED_CHANGES = "linked_changes"  # open changes linked to the record (a release's changes)
+    CHILD_RELEASES = "child_releases"  # open sub-releases
 
 
 OPEN_WORK_DEFAULTS: Mapping[OpenWorkKind, OpenWorkMode] = {
@@ -68,6 +75,8 @@ OPEN_WORK_DEFAULTS: Mapping[OpenWorkKind, OpenWorkMode] = {
     OpenWorkKind.CHECKLISTS: OpenWorkMode.WARN,
     OpenWorkKind.CHILD_INCIDENTS: OpenWorkMode.WARN,
     OpenWorkKind.APPROVALS: OpenWorkMode.BLOCK,
+    OpenWorkKind.LINKED_CHANGES: OpenWorkMode.WARN,  # listed, with an offer to close them
+    OpenWorkKind.CHILD_RELEASES: OpenWorkMode.WARN,
 }
 
 
@@ -80,10 +89,17 @@ def open_work_modes(saved: Mapping[str, str]) -> dict[OpenWorkKind, OpenWorkMode
     return modes
 
 
-def rule_field_problems(fields: Iterable[str], custom_keys: Iterable[str]) -> list[str]:
-    """Fields an admin may not require: unknown standard fields or custom fields."""
+def rule_field_problems(
+    fields: Iterable[str],
+    custom_keys: Iterable[str],
+    conditions: frozenset[str] = frozenset(),
+) -> list[str]:
+    """Fields an admin may not require: unknown standard fields, custom fields or conditions.
+
+    `conditions`: the type's own (RELEASE_CONDITIONS for releases), none for the others.
+    """
     custom = {f"custom.{key}" for key in custom_keys}
-    return [f for f in fields if f not in RULE_FIELDS and f not in custom]
+    return [f for f in fields if f not in RULE_FIELDS and f not in custom and f not in conditions]
 
 
 def is_empty(value: Any) -> bool:  # noqa: ANN401 - any field value

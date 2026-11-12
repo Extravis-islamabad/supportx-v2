@@ -162,6 +162,8 @@ export const en = {
   'layout.reset_widths': 'Reset widths',
   'layout.resize_column': 'Width of {{column}}: use the arrow keys',
   'layout.star': 'Add to favourites',
+  'layout.tabs_earlier': 'Earlier tabs',
+  'layout.tabs_later': 'Later tabs',
   'layout.unstar': 'Remove from favourites',
   'layout.view': 'View',
   'live.changed_by':
@@ -193,6 +195,7 @@ export const en = {
   'nav.admin_notifications': 'Notifications',
   'nav.admin_organization': 'Organisation',
   'nav.admin_portal': 'Portal',
+  'nav.admin_releases': 'Release settings',
   'nav.admin_requests': 'Service requests',
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'Roles',
@@ -217,6 +220,7 @@ export const en = {
   'nav.main': 'Main navigation',
   'nav.more': 'More',
   'nav.my_requests': 'My requests',
+  'nav.my_tasks': 'My tasks',
   'nav.open_menu': 'Open the menu',
   'nav.problems': 'Problems',
   'nav.profile': 'My profile',
@@ -320,6 +324,11 @@ export const en = {
   'search.same_requester': 'Also from {{name}}',
   'search.status_filter': 'Status',
   'search.type_to_search': 'Type an ID, words or a name',
+  'service_roles.add': 'Give a role',
+  'service_roles.inactive': 'Inactive: it does nothing until switched on again.',
+  'service_roles.no_roles': "No role yet: it can't act on any record.",
+  'service_roles.none_offered': 'No role you can give fits this identity.',
+  'service_roles.remove': 'Take the role {{name}}',
   'settings.actions': 'Actions',
   'settings.add_category': 'Add a category',
   'settings.add_item': 'Add an item',
@@ -336,6 +345,22 @@ export const en = {
     'Category, subcategory and item. Retired entries are not offered on new incidents but still show on the incidents that use them.',
   'settings.changed_elsewhere':
     'Someone else changed these settings just now. The latest version is shown; please make your change again.',
+  'settings.checklists.add': 'New library checklist',
+  'settings.checklists.enabled_named': 'Offer {{name}}',
+  'settings.checklists.help':
+    'Ready-made checklists a technician can add to an incident. The incident gets its own copy: changing one here never changes incidents that already have it.',
+  'settings.checklists.import': 'Add items from a CSV file',
+  'settings.checklists.imported':
+    '{{items}} items read, {{rejected}} rows left out. Review them, then save.',
+  'settings.checklists.items': 'Items',
+  'settings.checklists.items_count_one': '{{count}} item',
+  'settings.checklists.items_count_other': '{{count}} items',
+  'settings.checklists.items_help': 'One item per line. Empty lines are left out.',
+  'settings.checklists.name': 'Name',
+  'settings.checklists.none': 'No library checklists yet.',
+  'settings.checklists.rejected_row': 'Row {{row}}: {{reason}}',
+  'settings.checklists.title': 'Checklist library',
+  'settings.checklists.why.name': 'Give the checklist a name first.',
   'settings.closing.auto_close': 'Close resolved incidents automatically',
   'settings.closing.auto_close_days': 'Business days before auto-close',
   'settings.closing.auto_close_help':
@@ -343,23 +368,44 @@ export const en = {
   'settings.closing.auto_close_needs_notifications':
     'Requires requester notifications: auto-close stays off until a channel (e-mail or the portal) can tell requesters of a resolution. An incident is never closed for a requester who was never told.',
   'settings.closing.channel_state': '{{channel}}: {{reason}}.',
+  'settings.closing.checklist_item_max': 'Checklist items per record',
+  'settings.closing.checklist_item_max_help':
+    "All of a record's checklists together, {{min}} to {{max}}. A longer list is refused, never cut.",
   'settings.closing.close_requires': 'Needed before closing',
   'settings.closing.close_requires_help':
     'Fields that must be filled before an incident can be closed.',
   'settings.closing.complete_open_work': 'Complete open work on close',
   'settings.closing.complete_open_work_help': 'Closing an incident marks its open work as done.',
+  'settings.closing.condition.review_completed': 'Review completed',
   'settings.closing.days_range': 'From {{min}} to {{max}} business days.',
   'settings.closing.help':
     'What resolving and closing an incident need, what happens to open work, and how long a requester can reopen it with a reply.',
   'settings.closing.open_work': 'Open work',
   'settings.closing.open_work_help':
     'What happens when an incident is resolved or closed while work on it is still open. These checks start working when tasks, checklists, linked incidents and approvals arrive.',
+  'settings.closing.release.close_requires_help':
+    'Fields that must be filled before a release can be closed.',
+  'settings.closing.release.complete_open_work_help':
+    'Closing a release marks its open tasks as done; linked changes and sub-releases are never closed with it.',
+  'settings.closing.release.help':
+    'What resolving and closing a release need, and what happens to its open work: tasks, approvals, linked changes and sub-releases.',
+  'settings.closing.release.open_work_help':
+    'What happens when a release is resolved or closed while work on it is still open.',
+  'settings.closing.release.resolve_requires_help':
+    'Fields that must be filled before a release can be resolved.',
+  'settings.closing.release.task_owner_access':
+    'Task owners work on their tasks without access to the release',
+  'settings.closing.release.task_owner_access_help':
+    'They see their task and the release’s ID and subject, and can change the task’s status; never the notes or plans.',
   'settings.closing.reopen_window_days': 'Reopen window (days)',
   'settings.closing.reopen_window_help':
     'A requester reply within this many days of resolving reopens the incident; a later reply starts a new one. From 1 to 30.',
   'settings.closing.resolve_requires': 'Needed before resolving',
   'settings.closing.resolve_requires_help':
     'Fields that must be filled before an incident can be resolved.',
+  'settings.closing.task_dependency_mode': 'Waiting tasks are blocked',
+  'settings.closing.task_dependency_mode_help':
+    'A task cannot start or be done while a task it waits for is open. Off: it only shows as waiting.',
   'settings.closing.task_owner_access':
     'Task owners work on their tasks without access to the incident',
   'settings.closing.task_owner_access_help':
@@ -435,6 +481,8 @@ export const en = {
   'settings.reason_prompts': 'Reasons when the status changes',
   'settings.reason_prompts_help':
     'Choose whether each change asks for a reason. Pausing, cancelling and reopening pick from the reason lists.',
+  'settings.release_closure_codes_help':
+    'How a release ended. Picked when a release is closed; reports group by it.',
   'settings.rename': 'Rename',
   'settings.rename_value': 'Rename "{{name}}"',
   'settings.resume_on_requester_reply': 'A requester reply resumes it',
@@ -458,6 +506,7 @@ export const en = {
     'How fast it must be fixed. The four values are fixed; you can rename them.',
   'settings.section.business-rules': 'Business rules',
   'settings.section.categories': 'Categories',
+  'settings.section.checklists': 'Checklists',
   'settings.section.closing': 'Closing',
   'settings.section.closure-codes': 'Closure codes',
   'settings.section.custom-fields': 'Custom fields',
@@ -467,12 +516,18 @@ export const en = {
   'settings.section.reasons': 'Reasons',
   'settings.section.reply-templates': 'Reply templates',
   'settings.section.routing': 'Routing and assignment',
+  'settings.section.stages': 'Stages',
   'settings.section.statuses': 'Statuses',
+  'settings.section.task-templates': 'Task templates',
   'settings.section.templates': 'Templates',
   'settings.section.transitions': 'Transitions',
   'settings.section.triggers': 'Triggers',
   'settings.shipped_name': 'Built-in name: {{name}}',
   'settings.shipped_name_hint': 'Built-in name: {{name}}. Leave the names empty to keep it.',
+  'settings.stages.open_tasks_block': 'Open stage tasks hold the stage',
+  'settings.stages.open_tasks_block_help':
+    'A release cannot leave a stage while one of its tasks is open; the move names the task. Off: the move only warns.',
+  'settings.stages.title': 'Stage tasks',
   'settings.stale':
     'These settings were changed elsewhere while you were editing. Reload to see them (your unsaved edits here will be lost).',
   'settings.status_action': 'Action',
@@ -566,6 +621,10 @@ export const en = {
     'Everything the self-service portal does for requesters, on one page.',
   'setup.page.portal.keywords':
     'portal, self-service, search, search sources, hide incident form, due time, delivery date, on behalf, approvals, sign in, profile editing, reminders, cost, guest, self-registration',
+  'setup.page.releases.description':
+    'How releases close: their closure codes, what closing needs, which open work warns or blocks, and whether open stage tasks hold a stage.',
+  'setup.page.releases.keywords':
+    'release, release settings, closure codes, closing, rollback, stage tasks, deployment',
   'setup.page.requests.description':
     'Service requests: on whose behalf requesters may raise them, and the request views.',
   'setup.page.requests.keywords':

@@ -2,6 +2,13 @@ import type { LabelResource } from '../en';
 
 // errors labels (see ../README.md).
 export const ur: LabelResource = {
+  'checklist_import_failure.not_text': 'فائل UTF-8 متن (CSV) فائل نہیں ہے۔',
+  'checklist_import_failure.too_large': 'فائل 5 MB سے بڑی ہے۔',
+  'checklist_import_failure.too_many_columns': 'ایک قطار میں 40 سے زیادہ کالم ہیں۔',
+  'checklist_import_failure.too_many_rows': 'فائل میں 5,000 سے زیادہ قطاریں ہیں۔',
+  'checklist_import_reason.empty': 'خالی قطار',
+  'checklist_import_reason.too_many_items': 'چیک لسٹ کی آئٹم حد سے زیادہ',
+  'checklist_import_reason.value_too_long': '500 حروف سے لمبی',
   'errors.action_link_expired':
     'اس لنک کی میعاد ختم ہو گئی ہے۔ اس کے بجائے درخواست ایپ میں کھولیں۔',
   'errors.action_link_not_found': 'یہ لنک درست نہیں۔',
@@ -38,6 +45,10 @@ export const ur: LabelResource = {
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_pending': '{{display_id}} پہلے ہی منظوری کا منتظر ہے۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
+  'errors.archive_busy': 'آپ کے دو ڈاؤن لوڈ پہلے سے چل رہے ہیں۔ ایک منٹ بعد دوبارہ کوشش کریں۔',
+  'errors.archive_too_large': 'ان فائلوں کا حجم {{max_mb}} MB سے زیادہ ہے۔ کم فائلیں منتخب کریں۔',
+  'errors.archive_too_many_files':
+    'آپ ایک وقت میں زیادہ سے زیادہ {{max}} فائلیں ڈاؤن لوڈ کر سکتے ہیں۔',
   'errors.asset_acknowledgement_answered': 'آپ اس کا جواب پہلے ہی دے چکے ہیں۔',
   'errors.asset_acknowledgement_not_found': 'یہ تصدیق آپ کی نہیں، یا اب موجود نہیں۔',
   'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',
@@ -58,6 +69,7 @@ export const ur: LabelResource = {
   'errors.asset_booking_taken':
     'یہ وقت پہلے سے لیا جا چکا ہے۔ اگلا خالی دن {{next_free}} سے شروع ہوتا ہے۔',
   'errors.asset_bulk_empty': 'کم از کم ایک اثاثہ منتخب کریں۔',
+  'errors.asset_bulk_job_not_found': 'یہ اجتماعی تبدیلی نہیں ملی۔',
   'errors.asset_bulk_too_many': 'ایک بار میں زیادہ سے زیادہ {{max}} اثاثے منتخب کریں۔',
   'errors.asset_consumable_batch_tracking_fixed':
     'بیچ ٹریکنگ قابلِ صرف شے شامل کرتے وقت طے ہوتی ہے اور بعد میں نہیں بدلتی۔ اس کے بجائے پروڈکٹ کو نئی شے کے طور پر شامل کریں۔',
@@ -70,12 +82,24 @@ export const ur: LabelResource = {
   'errors.asset_disposal_not_found': 'اس اثاثے کا کوئی تلفی ریکارڈ نہیں۔',
   'errors.asset_disposed_read_only':
     'یہ اثاثہ تلف ہو چکا ہے، اس لیے صرف پڑھا جا سکتا ہے۔ اسے بدلنے کے لیے تلف شدہ اثاثے بدلنے کی اجازت درکار ہے۔',
+  'errors.asset_field_not_allowed':
+    'اپنے ٹکٹ کے ذریعے آپ اس اثاثے کی صرف حالت، مقام، نوٹس اور لگے ہوئے پرزے بدل سکتے ہیں۔ باقی کسی چیز کے لیے اثاثہ مینیجر سے کہیں۔',
   'errors.asset_group_dynamic':
     'متحرک گروپ کے اراکین اس کے فلٹر سے آتے ہیں؛ اس کی بجائے فلٹر بدلیں۔',
   'errors.asset_group_name_taken': 'کسی اور گروپ کا یہی نام ہے۔',
   'errors.asset_group_not_found': 'یہ گروپ اب موجود نہیں۔',
   'errors.asset_has_components':
     'اس پر پرزے لگے ہیں ({{count}}): انہیں الگ کریں یا انہیں بھی تلف کریں۔',
+  'errors.asset_import_exists': 'اس کلید والا ریکارڈ پہلے سے موجود ہے، اور درآمد صرف شامل کرتی ہے۔',
+  'errors.asset_import_file_not_readable': 'CSV فائل یا Excel ورک بُک ({{xlsx}}) استعمال کریں۔',
+  'errors.asset_import_file_not_utf8': 'CSV فائل کو UTF-8 میں محفوظ کر کے دوبارہ کوشش کریں۔',
+  'errors.asset_import_file_too_large': 'فائل {{max_mb}} MB سے بڑی ہے۔',
+  'errors.asset_import_file_unsafe':
+    'ورک بُک کھلنے پر اپنے سائز سے کہیں بڑی ہو جاتی ہے، اس لیے نہیں کھولی گئی۔',
+  'errors.asset_import_match_invalid': 'اس قسم کی فائل کو اس طرح نہیں ملایا جا سکتا۔',
+  'errors.asset_import_no_match': 'کوئی ریکارڈ اس قطار سے نہیں ملتا، اور درآمد صرف اپ ڈیٹ کرتی ہے۔',
+  'errors.asset_import_not_checked': 'صرف جانچی ہوئی فائل درآمد ہو سکتی ہے۔ اسے دوبارہ جانچیں۔',
+  'errors.asset_import_not_found': 'یہ درآمد نہیں ملی۔',
   'errors.asset_label_job_not_found': 'یہ لیبل موجود نہیں، یا کسی اور نے مانگے تھے۔',
   'errors.asset_label_job_not_ready': 'لیبل ڈاؤن لوڈ کے لیے تیار نہیں۔',
   'errors.asset_label_print_not_found': 'یہ پرنٹ اب لیبل کی تاریخ میں نہیں۔',
@@ -91,11 +115,22 @@ export const ur: LabelResource = {
   'errors.asset_link_exists': 'یہ دونوں اثاثے پہلے ہی اس طرح جڑے ہوئے ہیں۔',
   'errors.asset_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.asset_loan_not_found': 'یہ ادھار بند ہو چکا ہے یا اب موجود نہیں۔',
+  'errors.asset_merge_booked': '{{asset}} پیشگی بک ہے۔ ضم کرنے سے پہلے بکنگ منسوخ کریں۔',
+  'errors.asset_merge_nested': 'ان میں سے ایک اثاثہ دوسرے میں لگا ہے۔ پہلے اسے نکالیں۔',
+  'errors.asset_merge_on_loan': '{{asset}} ادھار پر ہے۔ ضم کرنے سے پہلے اسے واپس لیں۔',
+  'errors.asset_merge_same': 'دو مختلف اثاثے منتخب کریں۔',
+  'errors.asset_merge_site_not_managed':
+    'آپ دونوں سائٹس کے اثاثوں کا انتظام نہیں کرتے، اس لیے یہ ضم نہیں ہو سکتے۔',
+  'errors.asset_merged': 'یہ اثاثہ کسی دوسرے میں ضم ہو چکا ہے۔',
   'errors.asset_move_not_allowed': 'یہ اثاثہ اپنی موجودہ حالت سے اس حالت میں نہیں جا سکتا۔',
+  'errors.asset_move_not_allowed_through_ticket':
+    'اثاثے کو ریٹائر یا تلف کرنا ٹکٹ کے ذریعے نہیں ہوتا۔ اثاثہ مینیجر سے کہیں۔',
   'errors.asset_no_default_state':
     'اثاثے کو منتقل کرنے کے لیے کوئی طے شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
   'errors.asset_no_disposed_state':
     'اثاثے کو منتقل کرنے کے لیے کوئی تلف شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
+  'errors.asset_not_a_component':
+    'اپنے ٹکٹ کے ذریعے صرف وہ پرزہ لگایا جا سکتا ہے جو کسی کے پاس نہ ہو۔ پورا اثاثہ دینے کے لیے اثاثہ مینیجر سے کہیں۔',
   'errors.asset_not_bookable':
     '{{asset}} بُک نہیں ہو سکتا: صرف ادھار کے قابل اثاثے جو ریٹائر یا تلف نہ ہوں۔',
   'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
@@ -105,11 +140,15 @@ export const ur: LabelResource = {
   'errors.asset_note_not_found': 'یہ نوٹ اب موجود نہیں۔',
   'errors.asset_on_loan': '{{asset}} پہلے ہی ادھار پر ہے۔',
   'errors.asset_portal_booking_off': 'آپ کا ادارہ پورٹل سے بکنگ نہیں لیتا۔',
+  'errors.asset_product_ambiguous': 'اس نام کی ایک سے زیادہ پروڈکٹس ہیں۔',
   'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
   'errors.asset_product_type_has_children':
     'اس کے نیچے دوسری پروڈکٹ اقسام ہیں ({{used}})۔ پہلے انہیں منتقل یا حذف کریں۔',
   'errors.asset_product_type_in_use': 'پروڈکٹس ابھی یہ قسم استعمال کرتی ہیں ({{used}})۔',
   'errors.asset_product_type_not_found': 'پروڈکٹ کی یہ قسم موجود نہیں۔',
+  'errors.asset_restore_merged': 'یہ اثاثہ {{asset}} میں ضم ہوا تھا۔ الگ بحال کرنے کی تصدیق کریں۔',
+  'errors.asset_site_not_managed':
+    'آپ صرف انہی سائٹس پر اثاثے شامل یا منتقل کر سکتے ہیں جن کا آپ انتظام کرتے ہیں۔',
   'errors.asset_state_in_use':
     'لائف سائیکلز کی منتقلیاں ابھی یہ حالت استعمال کرتی ہیں ({{used}})۔ پہلے انہیں ہٹائیں۔',
   'errors.asset_state_not_found': 'اثاثے کی یہ حالت موجود نہیں۔',
@@ -162,7 +201,10 @@ export const ur: LabelResource = {
   'errors.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
   'errors.change_window_blocked':
-    'ایک فریز اس وقت کو روکتا ہے۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ تبدیلی کو آگے بڑھنے دے سکتا ہے۔',
+    'ایک فریز اس وقت کو روکتا ہے۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
+  'errors.checklist_item_not_found': 'چیک لسٹ کا یہ آئٹم اب موجود نہیں۔',
+  'errors.checklist_library_not_found': 'لائبریری کی یہ چیک لسٹ اب موجود یا پیش نہیں۔',
+  'errors.checklist_not_found': 'یہ چیک لسٹ اب موجود نہیں۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.command_in_flight':
@@ -174,6 +216,10 @@ export const ur: LabelResource = {
     'آپ کی تنظیم یہاں رابطے کی تفصیلات بدلنے کی اجازت نہیں دیتی۔ سروس ڈیسک سے پوچھیں۔',
   'errors.conversation_entry_not_found': 'یہ جواب یا نوٹ اب موجود نہیں ہے۔',
   'errors.copy_reference': 'حوالہ کاپی کریں',
+  'errors.cost_rate_date_taken': 'اس فرد کی اسی وقت سے ایک لاگت پہلے سے ہے۔ اسی کو بدلیں۔',
+  'errors.cost_rate_not_found': 'لاگت نہیں ملی۔',
+  'errors.cost_rate_superseded':
+    'اس کے بعد کی لاگت نافذ ہو چکی ہے، اس لیے یہ اب نہیں بدل سکتی۔ نئی لاگت مقرر کریں۔',
   'errors.csrf_failed':
     'اس درخواست کی تصدیق نہیں ہو سکی۔ براہِ کرم صفحہ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.currency_change_needs_confirmation':
@@ -320,6 +366,7 @@ export const ur: LabelResource = {
     'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
   'errors.field.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.field.chair_inactive': 'صدر کے طور پر کوئی فعال شخص چنیں۔',
+  'errors.field.change_in_other_release': 'یہ تبدیلی پہلے ہی کھلی ریلیز {{release}} میں ہے۔',
   'errors.field.change_would_loop':
     'کوئی تبدیلی براہ راست یا دوسروں کے ذریعے اپنا ہی حصہ نہیں ہو سکتی۔',
   'errors.field.channel_reserved':
@@ -328,6 +375,9 @@ export const ur: LabelResource = {
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
   'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
+  'errors.field.conflict_blocks':
+    'روکنے والا ٹکراؤ تسلیم نہیں کیا جا سکتا۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
+  'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
   'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
   'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
   'errors.field.dashboard_not_shared':
@@ -345,6 +395,8 @@ export const ur: LabelResource = {
   'errors.field.default_required':
     'ہمیشہ ایک ڈیفالٹ سانچہ ہوتا ہے۔ اس کے بجائے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.department_not_found': 'کوئی فعال شعبہ منتخب کریں۔',
+  'errors.field.dependency_loop':
+    'کوئی کام خود اپنا انتظار نہیں کر سکتا، براہ راست یا دوسرے کاموں کے ذریعے۔',
   'errors.field.desk_not_found': 'کوئی فعال ڈیسک منتخب کریں۔',
   'errors.field.dimension_not_groupable':
     'متعدد انتخاب والی فیلڈز ابھی گروپ بندی کے لیے استعمال نہیں ہو سکتیں۔',
@@ -449,6 +501,7 @@ export const ur: LabelResource = {
     'درخواست گزاروں کا سانچہ سب کے لیے ہے: اسے گروپوں تک محدود نہیں کیا جا سکتا۔',
   'errors.field.list_too_long': 'اس فہرست میں بہت زیادہ قدریں ہیں۔',
   'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
+  'errors.field.longer_than_a_month': 'ماہانہ وقت زیادہ سے زیادہ 28 دن کا ہو سکتا ہے۔',
   'errors.field.longer_than_a_week': 'ہفتہ وار ونڈو زیادہ سے زیادہ ایک ہفتے کی ہو سکتی ہے۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
   'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
@@ -468,6 +521,7 @@ export const ur: LabelResource = {
   'errors.field.name_needs_letters': 'نام میں کم از کم ایک حرف یا ہندسہ استعمال کریں۔',
   'errors.field.name_required': 'نام درج کریں۔',
   'errors.field.name_taken': 'یہ نام پہلے سے استعمال میں ہے۔',
+  'errors.field.needs_scheduled_start': 'آغاز سے پہلے یاد دہانی کے لیے طے شدہ آغاز ضروری ہے۔',
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
   'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
   'errors.field.not_a_technician':
@@ -537,7 +591,10 @@ export const ur: LabelResource = {
   'errors.field.required_to_leave_stage': 'اس مرحلے سے نکلنے سے پہلے یہ بھریں۔',
   'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
   'errors.field.review_date_past': 'آج یا بعد کی تاریخ منتخب کریں۔',
+  'errors.field.review_required_to_close': 'ریلیز بند کرنے سے پہلے اس کا جائزہ مکمل کریں۔',
   'errors.field.role_disabled': 'یہ کردار ختم کیا جا چکا ہے: کسی نئے کو نہیں دیا جا سکتا۔',
+  'errors.field.role_held_by_record':
+    'یہ کردار ریکارڈ کے اپنے فیلڈ سے آتا ہے۔ اسے تفصیلات کے پینل میں بدلیں۔',
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',
@@ -711,6 +768,7 @@ export const ur: LabelResource = {
   'errors.internal_error': 'ہماری طرف کچھ غلط ہو گیا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.invalid_choice': 'یہ قدر دستیاب انتخاب میں سے نہیں۔',
   'errors.invalid_cursor': 'یہ صفحہ لنک اب درست نہیں۔ پہلے صفحے سے شروع کریں۔',
+  'errors.invalid_date': 'تاریخ لکھیں، جیسے 2026-11-30۔',
   'errors.invalid_etag':
     'اس تبدیلی کے ساتھ بھیجا گیا آئٹم کا ورژن درست نہیں۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.invalid_filter': 'فلٹر لاگو نہیں ہو سکا۔ نمایاں کی گئی شرط دیکھیں۔',
@@ -719,12 +777,14 @@ export const ur: LabelResource = {
     'اس سائن اِن لنک کی میعاد ختم ہو گئی ہے۔ براہِ کرم دوبارہ شروع کریں۔',
   'errors.invalid_mobile_challenge':
     'ایپ سائن اِن شروع نہیں کر سکی۔ براہِ کرم ایپ اپ ڈیٹ کر کے دوبارہ کوشش کریں۔',
+  'errors.invalid_number': 'عدد لکھیں۔',
   'errors.invalid_page_size': 'ایک صفحے کے لیے بہت زیادہ قطاریں مانگی گئیں۔',
   'errors.invalid_report': 'یہ رپورٹ اس حالت میں نہیں چل سکتی۔ نمایاں حصے چیک کریں۔',
   'errors.invalid_sort': 'فہرست کو اس طرح ترتیب نہیں دیا جا سکتا۔',
   'errors.invalid_tenant_id': 'ادارے کا شناخت کنندہ درست نہیں۔',
   'errors.invalid_transition':
     'موجودہ حیثیت میں یہ ممکن نہیں۔ تازہ ترین دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.invalid_value': 'یہ قدر درست نہیں۔',
   'errors.investigator_not_found': 'یہ شخص اس مسئلے کا تفتیش کار نہیں ہے۔',
   'errors.invitation_already_signed_in':
     'یہ شخص پہلے ہی سائن اِن کر چکا ہے، اس لیے دعوت کی ضرورت نہیں۔',
@@ -785,6 +845,8 @@ export const ur: LabelResource = {
   'errors.link_has_own_route':
     'یہ لنک اپنی جگہ سے ہٹایا جاتا ہے: واقعے کو الگ کریں، یا ضم کرنا واپس لیں۔',
   'errors.link_not_found': 'یہ ربط موجود نہیں، یا ہٹا دیا گیا۔',
+  'errors.linked_records_not_available': 'منسلک ریکارڈ ابھی دستیاب نہیں۔',
+  'errors.list_not_found': 'یہ فہرست ترتیبات محفوظ نہیں کرتی۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
@@ -828,8 +890,12 @@ export const ur: LabelResource = {
   'errors.node_not_mapped':
     'یہ رن جس مرحلے پر ہے اس کی نئے ورژن میں جگہ نہیں: اسے کسی مرحلے سے جوڑیں۔',
   'errors.not_a_member': 'آپ اس ادارے کے رکن نہیں ہیں۔',
+  'errors.not_a_person': 'یہ سروس شناخت ہے، فرد نہیں: اس کی کوئی فی گھنٹہ لاگت نہیں۔',
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
+  'errors.not_cancelable_from_here': 'اسے اس کی موجودہ جگہ سے منسوخ نہیں کیا جا سکتا۔',
+  'errors.not_closable_from_here':
+    'اسے موجودہ مرحلے سے بند نہیں کیا جا سکتا۔ پہلے اسے آگے بڑھائیں۔',
   'errors.not_found': 'آئٹم نہیں ملا۔',
   'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
@@ -889,6 +955,9 @@ export const ur: LabelResource = {
   'errors.record_not_editable': 'یہ کرنے کے لیے آپ کو ریکارڈ میں ترمیم کا اختیار ہونا چاہیے۔',
   'errors.reference_copied': 'حوالہ کاپی ہو گیا',
   'errors.reference_is': 'حوالہ: {{reference}}',
+  'errors.release_not_failed':
+    'فالو اپ تب پیش کیے جاتے ہیں جب ریلیز کی تعیناتی ناکام ہو یا واپس لی جائے۔',
+  'errors.reminder_not_found': 'یہ یاد دہانی اب موجود نہیں۔',
   'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
   'errors.repeat_rule_not_found': 'بار بار واقعات کا یہ اصول اب موجود نہیں۔',
   'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',
@@ -915,6 +984,7 @@ export const ur: LabelResource = {
   'errors.rule_refused': '{{message_ur}}',
   'errors.saved_search_limit': 'آپ محفوظ تلاشوں کی حد تک پہنچ گئے ہیں۔ پہلے ایک حذف کریں۔',
   'errors.saved_search_not_found': 'یہ محفوظ تلاش موجود نہیں ہے۔',
+  'errors.saved_view_not_found': 'یہ محفوظ منظر اب موجود نہیں، یا یہ آپ کا نہیں۔',
   'errors.scale_value_not_found': 'یہ قدر موجود نہیں۔',
   'errors.server_busy': 'میل سرور مصروف تھا۔',
   'errors.service_category_in_use':
@@ -922,9 +992,13 @@ export const ur: LabelResource = {
   'errors.service_category_not_found': 'یہ کیٹیگری موجود نہیں۔',
   'errors.service_identity_managed':
     'یہ ایک کنیکٹر کی اپنی شناخت ہے۔ اسے ایڈمن › انٹیگریشنز سے تبدیل کریں۔',
+  'errors.service_identity_roles_elsewhere':
+    'ورک فلو یا کنیکٹر کی اپنی شناخت کو کردار اس کی اپنی ترتیبات سے ملتے ہیں، یہاں سے نہیں۔',
   'errors.service_unavailable':
     'سروس عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.session_expired': 'آپ کا سیشن ختم ہو گیا ہے۔ براہِ کرم دوبارہ سائن اِن کریں۔',
+  'errors.session_key_still_in_use':
+    'یہ سرور شروع نہیں ہو سکتا: سائن اِن کی جو کلید اب فہرست میں نہیں، اس کی ابھی ضرورت ہے۔ کلید دوبارہ فہرست میں شامل کریں۔',
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unknown_person':
@@ -970,6 +1044,8 @@ export const ur: LabelResource = {
   'errors.system_role_immutable': 'پہلے سے موجود کردار تبدیل یا حذف نہیں کیے جا سکتے۔',
   'errors.system_role_not_deletable':
     'بلٹ ان رولز حذف نہیں کیے جا سکتے۔ اپنا ورژن بنانے کے لیے رول کی نقل بنائیں۔',
+  'errors.task_blocked': 'یہ کام پہلے {{task}} کے مکمل ہونے کا انتظار کرتا ہے۔',
+  'errors.task_template_not_found': 'کاموں کا یہ سانچہ اب موجود یا پیش نہیں ہے۔',
   'errors.technician_limit_reached':
     'آپ کے ادارے کے پلان میں ٹیکنیشن کی تمام نشستیں استعمال میں ہیں۔ نشست خالی کرنے یا مزید شامل کرنے کے لیے اپنے منتظم سے کہیں۔',
   'errors.technicians_only': 'صرف ٹیکنیشن دوسرے صارفین کو دیکھ سکتا ہے۔',
@@ -1006,6 +1082,7 @@ export const ur: LabelResource = {
   'errors.work_item_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.work_item_not_found': 'یہ ریکارڈ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.work_item_task_not_found': 'یہ کام اب موجود نہیں۔',
+  'errors.work_item_type_not_found': 'اس قسم کا کوئی ریکارڈ نہیں۔',
   'errors.work_item_view_not_found': 'یہ محفوظ ویو اب موجود نہیں، یا آپ کے ساتھ شیئر نہیں کیا گیا۔',
   'errors.work_item_worklog_not_found': 'یہ ورک لاگ اب موجود نہیں۔',
   'errors.workflow_instance_changed':

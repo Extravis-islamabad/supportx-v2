@@ -278,39 +278,113 @@ export type Vendor = S['VendorOut'];
 export type VendorInput = S['VendorIn'];
 export type VendorPatch = S['VendorPatch'];
 
-/** The asset list: free-text search, one product type, the trash. */
+/** The asset list: free-text search, a tree node, a built-in view, a saved filter, the trash. */
 export interface AssetRecordsQuery {
   search?: string;
+  /** A product type: it and every type below it (the tree, REQ-AST-047 AC1). */
   productTypeId?: string;
+  /** A built-in view (WP-049b s4a): mine, in_stock, warranty_expiring ... */
+  view?: AssetView;
+  /** A saved view's filter, as the list API takes it (FilterExpression JSON). */
+  filter?: string;
   trash?: boolean;
 }
 
-/** Assets the person may see, cursor-paged, newest change first. */
+export type AssetView = S['AssetView'];
+export type AssetListPage = S['AssetListPage'];
+export type AssetTypeCounts = S['AssetTypeCountsOut'];
+
+/** Assets the person may see, cursor-paged, newest change first, with the columns' names. */
 export function useAssetRecords(query: AssetRecordsQuery, enabled = true) {
   return useInfiniteQuery({
     queryKey: queryKeys.assets.records(query),
-    queryFn: ({ pageParam }) => {
-      const params = {
-        query: {
-          search: query.search === undefined || query.search === '' ? undefined : query.search,
-          filter:
-            query.productTypeId === undefined
-              ? undefined
-              : JSON.stringify({ field: 'product_type_id', op: 'eq', value: query.productTypeId }),
-          limit: 50,
-          cursor: pageParam ?? undefined,
-          include_total: pageParam === null,
-        },
+    queryFn: async ({ pageParam }) => {
+      const base = {
+        search: query.search === undefined || query.search === '' ? undefined : query.search,
+        limit: 50,
+        cursor: pageParam ?? undefined,
+        include_total: pageParam === null,
       };
+      if (query.trash === true) {
+        const page = await call(
+          api.GET('/api/v1/assets/trash', {
+            params: {
+              query: {
+                ...base,
+                filter:
+                  query.productTypeId === undefined
+                    ? undefined
+                    : JSON.stringify({
+                        field: 'product_type_id',
+                        op: 'eq',
+                        value: query.productTypeId,
+                      }),
+              },
+            },
+          }),
+        );
+        return { ...page, people: {}, parents: {}, products: {} };
+      }
       return call(
-        query.trash === true
-          ? api.GET('/api/v1/assets/trash', { params })
-          : api.GET('/api/v1/assets', { params }),
+        api.GET('/api/v1/assets', {
+          params: {
+            query: {
+              ...base,
+              view: query.view,
+              product_type: query.productTypeId,
+              filter: query.filter,
+            },
+          },
+        }),
       );
     },
     initialPageParam: null as string | null,
     getNextPageParam: (page) => (page.has_more ? page.next_cursor : null),
     enabled,
+  });
+}
+
+/** Live assets per product type within a view, for the tree's counts (REQ-AST-047 AC1). */
+export function useAssetTypeCounts(view: AssetView | undefined, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.typeCounts(view ?? 'all'),
+    queryFn: () => call(api.GET('/api/v1/assets/type-counts', { params: { query: { view } } })),
+    enabled,
+  });
+}
+
+export type AssetLinkedSummary = S['AssetLinkedSummaryOut'];
+export type AssetLinkedRecord = S['AssetLinkedRecordOut'];
+
+/** The linked work items' counters on an asset (REQ-AST-044); `available` false: no panel. */
+export function useAssetLinked(id: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.linked(id),
+    queryFn: () =>
+      call(api.GET('/api/v1/assets/{asset_id}/linked', { params: { path: { asset_id: id } } })),
+    enabled,
+    // A side panel: the asset page already reports an asset it cannot load.
+    meta: { silent: true },
+  });
+}
+
+/** One kind's linked work items the person may see, newest first. */
+export function useAssetLinkedPage(id: string, kind: string | undefined) {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.assets.linked(id), kind ?? ''] as const,
+    queryFn: ({ pageParam }) =>
+      call(
+        api.GET('/api/v1/assets/{asset_id}/linked/{kind}', {
+          params: {
+            path: { asset_id: id, kind: kind ?? '' },
+            query: { cursor: pageParam ?? undefined },
+          },
+        }),
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.next_cursor,
+    enabled: kind !== undefined,
+    meta: { silent: true },
   });
 }
 
@@ -425,6 +499,23 @@ export function useAssetMoves(id: string | undefined) {
     queryFn: () =>
       call(
         api.GET('/api/v1/assets/{asset_id}/moves', { params: { path: { asset_id: id ?? '' } } }),
+      ),
+    enabled: id !== undefined,
+  });
+}
+
+export type AssetAccess = S['AssetAccessOut'];
+
+/**
+ * What the person may change on an asset (D-157): everything (`manage`), or, through their own
+ * ticket, only its state, location, notes and fitted parts (`through_ticket`).
+ */
+export function useAssetAccess(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.assets.access(id ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/{asset_id}/access', { params: { path: { asset_id: id ?? '' } } }),
       ),
     enabled: id !== undefined,
   });

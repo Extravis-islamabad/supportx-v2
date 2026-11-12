@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { api, call } from './client';
 import { useSingleFlight } from './incidents';
+import { bulkJobKey } from './incidentLists';
 import type { components } from './schema';
 import { stagedKeys } from './staged';
 
@@ -410,6 +411,55 @@ export function useRemoveChangeChild() {
   });
 }
 
+/**
+ * Close the picked changes in one background job (REQ-CHG-101): each by its own move to closed,
+ * with the closure code and closing description; any that may not close is skipped, with why.
+ * Progress arrives on your channel (the shared bulk drawer, base "changes").
+ */
+export function useStartChangeBulkClose() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: { recordIds: string[]; closureCode: string; resolution?: string }) =>
+      call(
+        api.POST('/api/v1/changes/bulk', {
+          body: {
+            action: 'close',
+            changes: {
+              closure_code: request.closureCode,
+              ...(request.resolution ? { resolution: request.resolution } : {}),
+            },
+            record_ids: request.recordIds,
+            all_matching: false,
+          },
+        }),
+      ),
+    onSuccess: (job) => {
+      queryClient.setQueryData(bulkJobKey('changes', job.id), job);
+    },
+  });
+}
+
+/** Cancel the picked changes with one reason, or move them to the trash (REQ-CHG-101). */
+export function useStartChangeBulk() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: { action: 'cancel' | 'delete'; recordIds: string[]; reason?: string }) =>
+      call(
+        api.POST('/api/v1/changes/bulk', {
+          body: {
+            action: request.action,
+            changes: request.action === 'cancel' ? { reason_text: request.reason ?? '' } : {},
+            record_ids: request.recordIds,
+            all_matching: false,
+          },
+        }),
+      ),
+    onSuccess: (job) => {
+      queryClient.setQueryData(bulkJobKey('changes', job.id), job);
+    },
+  });
+}
+
 /** The freeze and maintenance windows; with a range, only those then (the calendar). */
 export function useChangeWindows(range?: { start: string; end: string }) {
   return useQuery({
@@ -457,12 +507,13 @@ export const calendarKeys = {
 const windowKeys = { all: ['change-windows'] as const };
 
 /** The changes you may see planned in [start, end): windows and planned downtimes. */
-export function useChangeCalendar(start: string, end: string, mine: boolean) {
+export function useChangeCalendar(start: string, end: string, mine: boolean, enabled = true) {
   return useQuery({
     queryKey: calendarKeys.range(start, end, mine),
     queryFn: () =>
       call(api.GET('/api/v1/change-calendar', { params: { query: { start, end, mine } } })),
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
 
@@ -513,6 +564,32 @@ export function useRemoveChangeWindow() {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+    },
+  });
+}
+
+/**
+ * Change the change type's settings with the If-Match the screen showed (D-156: whether
+ * outside-maintenance blocks); the answer replaces the cached settings at once.
+ */
+export function useChangeSettingsChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      body,
+      version,
+    }: {
+      body: Partial<components['schemas']['WorkItemSettingsPatch']>;
+      version: number;
+    }) =>
+      call(
+        api.PATCH('/api/v1/changes/settings', {
+          params: { header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(stagedKeys('changes').settings, settings);
     },
   });
 }

@@ -80,11 +80,12 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   await expectAccessible(admin, 'user access drawer');
 
   // A role beside requester opens the console (D-129), with exactly the role's sections
-  // (reports.view also opens dashboards: a dashboard is made of reports, WP-036).
+  // (reports.view also opens dashboards: a dashboard is made of reports, WP-036), plus My tasks,
+  // which every console user has (WP-046a S1, #398: only ever your own tasks).
   await user.goto(`${CONSOLE_URL}/`);
   await expect
     .poll(async () => menu(user), LIVE)
-    .toEqual(['home', 'requests', 'problems', 'knowledge', 'dashboards', 'reports']);
+    .toEqual(['home', 'my_tasks', 'requests', 'problems', 'knowledge', 'dashboards', 'reports']);
 
   // Removing the role makes them requester-only again: the console sends them back to the
   // portal on its next call (the server refuses it, not only the routing).

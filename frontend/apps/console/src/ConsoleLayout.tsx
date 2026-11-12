@@ -46,6 +46,7 @@ import { AvailabilitySwitch } from './AvailabilitySwitch';
 import { usePersonalAppearance } from './personalAppearance';
 import { EventDeliveryBanner } from './EventDeliveryBanner';
 import { NotificationBell } from './notifications/NotificationBell';
+import { RemindersDrawer } from './pages/incidents/RemindersDrawer';
 import { ApprovalsDrawer } from './pages/requests/ApprovalsDrawer';
 import { NotificationsBanner } from './notifications/NotificationsBanner';
 import { useAvailabilityItem } from './useAvailabilityItem';
@@ -255,6 +256,7 @@ export function ConsoleLayout() {
           extra={
             <>
               {licence.has('service_request') && <ApprovalsDrawer />}
+              {licence.has('incident') && <RemindersDrawer />}
               <NotificationBell />
               {session.user.user_type === 'technician' && licence.has('incident') && (
                 <AvailabilitySwitch userId={session.user.id} />

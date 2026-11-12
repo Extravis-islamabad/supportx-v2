@@ -114,6 +114,10 @@ def _fields_for(
         }
         for name in _REFERENCES:
             found[name] = RuleField(FieldKind.REFERENCE, settable=name in _SETTABLE)
+        if wtype.stages is not None:  # WP-058b S3: "release enters deployment" (REQ-REL-022)
+            found["stage"] = RuleField(
+                FieldKind.CODE, frozenset(st.code for st in wtype.stages.stages)
+            )
         if wtype.code.value not in set(metadata.CustomFieldEntity):
             return found
         for key, definition in (await metadata.definitions(session, wtype.code.value)).items():

@@ -12,7 +12,7 @@ the change's scope; audited, refused attempts too).
 
 import uuid
 from datetime import datetime, timedelta
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,9 +23,11 @@ from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.work_items.api.settings_routes import CONFLICT
 from app.modules.work_items.domain.change_windows import ConflictKind, WindowKind, WindowMode
-from app.modules.work_items.domain.types import CHANGE
+from app.modules.work_items.domain.types import CHANGE, RELEASE
 from app.modules.work_items.infra.models import ChangeWindow
+from app.modules.work_items.service import calendar_conflicts
 from app.modules.work_items.service import change_windows as service
+from app.modules.work_items.service import release_conflicts as acks
 from app.modules.work_items.service.work_items import field_errors
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -54,6 +56,9 @@ def _range_ok(start: datetime, end: datetime) -> bool:
     return start < end and end - start <= timedelta(days=MAX_RANGE_DAYS)
 
 
+WindowRepeat = Literal["none", "weekly", "monthly"]  # D-156 (labels: window_repeat.*)
+
+
 class WindowIn(BaseModel):
     """A new window: its kind, name and times; the mode follows the kind unless given."""
 
@@ -68,7 +73,14 @@ class WindowIn(BaseModel):
     description: str | None = Field(default=None, max_length=service.DESCRIPTION_MAX)
     starts_at: datetime
     ends_at: datetime
-    repeat_weekly: bool = False
+    repeat_weekly: bool = False  # the old flag: still read when `repeat` is not sent
+    repeat: WindowRepeat | None = Field(default=None, description="D-156: none, weekly, monthly.")
+    repeat_week: int | None = Field(
+        default=None, ge=1, le=5, description="A monthly window's week: 1-4, or 5 for the last."
+    )
+    repeat_weekday: int | None = Field(
+        default=None, ge=0, le=6, description="A monthly window's weekday: 0 Monday .. 6 Sunday."
+    )
     repeat_until: datetime | None = None
     site_ids: list[uuid.UUID] = Field(default_factory=list, max_length=service.MAX_IDS)
     group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=service.MAX_IDS)
@@ -89,6 +101,9 @@ class WindowPatch(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     repeat_weekly: bool | None = None
+    repeat: WindowRepeat | None = None
+    repeat_week: int | None = Field(default=None, ge=1, le=5)
+    repeat_weekday: int | None = Field(default=None, ge=0, le=6)
     repeat_until: datetime | None = None
     site_ids: list[uuid.UUID] | None = Field(default=None, max_length=service.MAX_IDS)
     group_ids: list[uuid.UUID] | None = Field(default=None, max_length=service.MAX_IDS)
@@ -108,6 +123,9 @@ class WindowOut(BaseModel):
     starts_at: datetime
     ends_at: datetime
     repeat_weekly: bool
+    repeat: WindowRepeat
+    repeat_week: int | None
+    repeat_weekday: int | None
     repeat_until: datetime | None
     site_ids: list[uuid.UUID]
     group_ids: list[uuid.UUID]
@@ -128,6 +146,9 @@ class WindowOut(BaseModel):
             starts_at=row.starts_at,
             ends_at=row.ends_at,
             repeat_weekly=row.repeat_weekly,
+            repeat=row.repeat,  # type: ignore[arg-type]  # the column's check holds the codes
+            repeat_week=row.repeat_week,
+            repeat_weekday=row.repeat_weekday,
             repeat_until=row.repeat_until,
             site_ids=list(row.site_ids or []),
             group_ids=list(row.group_ids or []),
@@ -260,6 +281,10 @@ class ConflictOut(BaseModel):
     record_id: uuid.UUID | None = Field(
         default=None, description="The other change it overlaps (open it to see whether you may)."
     )
+    record_type: str | None = Field(
+        default=None,
+        description="`change` or `release`: the other record's type (ADR-042 addendum A).",
+    )
 
 
 class ConflictsOut(BaseModel):
@@ -304,6 +329,7 @@ async def change_conflicts(
                 window_name=named[c.window_id].name if c.window_id in named else None,
                 window_labels=named[c.window_id].labels if c.window_id in named else None,
                 record_id=c.record_id,
+                record_type=c.record_type,
             )
             for c in found
         ],
@@ -372,25 +398,23 @@ class CalendarEntryOut(BaseModel):
     group_id: uuid.UUID | None
     site_id: uuid.UUID | None
     technician_id: uuid.UUID | None
-    kind: str = Field(description="`window` (implementation) or `downtime` (planned).")
+    kind: str = Field(
+        description="`window` (implementation, or a release's deployment) or `downtime` (planned)."
+    )
     starts_at: datetime
     ends_at: datetime
     part_id: uuid.UUID | None = Field(default=None, description="The downtime, for a downtime.")
     version: int = Field(description="The window's or downtime's own version, for If-Match.")
+    conflicts: int | None = Field(
+        default=None,
+        description="Conflicts of a planned window, counted over what you may see (WP-058b S2).",
+    )
 
 
-@calendar_router.get("", summary="Changes planned in a range")
-async def change_calendar(
-    session: TenantSession,
-    subject: ViewChange,
-    start: Annotated[datetime, Query()],
-    end: Annotated[datetime, Query()],
-    mine: Annotated[bool, Query(description="Only the changes you hold.")] = False,  # noqa: FBT002 - a query flag
+def _entries(
+    entries: list[service.CalendarEntry], counted: dict[uuid.UUID, int] | None = None
 ) -> list[CalendarEntryOut]:
-    """The changes you may see, planned in [start, end) (at most 400 days), by start."""
-    if not _range_ok(start, end):
-        raise field_errors([("end", "out_of_range")])
-    entries = await service.calendar(session, subject, start=start, end=end, mine=mine)
+    counted = counted or {}
     return [
         CalendarEntryOut(
             record_id=e.record.id,
@@ -407,6 +431,227 @@ async def change_calendar(
             ends_at=e.ends_at,
             part_id=e.part_id,
             version=e.version,
+            conflicts=counted.get(e.record.id) if e.kind == "window" else None,
         )
         for e in entries
     ]
+
+
+@calendar_router.get("", summary="Changes planned in a range")
+async def change_calendar(
+    session: TenantSession,
+    subject: ViewChange,
+    start: Annotated[datetime, Query()],
+    end: Annotated[datetime, Query()],
+    mine: Annotated[bool, Query(description="Only the changes you hold.")] = False,  # noqa: FBT002 - a query flag
+) -> list[CalendarEntryOut]:
+    """The changes you may see, planned in [start, end) (at most 400 days), by start."""
+    if not _range_ok(start, end):
+        raise field_errors([("end", "out_of_range")])
+    entries = await service.calendar(session, subject, start=start, end=end, mine=mine)
+    counted = await calendar_conflicts.counts(session, subject, entries, start=start, end=end)
+    return _entries(entries, counted)
+
+
+# --- the release calendar (WP-058b S1; REQ-REL-038) --------------------------------------------
+
+release_calendar_router = APIRouter(
+    prefix="/release-calendar",
+    tags=["releases"],
+    dependencies=[Depends(rate_limit("work_items"))],
+)
+ViewRelease = Annotated[Subject, Depends(require_permission(RELEASE.permission("view")))]
+
+
+@release_calendar_router.get("", summary="Releases planned in a range")
+async def release_calendar(
+    session: TenantSession,
+    subject: ViewRelease,
+    start: Annotated[datetime, Query()],
+    end: Annotated[datetime, Query()],
+    mine: Annotated[bool, Query(description="Only the releases you hold.")] = False,  # noqa: FBT002 - a query flag
+) -> list[CalendarEntryOut]:
+    """The releases you may see, planned in [start, end) (at most 400 days), by start.
+
+    Each one's deployment window and its planned downtimes.
+    """
+    if not _range_ok(start, end):
+        raise field_errors([("end", "out_of_range")])
+    entries = await service.calendar(
+        session, subject, start=start, end=end, mine=mine, wtype=RELEASE
+    )
+    counted = await calendar_conflicts.counts(session, subject, entries, start=start, end=end)
+    return _entries(entries, counted)
+
+
+# --- a release's freeze override (WP-058b S2; REQ-REL-040) --------------------------------------
+
+release_router = APIRouter(
+    prefix="/releases",
+    tags=["releases"],
+    dependencies=[Depends(rate_limit("work_items"))],
+)
+
+
+@release_router.post(
+    "/{record_id}/freeze-override",
+    summary="Go ahead in a freeze, with a reason",
+    responses=CONFLICT,
+)
+async def release_freeze_override(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_id: uuid.UUID,
+    body: FreezeOverrideIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: ViewRelease,
+    request: Request,
+    response: Response,
+    note: Annotated[
+        AuditNote,
+        # The dependency also logs a refused attempt, as for a change's (lane B).
+        audited("release.freeze_override", object_type="release", object_param="record_id"),
+    ],
+) -> dict[str, int]:
+    """Needs `releases.override_freeze` at the release's scope, a reason and If-Match.
+
+    Only the freezes named are passed for this release; any other blocking freeze, or one added
+    later, still refuses it. History keeps which, who and why; the audit log keeps the reason.
+    """
+    note.reason = body.reason
+    note.details = {"window_ids": sorted(str(w) for w in body.window_ids)}
+    updated = await service.override_freeze(
+        session,
+        subject,
+        record_id,
+        reason=body.reason,
+        window_ids=body.window_ids,
+        expected_version=version,
+        source=source_of(request),
+        wtype=RELEASE,
+    )
+    set_etag(response, updated.version)
+    return {"version": updated.version}
+
+
+# --- a release's conflicts and their acknowledgements (WP-058b S2; REQ-REL-041) -----------------
+
+
+class ConflictAckOut(BaseModel):
+    """Who acknowledged a warning, when and why."""
+
+    acked_by: uuid.UUID
+    acked_at: datetime
+    reason: str
+
+
+class ReleaseConflictOut(BaseModel):
+    """One conflict of the release's planned time: its key, whether it blocks, its ack."""
+
+    kind: str = Field(
+        description="`freeze`, `outside_maintenance`, `overlap` or `role_booked` "
+        "(labels `change_conflict.*`)."
+    )
+    starts_at: datetime
+    ends_at: datetime
+    blocks: bool = Field(description="A blocking freeze, unless the release's freezes were passed.")
+    window_id: uuid.UUID | None = None
+    window_name: str | None = None
+    window_labels: dict[str, str] | None = None
+    record_id: uuid.UUID | None = Field(
+        default=None, description="The other change or release (open it to see whether you may)."
+    )
+    record_type: str | None = Field(default=None, description="`change` or `release`.")
+    key: str = Field(description="The conflict as it is now; an ack holds for this key only.")
+    ack: ConflictAckOut | None = None
+
+
+class ReleaseConflictsOut(BaseModel):
+    """A release's conflicts now, and the blocking freezes someone passed for it."""
+
+    items: list[ReleaseConflictOut]
+    passed_window_ids: list[uuid.UUID]
+
+
+class ConflictAckIn(BaseModel):
+    """Acknowledge one warning on the release, with a reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(max_length=300, description="The conflict's key, as listed.")
+    reason: str = Field(max_length=acks.REASON_MAX)
+
+
+EditRelease = Annotated[Subject, Depends(require_permission(RELEASE.permission("edit")))]
+
+
+@release_router.get("/{record_id}/conflicts", summary="The release's conflicts")
+async def release_conflicts(
+    record_id: uuid.UUID, session: TenantSession, subject: ViewRelease
+) -> ReleaseConflictsOut:
+    """Freezes, being outside maintenance, overlapping changes and releases, double bookings."""
+    _, rows, named, passed = await acks.shown(session, subject, RELEASE, record_id)
+    return ReleaseConflictsOut(
+        items=[
+            ReleaseConflictOut(
+                kind=r.conflict.kind.value,
+                starts_at=r.conflict.starts_at,
+                ends_at=r.conflict.ends_at,
+                blocks=r.blocks,
+                window_id=r.conflict.window_id,
+                window_name=named[r.conflict.window_id].name
+                if r.conflict.window_id in named
+                else None,
+                window_labels=named[r.conflict.window_id].labels
+                if r.conflict.window_id in named
+                else None,
+                record_id=r.conflict.record_id,
+                record_type=r.conflict.record_type,
+                key=r.key,
+                ack=ConflictAckOut(
+                    acked_by=r.ack.acked_by, acked_at=r.ack.acked_at, reason=r.ack.reason
+                )
+                if r.ack
+                else None,
+            )
+            for r in rows
+        ],
+        passed_window_ids=sorted(passed),
+    )
+
+
+@release_router.post(
+    "/{record_id}/conflicts/acks",
+    summary="Acknowledge a warning, with a reason",
+    responses=CONFLICT,
+)
+async def acknowledge_conflict(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_id: uuid.UUID,
+    body: ConflictAckIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: EditRelease,
+    request: Request,
+    response: Response,
+    note: Annotated[
+        AuditNote,
+        audited("release.conflict_acknowledged", object_type="release", object_param="record_id"),
+    ],
+) -> dict[str, int]:
+    """Needs the right to edit the release, its version (If-Match) and a reason.
+
+    Only a warning that is there now; it holds until the conflict moves or goes.
+    """
+    note.reason = body.reason
+    note.details = {"key": body.key}
+    updated = await acks.acknowledge(
+        session,
+        subject,
+        RELEASE,
+        record_id,
+        key=body.key,
+        reason=body.reason,
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, updated.version)
+    return {"version": updated.version}

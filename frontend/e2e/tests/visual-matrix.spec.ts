@@ -115,6 +115,7 @@ const ADMIN_SECTIONS: Record<string, string[]> = {
   incidents: [
     'general',
     'templates',
+    'checklists', // WP-046a S2: the checklist library
     'custom-fields',
     'statuses',
     'reasons',
@@ -124,6 +125,7 @@ const ADMIN_SECTIONS: Record<string, string[]> = {
     'closure-codes',
     'closing',
     'reply-templates',
+    'task-templates', // WP-046a S1 (REQ-INC-074)
   ],
   sla: ['policies', 'calendars', 'holidays', 'settings'],
   automation: ['business-rules', 'triggers', 'routing', 'transitions'],
@@ -192,7 +194,43 @@ export const SCREENS: Screen[] = [
     app: 'console',
     state: { name: 'user-menu', open: click('user-menu') }, // near the right edge (left in RTL)
   },
+  // WP-046a S1 (REQ-INC-073, -075): a task's details drawer. The record may have no task yet, so
+  // one is added first through the list's own form.
+  {
+    key: 'incident',
+    path: incident,
+    app: 'console',
+    state: {
+      name: 'task-details',
+      open: async (page: Page) => {
+        await tab('tasks')(page);
+        if ((await page.getByTestId('inc-task-details-0').count()) === 0) {
+          await page.getByTestId('inc-task-title').fill('Back up the switch');
+          await page.getByTestId('inc-task-add').click({ timeout: STATE_TIMEOUT });
+        }
+        await click('inc-task-details-0')(page);
+      },
+    },
+  },
+  { key: 'my-tasks', path: '/my-tasks', app: 'console' }, // WP-046a S1 (REQ-INC-076)
   { key: 'change-calendar', path: '/changes/calendar', app: 'console' }, // WP-045c S3
+  {
+    // WP-058b S1: the shared staged calendar on releases, and its timeline view (the fifth).
+    key: 'release-calendar',
+    path: '/releases/calendar',
+    app: 'console',
+    state: {
+      name: 'timeline',
+      open: async (page: Page) => {
+        await page
+          .getByTestId('calendar-view')
+          .locator('.ant-segmented-item')
+          .nth(4)
+          .click({ timeout: STATE_TIMEOUT });
+        await page.waitForTimeout(400);
+      },
+    },
+  },
   { key: 'requests', path: '/requests', app: 'console' },
   {
     key: 'request',
@@ -230,6 +268,33 @@ export const SCREENS: Screen[] = [
   },
   // Assets (WP-049a, D-155 template A; lane B): the list, one asset, vendors, loans, groups.
   { key: 'assets', path: '/assets', app: 'console' },
+  // WP-049b s4a (lane B): the product type tree with a node chosen, the views drawer, and the
+  // honest empty "recently discovered" view (no discovery yet).
+  {
+    key: 'asset-tree',
+    path: '/assets',
+    app: 'console',
+    state: {
+      name: 'node-chosen',
+      open: async (page) => {
+        // The first type after "All types": its branch listed, its row chosen.
+        await page
+          .getByRole('treeitem')
+          .nth(1)
+          .locator('div')
+          .first()
+          .click({ timeout: STATE_TIMEOUT });
+        await page.waitForTimeout(400);
+      },
+    },
+  },
+  {
+    key: 'asset-views-drawer',
+    path: '/assets',
+    app: 'console',
+    state: { name: 'views-drawer', open: click('assets-views-open') },
+  },
+  { key: 'assets-discovered', path: '/assets?view=recently_discovered', app: 'console' },
   {
     key: 'asset',
     path: (r) => (r.asset ? `/assets/${r.asset}` : undefined),
@@ -284,6 +349,14 @@ export const SCREENS: Screen[] = [
     key: 'release',
     path: (r) => (r.release ? `/releases/${r.release}` : undefined),
     app: 'console',
+    state: { name: 'changes', open: tab('changes') }, // WP-058b S1: the changes in it
+  },
+  {
+    // WP-058b S2: the Schedule tab, where a release's conflicts, acks and override live.
+    key: 'release-schedule',
+    path: (r) => (r.release ? `/releases/${r.release}` : undefined),
+    app: 'console',
+    state: { name: 'schedule', open: tab('schedule') },
   },
   { key: 'request-new', path: '/requests/new', app: 'console' },
   { key: 'announcement-new', path: '/announcements/new', app: 'console' },
@@ -320,6 +393,26 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.workflowRun ? `/incidents/${r.workflowRun}` : undefined),
     app: 'console',
     state: { name: 'workflows', open: tab('workflows') },
+  },
+  // WP-046a S2: a record's checklists and all its files (template A's tabs), and your
+  // reminders in the header (lane C's condition: 390 and 1280, en/ar, top/side).
+  {
+    key: 'incident-checklists',
+    path: incident,
+    app: 'console',
+    state: { name: 'checklists', open: tab('checklists') },
+  },
+  {
+    key: 'incident-files',
+    path: incident,
+    app: 'console',
+    state: { name: 'files', open: tab('files') },
+  },
+  {
+    key: 'home-reminders',
+    path: '/',
+    app: 'console',
+    state: { name: 'reminders', open: click('reminders-drawer-open') },
   },
   // WP-048b S4: the designer, "template A header + canvas body"; its outline and problems.
   {
@@ -377,6 +470,10 @@ export const SCREENS: Screen[] = [
     'catalog',
     'workflows',
     'change-windows', // WP-045c S3 (lane C's #381 review)
+    // WP-058b S4: Admin › Releases, each section (template E).
+    'releases/closure-codes',
+    'releases/closing',
+    'releases/stages',
   ].map<Screen>((page) => ({
     key: `admin-${page.replace('/', '-')}`,
     path: `/admin/${page}`,
@@ -712,6 +809,12 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
       await page.waitForTimeout(500);
       if (screen.state) await screen.state.open(page);
     }
+    // A full-page shot keeps the window's own height for layout, so a footer bar sticky to the
+    // window's foot was drawn in the middle of a long form, over its fields (QA V-01). In the
+    // shot it sits where it ends up once the page is scrolled to the end.
+    await page
+      .addStyleTag({ content: '[data-sticky-footer] { position: static !important; }' })
+      .catch(() => undefined);
     await page.screenshot({
       path: `${OUT}/${shot.file}`,
       fullPage: true,

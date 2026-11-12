@@ -18,7 +18,11 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "ReleaseFollowUpIn.kind": "work_item_type",  # WP-058b S4
+    "ReleaseFollowUpOut.relation": "releases.failed.relation",
     "InstanceOut.status": "workflow_instance_status",  # WP-048b
+    "WorkItemClosureOut.task_dependency_mode": "task_dependency_mode",  # WP-046a S1
+    "WorkItemClosurePatch.task_dependency_mode": "task_dependency_mode",
     "JobIn.kind": "workflow_job_kind",  # WP-048b S3
     "JobOut.kind": "workflow_job_kind",
     "JobOut.status": "workflow_job_status",
@@ -42,9 +46,23 @@ ENUM_PREFIXES: dict[str, str] = {
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
     "AssetDepreciationMethod": "asset_depreciation",
+    # The asset list's built-in views (WP-049b s4a)
+    "AssetView": "asset_view",
+    # Bulk jobs, merges and imports (WP-049b S4b)
+    "AssetBulkAction": "asset_bulk_action",
+    "AssetBulkStatus": "asset_bulk_status",
+    "AssetBulkOutcome": "asset_bulk_outcome",
+    "AssetBulkChanges.holder_kind": "asset_holder_kind",
+    "AssetImportStatus": "asset_import_status",
+    "AssetImportOut.file_format": "people_import_format",
+    "ImportKind": "asset_import_kind",
+    "ImportMatch": "asset_import_match",
+    "ImportMode": "asset_import_mode",
+    "MergeSide": "asset_merge_side",
     # Asset financials (WP-049b s2)
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",
+    "RateState": "people.cost_rate.state",  # a person's cost per hour (REQ-INC-068)
     "TermsSource": "asset_terms_source",
     # Labels, audits, scans and the overdue rule (WP-049b s3)
     "AssetChangeOriginOut.kind": "asset_change_origin",
@@ -168,6 +186,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFormatsOut.formats[]": "report_export_format",
     "ReportExportIn.language": "locale",
     "ReportRunIn.language": "locale",
+    "ArchiveIn.language": "locale",  # WP-046a S2: the zip manifest's language
     "ReportExportOut.status": "report_export_status",
     "ReportSettingsOut.week_start": "report_week_start",
     "ReportSettingsPatch.week_start": "report_week_start",
@@ -276,6 +295,9 @@ ENUM_PREFIXES: dict[str, str] = {
     "BoardChoice": "change_board_choice",  # WP-045b S3 (REQ-CHG-041)
     "WindowKind": "change_window_kind",  # WP-045c (REQ-CHG-075, -076)
     "WindowMode": "change_window_mode",  # WP-045c (REQ-CHG-077)
+    "WindowOut.repeat": "window_repeat",  # D-156: none, weekly, monthly
+    "WindowIn.repeat": "window_repeat",
+    "WindowPatch.repeat": "window_repeat",
     "ConflictKind": "change_conflict",  # WP-045c (REQ-CHG-073, -074)
     "Watched": "reapproval_field",  # WP-045b S4 (REQ-CHG-053)
     "OnChange": "reapproval_effect",

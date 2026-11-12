@@ -7,7 +7,10 @@ Docker network with the pods' hostnames. It removes everything afterwards.
 It proves:
 - the first start makes pod 0 master;
 - stopping it promotes a replica, and data written before survives;
-- the old master, started again, follows the new one (no split brain).
+- the old master, started again, follows the new one (no split brain);
+- a pod is ready (ready.sh, the valkey container's probe) only once its own sentinel knows it in
+  its role, so a planned stop right after a pod got ready still fails over; once ready, a
+  sentinel outage never makes it not ready.
 
 The app reconnecting through Sentinel is proven on k3d (the HA smoke), where the sentinels'
 hostnames resolve for the app.
@@ -23,6 +26,7 @@ import subprocess
 import time
 import uuid
 from collections.abc import Iterator
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -48,13 +52,15 @@ def _run(*args: str, check: bool = True) -> str:
     return done.stdout.strip()
 
 
-def _scripts(into: Path) -> str:
-    """The chart's HA Valkey scripts, written to `into`; returns the image the chart pins."""
+def _scripts(into: Path, *values: str) -> str:
+    """The chart's HA Valkey scripts, written to `into`; returns the image the chart pins.
+    `values` are extra `--set` values (the lone pod's replicas and quorum)."""
     rendered = _run(
         "helm", "template", "supportx", str(CHART), "--namespace", "supportx",
         "-f", str(CHART / "values-ha.yaml"), "--show-only", "templates/valkey-ha.yaml",
         "--set", "publicUrl=https://x.example.com", "--set", "routing.hostnames={x.example.com}",
         "--set", "routing.gateway.tlsSecret=t",
+        *(arg for value in values for arg in ("--set", value)),
     )  # fmt: skip
     # The scripts ConfigMap's `data:` holds `  <name>.sh: |` blocks indented four spaces.
     scripts: dict[str, list[str]] = {}
@@ -67,7 +73,7 @@ def _scripts(into: Path) -> str:
             current.append(line[4:])
         else:
             current = None
-    assert set(scripts) == {"common.sh", "valkey.sh", "sentinel.sh"}, sorted(scripts)
+    assert set(scripts) == {"common.sh", "valkey.sh", "sentinel.sh", "ready.sh"}, sorted(scripts)
     _read_timings("\n".join(scripts["sentinel.sh"]))
     for name, lines in scripts.items():
         (into / name).write_text("\n".join(lines) + "\n")
@@ -96,25 +102,56 @@ def failover_seconds() -> float:
 
 
 class Valkeys:
-    """Three pods' worth of Valkey and Sentinel, by index."""
+    """Three pods' worth of Valkey and Sentinel, by index (one for the lone pod)."""
 
-    def __init__(self, scripts: Path, image: str) -> None:
-        self.scripts, self.image = scripts, image
+    def __init__(self, scripts: Path, image: str, pods: int = 3) -> None:
+        self.scripts, self.image, self.pods = scripts, image, pods
         self.network = f"sx-vk-{uuid.uuid4().hex[:8]}"
         self.password = secrets.token_urlsafe(18)
 
     def name(self, index: int) -> str:
         return f"{self.network}-{index}"
 
-    def start(self, index: int) -> None:
+    def start(self, index: int, *, sentinel: bool = True) -> None:
+        """The pod: its server and, unless held back (start_sentinel), its sentinel. The
+        container lives while either runs, so a sentinel can stop on its own (stop_sentinel)."""
+        both = "sh /scripts/valkey.sh & sleep 2; sh /scripts/sentinel.sh & wait"
         _run(
             "docker", "run", "-d", "--name", self.name(index),
             "--hostname", f"supportx-valkey-{index}", "--network", self.network,
             "--network-alias", f"supportx-valkey-{index}.{HEADLESS}",
             "-e", f"VALKEY_PASSWORD={self.password}", "-v", f"{self.scripts}:/scripts:ro",
             "--tmpfs", "/run/valkey", "--tmpfs", "/run/sentinel", self.image,
-            "sh", "-c", "sh /scripts/valkey.sh & sleep 2; sh /scripts/sentinel.sh",
+            "sh", "-c", both if sentinel else "sh /scripts/valkey.sh & wait",
         )  # fmt: skip
+
+    def start_sentinel(self, index: int) -> None:
+        _run("docker", "exec", "-d", self.name(index), "sh", "/scripts/sentinel.sh")
+
+    def stop_sentinel(self, index: int) -> None:
+        self.cli(index, "SHUTDOWN", port=26379, check=False)  # the connection drops: no answer
+
+    def sentinel_up(self, index: int) -> bool:
+        return self.cli(index, "ping", port=26379, check=False) == "PONG"
+
+    def ready(self, index: int) -> tuple[bool, str]:
+        """The valkey container's readiness probe, as Kubernetes runs it: passed, and its output."""
+        done = subprocess.run(  # noqa: S603 - the test's own container
+            ["docker", "exec", self.name(index), "sh", "/scripts/ready.sh"],  # noqa: S607
+            check=False, capture_output=True, text=True,
+        )  # fmt: skip
+        return done.returncode == 0, (done.stdout + done.stderr).strip()
+
+    def is_ready(self, index: int) -> bool:
+        return self.ready(index)[0]
+
+    def mark(self, index: int) -> str:
+        """The role ready.sh's first-readiness gate passed in, or "" (not passed)."""
+        done = subprocess.run(  # noqa: S603 - the test's own container
+            ["docker", "exec", self.name(index), "cat", "/run/valkey/ready-role"],  # noqa: S607
+            check=False, capture_output=True, text=True,
+        )  # fmt: skip
+        return done.stdout.strip() if done.returncode == 0 else ""
 
     def start_plain(self, index: int) -> None:
         """A bare server as pod `index` (no sentinel, never replicated): keys at offset 0."""
@@ -152,11 +189,23 @@ class Valkeys:
         except subprocess.CalledProcessError:
             return False
 
-    def cli(self, index: int, *args: str, port: int = 6379) -> str:
+    def cli(self, index: int, *args: str, port: int = 6379, check: bool = True) -> str:
         return _run(
             "docker", "exec", "-e", f"REDISCLI_AUTH={self.password}", self.name(index),
-            "valkey-cli", "-p", str(port), "--no-auth-warning", *args,
+            "valkey-cli", "-p", str(port), "--no-auth-warning", *args, check=check,
         )  # fmt: skip
+
+    def connected_replicas(self, index: int) -> set[str]:
+        """The hosts the server reports connected as its replicas (slave0:ip=<host>,port=...)."""
+        info = self.cli(index, "info", "replication")
+        return set(re.findall(r"^slave\d+:ip=([^,]+),", info.replace("\r", ""), re.MULTILINE))
+
+    def known_replicas(self, asked: int) -> set[str]:
+        """The replicas the pod's sentinel lists (their announced hosts)."""
+        # One flat key, value list per replica: "name", <name>, "ip", <host>, "port", ...
+        out = self.cli(asked, "SENTINEL", "replicas", "supportx", port=26379)
+        fields = [line.strip() for line in out.splitlines()]
+        return {value for key, value in pairwise(fields) if key == "ip"}
 
     def role(self, index: int) -> str:
         lines = [line.strip() for line in self.cli(index, "info", "replication").splitlines()]
@@ -186,20 +235,38 @@ def replicated(valkeys: Valkeys) -> None:
         _until(lambda i=index: valkeys.cli(i, "get", "session:probe") == "kept", 60)
 
 
-@pytest.fixture
-def valkeys(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Valkeys]:
+# Sentinel learns a master's replicas only from the master's INFO, which it asks every 10 s
+# (sentinel.c's sentinel_info_period; the chart does not set it). A master lost before its
+# sentinels saw the replicas there leaves them nothing to promote: every attempt aborts with
+# -failover-abort-no-good-slave until the master is back, so no failover budget is enough.
+# Since #284 pod 0 starts only once its peers answer, so the sentinels' first INFO of it often
+# comes before the replicas connected, and a test could stop it inside the next 10 s (CI,
+# 2026-11-10/11: three different tests out of time; neither surviving sentinel logged +slave).
+SENTINEL_INFO_SECONDS = 10
+
+
+def sentinels_know_the_replicas(valkeys: Valkeys) -> None:
+    """The sentinels that must fail over (pods 1 and 2) both list pods 1 and 2 as replicas.
+    One INFO period after the replicas connected, plus the runner margin of failover_seconds()."""
+    wanted = {f"supportx-valkey-{i}.{HEADLESS}" for i in (1, 2)}
+    for asked in (1, 2):
+        _until(lambda a=asked: wanted <= valkeys.known_replicas(a), SENTINEL_INFO_SECONDS + 20)
+
+
+def _pods(tmp_path: Path, request: pytest.FixtureRequest, *values: str) -> Iterator[Valkeys]:
     tmp_path.chmod(0o755)  # the containers' own user reads the scripts
-    found = Valkeys(tmp_path, _scripts(tmp_path))
+    pods = 1 if "valkeyHa.replicas=1" in values else 3
+    found = Valkeys(tmp_path, _scripts(tmp_path, *values), pods)
     _run("docker", "network", "create", found.network)
     failed_before = request.session.testsfailed
     try:
-        for index in range(3):
+        for index in range(pods):
             found.start(index)
         yield found
     finally:
         if request.session.testsfailed > failed_before:
             # What each pod decided ("starting as master", "replica of ..."), for the CI log.
-            for index in range(3):
+            for index in range(pods):
                 logs = subprocess.run(  # noqa: S603 - the test's own container
                     ["docker", "logs", found.name(index)],  # noqa: S607
                     check=False,
@@ -219,9 +286,20 @@ def valkeys(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Valkeys]
                 shown = "\n".join([*events[-80:], "... last lines:", *lines[-20:]])
                 print(f"--- pod {index} ---\n{shown}")  # noqa: T201
 
-        for index in range(3):
+        for index in range(pods):
             found.stop(index)
         _run("docker", "network", "rm", found.network, check=False)
+
+
+@pytest.fixture
+def valkeys(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Valkeys]:
+    yield from _pods(tmp_path, request)
+
+
+@pytest.fixture
+def lone(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Valkeys]:
+    """One pod alone (valkeyHa.replicas 1): a master that never has a replica."""
+    yield from _pods(tmp_path, request, "valkeyHa.replicas=1", "valkeyHa.quorum=1")
 
 
 def test_a_failover_keeps_the_data_and_the_old_master_rejoins_as_a_replica(
@@ -235,6 +313,7 @@ def test_a_failover_keeps_the_data_and_the_old_master_rejoins_as_a_replica(
     # Both replicas have it before the master is lost (WAIT: replicas that acknowledged).
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
     replicated(valkeys)
+    sentinels_know_the_replicas(valkeys)  # else no failover can happen
 
     valkeys.stop(0)
     _until(
@@ -267,6 +346,7 @@ def test_a_master_back_before_the_sentinels_notice_never_starts_empty(valkeys: V
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
     replicated(valkeys)
+    sentinels_know_the_replicas(valkeys)  # else no failover can happen
 
     valkeys.stop(0)
     valkeys.start(0)  # at once: well inside down-after-milliseconds
@@ -311,6 +391,7 @@ def test_a_master_back_while_its_peers_are_unreachable_waits_and_keeps_the_data(
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
     replicated(valkeys)
+    sentinels_know_the_replicas(valkeys)  # else no failover can happen
 
     valkeys.cut(1)
     valkeys.cut(2)
@@ -369,3 +450,130 @@ def test_a_peer_holding_keys_at_offset_0_is_never_read_as_empty(valkeys: Valkeys
     assert "holds data" in valkeys.waiting(0)
     for index in (1, 2):  # nobody's keys were touched
         assert valkeys.cli(index, "get", "session:probe") == "kept"
+
+
+def all_ready(valkeys: Valkeys) -> None:
+    """Every pod passed its readiness probe once in its role (what a rolling update waits for)."""
+    for index in range(3):
+        _until(lambda i=index: valkeys.is_ready(i) and valkeys.mark(i) != "", START_SECONDS)
+
+
+def test_a_master_is_ready_only_once_its_sentinel_lists_its_replicas(valkeys: Valkeys) -> None:
+    """The fresh-start gap (lane B follow-up, 2026-11-11): a master Ready before the sentinels saw
+    its replicas could be stopped with nothing to promote. Its sentinel is held back here, so it
+    certainly does not know them yet: not ready, however healthy the server; then ready once the
+    sentinel lists every connected replica, and only then."""
+    for index in range(3):
+        valkeys.stop(index)
+    valkeys.start(0, sentinel=False)
+    valkeys.start(1)
+    valkeys.start(2)
+    wanted = {f"supportx-valkey-{i}.{HEADLESS}" for i in (1, 2)}
+    # Both replicas connected before pod 0's first probe (nothing here probes on its own): with
+    # none connected it would rightly pass at once.
+    _until(lambda: valkeys.connected_replicas(0) == wanted, START_SECONDS)
+    assert valkeys.serving(0)
+    ready, said = valkeys.ready(0)
+    assert not ready
+    assert "does not list these replicas yet" in said, said
+    assert valkeys.mark(0) == ""
+
+    valkeys.start_sentinel(0)
+    deadline = time.monotonic() + SENTINEL_INFO_SECONDS + START_SECONDS
+    while not valkeys.is_ready(0):
+        assert time.monotonic() < deadline, "the master never became ready"
+        time.sleep(0.2)
+    # The sentinel's list only grows, so it lists them now if it did when the probe passed.
+    assert wanted <= valkeys.known_replicas(0)
+    assert valkeys.mark(0) == "master"
+
+
+def test_a_replica_restarted_then_the_master_stopped_still_fails_over(valkeys: Valkeys) -> None:
+    """A rolling update's step: a replica restarts and the next pod goes as soon as it is Ready.
+    Only the readiness probe is waited for here (no sentinels_know_the_replicas): the restarted
+    pod's new sentinel knows it, so whichever sentinel leads has a replica to promote."""
+    _until(
+        lambda: [valkeys.role(i) for i in range(3)] == ["master", "slave", "slave"], START_SECONDS
+    )
+    all_ready(valkeys)
+    assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
+    replicated(valkeys)
+
+    valkeys.stop(2)
+    valkeys.start(2)
+    _until(lambda: valkeys.is_ready(2), START_SECONDS)
+    assert valkeys.mark(2) == "slave"
+    valkeys.stop(0)
+
+    _until(
+        lambda: valkeys.master(1) not in ("", f"supportx-valkey-0.{HEADLESS}"), failover_seconds()
+    )
+    promoted = int(valkeys.master(1).split(".")[0].rsplit("-", 1)[1])
+    assert valkeys.role(promoted) == "master"
+    assert valkeys.cli(promoted, "get", "session:probe") == "kept"
+    # Promoted: its mark said "slave", so it gates again, as master, and passes.
+    _until(
+        lambda: valkeys.is_ready(promoted) and valkeys.mark(promoted) == "master",
+        failover_seconds(),
+    )
+
+
+def test_a_lone_pod_without_replicas_is_ready(lone: Valkeys) -> None:
+    _until(lambda: lone.role(0) == "master", START_SECONDS)
+    _until(lambda: lone.is_ready(0), START_SECONDS)
+    assert lone.mark(0) == "master"  # passed: never re-gated, so never flips over its sentinel
+    assert lone.cli(0, "set", "first", "ok") == "OK"
+    assert lone.is_ready(0)
+
+
+def test_a_master_ready_before_its_replicas_stays_ready_without_its_sentinel(
+    valkeys: Valkeys,
+) -> None:
+    """Lane B review, 2026-11-11: a master Ready with no replica yet is marked, so replicas
+    connecting later and then a sentinel outage never turn it not ready (that flip would be the
+    app's Valkey outage). Pods 1 and 2 are bare empty servers, so pod 0 starts as a fresh master
+    with no replica; they become its replicas only after its first probe."""
+    for index in range(3):
+        valkeys.stop(index)
+    for index in (1, 2):
+        valkeys.start_plain(index)
+        _until(lambda i=index: valkeys.cli(i, "ping") == "PONG", START_SECONDS)
+    valkeys.start(0)
+    _until(lambda: valkeys.role(0) == "master" and valkeys.is_ready(0), START_SECONDS)
+    assert valkeys.connected_replicas(0) == set()
+    assert valkeys.mark(0) == "master"
+
+    wanted = {f"supportx-valkey-{i}.{HEADLESS}" for i in (1, 2)}
+    for index in (1, 2):
+        host = f"supportx-valkey-{index}.{HEADLESS}"
+        valkeys.cli(index, "config", "set", "masterauth", valkeys.password)
+        valkeys.cli(index, "config", "set", "replica-announce-ip", host)
+        valkeys.cli(index, "replicaof", f"supportx-valkey-0.{HEADLESS}", "6379")
+    _until(lambda: valkeys.connected_replicas(0) == wanted, START_SECONDS)
+    valkeys.stop_sentinel(0)
+    _until(lambda: not valkeys.sentinel_up(0), 10)
+    for _ in range(3):  # several probe periods
+        ready, said = valkeys.ready(0)
+        assert ready, said
+        assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
+        time.sleep(2)
+    assert valkeys.mark(0) == "master"
+
+
+def test_a_ready_master_stays_ready_and_writable_without_its_sentinel(valkeys: Valkeys) -> None:
+    """The coordinator, 2026-11-11: a sentinel blip must never become a Valkey outage. Once
+    ready, only the server counts."""
+    _until(
+        lambda: [valkeys.role(i) for i in range(3)] == ["master", "slave", "slave"], START_SECONDS
+    )
+    all_ready(valkeys)
+    assert valkeys.mark(0) == "master"
+
+    valkeys.stop_sentinel(0)
+    _until(lambda: not valkeys.sentinel_up(0), 10)
+    for _ in range(3):  # several probe periods
+        ready, said = valkeys.ready(0)
+        assert ready, said
+        assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
+        time.sleep(2)
+    assert valkeys.role(0) == "master"

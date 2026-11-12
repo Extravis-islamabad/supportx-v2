@@ -31,12 +31,19 @@ from app.modules.identity_access import authorize_stored
 from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import DEFAULT_STATUSES, StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
-from app.modules.work_items.domain.portal import portal_changes
-from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
+from app.modules.work_items.domain.portal import PLANNED_STAGE, portal_changes
+from app.modules.work_items.domain.types import (
+    CHANGE,
+    INCIDENT,
+    TYPES,
+    WorkItemType,
+    WorkItemTypeCode,
+)
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemFollower,
     WorkItemLink,
+    WorkItemReminder,
     WorkItemRoleHolder,
     WorkItemTask,
 )
@@ -79,6 +86,7 @@ REPEATS_CHANGED = "work_items.problem_repeats_changed"
 APPROVALS_CHANGED = "work_items.approvals_changed"
 MY_APPROVALS_CHANGED = "work_items.my_approvals_changed"
 MY_TASKS_CHANGED = "work_items.my_tasks_changed"
+MY_REMINDERS_CHANGED = "work_items.my_reminders_changed"  # WP-046a S2: personal reminders
 LISTS: dict[WorkItemTypeCode, LiveList] = {
     code: LiveList(wtype.path, wtype.permission("view"), unassigned_by_site=True)
     for code, wtype in TYPES.items()
@@ -150,6 +158,11 @@ def _portal(envelope: EventEnvelope, row: WorkItem, fields: tuple[str, ...]) -> 
         )
         if after and after_category is None:  # unknown now: say it changed, the API decides
             heard = tuple(sorted({*heard, "portal_status"}))
+        if row.type == CHANGE.code:  # its requester follows the stage and status (REQ-CHG-109)
+            shown = {f for f in fields if f in {"stage", "status"}}
+            if after:
+                shown.add("status")
+            heard = tuple(sorted({*heard, *shown}))
     if not heard:
         return []
     return [
@@ -559,6 +572,26 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     payload = envelope.payload
     record_id = uuid.UUID(str(payload["work_item_id"]))
     part_id = uuid.UUID(str(payload["part_id"]))
+    if payload["part"] == "timer":
+        return RealtimeEffects()  # S3 routes timers to their owner; nothing publishes one yet
+    if payload["part"] == "reminder":
+        # A personal reminder (WP-046a S2, REQ-INC-082 AC2): its owner's channel only, never the
+        # record's, so nobody else even hears that one exists.
+        owner = await session.scalar(
+            select(WorkItemReminder.user_id).where(WorkItemReminder.id == part_id)
+        )
+        if owner is None:
+            return RealtimeEffects()
+        return RealtimeEffects(
+            publications=[
+                Publication(
+                    personal(envelope.tenant_id, owner),
+                    MY_REMINDERS_CHANGED,
+                    ids=(str(part_id),),
+                    actor_id=_actor(envelope),
+                )
+            ]
+        )
     publications = [
         Publication(
             record(envelope.tenant_id, RECORD_KIND, record_id),
@@ -568,6 +601,19 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
             actor_id=_actor(envelope),
         )
     ]
+    if payload["part"] == "stage_schedule" and part_id == uuid.uuid5(record_id, PLANNED_STAGE):
+        # A change's planned window, which its requester sees (REQ-CHG-109); other stages not.
+        publications.append(
+            Publication(
+                record(envelope.tenant_id, PORTAL_KIND, record_id),
+                PORTAL_CHANGED,
+                ids=(str(record_id),),
+                fields=(
+                    "planned_end",
+                    "planned_start",
+                ),
+            )
+        )
     if payload["part"] == "task":
         owner = await session.scalar(
             select(WorkItemTask.owner_id).where(WorkItemTask.id == part_id)

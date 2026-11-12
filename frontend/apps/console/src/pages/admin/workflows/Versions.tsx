@@ -23,9 +23,11 @@ import {
 } from '@supportx/ui';
 
 import { failureText } from '../../workflows/failure';
+import { useStepName } from '../../workflows/stepName';
 import { JobProgress } from './JobProgress';
 
 const LIVE = ['running', 'waiting', 'failed'];
+const NO_STEPS: readonly { id: string; type: string }[] = [];
 const MAX_RUNS = 1000; // a job's ceiling (§10)
 
 function Publisher({ id }: { id: string | null }) {
@@ -55,6 +57,10 @@ function MoveDialog({
   const t = useLabel();
   const occupancy = useVersionOccupancy(workflow.id, from);
   const steps = useVersionSteps(workflow.id, to);
+  // Steps by name, never by id (QA F-07): runs sit on the old version's steps, go to the new's.
+  const fromSteps = useVersionSteps(workflow.id, from);
+  const fromName = useStepName(fromSteps.data ?? NO_STEPS);
+  const toName = useStepName(steps.data ?? NO_STEPS);
   const runs = useWorkflowRuns({ workflowId: workflow.id, versionNumber: from });
   const queue = useQueueJob();
   const [mapping, setMapping] = useState<Record<string, string>>({});
@@ -135,7 +141,7 @@ function MoveDialog({
             {occupied.map(([node, count]) => (
               <Form.Item
                 key={node}
-                label={t('workflows.versions.map_step', { node, runs: count })}
+                label={t('workflows.versions.map_step', { node: fromName(node), runs: count })}
                 htmlFor={`map-${node}`}
               >
                 <Select<string>
@@ -146,13 +152,7 @@ function MoveDialog({
                   }}
                   options={[
                     { value: '', label: t('workflows.versions.stays') },
-                    ...targets.map((s) => ({
-                      value: s.id,
-                      label: t('workflows.designer.outline_node', {
-                        type: t(`workflow_node_type.${s.type}`),
-                        id: s.id,
-                      }),
-                    })),
+                    ...targets.map((s) => ({ value: s.id, label: toName(s.id) })),
                   ]}
                   data-testid={`map-${node}`}
                 />
@@ -189,7 +189,7 @@ function MoveDialog({
                   renderItem={(r) => (
                     <List.Item>
                       {failureText(t, typeof r.code === 'string' ? r.code : '', {
-                        node: typeof r.node === 'string' ? r.node : '',
+                        node: fromName(typeof r.node === 'string' ? r.node : ''),
                       })}
                     </List.Item>
                   )}
