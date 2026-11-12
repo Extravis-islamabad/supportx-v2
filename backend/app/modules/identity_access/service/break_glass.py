@@ -97,6 +97,9 @@ async def set_break_glass(  # noqa: PLR0913 - the change and who makes it, keywo
     """Mark or unmark `user_id`; the new state and the audit details (before and after)."""
     if not subject.is_tenant_admin:
         raise PermissionDenied(code="break_glass_admin_only")
+    if subject.user_id == user_id:
+        # Another admin decides who may bypass single sign-on, never the person (lane B).
+        raise PermissionDenied(code="break_glass_not_self")
     person = await session.get(User, user_id)
     if person is None or person.deleted_at is not None:
         raise NotFound(code="user_not_found")
