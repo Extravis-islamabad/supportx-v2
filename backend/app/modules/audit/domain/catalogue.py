@@ -165,6 +165,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.type_changed", AuditCategory.ACCESS, "identity_access"),
     # a person's cost per hour (REQ-INC-068): old and new rate and start in the details
     ("user.cost_rate_changed", AuditCategory.ACCESS, "identity_access"),
+    # D-164: every view of a person's rates is audited too (the worklog cost snapshot is not).
+    ("user.cost_rate_viewed", AuditCategory.ACCESS, "identity_access"),
     ("user.sign_in_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.deactivated", AuditCategory.ACCESS, "identity_access"),
     ("user.reactivated", AuditCategory.ACCESS, "identity_access"),

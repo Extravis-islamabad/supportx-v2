@@ -377,7 +377,10 @@ async def test_every_change_is_audited_with_old_new_and_the_date(world: World) -
         str(a.tech),
     )
     assert [h["kind"] for h in history] == ["child_added", "child_changed", "child_removed"]
-    assert all("40" not in str(h["old_value"]) + str(h["new_value"]) for h in history)
+    # The amounts as written, never a bare "40": the values hold rate UUIDs, whose hex may
+    # contain "40" (this check flaked on main, 2026-11-12).
+    shown = " ".join(str(h["old_value"]) + str(h["new_value"]) for h in history)
+    assert not any(amount in shown for amount in ("40.00", "42.50", "40.0", "42.5"))
     events = await _sql(
         world,
         "SELECT envelope FROM outbox_events WHERE tenant_id = $1"
@@ -411,3 +414,43 @@ async def test_a_rate_in_another_currency_than_today_s_base_is_no_rate(world: Wo
         await conn.close()
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         assert await cost_rate(session, person, now) is None
+
+
+async def test_every_view_is_audited_and_the_port_s_snapshot_is_not(world: World) -> None:
+    """D-164 (Haider, 2026-11-12): one audit entry per read of a person's rates, naming which
+    rates were shown but never their amounts; the worklog cost snapshot through the port is not
+    a view and writes nothing."""
+    a, now = world.a, _now()
+    made = await _set(world, a, a.requester, "61.25", now - DAY)
+    assert made.status_code == 201, made.text
+
+    async def viewed() -> list[tuple[str, str, uuid.UUID, dict[str, Any]]]:
+        rows = await _sql(
+            world,
+            "SELECT object_type, object_id, actor_id, details FROM audit_entries"
+            " WHERE tenant_id = $1 AND action = 'user.cost_rate_viewed' AND object_id = $2"
+            " ORDER BY occurred_at",
+            a.tenant,
+            str(a.requester),
+        )
+        return [
+            (r["object_type"], r["object_id"], r["actor_id"], json.loads(r["details"]))
+            for r in rows
+        ]
+
+    assert await viewed() == []
+    for _ in range(2):  # the card's load, then a live refetch: two views
+        shown = await _list(world, a, a.requester)
+        assert shown.status_code == 200, shown.text
+    entries = await viewed()
+    expected = [("user", str(a.requester), a.admin)] * 2
+    assert [(t, o, actor) for t, o, actor, _ in entries] == expected
+    rate_id = made.json()["id"]
+    for *_, details in entries:
+        assert details["rate_ids"] == [rate_id]
+        assert details["current_rate_id"] == rate_id
+        assert "61.25" not in json.dumps(details)  # never the amount
+
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await cost_rate(session, a.requester, now) == Decimal("61.25")
+    assert len(await viewed()) == 2  # the port's snapshot is no view
