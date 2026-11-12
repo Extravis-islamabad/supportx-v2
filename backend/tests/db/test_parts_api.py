@@ -445,3 +445,10 @@ async def test_req_inc_071_time_per_status_paused_and_reopen_keeps_time(world: W
     # Someone who cannot see the record gets nothing.
     hidden = await world.call("GET", f"{BASE}/{item['id']}/time-analysis", a, a.tech_b)
     assert hidden.status_code == 404, hidden.text
+    # Requesters see none of it, not even on their own incident (the coordinator, #432).
+    mine = await world.create(a, a.admin, requester_id=str(a.requester))
+    refused = await world.call("GET", f"{BASE}/{mine['id']}/time-analysis", a, a.requester)
+    assert refused.status_code in {403, 404}, refused.text
+    assert "seconds" not in refused.text
+    paths = world.app.openapi()["paths"]
+    assert not [p for p in paths if p.startswith("/api/v1/portal") and "time" in p]
