@@ -164,6 +164,41 @@ describe('Admin › Releases', () => {
     expect(sent?.body).toEqual({ open_stage_tasks_block: false });
   });
 
+  it('REQ-REL-057 AC2: Roles says what Take makes you, and moves it on a click', async () => {
+    const role = (code: string, take: boolean) => ({
+      code,
+      labels: null,
+      description: null,
+      single: true,
+      eligibility: null,
+      system: true,
+      disabled: false,
+      take,
+    });
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        ...routes(),
+        'GET /api/v1/releases/settings/roles': {
+          body: [role('release_manager', false), role('release_engineer', true)],
+        },
+        'PATCH /api/v1/releases/settings/roles/release_manager': { body: releaseSettings() },
+      },
+    });
+    open('/admin/releases/roles');
+    const engineer = await screen.findByTestId('settings-take-release_engineer');
+    // Ant Design puts the test id on the radio's input.
+    const input = engineer instanceof HTMLInputElement ? engineer : engineer.querySelector('input');
+    expect(input?.checked).toBe(true);
+    fireEvent.click(screen.getByTestId('settings-take-release_manager'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/releases/settings/roles/release_manager')).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', '/api/v1/releases/settings/roles/release_manager');
+    expect(sent?.body).toEqual({ take: true });
+    expect(sent?.headers.get('If-Match')).toBe('"1"');
+  });
+
   it('is closed to people without the service desk configure right', async () => {
     api({
       me: fakeSession(

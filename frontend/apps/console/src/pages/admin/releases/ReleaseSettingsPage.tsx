@@ -1,7 +1,7 @@
-import { Alert, Button, Flex, Skeleton, Switch, Typography } from 'antd';
+import { Alert, Button, Flex, Radio, Skeleton, Switch, Typography } from 'antd';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
-import type { IncidentCatalogue } from '@supportx/api-client';
+import { useRoleDefs, useSetTakeRole, type IncidentCatalogue } from '@supportx/api-client';
 import {
   ConflictDialog,
   NoAccess,
@@ -9,10 +9,13 @@ import {
   SettingsCard,
   SettingsPageHeader,
   StickySaveBar,
+  reportError,
   useAccess,
+  useAppearance,
   useLabel,
 } from '@supportx/ui';
 
+import { labelled } from '../../incidents/labels';
 import { ClosingTab } from '../incidents/ClosingTab';
 import {
   SettingsBaseContext,
@@ -23,7 +26,7 @@ import {
 import { PickListEditor } from '../incidents/PickListEditor';
 import { Problems } from '../incidents/shared';
 
-const SECTIONS = ['closure-codes', 'closing', 'stages'] as const;
+const SECTIONS = ['closure-codes', 'closing', 'stages', 'roles'] as const;
 type Section = (typeof SECTIONS)[number];
 
 /**
@@ -79,6 +82,8 @@ function ReleaseSettings() {
         return <ClosingTab catalogue={cat} />;
       case 'stages':
         return <StagesTab catalogue={cat} />;
+      case 'roles':
+        return <RolesTab catalogue={cat} />;
     }
   })();
   return (
@@ -168,5 +173,47 @@ function StagesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       />
       <ConflictDialog {...conflictDialog} />
     </Flex>
+  );
+}
+
+/**
+ * What Take makes you (REQ-REL-057 AC2, Appendix A): the release engineer unless the tenant
+ * chooses another role, the release manager for example. Saved at once, on the settings version
+ * shown; who may hold each role stays in the role's own rules.
+ */
+function RolesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
+  const t = useLabel();
+  const { locale } = useAppearance();
+  const roles = useRoleDefs('releases');
+  const take = useSetTakeRole('releases');
+  const current = (roles.data ?? []).find((r) => r.take)?.code;
+  return (
+    <SettingsCard title={t('settings.release_roles.take_title')} testId="settings-release-take">
+      <Typography.Paragraph type="secondary">
+        {t('settings.release_roles.take_help')}
+      </Typography.Paragraph>
+      <Radio.Group
+        value={current}
+        disabled={take.isPending}
+        onChange={(event) => {
+          take.mutate(
+            { code: String(event.target.value), version: catalogue.version },
+            { onError: reportError },
+          );
+        }}
+        data-testid="settings-release-take-role"
+      >
+        <Flex vertical gap={8}>
+          {(roles.data ?? [])
+            // Who asked for a release never takes it; retired roles are not offered.
+            .filter((r) => !r.disabled && r.code !== 'requester')
+            .map((r) => (
+              <Radio key={r.code} value={r.code} data-testid={`settings-take-${r.code}`}>
+                {labelled(r.labels, locale, () => t(`work_item_role.${r.code}`))}
+              </Radio>
+            ))}
+        </Flex>
+      </Radio.Group>
+    </SettingsCard>
   );
 }

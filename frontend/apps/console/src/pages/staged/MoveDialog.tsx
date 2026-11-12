@@ -25,6 +25,7 @@ import { CustomFieldControl } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { labelled } from '../incidents/labels';
 import { listValueName, statusName } from '../staged/labels';
+import { ReleaseChangesClose } from '../releases/ReleaseChangesClose';
 
 const CUSTOM = 'custom.';
 // A plan section a stage needs (`plan.backout`): written on the Plan tab, with its own version
@@ -311,6 +312,12 @@ export function StagedMoveDialog({
                   <bdi dir="auto">{openWork.items}</bdi>
                 </div>
                 {t('staged.move.open_work_confirm')}
+                {/* A release's changes: close the ones you may, here (REQ-REL-052). */}
+                {path === 'releases' && closing && (
+                  <div style={{ marginTop: 12 }}>
+                    <ReleaseChangesClose releaseId={recordId} />
+                  </div>
+                )}
               </>
             }
             data-testid="move-open-work"

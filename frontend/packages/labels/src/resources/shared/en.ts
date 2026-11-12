@@ -483,6 +483,9 @@ export const en = {
     'Choose whether each change asks for a reason. Pausing, cancelling and reopening pick from the reason lists.',
   'settings.release_closure_codes_help':
     'How a release ended. Picked when a release is closed; reports group by it.',
+  'settings.release_roles.take_help':
+    'Taking a release makes you this role on it, when nobody holds it yet. Who may hold each role follows the role’s own rules.',
+  'settings.release_roles.take_title': 'What Take makes you',
   'settings.rename': 'Rename',
   'settings.rename_value': 'Rename "{{name}}"',
   'settings.resume_on_requester_reply': 'A requester reply resumes it',
@@ -515,6 +518,7 @@ export const en = {
   'settings.section.priority': 'Priority',
   'settings.section.reasons': 'Reasons',
   'settings.section.reply-templates': 'Reply templates',
+  'settings.section.roles': 'Roles',
   'settings.section.routing': 'Routing and assignment',
   'settings.section.stages': 'Stages',
   'settings.section.statuses': 'Statuses',

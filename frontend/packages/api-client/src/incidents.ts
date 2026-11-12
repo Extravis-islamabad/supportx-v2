@@ -223,7 +223,7 @@ export function useIncidentAssignees(
   groupId: string | null,
   search: string,
   enabled = true,
-  base: 'incidents' | 'problems' | 'service-requests' | 'changes' = 'incidents',
+  base: 'incidents' | 'problems' | 'service-requests' | 'changes' | 'releases' = 'incidents',
 ) {
   return useQuery({
     queryKey: [...queryKeys.incidents.assignees(groupId, search), base],

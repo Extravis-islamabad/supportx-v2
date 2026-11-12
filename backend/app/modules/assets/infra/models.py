@@ -259,6 +259,9 @@ class Asset(TenantEntity):
     """
 
     __tablename__ = "assets"
+    # The INSERT returns the database's defaults (timestamps, version), so a new asset needs no
+    # SELECT after it (an import saves thousands, WP-049b).
+    __mapper_args__ = {"eager_defaults": True}  # noqa: RUF012 - SQLAlchemy reads it as a dict
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_assets_tenant_id_id"),
         ForeignKeyConstraint(
