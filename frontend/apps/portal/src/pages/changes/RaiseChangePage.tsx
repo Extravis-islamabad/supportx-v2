@@ -58,9 +58,9 @@ export function RaiseChangePage() {
     chosen === undefined
       ? t('portal.changes.why.no_form')
       : subject.trim() === ''
-        ? t('portal.report.why.subject')
+        ? t('portal.changes.why.subject')
         : required.has('description') && empty(description)
-          ? t('portal.report.why.description')
+          ? t('portal.changes.why.description')
           : null;
 
   return (
@@ -110,7 +110,7 @@ export function RaiseChangePage() {
           <Form.Item label={t('portal.report.for_whom')}>
             <ForWhom value={onBehalf} onChange={setOnBehalf} />
           </Form.Item>
-          <Form.Item label={t('portal.report.subject')} htmlFor="portal-change-subject" required>
+          <Form.Item label={t('portal.changes.subject')} htmlFor="portal-change-subject" required>
             <Input
               id="portal-change-subject"
               size="large"
@@ -128,6 +128,7 @@ export function RaiseChangePage() {
               required={required.has('description')}
             >
               <RichTextField
+                toolbar="basic"
                 value={description}
                 onChange={setDescription}
                 label={t('portal.report.description')}

@@ -60,6 +60,7 @@ export const ur: LabelResource = {
   'appearance.theme.light': 'ہلکا',
   'appearance.theme.system': 'سسٹم کے مطابق',
   'appearance.title': 'ظاہری شکل',
+  'board.move_to': 'منتقل کریں…',
   'check_status.failed': 'ناکام',
   'check_status.not_configured': 'ترتیب نہیں دیا گیا',
   'check_status.ok': 'ٹھیک ہے',

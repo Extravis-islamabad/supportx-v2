@@ -1279,6 +1279,7 @@ export {
   useStagedDowntimes,
   useStagedMove,
   useStagedPanel,
+  stagedPanelQuery,
   useStagedPlan,
   useStagedRoleCandidates,
   useStagedRoles,
