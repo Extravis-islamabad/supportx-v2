@@ -103,3 +103,50 @@ async def test_a_realtime_token_is_refused_once_the_tenant_restricts_the_address
         "/api/v1/realtime/connection-token", headers={"X-CSRF-Token": csrf}
     )
     assert (minted.status_code, minted.json()["code"]) == (403, "ip_not_allowed")
+
+
+async def _log(db: ThrowawayDatabase, tenant: uuid.UUID) -> list[asyncpg.Record]:
+    conn = await asyncpg.connect(db.admin_url)
+    try:
+        return await conn.fetch(
+            "SELECT outcome, reason, user_id, app, ip::text AS ip, device, source, method "
+            "FROM sign_in_events WHERE tenant_id = $1 ORDER BY occurred_at",
+            tenant,
+        )
+    finally:
+        await conn.close()
+
+
+async def test_req_aud_015_the_bff_writes_refusals_sign_ins_and_sign_outs(bff: Bff) -> None:
+    """The log names the person only where they exist, and keeps a device code, never the UA."""
+    a, _b = bff.tenants
+    chrome = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    )
+    bff.client.headers["User-Agent"] = chrome
+    await _restrict(bff.db, a, "console_ip_allow", [ELSEWHERE])
+    await bff.login(bff.user("a", email="newcomer@demo.test"))
+    (refused,) = await _log(bff.db, a)
+    assert (refused["outcome"], refused["reason"], refused["user_id"]) == (
+        "failed",
+        "ip_not_allowed",
+        None,  # never created, so never named (and never the e-mail they typed)
+    )
+    assert (refused["ip"], refused["device"], refused["source"]) == (
+        "127.0.0.1/32",
+        "chrome:windows",
+        "bff",
+    )
+    await _restrict(bff.db, a, "console_ip_allow", [])
+    assert (await bff.login(bff.user("a", email="newcomer@demo.test"))).status_code == 302
+    csrf = await bff.csrf()
+    assert (
+        await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    ).status_code == 204
+    rows = await _log(bff.db, a)
+    assert [r["outcome"] for r in rows] == ["failed", "success", "signed_out"]
+    (person,) = await user_rows(bff.db, "newcomer@demo.test")
+    assert rows[1]["user_id"] == rows[2]["user_id"] is not None
+    assert rows[1]["app"] == "console"
+    assert person is not None
