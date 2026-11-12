@@ -5,9 +5,13 @@ end or the duration fills the other; when both are given they must agree; the en
 before the start. Times are whole minutes, as people log them.
 """
 
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
+from typing import Any
 
 TITLE_MAX = 200
 COMMENT_MAX = 500
@@ -116,3 +120,59 @@ def moved(ids: list[str], index: int, by: int) -> list[str] | None:
     order = list(ids)
     order.insert(target, order.pop(index))
     return order
+
+
+# --- worklog costs (WP-046a S3, REQ-INC-068) ----------------------------------------------------
+
+CENT = Decimal("0.01")
+MONEY_MAX = Decimal("999999999999.99")  # Numeric(14, 2)
+COSTS_MAX = 20  # other cost lines on one worklog
+COST_NOTE_MAX = 500
+_CURRENCY = re.compile(r"^[A-Z]{3}$")
+
+
+def technician_cost(minutes: int, rate: Decimal) -> Decimal:
+    """Minutes at a cost per hour, to the cent (half up): 90 min at 40 is 60.00 (AC1)."""
+    return (Decimal(minutes) * rate / Decimal(60)).quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+@dataclass(frozen=True)
+class CostLine:
+    """One other cost, in the base currency; paid in another, with what was entered."""
+
+    amount: Decimal
+    original_amount: Decimal | None = None
+    original_currency: str | None = None
+    exchange_rate: Decimal | None = None
+    note: str | None = None
+
+
+def cost_line(  # noqa: PLR0911 - one return per rule, in the order they are checked
+    value: Mapping[str, Any], base_currency: str
+) -> CostLine | tuple[str, str]:
+    """A cost line from its fields, or (field, code) for the first problem.
+
+    In the base currency: `amount`. In another: `original_amount`, `original_currency` and the
+    `exchange_rate` the person entered (to the base currency); the amount is computed from them,
+    to the cent (no automatic rates, pending Haider).
+    """
+    note = value.get("note")
+    if note is not None and len(str(note)) > COST_NOTE_MAX:
+        return ("note", "value_too_long")
+    currency = value.get("original_currency")
+    if currency is None or currency == base_currency:
+        amount = value.get("amount", value.get("original_amount"))
+        if not isinstance(amount, Decimal) or amount < 0 or amount > MONEY_MAX:
+            return ("amount", "invalid_value")
+        return CostLine(amount.quantize(CENT, rounding=ROUND_HALF_UP), note=note)
+    if not isinstance(currency, str) or not _CURRENCY.match(currency):
+        return ("original_currency", "invalid_value")
+    original, rate = value.get("original_amount"), value.get("exchange_rate")
+    if not isinstance(original, Decimal) or original < 0 or original > MONEY_MAX:
+        return ("original_amount", "invalid_value")
+    if not isinstance(rate, Decimal) or rate <= 0:
+        return ("exchange_rate", "required" if rate is None else "invalid_value")
+    amount = (original * rate).quantize(CENT, rounding=ROUND_HALF_UP)
+    if amount > MONEY_MAX:
+        return ("amount", "invalid_value")
+    return CostLine(amount, original, currency, rate, note)
