@@ -14,12 +14,13 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from sqlalchemy import event, select
+from sqlalchemy import event, insert, select
 
 from app.core.tenancy import TenantContext
 from app.modules.assets.service import imports
 from app.shared.db import deferred as deferred_module
 from app.shared.db.deferred import deferred, deferred_writes
+from app.shared.events.outbox import OutboxEvent
 from app.shared.history import Change, FieldChange, record_changes
 from tests.db import test_incidents_api
 from tests.db.test_asset_import_batches import _checked, _counts, _run_for_real, _site
@@ -375,6 +376,25 @@ async def test_reading_a_deferred_table_while_rows_wait_raises(world: World) -> 
             await _save(session, uuid.uuid4())
             with pytest.raises(RuntimeError, match="field_changes read before flush"):
                 await session.execute(select(FieldChange.id).limit(1))
+            buffer = deferred(session)
+            assert buffer is not None
+            buffer.clear()  # leave the block cleanly; the test's transaction is rolled back
+        await session.rollback()
+
+
+async def test_an_immediate_insert_into_the_outbox_while_rows_wait_raises(world: World) -> None:
+    """Only an existing asset's valuation may still be written at once (lane C's #449 review): a
+    Core INSERT into the outbox (or any other guarded table) is refused while rows wait."""
+    a = world.a
+    async with _session(world, a) as session:
+        async with deferred_writes(session):
+            await _save(session, uuid.uuid4())
+            with pytest.raises(RuntimeError, match="outbox_events written around the buffer"):
+                await session.execute(
+                    insert(OutboxEvent).values(
+                        id=uuid.uuid4(), tenant_id=a.tenant, event_type="probe.probe"
+                    )
+                )
             buffer = deferred(session)
             assert buffer is not None
             buffer.clear()  # leave the block cleanly; the test's transaction is rolled back

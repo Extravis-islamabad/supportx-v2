@@ -53,6 +53,8 @@ GUARDED = frozenset(
         "asset_valuations",
     }
 )
+# The only guarded table a writer may still INSERT into at once while rows wait (see the guard).
+IMMEDIATE_WRITES = "asset_valuations"
 # Written first (the others' parent rows) and last (an event never precedes what it reports).
 FIRST = ("audit_entries",)
 LAST = ("outbox_events",)
@@ -206,9 +208,17 @@ async def deferred_writes(session: AsyncSession, *, write: bool = True) -> Async
         if not names:
             return
         target = _PLAIN_INSERT.match(statement)
-        if target is not None and names == {target.group(1)} and "SELECT" not in statement.upper():
-            return  # a writer's own INSERT at once (an existing asset's valuation upsert)
-        msg = f"deferred writes: {min(names)} read before flush"
+        if (
+            target is not None
+            and names == {target.group(1)} == {IMMEDIATE_WRITES}
+            and "SELECT" not in statement.upper()
+        ):
+            # The one writer that still writes at once: an existing asset's valuation upsert
+            # (only new assets' valuations are buffered). Any other immediate INSERT into a
+            # guarded table means a path went around the buffer: refused (lane C's #449 review).
+            return
+        what = "written around the buffer" if target is not None else "read"
+        msg = f"deferred writes: {min(names)} {what} before flush"
         raise RuntimeError(msg)
 
     session.info[_KEY] = buffer
