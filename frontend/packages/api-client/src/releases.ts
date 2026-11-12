@@ -599,3 +599,46 @@ export function useReleaseFreezeOverride() {
     },
   });
 }
+
+export type ReleaseFollowUpOut = components['schemas']['ReleaseFollowUpOut'];
+
+/** What was made after the release failed: its problems and follow-up releases (REQ-REL-053). */
+export function useReleaseFollowUps(id: string, enabled = true) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'follow-ups'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/follow-ups', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: enabled && id !== '',
+  });
+}
+
+/** A problem caused by the failed release, or a release that follows it up (one at a time). */
+export function useCreateReleaseFollowUp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      kind,
+      subject,
+      key,
+    }: {
+      id: string;
+      kind: 'problem' | 'release';
+      subject: string;
+      key: string;
+    }) =>
+      call(
+        api.POST('/api/v1/releases/{record_id}/follow-ups', {
+          params: { path: { record_id: id }, header: { 'Idempotency-Key': key } },
+          body: { kind, subject },
+        }),
+      ),
+    onSettled: (_out, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'follow-ups') });
+    },
+  });
+}

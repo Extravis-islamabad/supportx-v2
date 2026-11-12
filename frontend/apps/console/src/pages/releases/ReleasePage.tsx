@@ -267,7 +267,14 @@ export function ReleasePage() {
         />
       )}
       {/* A failed deployment: its backout plan and "Mark rolled back" (REQ-REL-053 AC1). */}
-      <ReleaseFailed id={r.id} status={r.status} moves={moves} onMove={setMoving} />
+      <ReleaseFailed
+        id={r.id}
+        displayId={r.display_id}
+        subject={r.subject}
+        status={r.status}
+        moves={moves}
+        onMove={setMoving}
+      />
       {/* A failed workflow step, named on the header with Retry (REQ-REL-021 AC1). */}
       <WorkflowFailureBanner
         recordType="release"

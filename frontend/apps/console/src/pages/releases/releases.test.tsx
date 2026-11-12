@@ -445,6 +445,50 @@ describe('console: releases', () => {
     expect(screen.getByTestId('move-reason')).toBeTruthy(); // the rollback asks for its reason
   });
 
+  it('REQ-REL-053 AC2: a failed release makes its problem, linked, and lists it', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const failed = { ...release, status: 'deployment_failed', stage: 'deployment' };
+    const made = {
+      id: '01a1a2b3-0000-7000-8000-0000000f0901',
+      display_id: 'PRB-3',
+      subject: 'Deployment failure: REL-1 Payroll 4.2',
+      type: 'problem',
+      relation: 'caused_problem',
+      status_category: 'open',
+    };
+    let listed: object[] = [];
+    const fake = api(
+      {
+        [`GET /api/v1/releases/${REL_ID}`]: { body: failed, headers: { ETag: '"7"' } },
+        [`GET /api/v1/releases/${REL_ID}/plan`]: { body: [] },
+        [`GET /api/v1/releases/${REL_ID}/follow-ups`]: () => ({ body: listed }),
+        [`POST /api/v1/releases/${REL_ID}/follow-ups`]: () => {
+          listed = [made];
+          return { status: 201, body: made };
+        },
+      },
+      ['releases.view', 'releases.create', 'releases.edit', 'problems.create'],
+    );
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('release-create-problem'));
+    const title = await screen.findByTestId<HTMLInputElement>('release-follow-up-title');
+    expect(title.value).toBe('Deployment failure: REL-1 Payroll 4.2');
+    const dialog = await screen.findByTestId('release-follow-up-dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create problem' }));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/follow-ups`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', `/api/v1/releases/${REL_ID}/follow-ups`);
+    expect(sent?.body).toEqual({
+      kind: 'problem',
+      subject: 'Deployment failure: REL-1 Payroll 4.2',
+    });
+    expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect((await screen.findByTestId('release-follow-ups')).textContent).toContain(
+      'PRB-3 Deployment failure: REL-1 Payroll 4.2',
+    );
+  });
+
   it('the failed panel is absent while the deployment has not failed', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     api();
