@@ -49,14 +49,18 @@ export function useStagedSettings(path: StagedPath, enabled = true) {
   });
 }
 
-/** The rail and the moves offered from the current status (ADR-041 §7). */
-export function useStagedPanel(path: StagedPath, id: string) {
-  return useQuery({
+/** The rail and the moves offered, as query options: for a screen that asks on demand (a board). */
+export function stagedPanelQuery(path: StagedPath, id: string) {
+  return {
     queryKey: stagedKeys(path).part(id, 'stages'),
     queryFn: () =>
       call(api.GET(at(path, `${RECORD}/stages`), { params: { path: { record_id: id } } })),
-    enabled: id !== '',
-  });
+  };
+}
+
+/** The rail and the moves offered from the current status (ADR-041 §7). */
+export function useStagedPanel(path: StagedPath, id: string) {
+  return useQuery({ ...stagedPanelQuery(path, id), enabled: id !== '' });
 }
 
 /** A listed move, with If-Match on the record and the values the move asks for. */
