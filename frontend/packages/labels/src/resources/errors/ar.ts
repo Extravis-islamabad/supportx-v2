@@ -246,6 +246,7 @@ export const ar: LabelResource = {
   'errors.domain_wrong_answer': 'النطاق لا يشير إلى SupportX هذا بعد: تحقق من سجل DNS.',
   'errors.domains_not_configured': 'النطاقات المخصصة غير مهيأة في هذا التثبيت.',
   'errors.downtime_not_found': 'نافذة التوقف هذه غير موجودة.',
+  'errors.duplicate_move': 'الانتقال نفسه مُدرج مرتين من الحالة نفسها. أبقِ واحدًا فقط.',
   'errors.entitlement_required': 'خطتك لا تتضمن هذه الميزة.',
   'errors.entitlement_required.detail': '{{feature}} غير مشمول في خطة مؤسستك.',
   'errors.entitlements_unavailable':
@@ -770,6 +771,14 @@ export const ar: LabelResource = {
   // WP-040 AD/LDAP (D-130)
   'errors.ldap_host_invalid': 'أدخل اسم خادم الدليل أو عنوان IP الخاص به، دون ldap:// أو مسار.',
   'errors.ldap_single_tenant_only': 'لا يمكن ربط أدلة AD/LDAP إلا في تثبيت يخدم مؤسسة واحدة.',
+  'errors.lifecycle_draft_exists': 'لدورة الحياة هذه مسودة بالفعل. افتحها أو تخلّص منها أولًا.',
+  'errors.lifecycle_draft_not_found':
+    'لا توجد مسودة لدورة الحياة هذه. ابدأ مسودة لإجراء التغييرات.',
+  'errors.lifecycle_version_has_problems': 'في المسودة {{count}} مشكلات يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_last_published':
+    'الإصدار {{number}} هو الذي تبدأ به السجلات الجديدة، لذا لا يمكن إيقافه.',
+  'errors.lifecycle_version_not_found': 'لم يُعثر على إصدار دورة الحياة هذا.',
+  'errors.lifecycle_version_not_published': 'لا يمكن إيقاف إلا إصدار منشور.',
   'errors.limit_reached': 'تم الوصول إلى الحد المسموح به في خطتك. اطلب من المسؤول توسيع الخطة.',
   'errors.link_has_own_route':
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
@@ -969,6 +978,7 @@ export const ar: LabelResource = {
   'errors.tenant_suspended': 'تم تعليق وصول مؤسستك.',
   'errors.too_many_favourites': 'يمكنك تمييز {{max}} تقريرًا كحد أقصى.',
   'errors.too_many_files': 'ملفات كثيرة دفعة واحدة: {{max}} على الأكثر.',
+  'errors.too_many_moves': 'يمكن أن تحتوي دورة الحياة على {{max}} انتقال كحد أقصى.',
   'errors.too_many_rules': '{{max}} قاعدة كحد أقصى لكل نوع سجل.',
   'errors.transition_not_allowed': 'تغيير الحالة هذا غير متاح لك على هذا السجل.',
   'errors.transition_not_found': 'هذا التغيير في الحالة ليس جزءًا من دورة الحياة.',

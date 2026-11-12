@@ -269,6 +269,7 @@ export const ur: LabelResource = {
     'ڈومین ابھی اس SupportX کی طرف اشارہ نہیں کرتا: اس کا DNS ریکارڈ دیکھیں۔',
   'errors.domains_not_configured': 'اس انسٹالیشن پر کسٹم ڈومین ترتیب نہیں دیے گئے۔',
   'errors.downtime_not_found': 'یہ بندش کا وقفہ موجود نہیں۔',
+  'errors.duplicate_move': 'ایک ہی حالت سے ایک ہی منتقلی دو بار درج ہے۔ صرف ایک رکھیں۔',
   'errors.entitlement_required': 'آپ کے پلان میں یہ خصوصیت شامل نہیں۔',
   'errors.entitlement_required.detail': '{{feature}} آپ کے ادارے کے پلان کا حصہ نہیں۔',
   'errors.entitlements_unavailable':
@@ -840,6 +841,16 @@ export const ur: LabelResource = {
   'errors.ldap_host_invalid': 'ڈائریکٹری سرور کا نام یا IP پتہ درج کریں، ldap:// یا راستے کے بغیر۔',
   'errors.ldap_single_tenant_only':
     'AD/LDAP ڈائریکٹریز صرف اس تنصیب پر جوڑی جا سکتی ہیں جو ایک ادارے کے لیے ہو۔',
+  'errors.lifecycle_draft_exists':
+    'اس لائف سائیکل کا مسودہ پہلے سے موجود ہے۔ اسے کھولیں یا پہلے ختم کریں۔',
+  'errors.lifecycle_draft_not_found':
+    'اس لائف سائیکل کا کوئی مسودہ نہیں۔ تبدیلیوں کے لیے مسودہ شروع کریں۔',
+  'errors.lifecycle_version_has_problems':
+    'مسودے میں {{count}} مسائل ہیں جنہیں شائع کرنے سے پہلے ٹھیک کرنا ہے۔',
+  'errors.lifecycle_version_last_published':
+    'ورژن {{number}} وہ ہے جس پر نئے ریکارڈ شروع ہوتے ہیں، اس لیے اسے ریٹائر نہیں کیا جا سکتا۔',
+  'errors.lifecycle_version_not_found': 'لائف سائیکل کا یہ ورژن نہیں ملا۔',
+  'errors.lifecycle_version_not_published': 'صرف شائع شدہ ورژن ہی ریٹائر کیا جا سکتا ہے۔',
   'errors.limit_reached':
     'آپ کے پلان کی اس کے لیے حد پوری ہو چکی ہے۔ پلان بڑھانے کے لیے اپنے منتظم سے کہیں۔',
   'errors.link_has_own_route':
@@ -1059,6 +1070,7 @@ export const ur: LabelResource = {
   'errors.tenant_suspended': 'آپ کے ادارے کی رسائی معطل ہے۔',
   'errors.too_many_favourites': 'آپ زیادہ سے زیادہ {{max}} رپورٹس کو ستارہ لگا سکتے ہیں۔',
   'errors.too_many_files': 'ایک ساتھ بہت زیادہ فائلیں: زیادہ سے زیادہ {{max}}۔',
+  'errors.too_many_moves': 'ایک لائف سائیکل میں زیادہ سے زیادہ {{max}} منتقلیاں ہو سکتی ہیں۔',
   'errors.too_many_rules': 'ہر ریکارڈ قسم کے لیے زیادہ سے زیادہ {{max}} قاعدے۔',
   'errors.transition_not_allowed': 'حالت کی یہ تبدیلی اس ریکارڈ پر آپ کے لیے دستیاب نہیں۔',
   'errors.transition_not_found': 'حالت کی یہ تبدیلی لائف سائیکل کا حصہ نہیں۔',

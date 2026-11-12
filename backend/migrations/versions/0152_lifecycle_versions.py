@@ -7,6 +7,8 @@ Expand, with one data step:
   foreign key to its version, and what ADR-049 §4 (as amended) adds per version: `permission`
   and `required_fields`. Who may run a move, when it is offered and its after-actions stay
   WP-029's transition settings (automation), version-wide.
+- The application role may DELETE from `work_item_transitions` (a draft's moves are replaced
+  and a discarded draft's removed; the service touches only drafts).
 - Data step, once per tenant with `app.tenant_id` set (business tables force RLS): every life
   cycle the tenant has becomes version 1, published; staged transitions with no version get 1;
   records with no version get 1, in batches of 5,000 so no single statement holds a large
@@ -175,6 +177,9 @@ def upgrade() -> None:
         TRANSITIONS,
         sa.Column("required_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     )
+    # A draft's moves are replaced as a whole and a discarded draft takes its moves with it; the
+    # service deletes only a draft's rows (published versions never change, ADR-049 §2).
+    grant_app(TRANSITIONS)
     op.execute(_DATA_STEP)
     # After the data step: every transition now has its version row.
     op.create_foreign_key(
@@ -190,6 +195,7 @@ def downgrade() -> None:
     """Back to before (stops while any tenant has versions or rules beyond version 1)."""
     op.execute(_GUARD)
     op.drop_constraint(op.f(VERSION_FK), TRANSITIONS, type_="foreignkey")
+    grant_app(TRANSITIONS, ("SELECT", "INSERT", "UPDATE"))  # no DELETE, as before
     op.drop_column(TRANSITIONS, "required_fields")
     op.drop_column(TRANSITIONS, "permission")
     op.drop_constraint(op.f(TRANSITIONS_PK), TRANSITIONS, type_="primary")

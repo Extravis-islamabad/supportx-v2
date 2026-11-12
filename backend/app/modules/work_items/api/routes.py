@@ -31,6 +31,7 @@ from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
 )
+from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
@@ -2622,6 +2623,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
+    add_lifecycle_routes(router, wtype)  # ADR-049: life cycle versions
 
     @router.post(
         "",

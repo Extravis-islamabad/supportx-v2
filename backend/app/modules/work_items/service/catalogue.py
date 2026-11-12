@@ -837,8 +837,9 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
                 if (t.lifecycle, t.lifecycle_version) == key
             ],
         )
-        for key in sorted({(t.lifecycle, t.lifecycle_version) for t in transition_rows})
-        if key in runnable
+        # Every runnable version, even one with no moves of its own (a staged type moves by
+        # its status transitions): its records still need a life cycle to read.
+        for key in sorted(runnable)
     }
     latest = {
         code: max(
@@ -855,6 +856,8 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         ]
         if (code, latest.get(code)) in versions
     }
+    if STANDARD_LIFECYCLE not in lifecycles:  # no published standard version (yet): no moves
+        lifecycles = {STANDARD_LIFECYCLE: Lifecycle.build(status_defs, []), **lifecycles}
     lifecycle = lifecycles[STANDARD_LIFECYCLE]
     cells = await session.scalars(
         select(WorkItemPriorityCell).where(WorkItemPriorityCell.type == wtype.code)

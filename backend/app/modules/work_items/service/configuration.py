@@ -139,6 +139,11 @@ async def _check_version(
         raise await stale_settings(session, wtype, current, expected_version)
 
 
+# Other settings services (life cycle versions, ADR-049) bump the same settings version.
+bump = _bump
+check_version = _check_version
+
+
 # --- statuses -------------------------------------------------------------------------------------
 
 
