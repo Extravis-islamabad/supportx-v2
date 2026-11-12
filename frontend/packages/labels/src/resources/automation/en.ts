@@ -292,10 +292,10 @@ export const en = {
   'workflow_failure.not_found': 'The record is no longer there.',
   'workflow_failure.output_not_linked':
     'The step finished with the output {{port}}, which leads nowhere.',
-  'workflow_failure.record_canceled': 'The record was canceled, so its workflow stopped.',
+  'workflow_failure.record_canceled': 'The record was cancelled, so its workflow stopped.',
   'workflow_failure.step_limit': 'The run reached its limit of {{max}} steps.',
   'workflow_failure.sub_flow_failed': 'The sub-flow it started failed.',
-  'workflow_failure.task_canceled': 'A task of this step was canceled or removed.',
+  'workflow_failure.task_canceled': 'A task of this step was cancelled or removed.',
   'workflow_failure.tasks_invalid': 'The tasks could not be added as set.',
   'workflow_failure.unknown': 'This step failed.',
   'workflow_failure.webhook_blocked': 'The call was blocked: that address is not allowed.',

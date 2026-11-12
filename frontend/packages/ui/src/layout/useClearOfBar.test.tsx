@@ -32,4 +32,26 @@ describe('useClearOfBar', () => {
     view.unmount();
     expect(document.documentElement.style.scrollPaddingBottom).toBe('4px');
   });
+  it('two bars: the tallest counts, and the page value comes back only after the last', () => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {
+          return undefined;
+        }
+        disconnect() {
+          return undefined;
+        }
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(48);
+    document.documentElement.style.scrollPaddingBottom = '4px';
+    const first = render(<FormFooter primary={<button type="button">Save</button>} />);
+    const second = render(<FormFooter primary={<button type="button">Send</button>} />);
+    expect(document.documentElement.style.scrollPaddingBottom).toBe('64px');
+    first.unmount(); // out of order: the other bar is still shown
+    expect(document.documentElement.style.scrollPaddingBottom).toBe('64px');
+    second.unmount();
+    expect(document.documentElement.style.scrollPaddingBottom).toBe('4px');
+  });
 });
