@@ -38,6 +38,7 @@ from app.modules.system.infra.probes import (
     MalwareSignaturesProbe,
     NatsProbe,
     PostgresProbe,
+    SessionKeysProbe,
     ValkeyProbe,
     WorkerHeartbeatProbe,
 )
@@ -83,9 +84,25 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
     return ReadinessService(
         probes,
         not_configured=not_configured,
-        informational=[*_worker_probes(settings), *_scanner_probes(settings)],
+        informational=[
+            *_worker_probes(settings),
+            *_scanner_probes(settings),
+            *_session_key_probes(settings),
+        ],
         timeout=settings.readiness_timeout_seconds,
     )
+
+
+# More listed sign-in keys than this is a warning (D-162): newest, one in its overlap, one spare.
+SESSION_KEYS_WARN_ABOVE = 3
+
+
+def _session_key_probes(settings: Settings) -> list[DependencyProbe]:
+    """The sign-in key count (informational), when a key ring is configured."""
+    listed = len(settings.session_key_entries())
+    if not listed:
+        return []
+    return [SessionKeysProbe(listed, most=SESSION_KEYS_WARN_ABOVE)]
 
 
 def _scanner_probes(settings: Settings) -> list[DependencyProbe]:

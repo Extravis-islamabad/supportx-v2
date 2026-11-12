@@ -135,6 +135,7 @@ export const en = {
   'errors.asset_product_type_not_found': 'This product type does not exist.',
   'errors.asset_restore_merged':
     'This asset was merged into {{asset}}. Confirm to restore it on its own.',
+  'errors.asset_site_not_managed': 'You can only add or move assets to the sites you manage.',
   'errors.asset_state_in_use':
     'Moves in life cycles still use this state ({{used}}). Remove them first.',
   'errors.asset_state_not_found': 'This asset state does not exist.',
@@ -927,7 +928,7 @@ export const en = {
     'Live updates are not set up on this server. Reload the page to see the latest data.',
   'errors.recipient_deferred': "The recipient's mail server asked to try later.",
   'errors.recipient_refused': 'The mail server refused the recipient.',
-  'errors.record_closed': 'Closed and canceled records cannot be changed.',
+  'errors.record_closed': 'Closed and cancelled records cannot be changed.',
   'errors.record_not_editable': 'You need to be able to edit the record to do this.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
@@ -969,6 +970,8 @@ export const en = {
     'A workflow’s or connector’s own identity gets its roles from its own settings, not here.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
   'errors.session_expired': 'Your session has ended. Please sign in again.',
+  'errors.session_key_still_in_use':
+    'This server cannot start: a sign-in key it no longer lists is still needed. List the key again.',
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unknown_person':

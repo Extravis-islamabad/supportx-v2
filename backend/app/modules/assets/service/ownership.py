@@ -38,6 +38,7 @@ from app.modules.assets.service.assets import (
     VIEW,
     _refuse,
     _saved,
+    _site_change_within_scope,
     _tenant,
     _visible,
 )
@@ -218,6 +219,9 @@ async def set_holder(  # noqa: PLR0913 - the asset, the holder, the If-Match and
     if previous == holder:
         return row  # already held so: nothing to record
     changes = await _apply_holder(session, row, holder)
+    # Assets that follow their holder's site move with the new holder: never out of the giver's
+    # reach (lane B's #423, the same stored-scope check as create and update).
+    await _site_change_within_scope(session, subject, row, changes)
     await _end_current(session, row.id)
     holding: AssetAssignment | None = None
     if holder is not None:

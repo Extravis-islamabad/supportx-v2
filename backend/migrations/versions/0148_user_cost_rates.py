@@ -9,7 +9,7 @@ Tenant-scoped with RLS forced, actor audit, and no DELETE grant (removal is a so
 downgrade refuses while any tenant has a rate, per tenant with app.tenant_id set (rule 5h).
 
 Revision ID: 0148
-Revises: 0142
+Revises: 0146
 Created: 2026-11-12
 """
 
@@ -22,7 +22,7 @@ from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0148"
 # Re-pointed onto main's head at the lane's queue turn (the coordinator's order).
-down_revision: str | None = "0142"
+down_revision: str | None = "0146"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -128,6 +128,7 @@ export const ar: LabelResource = {
   'errors.asset_product_type_in_use': 'لا تزال منتجات تستخدم نوع المنتج هذا ({{used}}).',
   'errors.asset_product_type_not_found': 'نوع المنتج هذا غير موجود.',
   'errors.asset_restore_merged': 'دُمج هذا الأصل في {{asset}}. أكّد لاستعادته وحده.',
+  'errors.asset_site_not_managed': 'يمكنك إضافة الأصول أو نقلها إلى المواقع التي تديرها فقط.',
   'errors.asset_state_in_use':
     'لا تزال انتقالات في دورات الحياة تستخدم هذه الحالة ({{used}}). أزلها أولًا.',
   'errors.asset_state_not_found': 'حالة الأصل هذه غير موجودة.',
@@ -893,6 +894,8 @@ export const ar: LabelResource = {
     'تحصل هوية سير العمل أو الموصل على أدوارها من إعداداتها الخاصة، وليس من هنا.',
   'errors.service_unavailable': 'الخدمة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل.',
   'errors.session_expired': 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.',
+  'errors.session_key_still_in_use':
+    'لا يمكن تشغيل هذا الخادم: مفتاح تسجيل دخول لم يعد مُدرجًا ما زال مطلوبًا. أدرِج المفتاح مرة أخرى.',
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unknown_person':

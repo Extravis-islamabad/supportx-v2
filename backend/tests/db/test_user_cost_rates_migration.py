@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0142"  # 0148's down revision for now (re-pointed with it at the lane's queue turn)
+BEFORE = "0146"  # 0148's down revision (re-pointed at its queue turn, after #418)
 
 
 async def _table(url: str) -> int:

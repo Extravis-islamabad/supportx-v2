@@ -268,9 +268,17 @@ describe('console: the release calendar (WP-058b S1)', () => {
       fireEvent.change(await screen.findByTestId('release-override-reason'), {
         target: { value: 'Payroll must go out' },
       });
-      await waitFor(() => {
-        expect(screen.getByTestId('release-override-ok').hasAttribute('disabled')).toBe(false);
-      });
+      // Ready means enabled and no longer loading: the button shows loading until the release
+      // (its If-Match) has arrived, and Ant Design drops a click on a loading button, which is
+      // how this flaked under CI load even with the waits below (#421's run).
+      await waitFor(
+        () => {
+          const ok = screen.getByTestId('release-override-ok');
+          expect(ok.hasAttribute('disabled')).toBe(false);
+          expect(ok.classList.contains('ant-btn-loading')).toBe(false);
+        },
+        { timeout: 15_000 },
+      );
       fireEvent.click(screen.getByTestId('release-override-ok'));
       // Wait on each state in turn, never on how long it takes: the override is granted, its
       // dialog closes, then the move is sent again. Under CI load the chain took over the default

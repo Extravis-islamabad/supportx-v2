@@ -799,6 +799,7 @@ export const ar: LabelResource = {
   'readiness_check.nats': 'ناقل الرسائل',
   'readiness_check.outbox_relay': 'مُرحّل الأحداث',
   'readiness_check.realtime_fanout': 'التحديثات المباشرة',
+  'readiness_check.session_keys': 'مفاتيح تسجيل الدخول',
   'readiness_status.not_ready': 'غير جاهز',
   'readiness_status.ready': 'جاهز',
   'role.asset_manager': 'مدير الأصول',
