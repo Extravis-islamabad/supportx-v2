@@ -559,11 +559,21 @@ function checks(): string[] {
   }
   // A dialog, drawer, menu or popup lies over the page on purpose: only elements of the same
   // layer can overlap (QA9: the open assign dialog and notifications drawer were findings).
+  // So does a sticky or fixed bar (a card's Save bar kept in reach, QA6 ADM-04): in a full-page
+  // shot it is drawn where the first screen ends, over whatever field lies there, which a person
+  // scrolls past (lane C's #460: the password card's "overlap" in Arabic at 390 px was this).
+  const floating = (el: Element): Element | null => {
+    for (let node: Element | null = el; node !== null; node = node.parentElement) {
+      const position = getComputedStyle(node).position;
+      if (position === 'sticky' || position === 'fixed') return node;
+    }
+    return null;
+  };
   const layer = (el: Element) =>
     el.closest(
       '.ant-modal-root, .ant-drawer, .ant-dropdown, .ant-popover, .ant-select-dropdown, ' +
         '.ant-picker-dropdown, .ant-tooltip, .ant-notification, .ant-message',
-    );
+    ) ?? floating(el);
   const firstBoxes = boxes.slice(0, 150);
   firstBoxes.forEach((aEl, i) => {
     const a = aEl.getBoundingClientRect();
