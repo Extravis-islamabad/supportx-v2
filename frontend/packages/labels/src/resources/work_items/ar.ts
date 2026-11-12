@@ -1189,7 +1189,7 @@ export const ar: LabelResource = {
   'incidents.tasks.delete_confirm': 'إزالة المهمة «{{title}}»؟',
   'incidents.tasks.delete_one': 'إزالة {{title}}',
   'incidents.tasks.details': 'التفاصيل',
-  'incidents.tasks.details_of': 'تفاصيل {{title}}',
+  'incidents.tasks.details_of': 'التفاصيل: {{title}}',
   'incidents.tasks.details_title': 'المهمة: {{title}}',
   'incidents.tasks.done_by': 'أنجزها {{name}}',
   'incidents.tasks.due': 'مستحقة {{at}}',

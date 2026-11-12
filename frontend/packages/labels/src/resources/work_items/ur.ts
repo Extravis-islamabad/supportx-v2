@@ -1064,7 +1064,7 @@ export const ur: LabelResource = {
   'incidents.tasks.delete_confirm': 'کام “{{title}}” ہٹائیں؟',
   'incidents.tasks.delete_one': '{{title}} ہٹائیں',
   'incidents.tasks.details': 'تفصیلات',
-  'incidents.tasks.details_of': '{{title}} کی تفصیلات',
+  'incidents.tasks.details_of': 'تفصیلات: {{title}}',
   'incidents.tasks.details_title': 'کام: {{title}}',
   'incidents.tasks.done_by': '{{name}} نے مکمل کیا',
   'incidents.tasks.due': 'آخری وقت {{at}}',
