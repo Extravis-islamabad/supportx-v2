@@ -186,6 +186,30 @@ helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=https:/
   --show-only templates/routing.yaml | grep -q "kind: Certificate" ||
   { echo "routing: issuerRef must render a cert-manager Certificate" >&2; exit 1; }
 echo "transport: HTTPS with an http redirect by default; dev plain http; misconfigurations refused"
+# Valkey TLS in the HA profiles (values-ha.yaml): servers and sentinels TLS only, the app on
+# valkeys:// with the internal CA, the CA's key in no pod; nothing of it without valkeyHa.tls.
+for p in ha ha-ci; do
+  grep -q 'echo "tls-port 26379"' "$OUT/$p.yaml" || { echo "$p: Valkey's sentinels must speak TLS" >&2; exit 1; }
+  grep -q 'echo "port 0"' "$OUT/$p.yaml" || { echo "$p: Valkey must have no plaintext port" >&2; exit 1; }
+  grep -q 'value: "valkeys://' "$OUT/$p.yaml" || { echo "$p: the app must use valkeys://" >&2; exit 1; }
+  grep -q 'SUPPORTX_VALKEY_TLS_CA_FILE' "$OUT/$p.yaml" || { echo "$p: the app needs the CA" >&2; exit 1; }
+  if grep -q 'secretName: supportx-internal-ca}' "$OUT/$p.yaml"; then
+    echo "$p: the internal CA Secret is mounted whole (its key): mount ca.crt only" >&2; exit 1
+  fi
+done
+grep -q 'valkeys://\|kind: Issuer' "$OUT/single-node.yaml" && { echo "single-node: no internal TLS without valkeyHa" >&2; exit 1; }
+HA_ARGS="-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.tls.secretName=t"
+# Your own issuer (on-prem PKI): no CA of the chart's, and the Secret with its root is required.
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $HA_ARGS --set internalTls.issuerRef.name=corp >/dev/null 2>&1; then
+  echo "internalTls: issuerRef without caSecret must be refused" >&2; exit 1
+fi
+# shellcheck disable=SC2086
+OWN="$(helm template supportx "$CHART" --namespace supportx $HA_ARGS --set internalTls.issuerRef.name=corp \
+  --set internalTls.issuerRef.kind=ClusterIssuer --set internalTls.caSecret=corp-ca)"
+grep -q "selfSigned" <<<"$OWN" && { echo "internalTls: with your own issuer the chart makes no CA" >&2; exit 1; }
+grep -q "secretName: corp-ca, items" <<<"$OWN" || { echo "internalTls: pods must trust caSecret" >&2; exit 1; }
+echo "transport: Valkey TLS only in the HA profiles, the internal CA's key in no pod; own issuer works"
 
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"

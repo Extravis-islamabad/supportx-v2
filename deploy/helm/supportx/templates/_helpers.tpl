@@ -47,6 +47,9 @@ app.kubernetes.io/component: {{ .component }}
 {{- if not (has .Values.postgresql.mode (list "cnpg" "external")) -}}
 {{- fail "postgresql.mode must be cnpg or external" -}}
 {{- end -}}
+{{- if and .Values.internalTls.issuerRef.name (not .Values.internalTls.caSecret) -}}
+{{- fail "internalTls.issuerRef needs internalTls.caSecret: a Secret whose ca.crt is the root your issuer chains to (the pods trust only it)" -}}
+{{- end -}}
 {{- if hasKey .Values.routing.gateway "protocol" -}}
 {{- fail "routing.gateway.protocol is gone: HTTPS is routing.tls.enabled (on by default), with the certificate in routing.tls.secretName (docs/deployment.md, Transport security)" -}}
 {{- end -}}
@@ -165,7 +168,7 @@ securityContext:
 - name: SUPPORTX_DATABASE_URL
   value: "postgresql://supportx_app:$(SUPPORTX_SECRET_APP_DB_PASSWORD)@{{ include "supportx.dbPoolerHost" . }}:{{ include "supportx.dbPort" . }}/{{ .Values.postgresql.database }}"
 - name: SUPPORTX_VALKEY_URL
-  value: "valkey://:$(SUPPORTX_SECRET_VALKEY_PASSWORD)@{{ .Release.Name }}-valkey:6379/0"
+  value: "{{ ternary "valkeys" "valkey" (include "supportx.valkeyTls" . | eq "true") }}://:$(SUPPORTX_SECRET_VALKEY_PASSWORD)@{{ .Release.Name }}-valkey:6379/0"
 - name: SUPPORTX_NATS_URL
   value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@{{ .Release.Name }}-nats:4222"
 - name: SUPPORTX_SESSION_SECRET
@@ -326,4 +329,44 @@ topologySpreadConstraints:
 {{/* The bundled Temporal's schema Job of this revision (the server waits for it). */}}
 {{- define "supportx.temporalSchemaJob" -}}
 {{- printf "%s-temporal-schema-%d" .Release.Name (int .Release.Revision) -}}
+{{- end -}}
+
+{{/*
+Internal TLS (audit row 5; templates/internal-tls.yaml). "true" when the release's Valkey speaks
+TLS; when any in-cluster server does (the CA is then made and mounted).
+*/}}
+{{- define "supportx.valkeyTls" -}}
+{{- and .Values.valkeyHa.enabled .Values.valkeyHa.tls.enabled | toString -}}
+{{- end -}}
+
+{{- define "supportx.internalTlsOn" -}}
+{{- if eq (include "supportx.valkeyTls" .) "true" -}}true{{- end -}}
+{{- end -}}
+
+{{- define "supportx.internalCaSecret" -}}
+{{- default (printf "%s-internal-ca" .Release.Name) .Values.internalTls.caSecret -}}
+{{- end -}}
+
+{{/* The issuer signing the in-cluster certificates, as JSON: yours, or the chart's own CA. */}}
+{{- define "supportx.internalIssuer" -}}
+{{- $ref := .Values.internalTls.issuerRef -}}
+{{- if $ref.name -}}
+{{- toJson (dict "name" $ref.name "kind" (default "Issuer" $ref.kind) "group" (default "cert-manager.io" $ref.group)) -}}
+{{- else -}}
+{{- toJson (dict "name" (printf "%s-internal-ca" .Release.Name) "kind" "Issuer" "group" "cert-manager.io") -}}
+{{- end -}}
+{{- end -}}
+
+{{/* The internal CA's certificate (ca.crt only) for the API, the workers and the helm test. */}}
+{{- define "supportx.internalCaMount" -}}
+{{- if include "supportx.internalTlsOn" . }}
+- {name: internal-ca, mountPath: /etc/supportx/tls/internal-ca, readOnly: true}
+{{- end }}
+{{- end -}}
+
+{{- define "supportx.internalCaVolume" -}}
+{{- if include "supportx.internalTlsOn" . }}
+- name: internal-ca
+  secret: {secretName: {{ include "supportx.internalCaSecret" . }}, items: [{key: ca.crt, path: ca.crt}]}
+{{- end }}
 {{- end -}}

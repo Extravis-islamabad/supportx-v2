@@ -1,0 +1,79 @@
+{{- /*
+The internal CA (audit row 5): cert-manager signs the certificates of the release's own Valkey
+servers and sentinels (valkeyHa.tls) and NATS servers (nats.config.nats.tls), so traffic between
+pods is TLS with names checked. By default the chart makes its own CA: a self-signed root, kept
+only in the Secret internalTls.caSecret (default <release>-internal-ca); pods get its ca.crt and
+never its key. internalTls.issuerRef uses an issuer of your own instead (a corporate CA, Vault).
+cert-manager is a prerequisite of these profiles (deploy/k3d/prereqs.sh installs it).
+*/ -}}
+{{- if include "supportx.internalTlsOn" . }}
+{{- $c := dict "root" . "component" "internal-tls" }}
+{{- $t := .Values.internalTls }}
+{{- $issuer := include "supportx.internalIssuer" . | fromJson }}
+{{- if not $t.issuerRef.name }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Release.Name }}-selfsigned
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+# The root: long-lived (a new one means every pod trusting it restarts), signing only.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "supportx.internalCaSecret" . }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  isCA: true
+  commonName: {{ printf "%s internal CA" .Release.Name }}
+  secretName: {{ include "supportx.internalCaSecret" . }}
+  duration: {{ $t.caDuration }}
+  privateKey: {algorithm: ECDSA, size: 256}
+  issuerRef:
+    name: {{ .Release.Name }}-selfsigned
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Release.Name }}-internal-ca
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  ca:
+    secretName: {{ include "supportx.internalCaSecret" . }}
+---
+{{- end }}
+{{- if and .Values.valkeyHa.enabled .Values.valkeyHa.tls.enabled }}
+{{- $vk := include "supportx.name" (dict "root" . "component" "valkey") }}
+{{- $headless := printf "%s-headless" $vk }}
+# Every Valkey pod's server and sentinel: one certificate naming each pod (the sentinels announce
+# them by these names, and the app checks them) and the loopback the pod's own probes use.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $vk }}-tls
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  secretName: {{ $vk }}-tls
+  duration: {{ $t.duration }}
+  renewBefore: {{ $t.renewBefore }}
+  privateKey: {algorithm: ECDSA, size: 256, rotationPolicy: Always}
+  usages: [digital signature, key encipherment, server auth, client auth]
+  dnsNames:
+    - {{ printf "*.%s.%s.svc" $headless .Release.Namespace | quote }}
+    - {{ printf "*.%s.%s.svc.cluster.local" $headless .Release.Namespace | quote }}
+    - {{ printf "*.%s" $headless | quote }}
+    - localhost
+  ipAddresses: [127.0.0.1]
+  issuerRef:
+    {{- toYaml $issuer | nindent 4 }}
+---
+{{- end }}
+{{- end }}

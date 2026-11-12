@@ -291,6 +291,7 @@ server's certificate against a known CA and the host name it dialled.
 | Hop | dev (k3d) | single-node | HA |
 |---|---|---|---|
 | Browser to gateway | plain http (local only) | **HTTPS**, HTTP answers 301 to https | **HTTPS**, HTTP answers 301 to https |
+| App, Centrifugo to Valkey (servers and sentinels) | plain (bundled single Valkey) | plain (bundled single Valkey) | **TLS only, verified** (internal CA) |
 
 ### Browser to gateway (routing.tls)
 
@@ -312,6 +313,40 @@ balancer in front already terminates TLS, set `routing.tls.enabled: false` and k
 `https://`. Ingress mode serves the same Secret; its redirect is your ingress controller's own
 setting (Ingress has no portable way to say it). `routing.gateway.protocol` is gone: the chart
 refuses it and names `routing.tls.enabled` instead.
+
+### The internal CA (internalTls)
+
+The in-cluster servers that speak TLS get their certificates from cert-manager (a prerequisite of
+these profiles, like the CloudNativePG operator; `deploy/k3d/prereqs.sh` installs it with
+`BACKUP_PLUGIN=1`). By default the chart makes its own CA (`templates/internal-tls.yaml`): a
+self-signed root, valid ten years, kept only in the Secret `<release>-internal-ca`, and an Issuer
+`<release>-internal-ca` signing one-year server certificates that cert-manager renews 30 days
+before they end. Pods mount that Secret's `ca.crt` alone, never its key.
+
+**Your own PKI (on-prem):** set `internalTls.issuerRef` to a cert-manager Issuer or ClusterIssuer
+of yours (a CA issuer on your intermediate, Vault, ...) and `internalTls.caSecret` to a Secret in
+the release namespace whose `ca.crt` is the root it chains to. The chart then makes no CA of its
+own. Internal TLS needs cert-manager (the chart creates its Certificate objects); a cluster
+without it turns the internal TLS switches off and keeps only the NetworkPolicies between pods.
+
+| Secret | Holds | Made by |
+|---|---|---|
+| `<release>-internal-ca` (or `internalTls.caSecret`) | the internal root (`ca.crt`; `tls.key` only for the chart's own) | cert-manager, or you |
+| `<release>-valkey-tls` | every Valkey pod's server and sentinel certificate: `*.<release>-valkey-headless[.<ns>.svc[.cluster.local]]`, `localhost`, `127.0.0.1` | cert-manager |
+
+### Valkey (valkeyHa.tls)
+
+On in `values-ha.yaml`. Every server and sentinel listens on TLS only, on the usual ports
+(6379, 26379; `port 0`, no plaintext listener), replication and the sentinels' own connections
+included (`tls-replication yes`). Clients prove themselves with the password, so no client
+certificate is asked for (`tls-auth-clients no`). Valkey rereads its certificate files every
+`valkeyHa.tls.reloadIntervalSeconds` (an hour), so a renewal needs no restart. The API and the
+workers connect with `valkeys://` and `SUPPORTX_VALKEY_TLS_CA_FILE` (the CA; the host name is
+checked: the sentinels announce each server by its pod name, which the certificate lists), and
+Centrifugo's engine with `tls` and `sentinel_tls`. The chart's scripts reach their own servers
+through `vcli` (`templates/valkey-ha.yaml`, `common.sh`), which adds `--tls --cacert`; from a
+shell in a pod: `. /scripts/common.sh; vcli -p 26379 SENTINEL masters`. The single-node and dev
+profiles keep the bundled single Valkey, plaintext inside the namespace's NetworkPolicy.
 
 ## Client addresses behind the gateway
 

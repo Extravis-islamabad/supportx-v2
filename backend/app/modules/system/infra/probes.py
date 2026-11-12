@@ -25,6 +25,7 @@ from opentelemetry import metrics
 
 from app.core.config import Settings
 from app.core.valkey import client as valkey_client
+from app.core.valkey import tls_options as valkey_tls_options
 from app.modules.system.domain.readiness import FailureReason, ProbeFailedError
 from app.shared.files.infra.scanner import Scanner, ScannerUnavailableError
 
@@ -76,7 +77,8 @@ class ValkeyProbe:
             client = valkey_client(self._settings, retry=None, retry_on_error=[], **timeouts)
         else:
             # valkey-py ships no annotations for from_url; the return type is declared here.
-            client = valkey.asyncio.from_url(self._url, **timeouts)  # type: ignore[no-untyped-call]
+            tls = valkey_tls_options(self._settings) if self._settings is not None else {}
+            client = valkey.asyncio.from_url(self._url, **timeouts, **tls)  # type: ignore[no-untyped-call]
         try:
             if await client.ping() is not True:
                 raise ProbeFailedError(FailureReason.UNEXPECTED_RESPONSE)
