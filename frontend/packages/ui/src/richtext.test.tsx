@@ -187,6 +187,7 @@ describe('The rich-text editor (WP-020b)', () => {
     });
     expect(changed.mock.calls.some(([html]) => html.includes('record.title'))).toBe(false);
     expect(reported).toHaveBeenCalledWith(refused);
+    setErrorReporter(null); // the next test's provider mounts its own
   });
 
   it('wraps text in a callout box of one of four kinds, only when asked (D-108 (9))', async () => {
