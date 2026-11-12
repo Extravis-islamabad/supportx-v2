@@ -1,0 +1,75 @@
+"""Migration 0148 (user cost rates; REQ-INC-068) never loses data.
+
+Up, down and up again while no tenant has a rate; once one does (even a removed one), the
+downgrade is refused and the table stays (rule 5h).
+"""
+
+import asyncio
+import uuid
+
+import asyncpg
+import pytest
+
+from tooling import db_testing
+
+pytestmark = pytest.mark.db
+
+BEFORE = "0142"  # 0148's down revision for now (re-pointed with it at the lane's queue turn)
+
+
+async def _table(url: str) -> int:
+    conn = await asyncpg.connect(url)
+    try:
+        found = await conn.fetchval(
+            "SELECT count(*) FROM information_schema.tables WHERE table_name = 'user_cost_rates'"
+        )
+        return int(found)
+    finally:
+        await conn.close()
+
+
+async def _tenant_with_a_removed_rate(url: str) -> None:
+    conn = await asyncpg.connect(url)
+    try:
+        tenant, person = uuid.uuid4(), uuid.uuid4()
+        await conn.execute(
+            "INSERT INTO tenants (id, name, slug) VALUES ($1, 'Rates', $2)",
+            tenant,
+            f"t-{tenant.hex[:12]}",
+        )
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant))
+            await conn.execute(
+                "INSERT INTO users (id, tenant_id, display_name, first_name, user_type)"
+                " VALUES ($1, $2, 'Tech', 'Tech', 'technician')",
+                person,
+                tenant,
+            )
+            await conn.execute(
+                "INSERT INTO user_cost_rates (tenant_id, id, user_id, rate, currency,"
+                " effective_from, deleted_at) VALUES ($1, $2, $3, 40, 'USD', now(), now())",
+                tenant,
+                uuid.uuid4(),
+                person,
+            )
+    finally:
+        await conn.close()
+
+
+def test_0148_upgrades_downgrades_and_refuses_while_a_tenant_has_rates(
+    db_config: db_testing.DbTestConfig,
+) -> None:
+    database = db_testing.create(db_config, migrate_to=BEFORE)
+    try:
+        assert asyncio.run(_table(database.admin_url)) == 0
+        db_testing.migrate(database.migrator_url, "0148")
+        assert asyncio.run(_table(database.admin_url)) == 1
+        db_testing.downgrade(database.migrator_url, BEFORE)
+        assert asyncio.run(_table(database.admin_url)) == 0
+        db_testing.migrate(database.migrator_url, "0148")
+        asyncio.run(_tenant_with_a_removed_rate(database.admin_url))
+        with pytest.raises(Exception, match="downgrade refused"):
+            db_testing.downgrade(database.migrator_url, BEFORE)
+        assert asyncio.run(_table(database.admin_url)) == 1
+    finally:
+        db_testing.destroy(db_config, database)
