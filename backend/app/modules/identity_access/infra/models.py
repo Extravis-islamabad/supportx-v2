@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -10,6 +11,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     LargeBinary,
+    Numeric,
     SmallInteger,
     String,
     Text,
@@ -563,3 +565,37 @@ class Invitation(TenantEntity):
     accepted_at: Mapped[datetime | None]
     revoked_at: Mapped[datetime | None]
     sends: Mapped[int] = mapped_column(server_default="1")
+
+
+class UserCostRate(TenantEntity):
+    """A person's cost per hour from a moment on (REQ-INC-068; migration 0148).
+
+    The rate in force at a moment is the latest live row starting at or before it. The currency
+    is the tenant's base currency when the rate was set. Money: only `users.view_cost_rates`
+    reads it over the API; it never joins the person's record, lists, search or events.
+    """
+
+    __tablename__ = "user_cost_rates"
+    __table_args__ = (
+        CheckConstraint("rate >= 0", name="rate_not_negative"),
+        CheckConstraint("currency ~ '^[A-Z]{3}$'", name="currency_code"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_user_cost_rates_user",
+        ),
+        Index(
+            "uq_user_cost_rates_start",
+            "tenant_id",
+            "user_id",
+            "effective_from",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_user_cost_rates_in_force", "tenant_id", "user_id", text("effective_from DESC")),
+    )
+
+    user_id: Mapped[uuid.UUID]
+    rate: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(3))
+    effective_from: Mapped[datetime]
