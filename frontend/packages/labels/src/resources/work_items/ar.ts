@@ -1100,6 +1100,7 @@ export const ar: LabelResource = {
   'incidents.panel.resolve_by': 'الحل قبل',
   'incidents.panel.sla': 'مستوى الخدمة',
   'incidents.panel.sla_state': 'الحالة',
+  'incidents.person_unseen': 'شخص لا يمكنك رؤيته',
   'incidents.pick_person': 'ابحث بالاسم أو البريد الإلكتروني',
   'incidents.priority_from_matrix': 'من التأثير والإلحاح',
   'incidents.priority_override': 'تحديد الأولوية يدويًا',

@@ -974,6 +974,7 @@ export const en = {
   'incidents.panel.resolve_by': 'Resolve by',
   'incidents.panel.sla': 'Service level',
   'incidents.panel.sla_state': 'State',
+  'incidents.person_unseen': "Someone you can't see",
   'incidents.pick_person': 'Search by name or email',
   'incidents.priority_from_matrix': 'From impact and urgency',
   'incidents.priority_override': 'Set priority by hand',

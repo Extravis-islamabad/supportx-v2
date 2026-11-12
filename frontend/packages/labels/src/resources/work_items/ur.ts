@@ -979,6 +979,7 @@ export const ur: LabelResource = {
   'incidents.panel.resolve_by': 'حل کی آخری تاریخ',
   'incidents.panel.sla': 'سروس لیول',
   'incidents.panel.sla_state': 'حالت',
+  'incidents.person_unseen': 'کوئی جسے آپ نہیں دیکھ سکتے',
   'incidents.pick_person': 'نام یا ای میل سے تلاش کریں',
   'incidents.priority_from_matrix': 'اثر اور فوریت سے',
   'incidents.priority_override': 'ترجیح ہاتھ سے مقرر کریں',
