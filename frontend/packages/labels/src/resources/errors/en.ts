@@ -750,6 +750,8 @@ export const en = {
   'errors.field.workflow_not_published': 'Publish this workflow first.',
   'errors.field.workflow_wrong_record_type': 'This workflow is for another kind of record.',
   'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
+  'errors.field_keys_unavailable':
+    'Protected information cannot be read or saved right now: the installation key is not available. Ask your administrator to check it.',
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',
