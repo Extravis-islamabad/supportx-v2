@@ -7,6 +7,8 @@ realm's own rules: test_auth_keycloak_realm.py.
 
 import pytest
 
+from app.modules.identity_access.domain.session import Session as BffSession
+from app.modules.identity_access.infra.oidc import TokenRejectedError
 from tests.integration.keycloak_browser import KeycloakBrowser
 from tests.integration.keycloak_world import (
     CONSOLE,
@@ -83,6 +85,22 @@ async def test_logout_ends_the_bff_and_keycloak_sessions(session: Session) -> No
         (await session.client.get("/api/v1/auth/login")).headers["location"]
     )
     assert KeycloakBrowser.shows_login_form(after), "Keycloak session survived the logout"
+
+
+async def test_audit_26_keycloak_refuses_a_refresh_token_used_once(session: Session) -> None:
+    """The BFF stores every new refresh token; the realm refuses the spent one."""
+    await session.login("tech@demo.test")
+    auth = session.app.state.auth
+    session_id = session.client.cookies.get(auth.cookie_name)
+    assert session_id is not None
+    record = await auth.store.get_session(session_id)
+    assert record is not None
+    spent = BffSession.from_dict(record).refresh_token
+    client = auth.client("console")
+    fresh = await auth.oidc.refresh(client, spent)
+    assert fresh.refresh_token != spent
+    with pytest.raises(TokenRejectedError):
+        await auth.oidc.refresh(client, spent)
 
 
 async def test_user_without_organization_gets_403(session: Session) -> None:

@@ -15,6 +15,7 @@ import asyncpg
 import httpx
 import pytest
 import pytest_asyncio
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from conftest import make_settings
@@ -56,6 +57,7 @@ def seeded(valkey: str, migrated_db: ThrowawayDatabase) -> ThrowawayDatabase:
 class Session:
     client: AsyncClient
     browser: KeycloakBrowser
+    app: FastAPI  # the in-process API, for tests that read the BFF's own state (audit row 26)
 
     async def login(self, email: str, *, app: str = "console") -> httpx.Response:
         start = await self.client.get(
@@ -91,7 +93,7 @@ async def session(
         async with AsyncClient(transport=transport, base_url=CONSOLE) as client:
             browser = KeycloakBrowser()
             try:
-                yield Session(client, browser)
+                yield Session(client, browser, app)
             finally:
                 browser.close()
 

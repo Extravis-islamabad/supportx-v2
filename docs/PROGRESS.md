@@ -53,6 +53,20 @@ Branch `fix/security-audit-a` (2026-11-12, docs/progress-log/2026-11-12-security
 - [x] Row 15, HSTS on the console and portal nginx responses. Still open from the audit's HSTS
   row: the chart's port-80 listener with an https redirect.
 
+Branch `fix/security-audit-b1` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b-b1.md):
+- [x] Row 26, API-key HMAC key: `SUPPORTX_API_KEY_SECRET` required in production (32+ characters),
+  never the session secret; keys hashed under the old derived key move on their next good call
+  while `SUPPORTX_SESSION_SECRET` stays set. Chart passes `api-key-secret`, secrets.sh makes it.
+- [x] Row 26, refresh-token rotation: `revokeRefreshToken` on, `refreshTokenMaxReuse` 0 (realm
+  files and the keycloak-identity Job); the BFF never saves or re-sends a spent token.
+- [x] Idempotency-Key on `POST /api/v1/audit/saved-searches`.
+- [x] Row 14 follow-ups: IPv6 counted per /64 in `ip_rate_limit`; a rate-limited callback goes
+  back to the app its sign-in started in.
+- [x] Row 27, Semgrep in CI with the repo's own rules (`.semgrep.yml`, `make semgrep`); not a
+  required check yet.
+- [ ] Row 3, LDAP host pin: waits for `app/shared/egress/sockets.py` (`pinned_address`), not on
+  main yet.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -326,8 +340,9 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   retries after 60 s); node-monitor grace period 20 s in `deploy/k3s/config-ha.yaml` and the k3d
   HA cluster; a forced worst-case test, master plus CoreDNS on the stopped node
   (`make cluster-ha-valkey-node-loss-dns`).
-  - [ ] **Later:** NodeLocal DNSCache to remove the dead-endpoint window, without a shorter
-    grace period; weigh it after this lands.
+  - [x] NodeLocal DNSCache (D-163, 2026-11-13) removes the dead-endpoint window, without a
+    shorter grace period: `deploy/k3s/node-local-dns.sh`, required by the preflight; the
+    node-loss budgets are back to 60 s and a sentinel TILT fails the test.
   Round 3 (2026-11-12, the coordinator's sweep of single copies in the HA profile; the proving
   run lost k3s's only Traefik copy with the stopped node and no request was answered for 90 s):
   Traefik two copies with required anti-affinity (`deploy/k3s/traefik-ha.yaml`, a
@@ -1385,6 +1400,16 @@ it with no reload (rule c). Not built yet.
   - **Not yet (S4b, no migration):** the canvas designer on packages/flow (AC4), migrating
     records to a newer version (§7), staged types' version editing (§8; they keep version 1),
     and problems' settings page (none exists yet; the API serves problems already).
+- **S5c part 1 (no migration; REQ-INC-018 quick create):**
+  - Incidents list › Quick create: subject, requester and an optional priority (with its
+    reason), without leaving the list.
+  - It is the same create as the full form: the default template's starting values go with it
+    and the server applies its rules. A field they need that the dialog lacks is named, with
+    "Open the full form" (template and requester carried over; AC2).
+  - The list updates live (AC1).
+  - **Next:** copy N times (REQ-INC-033; `copy_limit`, migration number asked). Server drafts
+    (REQ-INC-019) wait for WP-057 S3's field encryption, as approved; today's drafts are kept
+    in the tab (sessionStorage).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

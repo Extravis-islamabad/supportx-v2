@@ -69,9 +69,17 @@ reports use the main database through their own small pool (single node).
 The chart only references Secrets. `deploy/scripts/secrets.sh <namespace>` creates them with random
 hex values and never overwrites an existing one (its passwords are already inside the databases).
 
+**Upgrading to a release that adds a secret key: re-run `deploy/scripts/secrets.sh <namespace>`
+before `helm upgrade`.** It only adds the missing keys. Since the security bundle B1 (#451) the
+API needs `api-key-secret` (the API keys' own HMAC key) in production and refuses to start without
+it, with a message saying so; keys made before keep working (re-hashed on first use, while
+`session-secret` stays set). The coordinator's decision (2026-11-12): hard from the start, as
+there are no customer installs yet. Once one exists, a change like this ships with a release-note
+announcement and a migration path that removes nothing silently (Haider's rule).
+
 | Secret | Keys |
 |---|---|
-| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, any `session-key-*` listed in `secrets.sessionKeys` (the sign-in key ring, D-162; [rotating it](guides/rotating-the-sign-in-key.md)), `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027), `temporal-db-password` (the bundled Temporal's `temporal` role, with `temporal.bundled.enabled`) |
+| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, `api-key-secret` (the API keys' own HMAC key, required in production; [API keys](api/keys.md)), any `session-key-*` listed in `secrets.sessionKeys` (the sign-in key ring, D-162; [rotating it](guides/rotating-the-sign-in-key.md)), `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027), `temporal-db-password` (the bundled Temporal's `temporal` role, with `temporal.bundled.enabled`) |
 | `supportx-db-keycloak` (basic-auth) | `username` = `keycloak`, `password` |
 | `supportx-pg-superuser` | created by CloudNativePG; used only by the migrate Job |
 
@@ -117,6 +125,7 @@ hex values and never overwrites an existing one (its passwords are already insid
   | ClamAV | 2, spread | the Service balances scans over both; their signature pulls are staggered |
   | CoreDNS (k3s) | 2, spread *(preflight)* | `deploy/k3s/cluster-dns-ha.sh` (below) |
   | Traefik (k3s) | 2, spread *(preflight)* | `deploy/k3s/traefik-ha.yaml` (below) |
+  | NodeLocal DNSCache | 1 per node *(preflight)* | `deploy/k3s/node-local-dns.sh` (below); each node's pods use their own node's cache |
   | CloudNativePG operator | 2, hostname spread *(preflight)* | `deploy/k3d/prereqs.sh` shows how |
   | Barman Cloud plugin | 2, hostname spread | the same; the operator blocks a cluster's changes, failover included, while its plugin is unreachable |
   | **Single copy, and why that is acceptable** | | |
@@ -194,17 +203,51 @@ hex values and never overwrites an existing one (its passwords are already insid
   file (`deploy/k3d/cluster-ha.yaml`). On another distribution, run your ingress controller with
   two or more copies on different nodes.
 
-  **Preflight.** `deploy/k3s/ha-preflight.sh` checks a cluster for the HA profile, read-only:
-  three or more schedulable nodes, cluster DNS ready on two or more nodes, the CloudNativePG
-  operator ready on two or more nodes, Traefik ready on two or more nodes. Once SupportX is
-  installed in `SUPPORTX_NAMESPACE` (default `supportx`) it also checks the release: NATS servers
-  and PostgreSQL instances each on distinct nodes, and the fast-eviction tolerations on the
-  fan-out and index workers. Each unmet requirement prints a WARNING and how to fix it (exit 0;
-  `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make cluster-up-ha` does before the install
-  and `make cluster-ha-preflight` after it). The bundled SeaweedFS gets an advisory warning that
-  never fails, even when strict. Run it before the install, after it, and after any cluster
-  upgrade. `helm install` with `values-ha.yaml` also
-  warns in its notes when `kube-system/coredns` runs one copy.
+  **NodeLocal DNSCache: a DNS cache on every node (D-163).** Two CoreDNS copies keep names
+  resolving, but when a node is lost its copy stays behind the kube-dns Service until the node
+  goes NotReady (about 20 s). Lookups that land on it time out meanwhile. Valkey's sentinels
+  resolve synchronously, so they stall long enough to enter TILT, a fixed 30 s pause before they
+  may fail over: failover took about 50 s (Cluster runs 43153098860, 43157246881). A cache on
+  every node answers SupportX's names from memory and sends misses to CoreDNS over TCP, which
+  fails fast on a dead copy; failover then takes about 15 s and the node-loss tests allow 60 s
+  and fail on any TILT. After `cluster-dns-ha.sh`, and after every k3s upgrade:
+
+  ```
+  bash deploy/k3s/node-local-dns.sh   # waits for a ready cache on every node and a lookup through it
+  ```
+
+  It runs in transparent mode: the cache takes the kube-dns address on each node, so pods keep
+  their DNS settings and no k3s or kubelet flag changes. That needs kube-proxy in iptables mode,
+  k3s's default (the script refuses ipvs mode, and the preflight warns). All of k3s's own
+  CoreDNS settings still decide every answer: misses go to CoreDNS through a second Service,
+  `kube-dns-upstream`. The image (`registry.k8s.io/dns/k8s-dns-node-cache`, Apache-2.0) is
+  pinned by digest in `values.yaml` (`images.nodeLocalDns`), so the air-gapped mirror carries
+  it; `IMAGE_REGISTRY=<mirror>` points the script at the mirror. On a clean stop the cache
+  removes its rules and pods reach CoreDNS directly. A crashed cache leaves its rules until the
+  kubelet restarts it, within seconds, and that node's lookups fail meanwhile. On another
+  distribution, use its NodeLocal DNSCache add-on (most managed clusters offer one).
+  The cache runs on the node's own network: it listens on port 53 (UDP and TCP) of
+  169.254.20.10 and the kube-dns address, its health check on 169.254.20.10:8080, and its
+  Prometheus metrics on port **9253 of every node address**. A host firewall must let the API
+  server (for the script's check) and your Prometheus reach 9253 from inside the cluster
+  network only.
+  With the egress allow-list on, pods reach the cache from their node's network, not CoreDNS's
+  pods: `values-ha.yaml` lists its addresses (`networkPolicies.egress.dnsAddresses`:
+  169.254.20.10 and k3s's default kube-dns address 10.43.0.10). If your kube-dns address
+  differs, list yours. The script says so, and the preflight checks.
+
+  **Preflight.** `deploy/k3s/ha-preflight.sh` checks a cluster for the HA profile, read-only: three
+  or more schedulable nodes, cluster DNS ready on two or more nodes, the CloudNativePG operator
+  ready on two or more nodes, Traefik ready on two or more nodes, NodeLocal DNSCache ready on every
+  schedulable node and kube-proxy not in ipvs mode. Once SupportX is installed in
+  `SUPPORTX_NAMESPACE` (default `supportx`) it also checks the release: NATS servers and PostgreSQL
+  instances each on distinct nodes, the fast-eviction tolerations on the fan-out and index workers,
+  and, with the egress allow-list on, the cache's addresses in it. Each unmet requirement prints a
+  WARNING and how to fix it (exit 0; `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make
+  cluster-up-ha` does before the install and `make cluster-ha-preflight` after it). The bundled
+  SeaweedFS gets an advisory warning that never fails, even when strict. Run it before the install,
+  after it, and after any cluster upgrade. `helm install` with `values-ha.yaml` also warns in its
+  notes when `kube-system/coredns` runs one copy.
 
   **Node-monitor grace period: 20 s recommended (not required).** Until Kubernetes marks a lost
   node NotReady (the controller manager's `node-monitor-grace-period`, about 40-50 s by default),
@@ -415,7 +458,9 @@ so per-address rate limits are shared by everyone.
 ## Rate limits without a signed-in person
 
 Routes that nobody signs in for are limited per client address (the address above), each request
-counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/ratelimit.py`):
+counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/ratelimit.py`). An
+IPv4 address counts on its own; an IPv6 address counts as its whole /64 network, because one
+client holds a /64 and could pick a new address for every request:
 
 | Route | Per address, per minute | Valkey down |
 |---|---|---|
@@ -428,7 +473,9 @@ counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/rate
 The budgets are wide on purpose: an office behind one NAT address signs many people in at once,
 and a sign-in is one `/login` and one `/callback` (two of each with an MFA enrolment). They stop
 scripted floods. Over a budget the API answers 429 `rate_limited` with `Retry-After`; a browser
-is sent back to its app, which shows the message.
+is sent back to its app, which shows the message. A refused `/callback` goes back to the app its
+sign-in started in (console, portal or the mobile app), read from the pending sign-in without
+spending it; with Valkey down that cannot be read, so it goes to the console.
 
 **The sign-in routes fail closed.** Every other route allows requests while Valkey is down (losing
 rate limiting for a moment beats losing the API, ADR-020). A sign-in needs Valkey anyway (its
@@ -439,8 +486,9 @@ one-time state lives there), so letting it through unlimited buys nothing; it an
 
 Ingress is always denied by default. Egress is open unless `networkPolicies.egress.enabled` is
 true (WP-014b). With it on, pods may reach:
-- **DNS and the namespace:** every pod may reach DNS (kube-dns) and the other pods of the
-  namespace.
+- **DNS and the namespace:** every pod may reach DNS (kube-dns, plus
+  `networkPolicies.egress.dnsAddresses`, which `values-ha.yaml` sets for NodeLocal DNSCache) and
+  the other pods of the namespace.
 - **The Kubernetes API:** CloudNativePG's pods and the API and worker pods (their
   wait-for-migrate step) may reach it, at its real addresses. The chart reads them from the
   `default/kubernetes` EndpointSlice at install time. Where it can't read the cluster (`helm

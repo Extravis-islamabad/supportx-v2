@@ -34,6 +34,8 @@ def test_realm_enforces_password_policy_and_brute_force_protection(
     with _admin(private_keycloak) as admin:
         realm = admin.get("").json()
         assert realm["bruteForceProtected"] is True
+        # Audit row 26: refresh tokens rotate, each works once.
+        assert (realm["revokeRefreshToken"], realm["refreshTokenMaxReuse"]) == (True, 0)
         assert realm["failureFactor"] == 5
         assert "length(12)" in realm["passwordPolicy"]
         assert realm["organizationsEnabled"] is True
