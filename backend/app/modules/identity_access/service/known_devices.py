@@ -64,7 +64,9 @@ async def remember(
                 fingerprint=newest,
                 last_seen_at=now,
             )
-            .on_conflict_do_update(constraint="uq_known_devices_print", set_={"last_seen_at": now})
+            .on_conflict_do_update(
+                constraint="uq_known_devices_print", set_={"last_seen_at": now, "updated_at": now}
+            )
         )
         if len(prints) > 1:
             await session.execute(
