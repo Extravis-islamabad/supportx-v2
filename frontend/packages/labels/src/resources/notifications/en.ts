@@ -208,6 +208,9 @@ export const en = {
   'notification_rules.col.status': 'Only for status',
   'notification_rules.intro':
     'Which events notify whom, and how. Every event starts with a sensible default; changes are recorded in the audit log.',
+  'notification_rules.locked': 'Fixed for security',
+  'notification_rules.locked_help':
+    'A security notice: always sent to the people it names. No one can switch it off or change who gets it.',
   'notification_rules.none': 'No event matches',
   'notification_rules.required': 'Required for people',
   'notification_rules.reset': 'Back to default',
@@ -263,6 +266,11 @@ export const en = {
     'Warranty of {{ record.display_id }} ends on {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'Warranty ending: {{ record.display_id }} {{ record.title }}',
+  'notification_template.break_glass.signed_in.body':
+    'Hello {{ recipient.name }},\n\n{{ record.title }} signed in with their emergency administrator account, which works even while single sign-on is required. If you did not expect this, check Sign-in and security now: {{ record.link }}',
+  'notification_template.break_glass.signed_in.in_app':
+    '{{ record.title }} signed in with their emergency administrator account',
+  'notification_template.break_glass.signed_in.subject': 'Emergency sign-in: {{ record.title }}',
   'notification_template.change.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has an approval that nobody holds. An approval administrator can decide it.',
   'notification_template.change.approval_fallback.in_app':

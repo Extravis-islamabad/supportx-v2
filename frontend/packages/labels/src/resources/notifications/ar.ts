@@ -210,6 +210,9 @@ export const ar: LabelResource = {
   'notification_rules.col.status': 'فقط للحالة',
   'notification_rules.intro':
     'الأحداث التي تُرسل إشعارات ولمن وكيف. يبدأ كل حدث بإعداد افتراضي مناسب، وتُسجَّل التغييرات في سجل التدقيق.',
+  'notification_rules.locked': 'ثابت لأسباب أمنية',
+  'notification_rules.locked_help':
+    'إشعار أمني: يُرسل دائمًا إلى الأشخاص الذين يحددهم. لا يمكن لأحد إيقافه أو تغيير مستلميه.',
   'notification_rules.none': 'لا يوجد حدث مطابق',
   'notification_rules.required': 'إلزامي للأشخاص',
   'notification_rules.reset': 'العودة إلى الافتراضي',
@@ -265,6 +268,11 @@ export const ar: LabelResource = {
     'ينتهي ضمان {{ record.display_id }} في {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'الضمان ينتهي: {{ record.display_id }} {{ record.title }}',
+  'notification_template.break_glass.signed_in.body':
+    'مرحبًا {{ recipient.name }}،\n\nسجّل {{ record.title }} الدخول بحساب المسؤول الطارئ، الذي يعمل حتى عندما يكون تسجيل الدخول الموحّد مطلوبًا. إن لم تكن تتوقع ذلك، فراجع صفحة تسجيل الدخول والأمان الآن: {{ record.link }}',
+  'notification_template.break_glass.signed_in.in_app':
+    'سجّل {{ record.title }} الدخول بحساب المسؤول الطارئ',
+  'notification_template.break_glass.signed_in.subject': 'تسجيل دخول طارئ: {{ record.title }}',
   'notification_template.change.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\nلدى {{ record.display_id }} "{{ record.title }}" موافقة لا يتولاها أحد. يمكن لمسؤول الموافقات أن يقررها.',
   'notification_template.change.approval_fallback.in_app':
