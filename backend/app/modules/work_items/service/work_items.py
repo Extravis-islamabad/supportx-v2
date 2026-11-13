@@ -71,6 +71,7 @@ from app.modules.organization import (
 from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
+from app.modules.work_items.domain import kept_informed
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.classification import (
@@ -356,6 +357,17 @@ async def may_edit(
     if live is None:
         return False
     return await _may(session, subject, wtype, "edit", record_id)
+
+
+async def may_assign(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may assign the record (its type's assign permission, in scope).
+
+    Mail commands ask first, before looking up any group or person a mail names, so the answer
+    never tells someone without the right whether that name exists (lane B's #485 review).
+    """
+    return await _may(session, subject, wtype, "assign", record_id)
 
 
 async def labels_of(
@@ -1402,7 +1414,7 @@ async def _check_units(session: AsyncSession, values: Mapping[str, Any]) -> list
     return problems
 
 
-def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
+def _check_fields(  # noqa: C901, PLR0912, PLR0915 - one rule per field, flat
     values: Mapping[str, Any], *, creating: bool
 ) -> tuple[dict[str, Any], list[tuple[str, str]]]:
     """Pure field rules; returns the cleaned values and (field, code) problems."""
@@ -1445,6 +1457,10 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
         details, codes = clean_impact_details(values["impact_details"])
         problems += [("impact_details", c) for c in codes]
         cleaned["impact_details"] = details
+    if "notify_emails" in values:  # WP-046a S6 (REQ-INC-066): people kept informed by e-mail
+        kept, found = kept_informed.problems(list(values["notify_emails"] or []))
+        problems += found
+        cleaned["notify_emails"] = kept
     if "level" in values:
         cleaned["level"] = values["level"] or None
     for name in PROBLEM_FIELDS:
@@ -1709,6 +1725,7 @@ SNAPSHOT_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "notify_emails",
     "urgency",
     "priority",
     "priority_source",
@@ -2551,6 +2568,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         category_id=cleaned.get("category_id"),
         impact=cleaned.get("impact"),
         impact_details=cleaned.get("impact_details"),
+        notify_emails=cleaned.get("notify_emails") or [],
         urgency=cleaned.get("urgency"),
         priority=priority,
         priority_source=priority_source,

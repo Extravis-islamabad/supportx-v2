@@ -3572,6 +3572,33 @@
         "type": "object"
       }
     },
+    "integrations.mail_block_rule.changed": {
+      "1": {
+        "description": "A block rule for unwanted mail was added, changed or removed (WP-046a S6; REQ-INC-026).",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "change"
+        ],
+        "title": "MailBlockRuleChanged",
+        "type": "object"
+      }
+    },
     "integrations.mailbox.changed": {
       "1": {
         "description": "A mailbox was added, changed or removed, or a fetch changed its state or its mail.",

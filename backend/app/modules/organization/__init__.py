@@ -46,7 +46,12 @@ from app.modules.organization.service.email_branding import (
     header_html,
 )
 from app.modules.organization.service.file_access import FILE_ACCESS
-from app.modules.organization.service.hosts import HostTenant, tenant_for_host, tenant_for_slug
+from app.modules.organization.service.hosts import (
+    HostTenant,
+    link_tenant,
+    tenant_for_host,
+    tenant_for_slug,
+)
 from app.modules.organization.service.instance import (
     RegionalDefaults,
     base_currency,
@@ -70,6 +75,7 @@ from app.modules.organization.service.structure import (
     department_site,
     existing_departments,
     find_department,
+    find_group,
     find_site,
     heads_department,
     leave_groups,
@@ -177,6 +183,7 @@ __all__ = [
     "existing_departments",
     "existing_unit_ids",
     "find_department",
+    "find_group",
     "find_site",
     "get_branding",
     "get_current_tenant",
@@ -185,6 +192,7 @@ __all__ = [
     "leads_group",
     "leave_groups",
     "led_groups",
+    "link_tenant",
     "may_manage_group",
     "memberships",
     "module",

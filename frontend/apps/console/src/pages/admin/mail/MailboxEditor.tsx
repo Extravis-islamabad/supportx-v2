@@ -40,6 +40,8 @@ const AFTER_FETCH: AfterFetch[] = ['mark_read', 'move', 'delete'];
 const CREATES: Creates[] = ['incident', 'nothing'];
 const UNKNOWN: UnknownSenders[] = ['create_allowed_domains', 'create', 'reject'];
 const PORTS: Record<Security, number> = { tls: 993, starttls: 143, none: 143 };
+const TRUSTED_MAX = 5;
+const QUARANTINE_DEFAULT = 14;
 const DOMAIN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
 interface Form {
@@ -65,6 +67,9 @@ interface Form {
   unknown_senders: UnknownSenders;
   allowed_domains: string[];
   enabled: boolean;
+  trusted_servers: string[];
+  trust_provider_results: boolean;
+  quarantine_days: number;
 }
 
 function formFrom(saved: Mailbox | null): Form {
@@ -91,6 +96,9 @@ function formFrom(saved: Mailbox | null): Form {
     unknown_senders: saved?.unknown_senders ?? 'create_allowed_domains',
     allowed_domains: saved?.allowed_domains ?? [],
     enabled: saved?.enabled ?? true,
+    trusted_servers: saved?.trusted_servers ?? [],
+    trust_provider_results: saved?.trust_provider_results ?? false,
+    quarantine_days: saved?.quarantine_days ?? QUARANTINE_DEFAULT,
   };
 }
 
@@ -108,6 +116,11 @@ function typedProblems(form: Form, editing: boolean): Record<string, string> {
   }
   const bad = form.allowed_domains.find((d) => !DOMAIN.test(d.trim().toLowerCase()));
   if (bad !== undefined) found.allowed_domains = `errors.field.sso_domain_invalid|${bad}`;
+  if (form.trusted_servers.length > TRUSTED_MAX) {
+    found.trusted_servers = 'errors.field.trusted_servers_too_many';
+  } else if (form.trusted_servers.some((name) => !DOMAIN.test(name.trim().toLowerCase()))) {
+    found.trusted_servers = 'errors.field.host_name_invalid';
+  }
   return found;
 }
 
@@ -195,6 +208,10 @@ export function MailboxEditor({
     unknown_senders: form.unknown_senders,
     allowed_domains: form.allowed_domains.map((d) => d.trim().toLowerCase()),
     enabled: form.enabled,
+    trusted_servers: form.trusted_servers.map((name) => name.trim().toLowerCase()),
+    // Only Microsoft 365 writes its result without a name (the server refuses it elsewhere).
+    trust_provider_results: graph && form.trust_provider_results,
+    quarantine_days: form.quarantine_days,
   });
 
   const onError = (error: unknown) => {
@@ -509,6 +526,64 @@ export function MailboxEditor({
               data-testid="mailbox-allowed_domains"
             />,
             'mail.field.allowed_domains_hint',
+          )}
+        {field(
+          'quarantine_days',
+          'mail.field.quarantine_days',
+          <InputNumber
+            id="mailbox-quarantine_days"
+            min={1}
+            max={90}
+            precision={0}
+            value={form.quarantine_days}
+            status={status('quarantine_days')}
+            onChange={(days) => {
+              set({ quarantine_days: days ?? QUARANTINE_DEFAULT }, 'quarantine_days');
+            }}
+            data-testid="mailbox-quarantine_days"
+          />,
+          'mail.field.quarantine_days_hint',
+        )}
+        {/* Whose results vouch for a sender (WP-046a S6; lane B): only then are commands
+            written in a mail honoured. Nothing by default. */}
+        <Typography.Title level={5} style={{ margin: 0 }}>
+          {t('mail.section.sender_check')}
+        </Typography.Title>
+        {field(
+          'trusted_servers',
+          'mail.field.trusted_servers',
+          <Select
+            id="mailbox-trusted_servers"
+            // Host names read left to right in every language (lane C).
+            style={{ direction: 'ltr' }}
+            mode="tags"
+            open={false}
+            maxCount={TRUSTED_MAX}
+            tokenSeparators={[',', ' ', ';']}
+            value={form.trusted_servers}
+            status={status('trusted_servers')}
+            aria-describedby="mailbox-trusted_servers-problem"
+            onChange={(trusted_servers: string[]) => {
+              set({ trusted_servers }, 'trusted_servers');
+            }}
+            data-testid="mailbox-trusted_servers"
+          />,
+          'mail.field.trusted_servers_hint',
+        )}
+        {graph &&
+          field(
+            'trust_provider_results',
+            'mail.field.trust_provider_results',
+            <Switch
+              id="mailbox-trust_provider_results"
+              style={{ alignSelf: 'flex-start' }}
+              checked={form.trust_provider_results}
+              onChange={(trust_provider_results) => {
+                set({ trust_provider_results }, 'trust_provider_results');
+              }}
+              data-testid="mailbox-trust_provider_results"
+            />,
+            'mail.field.trust_provider_results_hint',
           )}
         {field(
           'enabled',

@@ -781,6 +781,12 @@ export {
 } from './notifications';
 export {
   useCreateMailbox,
+  useAddMailBlockRule,
+  useMailBlockRules,
+  useRemoveMailBlockRule,
+  useSwitchMailBlockRule,
+  type MailBlockKind,
+  type MailBlockRule,
   useDiscardMail,
   useMailboxes,
   useReleaseMail,
@@ -908,6 +914,8 @@ export {
   useActionLink,
   usePeekActionLink,
   usePublicActionLink,
+  usePeekNotifyLink,
+  useStopNotifyLink,
   usePublicPeekActionLink,
   useRequestTasks,
   useRequestTaskStatus,
