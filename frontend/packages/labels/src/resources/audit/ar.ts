@@ -429,6 +429,7 @@ export const ar: LabelResource = {
   'audit.action.service_request.updated': 'عدّل طلب خدمة',
   'audit.action.service_request.withdrawn': 'سحب طلب خدمة بانتظار الموافقة',
   'audit.action.session.break_glass_sign_in': 'سجّل الدخول بحساب طوارئ',
+  'audit.action.session.confirmed': 'أكّد هويته مجددًا',
   'audit.action.session.ended': 'أنهى جلسة تسجيل دخول',
   'audit.action.session.ended_others': 'سجّل الخروج من كل مكان آخر',
   'audit.action.session.quick_sign_in': 'سجّل الدخول عبر تسجيل الدخول السريع للتطوير',

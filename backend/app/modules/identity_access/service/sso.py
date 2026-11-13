@@ -33,8 +33,9 @@ from cryptography import x509
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import SESSION_TENANT_KEY
+from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
+from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import sso
 from app.modules.identity_access.events import SsoProviderChanged
 from app.modules.identity_access.infra.fetch import FetchError, client_accepted, fetch_document
@@ -709,3 +710,14 @@ async def apply_post_broker_flow(
         await keycloak.update_provider(alias, stored)
         changed += 1
     return changed
+
+
+async def provider_protocol(database: Database, tenant_id: uuid.UUID, alias: str) -> str | None:
+    """The protocol (oidc or saml) of the tenant's own provider `alias`, or None (WP-057 S2a)."""
+    async with database.tenant_session(TenantContext(tenant_id)) as session:
+        found = await session.scalar(
+            select(SsoProvider.protocol).where(
+                SsoProvider.alias == alias, SsoProvider.deleted_at.is_(None)
+            )
+        )
+    return str(found) if found is not None else None

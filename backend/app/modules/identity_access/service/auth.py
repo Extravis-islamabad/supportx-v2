@@ -84,8 +84,15 @@ from app.modules.identity_access.infra.oidc import (
     TokenSet,
 )
 from app.modules.identity_access.infra.store import SessionStore, public_id
-from app.modules.identity_access.service import api_keys, break_glass, sign_in_log, sso_test
+from app.modules.identity_access.service import (
+    api_keys,
+    break_glass,
+    confirm,
+    sign_in_log,
+    sso_test,
+)
 from app.modules.identity_access.service import mfa as mfa_service
+from app.modules.identity_access.service import sso as sso_service
 from app.modules.identity_access.service.network_rules import admitted, tenant_network_rules
 from app.modules.identity_access.service.users import (
     known_user_id,
@@ -532,7 +539,9 @@ class AuthService:
         action_status: str | None = None,
         client_ip: str | None = None,
         user_agent: str | None = None,
-    ) -> "LoginResult | EnrolFirst | PortalInstead | sso_test.TestFinished":
+    ) -> (
+        "LoginResult | EnrolFirst | PortalInstead | sso_test.TestFinished | confirm.ConfirmFinished"
+    ):
         """Finish the OIDC callback and create a fresh session (or finish an SSO test).
 
         Any failure is raised as LoginFailure carrying the app it belongs to, so the BFF can send a
@@ -547,8 +556,17 @@ class AuthService:
         pending = await self.store.take_login(state) if state else None
         if pending is None:
             raise LoginFailure("console", BadRequest(code="invalid_login_state"))  # noqa: EM101 - a code, not a message
-        if pending.get("test"):  # an admin's test of a single sign-on set-up (WP-039)
-            return await sso_test.finish(self, pending, code=code, error=error)
+        if pending.get("test") or pending.get("confirm"):
+            return await self._finish_side_flow(
+                pending,
+                code=code,
+                error=error,
+                binding=binding,
+                host=host,
+                current_session_id=previous_session_id,
+                client_ip=client_ip,
+                user_agent=user_agent,
+            )
         app: AppName = "portal" if pending["app"] == "portal" else "console"
         origin = pending.get("origin")
         mobile = MobileStart.from_pending(pending)
@@ -613,6 +631,39 @@ class AuthService:
         )
         await sign_in_log.record(self.database, session.tenant_uuid, facts)
         return finished
+
+    async def _finish_side_flow(  # noqa: PLR0913 - the callback's parts, keyword-only
+        self,
+        pending: dict[str, Any],
+        *,
+        code: str | None,
+        error: str | None,
+        binding: str | None,
+        host: str | None,
+        current_session_id: str | None,
+        client_ip: str | None,
+        user_agent: str | None,
+    ) -> "sso_test.TestFinished | confirm.ConfirmFinished":
+        """A callback that creates no session: an admin's SSO test, or a confirmation.
+
+        The SSO test runs in a private window by design (WP-039), so it has no binding. A
+        confirmation (REQ-SEC-027) must come from the browser that started it (lane B A3).
+        """
+        if pending.get("test"):  # an admin's test of a single sign-on set-up (WP-039)
+            return await sso_test.finish(self, pending, code=code, error=error)
+        app: AppName = "portal" if pending.get("app") == "portal" else "console"
+        _check_same_browser(
+            pending, app, mobile=False, mobile_return=None, binding=binding, host=host
+        )
+        return await confirm.finish(
+            self,
+            pending,
+            code=code,
+            error=error,
+            current_session_id=current_session_id,
+            client_ip=client_ip,
+            user_agent=user_agent,
+        )
 
     async def _finish_login(
         self, session: Session, app: AppName, pending: dict[str, Any], action_status: str | None
@@ -755,18 +806,69 @@ class AuthService:
         self, tokens: TokenSet, client: ClientCredentials, *, nonce: str | None
     ) -> Identity:
         try:
-            claims = await self.oidc.verify_id_token(tokens.id_token)
-            validate_claims(
-                claims,
-                issuer=self.oidc.issuer,
-                client_id=client.client_id,
-                nonce=nonce,
-                now=self.clock.now(),
-            )
+            identity, _claims = await self._verified(tokens, client, nonce=nonce)
         except (InvalidTokenError, ClaimsError) as exc:
             log.warning("id_token_rejected", reason=str(exc))
             raise BadRequest(code="login_failed") from exc
-        return identity_from(claims)
+        return identity
+
+    async def _verified(
+        self, tokens: TokenSet, client: ClientCredentials, *, nonce: str | None
+    ) -> tuple[Identity, dict[str, Any]]:
+        claims = await self.oidc.verify_id_token(tokens.id_token)
+        validate_claims(
+            claims, issuer=self.oidc.issuer, client_id=client.client_id, nonce=nonce,
+            now=self.clock.now(),
+        )  # fmt: skip
+        return identity_from(claims), dict(claims)
+
+    async def verified_identity(
+        self, tokens: TokenSet, client: ClientCredentials, *, nonce: str
+    ) -> tuple[Identity, dict[str, Any]]:
+        """The verified, nonce-bound identity and its claims (a confirmation, REQ-SEC-027).
+
+        A token that fails any check is refused (PermissionDenied), never trusted.
+        """
+        try:
+            return await self._verified(tokens, client, nonce=nonce)
+        except (InvalidTokenError, ClaimsError) as exc:
+            log.warning("id_token_rejected", reason=str(exc))
+            raise PermissionDenied(code="reauth_failed") from exc
+
+    async def session_for_confirmed(self, request: Request) -> Session | None:
+        """The browser's session as stored now (after a confirmation), or None."""
+        session_id = request.cookies.get(self.cookie_name)
+        record = await self.store.get_session(session_id) if session_id else None
+        return Session.from_dict(record) if record else None
+
+    async def save_existing(self, session_id: str, session: Session) -> bool:
+        """Replace a session only if it still exists (never bring back a signed-out one)."""
+        return await self._save(session_id, session, only_if_present=True)
+
+    async def end_keycloak_session_quietly(self, app: AppName, session: Session) -> None:
+        """End a session's Keycloak session through its refresh token; a failure is logged."""
+        try:
+            await self._end_keycloak_session(self.client(app), session.refresh_token)
+        except IdentityProviderUnavailable:
+            log.warning("keycloak_logout_failed", subject=session.subject)
+
+    async def provider_reauthenticates(self, session: Session) -> bool:
+        """Whether this session's identity provider re-authenticates on request (REQ-SEC-027).
+
+        OIDC providers SupportX creates pass `prompt` and `max_age` on (sso.py); a SAML provider
+        is not proven to, so its people cannot confirm (fail closed, lane B A4). No provider
+        (a password sign-in): Keycloak asks for the password itself.
+        """
+        if session.identity_provider is None:
+            return True
+        if self.database is None:
+            return False
+        return (
+            await sso_service.provider_protocol(
+                self.database, session.tenant_uuid, session.identity_provider
+            )
+            == "oidc"
+        )
 
     async def _admit(self, tenant_id: uuid.UUID, app: AppName, address: str | None) -> bool:
         """Whether the tenant's allow-list for `app` admits `address` (REQ-SEC-034)."""

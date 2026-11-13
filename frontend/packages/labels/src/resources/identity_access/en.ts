@@ -1231,6 +1231,7 @@ export const en = {
   'sign_in_reason.identity_provider_refused': 'The single sign-on provider refused',
   'sign_in_reason.ip_not_allowed': 'Network not allowed',
   'sign_in_reason.other': 'Another reason',
+  'sign_in_reason.reauth_failed': 'Could not confirm it was them',
   'sign_in_reason.sign_in_expired': 'Sign-in took too long',
   'sign_in_reason.sso_required': 'Single sign-on required',
   'sign_in_reason.unknown_person': 'No such account',

@@ -327,6 +327,8 @@ class Settings(BaseSettings):
             "default": {"user": 600, "tenant": 6000},
             # Signing out everywhere else (WP-057 S2a, lane B): a few a minute is plenty.
             "auth_sessions": {"user": 10, "tenant": 1000},
+            # Confirming who you are (WP-057 S2a, REQ-SEC-027; lane B A3): per person.
+            "auth_confirm": {"user": 10, "tenant": 1000},
         }
     )
     # Prefix for every Valkey key the API writes (tests use a random one).

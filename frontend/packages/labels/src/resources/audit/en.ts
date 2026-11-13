@@ -434,6 +434,7 @@ export const en = {
   'audit.action.service_request.updated': 'Changed a service request',
   'audit.action.service_request.withdrawn': 'Withdrew a service request awaiting approval',
   'audit.action.session.break_glass_sign_in': 'Signed in with an emergency account',
+  'audit.action.session.confirmed': 'Confirmed it was them again',
   'audit.action.session.ended': 'Ended a signed-in session',
   'audit.action.session.ended_others': 'Signed out everywhere else',
   'audit.action.session.quick_sign_in': 'Signed in with the dev quick sign-in',

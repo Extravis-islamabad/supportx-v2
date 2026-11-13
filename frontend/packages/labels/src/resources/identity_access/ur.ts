@@ -1229,6 +1229,7 @@ export const ur: LabelResource = {
   'sign_in_reason.identity_provider_refused': 'سنگل سائن آن فراہم کنندہ نے انکار کیا',
   'sign_in_reason.ip_not_allowed': 'نیٹ ورک کی اجازت نہیں',
   'sign_in_reason.other': 'کوئی اور وجہ',
+  'sign_in_reason.reauth_failed': 'تصدیق نہ ہو سکی کہ یہ وہی ہیں',
   'sign_in_reason.sign_in_expired': 'سائن اِن میں بہت دیر ہوئی',
   'sign_in_reason.sso_required': 'سنگل سائن آن لازمی',
   'sign_in_reason.unknown_person': 'ایسا کوئی اکاؤنٹ نہیں',

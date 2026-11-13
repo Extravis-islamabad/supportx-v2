@@ -1240,6 +1240,7 @@ export const ar: LabelResource = {
   'sign_in_reason.identity_provider_refused': 'رفض مزوّد الدخول الموحد',
   'sign_in_reason.ip_not_allowed': 'الشبكة غير مسموح بها',
   'sign_in_reason.other': 'سبب آخر',
+  'sign_in_reason.reauth_failed': 'تعذّر تأكيد هويته',
   'sign_in_reason.sign_in_expired': 'استغرق تسجيل الدخول وقتًا طويلًا',
   'sign_in_reason.sso_required': 'الدخول الموحد مطلوب',
   'sign_in_reason.unknown_person': 'لا يوجد حساب كهذا',
