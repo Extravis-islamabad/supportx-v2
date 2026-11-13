@@ -22,6 +22,7 @@ CRDS_CATALOG="https://raw.githubusercontent.com/datreeio/CRDs-catalog/501527ab9c
 PROFILES=(
   "dev|-f $CHART/values-dev.yaml"
   "single-node|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
+  "staging|-f $CHART/values-single-node.yaml -f $CHART/values-staging.yaml"
   "ingress|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.mode=ingress --set routing.ingress.tlsSecret=supportx-tls --set routing.hostnames={supportx.example.com}"
   "external-db|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.gateway.tlsSecret=supportx-tls --set postgresql.mode=external --set postgresql.external.host=db.example.com --set temporal.bundled.enabled=false --set temporal.address=temporal.example.com:7233"
   "podmonitors|-f $CHART/values-dev.yaml --set metrics.podMonitors=true"
@@ -94,6 +95,12 @@ awk '
   }
 ' "$OUT/ha.yaml" || { echo "HA profile check failed"; exit 1; }
 echo "HA: every multi-copy component has a PodDisruptionBudget and anti-affinity"
+# Valkey and Sentinel resolve their peers by name: short lookups (dnsConfig) of fully qualified
+# names, so a CoreDNS outage never stalls Sentinel into TILT (Cluster run 43082299609).
+# shellcheck disable=SC2016 # the rendered script's own $DOMAIN, not this shell's
+{ grep -q '{name: ndots, value: "1"}' "$OUT/ha.yaml" && grep -q 'supportx-valkey-headless\.\$DOMAIN' "$OUT/ha.yaml"; } ||
+  { echo "HA: Valkey needs its dnsConfig (ndots 1) and fully qualified peer names"; exit 1; }
+echo "HA: Valkey resolves fully qualified peer names with short lookups"
 
 # Egress allow-list (WP-014b): offline (helm template, GitOps) the chart can't read the control
 # plane's addresses, so with egress on and no kubeApiCidrs it must refuse, never fall back to an

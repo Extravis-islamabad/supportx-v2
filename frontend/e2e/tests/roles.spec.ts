@@ -24,7 +24,7 @@ const LIVE = { timeout: 3_000 };
  * test user, who then opens the console with exactly the allowed menus; taking the role away
  * sends them back to the portal. The role is deleted at the end (suite-owned data only).
  */
-test('custom role: create, assign, see the menus, remove', async ({ browser }) => {
+test('custom role: create, assign, see the menus, remove @smoke', async ({ browser }) => {
   const adminContext = await browser.newContext();
   const userContext = await browser.newContext();
   const admin = await adminContext.newPage();
@@ -91,10 +91,20 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   // portal on its next call (the server refuses it, not only the routing).
   await drawer.getByLabel(roleName).click();
   await expect(drawer.getByLabel(roleName)).not.toBeChecked();
-  await user.goto(`${CONSOLE_URL}/problems`);
-  // The long way, and correct: the open tab ends the console session live, so this load signs in
-  // again through Keycloak (SSO) and the requester-only refusal sends them on to the portal.
-  await expect(user).toHaveURL(new RegExp(`^${PORTAL_URL}`), { timeout: 15_000 });
+  // The long way, and correct: the open tab ends the console session live, so a load signs in
+  // again through Keycloak (SSO) and the requester-only refusal sends them on to the portal. A
+  // load that starts before the server has applied the removal still opens the console, so wait
+  // for the outcome, not one load (lane B's flake report, Cluster run 43239882763).
+  await expect
+    .poll(
+      async () => {
+        await user.goto(`${CONSOLE_URL}/problems`);
+        await user.waitForLoadState('load');
+        return user.url();
+      },
+      { timeout: 30_000, intervals: [1_000, 2_000, 3_000] },
+    )
+    .toMatch(new RegExp(`^${PORTAL_URL}`));
 
   // Clean up: delete the suite's role (nobody holds it any more).
   // Close the drawer with its button: Escape only reaches it while focus is inside, and the

@@ -60,6 +60,7 @@ export const ur: LabelResource = {
   'appearance.theme.light': 'ہلکا',
   'appearance.theme.system': 'سسٹم کے مطابق',
   'appearance.title': 'ظاہری شکل',
+  'board.move_to': 'منتقل کریں…',
   'check_status.failed': 'ناکام',
   'check_status.not_configured': 'ترتیب نہیں دیا گیا',
   'check_status.ok': 'ٹھیک ہے',
@@ -395,6 +396,15 @@ export const ur: LabelResource = {
     'کام کے ذمہ دار ریلیز تک رسائی کے بغیر اپنے کام پر کام کریں',
   'settings.closing.release.task_owner_access_help':
     'وہ اپنا کام اور ریلیز کی شناخت اور موضوع دیکھتے ہیں اور کام کی حالت بدل سکتے ہیں؛ نوٹس یا منصوبے کبھی نہیں۔',
+  'settings.closing.release.timer_auto_start': 'جب کوئی اپنی ریلیز کھولے تو ٹائمر شروع کریں',
+  'settings.closing.release.timer_auto_start_help':
+    'ہر ریلیز پر ایک بار، اس کے مالک کے لیے۔ پہلے سے بند: جس ٹائمر پر کسی کی نظر نہ ہو وہ غلط وقت درج کرتا ہے۔',
+  'settings.closing.release.worklog_block_closed': 'بند ریلیزوں پر وقت نہیں',
+  'settings.closing.release.worklog_block_closed_help':
+    'ریلیز بند ہونے کے بعد کوئی اس کا وقت درج، تبدیل یا ختم نہیں کر سکتا۔',
+  'settings.closing.release.worklog_count_nonworking': 'کام کے اوقات سے باہر کا وقت شمار کریں',
+  'settings.closing.release.worklog_count_nonworking_help':
+    'ریلیز پر کام کے اوقات سے باہر درج وقت مجموعوں اور رپورٹوں میں شمار ہوتا ہے۔ بند ہو تو صرف کام کے اوقات شمار ہوتے ہیں۔',
   'settings.closing.reopen_window_days': 'دوبارہ کھولنے کی مدت (دن)',
   'settings.closing.reopen_window_help':
     'حل کے بعد اتنے دنوں میں درخواست گزار کا جواب واقعہ دوبارہ کھولتا ہے؛ بعد کا جواب نیا واقعہ شروع کرتا ہے۔ 1 سے 30 تک۔',
@@ -407,7 +417,16 @@ export const ur: LabelResource = {
     'کام کے ذمہ دار واقعے تک رسائی کے بغیر اپنے کام پر کام کریں',
   'settings.closing.task_owner_access_help':
     'وہ اپنا کام اور واقعے کی شناخت اور موضوع دیکھتے ہیں اور کام کی حالت بدل سکتے ہیں؛ گفتگو یا نوٹس کبھی نہیں۔',
+  'settings.closing.timer_auto_start': 'ٹیکنیشن کے اپنا واقعہ کھولنے پر ٹائمر شروع کریں',
+  'settings.closing.timer_auto_start_help':
+    'ہر واقعے پر ایک بار، اسی شخص کے لیے جسے یہ تفویض ہو۔ پہلے سے بند: جس ٹائمر پر کسی کی نظر نہ ہو وہ غلط وقت درج کرتا ہے۔',
   'settings.closing.title': 'حل اور بندش',
+  'settings.closing.worklog_block_closed': 'بند واقعات پر وقت نہیں',
+  'settings.closing.worklog_block_closed_help':
+    'واقعہ بند ہونے کے بعد کوئی اس کا وقت درج، تبدیل یا ختم نہیں کر سکتا۔',
+  'settings.closing.worklog_count_nonworking': 'کام کے اوقات سے باہر کا وقت شمار کریں',
+  'settings.closing.worklog_count_nonworking_help':
+    'کام کے اوقات سے باہر درج وقت مجموعوں اور رپورٹوں میں شمار ہوتا ہے۔ بند ہو تو صرف کام کے اوقات شمار ہوتے ہیں۔',
   'settings.closure_codes_help':
     'واقعہ کیسے ختم ہوا۔ بند کرتے وقت منتخب کیا جاتا ہے؛ رپورٹس اسی کے مطابق گروپ ہوتی ہیں۔',
   'settings.colour': 'رنگ',
