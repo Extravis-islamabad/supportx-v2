@@ -959,6 +959,7 @@ export const ur: LabelResource = {
   'event_type.audit.export.finished': 'آڈٹ برآمد مکمل ہوئی',
   // Audit log (WP-018, exports)
   'event_type.audit.export.requested': 'آڈٹ برآمد کی درخواست کی گئی',
+  'event_type.audit.personal_data_access.recorded': 'ذاتی ڈیٹا تک رسائی درج ہوئی',
   'event_type.audit.settings.changed': 'آڈٹ کی ترتیبات تبدیل ہوئیں',
   'event_type.audit.verification.completed': 'تصدیق مکمل ہوئی',
   'event_type.audit.verification.requested': 'تصدیق کی درخواست کی گئی',

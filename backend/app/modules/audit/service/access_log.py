@@ -21,6 +21,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
@@ -28,11 +29,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.modules.audit.domain.catalogue import AuditActorType
+from app.modules.audit.events import PersonalDataAccessRecorded
 from app.modules.audit.infra.models import PersonalDataAccess
 from app.modules.audit.service.settings import load_settings
 from app.modules.licensing import Feature, has_feature
+from app.shared.events import record_event
 from app.shared.ids import new_id
 
+AccessKind = Literal["view", "export", "ai_masking"]
 BUCKET = timedelta(minutes=15)
 PAGE = 200
 
@@ -60,7 +64,7 @@ async def log_enabled(session: AsyncSession) -> bool:
 async def record_access(  # noqa: PLR0913 - who, whose, what and why, keyword-only
     session: AsyncSession,
     *,
-    kind: str,
+    kind: AccessKind,
     purpose: str,
     subject_person_id: uuid.UUID | None = None,
     record: tuple[str, uuid.UUID] | None = None,
@@ -117,7 +121,15 @@ async def record_access(  # noqa: PLR0913 - who, whose, what and why, keyword-on
             index_where=PersonalDataAccess.dedupe_key.is_not(None),
         )
     written = await session.scalar(statement.returning(PersonalDataAccess.id))
-    return written is not None
+    if written is None:
+        return False
+    # Open access logs refetch (rule c): the kind only, never whose data or who looked.
+    await record_event(
+        session,
+        PersonalDataAccessRecorded(kind=kind),
+        aggregate_id=written,
+    )
+    return True
 
 
 async def entries(  # noqa: PLR0913 - the person and the period's bounds, keyword-only

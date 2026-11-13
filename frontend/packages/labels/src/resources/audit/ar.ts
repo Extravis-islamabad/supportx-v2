@@ -962,6 +962,7 @@ export const ar: LabelResource = {
   'event_type.audit.export.finished': 'انتهى تصدير التدقيق',
   // Audit log (WP-018, exports)
   'event_type.audit.export.requested': 'طُلب تصدير التدقيق',
+  'event_type.audit.personal_data_access.recorded': 'سُجّل وصول إلى بيانات شخصية',
   'event_type.audit.settings.changed': 'تغيّرت إعدادات التدقيق',
   'event_type.audit.verification.completed': 'انتهى التحقق',
   'event_type.audit.verification.requested': 'طُلب التحقق',

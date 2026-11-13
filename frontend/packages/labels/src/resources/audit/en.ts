@@ -962,6 +962,7 @@ export const en = {
   'event_type.audit.export.finished': 'Audit export finished',
   // Audit log (WP-018, exports)
   'event_type.audit.export.requested': 'Audit export requested',
+  'event_type.audit.personal_data_access.recorded': 'Personal data access recorded',
   'event_type.audit.settings.changed': 'Audit settings changed',
   'event_type.audit.verification.completed': 'Verification finished',
   'event_type.audit.verification.requested': 'Verification requested',

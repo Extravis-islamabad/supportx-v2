@@ -4,7 +4,7 @@ Payloads carry IDs, positions and codes only: never actions' details or personal
 """
 
 import uuid
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from app.shared.events import DomainEvent
 
@@ -123,6 +123,19 @@ class AuditArchiveRestoreRequested(DomainEvent):
     archive_id: uuid.UUID
 
 
+class PersonalDataAccessRecorded(DomainEvent):
+    """A personal data access entry was written (REQ-AUD-017; WP-057 S3b-1).
+
+    The kind only: never whose data, who looked or which fields. Open access logs refetch.
+    """
+
+    event_type: ClassVar[str] = "audit.personal_data_access.recorded"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "personal_data_access"
+
+    kind: Literal["view", "export", "ai_masking"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     AuditEntryRecorded,
     AuditEntriesSealed,
@@ -134,4 +147,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AuditSettingsChanged,
     AuditArchiveUpdated,
     AuditArchiveRestoreRequested,
+    PersonalDataAccessRecorded,
 )
