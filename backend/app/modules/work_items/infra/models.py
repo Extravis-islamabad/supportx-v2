@@ -24,6 +24,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     SmallInteger,
     String,
@@ -193,6 +194,11 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     checklist_item_max: Mapped[int] = mapped_column(Integer, server_default="100")
     # WP-046a S5c (0156; REQ-INC-033 AC3): how many copies one request may make.
     copy_limit: Mapped[int] = mapped_column(Integer, server_default="20")
+    # Commands written in a mail (`priority = p1`, REQ-INC-025): off by default; which fields a
+    # mail may set; and whether the first mail's Cc joins the people kept informed (REQ-INC-066).
+    mail_commands: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    mail_command_fields: Mapped[list[str]] = mapped_column(ARRAY(String(30)), server_default="{}")
+    cc_from_first_mail: Mapped[bool] = mapped_column(Boolean, server_default="true")
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
@@ -570,6 +576,7 @@ class WorkItem(TenantEntity):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_work_items_tenant_id_id"),
         UniqueConstraint("tenant_id", "display_id", name="uq_work_items_tenant_id_display_id"),
+        CheckConstraint("cardinality(notify_emails) <= 20", name="notify_emails_max"),
         # The "about to breach" and "breached" views (migration 0054).
         Index(
             "ix_work_items_tenant_first_response_sla_state",
@@ -774,6 +781,8 @@ class WorkItem(TenantEntity):
     requester_id: Mapped[uuid.UUID]
     on_behalf_of_id: Mapped[uuid.UUID | None]
     channel: Mapped[str] = mapped_column(String(20))
+    # Addresses that get the record's public replies, never its notes (REQ-INC-066; up to 20).
+    notify_emails: Mapped[list[str]] = mapped_column(ARRAY(String(320)), server_default="{}")
     site_id: Mapped[uuid.UUID | None]
     # From the requester by default, changeable (REQ-INC-016, WP-021).
     department_id: Mapped[uuid.UUID | None]
@@ -2559,3 +2568,30 @@ class WorkItemDraft(UuidPrimaryKey, TenantKeyed, Base):
     version: Mapped[int] = mapped_column(BigInteger, server_default="1")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+
+
+class WorkItemNotifyLink(UuidPrimaryKey, TenantKeyed, Base):
+    """A stop-these-mails link in one mail to an address kept informed (REQ-INC-066; 0159).
+
+    The address is on no account, so the link stands alone: a random token, only its SHA-256
+    kept, for one record and one address, until it expires. Using it takes the address off.
+    """
+
+    __tablename__ = "work_item_notify_links"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "work_item_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_winl_work_item",
+        ),
+        Index("uq_winl_tenant_digest", "tenant_id", "token_digest", unique=True),
+        Index("ix_winl_tenant_expires", "tenant_id", "expires_at"),
+        CheckConstraint("octet_length(token_digest) = 32", name="digest"),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    address: Mapped[str] = mapped_column(String(320))
+    token_digest: Mapped[bytes] = mapped_column(LargeBinary)
+    expires_at: Mapped[datetime]
+    used_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

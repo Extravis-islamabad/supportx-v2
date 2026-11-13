@@ -46,6 +46,7 @@ from app.modules.work_items.api.change_window_routes import (
 from app.modules.work_items.api.change_window_routes import router as change_window_router
 from app.modules.work_items.api.checklist_routes import my_reminders_router
 from app.modules.work_items.api.draft_routes import router as draft_router
+from app.modules.work_items.api.notify_links import public_router as notify_links_router
 from app.modules.work_items.api.parts_routes import my_tasks_router, my_timers_router
 from app.modules.work_items.api.portal_change_routes import router as portal_change_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
@@ -107,6 +108,7 @@ from app.modules.work_items.service.closing import (
 )
 from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
 from app.modules.work_items.service.file_access import FILE_ACCESS
+from app.modules.work_items.service.kept_informed import KEPT_INFORMED
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
 from app.modules.work_items.service.reporting import register_sources, unregister_sources
 from app.modules.work_items.service.sla import register_sla
@@ -204,6 +206,7 @@ module = ModuleSpec(
         *(build_router(wtype) for wtype in TYPES.values()),
         portal_router,
         draft_router,  # REQ-INC-019: kept drafts of unsent create forms
+        notify_links_router,  # WP-046a S6: stop mails to an address kept informed
         portal_request_router,  # WP-030 D9
         portal_home_router,  # WP-032 D1
         approval_settings_router,  # D-146: the approval chair (WP-048b S2)
@@ -222,8 +225,9 @@ module = ModuleSpec(
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
-        INCIDENT.feature,
+        INCIDENT.feature,  # the portal
         INCIDENT.feature,  # kept drafts (incident-new)
+        INCIDENT.feature,  # stopping mails to people kept informed (WP-046a S6)
         SERVICE_REQUEST.feature,
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
         None,  # approval settings: the engine is core, every type with approvals uses them
@@ -253,7 +257,7 @@ module = ModuleSpec(
     channels=CHANNELS,
     realtime=ROUTES,
     # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
-    consumers=[APPROVER_LEFT, drafts.OWNER_LEFT],
+    consumers=[APPROVER_LEFT, KEPT_INFORMED, drafts.OWNER_LEFT],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     # REQ-INC-096: resolved records the requester was told about close after N business days.

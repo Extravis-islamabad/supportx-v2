@@ -79,7 +79,7 @@ start() {
 }
 
 up() {
-  local ip started
+  local ip started previous
   if running; then
     :
   elif exists; then
@@ -114,6 +114,14 @@ up() {
   fi
   ip="$(store_ip)"
   [ -n "$ip" ] || { log "backup store has no address on $NETWORK"; exit 1; }
+  # A restarted store may come back on another address (lane C, #484). The egress allow-list is
+  # a /32 and the backup endpoint names the address, so an installed release must be upgraded
+  # with the new values file before its next backup or restore: say so loudly.
+  previous="$(sed -n 's|^ *endpointURL: http://\([0-9.]*\):8333$|\1|p' "$VALUES" 2>/dev/null || true)"
+  if [ -n "$previous" ] && [ "$previous" != "$ip" ]; then
+    log "WARNING: backup store moved from $previous to $ip: run 'helm upgrade -f $VALUES' on the" \
+      "release before its next backup (the egress allow-list and endpoint still name $previous)"
+  fi
   # `database`: the database's pods only (CloudNativePG instances, the restore drill's restore
   # cluster's included, which reads through the same ObjectStore), never every pod (least privilege).
   cat >"$VALUES" <<EOF

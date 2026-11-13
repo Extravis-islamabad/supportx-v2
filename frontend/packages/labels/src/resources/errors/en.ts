@@ -474,6 +474,7 @@ export const en = {
   'errors.field.holiday_list_not_found': 'Choose holiday lists from the list.',
   'errors.field.holiday_range_order': 'The last day must be on or after the first day.',
   'errors.field.holiday_range_too_long': 'A holiday can be at most one year long.',
+  'errors.field.host_name_invalid': 'Enter server names only, such as mx.google.com.',
   'errors.field.ical_invalid': 'This is not an iCalendar (.ics) file.',
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
@@ -527,6 +528,8 @@ export const en = {
   'errors.field.longer_than_a_week': 'A weekly window can last a week at most.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
+  'errors.field.mailbox_provider_results_graph_only':
+    "Only a Microsoft 365 mailbox can trust Microsoft's own result.",
   'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
   'errors.field.manager_loop':
     'This person already manages that manager (directly or through others).',
@@ -683,6 +686,7 @@ export const en = {
   'errors.field.too_deep': 'Categories have at most three levels.',
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.too_many_actions': 'A rule can have at most {{max}} actions.',
+  'errors.field.too_many_addresses': 'Keep at most 20 addresses informed.',
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
   'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
@@ -700,6 +704,7 @@ export const en = {
   'errors.field.too_many_values': 'Choose at most {{max}}.',
   'errors.field.topic_too_deep': 'Topics can be at most {{max}} levels deep.',
   'errors.field.topic_under_itself': 'A topic cannot go under itself or one of its subtopics.',
+  'errors.field.trusted_servers_too_many': 'Name 5 servers at most.',
   'errors.field.type_cannot_change':
     "A field's type cannot change. Add a new field and retire this one.",
   'errors.field.unknown_article_type': 'This article type does not exist or is retired.',
@@ -907,6 +912,9 @@ export const en = {
   'errors.mail_attachment_name': 'An attachment name is not valid.',
   'errors.mail_attachment_type': 'This type of file cannot be sent by email.',
   'errors.mail_attachments_too_large': 'The attachments are larger than 10 MB together.',
+  'errors.mail_block_rule_exists': 'A rule for this already exists.',
+  'errors.mail_block_rule_not_found': 'This block rule does not exist.',
+  'errors.mail_block_rules_full': 'There can be {{max}} block rules at most. Remove one first.',
   'errors.mail_content_gone': "This e-mail's text is no longer kept. Write the reply again.",
   'errors.mail_kind_invalid': 'This kind of email is not known.',
   'errors.mail_language_invalid': 'This language is not available for email.',
@@ -961,6 +969,8 @@ export const en = {
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
   'errors.notification_rule_locked':
     'This is a security notice: no one can switch it off, change who gets it or reset it.',
+  'errors.notify_link_not_found':
+    'This link no longer works. It may have been used already, or it has expired.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',

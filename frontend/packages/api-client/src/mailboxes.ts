@@ -163,3 +163,71 @@ export function useDiscardMail() {
     onSettled: changed,
   });
 }
+
+// WP-046a S6 (REQ-INC-026): block rules for unwanted mail. The page follows
+// `integrations.mail_block_rules_changed` on the tenant channel and refetches.
+export type MailBlockRule = components['schemas']['BlockRuleOut'];
+export type MailBlockKind = MailBlockRule['kind'];
+
+/** The tenant's block rules. */
+export function useMailBlockRules(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.mailboxes.blockRules,
+    queryFn: () => call(api.GET('/api/v1/integrations/mail-block-rules')),
+    enabled,
+  });
+}
+
+function useBlockRulesChanged() {
+  const queryClient = useQueryClient();
+  return () => void queryClient.invalidateQueries({ queryKey: queryKeys.mailboxes.blockRules });
+}
+
+/** Add a rule; `key` is the Idempotency-Key of this attempt. */
+export function useAddMailBlockRule() {
+  const changed = useBlockRulesChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ kind, value, key }: { kind: MailBlockKind; value: string; key: string }) =>
+      call(
+        api.POST('/api/v1/integrations/mail-block-rules', {
+          params: { header: { 'Idempotency-Key': key } },
+          body: { kind, value, enabled: true },
+        }),
+      ),
+    onSuccess: changed,
+  });
+}
+
+/** Switch a rule on or off. */
+export function useSwitchMailBlockRule() {
+  const changed = useBlockRulesChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, enabled, version }: { id: string; enabled: boolean; version: number }) =>
+      call(
+        api.PATCH('/api/v1/integrations/mail-block-rules/{rule_id}', {
+          params: { path: { rule_id: id }, header: ifMatch(version) },
+          body: { enabled },
+        }),
+      ),
+    onSuccess: changed,
+    onError: onConflict(changed),
+  });
+}
+
+/** Remove a rule. */
+export function useRemoveMailBlockRule() {
+  const changed = useBlockRulesChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.DELETE('/api/v1/integrations/mail-block-rules/{rule_id}', {
+          params: { path: { rule_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSuccess: changed,
+    onError: onConflict(changed),
+  });
+}

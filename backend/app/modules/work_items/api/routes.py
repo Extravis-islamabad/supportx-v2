@@ -59,6 +59,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.mail_commands import CommandField
 from app.modules.work_items.domain.reapproval import OnChange, Watched
 from app.modules.work_items.domain.releases import (
     BUILD_REF_MAX,
@@ -161,6 +162,11 @@ class WorkItemIn(BaseModel):
     impact: Impact | None = None
     impact_details: str | None = Field(
         default=None, max_length=IMPACT_DETAILS_MAX * 2, description="Plain text."
+    )
+    notify_emails: list[str] | None = Field(
+        default=None,
+        max_length=40,
+        description="Incidents: addresses that get public replies, never notes (20 kept at most).",
     )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40, description="A `level` list code.")
@@ -272,6 +278,11 @@ class WorkItemPatch(BaseModel):
     category_id: uuid.UUID | None = None
     impact: Impact | None = None
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
+    notify_emails: list[str] | None = Field(
+        default=None,
+        max_length=40,
+        description="Incidents: addresses that get public replies, never notes (20 kept at most).",
+    )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40)
     # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
@@ -613,6 +624,9 @@ class WorkItemOut(BaseModel):
     category_id: uuid.UUID | None
     impact: Impact | None
     impact_details: str | None
+    notify_emails: list[str] = Field(
+        default_factory=list, description="People kept informed by e-mail (REQ-INC-066)."
+    )
     urgency: Urgency | None
     priority: Priority
     priority_source: PrioritySource
@@ -779,6 +793,7 @@ _RECORD_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "notify_emails",
     "urgency",
     "priority",
     "priority_source",
@@ -1207,6 +1222,18 @@ class WorkItemCatalogueOut(BaseModel):
         description="Requests: ticking the first fulfilment task moves a New or Assigned request "
         "to In progress, when ticked by its technician or group (D-154c).",
     )
+    mail_commands: bool = Field(
+        default=False,
+        description="Incidents: commands at the top of a mail (priority = p1) are applied, as the"
+        " sender, when the mailbox's trusted server vouched for them (REQ-INC-025). Off.",
+    )
+    mail_command_fields: list[CommandField] = Field(
+        default_factory=list, description="Incidents: the fields a mail may set."
+    )
+    cc_from_first_mail: bool = Field(
+        default=True,
+        description="Incidents: the first mail's Cc join the people kept informed (REQ-INC-066).",
+    )
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
@@ -1272,6 +1299,9 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
             first_task_starts_work=cat.first_task_starts_work,
+            mail_commands=cat.mail_commands,
+            mail_command_fields=[CommandField(f) for f in cat.mail_command_fields],
+            cc_from_first_mail=cat.cc_from_first_mail,
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
             outside_maintenance_blocks=cat.outside_maintenance_blocks,
@@ -1421,6 +1451,11 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
     first_task_starts_work: bool | None = None
+    mail_commands: bool | None = Field(default=None, description="Incidents only.")
+    mail_command_fields: list[CommandField] | None = Field(
+        default=None, max_length=5, description="Incidents only."
+    )
+    cc_from_first_mail: bool | None = Field(default=None, description="Incidents only.")
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
     outside_maintenance_blocks: bool | None = Field(default=None, description="Changes only.")

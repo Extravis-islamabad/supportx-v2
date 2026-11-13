@@ -21,6 +21,7 @@ from app.modules.work_items.domain.classification import (
     compute_priority,
 )
 from app.modules.work_items.domain.drafts import FIELD_PROBLEMS as DRAFT_PROBLEMS
+from app.modules.work_items.domain.kept_informed import FIELD_PROBLEMS as KEPT_PROBLEMS
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
@@ -318,6 +319,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         | TEMPLATE_PROBLEMS
         | DRAFT_PROBLEMS
         | COPY_PROBLEMS
+        | KEPT_PROBLEMS
     )
     assert found <= known, sorted(found - known)
 
