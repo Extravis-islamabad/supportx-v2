@@ -1,2 +1,88 @@
 # Every change needs review from the repository owner (product owner, D-007) until a team exists.
 * @devhat-pm
+
+# Security code owners (D-168, docs/dev-setup.md "Security code owners"). The last matching line
+# wins, so the paths below need the security reviewer's approval once "Require review from code
+# owners" is on. Kept tight: file-level where a module mixes security and feature code.
+
+# Sign-in, sessions and tokens: the backend-for-frontend, session cipher and store, OIDC, outbound
+# fetches, the Keycloak admin client, and the services behind them.
+/backend/app/modules/identity_access/bff/ @supportx-reviewer
+/backend/app/modules/identity_access/infra/crypto.py @supportx-reviewer
+/backend/app/modules/identity_access/infra/store.py @supportx-reviewer
+/backend/app/modules/identity_access/infra/oidc.py @supportx-reviewer
+/backend/app/modules/identity_access/infra/fetch.py @supportx-reviewer
+/backend/app/modules/identity_access/infra/keycloak_admin.py @supportx-reviewer
+/backend/app/modules/identity_access/service/auth.py @supportx-reviewer
+/backend/app/modules/identity_access/service/api_keys.py @supportx-reviewer
+/backend/app/modules/identity_access/service/mfa.py @supportx-reviewer
+/backend/app/modules/identity_access/service/session_keys.py @supportx-reviewer
+/backend/app/modules/identity_access/service/sso.py @supportx-reviewer
+/backend/app/modules/identity_access/service/service_identities.py @supportx-reviewer
+/backend/app/modules/identity_access/service/password_reset.py @supportx-reviewer
+
+# Who may do what: the policy layer, roles and the identity permission catalogue (§11.2).
+/backend/app/modules/identity_access/service/policy.py @supportx-reviewer
+/backend/app/modules/identity_access/service/roles.py @supportx-reviewer
+/backend/app/modules/identity_access/domain/permissions.py @supportx-reviewer
+/backend/app/modules/identity_access/domain/policy.py @supportx-reviewer
+/backend/app/core/authorization.py @supportx-reviewer
+
+# Where routes declare their permission (require_permission / authorize): every module's api/
+# folder, the /api/v1 router (main.py) and the registry that mounts every module router.
+/backend/app/modules/*/api/ @supportx-reviewer
+/backend/app/main.py @supportx-reviewer
+/backend/app/core/modules.py @supportx-reviewer
+
+# Each module's permission catalogue (the PermissionSpec lists collected at startup).
+/backend/app/modules/ai/__init__.py @supportx-reviewer
+/backend/app/modules/analytics/__init__.py @supportx-reviewer
+/backend/app/modules/announcements/__init__.py @supportx-reviewer
+/backend/app/modules/assets/__init__.py @supportx-reviewer
+/backend/app/modules/automation/__init__.py @supportx-reviewer
+/backend/app/modules/identity_access/__init__.py @supportx-reviewer
+/backend/app/modules/integrations/__init__.py @supportx-reviewer
+/backend/app/modules/knowledge/__init__.py @supportx-reviewer
+/backend/app/modules/notifications/__init__.py @supportx-reviewer
+/backend/app/modules/organization/__init__.py @supportx-reviewer
+/backend/app/modules/procurement/__init__.py @supportx-reviewer
+/backend/app/modules/service_catalog/__init__.py @supportx-reviewer
+/backend/app/modules/sla/__init__.py @supportx-reviewer
+/backend/app/modules/system/__init__.py @supportx-reviewer
+/backend/app/modules/work_items/__init__.py @supportx-reviewer
+/backend/app/modules/work_items/service/access.py @supportx-reviewer
+/backend/app/modules/work_items/service/portal.py @supportx-reviewer
+
+# Tenant isolation (rule 5a): tenant context, the RLS statements, and the only way migrations may
+# write policies or grants (option b), with the test that enforces it.
+/backend/app/core/tenancy.py @supportx-reviewer
+/backend/app/shared/db/rls.py @supportx-reviewer
+/backend/migrations/helpers.py @supportx-reviewer
+/backend/tests/test_migration_policy_sql.py @supportx-reviewer
+/backend/tooling/rls_guard.py @supportx-reviewer
+
+# Request edge: settings, middleware (headers, CSRF), trusted proxies and rate limits.
+/backend/app/core/config.py @supportx-reviewer
+/backend/app/core/middleware.py @supportx-reviewer
+/backend/app/core/proxies.py @supportx-reviewer
+/backend/app/shared/api/ratelimit.py @supportx-reviewer
+
+# Shared security building blocks: encryption, the outbound egress guard, file scanning and access.
+/backend/app/shared/crypto/ @supportx-reviewer
+/backend/app/shared/egress/ @supportx-reviewer
+/backend/app/shared/files/ @supportx-reviewer
+
+# The audit chain and the licence/entitlement module (§7.4, §13).
+/backend/app/modules/audit/ @supportx-reviewer
+/backend/app/modules/licensing/ @supportx-reviewer
+
+# Deployment secrets, network policies and the Keycloak realm and identity setup.
+/deploy/scripts/secrets.sh @supportx-reviewer
+/deploy/helm/supportx/templates/networkpolicies*.yaml @supportx-reviewer
+/deploy/helm/supportx/files/keycloak/ @supportx-reviewer
+/backend/tooling/keycloak_identity.py @supportx-reviewer
+
+# The security scans and this file itself, so the rules can't be switched off unreviewed.
+/.github/workflows/security.yml @supportx-reviewer
+/.semgrep.yml @supportx-reviewer
+/.github/CODEOWNERS @supportx-reviewer

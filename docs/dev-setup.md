@@ -536,6 +536,33 @@ and the group's runs), `gh pr merge <number> --disable-auto` (take a pull reques
 Never `--admin` and never force-push: the ruleset refuses both, and asking for a bypass is a
 product owner decision.
 
+## Security code owners (D-168)
+
+`.github/CODEOWNERS` names `@supportx-reviewer`, the security reviewer's account, for the code
+that decides who gets in and what they may see: sign-in, sessions and tokens (the BFF, the session
+cipher and store, OIDC, API keys, MFA, SSO, password reset), the policy layer, roles and every
+module's permission catalogue, every module's `api/` folder (where routes declare their
+`require_permission`), tenant isolation (`app/core/tenancy.py`, `app/shared/db/rls.py`,
+`migrations/helpers.py`, the RLS guard), the request edge (settings, middleware, trusted proxies,
+rate limits), the shared crypto, egress and files packages, the audit and licensing modules, the
+deployment secrets script, network policies and Keycloak files, and the security scans with
+`CODEOWNERS` itself. Everything else keeps the repository owner's catch-all line. A mistake in
+these files can leak one tenant's data to another or let someone in, so a second pair of eyes is
+required there, and only there, to keep reviews fast elsewhere.
+
+The file takes effect once Haider has created the reviewer account and turned on "Require review
+from code owners" in the `main` ruleset; until then it only requests reviews. Nobody but Haider
+handles that account or its sign-in.
+
+Migrations are not code-owned as a whole, since nearly every work package adds one. Instead (option
+(b)), SQL that decides table access (`CREATE`/`ALTER`/`DROP POLICY`, `GRANT`, `REVOKE`,
+`ALTER DEFAULT PRIVILEGES`) appears only in the owned helpers: `migrations/helpers.py`
+(`enable_tenant_rls`, `grant_app`, `grant_report`, ...), which runs the statements
+`app/shared/db/rls.py` builds. `backend/tests/test_migration_policy_sql.py` fails on any such SQL
+in `migrations/versions/` outside the merged migrations that already had it (a fixed list, as
+merged migrations are never edited). Need something the helpers can't do? Add a helper; that
+change gets the security review.
+
 ## Tool versions
 
 Every tool has an exact version, so an upstream release never changes a build: Node in `.nvmrc`,
