@@ -350,7 +350,7 @@ async def test_045_a_work_item_raised_with_an_asset_adds_a_history_line_and_coun
     )
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         await linked.on_asset_link_changed(raised, session)
-        await linked.on_asset_link_changed(later, session)  # a later link: the panel's only
+        await linked.on_asset_link_changed(later, session)  # a later link: its own line (AC3)
         await linked.on_asset_link_changed(gone, session)  # a record already gone
     history = (await world.call("GET", f"{BASE}/{asset['id']}/history", a, a.admin)).json()
     lines = [c for e in history["items"] for c in e["changes"] if c["field"] == linked.RAISED_FIELD]
@@ -361,6 +361,24 @@ async def test_045_a_work_item_raised_with_an_asset_adds_a_history_line_and_coun
         {"work_item_id": incident["id"], "display_id": incident["display_id"], "type": "incident"}
     ]
     assert [c["new"]["display_id"] for c in lines].count(None) == 1  # the generic line
+    # REQ-INC-015 AC3: a link made later, and an unlink, each say so on the asset too.
+    unlinked = raised.model_copy(
+        update={"payload": {**raised.payload, "at_creation": False, "change": "removed"}}
+    )
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await linked.on_asset_link_changed(unlinked, session)
+    history = (await world.call("GET", f"{BASE}/{asset['id']}/history", a, a.admin)).json()
+    later_lines = [
+        c for e in history["items"] for c in e["changes"] if c["field"] == linked.LINKED_FIELD
+    ]
+    named_line = {
+        "work_item_id": incident["id"], "display_id": incident["display_id"], "type": "incident"
+    }  # fmt: skip
+    assert sorted([(c["old"] is None, c["new"] is None) for c in later_lines]) == [
+        (False, True),
+        (True, False),
+    ]  # one link (new only), one unlink (old only)
+    assert all((c["new"] or c["old"]) == named_line for c in later_lines)
     # The panel follows live: the link names the asset (IDs and the field only).
     route = next(r for r in ROUTES if raised.event_type in r.event_types)
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
