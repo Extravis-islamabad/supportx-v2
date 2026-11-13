@@ -41,6 +41,7 @@ from app.modules.work_items.service import checklists as service
 from app.modules.work_items.service import reminders
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
+from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
 CONFLICT_409: dict[int | str, dict[str, object]] = {
@@ -486,7 +487,9 @@ def add_checklist_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noq
         return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
-my_reminders_router = APIRouter(prefix="/my-reminders", tags=["work_items"])
+my_reminders_router = APIRouter(
+    prefix="/my-reminders", tags=["work_items"], dependencies=[Depends(rate_limit("work_items"))]
+)
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
 
 

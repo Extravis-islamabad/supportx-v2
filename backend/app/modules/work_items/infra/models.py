@@ -991,17 +991,35 @@ class WorkItemFollower(TenantEntity):
 
 
 class WorkItemReplyTemplate(TenantEntity):
-    """A reply template technicians insert into the composer (REQ-INC-058)."""
+    """A reply template (REQ-INC-058, -041) or a resolution template (REQ-INC-042).
+
+    Its text per language (`bodies`); personal (its owner's only) or shared (the settings right
+    to write; `group_ids` limits who is offered it); a resolution template's categories come
+    first for those categories. `body` is the pre-0154 single text, kept until a contract step.
+    """
 
     __tablename__ = "work_item_reply_templates"
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("length(btrim(name)) BETWEEN 1 AND 120", name="name_length"),
-        CheckConstraint("char_length(body) BETWEEN 1 AND 100000", name="body_length"),
+        CheckConstraint(
+            "body IS NULL OR char_length(body) BETWEEN 1 AND 100000", name="body_length"
+        ),
+        CheckConstraint("kind IN ('reply', 'resolution')", name="kind_code"),
+        CheckConstraint("visibility IN ('personal', 'shared')", name="visibility_code"),
+        CheckConstraint(
+            "visibility <> 'personal' OR owner_id IS NOT NULL", name="personal_has_owner"
+        ),
+        CheckConstraint("jsonb_typeof(bodies) = 'object'", name="bodies_object"),
+        CheckConstraint(
+            "subject IS NULL OR length(btrim(subject)) BETWEEN 1 AND 200", name="subject_length"
+        ),
         Index(
-            "uq_wirt_tenant_type_name",
+            "uq_wirt_tenant_type_kind_owner_name",
             "tenant_id",
             "type",
+            "kind",
+            text("coalesce(owner_id, '00000000-0000-0000-0000-000000000000'::uuid)"),
             text("lower(name)"),
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
@@ -1009,8 +1027,19 @@ class WorkItemReplyTemplate(TenantEntity):
     )
 
     type: Mapped[str] = mapped_column(String(20))
+    kind: Mapped[str] = mapped_column(String(10), server_default="reply")
     name: Mapped[str] = mapped_column(String(120))
-    body: Mapped[str] = mapped_column(Text)
+    subject: Mapped[str | None] = mapped_column(String(200))
+    body: Mapped[str | None] = mapped_column(Text)
+    bodies: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    visibility: Mapped[str] = mapped_column(String(10), server_default="shared")
+    owner_id: Mapped[uuid.UUID | None]
+    group_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
+    category_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
 
 
 class WorkItemView(TenantEntity):

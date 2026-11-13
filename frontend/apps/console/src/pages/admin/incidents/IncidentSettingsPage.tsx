@@ -40,6 +40,7 @@ const SECTIONS = [
   'closure-codes',
   'closing',
   'reply-templates',
+  'resolution-templates',
   'task-templates',
   'repeat-rules',
 ] as const;
@@ -91,6 +92,9 @@ export function IncidentSettingsPage() {
         return <CategoriesTab />;
       case 'reply-templates':
         return <ReplyTemplatesTab />;
+      case 'resolution-templates':
+        // REQ-INC-042: the resolution editor's own templates, by category.
+        return <ReplyTemplatesTab kind="resolution" />;
       case 'task-templates':
         return <TaskTemplatesTab />;
       default:

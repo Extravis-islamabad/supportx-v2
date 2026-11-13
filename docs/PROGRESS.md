@@ -1362,6 +1362,23 @@ it with no reload (rule c). Not built yet.
     by a sweep, live on the personal channel.
   - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
     reserved for S3).
+- **S5a (0154; REQ-INC-041, -042; reply and resolution templates):**
+  - A template is a reply (the composer) or a resolution (the resolution editor), with an
+    optional subject and its text in en, ar and ur.
+  - Personal templates are their owner's only, administrators included. Shared ones need the
+    type's settings right to write and may be limited to groups.
+  - Variables come from the one notification catalogue; an unknown one is refused on save.
+    Filling happens on the server: values go in escaped, an empty one reads "not set", and the
+    result is sanitised again.
+  - The language is the screen's choice, then the requester's, then the tenant's default, then
+    any the template has.
+  - Resolution templates of the record's category come first.
+  - Migration 0154 keeps each old text under its tenant's default language. The downgrade is
+    refused once anything new is used.
+  - The shared editor's template menu awaits an optional `fill()` (lane C's conditions). The
+    composer and move dialog fill on the record's own route prefix (incidents, requests).
+  - **Still open:** problems' and changes' move dialogs offer no resolution templates yet.
+    S5b is the form designer and rules, S5c copy, quick create and server drafts.
 - **S3 PR 1 (0147; REQ-INC-068, -069, -070; D-164):**
   - Worklogs are billable or not, and take their owner's cost per hour when the time started
     (lane B's `cost_rate`, #427; a snapshot, never rewritten). Other-cost lines are in the base

@@ -129,6 +129,59 @@ describe('Resolving', () => {
     expect(sent?.headers.get('If-Match')).toBe('"4"');
   });
 
+  it('REQ-INC-042: resolution templates of its category, filled by the server', async () => {
+    const category = '01900000-0000-7000-8000-0000000000c1';
+    const template = {
+      id: 'rt-9',
+      kind: 'resolution',
+      name: 'Toner swapped',
+      subject: null,
+      bodies: { en: '<p>Swapped the toner on {{ record.title }}</p>' },
+      body: '<p>Swapped the toner on {{ record.title }}</p>',
+      visibility: 'shared',
+      mine: false,
+      group_ids: [],
+      category_ids: [category],
+      may_edit: false,
+      version: 1,
+    };
+    const fake = api({
+      routes: {
+        ...COMMON,
+        ...record(inProgress([], { category_id: category })),
+        'GET /api/v1/incidents/reply-templates': { body: [template] },
+        [`POST ${PATH}/reply-templates/rt-9/fill`]: {
+          body: { language: 'en', subject: null, body: '<p>Swapped the toner on Printer 3</p>' },
+        },
+        [`POST ${PATH}/actions/resolve`]: { body: resolvedItem() },
+      },
+    });
+    render(<App />);
+    await clickAction('inc-action-resolve');
+    await screen.findByTestId('inc-resolution-editor');
+    // The list arrives after the editor: the menu shows once it has.
+    fireEvent.click(await screen.findByTestId('rt-templates'));
+    fireEvent.click(await screen.findByText('Toner swapped'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/reply-templates/rt-9/fill`)).toHaveLength(1);
+    });
+    const [listed] = fake.find('GET', '/api/v1/incidents/reply-templates');
+    expect(listed?.url.searchParams.get('kind')).toBe('resolution');
+    expect(listed?.url.searchParams.get('category_id')).toBe(category);
+    await waitFor(() => {
+      expect(screen.getByTestId('inc-resolution-editor').textContent).toContain(
+        'Swapped the toner on Printer 3',
+      );
+    });
+    fireEvent.click(screen.getByTestId('inc-reason-confirm'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/actions/resolve`)).toHaveLength(1);
+    });
+    expect(JSON.stringify(fake.find('POST', `${PATH}/actions/resolve`)[0]?.body)).not.toContain(
+      '{{',
+    );
+  });
+
   it('REQ-INC-094: a closure code required to resolve is asked by the resolve dialog', async () => {
     const catalogue = fakeIncidentCatalogue();
     catalogue.closure = {
