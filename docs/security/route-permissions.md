@@ -320,9 +320,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/changes/my-tasks` | signed_in | - |
 | GET | `/api/v1/changes/prefill` | `changes.create` | changes.create: all |
 | GET | `/api/v1/changes/reply-templates` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/reply-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/changes/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/changes/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| POST | `/api/v1/changes/reply-templates` | `changes.view` | changes.view: all/site/group/own |
+| GET | `/api/v1/changes/reply-templates/manage` | `changes.view` | changes.view: all/site/group/own |
+| DELETE | `/api/v1/changes/reply-templates/{template_id}` | `changes.view` | changes.view: all/site/group/own |
+| PUT | `/api/v1/changes/reply-templates/{template_id}` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/roles/{role}/candidates` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/saved-views` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/saved-views` | `changes.view` | changes.view: all/site/group/own |
@@ -403,6 +404,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/changes/{record_id}/plan/{section}` | `changes.edit` | changes.edit: all/site/group/own |
 | GET | `/api/v1/changes/{record_id}/reminders` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/reminders` | `changes.view` | changes.view: all/site/group/own |
+| POST | `/api/v1/changes/{record_id}/reply-templates/{template_id}/fill` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/resolution/confirm` | signed_in | - |
 | POST | `/api/v1/changes/{record_id}/resolution/reject` | signed_in | - |
 | POST | `/api/v1/changes/{record_id}/restore` | `changes.delete` | changes.delete: all |
@@ -517,9 +519,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/my-tasks` | signed_in | - |
 | POST | `/api/v1/incidents/possible-duplicates` | `incidents.create` | incidents.create: all |
 | GET | `/api/v1/incidents/reply-templates` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/reply-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/incidents/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/incidents/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| POST | `/api/v1/incidents/reply-templates` | `incidents.view` | incidents.view: all/site/group/own |
+| GET | `/api/v1/incidents/reply-templates/manage` | `incidents.view` | incidents.view: all/site/group/own |
+| DELETE | `/api/v1/incidents/reply-templates/{template_id}` | `incidents.view` | incidents.view: all/site/group/own |
+| PUT | `/api/v1/incidents/reply-templates/{template_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/saved-views` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/saved-views` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/saved-views/{view_id}` | `incidents.view` | incidents.view: all/site/group/own |
@@ -583,6 +586,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/{record_id}/mentionable` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/resolution/confirm` | signed_in | - |
 | POST | `/api/v1/incidents/{record_id}/resolution/reject` | signed_in | - |
 | POST | `/api/v1/incidents/{record_id}/restore` | `incidents.delete` | incidents.delete: all |
@@ -782,9 +786,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/problems/my-tasks` | signed_in | - |
 | GET | `/api/v1/problems/prefill` | `problems.create` | problems.create: all |
 | GET | `/api/v1/problems/reply-templates` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/reply-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/problems/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/problems/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| POST | `/api/v1/problems/reply-templates` | `problems.view` | problems.view: all/site/group/own |
+| GET | `/api/v1/problems/reply-templates/manage` | `problems.view` | problems.view: all/site/group/own |
+| DELETE | `/api/v1/problems/reply-templates/{template_id}` | `problems.view` | problems.view: all/site/group/own |
+| PUT | `/api/v1/problems/reply-templates/{template_id}` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/saved-views` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/saved-views` | `problems.view` | problems.view: all/site/group/own |
 | DELETE | `/api/v1/problems/saved-views/{view_id}` | `problems.view` | problems.view: all/site/group/own |
@@ -864,6 +869,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/problems/{record_id}/messages/incident-requesters` | `problems.edit` | problems.edit: all/site/group/own |
 | GET | `/api/v1/problems/{record_id}/reminders` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/reminders` | `problems.view` | problems.view: all/site/group/own |
+| POST | `/api/v1/problems/{record_id}/reply-templates/{template_id}/fill` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/resolution/confirm` | signed_in | - |
 | POST | `/api/v1/problems/{record_id}/resolution/reject` | signed_in | - |
 | POST | `/api/v1/problems/{record_id}/restore` | `problems.delete` | problems.delete: all |
@@ -927,9 +933,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/releases/my-approvals/decided` | signed_in | - |
 | GET | `/api/v1/releases/my-tasks` | signed_in | - |
 | GET | `/api/v1/releases/reply-templates` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/reply-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/releases/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/releases/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| POST | `/api/v1/releases/reply-templates` | `releases.view` | releases.view: all/site/group/own |
+| GET | `/api/v1/releases/reply-templates/manage` | `releases.view` | releases.view: all/site/group/own |
+| DELETE | `/api/v1/releases/reply-templates/{template_id}` | `releases.view` | releases.view: all/site/group/own |
+| PUT | `/api/v1/releases/reply-templates/{template_id}` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/roles/{role}/candidates` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/saved-views` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/saved-views` | `releases.view` | releases.view: all/site/group/own |
@@ -1011,6 +1018,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/releases/{record_id}/plan/{section}` | `releases.edit` | releases.edit: all/site/group/own |
 | GET | `/api/v1/releases/{record_id}/reminders` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/reminders` | `releases.view` | releases.view: all/site/group/own |
+| POST | `/api/v1/releases/{record_id}/reply-templates/{template_id}/fill` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/resolution/confirm` | signed_in | - |
 | POST | `/api/v1/releases/{record_id}/resolution/reject` | signed_in | - |
 | POST | `/api/v1/releases/{record_id}/restore` | `releases.delete` | releases.delete: all |
@@ -1094,9 +1102,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/service-requests/my-approvals/decided` | signed_in | - |
 | GET | `/api/v1/service-requests/my-tasks` | signed_in | - |
 | GET | `/api/v1/service-requests/reply-templates` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/reply-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/service-requests/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/service-requests/reply-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| POST | `/api/v1/service-requests/reply-templates` | `requests.view` | requests.view: all/site/group/own |
+| GET | `/api/v1/service-requests/reply-templates/manage` | `requests.view` | requests.view: all/site/group/own |
+| DELETE | `/api/v1/service-requests/reply-templates/{template_id}` | `requests.view` | requests.view: all/site/group/own |
+| PUT | `/api/v1/service-requests/reply-templates/{template_id}` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/saved-views` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/saved-views` | `requests.view` | requests.view: all/site/group/own |
 | DELETE | `/api/v1/service-requests/saved-views/{view_id}` | `requests.view` | requests.view: all/site/group/own |
@@ -1161,6 +1170,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/service-requests/{record_id}/mentionable` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/reminders` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/reminders` | `requests.view` | requests.view: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/reply-templates/{template_id}/fill` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/resolution/confirm` | signed_in | - |
 | POST | `/api/v1/service-requests/{record_id}/resolution/reject` | signed_in | - |
 | POST | `/api/v1/service-requests/{record_id}/restore` | `requests.delete` | requests.delete: all |
