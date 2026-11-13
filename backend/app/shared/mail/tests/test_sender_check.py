@@ -243,3 +243,57 @@ def test_dkim_identity_without_a_domain_tag() -> None:
 
 def test_an_unreadable_header_anywhere_is_doubt() -> None:
     assert not ok(message(f"{MX}; dmarc=pass header.from=acme.test", f"{MX}) ; dmarc=pass"))
+
+
+# --- quoted values never become results or properties (lane B's review of #485) ---------------
+
+
+def test_a_quoted_reason_naming_a_domain_does_not_sign_for_it() -> None:
+    header = f'{MX}; spf=pass; dkim=pass reason="ok header.d=acme.test" header.d=evil.test'
+    assert not ok(message(header))
+
+
+def test_a_quoted_reason_naming_the_from_domain_does_not_pass_dmarc() -> None:
+    header = f'{MX}; dmarc=pass reason="x header.from=acme.test" header.from=evil.test'
+    assert not ok(message(header))
+
+
+def test_an_escaped_quote_cannot_open_a_forged_result() -> None:
+    header = f'{MX}; dmarc=fail reason="a\\";dmarc=pass header.from=acme.test"'
+    assert not ok(message(header))
+    assert [(r.method, r.result) for r in read_header(header).results] == [("dmarc", "fail")]
+
+
+def test_a_second_value_of_one_property_is_doubt() -> None:
+    header = f"{MX}; spf=pass; dkim=pass header.d=acme.test header.d=evil.test"
+    assert not ok(message(header))
+    with pytest.raises(Unreadable):
+        read_header(header)
+
+
+def test_a_stray_word_is_doubt() -> None:
+    with pytest.raises(Unreadable):
+        read_header(f"{MX}; dmarc=pass header.from=acme.test trailing")
+
+
+def test_a_legitimate_quoted_reason_with_spaces_still_verifies() -> None:
+    header = f'{MX}; dmarc=pass reason="aligned; all good (yes)" header.from=acme.test'
+    assert ok(message(header))
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        f'{MX}; dkim=pass header.d=ac"me.test"',  # a quote inside a bare value
+        f'{MX}; dkim=pass header.d="acme.test"x',  # text after the closing quote
+        f"{MX} not-a-version; dmarc=pass header.from=acme.test",  # the id's second word
+        f'{MX}; "dmarc"=pass',  # a quoted name
+    ],
+)
+def test_misplaced_quotes_and_words_are_doubt(value: str) -> None:
+    with pytest.raises(Unreadable):
+        read_header(value)
+
+
+def test_the_id_may_carry_a_version() -> None:
+    assert read_header(f"{MX} 1; dmarc=pass header.from=acme.test").authserv_id == MX

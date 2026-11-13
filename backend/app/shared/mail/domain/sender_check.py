@@ -99,45 +99,78 @@ def _uncommented(value: str) -> str:
     return "".join(out)
 
 
-def _split(value: str, separator: str) -> list[str]:
-    """Split at `separator` outside quoted strings."""
-    parts: list[str] = []
-    current: list[str] = []
-    quoted = False
-    for char in value:
+def _segments(value: str) -> list[list[str]]:
+    """The `;`-separated segments of a value, each a list of space-separated tokens.
+
+    One quote-aware pass (lane B's review of #485): a quoted string is part of its token whatever
+    it holds, `;` and spaces included, with the same escapes as `_quoted_end`.
+    """
+    segments: list[list[str]] = [[]]
+    token: list[str] = []
+
+    def close_token() -> None:
+        if token:
+            segments[-1].append("".join(token))
+            token.clear()
+
+    index = 0
+    while index < len(value):
+        char = value[index]
         if char == '"':
-            quoted = not quoted
-        if char == separator and not quoted:
-            parts.append("".join(current))
-            current = []
+            end = _quoted_end(value, index)
+            token.append(value[index:end])
+            index = end
+            continue
+        if char == ";":
+            close_token()
+            segments.append([])
+        elif char.isspace():
+            close_token()
         else:
-            current.append(char)
-    parts.append("".join(current))
-    return parts
+            token.append(char)
+        index += 1
+    close_token()
+    return segments
+
+
+def _unquoted(value: str) -> str:
+    """A property's value: a whole quoted string unescaped, or a bare word with no quotes."""
+    if value.startswith('"'):
+        if len(value) < 2 or _quoted_end(value, 0) != len(value):  # noqa: PLR2004 - two quotes
+            raise Unreadable(value)
+        inner, out, index = value[1:-1], [], 0
+        while index < len(inner):
+            if inner[index] == "\\" and index + 1 < len(inner):
+                index += 1
+            out.append(inner[index])
+            index += 1
+        return "".join(out)
+    if '"' in value:
+        raise Unreadable(value)
+    return value
 
 
 def _pair(token: str) -> tuple[str, str]:
+    """`name=value`; anything else (a stray word, an empty side) is unreadable."""
     name, sep, value = token.partition("=")
-    if not sep or not name.strip() or not value.strip():
+    if not sep or not name or not value or '"' in name:
         raise Unreadable(token)
-    return name.strip().lower(), value.strip().strip('"').lower()
+    return name.lower(), _unquoted(value).lower()
 
 
-def _result(segment: str) -> Result | None:
-    tokens = segment.split()
-    if not tokens:
-        return None
-    if tokens == ["none"]:  # RFC 8601: no results at all
+def _result(tokens: list[str]) -> Result | None:
+    if not tokens or tokens == ["none"]:  # RFC 8601: "none" is no results at all
         return None
     method, result = _pair(tokens[0])
     method = method.split("/", 1)[0]  # "dkim/1" → "dkim"
     properties: dict[str, str] = {}
     for token in tokens[1:]:
-        if "=" not in token:  # a word of a quoted `reason="…"` split by spaces: not a property
+        name, value = _pair(token)  # raises on a stray word: never skipped silently
+        if "." not in name:  # reason=, action= and other extensions: read, never used
             continue
-        name, value = _pair(token)
-        if "." in name:  # ptype.property, e.g. header.from, smtp.mailfrom
-            properties.setdefault(name, value)
+        if name in properties:  # a second header.d after the first: which one is meant?
+            raise Unreadable(token)
+        properties[name] = value
     return Result(method, result, properties)
 
 
@@ -145,13 +178,15 @@ def read_header(value: str) -> Header:
     """One unfolded `Authentication-Results` value."""
     if len(value) > MAX_HEADER_LENGTH:
         raise Unreadable(value[:80])
-    segments = _split(_uncommented(" ".join(value.split())), ";")
-    first = segments[0].split()
+    segments = _segments(_uncommented(value))
+    first = segments[0]
     if not first:
         raise Unreadable(value)
     if "=" in first[0]:  # Microsoft 365: results without an authserv-id
         authserv_id, rest = None, segments
     else:
+        if len(first) > 2 or (len(first) == 2 and not first[1].isdigit()):  # noqa: PLR2004 - id [version]
+            raise Unreadable(value)
         authserv_id, rest = first[0].lower().rstrip("."), segments[1:]
     results = tuple(r for r in (_result(s) for s in rest) if r is not None)
     return Header(authserv_id, results)
