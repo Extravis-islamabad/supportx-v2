@@ -299,3 +299,79 @@ describe('MeScreen', () => {
     expect(useSettings.getState().session).toBeNull();
   });
 });
+
+describe('dev quick sign-in (D-163)', () => {
+  const LOCAL = 'http://localhost:5173';
+  const PERSONAS = [
+    { code: 'technician', email: 'tech@showcase.test', app: 'console', enrolled: true },
+    { code: 'new_starter', email: 'newstarter@showcase.test', app: 'portal', enrolled: false },
+  ];
+
+  it('signs a persona in as the app, keeps the session, and sends no Origin', async () => {
+    useSettings.setState({ server: LOCAL });
+    const calls = stubFetch((path) =>
+      path.endsWith('/personas') ? json(PERSONAS) : json({ session_id: 'session-dev' }),
+    );
+    const onSignedIn = jest.fn();
+    await render(
+      <AppProviders client={client}>
+        <SignInScreen onSignedIn={onSignedIn} onChangeServer={jest.fn()} quickSignIn />
+      </AppProviders>,
+    );
+    await fireEvent.press(await screen.findByTestId('dev-quick-sign-in-technician'));
+    await waitFor(() => {
+      expect(onSignedIn).toHaveBeenCalled();
+    });
+    const post = calls.find((call) => call.method === 'POST');
+    expect(post?.url).toBe(`${LOCAL}/api/v1/auth/dev/mobile/sign-in`);
+    expect(post?.headers.get('X-SupportX-Client')).toBe('mobile');
+    expect(post?.headers.get('Origin')).toBeNull();
+    expect(useSettings.getState().session).toBe('session-dev');
+    expect(currentSessionId()).toBe('session-dev');
+  });
+
+  it('says where the new starter’s set-up link went, in words', async () => {
+    useSettings.setState({ server: LOCAL });
+    stubFetch((path) =>
+      path.endsWith('/personas')
+        ? json(PERSONAS)
+        : json({ session_id: null, setup_link_sent_to: 'newstarter@showcase.test' }),
+    );
+    await render(
+      <AppProviders client={client}>
+        <SignInScreen onSignedIn={jest.fn()} onChangeServer={jest.fn()} quickSignIn />
+      </AppProviders>,
+    );
+    await fireEvent.press(await screen.findByTestId('dev-quick-sign-in-new_starter'));
+    expect(await screen.findByTestId('dev-quick-sign-in-sent')).toHaveTextContent(
+      /newstarter@showcase\.test/,
+    );
+    expect(useSettings.getState().session).toBeNull();
+  });
+
+  it('shows nothing when the server does not offer it (404)', async () => {
+    useSettings.setState({ server: LOCAL });
+    stubFetch(() => json({ code: 'not_found' }, 404));
+    await render(
+      <AppProviders client={client}>
+        <SignInScreen onSignedIn={jest.fn()} onChangeServer={jest.fn()} quickSignIn />
+      </AppProviders>,
+    );
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalled();
+    });
+    expect(screen.queryByTestId('dev-quick-sign-in')).toBeNull();
+  });
+
+  it('never asks in a release build', async () => {
+    useSettings.setState({ server: LOCAL });
+    const calls = stubFetch(() => json(PERSONAS));
+    await render(
+      <AppProviders client={client}>
+        <SignInScreen onSignedIn={jest.fn()} onChangeServer={jest.fn()} quickSignIn={false} />
+      </AppProviders>,
+    );
+    expect(screen.queryByTestId('dev-quick-sign-in')).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+});

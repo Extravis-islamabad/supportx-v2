@@ -188,6 +188,10 @@ How it works:
   `SHOWCASE_TOTP_KEY`.
 - Every quick sign-in is in the audit log ("Signed in with the dev quick sign-in").
 - It works only from `localhost` and only for the showcase tenant.
+- The mobile app's debug build shows the same buttons on its Sign in screen (D-163), through
+  `POST /api/v1/auth/dev/mobile/sign-in`: same rules, but the session ID comes back in the body
+  (no cookie), and only the app may call it (`X-SupportX-Client: mobile`, no `Origin`). On the
+  emulator, use `http://localhost:5173` as the server, with `adb reverse` (mobile/README.md).
 
 **A dev stack made before D-151** has a realm without the quick sign-in's settings: Keycloak
 imports the realm file only when the realm does not exist yet, so a button says Keycloak doesn't

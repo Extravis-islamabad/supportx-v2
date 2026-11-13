@@ -313,3 +313,89 @@ async def test_no_audit_entry_means_no_session(
         assert refused.status_code == 503
         assert (await client.get("/api/v1/auth/me")).status_code == 401
     assert quick.idp.ended_sessions  # Keycloak's session too
+
+
+# --- The mobile app's quick sign-in (D-163): the session ID in the body, never a cookie. -------
+
+MOBILE_SIGN_IN = "/api/v1/auth/dev/mobile/sign-in"
+MOBILE = {"X-SupportX-Client": "mobile"}
+
+
+async def test_the_mobile_app_gets_a_session_id_and_no_cookie(quick: Quick) -> None:
+    quick.enrol("tech@showcase.test")
+    async with quick.client() as client:
+        done = await client.post(MOBILE_SIGN_IN, json={"persona": "technician"}, headers=MOBILE)
+        assert done.status_code == 200, done.text
+        session_id = done.json()["session_id"]
+        assert session_id
+        assert done.json()["setup_link_sent_to"] is None
+        assert "set-cookie" not in done.headers
+        assert not client.cookies
+        # The app sends the ID in its header, as after the real sign-in (ADR-044).
+        me = await client.get("/api/v1/auth/me", headers={"X-SupportX-Session": session_id})
+        assert me.status_code == 200, me.text
+        assert me.json()["tenant"]["id"] == str(quick.showcase)
+    [grant] = quick.idp.password_grants
+    assert grant["client_id"] == "supportx-console"
+    conn = await asyncpg.connect(quick.db.admin_url)
+    try:
+        clients = await conn.fetch(
+            "SELECT client FROM audit_entries WHERE tenant_id = $1"
+            " AND action = 'session.quick_sign_in'",
+            quick.showcase,
+        )
+    finally:
+        await conn.close()
+    # The tenant is shared by every test in this database: earlier web sign-ins are there too.
+    assert "mobile" in [r["client"] for r in clients]
+
+
+async def test_the_mobile_new_starter_gets_the_set_up_link_and_no_session(quick: Quick) -> None:
+    from tests.db.test_identity_api import FakeAdmin  # noqa: PLC0415 - the shared in-memory admin
+
+    admin = FakeAdmin()
+    account = KeycloakUser(
+        id="kc-new", email="newstarter@showcase.test", enabled=True, has_password=True
+    )
+    admin.accounts[account.id] = account
+    quick.app.state.identity_admin = admin
+    async with quick.client() as client:
+        done = await client.post(MOBILE_SIGN_IN, json={"persona": "new_starter"}, headers=MOBILE)
+    assert done.status_code == 200, done.text
+    assert done.json() == {"session_id": None, "setup_link_sent_to": "newstarter@showcase.test"}
+    assert quick.idp.password_grants == []
+
+
+@pytest.mark.parametrize(
+    ("base", "headers"),
+    [
+        (LOCAL, {}),  # not the app: no client header
+        (LOCAL, {"X-SupportX-Client": "console"}),
+        # A browser always sends Origin on a POST: no web page may get a session ID here.
+        (LOCAL, {**MOBILE, "Origin": LOCAL}),
+        (LOCAL, {**MOBILE, "Origin": "http://evil.example"}),
+        ("http://console.test", MOBILE),  # not a localhost Host
+        (LOCAL, {**MOBILE, "X-Forwarded-For": "203.0.113.9"}),
+        (LOCAL, {**MOBILE, "X-Forwarded-Host": "abc.tunnel.example"}),
+    ],
+)
+async def test_the_mobile_quick_sign_in_is_only_for_the_local_app(
+    quick: Quick, base: str, headers: dict[str, str]
+) -> None:
+    quick.enrol("admin@showcase.test")
+    async with quick.client(base) as client:
+        answered = await client.post(MOBILE_SIGN_IN, json={"persona": "admin"}, headers=headers)
+    assert answered.status_code == 404
+    assert quick.idp.password_grants == []
+
+
+async def test_the_mobile_quick_sign_in_switched_off_does_not_exist(
+    migrated_db: ThrowawayDatabase,
+) -> None:
+    app = build_app(_settings(migrated_db, dev_quick_sign_in=False))
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url=LOCAL) as client,
+    ):
+        answered = await client.post(MOBILE_SIGN_IN, json={"persona": "admin"}, headers=MOBILE)
+    assert answered.status_code == 404
