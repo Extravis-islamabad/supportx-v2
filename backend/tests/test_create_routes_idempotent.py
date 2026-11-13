@@ -14,7 +14,7 @@ from app.main import create_app
 from app.shared.api.concurrency import expected_version
 from app.shared.api.idempotency import get_idempotency
 from conftest import make_settings
-from tests.test_route_permissions import _dependencies
+from tooling.route_permissions import route_dependencies
 
 # Create routes of other modules still to take the key, each with its owner (audit #19). The
 # list only shrinks: a route that gains the key must leave it (the stale-entry test below).
@@ -30,7 +30,7 @@ def _creates() -> Iterator[tuple[str, bool]]:
             continue
         if "POST" not in (context.methods or ()) or route.status_code != 201:
             continue
-        calls = list(_dependencies(context.dependant))
+        calls = list(route_dependencies(context.dependant))
         yield f"POST {context.path}", get_idempotency in calls or expected_version in calls
 
 
