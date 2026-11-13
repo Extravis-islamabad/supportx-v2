@@ -28,6 +28,12 @@ export const en = {
   'event_delivery.stalled.title': 'Event delivery is stalled',
   'event_delivery_state.ok': 'Delivering',
   'event_delivery_state.stalled': 'Stalled',
+  'notice.sign_in_secret.days_1': 'runs out within a day',
+  'notice.sign_in_secret.days_30': 'runs out in 30 days',
+  'notice.sign_in_secret.days_7': 'runs out in 7 days',
+  'notice.sign_in_secret.expired': 'has run out',
+  'notice.sign_in_secret.item_certificate': 'signing certificate',
+  'notice.sign_in_secret.item_client_secret': 'client secret',
   'notification.open_record': 'Open {{id}}',
   'notification_area.announcement': 'Announcements',
   'notification_area.asset': 'Assets',
@@ -45,6 +51,7 @@ export const en = {
   'notification_area.rule_step': 'Rules and escalations',
   'notification_area.security': 'Security notices',
   'notification_area.service_request': 'Service requests',
+  'notification_area.sign_in_secret': 'Sign-in certificates and secrets',
   'notification_area.task': 'Tasks',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
@@ -133,7 +140,11 @@ export const en = {
   'notification_event.release.public_reply': 'Reply to the requester',
   'notification_event.reminder.due': 'Your reminder',
   'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
+  'notification_event.security.locked_out': 'Your account was locked after failed sign-ins',
+  'notification_event.security.mfa_added': 'A sign-in check (MFA) was added to your account',
+  'notification_event.security.mfa_removed': 'A sign-in check (MFA) was removed from your account',
   'notification_event.security.new_device': 'A sign-in from a new browser or device',
+  'notification_event.security.password_changed': 'Your password was changed',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
@@ -143,6 +154,7 @@ export const en = {
   'notification_event.service_request.received': 'Request received: acknowledgement',
   'notification_event.service_request.rejected': 'Request rejected',
   'notification_event.service_request.withdrawn': 'Request withdrawn',
+  'notification_event.sign_in_secret.expiring': 'A sign-in certificate or secret is running out',
   'notification_event.task.assigned': 'A task is given to you',
   'notification_event.task.overdue': 'Your task is overdue',
   'notification_event.task.starts_soon': 'Your task starts soon',
@@ -194,6 +206,7 @@ export const en = {
   'notification_recipient.reviewer': 'Reviewer',
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.stock_watchers': "The minimum's people",
+  'notification_recipient.tenant_admins': 'The tenant administrators',
   'notification_recipient.the_person': 'The person it is about',
   'notification_recipient.topic_owner': 'Topic owner',
   'notification_recipient.workflow_audience': 'People the workflow names',
@@ -648,12 +661,34 @@ export const en = {
     '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'Nobody assigned: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.locked_out.body':
+    'Hello {{ recipient.name }},\n\nYour account was locked at {{ notice.when }} after several sign-ins with a wrong password ({{ notice.place }}).\n\nYou can try again after {{ notice.opens_at }} at the earliest. If more wrong passwords are tried, the wait grows.\n\nIf this was not you, someone may know your user name. Once you are in, change your password and check your account: {{ record.link }}',
+  'notification_template.security.locked_out.in_app':
+    'Your account was locked after failed sign-ins. Try again after {{ notice.opens_at }} at the earliest.',
+  'notification_template.security.locked_out.subject':
+    'Your account was locked after failed sign-ins',
+  'notification_template.security.mfa_added.body':
+    'Hello {{ recipient.name }},\n\nA sign-in check (an authenticator app, security key or recovery codes) was added to your account at {{ notice.when }} ({{ notice.place }}).\n\nIf this was you, there is nothing to do. If it was not, tell your administrator at once. Your account: {{ record.link }}',
+  'notification_template.security.mfa_added.in_app':
+    'A sign-in check (MFA) was added to your account ({{ notice.when }})',
+  'notification_template.security.mfa_added.subject': 'A sign-in check was added to your account',
+  'notification_template.security.mfa_removed.body':
+    'Hello {{ recipient.name }},\n\nA sign-in check (an authenticator app, security key or recovery codes) was removed from your account at {{ notice.when }} ({{ notice.place }}).\n\nIf this was you, there is nothing to do. If it was not, change your password and tell your administrator at once. Your account: {{ record.link }}',
+  'notification_template.security.mfa_removed.in_app':
+    'A sign-in check (MFA) was removed from your account ({{ notice.when }})',
+  'notification_template.security.mfa_removed.subject':
+    'A sign-in check was removed from your account',
   'notification_template.security.new_device.body':
     'Hello {{ recipient.name }},\n\nYour account was just signed in to from a browser or device you have not used before:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nIf this was you, there is nothing to do. If it was not, change your password and use "Sign out everywhere else" in your account: {{ record.link }}',
   'notification_template.security.new_device.in_app':
     'New sign-in from {{ notice.device }} ({{ notice.place }})',
   'notification_template.security.new_device.subject':
     'New sign-in to your account: {{ notice.device }}',
+  'notification_template.security.password_changed.body':
+    'Hello {{ recipient.name }},\n\nThe password of your account was changed at {{ notice.when }} ({{ notice.place }}).\n\nIf this was you, there is nothing to do. If it was not, reset your password from the sign-in page at once and tell your administrator. Your account: {{ record.link }}',
+  'notification_template.security.password_changed.in_app':
+    'Your password was changed ({{ notice.when }})',
+  'notification_template.security.password_changed.subject': 'Your password was changed',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -708,6 +743,12 @@ export const en = {
     '{{ record.display_id }} was withdrawn: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'Withdrawn: {{ record.display_id }} {{ record.title }}',
+  'notification_template.sign_in_secret.expiring.body':
+    'Hello {{ recipient.name }},\n\nThe {{ notice.item }} of the single sign-on "{{ record.title }}" {{ notice.left }} ({{ notice.expires }}). When it runs out, people cannot sign in through it. Renew it at the identity provider and update it in Sign-in and security: {{ record.link }}',
+  'notification_template.sign_in_secret.expiring.in_app':
+    '{{ record.title }}: the {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
+  'notification_template.sign_in_secret.expiring.subject':
+    'Single sign-on {{ record.title }}: the {{ notice.item }} {{ notice.left }}',
   'notification_template.task.assigned.body':
     'Hello {{ recipient.name }},\n\nThe task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" is now yours.',
   'notification_template.task.assigned.in_app':
@@ -759,8 +800,13 @@ export const en = {
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
   'notification_variable.security.device': 'Sign-in › Browser and device',
+  'notification_variable.security.opens_at': 'Lock-out › Earliest time to try again',
   'notification_variable.security.place': 'Sign-in › Approximate place',
   'notification_variable.security.when': 'Sign-in › Time',
+  'notification_variable.sign_in_secret.expires': 'Single sign-on › Runs out on',
+  'notification_variable.sign_in_secret.item': 'Single sign-on › What runs out',
+  'notification_variable.sign_in_secret.left': 'Single sign-on › Time left',
+  'notification_variable.sign_in_secret.provider': 'Single sign-on › Name',
   'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
   'notification_variable.stock.minimum': 'Stock › Minimum',

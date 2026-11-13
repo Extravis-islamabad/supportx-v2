@@ -182,6 +182,26 @@ export function useTaskTemplateChange(base: PartsBase = 'incidents') {
   });
 }
 
+export type TimeAnalysis = components['schemas']['WorkItemTimeAnalysisOut'];
+
+/**
+ * Where a record's time went (WP-046a S3, REQ-INC-071). Open time grows while you look, so it
+ * is fetched again each minute; the record's changes refresh it at once (the page's channel).
+ */
+export function useTimeAnalysis(id: string, enabled = true, base: PartsBase = 'incidents') {
+  return useQuery({
+    queryKey: queryKeys.incidents.timeAnalysis(id),
+    queryFn: () =>
+      call(
+        api.GET(at(base, '/api/v1/incidents/{record_id}/time-analysis'), {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled,
+    refetchInterval: 60_000,
+  });
+}
+
 /** A record's worklogs with totals per person and per type. */
 export function useIncidentWorklogs(id: string, enabled = true, base: PartsBase = 'incidents') {
   return useQuery({

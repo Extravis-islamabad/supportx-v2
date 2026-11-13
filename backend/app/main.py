@@ -15,6 +15,7 @@ from fastapi import APIRouter, FastAPI
 from opentelemetry.sdk.metrics import MeterProvider
 
 from app import __version__
+from app.core.body_limit import BodyLimitMiddleware
 from app.core.config import Settings, get_settings
 from app.core.database import Database
 from app.core.errors import ProblemDetail, install_error_handlers
@@ -106,6 +107,9 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     install_error_handlers(app)
     # Last added runs first: security headers wrap everything, including the 500 responses that
     # RequestContextMiddleware produces for unhandled exceptions.
+    # Innermost of the three: a body over its cap stops at the bytes received (body_limit.py),
+    # and its 413 still gets the request ID and the security headers from the two outside it.
+    app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         SecurityHeadersMiddleware,

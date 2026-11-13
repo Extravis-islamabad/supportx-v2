@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
+from app.core.body_limit import body_limit
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail, ValidationFailed
 from app.modules.assets.api.records import AssetOut
@@ -393,6 +394,7 @@ class AssetImportTarget(BaseModel):
 @router.post(
     "/imports",
     summary="Import assets, consumables or vendors from a CSV or Excel file",
+    dependencies=[Depends(body_limit(IMPORT_LIMITS.max_file_bytes + 1))],  # it checks its own
     status_code=status.HTTP_201_CREATED,
     response_model=AssetImportOut,
     responses={422: {"model": ProblemDetail, "description": "asset_import_file_too_large"}},

@@ -261,6 +261,8 @@ export const ur: LabelResource = {
   'audit.action.incident.template_created': 'واقعے کا سانچہ شامل کیا',
   'audit.action.incident.unlinked': 'واقعے سے ایک ربط ہٹایا',
   'audit.action.incident.updated': 'واقعے میں ترمیم کی',
+  'audit.action.invitation.accepted': 'دعوت نامہ قبول کیا',
+  'audit.action.invitation.link_copied': 'دعوت نامے کا لنک نقل کیا',
   'audit.action.invitation.resent': 'دعوت نامہ دوبارہ بھیجا',
   'audit.action.invitation.revoked': 'دعوت نامہ واپس لیا',
   'audit.action.invitation.sent': 'دعوت نامہ بھیجا',
@@ -972,11 +974,14 @@ export const ur: LabelResource = {
   'event_type.automation.workflow_instance.changed': 'ورک فلو آگے بڑھا',
   'event_type.automation.workflow_job.progressed': 'ورک فلو کی جاب آگے بڑھی',
   'event_type.identity_access.access_settings.changed': 'ٹیکنیشن کی رسائی کا دائرہ بدلا',
+  'event_type.identity_access.account_security.changed':
+    'اکاؤنٹ مقفل ہوا، یا اس کا پاس ورڈ یا MFA بدلا',
   'event_type.identity_access.api_key.changed': 'API کلید بدلی',
   'event_type.identity_access.break_glass.signed_in': 'ہنگامی سائن اِن',
   'event_type.identity_access.group_role.changed': 'گروپ کے کردار بدلے',
   'event_type.identity_access.identity_settings.changed': 'سائن اِن کی ترتیبات بدلیں',
   'event_type.identity_access.invitation.changed': 'دعوت نامہ بدلا',
+  'event_type.identity_access.invitation.link_copied': 'دعوت نامے کا لنک نقل ہوا',
   'event_type.identity_access.keycloak_session.end_pending':
     'سائن اِن سروس کا سیشن ختم ہونے کا منتظر',
   'event_type.identity_access.mfa.changed': 'دو مرحلہ سائن اِن بدلا',
@@ -988,6 +993,8 @@ export const ur: LabelResource = {
   'event_type.identity_access.role.changed': 'کردار تبدیل ہوا',
   'event_type.identity_access.session.tenant_switched': 'ادارہ تبدیل کیا',
   'event_type.identity_access.sign_in.recorded': 'سائن اِن درج ہوا',
+  'event_type.identity_access.sign_in_secret.expiring':
+    'سائن اِن سرٹیفکیٹ یا خفیہ کلید ختم ہو رہی ہے',
   'event_type.identity_access.sso_provider.changed': 'سنگل سائن آن کا سیٹ اپ بدلا',
   'event_type.identity_access.user.created': 'فرد شامل کیا گیا',
   'event_type.identity_access.user.logged_in': 'سائن اِن کیا',

@@ -17,6 +17,7 @@ from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import func, select
 
 from app.core.authorization import require_permission
+from app.core.body_limit import body_limit
 from app.core.database import TenantSession
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.core.recent_auth import RecentAuth
@@ -373,7 +374,11 @@ async def _workflow_file(request: Request) -> WorkflowFileIn:
     summary="Import a workflow file as a new draft",
     status_code=status.HTTP_201_CREATED,
     response_model=WorkflowOut,
-    dependencies=[audited("automation.workflow_imported", object_type="workflow")],
+    # Room past its own 1 MB check, so an oversized file gets its own 422, not the cap's 413.
+    dependencies=[
+        Depends(body_limit(2 * 1024 * 1024)),
+        audited("automation.workflow_imported", object_type="workflow"),
+    ],
     # The body is read by `_workflow_file` (capped before parsing); its schema stays documented.
     openapi_extra={
         "requestBody": {
