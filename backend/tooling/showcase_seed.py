@@ -808,13 +808,14 @@ async def console_api(
 
     async def resolve(request: Request) -> TenantContext | None:
         named = request.headers.get(SEED_HEADER)
-        if named is None:
-            return None
-        # The seed acts for the people it names in its own app, which is never served: as a
-        # browser that confirmed just now, so sensitive routes (role grants, REQ-SEC-027's
-        # RecentAuth) let it through as they let a person who has just signed in.
-        record_freshness(request, SignInFreshness(interactive=True, recent=True))
-        return contexts.get(uuid.UUID(named))
+        context = None if named is None else contexts.get(uuid.UUID(named))
+        if context is not None:
+            # The seed acts for the people it names in its own app, which is never served: as
+            # a browser that confirmed just now, so sensitive routes (role grants, REQ-SEC-027's
+            # RecentAuth) let it through as they let a person who has just signed in. Only for
+            # a person it knows: anything else resolves to nobody, with nothing recorded.
+            record_freshness(request, SignInFreshness(interactive=True, recent=True))
+        return context
 
     async with app.router.lifespan_context(app):
         # This app object is the seed's own and is never served: only it trusts the header.
