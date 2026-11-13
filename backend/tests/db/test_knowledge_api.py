@@ -545,3 +545,19 @@ async def test_knowledge_tables_are_isolated_by_rls(world: World) -> None:
         "kb_article_not_found",
     )
     assert (await world.call("GET", TOPICS, b, b.admin)).json() == []
+
+
+async def test_a_retried_draft_start_replays_instead_of_draft_exists(world: World) -> None:
+    """Audit #19: with an Idempotency-Key a retry gets the first answer, not kb_draft_exists."""
+    a = world.a
+    article = await _article(world, a, a.tech_a, await _topic(world, a))
+    url = f"{ARTICLES}/{article['id']}/drafts/ar"
+    key = {"Idempotency-Key": str(uuid.uuid4())}
+    first = await world.call("POST", url, a, a.tech_a, headers=key)
+    assert first.status_code == 201, first.text
+    again = await world.call("POST", url, a, a.tech_a, headers=key)
+    assert again.status_code == 201, again.text
+    assert again.headers.get("Idempotent-Replayed") == "true"
+    assert again.json() == first.json()
+    # Without the key a second start is still refused: the draft exists.
+    assert problem(await world.call("POST", url, a, a.tech_a)) == (409, "kb_draft_exists")

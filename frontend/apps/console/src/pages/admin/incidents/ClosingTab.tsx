@@ -89,6 +89,13 @@ const PLACED = new Set([
   'checklist_item_max',
 ]);
 
+/** WP-046a S3: the worklog rules' switches, in the order shown (each with its help text). */
+const WORKLOG_RULES = [
+  { key: 'worklogBlockClosed', code: 'worklog_block_closed' },
+  { key: 'worklogCountNonworking', code: 'worklog_count_nonworking' },
+  { key: 'timerAutoStart', code: 'timer_auto_start' },
+] as const;
+
 interface Draft {
   resolve: string[];
   close: string[];
@@ -97,6 +104,10 @@ interface Draft {
   taskOwners: boolean;
   /** REQ-INC-075 (WP-046a S1): an open predecessor blocks a task, or only warns. */
   waitBlocks: boolean;
+  /** WP-046a S3 (REQ-INC-069/070): the worklog rules. */
+  worklogBlockClosed: boolean;
+  worklogCountNonworking: boolean;
+  timerAutoStart: boolean;
   autoClose: boolean;
   autoCloseDays: number | null;
   reopenDays: number | null;
@@ -130,6 +141,9 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     complete: closure.complete_open_work,
     taskOwners: closure.task_owner_access,
     waitBlocks: closure.task_dependency_mode === 'block',
+    worklogBlockClosed: closure.worklog_block_closed,
+    worklogCountNonworking: closure.worklog_count_nonworking,
+    timerAutoStart: closure.timer_auto_start,
     autoClose: closure.auto_close_days !== null,
     autoCloseDays: closure.auto_close_days ?? AUTO_CLOSE_DEFAULT,
     reopenDays: closure.reopen_window_days,
@@ -175,6 +189,9 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       complete_open_work: draft.complete,
       task_owner_access: draft.taskOwners,
       task_dependency_mode: draft.waitBlocks ? 'block' : 'warn',
+      worklog_block_closed: draft.worklogBlockClosed,
+      worklog_count_nonworking: draft.worklogCountNonworking,
+      timer_auto_start: draft.timerAutoStart,
       reopen_window_days: draft.reopenDays,
       checklist_item_max: draft.itemMax,
     };
@@ -309,6 +326,24 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                 </Typography.Text>
               </label>
             </Flex>
+            {WORKLOG_RULES.map(({ key, code }) => (
+              <Flex key={key} gap={12} align="start">
+                <Switch
+                  id={`settings-${code}`}
+                  checked={draft[key]}
+                  onChange={(checked) => {
+                    edit({ ...draft, [key]: checked });
+                  }}
+                  data-testid={`settings-${code}`}
+                />
+                <label htmlFor={`settings-${code}`}>
+                  {/* The type's own wording (releases say "release"), lane C's profile. */}
+                  <Typography.Text strong>{own(code)}</Typography.Text>
+                  <br />
+                  <Typography.Text type="secondary">{own(`${code}_help`)}</Typography.Text>
+                </label>
+              </Flex>
+            ))}
           </fieldset>
           {/* Releases have no requester replies: no auto-close, no reopen window. */}
           {profile.requesterReplies && (
