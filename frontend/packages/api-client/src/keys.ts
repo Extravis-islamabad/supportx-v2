@@ -272,6 +272,7 @@ export const queryKeys = {
   mailboxes: {
     all: ['mailboxes'] as const,
     waiting: (id: string) => ['mailboxes', 'waiting', id] as const,
+    blockRules: ['mailboxes', 'block-rules'] as const,
   },
   notifications: {
     all: ['notifications'] as const,

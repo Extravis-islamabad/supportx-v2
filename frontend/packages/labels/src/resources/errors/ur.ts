@@ -905,6 +905,10 @@ export const ur: LabelResource = {
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
   'errors.mail_attachment_type': 'اس قسم کی فائل ای میل سے نہیں بھیجی جا سکتی۔',
   'errors.mail_attachments_too_large': 'منسلکات مل کر 10 MB سے بڑی ہیں۔',
+  'errors.mail_block_rule_exists': 'اس کے لیے ایک اصول پہلے سے موجود ہے۔',
+  'errors.mail_block_rule_not_found': 'یہ روک کا اصول موجود نہیں۔',
+  'errors.mail_block_rules_full':
+    'زیادہ سے زیادہ {{max}} روک کے اصول ہو سکتے ہیں۔ پہلے ایک ہٹائیں۔',
   'errors.mail_content_gone': 'اس ای میل کا متن اب محفوظ نہیں۔ جواب دوبارہ لکھیں۔',
   'errors.mail_kind_invalid': 'اس قسم کی ای میل معلوم نہیں۔',
   'errors.mail_language_invalid': 'یہ زبان ای میل کے لیے دستیاب نہیں۔',

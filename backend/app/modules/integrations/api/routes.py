@@ -491,7 +491,9 @@ class WaitingOut(BaseModel):
     message_id: str
     sender: str
     subject: str
-    outcome: Literal["held", "too_large"]
+    outcome: Literal["held", "too_large", "blocked"] = Field(
+        description="blocked: a block rule matched (REQ-INC-026); it may be released."
+    )
     reason: str | None = Field(description="Code; the UI shows its label.")
     reason_params: dict[str, str]
     received_at: datetime
@@ -505,7 +507,9 @@ class WaitingOut(BaseModel):
             message_id=row.message_id,
             sender=row.sender,
             subject=row.subject,
-            outcome="too_large" if row.outcome == "too_large" else "held",
+            outcome=(
+                row.outcome if row.outcome in ("too_large", "blocked") else "held"  # type: ignore[arg-type]  # narrowed by the test
+            ),
             reason=row.reason,
             reason_params=dict(row.reason_params),
             received_at=row.created_at,

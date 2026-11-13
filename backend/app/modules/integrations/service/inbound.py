@@ -34,16 +34,19 @@ from app.modules.identity_access import (
 from app.modules.integrations.domain.mailboxes import (
     PER_SENDER_LIMIT,
     WAITING,
+    BlockKind,
+    BlockRule,
     MailboxCreates,
     MailboxProtocol,
     MailboxRules,
     Outcome,
     UnknownSenders,
+    blocked_by,
     releasable,
     route,
 )
 from app.modules.integrations.events import MailboxMailHeld
-from app.modules.integrations.infra.models import Mailbox, MailFetched
+from app.modules.integrations.infra.models import MailBlockRule, Mailbox, MailFetched
 from app.modules.integrations.service import attachments
 from app.modules.notifications import records_for_mail
 from app.shared.events import record_event
@@ -427,6 +430,13 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
         )
     sender_id = await person_by_email(session, message.sender) if message.sender else None
     recent = 0 if vouched else await _recent(session, message.sender) - 1  # minus this one
+    # A released message is let through by the admin who released it (REQ-INC-026 AC2).
+    blocked = not vouched and blocked_by(
+        await block_rules(session),
+        sender=message.sender,
+        subject=message.subject,
+        text=message.text,
+    )
     decision = route(
         mailbox=_rules(mailbox),
         automatic=message.automatic,
@@ -436,6 +446,7 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
         answers_record=found is not None,
         sender_known=sender_id is not None,
         size=size,
+        blocked=blocked,
     )
     if target is None:
         return await _finish(session, mailbox, message, Outcome.HELD, reason="no_target")
@@ -466,12 +477,44 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
         )
 
 
+async def block_rules(session: AsyncSession) -> list[BlockRule]:
+    """The tenant's enabled block rules (REQ-INC-026)."""
+    rows = await session.execute(
+        select(MailBlockRule.kind, MailBlockRule.value).where(
+            MailBlockRule.deleted_at.is_(None), MailBlockRule.enabled.is_(True)
+        )
+    )
+    return [BlockRule(BlockKind(kind), value) for kind, value in rows]
+
+
+async def expire_quarantine(session: AsyncSession, mailbox: Mailbox, now: datetime) -> int:
+    """Blocked mail older than the mailbox's quarantine days: its copy goes, the row stays.
+
+    Kept in the ledger as discarded (reason `quarantine_expired`), so the mail page's counts and
+    the history of what was blocked remain; only the message itself is removed (REQ-INC-026).
+    """
+    cutoff = now - timedelta(days=mailbox.quarantine_days)
+    rows = list(
+        await session.scalars(
+            select(MailFetched).where(
+                MailFetched.mailbox_id == mailbox.id,
+                MailFetched.outcome == Outcome.BLOCKED.value,
+                MailFetched.created_at < cutoff,
+            )
+        )
+    )
+    for row in rows:
+        row.outcome, row.reason, row.raw = Outcome.DISCARDED.value, "quarantine_expired", None
+        row.updated_at = now
+    return len(rows)
+
+
 async def _keep_while_held(
     session: AsyncSession, mailbox: Mailbox, message: InboundMessage, raw: bytes | None
 ) -> None:
     row = await session.get(MailFetched, (mailbox.tenant_id, mailbox.id, message.message_id[:500]))
     if row is not None:
-        row.raw = raw if row.outcome == Outcome.HELD.value else None
+        row.raw = raw if row.outcome in (Outcome.HELD.value, Outcome.BLOCKED.value) else None
 
 
 async def process(

@@ -320,6 +320,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "EntryKind": "entry_kind",
     "FirstResponseAction": "first_response_action",
     "CommandField": "mail_command_field",  # WP-046a S6: what a mail may set
+    "BlockKind": "mail_block_kind",  # WP-046a S6: what a block rule looks at
     "FollowReason": "follow_reason",
     "ReplyMode": "reply_mode",
     "TypingIn.state": "typing_state",

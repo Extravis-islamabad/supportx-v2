@@ -271,6 +271,9 @@ export const ar: LabelResource = {
   'audit.action.knowledge.type_changed': 'غيّر نوع مقالة معرفة',
   'audit.action.knowledge.type_created': 'أضاف نوع مقالة معرفة',
   'audit.action.licence.read_only_entered': 'أصبحت الخطة للقراءة فقط',
+  'audit.action.mail_block_rule.changed': 'غيّر قاعدة حظر للبريد غير المرغوب',
+  'audit.action.mail_block_rule.created': 'أضاف قاعدة حظر للبريد غير المرغوب',
+  'audit.action.mail_block_rule.removed': 'حذف قاعدة حظر للبريد غير المرغوب',
   'audit.action.mailbox.changed': 'غيّر صندوق بريد',
   'audit.action.mailbox.connected': 'سجّل الدخول بحساب صندوق بريد',
   'audit.action.mailbox.consent_started': 'بدأ تسجيل الدخول بحساب صندوق بريد',
@@ -976,6 +979,7 @@ export const ar: LabelResource = {
   'event_type.integrations.connector.recovered': 'تعافي موصل',
   'event_type.integrations.connector_settings.changed': 'تغيّرت الإعدادات الافتراضية للموصلات',
   'event_type.integrations.directory.changed': 'تغيّر موصل الدليل',
+  'event_type.integrations.mail_block_rule.changed': 'تغيّرت قاعدة حظر للبريد غير المرغوب',
   'event_type.integrations.mailbox.changed': 'تغيّر صندوق بريد',
   'event_type.integrations.mailbox.credential_expiring':
     'بيانات اعتماد تطبيق صندوق البريد على وشك الانتهاء',

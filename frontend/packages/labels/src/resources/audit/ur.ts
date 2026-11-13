@@ -271,6 +271,9 @@ export const ur: LabelResource = {
   'audit.action.knowledge.type_changed': 'نالج مضمون کی قسم بدلی',
   'audit.action.knowledge.type_created': 'نالج مضمون کی قسم شامل کی',
   'audit.action.licence.read_only_entered': 'پلان صرف پڑھنے کے لیے ہو گیا',
+  'audit.action.mail_block_rule.changed': 'ناپسندیدہ میل کے لیے روک کا اصول بدلا',
+  'audit.action.mail_block_rule.created': 'ناپسندیدہ میل کے لیے روک کا اصول شامل کیا',
+  'audit.action.mail_block_rule.removed': 'ناپسندیدہ میل کے لیے روک کا اصول ہٹایا',
   'audit.action.mailbox.changed': 'میل باکس تبدیل کیا',
   'audit.action.mailbox.connected': 'میل باکس کے اکاؤنٹ سے سائن اِن کیا',
   'audit.action.mailbox.consent_started': 'میل باکس کے اکاؤنٹ سے سائن اِن شروع کیا',
@@ -972,6 +975,7 @@ export const ur: LabelResource = {
   'event_type.integrations.connector.recovered': 'کنیکٹر بحال',
   'event_type.integrations.connector_settings.changed': 'کنیکٹر کی طے شدہ ترتیبات تبدیل ہوئیں',
   'event_type.integrations.directory.changed': 'ڈائریکٹری کنیکٹر تبدیل ہوا',
+  'event_type.integrations.mail_block_rule.changed': 'ناپسندیدہ میل کا روک کا اصول بدلا',
   'event_type.integrations.mailbox.changed': 'میل باکس تبدیل ہوا',
   'event_type.integrations.mailbox.credential_expiring':
     'میل باکس ایپ کی اسناد کی میعاد ختم ہونے والی ہے',

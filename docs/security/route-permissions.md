@@ -627,6 +627,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
 | GET | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
 | PUT | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
+| GET | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
+| POST | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
+| DELETE | `/api/v1/integrations/mail-block-rules/{rule_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
+| PATCH | `/api/v1/integrations/mail-block-rules/{rule_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
 | GET | `/api/v1/integrations/mailboxes` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
 | POST | `/api/v1/integrations/mailboxes` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
 | DELETE | `/api/v1/integrations/mailboxes/{mailbox_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |

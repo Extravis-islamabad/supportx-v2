@@ -304,6 +304,49 @@ describe('Admin › Mail', () => {
     expect(within(editor).queryByTestId('mailbox-trust_provider_results')).toBeNull();
   });
 
+  it('WP-046a S6: adds a block rule and says a duplicate at the field', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    const rule = {
+      id: '01900000-0000-7000-8000-00000000b001',
+      kind: 'domain' as const,
+      value: 'spam.test',
+      enabled: true,
+      updated_at: new Date().toISOString(),
+      version: 1,
+    };
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        [`GET ${BASE}`]: { body: [] },
+        'GET /api/v1/integrations/mail-block-rules': { body: [rule] },
+        'POST /api/v1/integrations/mail-block-rules': {
+          status: 409,
+          body: problem(409, 'mail_block_rule_exists'),
+        },
+      },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('mail-block-rules');
+    const listed = await within(card).findByTestId('mail-block-rule-spam.test');
+    expect(within(listed).getByText('Sender domain')).toBeTruthy();
+    fireEvent.change(within(card).getByTestId('mail-block-value'), {
+      target: { value: 'SPAM.test' },
+    });
+    await act(async () => {
+      fireEvent.click(within(card).getByTestId('mail-block-add'));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(within(card).getByTestId('mail-block-value-problem').textContent).toBe(
+        'A rule for this already exists.',
+      );
+    });
+    expect(fake.find('POST', '/api/v1/integrations/mail-block-rules')[0]?.body).toMatchObject({
+      kind: 'domain',
+      value: 'SPAM.test',
+    });
+  });
+
   it('technicians do not see the tab', async () => {
     window.history.pushState({}, '', '/admin/users');
     api({ routes: {} });

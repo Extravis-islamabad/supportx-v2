@@ -7,6 +7,7 @@ For each fetched message, in this order:
 1. automatic mail (auto-reply, bounce, list) → logged on the record it answers, nothing created,
    nobody notified (REQ-NTF-023, REQ-INC-024 AC2);
 2. one of our own addresses as sender → ignored (a loop with ourselves);
+2b. a block rule matches → blocked: nothing created, kept for review (REQ-INC-026);
 3. more than `PER_SENDER_LIMIT` messages from one address in the last hour → held, admins told
    (two systems answering each other, REQ-NTF-023 AC3);
 4. it answers a record (threading headers or the subject token) → a reply on that record;
@@ -146,10 +147,11 @@ class Outcome(StrEnum):
     REJECTED = "rejected"
     TOO_LARGE = "too_large"
     DISCARDED = "discarded"  # an admin discarded it from the review queue
+    BLOCKED = "blocked"  # a block rule matched: kept for review for the quarantine days
 
 
 # What waits in the review queue on Admin > Mail (held mail is never invisible, D-109 (9)).
-WAITING = (Outcome.HELD, Outcome.TOO_LARGE)
+WAITING = (Outcome.HELD, Outcome.TOO_LARGE, Outcome.BLOCKED)
 # Held for a reason a second try can overcome: a flood (the admin vouches), no record owner yet,
 # or the owning module's refusal (fixed since, e.g. a required field). The rest is discard-only:
 # staff reply in the console, and too-large mail was never taken in.
@@ -158,6 +160,8 @@ NOT_RELEASABLE = frozenset({"not_requester"})
 
 def releasable(outcome: Outcome, reason: str | None) -> bool:
     """Whether an admin may hand a waiting message in again."""
+    if outcome is Outcome.BLOCKED:  # an admin may let blocked mail through (REQ-INC-026 AC2)
+        return True
     return outcome is Outcome.HELD and reason not in NOT_RELEASABLE
 
 
@@ -185,7 +189,7 @@ def domain_of(address: str) -> str:
     return address.rsplit("@", 1)[-1].lower() if "@" in address else ""
 
 
-def route(  # noqa: PLR0911, PLR0913 - one decision per rule in the module docstring, in order
+def route(  # noqa: C901, PLR0911, PLR0913 - one decision per rule in the module docstring, in order
     *,
     mailbox: MailboxRules,
     automatic: str | None,
@@ -195,6 +199,7 @@ def route(  # noqa: PLR0911, PLR0913 - one decision per rule in the module docst
     answers_record: bool,
     sender_known: bool,
     size: int = 0,
+    blocked: bool = False,
 ) -> Routing:
     """What one message becomes, by the rules above."""
     if size > MAX_MESSAGE_BYTES:
@@ -203,6 +208,8 @@ def route(  # noqa: PLR0911, PLR0913 - one decision per rule in the module docst
         return Routing(Outcome.AUTOMATIC, automatic)
     if sender.lower() in {a.lower() for a in own_addresses}:
         return Routing(Outcome.OWN_ADDRESS, "own_address")
+    if blocked:
+        return Routing(Outcome.BLOCKED, "block_rule")
     if recent_from_sender >= PER_SENDER_LIMIT:
         return Routing(Outcome.HELD, "sender_rate")
     if answers_record:
@@ -317,3 +324,71 @@ def trust_problems(
         # could be anyone's.
         problems.append(("trust_provider_results", "mailbox_provider_results_graph_only"))
     return problems
+
+
+# --- unwanted mail (WP-046a S6; REQ-INC-026) ----------------------------------------------------
+
+
+class BlockKind(StrEnum):
+    """What a block rule looks at. Plain text only: never a pattern an admin types (ReDoS)."""
+
+    SENDER = "sender"  # the address, exactly
+    DOMAIN = "domain"  # the sender's domain, or any subdomain of it
+    SUBJECT = "subject"  # text the subject contains
+    BODY = "body"  # text the body contains
+
+
+@dataclass(frozen=True)
+class BlockRule:
+    """One enabled rule, its value as stored."""
+
+    kind: BlockKind
+    value: str
+
+
+BODY_SCANNED = 64 * 1024  # characters of a body a rule reads
+
+
+def block_rule_problems(kind: BlockKind, value: str) -> list[tuple[str, str]]:
+    """(field, code) problems of a rule's value."""
+    text = value.strip()
+    if not text:
+        return [("value", "required")]
+    if kind is BlockKind.SENDER and ("@" not in text or " " in text):
+        return [("value", "mailbox_address_invalid")]
+    if kind is BlockKind.DOMAIN and host_name(text.lstrip("@")) is None:
+        return [("value", "host_name_invalid")]
+    return []
+
+
+def normalised_rule_value(kind: BlockKind, value: str) -> str:
+    """How a rule's value is stored: trimmed; addresses and domains lowercased."""
+    text = value.strip()
+    if kind is BlockKind.SENDER:
+        return text.lower()
+    if kind is BlockKind.DOMAIN:
+        return text.lstrip("@").lower().rstrip(".")
+    return text
+
+
+def blocked_by(rules: Iterable[BlockRule], *, sender: str, subject: str, text: str) -> bool:
+    """Whether any rule matches the message (case-insensitive, plain text)."""
+    address = sender.strip().lower()
+    domain = domain_of(address)
+    subject_cf = subject.casefold()
+    body_cf = text[:BODY_SCANNED].casefold()
+    for rule in rules:
+        value = rule.value.strip()
+        if not value:
+            continue
+        if rule.kind is BlockKind.SENDER and address == value.lower():
+            return True
+        if rule.kind is BlockKind.DOMAIN:
+            wanted = value.lower().lstrip("@").rstrip(".")
+            if domain == wanted or domain.endswith("." + wanted):
+                return True
+        if rule.kind is BlockKind.SUBJECT and value.casefold() in subject_cf:
+            return True
+        if rule.kind is BlockKind.BODY and value.casefold() in body_cf:
+            return True
+    return False
