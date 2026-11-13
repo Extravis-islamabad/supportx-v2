@@ -29,6 +29,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 DEFAULT_MAX_BYTES = 1024 * 1024  # JSON bodies: the largest real one (a rich text reply) is far less
 MAX_ANY_BYTES = 128 * 1024 * 1024  # uploads: a tenant's file cap is at most 100 MB
 SCOPE_KEY = "supportx.body_limit"
+# Matched on scope["path"], which includes no root_path: SupportX mounts the API at /api/v1 with
+# no root_path today; one would have to be prefixed here (lane C, #496).
 # Routes that raise their cap (body_limit): their early `Content-Length` check waits for the
 # route's own number. Method and path pattern, under /api/v1.
 # The workflow and holiday imports cap themselves below DEFAULT_MAX_BYTES, so are not listed.

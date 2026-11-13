@@ -976,7 +976,8 @@ export const ur: LabelResource = {
   'errors.password_policy_platform': 'اس انسٹالیشن پر پاس ورڈ پالیسی پلیٹ فارم طے کرتا ہے۔',
   'errors.password_reset_not_signed_in':
     'اس شخص نے ابھی سائن اِن نہیں کیا۔ اس کے بجائے دعوت نامہ بھیجیں۔',
-  'errors.payload_too_large': 'اپ لوڈ بہت بڑا ہے۔',
+  'errors.payload_too_large':
+    'بھیجا گیا مواد قبول کرنے کے لیے بہت بڑا ہے۔ کم بھیجیں، یا چھوٹی فائل۔',
   'errors.people_import_file_not_readable': 'CSV فائل یا Excel ورک بُک ({{xlsx}}) استعمال کریں۔',
   'errors.people_import_file_too_large': 'فائل 5 MB سے بڑی ہے۔',
   'errors.people_import_file_unsafe':

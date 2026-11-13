@@ -556,6 +556,10 @@ file limit, at most 100 MB), people imports (5 MB), asset imports (25 MB) and ch
 (5 MB). A proxy in front may refuse earlier (Traefik's `buffering` middleware, nginx's
 `client_max_body_size`); set it to at least 101 MB so uploads still reach the API.
 
+A pasted SAML metadata document counts against the 1 MiB as well. An aggregate federation
+file larger than that (a national research federation's, for example) is set up by its metadata
+URL instead, which SupportX fetches itself.
+
 ## Egress allow-list (opt-in)
 
 Ingress is always denied by default. Egress is open unless `networkPolicies.egress.enabled` is
