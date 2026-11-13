@@ -2371,6 +2371,7 @@ export const en = {
   'work_item.field.last_reopened_at': 'Last reopened',
   'work_item.field.level': 'Level',
   'work_item.field.link': 'Link',
+  'work_item.field.mail_cc': 'Cc on the e-mail',
   'work_item.field.mail_commands': 'Commands in the e-mail',
   'work_item.field.note_visibility': 'Note visibility',
   'work_item.field.notify_emails': 'People kept informed',
@@ -2454,6 +2455,8 @@ export const en = {
   'work_item.history.linked': '{{who}} added a link ({{kind}})',
   'work_item.history.logged': '{{who}} logged {{duration}} ({{type}})',
   'work_item.history.logged_for': '{{who}} logged {{duration}} ({{type}}) for {{person}}',
+  'work_item.history.mail_cc.not_verified':
+    'People in Cc on this e-mail were not kept informed: the sender could not be verified',
   'work_item.history.mail_commands.not_verified':
     'Commands in this e-mail were not applied: the sender could not be verified',
   'work_item.history.reapproval_restarted':

@@ -2376,6 +2376,7 @@ export const ur: LabelResource = {
   'work_item.field.last_reopened_at': 'آخری بار دوبارہ کھلا',
   'work_item.field.level': 'سطح',
   'work_item.field.link': 'ربط',
+  'work_item.field.mail_cc': 'ای میل کا Cc',
   'work_item.field.mail_commands': 'ای میل کے احکام',
   'work_item.field.note_visibility': 'نوٹ کی مرئیت',
   'work_item.field.notify_emails': 'باخبر رکھے گئے لوگ',
@@ -2459,6 +2460,8 @@ export const ur: LabelResource = {
   'work_item.history.linked': '{{who}} نے ایک ربط شامل کیا ({{kind}})',
   'work_item.history.logged': '{{who}} نے {{duration}} درج کیے ({{type}})',
   'work_item.history.logged_for': '{{who}} نے {{person}} کے لیے {{duration}} درج کیے ({{type}})',
+  'work_item.history.mail_cc.not_verified':
+    'اس ای میل کے Cc میں موجود لوگوں کو باخبر نہیں رکھا گیا: بھیجنے والے کی تصدیق نہیں ہو سکی',
   'work_item.history.mail_commands.not_verified':
     'اس ای میل کے احکام لاگو نہیں ہوئے: بھیجنے والے کی تصدیق نہیں ہو سکی',
   'work_item.history.reapproval_restarted':

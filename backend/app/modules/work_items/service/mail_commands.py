@@ -342,3 +342,19 @@ async def note_not_verified(session: AsyncSession, record: WorkItem) -> None:
         changes=[Change(FIELD, None, NOT_VERIFIED)],
         source="email",
     )
+
+
+CC_FIELD = "mail_cc"  # "the e-mail's Cc were not kept informed: the sender was not verified"
+
+
+async def note_cc_not_verified(session: AsyncSession, record: WorkItem) -> None:
+    """The first mail's Cc were not kept informed, and why; no address named (lane B)."""
+    await record_changes(
+        session,
+        record_type=record.type,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=[Change(CC_FIELD, None, NOT_VERIFIED)],
+        source="email",
+    )

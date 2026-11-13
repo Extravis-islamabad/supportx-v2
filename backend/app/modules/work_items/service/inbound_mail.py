@@ -186,8 +186,11 @@ class IncidentsFromMail:
         values: dict[str, object] = (
             {} if template.template_id is None else {"template_id": template.template_id}
         )
+        # The Cc join only when the sender was vouched for (lane B's #485 review): a forged From
+        # with an attacker in Cc would otherwise copy every public reply to the attacker.
         kept = await _kept_informed(session, requester_id, cc)
-        if kept:
+        cc_set_aside = bool(kept) and not sender_verified
+        if kept and sender_verified:
             values["notify_emails"] = kept
         title = fit_subject(subject)
         if not title:  # neither a subject nor any text: a stored name, in the requester's language
@@ -212,6 +215,8 @@ class IncidentsFromMail:
             )
         # REQ-AST-025 AC2: the requester's asset when the tenant says so and they hold one.
         await asset_links.attach_emailed(session, made.record)
+        if cc_set_aside:  # said in the history, never naming the addresses
+            await mail_commands.note_cc_not_verified(session, made.record)
         if planned is None:
             return CreatedRecord(RECORD_TYPE, made.record.id, made.record.display_id)
         if planned.not_verified:

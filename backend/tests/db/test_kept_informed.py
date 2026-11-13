@@ -157,26 +157,68 @@ async def test_the_stop_link_asks_first_stops_once_and_tells_nothing_else(world:
     assert len(await _mails(world, org)) == 1
 
 
-async def test_the_first_mails_cc_is_kept_informed_but_never_ourselves(world: World) -> None:
-    """AC2: with the setting on (the default), the first mail's Cc join the list."""
+async def test_the_first_mails_cc_joins_only_from_a_vouched_sender(world: World) -> None:
+    """AC2, behind lane B's guard: a forged From with an attacker in Cc keeps nobody informed; a
+    vouched sender's Cc join (never our own address or the requester's)."""
     from email.message import EmailMessage  # noqa: PLC0415 - one test
 
     from app.modules.integrations.domain.mailboxes import Outcome  # noqa: PLC0415
-    from tests.db.test_mail_block_rules import _mailbox, _send  # noqa: PLC0415 - its helpers
+    from app.modules.integrations.infra.models import Mailbox  # noqa: PLC0415
+    from tests.db.test_mail_block_rules import _send  # noqa: PLC0415 - its helper
 
     org = world.a
-    mailbox_id = await _mailbox(world)
-    requester = (await world.sql("SELECT email FROM users WHERE id = $1", org.requester))[0]
-    message = EmailMessage()
-    message["From"] = requester["email"]
-    message["To"] = "help@alpha.test"
-    message["Cc"] = f"Boss@Acme.test, help@alpha.test, {requester['email']}"
-    message["Subject"] = "Printer down"
-    message["Message-ID"] = f"<{uuid.uuid4().hex}@mail.test>"
-    message.set_content("It is down.")
-    assert await _send(world, mailbox_id, message.as_bytes()) is Outcome.CREATED
-    (made,) = await world.sql(
-        "SELECT notify_emails FROM work_items WHERE tenant_id = $1 AND channel = 'email'",
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    try:
+        async with database.tenant_session(TenantContext(org.tenant)) as session:
+            box = Mailbox(
+                tenant_id=org.tenant, address="help@alpha.test", host="imap.alpha.test",
+                port=993, username="help@alpha.test", group_id=org.ga,
+                trusted_servers=["mx.alpha.test"],
+            )  # fmt: skip
+            session.add(box)
+            await session.flush()
+            mailbox_id = box.id
+    finally:
+        await database.dispose()
+    requester = str((await world.sql("SELECT email FROM users WHERE id = $1", org.requester))[0][0])
+
+    def mail(*, vouched: bool, subject: str) -> bytes:
+        message = EmailMessage()
+        if vouched:
+            domain = requester.rsplit("@", 1)[1]
+            message["Authentication-Results"] = f"mx.alpha.test; dmarc=pass header.from={domain}"
+        message["From"] = requester
+        message["To"] = "help@alpha.test"
+        message["Cc"] = f"Boss@Acme.test, help@alpha.test, {requester}"
+        message["Subject"] = subject
+        message["Message-ID"] = f"<{uuid.uuid4().hex}@mail.test>"
+        message.set_content("It is down.")
+        return message.as_bytes()
+
+    assert await _send(world, mailbox_id, mail(vouched=False, subject="Forged")) is Outcome.CREATED
+    (forged,) = await world.sql(
+        "SELECT id, notify_emails FROM work_items WHERE tenant_id = $1 AND subject = 'Forged'",
         org.tenant,
     )
-    assert list(made["notify_emails"]) == ["boss@acme.test"]
+    assert list(forged["notify_emails"]) == []
+    notes = await world.sql(
+        "SELECT new_value FROM field_changes WHERE tenant_id = $1 AND record_id = $2"
+        " AND field = 'mail_cc'",
+        org.tenant,
+        forged["id"],
+    )
+    assert [json.loads(n["new_value"]) for n in notes] == ["not_verified"]  # no address named
+
+    assert await _send(world, mailbox_id, mail(vouched=True, subject="Real")) is Outcome.CREATED
+    (real,) = await world.sql(
+        "SELECT notify_emails FROM work_items WHERE tenant_id = $1 AND subject = 'Real'",
+        org.tenant,
+    )
+    assert list(real["notify_emails"]) == ["boss@acme.test"]
+
+
+async def test_a_token_of_any_length_gets_the_same_answer(world: World) -> None:
+    slug = await slug_of(world, world.a)
+    for token in ("short", "A" * 43, "A" * 100):
+        answer = await _post(world, "stop", token, slug)
+        assert (answer.status_code, answer.json()["code"]) == (404, "notify_link_not_found")

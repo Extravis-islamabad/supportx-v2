@@ -327,8 +327,11 @@ export function useHistoryWords(
         : t('work_item.history.logged_for', { who, duration, type, person: owner });
     }
     // Commands written in a mail were set aside (WP-046a S6, lane B): say so, and why.
-    if (change.field === 'mail_commands' && typeof change.new === 'string') {
-      return t(`work_item.history.mail_commands.${change.new}`);
+    if (
+      (change.field === 'mail_commands' || change.field === 'mail_cc') &&
+      typeof change.new === 'string'
+    ) {
+      return t(`work_item.history.${change.field}.${change.new}`);
     }
     // Sent back for approval again (REQ-CHG-053): one sentence, naming what changed.
     if (change.field === 'reapproval_restarted') {

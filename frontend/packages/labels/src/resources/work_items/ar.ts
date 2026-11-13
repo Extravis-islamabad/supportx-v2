@@ -2667,6 +2667,7 @@ export const ar: LabelResource = {
   'work_item.field.last_reopened_at': 'آخر إعادة فتح',
   'work_item.field.level': 'المستوى',
   'work_item.field.link': 'رابط',
+  'work_item.field.mail_cc': 'النسخة على الرسالة',
   'work_item.field.mail_commands': 'الأوامر في الرسالة',
   'work_item.field.note_visibility': 'ظهور الملاحظة',
   'work_item.field.notify_emails': 'أشخاص على اطلاع',
@@ -2750,6 +2751,8 @@ export const ar: LabelResource = {
   'work_item.history.linked': 'أضاف {{who}} رابطًا ({{kind}})',
   'work_item.history.logged': 'سجّل {{who}} {{duration}} ({{type}})',
   'work_item.history.logged_for': 'سجّل {{who}} {{duration}} ({{type}}) لـ {{person}}',
+  'work_item.history.mail_cc.not_verified':
+    'لم يُبقَ من في النسخة على هذه الرسالة على اطلاع: تعذّر التحقق من المُرسل',
   'work_item.history.mail_commands.not_verified':
     'لم تُطبَّق الأوامر في هذه الرسالة: تعذّر التحقق من المُرسل',
   'work_item.history.reapproval_restarted':

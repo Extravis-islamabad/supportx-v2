@@ -19,7 +19,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -82,6 +82,7 @@ async def send_reply(
         retention=timedelta(days=settings.mail_content_retention_days),
     )
     excerpt = _plain(entry.body)
+    await purge_expired(session, now)
     sent = 0
     for address in record.notify_emails:
         token = new_token()
@@ -124,6 +125,25 @@ async def send_reply(
             log.warning("kept_informed_refused", code=refused.code, to=rules.masked(address))
     await session.flush()
     return sent
+
+
+PURGE_BATCH = 1000
+
+
+async def purge_expired(session: AsyncSession, now: datetime) -> int:
+    """Expired or used links go (one is made per address per reply): a bounded batch per send."""
+    found = list(
+        await session.scalars(
+            select(WorkItemNotifyLink.id)
+            .where(
+                (WorkItemNotifyLink.expires_at <= now) | (WorkItemNotifyLink.used_at.is_not(None))
+            )
+            .limit(PURGE_BATCH)
+        )
+    )
+    if found:
+        await session.execute(delete(WorkItemNotifyLink).where(WorkItemNotifyLink.id.in_(found)))
+    return len(found)
 
 
 class StopRefused(Exception):

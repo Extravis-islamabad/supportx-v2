@@ -1,8 +1,9 @@
 """People kept informed by e-mail on an incident (WP-046a S6; REQ-INC-066). Pure, no I/O.
 
 A record may carry up to `MAX` addresses (`work_items.notify_emails`) that get its public
-replies, never its notes. The first mail's Cc may join them (a type setting, on by default),
-within the same cap and never with one of our own mailbox addresses (a loop) or the requester's.
+replies, never its notes. The first mail's Cc may join them (a type setting, on by default), only
+when the mailbox's server vouched for the sender (lane B: a forged From must not copy every reply
+to its Cc), within the same cap and never with one of our own addresses or the requester's.
 
 Each mail to such an address carries a link to stop them (lane B's conditions): a random token,
 only its hash kept, for one record and one address, single use, and good until the earliest of

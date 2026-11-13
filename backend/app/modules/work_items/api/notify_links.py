@@ -44,7 +44,8 @@ NO_REFERRER = {"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"}
 class NotifyTokenIn(BaseModel):
     """The token from the page's URL fragment, and the link's `?t=` slug."""
 
-    token: str = Field(min_length=TOKEN_LENGTH, max_length=TOKEN_LENGTH)
+    # Any length up to a bound: a wrong one gets the same 404 as every refused token (lane B).
+    token: str = Field(max_length=TOKEN_LENGTH * 4)
     tenant: str | None = Field(default=None, max_length=63)
 
 
