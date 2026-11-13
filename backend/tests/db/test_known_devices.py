@@ -9,6 +9,7 @@ Through the real BFF sign-in and the real notification engine:
 - only keyed fingerprints are stored, and erasure deletes them.
 """
 
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime
@@ -131,3 +132,69 @@ async def test_a_rotated_ring_still_knows_the_device_and_erasure_forgets_it(bff:
         bff, "SELECT 1 FROM known_devices WHERE tenant_id = $1 AND user_id = $2", a, user_id
     )
     assert left == []
+
+
+async def test_two_sign_ins_at_once_from_a_new_device_never_collide(bff: Bff) -> None:
+    """Lane B (#486): console and portal after SSO, or two tabs, at the same moment."""
+    a, _b = bff.tenants
+    person = bff.user("a", email=f"race-{uuid.uuid4().hex[:8]}@demo.test")
+    assert (await bff.login(person)).status_code == 302  # the first device, remembered
+    (user,) = await _sql(
+        bff, "SELECT id FROM users WHERE tenant_id = $1 AND email = $2", a, person.email
+    )
+    user_id = user["id"]
+    keys = (b"k" * 32,)
+    now = datetime.now(UTC)
+    database = Database(create_engine(bff.db.app_url, application_name="test"))
+    try:
+        results = await asyncio.gather(
+            *(
+                known_devices.on_sign_in(
+                    database,
+                    tenant_id=a,
+                    user_id=user_id,
+                    keys=keys,
+                    device="firefox:linux",
+                    ip="198.51.100.20",
+                    place=None,
+                    now=now,
+                )
+                for _ in range(2)
+            )
+        )
+        # The same device with the ring rotated: two at once again, no error either.
+        rotated = (b"r" * 32, *keys)
+        await asyncio.gather(
+            *(
+                known_devices.on_sign_in(
+                    database,
+                    tenant_id=a,
+                    user_id=user_id,
+                    keys=rotated,
+                    device="firefox:linux",
+                    ip="198.51.100.20",
+                    place=None,
+                    now=now,
+                )
+                for _ in range(2)
+            )
+        )
+    finally:
+        await database.dispose()
+    assert sorted(results) == [known_devices.Seen.KNOWN, known_devices.Seen.NEW]
+    events = await _sql(
+        bff,
+        "SELECT 1 FROM outbox_events WHERE tenant_id = $1 AND event_type = $2"
+        " AND envelope->'payload'->>'user_id' = $3",
+        a,
+        EVENT,
+        str(user_id),
+    )
+    assert len(events) == 1  # told once
+    rows = await _sql(
+        bff,
+        "SELECT fingerprint FROM known_devices WHERE tenant_id = $1 AND user_id = $2",
+        a,
+        user_id,
+    )
+    assert len(rows) == 2  # the first device, and this one once, under the newest key only

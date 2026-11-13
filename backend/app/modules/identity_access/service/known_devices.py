@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import delete, exists, func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import Database
@@ -48,26 +49,44 @@ async def remember(
     if not prints:
         return Seen.UNKNOWN
     newest = prints[0]
-    rows = list(
-        await session.scalars(
-            select(KnownDevice).where(
-                KnownDevice.user_id == user_id, KnownDevice.fingerprint.in_(list(prints))
-            )
-        )
+    known = await session.scalar(
+        select(exists().where(KnownDevice.user_id == user_id, KnownDevice.fingerprint.in_(prints)))
     )
-    if rows:
-        # The newest key's row if there is one; else move an older key's row to the newest.
-        row = next((r for r in rows if r.fingerprint == newest), rows[0])
-        row.fingerprint = newest
-        row.last_seen_at = now
+    if known:
+        # Seen before, maybe under an older ring key: upsert the newest key's row, then drop the
+        # older keys' rows. Both are conflict-free, so two sign-ins at once never collide.
+        await session.execute(
+            insert(KnownDevice)
+            .values(
+                tenant_id=tenant_id,
+                id=new_id(),
+                user_id=user_id,
+                fingerprint=newest,
+                last_seen_at=now,
+            )
+            .on_conflict_do_update(constraint="uq_known_devices_print", set_={"last_seen_at": now})
+        )
+        if len(prints) > 1:
+            await session.execute(
+                delete(KnownDevice).where(
+                    KnownDevice.user_id == user_id, KnownDevice.fingerprint.in_(prints[1:])
+                )
+            )
         return Seen.KNOWN
     first = not await session.scalar(select(exists().where(KnownDevice.user_id == user_id)))
-    session.add(
-        KnownDevice(
+    # ON CONFLICT DO NOTHING (lane B, #486): another sign-in from the same new device at the same
+    # moment (console and portal after SSO, two tabs) inserted it first. No row back means that
+    # one tells the person; this one is KNOWN and raises nothing, never a 500.
+    added = await session.scalar(
+        insert(KnownDevice)
+        .values(
             tenant_id=tenant_id, id=new_id(), user_id=user_id, fingerprint=newest, last_seen_at=now
         )
+        .on_conflict_do_nothing(constraint="uq_known_devices_print")
+        .returning(KnownDevice.id)
     )
-    await session.flush()
+    if added is None:
+        return Seen.KNOWN
     await _trim(session, user_id)
     return Seen.FIRST if first else Seen.NEW
 

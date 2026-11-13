@@ -40,6 +40,9 @@ spec:
             - name: SUPPORTX_SERVICE_NAME
               value: supportx-api
             {{- if .Values.geoip.existingClaim }}
+            {{- if not (regexMatch "^[A-Za-z0-9._-]+$" .Values.geoip.file) }}
+            {{- fail "geoip.file must be a plain file name on the claim (no path)" }}
+            {{- end }}
             # The approximate sign-in place (WP-057 S2b, D-170): the mounted DB-IP Lite file.
             - name: SUPPORTX_GEOIP_DB
               value: /var/lib/supportx/geoip/{{ .Values.geoip.file }}

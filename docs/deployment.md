@@ -622,7 +622,11 @@ geoip:
 ```
 
 - **Refresh it monthly through the mirror**, and in air-gapped installs from the offline update
-  bundle, by replacing the file on the volume. The API pods read it again when they restart.
+  bundle, by replacing the file on the volume. Each API pod opens it once, so roll the API out
+  after a refresh (`kubectl rollout restart deployment/<release>-api`); until then the pods keep
+  the file they opened.
+- **On a single node** (k3s), a `ReadWriteOnce` claim from the local-path provisioner works:
+  every API pod runs on that node.
 - **Admins see its age:** the card shows the date the database was built.
 - **Without it,** sign-ins outside the mapped ranges show no city. Nothing else changes and
   nothing fails.
