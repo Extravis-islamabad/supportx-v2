@@ -6,11 +6,17 @@
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check labels-sort keycloak-realm keycloak-theme keycloak-identity keycloak-dev-sync brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
+	frontend-install-check labels-sort mobile-install-check mobile-lint mobile-typecheck mobile-test keycloak-realm keycloak-theme keycloak-identity keycloak-dev-sync brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
 	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
+# The mobile app is its own pnpm project (React 19, D-157; docs/architecture/mobile.md).
+MOBILE := cd mobile &&
+# Expo telemetry stays off (Haider, 2026-11-06; ADR-044 item 7): nothing goes to Expo's servers.
+# Exported by make itself, so it reaches every recipe in any shell (cmd.exe on Windows has no
+# `export`).
+export EXPO_NO_TELEMETRY := 1
 PIP_AUDIT_VERSION := 2.10.1
 # Semgrep (audit row 27): the official image, pinned by version and digest; CI runs `make semgrep`.
 SEMGREP_IMAGE := semgrep/semgrep:1.182.1@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6
@@ -28,23 +34,25 @@ DEV_ENV := $(DEV_DIR)/.env
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
 
-setup: ## Install backend (uv, Python 3.12) and frontend (pnpm) deps, install git hooks
+setup: ## Install backend (uv, Python 3.12), frontend and mobile (pnpm) deps, install git hooks
 	$(BACKEND) uv sync
 	$(FRONTEND) pnpm install --frozen-lockfile
+	$(MOBILE) pnpm install --frozen-lockfile
 	uv run --project backend pre-commit install
 	$(MAKE) generated
 
-lint: backend-lint frontend-lint ## Lint everything (ruff, import-linter, OpenAPI + event schema drift, ESLint, Prettier)
+lint: backend-lint frontend-lint mobile-lint ## Lint everything (ruff, import-linter, OpenAPI + event schema drift, ESLint, Prettier)
 
-typecheck: backend-typecheck frontend-typecheck ## Type-check everything (mypy strict, tsc strict)
+typecheck: backend-typecheck frontend-typecheck mobile-typecheck ## Type-check everything (mypy strict, tsc strict)
 
-test: backend-test frontend-test ## Run all tests (pytest, Vitest)
+test: backend-test frontend-test mobile-test ## Run all tests (pytest, Vitest, Jest for mobile)
 
-check: frontend-install-check lint typecheck test ## Lockfile install as CI does, then lint + typecheck + test
+check: frontend-install-check mobile-install-check lint typecheck test ## Lockfile install as CI does, then lint + typecheck + test
 
 format: ## Auto-format and auto-fix everything
 	$(BACKEND) uv run ruff format . && uv run ruff check --fix .
 	$(FRONTEND) pnpm format
+	$(MOBILE) pnpm format
 
 backend-env: ## Create backend/.env pointing the API at the local dev stack (never overwrites)
 	@bash $(DEV_DIR)/scripts/backend-env.sh
@@ -289,6 +297,20 @@ frontend-typecheck: generated-frontend
 
 frontend-test: generated
 	$(FRONTEND) pnpm test
+
+mobile-install-check:
+	$(MOBILE) CI=true pnpm install --frozen-lockfile
+
+# The shared packages import the generated API types (schema.ts, never committed, D-127):
+# without them every API call is `any` and the strict lint fails (no-unsafe-*).
+mobile-lint: generated-frontend
+	$(MOBILE) pnpm lint && pnpm format:check
+
+mobile-typecheck: generated-frontend
+	$(MOBILE) pnpm typecheck
+
+mobile-test: generated-frontend
+	$(MOBILE) pnpm test
 
 # --- Local dev stack -----------------------------------------------------------------------------
 
