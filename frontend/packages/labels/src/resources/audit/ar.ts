@@ -2,6 +2,13 @@ import type { LabelResource } from '../en';
 
 // audit labels (see ../README.md).
 export const ar: LabelResource = {
+  'access_kind.ai_masking': 'أُخفيت للذكاء الاصطناعي',
+  'access_kind.export': 'صُدّرت',
+  'access_kind.view': 'عُرضت',
+  'access_purpose.ai_summary': 'ملخص بالذكاء الاصطناعي',
+  'access_purpose.audit_entry': 'سجل تدقيق',
+  'access_purpose.people_export': 'تصدير الأشخاص',
+  'access_purpose.person_profile': 'ملف الشخص',
   'actor_type.system': 'النظام',
   'actor_type.user': 'مستخدم',
   'audit.action.access.settings_changed': 'غيّر من يمكنه رؤية الفنيين',
@@ -82,6 +89,7 @@ export const ar: LabelResource = {
   'audit.action.audit.entries_archived': 'أرشفة شهر من سجل التدقيق',
   'audit.action.audit.export_downloaded': 'نزّل تصدير التدقيق',
   'audit.action.audit.export_requested': 'طلب تصدير التدقيق',
+  'audit.action.audit.personal_data_access_viewed': 'عرض من اطّلع على البيانات الشخصية',
   'audit.action.audit.probing_detected': 'رُصدت محاولات مرفوضة متكررة',
   'audit.action.audit.settings_changed': 'غيّر إعدادات التدقيق',
   'audit.action.audit.subject_erased': 'محا البيانات الشخصية لشخص',
@@ -680,6 +688,9 @@ export const ar: LabelResource = {
   'audit.run_status.failed': 'فشل',
   'audit.run_status.passed': 'تم التحقق',
   'audit.run_status.running': 'قيد التشغيل',
+  'audit.setting.personal_data_log': 'تسجيل الوصول إلى البيانات الشخصية',
+  'audit.setting.personal_data_log.help':
+    'تسجيل من يعرض البيانات الشخصية للأشخاص أو يصدّرها. تُحفظ الرموز والأوقات فقط، ولا تُحفظ القيم أبدًا.',
   'audit.setting.read_categories': 'القراءات الحساسة التي تُسجَّل',
   'audit.setting.read_categories.help': 'قراءة سجل التدقيق نفسه تُسجَّل دائمًا.',
   'audit.setting.read_window_minutes': 'تسجيل القراءة المتكررة مرة كل (دقائق)',

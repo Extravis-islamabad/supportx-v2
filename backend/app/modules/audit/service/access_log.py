@@ -60,7 +60,6 @@ async def log_enabled(session: AsyncSession) -> bool:
 async def record_access(  # noqa: PLR0913 - who, whose, what and why, keyword-only
     session: AsyncSession,
     *,
-    accessor: Accessor,
     kind: str,
     purpose: str,
     subject_person_id: uuid.UUID | None = None,
@@ -68,19 +67,28 @@ async def record_access(  # noqa: PLR0913 - who, whose, what and why, keyword-on
     fields: Sequence[str] = (),
     counts: dict[str, int] | None = None,
     client: str | None = None,
+    accessor: Accessor | None = None,
     now: datetime | None = None,
 ) -> bool:
     """Log one access when the log is on; whether a row was written (False: off or deduplicated).
 
     `kind` is `view`, `export` or `ai_masking`; `purpose` a code naming the screen or job
     (`person_profile`, `people_export`, `audit_entry`, `ai_summary`...). Name the person, the
-    record, or both. Nothing here ever carries a value.
+    record, or both. Nothing here ever carries a value. `accessor` defaults to the session's
+    person (the system for a job).
     """
     if subject_person_id is None and record is None:
         msg = "an access names a person or a record"
         raise ValueError(msg)
     if not await log_enabled(session):
         return False
+    if accessor is None:  # the request's own person (or the system for a job)
+        context = session.info[SESSION_TENANT_KEY]
+        accessor = (
+            Accessor(AuditActorType.PERSON, context.user_id)
+            if context.user_id is not None
+            else Accessor(AuditActorType.SYSTEM, None)
+        )
     at = now or datetime.now(UTC)
     record_type, record_id = record if record is not None else (None, None)
     dedupe = None

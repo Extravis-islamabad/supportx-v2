@@ -404,6 +404,9 @@ export const ar: LabelResource = {
   'permission.audit.view': 'قراءة سجل التدقيق',
   'permission.audit.view.description':
     'البحث في إدخالات التدقيق وفتحها، بما في ذلك عناوين IP، ورؤية حالة السلامة.',
+  'permission.audit.view_personal_data_access': 'عرض من اطّلع على البيانات الشخصية',
+  'permission.audit.view_personal_data_access.description':
+    'معرفة من عرض البيانات الشخصية لشخص ما أو صدّرها ومتى. وقراءة هذا السجل تُسجَّل بدورها.',
   'permission.automation.manage': 'إدارة الأتمتة',
   'permission.automation.manage.description':
     'إضافة قواعد العمل والتوجيه والإسناد التلقائي وتغييرها وترتيبها وتشغيلها.',

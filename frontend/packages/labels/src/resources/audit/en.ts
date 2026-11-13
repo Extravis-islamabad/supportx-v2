@@ -1,5 +1,12 @@
 // audit labels (see ../README.md). English is the reference.
 export const en = {
+  'access_kind.ai_masking': 'Masked for AI',
+  'access_kind.export': 'Exported',
+  'access_kind.view': 'Viewed',
+  'access_purpose.ai_summary': 'AI summary',
+  'access_purpose.audit_entry': 'Audit entry',
+  'access_purpose.people_export': 'People export',
+  'access_purpose.person_profile': 'Person profile',
   'actor_type.system': 'The system',
   'actor_type.user': 'A user',
   'audit.action.access.settings_changed': 'Changed who can see technicians',
@@ -80,6 +87,7 @@ export const en = {
   'audit.action.audit.entries_archived': 'Archived a month of the audit log',
   'audit.action.audit.export_downloaded': 'Downloaded an audit export',
   'audit.action.audit.export_requested': 'Requested an audit export',
+  'audit.action.audit.personal_data_access_viewed': 'Viewed who accessed personal data',
   'audit.action.audit.probing_detected': 'Repeated refused attempts detected',
   'audit.action.audit.settings_changed': 'Changed audit settings',
   'audit.action.audit.subject_erased': "Erased a person's personal data",
@@ -686,6 +694,9 @@ export const en = {
   'audit.run_status.failed': 'Failed',
   'audit.run_status.passed': 'Verified',
   'audit.run_status.running': 'Running',
+  'audit.setting.personal_data_log': 'Log access to personal data',
+  'audit.setting.personal_data_log.help':
+    "Record who views or exports people's personal data. Only codes and times are kept, never the values.",
   'audit.setting.read_categories': 'Sensitive reads that are logged',
   'audit.setting.read_categories.help': 'Reading the audit log itself is always logged.',
   'audit.setting.read_window_minutes': 'Log a repeated read once per (minutes)',

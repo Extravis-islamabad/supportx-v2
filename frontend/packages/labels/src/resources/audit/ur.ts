@@ -2,6 +2,13 @@ import type { LabelResource } from '../en';
 
 // audit labels (see ../README.md).
 export const ur: LabelResource = {
+  'access_kind.ai_masking': 'AI کے لیے چھپایا گیا',
+  'access_kind.export': 'ایکسپورٹ کیا گیا',
+  'access_kind.view': 'دیکھا گیا',
+  'access_purpose.ai_summary': 'AI خلاصہ',
+  'access_purpose.audit_entry': 'آڈٹ اندراج',
+  'access_purpose.people_export': 'لوگوں کا ایکسپورٹ',
+  'access_purpose.person_profile': 'شخص کی پروفائل',
   'actor_type.system': 'سسٹم',
   'actor_type.user': 'ایک صارف',
   'audit.action.access.settings_changed': 'بدلا کہ ٹیکنیشنز کو کون دیکھ سکتا ہے',
@@ -82,6 +89,7 @@ export const ur: LabelResource = {
   'audit.action.audit.entries_archived': 'آڈٹ لاگ کا ایک مہینہ محفوظ کیا',
   'audit.action.audit.export_downloaded': 'آڈٹ برآمد ڈاؤن لوڈ کی',
   'audit.action.audit.export_requested': 'آڈٹ برآمد کی درخواست کی',
+  'audit.action.audit.personal_data_access_viewed': 'دیکھا کس نے ذاتی ڈیٹا تک رسائی کی',
   'audit.action.audit.probing_detected': 'بار بار مسترد کوششیں پکڑی گئیں',
   'audit.action.audit.settings_changed': 'آڈٹ کی ترتیبات تبدیل کیں',
   'audit.action.audit.subject_erased': 'کسی فرد کا ذاتی ڈیٹا مٹایا',
@@ -684,6 +692,9 @@ export const ur: LabelResource = {
   'audit.run_status.failed': 'ناکام',
   'audit.run_status.passed': 'تصدیق شدہ',
   'audit.run_status.running': 'جاری',
+  'audit.setting.personal_data_log': 'ذاتی ڈیٹا تک رسائی درج کریں',
+  'audit.setting.personal_data_log.help':
+    'درج کریں کہ کون لوگوں کا ذاتی ڈیٹا دیکھتا یا ایکسپورٹ کرتا ہے۔ صرف کوڈ اور وقت محفوظ ہوتے ہیں، قدریں کبھی نہیں۔',
   'audit.setting.read_categories': 'حساس پڑھائیاں جو لاگ ہوتی ہیں',
   'audit.setting.read_categories.help': 'خود آڈٹ لاگ پڑھنا ہمیشہ لاگ ہوتا ہے۔',
   'audit.setting.read_window_minutes': 'بار بار پڑھنے کو ہر (منٹ) میں ایک بار لاگ کریں',

@@ -26,6 +26,7 @@ pytestmark = MODULE_LOOP
 __all__ = ["module_world", "shared_world"]  # the fixtures, re-used
 
 NOW = datetime(2026, 11, 14, 9, 0, tzinfo=UTC)
+REPORT = "/audit/personal-data-access"
 
 
 async def _switch_on(world: World, tenant: uuid.UUID) -> None:
@@ -171,3 +172,41 @@ async def test_a_removed_key_still_wrapping_data_keys_is_found(world: World) -> 
     finally:
         # The shared test database must not keep a key no ring has: later apps would not start.
         await world.sql("DELETE FROM tenant_data_keys WHERE kek_id = $1", gone)
+
+
+async def test_a_profile_view_is_one_entry_and_the_report_is_itself_audited(world: World) -> None:
+    """REQ-AUD-017 AC1 and AC2, through the API; lane B: the report needs its own right."""
+    await _switch_on(world, world.a.tenant)
+    seen = world.a.requester
+    for _ in range(2):  # a refetch within 15 minutes is the same access
+        opened = await world.call("GET", f"/users/{seen}", world.a, user=world.a.admin)
+        assert opened.status_code == 200, opened.text
+    report = await world.call(
+        "GET",
+        "/audit/personal-data-access",
+        world.a,
+        user=world.a.admin,
+        params={"person": str(seen)},
+    )
+    assert report.status_code == 200, report.text
+    items = [i for i in report.json()["items"] if i["purpose"] == "person_profile"]
+    assert len(items) == 1
+    (item,) = items
+    assert (item["kind"], item["accessor_id"]) == ("view", str(world.a.admin))
+    assert "email" in item["fields"]
+    assert "value" not in item  # codes only
+    audited = await world.sql(
+        "SELECT object_id FROM audit_entries WHERE tenant_id = $1"
+        " AND action = 'audit.personal_data_access_viewed'",
+        world.a.tenant,
+    )
+    assert str(seen) in {r["object_id"] for r in audited}
+    # Without the right the log does not exist for you.
+    refused = await world.call(
+        "GET",
+        "/audit/personal-data-access",
+        world.a,
+        user=world.a.tech_a,
+        params={"person": str(seen)},
+    )
+    assert refused.status_code == 404
