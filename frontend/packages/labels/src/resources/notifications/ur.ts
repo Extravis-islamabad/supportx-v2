@@ -30,6 +30,12 @@ export const ur: LabelResource = {
   'event_delivery.stalled.title': 'واقعات کی ترسیل رکی ہوئی ہے',
   'event_delivery_state.ok': 'ترسیل جاری',
   'event_delivery_state.stalled': 'رکی ہوئی',
+  'notice.sign_in_secret.days_1': 'ایک دن کے اندر ختم ہو جائے گی',
+  'notice.sign_in_secret.days_30': '30 دن میں ختم ہو جائے گی',
+  'notice.sign_in_secret.days_7': '7 دن میں ختم ہو جائے گی',
+  'notice.sign_in_secret.expired': 'ختم ہو چکی ہے',
+  'notice.sign_in_secret.item_certificate': 'دستخطی سرٹیفکیٹ',
+  'notice.sign_in_secret.item_client_secret': 'کلائنٹ کی خفیہ کلید',
   'notification.open_record': '{{id}} کھولیں',
   'notification_area.announcement': 'اعلانات',
   'notification_area.asset': 'اثاثے',
@@ -47,6 +53,7 @@ export const ur: LabelResource = {
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.security': 'سیکیورٹی اطلاعات',
   'notification_area.service_request': 'سروس کی درخواستیں',
+  'notification_area.sign_in_secret': 'سائن اِن کے سرٹیفکیٹ اور خفیہ کلیدیں',
   'notification_area.task': 'کام',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
@@ -136,7 +143,11 @@ export const ur: LabelResource = {
   'notification_event.release.public_reply': 'درخواست گزار کو جواب',
   'notification_event.reminder.due': 'آپ کی یاد دہانی',
   'notification_event.rule_step.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
+  'notification_event.security.locked_out': 'ناکام سائن اِن کے بعد آپ کا اکاؤنٹ مقفل ہو گیا',
+  'notification_event.security.mfa_added': 'آپ کے اکاؤنٹ میں سائن اِن جانچ (MFA) شامل کی گئی',
+  'notification_event.security.mfa_removed': 'آپ کے اکاؤنٹ سے سائن اِن جانچ (MFA) ہٹا دی گئی',
   'notification_event.security.new_device': 'نئے براؤزر یا آلے سے سائن اِن',
+  'notification_event.security.password_changed': 'آپ کا پاس ورڈ بدل دیا گیا',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
@@ -146,6 +157,8 @@ export const ur: LabelResource = {
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
+  'notification_event.sign_in_secret.expiring':
+    'سائن اِن کا سرٹیفکیٹ یا خفیہ کلید ختم ہونے والی ہے',
   'notification_event.task.assigned': 'آپ کو ایک کام دیا گیا',
   'notification_event.task.overdue': 'آپ کا کام تاخیر کا شکار ہے',
   'notification_event.task.starts_soon': 'آپ کا کام جلد شروع ہو رہا ہے',
@@ -197,6 +210,7 @@ export const ur: LabelResource = {
   'notification_recipient.reviewer': 'جائزہ کار',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.stock_watchers': 'کم از کم حد کے نامزد لوگ',
+  'notification_recipient.tenant_admins': 'ادارے کے ایڈمنسٹریٹرز',
   'notification_recipient.the_person': 'متعلقہ شخص',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
   'notification_recipient.workflow_audience': 'ورک فلو میں نامزد افراد',
@@ -651,12 +665,33 @@ export const ur: LabelResource = {
     '{{ record.display_id }} کسی کو تفویض کیے بغیر اپنے گروپ میں چلا گیا: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'کسی کو تفویض نہیں: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.locked_out.body':
+    'السلام علیکم {{ recipient.name }}،\n\nغلط پاس ورڈ سے کئی بار سائن اِن کی کوشش کے بعد آپ کا اکاؤنٹ {{ notice.when }} پر مقفل ہو گیا ({{ notice.place }})۔\n\nآپ جلد از جلد {{ notice.opens_at }} کے بعد دوبارہ کوشش کر سکتے ہیں۔ مزید غلط پاس ورڈ آزمائے گئے تو انتظار بڑھ جائے گا۔\n\nاگر یہ آپ نہیں تھے تو کوئی آپ کا یوزر نیم جانتا ہو سکتا ہے۔ اندر آنے کے بعد اپنا پاس ورڈ بدلیں اور اپنا اکاؤنٹ دیکھیں: {{ record.link }}',
+  'notification_template.security.locked_out.in_app':
+    'ناکام سائن اِن کے بعد آپ کا اکاؤنٹ مقفل ہو گیا۔ جلد از جلد {{ notice.opens_at }} کے بعد دوبارہ کوشش کریں۔',
+  'notification_template.security.locked_out.subject':
+    'ناکام سائن اِن کے بعد آپ کا اکاؤنٹ مقفل ہو گیا',
+  'notification_template.security.mfa_added.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کے اکاؤنٹ میں {{ notice.when }} پر سائن اِن جانچ (تصدیقی ایپ، سکیورٹی کی یا ریکوری کوڈ) شامل کی گئی ({{ notice.place }})۔\n\nاگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔ اگر نہیں تو فوراً اپنے منتظم کو بتائیں۔ آپ کا اکاؤنٹ: {{ record.link }}',
+  'notification_template.security.mfa_added.in_app':
+    'آپ کے اکاؤنٹ میں سائن اِن جانچ (MFA) شامل کی گئی ({{ notice.when }})',
+  'notification_template.security.mfa_added.subject': 'آپ کے اکاؤنٹ میں سائن اِن جانچ شامل کی گئی',
+  'notification_template.security.mfa_removed.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کے اکاؤنٹ سے {{ notice.when }} پر سائن اِن جانچ (تصدیقی ایپ، سکیورٹی کی یا ریکوری کوڈ) ہٹا دی گئی ({{ notice.place }})۔\n\nاگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔ اگر نہیں تو اپنا پاس ورڈ بدلیں اور فوراً اپنے منتظم کو بتائیں۔ آپ کا اکاؤنٹ: {{ record.link }}',
+  'notification_template.security.mfa_removed.in_app':
+    'آپ کے اکاؤنٹ سے سائن اِن جانچ (MFA) ہٹا دی گئی ({{ notice.when }})',
+  'notification_template.security.mfa_removed.subject': 'آپ کے اکاؤنٹ سے سائن اِن جانچ ہٹا دی گئی',
   'notification_template.security.new_device.body':
     'السلام علیکم {{ recipient.name }}،\n\nآپ کے اکاؤنٹ میں ابھی ایسے براؤزر یا آلے سے سائن اِن ہوا جو آپ نے پہلے استعمال نہیں کیا:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nاگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔ اگر نہیں، تو اپنا پاس ورڈ بدلیں اور اپنے اکاؤنٹ میں "باقی ہر جگہ سے سائن آؤٹ کریں" استعمال کریں: {{ record.link }}',
   'notification_template.security.new_device.in_app':
     '{{ notice.device }} سے نیا سائن اِن ({{ notice.place }})',
   'notification_template.security.new_device.subject':
     'آپ کے اکاؤنٹ میں نیا سائن اِن: {{ notice.device }}',
+  'notification_template.security.password_changed.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کے اکاؤنٹ کا پاس ورڈ {{ notice.when }} پر بدلا گیا ({{ notice.place }})۔\n\nاگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔ اگر نہیں تو فوراً سائن اِن صفحے سے پاس ورڈ ری سیٹ کریں اور اپنے منتظم کو بتائیں۔ آپ کا اکاؤنٹ: {{ record.link }}',
+  'notification_template.security.password_changed.in_app':
+    'آپ کا پاس ورڈ بدل دیا گیا ({{ notice.when }})',
+  'notification_template.security.password_changed.subject': 'آپ کا پاس ورڈ بدل دیا گیا',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
@@ -711,6 +746,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
+  'notification_template.sign_in_secret.expiring.body':
+    'السلام علیکم {{ recipient.name }}،\n\nسنگل سائن آن "{{ record.title }}" کی {{ notice.item }} {{ notice.left }} ({{ notice.expires }})۔ ختم ہونے پر لوگ اس کے ذریعے سائن اِن نہیں کر سکیں گے۔ شناخت فراہم کنندہ سے اس کی تجدید کریں اور سائن اِن اور سیکیورٹی میں اپ ڈیٹ کریں: {{ record.link }}',
+  'notification_template.sign_in_secret.expiring.in_app':
+    '{{ record.title }}: {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
+  'notification_template.sign_in_secret.expiring.subject':
+    'سنگل سائن آن {{ record.title }}: {{ notice.item }} {{ notice.left }}',
   'notification_template.task.assigned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر کام "{{ task.title }}" اب آپ کا ہے۔',
   'notification_template.task.assigned.in_app':
@@ -762,8 +803,13 @@ export const ur: LabelResource = {
   'notification_variable.requester.name': 'درخواست گزار › نام',
   'notification_variable.rule.name': 'اصول',
   'notification_variable.security.device': 'سائن اِن › براؤزر اور آلہ',
+  'notification_variable.security.opens_at': 'قفل › دوبارہ کوشش کا جلد از جلد وقت',
   'notification_variable.security.place': 'سائن اِن › تقریبی مقام',
   'notification_variable.security.when': 'سائن اِن › وقت',
+  'notification_variable.sign_in_secret.expires': 'سنگل سائن آن › ختم ہونے کی تاریخ',
+  'notification_variable.sign_in_secret.item': 'سنگل سائن آن › کیا ختم ہو رہا ہے',
+  'notification_variable.sign_in_secret.left': 'سنگل سائن آن › باقی وقت',
+  'notification_variable.sign_in_secret.provider': 'سنگل سائن آن › نام',
   'notification_variable.site.name': 'مقام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
   'notification_variable.stock.minimum': 'اسٹاک › کم از کم',

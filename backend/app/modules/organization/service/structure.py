@@ -763,6 +763,18 @@ async def active_unit_ids(
     return frozenset(found)
 
 
+async def site_names(session: AsyncSession, ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The names of these sites of the session's tenant (RLS), read only; unknown IDs are absent.
+
+    Removed sites keep their name here, so something that happened at a site removed since
+    (a sign-in notice, a history line) still names it.
+    """
+    if not ids:
+        return {}
+    rows = await session.execute(select(Site.id, Site.name).where(Site.id.in_(list(ids))))
+    return dict(rows.tuples().all())
+
+
 async def leave_groups(
     session: AsyncSession, user_id: uuid.UUID, group_ids: Sequence[uuid.UUID]
 ) -> None:

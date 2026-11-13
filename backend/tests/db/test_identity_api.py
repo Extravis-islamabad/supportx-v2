@@ -68,6 +68,8 @@ class FakeAdmin:
     accounts: dict[str, KeycloakUser] = field(default_factory=dict)  # by id
     members: dict[str, set[str]] = field(default_factory=dict)  # org id -> user ids
     account_attributes: dict[str, dict[str, str]] = field(default_factory=dict)
+    passwords_set: list[str] = field(default_factory=list)  # account IDs (never the password)
+    verified: dict[str, bool] = field(default_factory=dict)  # e-mail -> emailVerified at create
     emails: list[tuple[str, list[str], int]] = field(default_factory=list)
     required: dict[str, list[str]] = field(default_factory=dict)
     # Keycloak user id -> its credentials (WP-039 session 3: MFA).
@@ -79,8 +81,17 @@ class FakeAdmin:
     async def find_user(self, email: str) -> KeycloakUser | None:
         return next((a for a in self.accounts.values() if a.email == email.lower()), None)
 
-    async def create_user(self, *, email: str, first_name: str, last_name: str, locale: str) -> str:
+    async def create_user(
+        self,
+        *,
+        email: str,
+        first_name: str,
+        last_name: str,
+        locale: str,
+        email_verified: bool = True,
+    ) -> str:
         del first_name, last_name
+        self.verified[email.lower()] = email_verified
         # Fresh IDs like Keycloak's: an account made again after a delete is a new one.
         account = KeycloakUser(
             id=f"kc-{uuid.uuid4().hex[:8]}", email=email.lower(), enabled=True, has_password=False
@@ -108,6 +119,18 @@ class FakeAdmin:
 
     async def require_actions(self, user_id: str, actions: list[str]) -> None:
         self.required[user_id] = actions
+
+    async def clear_actions(self, user_id: str, actions: list[str]) -> None:
+        self.required[user_id] = [a for a in self.required.get(user_id, []) if a not in actions]
+
+    async def set_password(self, user_id: str, password: str) -> None:
+        """Keycloak's policy, as far as a test needs it: 12 characters at least."""
+        if len(password) < 12:
+            raise IdentityAdminRefused(400, "invalidPasswordMinLengthMessage")
+        self.passwords_set.append(user_id)
+        account = self.accounts.get(user_id)
+        if account is not None:
+            self.accounts[user_id] = replace(account, has_password=True)
 
     async def credentials(self, user_id: str) -> list[Credential]:
         return list(self.credentials_of.get(user_id, []))
@@ -276,7 +299,15 @@ async def world(
 
     monkeypatch.setattr(sso_service, "fetch_document", fetch)
     monkeypatch.setattr(sso_service, "client_accepted", client_check)
-    app: FastAPI = create_app(make_settings(database_url=migrated_db.app_url))
+    # Outgoing mail set up (it feeds Keycloak's e-mails too): invitations go by e-mail. The
+    # copied-link tests (test_invite_links.py) turn it off (REQ-SEC-021).
+    app: FastAPI = create_app(
+        make_settings(
+            database_url=migrated_db.app_url,
+            mail_smtp_host="mail.test",
+            mail_from_address="support@acme.test",
+        )
+    )
     async with app.router.lifespan_context(app):
         setattr(app.state, SESSION_RESOLVER_STATE, fake_session)
         admin = FakeAdmin()

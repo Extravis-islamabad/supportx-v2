@@ -30,6 +30,7 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.identity_access.domain.security_notice_import import NOTICE_TYPES
 from app.modules.identity_access.domain.sign_in import Source, keycloak_outcome, keycloak_reason
 from app.modules.identity_access.domain.sign_in_import import (
     IMPORT_TYPES,
@@ -54,6 +55,7 @@ from app.modules.identity_access.infra.models import (
     SsoProvider,
     User,
 )
+from app.modules.identity_access.service import security_notice_import as notices
 from app.modules.organization import tenant_for_host, tenant_for_slug
 from app.shared.events import record_event
 from app.shared.ids import new_id
@@ -61,6 +63,8 @@ from app.shared.ids import new_id
 log = get_logger(__name__)
 
 IMPORT_CAP = 5000
+# One read, one cursor: the log's types and the person's notices' (REQ-SEC-033 part 2).
+READ_TYPES = IMPORT_TYPES + NOTICE_TYPES
 PAGE = 500
 SETTLE_MS = 5000  # a millisecond this old takes no new events: offsets into it are stable
 FIRST_RUN_LOOKBACK_MS = 24 * 3600 * 1000  # a new installation reads the last day, no more
@@ -120,7 +124,7 @@ async def _read(
     while len(events) < IMPORT_CAP:
         asked = min(PAGE, IMPORT_CAP - len(events))
         page = await reader.realm_events(
-            IMPORT_TYPES, since_ms, until_ms, first=offset + len(events), limit=asked
+            READ_TYPES, since_ms, until_ms, first=offset + len(events), limit=asked
         )
         events.extend(page)
         if len(page) < asked:
@@ -202,25 +206,67 @@ async def _advance(database: Database, realm: str, last_ms: int, offset: int) ->
         )
 
 
-async def _group(
-    attribution: _Attribution, events: list[KeycloakEvent]
-) -> tuple[dict[uuid.UUID, list[KeycloakEvent]], int]:
-    """The events each tenant gets, and how many named no tenant."""
-    by_tenant: dict[uuid.UUID, list[KeycloakEvent]] = {}
-    unattributed = 0
+@dataclass
+class _Grouped:
+    """The run's events by tenant: for the sign-in log, and for notices to the person."""
+
+    log: dict[uuid.UUID, list[KeycloakEvent]] = field(default_factory=dict)
+    notices: dict[uuid.UUID, list[KeycloakEvent]] = field(default_factory=dict)
+    unattributed: int = 0
+
+
+async def _group(attribution: _Attribution, events: list[KeycloakEvent]) -> _Grouped:
+    """Which tenant each event goes to, and how many named none."""
+    grouped = _Grouped()
+    hintless: list[KeycloakEvent] = []
     for event in events:
-        if not usable(event) or app_of(event) is None:
+        if not usable(event):
             continue
-        tenant = await attribution.tenant(event)
+        if event.type in NOTICE_TYPES:
+            # Lane B: no userId (an unknown name) is never anyone's notice, nor counted.
+            if not event.user_id:
+                continue
+            tenant = await attribution.tenant(event)
+            if tenant is None:
+                hintless.append(event)
+                continue
+            grouped.notices.setdefault(tenant, []).append(event)
+        elif app_of(event) is not None:
+            tenant = await attribution.tenant(event)
+            if tenant is None:
+                grouped.unattributed += 1
+                continue
+            grouped.log.setdefault(tenant, []).append(event)
+    # No tenant named: the one tenant the person is in, else not guessed (lane B).
+    sole = await notices.sole_tenants(attribution.database, {e.user_id or "" for e in hintless})
+    for event in hintless:
+        tenant = sole.get(event.user_id or "")
         if tenant is None:
-            unattributed += 1
+            grouped.unattributed += 1
             continue
-        by_tenant.setdefault(tenant, []).append(event)
-    return by_tenant, unattributed
+        grouped.notices.setdefault(tenant, []).append(event)
+    return grouped
+
+
+async def _deliver(
+    database: Database, grouped: _Grouped, locate: notices.Locate | None
+) -> tuple[int, int]:
+    """Each tenant's log rows and notices; (log rows new, people told)."""
+    written = told = 0
+    for tenant, items in grouped.log.items():
+        written += await _write(database, tenant, items)
+    for tenant, items in grouped.notices.items():
+        told += await notices.write(database, tenant, items, locate)
+    return written, told
 
 
 async def import_once(
-    database: Database, reader: EventsReader, *, base_domain: str | None, now_ms: int
+    database: Database,
+    reader: EventsReader,
+    *,
+    base_domain: str | None,
+    now_ms: int,
+    locate: notices.Locate | None = None,
 ) -> int:
     """One run: read, write per tenant, then move the cursor; how many rows were new."""
     async with database.platform_session() as session:
@@ -237,10 +283,9 @@ async def import_once(
         if cursor is None:
             await _advance(database, reader.realm, since, 0)
         return 0
-    by_tenant, unattributed = await _group(_Attribution(database, base_domain), events)
-    written = 0
-    for tenant, items in by_tenant.items():
-        written += await _write(database, tenant, items)
+    grouped = await _group(_Attribution(database, base_domain), events)
+    unattributed = grouped.unattributed
+    written, told = await _deliver(database, grouped, locate)
     newest = max(e.time_ms for e in events)
     if newest == since:
         # Still inside the cursor's millisecond: read on from here next time, skip nothing.
@@ -252,7 +297,8 @@ async def import_once(
         _unattributed.add(unattributed)
     if written:
         _imported.add(written)
-        log.info("sign_in_import", imported=written, unattributed=unattributed)
+    if written or told:
+        log.info("sign_in_import", imported=written, told=told, unattributed=unattributed)
     return written
 
 
@@ -263,7 +309,13 @@ async def import_schedule(database: Database, settings: Settings) -> None:
         return  # not set up: the BFF's own entries are still written
     try:
         now_ms = int(datetime.now(UTC).timestamp() * 1000)
-        await import_once(database, reader, base_domain=settings.tenant_base_domain, now_ms=now_ms)
+        await import_once(
+            database,
+            reader,
+            base_domain=settings.tenant_base_domain,
+            now_ms=now_ms,
+            locate=notices.locator(database, settings),
+        )
     except (IdentityAdminUnavailable, IdentityAdminRefused):
         log.warning("sign_in_import_keycloak_unavailable")  # the next run tries again
     finally:

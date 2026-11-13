@@ -15,7 +15,7 @@ audited (D-089 D7) and reaches other open settings pages live.
 import ipaddress
 import uuid
 from dataclasses import replace
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -761,6 +761,10 @@ class SsoBody(BaseModel):
     slo_url: str | None = None
     certificate: str | None = None
     entity_id: str | None = None
+    client_secret_expires_at: datetime | None = Field(
+        default=None,
+        description="OpenID Connect: when the client secret runs out (admins are told before).",
+    )
 
     def values(self) -> sso.SsoInput:
         """The service's input."""
@@ -796,6 +800,9 @@ class SsoOut(BaseModel):
         description="SupportX's SAML metadata for this set-up (give it to the provider)."
     )
     redirect_uri: str = Field(description="Where the provider sends people back (OIDC).")
+    client_secret_expires_at: datetime | None = Field(
+        default=None, description="OpenID Connect: when the client secret runs out, if entered."
+    )
     version: int
 
 
@@ -821,6 +828,7 @@ def _sso_out(request: Request, view: sso.SsoView) -> SsoOut:
         switched_on_at=view.switched_on_at,
         service_provider_metadata_url=issuer + view.service_provider_metadata_path,
         redirect_uri=f"{issuer}/broker/{view.alias}/endpoint",
+        client_secret_expires_at=view.client_secret_expires_at,
         version=view.version,
     )
 
@@ -1072,8 +1080,11 @@ class InvitationOut(BaseModel):
     user_id: uuid.UUID
     email: str
     status: Literal["pending", "accepted", "expired", "revoked"]
-    delivery: Literal["email", "existing_account"] = Field(
-        description="existing_account: they already have a password and can sign in now."
+    delivery: Literal["email", "existing_account", "link"] = Field(
+        description=(
+            "existing_account: they already have a password and can sign in now. link: no mail"
+            " is set up, so an admin copies a single-use link to them (REQ-SEC-021)."
+        )
     )
     sent_at: datetime
     expires_at: datetime
@@ -1158,6 +1169,49 @@ async def resend_invitation(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     )
     set_etag(response, view.version)
     return _invitation_out(view)
+
+
+class InviteLinkOut(BaseModel):
+    """A single-use invite link, shown once (REQ-SEC-021): never stored, never shown again."""
+
+    link: str = Field(description="The page to open, the token in its fragment (never sent).")
+    expires_at: datetime
+
+
+@router.post(
+    "/invitations/{invitation_id}/link",
+    summary="Copy a single-use invite link (no mail set up)",
+    dependencies=[
+        RecentAuth,
+        Depends(rate_limit("invite_link")),
+        audited("invitation.link_copied", object_type="invitation", object_param="invitation_id"),
+    ],
+)
+async def copy_invite_link(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    invitation_id: uuid.UUID,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: ManagePeople,
+) -> InviteLinkOut:
+    """For an installation with no outgoing mail: a link the admin passes on themselves.
+
+    The token is 32 random bytes, in the link's fragment only (a browser never sends that
+    part, so no server or proxy logs it); SupportX keeps only its SHA-256. Each copy replaces
+    the last. It works until the invitation expires, at most 7 days from this copy, once.
+    """
+    del subject
+    copied = await invitations.copy_link(
+        session,
+        request.app.state.settings,
+        invitation_id,
+        expected_version=version,
+        now=datetime.now(UTC),
+    )
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["ETag"] = f'"{version + 1}"'
+    return InviteLinkOut(link=copied.link, expires_at=copied.expires_at)
 
 
 @router.post(

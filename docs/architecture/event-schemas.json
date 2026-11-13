@@ -2588,6 +2588,68 @@
         "type": "object"
       }
     },
+    "identity_access.account_security.changed": {
+      "1": {
+        "description": "The person's account was locked out, or its password or MFA changed (REQ-SEC-033 part 2).\n\nWP-057 S2b-2: read from Keycloak's user events by the events import, once per Keycloak event\n(security_notice_marks), and told to the person (a locked security notice). `opens_at` is a\nlock-out's earliest end, a lower bound (lane B). No address: the place only, as the new-device\nnotice. Internal (the outbox and the notification consumer), never sent to a browser.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "locked_out",
+              "password_changed",
+              "mfa_added",
+              "mfa_removed"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "kind",
+          "occurred_at",
+          "opens_at",
+          "place"
+        ],
+        "title": "AccountSecurityChanged",
+        "type": "object"
+      }
+    },
     "identity_access.api_key.changed": {
       "1": {
         "description": "An API key was made or revoked (WP-041, D-128): key screens refetch. Never the key text.",
@@ -2711,6 +2773,14 @@
           "status"
         ],
         "title": "InvitationChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.invitation.link_copied": {
+      "1": {
+        "description": "An admin copied a single-use invite link for a pending invitation (REQ-SEC-021).\n\nWP-057 S2b-2. Its own event (not a new `change` of the v1 InvitationChanged contract). IDs\nonly; never the link or its token.",
+        "properties": {},
+        "title": "InvitationLinkCopied",
         "type": "object"
       }
     },
@@ -2962,6 +3032,43 @@
           "outcome"
         ],
         "title": "SignInRecorded",
+        "type": "object"
+      }
+    },
+    "identity_access.sign_in_secret.expiring": {
+      "1": {
+        "description": "A sign-in certificate or client secret is about to run out, or has (REQ-SEC-011).\n\nWP-057 S2b-2: the tenant's admins are told, once per threshold (30, 7, 1 days; 0 = run out).\nIDs and codes only: the provider, which kind of item, the threshold and the date.",
+        "properties": {
+          "days_left": {
+            "title": "Days Left",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "item": {
+            "enum": [
+              "certificate",
+              "client_secret"
+            ],
+            "title": "Item",
+            "type": "string"
+          },
+          "provider_id": {
+            "format": "uuid",
+            "title": "Provider Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_id",
+          "item",
+          "days_left",
+          "expires_at"
+        ],
+        "title": "SignInSecretExpiring",
         "type": "object"
       }
     },

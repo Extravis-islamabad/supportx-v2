@@ -9,7 +9,7 @@ Expand only, no data step:
 The downgrade refuses while any tenant holds a draft (rule 5h): they are a person's unsaved work.
 
 Revision ID: 0160
-Revises: 0159
+Revises: 0158
 Created: 2026-11-13
 """
 
@@ -21,7 +21,7 @@ from alembic import op
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0160"
-down_revision: str | None = "0159"
+down_revision: str | None = "0158"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

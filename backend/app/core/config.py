@@ -331,6 +331,9 @@ class Settings(BaseSettings):
             "auth_confirm": {"user": 10, "tenant": 1000},
             # Kept drafts (REQ-INC-019, lane B): a save every 3 s from two tabs fits.
             "work_item_drafts": {"user": 60, "tenant": 6000},
+            "invite_link": {"user": 20, "tenant": 1000},  # copied invite links (REQ-SEC-021)
+            # Their public side, keyed on the client address (no one is signed in): few a minute.
+            "invite_links_public": {"user": 10, "tenant": 300},
         }
     )
     # Prefix for every Valkey key the API writes (tests use a random one).

@@ -37,7 +37,7 @@ from app.modules.identity_access.domain.sign_in import (
 )
 from app.modules.identity_access.events import SignInRecorded
 from app.modules.identity_access.infra.models import SignInEvent
-from app.modules.identity_access.service import known_devices
+from app.modules.identity_access.service import known_devices, security_notice_import
 from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 from app.shared.ids import new_id
 
@@ -162,8 +162,8 @@ async def purge(session: AsyncSession, now: datetime) -> int:
 async def on_person_erased(envelope: EventEnvelope, session: AsyncSession | None) -> None:
     """Consumer: a person was erased (GDPR); their sign-in traces go.
 
-    Their entries lose address and device, and their known devices (WP-057 S2b-1) are deleted,
-    in the same transaction.
+    Their entries lose address and device, and their known devices (WP-057 S2b-1) and security
+    notice marks (S2b-2) are deleted, in the same transaction.
     """
     assert session is not None  # noqa: S101 - transactional consumer
     if envelope.payload.get("reason") != "erasure":
@@ -171,8 +171,9 @@ async def on_person_erased(envelope: EventEnvelope, session: AsyncSession | None
     person = uuid.UUID(str(envelope.payload["user_id"]))
     forgotten = await forget_person(session, person)
     devices = await known_devices.forget(session, person)
-    if forgotten or devices:
-        log.info("sign_in_log_erased", entries=forgotten, known_devices=devices)
+    marks = await security_notice_import.forget(session, person)
+    if forgotten or devices or marks:
+        log.info("sign_in_log_erased", entries=forgotten, known_devices=devices, notice_marks=marks)
 
 
 PERSON_ERASED = ConsumerSpec(
@@ -183,7 +184,10 @@ PERSON_ERASED = ConsumerSpec(
 
 
 async def purge_schedule(database: Database, settings: Settings) -> None:
-    """Daily, in every tenant (each in its own session, RLS): entries past RETENTION go."""
+    """Daily, in every tenant (each in its own session, RLS): entries past RETENTION go.
+
+    Also the security notice marks past their 30 days (REQ-SEC-033 part 2, lane B).
+    """
     del settings
     async with database.platform_session() as platform:
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
@@ -191,5 +195,6 @@ async def purge_schedule(database: Database, settings: Settings) -> None:
     for tenant in tenants:
         async with database.tenant_session(TenantContext(tenant)) as session:
             gone = await purge(session, now)
-        if gone:
-            log.info("sign_in_log_purged", tenant_id=str(tenant), entries=gone)
+            marks = await security_notice_import.purge(session, now)
+        if gone or marks:
+            log.info("sign_in_log_purged", tenant_id=str(tenant), entries=gone, notice_marks=marks)

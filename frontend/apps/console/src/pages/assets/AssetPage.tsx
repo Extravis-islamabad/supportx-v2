@@ -435,7 +435,16 @@ function AssetView({ asset }: { asset: AssetRecord }) {
     {
       key: 'age',
       label: t('assets.age.label'),
-      content: <span data-testid="asset-age">{ageText}</span>,
+      // While the tenant's basis loads, a placeholder: never "Unknown" first (QA 2026-11-12
+      // F-14), which read as a fact before the real age replaced it.
+      content:
+        settings.data === undefined && settings.isPending ? (
+          <span data-testid="asset-age-loading" aria-busy="true">
+            <Skeleton.Input active size="small" style={{ width: 120, minWidth: 0 }} />
+          </span>
+        ) : (
+          <span data-testid="asset-age">{ageText}</span>
+        ),
       filled: true,
       always: true,
     },

@@ -370,6 +370,55 @@ class NewDeviceSignedIn(DomainEvent):
     signed_in_at: datetime
 
 
+class AccountSecurityChanged(DomainEvent):
+    """The person's account was locked out, or its password or MFA changed (REQ-SEC-033 part 2).
+
+    WP-057 S2b-2: read from Keycloak's user events by the events import, once per Keycloak event
+    (security_notice_marks), and told to the person (a locked security notice). `opens_at` is a
+    lock-out's earliest end, a lower bound (lane B). No address: the place only, as the new-device
+    notice. Internal (the outbox and the notification consumer), never sent to a browser.
+    """
+
+    event_type: ClassVar[str] = "identity_access.account_security.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    kind: Literal["locked_out", "password_changed", "mfa_added", "mfa_removed"]
+    occurred_at: datetime
+    opens_at: datetime | None
+    place: dict[str, str] | None
+
+
+class SignInSecretExpiring(DomainEvent):
+    """A sign-in certificate or client secret is about to run out, or has (REQ-SEC-011).
+
+    WP-057 S2b-2: the tenant's admins are told, once per threshold (30, 7, 1 days; 0 = run out).
+    IDs and codes only: the provider, which kind of item, the threshold and the date.
+    """
+
+    event_type: ClassVar[str] = "identity_access.sign_in_secret.expiring"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sso_provider"
+
+    provider_id: uuid.UUID
+    item: Literal["certificate", "client_secret"]
+    days_left: int
+    expires_at: datetime
+
+
+class InvitationLinkCopied(DomainEvent):
+    """An admin copied a single-use invite link for a pending invitation (REQ-SEC-021).
+
+    WP-057 S2b-2. Its own event (not a new `change` of the v1 InvitationChanged contract). IDs
+    only; never the link or its token.
+    """
+
+    event_type: ClassVar[str] = "identity_access.invitation.link_copied"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "invitation"
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -397,4 +446,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SignInRecorded,
     BreakGlassSignedIn,
     NewDeviceSignedIn,
+    AccountSecurityChanged,
+    SignInSecretExpiring,
+    InvitationLinkCopied,
 )

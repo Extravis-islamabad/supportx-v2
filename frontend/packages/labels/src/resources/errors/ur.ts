@@ -576,7 +576,18 @@ export const ur: LabelResource = {
   'errors.field.owner_not_allowed':
     'یہ شخص اعلانات کا انتظام نہیں کر سکتا، اس لیے مالک نہیں بن سکتا۔',
   'errors.field.parent_loop': 'اس سے یہ اپنا ہی والد بن جائے گا۔',
+  'errors.field.password_breached': 'یہ پاس ورڈ ڈیٹا لیکس سے معلوم ہے۔ کوئی اور منتخب کریں۔',
+  'errors.field.password_is_email': 'یہ آپ کا ای میل پتا نہیں ہونا چاہیے۔',
+  'errors.field.password_is_username': 'یہ آپ کا یوزر نیم نہیں ہونا چاہیے۔',
+  'errors.field.password_needs_digit': 'ایک ہندسہ شامل کریں۔',
+  'errors.field.password_needs_lower': 'ایک چھوٹا لاطینی حرف شامل کریں۔',
+  'errors.field.password_needs_special': 'کوئی علامت شامل کریں، جیسے ! یا #۔',
+  'errors.field.password_needs_upper': 'ایک بڑا لاطینی حرف شامل کریں۔',
   'errors.field.password_policy_out_of_range': '{{min}} اور {{max}} کے درمیان رکھیں۔',
+  'errors.field.password_rejected': 'یہ پاس ورڈ قبول نہیں ہوا۔ کوئی اور منتخب کریں۔',
+  'errors.field.password_too_long': 'بہت لمبا: زیادہ سے زیادہ 128 حروف استعمال کریں۔',
+  'errors.field.password_too_short': 'بہت چھوٹا: زیادہ حروف استعمال کریں۔',
+  'errors.field.password_used_before': 'آپ یہ پاس ورڈ پہلے استعمال کر چکے ہیں۔ نیا منتخب کریں۔',
   'errors.field.pattern_mismatch': 'یہ قدر متوقع شکل میں نہیں ہے۔',
   'errors.field.pattern_too_complex':
     'یہ پیٹرن ایسے گروپ کو دہراتا ہے جو خود بھی دہرایا جاتا ہے، جس سے محفوظ کرنا بہت سست ہو سکتا ہے۔ اسے آسان کریں، مثلاً ([A-Z]+)+ کے بجائے [A-Z]+۔',
@@ -837,6 +848,12 @@ export const ur: LabelResource = {
   'errors.invitation_not_pending': 'یہ دعوت نامہ اب منتظر نہیں: قبول ہو چکا یا واپس لیا جا چکا۔',
   'errors.invitation_pending': 'اس شخص کا ایک دعوت نامہ منتظر ہے۔ اس کے بجائے اسے دوبارہ بھیجیں۔',
   'errors.invitation_person_cannot_sign_in': 'یہ شخص غیر فعال ہے یا اسے سائن اِن کی اجازت نہیں۔',
+  'errors.invite_link_has_account':
+    'اس شخص کا پاس ورڈ پہلے سے ہے: وہ معمول کے مطابق سائن ان کریں، اس لیے نقل کرنے کو کوئی لنک نہیں۔',
+  'errors.invite_link_invalid':
+    'یہ دعوتی لنک کام نہیں کرتا۔ ہو سکتا ہے یہ استعمال ہو چکا ہو، نئے لنک سے بدل گیا ہو یا اس کی مدت ختم ہو گئی ہو۔ جس نے آپ کو مدعو کیا اس سے نیا لنک مانگیں۔',
+  'errors.invite_link_mail_configured':
+    'باہر جانے والی میل ترتیب دی گئی ہے، اس لیے دعوت نامہ ای میل سے جاتا ہے۔ لنک نقل کرنے کے بجائے اسے دوبارہ بھیجیں۔',
   'errors.ip_not_allowed':
     'آپ کی تنظیم اس نیٹ ورک سے سائن اِن کی اجازت نہیں دیتی۔ کسی اجازت یافتہ نیٹ ورک سے جڑیں، یا اپنے منتظم سے کہیں۔',
   'errors.job_kind_not_available': 'اس قسم کی جاب ابھی دستیاب نہیں۔',
