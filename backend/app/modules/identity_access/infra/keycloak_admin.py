@@ -618,7 +618,13 @@ class KeycloakAdmin:
 
     async def member_tenants(self, user_id: str) -> list[str]:
         """The tenant IDs of the organizations the user is a member of."""
-        found = await self._json("GET", f"/organizations/members/{user_id}/organizations") or []
+        # A user already deleted (an erasure resumed after its delete) is in no organization.
+        found = (
+            await self._json(
+                "GET", f"/organizations/members/{user_id}/organizations", missing_ok=True
+            )
+            or []
+        )
         tenants: list[str] = []
         for brief in found:
             item = await self._json("GET", f"/organizations/{brief['id']}", missing_ok=True) or {}
