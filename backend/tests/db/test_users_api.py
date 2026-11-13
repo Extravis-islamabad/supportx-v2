@@ -21,6 +21,7 @@ from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
 
+from app.core.recent_auth import SignInFreshness, record_freshness
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
 from conftest import create_tenant, make_settings
@@ -31,11 +32,16 @@ pytestmark = pytest.mark.db
 BASE = datetime(2026, 1, 1, tzinfo=UTC)
 
 
+FRESH = SignInFreshness(interactive=True, recent=True)
+
+
 async def fake_session(request: Request) -> TenantContext | None:
     tenant = request.headers.get("x-test-tenant")
     user = request.headers.get("x-test-user")
     if tenant is None:
         return None
+    # A signed-in browser that confirmed just now (REQ-SEC-027's RecentAuth passes).
+    record_freshness(request, FRESH)
     return TenantContext(uuid.UUID(tenant), uuid.UUID(user) if user else None)
 
 

@@ -170,6 +170,10 @@ def oidc_config(discovery: dict[str, Any], *, client_id: str, scopes: str) -> di
         "pkceEnabled": "true",
         "pkceMethod": "S256",
         "syncMode": "IMPORT",
+        # A confirmation (REQ-SEC-027) reaches the provider: Keycloak passes the client's
+        # `max_age` on, and its `prompt` too as no fixed `prompt` is set here, so the person
+        # really authenticates again there (lane B A4).
+        "passMaxAge": "true",
     }
     if discovery.get("userinfo_endpoint"):
         config["userInfoUrl"] = str(discovery["userinfo_endpoint"])

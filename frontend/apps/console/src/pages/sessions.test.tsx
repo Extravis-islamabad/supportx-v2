@@ -104,6 +104,53 @@ describe('My account › signed-in devices', () => {
   });
 });
 
+describe('My account › where, and signing out everywhere else (WP-057 S2a, REQ-SEC-030)', () => {
+  const LAPTOP: ListedSession = {
+    ...THIS,
+    id: 'c'.repeat(32),
+    current: false,
+    device: 'firefox:linux',
+    ip: '192.0.2.7',
+  };
+
+  it('shows each sign-in’s device and address; one button ends every other, this one stays', async () => {
+    window.history.pushState({}, '', '/profile');
+    let rows = [{ ...THIS, device: 'chrome:windows', ip: '10.1.2.3' }, LAPTOP, PHONE];
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        'GET /api/v1/auth/sessions': () => ({ body: rows }),
+        'POST /api/v1/auth/sessions/end-others': () => {
+          rows = rows.filter((row) => row.current);
+          return { body: { ended: 2 } };
+        },
+      },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('account-sessions');
+    expect((await within(card).findByTestId(`session-where-${THIS.id}`)).textContent).toBe(
+      'Chrome on Windows · from 10.1.2.3',
+    );
+    expect(within(card).getByTestId(`session-where-${LAPTOP.id}`).textContent).toBe(
+      'Firefox on Linux · from 192.0.2.7',
+    );
+    // Nothing known about where (or not shown to this viewer): no line at all.
+    expect(within(card).queryByTestId(`session-where-${PHONE.id}`)).toBeNull();
+    fireEvent.click(within(card).getByTestId('sessions-end-others'));
+    await confirm('Sign out everywhere else');
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/auth/sessions/end-others')).toHaveLength(1);
+    });
+    expect(await screen.findByText('Signed out of 2 other browsers and devices')).toBeTruthy();
+    await waitFor(() => {
+      expect(within(card).queryByTestId(`session-${LAPTOP.id}`)).toBeNull();
+    });
+    // Only this one left: nothing else to sign out of.
+    expect(within(card).queryByTestId('sessions-end-others')).toBeNull();
+    expect(within(card).getByTestId(`session-${THIS.id}`)).toBeTruthy();
+  });
+});
+
 describe('Admin › People › Devices', () => {
   it('a people admin sees a person’s devices and signs one out (a lost phone)', async () => {
     const bilal: UserDetail = fakeUser({ id: 'u-9', display_name: 'Bilal Saleh' });

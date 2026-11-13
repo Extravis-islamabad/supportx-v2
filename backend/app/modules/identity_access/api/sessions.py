@@ -21,10 +21,22 @@ class ListedSessionOut(BaseModel):
     started_at: datetime | None
     last_used_at: datetime | None
     current: bool = Field(description="This browser or device.")
+    ip: str | None = Field(
+        default=None,
+        description="The address it signed in from (its owner and tenant admins only).",
+    )
+    device: str | None = Field(
+        default=None,
+        description="browser:system codes, e.g. chrome:windows (labelled `device.*`), or null.",
+    )
 
 
-def listed_out(rows: list[ListedSession]) -> list[ListedSessionOut]:
-    """The API shape of the listed sessions, in the order given."""
+def listed_out(rows: list[ListedSession], *, show_where: bool = True) -> list[ListedSessionOut]:
+    """The API shape of the listed sessions, in the order given.
+
+    `show_where`: the address and device (REQ-SEC-030), for the session's owner and tenant admins
+    only (lane B); anyone else who may manage people sees when, never where.
+    """
     return [
         ListedSessionOut(
             id=r.id,
@@ -34,6 +46,8 @@ def listed_out(rows: list[ListedSession]) -> list[ListedSessionOut]:
             started_at=r.started_at,
             last_used_at=r.last_used_at,
             current=r.current,
+            ip=r.ip if show_where else None,
+            device=r.device if show_where else None,
         )
         for r in rows
     ]

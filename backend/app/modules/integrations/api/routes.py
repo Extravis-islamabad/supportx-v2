@@ -18,6 +18,7 @@ from app.core.authorization import require_permission
 from app.core.config import Settings
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.integrations.domain.mailboxes import (
@@ -267,7 +268,7 @@ async def list_mailboxes(session: TenantSession, subject: Manage) -> list[Mailbo
     status_code=status.HTTP_201_CREATED,
     response_model=MailboxOut,
     responses=CONFLICT,
-    dependencies=[audited("mailbox.created", object_type="mailbox")],
+    dependencies=[RecentAuth, audited("mailbox.created", object_type="mailbox")],
 )
 async def create_mailbox(
     body: MailboxIn,
@@ -292,7 +293,10 @@ async def create_mailbox(
     "/{mailbox_id}",
     summary="Change a mailbox",
     responses=CONFLICT,
-    dependencies=[audited("mailbox.changed", object_type="mailbox", object_param="mailbox_id")],
+    dependencies=[
+        RecentAuth,
+        audited("mailbox.changed", object_type="mailbox", object_param="mailbox_id"),
+    ],
 )
 async def update_mailbox(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     mailbox_id: uuid.UUID,

@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import RequestFacts
 from app.modules.identity_access.api.access import Policy
 from app.modules.identity_access.domain import api_keys as rules
@@ -199,6 +200,7 @@ async def list_keys(session: TenantSession, subject: SignedIn) -> list[ApiKeyOut
     summary="Make an API key",
     status_code=status.HTTP_201_CREATED,
     response_model=ApiKeyCreatedOut,
+    dependencies=[RecentAuth],
 )
 async def create_key(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: ApiKeyIn,
