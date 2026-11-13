@@ -1,4 +1,4 @@
-import { Collapse, Drawer, Flex, Input, Segmented, Select, Space, Switch, Typography } from 'antd';
+import { Collapse, Flex, Input, Segmented, Select, Space, Switch, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -11,6 +11,7 @@ import {
 import {
   ConflictDialog,
   DateTimeField,
+  Drawer,
   FormProblem,
   lengthLimit,
   markHandled,

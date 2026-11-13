@@ -1,9 +1,9 @@
 import { DeleteOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
-import { App, Button, Drawer, Flex, Form, Input, List, Select, Typography } from 'antd';
+import { App, Button, Flex, Form, Input, List, Select, Typography } from 'antd';
 import { useState } from 'react';
 
 import { useFavouriteView, useSharedSavedViewChange } from '@supportx/api-client';
-import { lengthLimit, reportError, useLabel } from '@supportx/ui';
+import { Drawer, lengthLimit, reportError, useLabel } from '@supportx/ui';
 
 import { TRASH, type ViewChoice } from './views';
 

@@ -3,7 +3,6 @@ import {
   Alert,
   App,
   Button,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -42,17 +41,18 @@ import {
 import {
   ConflictDialog,
   DateField,
+  Drawer,
   FormProblem,
-  NoAccess,
-  ToneTag,
   lengthLimit,
   markHandled,
+  NoAccess,
   reportError,
+  Tabs,
+  ToneTag,
   useAccess,
   useFormProblem,
   useLabel,
   useLicence,
-  Tabs,
 } from '@supportx/ui';
 
 import { PoliciesTab, SettingsTab } from './PoliciesTab';

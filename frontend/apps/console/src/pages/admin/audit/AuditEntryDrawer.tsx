@@ -1,9 +1,9 @@
-import { Collapse, Descriptions, Drawer, Empty, List, Spin, Typography } from 'antd';
+import { Collapse, Descriptions, Empty, List, Spin, Typography } from 'antd';
 import { Link } from 'react-router';
 
 import { useAuditEntry, useRoles, type AuditEntryDetail } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
-import { useDateTime, useLabel } from '@supportx/ui';
+import { Drawer, useDateTime, useLabel } from '@supportx/ui';
 
 import {
   actionLabel,

@@ -5,7 +5,6 @@ import {
   Button,
   Checkbox,
   Divider,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -38,20 +37,21 @@ import {
 } from '@supportx/api-client';
 import { refreshRecord, useRecordChannel } from '@supportx/realtime';
 import {
-  useConflictRetry,
   ConflictDialog,
+  Drawer,
   FormProblem,
-  ToneTag,
   lengthLimit,
   markHandled,
+  PersonSessions,
   reportError,
+  Tabs,
+  ToneTag,
   useAccess,
   useAppearance,
   useConflict,
+  useConflictRetry,
   useFormProblem,
   useLabel,
-  PersonSessions,
-  Tabs,
 } from '@supportx/ui';
 
 import { MemberAvailability } from '../../../MemberAvailability';

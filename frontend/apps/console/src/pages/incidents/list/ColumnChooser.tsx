@@ -1,9 +1,9 @@
 import { ArrowDownOutlined, ArrowUpOutlined, CloseOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Checkbox, Drawer, Empty, Input, List, Space, Typography } from 'antd';
+import { Button, Checkbox, Empty, Input, List, Space, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 
 import type { ListColumn } from '@supportx/api-client';
-import { useLabel } from '@supportx/ui';
+import { Drawer, useLabel } from '@supportx/ui';
 
 import { DEFAULT_COLUMNS, type ColumnContext, type ColumnSpec } from './columns';
 

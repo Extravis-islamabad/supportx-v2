@@ -3,7 +3,6 @@ import {
   App,
   Button,
   Checkbox,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -28,6 +27,7 @@ import {
 import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
+  Drawer,
   FormProblem,
   lengthLimit,
   markHandled,
