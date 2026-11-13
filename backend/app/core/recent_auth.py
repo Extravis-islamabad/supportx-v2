@@ -1,10 +1,11 @@
 """Confirm identity again for sensitive actions (REQ-SEC-027; WP-057 S2a).
 
 A sensitive route declares `dependencies=[RecentAuth]` and is listed in RECENT_AUTH_ROUTES (a
-guard test checks both ways, lane B's condition A2). The caller passes when they are signed in
-through a browser or app session (never an API key, never the mobile app, which cannot confirm)
-and proved who they are within RECENT_AUTH_WINDOW. Otherwise 403 with a labelled code:
-`reauth_required` (the console confirms in a pop-up, then retries once) or
+guard test checks both ways, lane B's condition A2). A route sensitive for only some changes
+calls `require_recent_auth` itself and is listed in CONDITIONAL_RECENT_AUTH. The caller passes
+when they are signed in through a browser or app session (never an API key, never the mobile
+app, which cannot confirm) and proved who they are within RECENT_AUTH_WINDOW. Otherwise 403 with
+a labelled code: `reauth_required` (the console confirms in a pop-up, then retries once) or
 `interactive_session_required`.
 
 The facts come from the session layer (identity_access's resolver), which records them on the
@@ -61,6 +62,14 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "PATCH /api/v1/integrations/mailboxes/{mailbox_id}",
     "PUT /api/v1/integrations/connector-settings",
 )
+
+# Routes that ask only for some changes, so they call `require_recent_auth` in the endpoint
+# instead of declaring RecentAuth: route → which change. The guard test checks each one calls it.
+CONDITIONAL_RECENT_AUTH: dict[str, str] = {
+    # A person's sign-in address is also where password resets go: changing it in a hijacked
+    # admin session would hand over the account (lane B, #479). Other person fields stay open.
+    "PATCH /api/v1/users/{user_id}/person": "a different sign-in e-mail",
+}
 
 
 @dataclass(frozen=True)

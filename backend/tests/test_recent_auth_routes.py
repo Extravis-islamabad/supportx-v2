@@ -1,10 +1,17 @@
 """Every sensitive route asks for a recent confirmation, from one list (REQ-SEC-027; lane B A2).
 
 RECENT_AUTH_ROUTES (app/core/recent_auth.py) is the one list: each route in it carries
-RecentAuth, no other route does, and none is listed twice.
+RecentAuth, no other route does, and none is listed twice. A route guarded for some changes only
+(CONDITIONAL_RECENT_AUTH) calls require_recent_auth in its endpoint instead.
 """
 
-from app.core.recent_auth import RECENT_AUTH_ROUTES, require_recent_auth
+import inspect
+
+from app.core.recent_auth import (
+    CONDITIONAL_RECENT_AUTH,
+    RECENT_AUTH_ROUTES,
+    require_recent_auth,
+)
 from app.main import create_app
 from conftest import make_settings
 from tests.test_route_permissions import _dependencies, api_routes
@@ -27,3 +34,12 @@ def test_every_listed_route_asks_for_a_recent_confirmation_and_no_other_does() -
     guarded = _guarded()
     assert sorted(set(RECENT_AUTH_ROUTES) - guarded) == []  # listed, but not guarded
     assert sorted(guarded - set(RECENT_AUTH_ROUTES)) == []  # guarded, but not listed
+
+
+def test_each_conditionally_guarded_route_asks_in_its_endpoint() -> None:
+    app = create_app(make_settings())
+    endpoints = {f"{method} {path}": endpoint for method, path, _d, endpoint in api_routes(app)}
+    for route in CONDITIONAL_RECENT_AUTH:
+        assert route in endpoints, f"{route}: no such route"
+        assert route not in RECENT_AUTH_ROUTES  # one way or the other, never both
+        assert "require_recent_auth(" in inspect.getsource(endpoints[route]), route

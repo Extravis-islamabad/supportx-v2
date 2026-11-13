@@ -6,6 +6,7 @@ the confirmation never makes a session, is single use, must come from the same b
 same person, its auth_time must be fresh, and a new Keycloak session replaces (and ends) the old.
 """
 
+import json
 import uuid
 from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
@@ -146,3 +147,44 @@ def test_only_a_well_formed_attempt_id_is_echoed() -> None:
         "x&status=ok-0000",
     ):
         assert confirm.safe_attempt(bad) is None
+
+
+async def _change_person(bff: Bff, user_id: str, change: dict[str, str]) -> httpx.Response:
+    current = await bff.client.get(f"/api/v1/users/{user_id}")
+    assert current.status_code == 200, current.text
+    return await bff.client.patch(
+        f"/api/v1/users/{user_id}/person",
+        json=change,
+        headers={"X-CSRF-Token": await bff.csrf(), "If-Match": current.headers["etag"]},
+    )
+
+
+async def test_a_different_sign_in_email_needs_a_recent_confirmation(bff: Bff) -> None:
+    """Lane B (#479): the address is where password resets go, so changing it asks first."""
+    admin = _admin(bff)
+    await bff.login(admin)
+    me = (await bff.me()).json()["user"]["id"]
+    bff.clock.advance(timedelta(minutes=20))
+    moved = f"moved-{uuid.uuid4().hex[:8]}@demo.test"
+    asked = await _change_person(bff, me, {"email": moved})
+    assert (asked.status_code, asked.json()["code"]) == (403, "reauth_required")
+    # Any other field, or the same address sent back, needs nothing.
+    assert (await _change_person(bff, me, {"job_title": "Service owner"})).status_code == 200
+    assert (await _change_person(bff, me, {"email": admin.email})).status_code == 200
+    # Once confirmed, the new address is saved.
+    assert _status(await _confirm(bff, admin)) == "ok"
+    changed = await _change_person(bff, me, {"email": moved})
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["email"] == moved
+    # The audit entry names the change (never the address).
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        details = await conn.fetch(
+            "SELECT details FROM audit_entries WHERE action = 'user.changed' AND object_id = $1",
+            me,
+        )
+    finally:
+        await conn.close()
+    flagged = [json.loads(row["details"]) for row in details]
+    assert sum(1 for d in flagged if d.get("sign_in_email_changed")) == 1  # the moved one only
+    assert all(moved not in json.dumps(d) for d in flagged)
