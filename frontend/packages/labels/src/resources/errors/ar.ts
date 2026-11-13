@@ -253,6 +253,7 @@ export const ar: LabelResource = {
   'errors.domain_wrong_answer': 'النطاق لا يشير إلى SupportX هذا بعد: تحقق من سجل DNS.',
   'errors.domains_not_configured': 'النطاقات المخصصة غير مهيأة في هذا التثبيت.',
   'errors.downtime_not_found': 'نافذة التوقف هذه غير موجودة.',
+  'errors.duplicate_move': 'الانتقال نفسه مُدرج مرتين من الحالة نفسها. أبقِ واحدًا فقط.',
   'errors.entitlement_required': 'خطتك لا تتضمن هذه الميزة.',
   'errors.entitlement_required.detail': '{{feature}} غير مشمول في خطة مؤسستك.',
   'errors.entitlements_unavailable':
@@ -659,6 +660,7 @@ export const ar: LabelResource = {
   'errors.field.unknown_recipient': 'أحد المختارين لم يعد نشطًا أو أن مجموعة لم تعد موجودة.',
   'errors.field.unknown_record_type': 'اختر ما تنطبق عليه القاعدة.',
   'errors.field.unknown_reference': 'لم يعد أحد الأشخاص أو المجموعات المذكورة هنا موجودًا.',
+  'errors.field.unknown_role': 'هذا الدور غير موجود هنا. اختر دورًا من القائمة.',
   'errors.field.unknown_sort_field': 'لا يمكن ترتيب القائمة حسب هذا الحقل.',
   'errors.field.unknown_stage': 'لا توجد مرحلة بهذا الاسم لهذا النوع.',
   'errors.field.unknown_time_zone': 'اختر منطقة زمنية من القائمة.',
@@ -791,6 +793,20 @@ export const ar: LabelResource = {
   // WP-040 AD/LDAP (D-130)
   'errors.ldap_host_invalid': 'أدخل اسم خادم الدليل أو عنوان IP الخاص به، دون ldap:// أو مسار.',
   'errors.ldap_single_tenant_only': 'لا يمكن ربط أدلة AD/LDAP إلا في تثبيت يخدم مؤسسة واحدة.',
+  'errors.lifecycle_draft_exists': 'لدورة الحياة هذه مسودة بالفعل. افتحها أو تخلّص منها أولًا.',
+  'errors.lifecycle_draft_not_found':
+    'لا توجد مسودة لدورة الحياة هذه. ابدأ مسودة لإجراء التغييرات.',
+  'errors.lifecycle_version_has_problems_few': 'في المسودة {{count}} مشكلات يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_many': 'في المسودة {{count}} مشكلة يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_one': 'في المسودة مشكلة واحدة يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_other':
+    'في المسودة {{count}} مشكلة يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_two': 'في المسودة مشكلتان يجب إصلاحهما قبل نشرها.',
+  'errors.lifecycle_version_has_problems_zero': 'لا توجد مشكلات في المسودة.',
+  'errors.lifecycle_version_last_published':
+    'الإصدار {{number}} هو الذي تبدأ به السجلات الجديدة، لذا لا يمكن إيقافه.',
+  'errors.lifecycle_version_not_found': 'لم يُعثر على إصدار دورة الحياة هذا.',
+  'errors.lifecycle_version_not_published': 'لا يمكن إيقاف إلا إصدار منشور.',
   'errors.limit_reached': 'تم الوصول إلى الحد المسموح به في خطتك. اطلب من المسؤول توسيع الخطة.',
   'errors.link_has_own_route':
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
@@ -1001,7 +1017,9 @@ export const ar: LabelResource = {
   'errors.timer_running': 'مؤقتك يعمل بالفعل على هذا السجل.',
   'errors.too_many_favourites': 'يمكنك تمييز {{max}} تقريرًا كحد أقصى.',
   'errors.too_many_files': 'ملفات كثيرة دفعة واحدة: {{max}} على الأكثر.',
+  'errors.too_many_moves': 'يمكن أن تحتوي دورة الحياة على {{max}} انتقال كحد أقصى.',
   'errors.too_many_rules': '{{max}} قاعدة كحد أقصى لكل نوع سجل.',
+  'errors.transition_condition_not_met': 'تغيير الحالة هذا غير متاح لك على هذا السجل الآن.',
   'errors.transition_not_allowed': 'تغيير الحالة هذا غير متاح لك على هذا السجل.',
   'errors.transition_not_found': 'هذا التغيير في الحالة ليس جزءًا من دورة الحياة.',
   'errors.unauthenticated': 'يرجى تسجيل الدخول للمتابعة.',

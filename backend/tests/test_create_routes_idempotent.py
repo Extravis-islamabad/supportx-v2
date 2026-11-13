@@ -18,11 +18,7 @@ from tests.test_route_permissions import _dependencies
 
 # Create routes of other modules still to take the key, each with its owner (audit #19). The
 # list only shrinks: a route that gains the key must leave it (the stale-entry test below).
-KNOWN_GAPS: frozenset[str] = frozenset(
-    {
-        "POST /api/v1/audit/saved-searches",  # audit (lane B)
-    }
-)
+KNOWN_GAPS: frozenset[str] = frozenset()
 
 
 def _creates() -> Iterator[tuple[str, bool]]:

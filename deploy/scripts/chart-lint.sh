@@ -51,6 +51,22 @@ for entry in "${PROFILES[@]}"; do
   fi
 done
 
+# The Helm release fits in its Secret (at most 1 MiB): Helm keeps every release as one Secret of
+# base64(gzip(JSON)), the JSON carrying each chart file and the rendered manifest. Cluster run
+# 43345912681 failed `helm install` at that limit ("data: Too long"). (packaged chart + gzipped
+# manifest) x 4/3 tracks the Secret closely (about 1.0 MB just before that failure); the guard
+# keeps a quarter of the limit free. Large data belongs in an image, not in the chart.
+RELEASE_BUDGET=750000
+PKG="$(helm package "$CHART" -d "$OUT" | awk '{print $NF}')"
+for name in ha-ci ha single-node dev; do
+  size=$(( ($(wc -c <"$PKG") + $(gzip -c "$OUT/$name.yaml" | wc -c)) * 4 / 3 ))
+  [ "$size" -le "$RELEASE_BUDGET" ] || {
+    echo "$name: the Helm release would be about $size bytes (budget $RELEASE_BUDGET; the Secret holding it is capped at 1048576)" >&2
+    exit 1
+  }
+done
+echo "release size: every profile's Helm release well under its 1 MiB Secret (about $size bytes for dev)"
+
 # On-prem LDAP (D-118, product owner 2026-11-03): the federation secret reaches exactly the
 # keycloak-identity Job and the consumers worker with LDAP on, no pod without it, and the chart
 # refuses LDAP on a multi-tenant installation (a shared realm would show its people to everyone).
@@ -246,17 +262,14 @@ echo "transport: Valkey and NATS TLS in the HA profiles, the internal CA's key i
 GOLDEN="$CHART/tests/golden/single-node.yaml"
 SN_ARGS="${PROFILES[1]#*|}"
 # shellcheck disable=SC2086 # the flags are meant to be split
-# The breached-password list (about 47,000 lines) stands in the golden file as its checksum, so a
-# change to it still shows up in review without burying everything else.
-LIST="$CHART/files/keycloak/password-blacklists/supportx-breached.txt"
-LIST_SUM="$(shasum -a 256 "$LIST" | cut -d' ' -f1)"
-helm template supportx "$CHART" --namespace supportx --skip-tests $SN_ARGS |
-  awk -v sum="$LIST_SUM" '
-    skipping && (/^    / || /^$/) { next }
-    skipping { skipping = 0 }
-    { print }
-    /^  supportx-breached.txt: \|$/ { print "    # sha256 " sum " (files/keycloak/password-blacklists)"; skipping = 1 }
-  ' > "$OUT/single-node.installed.yaml"
+# The breached-password list ships in the backend image, never in the release (its size: the
+# release-size guard above); the Keycloak pod copies it in.
+helm template supportx "$CHART" --namespace supportx --skip-tests $SN_ARGS > "$OUT/single-node.installed.yaml"
+if grep -q 'supportx-breached.txt: |' "$OUT/single-node.installed.yaml" ||
+  tar -tzf "$PKG" | grep -q 'supportx-breached.txt$'; then
+  echo "the breached-password list is back in the chart or its render: it ships in the backend image" >&2
+  exit 1
+fi
 if [ "${UPDATE_GOLDEN:-0}" = "1" ]; then
   mkdir -p "$(dirname "$GOLDEN")"
   cp "$OUT/single-node.installed.yaml" "$GOLDEN"

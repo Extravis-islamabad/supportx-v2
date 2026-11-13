@@ -278,6 +278,7 @@ export const en = {
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
   'errors.downtime_not_found': 'This downtime window does not exist.',
+  'errors.duplicate_move': 'The same move is listed twice from one status. Keep one.',
   'errors.entitlement_required': 'Your plan does not include this feature.',
   'errors.entitlement_required.detail': '{{feature}} is not part of your organisation’s plan.',
   'errors.entitlements_unavailable':
@@ -709,6 +710,7 @@ export const en = {
     'Someone chosen is no longer active, or a group no longer exists.',
   'errors.field.unknown_record_type': 'Choose what the rule applies to.',
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
+  'errors.field.unknown_role': 'This role does not exist here. Choose one from the list.',
   'errors.field.unknown_sort_field': 'The list cannot be sorted by this field.',
   'errors.field.unknown_stage': 'This type has no such stage.',
   'errors.field.unknown_time_zone': 'Choose a time zone from the list.',
@@ -859,6 +861,17 @@ export const en = {
     "Enter the directory server's host name or IP address, without ldap:// or a path.",
   'errors.ldap_single_tenant_only':
     'AD/LDAP directories can only be connected on an installation that serves one organisation.',
+  'errors.lifecycle_draft_exists':
+    'This life cycle already has a draft. Open it, or throw it away first.',
+  'errors.lifecycle_draft_not_found': 'This life cycle has no draft. Start one to make changes.',
+  'errors.lifecycle_version_has_problems_one':
+    'The draft has {{count}} problem to fix before it can be published.',
+  'errors.lifecycle_version_has_problems_other':
+    'The draft has {{count}} problems to fix before it can be published.',
+  'errors.lifecycle_version_last_published':
+    'Version {{number}} is the one new records start on, so it cannot be retired.',
+  'errors.lifecycle_version_not_found': 'This life cycle version was not found.',
+  'errors.lifecycle_version_not_published': 'Only a published version can be retired.',
   'errors.limit_reached':
     'Your plan’s limit for this has been reached. Ask your administrator to extend the plan.',
   'errors.link_has_own_route':
@@ -1090,7 +1103,10 @@ export const en = {
   'errors.timer_running': 'Your timer is already running on this record.',
   'errors.too_many_favourites': 'You can star up to {{max}} reports.',
   'errors.too_many_files': 'Too many files at once: at most {{max}}.',
+  'errors.too_many_moves': 'A life cycle can have at most {{max}} moves.',
   'errors.too_many_rules': 'At most {{max}} rules per record type.',
+  'errors.transition_condition_not_met':
+    'This status change is not available to you on this record now.',
   'errors.transition_not_allowed': 'This status change is not available to you on this record.',
   'errors.transition_not_found': 'That status change is not part of the life cycle.',
   'errors.unauthenticated': 'Please sign in to continue.',

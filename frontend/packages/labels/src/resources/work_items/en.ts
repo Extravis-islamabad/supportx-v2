@@ -1012,6 +1012,16 @@ export const en = {
   'incidents.priority_override': 'Set priority by hand',
   'incidents.priority_pending': 'Calculated when impact and urgency are set',
   'incidents.properties': 'Properties',
+  'incidents.quick.another_field': 'another field',
+  'incidents.quick.create': 'Create',
+  'incidents.quick.full_form': 'Open the full form',
+  'incidents.quick.help':
+    "A subject and a requester are enough. The default template's starting values and rules apply, as on the full form.",
+  'incidents.quick.made': '{{id}} created.',
+  'incidents.quick.needs': 'This template also needs: {{fields}}. Fill them in on the full form.',
+  'incidents.quick.open': 'Quick create',
+  'incidents.quick.priority_help': 'Leave it empty to work it out from impact and urgency.',
+  'incidents.quick.title': 'Quick create an incident',
   'incidents.reason': 'Reason',
   'incidents.reason_required': 'Choose a reason.',
   'incidents.reason_text': 'Details (optional unless "Other")',
@@ -1198,6 +1208,22 @@ export const en = {
   'level.tier_4': 'Tier 4',
   'lifecycle.guided_analysis': 'Guided analysis',
   'lifecycle.standard': 'Standard',
+  'lifecycle_problem.no_moves': 'The life cycle has no moves.',
+  'lifecycle_problem.permission_not_allowed':
+    '{{permission}} cannot be required for a move. Choose a right of this type.',
+  'lifecycle_problem.reason_list_without_prompt':
+    '{{action}} from {{status}} has a reason list but does not ask for a reason.',
+  'lifecycle_problem.required_field_unknown': '{{field}} is not a field this type has.',
+  'lifecycle_problem.return_not_allowed':
+    'Only Undo cancel and Resume can go back to the previous status, not {{action}}.',
+  'lifecycle_problem.status_no_way_out':
+    '{{status}} has no way out. Add a move from it, or make it a closed or cancelled status.',
+  'lifecycle_problem.system_status_target':
+    '{{status}} is set by the system only, so {{action}} cannot lead to it.',
+  'lifecycle_problem.unknown_status': '{{status}} is not a status of this type.',
+  'lifecycle_version_state.draft': 'Draft',
+  'lifecycle_version_state.published': 'Published',
+  'lifecycle_version_state.retired': 'Retired',
   'link_kind.caused_by': 'Caused by',
   'link_kind.caused_by_release': 'Caused by release',
   'link_kind.change_for': 'Change for',

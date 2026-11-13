@@ -19,7 +19,7 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailable
 from app.modules.identity_access.infra.crypto import SessionCipher, session_ring
-from app.modules.identity_access.service.api_keys import server_key
+from app.modules.identity_access.service.api_keys import legacy_server_key, server_key
 from app.modules.organization.api.domains import domain_secret
 from app.modules.organization.domain.domains import proof
 from app.modules.system import build_readiness_service
@@ -128,24 +128,59 @@ def test_production_accepts_a_ring_with_the_legacy_secret(
         production_settings(session_keys=keys({"id": "k2", "secret": "short"}))
 
 
-def test_production_refuses_a_ring_that_would_end_every_api_key(
+def test_production_refuses_a_ring_that_would_end_cursors_and_domain_proofs(
     production_settings: Callable[..., Settings],
 ) -> None:
     ring = keys({"id": "k2", "secret": NEW})
     with pytest.raises(ValidationError, match="session_keys_need_legacy_secret") as refused:
         production_settings(session_secret=None, session_keys=ring)
-    for name in ("API_KEY_SECRET", "CURSOR_SECRET", "DOMAIN_PROOF_SECRET"):
+    for name in ("CURSOR_SECRET", "DOMAIN_PROOF_SECRET"):
         assert f"SUPPORTX_{name}" in str(refused.value)
     accepted = production_settings(
         session_secret=None,
         session_keys=ring,
-        api_key_secret="a" * 40,
         cursor_secret="c" * 40,
         domain_proof_secret="d" * 40,
     )
     assert accepted.session_key_entries() == (("k2", NEW),)
     with pytest.raises(ValidationError, match="SUPPORTX_SESSION_SECRET"):
         production_settings(session_secret=None)  # neither: a session key is required
+
+
+def test_production_requires_its_own_api_key_secret(
+    production_settings: Callable[..., Settings],
+) -> None:
+    """Audit row 26: the session secret never guards API keys in production."""
+    with pytest.raises(ValidationError, match="SUPPORTX_API_KEY_SECRET"):
+        production_settings(api_key_secret=None)
+    with pytest.raises(ValidationError, match="SUPPORTX_API_KEY_SECRET must be at least 32"):
+        production_settings(api_key_secret="short")
+    own = production_settings(api_key_secret="K" * 40)
+    assert server_key(own) == b"K" * 40
+    # Hashes made under the session-secret key still verify (and move) while it stays set.
+    derived = hmac.new(b"s" * 32, b"supportx-api-keys-v1", hashlib.sha256).digest()
+    assert legacy_server_key(own) == derived
+    assert (
+        legacy_server_key(
+            production_settings(
+                api_key_secret="K" * 40,
+                session_secret=None,
+                session_keys=keys({"id": "k2", "secret": NEW}),
+                cursor_secret="c" * 40,
+                domain_proof_secret="d" * 40,
+            )
+        )
+        is None
+    )
+
+
+def test_dev_and_test_still_derive_the_api_key_key_without_the_setting() -> None:
+    settings = make_settings(session_secret=LEGACY)
+    assert (
+        server_key(settings)
+        == hmac.new(LEGACY.encode(), b"supportx-api-keys-v1", hashlib.sha256).digest()
+    )
+    assert legacy_server_key(settings) is None  # the derived key is already the current one
 
 
 # --- the session cipher ---------------------------------------------------------------------------

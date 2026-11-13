@@ -50,6 +50,9 @@ if kubectl -n "$NAMESPACE" get secret "$APP_SECRET" >/dev/null 2>&1; then
   add_missing keycloak-events-client-secret "$(rand 24)"  # supportx-events (view-events only)
   add_missing keycloak-federation-secret "$(rand 24)"  # used only with directory.ldap.enabled
   add_missing temporal-db-password "$(rand 24)"  # used only with temporal.bundled.enabled
+  # API keys' own HMAC key (audit row 26). Keys made before it move to it on their next call
+  # while session-secret stays (docs/api/keys.md).
+  add_missing api-key-secret "$(rand 32)"
   echo "secret $NAMESPACE/$APP_SECRET exists: existing values left unchanged"
 else
   kubectl -n "$NAMESPACE" create secret generic "$APP_SECRET" \
@@ -57,6 +60,7 @@ else
     --from-literal=migrator-db-password="$(rand 24)" \
     --from-literal=relay-db-password="$(rand 24)" \
     --from-literal=session-secret="$(rand 32)" \
+    --from-literal=api-key-secret="$(rand 32)" \
     --from-literal=centrifugo-token-secret="$(rand 32)" \
     --from-literal=centrifugo-api-key="$(rand 24)" \
     --from-literal=oidc-console-secret="$(rand 24)" \

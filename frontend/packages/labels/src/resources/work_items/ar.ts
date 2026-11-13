@@ -1154,6 +1154,16 @@ export const ar: LabelResource = {
   'incidents.priority_override': 'تحديد الأولوية يدويًا',
   'incidents.priority_pending': 'تُحسب عند تحديد التأثير والإلحاح',
   'incidents.properties': 'الخصائص',
+  'incidents.quick.another_field': 'حقل آخر',
+  'incidents.quick.create': 'إنشاء',
+  'incidents.quick.full_form': 'فتح النموذج الكامل',
+  'incidents.quick.help':
+    'يكفي موضوع ومقدم طلب. تُطبَّق القيم الأولية للقالب الافتراضي وقواعده، كما في النموذج الكامل.',
+  'incidents.quick.made': 'تم إنشاء {{id}}.',
+  'incidents.quick.needs': 'يحتاج هذا القالب أيضًا إلى: {{fields}}. املأها في النموذج الكامل.',
+  'incidents.quick.open': 'إنشاء سريع',
+  'incidents.quick.priority_help': 'اتركه فارغًا لتحديده من التأثير والإلحاح.',
+  'incidents.quick.title': 'إنشاء حادث سريع',
   'incidents.reason': 'السبب',
   'incidents.reason_required': 'اختر سببًا.',
   'incidents.reason_text': 'التفاصيل (اختيارية ما لم يكن السبب «أخرى»)',
@@ -1347,6 +1357,22 @@ export const ar: LabelResource = {
   'level.tier_4': 'المستوى 4',
   'lifecycle.guided_analysis': 'تحليل موجَّه',
   'lifecycle.standard': 'قياسي',
+  'lifecycle_problem.no_moves': 'لا تحتوي دورة الحياة على أي انتقالات.',
+  'lifecycle_problem.permission_not_allowed':
+    'لا يمكن اشتراط {{permission}} لانتقال. اختر صلاحية من هذا النوع.',
+  'lifecycle_problem.reason_list_without_prompt':
+    'لـ{{action}} من {{status}} قائمة أسباب لكنه لا يطلب سببًا.',
+  'lifecycle_problem.required_field_unknown': '{{field}} ليس حقلًا في هذا النوع.',
+  'lifecycle_problem.return_not_allowed':
+    'يمكن فقط لـ«تراجع عن الإلغاء» و«استئناف» العودة إلى الحالة السابقة، وليس {{action}}.',
+  'lifecycle_problem.status_no_way_out':
+    'لا يوجد مخرج من {{status}}. أضف انتقالًا منها، أو اجعلها حالة مغلقة أو ملغاة.',
+  'lifecycle_problem.system_status_target':
+    'يضبط النظام وحده {{status}}، لذا لا يمكن أن يؤدي إليها {{action}}.',
+  'lifecycle_problem.unknown_status': '{{status}} ليست حالة لهذا النوع.',
+  'lifecycle_version_state.draft': 'مسودة',
+  'lifecycle_version_state.published': 'منشور',
+  'lifecycle_version_state.retired': 'متوقف',
   'link_kind.caused_by': 'ناتجة عن',
   'link_kind.caused_by_release': 'ناتج عن الإصدار',
   'link_kind.change_for': 'تغيير من أجل',

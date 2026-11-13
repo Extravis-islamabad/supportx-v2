@@ -38,6 +38,9 @@ images:
   clamav: clamav/clamav:1.5.4-debian
   mailpit: axllent/mailpit:v1.31.6   # dev profile only (mailCatcher)
   valkey: valkey/valkey:9.1.2        # HA only (valkeyHa, ADR-038); the bundled chart's own otherwise
+  # HA on k3s only (D-163): NodeLocal DNSCache, a cluster add-on that deploy/k3s/node-local-dns.sh
+  # installs (the chart never deploys it). Listed here so the air-gapped mirror carries it.
+  nodeLocalDns: registry.k8s.io/dns/k8s-dns-node-cache:1.27.1@sha256:6748acde83ac08626a27a554da5364e8cac64bc950c6a1b6b939a3d27b364ae7
   # Local AI (WP-037, D-131): pinned by digest; mirrored through Zot like the others (D-038).
   llamaCpp: ghcr.io/ggml-org/llama.cpp:server-b11960@sha256:8052c13edd987de8858f8150031e025ac3d66823f09cf3ec8220899c4abce220
   # Bundled Temporal (temporal.bundled): the server, and admin-tools for its schema Job.
@@ -506,6 +509,11 @@ keycloak:
   # consumers worker applies the password policy with. With `keycloak-events-client-secret` it
   # makes `supportx-events` (view-events only), which the consumers worker reads login events with.
   setUpIdentityAdmin: true
+  # The breached-password list (supportx-breached.txt) comes from this release's backend image.
+  # A larger list of your own: a ConfigMap in the release namespace holding a file of that name,
+  # named here (kubectl create configmap my-lists --from-file=supportx-breached.txt).
+  passwordBlacklists:
+    configMap: ""
   resources:
     requests: {cpu: 250m, memory: 768Mi}
     limits: {cpu: "2", memory: 1536Mi}
@@ -610,6 +618,11 @@ networkPolicies:
     # GitOps can't read it: set them, e.g. kubeApiCidrs: [10.0.0.10/32], kubeApiPorts: [6443].
     kubeApiCidrs: []
     kubeApiPorts: [6443]
+    # More DNS server addresses every pod may reach on port 53, as CIDRs. NodeLocal DNSCache
+    # (D-163, deploy/k3s/node-local-dns.sh) answers from the node's own network on a link-local
+    # address and on the kube-dns Service address itself, so the kube-dns pod rule above no
+    # longer matches its answers' path: values-ha.yaml lists both (k3s's default kube-dns address).
+    dnsAddresses: []
 
 # Extra annotations on SupportX's own pods (make deploy-dev sets one per build: dev images keep
 # the same tag, so this is what rolls them).

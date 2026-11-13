@@ -1,0 +1,122 @@
+# Semgrep rules for SupportX (engineering-practices audit row 27; architecture.md §11.4, §16.2).
+#
+# Curated and committed, never the online registry: CI and air-gapped builds run exactly these,
+# and a rule changes only through review. Run: `make semgrep` (the image pinned in the Makefile
+# and .github/workflows/security.yml). A finding that is safe gets a precise
+# `nosemgrep: <rule id> - <reason>` on the line before it (or its own line), never a rule turned
+# off. Paths skipped: .semgrepignore (test code and dependencies).
+rules:
+  # --- Python ---------------------------------------------------------------------------------
+  - id: sx.eval-exec
+    languages: [python]
+    severity: ERROR
+    message: eval/exec run arbitrary code; custom code never runs in the API process (CLAUDE.md §8).
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+      - pattern: compile(..., "exec", ...)
+
+  - id: sx.shell
+    languages: [python]
+    severity: ERROR
+    message: A shell command line lets input become commands; pass an argument list without a shell.
+    pattern-either:
+      - pattern: subprocess.$F(..., shell=True, ...)
+      - pattern: asyncio.create_subprocess_shell(...)
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+
+  - id: sx.jinja2-sandbox
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Jinja2 only through jinja2.sandbox.SandboxedEnvironment (CLAUDE.md §3, D-004): templates are
+      written by tenant admins.
+    pattern-either:
+      - pattern: jinja2.Environment(...)
+      - pattern: jinja2.Template(...)
+      - pattern: jinja2.environment.Environment(...)
+      - pattern: jinja2.nativetypes.NativeEnvironment(...)
+
+  - id: sx.weak-hash
+    languages: [python]
+    severity: ERROR
+    message: >-
+      MD5 and SHA-1 are broken for security; use SHA-256 or better, or pass usedforsecurity=False
+      where the hash only names or checks data.
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+          - pattern: hashlib.new("md5", ...)
+          - pattern: hashlib.new("sha1", ...)
+      - pattern-not: hashlib.$H(..., usedforsecurity=False, ...)
+      - pattern-not: hashlib.new($N, ..., usedforsecurity=False, ...)
+
+  - id: sx.tls-verify
+    languages: [python]
+    severity: ERROR
+    message: Certificate checks stay on; trust a private CA with its bundle instead.
+    pattern-either:
+      - pattern: $F(..., verify=False, ...)
+      - pattern: ssl._create_unverified_context(...)
+      - pattern: $CTX.verify_mode = ssl.CERT_NONE
+      - pattern: $CTX.check_hostname = False
+
+  - id: sx.yaml-load
+    languages: [python]
+    severity: ERROR
+    message: yaml.load without the safe loader can build arbitrary objects; use yaml.safe_load.
+    patterns:
+      - pattern-either:
+          - pattern: yaml.load(...)
+          - pattern: yaml.unsafe_load(...)
+          - pattern: yaml.load_all(...)
+          - pattern: yaml.unsafe_load_all(...)
+      - pattern-not: yaml.load(..., Loader=yaml.SafeLoader, ...)
+      - pattern-not: yaml.load(..., Loader=yaml.CSafeLoader, ...)
+      - pattern-not: yaml.load_all(..., Loader=yaml.SafeLoader, ...)
+
+  - id: sx.sql-format
+    languages: [python]
+    severity: ERROR
+    paths:
+      # Merged migrations are never edited, not even for a comment (CLAUDE.md §6). These three
+      # build index predicates from column names fixed in the file; new migrations are checked.
+      exclude:
+        - /backend/migrations/versions/0054_sla_escalations.py
+        - /backend/migrations/versions/0117_change_boards.py
+        - /backend/migrations/versions/0145_asset_bulk_merge_import.py
+    message: >-
+      SQL built by string formatting; pass values as bound parameters (:name). Identifiers from a
+      fixed list in code are safe: say so with a nosemgrep comment.
+    pattern-either:
+      - pattern: sqlalchemy.text(f"...")
+      - pattern: sqlalchemy.text("..." % ...)
+      - pattern: sqlalchemy.text("...".format(...))
+      - pattern: sqlalchemy.text("..." + ...)
+      - pattern: $CONN.exec_driver_sql(f"...", ...)
+      - pattern: $CONN.exec_driver_sql("...".format(...), ...)
+
+  # --- TypeScript / JavaScript ----------------------------------------------------------------
+  - id: sx.inner-html
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Raw HTML into the page. Only HTML the server sanitised (backend/app/shared/richtext.py) or a
+      sanitizer call may go here; say which with a nosemgrep comment.
+    patterns:
+      - pattern: <$EL ... dangerouslySetInnerHTML={$V} ... />
+      - pattern-not: '<$EL ... dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(...)}} ... />'
+      - pattern-not: '<$EL ... dangerouslySetInnerHTML={{__html: sanitizeHtml(...)}} ... />'
+
+  - id: sx.ts-eval
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: eval and the Function constructor run strings as code.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+      - pattern: Function(...)
+      - pattern: setTimeout("...", ...)
+      - pattern: setInterval("...", ...)

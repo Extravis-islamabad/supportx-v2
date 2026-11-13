@@ -305,8 +305,11 @@ class Settings(BaseSettings):
     cursor_secret: SecretStr | None = None
     # API keys (WP-041, D-128): the server key their secrets are hashed under (HMAC-SHA-256).
     # Kept outside the database, so a leaked database alone cannot be used to test guesses.
-    # None = derived from SUPPORTX_SESSION_SECRET; with neither, API keys are unavailable (never a
-    # random key: every key would stop working at the next restart). Rotating it ends every key.
+    # Required in production (audit row 26): a key of its own, so the session secret never guards
+    # API keys. Dev and test without it derive one from SUPPORTX_SESSION_SECRET; with neither, API
+    # keys are unavailable (never a random key: every key would stop working at the next restart).
+    # Keys hashed under that derived key before it was set move to it on their next good call while
+    # SUPPORTX_SESSION_SECRET stays set (service/api_keys.py). Rotating it ends every key.
     api_key_secret: SecretStr | None = None
     # The key behind custom-domain verification proofs (WP-017). None = SUPPORTX_SESSION_SECRET
     # (the legacy secret, as before D-162), never the session key ring.
@@ -512,6 +515,7 @@ class Settings(BaseSettings):
                 "centrifugo_api_url",
                 "centrifugo_api_key",
                 "centrifugo_token_secret",
+                "api_key_secret",  # its own key, never the session secret (audit row 26)
             )
             missing = [name for name in required if getattr(self, name) is None]
             if self.session_secret is None and self.session_keys is None:
@@ -528,6 +532,12 @@ class Settings(BaseSettings):
                 and len(self.session_secret.get_secret_value()) < SESSION_KEY_MIN_LENGTH
             ):
                 msg = "SUPPORTX_SESSION_SECRET must be at least 32 characters in production"
+                raise ValueError(msg)
+            if (
+                self.api_key_secret is not None
+                and len(self.api_key_secret.get_secret_value()) < SESSION_KEY_MIN_LENGTH
+            ):
+                msg = "SUPPORTX_API_KEY_SECRET must be at least 32 characters in production"
                 raise ValueError(msg)
             if urlsplit(self.mobile_redirect_uri).scheme != "https":
                 # see ADR-044 item 3: a mis-set chart value would send every hand-off code in
@@ -559,10 +569,11 @@ class Settings(BaseSettings):
                 raise ValueError(msg)
         if self.session_keys is None or self.session_secret is not None:
             return
-        # Without SUPPORTX_SESSION_SECRET these fall back to nothing: every API key would stop
-        # working, list cursors would differ per replica and domain proofs would fail.
+        # Without SUPPORTX_SESSION_SECRET these fall back to nothing: list cursors would differ
+        # per replica and domain proofs would fail. SUPPORTX_API_KEY_SECRET is required in
+        # production on its own (audit row 26); API keys not yet moved to it stop working once
+        # SUPPORTX_SESSION_SECRET goes.
         needed = {
-            "SUPPORTX_API_KEY_SECRET": self.api_key_secret,
             "SUPPORTX_CURSOR_SECRET": self.cursor_secret,
             "SUPPORTX_DOMAIN_PROOF_SECRET": self.domain_proof_secret,
         }
@@ -572,8 +583,7 @@ class Settings(BaseSettings):
                 "session_keys_need_legacy_secret: SUPPORTX_SESSION_KEYS is set without "
                 "SUPPORTX_SESSION_SECRET, so production also needs "
                 f"{', '.join(missing)}. Keep SUPPORTX_SESSION_SECRET set (it no longer seals "
-                "sessions once 'legacy' leaves the ring), or set these; a new "
-                "SUPPORTX_API_KEY_SECRET ends every existing API key "
+                "sessions once 'legacy' leaves the ring), or set these "
                 "(docs/guides/rotating-the-sign-in-key.md, upgrade notes)"
             )
             raise ValueError(msg)

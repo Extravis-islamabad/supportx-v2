@@ -231,6 +231,19 @@ async def test_never_shortens_a_longer_realm_session_or_drops_event_types() -> N
     assert keycloak.events["enabledEventTypes"][0] == "UPDATE_PASSWORD"
 
 
+async def test_audit_26_an_upgraded_realm_gets_refresh_token_rotation_once() -> None:
+    keycloak = FakeKeycloak()
+    assert keycloak.realm is not None
+    keycloak.realm.update({"revokeRefreshToken": False, "refreshTokenMaxReuse": 3})
+    first = await _run(keycloak)
+    assert (keycloak.realm["revokeRefreshToken"], keycloak.realm["refreshTokenMaxReuse"]) == (
+        True,
+        0,
+    )
+    assert "refresh-token rotation on" in first.changes
+    assert "refresh-token rotation on" not in (await _run(keycloak)).changes
+
+
 async def test_missing_realm_and_refused_admin_change_nothing() -> None:
     assert (await _run(FakeKeycloak(realm=False))).outcome == Outcome.NO_REALM
     keycloak = FakeKeycloak()

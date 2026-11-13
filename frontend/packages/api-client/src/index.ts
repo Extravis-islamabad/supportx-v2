@@ -1423,6 +1423,19 @@ export {
   type AssetMergeSide,
 } from './assetBatch';
 export {
+  lifecycleKeys,
+  useLifecycleChange,
+  useLifecycleMoves,
+  useLifecycleVersions,
+  type LifecycleBase,
+  type LifecycleChange,
+  type LifecycleDraft,
+  type LifecycleMove,
+  type LifecycleProblem,
+  type LifecycleVersion,
+  type LifecycleVersions,
+} from './lifecycleVersions';
+export {
   timerKeys,
   useAutoStartTimer,
   useMyTimers,

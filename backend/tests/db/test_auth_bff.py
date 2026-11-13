@@ -29,6 +29,7 @@ from app.modules.identity_access.bff.cookies import (
     login_cookie_name,
     set_session_cookie,
 )
+from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.keycloak_admin import LoginEvent
 from app.modules.identity_access.infra.models import SESSION_LIMITS
@@ -637,6 +638,88 @@ async def test_expired_access_token_is_refreshed_silently(bff: Bff) -> None:
     bff.clock.advance(timedelta(minutes=6))
     assert (await bff.me()).status_code == 200
     assert len(bff.idp.refresh_tokens) == issued + 1
+
+
+async def _stored(bff: Bff) -> Session:
+    sid = bff.cookie()
+    assert sid is not None
+    data = await bff.app.state.auth.store.get_session(sid)
+    assert data is not None
+    return Session.from_dict(data)
+
+
+async def test_audit_26_every_refresh_stores_the_new_refresh_token(bff: Bff) -> None:
+    """Keycloak rotates refresh tokens (revokeRefreshToken): each one is sent once, never again."""
+    await bff.login(bff.user("a"))
+    first = (await _stored(bff)).refresh_token
+    bff.clock.advance(timedelta(minutes=6))
+    assert (await bff.me()).status_code == 200
+    second = (await _stored(bff)).refresh_token
+    assert second != first
+    bff.clock.advance(timedelta(minutes=6))
+    assert (await bff.me()).status_code == 200
+    third = (await _stored(bff)).refresh_token
+    assert third not in {first, second}
+    assert bff.idp.refreshed_with == [first, second]  # each token used exactly once
+    assert {first, second} <= bff.idp.spent_refresh_tokens
+
+
+async def test_audit_26_a_request_that_lost_the_refresh_race_never_sends_the_spent_token(
+    bff: Bff,
+) -> None:
+    await bff.login(bff.user("a"))
+    sid = bff.cookie()
+    assert sid is not None
+    stale = await _stored(bff)  # read by a request that is about to refresh too
+    bff.clock.advance(timedelta(minutes=6))
+    assert (await bff.me()).status_code == 200  # another request refreshes first
+    sent = list(bff.idp.refreshed_with)
+    latest = await bff.app.state.auth._refresh(sid, stale)  # noqa: SLF001 - the race itself
+    assert latest is not None
+    assert latest.refresh_token == (await _stored(bff)).refresh_token != stale.refresh_token
+    assert bff.idp.refreshed_with == sent  # the spent token was not sent again
+    assert (await bff.me()).status_code == 200  # and nobody was signed out
+
+
+async def test_audit_26_a_request_waiting_on_the_refresh_never_saves_its_stale_copy(
+    bff: Bff,
+) -> None:
+    await bff.login(bff.user("a"))
+    sid = bff.cookie()
+    assert sid is not None
+    held = await bff.app.state.auth.store.lock(sid, timedelta(seconds=15))
+    assert held is not None  # another request is refreshing this session
+    before = {k: v for k, v in bff.kv.data.items() if k.startswith("sx:session:")}
+    bff.clock.advance(timedelta(minutes=6))
+    assert (await bff.me()).status_code == 200
+    assert {k: v for k, v in bff.kv.data.items() if k.startswith("sx:session:")} == before
+    assert bff.idp.refreshed_with == []
+    await bff.app.state.auth.store.unlock(sid, held)
+
+
+async def test_audit_26_a_sign_out_during_the_refresh_is_never_undone(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane C's #451 review: the session is deleted (signed out elsewhere) while Keycloak answers
+    the refresh; the refresh's write is conditional (SET XX), so the session stays gone and the
+    request ends as expired, never revived with fresh tokens."""
+    await bff.login(bff.user("a"))
+    sid = bff.cookie()
+    assert sid is not None
+    auth = bff.app.state.auth
+    real_refresh = auth.oidc.refresh
+
+    async def signed_out_meanwhile(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401 - passthrough
+        tokens = await real_refresh(*args, **kwargs)
+        await auth.store.delete_session(sid)  # the sign-out lands mid-refresh
+        return tokens
+
+    monkeypatch.setattr(auth.oidc, "refresh", signed_out_meanwhile)
+    bff.clock.advance(timedelta(minutes=6))
+    answer = await bff.me()
+    assert answer.status_code == 401, answer.text
+    assert answer.json()["code"] == "session_expired"
+    assert await auth.store.get_session(sid) is None  # still signed out
 
 
 async def test_refused_refresh_ends_the_session_cleanly(bff: Bff) -> None:
