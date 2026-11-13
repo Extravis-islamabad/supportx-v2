@@ -311,6 +311,13 @@ jobs:
             echo "== $c"; kubectl -n supportx logs -l "app.kubernetes.io/component=$c" --tail=60 --prefix || true
           done
           echo "== database"; kubectl -n supportx get clusters.postgresql.cnpg.io -o wide || true
+          # Why a failover took long (D-166 runs: 194 s and 70 s, against ~40 s before): the
+          # operator, its Barman Cloud plugin (failover waits while it is unreachable) and each
+          # instance's own log, previous container included after a restart.
+          echo "== cnpg operator"; kubectl -n cnpg-system logs -l app.kubernetes.io/name=cloudnative-pg --tail=120 --prefix || true
+          echo "== barman cloud plugin"; kubectl -n cnpg-system logs -l app.kubernetes.io/name=plugin-barman-cloud --tail=120 --prefix || true
+          kubectl -n cnpg-system logs -l app.kubernetes.io/name=plugin-barman-cloud --previous --tail=60 --prefix || true
+          echo "== database instances"; kubectl -n supportx logs -l cnpg.io/podRole=instance --all-containers --tail=80 --prefix || true
           kubectl -n supportx describe clusters.postgresql.cnpg.io | tail -n 60 || true
           kubectl -n supportx get events --sort-by=.lastTimestamp | tail -n 50 || true
 
