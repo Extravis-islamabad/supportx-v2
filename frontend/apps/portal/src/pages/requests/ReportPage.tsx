@@ -142,6 +142,7 @@ export function ReportPage() {
               required={required.has('description')}
             >
               <RichTextField
+                toolbar="basic"
                 value={description}
                 onChange={setDescription}
                 label={t('portal.report.description')}

@@ -39,7 +39,7 @@ from urllib.parse import urlsplit
 import httpcore
 import structlog
 
-from app.shared.egress.addresses import Allowance, IPAddress, allowed
+from app.shared.egress.addresses import Allowance, IPAddress
 
 log = structlog.get_logger("app.egress")
 
@@ -296,18 +296,21 @@ def _status(status: int) -> None:
 async def _checked_address(
     host: str, port: int, allowance: Allowance, resolver: Resolver
 ) -> IPAddress:
-    """Resolve once; every answer must be allowed (one bad answer blocks the call)."""
-    import ipaddress  # noqa: PLC0415 - a literal address needs no resolver
+    """Resolve once; every answer must be allowed (one bad answer blocks the call).
+
+    The one implementation is `sockets.pinned_address` (lane A's, for IMAP and SMTP; my #446
+    review): HTTP and the other protocols judge an address the same way. `send` keeps its own
+    public code, `blocked`.
+    """
+    # sockets imports this module (EgressError, the resolver): imported here to avoid a cycle.
+    from app.shared.egress.sockets import NOT_ALLOWED, pinned_address  # noqa: PLC0415
 
     try:
-        answers: list[IPAddress] = [ipaddress.ip_address(host.strip("[]"))]
-    except ValueError:
-        answers = await resolver(host, port)
-    if not answers:
-        raise EgressError(UNREACHABLE)
-    if not all(allowed(ip, host, allowance) for ip in answers):
-        raise EgressError(BLOCKED)
-    return answers[0]
+        return await pinned_address(host, port, allowance, resolver)
+    except EgressError as error:
+        if error.code == NOT_ALLOWED:
+            raise EgressError(BLOCKED) from None
+        raise
 
 
 async def _call(call: _Call, ip: IPAddress, headers: list[tuple[bytes, bytes]]) -> OutboundResponse:

@@ -36,6 +36,7 @@ import {
 import { useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   DateTimeField,
+  EditDialog,
   EmptyText,
   FormProblem,
   TimeZoneNote,
@@ -84,16 +85,16 @@ function FreezeOverrideDialog({
   const problem = useFormProblem();
   const [reason, setReason] = useState('');
   return (
-    <Modal
+    // The shared short-form dialog (lane C's #377 note): its footer, and "Discard changes?"
+    // when a reason was typed.
+    <EditDialog
       open
       title={t('changes.freeze.override_title')}
       okText={t('changes.freeze.override_confirm')}
-      okButtonProps={{
-        danger: true,
-        disabled: reason.trim() === '',
-        loading: override.isPending,
-        'data-testid': 'freeze-override-ok',
-      }}
+      okDisabled={reason.trim() === ''}
+      okWhyNot={t('changes.freeze.override_reason_needed')}
+      saving={override.isPending}
+      dirty={reason.trim() !== ''}
       onOk={() => {
         override.mutate(
           { id: change.id, version: change.version, reason: reason.trim(), windowIds },
@@ -106,7 +107,7 @@ function FreezeOverrideDialog({
         );
       }}
       onCancel={onClose}
-      destroyOnHidden
+      testId="freeze-override-modal"
     >
       <Form layout="vertical" data-testid="freeze-override-dialog">
         <Alert
@@ -129,7 +130,7 @@ function FreezeOverrideDialog({
         </Form.Item>
         <FormProblem problem={problem} />
       </Form>
-    </Modal>
+    </EditDialog>
   );
 }
 

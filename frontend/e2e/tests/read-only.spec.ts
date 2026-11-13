@@ -8,7 +8,7 @@ test.afterAll(() => {
   devSubscription('other', '--expires never --status active --technicians 2');
 });
 
-test('read-only mode: persistent banner, edit buttons disabled, reads still work', async ({
+test('read-only mode: persistent banner, edit buttons disabled, reads still work @smoke', async ({
   page,
 }) => {
   await signIn(page, SEEDED.other.email, SEEDED.other.password, '/profile');

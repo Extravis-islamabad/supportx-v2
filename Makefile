@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 .PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights ci-metrics \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e e2e-smoke \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
@@ -198,6 +198,9 @@ openapi-diff: ## Fail on breaking API changes: make openapi-diff base=<openapi.j
 
 e2e: ## Playwright journeys + axe (needs dev-up, backend-dev, worker-relay, worker-consumers and the console dev server)
 	$(FRONTEND) pnpm --filter @supportx/e2e e2e
+
+e2e-smoke: ## The @smoke journeys only (~5 min; one per critical area), against the same running stack as e2e
+	$(FRONTEND) pnpm --filter @supportx/e2e exec playwright test --grep @smoke
 
 build: generated-frontend ## Production builds of the console and portal
 	$(FRONTEND) pnpm build

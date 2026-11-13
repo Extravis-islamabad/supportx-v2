@@ -45,7 +45,7 @@ from app.modules.work_items.api.change_window_routes import (
 )
 from app.modules.work_items.api.change_window_routes import router as change_window_router
 from app.modules.work_items.api.checklist_routes import my_reminders_router
-from app.modules.work_items.api.parts_routes import my_tasks_router
+from app.modules.work_items.api.parts_routes import my_tasks_router, my_timers_router
 from app.modules.work_items.api.portal_change_routes import router as portal_change_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
@@ -215,6 +215,7 @@ module = ModuleSpec(
         portal_change_router,  # WP-045d S4a: requesters' changes in the portal
         my_tasks_router,  # WP-046a S1: your tasks on every type (REQ-INC-076)
         my_reminders_router,  # WP-046a S2: your personal reminders (REQ-INC-082)
+        my_timers_router,  # WP-046a S3: your running timers (REQ-INC-069)
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
@@ -233,6 +234,7 @@ module = ModuleSpec(
         CHANGE.feature,  # requesters' changes in the portal
         None,  # your tasks: each type's own licence is checked per type in the service
         None,  # your reminders: each record's own view rule decides what shows
+        None,  # your timers: each record's own view rule decides what shows
     ],
     events=EVENTS,
     permissions=(

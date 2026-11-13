@@ -137,6 +137,13 @@ own transport, as a direct dependency pinned `>=1.0.9,<2` (what httpx 0.28 needs
 outbound HTTP client (`app/shared/egress`, ADR-043 §8) pins each connection to its checked IP
 through an httpcore network backend.
 
+**Approved additions (D-163, HA profile only):** `registry.k8s.io/dns/k8s-dns-node-cache`
+(Apache-2.0; Kubernetes' NodeLocal DNSCache), pinned by digest and mirrored for air-gapped installs.
+
+**Approved additions (D-167):** GlitchTip (self-hosted, MIT) and the Sentry SDKs `sentry-sdk`
+(Python) and `@sentry/react` (MIT/BSD): personal data scrubbed before sending, source maps never
+public, an optional component inside customer installs (errors never leave their network).
+
 **Approved additions (D-134):** PostgreSQL's pg_trgm extension (trigram similarity; created by
 migration 0020).
 
