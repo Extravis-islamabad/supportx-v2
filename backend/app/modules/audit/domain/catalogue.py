@@ -92,6 +92,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("session.ended", AuditCategory.SESSION, "identity_access"),  # one session ended from a list
     ("session.ended_others", AuditCategory.SESSION, "identity_access"),  # sign out everywhere else
     ("session.confirmed", AuditCategory.SESSION, "identity_access"),  # confirmed it's them again
+    # Keycloak's own session, ended in the background after a sign-out it missed (ADR-051)
+    ("session.keycloak_ended", AuditCategory.SESSION, "identity_access"),
     # roles and access
     ("role.created", AuditCategory.ACCESS, "identity_access"),
     ("role.updated", AuditCategory.ACCESS, "identity_access"),

@@ -115,6 +115,7 @@ from app.modules.identity_access.service.federation import (
     remove_ldap_federation,
     sync_ldap_federation,
 )
+from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
@@ -411,7 +412,13 @@ module = ModuleSpec(
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
-    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY, mfa.MFA_ROLES, sign_in_log.PERSON_ERASED],
+    consumers=[
+        AUTHZ_INVALIDATION,
+        PASSWORD_POLICY_APPLY,
+        mfa.MFA_ROLES,
+        sign_in_log.PERSON_ERASED,
+        KEYCLOAK_SESSION_END,
+    ],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
     realtime=ROUTES,
