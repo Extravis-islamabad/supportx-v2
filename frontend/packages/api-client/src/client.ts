@@ -119,6 +119,41 @@ function randomId(): string {
   return crypto.randomUUID();
 }
 
+/** How a confirmation ended (REQ-SEC-027): the pop-up's answer. */
+export type ReauthOutcome = 'confirmed' | 'failed' | 'unavailable';
+
+// Set by the web apps (packages/ui): opens the confirm pop-up. Never set in the mobile app, which
+// cannot confirm and is refused `interactive_session_required` instead.
+let reauthConfirmer: (() => Promise<ReauthOutcome>) | null = null;
+let pendingConfirmation: Promise<ReauthOutcome> | null = null;
+// A copy of each state-changing request, kept until its answer: a refused action is sent again
+// once after the person confirmed (the body can be read only once).
+const originals = new WeakMap<Request, Request>();
+const RETRIED_HEADER = 'X-SupportX-Confirmed-Retry';
+
+/** The web apps' confirm pop-up (REQ-SEC-027); null to stop confirming (tests). */
+export function setReauthConfirmer(confirmer: (() => Promise<ReauthOutcome>) | null): void {
+  reauthConfirmer = confirmer;
+}
+
+/** One confirmation at a time: several refused calls share the same pop-up. */
+function confirmOnce(confirmer: () => Promise<ReauthOutcome>): Promise<ReauthOutcome> {
+  pendingConfirmation ??= confirmer().finally(() => {
+    pendingConfirmation = null;
+  });
+  return pendingConfirmation;
+}
+
+async function reauthRequired(response: Response): Promise<boolean> {
+  if (response.status !== 403) return false;
+  try {
+    const body = (await response.clone().json()) as { code?: unknown };
+    return body.code === 'reauth_required';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Everything every call needs, so screens never handle it:
  * - X-Request-ID on every request (the support reference when something fails);
@@ -148,24 +183,53 @@ const conventions: Middleware = {
       const etag = etags.get(new URL(request.url).pathname);
       if (etag !== undefined) request.headers.set('If-Match', etag);
     }
+    if (reauthConfirmer !== null && UNSAFE_METHODS.has(request.method)) {
+      originals.set(request, request.clone());
+    }
     return request;
   },
-  onResponse({ request, response }) {
-    const etag = response.headers.get('ETag');
-    if (response.ok && etag !== null) rememberEtag(new URL(request.url).pathname, etag);
-    reportConnectivity([502, 503, 504].includes(response.status) ? 'offline' : 'online');
-    const renewed = response.headers.get(SESSION_HEADER);
-    if (response.ok && sessionId !== null && renewed !== null && renewed !== sessionId) {
-      sessionId = renewed; // a tenant switch issues a new session (ADR-044)
-      sessionListeners.forEach((listener) => {
-        listener(renewed);
-      });
+  async onResponse({ request, response }) {
+    // A sensitive action refused for want of a recent confirmation (REQ-SEC-027): confirm in
+    // the pop-up, then send the very same request again, once. Its Idempotency-Key is the same;
+    // the refusal came before anything was done or stored. Any other answer goes to the caller.
+    const original = originals.get(request);
+    originals.delete(request);
+    if (
+      original !== undefined &&
+      reauthConfirmer !== null &&
+      !request.headers.has(RETRIED_HEADER) &&
+      (await reauthRequired(response))
+    ) {
+      const outcome = await confirmOnce(reauthConfirmer);
+      if (outcome === 'confirmed') {
+        original.headers.set(RETRIED_HEADER, '1');
+        if (csrfToken !== null) original.headers.set(CSRF_HEADER, csrfToken);
+        const again = await globalThis.fetch(original);
+        observe(original, again);
+        return again;
+      }
     }
+    observe(request, response);
     // Nothing returned: the response is only read here. Returning it makes openapi-fetch check
     // `instanceof Response`, which fails for Expo's native fetch (its FetchResponse does not
     // extend the global Response), so every call from the mobile app threw after a 200.
+    return undefined;
   },
 };
+
+/** What every answer tells the client: its ETag, connectivity, and a renewed session. */
+function observe(request: Request, response: Response): void {
+  const etag = response.headers.get('ETag');
+  if (response.ok && etag !== null) rememberEtag(new URL(request.url).pathname, etag);
+  reportConnectivity([502, 503, 504].includes(response.status) ? 'offline' : 'online');
+  const renewed = response.headers.get(SESSION_HEADER);
+  if (response.ok && sessionId !== null && renewed !== null && renewed !== sessionId) {
+    sessionId = renewed; // a tenant switch issues a new session (ADR-044)
+    sessionListeners.forEach((listener) => {
+      listener(renewed);
+    });
+  }
+}
 
 /**
  * The page's own origin in a browser; '' where there is no page location (React Native defines
@@ -248,4 +312,14 @@ export type ClientApp = App | 'mobile';
 export function loginUrl(app: App, returnTo: string): string {
   const params = new URLSearchParams({ app, returnTo });
   return `${API_BASE}/auth/login?${params.toString()}`;
+}
+
+/**
+ * Where to confirm who you are (REQ-SEC-027): Keycloak asks again, then the browser lands on the
+ * UI's /confirmed page with the result, `returnTo` and, from a pop-up, the opener's `attempt` id.
+ */
+export function confirmUrl(returnTo: string, attempt?: string): string {
+  const params = new URLSearchParams({ returnTo });
+  if (attempt !== undefined) params.set('attempt', attempt);
+  return `${API_BASE}/auth/confirm?${params.toString()}`;
 }

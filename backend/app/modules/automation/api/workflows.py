@@ -19,6 +19,7 @@ from sqlalchemy import func, select
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.interpreter import InstanceStatus
 from app.modules.automation.domain.workflows import (
@@ -1201,12 +1202,13 @@ async def run_as(
     summary="Give the run-as identity a role",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[
+        RecentAuth,
         audited(
             "automation.workflow_run_as_role_added",
             object_type="workflow",
             object_param="workflow_id",
             detail_params=("role_id",),
-        )
+        ),
     ],
 )
 async def add_run_as_role(

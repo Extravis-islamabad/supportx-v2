@@ -50,8 +50,14 @@ export const en = {
   'account.sessions.app_on': 'SupportX app on {{platform}}',
   'account.sessions.end': 'Sign out',
   'account.sessions.end_body': 'It is signed out at once and has to sign in again to continue.',
+  'account.sessions.end_others': 'Sign out everywhere else',
+  'account.sessions.end_others_body':
+    'Every other browser and device is signed out at once and has to sign in again. This one stays signed in.',
+  'account.sessions.end_others_title': 'Sign out of every other browser and device?',
   'account.sessions.end_title': 'Sign out of this device?',
   'account.sessions.ended': 'Signed out of that device',
+  'account.sessions.ended_others_one': 'Signed out of 1 other browser or device',
+  'account.sessions.ended_others_other': 'Signed out of {{count}} other browsers and devices',
   'account.sessions.help':
     'Wherever you are signed in to this organisation. Sign out of any you don’t recognise or no longer use, such as a lost phone.',
   'account.sessions.none': 'No other sessions',
@@ -59,6 +65,7 @@ export const en = {
   'account.sessions.title': 'Signed-in browsers and devices',
   'account.sessions.version': 'version {{version}}',
   'account.sessions.when': 'Signed in {{started}} · last used {{used}}',
+  'account.sessions.where': '{{device}} · from {{ip}}',
   'account.sso_only':
     "You sign in through your organisation's single sign-on, so there is no password here.",
   'account.title': 'Sign-in and security',
@@ -843,6 +850,16 @@ export const en = {
   'readiness_check.session_keys': 'Sign-in keys',
   'readiness_status.not_ready': 'Not ready',
   'readiness_status.ready': 'Ready',
+  'reauth.back': 'Back to SupportX',
+  'reauth.body':
+    'This change needs a recent sign-in. Sign in again in a new window, and the change goes ahead as soon as you are done.',
+  'reauth.close_window': 'You can close this window.',
+  'reauth.confirm': 'Sign in again',
+  'reauth.done_failed': 'We could not confirm it is you. Nothing was changed.',
+  'reauth.done_ok': 'Thank you, you are confirmed.',
+  'reauth.title': 'Confirm it is you',
+  'reauth.waiting':
+    'Finish signing in in the window that opened. This message closes by itself when you are done.',
   'role.asset_manager': 'Asset manager',
   'role.asset_manager.description':
     'Manages assets, the CMDB, software licences and discovery results for the whole organisation.',
@@ -1231,6 +1248,7 @@ export const en = {
   'sign_in_reason.identity_provider_refused': 'The single sign-on provider refused',
   'sign_in_reason.ip_not_allowed': 'Network not allowed',
   'sign_in_reason.other': 'Another reason',
+  'sign_in_reason.reauth_failed': 'Could not confirm it was them',
   'sign_in_reason.sign_in_expired': 'Sign-in took too long',
   'sign_in_reason.sso_required': 'Single sign-on required',
   'sign_in_reason.unknown_person': 'No such account',

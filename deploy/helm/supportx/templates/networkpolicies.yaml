@@ -138,6 +138,8 @@ spec:
         - {port: {{ .Values.nats.config.cluster.port | default 6222 }}, protocol: TCP}
 {{- end }}
 {{- if eq .Values.objectStorage.mode "seaweedfs" }}
+{{- $swHa := .Values.objectStorage.seaweedfs.ha.enabled }}
+{{- /* HA SeaweedFS (D-166): the S3 gateway runs in the filers. */}}
 ---
 # SeaweedFS (S3 API): only SupportX's own pods.
 apiVersion: networking.k8s.io/v1
@@ -150,7 +152,7 @@ spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/instance: {{ $rel }}
-      app.kubernetes.io/component: seaweedfs
+      app.kubernetes.io/component: {{ ternary "seaweedfs-filer" "seaweedfs" $swHa }}
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -167,6 +169,41 @@ spec:
         {{- end }}
       ports:
         - {port: 8333, protocol: TCP}
+{{- if $swHa }}
+{{- /* Between SeaweedFS's own pods only (HTTP port, and its gRPC port = HTTP + 10000):
+  masters <- masters (raft), volume servers (heartbeats), filers (file IDs, lookups);
+  volume servers <- filers (file data), masters (volume admin), volume servers (each write's
+    copy, copies re-made by volume.fix.replication and balancing);
+  filers <- filers (metadata change log between the copies), masters (the maintenance shell).
+Each filer reaches PostgreSQL through the postgresql-ingress policy below (SupportX's pods). */}}
+{{- range $p := list
+  (dict "to" "seaweedfs-master" "from" (list "seaweedfs-master" "seaweedfs-volume" "seaweedfs-filer") "port" 9333)
+  (dict "to" "seaweedfs-volume" "from" (list "seaweedfs-master" "seaweedfs-volume" "seaweedfs-filer") "port" 8080)
+  (dict "to" "seaweedfs-filer" "from" (list "seaweedfs-master" "seaweedfs-filer") "port" 8888) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-{{ $p.to }}-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" $ "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $rel }}
+      app.kubernetes.io/component: {{ $p.to }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - {key: app.kubernetes.io/instance, operator: In, values: [{{ $rel | quote }}]}
+              - {key: app.kubernetes.io/component, operator: In, values: [{{ join ", " $p.from }}]}
+      ports:
+        - {port: {{ $p.port }}, protocol: TCP}
+        - {port: {{ add $p.port 10000 }}, protocol: TCP}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- if .Values.clamav.enabled }}
 ---

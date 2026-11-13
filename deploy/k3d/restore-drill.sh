@@ -5,18 +5,24 @@
 #   2. note the moment T, write an "after" row, and wait until its WAL is archived;
 #   3. restore into a new cluster as of T, with the runbook's own manifest
 #      (deploy/runbooks/restore-cluster.yaml, docs/runbooks/restore.md);
-#   4. the restored database has "before" and not "after": point-in-time recovery works.
+#   4. the restored database has "before" and not "after": point-in-time recovery works;
+#   5. with HA SeaweedFS (D-166), its filers' metadata database is in the same cluster, so in the
+#      same backups: the restored cluster has it, with the file entries it had before the moment.
+# The backups are read through the release's own ObjectStore, so from wherever it points: with
+# `make deploy-ha` the store outside the k3d nodes (deploy/k3d/ci-backup-store.sh), reached under
+# the egress rule that values file adds for every pod of the namespace, the restore cluster's too.
 # The new cluster is removed afterwards. Needs: make cluster-up-ha deploy-ha. Prints no secret.
 set -euo pipefail
 
 NAMESPACE="${SUPPORTX_NAMESPACE:-supportx}"
 SOURCE="${SUPPORTX_PG_CLUSTER:-supportx-pg}"
 RESTORE="${SOURCE}-restore"
+FILER_DB="${SUPPORTX_FILER_DB:-seaweedfs_filer}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 k() { kubectl -n "$NAMESPACE" "$@"; }
 pg() { k get "clusters.postgresql.cnpg.io/$1" -o "jsonpath=$2"; }
-sql() {  # sql <pod> <statement>: one value back
-  k exec "$1" -c postgres -- psql -U postgres -d postgres -tAc "$2" | tr -d '[:space:]'
+sql() {  # sql <pod> <statement> [database]: one value back
+  k exec "$1" -c postgres -- psql -U postgres -d "${3:-postgres}" -tAc "$2" | tr -d '[:space:]'
 }
 until_true() {  # until_true <seconds> <what> <command...>
   local limit="$1" what="$2" started=$SECONDS
@@ -48,6 +54,12 @@ sql "$primary" "CREATE TABLE IF NOT EXISTS restore_drill (label text, at timesta
 sql "$primary" "TRUNCATE restore_drill" >/dev/null
 sql "$primary" "INSERT INTO restore_drill (label) VALUES ('before')" >/dev/null
 sql "$primary" "SELECT pg_switch_wal()" >/dev/null
+filer_entries=""
+if [ "$(sql "$primary" "SELECT count(*) FROM pg_database WHERE datname = '$FILER_DB'")" = 1 ]; then
+  filer_entries="$(sql "$primary" "SELECT count(*) FROM filemeta" "$FILER_DB")"
+  echo "SeaweedFS filer metadata ($FILER_DB): $filer_entries entries"
+  [ "$filer_entries" -gt 0 ] || { echo "$FILER_DB has no file entries: nothing to prove"; exit 1; }
+fi
 
 archiving() { [ "$(pg "$SOURCE" '{.status.conditions[?(@.type=="ContinuousArchiving")].status}')" = True ]; }
 backed_up() { k get backups.postgresql.cnpg.io -l "cnpg.io/cluster=$SOURCE" -o jsonpath='{.items[*].status.phase}' | grep -qw completed; }
@@ -87,4 +99,14 @@ echo "$RESTORE is ready"
 rows="$(sql "${RESTORE}-1" "SELECT string_agg(label, ',' ORDER BY at) FROM restore_drill")"
 echo "restored rows: $rows"
 [ "$rows" = before ] || { echo "point-in-time recovery: expected only 'before', got '$rows'"; exit 1; }
+if [ -n "$filer_entries" ]; then
+  restored="$(sql "${RESTORE}-1" "SELECT count(*) FROM filemeta" "$FILER_DB" || true)"
+  echo "restored SeaweedFS filer metadata ($FILER_DB): ${restored:-none} entries"
+  # At least what it held before the chosen moment (counted before it was chosen): the filers
+  # only add entries meanwhile (WAL archives), so fewer means entries were lost (lane C).
+  if [ -z "$restored" ] || [ "$restored" -lt "$filer_entries" ]; then
+    echo "the filers' metadata database $FILER_DB was not restored with its entries" \
+      "(${restored:-none} restored, $filer_entries before the moment)"; exit 1
+  fi
+fi
 echo "restore drill passed: a backup restored to a chosen moment, nothing after it"

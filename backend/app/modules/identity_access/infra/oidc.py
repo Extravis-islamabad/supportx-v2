@@ -235,6 +235,7 @@ class OidcClient:
         prompt: str | None = None,
         idp_hint: str | None = None,
         action: str | None = None,
+        max_age: int | None = None,
     ) -> str:
         """Where to send the browser to log in.
 
@@ -260,6 +261,8 @@ class OidcClient:
             params["ui_locales"] = locale
         if prompt:
             params["prompt"] = prompt
+        if max_age is not None:  # a confirmation (REQ-SEC-027): authenticated now, not earlier
+            params["max_age"] = str(max_age)
         if idp_hint:  # straight to one identity provider (the SSO test, WP-039)
             params["kc_idp_hint"] = idp_hint
         if action:  # one of Keycloak's account pages, from My account (WP-039 session 3)

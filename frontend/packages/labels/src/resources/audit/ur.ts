@@ -431,7 +431,9 @@ export const ur: LabelResource = {
   'audit.action.service_request.updated': 'سروس کی درخواست میں ترمیم کی',
   'audit.action.service_request.withdrawn': 'منظوری کی منتظر سروس درخواست واپس لی',
   'audit.action.session.break_glass_sign_in': 'ہنگامی اکاؤنٹ سے سائن اِن کیا',
+  'audit.action.session.confirmed': 'دوبارہ تصدیق کی کہ یہ وہی ہیں',
   'audit.action.session.ended': 'سائن اِن سیشن ختم کیا',
+  'audit.action.session.ended_others': 'باقی ہر جگہ سے سائن آؤٹ کیا',
   'audit.action.session.keycloak_ended':
     'سائن آؤٹ کے بعد باقی رہ جانے والا سائن اِن سروس کا سیشن ختم کیا',
   'audit.action.session.quick_sign_in': 'ڈیولپمنٹ کے فوری سائن اِن سے سائن اِن کیا',

@@ -732,6 +732,8 @@ export const ar: LabelResource = {
   'errors.instance_running': 'أوقف سير العمل هذا قبل تشغيله مرة أخرى.',
   'errors.instances_not_in_workflow':
     'بعض عمليات التشغيل المختارة ليست من سير العمل هذا ({{count}}).',
+  'errors.interactive_session_required':
+    'نفّذ هذا من وحدة التحكم على الويب وأنت مسجّل الدخول. لا يمكن ذلك بمفاتيح API ولا من تطبيق الجوال.',
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
   'errors.invalid_cursor': 'رابط هذه الصفحة لم يعد صالحًا. يرجى إعادة تحميل القائمة.',
@@ -919,6 +921,10 @@ export const ar: LabelResource = {
     'لم يعد بإمكانك متابعة هذا مباشرةً. أعد تحميل الصفحة لرؤية أحدث البيانات.',
   'errors.realtime_not_configured':
     'التحديثات المباشرة غير مُعدّة على هذا الخادم. أعد تحميل الصفحة لرؤية أحدث البيانات.',
+  'errors.reauth_failed': 'لم يتم تأكيد هويتك. لم يتغيّر شيء.',
+  'errors.reauth_required': 'أكّد هويتك للمتابعة: سجّل الدخول مجددًا ثم حاول مرة أخرى.',
+  'errors.reauth_unavailable':
+    'تسجّل مؤسستك دخولك عبر مزوّد لا يمكنه إعادة التأكيد عند الطلب. اطلب ذلك من مسؤول.',
   'errors.recipient_deferred': 'طلب خادم بريد المستلم المحاولة لاحقًا.',
   'errors.recipient_refused': 'رفض خادم البريد المستلم.',
   'errors.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
