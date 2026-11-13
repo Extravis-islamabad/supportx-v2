@@ -318,6 +318,10 @@ jobs:
           echo "== barman cloud plugin"; kubectl -n cnpg-system logs -l app.kubernetes.io/name=plugin-barman-cloud --tail=120 --prefix || true
           kubectl -n cnpg-system logs -l app.kubernetes.io/name=plugin-barman-cloud --previous --tail=60 --prefix || true
           echo "== database instances"; kubectl -n supportx logs -l cnpg.io/podRole=instance --all-containers --tail=80 --prefix || true
+          # Why an operator or plugin copy restarted during the loss (OOM, probe, lost lease).
+          echo "== cnpg-system events"; kubectl -n cnpg-system get events --sort-by=.lastTimestamp | tail -n 40 || true
+          kubectl -n cnpg-system describe pods | grep -E "^Name:|^Node:|Last State|Reason|Exit Code|Restart Count|Liveness|Readiness" || true
+          echo "== failover in the operator log"; kubectl -n cnpg-system logs -l app.kubernetes.io/name=cloudnative-pg --since=15m --prefix | grep -iE "failover|promot|primary|lease|plugin|deadline|unavailable" | tail -n 60 || true
           kubectl -n supportx describe clusters.postgresql.cnpg.io | tail -n 60 || true
           kubectl -n supportx get events --sort-by=.lastTimestamp | tail -n 50 || true
 
