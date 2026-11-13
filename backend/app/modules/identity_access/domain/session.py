@@ -30,7 +30,14 @@ class TenantChoice:
 
 # Left out of the stored record while empty: a session without them reads the same on a pod of
 # an earlier release (rolling update, §14.3).
-_OPTIONAL_FIELDS = ("device_platform", "app_version", "sign_in_ip", "device", "auth_time")
+_OPTIONAL_FIELDS = (
+    "device_platform",
+    "app_version",
+    "sign_in_ip",
+    "device",
+    "auth_time",
+    "place",
+)
 
 
 @dataclass(frozen=True)
@@ -80,6 +87,9 @@ class Session:
     sign_in_ip: str | None = None
     device: str | None = None
     auth_time: str | None = None
+    # WP-057 S2b (D-170): the approximate place of sign_in_ip in this tenant (domain/place.py's
+    # stored form: a mapped site, the internal network, or a city and country), or None.
+    place: dict[str, Any] | None = None
 
     def limits(self, *, idle: timedelta, absolute: timedelta) -> tuple[timedelta, timedelta]:
         """The (idle, absolute) limits of the session; `idle` and `absolute` when it has none."""

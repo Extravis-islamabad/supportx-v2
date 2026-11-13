@@ -48,6 +48,14 @@ in the `supportx-app` Secret (`keycloak-admin-password`).
 | `supportx-nats-0` (JetStream) | NATS chart 2.15.1 | 1 / 1 | 4222, 7777 metrics | chart |
 | `supportx-valkey` (sessions, caches, rate limits; no persistence) | Valkey chart 0.12.0 | 1 / 1 | 6379, 9121 metrics | chart |
 
+**Readiness (`/api/v1/ready`).** PostgreSQL, Valkey and NATS are required: when one does not
+answer, the API pod is taken out of service (503). Keycloak is reported, not required (ADR-051):
+people already signed in never need it per request, so when it does not answer `/ready` stays 200
+and lists `keycloak` under `degraded`; only new sign-ins, sign-in admin changes and the
+back-channel end of a sign-out wait for it (a sign-out still ends the SupportX session at once
+and Keycloak's own session is ended in the background). Alert on `degraded` containing
+`keycloak`. The event workers and the malware signatures are reported the same way.
+
 Public routes (one host, D-038): `/api` → API, `/connection` + `/emulation` → Centrifugo,
 `/auth` → Keycloak (`/auth/admin` only in dev), `/portal/` and `/` → web. Gateway API (Traefik on
 k3s) by default; `routing.mode=ingress` for a plain Ingress.
@@ -536,7 +544,8 @@ spending it; with Valkey down that cannot be read, so it goes to the console.
 **The sign-in routes fail closed.** Every other route allows requests while Valkey is down (losing
 rate limiting for a moment beats losing the API, ADR-020). A sign-in needs Valkey anyway (its
 one-time state lives there), so letting it through unlimited buys nothing; it answers 503
-`sign_in_unavailable` with `Retry-After: 2`, and the sign-in page says to try again in a minute.
+`sign_in_unavailable` with `Retry-After: 2`, and the sign-in page says that signing in is
+temporarily unavailable. Keycloak being unreachable gives the same answer (ADR-051).
 
 ## Egress allow-list (opt-in)
 
@@ -600,6 +609,36 @@ dropped, so check every integration after turning egress on.
 CI runs the HA cluster with egress on (`values-ha-ci.yaml`), and `make cluster-ha-egress` checks
 that the namespace answers and the outside doesn't. chart-lint checks that the chart refuses to
 render without the control plane's addresses, and that no egress rule opens `0.0.0.0/0`.
+
+## Approximate sign-in place (GeoIP)
+
+Sessions and the sign-in log show roughly where a sign-in came from (WP-057 S2b, D-170). The order
+is fixed:
+1. **An address range an admin mapped to a site** (Admin › Sign-in and security › Address ranges by
+   site), for internal and public ranges alike.
+2. **"Internal network"** for private, loopback, link-local and carrier-grade NAT addresses, never
+   a guessed city.
+3. **A city and country** from the DB-IP Lite city database, when one is installed.
+
+The database is a file of about 126 MB (`dbip-city-lite.mmdb`), CC BY 4.0, credited on the About
+dialog. It is **never in an image**: give the API pods a ReadOnlyMany (or ReadWriteMany) volume
+holding it and set:
+
+```yaml
+geoip:
+  existingClaim: supportx-geoip     # the claim holding the file
+  file: dbip-city-lite.mmdb         # its name there
+```
+
+- **Refresh it monthly through the mirror**, and in air-gapped installs from the offline update
+  bundle, by replacing the file on the volume. Each API pod opens it once, so roll the API out
+  after a refresh (`kubectl rollout restart deployment/<release>-api`); until then the pods keep
+  the file they opened.
+- **On a single node** (k3s), a `ReadWriteOnce` claim from the local-path provisioner works:
+  every API pod runs on that node.
+- **Admins see its age:** the card shows the date the database was built.
+- **Without it,** sign-ins outside the mapped ranges show no city. Nothing else changes and
+  nothing fails.
 
 ## Backups
 

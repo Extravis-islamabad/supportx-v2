@@ -28,6 +28,7 @@ export * from './licence';
 export * from './richtext';
 export { AccountSecurityCard } from './AccountSecurityCard';
 export { deviceText } from './deviceText';
+export { usePlaceText, type Place } from './placeText';
 export { PersonSessions, SESSIONS_CHANGED, SignedInSessionsCard } from './SignedInSessionsCard';
 export { ContactDetailsCard } from './ContactDetailsCard';
 export { MfaReminder } from './MfaReminder';

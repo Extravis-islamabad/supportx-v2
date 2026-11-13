@@ -629,6 +629,9 @@ export const ur: LabelResource = {
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
   'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
   'errors.field.site_inactive': 'یہ سائٹ غیر فعال ہے۔ فعال سائٹ منتخب کریں۔',
+  'errors.field.site_network_invalid':
+    '10.1.0.0/16 جیسی رینج درج کریں (ہوسٹ والا حصہ صفر ہو)، یا ایک ایڈریس۔',
+  'errors.field.site_network_too_many': 'زیادہ سے زیادہ {{max}} رینجز منسلک کی جا سکتی ہیں۔',
   'errors.field.site_not_found': 'یہ مقام موجود نہیں۔',
   'errors.field.sso_certificate_expired':
     'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے۔ شناخت فراہم کنندہ سے نیا لیں۔',
@@ -757,6 +760,8 @@ export const ur: LabelResource = {
   'errors.field.workflow_not_published': 'پہلے یہ ورک فلو شائع کریں۔',
   'errors.field.workflow_wrong_record_type': 'یہ ورک فلو کسی اور قسم کے ریکارڈ کے لیے ہے۔',
   'errors.field.would_loop': 'کوئی ریلیز خود اپنا حصہ نہیں بن سکتی، براہ راست یا دوسروں کے ذریعے۔',
+  'errors.field_keys_unavailable':
+    'محفوظ معلومات ابھی پڑھی یا محفوظ نہیں کی جا سکتیں: انسٹالیشن کی کلید دستیاب نہیں۔ اپنے ایڈمنسٹریٹر سے اسے چیک کرنے کو کہیں۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',
   'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
@@ -1070,7 +1075,7 @@ export const ur: LabelResource = {
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unavailable':
-    'اس وقت سائن اِن دستیاب نہیں۔ براہِ کرم ایک منٹ انتظار کر کے دوبارہ کوشش کریں۔',
+    'سائن اِن عارضی طور پر دستیاب نہیں۔ اگر آپ پہلے سے سائن اِن ہیں تو کام جاری رکھ سکتے ہیں۔',
   'errors.sign_in_unknown_person':
     'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
   'errors.site_not_found': 'سائٹ نہیں ملی۔',

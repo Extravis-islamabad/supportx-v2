@@ -582,6 +582,9 @@ export const ar: LabelResource = {
     'استخدم مدة لا تقل عن مهلة عدم النشاط ولا تزيد على {{max}} ساعة.',
   'errors.field.session_idle_out_of_range': 'استخدم ما بين {{min}} و{{max}} دقيقة.',
   'errors.field.site_inactive': 'هذا الموقع غير نشط. اختر موقعًا نشطًا.',
+  'errors.field.site_network_invalid':
+    'أدخل نطاقًا مثل 10.1.0.0/16 (مع جعل جزء المضيف صفرًا)، أو عنوانًا واحدًا.',
+  'errors.field.site_network_too_many': 'يمكن ربط {{max}} نطاقًا على الأكثر.',
   'errors.field.site_not_found': 'هذا الموقع غير موجود.',
   'errors.field.sso_certificate_expired': 'انتهت صلاحية الشهادة. اطلب شهادة سارية من مزوّد الهوية.',
   'errors.field.sso_certificate_missing': 'لا تحتوي البيانات الوصفية على شهادة توقيع.',
@@ -702,6 +705,8 @@ export const ar: LabelResource = {
   'errors.field.workflow_not_published': 'انشر سير العمل هذا أولًا.',
   'errors.field.workflow_wrong_record_type': 'سير العمل هذا لنوع آخر من السجلات.',
   'errors.field.would_loop': 'لا يمكن أن يكون الإصدار جزءًا من نفسه، مباشرة أو عبر غيره.',
+  'errors.field_keys_unavailable':
+    'لا يمكن قراءة المعلومات المحمية أو حفظها الآن: مفتاح التثبيت غير متاح. اطلب من المسؤول التحقق منه.',
   'errors.file_link_expired': 'انتهت صلاحية الرابط. افتح الملف مجددًا.',
   'errors.file_not_an_image': 'هذا الملف ليس صورة.',
   'errors.file_not_found': 'هذا الملف غير موجود أو لا يمكنك رؤيته.',
@@ -986,7 +991,7 @@ export const ar: LabelResource = {
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unavailable':
-    'تسجيل الدخول غير متاح الآن. يرجى الانتظار دقيقة ثم المحاولة مرة أخرى.',
+    'تسجيل الدخول غير متاح مؤقتًا. إذا كنت مسجّل الدخول بالفعل، يمكنك متابعة العمل.',
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
   'errors.site_not_found': 'الموقع غير موجود.',

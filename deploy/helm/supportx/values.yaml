@@ -302,6 +302,13 @@ objectStorage:
           limits: {cpu: "1", memory: 512Mi}
 
 # --- Files and malware scanning (WP-022, ADR-028, D-082) -------------------------------------------
+# The approximate sign-in place (WP-057 S2b, D-170): the DB-IP Lite city database (.mmdb, about
+# 126 MB, CC BY 4.0) on a volume the operator provides, never in an image. Empty: no city is shown
+# (internal ranges and admin-mapped networks still name the internal network or the site).
+geoip:
+  existingClaim: ""                 # a ReadOnlyMany/ReadWriteMany claim holding the file
+  file: dbip-city-lite.mmdb         # its name on that volume
+
 files:
   # Files wait as "scanning" until a scanner has checked them. Off only knowingly: files are then
   # stored "not scanned" and administrators are warned (docs/architecture/files.md).
@@ -555,8 +562,9 @@ keycloak:
   setUpIdentityAdmin: true
   # The breached-password list (supportx-breached.txt) comes from this release's backend image.
   # A larger list of your own: a ConfigMap in the release namespace holding a file of that name,
-  # named here (kubectl create configmap my-lists --from-file=supportx-breached.txt). A
-  # ConfigMap holds at most 1 MiB, like the release itself (lane C, #471).
+  # named here (kubectl create configmap my-lists --from-file=supportx-breached.txt). That
+  # ConfigMap is itself capped at 1 MiB (the Kubernetes object limit), like the release (lane C,
+  # #471): a bigger list needs a data image of its own, not a ConfigMap.
   passwordBlacklists:
     configMap: ""
   resources:

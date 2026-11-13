@@ -169,6 +169,7 @@ class SessionStore:
                 # admins only (lane B), sealed like the rest of the entry.
                 "ip": data.get("sign_in_ip"),
                 "device": data.get("device"),
+                "place": data.get("place"),
             }
             sealed = self._cipher.encrypt(meta, bound_to=f"{index}:{field}")
             await self._kv.hset(index, field, sealed, px=_ms(ttl))
@@ -185,6 +186,25 @@ class SessionStore:
                 continue
             found.append((field, meta))
         return found
+
+    async def keycloak_session_in_use(self, user_key: str, keycloak_session_id: str) -> bool:
+        """Whether a live session of this person still holds that Keycloak session (ADR-051).
+
+        The console and portal of one browser share a Keycloak session, and signing in again
+        just as Keycloak returns may reuse it: a delayed end must never cut either. A session
+        begun before the person's sessions were ended (deactivation) is not live and never counts.
+        """
+        ended = await self.user_sessions_ended(user_key)
+        for _field, meta in await self.user_sessions(user_key):
+            key = str(meta.get("key"))
+            blob = await self._kv.get(key)
+            record = self._cipher.decrypt(blob, bound_to=key) if blob else None
+            if record is None or record.get("keycloak_session_id") != keycloak_session_id:
+                continue
+            if ended is not None and datetime.fromisoformat(record["created_at"]) <= ended:
+                continue
+            return True
+        return False
 
     async def end_listed_session(self, user_key: str, session: str) -> bool:
         """End one of a person's sessions by its public id; False when it isn't theirs or live."""

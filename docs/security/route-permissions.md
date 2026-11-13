@@ -9,7 +9,9 @@ changed role default changes this file, so it needs the security review.
 ## Routes
 
 Access is what the route declares: one of the listed permissions (any scope),
-`signed_in` (the caller's own data, browser session only) or `public` (no session).
+`signed_in` (the caller's own data, browser session only), `session (BFF)` (the
+sign-in layer's own routes: a valid session cookie, CSRF-checked on changes, or 401)
+or `public` (no session).
 Routes carry no machine-readable scope rule of their own: which records a caller
 reaches is filtered in the module's service by the scope the caller holds the
 permission at. The Scopes column lists the scopes each permission can be granted
@@ -194,20 +196,20 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/audit/status` | `audit.view` | audit.view: all |
 | GET | `/api/v1/audit/verification-runs` | `audit.view` | audit.view: all |
 | POST | `/api/v1/audit/verification-runs` | `audit.verify` | audit.verify: all |
-| GET | `/api/v1/auth/account-action` | public | - |
+| GET | `/api/v1/auth/account-action` | session (BFF) | - |
 | GET | `/api/v1/auth/callback` | public | - |
-| GET | `/api/v1/auth/confirm` | public | - |
+| GET | `/api/v1/auth/confirm` | session (BFF) | - |
 | GET | `/api/v1/auth/dev/personas` | public | - |
 | POST | `/api/v1/auth/dev/sign-in` | public | - |
 | GET | `/api/v1/auth/login` | public | - |
-| POST | `/api/v1/auth/logout` | public | - |
-| GET | `/api/v1/auth/me` | public | - |
+| POST | `/api/v1/auth/logout` | session (BFF) | - |
+| GET | `/api/v1/auth/me` | session (BFF) | - |
 | POST | `/api/v1/auth/mobile/exchange` | public | - |
 | POST | `/api/v1/auth/password-reset` | public | - |
-| GET | `/api/v1/auth/sessions` | public | - |
-| POST | `/api/v1/auth/sessions/end-others` | public | - |
-| DELETE | `/api/v1/auth/sessions/{listed_id}` | public | - |
-| POST | `/api/v1/auth/switch-tenant` | public | - |
+| GET | `/api/v1/auth/sessions` | session (BFF) | - |
+| POST | `/api/v1/auth/sessions/end-others` | session (BFF) | - |
+| DELETE | `/api/v1/auth/sessions/{listed_id}` | session (BFF) | - |
+| POST | `/api/v1/auth/switch-tenant` | session (BFF) | - |
 | GET | `/api/v1/automation/availability` | signed_in | - |
 | PUT | `/api/v1/automation/availability/{user_id}` | signed_in | - |
 | GET | `/api/v1/automation/availability/{user_id}/history` | signed_in | - |
@@ -488,6 +490,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/settings/password-policy/apply` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sign-ins` | `identity.view_sign_ins` | identity.view_sign_ins: all |
+| GET | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all |
+| PUT | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sso-policy` | `identity.manage` | identity.manage: all |

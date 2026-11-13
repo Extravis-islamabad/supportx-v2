@@ -2244,9 +2244,71 @@ it with no reload (rule c). Not built yet.
     - Vitest: the api-client retry (4), the pop-up, `/confirmed` and the way back (22), the
       sessions card (26 with the sign-in log).
     - e2e: `confirm-identity.spec.ts` (AC1 within 5 s, real Keycloak), run by the PR's e2e job.
-- [ ] Session 2b: notices, expiring certificates, invite links, the GeoIP place and the
-  subnet-to-site map (D-170). Migration 0157.
-- [ ] Session 3: field-level encryption (ADR-050), personal-data access log.
+- [x] Session 2b-1 (2026-11-13): the approximate place, known devices, and the first security
+  notices. Migration 0157. D-170 is recorded in this PR.
+  - **The place (D-170):** sessions and the sign-in log show where a sign-in came from, in a
+    fixed order:
+    - an admin-mapped address range shows its site (Admin › Security, the most specific range
+      wins, saved whole under the settings version, audited);
+    - an internal address shows "Internal network", never a guessed city;
+    - otherwise the DB-IP Lite city and country.
+    The sign-in log stores no place: it is read from the stored address, so erasure takes both.
+    A session keeps the place of its sign-in, worked out again at a tenant switch.
+  - **The GeoIP file:** the `maxminddb` reader on the file at `SUPPORTX_GEOIP_DB`.
+    - It comes from `geoip.existingClaim`, mounted read-only into the API pods only. The ~126 MB
+      file is never in an image.
+    - Any failure means no place, never an error.
+    - Admins see the file's build date. DB-IP is credited on About (CC BY 4.0), and
+      deployment.md says how to provide and refresh it.
+  - **Known devices (REQ-SEC-033, part 1):**
+    - keyed fingerprints only (HMAC under a known-device key from the session ring; device code
+      plus /24 or /48), checked under every ring key, so a rotation never makes devices new;
+    - at most 50 per person, deleted by erasure;
+    - a new device (never on the first sign-in) raises `NewDeviceSignedIn` and a required,
+      urgent, locked security notice to the person: the device and the place, never the
+      address, with a link to their sessions.
+  - **A changed sign-in e-mail** is mailed to the OLD address: who changed it and when, no link,
+    in the person's language and the tenant's brand. The `user.changed` entry records the send.
+  - **Tests:**
+    - place (22), GeoIP (3, plus 1 with a real file when given), known-device fingerprints (4);
+    - RLS for both tables (5), site-map API (5), known devices end to end (2), the old-address
+      mail (1), the GeoIP chart (2);
+    - the sessions and sign-in log suites unchanged;
+    - Vitest: the site-map card (3).
+- [ ] Session 2b-2: certificate and secret expiry (REQ-SEC-011), the invite link (REQ-SEC-021),
+  and REQ-SEC-033 part 2. Migration 0158.
+  - **REQ-SEC-033 part 2:** the lock-out, password-changed and MFA-changed notices, which need
+    the Keycloak events import to read those user events (only the types it needs, no other user
+    data; lane B reviews that part).
+  - **Moved here** from S2b-1 by the coordinator, 2026-11-13.
+- [x] Session 3a (2026-11-13): field encryption on the tenant's data keys (ADR-050, D-161).
+  No migration.
+  - **`app.shared.fields`:**
+    - `field_cipher(session, keys, cache)` seals and opens values with the tenant's newest data
+      key (files' `tenant_data_keys`, reused), HKDF per declared purpose through the ADR-048
+      codec.
+    - Values are bound to tenant, table, record and field. Purposes are declared once
+      (`purpose(module, what)`).
+    - The key-provider Protocol lives in `app.shared.crypto`, which stays a leaf. Import-linter
+      enforces it, and modules use only `app.shared.fields`.
+  - **What `open` does when it can't open:**
+    - Data that doesn't open gives None: a logged, counted security event, with a bad tag
+      alerted.
+    - An installation key that can't unwrap the data key raises a 503,
+      `field_keys_unavailable`, so good data is never called unreadable.
+  - **The data-key cache:**
+    - A bounded LRU with a 5-minute TTL, in memory only.
+    - Each entry carries the tenant's generation, a random token in Valkey compared on every hit.
+    - Erasure (`destroy_tenant_keys`) moves it before and after the destroying commit, and fails
+      without Valkey. Valkey down while opening means no cache, never a stale hit (lane B's
+      conditions).
+  - **Tests:** field cipher (8, including the erasure-with-cache case and its control), the cache
+    unit tests (7), and two new import contracts.
+  - **First users** (not in this session): webhook header values (#406, D-161 item 5) with their
+    data step, and lane A's server drafts (REQ-INC-019).
+- [ ] Session 3b: masking, the personal-data access log (AUD-017), the ADR-048 users hook (a
+  removed installation key that still wraps data keys refuses start-up), webhook headers sealed.
+  Migration number asked at its turn.
 - [ ] Session 4: service accounts, key policy, non-person actors, security overview.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per

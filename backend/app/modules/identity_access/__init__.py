@@ -79,6 +79,7 @@ from app.modules.identity_access.service import (
     break_glass_notifications,
     directory,
     mfa,
+    security_notices,
     sign_in_import,
     sign_in_log,
 )
@@ -115,6 +116,7 @@ from app.modules.identity_access.service.federation import (
     remove_ldap_federation,
     sync_ldap_federation,
 )
+from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
@@ -391,6 +393,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
+security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
 
 module = ModuleSpec(
     name="identity_access",
@@ -411,7 +414,13 @@ module = ModuleSpec(
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
-    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY, mfa.MFA_ROLES, sign_in_log.PERSON_ERASED],
+    consumers=[
+        AUTHZ_INVALIDATION,
+        PASSWORD_POLICY_APPLY,
+        mfa.MFA_ROLES,
+        sign_in_log.PERSON_ERASED,
+        KEYCLOAK_SESSION_END,
+    ],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
     realtime=ROUTES,

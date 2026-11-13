@@ -92,6 +92,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("session.ended", AuditCategory.SESSION, "identity_access"),  # one session ended from a list
     ("session.ended_others", AuditCategory.SESSION, "identity_access"),  # sign out everywhere else
     ("session.confirmed", AuditCategory.SESSION, "identity_access"),  # confirmed it's them again
+    # Keycloak's own session, ended in the background after a sign-out it missed (ADR-051)
+    ("session.keycloak_ended", AuditCategory.SESSION, "identity_access"),
     # roles and access
     ("role.created", AuditCategory.ACCESS, "identity_access"),
     ("role.updated", AuditCategory.ACCESS, "identity_access"),
@@ -196,6 +198,7 @@ ACTIONS: dict[str, Action] = _actions(
     # branding and addresses (WP-017)
     ("identity.settings_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.network_rules_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.site_networks_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.sign_ins_viewed", AuditCategory.SECURITY, "identity_access"),
     ("identity.sso_policy_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.break_glass_changed", AuditCategory.SECURITY, "identity_access"),

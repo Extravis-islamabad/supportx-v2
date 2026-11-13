@@ -239,6 +239,11 @@ export const ur: LabelResource = {
   'mail.block_rules.title': 'روکی گئی میل',
   'mail.block_rules.value': 'قدر',
   'mail.edit_title': 'میل باکس تبدیل کریں',
+  'mail.email_changed.body':
+    '{{who}} نے {{when}} کو {{organisation}} میں آپ کے اکاؤنٹ کی سائن اِن ای میل بدل دی۔ اب یہ پتا نہیں رہا: سائن اِن اور پاس ورڈ ری سیٹ اب نئے پتے پر جاتے ہیں۔ اگر آپ کو اس کی توقع نہیں تھی تو فوراً {{organisation}} کے ایڈمنسٹریٹرز سے رابطہ کریں۔',
+  'mail.email_changed.body_self':
+    '{{when}} کو {{organisation}} میں آپ کے اکاؤنٹ کی سائن اِن ای میل بدل دی گئی۔ اب یہ پتا نہیں رہا: سائن اِن اور پاس ورڈ ری سیٹ اب نئے پتے پر جاتے ہیں۔ اگر یہ آپ نے نہیں کیا تو فوراً {{organisation}} کے ایڈمنسٹریٹرز سے رابطہ کریں۔',
+  'mail.email_changed.subject': '{{organisation}} میں آپ کے اکاؤنٹ کی سائن اِن ای میل بدل دی گئی',
   'mail.field.address': 'ای میل پتہ',
   'mail.field.after_fetch': 'پیغام پڑھنے کے بعد',
   'mail.field.after_fetch_hint': 'میل سرور پر پیغام صرف تب بدلتا ہے جب SupportX اسے محفوظ کر لے۔',

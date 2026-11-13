@@ -627,6 +627,9 @@ export const en = {
     'Use at least the idle timeout and at most {{max}} hours.',
   'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
   'errors.field.site_inactive': 'This site is inactive. Choose an active site.',
+  'errors.field.site_network_invalid':
+    'Enter a range such as 10.1.0.0/16 (with the host part zero), or one address.',
+  'errors.field.site_network_too_many': 'At most {{max}} ranges can be mapped.',
   'errors.field.site_not_found': 'This site does not exist.',
   'errors.field.sso_certificate_expired':
     'The certificate has expired. Ask the identity provider for a current one.',
@@ -755,6 +758,8 @@ export const en = {
   'errors.field.workflow_not_published': 'Publish this workflow first.',
   'errors.field.workflow_wrong_record_type': 'This workflow is for another kind of record.',
   'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
+  'errors.field_keys_unavailable':
+    'Protected information cannot be read or saved right now: the installation key is not available. Ask your administrator to check it.',
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',
@@ -1064,7 +1069,7 @@ export const en = {
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unavailable':
-    'Signing in is not available right now. Please wait a minute and try again.',
+    'Sign-in is temporarily unavailable. If you’re already signed in, you can keep working.',
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
   'errors.site_not_found': 'The site was not found.',

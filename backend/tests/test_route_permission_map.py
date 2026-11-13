@@ -41,4 +41,7 @@ def test_a_stale_map_fails_with_the_fix(tmp_path: Path, page: str) -> None:
 def test_the_map_lists_routes_and_roles(page: str) -> None:
     assert "| GET | `/api/v1/users` | `users.view` |" in page
     assert "| GET | `/api/v1/health` | public | - |" in page
+    # Public to the permission guard, but behind the BFF's own session check: never shown 'public'.
+    assert "| POST | `/api/v1/auth/logout` | session (BFF) | - |" in page
+    assert "| GET | `/api/v1/auth/login` | public | - |" in page
     assert "| technician | `incidents.view` | group, own | all, own |" in page

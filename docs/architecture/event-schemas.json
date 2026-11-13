@@ -2714,6 +2714,30 @@
         "type": "object"
       }
     },
+    "identity_access.keycloak_session.end_pending": {
+      "1": {
+        "description": "A sign-out ended the SupportX session while Keycloak was unreachable (ADR-051).\n\nThe person is signed out of SupportX already; this asks the consumers worker to end their\nKeycloak session too, through the admin API, once Keycloak answers again. No token: the\nsession ID is enough for the admin API and authorises nothing on its own.",
+        "properties": {
+          "keycloak_session_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Keycloak Session Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "keycloak_session_id"
+        ],
+        "title": "KeycloakSessionEndPending",
+        "type": "object"
+      }
+    },
     "identity_access.mfa.changed": {
       "1": {
         "description": "An MFA policy, a person's enrolment or an admin reset changed (WP-039 session 3).",
@@ -2758,6 +2782,56 @@
           "change"
         ],
         "title": "MfaChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.new_device.signed_in": {
+      "1": {
+        "description": "A person signed in from a browser or device they have not used before (REQ-SEC-033).\n\nWP-057 S2b-1: they are told (a locked security notice), never on their first sign-in ever.\nCarries the device code (domain/sign_in.device, never the User-Agent) and the approximate\nplace (domain/place.py's stored form), never the address: the known_devices table keeps only\na keyed fingerprint, so the notice can only say this from the event. Internal (the outbox and\nthe notification consumer), never sent to a browser.",
+        "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "signed_in_at": {
+            "format": "date-time",
+            "title": "Signed In At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "device",
+          "place",
+          "signed_in_at"
+        ],
+        "title": "NewDeviceSignedIn",
         "type": "object"
       }
     },

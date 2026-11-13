@@ -37,6 +37,7 @@ from app.modules.identity_access.domain.sign_in import (
 )
 from app.modules.identity_access.events import SignInRecorded
 from app.modules.identity_access.infra.models import SignInEvent
+from app.modules.identity_access.service import known_devices
 from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 from app.shared.ids import new_id
 
@@ -159,13 +160,19 @@ async def purge(session: AsyncSession, now: datetime) -> int:
 
 
 async def on_person_erased(envelope: EventEnvelope, session: AsyncSession | None) -> None:
-    """Consumer: a person was erased (GDPR), so their entries lose address and device."""
+    """Consumer: a person was erased (GDPR); their sign-in traces go.
+
+    Their entries lose address and device, and their known devices (WP-057 S2b-1) are deleted,
+    in the same transaction.
+    """
     assert session is not None  # noqa: S101 - transactional consumer
     if envelope.payload.get("reason") != "erasure":
         return
-    forgotten = await forget_person(session, uuid.UUID(str(envelope.payload["user_id"])))
-    if forgotten:
-        log.info("sign_in_log_erased", entries=forgotten)
+    person = uuid.UUID(str(envelope.payload["user_id"]))
+    forgotten = await forget_person(session, person)
+    devices = await known_devices.forget(session, person)
+    if forgotten or devices:
+        log.info("sign_in_log_erased", entries=forgotten, known_devices=devices)
 
 
 PERSON_ERASED = ConsumerSpec(
