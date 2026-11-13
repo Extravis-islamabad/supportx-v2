@@ -53,6 +53,20 @@ Branch `fix/security-audit-a` (2026-11-12, docs/progress-log/2026-11-12-security
 - [x] Row 15, HSTS on the console and portal nginx responses. Still open from the audit's HSTS
   row: the chart's port-80 listener with an https redirect.
 
+Branch `fix/security-audit-b1` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b-b1.md):
+- [x] Row 26, API-key HMAC key: `SUPPORTX_API_KEY_SECRET` required in production (32+ characters),
+  never the session secret; keys hashed under the old derived key move on their next good call
+  while `SUPPORTX_SESSION_SECRET` stays set. Chart passes `api-key-secret`, secrets.sh makes it.
+- [x] Row 26, refresh-token rotation: `revokeRefreshToken` on, `refreshTokenMaxReuse` 0 (realm
+  files and the keycloak-identity Job); the BFF never saves or re-sends a spent token.
+- [x] Idempotency-Key on `POST /api/v1/audit/saved-searches`.
+- [x] Row 14 follow-ups: IPv6 counted per /64 in `ip_rate_limit`; a rate-limited callback goes
+  back to the app its sign-in started in.
+- [x] Row 27, Semgrep in CI with the repo's own rules (`.semgrep.yml`, `make semgrep`); not a
+  required check yet.
+- [ ] Row 3, LDAP host pin: waits for `app/shared/egress/sockets.py` (`pinned_address`), not on
+  main yet.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -326,8 +340,9 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   retries after 60 s); node-monitor grace period 20 s in `deploy/k3s/config-ha.yaml` and the k3d
   HA cluster; a forced worst-case test, master plus CoreDNS on the stopped node
   (`make cluster-ha-valkey-node-loss-dns`).
-  - [ ] **Later:** NodeLocal DNSCache to remove the dead-endpoint window, without a shorter
-    grace period; weigh it after this lands.
+  - [x] NodeLocal DNSCache (D-163, 2026-11-13) removes the dead-endpoint window, without a
+    shorter grace period: `deploy/k3s/node-local-dns.sh`, required by the preflight; the
+    node-loss budgets are back to 60 s and a sentinel TILT fails the test.
   Round 3 (2026-11-12, the coordinator's sweep of single copies in the HA profile; the proving
   run lost k3s's only Traefik copy with the stopped node and no request was answered for 90 s):
   Traefik two copies with required anti-affinity (`deploy/k3s/traefik-ha.yaml`, a
@@ -1364,6 +1379,54 @@ it with no reload (rule c). Not built yet.
     composer and move dialog fill on the record's own route prefix (incidents, requests).
   - **Still open:** problems' and changes' move dialogs offer no resolution templates yet.
     S5b is the form designer and rules, S5c copy, quick create and server drafts.
+- **S3 PR 1 (0147; REQ-INC-068, -069, -070; D-164):**
+  - Worklogs are billable or not, and take their owner's cost per hour when the time started
+    (lane B's `cost_rate`, #427; a snapshot, never rewritten). Other-cost lines are in the base
+    currency, or another currency with the rate entered (D-164: no automatic rates).
+  - Totals: billable and non-billable time, technician, other and total cost.
+  - `<type>.view_costs` (D-164) gates every cost on incidents, requests, problems, changes and
+    releases, a task's extra cost included: the service desk manager everywhere, the change
+    manager on changes, the release manager on releases. Without it the API hides them.
+  - Closure settings: no time on closed records (409), count non-working hours, timer
+    auto-start (off by default).
+  - Personal timers: one per person per record, on the server; stop prefills a worklog; resolve,
+    close or cancel turns running timers into drafts that count once their owner confirms them;
+    auto-start once for the record's technician. Live on the personal channel only.
+- **S3 PR 2 (no migration; REQ-INC-071; #432):** time analysis per status, group and
+  technician, open and paused, on the record's calendar; the incident's Time tab.
+- **S4a (0152; REQ-INC-049 AC1-AC3; ADR-049 with Amendment 1):**
+  - `work_item_lifecycle_versions`: each life cycle's versions (draft, published, retired), for
+    action-based and staged types. The data step makes every life cycle version 1, published,
+    and gives every record and staged transition version 1, once per tenant, records in
+    batches. The downgrade refuses once anything is beyond version 1.
+  - A record runs on its own version: the catalogue loads every runnable version, and a new
+    record starts on the latest published one. Publishing never changes a record made before.
+  - Versions over HTTP (`/settings/lifecycles/{lifecycle}/...`): start a draft (a copy), replace
+    its moves (saved with its problems, each naming what to fix), publish only without
+    problems, throw it away, retire a version new records no longer start on. If-Match on the
+    type's settings version, audited, live.
+  - A move gains, per version, an extra right and fields needed first; the offer lists them and
+    the move refuses (403 naming the right; 422 `required_for_move`).
+  - Who may run a move stays WP-029's transition settings, **version-wide** (Amendment 1),
+    hardened to ADR-049 §5: one function for the offer and the move, facts read after If-Match,
+    a 403 `transition_condition_not_met` with only its kind, fail closed, roles and groups
+    checked within the tenant at save, run-as identities limited like people. One test per rule.
+  - Admin › Incidents › Life cycle and Admin › Service requests (template E): versions, the
+    draft's moves as a table, problems in words, publish saying existing records stay on their
+    version. Guide: docs/guides/life-cycle-versions.md.
+  - **Not yet (S4b, no migration):** the canvas designer on packages/flow (AC4), migrating
+    records to a newer version (§7), staged types' version editing (§8; they keep version 1),
+    and problems' settings page (none exists yet; the API serves problems already).
+- **S5c part 1 (no migration; REQ-INC-018 quick create):**
+  - Incidents list › Quick create: subject, requester and an optional priority (with its
+    reason), without leaving the list.
+  - It is the same create as the full form: the default template's starting values go with it
+    and the server applies its rules. A field they need that the dialog lacks is named, with
+    "Open the full form" (template and requester carried over; AC2).
+  - The list updates live (AC1).
+  - **Next:** copy N times (REQ-INC-033; `copy_limit`, migration number asked). Server drafts
+    (REQ-INC-019) wait for WP-057 S3's field encryption, as approved; today's drafts are kept
+    in the tab (sessionStorage).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2000,6 +2063,71 @@ it with no reload (rule c). Not built yet.
     refresh after insert) needs those owners. The import of a site-scoped manager may add
     assets at any site, as `create_asset` allows today (only updates are scope-checked).
 
+### [~] WP-057 — Security and audit: sign-in policy, network rules, sign-in log, encryption, service accounts (lane C; D-149; plan approved 2026-11-12; 6 sessions; lane B blocks every PR)
+
+- [x] Session 1a (2026-11-12): IP allow-lists, the sign-in log and the SSO fetch pin. Migration 0151.
+  - **REQ-SEC-034 (IP allow-lists), AC1-AC3:**
+    - One list per app: console, portal and API (keys).
+    - Checked before the person is looked up or created, at sign-in and at a tenant switch. A
+      person in several tenants lands in one that admits them.
+    - Checked again at every refresh and at the realtime token.
+    - A save that would shut out the admin is refused (AC2). Every change is audited.
+  - **REQ-AUD-015 (sign-in log):**
+    - The BFF writes sign-ins, IP refusals and sign-outs (person only where known; a device
+      code, never the User-Agent).
+    - Live, behind its own right (`identity.view_sign_ins`, tenant admin only, grantable; each
+      read audited).
+    - Erasure clears the address and device. Entries go after 90 days.
+    - **AC2 met. AC1 (a failed SSO's reason) OPEN until S1b**, with the Keycloak events import.
+  - **Audit #3 (fetch part):** set-up checks are pinned through the guarded egress client.
+    Private ranges only where the installation lists them.
+  - **Tests:** ip_allow_lists (7), network_rules_api (4), sign_in_log_api (4), api_keys (+1),
+    auth suites unchanged (109), domain (network 9, sign_in 15), Vitest network (3) and sign-ins
+    (3). test_auth_keycloak is split in three (12 pass).
+- [x] Session 1b (2026-11-13): SSO required, break-glass, MFA with SSO, the verified sign-in
+  method, the Keycloak events import. Migration 0153.
+  - **REQ-SEC-009 (SSO required), AC1-AC3:**
+    - Off, technicians or everyone. It is judged on the verified token, before anyone is created,
+      at sign-in and at a tenant switch.
+    - Turning it on needs an emergency (break-glass) administrator (AC2). The last one cannot be
+      removed while it is on.
+    - Only another tenant admin names one, never yourself, and only an admin with MFA. The IP
+      exemption is a separate, audited setting.
+    - Every emergency sign-in is audited and alerts the other admins (a required, urgent
+      notification). Emergency sign-ins are rate-limited per address.
+  - **REQ-SEC-026 (MFA with SSO):**
+    - The identity provider's MFA is trusted by default (AC1).
+    - With "also require MFA", the tenant's own providers get the post-broker OTP flow (AC2).
+      Other tenants' providers are never touched.
+  - **The verified method:**
+    - The realm mapper `sx_idp` sits on both app clients, added if missing and restored if
+      changed.
+    - Proved in a real Keycloak: password tokens (browser code flow and direct grant, both apps)
+      and directory tokens never carry it; a brokered sign-in carries the alias.
+  - **REQ-AUD-015 AC1 (Keycloak events import):**
+    - Every 60 s, as `supportx-events` (view-events only). Only the consumers worker and the
+      identity Job hold its secret; a rendered-chart test pins this for single-node and HA.
+    - Each event goes to the one tenant its provider alias (confirmed under RLS) or address
+      names. The shared address is counted, never guessed.
+    - The cursor is a millisecond plus an offset, over settled milliseconds only (now - 5 s).
+      Writes are idempotent per event, at most 5,000 per run, and the cursor moves only after
+      the commit.
+  - **Screen:** Single sign-on required card, with the admins' emergency and IP-exemption
+    switches, live.
+  - **Tests:**
+    - Backend: sso_policy_api (5), sso_required_sign_in (4), sign_in_import (3), the
+      keycloak_identity tooling (14 + 2).
+    - Real Keycloak: idp claim (3) and LDAP federation (4).
+    - Chart: events secret, single-node and HA.
+    - Vitest: SSO policy card (2).
+- [ ] Session 2: recent re-authentication, session places, notices, expiring certificates,
+  invite links.
+- [ ] Session 3: field-level encryption (ADR-050), personal-data access log.
+- [ ] Session 4: service accounts, key policy, non-person actors, security overview.
+- [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
+- [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
+  tenant) moved to LATER (D-165).
+
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
 - [x] S1: the audit sink port in `app/shared/history.record_changes` and the audit module's sink;
@@ -2418,8 +2546,26 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     (4), test_release_close_changes_api (1), test_release_bulk_role_migration; Vitest
     releases.test.tsx (2 more), release-close-changes.test.tsx (2), release-settings.test.tsx (1
     more).
-  S5b: staged board, reporting and the release dashboard (after #396; costs behind
-  `releases.view_costs`, D-164), REQ-REL-058's inline-edit switch and live association counts.
+- [~] Session 5b (2026-11-12): the board, reporting and the record page's rest. Migration 0150.
+  - **Board (REQ-REL-056):** `StageBoard` in packages/ui (domain-free; WP-046 can reuse it):
+    drag a card or use its "Move to" menu (keyboard, either direction); a refused move stays and
+    says why in a live region (AC1). /releases/board: a drop runs the release's own move through
+    its move dialog, or names why not; other viewers see moves live (AC2).
+  - **Reporting (REQ-REL-060):** release fields (stage, path, type, reason, risk, manager,
+    engineer, deployment ended, deployed on time, stage overdue, approval turnaround), measures
+    (open, on-time rate of the deployments that ended (AC2), overdue stages, failed or rolled
+    back, approval turnaround), 8 built-in reports, KPIs and the Releases dashboard (AC1).
+    Measures count only the releases the viewer may list (group-scope test). No cost fields:
+    D-164's `releases.view_costs` gate applies once release costs exist.
+  - **0150:** column-level SELECT for supportx_report on release details (not the notes) and on
+    approvals (times only); the comment, decider and notes are refused (test), RLS holds.
+  - **Drill-down:** a report drills to its own type's list: releases, problems, requests and
+    assets as well as changes (the item from polish #433; lane B told for assets).
+  - **REQ-REL-058:** live association counts in the side panel (AC3); AC2 holds by design (the
+    release page has no inline edit, fields change only through the edit form), so no switch.
+  - **Tests:** test_release_reports (4); Vitest board (4), releases.test.tsx board (2),
+    release-associations (1), reports drill-down (4).
+  - **Board button** on the release list (after #438).
   S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 

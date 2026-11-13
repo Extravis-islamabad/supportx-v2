@@ -75,7 +75,13 @@ from app.modules.identity_access.infra.crypto import SessionCipher, session_ring
 from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
-from app.modules.identity_access.service import directory, mfa
+from app.modules.identity_access.service import (
+    break_glass_notifications,
+    directory,
+    mfa,
+    sign_in_import,
+    sign_in_log,
+)
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
 from app.modules.identity_access.service.cost_rates import cost_rate
@@ -384,6 +390,8 @@ async def _shutdown(app: FastAPI) -> None:
         await kv.aclose()
 
 
+break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
+
 module = ModuleSpec(
     name="identity_access",
     routers=[
@@ -403,7 +411,7 @@ module = ModuleSpec(
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
-    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY, mfa.MFA_ROLES],
+    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY, mfa.MFA_ROLES, sign_in_log.PERSON_ERASED],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
     realtime=ROUTES,
@@ -412,7 +420,10 @@ module = ModuleSpec(
     # Licensed technician seats (WP-009); requesters are never counted.
     usage_counters={"technicians": count_technicians},
     schedules=[
+        ScheduleSpec("identity_access__sign_in_log_purge", 86400, sign_in_log.purge_schedule),
         ScheduleSpec("identity_access__people_imports", 5, run_people_imports),
+        # Keycloak's login errors into the sign-in log (WP-057 S1b; supportx-events, view-events).
+        ScheduleSpec("identity_access__sign_in_import", 60, sign_in_import.import_schedule),
         # Past the MFA grace period: Keycloak's enrol actions (WP-039 session 3, REQ-SEC-024).
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
         # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).

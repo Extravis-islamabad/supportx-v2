@@ -15,6 +15,10 @@ It proves:
 The app reconnecting through Sentinel is proven on k3d (the HA smoke), where the sentinels'
 hostnames resolve for the app.
 
+TLS (audit row 5): values-ha.yaml turns valkeyHa.tls on, so everything above runs as shipped,
+TLS only, with a throwaway CA and a certificate for the pods' names mounted where the chart
+mounts cert-manager's (/tls, /tls-ca). A plaintext client is refused (the last test).
+
 Runs with SUPPORTX_HA_TESTS=1 (CI job "valkey failover"); needs Docker and Helm.
 """
 
@@ -30,6 +34,8 @@ from itertools import pairwise
 from pathlib import Path
 
 import pytest
+
+from tests.tls_certs import make_certs
 
 if (
     os.environ.get("SUPPORTX_HA_TESTS") != "1"
@@ -52,9 +58,9 @@ def _run(*args: str, check: bool = True) -> str:
     return done.stdout.strip()
 
 
-def _scripts(into: Path, *values: str) -> str:
-    """The chart's HA Valkey scripts, written to `into`; returns the image the chart pins.
-    `values` are extra `--set` values (the lone pod's replicas and quorum)."""
+def _scripts(into: Path, *values: str) -> tuple[str, bool]:
+    """The chart's HA Valkey scripts, written to `into`; returns the image the chart pins and
+    whether TLS is on. `values` are extra `--set` values (the lone pod's replicas and quorum)."""
     rendered = _run(
         "helm", "template", "supportx", str(CHART), "--namespace", "supportx",
         "-f", str(CHART / "values-ha.yaml"), "--show-only", "templates/valkey-ha.yaml",
@@ -77,9 +83,10 @@ def _scripts(into: Path, *values: str) -> str:
     _read_timings("\n".join(scripts["sentinel.sh"]))
     for name, lines in scripts.items():
         (into / name).write_text("\n".join(lines) + "\n")
-    return next(
+    image = next(
         line.split("image:", 1)[1].strip() for line in rendered.splitlines() if "image:" in line
     )
+    return image, "tls-port 6379" in "\n".join(scripts["valkey.sh"])
 
 
 # How long a failover may take, from the chart's own sentinel settings: noticing the master is
@@ -104,10 +111,21 @@ def failover_seconds() -> float:
 class Valkeys:
     """Three pods' worth of Valkey and Sentinel, by index (one for the lone pod)."""
 
-    def __init__(self, scripts: Path, image: str, pods: int = 3) -> None:
+    def __init__(self, scripts: Path, image: str, pods: int = 3, certs: Path | None = None) -> None:
         self.scripts, self.image, self.pods = scripts, image, pods
         self.network = f"sx-vk-{uuid.uuid4().hex[:8]}"
         self.password = secrets.token_urlsafe(18)
+        # With TLS: the folder holding tls.crt, tls.key and ca.crt, mounted as the chart mounts
+        # the pod's certificate (/tls) and the CA (/tls-ca).
+        self.certs = certs
+
+    def _mounts(self) -> list[str]:
+        if self.certs is None:
+            return []
+        return ["-v", f"{self.certs}:/tls:ro", "-v", f"{self.certs}:/tls-ca:ro"]
+
+    def _tls_cli(self) -> list[str]:
+        return ["--tls", "--cacert", "/tls-ca/ca.crt"] if self.certs is not None else []
 
     def name(self, index: int) -> str:
         return f"{self.network}-{index}"
@@ -121,6 +139,7 @@ class Valkeys:
             "--hostname", f"supportx-valkey-{index}", "--network", self.network,
             "--network-alias", f"supportx-valkey-{index}.{HEADLESS}",
             "-e", f"VALKEY_PASSWORD={self.password}", "-v", f"{self.scripts}:/scripts:ro",
+            *self._mounts(),
             "--tmpfs", "/run/valkey", "--tmpfs", "/run/sentinel", self.image,
             "sh", "-c", both if sentinel else "sh /scripts/valkey.sh & wait",
         )  # fmt: skip
@@ -158,8 +177,17 @@ class Valkeys:
         _run(
             "docker", "run", "-d", "--name", self.name(index),
             "--hostname", f"supportx-valkey-{index}", "--network", self.network,
-            "--network-alias", f"supportx-valkey-{index}.{HEADLESS}", self.image,
+            "--network-alias", f"supportx-valkey-{index}.{HEADLESS}", *self._mounts(), self.image,
             "valkey-server", "--requirepass", self.password, "--appendonly", "no",
+            *(
+                [
+                    "--port", "0", "--tls-port", "6379", "--tls-cert-file", "/tls/tls.crt",
+                    "--tls-key-file", "/tls/tls.key", "--tls-ca-cert-file", "/tls-ca/ca.crt",
+                    "--tls-auth-clients", "no", "--tls-replication", "yes",
+                ]
+                if self.certs is not None
+                else []
+            ),
         )  # fmt: skip
 
     def stop(self, index: int) -> None:
@@ -192,8 +220,20 @@ class Valkeys:
     def cli(self, index: int, *args: str, port: int = 6379, check: bool = True) -> str:
         return _run(
             "docker", "exec", "-e", f"REDISCLI_AUTH={self.password}", self.name(index),
-            "valkey-cli", "-p", str(port), "--no-auth-warning", *args, check=check,
+            "valkey-cli", *self._tls_cli(), "-p", str(port), "--no-auth-warning", *args,
+            check=check,
         )  # fmt: skip
+
+    def plaintext_cli(self, index: int, *args: str, port: int = 6379) -> str:
+        """valkey-cli without TLS: what a client that skipped the CA would get."""
+        done = subprocess.run(  # noqa: S603 - the test's own container
+            [  # noqa: S607
+                "docker", "exec", "-e", f"REDISCLI_AUTH={self.password}", self.name(index),
+                "valkey-cli", "-p", str(port), "--no-auth-warning", *args,
+            ],
+            check=False, capture_output=True, text=True,
+        )  # fmt: skip
+        return (done.stdout + done.stderr).strip()
 
     def connected_replicas(self, index: int) -> set[str]:
         """The hosts the server reports connected as its replicas (slave0:ip=<host>,port=...)."""
@@ -256,7 +296,16 @@ def sentinels_know_the_replicas(valkeys: Valkeys) -> None:
 def _pods(tmp_path: Path, request: pytest.FixtureRequest, *values: str) -> Iterator[Valkeys]:
     tmp_path.chmod(0o755)  # the containers' own user reads the scripts
     pods = 1 if "valkeyHa.replicas=1" in values else 3
-    found = Valkeys(tmp_path, _scripts(tmp_path, *values), pods)
+    image, tls = _scripts(tmp_path, *values)
+    certs = None
+    if tls:
+        # The names the chart's certificate lists: every pod of the headless service, and the
+        # loopback the pod's own probes and scripts use.
+        certs = make_certs(tmp_path / "tls", [f"*.{HEADLESS}", "localhost", "127.0.0.1"]).ca.parent
+        certs.chmod(0o755)
+        for pem in certs.iterdir():
+            pem.chmod(0o644)  # the containers' own user reads them; a throwaway test key
+    found = Valkeys(tmp_path, image, pods, certs)
     _run("docker", "network", "create", found.network)
     failed_before = request.session.testsfailed
     try:
@@ -577,3 +626,13 @@ def test_a_ready_master_stays_ready_and_writable_without_its_sentinel(valkeys: V
         assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
         time.sleep(2)
     assert valkeys.role(0) == "master"
+
+
+def test_tls_is_on_as_shipped_and_plaintext_is_refused(valkeys: Valkeys) -> None:
+    """values-ha.yaml ships TLS (audit row 5): the servers and sentinels answer over TLS only."""
+    assert valkeys.certs is not None, "values-ha.yaml must turn valkeyHa.tls on"
+    _until(lambda: valkeys.role(0) == "master", START_SECONDS)
+    assert valkeys.cli(0, "ping") == "PONG"
+    _until(lambda: valkeys.sentinel_up(0), START_SECONDS)  # it waits for its server first
+    for port in (6379, 26379):
+        assert "PONG" not in valkeys.plaintext_cli(0, "ping", port=port)

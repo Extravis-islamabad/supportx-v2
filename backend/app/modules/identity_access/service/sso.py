@@ -44,8 +44,9 @@ from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminRefused,
     Organization,
 )
-from app.modules.identity_access.infra.models import SsoProvider
+from app.modules.identity_access.infra.models import IdentitySettings, SsoProvider
 from app.modules.organization import get_current_tenant
+from app.shared.egress import Allowance
 from app.shared.events import record_event
 from app.shared.history import stale_version
 from app.shared.ids import new_id
@@ -257,14 +258,14 @@ def _json_object(text: str) -> dict[str, Any] | None:
 
 
 async def _connect_oidc(
-    values: SsoInput, *, allow_loopback: bool
+    values: SsoInput, *, allowance: Allowance
 ) -> tuple[dict[str, str], list[str]]:
     """Keycloak settings from the discovery document, and the check's problems."""
     issuer = (values.issuer or "").rstrip("/")
     problems: list[str] = []
     try:
         text = await fetch_document(
-            f"{issuer}/.well-known/openid-configuration", allow_loopback=allow_loopback
+            f"{issuer}/.well-known/openid-configuration", allowance=allowance
         )
     except FetchError:
         raise _invalid([sso.Problem("issuer", "sso_discovery_unreachable")]) from None
@@ -286,7 +287,7 @@ async def _connect_oidc(
                 config["tokenUrl"],
                 config["clientId"],
                 values.client_secret,
-                allow_loopback=allow_loopback,
+                allowance=allowance,
             )
         except FetchError:
             accepted = True  # the token endpoint was not reachable: the test sign-in will tell
@@ -296,7 +297,7 @@ async def _connect_oidc(
 
 
 async def _connect_saml(
-    values: SsoInput, admin: IdentityAdmin, *, allow_loopback: bool
+    values: SsoInput, admin: IdentityAdmin, *, allowance: Allowance
 ) -> tuple[dict[str, str], list[str], str | None]:
     """Keycloak settings from the metadata (or the fields), the problems and the cert's end."""
     parsed: dict[str, str]
@@ -304,9 +305,7 @@ async def _connect_saml(
         metadata = values.metadata
         if metadata is None:
             try:
-                metadata = await fetch_document(
-                    values.metadata_url or "", allow_loopback=allow_loopback
-                )
+                metadata = await fetch_document(values.metadata_url or "", allowance=allowance)
             except FetchError:
                 raise _invalid([sso.Problem("metadata_url", "sso_metadata_unreachable")]) from None
         try:
@@ -414,7 +413,7 @@ async def create_provider(
     admin: IdentityAdmin | None,
     values: SsoInput,
     *,
-    allow_loopback: bool = False,
+    allowance: Allowance,
     require_domain_proof: bool = False,
 ) -> SsoView:
     """A new set-up in draft (Keycloak: hidden, linked, its mappers and domains)."""
@@ -431,12 +430,10 @@ async def create_provider(
     organization = await organization_of(session, keycloak)
     _check_ownership(organization, domains, required=require_domain_proof)
     if values.protocol == "oidc":
-        config, warnings = await _connect_oidc(values, allow_loopback=allow_loopback)
+        config, warnings = await _connect_oidc(values, allowance=allowance)
         not_after = None
     else:
-        config, warnings, not_after = await _connect_saml(
-            values, keycloak, allow_loopback=allow_loopback
-        )
+        config, warnings, not_after = await _connect_saml(values, keycloak, allowance=allowance)
     tenant = await get_current_tenant(session)
     alias = sso.alias_for(tenant.slug, secrets.token_hex(3))
     representation = sso.representation(
@@ -446,6 +443,7 @@ async def create_provider(
         config=config,
         state="draft",
         client_secret=values.client_secret,
+        post_broker_flow=await _post_broker_flow(session),
     )
     mapping = values.mapping or (
         sso.SAML_MAPPING if values.protocol == "saml" else sso.OIDC_MAPPING
@@ -498,7 +496,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
     values: SsoInput,
     *,
     expected_version: int,
-    allow_loopback: bool = False,
+    allowance: Allowance,
     require_domain_proof: bool = False,
 ) -> SsoView:
     """Change a set-up; a connection change sends it back to draft (switch it off first)."""
@@ -514,7 +512,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
     organization = await organization_of(session, keycloak)
     _check_ownership(organization, domains, required=require_domain_proof)
     if values.protocol == "oidc":
-        config, warnings = await _connect_oidc(values, allow_loopback=allow_loopback)
+        config, warnings = await _connect_oidc(values, allowance=allowance)
         not_after = None
     else:
         reuse = not (values.metadata or values.metadata_url or values.sso_url)
@@ -524,9 +522,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
             config |= sso.saml_config(config)
             warnings, not_after = [], (row.last_check or {}).get("certificate_not_after")
         else:
-            config, warnings, not_after = await _connect_saml(
-                values, keycloak, allow_loopback=allow_loopback
-            )
+            config, warnings, not_after = await _connect_saml(values, keycloak, allowance=allowance)
     public = _public_settings(values, config)
     connection_changed = values.client_secret is not None or any(
         public.get(key) != row.settings.get(key) for key in CONNECTION_KEYS if key in public
@@ -544,6 +540,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
                 config=config,
                 state=state,
                 client_secret=values.client_secret,
+                post_broker_flow=await _post_broker_flow(session),
             ),
         )
     except IdentityAdminRefused as exc:
@@ -682,3 +679,33 @@ async def get_provider(session: AsyncSession, provider_id: uuid.UUID) -> SsoView
     if row is None:
         raise NotFound(code="sso_provider_not_found")
     return _view(row)
+
+
+async def _post_broker_flow(session: AsyncSession) -> str | None:
+    """SupportX's code-after-sign-in flow while this tenant also requires its MFA, else None."""
+    on = await session.scalar(select(IdentitySettings.sso_also_require_mfa))
+    return sso.POST_BROKER_FLOW if on else None
+
+
+async def apply_post_broker_flow(
+    session: AsyncSession, admin: IdentityAdmin | None, *, enabled: bool
+) -> int:
+    """Point THIS tenant's identity providers at the flow, or away from it (REQ-SEC-026).
+
+    Only the tenant's own set-ups (its sso_providers rows, under RLS): never another tenant's
+    provider in the shared realm (lane B). Returns how many were changed.
+    """
+    keycloak = _require(admin)
+    wanted = sso.POST_BROKER_FLOW if enabled else ""
+    changed = 0
+    aliases = await session.scalars(
+        select(SsoProvider.alias).where(SsoProvider.deleted_at.is_(None))
+    )
+    for alias in aliases:
+        stored = await keycloak.provider(alias)
+        if stored is None or (stored.get("postBrokerLoginFlowAlias") or "") == wanted:
+            continue
+        stored["postBrokerLoginFlowAlias"] = wanted
+        await keycloak.update_provider(alias, stored)
+        changed += 1
+    return changed

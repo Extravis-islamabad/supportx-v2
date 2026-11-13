@@ -69,9 +69,17 @@ reports use the main database through their own small pool (single node).
 The chart only references Secrets. `deploy/scripts/secrets.sh <namespace>` creates them with random
 hex values and never overwrites an existing one (its passwords are already inside the databases).
 
+**Upgrading to a release that adds a secret key: re-run `deploy/scripts/secrets.sh <namespace>`
+before `helm upgrade`.** It only adds the missing keys. Since the security bundle B1 (#451) the
+API needs `api-key-secret` (the API keys' own HMAC key) in production and refuses to start without
+it, with a message saying so; keys made before keep working (re-hashed on first use, while
+`session-secret` stays set). The coordinator's decision (2026-11-12): hard from the start, as
+there are no customer installs yet. Once one exists, a change like this ships with a release-note
+announcement and a migration path that removes nothing silently (Haider's rule).
+
 | Secret | Keys |
 |---|---|
-| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, any `session-key-*` listed in `secrets.sessionKeys` (the sign-in key ring, D-162; [rotating it](guides/rotating-the-sign-in-key.md)), `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027), `temporal-db-password` (the bundled Temporal's `temporal` role, with `temporal.bundled.enabled`) |
+| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, `api-key-secret` (the API keys' own HMAC key, required in production; [API keys](api/keys.md)), any `session-key-*` listed in `secrets.sessionKeys` (the sign-in key ring, D-162; [rotating it](guides/rotating-the-sign-in-key.md)), `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027), `temporal-db-password` (the bundled Temporal's `temporal` role, with `temporal.bundled.enabled`) |
 | `supportx-db-keycloak` (basic-auth) | `username` = `keycloak`, `password` |
 | `supportx-pg-superuser` | created by CloudNativePG; used only by the migrate Job |
 
@@ -81,8 +89,12 @@ hex values and never overwrites an existing one (its passwords are already insid
   demo tenants seeded, Keycloak admin API public, a NodePort to PostgreSQL on the host's loopback
   (127.0.0.1:25433) for the e2e suite's tools. **Never** use it anywhere else.
 - `values-single-node.yaml`: one k3s VM (8 vCPU / 32 GB / 500 GB), production profile, HTTPS on
-  Traefik's websecure listener with your certificate Secret, the base realm (no users). **Internal
-  evaluation only** until backups (WP-014b) and Nuitka images exist.
+  Traefik's websecure listener with your certificate Secret (plain HTTP redirected to it), the
+  base realm (no users). **Internal evaluation only** until backups (WP-014b) and Nuitka images
+  exist.
+- `values-staging.yaml` (D-169): on top of `values-single-node.yaml`, the staging laptop: its
+  LAN name, its own CA's certificate, locally built images, demo data, laptop sizes. Only with
+  [the staging laptop runbook](runbooks/staging-laptop.md).
 - `values-ha.yaml` (WP-014b, ADR-038): three or more nodes. Two or three copies of every stateless
   component, PostgreSQL with one primary and two standbys, two PgBouncer copies, a three-server
   NATS cluster and Valkey with Sentinel. Copies sit on different nodes, each with a
@@ -113,6 +125,7 @@ hex values and never overwrites an existing one (its passwords are already insid
   | ClamAV | 2, spread | the Service balances scans over both; their signature pulls are staggered |
   | CoreDNS (k3s) | 2, spread *(preflight)* | `deploy/k3s/cluster-dns-ha.sh` (below) |
   | Traefik (k3s) | 2, spread *(preflight)* | `deploy/k3s/traefik-ha.yaml` (below) |
+  | NodeLocal DNSCache | 1 per node *(preflight)* | `deploy/k3s/node-local-dns.sh` (below); each node's pods use their own node's cache |
   | CloudNativePG operator | 2, hostname spread *(preflight)* | `deploy/k3d/prereqs.sh` shows how |
   | Barman Cloud plugin | 2, hostname spread | the same; the operator blocks a cluster's changes, failover included, while its plugin is unreachable |
   | **Single copy, and why that is acceptable** | | |
@@ -190,17 +203,51 @@ hex values and never overwrites an existing one (its passwords are already insid
   file (`deploy/k3d/cluster-ha.yaml`). On another distribution, run your ingress controller with
   two or more copies on different nodes.
 
-  **Preflight.** `deploy/k3s/ha-preflight.sh` checks a cluster for the HA profile, read-only:
-  three or more schedulable nodes, cluster DNS ready on two or more nodes, the CloudNativePG
-  operator ready on two or more nodes, Traefik ready on two or more nodes. Once SupportX is
-  installed in `SUPPORTX_NAMESPACE` (default `supportx`) it also checks the release: NATS servers
-  and PostgreSQL instances each on distinct nodes, and the fast-eviction tolerations on the
-  fan-out and index workers. Each unmet requirement prints a WARNING and how to fix it (exit 0;
-  `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make cluster-up-ha` does before the install
-  and `make cluster-ha-preflight` after it). The bundled SeaweedFS gets an advisory warning that
-  never fails, even when strict. Run it before the install, after it, and after any cluster
-  upgrade. `helm install` with `values-ha.yaml` also
-  warns in its notes when `kube-system/coredns` runs one copy.
+  **NodeLocal DNSCache: a DNS cache on every node (D-163).** Two CoreDNS copies keep names
+  resolving, but when a node is lost its copy stays behind the kube-dns Service until the node
+  goes NotReady (about 20 s). Lookups that land on it time out meanwhile. Valkey's sentinels
+  resolve synchronously, so they stall long enough to enter TILT, a fixed 30 s pause before they
+  may fail over: failover took about 50 s (Cluster runs 43153098860, 43157246881). A cache on
+  every node answers SupportX's names from memory and sends misses to CoreDNS over TCP, which
+  fails fast on a dead copy; failover then takes about 15 s and the node-loss tests allow 60 s
+  and fail on any TILT. After `cluster-dns-ha.sh`, and after every k3s upgrade:
+
+  ```
+  bash deploy/k3s/node-local-dns.sh   # waits for a ready cache on every node and a lookup through it
+  ```
+
+  It runs in transparent mode: the cache takes the kube-dns address on each node, so pods keep
+  their DNS settings and no k3s or kubelet flag changes. That needs kube-proxy in iptables mode,
+  k3s's default (the script refuses ipvs mode, and the preflight warns). All of k3s's own
+  CoreDNS settings still decide every answer: misses go to CoreDNS through a second Service,
+  `kube-dns-upstream`. The image (`registry.k8s.io/dns/k8s-dns-node-cache`, Apache-2.0) is
+  pinned by digest in `values.yaml` (`images.nodeLocalDns`), so the air-gapped mirror carries
+  it; `IMAGE_REGISTRY=<mirror>` points the script at the mirror. On a clean stop the cache
+  removes its rules and pods reach CoreDNS directly. A crashed cache leaves its rules until the
+  kubelet restarts it, within seconds, and that node's lookups fail meanwhile. On another
+  distribution, use its NodeLocal DNSCache add-on (most managed clusters offer one).
+  The cache runs on the node's own network: it listens on port 53 (UDP and TCP) of
+  169.254.20.10 and the kube-dns address, its health check on 169.254.20.10:8080, and its
+  Prometheus metrics on port **9253 of every node address**. A host firewall must let the API
+  server (for the script's check) and your Prometheus reach 9253 from inside the cluster
+  network only.
+  With the egress allow-list on, pods reach the cache from their node's network, not CoreDNS's
+  pods: `values-ha.yaml` lists its addresses (`networkPolicies.egress.dnsAddresses`:
+  169.254.20.10 and k3s's default kube-dns address 10.43.0.10). If your kube-dns address
+  differs, list yours. The script says so, and the preflight checks.
+
+  **Preflight.** `deploy/k3s/ha-preflight.sh` checks a cluster for the HA profile, read-only: three
+  or more schedulable nodes, cluster DNS ready on two or more nodes, the CloudNativePG operator
+  ready on two or more nodes, Traefik ready on two or more nodes, NodeLocal DNSCache ready on every
+  schedulable node and kube-proxy not in ipvs mode. Once SupportX is installed in
+  `SUPPORTX_NAMESPACE` (default `supportx`) it also checks the release: NATS servers and PostgreSQL
+  instances each on distinct nodes, the fast-eviction tolerations on the fan-out and index workers,
+  and, with the egress allow-list on, the cache's addresses in it. Each unmet requirement prints a
+  WARNING and how to fix it (exit 0; `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make
+  cluster-up-ha` does before the install and `make cluster-ha-preflight` after it). The bundled
+  SeaweedFS gets an advisory warning that never fails, even when strict. Run it before the install,
+  after it, and after any cluster upgrade. `helm install` with `values-ha.yaml` also warns in its
+  notes when `kube-system/coredns` runs one copy.
 
   **Node-monitor grace period: 20 s recommended (not required).** Until Kubernetes marks a lost
   node NotReady (the controller manager's `node-monitor-grace-period`, about 40-50 s by default),
@@ -282,6 +329,123 @@ your load balancer. In CI, k3d's own front proxy does not health-check, so the H
 node that just rejoined up to 30 s before the session must write again, and print how long it
 took (`write_after_return`, deploy/k3d/ha-lib.sh).
 
+## Transport security
+
+What is encrypted on each hop, per profile (audit row 5). "Verified" means the client checks the
+server's certificate against a known CA and the host name it dialled.
+
+| Hop | dev (k3d) | single-node | HA |
+|---|---|---|---|
+| Browser to gateway | plain http (local only) | **HTTPS**, HTTP answers 301 to https | **HTTPS**, HTTP answers 301 to https |
+| App, Centrifugo to Valkey (servers and sentinels) | plain (bundled single Valkey) | plain (bundled single Valkey) | **TLS only, verified** (internal CA) |
+| App to NATS; NATS server to server (routes) | plain | plain (one server) | **TLS, verified** (internal CA); routes mutual TLS |
+| App, workers, migrate Job to PostgreSQL (through PgBouncer, or direct) | encrypted, not verified (asyncpg's default) | encrypted, not verified (until the HA run proves verification) | **verify-full** (CloudNativePG's CA) |
+| PgBouncer to PostgreSQL | TLS, CA checked (CloudNativePG's own) | same | same |
+| Keycloak, Temporal to PostgreSQL | as their defaults (not changed here) | same | same |
+
+### Browser to gateway (routing.tls)
+
+On by default in every profile but `values-dev.yaml`. The Gateway gets two listeners: HTTPS
+(`routing.gateway.tlsListenerName`, Traefik's websecure entrypoint 8443) carrying every route, and
+plain HTTP (`listenerName`, 8000) whose only route is a `RequestRedirect` to https with status
+301. `routing.tls.redirectHttp: false` drops the HTTP listener altogether. The certificate:
+
+- **Your own (on-prem):** create a `kubernetes.io/tls` Secret in the release namespace
+  (`kubectl -n supportx create secret tls supportx-tls --cert=fullchain.pem --key=key.pem`) and
+  set `routing.tls.secretName=supportx-tls`. The older `routing.gateway.tlsSecret` still works.
+  Renewing it is replacing the Secret; Traefik picks the new one up by itself.
+- **From cert-manager:** set `routing.tls.issuerRef` (`{name: ..., kind: ClusterIssuer}`); the
+  chart asks for a Certificate for `routing.hostnames` (or `publicUrl`'s host) in
+  `<release>-tls` (or `routing.tls.secretName`), and cert-manager renews it.
+
+The chart refuses TLS without either, and TLS with an `http://` `publicUrl`. Where a load
+balancer in front already terminates TLS, set `routing.tls.enabled: false` and keep `publicUrl`
+`https://`. `routing.gateway.protocol` is gone: the chart refuses it and names
+`routing.tls.enabled` instead.
+
+**Ingress mode** serves the same Secret, and with TLS on it never serves the app over plain HTTP,
+since a first visit could otherwise sign in over http before HSTS applies:
+
+- `className: traefik`: the routes are on the `websecure` entry point only, so plain HTTP has
+  no route. For a 301 as well, turn on Traefik's own entry-point redirect
+  (`ports.web.redirections.entryPoint: {to: websecure, scheme: https}` in its values).
+- `className: nginx`: `ssl-redirect` and `force-ssl-redirect`, so plain HTTP answers 308 to
+  https.
+- Any other class: the chart refuses to render until you make that controller redirect or
+  refuse http yourself and set `routing.ingress.enforcesHttps: true`.
+
+### PostgreSQL (postgresql.tls.verify)
+
+CloudNativePG always serves TLS, with its own CA (Secret `<release>-pg-ca`, keys `ca.crt` and
+`ca.key`), and its PgBouncer connects to PostgreSQL with that CA checked. What `postgresql.tls`
+adds is the app's side: with `verify: true` the API, the workers and the migrate Job connect
+sslmode verify-full (`SUPPORTX_DATABASE_SSL_ROOT_CERT`, the chain checked against that CA and the
+host name against the certificate). They reach PostgreSQL through the pooler
+(`<release>-pg-pooler`), and CloudNativePG's PgBouncer serves the cluster's server certificate, so
+the chart adds the pooler's names to it (`spec.certificates.serverAltDNSNames`); the relay and the
+index worker go straight to `<release>-pg-rw`, which the operator's certificate already names.
+Pods mount `ca.crt` alone.
+
+On in `values.yaml` and `values-ha.yaml`. `values-single-node.yaml` and `values-dev.yaml` keep
+it off for now (encrypted, unchecked, as before): it is proven on the HA cluster first, then
+turned on for single-node.
+
+**External database:** set `postgresql.mode: external`, `postgresql.tls.verify: true` and
+`postgresql.external.caSecret` to a Secret in the release namespace holding your server's CA as
+`ca.crt` (`kubectl -n supportx create secret generic db-ca --from-file=ca.crt=root.pem`); the
+host names in `postgresql.external.host` and `poolerHost` must be in the server's (and your
+pooler's) certificate. The chart refuses verification without that Secret; a server without TLS
+needs `postgresql.tls.verify: false`, knowingly.
+
+### The internal CA (internalTls)
+
+The in-cluster servers that speak TLS get their certificates from cert-manager (a prerequisite of
+these profiles, like the CloudNativePG operator; `deploy/k3d/prereqs.sh` installs it with
+`BACKUP_PLUGIN=1`). By default the chart makes its own CA (`templates/internal-tls.yaml`): a
+self-signed root, valid ten years, kept only in the Secret `<release>-internal-ca`, and an Issuer
+`<release>-internal-ca` signing one-year server certificates that cert-manager renews 30 days
+before they end. Pods mount that Secret's `ca.crt` alone, never its key.
+
+**Your own PKI (on-prem):** set `internalTls.issuerRef` to a cert-manager Issuer or ClusterIssuer
+of yours (a CA issuer on your intermediate, Vault, ...) and `internalTls.caSecret` to a Secret in
+the release namespace whose `ca.crt` is the root it chains to. The chart then makes no CA of its
+own. Internal TLS needs cert-manager (the chart creates its Certificate objects); a cluster
+without it turns the internal TLS switches off and keeps only the NetworkPolicies between pods.
+
+| Secret | Holds | Made by |
+|---|---|---|
+| `<release>-internal-ca` (or `internalTls.caSecret`) | the internal root (`ca.crt`; `tls.key` only for the chart's own) | cert-manager, or you |
+| `<release>-valkey-tls` | every Valkey pod's server and sentinel certificate: `*.<release>-valkey-headless[.<ns>.svc[.cluster.local]]`, `localhost`, `127.0.0.1` | cert-manager |
+| `supportx-nats-tls` (`nats.config.nats.tls.secretName`) | the NATS servers' certificate, for clients and routes: `<release>-nats[.<ns>[.svc[.cluster.local]]]`, `*.<release>-nats-headless[...]` | cert-manager |
+
+### Valkey (valkeyHa.tls)
+
+On in `values-ha.yaml`. Every server and sentinel listens on TLS only, on the usual ports
+(6379, 26379; `port 0`, no plaintext listener), replication and the sentinels' own connections
+included (`tls-replication yes`). Clients prove themselves with the password, so no client
+certificate is asked for (`tls-auth-clients no`). Valkey rereads its certificate files every
+`valkeyHa.tls.reloadIntervalSeconds` (an hour), so a renewal needs no restart. The API and the
+workers connect with `valkeys://` and `SUPPORTX_VALKEY_TLS_CA_FILE` (the CA; the host name is
+checked: the sentinels announce each server by its pod name, which the certificate lists), and
+Centrifugo's engine with `tls` and `sentinel_tls`. The chart's scripts reach their own servers
+through `vcli` (`templates/valkey-ha.yaml`, `common.sh`), which adds `--tls --cacert`; from a
+shell in a pod: `. /scripts/common.sh; vcli -p 26379 SENTINEL masters`. The single-node and dev
+profiles keep the bundled single Valkey, plaintext inside the namespace's NetworkPolicy.
+
+### NATS (nats.config.nats.tls)
+
+On in `values-ha.yaml`, for the clients and between the servers. The app connects with `tls://`
+and `SUPPORTX_NATS_TLS_CA_FILE`; the host name checked is the URL's (`<release>-nats`, which the
+certificate lists), also when the client reconnects to another server of the cluster. Routes are
+always mutual TLS in NATS: each server presents the same certificate and checks its peers' against
+the CA (`cluster.tls.merge.ca_file`, the `ca.crt` cert-manager writes beside the certificate; a
+CA or Vault issuer of your own writes it too). The NATS chart reloads the certificate when
+cert-manager renews it. The monitoring port 8222 (probes, the Prometheus exporter) stays plain
+http inside the pod network. The certificate's Secret name is a plain value of the NATS chart, so
+`values-ha.yaml` names it `supportx-nats-tls` for the release name `supportx`; another release
+name sets `nats.config.nats.tls.secretName` and `nats.config.cluster.tls.secretName` to
+`<release>-nats-tls` (the chart refuses the two differing).
+
 ## Client addresses behind the gateway
 
 The API believes `X-Forwarded-For` only from `api.trustedProxies` (addresses or CIDRs; default
@@ -294,7 +458,9 @@ so per-address rate limits are shared by everyone.
 ## Rate limits without a signed-in person
 
 Routes that nobody signs in for are limited per client address (the address above), each request
-counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/ratelimit.py`):
+counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/ratelimit.py`). An
+IPv4 address counts on its own; an IPv6 address counts as its whole /64 network, because one
+client holds a /64 and could pick a new address for every request:
 
 | Route | Per address, per minute | Valkey down |
 |---|---|---|
@@ -307,7 +473,9 @@ counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/rate
 The budgets are wide on purpose: an office behind one NAT address signs many people in at once,
 and a sign-in is one `/login` and one `/callback` (two of each with an MFA enrolment). They stop
 scripted floods. Over a budget the API answers 429 `rate_limited` with `Retry-After`; a browser
-is sent back to its app, which shows the message.
+is sent back to its app, which shows the message. A refused `/callback` goes back to the app its
+sign-in started in (console, portal or the mobile app), read from the pending sign-in without
+spending it; with Valkey down that cannot be read, so it goes to the console.
 
 **The sign-in routes fail closed.** Every other route allows requests while Valkey is down (losing
 rate limiting for a moment beats losing the API, ADR-020). A sign-in needs Valkey anyway (its
@@ -318,8 +486,9 @@ one-time state lives there), so letting it through unlimited buys nothing; it an
 
 Ingress is always denied by default. Egress is open unless `networkPolicies.egress.enabled` is
 true (WP-014b). With it on, pods may reach:
-- **DNS and the namespace:** every pod may reach DNS (kube-dns) and the other pods of the
-  namespace.
+- **DNS and the namespace:** every pod may reach DNS (kube-dns, plus
+  `networkPolicies.egress.dnsAddresses`, which `values-ha.yaml` sets for NodeLocal DNSCache) and
+  the other pods of the namespace.
 - **The Kubernetes API:** CloudNativePG's pods and the API and worker pods (their
   wait-for-migrate step) may reach it, at its real addresses. The chart reads them from the
   `default/kubernetes` EndpointSlice at install time. Where it can't read the cluster (`helm
@@ -413,6 +582,13 @@ Jaeger, Perses) come with WP-014b.
 | Cluster › `smoke` | same | k3d with the pinned k3s, `make deploy-dev` (incl. `helm test`), public routes through the gateway |
 | Cluster › `e2e` | nightly, on demand | everything above, then every Playwright journey against the cluster |
 | Cluster › `ha-smoke` | nightly, on demand, PRs labelled `full-ci` | a four-node k3d cluster with `values-ha.yaml`. The bring-up gives CoreDNS two copies on different nodes and runs the HA preflight (strict). First the Valkey master is killed (the session survives, no split brain). Then the node with the promoted Valkey master is stopped (`make cluster-ha-valkey-node-loss`): Sentinel promotes again within 60 s, the session writes again, the old master returns as a replica. The same again in the worst case, forced by the test (`make cluster-ha-valkey-node-loss-dns`): the stopped node holds the Valkey master and a CoreDNS copy. Then the agent with PostgreSQL's primary is stopped (`make cluster-ha-node-loss`): a standby is promoted, the session writes again, and the node rejoins as a standby. Then the k3s server restarts (`make cluster-ha-dns-restart`): CoreDNS keeps two copies on two nodes and its anti-affinity |
+
+## Runbooks
+
+| Runbook | What for |
+|---|---|
+| [restore.md](runbooks/restore.md) | Restore the database to a chosen moment from its backups (WP-014b) |
+| [staging-laptop.md](runbooks/staging-laptop.md) | Staging on a spare laptop: OS, k3s, first install, the nightly pull-based upgrade (D-169) |
 
 ## Troubleshooting
 

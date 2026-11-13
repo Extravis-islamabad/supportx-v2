@@ -304,6 +304,32 @@ class UserCostRateChanged(DomainEvent):
     change: Literal["created", "updated", "deleted"]
 
 
+class SignInRecorded(DomainEvent):
+    """A sign-in event was written to the tenant's log (REQ-AUD-015; WP-057 S1a).
+
+    The outcome only, never the person, address or device: open sign-in logs refetch.
+    """
+
+    event_type: ClassVar[str] = "identity_access.sign_in.recorded"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sign_in_event"
+
+    outcome: Literal["success", "failed", "signed_out", "locked", "mfa_failed"]
+
+
+class BreakGlassSignedIn(DomainEvent):
+    """A break-glass admin signed in with a password while single sign-on is required.
+
+    REQ-SEC-009 AC3 (WP-057 S1b): every other tenant admin is told. IDs only.
+    """
+
+    event_type: ClassVar[str] = "identity_access.break_glass.signed_in"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -327,4 +353,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     InvitationChanged,
     ApiKeyChanged,
     UserCostRateChanged,
+    SignInRecorded,
+    BreakGlassSignedIn,
 )

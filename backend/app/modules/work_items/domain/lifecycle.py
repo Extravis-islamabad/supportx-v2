@@ -123,6 +123,10 @@ class TransitionDef:
     to_status: str | None
     reason_mode: ReasonMode = ReasonMode.NONE
     reason_list: ReasonList | None = None
+    # Per life cycle version (ADR-049 §4): an extra right the move needs, and fields that must
+    # have a value before it runs.
+    permission: str | None = None
+    required_fields: tuple[str, ...] = ()
 
 
 class LifecycleError(ValueError):

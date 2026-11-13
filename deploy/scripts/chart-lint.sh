@@ -22,6 +22,7 @@ CRDS_CATALOG="https://raw.githubusercontent.com/datreeio/CRDs-catalog/501527ab9c
 PROFILES=(
   "dev|-f $CHART/values-dev.yaml"
   "single-node|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
+  "staging|-f $CHART/values-single-node.yaml -f $CHART/values-staging.yaml"
   "ingress|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.mode=ingress --set routing.ingress.tlsSecret=supportx-tls --set routing.hostnames={supportx.example.com}"
   "external-db|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.gateway.tlsSecret=supportx-tls --set postgresql.mode=external --set postgresql.external.host=db.example.com --set temporal.bundled.enabled=false --set temporal.address=temporal.example.com:7233"
   "podmonitors|-f $CHART/values-dev.yaml --set metrics.podMonitors=true"
@@ -49,6 +50,22 @@ for entry in "${PROFILES[@]}"; do
     echo "kubeconform not installed: schema validation skipped (CI always runs it)"
   fi
 done
+
+# The Helm release fits in its Secret (at most 1 MiB): Helm keeps every release as one Secret of
+# base64(gzip(JSON)), the JSON carrying each chart file and the rendered manifest. Cluster run
+# 43345912681 failed `helm install` at that limit ("data: Too long"). (packaged chart + gzipped
+# manifest) x 4/3 tracks the Secret closely (about 1.0 MB just before that failure); the guard
+# keeps a quarter of the limit free. Large data belongs in an image, not in the chart.
+RELEASE_BUDGET=750000
+PKG="$(helm package "$CHART" -d "$OUT" | awk '{print $NF}')"
+for name in ha-ci ha single-node dev; do
+  size=$(( ($(wc -c <"$PKG") + $(gzip -c "$OUT/$name.yaml" | wc -c)) * 4 / 3 ))
+  [ "$size" -le "$RELEASE_BUDGET" ] || {
+    echo "$name: the Helm release would be about $size bytes (budget $RELEASE_BUDGET; the Secret holding it is capped at 1048576)" >&2
+    exit 1
+  }
+done
+echo "release size: every profile's Helm release well under its 1 MiB Secret (about $size bytes for dev)"
 
 # On-prem LDAP (D-118, product owner 2026-11-03): the federation secret reaches exactly the
 # keycloak-identity Job and the consumers worker with LDAP on, no pod without it, and the chart
@@ -161,21 +178,98 @@ if helm template supportx "$CHART" --namespace supportx $EXT_ARGS --set temporal
 fi
 echo "temporal: bundled only on the release's CloudNativePG cluster"
 
+# Transport security (audit row 5; docs/deployment.md). HTTPS at the gateway by default: the app
+# routes hang off the HTTPS listener and plain HTTP only redirects (301). The dev profile (the
+# local k3d cluster, plain http on supportx.localhost) keeps one HTTP listener and no redirect.
+for p in single-node ha; do
+  grep -q "name: supportx-https-redirect" "$OUT/$p.yaml" || { echo "$p: no http-to-https redirect" >&2; exit 1; }
+  [ "$(grep -c 'protocol: HTTPS' "$OUT/$p.yaml" || true)" = "1" ] || { echo "$p: no HTTPS listener" >&2; exit 1; }
+done
+grep -q "protocol: HTTPS" "$OUT/dev.yaml" && { echo "dev: plain http on the local cluster only" >&2; exit 1; }
+grep -q "supportx-https-redirect" "$OUT/dev.yaml" && { echo "dev: no redirect on the local cluster" >&2; exit 1; }
+SN="-f $CHART/values-single-node.yaml"
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=https://supportx.example.com >/dev/null 2>&1; then
+  echo "routing: TLS on without a certificate (secretName or issuerRef) must be refused" >&2; exit 1
+fi
+# shellcheck disable=SC2086
+if helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=http://supportx.example.com \
+  --set routing.tls.secretName=t >/dev/null 2>&1; then
+  echo "routing: TLS on with an http:// publicUrl must be refused" >&2; exit 1
+fi
+# shellcheck disable=SC2086
+ISSUED="$(helm template supportx "$CHART" --namespace supportx $SN --set publicUrl=https://supportx.example.com \
+  --set routing.tls.issuerRef.name=corp --set routing.tls.issuerRef.kind=ClusterIssuer \
+  --show-only templates/routing.yaml)"
+grep -q "kind: Certificate" <<<"$ISSUED" || { echo "routing: issuerRef must render a cert-manager Certificate" >&2; exit 1; }
+echo "transport: HTTPS with an http redirect by default; dev plain http; misconfigurations refused"
+# Valkey TLS in the HA profiles (values-ha.yaml): servers and sentinels TLS only, the app on
+# valkeys:// with the internal CA, the CA's key in no pod; nothing of it without valkeyHa.tls.
+for p in ha ha-ci; do
+  grep -q 'echo "tls-port 26379"' "$OUT/$p.yaml" || { echo "$p: Valkey's sentinels must speak TLS" >&2; exit 1; }
+  grep -q 'echo "port 0"' "$OUT/$p.yaml" || { echo "$p: Valkey must have no plaintext port" >&2; exit 1; }
+  grep -q 'value: "valkeys://' "$OUT/$p.yaml" || { echo "$p: the app must use valkeys://" >&2; exit 1; }
+  grep -q 'SUPPORTX_VALKEY_TLS_CA_FILE' "$OUT/$p.yaml" || { echo "$p: the app needs the CA" >&2; exit 1; }
+  if grep -q 'secretName: supportx-internal-ca}' "$OUT/$p.yaml"; then
+    echo "$p: the internal CA Secret is mounted whole (its key): mount ca.crt only" >&2; exit 1
+  fi
+done
+grep -q 'valkeys://\|kind: Issuer' "$OUT/single-node.yaml" && { echo "single-node: no internal TLS without valkeyHa" >&2; exit 1; }
+# NATS TLS in the HA profiles: clients and routes, the app on tls:// with the CA; monitoring
+# (8222, the probes and the exporter) stays plain http; single-node keeps nats://.
+for p in ha ha-ci; do
+  grep -q '"tls://supportx-nats-0.supportx-nats-headless:6222"' "$OUT/$p.yaml" || { echo "$p: NATS routes must be TLS" >&2; exit 1; }
+  grep -q 'value: "tls://supportx:' "$OUT/$p.yaml" || { echo "$p: the app must use tls:// to NATS" >&2; exit 1; }
+  grep -q 'SUPPORTX_NATS_TLS_CA_FILE' "$OUT/$p.yaml" || { echo "$p: the app needs the NATS CA" >&2; exit 1; }
+  grep -q '"http_port": 8222' "$OUT/$p.yaml" || { echo "$p: NATS monitoring must stay on http 8222" >&2; exit 1; }
+done
+grep -q 'value: "nats://supportx:' "$OUT/single-node.yaml" || { echo "single-node: NATS stays nats:// without TLS" >&2; exit 1; }
+# PostgreSQL verify-full in the HA profiles: the app, the workers and the migrate Job get
+# CloudNativePG's CA (ca.crt only) and the cluster's certificate names the pooler. An external
+# database with verification on needs its CA Secret. Dev and single-node: not yet (values files).
+for p in ha ha-ci; do
+  [ "$(grep -c 'secretName: supportx-pg-ca, items: \[{key: ca.crt' "$OUT/$p.yaml" || true)" -ge 3 ] ||
+    { echo "$p: the app, workers and migrate Job need CloudNativePG's CA" >&2; exit 1; }
+  grep -q -- '- supportx-pg-pooler.supportx.svc$' "$OUT/$p.yaml" || { echo "$p: the server certificate must name the pooler" >&2; exit 1; }
+  grep -q 'SUPPORTX_DATABASE_SSL_ROOT_CERT' "$OUT/$p.yaml" || { echo "$p: no verify-full to PostgreSQL" >&2; exit 1; }
+done
+grep -q 'SUPPORTX_DATABASE_SSL_ROOT_CERT' "$OUT/single-node.yaml" && { echo "single-node: PostgreSQL verification is HA-first" >&2; exit 1; }
+EXT_TLS="-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.tls.secretName=t --set postgresql.mode=external --set postgresql.external.host=db.example.com --set temporal.bundled.enabled=false --set temporal.address=temporal.example.com:7233"
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $EXT_TLS >/dev/null 2>&1; then
+  echo "postgresql: verify on with an external database and no caSecret must be refused" >&2; exit 1
+fi
+# Captured first: grep -q stops reading early, and pipefail would then count helm's broken pipe.
+# shellcheck disable=SC2086
+EXT_OUT="$(helm template supportx "$CHART" --namespace supportx $EXT_TLS --set postgresql.external.caSecret=db-ca)"
+grep -q 'secretName: db-ca, items' <<<"$EXT_OUT" || { echo "postgresql: the external CA Secret must be mounted" >&2; exit 1; }
+echo "transport: PostgreSQL verify-full in the HA profiles (CloudNativePG's CA, the pooler named); external needs its CA"
+
+HA_ARGS="-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.tls.secretName=t"
+# Your own issuer (on-prem PKI): no CA of the chart's, and the Secret with its root is required.
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $HA_ARGS --set internalTls.issuerRef.name=corp >/dev/null 2>&1; then
+  echo "internalTls: issuerRef without caSecret must be refused" >&2; exit 1
+fi
+# shellcheck disable=SC2086
+OWN="$(helm template supportx "$CHART" --namespace supportx $HA_ARGS --set internalTls.issuerRef.name=corp \
+  --set internalTls.issuerRef.kind=ClusterIssuer --set internalTls.caSecret=corp-ca)"
+grep -q "selfSigned" <<<"$OWN" && { echo "internalTls: with your own issuer the chart makes no CA" >&2; exit 1; }
+grep -q "secretName: corp-ca, items" <<<"$OWN" || { echo "internalTls: pods must trust caSecret" >&2; exit 1; }
+echo "transport: Valkey and NATS TLS in the HA profiles, the internal CA's key in no pod; own issuer works"
+
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"
 SN_ARGS="${PROFILES[1]#*|}"
 # shellcheck disable=SC2086 # the flags are meant to be split
-# The breached-password list (about 47,000 lines) stands in the golden file as its checksum, so a
-# change to it still shows up in review without burying everything else.
-LIST="$CHART/files/keycloak/password-blacklists/supportx-breached.txt"
-LIST_SUM="$(shasum -a 256 "$LIST" | cut -d' ' -f1)"
-helm template supportx "$CHART" --namespace supportx --skip-tests $SN_ARGS |
-  awk -v sum="$LIST_SUM" '
-    skipping && (/^    / || /^$/) { next }
-    skipping { skipping = 0 }
-    { print }
-    /^  supportx-breached.txt: \|$/ { print "    # sha256 " sum " (files/keycloak/password-blacklists)"; skipping = 1 }
-  ' > "$OUT/single-node.installed.yaml"
+# The breached-password list ships in the backend image, never in the release (its size: the
+# release-size guard above); the Keycloak pod copies it in.
+helm template supportx "$CHART" --namespace supportx --skip-tests $SN_ARGS > "$OUT/single-node.installed.yaml"
+if grep -q 'supportx-breached.txt: |' "$OUT/single-node.installed.yaml" ||
+  tar -tzf "$PKG" | grep -q 'supportx-breached.txt$'; then
+  echo "the breached-password list is back in the chart or its render: it ships in the backend image" >&2
+  exit 1
+fi
 if [ "${UPDATE_GOLDEN:-0}" = "1" ]; then
   mkdir -p "$(dirname "$GOLDEN")"
   cp "$OUT/single-node.installed.yaml" "$GOLDEN"

@@ -744,4 +744,25 @@ describe('console: changes', () => {
       setDefaultClientFactory(inertClientFactory);
     }
   });
+
+  it('QA 2026-11-12 F-08: picked changes that are already cancelled offer only the trash', async () => {
+    window.history.pushState({}, '', '/changes');
+    api({
+      'GET /api/v1/changes': {
+        body: {
+          items: [{ ...change, status: 'closure_canceled', status_category: 'canceled' }],
+          next_cursor: null,
+          has_more: false,
+          people: {},
+        },
+      },
+    });
+    render(<App />);
+    const row = await screen.findByTestId('change-row-CHG-7');
+    fireEvent.click(within(row).getByRole('checkbox'));
+    expect(await screen.findByTestId('inc-bulk-delete')).toBeDefined();
+    for (const action of ['take', 'assign', 'close', 'cancel']) {
+      expect(screen.queryByTestId(`inc-bulk-${action}`)).toBeNull();
+    }
+  });
 });

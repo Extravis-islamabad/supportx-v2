@@ -10,7 +10,7 @@ import sys
 
 from temporalio.worker import Worker
 
-from app.core.database import Database, create_engine
+from app.core.database import Database, create_engine, database_ssl
 from app.core.logging import get_logger
 from app.core.modules import discover_modules
 from app.modules.automation.infra.temporal import WorkflowInstanceWaker, connect, workflow_runner
@@ -35,6 +35,7 @@ async def main(stop: asyncio.Event) -> None:
             application_name="supportx-workflow-timers",
             pool_size=settings.db_pool_size,
             max_overflow=settings.db_max_overflow,
+            ssl=database_ssl(settings.database_ssl_root_cert),
         ),
         settings,  # its own settings on each session (is outgoing mail set up?)
     )

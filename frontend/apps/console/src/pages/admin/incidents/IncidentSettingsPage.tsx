@@ -17,6 +17,7 @@ import { ChecklistLibraryTab } from './ChecklistLibraryTab';
 import { ClosingTab } from './ClosingTab';
 import { CustomFieldsTab } from './CustomFieldsTab';
 import { GeneralTab } from './GeneralTab';
+import { LifecycleTab } from './LifecycleTab';
 import { PickListEditor } from './PickListEditor';
 import { PriorityTab } from './PriorityTab';
 import { ReplyTemplatesTab } from './ReplyTemplatesTab';
@@ -31,6 +32,7 @@ const SECTIONS = [
   'checklists',
   'custom-fields',
   'statuses',
+  'lifecycle',
   'reasons',
   'priority',
   'categories',
@@ -105,6 +107,8 @@ export function IncidentSettingsPage() {
         return <GeneralTab catalogue={cat} />;
       case 'statuses':
         return <StatusesTab catalogue={cat} />;
+      case 'lifecycle':
+        return <LifecycleTab catalogue={cat} />;
       case 'reasons':
         return (
           <Flex vertical gap={16}>

@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
@@ -31,6 +31,7 @@ from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
 )
+from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
@@ -1047,6 +1048,15 @@ class WorkItemClosureOut(BaseModel):
     task_owner_access: bool = Field(
         description="A task's owner may work on it without access to the record (D-112)."
     )
+    worklog_block_closed: bool = Field(
+        default=False, description="No worklog on a closed record (REQ-INC-070)."
+    )
+    worklog_count_nonworking: bool = Field(
+        default=True, description="Non-working hours count in worklogs and time (REQ-INC-070)."
+    )
+    timer_auto_start: bool = Field(
+        default=False, description="Opening a record you own starts your timer, once."
+    )
     task_dependency_mode: Literal["block", "warn"] = Field(
         default="block",
         description="An open predecessor refuses a task's start or completion, or only warns.",
@@ -1336,6 +1346,9 @@ class WorkItemCatalogueOut(BaseModel):
                 auto_close_days=cat.closure.auto_close_days,
                 reopen_window_days=cat.closure.reopen_window_days,
                 task_owner_access=cat.closure.task_owner_access,
+                worklog_block_closed=cat.closure.worklog_block_closed,
+                worklog_count_nonworking=cat.closure.worklog_count_nonworking,
+                timer_auto_start=cat.closure.timer_auto_start,
                 task_dependency_mode=cast(
                     'Literal["block", "warn"]', cat.closure.task_dependency_mode
                 ),
@@ -1363,6 +1376,10 @@ class WorkItemClosurePatch(BaseModel):
     )
     reopen_window_days: int | None = None
     task_owner_access: bool | None = None
+    # Strict: a JSON true or false only, never "yes" or 1 read as true.
+    worklog_block_closed: StrictBool | None = None
+    worklog_count_nonworking: StrictBool | None = None
+    timer_auto_start: StrictBool | None = None
     task_dependency_mode: Literal["block", "warn"] | None = None
     checklist_item_max: int | None = Field(default=None, description="1 to 1000.")
 
@@ -2244,7 +2261,7 @@ async def _release_facts(
     }
 
 
-def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
+def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
         prefix=f"/{wtype.path}",
@@ -2632,6 +2649,10 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
+    if wtype.stages is None:
+        # ADR-049: life cycle versions of the action-based types; staged types version with
+        # their stages (S4c, lane C), so changes and releases get none of these routes yet.
+        add_lifecycle_routes(router, wtype)
 
     @router.post(
         "",

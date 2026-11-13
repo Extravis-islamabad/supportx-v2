@@ -373,6 +373,7 @@ async def verify(  # noqa: PLR0913 - keyword-only run options
     stray = await session.scalar(
         select(func.count())
         .select_from(AuditEntry)
+        # nosemgrep: sx.sql-format - DEFAULT_PARTITION is a constant table name
         .where(text(f"tableoid = '{DEFAULT_PARTITION}'::regclass"))
     )
 

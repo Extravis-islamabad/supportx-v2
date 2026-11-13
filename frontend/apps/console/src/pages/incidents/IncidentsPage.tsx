@@ -56,6 +56,7 @@ import {
   useMinWidth,
 } from '@supportx/ui';
 
+import { QuickCreateDialog } from './QuickCreateDialog';
 import { choiceName, fieldName } from '../customFields/values';
 import { useReportWords } from '../reports/names';
 import { useIncidentFieldName } from './conflict';
@@ -126,6 +127,7 @@ export function IncidentsPage() {
   const allowed = can('incidents.view');
   const [mode, setMode] = useState<'current' | 'trash'>('current');
   const [panel, setPanel] = useState<'exports' | 'bulk' | null>(null);
+  const [quick, setQuick] = useState(false);
   const wideWindow = useMinWidth(GROUP_DEFAULT_MIN_WIDTH);
   // A built-in view code, or `custom:<saved view id>`.
   const [view, setView] = useState<string>(DEFAULT_VIEW);
@@ -387,6 +389,33 @@ export function IncidentsPage() {
                 trash
                   ? []
                   : [
+                      // Quick create without leaving the list (REQ-INC-018): its own button
+                      // before New, so the main action stays last (template C, lane C).
+                      ...(can('incidents.create')
+                        ? [
+                            {
+                              key: 'quick',
+                              node: (
+                                <WriteButton
+                                  onClick={() => {
+                                    setQuick(true);
+                                  }}
+                                  data-testid="inc-quick-open"
+                                >
+                                  {t('incidents.quick.open')}
+                                </WriteButton>
+                              ),
+                              overflow: {
+                                key: 'quick',
+                                label: t('incidents.quick.open'),
+                                onClick: () => {
+                                  setQuick(true);
+                                },
+                                testId: 'inc-quick-open-menu',
+                              },
+                            },
+                          ]
+                        : []),
                       {
                         key: 'export',
                         node: (
@@ -457,6 +486,12 @@ export function IncidentsPage() {
         />
       }
     >
+      <QuickCreateDialog
+        open={quick}
+        onClose={() => {
+          setQuick(false);
+        }}
+      />
       <MyExportsButton
         button={false}
         open={panel === 'exports'}

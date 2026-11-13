@@ -18,7 +18,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0149"  # 0154's down revision while building (re-pointed at its queue turn)
+BEFORE = "0153"  # 0154's down revision (main's head at its queue turn)
 AFTER = "0154"
 
 

@@ -64,9 +64,13 @@ spec:
             {{- if .Values.app.licenceSecret }}
             - {name: licence, mountPath: /etc/supportx/licence, readOnly: true}
             {{- end }}
+            {{- with include "supportx.internalCaMount" . | trim }}{{ . | nindent 12 }}{{ end }}
+            {{- with include "supportx.dbCaMount" . | trim }}{{ . | nindent 12 }}{{ end }}
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- with include "supportx.internalCaVolume" . | trim }}{{ . | nindent 8 }}{{ end }}
+        {{- with include "supportx.dbCaVolume" . | trim }}{{ . | nindent 8 }}{{ end }}
         {{- if .Values.app.licenceSecret }}
         # Read only by the licensing module (CLAUDE.md rule f).
         - name: licence

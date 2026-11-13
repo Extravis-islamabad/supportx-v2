@@ -8,3 +8,20 @@ misconfigurations:
       False positive (WP-014): the upstream Valkey chart's ConfigMap "supportx-valkey-init-scripts"
       is a shell script that reads the password from the mounted Secret (auth.usersExistingSecret);
       no secret value is stored in it.
+  - id: KSV-0009
+    paths:
+      - deploy/k3s/node-local-dns.yaml
+    statement: >-
+      Required (D-163): NodeLocal DNSCache answers on the node's own network, on a link-local
+      address and the kube-dns Service address of a dummy interface it creates, so every pod on
+      the node reaches it without a DNS setting change. It runs in kube-system, as a cluster
+      add-on outside the SupportX namespace, with every capability dropped but NET_ADMIN and
+      NET_BIND_SERVICE, no privilege escalation and the runtime's default seccomp profile.
+  - id: KSV-0014
+    paths:
+      - deploy/k3s/node-local-dns.yaml
+    statement: >-
+      Required (D-163): the image's iptables wrapper points its iptables links at the node's
+      backend (nft or legacy) on first run and fails on a read-only root ("Unable to redirect
+      iptables binaries"; tried on k3s v1.36.5). The working Corefile and /tmp are in-memory
+      emptyDirs; nothing else is written.

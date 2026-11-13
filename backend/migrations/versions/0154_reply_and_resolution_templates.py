@@ -30,7 +30,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0154"
-down_revision: str | None = "0149"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0153"  # main's head at its queue turn (after #459's 0153)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

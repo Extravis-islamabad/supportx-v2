@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlencode, urlsplit
 
+import valkey.exceptions
 from fastapi import Request
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -29,6 +30,7 @@ from app.core.errors import (
     BadRequest,
     Conflict,
     PermissionDenied,
+    RateLimited,
     ServiceUnavailable,
     Unauthenticated,
 )
@@ -50,8 +52,17 @@ from app.modules.identity_access.domain.mobile import (
     app_return,
     verifier_matches,
 )
+from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.session import Session, TenantChoice
+from app.modules.identity_access.domain.sign_in import SignInApp, SignInMethod, SignInOutcome
+from app.modules.identity_access.domain.sign_in_policy import (
+    BREAK_GLASS_NEEDS_MFA,
+    SSO_REQUIRED,
+    judge,
+    requires_supportx_mfa,
+)
 from app.modules.identity_access.domain.sso import DEPARTMENT_ATTRIBUTE, SITE_ATTRIBUTE
+from app.modules.identity_access.events import BreakGlassSignedIn
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminNotConfigured,
     IdentityAdminUnavailable,
@@ -67,15 +78,19 @@ from app.modules.identity_access.infra.oidc import (
     TokenSet,
 )
 from app.modules.identity_access.infra.store import SessionStore, public_id
-from app.modules.identity_access.service import api_keys, sso_test
+from app.modules.identity_access.service import api_keys, break_glass, sign_in_log, sso_test
 from app.modules.identity_access.service import mfa as mfa_service
+from app.modules.identity_access.service.network_rules import admitted, tenant_network_rules
 from app.modules.identity_access.service.users import (
+    known_user_id,
     provision_user,
     record_logout,
     requester_only,
     tenant_name,
 )
+from app.shared.api.ratelimit import client_address
 from app.shared.clock import Clock
+from app.shared.events import record_event
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -83,6 +98,71 @@ if TYPE_CHECKING:
     from app.modules.identity_access.infra.keycloak_admin import IdentityAdmin
 
 log = get_logger(__name__)
+# REQ-SEC-034: the address is outside the tenant's allow-list for this app.
+IP_NOT_ALLOWED = "ip_not_allowed"
+# Refusals that end Keycloak's own session too: the person is not let in here at all.
+SIGN_IN_REFUSALS = frozenset({IP_NOT_ALLOWED, SSO_REQUIRED, BREAK_GLASS_NEEDS_MFA})
+
+
+def _identity_of(session: Session) -> Identity:
+    """The person a session stands for, as the policy reads them (no token on a switch)."""
+    return Identity(
+        subject=session.subject,
+        email=session.email,
+        display_name=session.display_name,
+        locale=session.locale,
+        roles=tuple(session.roles),
+        memberships=(),
+        keycloak_session_id=session.keycloak_session_id,
+        identity_provider=session.identity_provider,
+    )
+
+
+def _stored_method(session: Session) -> SignInMethod | None:
+    """The method a session began with (None for sessions from before S1b)."""
+    return SignInMethod(session.sign_in_method) if session.sign_in_method else None
+
+
+def sign_in_method(identity: Identity) -> SignInMethod:
+    """Single sign-on when the verified token names an identity provider (`sx_idp`).
+
+    Else the password: a directory sign-in is a password one here (LDAP checks it in Keycloak).
+    """
+    return SignInMethod.SINGLE_SIGN_ON if identity.identity_provider else SignInMethod.PASSWORD
+
+
+@dataclass(frozen=True)
+class Attempt:
+    """Where a sign-in comes from, for the allow-list and the sign-in log (WP-057 S1a)."""
+
+    app: "AppName"
+    ip: str | None
+    user_agent: str | None
+    mobile: bool = False
+    # The organization alias of the tenant address the sign-in started on (its pending login).
+    organization: str | None = None
+
+    def facts(
+        self,
+        outcome: SignInOutcome,
+        user_id: uuid.UUID | None,
+        *,
+        reason: str | None = None,
+        method: SignInMethod | None = None,
+        identity_provider: str | None = None,
+    ) -> sign_in_log.SignInFacts:
+        """The log's facts for this attempt; the method from the verified token where known."""
+        return sign_in_log.SignInFacts(
+            outcome=outcome,
+            app=SignInApp.MOBILE if self.mobile else SignInApp(self.app),
+            method=method or (SignInMethod.MOBILE if self.mobile else SignInMethod.UNKNOWN),
+            identity_provider=identity_provider,
+            user_id=user_id,
+            reason=reason,
+            ip=self.ip,
+            user_agent=self.user_agent,
+        )
+
 
 AppName = Literal["console", "portal"]
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -406,6 +486,27 @@ class AuthService:
         )
         return LoginStarted(url, state, binding)
 
+    async def refused_callback(self, state: str | None, refusal: AppError) -> LoginFailure:
+        """A callback the address limit refused, sent back to the app its sign-in started in.
+
+        The pending login is read, never spent: a retry within its 10 minutes still works. Only
+        for the rate limit (429), when Valkey has just answered; with Valkey down (503
+        `sign_in_unavailable`) the state cannot be read, so the browser goes to the console as
+        before, and an unknown state (a scripted flood) does too.
+        """
+        if not isinstance(refusal, RateLimited) or not state:
+            return LoginFailure("console", refusal)
+        try:
+            pending = await self.store.peek_login(state)
+        except (valkey.exceptions.ValkeyError, OSError):
+            pending = None
+        if pending is None or pending.get("test"):
+            return LoginFailure("console", refusal)
+        app: AppName = "portal" if pending.get("app") == "portal" else "console"
+        mobile = MobileStart.from_pending(pending) is not None
+        mobile_return = self.settings.mobile_redirect_uri if mobile else None
+        return LoginFailure(app, refusal, pending.get("origin"), mobile_return=mobile_return)
+
     async def complete_login(  # noqa: PLR0913 - keyword-only parts of the callback
         self,
         *,
@@ -416,6 +517,8 @@ class AuthService:
         binding: str | None = None,
         host: str | None = None,
         action_status: str | None = None,
+        client_ip: str | None = None,
+        user_agent: str | None = None,
     ) -> "LoginResult | EnrolFirst | PortalInstead | sso_test.TestFinished":
         """Finish the OIDC callback and create a fresh session (or finish an SSO test).
 
@@ -450,7 +553,14 @@ class AuthService:
                 app, BadRequest(code="login_failed"), origin, mobile_return=mobile_return
             )
         try:
-            session = await self._login(app, code, pending)
+            attempt = Attempt(
+                app,
+                client_ip,
+                user_agent,
+                mobile=mobile is not None,
+                organization=pending.get("organization"),
+            )
+            session = await self._login(app, code, pending, attempt)
         except MfaEnrolmentDue:
             # Keycloak now holds the enrol actions on the account; signing in again (its own
             # session still stands) runs them before anything else (REQ-SEC-024 AC2).
@@ -470,7 +580,26 @@ class AuthService:
                 # Keycloak's own session stands, so there is no second prompt.
                 return PortalInstead(self._login_again("portal", origin, "/", mobile))
             return PortalInstead(self.landing("portal", "/", origin))
-        return await self._finish_login(session, app, pending, action_status)
+        finished = await self._finish_login(session, app, pending, action_status)
+        if session.break_glass and self.database is not None:
+            # REQ-SEC-009 AC3: the other tenant admins are told, through the outbox.
+            async with self.database.tenant_session(
+                TenantContext(session.tenant_uuid, session.user_uuid)
+            ) as tx:
+                await record_event(
+                    tx,
+                    BreakGlassSignedIn(user_id=session.user_uuid),
+                    aggregate_id=session.user_uuid,
+                    aggregate_version=1,
+                )
+        facts = attempt.facts(
+            SignInOutcome.SUCCESS,
+            session.user_uuid,
+            method=_stored_method(session),
+            identity_provider=session.identity_provider,
+        )
+        await sign_in_log.record(self.database, session.tenant_uuid, facts)
+        return finished
 
     async def _finish_login(
         self, session: Session, app: AppName, pending: dict[str, Any], action_status: str | None
@@ -590,7 +719,9 @@ class AuthService:
             return False
         return await requester_only(self.database, session.tenant_uuid, session.user_uuid)
 
-    async def _login(self, app: AppName, code: str, pending: dict[str, Any]) -> Session:
+    async def _login(
+        self, app: AppName, code: str, pending: dict[str, Any], attempt: "Attempt"
+    ) -> Session:
         client = self.client(app, pending.get("origin"))
         try:
             tokens = await self.oidc.exchange_code(client, code=code, verifier=pending["verifier"])
@@ -600,7 +731,12 @@ class AuthService:
         if not identity.memberships:
             await self._end_keycloak_session(client, tokens.refresh_token)
             raise PermissionDenied(code="no_organization")
-        return await self._new_session(identity, tokens, app, active=None)
+        try:
+            return await self._new_session(identity, tokens, app, active=None, attempt=attempt)
+        except PermissionDenied as exc:
+            if exc.instance_code in SIGN_IN_REFUSALS:  # as no_organization: Keycloak's ends too
+                await self._end_keycloak_session(client, tokens.refresh_token)
+            raise
 
     async def _identity(
         self, tokens: TokenSet, client: ClientCredentials, *, nonce: str | None
@@ -619,12 +755,49 @@ class AuthService:
             raise BadRequest(code="login_failed") from exc
         return identity_from(claims)
 
-    async def _new_session(
-        self, identity: Identity, tokens: TokenSet, app: AppName, *, active: uuid.UUID | None
-    ) -> Session:
-        if self.database is None:
-            raise ServiceUnavailable(code="database_not_configured")
-        now = self.clock.now()
+    async def _admit(self, tenant_id: uuid.UUID, app: AppName, address: str | None) -> bool:
+        """Whether the tenant's allow-list for `app` admits `address` (REQ-SEC-034)."""
+        if self.database is None:  # pragma: no cover - a sign-in needs the database
+            return True
+        rules = await tenant_network_rules(self.database, tenant_id)
+        return admitted(rules, NetworkApp(app), address_of(address))
+
+    async def _log_refusal(
+        self, identity: Identity, active: uuid.UUID | None, attempt: "Attempt | None"
+    ) -> None:
+        """An IP refusal, logged ONLY in the tenant the attempt was aimed at (lane B's #455 review).
+
+        The tenant whose own address (organization) the sign-in started on, else the one asked
+        for (a tenant switch or a quick sign-in), else none: never every tenant the person is in,
+        which would tell one tenant about attempts on another. The person is named only where
+        they exist.
+        """
+        if attempt is None or self.database is None:
+            return
+        aimed = next(
+            (
+                m.tenant_id
+                for m in identity.memberships
+                if attempt.organization is not None and m.alias == attempt.organization
+            ),
+            active,
+        )
+        if aimed is None:
+            return
+        known = await known_user_id(self.database, aimed, identity.subject)
+        facts = attempt.facts(SignInOutcome.FAILED, known, reason=IP_NOT_ALLOWED)
+        await sign_in_log.record(self.database, aimed, facts)
+
+    async def _choose_tenant(
+        self,
+        identity: Identity,
+        app: AppName,
+        active: uuid.UUID | None,
+        attempt: "Attempt | None",
+    ) -> tuple[list[TenantChoice], TenantChoice]:
+        """The person's tenants and the one this session opens (REQ-SEC-034's address check)."""
+        assert self.database is not None  # noqa: S101 - _new_session checked it
+        client_ip = attempt.ip if attempt is not None else None
         choices: list[TenantChoice] = []
         for membership in identity.memberships:
             name = await tenant_name(self.database, membership.tenant_id)
@@ -632,7 +805,47 @@ class AuthService:
                 choices.append(TenantChoice(str(membership.tenant_id), name))
         if not choices:
             raise PermissionDenied(code="tenant_not_provisioned")
-        target = next((c for c in choices if active and c.tenant_id == str(active)), choices[0])
+        # REQ-SEC-034: only a tenant whose allow-list admits this address, checked BEFORE the
+        # person is looked up or created, so a refused attempt changes nothing (lane B).
+        admitted_choices = [
+            c for c in choices if await self._admit(uuid.UUID(c.tenant_id), app, client_ip)
+        ]
+        if not admitted_choices:
+            await self._log_refusal(identity, active, attempt)
+            raise PermissionDenied(code=IP_NOT_ALLOWED)
+        target = next((c for c in admitted_choices if active and c.tenant_id == str(active)), None)
+        if target is None:
+            if active is not None:  # asked for one tenant, and that one refuses the address
+                await self._log_refusal(identity, active, attempt)
+                raise PermissionDenied(code=IP_NOT_ALLOWED)
+            target = admitted_choices[0]
+        return choices, target
+
+    async def _new_session(
+        self,
+        identity: Identity,
+        tokens: TokenSet,
+        app: AppName,
+        *,
+        active: uuid.UUID | None,
+        attempt: "Attempt | None" = None,
+    ) -> Session:
+        if self.database is None:
+            raise ServiceUnavailable(code="database_not_configured")
+        now = self.clock.now()
+        choices, target = await self._choose_tenant(identity, app, active, attempt)
+        # REQ-SEC-009/026 (WP-057 S1b): how this person may sign in here, judged from the verified
+        # token before anyone is created; a refusal ends Keycloak's session too (_login).
+        method = sign_in_method(identity)
+        rule, person, also_mfa = await break_glass.policy_facts(
+            self.database, uuid.UUID(target.tenant_id), identity
+        )
+        verdict = judge(rule, person, method)
+        if verdict.refusal is not None:
+            await self._log_policy_refusal(
+                uuid.UUID(target.tenant_id), identity, attempt, verdict.refusal
+            )
+            raise PermissionDenied(code=verdict.refusal)
         user = await provision_user(
             self.database,
             uuid.UUID(target.tenant_id),
@@ -647,7 +860,9 @@ class AuthService:
             self.database, self.identity_admin, uuid.UUID(target.tenant_id), user.user_id
         )
         mfa = synced.status
-        if mfa.must_enrol(now):
+        # The identity provider's MFA is trusted after a single sign-on, unless the tenant also
+        # requires SupportX's (REQ-SEC-026); then an SSO user must enrol before any session.
+        if requires_supportx_mfa(method, also_require_mfa=also_mfa) and mfa.must_enrol(now):
             if not synced.enforced:
                 # Keycloak could not be told: never loop through sign-in, say so instead.
                 raise PermissionDenied(code="mfa_enrolment_unavailable")
@@ -675,7 +890,30 @@ class AuthService:
             keycloak_session_id=identity.keycloak_session_id,
             idle_seconds=user.session_idle_seconds,
             absolute_seconds=user.session_absolute_seconds,
+            sign_in_method=method.value,
+            identity_provider=identity.identity_provider,
+            break_glass=verdict.break_glass,
         )
+
+    async def _log_policy_refusal(
+        self,
+        tenant_id: uuid.UUID,
+        identity: Identity,
+        attempt: "Attempt | None",
+        reason: str,
+    ) -> None:
+        """A single sign-on refusal in the tenant being entered, naming the person if known."""
+        if attempt is None or self.database is None:
+            return
+        known = await known_user_id(self.database, tenant_id, identity.subject)
+        facts = attempt.facts(
+            SignInOutcome.FAILED,
+            known,
+            reason=reason,
+            method=sign_in_method(identity),
+            identity_provider=identity.identity_provider,
+        )
+        await sign_in_log.record(self.database, tenant_id, facts)
 
     async def _directory(self, subject: str) -> dict[str, str | None]:
         """Department and site the person's identity provider sent (best effort, WP-039)."""
@@ -702,11 +940,29 @@ class AuthService:
         if self.sessions_changed is not None:
             await self.sessions_changed(tenant_id, user_id)
 
-    async def _save(self, session_id: str, session: Session) -> None:
+    async def _save(
+        self, session_id: str, session: Session, *, only_if_present: bool = False
+    ) -> bool:
+        """Store the session; with `only_if_present`, False (nothing written) if it is gone."""
         ttl = session.ttl(self.clock.now(), idle=self.idle, absolute=self.absolute)
-        await self.store.put_session(session_id, session.to_dict(), ttl)
+        return await self.store.put_session(
+            session_id, session.to_dict(), ttl, only_if_present=only_if_present
+        )
 
     # --- every request -------------------------------------------------------------------------
+
+    async def _admit_or_end(self, session_id: str, session: Session, request: Request) -> None:
+        """The allow-list again at every refresh (REQ-SEC-034).
+
+        A changed list, or a session carried to another network, ends within one access
+        token's life. It is checked even when another request holds the refresh, because this
+        request's own address counts too.
+        """
+        if not await self._admit(
+            session.tenant_uuid, _client_app(session), client_address(request)
+        ):
+            await self.store.delete_session(session_id)
+            raise PermissionDenied(code=IP_NOT_ALLOWED)
 
     async def session_for(self, request: Request) -> tuple[str, Session] | None:
         """The request's valid session (refreshed if needed), None without a cookie or record.
@@ -733,10 +989,18 @@ class AuthService:
         if request.method not in SAFE_METHODS:
             self._check_csrf(request, session)
         if session.needs_refresh(now):
-            session = await self._refresh(session_id, session)
+            refreshed = await self._refresh(session_id, session)
+            await self._admit_or_end(session_id, session, request)
+            if refreshed is None:
+                # Another request holds the refresh: answer with what we read, but never save it.
+                # With refresh-token rotation (the realm's revokeRefreshToken, audit row 26) a
+                # save here could put back the token the other request has just spent.
+                return session_id, session
+            session = refreshed
         if session.needs_refresh(now) or now - session.last_seen_at >= TOUCH_INTERVAL:
             session = session.touched(now)
-            await self._save(session_id, session)
+            if not await self._save(session_id, session, only_if_present=True):
+                raise Unauthenticated(code="session_expired")  # signed out meanwhile
         return session_id, session
 
     async def listed_sessions(
@@ -788,6 +1052,21 @@ class AuthService:
         if self.end_realtime is not None:
             await self.end_realtime(tenant_id, user_id)
 
+    async def check_address(self, request: Request) -> None:
+        """Refuse a signed-in request from outside its tenant's list for its app (REQ-SEC-034).
+
+        For what turns a session into more access between refreshes: the realtime tokens
+        (lane B's condition 3). An API key's call was checked when the key was (api_keys.py).
+        """
+        session_id = self.presented_session_id(request)
+        data = await self.store.get_session(session_id) if session_id else None
+        if data is None:
+            return
+        session = Session.from_dict(data)
+        address = client_address(request)
+        if not await self._admit(session.tenant_uuid, _client_app(session), address):
+            raise PermissionDenied(code=IP_NOT_ALLOWED)
+
     async def resolve(self, request: Request) -> TenantContext | None:
         """`SessionResolver` for app.core.tenancy: an API key's call, or the session's user.
 
@@ -830,13 +1109,26 @@ class AuthService:
         parts = urlsplit(origin)
         return parts.scheme in schemes and parts.netloc == request.headers.get("host")
 
-    async def _refresh(self, session_id: str, session: Session) -> Session:
-        """Silent refresh. Keycloak refusing ends the session; Keycloak being down does not."""
+    async def _refresh(self, session_id: str, session: Session) -> Session | None:
+        """Silent refresh. Keycloak refusing ends the session; Keycloak being down does not.
+
+        None while another request is refreshing this session. Keycloak rotates refresh tokens
+        (revokeRefreshToken, refreshTokenMaxReuse 0; audit row 26): every refresh stores the new
+        token, and a spent one is never sent again.
+        """
         held = await self.store.lock(session_id, REFRESH_LOCK_TTL)
         if held is None:
-            return session  # another request is refreshing this session right now
+            return None
         client = self.client(_client_app(session))
         try:
+            stored = await self.store.get_session(session_id)
+            if stored is None:
+                # Signed out (or ended) since this request read it: never bring it back.
+                raise Unauthenticated(code="session_expired")
+            latest = Session.from_dict(stored)
+            if latest.refresh_token != session.refresh_token:
+                # Another request refreshed between our read and the lock: ours is spent.
+                return latest
             tokens = await self.oidc.refresh(client, session.refresh_token)
             identity = await self._identity(tokens, client, nonce=None)
         except (TokenRejectedError, BadRequest) as exc:
@@ -860,13 +1152,23 @@ class AuthService:
             access_expires_at=self.clock.now() + timedelta(seconds=tokens.expires_in),
             roles=list(identity.roles),
         )
-        await self._save(session_id, refreshed)
+        # Conditional (SET XX): a sign-out during the in-flight refresh deleted the record after
+        # the lock was released; writing it back would revive the session with fresh tokens.
+        if not await self._save(session_id, refreshed, only_if_present=True):
+            raise Unauthenticated(code="session_expired")
         return refreshed
 
     # --- logout and tenant switch ----------------------------------------------------------------
 
-    async def logout(self, session_id: str, session: Session) -> None:
+    async def logout(
+        self, session_id: str, session: Session, *, attempt: Attempt | None = None
+    ) -> None:
         """End the local session and the Keycloak SSO session (back channel)."""
+        if attempt is not None:  # the sign-in log (REQ-AUD-015): a sign-out
+            facts = attempt.facts(
+                SignInOutcome.SIGNED_OUT, session.user_uuid, method=_stored_method(session)
+            )
+            await sign_in_log.record(self.database, session.tenant_uuid, facts)
         await self.store.delete_session(session_id)
         await self._sessions_changed(session.tenant_uuid, session.user_uuid)
         client = self.client(_client_app(session))
@@ -899,18 +1201,52 @@ class AuthService:
             except (SQLAlchemyError, OSError):
                 log.exception("logout_event_not_recorded", subject=session.subject)
 
+    async def withdraw_sign_in(self, session_id: str, session: Session) -> None:
+        """Undo a sign-in refused after its session was made: ours and Keycloak's both end.
+
+        As the other refusals (SIGN_IN_REFUSALS), so the person is asked again next time rather
+        than walked straight back in by Keycloak's still-open session (lane B, #459).
+        """
+        await self.store.delete_session(session_id)
+        try:
+            await self._end_keycloak_session(
+                self.client(_client_app(session)), session.refresh_token
+            )
+        except IdentityProviderUnavailable:
+            log.warning("keycloak_logout_failed", subject=session.subject)
+
     async def _end_keycloak_session(self, client: ClientCredentials, refresh_token: str) -> None:
         if not await self.oidc.end_session(client, refresh_token):
             log.warning("keycloak_logout_refused")
 
     async def switch_tenant(
-        self, session_id: str, session: Session, tenant_id: uuid.UUID
+        self,
+        session_id: str,
+        session: Session,
+        tenant_id: uuid.UUID,
+        *,
+        client_ip: str | None = None,
     ) -> tuple[str, Session]:
         """Move to another of the user's tenants under a brand-new session ID."""
         if str(tenant_id) not in {c.tenant_id for c in session.tenants}:
             raise PermissionDenied(code="not_a_member")
         if self.database is None:
             raise ServiceUnavailable(code="database_not_configured")
+        if not await self._admit(tenant_id, _client_app(session), client_ip):
+            attempt = Attempt(_client_app(session), client_ip, None)
+            facts = attempt.facts(SignInOutcome.FAILED, None, reason=IP_NOT_ALLOWED)
+            known = await known_user_id(self.database, tenant_id, session.subject)
+            await sign_in_log.record(self.database, tenant_id, replace(facts, user_id=known))
+            raise PermissionDenied(code=IP_NOT_ALLOWED)  # before the person is looked up
+        # REQ-SEC-009 there too, judged by how this session began (lane B's condition 2: a switch
+        # has no new token). A session from before S1b counts as a password one.
+        method = _stored_method(session) or SignInMethod.PASSWORD
+        rule, person, _also_mfa = await break_glass.policy_facts(
+            self.database, tenant_id, _identity_of(session)
+        )
+        verdict = judge(rule, person, method)
+        if verdict.refusal is not None:
+            raise PermissionDenied(code=verdict.refusal)
         identity = Identity(
             subject=session.subject,
             email=session.email,

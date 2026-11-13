@@ -40,6 +40,7 @@ from app.modules.audit.service.jobs import signer_from, storage_or_none
 from app.modules.audit.service.recording import AuditNote, audit_read, audited
 from app.modules.audit.service.settings import AuditSettingsView, load_settings, update_settings
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query
 from app.shared.api.ratelimit import rate_limit
 from app.shared.clock import system_clock
@@ -737,13 +738,25 @@ async def list_saved(session: TenantSession, subject: View) -> list[AuditSavedSe
     return [AuditSavedSearchOut.model_validate(r, from_attributes=True) for r in rows]
 
 
-@router.post("/saved-searches", summary="Save an audit search", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/saved-searches",
+    summary="Save an audit search",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AuditSavedSearchOut,
+)
 async def create_saved(
-    body: AuditSavedSearchIn, session: TenantSession, subject: View
-) -> AuditSavedSearchOut:
-    """Keep the current filters under a name (at most 50 per person)."""
-    row = await saved.create_saved(session, subject.user_id, body.name, body.query)
-    return AuditSavedSearchOut.model_validate(row, from_attributes=True)
+    body: AuditSavedSearchIn, session: TenantSession, subject: View, idempotency: Idempotency
+) -> Response:
+    """Keep the current filters under a name (at most 50 per person).
+
+    Send an Idempotency-Key: a retried save returns the same 201, never a second search.
+    """
+
+    async def run() -> Created:
+        row = await saved.create_saved(session, subject.user_id, body.name, body.query)
+        return Created(body=AuditSavedSearchOut.model_validate(row, from_attributes=True))
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
 @router.delete(

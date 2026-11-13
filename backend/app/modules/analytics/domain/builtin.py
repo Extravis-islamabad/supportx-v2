@@ -301,6 +301,64 @@ BUILTIN_REPORTS += (
     ),
 )
 
+# Releases (WP-058b S5b, REQ-REL-060): beside the starter set, where releases stand and how they
+# went, over the releases raised in the last 90 days (a year for the monthly trends).
+_RELEASE_90 = {"field": "created_at", "op": "last_n_days", "value": 90}
+
+
+def _release(code: str, **definition: Any) -> BuiltinReport:  # noqa: ANN401 - definition fields
+    return _of("release", RELEASES, code, **definition)
+
+
+BUILTIN_REPORTS += (
+    _release(
+        "releases_open_by_stage",
+        filter=_OPEN,
+        group_by=[{"field": "stage"}],
+        order="key",
+        chart="bar",
+    ),
+    _release("releases_by_type", filter=_RELEASE_90, group_by=[{"field": "release_type"}]),
+    _release(
+        "releases_by_risk", filter=_RELEASE_90, group_by=[{"field": "risk"}], chart="doughnut"
+    ),
+    _release(
+        "releases_by_closure_code",
+        filter={"and": [_RELEASE_90, {"field": "closure_code", "op": "is_not_null"}]},
+        group_by=[{"field": "closure_code"}],
+        chart="doughnut",
+    ),
+    _release(
+        "releases_on_time_per_month",
+        filter={"field": "created_at", "op": "last_n_days", "value": 365},
+        group_by=[{"field": "created_at", "bucket": "month"}],
+        measures=["on_time_rate"],
+        chart="line",
+    ),
+    _release(
+        "releases_failed_by_type",
+        filter=_RELEASE_90,
+        group_by=[{"field": "release_type"}],
+        measures=["failed_count", "count"],
+        chart="bar",
+    ),
+    _release(
+        "releases_overdue_by_manager",
+        filter=_OPEN,
+        group_by=[{"field": "release_manager_id"}],
+        measures=["overdue_count"],
+        order="value_desc",
+        chart="bar",
+    ),
+    _release(
+        "releases_approval_time_by_type",
+        filter=_RELEASE_90,
+        group_by=[{"field": "release_type"}],
+        measures=["average_approval_turnaround"],
+        chart="bar",
+    ),
+)
+
 # How far ahead the warranty report looks.
 WARRANTY_DAYS = 90
 

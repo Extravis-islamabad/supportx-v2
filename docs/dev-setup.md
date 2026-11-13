@@ -70,7 +70,8 @@ dark / high contrast, right-to-left, language); the tenant switcher
 profile** in the user menu (open it in two browsers and save in both to see the conflict
 dialog); `/dev/components` (development builds only: chart, every error message). Licence states
 are driven with `make dev-subscription` (see "Plans and licence limits"). Playwright: `make e2e`
-(frontend/e2e/README.md). How the frontend is built: docs/architecture/frontend.md.
+(frontend/e2e/README.md), or `make e2e-smoke` for the ~5-minute `@smoke` subset. How the
+frontend is built: docs/architecture/frontend.md.
 
 ## 4. Services, ports and logins
 
@@ -506,6 +507,12 @@ Required checks: `backend`, `frontend`, `pre-commit`, `chart`, `core profile, in
 Their workflows (`ci.yml`, `security.yml`, `stack-smoke.yml`) trigger on `merge_group` as well as
 `pull_request`; a required check without that trigger would stall the queue
 (`backend/tests/test_ci_triggers.py` guards it). Docs-only groups take the fast path.
+
+`static analysis (Semgrep)` (`security.yml`, audit row 27) is not required yet: it runs the
+repo's own rules in `.semgrep.yml` (never the online registry) on ready pull requests, queue
+groups and nightly. Run it locally with `make semgrep` from the main checkout (inside a git
+worktree the container cannot read the shared `.git`). A safe finding gets
+`nosemgrep: <rule id> - <reason>` on the line before it.
 
 How to merge a pull request:
 

@@ -4,7 +4,7 @@
 #     -f deploy/helm/supportx/values-single-node.yaml \
 #     --set publicUrl=https://supportx.example.com \
 #     --set routing.hostnames={supportx.example.com} \
-#     --set routing.gateway.tlsSecret=supportx-tls
+#     --set routing.tls.secretName=supportx-tls
 # Backups (CloudNativePG to S3-compatible storage off the VM) arrive with WP-014b; until then
 # this profile is for internal evaluation only. Images are INTERNAL/DEV builds (D-038).
 app:
@@ -12,11 +12,8 @@ app:
   # On-prem: the signed licence file (WP-013). Until then the plan rows (subscription).
   entitlementProvider: subscription
 
-routing:
-  gateway:
-    protocol: HTTPS
-    listenerName: websecure
-    port: 8443                  # Traefik's websecure entrypoint on k3s
+# HTTPS on Traefik's websecure listener with plain HTTP redirected to it: the chart's default
+# (routing.tls). Your certificate Secret is routing.tls.secretName (or routing.gateway.tlsSecret).
 
 keycloak:
   realmImport: base
@@ -28,6 +25,10 @@ api:
     limits: {cpu: "2", memory: 1536Mi}
 
 postgresql:
+  # Verified TLS to the database (postgresql.tls, audit row 5) is proven on the HA cluster first
+  # (values-ha.yaml, the Cluster workflow); this profile turns it on once that run is green.
+  tls:
+    verify: false
   cnpg:
     instances: 1
     storage: {size: 100Gi}

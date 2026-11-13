@@ -31,7 +31,8 @@
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 43200,
-  "revokeRefreshToken": false,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
   "roles": {
     "realm": [
       {
@@ -104,6 +105,21 @@
             "introspection.token.claim": "true",
             "userinfo.token.claim": "false"
           }
+        },
+        {
+          "name": "sign-in-identity-provider",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usersessionmodel-note-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.session.note": "identity_provider",
+            "claim.name": "sx_idp",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
         }
       ]
     },
@@ -157,6 +173,21 @@
             "claim.name": "supportx_roles",
             "jsonType.label": "String",
             "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "sign-in-identity-provider",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usersessionmodel-note-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.session.note": "identity_provider",
+            "claim.name": "sx_idp",
+            "jsonType.label": "String",
             "id.token.claim": "true",
             "access.token.claim": "true",
             "introspection.token.claim": "true",
