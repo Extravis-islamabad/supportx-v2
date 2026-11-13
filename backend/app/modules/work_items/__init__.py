@@ -72,6 +72,7 @@ from app.modules.work_items.service import (
     change_notifications,
     change_reminders,
     checklists,
+    field_catalogue,
     inbound_mail,
     notifications,
     parts,
@@ -146,6 +147,7 @@ async def _startup(app: FastAPI) -> None:
     del app
     _register_parts()
     register_owner_access(FILE_ACCESS)
+    field_catalogue.register()
     register_sources()  # again after a shutdown (tests start and stop the app)
     _register_ai()
 
@@ -197,6 +199,8 @@ inbound_mail.register()
 register_ticket_requesters(asset_links.linked_requester_ids_select)
 # Who may reach work item files: at import too, since mail attachments upload in the worker.
 register_owner_access(FILE_ACCESS)
+# Fields an admin may restrict per role (ADR-047, identity_access's port): at import, as above.
+field_catalogue.register()
 
 module = ModuleSpec(
     name="work_items",

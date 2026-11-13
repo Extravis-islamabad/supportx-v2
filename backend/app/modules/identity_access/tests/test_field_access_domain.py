@@ -73,3 +73,28 @@ def test_a_subject_cached_before_field_access_has_none() -> None:
     del old["field_access"]
     assert Subject.from_dict(old).field_access == EMPTY
     assert from_json(None) == EMPTY
+
+
+def test_a_role_held_twice_counts_once() -> None:
+    """Directly and through a group: one role, one rule; the field stays restricted (lane B)."""
+    # field_access_of counts len(set(role_ids)); the query returns one live rule per role.
+    role_ids = [uuid.uuid4()] * 2
+    assert effective(len(set(role_ids)), [(T, "x", "hidden")]) == {(T, "x"): FieldMode.HIDDEN}
+    # Counting the role twice would make the one rule look partial and leak the field.
+    assert effective(len(role_ids), [(T, "x", "hidden")]) == {}
+
+
+def test_an_api_key_keeps_its_owner_s_field_access() -> None:
+    """A key narrows grants only; what its owner may not see, it may not see either."""
+    from app.modules.identity_access.service.policy import for_key  # noqa: PLC0415 - one test
+
+    owner = Subject(
+        tenant_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        role_keys=frozenset({"technician"}),
+        is_tenant_admin=False,
+        grants=MappingProxyType({}),
+        field_access=compile_access(1, [(T, "custom.salary", "hidden")]),
+    )
+    key = for_key(owner, frozenset({"incidents:read"}))
+    assert to_json(key.field_access) == {T: {"custom.salary": "hidden"}}

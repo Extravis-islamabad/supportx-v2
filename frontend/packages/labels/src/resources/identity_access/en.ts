@@ -172,6 +172,10 @@ export const en = {
     'This quick sign-in isn’t available here. It works only on the local dev stack with make dev-quick-sign-in.',
   'dev_sign_in.warning':
     'For the local dev stack only, as a Showcase Company persona. Never on a real installation.',
+  'field_mode.clear': 'Shown',
+  'field_mode.hidden': 'Hidden',
+  'field_mode.masked': 'Masked',
+  'field_mode.read_only': 'Read only',
   'form_density.comfortable': 'Comfortable',
   'form_density.compact': 'Compact',
   'form_density.title': 'Form layout',

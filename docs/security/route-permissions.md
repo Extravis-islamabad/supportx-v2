@@ -457,6 +457,12 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
 | PATCH | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
 | GET | `/api/v1/entitlements` | signed_in | - |
+| GET | `/api/v1/field-access/catalogue` | `roles.view` | roles.view: all |
+| GET | `/api/v1/field-access/effective` | `roles.view` | roles.view: all |
+| GET | `/api/v1/field-access/rules` | `roles.view` | roles.view: all |
+| POST | `/api/v1/field-access/rules` | `roles.manage` | roles.manage: all |
+| DELETE | `/api/v1/field-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
+| PATCH | `/api/v1/field-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
 | POST | `/api/v1/files` | signed_in | - |
 | POST | `/api/v1/files/attach` | signed_in | - |
 | GET | `/api/v1/files/content/{token}` | signed_in | - |

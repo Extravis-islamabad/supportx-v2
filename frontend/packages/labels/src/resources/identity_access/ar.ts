@@ -174,6 +174,10 @@ export const ar: LabelResource = {
     'تسجيل الدخول السريع هذا غير متاح هنا. يعمل فقط على بيئة التطوير المحلية مع make dev-quick-sign-in.',
   'dev_sign_in.warning':
     'لبيئة التطوير المحلية فقط، بشخصية من Showcase Company. لا يُستخدم أبدًا على تثبيت حقيقي.',
+  'field_mode.clear': 'ظاهر',
+  'field_mode.hidden': 'مخفي',
+  'field_mode.masked': 'مُقنَّع',
+  'field_mode.read_only': 'للقراءة فقط',
   'form_density.comfortable': 'مريح',
   'form_density.compact': 'مضغوط',
   'form_density.title': 'تخطيط النموذج',

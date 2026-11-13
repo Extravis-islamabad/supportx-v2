@@ -39,6 +39,7 @@ from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.account import router as account_router
 from app.modules.identity_access.api.api_keys import router as api_keys_router
 from app.modules.identity_access.api.cost_rates import router as cost_rates_router
+from app.modules.identity_access.api.field_access import router as field_access_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
@@ -115,6 +116,10 @@ from app.modules.identity_access.service.federation import (
     put_ldap_federation,
     remove_ldap_federation,
     sync_ldap_federation,
+)
+from app.modules.identity_access.service.field_access import (
+    RuleableField,
+    register_field_catalogue,
 )
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
@@ -398,6 +403,7 @@ security_notices.register()  # a person hears of a sign-in from a new device (WP
 module = ModuleSpec(
     name="identity_access",
     routers=[
+        field_access_router,  # ADR-047: field access per role (WP-046a S7)
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
         people_router,
@@ -472,6 +478,7 @@ __all__ = [
     "RecordFacts",
     "ResourceType",
     "RoleName",
+    "RuleableField",
     "ServiceIdentityView",
     "ServiceRole",
     "ServiceRoleOut",
@@ -504,6 +511,7 @@ __all__ = [
     "person_placement",
     "put_ldap_federation",
     "register_duties",
+    "register_field_catalogue",
     "release_from_directory",
     "remove_ldap_federation",
     "remove_service_identity_role",

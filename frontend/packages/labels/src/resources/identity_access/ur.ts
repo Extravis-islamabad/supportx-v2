@@ -176,6 +176,10 @@ export const ur: LabelResource = {
     'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
   'dev_sign_in.warning':
     'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
+  'field_mode.clear': 'ظاہر',
+  'field_mode.hidden': 'پوشیدہ',
+  'field_mode.masked': 'چھپی ہوئی قدر',
+  'field_mode.read_only': 'صرف پڑھنے کے لیے',
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'form_density.title': 'فارم کی ترتیب',

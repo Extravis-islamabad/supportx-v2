@@ -444,6 +444,7 @@ export const ur: LabelResource = {
     'موضوع اور درخواست گزار ہمیشہ دکھائے جاتے ہیں اور لازمی ہیں۔',
   'errors.field.field_locked':
     'فارم کا ایک اصول اس فیلڈ کو مقفل کرتا ہے، اس لیے اسے یہاں نہیں بدلا جا سکتا۔',
+  'errors.field.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
   'errors.field.field_not_settable': 'قاعدہ یہ فیلڈ مقرر نہیں کر سکتا۔',
   'errors.field.field_retired': 'یہ خانہ ریٹائر ہو چکا ہے اور نئی قدریں نہیں لیتا۔',
   'errors.field.field_set_twice': 'یہ فیلڈ قاعدے کے کسی اور عمل سے پہلے ہی مقرر ہے۔',
@@ -760,8 +761,14 @@ export const ur: LabelResource = {
   'errors.field.workflow_not_published': 'پہلے یہ ورک فلو شائع کریں۔',
   'errors.field.workflow_wrong_record_type': 'یہ ورک فلو کسی اور قسم کے ریکارڈ کے لیے ہے۔',
   'errors.field.would_loop': 'کوئی ریلیز خود اپنا حصہ نہیں بن سکتی، براہ راست یا دوسروں کے ذریعے۔',
+  'errors.field_access_limit_reached':
+    'آپ کی تنظیم کے پاس پہلے ہی {{limit}} فیلڈ اصول ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے ایک ہٹائیں۔',
+  'errors.field_access_rule_exists':
+    'اس کردار کے لیے اس فیلڈ کا اصول پہلے سے موجود ہے۔ اسی اصول کو بدلیں۔',
+  'errors.field_access_rule_not_found': 'فیلڈ کا یہ اصول اب موجود نہیں۔',
   'errors.field_keys_unavailable':
     'محفوظ معلومات ابھی پڑھی یا محفوظ نہیں کی جا سکتیں: انسٹالیشن کی کلید دستیاب نہیں۔ اپنے ایڈمنسٹریٹر سے اسے چیک کرنے کو کہیں۔',
+  'errors.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',
   'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
