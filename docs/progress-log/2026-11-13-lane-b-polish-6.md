@@ -20,6 +20,8 @@ dependency.
   namespace; the restore runbook says to keep that restore name while the allow-list is on.
 - **values.yaml:** the breached-password ConfigMap note now says a list above 1 MiB needs a data
   image.
+- **Keycloak links fixture:** a failed `docker run` now carries docker's stderr (never the
+  arguments) and gets up to three tries with fresh ports (lane A's #477 queue drop, exit 125).
 - Already on main from polish 5, so not redone: ci-metrics' `unread` count for runs whose jobs
   can't be read, and chart-lint's check that the external-database refusal names
   `postgresql.external.caSecret`.
