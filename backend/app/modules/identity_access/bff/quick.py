@@ -27,7 +27,9 @@ from app.modules.audit import RequestFacts, record_alone
 from app.modules.identity_access.bff.cookies import set_session_cookie
 from app.modules.identity_access.bff.routes import Auth
 from app.modules.identity_access.domain import quick_sign_in as quick
+from app.modules.identity_access.service.auth import AuthService, LoginResult
 from app.modules.organization import tenant_for_slug
+from app.shared.history import CLIENT_HEADER
 
 router = APIRouter(prefix="/auth/dev", tags=["dev"], include_in_schema=False)
 log = get_logger(__name__)
@@ -140,7 +142,53 @@ async def sign_in(
     origin = request.headers.get("origin")
     if origin is None or urlsplit(origin).netloc != request.headers.get("host"):
         raise NotFound
-    who = quick.persona(body.persona)
+    done = await _quick_session(request, auth, showcase, body.persona, client=None)
+    if isinstance(done, QuickSignInOut):
+        return done
+    set_session_cookie(response, auth.settings, done.session_id)
+    return QuickSignInOut(redirect_to=done.redirect_to)
+
+
+class MobileQuickSignInOut(BaseModel):
+    """The mobile app's session ID; or, for the new starter, where their set-up link went."""
+
+    session_id: str | None = None
+    setup_link_sent_to: str | None = Field(
+        default=None,
+        description="The new starter: Keycloak e-mailed this address a two-step set-up link.",
+    )
+
+
+@router.post("/mobile/sign-in")
+@entitlement_exempt
+@public_route
+async def mobile_sign_in(
+    body: QuickSignInIn, request: Request, auth: Auth, showcase: Showcase
+) -> MobileQuickSignInOut:
+    """Sign a persona in on the mobile app (dev only, D-163): the session ID, never a cookie.
+
+    The app's debug build cannot finish the real sign-in on the local stack: its return link
+    needs a verified https host (ADR-044 item 3). This is the web's quick sign-in for it, with the
+    same guards. Only the app may call it: the `X-SupportX-Client: mobile` header makes a
+    browser ask first (CORS preflight), which the API never allows, so no web page can post here
+    or read the ID. A browser request (it always carries Origin on a POST) finds nothing.
+    """
+    if (
+        request.headers.get("origin") is not None
+        or request.headers.get(CLIENT_HEADER, "").strip().lower() != "mobile"
+    ):
+        raise NotFound
+    done = await _quick_session(request, auth, showcase, body.persona, client="mobile")
+    if isinstance(done, QuickSignInOut):
+        return MobileQuickSignInOut(setup_link_sent_to=done.setup_link_sent_to)
+    return MobileQuickSignInOut(session_id=done.session_id)
+
+
+async def _quick_session(
+    request: Request, auth: AuthService, showcase: uuid.UUID, code: str, *, client: str | None
+) -> LoginResult | QuickSignInOut:
+    """A persona's audited session, or the new starter's set-up link (QuickSignInOut)."""
+    who = quick.persona(code)
     if who is None:
         raise NotFound
     database = getattr(request.app.state, "db", None)
@@ -154,7 +202,7 @@ async def sign_in(
             database,
             TenantContext(showcase, uuid.UUID(result.session.user_id)),
             action_code="session.quick_sign_in",
-            facts=RequestFacts.of(request, client=who.app),
+            facts=RequestFacts.of(request, client=client or who.app),
             object_type="user",
             object_id=result.session.user_id,
             details={"persona": who.code},
@@ -164,5 +212,4 @@ async def sign_in(
         log.exception("quick_sign_in_audit_failed", persona=who.code)
         await auth.logout(result.session_id, result.session)
         raise ServiceUnavailable from exc
-    set_session_cookie(response, auth.settings, result.session_id)
-    return QuickSignInOut(redirect_to=result.redirect_to)
+    return result

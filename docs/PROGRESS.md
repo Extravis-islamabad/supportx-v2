@@ -352,7 +352,9 @@ local builds only. One role-based app built from the prototype (D-158). One sess
   session list names the phone (platform, app version), and the sign-in screen says when the
   server ended a session. A device sign-in needs an https dev host serving the `.well-known`
   files (the dev build's IDs go to lane B for the dev values). Split into three PRs: backend
-  sign-in + api-client, shared packages, the app.
+  sign-in + api-client, shared packages, the app. Dev quick sign-in for the debug build
+  (D-163, 2026-11-12): `POST /auth/dev/mobile/sign-in`, the web's D-151 personas on the Sign in
+  screen, so the local stack works without a verified link; tried on the emulator.
 - [x] WP-M3 Technician, see the work (built 2026-11-05): Home KPIs, MonetX card, needs attention; queue filters with
   SLA chips; incident detail and conversation; live updates.
 - [x] WP-M4 Technician, act (built 2026-11-05; photo and offline replies still open): take, start, resolve (resolution required); reply vs private note,

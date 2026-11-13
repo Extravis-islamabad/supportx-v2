@@ -42,8 +42,12 @@ is no Android Studio.
    `adb reverse tcp:5173 tcp:5173`, `adb reverse tcp:28080 tcp:28080` and
    `adb reverse tcp:8000 tcp:8000`.
 4. **App:** in `mobile/`, run `pnpm android`. That builds, installs and starts Metro. On the
-   server screen enter `http://localhost:5173`, then sign in with a dev user (for example
-   `admin@demo.test`; passwords are in `deploy/compose/.env`).
+   server screen enter `http://localhost:5173`.
+5. **Sign in with the dev quick sign-in** (D-163): with the quick sign-in on (`make
+   dev-quick-sign-in` and `make showcase-seed`, docs/dev-setup.md), the debug build's Sign in
+   screen shows one button per Showcase Company persona, as on the web's `/dev/sign-in`. The
+   normal "Sign in" button opens Keycloak but cannot come back to the app on `http://localhost`
+   (below).
 
 ## Prerequisites
 

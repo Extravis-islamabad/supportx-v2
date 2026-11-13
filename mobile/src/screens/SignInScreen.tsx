@@ -10,6 +10,7 @@ import { LanguagePicker } from '../components/LanguagePicker';
 import { Screen } from '../components/Screen';
 import { useSettings } from '../settings';
 import { usePalette } from '../theme';
+import { DevQuickSignIn } from './DevQuickSignIn';
 
 type Problem =
   { kind: 'cancelled' } | { kind: 'unreachable' } | { kind: 'error'; code: string | undefined };
@@ -22,11 +23,14 @@ export function SignInScreen({
   onSignedIn,
   onChangeServer,
   start = signIn,
+  quickSignIn = __DEV__,
 }: {
   onSignedIn: () => void;
   onChangeServer: () => void;
   /** Replaced in tests: the browser step cannot run there. */
   start?: typeof signIn;
+  /** The dev-only quick sign-in (D-163): debug builds only, never in a release build. */
+  quickSignIn?: boolean;
 }) {
   const t = useLabels();
   const palette = usePalette();
@@ -99,6 +103,15 @@ export function SignInScreen({
         title={t('mobile.server.change')}
         onPress={onChangeServer}
       />
+      {quickSignIn && server !== null ? (
+        <DevQuickSignIn
+          server={server}
+          onSession={async (sessionId) => {
+            await setSession(sessionId);
+            onSignedIn();
+          }}
+        />
+      ) : null}
       <LanguagePicker />
     </Screen>
   );
