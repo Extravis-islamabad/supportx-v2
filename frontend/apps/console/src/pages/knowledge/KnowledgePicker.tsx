@@ -1,5 +1,5 @@
 import { BookOutlined } from '@ant-design/icons';
-import { App, Button, Drawer, Empty, Flex, Input, List, Space, Typography } from 'antd';
+import { App, Button, Empty, Flex, Input, List, Space, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -10,7 +10,7 @@ import {
   type KbArticleRow,
   type KbAudience,
 } from '@supportx/api-client';
-import { reportError, useAppearance, useLabel } from '@supportx/ui';
+import { Drawer, reportError, useAppearance, useLabel } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
 import { articleLanguage, portalArticlePath, topicPath } from './model';

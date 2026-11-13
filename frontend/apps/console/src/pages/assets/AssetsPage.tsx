@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { App, Button, Drawer, Flex, Grid, Input, Select, Table, Typography } from 'antd';
+import { App, Button, Flex, Grid, Input, Select, Table, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
@@ -30,6 +30,7 @@ import {
 } from '@supportx/realtime';
 import {
   CellText,
+  Drawer,
   EmptyText,
   FilterBar,
   ListNotice,

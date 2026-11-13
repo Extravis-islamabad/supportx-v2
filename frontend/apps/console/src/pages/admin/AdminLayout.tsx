@@ -1,9 +1,10 @@
 import { MenuOutlined } from '@ant-design/icons';
-import { Alert, Button, Drawer, Grid, Typography, theme } from 'antd';
+import { Alert, Button, Grid, Typography, theme } from 'antd';
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import {
+  Drawer,
   NoAccess,
   PageHeader,
   SettingsPageHeader,

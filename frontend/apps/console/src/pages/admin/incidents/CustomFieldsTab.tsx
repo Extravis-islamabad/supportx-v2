@@ -6,7 +6,6 @@ import {
   Card,
   Checkbox,
   Collapse,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -32,17 +31,18 @@ import {
 } from '@supportx/api-client';
 import {
   ConflictDialog,
+  Drawer,
   EmptyText,
   lengthLimit,
   markHandled,
   reportError,
+  type Tone,
   ToneTag,
   useAppearance,
   useConflict,
   useDateTime,
   useLabel,
   WriteButton,
-  type Tone,
 } from '@supportx/ui';
 
 import { CustomFieldControl } from '../../customFields/fields';

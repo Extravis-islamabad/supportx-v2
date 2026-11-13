@@ -60,13 +60,19 @@ export default tseslint.config(
               message:
                 'Use Tabs from @supportx/ui: its row scrolls by buttons when it does not fit.',
             },
+            {
+              name: 'antd',
+              importNames: ['Drawer'],
+              message:
+                "Use Drawer from @supportx/ui: it opens at the end of the reading direction (left in Arabic and Urdu); antd's opens on the right in both.",
+            },
           ],
         },
       ],
     },
   },
   {
-    files: ['packages/ui/src/layout/Tabs.tsx'],
+    files: ['packages/ui/src/layout/Tabs.tsx', 'packages/ui/src/Drawer.tsx'],
     rules: { 'no-restricted-imports': 'off' },
   },
   {

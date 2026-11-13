@@ -4,7 +4,6 @@ import {
   Alert,
   App,
   Button,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -32,18 +31,19 @@ import {
 } from '@supportx/api-client';
 import {
   ConflictDialog,
+  Drawer,
   FormProblem,
-  NoAccess,
-  ToneTag,
   lengthLimit,
   markHandled,
+  NoAccess,
   reportError,
+  Tabs,
+  ToneTag,
   useAccess,
   useConflict,
   useFormProblem,
   useLabel,
   useLicence,
-  Tabs,
 } from '@supportx/ui';
 
 import { refreshList, useListChannel } from '@supportx/realtime';
