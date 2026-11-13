@@ -19,7 +19,8 @@ Environment: SUPPORTX_MIGRATION_DATABASE_URL (migrator), optional SUPPORTX_DEPLO
 (superuser, any database) with SUPPORTX_DEPLOY_APP_PASSWORD / _MIGRATOR_PASSWORD /
 _RELAY_PASSWORD, SUPPORTX_DEPLOY_DATABASE (default supportx), SUPPORTX_DEPLOY_WAIT_SECONDS (300),
 SUPPORTX_DEPLOY_CNPG_POOLER=1 to let CloudNativePG's PgBouncer look up the roles
-(tooling/sql/cnpg_pooler.sql).
+(tooling/sql/cnpg_pooler.sql), SUPPORTX_DATABASE_SSL_ROOT_CERT for verify-full TLS on every
+connection (audit row 5; the superuser's password crosses this one).
 """
 
 import asyncio
@@ -29,12 +30,14 @@ import time
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from ssl import SSLContext
 
 import asyncpg
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
+from app.core.database import database_ssl
 from tooling import custom_field_indexes
 from tooling.db_bootstrap import RolePasswords, bootstrap, run_script, with_database
 
@@ -71,6 +74,12 @@ class DeployConfig:
     passwords: RolePasswords | None
     wait_seconds: float
     cnpg_pooler: bool = False
+    ssl_root_cert: Path | None = None
+
+    @property
+    def ssl(self) -> SSLContext | None:
+        """verify-full against `ssl_root_cert`, or asyncpg's default without it."""
+        return database_ssl(self.ssl_root_cert)
 
     @classmethod
     def from_env(cls, env: dict[str, str]) -> "DeployConfig":
@@ -83,6 +92,7 @@ class DeployConfig:
                 migrator=env["SUPPORTX_DEPLOY_MIGRATOR_PASSWORD"],
                 relay=env["SUPPORTX_DEPLOY_RELAY_PASSWORD"],
             )
+        root = env.get("SUPPORTX_DATABASE_SSL_ROOT_CERT")
         return cls(
             migrator_url=env["SUPPORTX_MIGRATION_DATABASE_URL"],
             admin_url=admin,
@@ -90,23 +100,26 @@ class DeployConfig:
             passwords=passwords,
             wait_seconds=float(env.get("SUPPORTX_DEPLOY_WAIT_SECONDS", "300")),
             cnpg_pooler=env.get("SUPPORTX_DEPLOY_CNPG_POOLER") == "1",
+            ssl_root_cert=Path(root) if root else None,
         )
 
 
-def alembic_config(url: str) -> Config:
-    """Alembic config for this image's migrations against `url`."""
+def alembic_config(url: str, ssl: SSLContext | None = None) -> Config:
+    """Alembic config for this image's migrations against `url` (`ssl`: see migrations/env.py)."""
     config = Config(str(BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
     config.attributes["database_url"] = url
+    if ssl is not None:
+        config.attributes["database_ssl"] = ssl
     return config
 
 
-async def wait_for(url: str, seconds: float) -> None:
+async def wait_for(url: str, seconds: float, ssl: SSLContext | None = None) -> None:
     """Retry the login until it works or `seconds` pass (then the last error is raised)."""
     deadline = time.monotonic() + seconds
     while True:
         try:
-            conn = await asyncpg.connect(url, timeout=5)
+            conn = await asyncpg.connect(url, timeout=5, ssl=ssl)
         except (OSError, asyncpg.PostgresError, TimeoutError):
             if time.monotonic() > deadline:
                 raise
@@ -125,10 +138,12 @@ async def database_revision(conn: asyncpg.Connection) -> str | None:
     return revision
 
 
-async def allow_cnpg_pooler(admin_url: str, database: str, seconds: float) -> None:
+async def allow_cnpg_pooler(
+    admin_url: str, database: str, seconds: float, ssl: SSLContext | None = None
+) -> None:
     """Let the CloudNativePG pooler authenticate our roles (its role appears after start-up)."""
     deadline = time.monotonic() + seconds
-    admin = await asyncpg.connect(admin_url)
+    admin = await asyncpg.connect(admin_url, ssl=ssl)
     try:
         while not await admin.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", POOLER_ROLE):
             if time.monotonic() > deadline:
@@ -137,7 +152,7 @@ async def allow_cnpg_pooler(admin_url: str, database: str, seconds: float) -> No
             await asyncio.sleep(2)
     finally:
         await admin.close()
-    in_database = await asyncpg.connect(with_database(admin_url, database))
+    in_database = await asyncpg.connect(with_database(admin_url, database), ssl=ssl)
     try:
         await run_script(in_database, "cnpg_pooler.sql", {"database": database})
     finally:
@@ -146,26 +161,29 @@ async def allow_cnpg_pooler(admin_url: str, database: str, seconds: float) -> No
 
 async def migrate(config: DeployConfig) -> Action:
     """Bootstrap (if allowed) and upgrade; returns what was done."""
+    ssl = config.ssl
     if config.admin_url is not None and config.passwords is not None:
-        await wait_for(config.admin_url, config.wait_seconds)
-        created = await bootstrap(config.admin_url, config.database, config.passwords)
+        await wait_for(config.admin_url, config.wait_seconds, ssl)
+        created = await bootstrap(config.admin_url, config.database, config.passwords, ssl)
         sys.stdout.write(f"database {config.database}: {'created' if created else 'present'}\n")
         if config.cnpg_pooler:
-            await allow_cnpg_pooler(config.admin_url, config.database, config.wait_seconds)
-    await wait_for(config.migrator_url, config.wait_seconds)
+            await allow_cnpg_pooler(config.admin_url, config.database, config.wait_seconds, ssl)
+    await wait_for(config.migrator_url, config.wait_seconds, ssl)
     script = ScriptDirectory.from_config(alembic_config(config.migrator_url))
     head = script.get_current_head()
     if head is None:  # pragma: no cover - the image always ships migrations
         msg = "no migrations found in this image"
         raise RuntimeError(msg)
     known = {rev.revision for rev in script.walk_revisions()}
-    lock = await asyncpg.connect(config.migrator_url)
+    lock = await asyncpg.connect(config.migrator_url, ssl=ssl)
     try:
         await lock.execute("SELECT pg_advisory_lock($1)", ADVISORY_LOCK_KEY)
         action = plan(await database_revision(lock), known, head)
         if action is Action.UPGRADE:
             # Alembic's env.py runs its own event loop; keep it off this one.
-            await asyncio.to_thread(command.upgrade, alembic_config(config.migrator_url), "head")
+            await asyncio.to_thread(
+                command.upgrade, alembic_config(config.migrator_url, ssl), "head"
+            )
         await lock.execute("SELECT pg_advisory_unlock($1)", ADVISORY_LOCK_KEY)
     finally:
         await lock.close()
@@ -185,7 +203,7 @@ def main() -> int:  # pragma: no cover - thin CLI over tested functions
     if action is not Action.NEWER:
         # Fallback for the index worker (D-088). A failure is recorded on the field and never
         # fails the deploy; a pass the worker is already running is skipped.
-        outcome = asyncio.run(custom_field_indexes.run(config.migrator_url))
+        outcome = asyncio.run(custom_field_indexes.run(config.migrator_url, config.ssl))
         sys.stdout.write(f"custom field indexes: {outcome}\n")
     return 0
 

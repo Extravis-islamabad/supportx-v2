@@ -1,121 +1,30 @@
-"""Integration: BFF login against a REAL Keycloak with the dev realm (realm import in
-deploy/helm/supportx/files/keycloak/dev), private to this test process (keycloak_container.py):
-never the shared dev Keycloak, so another lane's sign-ins can never fail these tests.
+"""Integration: BFF sign-in against a REAL Keycloak with the dev realm (keycloak_world.py).
 
-The API runs in-process with a throwaway, migrated database and the tests' Valkey; skipped when
-Docker, the database or Valkey is missing. The OIDC redirect URI is
-http://localhost:5173/api/v1/auth/callback, as registered for the console client.
+Sign-in and provisioning per test user, roles in the session, logout, and the refusal of a
+person with no organization. Isolation between tenants: test_auth_keycloak_isolation.py; the
+realm's own rules: test_auth_keycloak_realm.py.
 """
 
-import asyncio
-import secrets
-import uuid
-from collections.abc import AsyncIterator
-from dataclasses import dataclass
-
-import asyncpg
-import httpx
 import pytest
-import pytest_asyncio
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
 
 from app.modules.identity_access.domain.session import Session as BffSession
 from app.modules.identity_access.infra.oidc import TokenRejectedError
-from conftest import PRODUCTION_REQUIRED, make_settings
-from tests.db.test_api_tenancy import build_app
-from tests.db.test_rate_limit import valkey_url
 from tests.integration.keycloak_browser import KeycloakBrowser
-from tests.integration.keycloak_container import PrivateKeycloak
-from tooling import seed_dev
+from tests.integration.keycloak_world import (
+    CONSOLE,
+    DEMO,
+    OTHER,
+    Session,
+    seeded,
+    session,
+    users_in,
+    valkey,
+)
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = pytest.mark.integration
 
-CONSOLE = "http://localhost:5173"
-DEMO, OTHER = seed_dev.DEMO_TENANT_ID, seed_dev.OTHER_TENANT_ID
-PASSWORDS = {
-    "admin@demo.test": "Admin-Demo-2026!",
-    "tech@demo.test": "Tech-Demo-2026!",
-    "user@demo.test": "User-Demo-2026!",
-    "other@other.test": "Other-Corp-2026!",
-    "multi@demo.test": "Multi-Org-2026!",
-    "nobody@nowhere.test": "No-Org-User-2026!",
-}
-
-
-@pytest.fixture(scope="module")
-def valkey() -> str:
-    url = valkey_url()
-    if url is None:
-        pytest.skip("Valkey is not configured")
-    return url
-
-
-@pytest.fixture(scope="module")
-def seeded(valkey: str, migrated_db: ThrowawayDatabase) -> ThrowawayDatabase:
-    del valkey  # requested only so a missing Valkey skips before seeding
-    asyncio.run(seed_dev.seed(migrated_db.migrator_url))
-    return migrated_db
-
-
-@dataclass
-class Session:
-    client: AsyncClient
-    browser: KeycloakBrowser
-    app: FastAPI
-
-    async def login(self, email: str, *, app: str = "console") -> httpx.Response:
-        start = await self.client.get(
-            "/api/v1/auth/login", params={"app": app, "returnTo": "/home"}
-        )
-        assert start.status_code == 302, start.text
-        landing = self.browser.login(start.headers["location"], email, PASSWORDS[email])
-        assert landing.status_code == 302, f"Keycloak did not redirect back for {email}"
-        return await self.client.get(landing.headers["location"])
-
-    async def me(self) -> httpx.Response:
-        return await self.client.get("/api/v1/auth/me")
-
-
-@pytest_asyncio.fixture
-async def session(
-    private_keycloak: PrivateKeycloak, valkey: str, seeded: ThrowawayDatabase
-) -> AsyncIterator[Session]:
-    settings = make_settings(
-        profile="test",
-        database_url=seeded.app_url,
-        valkey_url=valkey,
-        oidc_issuer=private_keycloak.issuer,
-        oidc_console_client_secret=private_keycloak.console_secret,
-        oidc_portal_client_secret=private_keycloak.portal_secret,
-        session_secret=secrets.token_hex(32),
-        session_cookie_secure=False,
-        dev_tenant_header=True,  # proves the session still wins over the header
-    )
-    app = build_app(settings)
-    async with app.router.lifespan_context(app):
-        transport = ASGITransport(app=app, raise_app_exceptions=False)
-        async with AsyncClient(transport=transport, base_url=CONSOLE) as client:
-            browser = KeycloakBrowser()
-            try:
-                yield Session(client, browser, app)
-            finally:
-                browser.close()
-
-
-async def users_in(db: ThrowawayDatabase, email: str, tenant: uuid.UUID) -> list[asyncpg.Record]:
-    # Other test files share this database and may use the same emails in other tenants.
-    conn = await asyncpg.connect(db.admin_url)
-    try:
-        return await conn.fetch(
-            "SELECT tenant_id, display_name, locale, user_type FROM users "
-            "WHERE email = $1 AND tenant_id = $2",
-            email,
-            tenant,
-        )
-    finally:
-        await conn.close()
+__all__ = ["seeded", "session", "valkey"]  # the fixtures, re-used
 
 
 @pytest.mark.parametrize(
@@ -194,44 +103,6 @@ async def test_audit_26_keycloak_refuses_a_refresh_token_used_once(session: Sess
         await auth.oidc.refresh(client, spent)
 
 
-async def test_other_company_user_never_sees_demo_company(session: Session) -> None:
-    await session.login("other@other.test")
-    me = (await session.me()).json()
-    assert [t["name"] for t in me["tenants"]] == ["Other Company"]
-    for headers in ({}, {"X-Tenant-ID": str(DEMO)}):
-        tenant = (await session.client.get("/api/v1/organization/tenant", headers=headers)).json()
-        assert tenant["id"] == str(OTHER), headers
-    titles = (await session.client.get("/api/v1/probe", headers={"X-Tenant-ID": str(DEMO)})).json()
-    assert titles == [] or all("demo" not in t for t in titles)
-    switch = await session.client.post(
-        "/api/v1/auth/switch-tenant",
-        json={"tenant_id": str(DEMO)},
-        headers={"X-CSRF-Token": me["csrf_token"]},
-    )
-    assert (switch.status_code, switch.json()["code"]) == (403, "not_a_member")
-
-
-async def test_demo_data_stays_invisible_to_other_company(session: Session) -> None:
-    await session.login("tech@demo.test")
-    token = (await session.me()).json()["csrf_token"]
-    secret_title = f"demo-secret-{uuid.uuid4().hex[:8]}"
-    created = await session.client.post(
-        "/api/v1/probe", json={"title": secret_title}, headers={"X-CSRF-Token": token}
-    )
-    assert created.status_code == 200
-    await session.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": token})
-
-    await session.login("other@other.test")
-    listed = await session.client.get("/api/v1/probe", headers={"X-Tenant-ID": str(DEMO)})
-    assert secret_title not in listed.text
-    patched = await session.client.patch(
-        f"/api/v1/probe/{created.json()['id']}?version=1",
-        json={"title": "hijacked"},
-        headers={"X-CSRF-Token": (await session.me()).json()["csrf_token"]},
-    )
-    assert patched.status_code == 404
-
-
 async def test_user_without_organization_gets_403(session: Session) -> None:
     response = await session.login("nobody@nowhere.test")
     assert response.status_code == 403
@@ -241,102 +112,3 @@ async def test_user_without_organization_gets_403(session: Session) -> None:
         (await session.client.get("/api/v1/auth/login")).headers["location"]
     )
     assert KeycloakBrowser.shows_login_form(retry), "Keycloak session should have been ended"
-
-
-async def test_multi_organization_user_can_switch(session: Session) -> None:
-    await session.login("multi@demo.test")
-    me = (await session.me()).json()
-    assert {t["name"] for t in me["tenants"]} == {"Demo Company", "Other Company"}
-    target = next(t for t in me["tenants"] if t["id"] != me["tenant"]["id"])
-    switched = await session.client.post(
-        "/api/v1/auth/switch-tenant",
-        json={"tenant_id": target["id"]},
-        headers={"X-CSRF-Token": me["csrf_token"]},
-    )
-    assert switched.json()["tenant"]["id"] == target["id"]
-    assert (await session.client.get("/api/v1/organization/tenant")).json()["id"] == target["id"]
-
-
-async def test_production_ignores_x_tenant_id_against_the_real_stack(
-    private_keycloak: PrivateKeycloak, valkey: str, seeded: ThrowawayDatabase
-) -> None:
-    settings = make_settings(
-        **{
-            **PRODUCTION_REQUIRED,
-            "database_url": seeded.app_url,
-            "valkey_url": valkey,
-            "oidc_issuer": private_keycloak.issuer,
-            "dev_tenant_header": True,
-        }
-    )
-    app = build_app(settings)
-    async with (
-        app.router.lifespan_context(app),
-        AsyncClient(transport=ASGITransport(app=app), base_url=CONSOLE) as client,
-    ):
-        response = await client.get(
-            "/api/v1/organization/tenant", headers={"X-Tenant-ID": str(DEMO)}
-        )
-    assert (response.status_code, response.json()["code"]) == (401, "unauthenticated")
-
-
-def _admin(keycloak: PrivateKeycloak) -> httpx.Client:
-    base = keycloak.base_url
-    token = httpx.post(
-        f"{base}/realms/master/protocol/openid-connect/token",
-        data={
-            "grant_type": "password",
-            "client_id": "admin-cli",
-            "username": keycloak.admin_user,
-            "password": keycloak.admin_password,
-        },
-    ).json()["access_token"]
-    return httpx.Client(
-        base_url=f"{base}/admin/realms/supportx", headers={"Authorization": f"Bearer {token}"}
-    )
-
-
-def test_realm_enforces_password_policy_and_brute_force_protection(
-    private_keycloak: PrivateKeycloak,
-) -> None:
-    with _admin(private_keycloak) as admin:
-        realm = admin.get("").json()
-        assert realm["bruteForceProtected"] is True
-        # Audit row 26: refresh tokens rotate, each works once.
-        assert (realm["revokeRefreshToken"], realm["refreshTokenMaxReuse"]) == (True, 0)
-        assert realm["failureFactor"] == 5
-        assert "length(12)" in realm["passwordPolicy"]
-        assert realm["organizationsEnabled"] is True
-        # A throwaway user: a weak password is refused, then 5 wrong passwords lock the account.
-        email = f"policy-{uuid.uuid4().hex[:8]}@nowhere.test"
-        created = admin.post("/users", json={"username": email, "email": email, "enabled": True})
-        user_id = created.headers["location"].rsplit("/", 1)[1]
-        try:
-            weak = admin.put(
-                f"/users/{user_id}/reset-password",
-                json={"type": "password", "value": "short", "temporary": False},
-            )
-            assert weak.status_code == 400
-            strong = admin.put(
-                f"/users/{user_id}/reset-password",
-                json={"type": "password", "value": "Strong-Pass-2026!", "temporary": False},
-            )
-            assert strong.status_code == 204
-            browser = KeycloakBrowser()
-            authorize = (
-                f"{private_keycloak.issuer}/protocol/openid-connect/auth"
-                "?client_id=supportx-console&response_type=code&scope=openid"
-                "&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fapi%2Fv1%2Fauth%2Fcallback"
-                "&code_challenge=" + "x" * 43 + "&code_challenge_method=S256"
-            )
-            try:
-                for _ in range(5):
-                    browser.login(authorize, email, "Wrong-Pass-2026!")
-                locked = admin.get(f"/attack-detection/brute-force/users/{user_id}").json()
-                assert locked["disabled"] is True
-                # Even the right password is refused while the lock lasts.
-                assert browser.login(authorize, email, "Strong-Pass-2026!").status_code == 200
-            finally:
-                browser.close()
-        finally:
-            admin.delete(f"/users/{user_id}")

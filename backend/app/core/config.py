@@ -75,13 +75,25 @@ class Settings(BaseSettings):
     valkey_sentinels: str | None = None
     valkey_sentinel_master: str = Field(default="supportx", min_length=1, max_length=64)
     valkey_sentinel_password: SecretStr | None = None  # None: the same as Valkey's own
+    # TLS to Valkey and its sentinels (audit row 5; the chart's internal CA in values-ha.yaml).
+    # Set: `valkey_url` must be valkeys:// (or rediss://), and every connection checks the server
+    # certificate against this CA and the host name dialled. Unset: as the URL says.
+    valkey_tls_ca_file: Path | None = None
     nats_url: SecretStr | None = None
+    # TLS to NATS (audit row 5; the chart's internal CA in values-ha.yaml). Set: `nats_url` must
+    # be tls://, and the server certificate is checked against this CA and the URL's host name.
+    nats_tls_ca_file: Path | None = None
     readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
     # Database (WP-005). `database_url` is the application role (supportx_app) through PgBouncer
     # in transaction mode; `migration_database_url` is supportx_migrator straight to PostgreSQL,
     # used only by Alembic and dev tooling, never by the running API.
     migration_database_url: SecretStr | None = None
+    # TLS to PostgreSQL, verified (audit row 5): the CA the server's (or PgBouncer's) certificate
+    # chains to. Set: every connection is sslmode verify-full against it (the host name
+    # checked). Unset: asyncpg's default, which encrypts when the server offers it but checks
+    # nothing. The chart mounts CloudNativePG's own CA, or an external database's.
+    database_ssl_root_cert: Path | None = None
     db_pool_size: int = Field(default=10, ge=1, le=200)
     db_max_overflow: int = Field(default=10, ge=0, le=200)
     db_pool_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
@@ -132,9 +144,9 @@ class Settings(BaseSettings):
     # the secret to the consumers worker alone, and only where LDAP is on (never on SaaS).
     keycloak_federation_client_id: str = "supportx-federation"
     keycloak_federation_client_secret: SecretStr | None = None
-    # Single sign-on checks fetch the provider's discovery document or SAML metadata. Loopback
-    # addresses are refused (server-side request forgery) unless allowed: dev and CI only, where
-    # the test identity provider runs on the same machine.
+    # Single sign-on checks fetch the provider's discovery document or SAML metadata through the
+    # guarded client (private ranges only via egress_allow, below). This also opens loopback, in
+    # the dev and test profiles only, where the test identity provider runs on the same machine.
     sso_fetch_allow_loopback: bool = False
     # Guarded outbound calls (workflow webhooks, outbound webhooks; ADR-043 §8): what the
     # installation opens beyond the public internet, as CIDRs or host names (an on-prem ERP on a
@@ -463,6 +475,26 @@ class Settings(BaseSettings):
             if on_loopback and self.profile == "production":
                 msg = f"SUPPORTX_EGRESS_ALLOW: {entry} opens loopback (dev and test only)"
                 raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _valkey_tls_needs_a_tls_url(self) -> Self:
+        """A CA with a plaintext URL would look protected and be in clear: refused at start."""
+        if self.valkey_tls_ca_file is not None and self.valkey_url is not None:
+            scheme = urlsplit(self.valkey_url.get_secret_value()).scheme
+            if scheme not in {"valkeys", "rediss"}:
+                msg = "SUPPORTX_VALKEY_TLS_CA_FILE needs a valkeys:// SUPPORTX_VALKEY_URL"
+                raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _nats_tls_needs_a_tls_url(self) -> Self:
+        """As for Valkey: a CA with a nats:// URL would look protected and be in clear."""
+        url = self.nats_url
+        plaintext = url is not None and urlsplit(url.get_secret_value()).scheme != "tls"
+        if self.nats_tls_ca_file is not None and plaintext:
+            msg = "SUPPORTX_NATS_TLS_CA_FILE needs a tls:// SUPPORTX_NATS_URL"
+            raise ValueError(msg)
         return self
 
     @model_validator(mode="after")

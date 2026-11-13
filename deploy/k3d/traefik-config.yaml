@@ -13,8 +13,16 @@ spec:
     gateway:
       enabled: false
     ports:
+      # WebSocket and HTTP-streaming connections stay open (realtime, WP-011) on both entry
+      # points: HTTPS (websecure) carries every route once routing.tls is on (audit row 5), and
+      # Traefik's default would cut a realtime connection after 60 s.
       web:
-        # WebSocket and HTTP-streaming connections stay open (realtime, WP-011).
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+            writeTimeout: 0
+            idleTimeout: 3600s
+      websecure:
         transport:
           respondingTimeouts:
             readTimeout: 0

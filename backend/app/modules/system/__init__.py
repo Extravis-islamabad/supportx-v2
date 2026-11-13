@@ -25,6 +25,7 @@ from fastapi import FastAPI
 
 from app.core.authorization import PermissionSpec
 from app.core.config import Settings
+from app.core.database import database_ssl
 from app.core.modules import ModuleSpec
 from app.modules.system.api.action_links import public_router as public_links_router
 from app.modules.system.api.action_links import router as action_links_router
@@ -73,9 +74,14 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
             not_configured.append(name)
         else:
             found = url.get_secret_value()
-            probes.append(
-                ValkeyProbe(found, settings) if probe_type is ValkeyProbe else probe_type(found)
-            )
+            if probe_type is ValkeyProbe:
+                probes.append(ValkeyProbe(found, settings))
+            elif probe_type is PostgresProbe:
+                probes.append(PostgresProbe(found, database_ssl(settings.database_ssl_root_cert)))
+            elif probe_type is NatsProbe:
+                probes.append(NatsProbe(found, settings.nats_tls_ca_file))
+            else:
+                probes.append(probe_type(found))
     if settings.oidc_issuer is None:
         not_configured.append("keycloak")
     else:
@@ -130,6 +136,7 @@ def _worker_probes(settings: Settings) -> list[DependencyProbe]:
             kind=kind,
             stale_after_s=settings.heartbeat_stale_seconds,
             backlog_after_s=settings.event_backlog_stalled_seconds if kind == "relay" else None,
+            tls_ca_file=settings.nats_tls_ca_file,
         )
         for name, kind in (
             ("outbox_relay", "relay"),

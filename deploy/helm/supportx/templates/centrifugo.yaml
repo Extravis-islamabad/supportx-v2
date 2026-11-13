@@ -43,6 +43,10 @@ data:
           "prefix": {{ printf "%s-centrifugo" .Release.Name | quote }},
           "sentinel_address": {{ toJson $sentinels }},
           "sentinel_master_name": "supportx"
+          {{- if eq (include "supportx.valkeyTls" .) "true" }},
+          "tls": {"enabled": true, "server_ca_pem": "/etc/supportx/tls/internal-ca/ca.crt"},
+          "sentinel_tls": {"enabled": true, "server_ca_pem": "/etc/supportx/tls/internal-ca/ca.crt"}
+          {{- end }}
         }
       }
       {{- end }}
@@ -65,6 +69,10 @@ spec:
         {{- include "supportx.labels" $c | nindent 8 }}
       annotations:
         checksum/config: {{ .Values.publicUrl | sha256sum }}
+        {{- if include "supportx.internalTlsOn" . }}
+        # Turning internal TLS on changes the engine settings above: roll the pods with it.
+        supportx.io/internal-tls: "on"
+        {{- end }}
         {{- if not (include "supportx.podMonitorsEnabled" .) }}
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
@@ -104,9 +112,11 @@ spec:
             {{- toYaml .Values.centrifugo.resources | nindent 12 }}
           volumeMounts:
             - {name: config, mountPath: /centrifugo, readOnly: true}
+            {{- with include "supportx.internalCaMount" . | trim }}{{ . | nindent 12 }}{{ end }}
       volumes:
         - name: config
           configMap: {name: {{ include "supportx.name" $c }}}
+        {{- with include "supportx.internalCaVolume" . | trim }}{{ . | nindent 8 }}{{ end }}
 ---
 apiVersion: v1
 kind: Service
