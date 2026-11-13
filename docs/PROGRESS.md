@@ -326,8 +326,9 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   retries after 60 s); node-monitor grace period 20 s in `deploy/k3s/config-ha.yaml` and the k3d
   HA cluster; a forced worst-case test, master plus CoreDNS on the stopped node
   (`make cluster-ha-valkey-node-loss-dns`).
-  - [ ] **Later:** NodeLocal DNSCache to remove the dead-endpoint window, without a shorter
-    grace period; weigh it after this lands.
+  - [x] NodeLocal DNSCache (D-163, 2026-11-13) removes the dead-endpoint window, without a
+    shorter grace period: `deploy/k3s/node-local-dns.sh`, required by the preflight; the
+    node-loss budgets are back to 60 s and a sentinel TILT fails the test.
   Round 3 (2026-11-12, the coordinator's sweep of single copies in the HA profile; the proving
   run lost k3s's only Traefik copy with the stopped node and no request was answered for 90 s):
   Traefik two copies with required anti-affinity (`deploy/k3s/traefik-ha.yaml`, a
