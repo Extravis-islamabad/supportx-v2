@@ -2,6 +2,12 @@ import type { LabelResource } from '../en';
 
 // audit labels (see ../README.md).
 export const ur: LabelResource = {
+  'access_field.email': 'ای میل',
+  'access_field.employee_id': 'ملازم آئی ڈی',
+  'access_field.job_title': 'عہدہ',
+  'access_field.manager_id': 'مینیجر',
+  'access_field.mobile': 'موبائل',
+  'access_field.phone': 'فون',
   'access_kind.ai_masking': 'AI کے لیے چھپایا گیا',
   'access_kind.export': 'ایکسپورٹ کیا گیا',
   'access_kind.view': 'دیکھا گیا',
@@ -668,6 +674,23 @@ export const ur: LabelResource = {
   'audit.object.workflow_instance': 'ورک فلو رن',
   'audit.object.workflow_test_run': 'ورک فلو ٹیسٹ رن',
   'audit.pending_seal': 'مہر بندی زیر التوا',
+  'audit.personal_access.choose':
+    'کسی شخص کو منتخب کریں تاکہ دیکھ سکیں کس نے اس کے ذاتی ڈیٹا تک رسائی کی۔',
+  'audit.personal_access.fields': 'فیلڈز',
+  'audit.personal_access.intro':
+    'ڈیٹا کے مالک کی درخواست کے لیے: ہر وہ شخص جس نے کسی کا ذاتی ڈیٹا دیکھا یا ایکسپورٹ کیا، وقت اور جگہ کے ساتھ۔ صرف فیلڈز کے نام محفوظ ہوتے ہیں، ان کی قدریں کبھی نہیں۔',
+  'audit.personal_access.kind': 'رسائی',
+  'audit.personal_access.none': 'اس مدت میں کسی نے اس شخص کے ذاتی ڈیٹا تک رسائی نہیں کی۔',
+  'audit.personal_access.period': 'مدت',
+  'audit.personal_access.period.all': 'جو کچھ محفوظ ہے',
+  'audit.personal_access.period.month': 'پچھلے 30 دن',
+  'audit.personal_access.period.quarter': 'پچھلے 3 مہینے',
+  'audit.personal_access.period.week': 'پچھلے 7 دن',
+  'audit.personal_access.period.year': 'پچھلے 12 مہینے',
+  'audit.personal_access.person': 'شخص',
+  'audit.personal_access.when': 'کب',
+  'audit.personal_access.where': 'کہاں',
+  'audit.personal_access.who': 'کون',
   'audit.problem.anchor_beyond_chain': 'تازہ ترین اندراجات ہٹا دیے گئے۔',
   'audit.problem.anchor_mismatch': 'ایک دستخط شدہ چیک پوائنٹ اب زنجیر سے مطابقت نہیں رکھتا۔',
   'audit.problem.anchor_signature': 'چیک پوائنٹ کا دستخط درست نہیں یا اس کی کلید قابل اعتماد نہیں۔',
@@ -838,6 +861,7 @@ export const ur: LabelResource = {
   'audit.ui.tab.integrity': 'سالمیت',
   // Audit log screens (WP-018)
   'audit.ui.tab.log': 'لاگ',
+  'audit.ui.tab.personal_access': 'ذاتی ڈیٹا تک رسائی',
   'audit.ui.tab.settings': 'ترتیبات',
   'audit.ui.tab.sign_ins': 'سائن اِن',
   'audit.ui.technical': 'تکنیکی تفصیلات',

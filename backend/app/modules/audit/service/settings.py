@@ -15,6 +15,7 @@ from app.core.errors import Conflict, FieldError, ValidationFailed, message_key_
 from app.modules.audit.domain.catalogue import ALWAYS_LOGGED_READS, DEFAULT_READS, ReadCategory
 from app.modules.audit.events import AuditSettingsChanged
 from app.modules.audit.infra.models import AuditSettings
+from app.modules.licensing import Feature, require_feature
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes, stale_version
 
@@ -138,6 +139,10 @@ async def update_settings(
     errors = _validate(changes)
     if errors:
         raise ValidationFailed(errors=errors)
+    if changes.get("personal_data_log") is True:
+        # REQ-AUD-017 is Professional: turning the log on needs the feature (entitlements only).
+        context_: TenantContext = session.info[SESSION_TENANT_KEY]
+        await require_feature(context_.tenant_id, Feature.PERSONAL_DATA_LOG)
     row = await session.scalar(select(AuditSettings).with_for_update())
     before = _view(row)
     if before.version != expected_version:

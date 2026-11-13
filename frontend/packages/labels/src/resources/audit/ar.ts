@@ -2,6 +2,12 @@ import type { LabelResource } from '../en';
 
 // audit labels (see ../README.md).
 export const ar: LabelResource = {
+  'access_field.email': 'البريد الإلكتروني',
+  'access_field.employee_id': 'الرقم الوظيفي',
+  'access_field.job_title': 'المسمى الوظيفي',
+  'access_field.manager_id': 'المدير',
+  'access_field.mobile': 'الجوال',
+  'access_field.phone': 'الهاتف',
   'access_kind.ai_masking': 'أُخفيت للذكاء الاصطناعي',
   'access_kind.export': 'صُدّرت',
   'access_kind.view': 'عُرضت',
@@ -664,6 +670,22 @@ export const ar: LabelResource = {
   'audit.object.workflow_instance': 'تشغيل سير عمل',
   'audit.object.workflow_test_run': 'تشغيل اختبار سير عمل',
   'audit.pending_seal': 'بانتظار الختم',
+  'audit.personal_access.choose': 'اختر شخصًا لمعرفة من اطّلع على بياناته الشخصية.',
+  'audit.personal_access.fields': 'الحقول',
+  'audit.personal_access.intro':
+    'لطلب صاحب البيانات: كل من عرض البيانات الشخصية لشخص ما أو صدّرها، مع الوقت والمكان. تُحفظ أسماء الحقول فقط ولا تُحفظ قيمها أبدًا.',
+  'audit.personal_access.kind': 'نوع الوصول',
+  'audit.personal_access.none': 'لم يطّلع أحد على البيانات الشخصية لهذا الشخص في هذه الفترة.',
+  'audit.personal_access.period': 'الفترة',
+  'audit.personal_access.period.all': 'كل ما هو محفوظ',
+  'audit.personal_access.period.month': 'آخر 30 يومًا',
+  'audit.personal_access.period.quarter': 'آخر 3 أشهر',
+  'audit.personal_access.period.week': 'آخر 7 أيام',
+  'audit.personal_access.period.year': 'آخر 12 شهرًا',
+  'audit.personal_access.person': 'الشخص',
+  'audit.personal_access.when': 'الوقت',
+  'audit.personal_access.where': 'المكان',
+  'audit.personal_access.who': 'مَن',
   'audit.problem.anchor_beyond_chain': 'تمت إزالة أحدث الإدخالات.',
   'audit.problem.anchor_mismatch': 'نقطة تحقق موقّعة لم تعد تطابق السلسلة.',
   'audit.problem.anchor_signature': 'توقيع نقطة التحقق غير صالح أو مفتاحها غير موثوق.',
@@ -841,6 +863,7 @@ export const ar: LabelResource = {
   'audit.ui.tab.integrity': 'السلامة',
   // Audit log screens (WP-018)
   'audit.ui.tab.log': 'السجل',
+  'audit.ui.tab.personal_access': 'الوصول إلى البيانات الشخصية',
   'audit.ui.tab.settings': 'الإعدادات',
   'audit.ui.tab.sign_ins': 'عمليات تسجيل الدخول',
   'audit.ui.technical': 'تفاصيل تقنية',

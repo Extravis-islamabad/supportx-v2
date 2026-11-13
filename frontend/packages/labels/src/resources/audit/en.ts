@@ -1,5 +1,11 @@
 // audit labels (see ../README.md). English is the reference.
 export const en = {
+  'access_field.email': 'Email',
+  'access_field.employee_id': 'Employee ID',
+  'access_field.job_title': 'Job title',
+  'access_field.manager_id': 'Manager',
+  'access_field.mobile': 'Mobile',
+  'access_field.phone': 'Phone',
   'access_kind.ai_masking': 'Masked for AI',
   'access_kind.export': 'Exported',
   'access_kind.view': 'Viewed',
@@ -669,6 +675,22 @@ export const en = {
   'audit.object.workflow_instance': 'Workflow run',
   'audit.object.workflow_test_run': 'Workflow test run',
   'audit.pending_seal': 'Pending seal',
+  'audit.personal_access.choose': 'Choose a person to see who accessed their personal data.',
+  'audit.personal_access.fields': 'Fields',
+  'audit.personal_access.intro':
+    "For a data subject request: everyone who viewed or exported one person's personal data, with when and where. Only the fields' names are kept, never their values.",
+  'audit.personal_access.kind': 'Access',
+  'audit.personal_access.none': "Nobody accessed this person's personal data in this period.",
+  'audit.personal_access.period': 'Period',
+  'audit.personal_access.period.all': 'Everything kept',
+  'audit.personal_access.period.month': 'Last 30 days',
+  'audit.personal_access.period.quarter': 'Last 3 months',
+  'audit.personal_access.period.week': 'Last 7 days',
+  'audit.personal_access.period.year': 'Last 12 months',
+  'audit.personal_access.person': 'Person',
+  'audit.personal_access.when': 'When',
+  'audit.personal_access.where': 'Where',
+  'audit.personal_access.who': 'Who',
   'audit.problem.anchor_beyond_chain': 'The newest entries were removed.',
   'audit.problem.anchor_mismatch': 'A signed checkpoint no longer matches the chain.',
   'audit.problem.anchor_signature':
@@ -840,6 +862,7 @@ export const en = {
   'audit.ui.tab.integrity': 'Integrity',
   // Audit log screens (WP-018)
   'audit.ui.tab.log': 'Log',
+  'audit.ui.tab.personal_access': 'Personal data access',
   'audit.ui.tab.settings': 'Settings',
   'audit.ui.tab.sign_ins': 'Sign-ins',
   'audit.ui.technical': 'Technical details',

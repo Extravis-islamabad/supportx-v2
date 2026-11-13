@@ -214,6 +214,9 @@ export const queryKeys = {
     saved: ['audit', 'saved'] as const,
     archives: ['audit', 'archives'] as const,
     restored: (id: string) => ['audit', 'restored', id] as const,
+    personalDataAccessAll: ['audit', 'personal-data-access'] as const,
+    personalDataAccess: (person: string, since?: string, until?: string) =>
+      ['audit', 'personal-data-access', person, since ?? '', until ?? ''] as const,
   },
   files: {
     all: ['files'] as const,
