@@ -15,9 +15,9 @@ cursor, and hands each tenant its share here. Per event, in the tenant's transac
 - otherwise `AccountSecurityChanged` goes to the outbox, which the locked security notice tells.
 
 Which tenant, when Keycloak names none (no identity provider, no SupportX address): the one
-tenant the subject is a person in, through `sx_tenants_for_subject`; two or more and nothing is
-guessed (counted unattributed by the caller). Marks older than MARK_RETENTION are purged by the
-daily sign-in log purge; erasure deletes a person's marks (`forget`).
+tenant the subject is a person in (`sole_tenants`, each tenant asked under RLS); two or more and
+nothing is guessed (counted unattributed by the caller). Marks older than MARK_RETENTION are
+purged by the daily sign-in log purge; erasure deletes a person's marks (`forget`).
 """
 
 import uuid
@@ -70,15 +70,28 @@ def locator(database: Database, settings: Settings) -> Locate:
     return locate
 
 
-async def sole_tenant(database: Database, subject: str) -> uuid.UUID | None:
-    """The one active tenant the Keycloak subject is a person in; None for none or several."""
-    async with database.platform_session() as session:
-        found = (
-            await session.execute(
-                text("SELECT tenant_id FROM sx_tenants_for_subject(:s)"), {"s": subject}
+async def sole_tenants(database: Database, subjects: set[str]) -> dict[str, uuid.UUID]:
+    """For each Keycloak subject, the one active tenant it is a person in; none or several: absent.
+
+    Each tenant is asked in its own session (RLS), all of a run's subjects at once, and only for
+    the events Keycloak named no tenant for. No cross-tenant function or grant (#476).
+    """
+    if not subjects:
+        return {}
+    async with database.platform_session() as platform:
+        tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
+    held: dict[str, list[uuid.UUID]] = {}
+    for tenant in tenants:
+        async with database.tenant_session(TenantContext(tenant)) as session:
+            found = await session.scalars(
+                select(User.external_subject).where(
+                    User.external_subject.in_(subjects), User.deleted_at.is_(None)
+                )
             )
-        ).all()
-    return found[0][0] if len(found) == 1 else None
+            for subject in found:
+                if subject is not None:
+                    held.setdefault(subject, []).append(tenant)
+    return {subject: ids[0] for subject, ids in held.items() if len(ids) == 1}
 
 
 async def _first_password(session: AsyncSession, person: User, at: datetime) -> bool:

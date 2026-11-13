@@ -2274,7 +2274,7 @@ it with no reload (rule c). Not built yet.
       - `AccountSecurityChanged` feeds four locked notices: a lock-out with the earliest time to
         try again (at most one an hour), password changed (a first password kept quiet), MFA
         added or removed;
-      - a hint-less event goes to the one tenant via `sx_tenants_for_subject`, never guessed among
+      - a hint-less event goes to the one tenant the person is in (each tenant asked under RLS), never guessed among
         several;
       - realm tooling stores the three types, and the lock-out policy lives once in the domain.
   - **Still to do in S2b-2:** the public accept side of the invite link and the `/invite` page in

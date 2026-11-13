@@ -34,11 +34,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import Conflict, NotFound
+from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
+from app.modules.identity_access.domain import invite_link
+from app.modules.identity_access.domain.password_policy import PasswordPolicy
 from app.modules.identity_access.events import InvitationChanged, InvitationLinkCopied
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
+    IdentityAdminRefused,
 )
 from app.modules.identity_access.infra.models import Invitation, User
 from app.modules.identity_access.service.identity_settings import get_identity_settings
@@ -392,4 +395,97 @@ async def _changed(session: AsyncSession, row: Invitation, change: str) -> None:
         InvitationChanged(change=change, status=row.status),  # type: ignore[arg-type]  # checked literals
         aggregate_id=row.id,
         aggregate_version=row.version,
+    )
+
+
+# --- The person's side of a copied link (REQ-SEC-021; lane B's public-side conditions) --------
+
+
+@dataclass(frozen=True)
+class LinkInvitation:
+    """What the set-password page may know of a working link: which app, and the rules."""
+
+    for_console: bool
+    policy: PasswordPolicy
+
+
+def _invalid() -> NotFound:
+    """Every way a link does not work, one answer (lane B): never which check failed."""
+    return NotFound(code=invite_link.INVALID)
+
+
+async def _linked(
+    session: AsyncSession, admin: IdentityAdmin, token: str, now: datetime, *, lock: bool
+) -> tuple[Invitation, User]:
+    """The pending invitation a token belongs to and its person; `_invalid` for anything else.
+
+    Checked again at use (lane B): pending, not expired, delivered by link, the person active
+    and allowed to sign in, and their Keycloak account the invitation's own, enabled, with no
+    password yet. Only then is a password policy error ever told.
+    """
+    if not invite_link.token_shape_ok(token):
+        raise _invalid()
+    statement = select(Invitation).where(
+        Invitation.link_token_hash == link_token_hash(token), Invitation.status == "pending"
+    )
+    row = await session.scalar(statement.with_for_update() if lock else statement)
+    if row is None or row.expires_at <= now or row.delivery != "link":
+        raise _invalid()
+    person = await session.get(User, row.user_id)
+    if (
+        person is None
+        or person.deleted_at is not None
+        or person.status != "active"
+        or not person.can_sign_in
+        or not row.keycloak_user_id
+    ):
+        raise _invalid()
+    found = await admin.find_user(person.email or "")
+    if found is None or found.id != row.keycloak_user_id or not found.enabled or found.has_password:
+        raise _invalid()
+    return row, person
+
+
+async def peek_link(
+    session: AsyncSession, admin: IdentityAdmin | None, token: str, now: datetime
+) -> LinkInvitation:
+    """Whether a link works, for the page to show its form; nothing changes."""
+    if admin is None:
+        raise _invalid()
+    _row_found, person = await _linked(session, admin, token, now, lock=False)
+    rules = (await get_identity_settings(session)).password_policy()
+    return LinkInvitation(person.user_type == "technician", rules)
+
+
+async def accept_link(
+    session: AsyncSession, admin: IdentityAdmin | None, token: str, password: str, now: datetime
+) -> uuid.UUID:
+    """Set the person's first password from a copied link, once; the person's ID.
+
+    Keycloak sets the password (not temporary) and takes the set-password action off; nothing
+    else of the account changes (never `emailVerified`) and nobody is signed in: the person
+    signs in as usual next. The invitation is accepted and the link used up in this
+    transaction (the row is locked, so a second submit finds nothing).
+    """
+    if admin is None:
+        raise _invalid()
+    row, person = await _linked(session, admin, token, now, lock=True)
+    if invite_link.too_long(password):
+        raise _password_problem(invite_link.TOO_LONG)
+    try:
+        await admin.set_password(row.keycloak_user_id or "", password)
+    except IdentityAdminRefused as refused:
+        raise _password_problem(invite_link.refusal(refused.message)) from None
+    await admin.clear_actions(row.keycloak_user_id or "", [SET_PASSWORD])
+    row.status, row.accepted_at = "accepted", now
+    row.link_token_hash = None  # single use
+    row.version += 1
+    await session.flush()
+    await _changed(session, row, "accepted")
+    return person.id
+
+
+def _password_problem(code: str) -> ValidationFailed:
+    return ValidationFailed(
+        errors=[FieldError(field="body.password", code=code, message_key=f"errors.field.{code}")]
     )

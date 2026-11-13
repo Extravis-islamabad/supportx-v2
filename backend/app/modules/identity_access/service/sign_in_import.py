@@ -218,7 +218,7 @@ class _Grouped:
 async def _group(attribution: _Attribution, events: list[KeycloakEvent]) -> _Grouped:
     """Which tenant each event goes to, and how many named none."""
     grouped = _Grouped()
-    sole: dict[str, uuid.UUID | None] = {}
+    hintless: list[KeycloakEvent] = []
     for event in events:
         if not usable(event):
             continue
@@ -228,21 +228,23 @@ async def _group(attribution: _Attribution, events: list[KeycloakEvent]) -> _Gro
                 continue
             tenant = await attribution.tenant(event)
             if tenant is None:
-                if event.user_id not in sole:
-                    sole[event.user_id] = await notices.sole_tenant(
-                        attribution.database, event.user_id
-                    )
-                tenant = sole[event.user_id]
-            target = grouped.notices
+                hintless.append(event)
+                continue
+            grouped.notices.setdefault(tenant, []).append(event)
         elif app_of(event) is not None:
             tenant = await attribution.tenant(event)
-            target = grouped.log
-        else:
-            continue
+            if tenant is None:
+                grouped.unattributed += 1
+                continue
+            grouped.log.setdefault(tenant, []).append(event)
+    # No tenant named: the one tenant the person is in, else not guessed (lane B).
+    sole = await notices.sole_tenants(attribution.database, {e.user_id or "" for e in hintless})
+    for event in hintless:
+        tenant = sole.get(event.user_id or "")
         if tenant is None:
             grouped.unattributed += 1
             continue
-        target.setdefault(tenant, []).append(event)
+        grouped.notices.setdefault(tenant, []).append(event)
     return grouped
 
 

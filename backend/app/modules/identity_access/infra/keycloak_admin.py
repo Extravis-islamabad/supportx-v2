@@ -136,6 +136,10 @@ class IdentityAdmin(Protocol):
 
     async def require_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
 
+    async def clear_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
+
+    async def set_password(self, user_id: str, password: str) -> None: ...  # noqa: D102
+
     async def member_tenants(self, user_id: str) -> list[str]: ...  # noqa: D102
 
     async def credentials(self, user_id: str) -> list[Credential]: ...  # noqa: D102
@@ -603,6 +607,32 @@ class KeycloakAdmin:
             return
         wanted = sorted({*(current.get("requiredActions") or []), *actions})
         await self._call("PUT", f"/users/{user_id}", json={**current, "requiredActions": wanted})
+
+    async def clear_actions(self, user_id: str, actions: list[str]) -> None:
+        """Take these required actions off the user (a copied invite link set the password).
+
+        Only these: any other required action (MFA enrolment, terms) stays. Nothing else of the
+        user changes; `emailVerified` is never touched (lane B, REQ-SEC-021).
+        """
+        current = await self._json("GET", f"/users/{user_id}")
+        if current is None:
+            return
+        held = list(current.get("requiredActions") or [])
+        kept = [action for action in held if action not in actions]
+        if kept != held:
+            await self._call("PUT", f"/users/{user_id}", json={**current, "requiredActions": kept})
+
+    async def set_password(self, user_id: str, password: str) -> None:
+        """Set the user's password, not temporary; the realm's policy applies.
+
+        A policy refusal raises `IdentityAdminRefused` with Keycloak's message key (e.g.
+        `invalidPasswordMinLengthMessage`), never the password. Signs nobody in.
+        """
+        await self._call(
+            "PUT",
+            f"/users/{user_id}/reset-password",
+            json={"type": "password", "value": password, "temporary": False},
+        )
 
     async def credentials(self, user_id: str) -> list[Credential]:
         """The user's credentials (types and IDs only; never their secrets)."""

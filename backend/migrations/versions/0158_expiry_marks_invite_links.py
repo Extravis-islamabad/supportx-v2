@@ -13,10 +13,6 @@ Expand only, no data step:
   notice to the person (or kept quiet), once per Keycloak event ID. Only what the once-only check
   and the lock-out count need: no address, browser or client (lane B). Purged after 30 days;
   erasure deletes the person's rows. Tenant table, RLS forced.
-- `sx_tenants_for_subject(subject)`: the active tenants where a Keycloak subject is a person, so
-  a notice with no tenant hint can go to the one tenant that person is in (lane B: never when
-  two or more). Tenant IDs only. SECURITY DEFINER, EXECUTE for supportx_app only, like
-  `sx_tenant_for_host` (0022).
 
 The downgrade refuses while any tenant has a mark, a secret expiry or a copied link, per tenant
 with app.tenant_id set (rule 5h).
@@ -31,7 +27,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-from app.shared.db.rls import MIGRATOR_ROLE
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0158"
@@ -41,24 +36,6 @@ depends_on: str | Sequence[str] | None = None
 
 MARKS = "security_expiry_marks"
 NOTICES = "security_notice_marks"
-SUBJECT_FUNCTION = "sx_tenants_for_subject(text)"
-_SUBJECT_SQL = (
-    """
-CREATE FUNCTION sx_tenants_for_subject(p_subject text) RETURNS TABLE (tenant_id uuid)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
-    SELECT u.tenant_id FROM users u JOIN tenants t ON t.id = u.tenant_id
-    WHERE u.external_subject = p_subject AND u.deleted_at IS NULL AND t.status = 'active'
-    LIMIT 2
-$$""",
-    # The function runs as its owner (the migrator), which FORCE RLS binds too: it reads the
-    # subject's rows of every tenant through this function only (no login in the API process).
-    (
-        f"CREATE POLICY users_subject_resolve ON users FOR SELECT TO {MIGRATOR_ROLE}"
-        " USING (external_subject IS NOT NULL AND deleted_at IS NULL)"
-    ),
-    f"REVOKE ALL ON FUNCTION {SUBJECT_FUNCTION} FROM PUBLIC",
-    f"GRANT EXECUTE ON FUNCTION {SUBJECT_FUNCTION} TO supportx_app",
-)
 NOTICE_KINDS = ("locked_out", "password_changed", "password_set", "mfa_added", "mfa_removed")
 PROVIDERS = "sso_providers"
 INVITATIONS = "invitations"
@@ -171,8 +148,6 @@ def upgrade() -> None:
     )
     enable_tenant_rls(NOTICES)
     grant_app(NOTICES, ("SELECT", "INSERT", "DELETE"))  # the purge and erasure delete
-    for statement in _SUBJECT_SQL:
-        op.execute(statement)
 
 
 # Each tenant's rows are visible only with its app.tenant_id set (RLS FORCE).
@@ -205,8 +180,6 @@ END $$;
 def downgrade() -> None:
     """Drops what upgrade added only while nothing uses it; otherwise refuses."""
     op.execute(_REFUSE_IF_ANY)
-    op.execute(f"DROP FUNCTION {SUBJECT_FUNCTION}")
-    op.execute("DROP POLICY users_subject_resolve ON users")
     op.drop_table(NOTICES)  # its index and policies go with it
     op.drop_table(MARKS)  # its policies go with it
     op.drop_index("uq_invitations_link_token", table_name=INVITATIONS)
