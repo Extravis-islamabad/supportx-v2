@@ -22,6 +22,7 @@ from app.shared.realtime import SESSION_ENDED, CentrifugoClient, CentrifugoError
 log = get_logger(__name__)
 
 TenantSessionEnder = Callable[[uuid.UUID, uuid.UUID], Awaitable[None]]
+KeycloakSessionInUse = Callable[[uuid.UUID, uuid.UUID, str], Awaitable[bool]]
 
 
 def worker_session_ender(settings: Settings) -> TenantSessionEnder | None:
@@ -52,3 +53,22 @@ def worker_session_ender(settings: Settings) -> TenantSessionEnder | None:
             await realtime.aclose()
 
     return end
+
+
+def worker_keycloak_session_in_use(settings: Settings) -> KeycloakSessionInUse | None:
+    """`in_use(tenant_id, user_id, keycloak_session_id)`, or None where sessions are not set up."""
+    cipher = SessionCipher.from_settings(settings)
+    if settings.valkey_url is None or cipher is None:
+        return None
+
+    async def in_use(tenant_id: uuid.UUID, user_id: uuid.UUID, keycloak_session_id: str) -> bool:
+        kv = valkey_client(settings)
+        try:
+            store = SessionStore(ValkeyKeyValue(kv), cipher)
+            return await store.keycloak_session_in_use(
+                user_key(str(tenant_id), str(user_id)), keycloak_session_id
+            )
+        finally:
+            await kv.aclose()
+
+    return in_use

@@ -58,8 +58,13 @@ Three smaller problems came with it:
    holds `manage-users`. It is retried by the consumers worker (nak with backoff, up to 100
    attempts); a 404 counts as ended; a repeated event is skipped by the worker's claim. Every
    outcome is audited as `session.keycloak_ended` (system actor, object the person):
-   done/ended, done/already_ended, or failed with `gave_up` (Keycloak still unreachable one hour
+   done/ended, done/already_ended, done/still_in_use, or failed with `gave_up` (Keycloak still unreachable one hour
    after the sign-out), `refused` (a 4xx other than 404) or `not_configured`.
+   Before ending it, the consumer checks the person's live SupportX sessions: when one still
+   holds the same Keycloak session (the browser's console or portal shares it, or the person
+   signed in again just as Keycloak returned and was handed the same session), it is left alone
+   and audited `still_in_use`. A session begun before the person's sessions were ended
+   (deactivation) never counts as live.
    Meanwhile the BFF leaves the browser's session cookie in place, now naming a session that no
    longer exists: the next sign-in from that browser is treated as after a timeout and Keycloak
    asks for the password (`prompt=login`, REQ-SEC-029), so Keycloak's surviving session cannot
@@ -76,8 +81,11 @@ written anywhere new, the retry and the audit follow the normal event path, and 
 harmless (the second delete finds nothing). events.py states this as the one exception to "no
 session ID in an event"; the SupportX session ID and every token stay out of events.
 
-Giving up after an hour is safe with the shipped realm: once SupportX's session is gone nothing
-refreshes Keycloak's, and its SSO idle timeout (30 minutes) ends it on its own.
+Giving up after an hour is safe with the shipped realm when no other SupportX session shares the
+Keycloak session: nothing then refreshes it, and its SSO idle timeout (30 minutes) ends it on its
+own. When the browser's other app (console or portal) still holds it, that app's refreshes keep it
+alive, as they would after a sign-out with Keycloak up only of the app signed out of; it ends with
+that app's own sign-out or timeout (lane C's #481 review).
 
 5. **Keycloak's own recovery after a database failover.** Its JDBC URL gets the PostgreSQL
    driver's `connectTimeout=10`, `socketTimeout=60` and `tcpKeepAlive=true`, in every profile, so
@@ -96,6 +104,10 @@ refreshes Keycloak's, and its SSO idle timeout (30 minutes) ends it on its own.
   (within about a minute of Keycloak's return at the backoff cap), mitigated by the password
   prompt above. Sessions without a recorded Keycloak session ID are left to Keycloak's idle
   timeout (logged).
+- The pending end is written in the same transaction as the sign-out record. If that write fails
+  (database down at that moment), the SupportX session is still gone but nothing ends Keycloak's
+  session; it lapses at Keycloak's idle timeout, and the password prompt still applies (logged
+  `logout_event_not_recorded`).
 - `withdraw_sign_in` (a break-glass sign-in refused after the fact) and admin screens keep their
   current behaviour; they run right after Keycloak answered or are admin-only.
 - No migration, no new dependency.

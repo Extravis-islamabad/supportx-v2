@@ -37,7 +37,8 @@ from app.modules.identity_access.infra.models import SESSION_LIMITS
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore
 from app.modules.identity_access.service import keycloak_logout, sso_test
-from app.modules.identity_access.service.auth import AuthService, binding_digest
+from app.modules.identity_access.service.auth import AuthService, binding_digest, user_key
+from app.modules.identity_access.service.worker_sessions import KeycloakSessionInUse
 from app.modules.identity_access.tests.fake_idp import ISSUER, FakeIdp, FakeUser, MemoryKeyValue
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
 from app.shared.api.tests.test_ip_rate_limit import CountingValkey
@@ -874,6 +875,20 @@ async def _deliver(bff: Bff, envelope: EventEnvelope) -> bool:
     return True
 
 
+def _in_use_from(bff: Bff) -> KeycloakSessionInUse:
+    """The worker's check against this app's session store (the default builds one from Valkey)."""
+
+    async def in_use(tenant_id: uuid.UUID, user_id: uuid.UUID, keycloak_session_id: str) -> bool:
+        store = bff.app.state.auth.store
+        return bool(
+            await store.keycloak_session_in_use(
+                user_key(str(tenant_id), str(user_id)), keycloak_session_id
+            )
+        )
+
+    return in_use
+
+
 async def _keycloak_end_audits(bff: Bff) -> list[tuple[str, str]]:
     conn = await asyncpg.connect(bff.db.admin_url)
     try:
@@ -899,6 +914,7 @@ async def test_the_pending_keycloak_end_is_retried_until_it_works_and_audited(
     envelope = EventEnvelope.model_validate(json.loads(raw))
     admin = _SessionEnder()
     monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: _in_use_from(bff))
 
     with pytest.raises(IdentityAdminUnavailable):  # still down: the worker naks and retries
         await _deliver(bff, envelope)
@@ -925,10 +941,36 @@ async def test_the_pending_keycloak_end_gives_up_after_an_hour_and_says_so(
     envelope = EventEnvelope.model_validate(json.loads(raw))
     admin = _SessionEnder()
     monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: _in_use_from(bff))
     later = FrozenClock(envelope.occurred_at + keycloak_logout.GIVE_UP_AFTER + timedelta(minutes=1))
     monkeypatch.setattr(keycloak_logout, "clock", later)
     assert await _deliver(bff, envelope) is True  # acknowledged: no further retries
     assert await _keycloak_end_audits(bff) == [("failed", "gave_up")]
+
+
+async def test_the_pending_keycloak_end_spares_a_session_signed_in_again(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane C (#481): signing in again as Keycloak returns may reuse its session; keep it."""
+    user = bff.user("a", email="came-back@demo.test")
+    await bff.login(user)
+    csrf = await bff.csrf()
+    bff.idp.available = False
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    (raw,) = await _end_pending_events(bff)
+    envelope = EventEnvelope.model_validate(json.loads(raw))
+    bff.idp.available = True
+    bff.clock.advance(timedelta(seconds=16))
+    await bff.login(user)  # the fake IdP hands back the same Keycloak session
+    assert (await bff.me()).status_code == 200
+    admin = _SessionEnder()
+    admin.up = True
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: _in_use_from(bff))
+    assert await _deliver(bff, envelope) is True
+    assert admin.calls == 0
+    assert await _keycloak_end_audits(bff) == [("done", "still_in_use")]
+    assert (await bff.me()).status_code == 200
 
 
 async def test_session_tenant_wins_over_the_dev_header(bff: Bff) -> None:

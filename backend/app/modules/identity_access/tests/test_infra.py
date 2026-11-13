@@ -1,5 +1,5 @@
 import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -55,6 +55,23 @@ async def test_store_hashes_keys_and_login_state_is_single_use() -> None:
     assert await store.lock("s", timedelta(seconds=5)) is None
     await store.unlock("s", first)
     assert await store.lock("s", timedelta(seconds=5)) is not None
+
+
+async def test_a_keycloak_session_is_in_use_only_while_a_live_session_holds_it() -> None:
+    """ADR-051 (lane C, #481): the delayed Keycloak end checks this before it runs."""
+    store = SessionStore(MemoryKeyValue(), SessionCipher("k" * 40))
+    began = datetime(2026, 11, 13, 9, 0, tzinfo=UTC)
+    record = {"tenant_id": "t", "user_id": "u", "created_at": began.isoformat()}
+    await store.put_session("a", record | {"keycloak_session_id": "kc-1"}, timedelta(minutes=5))
+    await store.put_session("b", record | {"keycloak_session_id": "kc-2"}, timedelta(minutes=5))
+    assert await store.keycloak_session_in_use("t:u", "kc-1") is True
+    assert await store.keycloak_session_in_use("t:u", "kc-3") is False
+    assert await store.keycloak_session_in_use("t:other", "kc-1") is False
+    await store.delete_session("a")
+    assert await store.keycloak_session_in_use("t:u", "kc-1") is False
+    # Sessions ended by a deactivation are dead even while their records linger.
+    await store.end_user_sessions("t:u", began, timedelta(minutes=5))
+    assert await store.keycloak_session_in_use("t:u", "kc-2") is False
 
 
 class _ReplyLostKeyValue(MemoryKeyValue):

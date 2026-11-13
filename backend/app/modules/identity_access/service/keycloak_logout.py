@@ -27,6 +27,10 @@ from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminUnavailable,
     KeycloakAdmin,
 )
+from app.modules.identity_access.service.worker_sessions import (
+    KeycloakSessionInUse,
+    worker_keycloak_session_in_use,
+)
 from app.shared.clock import Clock, system_clock
 from app.shared.events import ConsumerSpec, EventEnvelope
 
@@ -51,6 +55,8 @@ class SessionEnder(Protocol):
 
 # Swapped by tests; the identity service account, or None where it is not set up.
 admin_factory: Callable[[Settings], SessionEnder | None] = KeycloakAdmin.from_settings
+# Whether a live SupportX session still holds the Keycloak session (lane C, #481); swapped by tests.
+in_use_factory: Callable[[Settings], KeycloakSessionInUse | None] = worker_keycloak_session_in_use
 clock: Clock = system_clock
 
 
@@ -63,7 +69,16 @@ async def on_end_pending(envelope: EventEnvelope, session: AsyncSession | None) 
     """
     assert session is not None  # noqa: S101 - transactional consumer
     pending = KeycloakSessionEndPending.model_validate(envelope.payload)
-    admin = admin_factory(get_settings())
+    settings = get_settings()
+    in_use = in_use_factory(settings)
+    if in_use is not None and await in_use(
+        envelope.tenant_id, pending.user_id, pending.keycloak_session_id
+    ):
+        # The browser's other app (console or portal) shares it, or the person signed in again
+        # just as Keycloak returned and got the same session: ending it would sign them out.
+        await _audit(session, pending.user_id, AuditOutcome.DONE, "still_in_use")
+        return
+    admin = admin_factory(settings)
     if admin is None:  # no identity service account: nothing can end it from here
         log.warning("keycloak_session_end_not_configured", tenant_id=str(envelope.tenant_id))
         await _audit(session, pending.user_id, AuditOutcome.FAILED, "not_configured")
@@ -98,7 +113,7 @@ async def _audit(
         object_type="user",
         object_id=user_id,
         details={
-            "outcome": "ended" if outcome is AuditOutcome.DONE else "not_ended",
+            "outcome": "ended" if result in ("ended", "already_ended") else "not_ended",
             "result": result,
         },
         actor=(AuditActorType.SYSTEM, None),
