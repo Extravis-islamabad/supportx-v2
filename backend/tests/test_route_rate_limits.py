@@ -15,7 +15,7 @@ from fastapi import FastAPI
 
 from app.main import create_app
 from conftest import make_settings
-from tests.test_route_permissions import _dependencies, api_routes
+from tooling.route_permissions import api_routes, route_dependencies
 
 # Lower this in the same PR that removes a row; never raise it.
 PINNED = 20
@@ -49,7 +49,7 @@ KNOWN_UNLIMITED = frozenset(
 def _limited(dependant: object) -> bool:
     return any(
         getattr(call, "__qualname__", "").startswith(("rate_limit.", "ip_rate_limit."))
-        for call in _dependencies(dependant)
+        for call in route_dependencies(dependant)
     )
 
 
