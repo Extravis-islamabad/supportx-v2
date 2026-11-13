@@ -132,16 +132,8 @@ class Session:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Session":
-        """Inverse of `to_dict`; keys this release does not know are left out.
-
-        During a rolling update (§14.3) a pod of the older release reads sessions the newer one
-        wrote. Each release adds fields (S1b's sign-in method, S2a's address and auth_time), and
-        a constructor that rejected them would answer that pod's requests with a 500 until the
-        rollout ends. Unknown keys are therefore ignored here, so the next release's fields are
-        always safe to add.
-        """
-        known = {f.name for f in fields(cls)}
-        values = {key: value for key, value in data.items() if key in known}
+        """Inverse of `to_dict`."""
+        values = dict(data)
         for key in ("created_at", "last_seen_at", "access_expires_at"):
             values[key] = datetime.fromisoformat(values[key])
         values["tenants"] = [TenantChoice(**t) for t in values["tenants"]]
