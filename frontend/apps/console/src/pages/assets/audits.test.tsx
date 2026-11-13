@@ -472,6 +472,43 @@ describe('labels, scans and history origin on the asset page', () => {
     );
   });
 
+  it('later links and unlinks name the record, or say a record (REQ-INC-015 AC3)', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=history`);
+    const entry = (version: number, kind: string, change: Record<string, unknown>) => ({
+      version,
+      kind,
+      actor_id: null,
+      actor_name: null,
+      source: 'system',
+      reason: null,
+      occurred_at: '2026-11-13T10:00:00Z',
+      changes: [{ field: 'linked_work_item', ...change }],
+      origin: null,
+    });
+    const named = { work_item_id: 'w1', display_id: 'INC-42', type: 'incident' };
+    const unnamed = { work_item_id: 'w2', display_id: null, type: null };
+    const fake = assetApi(['tenant_admin'], {
+      [`GET /api/v1/assets/${asset.id}/history`]: {
+        body: {
+          items: [
+            entry(7, 'child_added', { old: null, new: named }),
+            entry(6, 'child_removed', { old: named, new: null }),
+            entry(5, 'child_added', { old: null, new: unnamed }),
+            entry(4, 'child_removed', { old: unnamed, new: null }),
+          ],
+          next_cursor: null,
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByText('INC-42 linked to this asset')).toBeTruthy();
+    expect(screen.getByText('INC-42 unlinked from this asset')).toBeTruthy();
+    expect(screen.getByText('A record was linked to this asset')).toBeTruthy();
+    expect(screen.getByText('A record was unlinked from this asset')).toBeTruthy();
+    expect(screen.queryByText('linked_work_item')).toBeNull(); // never the code
+  });
+
   it("a fix's history entry names the audit it came from", async () => {
     window.history.pushState({}, '', `/assets/${asset.id}?tab=history`);
     const fake = assetApi(['tenant_admin']);
