@@ -32,7 +32,11 @@ from app.modules.identity_access.bff.cookies import (
 )
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.crypto import SessionCipher
-from app.modules.identity_access.infra.keycloak_admin import IdentityAdminUnavailable, LoginEvent
+from app.modules.identity_access.infra.keycloak_admin import (
+    IdentityAdminRefused,
+    IdentityAdminUnavailable,
+    LoginEvent,
+)
 from app.modules.identity_access.infra.models import SESSION_LIMITS
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore
@@ -1002,6 +1006,38 @@ async def test_an_unknown_session_store_retries_then_gives_up_without_ending_it(
     assert await _deliver(bff, envelope) is True
     assert admin.calls == 0
     assert await _keycloak_end_audits(bff) == [("failed", "gave_up")]
+
+
+class _RefusingEnder(_SessionEnder):
+    async def end_session(self, session_id: str) -> bool:  # noqa: ARG002 - SessionEnder's shape
+        self.calls += 1
+        raise IdentityAdminRefused(403, "forbidden")
+
+
+async def test_the_pending_keycloak_end_says_when_it_cannot_run_or_is_refused(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Not configured, or a 4xx other than 404: audited once, never retried."""
+    await bff.login(bff.user("a", email="no-admin@demo.test"))
+    csrf = await bff.csrf()
+    bff.idp.available = False
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    (raw,) = await _end_pending_events(bff)
+    envelope = EventEnvelope.model_validate(json.loads(raw))
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: _in_use_from(bff))
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: None)
+    assert await _deliver(bff, envelope) is True
+    assert await _keycloak_end_audits(bff) == [("failed", "not_configured")]
+
+    refused = envelope.model_copy(update={"event_id": uuid.uuid4()})
+    admin = _RefusingEnder()
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+    assert await _deliver(bff, refused) is True
+    assert admin.calls == 1
+    assert await _keycloak_end_audits(bff) == [
+        ("failed", "not_configured"),
+        ("failed", "refused"),
+    ]
 
 
 async def test_session_tenant_wins_over_the_dev_header(bff: Bff) -> None:
