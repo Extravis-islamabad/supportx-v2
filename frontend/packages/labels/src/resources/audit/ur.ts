@@ -951,6 +951,8 @@ export const ur: LabelResource = {
   'event_type.automation.workflow_instance.changed': 'ورک فلو آگے بڑھا',
   'event_type.automation.workflow_job.progressed': 'ورک فلو کی جاب آگے بڑھی',
   'event_type.identity_access.access_settings.changed': 'ٹیکنیشن کی رسائی کا دائرہ بدلا',
+  'event_type.identity_access.account_security.changed':
+    'اکاؤنٹ مقفل ہوا، یا اس کا پاس ورڈ یا MFA بدلا',
   'event_type.identity_access.api_key.changed': 'API کلید بدلی',
   'event_type.identity_access.break_glass.signed_in': 'ہنگامی سائن اِن',
   'event_type.identity_access.group_role.changed': 'گروپ کے کردار بدلے',

@@ -955,6 +955,8 @@ export const ar: LabelResource = {
   'event_type.automation.workflow_instance.changed': 'تقدّم سير العمل',
   'event_type.automation.workflow_job.progressed': 'تقدّمت مهمة سير عمل',
   'event_type.identity_access.access_settings.changed': 'تغيّر نطاق رؤية الفنيين',
+  'event_type.identity_access.account_security.changed':
+    'قُفل حساب أو تغيّرت كلمة مروره أو تحقق دخوله',
   'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
   'event_type.identity_access.break_glass.signed_in': 'تسجيل دخول طوارئ',
   'event_type.identity_access.group_role.changed': 'تغيّرت أدوار المجموعة',

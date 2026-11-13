@@ -140,7 +140,11 @@ export const en = {
   'notification_event.release.public_reply': 'Reply to the requester',
   'notification_event.reminder.due': 'Your reminder',
   'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
+  'notification_event.security.locked_out': 'Your account was locked after failed sign-ins',
+  'notification_event.security.mfa_added': 'A sign-in check (MFA) was added to your account',
+  'notification_event.security.mfa_removed': 'A sign-in check (MFA) was removed from your account',
   'notification_event.security.new_device': 'A sign-in from a new browser or device',
+  'notification_event.security.password_changed': 'Your password was changed',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
@@ -657,12 +661,34 @@ export const en = {
     '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'Nobody assigned: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.locked_out.body':
+    'Hello {{ recipient.name }},\n\nYour account was locked at {{ notice.when }} after several sign-ins with a wrong password ({{ notice.place }}).\n\nYou can try again after {{ notice.opens_at }} at the earliest. If more wrong passwords are tried, the wait grows.\n\nIf this was not you, someone may know your user name. Once you are in, change your password and check your account: {{ record.link }}',
+  'notification_template.security.locked_out.in_app':
+    'Your account was locked after failed sign-ins. Try again after {{ notice.opens_at }} at the earliest.',
+  'notification_template.security.locked_out.subject':
+    'Your account was locked after failed sign-ins',
+  'notification_template.security.mfa_added.body':
+    'Hello {{ recipient.name }},\n\nA sign-in check (an authenticator app, security key or recovery codes) was added to your account at {{ notice.when }} ({{ notice.place }}).\n\nIf this was you, there is nothing to do. If it was not, tell your administrator at once. Your account: {{ record.link }}',
+  'notification_template.security.mfa_added.in_app':
+    'A sign-in check (MFA) was added to your account ({{ notice.when }})',
+  'notification_template.security.mfa_added.subject': 'A sign-in check was added to your account',
+  'notification_template.security.mfa_removed.body':
+    'Hello {{ recipient.name }},\n\nA sign-in check (an authenticator app, security key or recovery codes) was removed from your account at {{ notice.when }} ({{ notice.place }}).\n\nIf this was you, there is nothing to do. If it was not, change your password and tell your administrator at once. Your account: {{ record.link }}',
+  'notification_template.security.mfa_removed.in_app':
+    'A sign-in check (MFA) was removed from your account ({{ notice.when }})',
+  'notification_template.security.mfa_removed.subject':
+    'A sign-in check was removed from your account',
   'notification_template.security.new_device.body':
     'Hello {{ recipient.name }},\n\nYour account was just signed in to from a browser or device you have not used before:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nIf this was you, there is nothing to do. If it was not, change your password and use "Sign out everywhere else" in your account: {{ record.link }}',
   'notification_template.security.new_device.in_app':
     'New sign-in from {{ notice.device }} ({{ notice.place }})',
   'notification_template.security.new_device.subject':
     'New sign-in to your account: {{ notice.device }}',
+  'notification_template.security.password_changed.body':
+    'Hello {{ recipient.name }},\n\nThe password of your account was changed at {{ notice.when }} ({{ notice.place }}).\n\nIf this was you, there is nothing to do. If it was not, reset your password from the sign-in page at once and tell your administrator. Your account: {{ record.link }}',
+  'notification_template.security.password_changed.in_app':
+    'Your password was changed ({{ notice.when }})',
+  'notification_template.security.password_changed.subject': 'Your password was changed',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -774,6 +800,7 @@ export const en = {
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
   'notification_variable.security.device': 'Sign-in › Browser and device',
+  'notification_variable.security.opens_at': 'Lock-out › Earliest time to try again',
   'notification_variable.security.place': 'Sign-in › Approximate place',
   'notification_variable.security.when': 'Sign-in › Time',
   'notification_variable.sign_in_secret.expires': 'Single sign-on › Runs out on',

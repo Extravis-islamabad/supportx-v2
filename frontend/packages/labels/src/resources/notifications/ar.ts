@@ -143,7 +143,11 @@ export const ar: LabelResource = {
   'notification_event.release.public_reply': 'رد على مقدم الطلب',
   'notification_event.reminder.due': 'تذكيرك',
   'notification_event.rule_step.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
+  'notification_event.security.locked_out': 'قُفل حسابك بعد محاولات دخول فاشلة',
+  'notification_event.security.mfa_added': 'أُضيف تحقق دخول (MFA) إلى حسابك',
+  'notification_event.security.mfa_removed': 'أُزيل تحقق دخول (MFA) من حسابك',
   'notification_event.security.new_device': 'تسجيل دخول من متصفح أو جهاز جديد',
+  'notification_event.security.password_changed': 'تغيّرت كلمة مرورك',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
@@ -658,12 +662,31 @@ export const ar: LabelResource = {
     'انتقل {{ record.display_id }} إلى مجموعته دون أن يُسند إلى أحد: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'لم يُسند إلى أحد: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.locked_out.body':
+    'مرحبًا {{ recipient.name }}،\n\nقُفل حسابك في {{ notice.when }} بعد عدة محاولات دخول بكلمة مرور خاطئة ({{ notice.place }}).\n\nيمكنك إعادة المحاولة بعد {{ notice.opens_at }} على أقرب تقدير. وإذا جُرّبت كلمات مرور خاطئة أخرى، تطول مدة الانتظار.\n\nإن لم تكن أنت، فقد يعرف أحدهم اسم المستخدم الخاص بك. بعد دخولك، غيّر كلمة المرور وراجع حسابك: {{ record.link }}',
+  'notification_template.security.locked_out.in_app':
+    'قُفل حسابك بعد محاولات دخول فاشلة. أعد المحاولة بعد {{ notice.opens_at }} على أقرب تقدير.',
+  'notification_template.security.locked_out.subject': 'قُفل حسابك بعد محاولات دخول فاشلة',
+  'notification_template.security.mfa_added.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُضيف تحقق دخول (تطبيق مصادقة أو مفتاح أمان أو رموز استرداد) إلى حسابك في {{ notice.when }} ({{ notice.place }}).\n\nإن كان هذا أنت فلا شيء عليك. وإن لم يكن، فأبلغ المسؤول فورًا. حسابك: {{ record.link }}',
+  'notification_template.security.mfa_added.in_app':
+    'أُضيف تحقق دخول (MFA) إلى حسابك ({{ notice.when }})',
+  'notification_template.security.mfa_added.subject': 'أُضيف تحقق دخول إلى حسابك',
+  'notification_template.security.mfa_removed.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُزيل تحقق دخول (تطبيق مصادقة أو مفتاح أمان أو رموز استرداد) من حسابك في {{ notice.when }} ({{ notice.place }}).\n\nإن كان هذا أنت فلا شيء عليك. وإن لم يكن، فغيّر كلمة المرور وأبلغ المسؤول فورًا. حسابك: {{ record.link }}',
+  'notification_template.security.mfa_removed.in_app':
+    'أُزيل تحقق دخول (MFA) من حسابك ({{ notice.when }})',
+  'notification_template.security.mfa_removed.subject': 'أُزيل تحقق دخول من حسابك',
   'notification_template.security.new_device.body':
     'مرحبًا {{ recipient.name }}،\n\nتم تسجيل الدخول إلى حسابك للتو من متصفح أو جهاز لم تستخدمه من قبل:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nإن كان هذا أنت فلا شيء عليك. وإن لم يكن، فغيّر كلمة المرور واستخدم "تسجيل الخروج من كل مكان آخر" في حسابك: {{ record.link }}',
   'notification_template.security.new_device.in_app':
     'تسجيل دخول جديد من {{ notice.device }} ({{ notice.place }})',
   'notification_template.security.new_device.subject':
     'تسجيل دخول جديد إلى حسابك: {{ notice.device }}',
+  'notification_template.security.password_changed.body':
+    'مرحبًا {{ recipient.name }}،\n\nتغيّرت كلمة مرور حسابك في {{ notice.when }} ({{ notice.place }}).\n\nإن كان هذا أنت فلا شيء عليك. وإن لم يكن، فأعد تعيين كلمة المرور من صفحة تسجيل الدخول فورًا وأبلغ المسؤول. حسابك: {{ record.link }}',
+  'notification_template.security.password_changed.in_app': 'تغيّرت كلمة مرورك ({{ notice.when }})',
+  'notification_template.security.password_changed.subject': 'تغيّرت كلمة مرورك',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -774,6 +797,7 @@ export const ar: LabelResource = {
   'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
   'notification_variable.rule.name': 'القاعدة',
   'notification_variable.security.device': 'تسجيل الدخول › المتصفح والجهاز',
+  'notification_variable.security.opens_at': 'القفل › أقرب وقت لإعادة المحاولة',
   'notification_variable.security.place': 'تسجيل الدخول › المكان التقريبي',
   'notification_variable.security.when': 'تسجيل الدخول › الوقت',
   'notification_variable.sign_in_secret.expires': 'تسجيل الدخول الموحّد › ينتهي في',

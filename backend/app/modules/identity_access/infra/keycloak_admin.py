@@ -663,6 +663,7 @@ class KeycloakAdmin:
                     ip=item.get("ipAddress"),
                     identity_provider=details.get("identity_provider"),
                     redirect_uri=details.get("redirect_uri"),
+                    credential_type=details.get("credential_type"),
                 )
             )
         return found

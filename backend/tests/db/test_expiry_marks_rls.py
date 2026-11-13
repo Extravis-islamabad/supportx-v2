@@ -97,3 +97,34 @@ async def test_a_link_token_hash_is_32_bytes_and_unique_per_tenant(world: World)
                 text("UPDATE invitations SET link_token_hash = :h WHERE id = :i"),
                 {"h": digest, "i": ids[1]},
             )
+
+
+async def _notice(world: World, tenant: uuid.UUID, user: uuid.UUID, event: str) -> None:
+    async with world.app.state.db.tenant_session(TenantContext(tenant)) as session:
+        await session.execute(
+            text(
+                "INSERT INTO security_notice_marks (tenant_id, id, keycloak_event_id, user_id,"
+                " kind, occurred_at, told) VALUES (:t, :i, :e, :u, 'locked_out', now(), true)"
+            ),
+            {"t": tenant, "i": uuid.uuid4(), "e": event, "u": user},
+        )
+
+
+async def test_notice_marks_are_isolated_per_tenant_and_once_per_event(world: World) -> None:
+    """REQ-SEC-033 part 2 (0158): tenant B neither reads nor writes A's; one row per event."""
+    event = f"kc-{uuid.uuid4().hex}"
+    await _notice(world, world.a.tenant, world.a.tech_a, event)
+    async with world.app.state.db.tenant_session(TenantContext(world.b.tenant)) as session:
+        seen = await session.execute(
+            text("SELECT count(*) FROM security_notice_marks WHERE tenant_id = :a"),
+            {"a": world.a.tenant},
+        )
+        assert seen.scalar_one() == 0
+        gone = await session.execute(
+            text("DELETE FROM security_notice_marks WHERE tenant_id = :a"), {"a": world.a.tenant}
+        )
+        assert gone.rowcount == 0
+    with pytest.raises(DBAPIError):  # writing a row for tenant A
+        await _notice(world, world.b.tenant, world.a.tech_a, f"kc-{uuid.uuid4().hex}")
+    with pytest.raises(DBAPIError):  # the same Keycloak event again
+        await _notice(world, world.a.tenant, world.a.tech_a, event)

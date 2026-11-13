@@ -857,6 +857,38 @@ class KnownDevice(TenantKeyed, Timestamps, Base):
 
 
 EXPIRY_THRESHOLDS = (0, 1, 7, 30)  # domain/expiry.py: days before, 0 = run out
+NOTICE_KINDS = ("locked_out", "password_changed", "password_set", "mfa_added", "mfa_removed")
+
+
+class SecurityNoticeMark(TenantKeyed, Base):
+    """A Keycloak user event already turned into a notice, or kept quiet (REQ-SEC-033; 0158).
+
+    Once per Keycloak event ID. Only what that check and the lock-out count need (lane B): no
+    address, browser or client. `told` False: kept quiet (one lock-out notice an hour; a first
+    password). Purged after 30 days; erasure deletes the person's rows.
+    """
+
+    __tablename__ = "security_notice_marks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_security_notice_marks_user",
+        ),
+        UniqueConstraint("tenant_id", "keycloak_event_id", name="uq_security_notice_marks_once"),
+        CheckConstraint(
+            "kind IN (" + ", ".join(f"'{k}'" for k in NOTICE_KINDS) + ")", name="kind_code"
+        ),
+        Index("ix_security_notice_marks_person", "tenant_id", "user_id", "kind", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    keycloak_event_id: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(32))
+    occurred_at: Mapped[datetime]
+    told: Mapped[bool]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 class SecurityExpiryMark(TenantKeyed, Base):

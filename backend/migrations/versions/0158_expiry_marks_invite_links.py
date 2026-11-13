@@ -9,6 +9,15 @@ Expand only, no data step:
 - `invitations.delivery` gains `link`, and `invitations.link_token_hash` (the SHA-256 of a copied invite link's token, 32 bytes, unique per
   tenant) and `invitations.link_copied_at`. The token itself is never stored.
 
+- `security_notice_marks` (REQ-SEC-033 part 2): each Keycloak user event already turned into a
+  notice to the person (or kept quiet), once per Keycloak event ID. Only what the once-only check
+  and the lock-out count need: no address, browser or client (lane B). Purged after 30 days;
+  erasure deletes the person's rows. Tenant table, RLS forced.
+- `sx_tenants_for_subject(subject)`: the active tenants where a Keycloak subject is a person, so
+  a notice with no tenant hint can go to the one tenant that person is in (lane B: never when
+  two or more). Tenant IDs only. SECURITY DEFINER, EXECUTE for supportx_app only, like
+  `sx_tenant_for_host` (0022).
+
 The downgrade refuses while any tenant has a mark, a secret expiry or a copied link, per tenant
 with app.tenant_id set (rule 5h).
 
@@ -22,6 +31,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
+from app.shared.db.rls import MIGRATOR_ROLE
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0158"
@@ -30,6 +40,26 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 MARKS = "security_expiry_marks"
+NOTICES = "security_notice_marks"
+SUBJECT_FUNCTION = "sx_tenants_for_subject(text)"
+_SUBJECT_SQL = (
+    """
+CREATE FUNCTION sx_tenants_for_subject(p_subject text) RETURNS TABLE (tenant_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+    SELECT u.tenant_id FROM users u JOIN tenants t ON t.id = u.tenant_id
+    WHERE u.external_subject = p_subject AND u.deleted_at IS NULL AND t.status = 'active'
+    LIMIT 2
+$$""",
+    # The function runs as its owner (the migrator), which FORCE RLS binds too: it reads the
+    # subject's rows of every tenant through this function only (no login in the API process).
+    (
+        f"CREATE POLICY users_subject_resolve ON users FOR SELECT TO {MIGRATOR_ROLE}"
+        " USING (external_subject IS NOT NULL AND deleted_at IS NULL)"
+    ),
+    f"REVOKE ALL ON FUNCTION {SUBJECT_FUNCTION} FROM PUBLIC",
+    f"GRANT EXECUTE ON FUNCTION {SUBJECT_FUNCTION} TO supportx_app",
+)
+NOTICE_KINDS = ("locked_out", "password_changed", "password_set", "mfa_added", "mfa_removed")
 PROVIDERS = "sso_providers"
 INVITATIONS = "invitations"
 THRESHOLDS = (0, 1, 7, 30)
@@ -101,6 +131,49 @@ def upgrade() -> None:
     enable_tenant_rls(MARKS)
     grant_app(MARKS, ("SELECT", "INSERT"))  # append-only: an alert once sent stays sent
 
+    op.create_table(
+        NOTICES,
+        sa.Column("tenant_id", sa.Uuid(), nullable=False),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("keycloak_event_id", sa.String(64), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("kind", sa.String(32), nullable=False),
+        sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("told", sa.Boolean(), nullable=False),  # False: kept quiet (rate limit, first)
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "kind IN (" + ", ".join(f"'{k}'" for k in NOTICE_KINDS) + ")",
+            name=op.f(f"ck_{NOTICES}_kind_code"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id"],
+            ["tenants.id"],
+            name=op.f(f"fk_{NOTICES}_tenant_id_tenants"),
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_security_notice_marks_user",
+        ),
+        sa.PrimaryKeyConstraint("tenant_id", "id", name=op.f(f"pk_{NOTICES}")),
+        sa.UniqueConstraint("tenant_id", "keycloak_event_id", name="uq_security_notice_marks_once"),
+    )
+    op.create_index(
+        "ix_security_notice_marks_person",
+        NOTICES,
+        ["tenant_id", "user_id", "kind", "occurred_at"],
+    )
+    enable_tenant_rls(NOTICES)
+    grant_app(NOTICES, ("SELECT", "INSERT", "DELETE"))  # the purge and erasure delete
+    for statement in _SUBJECT_SQL:
+        op.execute(statement)
+
 
 # Each tenant's rows are visible only with its app.tenant_id set (RLS FORCE).
 _REFUSE_IF_ANY = f"""
@@ -109,6 +182,9 @@ DECLARE t uuid;
 BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
+        IF EXISTS (SELECT 1 FROM {NOTICES}) THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has security notices sent (rule 5h)', t;
+        END IF;
         IF EXISTS (SELECT 1 FROM {MARKS}) THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has expiry alerts sent (rule 5h)', t;
         END IF;
@@ -129,6 +205,9 @@ END $$;
 def downgrade() -> None:
     """Drops what upgrade added only while nothing uses it; otherwise refuses."""
     op.execute(_REFUSE_IF_ANY)
+    op.execute(f"DROP FUNCTION {SUBJECT_FUNCTION}")
+    op.execute("DROP POLICY users_subject_resolve ON users")
+    op.drop_table(NOTICES)  # its index and policies go with it
     op.drop_table(MARKS)  # its policies go with it
     op.drop_index("uq_invitations_link_token", table_name=INVITATIONS)
     op.drop_constraint(op.f(f"ck_{INVITATIONS}_link_token_hash_length"), INVITATIONS, type_="check")

@@ -955,6 +955,8 @@ export const en = {
   'event_type.automation.workflow_instance.changed': 'Workflow moved on',
   'event_type.automation.workflow_job.progressed': 'Workflow job progressed',
   'event_type.identity_access.access_settings.changed': 'Technician visibility changed',
+  'event_type.identity_access.account_security.changed':
+    'Account locked, or its password or MFA changed',
   'event_type.identity_access.api_key.changed': 'API key changed',
   'event_type.identity_access.break_glass.signed_in': 'Emergency sign-in',
   'event_type.identity_access.group_role.changed': 'Group roles changed',
