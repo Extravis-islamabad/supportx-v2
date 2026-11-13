@@ -2333,7 +2333,22 @@ it with no reload (rule c). Not built yet.
     data step, and lane A's server drafts (REQ-INC-019).
 - [ ] Session 3b: masking, the personal-data access log (AUD-017), the ADR-048 users hook (a
   removed installation key that still wraps data keys refuses start-up), webhook headers sealed.
-  Migration number asked at its turn.
+  Split by the coordinator (2026-11-14). One mechanism with ADR-047 for masking.
+  - [x] **S3b-1 (migration 0163; draft PR; lane B blocks):**
+    - **REQ-AUD-017 personal data access log** (`personal_data_access`, audit module):
+      - append-only for the app role; erased and purged only through `audit_erase_access` and
+        `audit_purge_access`, with the tenant from `app.tenant_id`;
+      - one view per accessor, record and 15 minutes; no values;
+      - `audit_settings.personal_data_log` (off by default; the Professional `personal_data_log`
+        feature);
+      - writes: the person profile and `record_access()`, shared with ADR-047 §9 and ai's masking
+        counts;
+      - report: `GET /audit/personal-data-access` with `audit.view_personal_data_access`, itself
+        audited, live; the Admin › Audit "Personal data access" tab.
+    - **Removed-key start check** (ADR-050 addendum): `sx_kek_wraps()`, made by the new owned
+      helper `create_definer_function` (D-168), plus `make keys-check`.
+  - [ ] **S3b-2 (after ADR-047 slice b):** `sensitive` custom fields sealed at rest, a blind
+    index for exact match, `open_custom()` at lane A's redact choke point, re-seal job.
 - [ ] Session 4: service accounts, key policy, non-person actors, security overview.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
