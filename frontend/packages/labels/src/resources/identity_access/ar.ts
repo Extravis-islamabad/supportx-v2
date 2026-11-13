@@ -1150,6 +1150,47 @@ export const ar: LabelResource = {
   'security.sso.test_title': 'اختبار تسجيل الدخول: {{name}}',
   'security.sso.tested_at': 'اختُبر {{when}}',
   'security.sso.title': 'تسجيل الدخول الموحّد',
+  'security.sso_policy.admin': 'المسؤول',
+  'security.sso_policy.admin_saved': 'حُدّث {{name}}.',
+  'security.sso_policy.admins_intro_few':
+    '{{count}} مسؤولي طوارئ. لا يعيّن مسؤول الطوارئ أو يزيله إلا مسؤول آخر، ولا يُعيَّن إلا من أعدّ تسجيل الدخول بخطوتين.',
+  'security.sso_policy.admins_intro_many':
+    '{{count}} مسؤول طوارئ. لا يعيّن مسؤول الطوارئ أو يزيله إلا مسؤول آخر، ولا يُعيَّن إلا من أعدّ تسجيل الدخول بخطوتين.',
+  'security.sso_policy.admins_intro_one':
+    'مسؤول طوارئ واحد. لا يعيّن مسؤول الطوارئ أو يزيله إلا مسؤول آخر، ولا يُعيَّن إلا من أعدّ تسجيل الدخول بخطوتين.',
+  'security.sso_policy.admins_intro_other':
+    '{{count}} مسؤول طوارئ. لا يعيّن مسؤول الطوارئ أو يزيله إلا مسؤول آخر، ولا يُعيَّن إلا من أعدّ تسجيل الدخول بخطوتين.',
+  'security.sso_policy.admins_intro_two':
+    'مسؤولا طوارئ. لا يعيّن مسؤول الطوارئ أو يزيله إلا مسؤول آخر، ولا يُعيَّن إلا من أعدّ تسجيل الدخول بخطوتين.',
+  'security.sso_policy.admins_intro_zero':
+    'لا يوجد مسؤول طوارئ. لا يعيّن مسؤول الطوارئ أو يزيله إلا مسؤول آخر، ولا يُعيَّن إلا من أعدّ تسجيل الدخول بخطوتين.',
+  'security.sso_policy.admins_title': 'مسؤولو الطوارئ',
+  'security.sso_policy.also_mfa': 'اطلب أيضًا رمز الخطوتين من SupportX بعد الدخول الموحد',
+  'security.sso_policy.also_mfa_help':
+    'عند الإيقاف: يُعتمد تسجيل الدخول بخطوتين لدى مزوّد الهوية. عند التشغيل: يُطلب الرمز أيضًا ممن أعدّ تسجيل الدخول بخطوتين في SupportX.',
+  'security.sso_policy.break_glass': 'مسؤول طوارئ',
+  'security.sso_policy.break_glass_for': 'مسؤول طوارئ: {{name}}',
+  'security.sso_policy.confirm_body':
+    'سيتمكن من الدخول بكلمة المرور ورمز الخطوتين حتى أثناء إلزامية الدخول الموحد. يُنبَّه المسؤولون الآخرون في كل مرة.',
+  'security.sso_policy.confirm_ok': 'تعيين مسؤول طوارئ',
+  'security.sso_policy.confirm_title': 'تعيين {{name}} مسؤول طوارئ؟',
+  'security.sso_policy.effect_everyone':
+    'لا يدخل أحد إلا عبر مزوّد الهوية. يحتفظ مسؤولو الطوارئ بكلمات مرورهم.',
+  'security.sso_policy.effect_technicians':
+    'لا يدخل الفنيون إلا عبر مزوّد الهوية. يبقى بإمكان مقدّمي الطلبات استخدام كلمة المرور. يحتفظ مسؤولو الطوارئ بكلمات مرورهم.',
+  'security.sso_policy.intro':
+    'اجعل الدخول الموحد الطريقة الوحيدة للدخول للفنيين أو للجميع. عيّن أولًا مسؤول طوارئ واحدًا على الأقل: يحتفظ بكلمة مرور وتسجيل دخول بخطوتين، فتبقى قادرًا على الدخول إذا تعطّل مزوّد الهوية. كل دخول طارئ ينبّه المسؤولين الآخرين.',
+  'security.sso_policy.ip_exempt': 'خارج قوائم عناوين IP المسموح بها',
+  'security.sso_policy.ip_exempt_for': 'خارج قوائم عناوين IP المسموح بها: {{name}}',
+  'security.sso_policy.mfa': 'تسجيل الدخول بخطوتين',
+  'security.sso_policy.mfa_off': 'غير مُعَدّ',
+  'security.sso_policy.mfa_on': 'مُعَدّ',
+  'security.sso_policy.needs_mfa': 'يحتاج أولًا إلى تسجيل الدخول بخطوتين.',
+  'security.sso_policy.no_admins': 'لا يوجد مسؤولون بعد.',
+  'security.sso_policy.not_yourself': 'يجب أن يعيّنك مسؤول آخر.',
+  'security.sso_policy.required': 'الدخول الموحد إلزامي لـ',
+  'security.sso_policy.saved': 'حُفظت إعدادات الدخول الموحد.',
+  'security.sso_policy.title': 'الدخول الموحد إلزامي',
   'session.idle.body':
     'سيتم تسجيل خروجك خلال {{time}} لعدم وجود نشاط منذ مدة. يُحفظ كل ما كتبته ويعود عند تسجيل الدخول مجددًا.',
   'session.idle.sign_out': 'تسجيل الخروج الآن',
@@ -1193,12 +1234,14 @@ export const ar: LabelResource = {
   'sign_in_outcome.success': 'سجّل الدخول',
   'sign_in_reason.account_disabled': 'الحساب معطّل',
   'sign_in_reason.account_locked': 'مقفل بعد محاولات كثيرة',
+  'sign_in_reason.break_glass_needs_mfa': 'حساب طوارئ بلا تسجيل دخول بخطوتين',
   'sign_in_reason.identity_provider_bad_response': 'تعذّرت قراءة رد مزوّد الدخول الموحد',
   'sign_in_reason.identity_provider_bad_signature': 'شهادة الدخول الموحد غير مطابقة',
   'sign_in_reason.identity_provider_refused': 'رفض مزوّد الدخول الموحد',
   'sign_in_reason.ip_not_allowed': 'الشبكة غير مسموح بها',
   'sign_in_reason.other': 'سبب آخر',
   'sign_in_reason.sign_in_expired': 'استغرق تسجيل الدخول وقتًا طويلًا',
+  'sign_in_reason.sso_required': 'الدخول الموحد مطلوب',
   'sign_in_reason.unknown_person': 'لا يوجد حساب كهذا',
   'sign_in_reason.wrong_client': 'بيانات التطبيق خاطئة',
   'sign_in_reason.wrong_code': 'رمز التحقق بخطوتين خاطئ',
@@ -1212,6 +1255,9 @@ export const ar: LabelResource = {
   'sso_preset.saml': 'SAML 2.0',
   'sso_protocol.oidc': 'OpenID Connect',
   'sso_protocol.saml': 'SAML 2.0',
+  'sso_required_mode.everyone': 'الجميع',
+  'sso_required_mode.off': 'غير مطلوب',
+  'sso_required_mode.technicians': 'الفنيون',
   'sso_state.draft': 'مسودة',
   'sso_state.off': 'متوقف',
   'sso_state.on': 'يعمل',

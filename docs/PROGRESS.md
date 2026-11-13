@@ -2067,9 +2067,42 @@ it with no reload (rule c). Not built yet.
   - **Tests:** ip_allow_lists (7), network_rules_api (4), sign_in_log_api (4), api_keys (+1),
     auth suites unchanged (109), domain (network 9, sign_in 15), Vitest network (3) and sign-ins
     (3). test_auth_keycloak is split in three (12 pass).
-- [ ] Session 1b: SSO required with break-glass and the admin alert (REQ-SEC-009), MFA with SSO
-  (REQ-SEC-026), the verified sign-in method (a realm mapper, lane B), and the Keycloak events
-  import (AUD-015 AC1). Migration number at the turn.
+- [x] Session 1b (2026-11-13): SSO required, break-glass, MFA with SSO, the verified sign-in
+  method, the Keycloak events import. Migration 0153.
+  - **REQ-SEC-009 (SSO required), AC1-AC3:**
+    - Off, technicians or everyone. It is judged on the verified token, before anyone is created,
+      at sign-in and at a tenant switch.
+    - Turning it on needs an emergency (break-glass) administrator (AC2). The last one cannot be
+      removed while it is on.
+    - Only another tenant admin names one, never yourself, and only an admin with MFA. The IP
+      exemption is a separate, audited setting.
+    - Every emergency sign-in is audited and alerts the other admins (a required, urgent
+      notification). Emergency sign-ins are rate-limited per address.
+  - **REQ-SEC-026 (MFA with SSO):**
+    - The identity provider's MFA is trusted by default (AC1).
+    - With "also require MFA", the tenant's own providers get the post-broker OTP flow (AC2).
+      Other tenants' providers are never touched.
+  - **The verified method:**
+    - The realm mapper `sx_idp` sits on both app clients, added if missing and restored if
+      changed.
+    - Proved in a real Keycloak: password tokens (browser code flow and direct grant, both apps)
+      and directory tokens never carry it; a brokered sign-in carries the alias.
+  - **REQ-AUD-015 AC1 (Keycloak events import):**
+    - Every 60 s, as `supportx-events` (view-events only). Only the consumers worker and the
+      identity Job hold its secret; a rendered-chart test pins this for single-node and HA.
+    - Each event goes to the one tenant its provider alias (confirmed under RLS) or address
+      names. The shared address is counted, never guessed.
+    - The cursor is a millisecond plus an offset, over settled milliseconds only (now - 5 s).
+      Writes are idempotent per event, at most 5,000 per run, and the cursor moves only after
+      the commit.
+  - **Screen:** Single sign-on required card, with the admins' emergency and IP-exemption
+    switches, live.
+  - **Tests:**
+    - Backend: sso_policy_api (5), sso_required_sign_in (4), sign_in_import (3), the
+      keycloak_identity tooling (14 + 2).
+    - Real Keycloak: idp claim (3) and LDAP federation (4).
+    - Chart: events secret, single-node and HA.
+    - Vitest: SSO policy card (2).
 - [ ] Session 2: recent re-authentication, session places, notices, expiring certificates,
   invite links.
 - [ ] Session 3: field-level encryption (ADR-050), personal-data access log.

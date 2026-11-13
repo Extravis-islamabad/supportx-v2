@@ -1146,6 +1146,39 @@ export const ur: LabelResource = {
   'security.sso.test_title': 'سائن اِن کی آزمائش: {{name}}',
   'security.sso.tested_at': 'آزمایا گیا {{when}}',
   'security.sso.title': 'سنگل سائن آن',
+  'security.sso_policy.admin': 'ایڈمنسٹریٹر',
+  'security.sso_policy.admin_saved': '{{name}} اپ ڈیٹ ہو گیا۔',
+  'security.sso_policy.admins_intro_one':
+    '1 ہنگامی ایڈمنسٹریٹر۔ صرف کوئی دوسرا ایڈمنسٹریٹر اسے مقرر یا ہٹا سکتا ہے، اور صرف دو مرحلہ سائن اِن والے ایڈمنسٹریٹر مقرر ہو سکتے ہیں۔',
+  'security.sso_policy.admins_intro_other':
+    '{{count}} ہنگامی ایڈمنسٹریٹرز۔ صرف کوئی دوسرا ایڈمنسٹریٹر انہیں مقرر یا ہٹا سکتا ہے، اور صرف دو مرحلہ سائن اِن والے ایڈمنسٹریٹر مقرر ہو سکتے ہیں۔',
+  'security.sso_policy.admins_title': 'ہنگامی ایڈمنسٹریٹرز',
+  'security.sso_policy.also_mfa': 'سنگل سائن آن کے بعد SupportX کا دو مرحلہ کوڈ بھی مانگیں',
+  'security.sso_policy.also_mfa_help':
+    'بند: آپ کے شناختی فراہم کنندہ کے دو مرحلہ سائن اِن پر بھروسا کیا جاتا ہے۔ چالو: جنہوں نے SupportX میں دو مرحلہ سائن اِن سیٹ کیا ہے ان سے کوڈ بھی مانگا جاتا ہے۔',
+  'security.sso_policy.break_glass': 'ہنگامی ایڈمنسٹریٹر',
+  'security.sso_policy.break_glass_for': 'ہنگامی ایڈمنسٹریٹر: {{name}}',
+  'security.sso_policy.confirm_body':
+    'وہ سنگل سائن آن لازمی ہونے کے دوران بھی اپنے پاس ورڈ اور دو مرحلہ کوڈ سے سائن اِن کر سکیں گے۔ ہر بار دوسرے ایڈمنسٹریٹرز کو اطلاع ملتی ہے۔',
+  'security.sso_policy.confirm_ok': 'ہنگامی ایڈمنسٹریٹر بنائیں',
+  'security.sso_policy.confirm_title': '{{name}} کو ہنگامی ایڈمنسٹریٹر بنائیں؟',
+  'security.sso_policy.effect_everyone':
+    'سب صرف آپ کے شناختی فراہم کنندہ کے ذریعے سائن اِن کر سکتے ہیں۔ ہنگامی ایڈمنسٹریٹرز اپنا پاس ورڈ رکھتے ہیں۔',
+  'security.sso_policy.effect_technicians':
+    'ٹیکنیشنز صرف آپ کے شناختی فراہم کنندہ کے ذریعے سائن اِن کر سکتے ہیں۔ درخواست گزار اب بھی پاس ورڈ استعمال کر سکتے ہیں۔ ہنگامی ایڈمنسٹریٹرز اپنا پاس ورڈ رکھتے ہیں۔',
+  'security.sso_policy.intro':
+    'ٹیکنیشنز یا سب کے لیے سنگل سائن آن کو داخلے کا واحد راستہ بنائیں۔ پہلے کم از کم ایک ہنگامی ایڈمنسٹریٹر مقرر کریں: وہ پاس ورڈ اور دو مرحلہ سائن اِن رکھتا ہے، تاکہ آپ کا شناختی فراہم کنندہ ناکام ہو تب بھی آپ اندر آ سکیں۔ ہر ہنگامی سائن اِن پر دوسرے ایڈمنسٹریٹرز کو اطلاع ملتی ہے۔',
+  'security.sso_policy.ip_exempt': 'IP اجازت فہرستوں سے باہر',
+  'security.sso_policy.ip_exempt_for': 'IP اجازت فہرستوں سے باہر: {{name}}',
+  'security.sso_policy.mfa': 'دو مرحلہ سائن اِن',
+  'security.sso_policy.mfa_off': 'سیٹ نہیں',
+  'security.sso_policy.mfa_on': 'سیٹ ہے',
+  'security.sso_policy.needs_mfa': 'پہلے دو مرحلہ سائن اِن درکار ہے۔',
+  'security.sso_policy.no_admins': 'ابھی کوئی ایڈمنسٹریٹر نہیں۔',
+  'security.sso_policy.not_yourself': 'کوئی دوسرا ایڈمنسٹریٹر آپ کو مقرر کرے۔',
+  'security.sso_policy.required': 'سنگل سائن آن لازمی ہے برائے',
+  'security.sso_policy.saved': 'سنگل سائن آن کی ترتیبات محفوظ ہو گئیں۔',
+  'security.sso_policy.title': 'سنگل سائن آن لازمی',
   'session.idle.body':
     'کچھ دیر سے کوئی سرگرمی نہیں ہوئی، اس لیے آپ {{time}} میں سائن آؤٹ ہو جائیں گے۔ جو کچھ آپ نے لکھا وہ محفوظ رہے گا اور دوبارہ سائن اِن کرنے پر واپس آ جائے گا۔',
   'session.idle.sign_out': 'ابھی سائن آؤٹ کریں',
@@ -1189,6 +1222,7 @@ export const ur: LabelResource = {
   'sign_in_outcome.success': 'سائن اِن ہوا',
   'sign_in_reason.account_disabled': 'اکاؤنٹ بند ہے',
   'sign_in_reason.account_locked': 'زیادہ کوششوں کے بعد لاک',
+  'sign_in_reason.break_glass_needs_mfa': 'دو مرحلہ سائن اِن کے بغیر ہنگامی اکاؤنٹ',
   'sign_in_reason.identity_provider_bad_response':
     'سنگل سائن آن فراہم کنندہ کا جواب پڑھا نہیں جا سکا',
   'sign_in_reason.identity_provider_bad_signature': 'سنگل سائن آن سرٹیفکیٹ میل نہیں کھاتا',
@@ -1196,6 +1230,7 @@ export const ur: LabelResource = {
   'sign_in_reason.ip_not_allowed': 'نیٹ ورک کی اجازت نہیں',
   'sign_in_reason.other': 'کوئی اور وجہ',
   'sign_in_reason.sign_in_expired': 'سائن اِن میں بہت دیر ہوئی',
+  'sign_in_reason.sso_required': 'سنگل سائن آن لازمی',
   'sign_in_reason.unknown_person': 'ایسا کوئی اکاؤنٹ نہیں',
   'sign_in_reason.wrong_client': 'ایپلیکیشن کی اسناد غلط',
   'sign_in_reason.wrong_code': 'غلط دو مرحلہ کوڈ',
@@ -1209,6 +1244,9 @@ export const ur: LabelResource = {
   'sso_preset.saml': 'SAML 2.0',
   'sso_protocol.oidc': 'OpenID Connect',
   'sso_protocol.saml': 'SAML 2.0',
+  'sso_required_mode.everyone': 'سب',
+  'sso_required_mode.off': 'لازمی نہیں',
+  'sso_required_mode.technicians': 'تکنیکی عملہ',
   'sso_state.draft': 'مسودہ',
   'sso_state.off': 'بند',
   'sso_state.on': 'چالو',

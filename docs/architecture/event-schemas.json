@@ -2614,6 +2614,23 @@
         "type": "object"
       }
     },
+    "identity_access.break_glass.signed_in": {
+      "1": {
+        "description": "A break-glass admin signed in with a password while single sign-on is required.\n\nREQ-SEC-009 AC3 (WP-057 S1b): every other tenant admin is told. IDs only.",
+        "properties": {
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "BreakGlassSignedIn",
+        "type": "object"
+      }
+    },
     "identity_access.group_role.changed": {
       "1": {
         "description": "A support group gained or lost a role: its members' access changes (WP-042).",

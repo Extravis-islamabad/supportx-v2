@@ -116,6 +116,9 @@ class Identity:
     roles: tuple[str, ...]
     memberships: tuple[Membership, ...]
     keycloak_session_id: str | None
+    # The identity provider alias this sign-in came through (the `sx_idp` claim of the verified
+    # ID token, WP-057 S1b), or None: a password, LDAP or direct-grant sign-in.
+    identity_provider: str | None = None
 
     @property
     def user_type(self) -> Literal[UserType.TECHNICIAN, UserType.REQUESTER]:
@@ -200,7 +203,19 @@ def identity_from(claims: Mapping[str, Any]) -> Identity:
         else (),
         memberships=memberships_from(claims),
         keycloak_session_id=sid if isinstance(sid, str) else None,
+        identity_provider=_idp(claims.get(IDP_CLAIM)),
     )
+
+
+IDP_CLAIM = "sx_idp"  # deploy/helm/supportx/files/keycloak: a user-session note, never userinfo
+IDP_ALIAS_MAX = 80  # sign_in_events.identity_provider
+
+
+def _idp(value: object) -> str | None:
+    """A non-empty alias, or None (absent, empty or not a string: never trusted as SSO)."""
+    if isinstance(value, str) and value.strip() and len(value) <= IDP_ALIAS_MAX:
+        return value
+    return None
 
 
 _SAFE_PATH = re.compile(r"^/[A-Za-z0-9\-._~!$&'()*+,;=:@%/?#]*$")

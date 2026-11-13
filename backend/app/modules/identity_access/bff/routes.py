@@ -98,6 +98,10 @@ log = get_logger(__name__)
 LOGINS_PER_ADDRESS = 60  # a minute
 CALLBACKS_PER_ADDRESS = 60  # a minute
 SIGN_IN_UNAVAILABLE = "sign_in_unavailable"
+BREAK_GLASS_PER_ADDRESS = 10  # a minute: far below a normal sign-in's budget
+_BREAK_GLASS_LIMIT = ip_rate_limit(
+    "auth_break_glass", BREAK_GLASS_PER_ADDRESS, fail_closed_code=SIGN_IN_UNAVAILABLE, defer=True
+)
 LoginLimit = Annotated[
     AddressLimit,
     Depends(
@@ -393,7 +397,22 @@ async def _finish_callback(  # noqa: PLR0913, PLR0917 - the callback's parts, pa
     if isinstance(result, TestFinished):  # an admin's SSO test: no session, back to the pop-up
         await _record_sso_test(request, result)
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
+    if result.session.break_glass:
+        # A break-glass password sign-in is rarer than any other: its own, stricter budget per
+        # address (lane B's review), closed when Valkey is down. Over it, the session it just
+        # made ends, Keycloak's too, and the sign-in is refused like any other.
+        counted = await _BREAK_GLASS_LIMIT(request, Response())
+        if counted.refusal is not None:
+            await auth.withdraw_sign_in(result.session_id, result.session)
+            app: Literal["console", "portal"] = (
+                "portal" if result.session.client == "portal" else "console"
+            )
+            return await _failure_response(request, auth, LoginFailure(app, counted.refusal))
     await _audit_session(request, result.session, "session.signed_in")
+    if result.session.break_glass:
+        # A break-glass admin past "single sign-on required" (REQ-SEC-009 AC3): its own entry;
+        # the BreakGlassSignedIn event alerts the other tenant admins.
+        await _audit_session(request, result.session, "session.break_glass_sign_in")
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)
     if not result.mobile:  # the app gets a hand-off code in the address instead (ADR-044)
         set_session_cookie(response, auth.settings, result.session_id)

@@ -31,6 +31,7 @@ from app.modules.identity_access.domain import sso as sso_rules
 from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.domain.sign_in import SignInApp, SignInMethod, SignInOutcome
+from app.modules.identity_access.domain.sign_in_policy import SsoRequired
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
@@ -43,6 +44,7 @@ from app.modules.identity_access.infra.models import (
 )
 from app.modules.identity_access.service import (
     api_keys,
+    break_glass,
     identity_settings,
     invitations,
     mfa,
@@ -339,6 +341,152 @@ async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of 
             if more and last_row is not None
             else None
         ),
+    )
+
+
+# --- single sign-on required and break-glass admins (REQ-SEC-009, REQ-SEC-026; WP-057 S1b) -------
+
+
+class SsoPolicyBody(BaseModel):
+    """For whom single sign-on is required, and whether SupportX asks its own MFA after it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sso_required: SsoRequired
+    sso_also_require_mfa: bool
+
+
+class TenantAdminOut(BaseModel):
+    """A tenant admin, who may be named a break-glass admin (with MFA set up)."""
+
+    user_id: uuid.UUID
+    display_name: str
+    mfa_enrolled: bool
+    break_glass: bool
+    break_glass_ip_exempt: bool
+    version: int
+
+
+class SsoPolicyOut(BaseModel):
+    """The policy, the tenant's admins with their break-glass marks, and the version."""
+
+    sso_required: SsoRequired
+    sso_also_require_mfa: bool
+    break_glass_admins: int
+    admins: list[TenantAdminOut]
+    version: int
+
+
+async def _policy_out(session: TenantSession, policy: break_glass.SsoPolicy) -> SsoPolicyOut:
+    return SsoPolicyOut(
+        sso_required=policy.required,
+        sso_also_require_mfa=policy.also_require_mfa,
+        break_glass_admins=await break_glass.active_break_glass(session),
+        admins=[
+            TenantAdminOut(
+                user_id=a.user_id,
+                display_name=a.display_name,
+                mfa_enrolled=a.mfa_enrolled,
+                break_glass=a.break_glass,
+                break_glass_ip_exempt=a.ip_exempt,
+                version=a.version,
+            )
+            for a in await break_glass.tenant_admins(session)
+        ],
+        version=policy.version,
+    )
+
+
+@router.get("/sso-policy", summary="Single sign-on policy")
+async def get_sso_policy(
+    response: Response, session: TenantSession, subject: Manage
+) -> SsoPolicyOut:
+    """Whether single sign-on is required, for whom, and MFA after it."""
+    del subject
+    policy = await break_glass.get_sso_policy(session)
+    set_etag(response, policy.version)
+    return await _policy_out(session, policy)
+
+
+@router.put("/sso-policy", summary="Save the single sign-on policy")
+async def put_sso_policy(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    body: SsoPolicyBody,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote, audited("identity.sso_policy_changed", object_type="identity_settings")
+    ],
+) -> SsoPolicyOut:
+    """Save it. Requiring single sign-on needs an active break-glass admin first (AC2)."""
+    saved, details = await break_glass.save_sso_policy(
+        session,
+        required=body.sso_required,
+        also_require_mfa=body.sso_also_require_mfa,
+        expected_version=version,
+    )
+    changed = details.get("changed_fields")
+    if isinstance(changed, list) and "sso_also_require_mfa" in changed:
+        # The tenant's own identity providers ask for SupportX's code after sign-in, or stop
+        # (REQ-SEC-026). In the same request: if Keycloak refuses, the saved setting rolls back.
+        await sso.apply_post_broker_flow(
+            session, _admin(request), enabled=body.sso_also_require_mfa
+        )
+    note.object_id = str(subject.tenant_id)
+    note.details = details
+    note.skip = not details
+    set_etag(response, saved.version)
+    return await _policy_out(session, saved)
+
+
+class BreakGlassBody(BaseModel):
+    """Whether the person is a break-glass admin, and also outside the IP allow-lists."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    break_glass: bool
+    break_glass_ip_exempt: bool = False
+
+
+class BreakGlassOut(BaseModel):
+    """The person's marks and their record's version."""
+
+    user_id: uuid.UUID
+    break_glass: bool
+    break_glass_ip_exempt: bool
+    version: int
+
+
+@router.put("/break-glass/{user_id}", summary="Mark or unmark a break-glass admin")
+async def put_break_glass(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    user_id: uuid.UUID,
+    body: BreakGlassBody,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[AuditNote, audited("identity.break_glass_changed", object_type="user")],
+) -> BreakGlassOut:
+    """Only a tenant admin, for a tenant admin with MFA; never the last one while required."""
+    state, details = await break_glass.set_break_glass(
+        session,
+        subject,
+        user_id,
+        break_glass=body.break_glass,
+        ip_exempt=body.break_glass_ip_exempt,
+        expected_version=version,
+    )
+    note.object_id = str(user_id)
+    note.details = details
+    note.skip = not details
+    set_etag(response, state.version)
+    return BreakGlassOut(
+        user_id=state.user_id,
+        break_glass=state.break_glass,
+        break_glass_ip_exempt=state.ip_exempt,
+        version=state.version,
     )
 
 

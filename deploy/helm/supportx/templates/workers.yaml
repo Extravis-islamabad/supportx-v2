@@ -90,6 +90,9 @@ spec:
             # Applies the password policy admins save (manage-realm); no other pod holds it.
             - name: SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: keycloak-realm-secret, optional: true}}
+            # Reads Keycloak's login events into the sign-in log (view-events); no other pod holds it.
+            - name: SUPPORTX_KEYCLOAK_EVENTS_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: keycloak-events-client-secret, optional: true}}
             {{- if $.Values.directory.ldap.enabled }}
             # Writes the AD/LDAP connection admins set up (manage-realm); no other pod holds it.
             - name: SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET

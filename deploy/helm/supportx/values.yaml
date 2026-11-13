@@ -506,7 +506,8 @@ keycloak:
   # service account (least-privileged admin roles) exists with the secret
   # `keycloak-identity-secret`, login events are on and the SSO session fits SupportX's. With
   # `keycloak-realm-secret` it also makes `supportx-realm` (manage-realm only), the account the
-  # consumers worker applies the password policy with.
+  # consumers worker applies the password policy with. With `keycloak-events-client-secret` it
+  # makes `supportx-events` (view-events only), which the consumers worker reads login events with.
   setUpIdentityAdmin: true
   # The breached-password list (supportx-breached.txt) comes from this release's backend image.
   # A larger list of your own: a ConfigMap in the release namespace holding a file of that name,

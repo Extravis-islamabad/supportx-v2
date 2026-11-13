@@ -10,6 +10,8 @@ Runs with SUPPORTX_LDAP_FEDERATION_TESTS=1 (CI job "ldap federation"); needs Doc
 """
 
 import asyncio
+import base64
+import json
 import os
 import secrets
 import shutil
@@ -19,6 +21,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
 import pytest
 from pydantic import SecretStr
 
@@ -65,6 +68,8 @@ class Stack:
     identity_secret: str
     federation_secret: str
     ldap_password: str
+    console_secret: str = ""
+    slapd: str = ""
 
 
 @pytest.fixture(scope="module")
@@ -77,6 +82,8 @@ def stack() -> Iterator[Stack]:
         identity_secret=secrets.token_urlsafe(24),
         federation_secret=secrets.token_urlsafe(24),
         ldap_password=secrets.token_urlsafe(18),
+        console_secret=secrets.token_urlsafe(24),
+        slapd=slapd,
     )
     _docker("build", "-q", "-t", SLAPD_IMAGE, str(SLAPD))
     _docker("network", "create", network)
@@ -95,7 +102,7 @@ def stack() -> Iterator[Stack]:
             "-e", f"KC_BOOTSTRAP_ADMIN_PASSWORD={made.admin_password}",
             "-e", "SUPPORTX_KC_CONSOLE_ORIGIN=http://localhost:5173",
             "-e", "SUPPORTX_KC_PORTAL_ORIGIN=http://localhost:5174",
-            "-e", f"SUPPORTX_KC_CONSOLE_SECRET={secrets.token_urlsafe(24)}",
+            "-e", f"SUPPORTX_KC_CONSOLE_SECRET={made.console_secret}",
             "-e", f"SUPPORTX_KC_PORTAL_SECRET={secrets.token_urlsafe(24)}",
             KEYCLOAK_IMAGE, "start-dev", "--import-realm",
         )  # fmt: skip
@@ -194,6 +201,51 @@ async def test_keycloak_accepts_syncs_and_removes_the_directory(
             break
         await asyncio.sleep(0.5)
     assert await federated_users(settings, component_id) == []
+
+
+async def test_a_directory_password_token_never_carries_the_sso_claim(
+    settings: Settings, stack: Stack
+) -> None:
+    """WP-057 S1b (lane B): a directory sign-in is a password one, never single sign-on.
+
+    `sx_idp` (the realm mapper) is what the BFF reads single sign-on from; a person who signs in
+    with their AD/LDAP password must not carry it, or "single sign-on required" would let them by.
+    """
+    directory = _directory()
+    component_id = await put_ldap_federation(
+        settings,
+        component=lambda realm: ldap.component(
+            directory, name="supportx-claim", realm_id=realm, bind_password=stack.ldap_password
+        ),
+        mappers=lambda found: ldap.mappers(directory, component_id=found),
+    )
+    try:
+        await sync_ldap_federation(settings, component_id, full=True)
+        password = "Dir-Pass-2026!" + secrets.token_hex(4)
+        _docker(
+            "exec", stack.slapd, "ldappasswd", "-x", "-H", "ldap://localhost:1389",
+            "-D", "cn=admin,dc=example,dc=org", "-w", stack.ldap_password,
+            "-s", password, "uid=sam.lee,ou=People,dc=example,dc=org",
+        )  # fmt: skip
+        async with httpx.AsyncClient() as http:
+            token = await http.post(
+                f"{stack.base_url}/realms/supportx/protocol/openid-connect/token",
+                data={
+                    "grant_type": "password",
+                    "client_id": "supportx-console",
+                    "client_secret": stack.console_secret,
+                    "username": "sam.lee",
+                    "password": password,
+                    "scope": "openid",
+                },
+            )
+        assert token.status_code == 200, token.text
+        for kind in ("access_token", "id_token"):
+            payload = token.json()[kind].split(".")[1]
+            claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+            assert "sx_idp" not in claims, kind
+    finally:
+        await remove_ldap_federation(settings, component_id)
 
 
 async def test_the_identity_account_may_not_federate(settings: Settings, stack: Stack) -> None:

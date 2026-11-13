@@ -169,6 +169,13 @@ export const ar: LabelResource = {
   'errors.brand_colour_contrast':
     'يصعب قراءة هذا اللون: النص عليه أقل من مستوى التباين WCAG AA. استخدم اللون المقترح أو اختر لونًا أغمق.',
   'errors.branding_not_found': 'لم يتم العثور على هذه العلامة التجارية.',
+  'errors.break_glass_admin_only': 'لا يعيّن مسؤولي الطوارئ إلا مسؤول المؤسسة.',
+  'errors.break_glass_ip_exempt_needs_break_glass':
+    'لا يُستثنى من قوائم عناوين IP إلا مسؤول الطوارئ.',
+  'errors.break_glass_needs_admin': 'لا يكون مسؤول الطوارئ إلا مسؤولًا للمؤسسة.',
+  'errors.break_glass_needs_mfa':
+    'يحتاج حساب الطوارئ هذا إلى إعداد تسجيل الدخول بخطوتين قبل استخدامه.',
+  'errors.break_glass_not_self': 'يجب أن يعيّنك مسؤول آخر مسؤولًا للطوارئ.',
   'errors.bulk_job_not_found': 'لم يتم العثور على هذا التغيير الجماعي.',
   'errors.calendar_in_use':
     'لا تزال مواقع أو فرق دعم تستخدم هذا التقويم. اختر لها تقويمًا آخر أولًا.',
@@ -771,6 +778,8 @@ export const ar: LabelResource = {
   'errors.kb_vote_comment_too_long': 'اجعل التعليق في حدود 1000 حرف.',
   'errors.kb_vote_reason_for_no_only': 'السبب يُذكر مع «لا» فقط.',
   'errors.kb_vote_reason_unknown': 'اختر أحد الأسباب المعروضة.',
+  'errors.last_break_glass_admin':
+    'هذا آخر مسؤول طوارئ أثناء اشتراط الدخول الموحد. عيّن غيره أولًا، أو أوقف اشتراط الدخول الموحد.',
   'errors.last_tenant_admin': 'يجب أن يبقى في المؤسسة مسؤول واحد على الأقل.',
   'errors.ldap_attribute_invalid': 'أدخل اسم سمة في الدليل: أحرف وأرقام وشرطات.',
   'errors.ldap_bind_password_missing': 'لا توجد كلمة مرور ربط محفوظة. أدخلها مرة أخرى.',
@@ -969,6 +978,10 @@ export const ar: LabelResource = {
   'errors.sso_provider_missing': 'هذا الإعداد غير موجود في خدمة تسجيل الدخول. أزِله وأضفه من جديد.',
   'errors.sso_provider_not_found': 'لم يُعثر على إعداد تسجيل الدخول الموحّد هذا.',
   'errors.sso_provider_refused': 'رفضت خدمة تسجيل الدخول هذه الإعدادات. راجعها وحاول مجددًا.',
+  'errors.sso_required':
+    'تشترط مؤسستك الدخول الموحد. سجّل الدخول بحساب مؤسستك بدلًا من كلمة المرور.',
+  'errors.sso_required_needs_break_glass':
+    'عيّن مسؤول طوارئ واحدًا على الأقل لديه تسجيل الدخول بخطوتين قبل اشتراط الدخول الموحد.',
   'errors.sso_switch_off_first': 'أوقف الإعداد قبل تغيير طريقة اتصاله، حتى لا يُحرم أحد من الدخول.',
   'errors.sso_switched_off': 'شغّل الإعداد أو غيّره قبل اختباره.',
   'errors.sso_test_not_found': 'انتهى هذا الاختبار. ابدأ اختبارًا جديدًا.',

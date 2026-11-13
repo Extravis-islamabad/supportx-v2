@@ -11,6 +11,7 @@ import { NetworkRulesCard } from './NetworkRulesCard';
 import { PasswordPolicyCard } from './PasswordPolicyCard';
 import { SessionsCard } from './SessionsCard';
 import { SsoCard } from './SsoCard';
+import { SsoPolicyCard } from './SsoPolicyCard';
 
 /**
  * Admin › Sign-in and security (WP-039, REQ-SEC-017): every sign-in setting in SupportX itself,
@@ -30,6 +31,7 @@ export function SecurityPage() {
         {t('security.intro')}
       </Typography.Paragraph>
       <SsoCard />
+      <SsoPolicyCard />
       <PasswordPolicyCard />
       <MfaPolicyCard />
       <InvitationsCard />
