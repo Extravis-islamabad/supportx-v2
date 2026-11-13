@@ -370,6 +370,12 @@ class Settings(BaseSettings):
     object_storage_bucket: str = Field(default="supportx", pattern=r"^[a-z0-9][a-z0-9.-]{2,62}$")
     object_storage_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
 
+    # The approximate sign-in place (WP-057 S2b, D-170): the DB-IP Lite city database (.mmdb, about
+    # 126 MB) on a mounted volume, never in the image; refreshed monthly through the mirror and
+    # shipped in the offline bundle. Not set or unreadable: no place is shown (never an error);
+    # internal ranges and admin-mapped networks still show "Internal network" or their site.
+    geoip_db: Path | None = None
+
     # Files (WP-022, ADR-028, docs/architecture/files.md). `files_keys` is the installation key
     # ring that wraps each tenant's data keys: "<key id>:<base64 32 bytes>, ..." with the active
     # key first; older keys stay listed so files they wrapped remain readable (rotation). Back it up
