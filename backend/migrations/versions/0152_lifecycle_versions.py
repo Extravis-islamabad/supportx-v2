@@ -27,7 +27,7 @@ the new columns and table; staged transitions and records keep their version 1, 
 already read as version 1.
 
 Revision ID: 0152
-Revises: 0149
+Revises: 0151
 Created: 2026-11-12
 """
 
@@ -41,9 +41,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0152"
-down_revision: str | None = (
-    "0149"  # main's head while building; re-pointed at its queue turn (after 0151)
-)
+down_revision: str | None = "0151"  # main's head at its queue turn (after #455's 0151)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
