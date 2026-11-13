@@ -28,6 +28,10 @@
 /backend/app/modules/identity_access/domain/permissions.py @supportx-reviewer
 /backend/app/modules/identity_access/domain/policy.py @supportx-reviewer
 /backend/app/core/authorization.py @supportx-reviewer
+# Which records a permission reaches: the all/site/group/own scope checks, followers (D-068) and
+# a requester's single check (D-129). Widening them changes no row in the route map (lane C).
+/backend/app/modules/work_items/service/access.py @supportx-reviewer
+/backend/app/modules/work_items/service/portal.py @supportx-reviewer
 
 # Who may call which route: the generated route-permission map and role matrix (D-168, Haider
 # 2026-11-13). Module api/ folders and permission catalogues are not owned; a new route, a changed
