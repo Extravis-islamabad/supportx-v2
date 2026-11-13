@@ -257,6 +257,12 @@ ACTIONS: dict[str, Action] = _actions(
     ("mailbox.consent_started", AuditCategory.CONFIGURATION, "integrations"),
     ("mailbox.connected", AuditCategory.CONFIGURATION, "integrations"),
     ("mailbox.mail_discarded", AuditCategory.CONFIGURATION, "integrations"),
+    # WP-046a S6 (REQ-INC-026): block rules for unwanted mail.
+    ("mail_block_rule.created", AuditCategory.CONFIGURATION, "integrations"),
+    ("mail_block_rule.changed", AuditCategory.CONFIGURATION, "integrations"),
+    ("mail_block_rule.removed", AuditCategory.CONFIGURATION, "integrations"),
+    # WP-046a S6 (REQ-INC-066): an address kept informed stopped its mails, by its link.
+    ("notify_link.used", AuditCategory.RECORDS, "work_items"),
     ("directory.created", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.changed", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.removed", AuditCategory.CONFIGURATION, "integrations"),

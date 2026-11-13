@@ -71,7 +71,9 @@ describe('Admin › Mail', () => {
     await waitFor(() => {
       expect(within(editor).getByTestId('mailbox-save').hasAttribute('disabled')).toBe(false);
     });
-    expect(within(editor).getByRole<HTMLInputElement>('spinbutton').value).toBe('143');
+    const port = within(editor).getByTestId('mailbox-port');
+    const portInput = port.tagName === 'INPUT' ? port : port.querySelector('input');
+    expect((portInput as HTMLInputElement).value).toBe('143');
     expect(fake.find('POST', BASE)).toHaveLength(0);
   });
 
@@ -237,6 +239,112 @@ describe('Admin › Mail', () => {
     fireEvent.click(await screen.findByTestId('mailbox-add'));
     const editor = await screen.findByTestId('mailbox-editor');
     expect(within(editor).getByTestId('mailbox-enabled').style.alignSelf).toBe('flex-start');
+  });
+
+  it('WP-046a S6: trusted servers are checked as typed and saved; the Microsoft switch is 365-only', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    const graph = fakeMailbox({
+      protocol: 'graph',
+      auth_model: 'app',
+      client_id: 'app-1',
+      directory_id: 'dir-1',
+    });
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        [`GET ${BASE}`]: { body: [graph] },
+        [`PATCH ${BASE}/${graph.id}`]: {
+          body: {
+            ...graph,
+            trusted_servers: ['mx.acme.test'],
+            trust_provider_results: true,
+            version: 2,
+          },
+        },
+      },
+    });
+    render(<App />);
+    const row = await screen.findByTestId(`mailbox-${graph.address}`);
+    fireEvent.click(within(row).getByTestId('mailbox-edit'));
+    const editor = await screen.findByTestId('mailbox-editor');
+    const servers = within(editor).getByTestId('mailbox-trusted_servers');
+    const typed = servers.querySelector('input');
+    if (typed === null) throw new Error('no input');
+    fireEvent.change(typed, { target: { value: 'bad_host!;' } });
+    await waitFor(() => {
+      expect(within(editor).getByTestId('mailbox-trusted_servers-field').textContent).toContain(
+        'Enter server names only, such as mx.google.com.',
+      );
+    });
+    fireEvent.click(within(servers).getByLabelText('close'));
+    fireEvent.change(typed, { target: { value: 'mx.acme.test;' } });
+    fireEvent.click(within(editor).getByTestId('mailbox-trust_provider_results'));
+    await act(async () => {
+      fireEvent.click(within(editor).getByTestId('mailbox-save'));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(fake.find('PATCH', `${BASE}/${graph.id}`).map((c) => c.body)).toContainEqual(
+        expect.objectContaining({
+          trusted_servers: ['mx.acme.test'],
+          trust_provider_results: true,
+          quarantine_days: 14,
+        }),
+      );
+    });
+  });
+
+  it('WP-046a S6: an IMAP mailbox offers no Microsoft switch', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    api({ me: ADMIN, routes: { [`GET ${BASE}`]: { body: [] } } });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('mailbox-add'));
+    const editor = await screen.findByTestId('mailbox-editor');
+    expect(within(editor).getByTestId('mailbox-trusted_servers')).toBeTruthy();
+    expect(within(editor).queryByTestId('mailbox-trust_provider_results')).toBeNull();
+  });
+
+  it('WP-046a S6: adds a block rule and says a duplicate at the field', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    const rule = {
+      id: '01900000-0000-7000-8000-00000000b001',
+      kind: 'domain' as const,
+      value: 'spam.test',
+      enabled: true,
+      updated_at: new Date().toISOString(),
+      version: 1,
+    };
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        [`GET ${BASE}`]: { body: [] },
+        'GET /api/v1/integrations/mail-block-rules': { body: [rule] },
+        'POST /api/v1/integrations/mail-block-rules': {
+          status: 409,
+          body: problem(409, 'mail_block_rule_exists'),
+        },
+      },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('mail-block-rules');
+    const listed = await within(card).findByTestId('mail-block-rule-spam.test');
+    expect(within(listed).getByText('Sender domain')).toBeTruthy();
+    fireEvent.change(within(card).getByTestId('mail-block-value'), {
+      target: { value: 'SPAM.test' },
+    });
+    await act(async () => {
+      fireEvent.click(within(card).getByTestId('mail-block-add'));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(within(card).getByTestId('mail-block-value-problem').textContent).toBe(
+        'A rule for this already exists.',
+      );
+    });
+    expect(fake.find('POST', '/api/v1/integrations/mail-block-rules')[0]?.body).toMatchObject({
+      kind: 'domain',
+      value: 'SPAM.test',
+    });
   });
 
   it('technicians do not see the tab', async () => {

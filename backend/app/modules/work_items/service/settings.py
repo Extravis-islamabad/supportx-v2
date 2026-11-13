@@ -6,7 +6,7 @@ and transitions keep their Appendix A shape until the life-cycle designer (REQ-I
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -31,6 +31,7 @@ from app.modules.work_items.domain.closure import (
     rule_field_problems,
 )
 from app.modules.work_items.domain.conversation import FirstResponseAction
+from app.modules.work_items.domain.mail_commands import CommandField
 from app.modules.work_items.domain.service_requests import OnBehalfScope
 from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemSettingsChanged
@@ -100,6 +101,34 @@ async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue
 CHANGE_ONLY = ("segregation_strict", "cab_every_match", "outside_maintenance_blocks")  # D-156
 # Settings only releases have (WP-058b S3; REQ-REL-048).
 RELEASE_ONLY = ("open_stage_tasks_block",)
+
+
+# WP-046a S6: mail commands and people kept informed, on incidents (mailboxes make incidents).
+MAIL_SETTINGS = ("mail_commands", "mail_command_fields", "cc_from_first_mail")
+
+
+def _mail_settings(
+    wtype: WorkItemType,
+    values: Mapping[str, Any],
+    changes: dict[str, Any],
+    problem: Callable[..., None],
+) -> None:
+    """Commands from mail (off by default) and Cc from the first mail (REQ-INC-025, -066)."""
+    for name in MAIL_SETTINGS:
+        if name not in values:
+            continue
+        if wtype.code is not WorkItemTypeCode.INCIDENT:
+            problem(name, "not_allowed")
+        elif name == "mail_command_fields":
+            wanted = list(values[name] or [])
+            if any(code not in set(CommandField) for code in wanted):
+                problem(name, "invalid_choice")
+            # Stored in the fixed order, so a re-ordered list is not a change.
+            changes[name] = [c.value for c in CommandField if c.value in wanted]
+        elif not isinstance(values[name], bool):  # never "false" read as true
+            problem(name, "invalid_value")
+        else:
+            changes[name] = values[name]
 
 
 async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
@@ -189,6 +218,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
             problem("first_response_on", "invalid_choice")
         # Stored in the fixed order, so a re-ordered list is not a change.
         changes["first_response_on"] = [c for c in FirstResponseAction if c in chosen]
+    _mail_settings(wtype, values, changes, problem)
     for name, codes in (("default_impact", set(Impact)), ("default_urgency", set(Urgency))):
         if name in values:
             if values[name] is not None and values[name] not in codes:
@@ -215,6 +245,9 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,
         "default_urgency": current.default_urgency,
+        "mail_commands": current.mail_commands,
+        "mail_command_fields": list(current.mail_command_fields),
+        "cc_from_first_mail": current.cc_from_first_mail,
     }
     changes = {k: v for k, v in changes.items() if before[k] != v}
     if current.settings_version != expected_version:

@@ -1002,6 +1002,9 @@ export const ur: LabelResource = {
   'incidents.history.people': 'لوگ',
   'incidents.impact_details_help': 'کون اور کیا متاثر ہے، اپنے الفاظ میں۔',
   'incidents.keep_requester': 'درخواست گزار برقرار رکھیں',
+  'incidents.kept_informed.help':
+    'انہیں عوامی جوابات ای میل سے ملتے ہیں، نوٹس کبھی نہیں۔ زیادہ سے زیادہ 20۔',
+  'incidents.kept_informed.label': 'باخبر رکھے گئے لوگ',
   'incidents.level_placeholder': 'سطح منتخب کریں',
   'incidents.links.add': 'منسلک کریں',
   'incidents.links.comment': 'تبصرہ (اختیاری)',
@@ -1238,6 +1241,15 @@ export const ur: LabelResource = {
   'incidents.worklogs.why_cost': 'ہر لاگت مکمل کریں: رقم، اور کسی اور کرنسی کے لیے اس کی شرح۔',
   'incidents.worklogs.why_end': 'کام ختم ہونے کا وقت یا اس میں لگنے والا وقت درج کریں۔',
   'incidents.worklogs.why_start': 'کام شروع ہونے کا وقت درج کریں۔',
+  'kept_informed.reply.body':
+    'آپ کو {{id}} "{{subject}}" کے بارے میں باخبر رکھا جاتا ہے۔ نیا جواب:\n\n{{reply}}\n\nیہ ای میلز روکنے کے لیے: {{stop}}',
+  'kept_informed.reply.subject': '{{id}} پر اپ ڈیٹ: {{subject}}',
+  'kept_informed.stop.ask': '{{id}} کی اپ ڈیٹس {{address}} کو بھیجنا بند کریں؟',
+  'kept_informed.stop.button': 'یہ ای میلز روکیں',
+  'kept_informed.stop.done': 'ہو گیا۔ {{address}} کو {{id}} کی مزید اپ ڈیٹس نہیں ملیں گی۔',
+  'kept_informed.stop.gone':
+    'یہ لنک اب کام نہیں کرتا۔ شاید یہ پہلے استعمال ہو چکا ہے یا اس کی مدت ختم ہو گئی ہے۔',
+  'kept_informed.stop.title': 'اس ریکارڈ کی ای میلز روکیں',
   'known_problem.being_worked_on':
     'ہمیں اس مسئلے کا علم ہے اور ہم اسے ٹھیک کرنے پر کام کر رہے ہیں۔',
   'known_problem.fixed': 'اس کی وجہ بننے والا مسئلہ ٹھیک کر دیا گیا۔',
@@ -1282,6 +1294,7 @@ export const ur: LabelResource = {
   'link_relation.merged_into': 'میں ضم کیا گیا',
   'link_relation.related': 'متعلقہ',
   'link_relation.started_release': 'ریلیز شروع کی',
+  'mail_commands.priority_reason': 'اس واقعے کو کھولنے والی ای میل میں سیٹ کی گئی',
   'my_tasks.blocked': 'دوسرے کاموں کا انتظار',
   'my_tasks.none': 'آپ کے لیے کوئی کھلا کام نہیں۔',
   'my_tasks.title': 'میرے کام',
@@ -2375,7 +2388,10 @@ export const ur: LabelResource = {
   'work_item.field.last_reopened_at': 'آخری بار دوبارہ کھلا',
   'work_item.field.level': 'سطح',
   'work_item.field.link': 'ربط',
+  'work_item.field.mail_cc': 'ای میل کا Cc',
+  'work_item.field.mail_commands': 'ای میل کے احکام',
   'work_item.field.note_visibility': 'نوٹ کی مرئیت',
+  'work_item.field.notify_emails': 'باخبر رکھے گئے لوگ',
   'work_item.field.on_behalf_of_id': 'کی جانب سے',
   'work_item.field.open_work_confirmed': 'کھلے کام کی تصدیق',
   'work_item.field.outage_ended_at': 'تعطل کا اختتام',
@@ -2456,6 +2472,10 @@ export const ur: LabelResource = {
   'work_item.history.linked': '{{who}} نے ایک ربط شامل کیا ({{kind}})',
   'work_item.history.logged': '{{who}} نے {{duration}} درج کیے ({{type}})',
   'work_item.history.logged_for': '{{who}} نے {{person}} کے لیے {{duration}} درج کیے ({{type}})',
+  'work_item.history.mail_cc.not_verified':
+    'اس ای میل کے Cc میں موجود لوگوں کو باخبر نہیں رکھا گیا: بھیجنے والے کی تصدیق نہیں ہو سکی',
+  'work_item.history.mail_commands.not_verified':
+    'اس ای میل کے احکام لاگو نہیں ہوئے: بھیجنے والے کی تصدیق نہیں ہو سکی',
   'work_item.history.reapproval_restarted':
     '{{who}} نے اسے دوبارہ منظوری کے لیے بھیجا کیونکہ {{fields}} بدل گیا',
   'work_item.history.set': '{{who}} نے {{field}} {{new}} مقرر کیا',

@@ -411,6 +411,30 @@ async def find_site(session: AsyncSession, value: str) -> uuid.UUID | None:
 
 # --- support groups -------------------------------------------------------------------------------
 
+
+async def find_group(session: AsyncSession, value: str) -> uuid.UUID | None:
+    """An active support group by its name, case-insensitive and trimmed.
+
+    For mail commands (WP-046a S6: `group = Network`). None when there is none, or more than one
+    by that name.
+    """
+    name = value.strip().lower()
+    if not name:
+        return None
+    found = list(
+        await session.scalars(
+            select(SupportGroup.id)
+            .where(
+                func.lower(SupportGroup.name) == name,
+                SupportGroup.deleted_at.is_(None),
+                SupportGroup.disabled_at.is_(None),
+            )
+            .limit(2)
+        )
+    )
+    return found[0] if len(found) == 1 else None
+
+
 GROUP_FIELDS = ("name", "description", "email", "sender_name")
 
 
@@ -737,6 +761,18 @@ async def active_unit_ids(
         )
     )
     return frozenset(found)
+
+
+async def site_names(session: AsyncSession, ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The names of these sites of the session's tenant (RLS), read only; unknown IDs are absent.
+
+    Removed sites keep their name here, so something that happened at a site removed since
+    (a sign-in notice, a history line) still names it.
+    """
+    if not ids:
+        return {}
+    rows = await session.execute(select(Site.id, Site.name).where(Site.id.in_(list(ids))))
+    return dict(rows.tuples().all())
 
 
 async def leave_groups(

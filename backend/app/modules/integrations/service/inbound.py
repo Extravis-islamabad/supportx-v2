@@ -34,15 +34,19 @@ from app.modules.identity_access import (
 from app.modules.integrations.domain.mailboxes import (
     PER_SENDER_LIMIT,
     WAITING,
+    BlockKind,
+    BlockRule,
     MailboxCreates,
+    MailboxProtocol,
     MailboxRules,
     Outcome,
     UnknownSenders,
+    blocked_by,
     releasable,
     route,
 )
 from app.modules.integrations.events import MailboxMailHeld
-from app.modules.integrations.infra.models import Mailbox, MailFetched
+from app.modules.integrations.infra.models import MailBlockRule, Mailbox, MailFetched
 from app.modules.integrations.service import attachments
 from app.modules.notifications import records_for_mail
 from app.shared.events import record_event
@@ -50,7 +54,13 @@ from app.shared.files.ports import OwnerType
 from app.shared.labels import plain_label
 from app.shared.mail import Language, MailRefused, OutgoingMail, mail_configured, queue_mail
 from app.shared.mail.domain.inbound import InboundMessage, parse, reply_text, request_text
-from app.shared.mail.ports import FoundRecord, InboundRefused, InboundTarget, inbound_target
+from app.shared.mail.ports import (
+    CreatedRecord,
+    FoundRecord,
+    InboundRefused,
+    InboundTarget,
+    inbound_target,
+)
 
 log = get_logger(__name__)
 RECORD_TYPE = "incident"  # what mailboxes create at MVP (service requests join with WP-030)
@@ -70,6 +80,18 @@ def body_html(text: str) -> str:
 def _first_line(text: str) -> str:
     """The first line with words, for a mail without a subject (the incident side fits it)."""
     return next((line.strip() for line in text.splitlines() if line.strip()), "")
+
+
+def _parse(mailbox: Mailbox, raw: bytes) -> InboundMessage:
+    """The message, believing only the servers this mailbox trusts (WP-046a S6)."""
+    return parse(
+        raw,
+        trusted_servers=tuple(mailbox.trusted_servers),
+        # Microsoft's unnamed header, only for a Microsoft 365 mailbox (saving refuses it
+        # elsewhere; checked again here in case the protocol changed since).
+        trust_provider=mailbox.trust_provider_results
+        and mailbox.protocol == MailboxProtocol.GRAPH.value,
+    )
 
 
 def _rules(mailbox: Mailbox) -> MailboxRules:
@@ -225,6 +247,8 @@ class _Context:
     sender_id: uuid.UUID | None
     # Attachments refused only when stored (quota, permission): kept on the ledger row.
     not_kept: list[attachments.NotKept] = field(default_factory=list)
+    # Our own addresses: never kept informed of a record (a loop with ourselves).
+    own: tuple[str, ...] = ()
 
     def ledger_params(self) -> dict[str, str]:
         """The ledger row's params: which attachments could not be kept, if any."""
@@ -335,13 +359,55 @@ async def _create(ctx: _Context, *, create_requester: bool) -> Outcome:
         + attachments.not_kept_html(screened.not_kept, language),
         group_id=ctx.mailbox.group_id,
         message_id=ctx.message.message_id,
+        text=ctx.message.text,
+        sender_verified=ctx.message.sender_verified,
+        cc=tuple(a for a in ctx.message.cc if a not in {o.lower() for o in ctx.own}),
     )
     await _keep_files(
         ctx, screened, owner=(OwnerType.WORK_ITEM, created.record_id), person=requester
     )
+    await _commands_answer(ctx, created, requester)
     return await _finish(
         ctx.session, ctx.mailbox, ctx.message, Outcome.CREATED,
-        record=(created.record_type, created.record_id), params=ctx.ledger_params(),
+        record=(created.record_type, created.record_id),
+        params=ctx.ledger_params() | _commands_params(created),
+    )  # fmt: skip
+
+
+def _commands_params(created: CreatedRecord) -> dict[str, str]:
+    """The ledger row says what became of the mail's commands (lane B's condition 7)."""
+    if created.commands_not_verified:
+        return {"commands": "not_verified"}
+    if created.commands_applied or created.commands_not_applied:
+        return {
+            "commands_applied": str(created.commands_applied),
+            "commands_not_applied": str(len(created.commands_not_applied)),
+        }
+    return {}
+
+
+async def _commands_answer(ctx: _Context, created: CreatedRecord, person: uuid.UUID) -> None:
+    """Tell the sender which command lines were not applied, and why (REQ-INC-025 AC2)."""
+    if created.commands_not_verified:
+        # Logged without the mail's text (lane B's condition 7); the record's history says so.
+        log.info("mail_commands_not_verified", mailbox_id=str(ctx.mailbox.id))
+        return
+    if not created.commands_not_applied:
+        return
+    language = await attachments.language_of(ctx.session, person)
+    lines = "\n".join(
+        plain_label(
+            "mailbox_answer.commands_line",
+            language,
+            line=str(item.line),
+            text=item.text,
+            reason=plain_label(f"mail_command_problem.{item.problem}", language),
+        )
+        for item in created.commands_not_applied
+    )
+    await _answer(
+        ctx.session, ctx.settings, ctx.mailbox, ctx.message, "mailbox_answer.commands_not_applied",
+        person=person, id=created.display_id, lines=lines,
     )  # fmt: skip
 
 
@@ -367,6 +433,13 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
         )
     sender_id = await person_by_email(session, message.sender) if message.sender else None
     recent = 0 if vouched else await _recent(session, message.sender) - 1  # minus this one
+    # A released message is let through by the admin who released it (REQ-INC-026 AC2).
+    blocked = not vouched and blocked_by(
+        await block_rules(session),
+        sender=message.sender,
+        subject=message.subject,
+        text=message.text,
+    )
     decision = route(
         mailbox=_rules(mailbox),
         automatic=message.automatic,
@@ -376,10 +449,11 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
         answers_record=found is not None,
         sender_known=sender_id is not None,
         size=size,
+        blocked=blocked,
     )
     if target is None:
         return await _finish(session, mailbox, message, Outcome.HELD, reason="no_target")
-    ctx = _Context(session, settings, mailbox, message, target, sender_id)
+    ctx = _Context(session, settings, mailbox, message, target, sender_id, own=own_addresses)
     if decision.outcome is Outcome.AUTOMATIC and found is not None:
         return await _automatic(ctx, found, decision.reason)
     if decision.outcome not in (Outcome.CREATED, Outcome.REPLIED):
@@ -406,12 +480,44 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
         )
 
 
+async def block_rules(session: AsyncSession) -> list[BlockRule]:
+    """The tenant's enabled block rules (REQ-INC-026)."""
+    rows = await session.execute(
+        select(MailBlockRule.kind, MailBlockRule.value).where(
+            MailBlockRule.deleted_at.is_(None), MailBlockRule.enabled.is_(True)
+        )
+    )
+    return [BlockRule(BlockKind(kind), value) for kind, value in rows]
+
+
+async def expire_quarantine(session: AsyncSession, mailbox: Mailbox, now: datetime) -> int:
+    """Blocked mail older than the mailbox's quarantine days: its copy goes, the row stays.
+
+    Kept in the ledger as discarded (reason `quarantine_expired`), so the mail page's counts and
+    the history of what was blocked remain; only the message itself is removed (REQ-INC-026).
+    """
+    cutoff = now - timedelta(days=mailbox.quarantine_days)
+    rows = list(
+        await session.scalars(
+            select(MailFetched).where(
+                MailFetched.mailbox_id == mailbox.id,
+                MailFetched.outcome == Outcome.BLOCKED.value,
+                MailFetched.created_at < cutoff,
+            )
+        )
+    )
+    for row in rows:
+        row.outcome, row.reason, row.raw = Outcome.DISCARDED.value, "quarantine_expired", None
+        row.updated_at = now
+    return len(rows)
+
+
 async def _keep_while_held(
     session: AsyncSession, mailbox: Mailbox, message: InboundMessage, raw: bytes | None
 ) -> None:
     row = await session.get(MailFetched, (mailbox.tenant_id, mailbox.id, message.message_id[:500]))
     if row is not None:
-        row.raw = raw if row.outcome == Outcome.HELD.value else None
+        row.raw = raw if row.outcome in (Outcome.HELD.value, Outcome.BLOCKED.value) else None
 
 
 async def process(
@@ -423,7 +529,7 @@ async def process(
     own_addresses: tuple[str, ...],
 ) -> Outcome | None:
     """Handle one fetched message; None when it was handled before (skip, but mark it)."""
-    message = parse(raw)
+    message = _parse(mailbox, raw)
     if not await _claim(session, mailbox, message):
         return None
     outcome = await _handle(
@@ -455,7 +561,7 @@ async def release(  # noqa: PLR0913 - the message and who vouches for it, explic
     raw = row.raw
     if raw is None:
         raise NotWaiting
-    message = parse(raw)
+    message = _parse(mailbox, raw)
     outcome = await _handle(
         session, settings, mailbox, message, len(raw), own_addresses=own_addresses, vouched=True
     )
