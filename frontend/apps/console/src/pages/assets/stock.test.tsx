@@ -89,9 +89,9 @@ const received: AssetMovement = {
   created_by: null,
 };
 
-function api(routes = {}) {
+function api(routes = {}, locale: 'en' | 'ar' | 'ur' = 'en') {
   return consoleApi({
-    me: fakeSession({ roles: ['tenant_admin'] }),
+    me: fakeSession({ roles: ['tenant_admin'], locale }),
     routes: {
       'GET /api/v1/assets/consumables': { body: [consumable] },
       [`GET /api/v1/assets/consumables/${consumable.id}`]: {
@@ -133,6 +133,26 @@ describe('console: consumables', () => {
     const filter = screen.getByTestId('consumables-site');
     expect(within(filter).getByText('All sites')).toBeTruthy();
     expect(within(filter).queryByText('No site')).toBeNull();
+  });
+
+  it('stock by site reads "<site>: <amount>" in order, in Arabic too (QA 2026-11-12 V-14)', async () => {
+    for (const locale of ['en', 'ar'] as const) {
+      window.history.pushState({}, '', '/assets/consumables');
+      const fake = api({}, locale);
+      restore = fake.restore;
+      const { unmount } = render(<App />);
+      const line = await screen.findByTestId('consumable-stock-st-1');
+      await waitFor(() => {
+        expect(stripIsolates(line.textContent)).toContain('Head office: 2');
+      });
+      if (locale === 'ar') {
+        expect(document.documentElement.getAttribute('dir')).toBe('rtl');
+        // Each value in its own isolate (FSI … PDI): the colon stays after the site in RTL.
+        expect(line.textContent).toContain('\u2068Head office\u2069: \u20682\u2069');
+      }
+      unmount();
+      fake.restore();
+    }
   });
 
   it('says below or at the minimum as it is, and the unit cost with its currency (F-15)', async () => {

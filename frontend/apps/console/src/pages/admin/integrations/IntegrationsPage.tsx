@@ -82,8 +82,9 @@ function KindCard({ kind }: { kind: ConnectorKind }) {
     kind.manage_reason != null ? t(`connector_manage_reason.${kind.manage_reason}`) : null;
   const navigate = useNavigate();
   const setUp = (
+    // A default button: one per connector kind, so a primary one each made several primary
+    // actions on one screen (QA 2026-11-12 V-11).
     <Button
-      type="primary"
       disabled={!kind.can_manage}
       onClick={() => {
         void navigate(kind.page);

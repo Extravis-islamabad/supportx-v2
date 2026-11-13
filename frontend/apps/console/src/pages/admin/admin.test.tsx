@@ -108,6 +108,21 @@ describe('Admin › Roles', () => {
     expect(within(table).queryByText('tenant_admin')).toBeNull(); // never the code
   });
 
+  it('one primary action ("New role"); "Built-in" stays on one line (QA 2026-11-12 V-11)', async () => {
+    adminRoutes({
+      routes: {
+        'GET /api/v1/access-settings': {
+          body: { technician_scope: 'group', answered_at: '2026-10-27T08:00:00Z', version: 1 },
+        },
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('technician-visibility-save');
+    const primary = document.querySelectorAll('main .ant-btn-primary');
+    expect([...primary].map((b) => b.getAttribute('data-testid'))).toEqual(['new-role']);
+    expect(screen.getByTestId('role-type-tenant_admin').style.whiteSpace).toBe('nowrap');
+  });
+
   it('builds a role from the permission matrix; locked permissions cannot be chosen', async () => {
     const fake = adminRoutes({
       routes: {
