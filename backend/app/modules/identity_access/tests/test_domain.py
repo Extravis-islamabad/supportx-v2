@@ -182,3 +182,10 @@ def test_session_refresh_window_and_round_trip() -> None:
     assert Session.from_dict(s.to_dict()) == s
     for token_field in ("access_token", "refresh_token", "id_token"):
         assert token_field not in repr(s)  # tokens never end up in logs via repr
+
+
+def test_a_session_from_a_newer_release_still_reads() -> None:
+    """Rolling updates (§14.3): fields a later release adds are ignored, never a crash."""
+    s = session()
+    newer = {**s.to_dict(), "sign_in_ip": "192.0.2.7", "a_future_field": {"x": 1}}
+    assert Session.from_dict(newer) == s
