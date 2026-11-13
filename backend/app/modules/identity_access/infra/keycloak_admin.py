@@ -119,7 +119,13 @@ class IdentityAdmin(Protocol):
     async def find_user(self, email: str) -> KeycloakUser | None: ...  # noqa: D102
 
     async def create_user(  # noqa: D102
-        self, *, email: str, first_name: str, last_name: str, locale: str
+        self,
+        *,
+        email: str,
+        first_name: str,
+        last_name: str,
+        locale: str,
+        email_verified: bool = True,
     ) -> str: ...
 
     async def delete_user(self, user_id: str) -> None: ...  # noqa: D102
@@ -419,8 +425,11 @@ class KeycloakAdmin:
             raise IdentityAdminUnavailable
         if response.status_code >= httpx.codes.BAD_REQUEST:
             try:
-                message = str(response.json().get("errorMessage", ""))
-            except ValueError:
+                body = response.json()
+                # Most refusals say `errorMessage`; a password policy's says `error` (checked on
+                # 26.8.1: {"error": "invalidPasswordMinLengthMessage", "error_description": ...}).
+                message = str(body.get("errorMessage") or body.get("error") or "")
+            except (ValueError, AttributeError):
                 message = ""
             raise IdentityAdminRefused(response.status_code, message)
         return response
@@ -541,8 +550,20 @@ class KeycloakAdmin:
                 )
         return None
 
-    async def create_user(self, *, email: str, first_name: str, last_name: str, locale: str) -> str:
-        """A new realm user without a password (they set one from the e-mail); its ID."""
+    async def create_user(
+        self,
+        *,
+        email: str,
+        first_name: str,
+        last_name: str,
+        locale: str,
+        email_verified: bool = True,
+    ) -> str:
+        """A new realm user without a password (they set one from the e-mail); its ID.
+
+        `email_verified` False for a copied invite link (REQ-SEC-021, lane B): nothing has
+        reached that mailbox, so the address is not proven.
+        """
         response = await self._call(
             "POST",
             "/users",
@@ -553,7 +574,7 @@ class KeycloakAdmin:
                 "lastName": last_name,
                 "enabled": True,
                 # Reached through an e-mail SupportX asked for: the address is the person's.
-                "emailVerified": True,
+                "emailVerified": email_verified,
                 "attributes": {"locale": [locale]},
             },
         )
@@ -620,7 +641,9 @@ class KeycloakAdmin:
         held = list(current.get("requiredActions") or [])
         kept = [action for action in held if action not in actions]
         if kept != held:
-            await self._call("PUT", f"/users/{user_id}", json={**current, "requiredActions": kept})
+            # Only the field changed (lane B): a full representation would put back whatever
+            # another change made to the user in between.
+            await self._call("PUT", f"/users/{user_id}", json={"requiredActions": kept})
 
     async def set_password(self, user_id: str, password: str) -> None:
         """Set the user's password, not temporary; the realm's policy applies.

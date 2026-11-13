@@ -69,6 +69,7 @@ class FakeAdmin:
     members: dict[str, set[str]] = field(default_factory=dict)  # org id -> user ids
     account_attributes: dict[str, dict[str, str]] = field(default_factory=dict)
     passwords_set: list[str] = field(default_factory=list)  # account IDs (never the password)
+    verified: dict[str, bool] = field(default_factory=dict)  # e-mail -> emailVerified at create
     emails: list[tuple[str, list[str], int]] = field(default_factory=list)
     required: dict[str, list[str]] = field(default_factory=dict)
     # Keycloak user id -> its credentials (WP-039 session 3: MFA).
@@ -80,8 +81,17 @@ class FakeAdmin:
     async def find_user(self, email: str) -> KeycloakUser | None:
         return next((a for a in self.accounts.values() if a.email == email.lower()), None)
 
-    async def create_user(self, *, email: str, first_name: str, last_name: str, locale: str) -> str:
+    async def create_user(
+        self,
+        *,
+        email: str,
+        first_name: str,
+        last_name: str,
+        locale: str,
+        email_verified: bool = True,
+    ) -> str:
         del first_name, last_name
+        self.verified[email.lower()] = email_verified
         # Fresh IDs like Keycloak's: an account made again after a delete is a new one.
         account = KeycloakUser(
             id=f"kc-{uuid.uuid4().hex[:8]}", email=email.lower(), enabled=True, has_password=False

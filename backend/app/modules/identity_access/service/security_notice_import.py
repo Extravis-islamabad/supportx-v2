@@ -10,8 +10,8 @@ cursor, and hands each tenant its share here. Per event, in the tenant's transac
 - a lock-out says when the account opens at the earliest (a lower bound: our marks can only
   undercount) and at most one lock-out notice goes to a person an hour; the rest are marked
   quiet (lane B: anyone who knows a name can lock it every 15 minutes);
-- a person's first password (no password mark in MARK_RETENTION, made within it) is marked
-  quiet as `password_set`: never "your password changed" on day one (lane B);
+- a person's first password (set before they ever signed in: `_first_password`) is marked quiet
+  as `password_set`: never "your password changed" on day one (lane B);
 - otherwise `AccountSecurityChanged` goes to the outbox, which the locked security notice tells.
 
 Which tenant, when Keycloak names none (no identity provider, no SupportX address): the one
@@ -40,10 +40,11 @@ from app.modules.identity_access.domain.security_notice_import import (
     kind_of,
     lockout_quiet,
 )
+from app.modules.identity_access.domain.sign_in import SignInOutcome
 from app.modules.identity_access.domain.sign_in_import import KeycloakEvent, clean_ip
 from app.modules.identity_access.events import AccountSecurityChanged
 from app.modules.identity_access.infra.geoip import GeoIp
-from app.modules.identity_access.infra.models import SecurityNoticeMark, User
+from app.modules.identity_access.infra.models import SecurityNoticeMark, SignInEvent, User
 from app.modules.identity_access.service import site_networks
 from app.shared.events import record_event
 from app.shared.ids import new_id
@@ -95,7 +96,16 @@ async def sole_tenants(database: Database, subjects: set[str]) -> dict[str, uuid
 
 
 async def _first_password(session: AsyncSession, person: User, at: datetime) -> bool:
-    """Whether this is the person's first password: no password mark lately, a recent account."""
+    """Whether this is the person's first password, set before they ever signed in.
+
+    Keycloak cannot say: 26.8.1 sends the same `custom_required_action: UPDATE_PASSWORD` for the
+    invitation's set-password step and for a later change through the account pages (checked on
+    a private 26.8.1, lane B's #490 review). SupportX can: the BFF logs every completed sign-in,
+    after the set-password step of the same flow. So: no successful sign-in of theirs before the
+    event, no earlier password mark, and an account under MARK_RETENTION old (well inside the
+    sign-in log's 90 days, so a purged log never passes for "never signed in"). Anyone who took
+    over an account that was ever used is told.
+    """
     if person.created_at < at - MARK_RETENTION:
         return False
     earlier = await session.scalar(
@@ -107,7 +117,18 @@ async def _first_password(session: AsyncSession, person: User, at: datetime) -> 
             SecurityNoticeMark.occurred_at < at,
         )
     )
-    return not earlier
+    if earlier:
+        return False
+    signed_in = await session.scalar(
+        select(func.count())
+        .select_from(SignInEvent)
+        .where(
+            SignInEvent.user_id == person.id,
+            SignInEvent.outcome == SignInOutcome.SUCCESS.value,
+            SignInEvent.occurred_at < at,
+        )
+    )
+    return not signed_in
 
 
 async def _lockouts(

@@ -45,6 +45,7 @@ async def test_without_mail_a_link_is_copied_once_and_only_its_hash_is_kept(worl
     invitation = await _invite(world, await _person(world, "link@acme.test"))
     assert invitation["delivery"] == "link"
     assert len(world.admin.emails) == emails_before  # no e-mail asked of Keycloak
+    assert world.admin.verified["link@acme.test"] is False  # no mailbox reached: not proven
     status, first = await _copy(world, str(invitation["id"]), int(str(invitation["version"])))
     assert status == 200, first
     link = urlsplit(str(first["link"]))

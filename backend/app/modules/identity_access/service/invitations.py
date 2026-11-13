@@ -160,6 +160,8 @@ async def _deliver(  # noqa: PLR0913 - the person and how to reach them, keyword
             first_name=person.first_name,
             last_name=person.last_name or "",
             locale=person.ui_locale or person.locale,
+            # A copied link reaches no mailbox: the address stays unproven (lane B).
+            email_verified=send,
         )
     else:
         account = found.id
@@ -472,6 +474,10 @@ async def accept_link(
     row, person = await _linked(session, admin, token, now, lock=True)
     if invite_link.too_long(password):
         raise _password_problem(invite_link.TOO_LONG)
+    # Keycloak is written before this transaction commits (lane B): should the commit then fail,
+    # the person has a password and a still-pending invitation, and signing in accepts it
+    # (`mark_accepted`); the link stays used only once, as the account now has a password and
+    # `_linked` refuses any account that has one.
     try:
         await admin.set_password(row.keycloak_user_id or "", password)
     except IdentityAdminRefused as refused:

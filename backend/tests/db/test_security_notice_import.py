@@ -204,3 +204,38 @@ async def test_marks_go_after_30_days_and_on_erasure(world: World) -> None:
     finally:
         await database.dispose()
     assert await _marks(world, world.a.tenant) == []
+
+
+async def test_a_new_account_that_signed_in_before_is_told_of_a_password_change(
+    world: World,
+) -> None:
+    """Lane B's #490 blocker: account age alone never keeps a change quiet. Keycloak sends the
+    same `custom_required_action` for both paths (26.8.1), so SupportX's own sign-in log
+    decides: someone who ever signed in is told, however new the account."""
+    newcomer = uuid.UUID(await _person(world, "used@acme.test"))
+    subject = f"kc-{uuid.uuid4().hex}"
+    await _subject(world, newcomer, subject)
+    now = _now_ms()
+    signed_in = datetime.fromtimestamp((now - 20 * MINUTE) / 1000, UTC)
+    await _admin_rows(
+        world.db,
+        "INSERT INTO sign_in_events (tenant_id, id, user_id, occurred_at, outcome, method, app,"
+        " source) VALUES ($1, $2, $3, $4, 'success', 'password', 'console', 'bff')",
+        world.a.tenant,
+        uuid.uuid4(),
+        newcomer,
+        signed_in,
+    )
+    reader = FakeReader(
+        [
+            _event(
+                "taken",
+                now - 10 * MINUTE,
+                "UPDATE_CREDENTIAL",
+                user_id=subject,
+                credential="password",
+            )
+        ]
+    )
+    await _run(world, reader, now)
+    assert [t["kind"] for t in await _told(world, world.a.tenant)] == ["password_changed"]
