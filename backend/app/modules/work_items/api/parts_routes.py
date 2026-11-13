@@ -512,7 +512,9 @@ class AllMyTaskOut(WorkItemMyTaskOut):
     record_type: WorkItemTypeCode
 
 
-my_tasks_router = APIRouter(prefix="/my-tasks", tags=["work_items"])
+my_tasks_router = APIRouter(
+    prefix="/my-tasks", tags=["work_items"], dependencies=[Depends(rate_limit("work_items"))]
+)
 
 
 @my_tasks_router.get("", summary="Your open tasks on every type")

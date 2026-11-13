@@ -5,7 +5,7 @@ opaque random ID in an HttpOnly cookie.
 """
 
 import uuid
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -131,4 +131,7 @@ class Session:
         for key in ("created_at", "last_seen_at", "access_expires_at"):
             values[key] = datetime.fromisoformat(values[key])
         values["tenants"] = [TenantChoice(**t) for t in values["tenants"]]
-        return cls(**values)
+        # Fields a later release added are left out, never a TypeError: during a rolling update
+        # this release reads sessions the next one wrote (lane C's S1b finding, #459).
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in values.items() if k in known})

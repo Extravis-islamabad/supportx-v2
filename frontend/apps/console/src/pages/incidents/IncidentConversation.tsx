@@ -39,6 +39,7 @@ import {
   type ConversationEntry,
   type EntryKind,
   fetchMentionable,
+  fillReplyTemplate,
   sendTyping,
   type Incident,
   type IncidentHistoryEntry,
@@ -610,7 +611,7 @@ function Composer({
   const { can } = useAccess();
   const base = useContext(BaseContext);
   const add = useAddConversationEntry(item.id, base);
-  const templates = useReplyTemplates();
+  const templates = useReplyTemplates(true, 'reply', null, base);
   const me = useSession().data?.user.id;
   // Files for this entry wait as the author's drafts until it is saved (WP-022).
   const [draftIds, setDraftIds] = useState<string[]>([]);
@@ -791,7 +792,14 @@ function Composer({
             : 'conversation.reply_placeholder',
         )}
         mentions={mentions}
-        templates={templates.data}
+        templates={templates.data?.map((template) => ({
+          id: template.id,
+          name: template.name,
+          body: template.body,
+          // Filled by the server for this record, in the requester's language (REQ-INC-041).
+          fill: () =>
+            fillReplyTemplate(item.id, template.id, null, base).then((filled) => filled.body),
+        }))}
         extraTools={(insert) => (
           <>
             {knowledgeTools?.(insert)}

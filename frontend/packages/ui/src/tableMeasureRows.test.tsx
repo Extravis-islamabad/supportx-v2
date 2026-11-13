@@ -5,9 +5,11 @@ import { waitFor } from '@testing-library/react';
 import { renderUi } from './test/render';
 
 // A selectable table that scrolls sideways copies its "select all" checkbox into the hidden
-// measure row (rc-table 7.54): that row must be inert (axe aria-hidden-focus; Cluster 43313118567).
+// measure row (rc-table 7.54): the copy is out of the tab order (axe aria-hidden-focus; Cluster
+// 43313118567), while the row itself keeps its own tabindex for axe's scrollable-region-focusable
+// on a table with no rows (Stack smoke 43360374564).
 describe('table measure rows', () => {
-  it('are inert, so the copied header controls are out of the focus order', async () => {
+  it('keep their copied controls out of the tab order, and the row itself as it was', async () => {
     const { container } = renderUi(
       <Table
         rowKey="id"
@@ -22,7 +24,13 @@ describe('table measure rows', () => {
       const rows = container.querySelectorAll('.ant-table-measure-row');
       expect(rows.length).toBeGreaterThan(0);
       rows.forEach((row) => {
-        expect(row.hasAttribute('inert')).toBe(true);
+        expect(row.hasAttribute('inert')).toBe(false);
+        expect(row.getAttribute('tabindex')).toBe('-1');
+        const controls = row.querySelectorAll('input, button, a[href]');
+        expect(controls.length).toBeGreaterThan(0); // the copied select-all checkbox
+        controls.forEach((control) => {
+          expect(control.getAttribute('tabindex')).toBe('-1');
+        });
       });
     });
   });

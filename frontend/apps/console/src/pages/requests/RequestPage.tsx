@@ -142,7 +142,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   const reload = () => queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(r.id) });
   const catalogue = useServiceRequestCatalogue();
   const act = useServiceRequestAction(r.id);
-  const status = useStatusActions(r, catalogue.data, act);
+  const status = useStatusActions(r, catalogue.data, act, 'service-requests');
   const takeRequest = useTakeServiceRequest(r.id);
   const op = (name: string) => r.operations.find((o) => o.action === name);
   const take = useTakeAction(r, op('take'), takeRequest);

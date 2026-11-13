@@ -18,6 +18,7 @@ import { useState } from 'react';
 import {
   useCustomFields,
   useIncidentCatalogue,
+  useIncidentCategories,
   useIncidentTemplateChange,
   useUnits,
   type FieldRule,
@@ -25,6 +26,13 @@ import {
   type Labels,
   type TemplateField,
 } from '@supportx/api-client';
+import {
+  asFormRules,
+  completeLayout,
+  type FilterFieldOption,
+  type FormLayout,
+  type FormRule,
+} from '@supportx/forms';
 import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
@@ -40,7 +48,7 @@ import {
 import { CustomFieldControl } from '../../customFields/fields';
 import { fieldName } from '../../customFields/values';
 import { CategoryCascade } from '../../incidents/CategoryCascade';
-import { listValueLabel, scaleLabel, templateLabel } from '../../incidents/labels';
+import { categoryLabel, listValueLabel, scaleLabel, templateLabel } from '../../incidents/labels';
 import { GroupPicker, SitePicker } from '../../incidents/pickers';
 import { TagsInput } from '../../incidents/TagsInput';
 import {
@@ -50,6 +58,8 @@ import {
   templateView,
   useTemplatePartName,
 } from './helpers';
+import { FormLayoutDesigner } from './FormLayoutDesigner';
+import { FormRulesEditor } from './FormRulesEditor';
 import { LabelsFields, Problems } from './shared';
 
 const FIELDS: TemplateField[] = [
@@ -166,6 +176,15 @@ export function TemplateEditor({
     ),
   }));
   const [defaults, setDefaults] = useState<Defaults>(template?.defaults ?? {});
+  // The form designer's layout and the form rules (WP-046a S5b; REQ-INC-036, -037).
+  const [layout, setLayout] = useState<FormLayout | null>(
+    (template?.layout ?? null) as FormLayout | null,
+  );
+  const [formRules, setFormRules] = useState<FormRule[]>(() =>
+    asFormRules(template?.form_rules ?? []),
+  );
+  const categories = useIncidentCategories();
+  const sites = useUnits('sites');
   const [problems, setProblems] = useState<string[]>([]);
   // Custom fields in use on new incidents (retired ones take no values) follow the built-in ones.
   const custom = (customFields.data ?? []).filter((f) => !f.retired);
@@ -180,6 +199,58 @@ export function TemplateEditor({
   const setDefault = (f: string, value: unknown) => {
     setDefaults({ ...defaults, [f]: value });
   };
+  // What a rule's condition may test: the form's choice fields, with their choices, so the
+  // shared filter builder offers only operators the rule evaluator knows (REQ-INC-037).
+  const choice = (
+    name: string,
+    choices: { value: string; label: string }[],
+  ): FilterFieldOption => ({
+    name,
+    type: 'enum',
+    label: fieldLabel(name),
+    choices,
+  });
+  const unitChoices = (units: { id: string; name: string }[] | undefined) =>
+    (units ?? []).map((u) => ({ value: u.id, label: u.name }));
+  const conditionFields: FilterFieldOption[] = [
+    choice(
+      'category_id',
+      (categories.data ?? []).map((c) => ({ value: c.id, label: categoryLabel(t, c, locale) })),
+    ),
+    ...(['impact', 'urgency'] as const).map((scale) =>
+      choice(
+        scale,
+        (scale === 'impact' ? IMPACTS : URGENCIES).map((code) => ({
+          value: code,
+          label: scaleLabel(t, catalogue.data, scale, code, locale),
+        })),
+      ),
+    ),
+    choice(
+      'level',
+      (catalogue.data?.levels ?? []).map((v) => ({
+        value: v.code,
+        label: listValueLabel(t, 'level', v, locale),
+      })),
+    ),
+    choice('site_id', unitChoices(sites.data)),
+    choice('group_id', unitChoices(groupList.data)),
+    ...custom.flatMap((f): FilterFieldOption[] => {
+      const name = `${CUSTOM}${f.key}`;
+      if (f.field_type === 'yes_no') return [{ name, type: 'boolean', label: fieldLabel(name) }];
+      if (f.field_type !== 'choice' && f.field_type !== 'multi_choice') return [];
+      return [
+        choice(
+          name,
+          f.choices.flatMap((c) =>
+            c.code == null
+              ? []
+              : [{ value: c.code, label: c.labels[locale] ?? c.labels.en ?? c.code }],
+          ),
+        ),
+      ];
+    }),
+  ];
   const shippedName =
     template !== null && template.code !== null
       ? templateLabel(t, { ...template, labels: null }, locale)
@@ -201,6 +272,8 @@ export function TemplateEditor({
       ),
     });
     setDefaults(next.defaults);
+    setLayout(next.layout ?? null);
+    setFormRules(asFormRules(next.form_rules ?? []));
     setProblems([]);
   };
   const save = (version = template?.version ?? 0) => {
@@ -225,6 +298,8 @@ export function TemplateEditor({
       // Only fields that exist now: a rule left by a removed field is dropped (AC4).
       fields: Object.fromEntries(rows.map((name) => [name, ruleOf(name)])),
       defaults: cleanDefaults,
+      layout: layout === null ? null : completeLayout(layout),
+      form_rules: formRules,
     };
     change.mutate(
       template === null
@@ -612,6 +687,21 @@ export function TemplateEditor({
             </Form.Item>
           ))}
       </Form>
+      <FormLayoutDesigner
+        value={layout}
+        onChange={setLayout}
+        fields={rows}
+        requesterFields={rows.filter((f) => ruleOf(f).requester_can_see)}
+        fieldLabel={fieldLabel}
+      />
+      <FormRulesEditor
+        value={formRules}
+        onChange={setFormRules}
+        conditionFields={conditionFields}
+        fields={rows}
+        fixed={new Set<string>(FIXED)}
+        fieldLabel={fieldLabel}
+      />
       <ConflictDialog
         open={conflict.open}
         error={conflict.error}

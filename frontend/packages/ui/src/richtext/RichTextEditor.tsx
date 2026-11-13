@@ -33,6 +33,7 @@ import { TableKit } from '@tiptap/extension-table';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Button, Divider, Dropdown, Flex, Input, Modal, Select, Tooltip } from 'antd';
+import type { Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -48,6 +49,7 @@ import { queryKeys, useFileRules, type FileRules } from '@supportx/api-client';
 import { usePersonalChannel } from '@supportx/realtime';
 
 import { useAppearance, useLabel } from '../appearance';
+import { reportError } from '../errors/reporter';
 import {
   BlockFormat,
   CALLOUTS,
@@ -399,6 +401,40 @@ function Toolbar({
 }) {
   const t = useLabel();
   const { direction } = useAppearance();
+  // Templates the server is filling for this record (WP-046a S5a; lane C's conditions): the
+  // text goes where the click was, once, and only while the editor is still open. A failed
+  // fill inserts nothing (never the raw text with its {{ variables }}) and is reported.
+  const [filling, setFilling] = useState<ReadonlySet<string>>(new Set());
+  const pending = useRef(new Set<string>());
+  const insertFilled = (id: string, fill: () => Promise<string>): void => {
+    if (pending.current.has(id)) return;
+    pending.current.add(id);
+    setFilling(new Set(pending.current));
+    // Where the click was, kept in step with edits made while the server fills (lane C):
+    // typing before it would otherwise move the text a few characters off.
+    let range = { from: editor.state.selection.from, to: editor.state.selection.to };
+    const follow = ({ transaction }: { transaction: Transaction }): void => {
+      range = {
+        from: transaction.mapping.map(range.from, -1),
+        to: transaction.mapping.map(range.to, 1),
+      };
+    };
+    editor.on('transaction', follow);
+    const done = (): void => {
+      editor.off('transaction', follow);
+      pending.current.delete(id);
+      setFilling(new Set(pending.current));
+    };
+    fill()
+      .then((html) => {
+        if (!html || editor.isDestroyed) return;
+        const size = editor.state.doc.content.size;
+        if (range.to <= size) editor.chain().focus().insertContentAt(range, html).run();
+        else editor.chain().focus().insertContent(html).run();
+      })
+      .catch(reportError)
+      .finally(done);
+  };
   const [linking, setLinking] = useState(false);
   const [href, setHref] = useState('');
   // How much of the toolbar fits on one row, measured rather than guessed from fixed widths: a
@@ -810,7 +846,14 @@ function Toolbar({
                 : templates.map((template) => ({
                     key: template.id,
                     label: <bdi dir="auto">{template.name}</bdi>,
-                    onClick: () => chain().insertContent(template.body).run(),
+                    disabled: filling.has(template.id),
+                    onClick: () => {
+                      if (template.fill === undefined) {
+                        chain().insertContent(template.body).run();
+                        return;
+                      }
+                      insertFilled(template.id, template.fill);
+                    },
                   }))),
               ...(onManageTemplates === undefined
                 ? []

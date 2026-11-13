@@ -21,7 +21,7 @@ import {
 } from './appearance';
 import type { Density } from './density';
 import { useDropdownFit } from './dropdownFit';
-import { useInertTableMeasureRows } from './tableMeasureRows';
+import { useUntabbedTableMeasureRows } from './tableMeasureRows';
 import { useSelectAria } from './selectAria';
 import { buildTheme, DEFAULT_BRANDING, type Branding, type ThemeMode } from './theme';
 import { MODE_STORAGE_KEY, storedMode, systemMode } from './themeMode';
@@ -191,8 +191,8 @@ export function AppearanceProvider({
 
   useFavicon(brand);
   useDropdownFit();
-  // Tables' hidden measure rows hold copies of header controls: out of the focus order.
-  useInertTableMeasureRows();
+  // Tables' hidden measure rows hold copies of header controls: out of the tab order.
+  useUntabbedTableMeasureRows();
   useSelectAria();
   const appearance = useMemo<Appearance>(
     () => ({

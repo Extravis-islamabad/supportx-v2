@@ -233,6 +233,8 @@ export {
   useIncidentConversation,
   useIncidentCounters,
   useIncidentFollowers,
+  fillReplyTemplate,
+  useManagedReplyTemplates,
   useReplyTemplateChange,
   useReplyTemplates,
   type ConversationAdded,
@@ -245,7 +247,10 @@ export {
   type Mentionable,
   type PersonalCounter,
   type ReplyMode,
+  type FilledTemplate,
   type ReplyTemplate,
+  type ReplyTemplateInput,
+  type ReplyTemplateKind,
   type Visibility,
 } from './conversation';
 export {

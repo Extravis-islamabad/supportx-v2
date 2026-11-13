@@ -1362,6 +1362,57 @@ it with no reload (rule c). Not built yet.
     by a sweep, live on the personal channel.
   - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
     reserved for S3).
+- **S5a (0154; REQ-INC-041, -042; reply and resolution templates):**
+  - A template is a reply (the composer) or a resolution (the resolution editor), with an
+    optional subject and its text in en, ar and ur.
+  - Personal templates are their owner's only, administrators included. Shared ones need the
+    type's settings right to write and may be limited to groups.
+  - Variables come from the one notification catalogue; an unknown one is refused on save.
+    Filling happens on the server: values go in escaped, an empty one reads "not set", and the
+    result is sanitised again.
+  - The language is the screen's choice, then the requester's, then the tenant's default, then
+    any the template has.
+  - Resolution templates of the record's category come first.
+  - Migration 0154 keeps each old text under its tenant's default language. The downgrade is
+    refused once anything new is used.
+  - The shared editor's template menu awaits an optional `fill()` (lane C's conditions). The
+    composer and move dialog fill on the record's own route prefix (incidents, requests).
+  - **Still open:** problems' and changes' move dialogs offer no resolution templates yet.
+    S5b is the form designer and rules, S5c copy, quick create and server drafts.
+- **S5b (0155; REQ-INC-036, -037; form designer and form rules):**
+  - Migration 0155 adds `work_item_templates.layout` and `form_rules` (expand only).
+  - Layouts: sections with names in en, ar and ur, one or two columns, collapsible (optionally
+    starting closed), and labels above or beside. Requesters get their own layout or the
+    technician one. A field no section names goes at the end, so a new custom field is never
+    lost.
+  - Form rules: show, hide (optionally keeping the value), require, lock or set, on a condition.
+    Conditions are a bounded part of the filter DSL: eq, ne, in, not_in, is_null and
+    is_not_null, with and/or nesting at most 3 deep and at most 20 conditions.
+  - The Python and TypeScript evaluators run the same vectors
+    (`docs/architecture/form-rule-vectors.json`, AC3).
+  - The server enforces the rules on every create and edit, from the console, portal, e-mail
+    or API:
+    - a rule's `required` is the same field error as the browser's (AC1);
+    - a hidden field is cleared, through history, unless the rule keeps it (AC2);
+    - a locked field changed by hand is `field_locked`;
+    - a rule's value fills an empty field.
+    - On an edit, a field is required only when the edit newly requires it or empties it
+      (D-086).
+  - The portal gets only the rules and sections over the requester's own fields (036 AC2).
+  - The designer in Admin › Incidents › Templates is keyboard-first: every move is a button or
+    a choice. It previews the technician and requester forms in both reading directions
+    (036 AC3) and links to making a new custom field.
+  - **Still open:**
+    - drag to reorder (keyboard moves for V1, plan answer 3);
+    - the portal form draws only subject and description today, so requester sections take
+      effect there once it shows more fields;
+    - rules over assignment fields don't run on the assign route;
+    - a rule (or a template setting) that requires a field requesters can't fill blocks portal
+      creates from that template, as base template settings already do. Follow-up (lane B): a
+      save-time check on for_requesters templates that refuses or warns when a rule requires,
+      sets or hides a field requesters can't fill;
+    - designer keyboard polish (lane C, non-blocking): keep focus after a move, a remove or at
+      a list's end, and announce moves to screen readers.
 - **S3 PR 1 (0147; REQ-INC-068, -069, -070; D-164):**
   - Worklogs are billable or not, and take their owner's cost per hour when the time started
     (lane B's `cost_rate`, #427; a snapshot, never rewritten). Other-cost lines are in the base
