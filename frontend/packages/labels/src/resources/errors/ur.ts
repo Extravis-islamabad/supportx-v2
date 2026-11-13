@@ -687,6 +687,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_categories':
     'کوئی آئٹم زیادہ سے زیادہ پانچ دیگر کیٹیگریز میں بھی دکھایا جا سکتا ہے۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
+  'errors.field.too_many_copies': 'ایک وقت میں 1 سے {{max}} نقول بنائیں۔',
   'errors.field.too_many_decimals': 'زیادہ سے زیادہ {{max}} اعشاری مقامات استعمال کریں۔',
   'errors.field.too_many_items': 'اندراجات بہت زیادہ ہیں۔',
   'errors.field.too_many_keywords': 'ہر زبان میں زیادہ سے زیادہ 20 کلیدی الفاظ استعمال کریں۔',
@@ -754,6 +755,8 @@ export const ur: LabelResource = {
   'errors.field.workflow_not_published': 'پہلے یہ ورک فلو شائع کریں۔',
   'errors.field.workflow_wrong_record_type': 'یہ ورک فلو کسی اور قسم کے ریکارڈ کے لیے ہے۔',
   'errors.field.would_loop': 'کوئی ریلیز خود اپنا حصہ نہیں بن سکتی، براہ راست یا دوسروں کے ذریعے۔',
+  'errors.field_keys_unavailable':
+    'محفوظ معلومات ابھی پڑھی یا محفوظ نہیں کی جا سکتیں: انسٹالیشن کی کلید دستیاب نہیں۔ اپنے ایڈمنسٹریٹر سے اسے چیک کرنے کو کہیں۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',
   'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',

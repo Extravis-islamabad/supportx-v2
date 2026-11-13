@@ -52,3 +52,15 @@ def test_the_claim_is_mounted_read_only_into_the_api_only() -> None:
         name for name, doc in deployments.items() if name != "supportx-api" and "geoip" in doc
     ]
     assert others == []  # workers and the rest never get it
+
+
+def test_the_file_must_be_a_plain_name_on_the_claim() -> None:
+    """Lane B (#486): never a path, so the setting cannot point outside the mounted claim."""
+    for bad in ("../etc/passwd", "..", "."):
+        done = subprocess.run(  # noqa: S603 - the test's own helm call
+            ["helm", "template", "supportx", str(CHART), "-n", "supportx", *BASE,  # noqa: S607
+             "--set", "geoip.existingClaim=place-db", "--set", f"geoip.file={bad}"],
+            capture_output=True, text=True, check=False,
+        )  # fmt: skip
+        assert done.returncode != 0, bad
+        assert "geoip.file must be a plain file name" in done.stderr
