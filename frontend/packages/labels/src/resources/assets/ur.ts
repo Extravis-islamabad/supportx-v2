@@ -788,7 +788,7 @@ export const ur: LabelResource = {
   'assets.record.history': 'تاریخچہ',
   'assets.record.history_created': 'اثاثہ شامل کیا',
   'assets.record.inactive': 'غیر فعال',
-  'assets.record.linked_record': '{{display_id}} اس اثاثے سے منسلک کیا گیا',
+  'assets.record.linked_record': '{{display_id}} کو اس اثاثے سے منسلک کیا گیا',
   'assets.record.linked_record_unnamed': 'ایک ریکارڈ اس اثاثے سے منسلک کیا گیا',
   'assets.record.linked_work_item': 'منسلک ریکارڈ',
   'assets.record.loanable': 'ادھار کے قابل',
