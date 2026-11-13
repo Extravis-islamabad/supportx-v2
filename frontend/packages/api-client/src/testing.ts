@@ -895,6 +895,7 @@ export function fakeNotificationRule(
     record_type: 'incident',
     category: 'created',
     required: false,
+    locked: false,
     is_default: true,
     enabled: true,
     recipients: ['requester'],

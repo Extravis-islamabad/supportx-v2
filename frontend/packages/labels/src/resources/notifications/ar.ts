@@ -207,6 +207,9 @@ export const ar: LabelResource = {
   'notification_rules.col.status': 'فقط للحالة',
   'notification_rules.intro':
     'الأحداث التي تُرسل إشعارات ولمن وكيف. يبدأ كل حدث بإعداد افتراضي مناسب، وتُسجَّل التغييرات في سجل التدقيق.',
+  'notification_rules.locked': 'ثابت لأسباب أمنية',
+  'notification_rules.locked_help':
+    'إشعار أمني: يُرسل دائمًا إلى الأشخاص الذين يحددهم. لا يمكن لأحد إيقافه أو تغيير مستلميه.',
   'notification_rules.none': 'لا يوجد حدث مطابق',
   'notification_rules.required': 'إلزامي للأشخاص',
   'notification_rules.reset': 'العودة إلى الافتراضي',

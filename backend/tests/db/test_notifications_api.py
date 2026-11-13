@@ -470,3 +470,53 @@ async def test_an_incident_created_already_assigned_tells_its_technician(world: 
         (org.tech_a, "in_app", "sent"),
         (org.tech_a, "email", "waiting"),
     }
+
+
+async def test_a_locked_security_notice_cannot_be_changed_or_reset(world: World) -> None:
+    """An admin, perhaps the attacker, cannot turn a security notice off (WP-057 S2b)."""
+    from app.modules.notifications.service.engine import rule_for  # noqa: PLC0415 - one use
+    from app.shared.notifications.ports import find_event  # noqa: PLC0415 - one use
+
+    org = world.b
+    code = "break_glass.signed_in"
+    rules = (await world.call("GET", "/notifications/rules", org, org.admin)).json()
+    alert = next(r for r in rules if r["event_code"] == code)
+    assert alert["locked"]
+    assert alert["required"]
+    assert not next(r for r in rules if r["event_code"] == "incident.created")["locked"]
+    for method, body in (("PUT", {**_rule(alert), "enabled": False}), ("DELETE", None)):
+        refused = await world.call(
+            method,
+            f"/notifications/rules/{code}",
+            org,
+            org.admin,
+            json=body,
+            headers={"If-Match": '"0"'},
+        )
+        assert refused.status_code == 409, refused.text
+        assert refused.json()["code"] == "notification_rule_locked"
+    assert not await world.sql(
+        "SELECT 1 FROM notification_rules WHERE tenant_id = $1 AND event_code = $2",
+        org.tenant,
+        code,
+    )
+    # A rule saved before the event was locked no longer applies: the default does.
+    await world.sql(
+        "INSERT INTO notification_rules (id, tenant_id, event_code, enabled, recipients,"
+        " channels, version) VALUES ($1, $2, $3, false, '{}', '{}', 1)",
+        uuid.uuid4(),
+        org.tenant,
+        code,
+    )
+    shown = (await world.call("GET", "/notifications/rules", org, org.admin)).json()
+    alert = next(r for r in shown if r["event_code"] == code)
+    assert alert["enabled"]
+    assert alert["is_default"]
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    try:
+        async with database.tenant_session(TenantContext(org.tenant)) as session:
+            rule = await rule_for(session, find_event(code)[1])
+    finally:
+        await database.dispose()
+    assert rule.enabled
+    assert rule.recipients
