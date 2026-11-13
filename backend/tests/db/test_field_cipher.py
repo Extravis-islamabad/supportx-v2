@@ -12,6 +12,7 @@ import uuid
 
 import asyncpg
 import pytest
+from pydantic import SecretStr
 
 from app.core.tenancy import TenantContext
 from app.shared.crypto import from_text, key_id_of
@@ -22,6 +23,8 @@ from app.shared.fields import (
     PurposeError,
     destroy_tenant_keys,
     field_cipher,
+    field_cipher_for,
+    field_keys,
     purpose,
 )
 from app.shared.fields.tests.test_cache import MemoryGenerations
@@ -159,3 +162,19 @@ async def test_without_the_generation_a_cached_key_would_outlive_its_erasure(wor
         await conn.close()
     async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
         assert await field_cipher(session, RING, cache).open(SECRET, HERE, text) is not None
+
+
+async def test_field_cipher_for_takes_the_keys_from_the_settings(world: World) -> None:
+    """Lane A: a module needs only this one call; the key ring is chosen in one place."""
+    settings = world.app.state.settings.model_copy(
+        update={"files_keys": SecretStr(KeyRing.generate("k1")), "valkey_url": None}
+    )
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        cipher = field_cipher_for(session, settings)
+        text = await cipher.seal(SECRET, HERE, "from settings")
+        assert await cipher.open(SECRET, HERE, text) == "from settings"
+    assert field_keys(settings) is field_keys(settings)  # parsed once per process
+    without = settings.model_copy(update={"files_keys": None})
+    with pytest.raises(FieldKeysUnavailable):
+        async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+            await field_cipher_for(session, without).seal(SECRET, HERE, "x")
