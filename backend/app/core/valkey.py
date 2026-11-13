@@ -38,8 +38,13 @@ second run is safe:
   same token again or removing one already gone change nothing a second time.
 No LPUSH/RPUSH/XADD/SADD and no PUBLISH go to Valkey (realtime publishes go to Centrifugo).
 A new non-idempotent command needs its line here, or a token as the lock has.
+
+TLS (audit row 5): with `SUPPORTX_VALKEY_TLS_CA_FILE` every connection, to the servers and to the
+sentinels alike, checks the certificate against that CA and the host name it dialled (the
+sentinels announce each server by its pod name, which the chart's certificate lists).
 """
 
+import ssl
 from typing import Any
 
 import valkey.asyncio
@@ -81,12 +86,25 @@ def bounded_retry() -> Retry:
     return Retry(ExponentialBackoff(cap=0.5, base=0.05), RETRIES)
 
 
+def tls_options(settings: Settings) -> dict[str, Any]:  # Any: valkey-py's SSL connection options
+    """valkey-py's options for a verified TLS connection, or none without a CA file."""
+    if settings.valkey_tls_ca_file is None:
+        return {}
+    return {
+        "ssl_ca_certs": str(settings.valkey_tls_ca_file),
+        "ssl_cert_reqs": "required",
+        "ssl_check_hostname": True,
+        "ssl_min_version": ssl.TLSVersion.TLSv1_2,
+    }
+
+
 def client(settings: Settings, **options: Any) -> valkey.asyncio.Valkey:  # noqa: ANN401 - valkey-py's connection options
     """A Valkey client for this installation (caller closes it with `aclose()`)."""
     if settings.valkey_url is None:
         raise ValkeyNotConfiguredError
     options.setdefault("retry", bounded_retry())
     options.setdefault("retry_on_error", list(RETRY_ERRORS))
+    options = {**tls_options(settings), **options}
     url = settings.valkey_url.get_secret_value()
     if not settings.valkey_sentinels:
         found: valkey.asyncio.Valkey = valkey.asyncio.from_url(url, **options)  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
@@ -102,7 +120,7 @@ def client(settings: Settings, **options: Any) -> valkey.asyncio.Valkey:  # noqa
         sentinel_kwargs={
             "password": password.get_secret_value() if password else data.get("password"),
             **({"ssl": True} if data.get("ssl") else {}),
-            **{k: v for k, v in options.items() if k.startswith("socket_")},
+            **{k: v for k, v in options.items() if k.startswith(("socket_", "ssl_"))},
         },
         **data,
         **options,

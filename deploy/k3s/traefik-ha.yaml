@@ -1,0 +1,63 @@
+# k3s's bundled Traefik for a SupportX HA install (WP-014b, ADR-038): two copies that never share
+# a node. k3s runs ONE Traefik copy. In the node-loss test the stopped agent held it: the pod
+# stayed "Running" until the 300 s unreachable eviction and every client request went unanswered
+# for 90 s although the API pods were healthy. Every request into SupportX passes Traefik, so it
+# needs the same rule as cluster DNS (deploy/k3s/cluster-dns-ha.sh).
+#
+# Install: copy this file to /var/lib/rancher/k3s/server/manifests/traefik-config.yaml on every
+# server (if that directory already holds a HelmChartConfig named `traefik`, merge these values
+# into it instead: k3s keeps one per chart). k3s's helm-controller merges valuesContent over its
+# own chart values and upgrades Traefik; the file is re-applied at every k3s start, and k3s's own
+# traefik.yaml sets neither replicas nor affinity, so both survive restarts and upgrades. Check:
+# deploy/k3s/traefik-ha.sh (waits for two ready copies on two nodes), deploy/k3s/ha-preflight.sh.
+# The k3d HA cluster in CI uses this same file (deploy/k3d/cluster-ha.yaml), so CI proves what
+# customers install. Single-node k3d keeps deploy/k3d/traefik-config.yaml (one copy).
+#
+# Keys are the Traefik chart's own (k3s v1.36.5+k3s1 bundles traefik-40.1.5+up40.1.0, chart
+# 40.1.0 upstream): deployment.replicas, affinity (rendered through tpl, so the chart's selector
+# labels are written as the chart writes them), podDisruptionBudget.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    # Gateway API provider on (D2); the SupportX chart creates its own Gateway per release
+    # (routing.gateway.create), so Traefik's default Gateway stays off.
+    providers:
+      kubernetesGateway:
+        enabled: true
+    gateway:
+      enabled: false
+    ports:
+      # WebSocket and HTTP-streaming connections stay open (realtime, WP-011) on both entry
+      # points: HTTPS (websecure) carries every route once routing.tls is on (audit row 5), and
+      # Traefik's default would cut a realtime connection after 60 s.
+      web:
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+            writeTimeout: 0
+            idleTimeout: 3600s
+      websecure:
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+            writeTimeout: 0
+            idleTimeout: 3600s
+    deployment:
+      replicas: 2
+    # Required, not preferred: two copies on one node would both go with it.
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: '{{ template "traefik.name" . }}'
+                app.kubernetes.io/instance: '{{ .Release.Name }}-{{ include "traefik.namespace" . }}'
+    # A node drain or k3s upgrade keeps one copy serving.
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1

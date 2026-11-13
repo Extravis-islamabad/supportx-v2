@@ -17,6 +17,12 @@ export type MfaRole = components['schemas']['MfaRoleOut'];
 export type MfaMode = MfaRole['mode'];
 export type AccountSecurity = components['schemas']['AccountSecurityOut'];
 export type AccountAction = 'password' | 'mfa' | 'recovery_codes';
+export type NetworkRules = components['schemas']['NetworkRulesOut'];
+export type NetworkRulesInput = components['schemas']['NetworkRulesBody'];
+export type SignInEvent = components['schemas']['SignInEventOut'];
+export type SignInLogPage = components['schemas']['SignInLogPage'];
+export type SignInOutcome = SignInEvent['outcome'];
+export type SignInMethod = SignInEvent['method'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
@@ -382,4 +388,51 @@ export function useAccountSecurity() {
 export function accountActionUrl(action: AccountAction, returnTo: string): string {
   const params = new URLSearchParams({ action, returnTo });
   return `${API_BASE}/auth/account-action?${params.toString()}`;
+}
+
+// WP-057 S1a: IP allow-lists (REQ-SEC-034) and the sign-in log (REQ-AUD-015).
+
+/** The tenant's IP allow-lists per app, and the address this browser comes from. */
+export function useNetworkRules() {
+  return useQuery({
+    queryKey: queryKeys.identity.networkRules,
+    queryFn: () => call(api.GET('/api/v1/identity/network-rules')),
+    staleTime: 0,
+  });
+}
+
+/** Save all three lists; a list that would shut you out comes back at its field. */
+export function useSaveNetworkRules() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ body, version }: { body: NetworkRulesInput; version: number }) =>
+      call(
+        api.PUT('/api/v1/identity/network-rules', { params: { header: ifMatch(version) }, body }),
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.identity.networkRules, saved);
+    },
+    onError: onConflict(
+      () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.networkRules }),
+    ),
+  });
+}
+
+export interface SignInFilters {
+  outcome?: SignInOutcome[];
+  method?: SignInMethod[];
+  user_id?: string;
+  since?: string;
+  until?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+/** A page of the sign-in log, newest first (each read is audited server-side). */
+export function useSignIns(filters: SignInFilters) {
+  return useQuery({
+    queryKey: queryKeys.identity.signIns({ ...filters }),
+    queryFn: () => call(api.GET('/api/v1/identity/sign-ins', { params: { query: filters } })),
+  });
 }

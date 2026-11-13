@@ -57,6 +57,8 @@ API_KEYS_LIST = LiveList("api_keys", "api_keys.manage")
 # A person's cost per hour (REQ-INC-068): only for those who may see cost rates. The message
 # names the person only; the screen refetches their rates (never an amount on a channel).
 COST_RATES_LIST = LiveList("user_cost_rates", "users.view_cost_rates")
+# The sign-in log (REQ-AUD-015): only for those who may read it; the message names nothing.
+SIGN_INS_LIST = LiveList("sign_ins", "identity.view_sign_ins")
 KEY_SETTINGS = frozenset({"people_may_create_keys", "allow_non_expiring_keys"})
 
 # Changes to these user fields change what the user may do: their connections are cut.
@@ -100,6 +102,7 @@ CHANNELS = [
     INVITATIONS_LIST.spec(),
     API_KEYS_LIST.spec(),
     COST_RATES_LIST.spec(),
+    SIGN_INS_LIST.spec(),
 ]
 
 
@@ -330,6 +333,19 @@ async def _cost_rate_changed(envelope: EventEnvelope, session: AsyncSession) -> 
     )
 
 
+async def _sign_in_recorded(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A sign-in, refusal or sign-out was logged: open sign-in logs refetch (rule 5c)."""
+    del session
+    return RealtimeEffects(
+        publications=SIGN_INS_LIST.publications(
+            envelope.tenant_id,
+            "sign_ins.changed",
+            uuid.UUID(str(envelope.aggregate_id)),
+            actor_id=None,
+        )
+    )
+
+
 async def _plan_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """The tenant's plan changed: permissions depend on features, so everyone rejoins.
 
@@ -371,4 +387,5 @@ ROUTES = [
     RealtimeRoute(("identity_access.invitation.changed",), _invitation_changed),
     RealtimeRoute(("identity_access.api_key.changed",), _api_key_changed),
     RealtimeRoute(("identity_access.user_cost_rate.changed",), _cost_rate_changed),
+    RealtimeRoute(("identity_access.sign_in.recorded",), _sign_in_recorded),
 ]

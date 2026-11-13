@@ -22,6 +22,10 @@ postgresql:
 valkeyHa:
   resources:
     requests: {cpu: 20m, memory: 32Mi}
+# Two clamd copies (values-ha.yaml): small requests so both fit beside everything else.
+clamav:
+  resources:
+    requests: {cpu: 50m, memory: 256Mi}
 # The egress allow-list on (opt-in, off by default): every HA test then runs under it, and
 # deploy/k3d/egress-check.sh shows that nothing else leaves the namespace.
 networkPolicies:

@@ -36,6 +36,7 @@ from app.core.errors import (
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.domain import api_keys as rules
+from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.events import ApiKeyChanged
 from app.modules.identity_access.infra.models import ApiKey, User
@@ -43,6 +44,7 @@ from app.modules.identity_access.service.identity_settings import (
     IdentitySettingsView,
     get_identity_settings,
 )
+from app.modules.identity_access.service.network_rules import admitted, get_network_rules
 from app.shared.events import record_event
 from app.shared.ids import new_id
 
@@ -252,7 +254,12 @@ async def authenticate(
         owner = await session.get(User, row.owner_id)
         if owner is None or owner.deleted_at is not None or owner.status != "active":
             raise Unauthenticated(code="api_key_owner_inactive")
-        allowed = rules.address_allowed(facts.ip, row.ip_allowlist)
+        # The key's own list, then the tenant's API list (REQ-SEC-034): both must admit it.
+        key_allowed = rules.address_allowed(facts.ip, row.ip_allowlist)
+        tenant_allowed = admitted(
+            await get_network_rules(session), NetworkApp.API, address_of(facts.ip)
+        )
+        allowed = key_allowed and tenant_allowed
         if allowed and (
             row.last_used_at is None or now - row.last_used_at >= rules.LAST_USED_EVERY
         ):
@@ -271,9 +278,12 @@ async def authenticate(
             facts=facts,
             object_type="api_key",
             object_id=key_id,
-            details={"name": name, "reason": "address_not_allowed"},
+            details={
+                "name": name,
+                "reason": "address_not_allowed" if not key_allowed else "tenant_ip_not_allowed",
+            },
         )
-        raise PermissionDenied(code="api_key_ip_refused")
+        raise PermissionDenied(code="api_key_ip_refused" if not key_allowed else "ip_not_allowed")
     return TenantContext(parsed.tenant_id, owner_id, api_key_id=key_id, api_scopes=scopes)
 
 

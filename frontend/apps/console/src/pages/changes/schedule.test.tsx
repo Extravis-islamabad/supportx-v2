@@ -238,11 +238,13 @@ describe('console: a change’s schedule (WP-045c S2)', () => {
     await setWindow();
     fireEvent.click(await screen.findByTestId('window-save'));
     fireEvent.click(await screen.findByTestId('freeze-override'));
-    expect(screen.getByTestId('freeze-override-ok')).toHaveProperty('disabled', true);
+    expect(
+      within(screen.getByTestId('freeze-override-modal')).getByTestId('edit-ok'),
+    ).toHaveProperty('disabled', true);
     fireEvent.change(screen.getByTestId('freeze-override-reason'), {
       target: { value: 'The vendor only works that day' },
     });
-    fireEvent.click(screen.getByTestId('freeze-override-ok'));
+    fireEvent.click(within(screen.getByTestId('freeze-override-modal')).getByTestId('edit-ok'));
     await waitFor(() => {
       expect(fake.find('PATCH', `/api/v1/changes/${CHG_ID}/schedule/implementation`)).toHaveLength(
         2,

@@ -46,6 +46,7 @@ from app.modules.work_items.infra.models import (
     WorkItemReminder,
     WorkItemRoleHolder,
     WorkItemTask,
+    WorkItemTimer,
 )
 from app.modules.work_items.service.access import RESOURCE
 from app.shared.events import EventEnvelope
@@ -87,6 +88,7 @@ APPROVALS_CHANGED = "work_items.approvals_changed"
 MY_APPROVALS_CHANGED = "work_items.my_approvals_changed"
 MY_TASKS_CHANGED = "work_items.my_tasks_changed"
 MY_REMINDERS_CHANGED = "work_items.my_reminders_changed"  # WP-046a S2: personal reminders
+MY_TIMERS_CHANGED = "work_items.my_timers_changed"  # WP-046a S3: personal timers
 LISTS: dict[WorkItemTypeCode, LiveList] = {
     code: LiveList(wtype.path, wtype.permission("view"), unassigned_by_site=True)
     for code, wtype in TYPES.items()
@@ -573,7 +575,22 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     record_id = uuid.UUID(str(payload["work_item_id"]))
     part_id = uuid.UUID(str(payload["part_id"]))
     if payload["part"] == "timer":
-        return RealtimeEffects()  # S3 routes timers to their owner; nothing publishes one yet
+        # A personal timer (WP-046a S3, REQ-INC-069): its owner's channel only, as reminders.
+        timer_owner = await session.scalar(
+            select(WorkItemTimer.user_id).where(WorkItemTimer.id == part_id)
+        )
+        if timer_owner is None:
+            return RealtimeEffects()
+        return RealtimeEffects(
+            publications=[
+                Publication(
+                    personal(envelope.tenant_id, timer_owner),
+                    MY_TIMERS_CHANGED,
+                    ids=(str(part_id),),
+                    actor_id=_actor(envelope),
+                )
+            ]
+        )
     if payload["part"] == "reminder":
         # A personal reminder (WP-046a S2, REQ-INC-082 AC2): its owner's channel only, never the
         # record's, so nobody else even hears that one exists.

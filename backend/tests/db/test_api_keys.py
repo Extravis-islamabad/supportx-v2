@@ -342,3 +342,33 @@ async def test_peo_14_only_key_managers_see_the_service_identities(bff: Bff) -> 
     await _signed_in(bff, "technician", email="tech-owners@demo.test")
     refused = await bff.client.get("/api/v1/api-keys/owners")
     assert refused.status_code == 403
+
+
+async def test_req_sec_034_the_tenants_api_list_refuses_a_key_from_elsewhere(bff: Bff) -> None:  # noqa: F811
+    """WP-057 S1a: the key's own list admits everyone, the tenant's API list does not."""
+    csrf = await _signed_in(bff)
+    made = (await _make(bff, csrf)).json()
+    async with _as_key(bff, made["key"]) as api:
+        assert (await api.get("/api/v1/users")).status_code == 200
+    a, _b = bff.tenants
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        await conn.execute(
+            "INSERT INTO identity_settings (tenant_id, api_ip_allow) VALUES ($1, $2::cidr[]) "
+            "ON CONFLICT (tenant_id) DO UPDATE SET api_ip_allow = EXCLUDED.api_ip_allow",
+            a,
+            ["10.20.0.0/16"],
+        )
+    finally:
+        await conn.close()
+    async with _as_key(bff, made["key"]) as api:  # the test client calls from 127.0.0.1
+        assert _code(await api.get("/api/v1/users")) == (403, "ip_not_allowed")
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        details = await conn.fetchval(
+            "SELECT details FROM audit_entries WHERE action = 'api_key.refused' AND object_id = $1",
+            made["id"],
+        )
+    finally:
+        await conn.close()
+    assert json.loads(details)["reason"] == "tenant_ip_not_allowed"

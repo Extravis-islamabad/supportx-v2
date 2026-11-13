@@ -186,10 +186,21 @@ postgresql:
   # external: a DBA-managed server; set the host and run tooling/sql once as superuser.
   mode: cnpg
   database: supportx
+  # TLS to the database, verified (audit row 5; docs/deployment.md, Transport security): the API,
+  # the workers and the migrate Job connect with sslmode verify-full against the server's CA
+  # (SUPPORTX_DATABASE_SSL_ROOT_CERT). cnpg: the cluster's own CA (Secret <release>-pg-ca, made
+  # by CloudNativePG); its PgBouncer serves the cluster's server certificate, which then also
+  # names the pooler. external: your server's CA in external.caSecret. Off: asyncpg's default,
+  # encrypted when the server offers TLS but nothing checked.
+  tls:
+    verify: true
   external:
     host: ""
     port: 5432
     poolerHost: ""                  # PgBouncer in transaction mode, if any (else = host)
+    # With tls.verify: a Secret holding the CA your server's (and pooler's) certificate chains
+    # to, as `ca.crt`. The host names above must be in that certificate.
+    caSecret: ""
   cnpg:
     instances: 1
     storage: {size: 20Gi, storageClass: ""}
@@ -256,6 +267,9 @@ files:
   scanRequired: true
 clamav:
   enabled: true
+  # Copies of clamd (each with its own signatures volume and freshclam); values-ha.yaml runs two.
+  # The consumers worker reaches them through one Service, which balances its connections.
+  replicas: 1
   # Signature updates. Default: ClamAV's public mirrors. Air-gapped: a private mirror on the
   # internal network (e.g. http://mirror.internal/clamav), or none at all and the offline bundle
   # loaded with deploy/scripts/clamav-signatures.sh. Signatures older than 7 days raise an alert.
@@ -434,12 +448,39 @@ valkeyHa:
   enabled: false
   replicas: 3
   quorum: 2                         # sentinels that must agree the master is down
-  downAfterMilliseconds: 5000
-  failoverTimeoutMilliseconds: 60000
+  # Sentinel promotes only a replica whose link to the master has been down for less than
+  # 10 x down-after plus the master's SDOWN age. Losing a node can also stall DNS (a dead CoreDNS
+  # endpoint until the node goes NotReady), and the sentinels, which resolve hostnames
+  # synchronously, then reach SDOWN late: 77 s after the stop in Cluster run 43148329223, when
+  # 5 s (a 50 s allowance) ruled out every replica (-failover-abort-no-good-slave). 10 s gives a
+  # 100 s allowance; keep the DNS failover window (about the node-monitor grace period,
+  # docs/deployment.md) inside it. Do not lower this without that check.
+  downAfterMilliseconds: 10000
+  # An aborted failover (e.g. -failover-abort-no-good-slave) is retried only after 2 x this:
+  # 30 s gives a retry 60 s later (60 s gave 120 s, with the API unready on Valkey meanwhile).
+  failoverTimeoutMilliseconds: 30000
   maxmemory: 256mb
+  # TLS only between the app, Centrifugo, the servers and the sentinels (audit row 5), on the
+  # same ports, with a certificate from the internal CA (internalTls; cert-manager required).
+  # values-ha.yaml turns it on.
+  tls:
+    enabled: false
+    reloadIntervalSeconds: 3600     # how often Valkey checks its certificate files for a renewal
   resources:
     requests: {cpu: 50m, memory: 96Mi}
     limits: {cpu: 500m, memory: 384Mi}
+
+# --- Internal TLS (audit row 5; templates/internal-tls.yaml) -----------------------------------------
+# cert-manager signs the in-cluster servers' certificates (valkeyHa.tls, NATS) when any of them has
+# TLS on. Default: the chart's own CA, a self-signed root kept only in `caSecret`; pods get its
+# ca.crt, never its key. On-prem with your own PKI: set `issuerRef` to your cert-manager Issuer or
+# ClusterIssuer (CA, Vault, ...) and `caSecret` to a Secret holding its root as `ca.crt`.
+internalTls:
+  issuerRef: {}                     # e.g. {name: corp-ca, kind: ClusterIssuer}
+  caSecret: ""                      # default: <release>-internal-ca
+  caDuration: 87600h                # the chart's own root: ten years
+  duration: 8760h                   # each server certificate: a year, renewed 30 days before
+  renewBefore: 720h
 
 centrifugo:
   replicas: 1                       # more than one needs the Valkey engine: valkeyHa (ADR-038)
@@ -510,19 +551,41 @@ mailCatcher:
 routing:
   mode: gateway                     # gateway | ingress | none
   hostnames: []                     # empty = every host that reaches the gateway
+  # HTTPS at the gateway (audit row 5; docs/deployment.md "Transport security"). On by default:
+  # browsers carry the session cookie and every password over this hop. Turn it off only where
+  # something in front already terminates TLS, or on the local k3d cluster (values-dev.yaml).
+  tls:
+    enabled: true
+    # The kubernetes.io/tls Secret the HTTPS listener serves: your own certificate (on-prem), or
+    # where cert-manager writes one when `issuerRef` is set (default name then: <release>-tls).
+    # The older routing.gateway.tlsSecret / routing.ingress.tlsSecret still work.
+    secretName: ""
+    # A cert-manager Issuer or ClusterIssuer (e.g. {name: letsencrypt, kind: ClusterIssuer}):
+    # the chart then asks it for a certificate for `hostnames` (or publicUrl's host).
+    issuerRef: {}
+    # Plain HTTP answers only with a 301 to https (gateway mode). Ingress mode: Traefik serves the
+    # app on HTTPS only and ingress-nginx redirects (see routing.ingress.enforcesHttps).
+    redirectHttp: true
   gateway:
     create: true                    # false = attach the routes to an existing Gateway
     name: ""                        # default: <release>
     namespace: ""                   # default: release namespace
     className: traefik
+    # Plain HTTP: the only listener with routing.tls off, else only the redirect to https.
     listenerName: web
     port: 8000                      # Traefik's web entrypoint inside the cluster
-    protocol: HTTP
-    tlsSecret: ""                   # with protocol HTTPS
+    # HTTPS (routing.tls.enabled).
+    tlsListenerName: websecure
+    tlsPort: 8443                   # Traefik's websecure entrypoint inside the cluster
+    tlsSecret: ""                   # older name of routing.tls.secretName
   ingress:
     className: traefik
     annotations: {}
-    tlsSecret: ""
+    # With routing.tls on, the chart keeps the app off plain HTTP for the classes it knows
+    # (traefik: websecure only; nginx: redirect to https). Any other class: make it redirect or
+    # refuse http yourself, then set this to true, or the chart refuses to render.
+    enforcesHttps: false
+    tlsSecret: ""                   # older name of routing.tls.secretName
 
 # --- observability ------------------------------------------------------------------------------------
 metrics:
@@ -558,6 +621,10 @@ ha:
   # Kept during a voluntary disruption (a node drain, an upgrade) for every component running
   # more than one copy.
   minAvailable: 1
+  # Seconds the single-copy workers (fan-out, custom field indexes) stay on a NotReady or
+  # unreachable node before Kubernetes evicts them; 0 = Kubernetes' default (300 s).
+  # values-ha.yaml sets it.
+  fastEvictionSeconds: 0
 
 podAnnotations: {}
 

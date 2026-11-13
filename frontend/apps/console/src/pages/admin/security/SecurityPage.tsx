@@ -7,6 +7,7 @@ import { useLabel } from '@supportx/ui';
 
 import { InvitationsCard } from './InvitationsCard';
 import { MfaPolicyCard } from './MfaPolicyCard';
+import { NetworkRulesCard } from './NetworkRulesCard';
 import { PasswordPolicyCard } from './PasswordPolicyCard';
 import { SessionsCard } from './SessionsCard';
 import { SsoCard } from './SsoCard';
@@ -33,6 +34,7 @@ export function SecurityPage() {
       <MfaPolicyCard />
       <InvitationsCard />
       <SessionsCard />
+      <NetworkRulesCard />
     </Flex>
   );
 }

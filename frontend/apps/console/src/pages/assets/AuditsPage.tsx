@@ -283,15 +283,18 @@ function PlanAuditDrawer({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
-/** found / expected, as a bar (REQ-AST-043 AC3). */
+/**
+ * found / expected, as a bar (REQ-AST-043 AC3). The fill is the found share only, so it matches
+ * the "1 of 6 found" beside it (QA 2026-11-11 V-15: the marked share made it look half done);
+ * how many are marked stays in its accessible name.
+ */
 export function AuditProgress({ audit }: { audit: AssetAudit }) {
   const t = useLabel();
   const { expected, found, marked } = audit.progress;
   return (
     <Flex gap={8} align="center" style={{ minWidth: 160 }}>
       <Progress
-        percent={expected === 0 ? 0 : Math.round((marked / expected) * 100)}
-        success={{ percent: expected === 0 ? 0 : Math.round((found / expected) * 100) }}
+        percent={expected === 0 ? 0 : Math.round((found / expected) * 100)}
         size="small"
         showInfo={false}
         style={{ flex: 1 }}

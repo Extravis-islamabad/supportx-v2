@@ -58,7 +58,7 @@ import {
 import { labelled } from '../incidents/labels';
 import { RISKS, useOwnList } from './lists';
 import { DecisionDialog } from '../requests/DecisionDialog';
-import { listValueName, stageName, statusName } from './labels';
+import { RELEASE_STAGES, listValueName, stageName, statusName } from './labels';
 import { ReleaseConflictsPanel } from './ReleaseConflicts';
 
 const REVIEW_OUTCOMES = ['successful', 'successful_with_issues', 'failed'] as const;
@@ -465,17 +465,7 @@ function PlanSectionEditor({
 // The review's sections are written from the Review stage on (D-155); the plan's from the start.
 const REVIEW_SECTIONS = new Set(['review_findings', 'review_went_well', 'review_went_badly']);
 const REVIEW_FROM = 'review';
-const STAGE_ORDER = [
-  'submission',
-  'planning',
-  'build',
-  'testing',
-  'acceptance_testing',
-  'deployment',
-  'training',
-  'review',
-  'closure',
-];
+const STAGE_ORDER = RELEASE_STAGES;
 
 /**
  * The plan's sections (REQ-REL-025, -030): each with its own version, so editors never clash.

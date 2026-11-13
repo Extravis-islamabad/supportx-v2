@@ -83,9 +83,23 @@ CHANGE_DIMENSIONS: Mapping[str, Dimension] = {
     "planned_downtime_seconds": Dimension(_D.NUMBER),
     "actual_downtime_seconds": Dimension(_D.NUMBER),
 }
+# Releases' own figures (WP-058b S5b, REQ-REL-060).
+RELEASE_DIMENSIONS: Mapping[str, Dimension] = {
+    "stage": Dimension(_D.CODE, label_prefix="work_item_stage"),
+    "stage_path": Dimension(_D.CODE, label_prefix="stage_path"),
+    "release_type": Dimension(_D.ADMIN_CODE),
+    "release_reason": Dimension(_D.ADMIN_CODE),
+    "risk": Dimension(_D.CODE, label_prefix="release_risk"),
+    "release_manager_id": Dimension(_D.REFERENCE, reference="user"),
+    "release_engineer_id": Dimension(_D.REFERENCE, reference="user"),
+    "deployed_on_time": Dimension(_D.BOOLEAN),
+    "stage_overdue": Dimension(_D.BOOLEAN),
+    "approval_turnaround_seconds": Dimension(_D.NUMBER),
+}
 TYPE_DIMENSIONS: Mapping[WorkItemTypeCode, Mapping[str, Dimension]] = {
     WorkItemTypeCode.PROBLEM: PROBLEM_DIMENSIONS,
     WorkItemTypeCode.CHANGE: CHANGE_DIMENSIONS,
+    WorkItemTypeCode.RELEASE: RELEASE_DIMENSIONS,
 }
 
 

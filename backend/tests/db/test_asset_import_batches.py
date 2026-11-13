@@ -307,6 +307,9 @@ async def test_a_manual_asset_waits_at_most_about_one_transaction_of_a_running_i
     """The tag counter and the limit's lock are held until commit: the time bound keeps it short."""
     a = world.a
     monkeypatch.setattr(imports, "BATCH", 100_000)  # only the time bound ends a transaction
+    # A quarter of the real bound: with a batch's rows written together (step B), 600 rows fit
+    # in one 2 s transaction, and the manual add must arrive while the import still runs.
+    monkeypatch.setattr(imports, "BATCH_SECONDS", 0.5)
     tag = uuid.uuid4().hex[:6]
     product = f"S4c lock laptop {tag}"
     product_id = await _product(world, a, "laptop", product)

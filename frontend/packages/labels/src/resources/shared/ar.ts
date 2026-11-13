@@ -60,6 +60,7 @@ export const ar: LabelResource = {
   'appearance.theme.light': 'فاتح',
   'appearance.theme.system': 'اتباع النظام',
   'appearance.title': 'المظهر',
+  'board.move_to': 'نقل إلى…',
   'check_status.failed': 'فشل',
   'check_status.not_configured': 'غير مُهيّأ',
   'check_status.ok': 'سليم',
@@ -409,6 +410,15 @@ export const ar: LabelResource = {
     'يعمل مسؤولو المهام على مهامهم دون الوصول إلى الإصدار',
   'settings.closing.release.task_owner_access_help':
     'يرون مهمتهم ومعرّف الإصدار وموضوعه ويمكنهم تغيير حالة المهمة؛ ولا يرون الملاحظات أو الخطط أبدًا.',
+  'settings.closing.release.timer_auto_start': 'بدء المؤقت عندما يفتح شخص إصدارًا يملكه',
+  'settings.closing.release.timer_auto_start_help':
+    'مرة واحدة لكل إصدار، لمالكه. موقوف افتراضيًا: المؤقت الذي لا يلاحظه أحد يسجل وقتًا خاطئًا.',
+  'settings.closing.release.worklog_block_closed': 'لا وقت على الإصدارات المغلقة',
+  'settings.closing.release.worklog_block_closed_help':
+    'بعد إغلاق الإصدار لا يمكن لأحد تسجيل وقته أو تغييره أو إزالته.',
+  'settings.closing.release.worklog_count_nonworking': 'احتساب الوقت خارج ساعات العمل',
+  'settings.closing.release.worklog_count_nonworking_help':
+    'يُحتسب الوقت المسجل على الإصدار خارج ساعات العمل في الإجماليات والتقارير. عند الإيقاف تُحتسب ساعات العمل فقط.',
   'settings.closing.reopen_window_days': 'مدة إعادة الفتح (بالأيام)',
   'settings.closing.reopen_window_help':
     'ردّ مقدّم الطلب خلال هذه الأيام بعد الحل يعيد فتح الحادثة؛ والرد اللاحق ينشئ حادثة جديدة. من 1 إلى 30.',
@@ -420,7 +430,16 @@ export const ar: LabelResource = {
   'settings.closing.task_owner_access': 'يعمل مسؤولو المهام على مهامهم دون الوصول إلى الحادثة',
   'settings.closing.task_owner_access_help':
     'يرون مهمتهم ومعرّف الحادثة وموضوعها ويمكنهم تغيير حالة المهمة؛ ولا يرون المحادثة أو الملاحظات أبدًا.',
+  'settings.closing.timer_auto_start': 'بدء المؤقت عندما يفتح الفني حادثته',
+  'settings.closing.timer_auto_start_help':
+    'مرة واحدة لكل حادثة، للشخص المسندة إليه. موقوف افتراضيًا: المؤقت الذي لا يلاحظه أحد يسجل وقتًا خاطئًا.',
   'settings.closing.title': 'الحل والإغلاق',
+  'settings.closing.worklog_block_closed': 'لا وقت على الحوادث المغلقة',
+  'settings.closing.worklog_block_closed_help':
+    'بعد إغلاق الحادثة لا يمكن لأحد تسجيل وقتها أو تغييره أو إزالته.',
+  'settings.closing.worklog_count_nonworking': 'احتساب الوقت خارج ساعات العمل',
+  'settings.closing.worklog_count_nonworking_help':
+    'يُحتسب الوقت المسجل خارج ساعات العمل في الإجماليات والتقارير. عند الإيقاف تُحتسب ساعات العمل فقط.',
   'settings.closure_codes_help':
     'كيف انتهى الحادث. يُختار عند إغلاق الحادث؛ وتُجمّع التقارير حسبه.',
   'settings.colour': 'اللون',
