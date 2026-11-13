@@ -546,6 +546,11 @@ keycloak:
   # `keycloak-realm-secret` it also makes `supportx-realm` (manage-realm only), the account the
   # consumers worker applies the password policy with.
   setUpIdentityAdmin: true
+  # The breached-password list (supportx-breached.txt) comes from this release's backend image.
+  # A larger list of your own: a ConfigMap in the release namespace holding a file of that name,
+  # named here (kubectl create configmap my-lists --from-file=supportx-breached.txt).
+  passwordBlacklists:
+    configMap: ""
   resources:
     requests: {cpu: 250m, memory: 768Mi}
     limits: {cpu: "2", memory: 1536Mi}

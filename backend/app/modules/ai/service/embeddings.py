@@ -172,6 +172,7 @@ class Embeddings:
                 model=self.model,
                 dimension=EMBEDDING_DIMENSION,
                 content_hash=hashes[i],
+                # nosemgrep: sx.sql-format - _literal() writes floats only (repr(float))
                 embedding=text(f"'{_literal(vector)}'::vector"),
                 created_by=actor,
                 updated_by=actor,
@@ -211,6 +212,7 @@ class Embeddings:
         checks. Each candidate is checked again with its owning module's rule.
         """
         (vector,) = await self._embed([query])
+        # nosemgrep: sx.sql-format - _literal() writes floats only (repr(float))
         distance = AiEmbedding.embedding.op("<=>")(text(f"'{_literal(vector)}'::vector"))
         nearest = (
             select(AiEmbedding.source_id, func.min(distance).label("distance"))

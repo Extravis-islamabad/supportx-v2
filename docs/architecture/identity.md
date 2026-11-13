@@ -14,7 +14,7 @@ console by hand.
 | Piece | Where | Notes |
 |---|---|---|
 | Realm-settings account | `supportx-realm` client, same step | `manage-realm` only (the password policy is a realm setting). Its secret goes to the consumers worker alone, never to the API |
-| Service account | `supportx-identity` client, made by `tooling/keycloak_identity.py` | Client credentials only; `manage-users`, `manage-identity-providers`, `manage-organizations`, `view-events`. Chart Job `keycloak-identity` per revision; `make keycloak-identity` on the Compose stack. Also turns login events on (7 days), raises the realm's SSO session to SupportX's longest, declares `sx_department` / `sx_site` in the user profile |
+| Service account | `supportx-identity` client, made by `tooling/keycloak_identity.py` | Client credentials only; `manage-users`, `manage-identity-providers`, `manage-organizations`, `view-events`. Chart Job `keycloak-identity` per revision; `make keycloak-identity` on the Compose stack. Also turns login events on (7 days), raises the realm's SSO session to SupportX's longest, turns refresh-token rotation on, declares `sx_department` / `sx_site` in the user profile |
 | Admin API client | `identity_access/infra/keycloak_admin.py` | Organizations found by their `tenant_id` attribute, confirmed by alias |
 | Settings | `identity_settings` (RLS) | Session idle and absolute limits per app; people creation on first sign-in |
 | Set-ups | `sso_providers` (RLS) | Mirror of a Keycloak identity provider (`sx-<slug>-<random>`), never the client secret |
@@ -31,6 +31,11 @@ console by hand.
 - Keycloak's SSO session is at least SupportX's longest, so SupportX decides. After a SupportX
   session timed out, the next sign-in asks for the password again (`prompt=login`): Keycloak's
   own session never signs the browser back in silently.
+- Refresh tokens rotate (audit row 26): the realm has `revokeRefreshToken` on with
+  `refreshTokenMaxReuse` 0 (import files, and the `keycloak-identity` Job on upgraded realms), so
+  each refresh token works once. The BFF stores the new token after every refresh; a request
+  that finds another one refreshing answers with what it read and never saves it, and one that
+  takes the lock after another's refresh uses the stored token, never its spent copy.
 - Deactivating a person ends their sessions in the tenant (the "ended at" marker, WP-021) and
   closes their live connection at once. Their Keycloak sessions stay, because one Keycloak user
   serves all of a person's tenants; signing in again here is refused.
@@ -102,9 +107,11 @@ Life cycle: **draft → tested → on ⇄ off**, removable at any time.
   adds Urdu (and reads Urdu right to left) and a clearer breached-password message.
 - **Breached list:** `files/keycloak/password-blacklists/supportx-breached.txt` (SecLists top
   100,000, MIT; printable ASCII, 8+ characters, lowercased: 46,941 entries; its README has the
-  source and filter). Mounted into Keycloak's `data/password-blacklists` (chart ConfigMap,
-  Compose bind mount) and read offline. An operator may replace it with a larger list of the
-  same name. The golden chart render shows its checksum, not its lines.
+  source and filter). Read offline from Keycloak's `data/password-blacklists`: on Kubernetes the
+  Keycloak pod's init container copies it there from the release's backend image (it is too big
+  for the Helm release, a Secret of at most 1 MiB, so the chart leaves it out); the Compose stack
+  bind-mounts it. A larger list of the same name: a ConfigMap named in
+  `keycloak.passwordBlacklists.configMap`.
 - Lock-out stays the realm's brute-force setting (5 failures); REQ-SEC-005 AC2's "when to try
   again" message is session 3's.
 

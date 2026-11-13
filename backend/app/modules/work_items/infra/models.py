@@ -62,6 +62,7 @@ from app.modules.work_items.domain.lists import BulkAction, BulkStatus, ViewVisi
 from app.modules.work_items.domain.parts import LinkKind, TaskPriority, TaskStatus, WorklogType
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
 from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, Channel, WorkItemTypeCode
+from app.modules.work_items.domain.versions import FIRST_VERSION, VersionState
 from app.shared.db.models import (
     Actors,
     Base,
@@ -243,6 +244,41 @@ class WorkItemStatus(TenantKeyed, Base):
     set_by: Mapped[str] = mapped_column(String(10), server_default="person")
 
 
+class WorkItemLifecycleVersion(TenantKeyed, Timestamps, Actors, Versioned, Base):
+    """One version of a type's life cycle (ADR-049): draft, published or retired.
+
+    `number` is the life cycle's version (records point at it through `lifecycle_version`);
+    `version` is the row's own optimistic-concurrency counter (rule g). Staged types use the
+    "standard" life cycle only.
+    """
+
+    __tablename__ = "work_item_lifecycle_versions"
+    __table_args__ = (
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint("lifecycle ~ '^[a-z][a-z0-9_]{1,39}$'", name="lifecycle_format"),
+        CheckConstraint(_codes("state", VersionState), name="state_code"),
+        CheckConstraint("number >= 1", name="number_positive"),
+        # One draft at a time per life cycle: an edit of a published version makes it.
+        Index(
+            "uq_work_item_lifecycle_versions_one_draft",
+            "tenant_id",
+            "type",
+            "lifecycle",
+            unique=True,
+            postgresql_where=text("state = 'draft'"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20), primary_key=True)
+    lifecycle: Mapped[str] = mapped_column(String(40), primary_key=True)
+    number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    state: Mapped[str] = mapped_column(String(10))
+    published_at: Mapped[datetime | None]
+    published_by: Mapped[uuid.UUID | None]
+    # The last validation's problems ([{code, params}]); empty when it would publish.
+    problems: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+
+
 class WorkItemTransition(TenantKeyed, Base):
     """`action` from `from_status` leads to `to_status` (NULL: back to the status before cancel)."""
 
@@ -273,6 +309,16 @@ class WorkItemTransition(TenantKeyed, Base):
             ],
             name="fk_work_item_transitions_to",
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "type", "lifecycle", "lifecycle_version"],
+            [
+                "work_item_lifecycle_versions.tenant_id",
+                "work_item_lifecycle_versions.type",
+                "work_item_lifecycle_versions.lifecycle",
+                "work_item_lifecycle_versions.number",
+            ],
+            name="fk_work_item_transitions_version",
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -280,11 +326,20 @@ class WorkItemTransition(TenantKeyed, Base):
     lifecycle: Mapped[str] = mapped_column(
         String(40), primary_key=True, server_default=STANDARD_LIFECYCLE
     )
+    # The version of that set it belongs to (ADR-049 §1, §4).
+    lifecycle_version: Mapped[int] = mapped_column(
+        Integer, primary_key=True, server_default=str(FIRST_VERSION)
+    )
     from_status: Mapped[str] = mapped_column(String(40), primary_key=True)
     action: Mapped[str] = mapped_column(String(30), primary_key=True)
     to_status: Mapped[str | None] = mapped_column(String(40))
     reason_mode: Mapped[str] = mapped_column(String(10))
     reason_list: Mapped[str | None] = mapped_column(String(20))
+    # ADR-049 §4 (as amended): an extra right and the fields the move needs, per version. Who
+    # may run it, when it is offered and what follows stay WP-029's transition settings
+    # (automation), version-wide.
+    permission: Mapped[str | None] = mapped_column(String(40))
+    required_fields: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
 
 
 class WorkItemReason(TenantKeyed, Base):

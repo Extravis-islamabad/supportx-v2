@@ -53,6 +53,20 @@ Branch `fix/security-audit-a` (2026-11-12, docs/progress-log/2026-11-12-security
 - [x] Row 15, HSTS on the console and portal nginx responses. Still open from the audit's HSTS
   row: the chart's port-80 listener with an https redirect.
 
+Branch `fix/security-audit-b1` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b-b1.md):
+- [x] Row 26, API-key HMAC key: `SUPPORTX_API_KEY_SECRET` required in production (32+ characters),
+  never the session secret; keys hashed under the old derived key move on their next good call
+  while `SUPPORTX_SESSION_SECRET` stays set. Chart passes `api-key-secret`, secrets.sh makes it.
+- [x] Row 26, refresh-token rotation: `revokeRefreshToken` on, `refreshTokenMaxReuse` 0 (realm
+  files and the keycloak-identity Job); the BFF never saves or re-sends a spent token.
+- [x] Idempotency-Key on `POST /api/v1/audit/saved-searches`.
+- [x] Row 14 follow-ups: IPv6 counted per /64 in `ip_rate_limit`; a rate-limited callback goes
+  back to the app its sign-in started in.
+- [x] Row 27, Semgrep in CI with the repo's own rules (`.semgrep.yml`, `make semgrep`); not a
+  required check yet.
+- [ ] Row 3, LDAP host pin: waits for `app/shared/egress/sockets.py` (`pinned_address`), not on
+  main yet.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -1370,6 +1384,29 @@ it with no reload (rule c). Not built yet.
     auto-start once for the record's technician. Live on the personal channel only.
 - **S3 PR 2 (no migration; REQ-INC-071; #432):** time analysis per status, group and
   technician, open and paused, on the record's calendar; the incident's Time tab.
+- **S4a (0152; REQ-INC-049 AC1-AC3; ADR-049 with Amendment 1):**
+  - `work_item_lifecycle_versions`: each life cycle's versions (draft, published, retired), for
+    action-based and staged types. The data step makes every life cycle version 1, published,
+    and gives every record and staged transition version 1, once per tenant, records in
+    batches. The downgrade refuses once anything is beyond version 1.
+  - A record runs on its own version: the catalogue loads every runnable version, and a new
+    record starts on the latest published one. Publishing never changes a record made before.
+  - Versions over HTTP (`/settings/lifecycles/{lifecycle}/...`): start a draft (a copy), replace
+    its moves (saved with its problems, each naming what to fix), publish only without
+    problems, throw it away, retire a version new records no longer start on. If-Match on the
+    type's settings version, audited, live.
+  - A move gains, per version, an extra right and fields needed first; the offer lists them and
+    the move refuses (403 naming the right; 422 `required_for_move`).
+  - Who may run a move stays WP-029's transition settings, **version-wide** (Amendment 1),
+    hardened to ADR-049 §5: one function for the offer and the move, facts read after If-Match,
+    a 403 `transition_condition_not_met` with only its kind, fail closed, roles and groups
+    checked within the tenant at save, run-as identities limited like people. One test per rule.
+  - Admin › Incidents › Life cycle and Admin › Service requests (template E): versions, the
+    draft's moves as a table, problems in words, publish saying existing records stay on their
+    version. Guide: docs/guides/life-cycle-versions.md.
+  - **Not yet (S4b, no migration):** the canvas designer on packages/flow (AC4), migrating
+    records to a newer version (§7), staged types' version editing (§8; they keep version 1),
+    and problems' settings page (none exists yet; the API serves problems already).
 - **S5c part 1 (no migration; REQ-INC-018 quick create):**
   - Incidents list › Quick create: subject, requester and an optional priority (with its
     reason), without leaving the list.

@@ -508,6 +508,12 @@ Their workflows (`ci.yml`, `security.yml`, `stack-smoke.yml`) trigger on `merge_
 `pull_request`; a required check without that trigger would stall the queue
 (`backend/tests/test_ci_triggers.py` guards it). Docs-only groups take the fast path.
 
+`static analysis (Semgrep)` (`security.yml`, audit row 27) is not required yet: it runs the
+repo's own rules in `.semgrep.yml` (never the online registry) on ready pull requests, queue
+groups and nightly. Run it locally with `make semgrep` from the main checkout (inside a git
+worktree the container cannot read the shared `.git`). A safe finding gets
+`nosemgrep: <rule id> - <reason>` on the line before it.
+
 How to merge a pull request:
 
 1. Merge the latest `main` into the branch if it conflicts or needs a renumber (migrations,

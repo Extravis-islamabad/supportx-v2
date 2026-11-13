@@ -80,6 +80,7 @@ _SET_REPORT = text(
     "SELECT set_config('statement_timeout', :timeout_ms, true), "
     "set_config('transaction_read_only', 'on', true)"
 )
+# nosemgrep: sx.sql-format - REPORT_ROLE is a constant role name in this module
 _SET_REPORT_ROLE = text(f"SET LOCAL ROLE {REPORT_ROLE}")
 
 
