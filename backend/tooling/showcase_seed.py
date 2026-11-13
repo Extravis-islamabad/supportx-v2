@@ -64,6 +64,7 @@ from sqlalchemy import text, update
 from app.core.config import Settings
 from app.core.database import Database, create_engine
 from app.core.modules import ModuleRegistry, discover_modules
+from app.core.recent_auth import SignInFreshness, record_freshness
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
 from app.modules import sla
@@ -807,7 +808,13 @@ async def console_api(
 
     async def resolve(request: Request) -> TenantContext | None:
         named = request.headers.get(SEED_HEADER)
-        return None if named is None else contexts.get(uuid.UUID(named))
+        if named is None:
+            return None
+        # The seed acts for the people it names in its own app, which is never served: as a
+        # browser that confirmed just now, so sensitive routes (role grants, REQ-SEC-027's
+        # RecentAuth) let it through as they let a person who has just signed in.
+        record_freshness(request, SignInFreshness(interactive=True, recent=True))
+        return contexts.get(uuid.UUID(named))
 
     async with app.router.lifespan_context(app):
         # This app object is the seed's own and is never served: only it trusts the header.
