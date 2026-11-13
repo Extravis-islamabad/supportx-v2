@@ -78,6 +78,7 @@ NOT_PENDING = "erasure_not_pending"
 NOT_FOUND = "erasure_not_found"
 ALREADY_ERASED = "person_already_erased"
 LAST_ADMIN = "last_tenant_admin"  # the existing code of roles.guard_last_admin
+ERASE_RIGHT = "people.erase"
 PORT_MISSING = "erasure_port_missing"
 PORT_KIND_UNDECLARED = "erasure_port_kind_undeclared"
 APPROVAL_INVALID = "erasure_approval_invalid"

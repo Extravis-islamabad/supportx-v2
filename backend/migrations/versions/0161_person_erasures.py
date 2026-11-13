@@ -147,6 +147,16 @@ def upgrade() -> None:
             ["users.tenant_id", "users.id"],
             name="fk_person_erasures_requested_by",
         ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "approved_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_approved_by",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "rejected_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_rejected_by",
+        ),
         sa.PrimaryKeyConstraint("id", name=op.f(f"pk_{TABLE}")),
     )
     op.create_index(

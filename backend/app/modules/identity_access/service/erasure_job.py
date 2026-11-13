@@ -166,6 +166,19 @@ async def _recheck(run: _Run) -> None:
         raise StepRefused(rules.REPORT_UNAVAILABLE)
     if person.id in {row.requested_by, row.approved_by}:
         raise StepRefused(rules.ERASE_SELF)
+    # The approver vouches for the run and is the fallback successor: still active, not erased,
+    # and still allowed to erase (lane C, #498), else the approval no longer stands.
+    from app.modules.identity_access import subject_for  # noqa: PLC0415 - the package imports this
+
+    approver = await run.session.get(User, row.approved_by)
+    if (
+        approver is None
+        or approver.status != "active"
+        or approver.deleted_at is not None
+        or approver.erased_at is not None
+        or not (await subject_for(run.session, row.tenant_id, approver.id)).holds(rules.ERASE_RIGHT)
+    ):
+        raise StepRefused(rules.APPROVAL_INVALID)
     code = await refusal(run.session, person, actor_id=row.approved_by)
     if code is not None:
         raise StepRefused(code)
@@ -194,12 +207,13 @@ async def _freeze(run: _Run) -> None:
             values={"status": "disabled", "can_sign_in": False},
             source="system",
         )
-    keycloak_ids: list[str] = []
+    # No session store in this worker (Valkey or the session cipher missing): the person's
+    # sessions cannot be ended, so the step waits and retries, never skips (lane C, #498).
+    if effects.end_sessions is None or effects.keycloak_sessions is None:
+        raise StepUnavailable(rules.SESSIONS_UNAVAILABLE)
     try:
-        if effects.keycloak_sessions is not None:
-            keycloak_ids = await effects.keycloak_sessions(tenant, person.id)
-        if effects.end_sessions is not None:
-            await effects.end_sessions(tenant, person.id)
+        keycloak_ids = await effects.keycloak_sessions(tenant, person.id)
+        await effects.end_sessions(tenant, person.id)
     except SessionsUnavailable as exc:
         raise StepUnavailable(rules.SESSIONS_UNAVAILABLE) from exc
     # Their Keycloak sessions end in the background, through ADR-051's path (the consumer ends
@@ -210,7 +224,7 @@ async def _freeze(run: _Run) -> None:
             KeycloakSessionEndPending(user_id=person.id, keycloak_session_id=session_id),
             aggregate_id=person.id,
         )
-    run.counts["sessions_ended"] = 1 if effects.end_sessions is not None else 0
+    run.counts["sessions_ended"] = 1
     run.counts["keycloak_sessions_ending"] = len(keycloak_ids)
     run.counts["api_keys_revoked"] = await revoke_api_keys(session, person.id, run.now)
     run.counts["invitations_revoked"] = await revoke_invitations(session, person.id, run.now)
@@ -345,6 +359,7 @@ _CLEARED = (
     "mfa_enrolled_at",
     "invited_at",
     "directory_source",
+    "last_login_at",
 )
 
 

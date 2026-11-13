@@ -325,7 +325,8 @@ async def test_the_whole_erasure_in_order(  # noqa: PLR0915 - one run, every pro
         (
             await world.sql(
                 "SELECT display_name, first_name, last_name, email, external_subject, phone,"
-                " job_title, signature, status, can_sign_in, erased_at, erased_by FROM users"
+                " job_title, signature, status, can_sign_in, erased_at, erased_by, last_login_at"
+                " FROM users"
                 " WHERE id = $1",
                 a.tech_a,
             )
@@ -337,6 +338,7 @@ async def test_the_whole_erasure_in_order(  # noqa: PLR0915 - one run, every pro
     assert person["email"] == f"erased-{a.tech_a}@invalid"
     assert (person["external_subject"], person["phone"], person["job_title"]) == (None, None, None)
     assert person["signature"] is None
+    assert person["last_login_at"] is None  # lane C's #498 review
     assert (person["status"], person["can_sign_in"]) == ("disabled", False)
     assert person["erased_at"] is not None
     assert person["erased_by"] == a.lead
@@ -528,3 +530,47 @@ async def test_ports_run_in_batches_each_committed(
     assert (4, "test_batched", "page-2") in steps
     assert (4, "test_batched", "page-3") in steps
     assert json.loads((await _row(world, a, erasure_id))["counts"])["test_rows"] == 3
+
+
+class _NoSessionStore(Effects):
+    """A worker without Valkey or the session cipher: it cannot end anyone's sessions."""
+
+    def job(self) -> erasure_job.JobEffects:
+        effects = super().job()
+        return erasure_job.JobEffects(
+            identity_admin=effects.identity_admin,
+            end_sessions=None,
+            keycloak_sessions=None,
+            forget_mail=effects.forget_mail,
+        )
+
+
+async def test_no_session_store_waits_at_the_freeze_and_never_skips_it(world: World) -> None:
+    """Lane C's #498 review: fail closed. Sessions that cannot be ended are never left live."""
+    a = world.a
+    erasure_id = await _approved(world, a, a.tech_a)
+    outcome = await _run(world, a, erasure_id, _NoSessionStore())
+    assert (outcome.state, outcome.step, outcome.error_code) == (
+        "running",
+        1,
+        "erasure_sessions_unavailable",
+    )
+    # Nothing past the freeze ran: no mail cleared, the person not yet disabled by this step.
+    assert await _one(world, "SELECT status FROM users WHERE id = $1", a.tech_a) == "active"
+    assert (await _run(world, a, erasure_id, Effects())).state == "done"
+
+
+async def test_an_approver_who_is_no_longer_active_ends_the_run(world: World) -> None:
+    """Lane C's #498 review: the approver vouches for the run and is the fallback successor."""
+    a = world.a
+    erasure_id = await _approved(world, a, a.tech_a)
+    approver = await _one(
+        world, "SELECT approved_by FROM person_erasures WHERE id = $1", erasure_id
+    )
+    await world.sql(
+        "UPDATE users SET status = 'disabled' WHERE tenant_id = $1 AND id = $2", a.tenant, approver
+    )
+    effects = Effects()
+    outcome = await _run(world, a, erasure_id, effects)
+    assert (outcome.state, outcome.error_code) == ("failed", "erasure_approval_invalid")
+    assert (effects.mail, effects.ended, effects.keycloak.calls) == ([], [], [])
