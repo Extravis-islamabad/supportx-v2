@@ -436,6 +436,8 @@ data:
       "lame_duck_duration": "30s",
       "lame_duck_grace_period": "10s",
       "pid_file": "/var/run/nats/nats.pid",
+      "ping_interval": "10s",
+      "ping_max": 3,
       "port": 4222,
       "server_name": $SERVER_NAME
     }
