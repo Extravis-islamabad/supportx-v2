@@ -141,6 +141,7 @@ export const ar: LabelResource = {
   'home.title': 'مرحبًا، {{name}}',
   'kept_draft.discard': 'تجاهل',
   'kept_draft.found': 'حُفظت مسودة من هذا النموذج {{when}}',
+  'kept_draft.replace_body': 'تحل المسودة محل كل ما في النموذج. لا يمكن التراجع عن ذلك.',
   'kept_draft.replace_title': 'استبدال ما كتبته بالمسودة؟',
   'kept_draft.restore': 'استعادة',
   'kept_draft.unreadable': 'تعذّرت قراءة مسودة محفوظة من هذا النموذج.',

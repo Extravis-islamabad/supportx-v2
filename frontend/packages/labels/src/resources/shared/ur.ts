@@ -142,6 +142,8 @@ export const ur: LabelResource = {
   'home.title': 'خوش آمدید، {{name}}',
   'kept_draft.discard': 'رد کریں',
   'kept_draft.found': 'اس فارم کا ایک مسودہ {{when}} محفوظ کیا گیا',
+  'kept_draft.replace_body':
+    'مسودہ فارم میں موجود ہر چیز کی جگہ لے لے گا۔ اسے واپس نہیں کیا جا سکتا۔',
   'kept_draft.replace_title': 'جو آپ نے لکھا اسے مسودے سے بدل دیں؟',
   'kept_draft.restore': 'بحال کریں',
   'kept_draft.unreadable': 'اس فارم کا محفوظ مسودہ پڑھا نہیں جا سکا۔',

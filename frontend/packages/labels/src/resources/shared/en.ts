@@ -140,6 +140,8 @@ export const en = {
   'home.title': 'Welcome, {{name}}',
   'kept_draft.discard': 'Discard',
   'kept_draft.found': 'A draft of this form was kept {{when}}',
+  'kept_draft.replace_body':
+    'The draft takes the place of everything in the form. This cannot be undone.',
   'kept_draft.replace_title': "Replace what you've typed with the draft?",
   'kept_draft.restore': 'Restore',
   'kept_draft.unreadable': 'A kept draft of this form could not be read.',
