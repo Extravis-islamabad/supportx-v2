@@ -198,6 +198,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/audit/verification-runs` | `audit.verify` | audit.verify: all |
 | GET | `/api/v1/auth/account-action` | session (BFF) | - |
 | GET | `/api/v1/auth/callback` | public | - |
+| GET | `/api/v1/auth/confirm` | session (BFF) | - |
 | GET | `/api/v1/auth/dev/personas` | public | - |
 | POST | `/api/v1/auth/dev/sign-in` | public | - |
 | GET | `/api/v1/auth/login` | public | - |
@@ -206,6 +207,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/auth/mobile/exchange` | public | - |
 | POST | `/api/v1/auth/password-reset` | public | - |
 | GET | `/api/v1/auth/sessions` | session (BFF) | - |
+| POST | `/api/v1/auth/sessions/end-others` | session (BFF) | - |
 | DELETE | `/api/v1/auth/sessions/{listed_id}` | session (BFF) | - |
 | POST | `/api/v1/auth/switch-tenant` | session (BFF) | - |
 | GET | `/api/v1/automation/availability` | signed_in | - |

@@ -790,6 +790,8 @@ export const en = {
   'errors.instance_running': 'Stop this workflow before running it again.',
   'errors.instances_not_in_workflow':
     'Some of the chosen runs are not runs of this workflow ({{count}}).',
+  'errors.interactive_session_required':
+    'Do this in the web console while signed in. API keys and the mobile app cannot.',
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
@@ -948,6 +950,8 @@ export const en = {
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
+  'errors.notification_rule_locked':
+    'This is a security notice: no one can switch it off, change who gets it or reset it.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',
@@ -993,6 +997,10 @@ export const en = {
     'You can no longer follow this live. Reload the page to see the latest data.',
   'errors.realtime_not_configured':
     'Live updates are not set up on this server. Reload the page to see the latest data.',
+  'errors.reauth_failed': 'That did not confirm it was you. Nothing was changed.',
+  'errors.reauth_required': 'Confirm it is you to continue: sign in again, then try once more.',
+  'errors.reauth_unavailable':
+    'Your organisation signs you in through a provider that cannot confirm it again on request. Ask an administrator.',
   'errors.recipient_deferred': "The recipient's mail server asked to try later.",
   'errors.recipient_refused': 'The mail server refused the recipient.',
   'errors.record_closed': 'Closed and cancelled records cannot be changed.',

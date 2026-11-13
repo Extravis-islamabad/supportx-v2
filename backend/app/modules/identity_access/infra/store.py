@@ -165,6 +165,10 @@ class SessionStore:
                 "last_seen_at": data.get("last_seen_at"),
                 "platform": data.get("device_platform"),
                 "app_version": data.get("app_version"),
+                # Where it signed in and on what (REQ-SEC-030): shown to its owner and tenant
+                # admins only (lane B), sealed like the rest of the entry.
+                "ip": data.get("sign_in_ip"),
+                "device": data.get("device"),
             }
             sealed = self._cipher.encrypt(meta, bound_to=f"{index}:{field}")
             await self._kv.hset(index, field, sealed, px=_ms(ttl))
@@ -184,13 +188,25 @@ class SessionStore:
 
     async def end_listed_session(self, user_key: str, session: str) -> bool:
         """End one of a person's sessions by its public id; False when it isn't theirs or live."""
+        return await self.take_listed_session(user_key, session) is not None
+
+    async def take_listed_session(self, user_key: str, session: str) -> dict[str, Any] | None:
+        """End one of a person's sessions by its public id and return its record (WP-057 S2a).
+
+        Only within the person's own index, so another person's id is never found (404). The
+        record comes back (empty if it could not be read) so its Keycloak session can be ended
+        too; None when it isn't theirs or live.
+        """
         index = _hashed(INDEX_PREFIX, user_key)
         for field, meta in await self.user_sessions(user_key):
             if field == session:
-                await self._kv.delete(str(meta["key"]))
+                key = str(meta["key"])
+                blob = await self._kv.get(key)
+                data = self._cipher.decrypt(blob, bound_to=key) if blob else None
+                await self._kv.delete(key)
                 await self._kv.hdel(index, field)
-                return True
-        return False
+                return data or {}
+        return None
 
     async def get_session(self, session_id: str) -> dict[str, Any] | None:
         """The session record, or None if unknown, expired or undecryptable."""

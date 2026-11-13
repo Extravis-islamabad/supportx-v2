@@ -9,12 +9,14 @@ import { RealtimeProvider } from '@supportx/realtime';
 import {
   AddressBranding,
   AppearanceProvider,
+  ConfirmedPage,
   storedLocale,
   CrumbProvider,
   createQueryClient,
   DevSignInPage,
   ErrorBoundary,
   ErrorReporterProvider,
+  isConfirmedPage,
   isDevSignIn,
   LicenceProvider,
   PASSWORD_RESET_PATH,
@@ -63,7 +65,11 @@ export function App({ navigate }: AppProps) {
         <AddressBranding />
         <ErrorBoundary>
           <ErrorReporterProvider>
-            {window.location.pathname === SSO_TEST_DONE_PATH ? (
+            {isConfirmedPage(window.location.pathname) ? (
+              // A confirmation's landing (REQ-SEC-027): it tells the opener and closes. Outside
+              // the session gate, so it never starts a sign-in of its own.
+              <ConfirmedPage />
+            ) : window.location.pathname === SSO_TEST_DONE_PATH ? (
               // The SSO test's landing page needs no session: the test may run in a private
               // window, signed in as nobody (WP-039).
               <SsoTestDonePage />
