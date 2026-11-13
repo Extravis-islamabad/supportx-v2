@@ -770,7 +770,8 @@ data:
       "accessTokenLifespan": 300,
       "ssoSessionIdleTimeout": 1800,
       "ssoSessionMaxLifespan": 43200,
-      "revokeRefreshToken": false,
+      "revokeRefreshToken": true,
+      "refreshTokenMaxReuse": 0,
       "roles": {
         "realm": [
           {
@@ -2360,6 +2361,8 @@ spec:
               value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
             - name: SUPPORTX_SESSION_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_API_KEY_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: api-key-secret, optional: true}}
             - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
@@ -2958,6 +2961,8 @@ spec:
               value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
             - name: SUPPORTX_SESSION_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_API_KEY_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: api-key-secret, optional: true}}
             - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
@@ -3108,6 +3113,8 @@ spec:
               value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
             - name: SUPPORTX_SESSION_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_API_KEY_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: api-key-secret, optional: true}}
             - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
@@ -3262,6 +3269,8 @@ spec:
               value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
             - name: SUPPORTX_SESSION_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_API_KEY_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: api-key-secret, optional: true}}
             - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
@@ -3407,6 +3416,8 @@ spec:
               value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
             - name: SUPPORTX_SESSION_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_API_KEY_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: api-key-secret, optional: true}}
             - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
@@ -3558,6 +3569,8 @@ spec:
               value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
             - name: SUPPORTX_SESSION_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_API_KEY_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: api-key-secret, optional: true}}
             - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
@@ -3703,6 +3716,8 @@ spec:
               value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
             - name: SUPPORTX_SESSION_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_API_KEY_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: api-key-secret, optional: true}}
             - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET

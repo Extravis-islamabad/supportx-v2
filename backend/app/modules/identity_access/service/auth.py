@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlencode, urlsplit
 
+import valkey.exceptions
 from fastapi import Request
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -29,6 +30,7 @@ from app.core.errors import (
     BadRequest,
     Conflict,
     PermissionDenied,
+    RateLimited,
     ServiceUnavailable,
     Unauthenticated,
 )
@@ -440,6 +442,27 @@ class AuthService:
         )
         return LoginStarted(url, state, binding)
 
+    async def refused_callback(self, state: str | None, refusal: AppError) -> LoginFailure:
+        """A callback the address limit refused, sent back to the app its sign-in started in.
+
+        The pending login is read, never spent: a retry within its 10 minutes still works. Only
+        for the rate limit (429), when Valkey has just answered; with Valkey down (503
+        `sign_in_unavailable`) the state cannot be read, so the browser goes to the console as
+        before, and an unknown state (a scripted flood) does too.
+        """
+        if not isinstance(refusal, RateLimited) or not state:
+            return LoginFailure("console", refusal)
+        try:
+            pending = await self.store.peek_login(state)
+        except (valkey.exceptions.ValkeyError, OSError):
+            pending = None
+        if pending is None or pending.get("test"):
+            return LoginFailure("console", refusal)
+        app: AppName = "portal" if pending.get("app") == "portal" else "console"
+        mobile = MobileStart.from_pending(pending) is not None
+        mobile_return = self.settings.mobile_redirect_uri if mobile else None
+        return LoginFailure(app, refusal, pending.get("origin"), mobile_return=mobile_return)
+
     async def complete_login(  # noqa: PLR0913 - keyword-only parts of the callback
         self,
         *,
@@ -808,11 +831,29 @@ class AuthService:
         if self.sessions_changed is not None:
             await self.sessions_changed(tenant_id, user_id)
 
-    async def _save(self, session_id: str, session: Session) -> None:
+    async def _save(
+        self, session_id: str, session: Session, *, only_if_present: bool = False
+    ) -> bool:
+        """Store the session; with `only_if_present`, False (nothing written) if it is gone."""
         ttl = session.ttl(self.clock.now(), idle=self.idle, absolute=self.absolute)
-        await self.store.put_session(session_id, session.to_dict(), ttl)
+        return await self.store.put_session(
+            session_id, session.to_dict(), ttl, only_if_present=only_if_present
+        )
 
     # --- every request -------------------------------------------------------------------------
+
+    async def _admit_or_end(self, session_id: str, session: Session, request: Request) -> None:
+        """The allow-list again at every refresh (REQ-SEC-034).
+
+        A changed list, or a session carried to another network, ends within one access
+        token's life. It is checked even when another request holds the refresh, because this
+        request's own address counts too.
+        """
+        if not await self._admit(
+            session.tenant_uuid, _client_app(session), client_address(request)
+        ):
+            await self.store.delete_session(session_id)
+            raise PermissionDenied(code=IP_NOT_ALLOWED)
 
     async def session_for(self, request: Request) -> tuple[str, Session] | None:
         """The request's valid session (refreshed if needed), None without a cookie or record.
@@ -839,17 +880,18 @@ class AuthService:
         if request.method not in SAFE_METHODS:
             self._check_csrf(request, session)
         if session.needs_refresh(now):
-            session = await self._refresh(session_id, session)
-            # The allow-list again at every refresh (REQ-SEC-034): a changed list, or a session
-            # carried to another network, ends within one access token's life.
-            if not await self._admit(
-                session.tenant_uuid, _client_app(session), client_address(request)
-            ):
-                await self.store.delete_session(session_id)
-                raise PermissionDenied(code=IP_NOT_ALLOWED)
+            refreshed = await self._refresh(session_id, session)
+            await self._admit_or_end(session_id, session, request)
+            if refreshed is None:
+                # Another request holds the refresh: answer with what we read, but never save it.
+                # With refresh-token rotation (the realm's revokeRefreshToken, audit row 26) a
+                # save here could put back the token the other request has just spent.
+                return session_id, session
+            session = refreshed
         if session.needs_refresh(now) or now - session.last_seen_at >= TOUCH_INTERVAL:
             session = session.touched(now)
-            await self._save(session_id, session)
+            if not await self._save(session_id, session, only_if_present=True):
+                raise Unauthenticated(code="session_expired")  # signed out meanwhile
         return session_id, session
 
     async def listed_sessions(
@@ -958,13 +1000,26 @@ class AuthService:
         parts = urlsplit(origin)
         return parts.scheme in schemes and parts.netloc == request.headers.get("host")
 
-    async def _refresh(self, session_id: str, session: Session) -> Session:
-        """Silent refresh. Keycloak refusing ends the session; Keycloak being down does not."""
+    async def _refresh(self, session_id: str, session: Session) -> Session | None:
+        """Silent refresh. Keycloak refusing ends the session; Keycloak being down does not.
+
+        None while another request is refreshing this session. Keycloak rotates refresh tokens
+        (revokeRefreshToken, refreshTokenMaxReuse 0; audit row 26): every refresh stores the new
+        token, and a spent one is never sent again.
+        """
         held = await self.store.lock(session_id, REFRESH_LOCK_TTL)
         if held is None:
-            return session  # another request is refreshing this session right now
+            return None
         client = self.client(_client_app(session))
         try:
+            stored = await self.store.get_session(session_id)
+            if stored is None:
+                # Signed out (or ended) since this request read it: never bring it back.
+                raise Unauthenticated(code="session_expired")
+            latest = Session.from_dict(stored)
+            if latest.refresh_token != session.refresh_token:
+                # Another request refreshed between our read and the lock: ours is spent.
+                return latest
             tokens = await self.oidc.refresh(client, session.refresh_token)
             identity = await self._identity(tokens, client, nonce=None)
         except (TokenRejectedError, BadRequest) as exc:
@@ -988,7 +1043,10 @@ class AuthService:
             access_expires_at=self.clock.now() + timedelta(seconds=tokens.expires_in),
             roles=list(identity.roles),
         )
-        await self._save(session_id, refreshed)
+        # Conditional (SET XX): a sign-out during the in-flight refresh deleted the record after
+        # the lock was released; writing it back would revive the session with fresh tokens.
+        if not await self._save(session_id, refreshed, only_if_present=True):
+            raise Unauthenticated(code="session_expired")
         return refreshed
 
     # --- logout and tenant switch ----------------------------------------------------------------

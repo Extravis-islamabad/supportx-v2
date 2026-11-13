@@ -40,6 +40,10 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   one (REQ-SEC-005 AC2, D-104): 5 failures, then 15 minutes, 15 more for each failure after
   that, at most an hour; failures remembered 12 hours. Keycloak cannot double the wait
   (measured on 26.8.1), so it grows in equal steps;
+- refresh tokens rotate (audit row 26): `revokeRefreshToken` on with `refreshTokenMaxReuse` 0,
+  so each refresh token works once and a stolen, already-used one is refused. The BFF stores
+  the new token after every refresh and serialises refreshes per session, so nobody notices.
+  Set again on every run: this is a security baseline, not an operator choice;
 - the user profile declares the attributes single sign-on brings (department and site, read by
   SupportX at a person's first sign-in, REQ-SEC-007 AC3): Keycloak 26 drops undeclared ones.
   Only admins see or change them; the realm's other attributes are kept as they are.
@@ -110,6 +114,8 @@ EVENTS_EXPIRATION_SECONDS = 7 * 86400
 # The longest SupportX sessions (Appendix A caps: portal 30 days absolute; 24 hours idle at most).
 SSO_IDLE_SECONDS = 24 * 3600
 SSO_MAX_SECONDS = 30 * 86400
+# One use per refresh token (audit row 26); also in the realm import files.
+REFRESH_ROTATION = {"revokeRefreshToken": True, "refreshTokenMaxReuse": 0}
 RETRY_SECONDS = 5.0
 EMAIL_THEME = "supportx"
 # What identity provider mappers store on a person (domain/sso.py DEPARTMENT/SITE_ATTRIBUTE).
@@ -299,6 +305,20 @@ async def _ensure_sso_session(
     # A partial representation: Keycloak updates only the fields it is given.
     (await client.put(path, headers=headers, json=update)).raise_for_status()
     return ["SSO session raised to the SupportX maximum"]
+
+
+async def _ensure_refresh_rotation(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """Refresh tokens used once each, on fresh and upgraded realms alike (audit row 26)."""
+    path = f"/admin/realms/{realm}"
+    current = await client.get(path, headers=headers)
+    current.raise_for_status()
+    found = current.json()
+    if all(found.get(key) == value for key, value in REFRESH_ROTATION.items()):
+        return []
+    (await client.put(path, headers=headers, json=REFRESH_ROTATION)).raise_for_status()
+    return ["refresh-token rotation on"]
 
 
 async def _ensure_user_profile(
@@ -491,6 +511,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     changes += await _enable_recovery_codes(client, headers, target.realm)
     changes += await _ensure_events(client, headers, target.realm)
     changes += await _ensure_sso_session(client, headers, target.realm)
+    changes += await _ensure_refresh_rotation(client, headers, target.realm)
     changes += await _ensure_user_profile(client, headers, target.realm)
     changes += await _ensure_smtp(client, headers, target.realm, target.smtp)
     changes += await _ensure_email_theme(client, headers, target.realm)

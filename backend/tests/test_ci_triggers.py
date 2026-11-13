@@ -462,6 +462,21 @@ def test_deployment_files_alone_never_start_the_backend_shards() -> None:
         assert not needs.match(path), path
 
 
+def test_semgrep_runs_the_repos_own_rules_from_a_pinned_image() -> None:
+    """Audit row 27: committed rules (works air-gapped), a pinned image, not yet required."""
+    root = WORKFLOWS.parents[1]
+    makefile = (root / "Makefile").read_text(encoding="utf-8")
+    image = re.search(r"^SEMGREP_IMAGE := (\S+)$", makefile, re.MULTILINE)
+    assert image is not None
+    assert re.fullmatch(r"semgrep/semgrep:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}", image.group(1))
+    assert "--config .semgrep.yml" in makefile
+    assert "--metrics=off" in makefile
+    assert (root / ".semgrep.yml").is_file()
+    security = (WORKFLOWS / "security.yml").read_text(encoding="utf-8")
+    assert "run: make semgrep" in security
+    assert "static analysis (Semgrep)" not in REQUIRED
+
+
 # --- the e2e smoke suite (coordinator, 2026-11-13): one journey per critical area ------------
 
 SMOKE = "e2e smoke (@smoke journeys)"

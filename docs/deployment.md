@@ -69,9 +69,17 @@ reports use the main database through their own small pool (single node).
 The chart only references Secrets. `deploy/scripts/secrets.sh <namespace>` creates them with random
 hex values and never overwrites an existing one (its passwords are already inside the databases).
 
+**Upgrading to a release that adds a secret key: re-run `deploy/scripts/secrets.sh <namespace>`
+before `helm upgrade`.** It only adds the missing keys. Since the security bundle B1 (#451) the
+API needs `api-key-secret` (the API keys' own HMAC key) in production and refuses to start without
+it, with a message saying so; keys made before keep working (re-hashed on first use, while
+`session-secret` stays set). The coordinator's decision (2026-11-12): hard from the start, as
+there are no customer installs yet. Once one exists, a change like this ships with a release-note
+announcement and a migration path that removes nothing silently (Haider's rule).
+
 | Secret | Keys |
 |---|---|
-| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, any `session-key-*` listed in `secrets.sessionKeys` (the sign-in key ring, D-162; [rotating it](guides/rotating-the-sign-in-key.md)), `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027), `temporal-db-password` (the bundled Temporal's `temporal` role, with `temporal.bundled.enabled`) |
+| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, `api-key-secret` (the API keys' own HMAC key, required in production; [API keys](api/keys.md)), any `session-key-*` listed in `secrets.sessionKeys` (the sign-in key ring, D-162; [rotating it](guides/rotating-the-sign-in-key.md)), `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027), `temporal-db-password` (the bundled Temporal's `temporal` role, with `temporal.bundled.enabled`) |
 | `supportx-db-keycloak` (basic-auth) | `username` = `keycloak`, `password` |
 | `supportx-pg-superuser` | created by CloudNativePG; used only by the migrate Job |
 
@@ -450,7 +458,9 @@ so per-address rate limits are shared by everyone.
 ## Rate limits without a signed-in person
 
 Routes that nobody signs in for are limited per client address (the address above), each request
-counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/ratelimit.py`):
+counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/ratelimit.py`). An
+IPv4 address counts on its own; an IPv6 address counts as its whole /64 network, because one
+client holds a /64 and could pick a new address for every request:
 
 | Route | Per address, per minute | Valkey down |
 |---|---|---|
@@ -463,7 +473,9 @@ counted in Valkey (audit row 14, `ip_rate_limit` in `backend/app/shared/api/rate
 The budgets are wide on purpose: an office behind one NAT address signs many people in at once,
 and a sign-in is one `/login` and one `/callback` (two of each with an MFA enrolment). They stop
 scripted floods. Over a budget the API answers 429 `rate_limited` with `Retry-After`; a browser
-is sent back to its app, which shows the message.
+is sent back to its app, which shows the message. A refused `/callback` goes back to the app its
+sign-in started in (console, portal or the mobile app), read from the pending sign-in without
+spending it; with Valkey down that cannot be read, so it goes to the console.
 
 **The sign-in routes fail closed.** Every other route allows requests while Valkey is down (losing
 rate limiting for a moment beats losing the API, ADR-020). A sign-in needs Valkey anyway (its

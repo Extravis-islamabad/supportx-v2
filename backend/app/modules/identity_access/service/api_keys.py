@@ -53,18 +53,40 @@ SERVICE = "service"
 OWNERS_MAX = 500  # one per connector instance: far more than any tenant runs
 
 
-def server_key(settings: Settings) -> bytes | None:
-    """The key secrets are hashed under: its own setting, else derived from the session secret.
+# The context of the key derived from SUPPORTX_SESSION_SECRET: every hash made before the API-key
+# key became its own production setting (audit row 26) is under it.
+_LEGACY_CONTEXT = b"supportx-api-keys-v1"
 
-    Only SUPPORTX_SESSION_SECRET (the legacy secret), never the session key ring (D-162):
-    rotating sign-in keys must never end API keys. Production refuses a ring without either.
+
+def _derived_from_session_secret(settings: Settings) -> bytes | None:
+    if settings.session_secret is None:
+        return None
+    secret = settings.session_secret.get_secret_value().encode()
+    return hmac.new(secret, _LEGACY_CONTEXT, hashlib.sha256).digest()
+
+
+def server_key(settings: Settings) -> bytes | None:
+    """The key new secrets are hashed under: SUPPORTX_API_KEY_SECRET.
+
+    Production refuses to start without it (audit row 26), so the session secret never guards API
+    keys there. Dev and test without it derive one from SUPPORTX_SESSION_SECRET (the legacy
+    secret, never the session key ring, D-162), so a dev stack needs no extra setting.
     """
     if settings.api_key_secret is not None:
         return settings.api_key_secret.get_secret_value().encode()
-    if settings.session_secret is not None:
-        secret = settings.session_secret.get_secret_value().encode()
-        return hmac.new(secret, b"supportx-api-keys-v1", hashlib.sha256).digest()
-    return None
+    return _derived_from_session_secret(settings)
+
+
+def legacy_server_key(settings: Settings) -> bytes | None:
+    """The key hashes made before SUPPORTX_API_KEY_SECRET was set are under, or None.
+
+    Only while SUPPORTX_SESSION_SECRET is still set: such a key is re-hashed under the new key on
+    its first good call (`authenticate`), so existing integrations keep working through the
+    upgrade and the session secret stops mattering to them after it.
+    """
+    if settings.api_key_secret is None:
+        return None  # the derived key is already the current one
+    return _derived_from_session_secret(settings)
 
 
 def _require_server_key(settings: Settings) -> bytes:
@@ -228,6 +250,29 @@ async def _changed(
     )
 
 
+async def _check_secret(
+    session: AsyncSession,
+    row: ApiKey,
+    parsed: rules.ParsedKey,
+    server: bytes,
+    legacy: bytes | None,
+) -> None:
+    """The secret against the stored hash; a hash under the legacy key moves to the current one."""
+    if rules.secret_matches(server, parsed.key_id, parsed.secret, row.secret_hash):
+        return
+    if legacy is None or not rules.secret_matches(
+        legacy, parsed.key_id, parsed.secret, row.secret_hash
+    ):
+        raise Unauthenticated(code="api_key_invalid")
+    # Made under the session-secret key: move it to the API-key key now (audit row 26). Guarded
+    # by the old hash, so two replicas re-hashing at once write the same value once.
+    await session.execute(
+        update(ApiKey)
+        .where(ApiKey.id == row.id, ApiKey.secret_hash == row.secret_hash)
+        .values(secret_hash=rules.secret_hash(server, parsed.key_id, parsed.secret))
+    )
+
+
 async def authenticate(
     database: Database, settings: Settings, text: str, facts: RequestFacts, now: datetime
 ) -> TenantContext:
@@ -238,15 +283,13 @@ async def authenticate(
     server = server_key(settings)
     if server is None:
         raise ServiceUnavailable(code="api_keys_unavailable")
+    legacy = legacy_server_key(settings)
     tenant_only = TenantContext(parsed.tenant_id)
     async with database.tenant_session(tenant_only) as session:
         row = await session.get(ApiKey, parsed.key_id)
-        if (
-            row is None
-            or row.deleted_at is not None
-            or not rules.secret_matches(server, parsed.key_id, parsed.secret, row.secret_hash)
-        ):
+        if row is None or row.deleted_at is not None:
             raise Unauthenticated(code="api_key_invalid")
+        await _check_secret(session, row, parsed, server, legacy)
         if row.revoked_at is not None:
             raise Unauthenticated(code="api_key_revoked")
         if row.expires_at is not None and row.expires_at <= now:
