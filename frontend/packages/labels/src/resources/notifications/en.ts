@@ -260,6 +260,11 @@ export const en = {
     'Warranty of {{ record.display_id }} ends on {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'Warranty ending: {{ record.display_id }} {{ record.title }}',
+  'notification_template.break_glass.signed_in.body':
+    'Hello {{ recipient.name }},\n\n{{ record.title }} signed in with their emergency administrator account, which works even while single sign-on is required. If you did not expect this, check Sign-in and security now: {{ record.link }}',
+  'notification_template.break_glass.signed_in.in_app':
+    '{{ record.title }} signed in with their emergency administrator account',
+  'notification_template.break_glass.signed_in.subject': 'Emergency sign-in: {{ record.title }}',
   'notification_template.change.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has an approval that nobody holds. An approval administrator can decide it.',
   'notification_template.change.approval_fallback.in_app':

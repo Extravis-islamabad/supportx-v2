@@ -11,7 +11,7 @@ import {
   type SignInOutcome,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
-import { ToneTag, useDateTime, useLabel, type Tone } from '@supportx/ui';
+import { deviceText, ToneTag, useDateTime, useLabel, type Tone } from '@supportx/ui';
 
 const OUTCOMES: SignInOutcome[] = ['success', 'failed', 'signed_out', 'locked', 'mfa_failed'];
 const METHODS: SignInMethod[] = [
@@ -42,15 +42,6 @@ function sinceFor(period: Period): string | undefined {
 }
 
 /** "chrome:windows" as words ("Chrome on Windows"); an unknown part as "Other". */
-function deviceText(t: ReturnType<typeof useLabel>, device: string | null): string {
-  if (device === null) return t('sign_in_device.unknown');
-  const [browser = 'other', system = 'other'] = device.split(':');
-  return t('sign_in_device.on', {
-    browser: t(`sign_in_device.browser.${browser}`),
-    system: t(`sign_in_device.system.${system}`),
-  });
-}
-
 /**
  * Audit › Sign-ins (WP-057 S1a, REQ-AUD-015): every sign-in, refusal and sign-out of the
  * organisation, newest first, live. Filters by outcome, method and period (AC2: "failed" in the

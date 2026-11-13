@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from app.core.authorization import Scope, require_permission
 from app.core.database import TenantSession
 from app.core.errors import NotFound, ProblemDetail, ServiceUnavailable
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, ReadCategory, audit_read, audited
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import Role, User
@@ -223,6 +224,7 @@ async def get_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     status_code=status.HTTP_201_CREATED,
     response_model=RoleDetailOut,
     responses={201: {"model": RoleDetailOut, "description": "Created (or replayed)."}},
+    dependencies=[RecentAuth],
 )
 async def create_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: RoleCreate,
@@ -254,7 +256,7 @@ async def create_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     return await idempotency.run(body, operation)
 
 
-@router.patch("/roles/{role_id}", summary="Edit a custom role")
+@router.patch("/roles/{role_id}", summary="Edit a custom role", dependencies=[RecentAuth])
 async def update_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     role_id: uuid.UUID,
     body: RolePatch,
@@ -350,12 +352,13 @@ async def get_user_access(
     summary="A support group carries a role",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[
+        RecentAuth,
         audited(
             "role.group_added",
             object_type="role",
             object_param="role_id",
             detail_params=("group_id",),
-        )
+        ),
     ],
 )
 async def add_group_role(
@@ -403,12 +406,13 @@ async def remove_group_role(
     summary="Assign a role",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[
+        RecentAuth,
         audited(
             "user.role_assigned",
             object_type="user",
             object_param="user_id",
             detail_params=("role_id",),
-        )
+        ),
     ],
 )
 async def assign_role(

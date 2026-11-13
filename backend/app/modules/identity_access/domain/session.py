@@ -28,7 +28,9 @@ class TenantChoice:
     name: str
 
 
-_DEVICE_FIELDS = ("device_platform", "app_version")
+# Left out of the stored record while empty: a session without them reads the same on a pod of
+# an earlier release (rolling update, §14.3).
+_OPTIONAL_FIELDS = ("device_platform", "app_version", "sign_in_ip", "device", "auth_time")
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,12 @@ class Session:
     # A break-glass admin's password sign-in while single sign-on is required: the sign-in
     # route audits it and alerts the other admins.
     break_glass: bool = False
+    # WP-057 S2a (REQ-SEC-030, REQ-SEC-027): the address the BFF saw at sign-in (never updated
+    # afterwards), a short device code (domain/sign_in.device: never the raw User-Agent), and
+    # when the person last proved who they are (ISO time: sign-in or a confirmation).
+    sign_in_ip: str | None = None
+    device: str | None = None
+    auth_time: str | None = None
 
     def limits(self, *, idle: timedelta, absolute: timedelta) -> tuple[timedelta, timedelta]:
         """The (idle, absolute) limits of the session; `idle` and `absolute` when it has none."""
@@ -117,9 +125,7 @@ class Session:
         data = asdict(self)
         for key in ("created_at", "last_seen_at", "access_expires_at"):
             data[key] = getattr(self, key).isoformat()
-        for key in _DEVICE_FIELDS:
-            # Web sessions keep the record they had: a pod of the previous release (rolling
-            # update, §14.3) still reads them. Only the new mobile sessions carry these.
+        for key in _OPTIONAL_FIELDS:
             if data[key] is None:
                 del data[key]
         return data

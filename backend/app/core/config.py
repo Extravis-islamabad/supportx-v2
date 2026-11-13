@@ -323,7 +323,13 @@ class Settings(BaseSettings):
     # listed use "default". JSON in the environment, e.g.
     # SUPPORTX_RATE_LIMITS='{"users": {"user": 300, "tenant": 3000}}'.
     rate_limits: dict[str, dict[str, int]] = Field(
-        default_factory=lambda: {"default": {"user": 600, "tenant": 6000}}
+        default_factory=lambda: {
+            "default": {"user": 600, "tenant": 6000},
+            # Signing out everywhere else (WP-057 S2a, lane B): a few a minute is plenty.
+            "auth_sessions": {"user": 10, "tenant": 1000},
+            # Confirming who you are (WP-057 S2a, REQ-SEC-027; lane B A3): per person.
+            "auth_confirm": {"user": 10, "tenant": 1000},
+        }
     )
     # Prefix for every Valkey key the API writes (tests use a random one).
     valkey_key_prefix: str = Field(default="supportx:", max_length=40)

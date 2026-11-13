@@ -25,6 +25,7 @@ from app.core.errors import (
     ProblemDetail,
     ValidationFailed,
 )
+from app.core.recent_auth import RecentAuth
 from app.modules.audit.domain.catalogue import (
     AuditActorType,
     AuditCategory,
@@ -536,7 +537,12 @@ def _seconds(value: int) -> Any:  # noqa: ANN401 - timedelta
 # --- exports (REQ-AUD-009) -------------------------------------------------------------------
 
 
-@router.post("/exports", summary="Export the audit log", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/exports",
+    summary="Export the audit log",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[RecentAuth],
+)
 async def start_export(
     request: Request,
     body: AuditExportIn,

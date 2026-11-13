@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   queryKeys,
   useEndMySession,
+  useEndOtherSessions,
   useEndPersonSession,
   useMySessions,
   usePersonSessions,
@@ -13,6 +14,7 @@ import { usePersonalChannel } from '@supportx/realtime';
 
 import { useLabel } from './appearance';
 import { useDateTime } from './dates';
+import { deviceText } from './deviceText';
 import { EmptyText } from './EmptyText';
 import { reportError } from './errors';
 import { ToneTag } from './ToneTag';
@@ -78,6 +80,15 @@ function SessionList({
               )}
               {row.current && <ToneTag tone="success">{t('account.sessions.this_device')}</ToneTag>}
             </Space>
+            {(row.device != null || row.ip != null) && (
+              // Shown to the session's owner and tenant admins only: the API leaves both out
+              // for anyone else (REQ-SEC-030, lane B). The address is where it signed in from.
+              <Typography.Text type="secondary" data-testid={`session-where-${row.id}`}>
+                {row.ip == null
+                  ? deviceText(t, row.device)
+                  : t('account.sessions.where', { device: deviceText(t, row.device), ip: row.ip })}
+              </Typography.Text>
+            )}
             <Typography.Text type="secondary">
               {t('account.sessions.when', {
                 started: row.started_at === null ? '' : dates.format(row.started_at),
@@ -117,6 +128,33 @@ function useEnd(end: (id: string) => Promise<unknown>, pending: boolean) {
   };
 }
 
+/** "Sign out everywhere else": ask, then end every other session; say how many ended. */
+function useEndOthers() {
+  const t = useLabel();
+  const { modal, message } = App.useApp();
+  const end = useEndOtherSessions();
+  return {
+    pending: end.isPending,
+    ask: () => {
+      modal.confirm({
+        title: t('account.sessions.end_others_title'),
+        content: t('account.sessions.end_others_body'),
+        okText: t('account.sessions.end_others'),
+        okButtonProps: { danger: true },
+        cancelText: t('actions.cancel'),
+        onOk: async () => {
+          try {
+            const { ended } = await end.mutateAsync();
+            void message.success(t('account.sessions.ended_others', { count: ended }));
+          } catch (error) {
+            reportError(error);
+          }
+        },
+      });
+    },
+  };
+}
+
 /**
  * My account: every browser and device signed in to this organisation (ADR-044 item 5), this
  * one marked; any other can be signed out at once. Live: a sign-in or sign-out anywhere
@@ -133,8 +171,26 @@ export function SignedInSessionsCard() {
     }
   });
   const { ask } = useEnd(end.mutateAsync, end.isPending);
+  const endOthers = useEndOthers();
+  const others = (sessions.data ?? []).some((row) => !row.current);
   return (
-    <Card title={t('account.sessions.title')} data-testid="account-sessions">
+    <Card
+      title={t('account.sessions.title')}
+      extra={
+        others && (
+          <Button
+            danger
+            size="small"
+            loading={endOthers.pending}
+            onClick={endOthers.ask}
+            data-testid="sessions-end-others"
+          >
+            {t('account.sessions.end_others')}
+          </Button>
+        )
+      }
+      data-testid="account-sessions"
+    >
       <Typography.Paragraph type="secondary">{t('account.sessions.help')}</Typography.Paragraph>
       <SessionList
         rows={sessions.data ?? []}

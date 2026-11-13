@@ -53,8 +53,14 @@ export const ur: LabelResource = {
   'account.sessions.end': 'سائن آؤٹ',
   'account.sessions.end_body':
     'یہ فوراً سائن آؤٹ ہو جاتا ہے اور جاری رکھنے کے لیے دوبارہ سائن اِن کرنا ہوگا۔',
+  'account.sessions.end_others': 'باقی ہر جگہ سے سائن آؤٹ کریں',
+  'account.sessions.end_others_body':
+    'باقی ہر براؤزر اور آلہ فوراً سائن آؤٹ ہو جائے گا اور اسے دوبارہ سائن اِن کرنا ہوگا۔ یہ براؤزر سائن اِن رہے گا۔',
+  'account.sessions.end_others_title': 'باقی تمام براؤزرز اور آلات سے سائن آؤٹ کریں؟',
   'account.sessions.end_title': 'اس آلے سے سائن آؤٹ کریں؟',
   'account.sessions.ended': 'اس آلے سے سائن آؤٹ ہو گیا',
+  'account.sessions.ended_others_one': '1 دوسرے براؤزر یا آلے سے سائن آؤٹ ہو گیا',
+  'account.sessions.ended_others_other': '{{count}} دوسرے براؤزرز اور آلات سے سائن آؤٹ ہو گیا',
   'account.sessions.help':
     'جہاں جہاں آپ اس تنظیم میں سائن اِن ہیں۔ جسے آپ نہیں پہچانتے یا اب استعمال نہیں کرتے، جیسے گمشدہ فون، اس سے سائن آؤٹ کریں۔',
   'account.sessions.none': 'کوئی اور سیشن نہیں',
@@ -62,6 +68,7 @@ export const ur: LabelResource = {
   'account.sessions.title': 'سائن اِن براؤزر اور آلات',
   'account.sessions.version': 'ورژن {{version}}',
   'account.sessions.when': 'سائن اِن {{started}} · آخری استعمال {{used}}',
+  'account.sessions.where': '{{device}} · {{ip}} سے',
   'account.sso_only':
     'آپ اپنی تنظیم کے سنگل سائن آن سے سائن اِن کرتے ہیں، اس لیے یہاں کوئی پاس ورڈ نہیں۔',
   'account.title': 'سائن اِن اور سکیورٹی',
@@ -840,6 +847,16 @@ export const ur: LabelResource = {
   'readiness_check.session_keys': 'سائن اِن کی کلیدیں',
   'readiness_status.not_ready': 'تیار نہیں',
   'readiness_status.ready': 'تیار',
+  'reauth.back': 'SupportX پر واپس جائیں',
+  'reauth.body':
+    'اس تبدیلی کے لیے حال ہی میں سائن اِن ضروری ہے۔ نئی ونڈو میں دوبارہ سائن اِن کریں، آپ کے مکمل کرتے ہی تبدیلی ہو جائے گی۔',
+  'reauth.close_window': 'آپ یہ ونڈو بند کر سکتے ہیں۔',
+  'reauth.confirm': 'دوبارہ سائن اِن کریں',
+  'reauth.done_failed': 'آپ کی شناخت کی تصدیق نہیں ہو سکی۔ کچھ بھی تبدیل نہیں ہوا۔',
+  'reauth.done_ok': 'شکریہ، آپ کی تصدیق ہو گئی۔',
+  'reauth.title': 'تصدیق کریں کہ یہ آپ ہیں',
+  'reauth.waiting':
+    'کھلنے والی ونڈو میں سائن اِن مکمل کریں۔ آپ کے مکمل کرتے ہی یہ پیغام خود بند ہو جائے گا۔',
   'role.asset_manager': 'اثاثہ مینیجر',
   'role.asset_manager.description':
     'پوری تنظیم کے اثاثوں، CMDB، سافٹ ویئر لائسنسوں اور دریافت کے نتائج کا انتظام کرتا ہے۔',
@@ -1229,6 +1246,7 @@ export const ur: LabelResource = {
   'sign_in_reason.identity_provider_refused': 'سنگل سائن آن فراہم کنندہ نے انکار کیا',
   'sign_in_reason.ip_not_allowed': 'نیٹ ورک کی اجازت نہیں',
   'sign_in_reason.other': 'کوئی اور وجہ',
+  'sign_in_reason.reauth_failed': 'تصدیق نہ ہو سکی کہ یہ وہی ہیں',
   'sign_in_reason.sign_in_expired': 'سائن اِن میں بہت دیر ہوئی',
   'sign_in_reason.sso_required': 'سنگل سائن آن لازمی',
   'sign_in_reason.unknown_person': 'ایسا کوئی اکاؤنٹ نہیں',

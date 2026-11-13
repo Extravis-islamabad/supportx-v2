@@ -90,6 +90,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("session.signed_out", AuditCategory.SESSION, "identity_access"),
     ("session.tenant_switched", AuditCategory.SESSION, "identity_access"),
     ("session.ended", AuditCategory.SESSION, "identity_access"),  # one session ended from a list
+    ("session.ended_others", AuditCategory.SESSION, "identity_access"),  # sign out everywhere else
+    ("session.confirmed", AuditCategory.SESSION, "identity_access"),  # confirmed it's them again
     # roles and access
     ("role.created", AuditCategory.ACCESS, "identity_access"),
     ("role.updated", AuditCategory.ACCESS, "identity_access"),

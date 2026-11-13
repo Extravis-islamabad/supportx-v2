@@ -13,6 +13,7 @@ import {
 import { label, LOCALES, type Locale } from '@supportx/labels';
 
 import { useAppearance, useLabel } from './appearance';
+import { ReauthDialog } from './reauth/ReauthDialog';
 import { BrandedPage, BrandLogo } from './brand';
 import { IdleWatcher } from './IdleWatcher';
 import { rememberLocale } from './themeMode';
@@ -153,6 +154,8 @@ export function SessionGate({ app, children, navigate = defaultNavigate }: Sessi
     <>
       {children(me)}
       {me.idle_timeout_seconds != null && <IdleWatcher idleSeconds={me.idle_timeout_seconds} />}
+      {/* A sensitive change asks for a recent sign-in (REQ-SEC-027): confirmed in a pop-up. */}
+      <ReauthDialog />
     </>
   );
 }
