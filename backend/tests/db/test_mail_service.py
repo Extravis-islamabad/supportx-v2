@@ -248,8 +248,18 @@ async def test_erasure_leaves_no_trace_of_the_person_in_mail(
                                        text="Keep")
     )  # fmt: skip
     elsewhere = await _queue(database, other_tenant)
+    on_behalf = await _queue(
+        database, tenant, OutgoingMail(kind="report", to=("sam@acme.test",), subject="From Pat",
+                                       text="Hi", reply_to="pat@acme.test", sender_name="Pat Doe")
+    )  # fmt: skip
+    wildcard = await _queue(
+        database, tenant, OutgoingMail(kind="report", to=("p_t@acme.test",), subject="Wild",
+                                       text="Keep")
+    )  # fmt: skip
     async with database.tenant_session(TenantContext(tenant)) as session:
-        assert await outgoing.forget_recipient(session, "PAT@acme.test") == 3
+        assert await outgoing.forget_recipient(session, "PAT@acme.test") == 4
+        # `_` and `%` are matched as themselves, never as LIKE wildcards
+        assert await outgoing.forget_recipient(session, "p%t@acme.test") == 0
     row = await _row(migrated_db, sent_to_pat)
     assert row["recipients"] == [outgoing.ERASED_RECIPIENT]
     assert (row["subject"], row["text_body"], row["html_body"]) == ("", None, None)
@@ -271,6 +281,11 @@ async def test_erasure_leaves_no_trace_of_the_person_in_mail(
         "queued", ["sam@acme.test"], "For both"
     )  # fmt: skip
     assert (await _row(migrated_db, near_miss))["recipients"] == ["xpat@acme.test"]
+    row = await _row(migrated_db, on_behalf)  # still goes to Sam, no longer names Pat
+    assert (row["state"], row["recipients"], row["reply_to"], row["sender_name"]) == (
+        "queued", ["sam@acme.test"], None, None
+    )  # fmt: skip
+    assert (await _row(migrated_db, wildcard))["recipients"] == ["p_t@acme.test"]
     assert (await _row(migrated_db, elsewhere))["recipients"] == ["pat@acme.test"]  # RLS
     async with database.tenant_session(TenantContext(tenant)) as session:
         assert await outgoing.forget_recipient(session, "pat@acme.test") == 0  # idempotent
