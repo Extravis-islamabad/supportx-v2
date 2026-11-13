@@ -109,6 +109,13 @@ async def test_an_erased_persons_notifications_go_and_nobody_elses(world: World)
         headers={"If-Match": f'"{named.json()["version"]}"'},
     )
     assert stale.status_code == 409
+    # A reset (soft-deleted) rule that named them loses them too.
+    kept = await world.sql(
+        "SELECT count(*) AS n FROM notification_rules WHERE tenant_id = $1 AND $2 = ANY(user_ids)",
+        org.tenant,
+        org.tech_b,
+    )
+    assert kept[0]["n"] == 0
     # Another tenant's same-named event does nothing here (RLS: the session's tenant only).
     await _handle(world, _changed(other.tenant, org.tech_a, "erasure"))
     assert await _counts(world, org, org.tech_a) == before_a

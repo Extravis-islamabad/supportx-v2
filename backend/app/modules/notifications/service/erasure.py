@@ -41,10 +41,9 @@ async def forget(session: AsyncSession, user_id: uuid.UUID) -> tuple[int, int]:
     rules = list(
         await session.scalars(
             select(NotificationRule)
-            .where(
-                NotificationRule.user_ids.contains([user_id]),
-                NotificationRule.deleted_at.is_(None),
-            )
+            # Reset (soft-deleted) rules too: a rule restored later must not bring them back
+            # (lane B's #492 review).
+            .where(NotificationRule.user_ids.contains([user_id]))
             .with_for_update()
         )
     )
