@@ -77,10 +77,10 @@ export function KeptDraftNotice<T extends FieldValues>({
         </span>
       }
       action={
+        // Both default buttons: the page's own submit is its one primary (lane C, matrix).
         <Space>
           <Button
             size="small"
-            type="primary"
             onClick={() => {
               if (!typed) {
                 restore();
