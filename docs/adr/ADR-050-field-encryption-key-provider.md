@@ -157,3 +157,28 @@ swapping two people's sensitive fields. Both would decrypt without binding; with
   rewriting every field value, and there would be no per-tenant crypto-shredding.
 - **PostgreSQL pgcrypto:** the key would travel to the database in every statement and appear in
   its logs and `pg_stat_statements`. The keys must stay in the application (D-021).
+
+## Addendum 1 (2026-11-14, WP-057 S3b; coordinator OK, lane B blocking)
+
+**A removed key stops the start.** Each tenant data key names the key-encryption key that wraps it
+(`tenant_data_keys.kek_id`). An operator who removes a KEK from `SUPPORTX_FILES_KEYS` before
+`tooling.files_keys rewrap` has moved its data keys onto the new one leaves those tenants' files
+and encrypted fields unreadable. So the API refuses to start in that case
+(`app/shared/fields/keycheck.py`), logging only the missing key IDs and how many data keys each
+still wraps. `make keys-check` answers the same question before the key is removed.
+- **The count crosses tenants** through `sx_kek_wraps()` (migration 0163). It returns
+  `(kek_id, count)` and nothing else. It is the first function made by the owned helper
+  `create_definer_function` (`migrations/helpers.py`, D-168), which:
+  - fixes the search_path;
+  - closes the function to PUBLIC and opens it to supportx_app alone;
+  - is the only way a migration may make a SECURITY DEFINER function (#476 guard).
+- **A migrator-only read policy** on `tenant_data_keys` lets the function count. The migrator has
+  no login in the API or workers.
+
+**Admin-marked fields (REQ-SEC-040), decided for S3b-2:**
+- **One mechanism with ADR-047.** Its field access per role decides who sees a field. A
+  `sensitive` custom field is sealed at rest under a purpose of its own. It is opened only where
+  that access is clear or read-only; hidden and masked values are never decrypted.
+- **Exact match** uses a blind index: an HMAC under its own purpose key. There is no partial
+  search, sort or range.
+- **Turning the flag on or off** re-seals the field's values in a resumable per-tenant job.
