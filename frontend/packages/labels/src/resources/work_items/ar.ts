@@ -1046,6 +1046,31 @@ export const ar: LabelResource = {
   'incidents.columns.search': 'البحث في الحقول',
   'incidents.columns.shown': 'المعروضة، بهذا الترتيب',
   'incidents.columns.title': 'اختر الأعمدة',
+  'incidents.copy.confirm_few': 'إنشاء {{count}} نسخ',
+  'incidents.copy.confirm_many': 'إنشاء {{count}} نسخة',
+  'incidents.copy.confirm_one': 'إنشاء نسخة واحدة',
+  'incidents.copy.confirm_other': 'إنشاء {{count}} نسخة',
+  'incidents.copy.confirm_two': 'إنشاء نسختين',
+  'incidents.copy.confirm_zero': 'إنشاء {{count}} نسخة',
+  'incidents.copy.count': 'عدد النسخ',
+  'incidents.copy.count_help': 'حتى {{max}} في كل مرة.',
+  'incidents.copy.files_left_out_few':
+    'تعذّر نسخ {{count}} ملفات الآن (ما زالت قيد الفحص أو غير آمنة) فبقيت في الأصل.',
+  'incidents.copy.files_left_out_many':
+    'تعذّر نسخ {{count}} ملفًا الآن (ما زالت قيد الفحص أو غير آمنة) فبقيت في الأصل.',
+  'incidents.copy.files_left_out_one':
+    'تعذّر نسخ ملف واحد الآن (ما زال قيد الفحص أو غير آمن) فبقي في الأصل.',
+  'incidents.copy.files_left_out_other':
+    'تعذّر نسخ {{count}} ملف الآن (ما زالت قيد الفحص أو غير آمنة) فبقيت في الأصل.',
+  'incidents.copy.files_left_out_two':
+    'تعذّر نسخ ملفين الآن (ما زالا قيد الفحص أو غير آمنين) فبقيا في الأصل.',
+  'incidents.copy.files_left_out_zero': 'لم يُترك أي ملف.',
+  'incidents.copy.help':
+    'كل نسخة حادث جديد يذكر سجله هذا الحادث ويبيّن موضوعه أنه نسخة. تُنسخ الحقول دائمًا، ولا تُنسخ المحادثة أو سجلات العمل أو السجل أبدًا.',
+  'incidents.copy.made': 'تم إنشاء {{ids}}.',
+  'incidents.copy.open': 'نسخ',
+  'incidents.copy.title': 'نسخ {{id}}',
+  'incidents.copy.with': 'انسخ أيضًا',
   'incidents.create_another': 'تسجيل حادثة أخرى بعد الحفظ',
   'incidents.created': 'تم تسجيل {{id}}.',
   'incidents.created_at': 'وقت التسجيل',
@@ -1852,6 +1877,8 @@ export const ar: LabelResource = {
   'reason_mode.none': 'بدون سبب',
   'reason_mode.optional': 'السبب اختياري',
   'reason_mode.required': 'السبب مطلوب',
+  'record_copy_part.attachments': 'المرفقات',
+  'record_copy_part.tasks': 'المهام',
   'release_reason.compliance': 'الامتثال',
   'release_reason.fixes': 'إصلاحات',
   'release_reason.new_features': 'ميزات جديدة',
@@ -2572,6 +2599,7 @@ export const ar: LabelResource = {
   'window_weekday.4': 'الجمعة',
   'window_weekday.5': 'السبت',
   'window_weekday.6': 'الأحد',
+  'work_item.copy_subject': 'النسخة {{n}} من: {{subject}}',
   'work_item.field.accepted_at': 'قُبلت دون إصلاح',
   'work_item.field.actual_downtime_seconds': 'التوقف الفعلي',
   'work_item.field.actual_end': 'الانتهاء الفعلي',

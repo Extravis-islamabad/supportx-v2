@@ -503,6 +503,9 @@ export const ur: LabelResource = {
   'settings.closing.complete_open_work_help':
     'واقعہ بند کرنے سے اس کا کھلا کام مکمل نشان زد ہو جاتا ہے۔',
   'settings.closing.condition.review_completed': 'جائزہ مکمل',
+  'settings.closing.copy_limit': 'ایک وقت میں کاپیاں',
+  'settings.closing.copy_limit_help':
+    'ایک درخواست میں واقعے کی کتنی کاپیاں بن سکتی ہیں، {{min}} سے {{max}} تک۔',
   'settings.closing.days_range': '{{min}} سے {{max}} کاروباری دن۔',
   'settings.closing.help':
     'واقعہ حل اور بند کرنے کے لیے کیا درکار ہے، کھلے کام کا کیا ہوتا ہے، اور درخواست گزار جواب دے کر کتنی دیر تک اسے دوبارہ کھول سکتا ہے۔',

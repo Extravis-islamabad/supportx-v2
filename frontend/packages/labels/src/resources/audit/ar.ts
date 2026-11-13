@@ -200,6 +200,7 @@ export const ar: LabelResource = {
   'audit.action.domain.verified': 'تحقق من نطاق مخصص',
   'audit.action.file.archive_downloaded': 'نزّل ملفات بصيغة zip',
   'audit.action.file.blocked': 'حظر ملفًا يحتوي على برنامج ضار',
+  'audit.action.file.copied': 'نسخ ملفًا إلى سجل منسوخ',
   'audit.action.file.deleted': 'حذف ملفًا',
   'audit.action.file.downloaded': 'فتح ملفًا من ملاحظة خاصة',
   'audit.action.file.purged': 'أزال ملفات نهائيًا',

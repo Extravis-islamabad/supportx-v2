@@ -85,6 +85,7 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, Work
 from app.modules.work_items.service import (
     asset_links,
     change_links,
+    record_copies,
     release_links,
     resolution,
     stage_approvals,
@@ -99,10 +100,12 @@ from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
 from app.modules.work_items.service.closing import MoveInput, requester_channel_states
+from app.modules.work_items.service.record_copies import RecordCopyPart
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
 from app.shared.api.ratelimit import rate_limit
+from app.shared.files.service.core import FileServices
 from app.shared.history import Actors, ChangeKind, HistoryEntry, Source, source_of
 from app.shared.labels import strip_isolates
 
@@ -1064,6 +1067,9 @@ class WorkItemClosureOut(BaseModel):
     checklist_item_max: int = Field(
         default=100, description="Checklist items per record, all its checklists (1 to 1000)."
     )
+    copy_limit: int = Field(
+        default=20, description="How many copies one request may make (1 to 100)."
+    )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
     )
@@ -1353,6 +1359,7 @@ class WorkItemCatalogueOut(BaseModel):
                     'Literal["block", "warn"]', cat.closure.task_dependency_mode
                 ),
                 checklist_item_max=cat.closure.checklist_item_max,
+                copy_limit=cat.closure.copy_limit,
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1382,6 +1389,7 @@ class WorkItemClosurePatch(BaseModel):
     timer_auto_start: StrictBool | None = None
     task_dependency_mode: Literal["block", "warn"] | None = None
     checklist_item_max: int | None = Field(default=None, description="1 to 1000.")
+    copy_limit: int | None = Field(default=None, description="1 to 100.")
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -1652,6 +1660,31 @@ class ChangeCopyIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     parts: list[Literal["plans", "roles"]] = Field(default_factory=list, max_length=2)
+
+
+class RecordCopiesIn(BaseModel):
+    """How many copies, and what comes with their fields (REQ-INC-033)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    count: int = Field(default=1, ge=1, le=100, description="The type's limit applies (AC3).")
+    parts: list[RecordCopyPart] = Field(default_factory=list, max_length=len(RecordCopyPart))
+
+
+class FileLeftOutOut(BaseModel):
+    """One of the original's files that did not come with the copies, and why (lane B)."""
+
+    file_id: uuid.UUID
+    reason: str = Field(
+        description="The file's state (e.g. scanning, infected), too_large or blocked."
+    )
+
+
+class RecordCopiesOut(BaseModel):
+    """The copies made, in order, and the original's files that did not come."""
+
+    items: list[WorkItemOut]
+    files_not_copied: list[FileLeftOutOut]
 
 
 class ChangePrefillOut(BaseModel):
@@ -2259,6 +2292,21 @@ async def _release_facts(
         )
         for i, f in facts.items()
     }
+
+
+FILES_STATE = "files"  # the system module keeps the API's FileServices on app.state
+
+
+def _copy_files(request: Request) -> FileServices:
+    """The API's file services, for copying a record's files (as knowledge's links do)."""
+    found: FileServices | None = getattr(request.app.state, FILES_STATE, None)
+    if found is None:
+        found = FileServices.from_settings(request.app.state.settings)
+        setattr(request.app.state, FILES_STATE, found)
+    return found
+
+
+CopyFiles = Annotated[FileServices, Depends(_copy_files)]
 
 
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0915 - one route per operation
@@ -3729,6 +3777,56 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             next_cursor=None if next_cursor is None else _cursor_text(*next_cursor),
             people=_people(people),
         )
+
+    if wtype.code is WorkItemTypeCode.INCIDENT:  # WP-046a S5c: copy N times (REQ-INC-033)
+
+        @router.post(
+            "/{record_id}/copies",
+            summary=f"Copy the {name} one or more times",
+            status_code=status.HTTP_201_CREATED,
+            response_model=RecordCopiesOut,
+        )
+        async def copy_records(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: RecordCopiesIn,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+            files: CopyFiles,
+        ) -> Response:
+            """New records from this one's fields, each naming it in its history.
+
+            Never its conversation, worklogs, history or assignment to a person. Send an
+            Idempotency-Key: a retry returns the same 201.
+            """
+
+            async def run() -> Created:
+                made = await record_copies.copy_record(
+                    session,
+                    subject,
+                    wtype,
+                    record_id,
+                    count=body.count,
+                    parts_chosen=frozenset(body.parts),
+                    source=source_of(request),
+                    holders=policy,
+                    files=files,
+                    facts=RequestFacts.of(request),
+                )
+                views = [await service.get(session, subject, wtype, r.id) for r in made.records]
+                return Created(
+                    body=RecordCopiesOut(
+                        items=[WorkItemOut.of(v) for v in views],
+                        files_not_copied=[
+                            FileLeftOutOut(file_id=n.file_id, reason=n.reason)
+                            for n in made.not_copied
+                        ],
+                    )
+                )
+
+            return await idempotency.run({"copy_of": str(record_id), **body.model_dump()}, run)
 
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
