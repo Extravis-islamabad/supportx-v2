@@ -8,6 +8,9 @@
 #   4. the restored database has "before" and not "after": point-in-time recovery works;
 #   5. with HA SeaweedFS (D-166), its filers' metadata database is in the same cluster, so in the
 #      same backups: the restored cluster has it, with the file entries it had before the moment.
+# The backups are read through the release's own ObjectStore, so from wherever it points: with
+# `make deploy-ha` the store outside the k3d nodes (deploy/k3d/ci-backup-store.sh), reached under
+# the egress rule that values file adds for every pod of the namespace, the restore cluster's too.
 # The new cluster is removed afterwards. Needs: make cluster-up-ha deploy-ha. Prints no secret.
 set -euo pipefail
 

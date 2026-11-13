@@ -30,8 +30,8 @@ WAL works.
 ## 2. Stop writes
 
 Scale the API and workers to zero so nothing writes while you restore. The HA SeaweedFS filers
-(D-166) stay up: when the backups are in this release's own SeaweedFS (dev, CI), the restore reads
-them through the filers.
+(D-166) stay up: when the backups are in this release's own SeaweedFS (dev), the restore reads
+them through the filers. CI's and production's backups are outside the cluster's nodes.
 ```sh
 kubectl -n supportx scale deploy --replicas=0 \
   -l 'app.kubernetes.io/instance=supportx,app.kubernetes.io/component!=seaweedfs-filer'

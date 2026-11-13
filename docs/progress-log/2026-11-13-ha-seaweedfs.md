@@ -24,6 +24,10 @@
   the Cluster workflow.
 - **Docs:** deployment.md (Profiles, Secrets, Backups, CI; moving a single-copy install with
   rclone and `rclone check`), restore runbook, ADR-038 Addendum A, D-166.
+- **CI backups off the nodes:** the HA CI cluster's WAL archive and base backups go to a SeaweedFS
+  container outside the k3d nodes (`deploy/k3d/ci-backup-store.sh`, SSE-S3 `AES256`, egress /32 on
+  8333), as production's go outside the cluster: in-cluster, the node-loss test's lost copy
+  stalled the database's promotion to 2.5 min (Cluster run 43376122580).
 - **Open:** the file-store backup (audit gap #1); the single-node `weed server` still sends
   SeaweedFS's anonymous usage statistics (default on), to fix in its own PR as it changes the
   golden file.

@@ -207,7 +207,7 @@ announcement and a migration path that removes nothing silently (Haider's rule).
   5. Only then delete the old pod's volume (`data-supportx-seaweedfs-0`), with the product
      owner's confirmation (CLAUDE.md rule h).
 
-  The database backups (`backups/postgres` in the same bucket, in dev and CI) are files like any
+  The database backups (`backups/postgres` in the same bucket, in dev) are files like any
   other: copy them too, or start a fresh backup chain after the move.
 
   **Cluster DNS: at least two copies on different nodes (k3s ships one).** With one copy, losing
@@ -607,13 +607,22 @@ unreachable. The database's WAL is archived continuously and a base backup is ta
 restored to any moment within `retentionPolicy` (30 days by default).
 
 **Production: back up to storage outside the cluster.** By default the backups go to this
-release's own SeaweedFS, which is fine for dev and CI but shares the database's failure domain:
+release's own SeaweedFS, which is fine for dev but shares the database's failure domain:
 losing the cluster or its disks loses the backups too, and the chart warns about it. With the
 replicated SeaweedFS it matters more: its filers' file tree lives in this same database, so a
 lost database also makes the in-cluster backups unreadable until it is back. For
 production set `destinationPath`, `endpointURL` and `credentialsSecret` (keys `ACCESS_KEY_ID`,
 `ACCESS_SECRET_KEY`) to a bucket elsewhere, with credentials of its own, so the application's
 keys can't touch the backups.
+
+**CI does the same.** On the k3d HA cluster, `make deploy-ha` starts a store outside the
+cluster's nodes (`deploy/k3d/ci-backup-store.sh`: one SeaweedFS container from the chart's pinned
+image on the k3d network, its own S3 keys in the `supportx-ci-backups-s3` Secret, SSE-S3 with a key
+of its own, so `encryption: AES256`) and points the backups, the restore drill and an egress rule
+for its address and port 8333 at it. With the replicated SeaweedFS on every node, an in-cluster
+archive also lost a copy in the node-loss test, and PostgreSQL's end-of-recovery WAL lookups
+stalled the promotion (Cluster run 43376122580). `make cluster-down` removes the store with the
+cluster.
 
 **Encrypted at rest.** The target encrypts (S3 server-side): set `encryption` to `AES256` or
 `aws:kms`, or use a bucket whose policy encrypts every object. Barman Cloud has no client-side

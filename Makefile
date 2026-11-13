@@ -402,8 +402,11 @@ deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA
 	# --mode direct: with several nodes, the default shared-volume import races (a node deletes the
 	# tarball while others still read it, and k3d still reports success).
 	k3d image import --mode direct supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	# The database backups go to a store outside the k3d nodes, as production's go outside the
+	# cluster (D-166): its address, bucket, Secret and egress rule come in as one more values file.
+	backup_values="$$(K3D_CLUSTER=$(K3D_CLUSTER) SUPPORTX_NAMESPACE=$(NAMESPACE) bash deploy/k3d/ci-backup-store.sh up)" && \
 	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
-		-f $(CHART)/values-ha.yaml -f $(CHART)/values-ha-ci.yaml \
+		-f $(CHART)/values-ha.yaml -f $(CHART)/values-ha-ci.yaml -f "$$backup_values" \
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 20m
 	$(HELM_TEST)
 
@@ -440,7 +443,9 @@ cluster-test: ## helm test: every internal route answers and Valkey enforces aut
 cluster-e2e: ## Playwright journeys against the k3d cluster (ARGS="tests/login.spec.ts" for one file)
 	@bash deploy/k3d/e2e.sh $(ARGS)
 
-cluster-down: ## DELETE the k3d cluster and all its data (asks you to type "yes" first)
+cluster-down: ## DELETE the k3d cluster, its backup store and all their data (asks you to type "yes" first)
 	@printf 'This deletes the k3d cluster "$(K3D_CLUSTER)" and every volume in it.\nType "yes" to continue: '; \
 		read answer; [ "$$answer" = "yes" ] || { echo "Cancelled."; exit 1; }
+	# The HA cluster's backup store first: k3d can't remove a network a container still uses.
+	K3D_CLUSTER=$(K3D_CLUSTER) bash deploy/k3d/ci-backup-store.sh down
 	k3d cluster delete $(K3D_CLUSTER)
