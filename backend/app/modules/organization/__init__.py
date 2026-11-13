@@ -12,6 +12,7 @@ Public interface for other modules: `get_current_tenant`, `TenantView`, `TenantS
 `active_unit_ids`, `existing_departments`, `department_site`, `default_desk_id`, `default_site`,
 `find_site`, `find_department` (directory sync and sign-in mapping, WP-039 D6), `leave_groups`,
 `register_usage` (modules that point at a site, group or department say how many rows use it),
+`site_names` (sites' names by ID, read only; the new-device notice names a mapped site),
 `tenant_for_host`, `HostTenant` (sign-in hint, WP-017), `get_branding`, `BrandingView`,
 `email_branding`, `EmailBranding`, `header_html` (e-mails), `register_calendar_check`,
 `calendar_users`, `CalendarUsers`, `unit_calendars` (WP-025: which calendar a site or group
@@ -76,6 +77,7 @@ from app.modules.organization.service.structure import (
     register_group_disable_guard,
     register_site_people_counter,
     site_defaults,
+    site_names,
     unit_heads,
     unregister_group_disable_guard,
     unregister_site_people_counter,
@@ -199,6 +201,7 @@ __all__ = [
     "remove_member",
     "require_group_manager",
     "site_defaults",
+    "site_names",
     "tenant_for_host",
     "tenant_for_slug",
     "unit_calendars",
