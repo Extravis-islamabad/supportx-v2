@@ -442,6 +442,8 @@ export const ur: LabelResource = {
   'errors.field.fallback_fixed': 'ڈیفالٹ پالیسی ہمیشہ لاگو ہوتی ہے اور اس کی کوئی شرائط نہیں۔',
   'errors.field.field_always_required':
     'موضوع اور درخواست گزار ہمیشہ دکھائے جاتے ہیں اور لازمی ہیں۔',
+  'errors.field.field_locked':
+    'فارم کا ایک اصول اس فیلڈ کو مقفل کرتا ہے، اس لیے اسے یہاں نہیں بدلا جا سکتا۔',
   'errors.field.field_not_settable': 'قاعدہ یہ فیلڈ مقرر نہیں کر سکتا۔',
   'errors.field.field_retired': 'یہ خانہ ریٹائر ہو چکا ہے اور نئی قدریں نہیں لیتا۔',
   'errors.field.field_set_twice': 'یہ فیلڈ قاعدے کے کسی اور عمل سے پہلے ہی مقرر ہے۔',
@@ -537,9 +539,11 @@ export const ur: LabelResource = {
   'errors.field.name_needs_letters': 'نام میں کم از کم ایک حرف یا ہندسہ استعمال کریں۔',
   'errors.field.name_required': 'نام درج کریں۔',
   'errors.field.name_taken': 'یہ نام پہلے سے استعمال میں ہے۔',
+  'errors.field.needs_collapsible': 'صرف سمیٹا جانے والا حصہ بند حالت میں شروع ہو سکتا ہے۔',
   'errors.field.needs_scheduled_start': 'آغاز سے پہلے یاد دہانی کے لیے طے شدہ آغاز ضروری ہے۔',
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
   'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
+  'errors.field.not_a_form_field': 'یہ فیلڈ فارم میں نہیں ہے۔',
   'errors.field.not_a_technician':
     'صرف وہی ٹیکنیشن جو مسائل پر کام کرتا ہے کسی مسئلے کی تفتیش کر سکتا ہے۔',
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
@@ -614,6 +618,7 @@ export const ur: LabelResource = {
   'errors.field.role_disabled': 'یہ کردار ختم کیا جا چکا ہے: کسی نئے کو نہیں دیا جا سکتا۔',
   'errors.field.role_held_by_record':
     'یہ کردار ریکارڈ کے اپنے فیلڈ سے آتا ہے۔ اسے تفصیلات کے پینل میں بدلیں۔',
+  'errors.field.rule_too_deep': 'شرطیں زیادہ سے زیادہ تین سطحوں تک ایک دوسرے کے اندر ہو سکتی ہیں۔',
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',

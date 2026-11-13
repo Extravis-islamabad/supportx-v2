@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check semgrep labels-json backend-test-timings backend-shard-weights ci-metrics \
+.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors route-permissions setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check semgrep labels-json backend-test-timings backend-shard-weights ci-metrics \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e e2e-smoke \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -184,6 +184,9 @@ decisions: ## Render every docs/decisions/D-NNN.md into one table at docs/_build
 
 progress-log: ## Render docs/progress-log/ newest first into docs/_build/PROGRESS-log.md (D-123)
 	$(BACKEND) uv run python -m tooling.docs_entries progress-log
+
+route-permissions: generated-backend ## Write the code-owned route-permission map and role matrix to docs/security/route-permissions.md (D-168)
+	$(BACKEND) uv run python -m tooling.route_permissions
 
 api-errors: generated-backend ## The API's error codes with their English text, into docs/_build/api/errors.md (WP-041)
 	$(BACKEND) uv run python -m tooling.api_errors

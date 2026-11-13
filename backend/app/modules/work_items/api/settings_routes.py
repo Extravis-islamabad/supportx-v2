@@ -24,6 +24,8 @@ from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.work_items.domain.approvals import LevelRule
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
+from app.modules.work_items.domain.form_layout import LabelPosition
+from app.modules.work_items.domain.form_rules import RuleAction
 from app.modules.work_items.domain.lifecycle import ReasonMode, WorkItemAction
 from app.modules.work_items.domain.parts import TaskPriority
 from app.modules.work_items.domain.templates import (
@@ -325,6 +327,71 @@ class TemplateChecklistIO(BaseModel):
     )
 
 
+class FormSectionIO(BaseModel):
+    """One section of a template's form (REQ-INC-036)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(max_length=40)
+    names: dict[str, str] = Field(
+        default_factory=dict, description="Its heading per language (en, ar, ur); none: no heading."
+    )
+    columns: int = Field(default=1, ge=1, le=2, description="One or two columns.")
+    collapsible: bool = False
+    collapsed: bool = Field(default=False, description="Starts closed (collapsible only).")
+    fields: list[str] = Field(
+        default_factory=list,
+        max_length=200,
+        description="Field names in order (built-in, or custom.<key>); each once per layout.",
+    )
+
+
+class FormLayoutPartIO(BaseModel):
+    """One audience's layout: where labels sit and the sections."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label_position: LabelPosition = LabelPosition.TOP
+    sections: list[FormSectionIO] = Field(max_length=20)
+
+
+class FormLayoutIO(BaseModel):
+    """The technician form's layout and, optionally, the requester form's own."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    technician: FormLayoutPartIO
+    requester: FormLayoutPartIO | None = Field(
+        default=None, description="None: the portal uses the technician layout."
+    )
+
+
+class FormRuleActionIO(BaseModel):
+    """What a matching rule does to one field (REQ-INC-037)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    do: RuleAction
+    field: str = Field(max_length=60)
+    value: str | int | bool | None = Field(default=None, description="`set` only.")
+    keep_value: bool | None = Field(
+        default=None, description="`hide` only: keep the value instead of clearing it on save."
+    )
+
+
+class FormRuleIO(BaseModel):
+    """A form rule: when its condition holds, its actions apply (browser and server alike)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(max_length=40)
+    when: Any = Field(
+        description="A condition: {field, op, value} with op eq, ne, in, not_in, is_null or"
+        " is_not_null, nested in and / or lists (at most 3 deep, 20 conditions)."
+    )
+    then: list[FormRuleActionIO] = Field(min_length=1, max_length=20)
+
+
 class TemplateOut(BaseModel):
     """A template as admins and the create form see it."""
 
@@ -361,6 +428,14 @@ class TemplateOut(BaseModel):
     checklists: list[TemplateChecklistIO] = Field(
         default_factory=list, description="Checklists each new record gets (REQ-INC-040)."
     )
+    layout: FormLayoutIO | None = Field(
+        default=None, description="The create form's sections (REQ-INC-036); none: one list."
+    )
+    form_rules: list[FormRuleIO] = Field(
+        default_factory=list,
+        description="Show, hide, require, lock or set fields on a condition; the server enforces"
+        " them on every save (REQ-INC-037).",
+    )
     version: int
 
     @classmethod
@@ -394,6 +469,8 @@ class TemplateOut(BaseModel):
             stage_rules=row.stage_rules,
             tasks=[TemplateTaskIO.model_validate(t) for t in row.tasks or []],
             checklists=[TemplateChecklistIO.model_validate(c) for c in row.checklists or []],
+            layout=FormLayoutIO.model_validate(row.layout) if row.layout else None,
+            form_rules=[FormRuleIO.model_validate(r) for r in row.form_rules or []],
             version=row.version,
         )
 
@@ -435,6 +512,14 @@ class TemplateIn(BaseModel):
         description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
         " Replaces all of them; existing records keep theirs.",
     )
+    layout: FormLayoutIO | None = Field(
+        default=None, description="The create form's sections (REQ-INC-036); null: one list."
+    )
+    form_rules: list[FormRuleIO] | None = Field(
+        default=None,
+        max_length=50,
+        description="The form rules (REQ-INC-037). Replaces all of them.",
+    )
 
 
 class TemplatePatch(BaseModel):
@@ -475,6 +560,14 @@ class TemplatePatch(BaseModel):
         max_length=10,
         description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
         " Replaces all of them; existing records keep theirs.",
+    )
+    layout: FormLayoutIO | None = Field(
+        default=None, description="The create form's sections (REQ-INC-036); null: one list."
+    )
+    form_rules: list[FormRuleIO] | None = Field(
+        default=None,
+        max_length=50,
+        description="The form rules (REQ-INC-037). Replaces all of them.",
     )
 
 
