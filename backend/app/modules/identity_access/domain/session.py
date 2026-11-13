@@ -74,9 +74,9 @@ class Session:
     # A break-glass admin's password sign-in while single sign-on is required: the sign-in
     # route audits it and alerts the other admins.
     break_glass: bool = False
-    # WP-057 S2a (REQ-SEC-030, REQ-SEC-027): where the session signed in (the address the BFF
-    # saw, then the last one it was used from), a short device code (domain/sign_in.device:
-    # never the raw User-Agent), and when the person last proved who they are (ISO time).
+    # WP-057 S2a (REQ-SEC-030, REQ-SEC-027): the address the BFF saw at sign-in (never updated
+    # afterwards), a short device code (domain/sign_in.device: never the raw User-Agent), and
+    # when the person last proved who they are (ISO time: sign-in or a confirmation).
     sign_in_ip: str | None = None
     device: str | None = None
     auth_time: str | None = None
@@ -145,4 +145,7 @@ class Session:
         for key in ("created_at", "last_seen_at", "access_expires_at"):
             values[key] = datetime.fromisoformat(values[key])
         values["tenants"] = [TenantChoice(**t) for t in values["tenants"]]
-        return cls(**values)
+        # Fields a later release added are left out, never a TypeError: during a rolling update
+        # this release reads sessions the next one wrote (lane C's S1b finding, #459).
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in values.items() if k in known})

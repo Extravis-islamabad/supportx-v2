@@ -137,6 +137,11 @@ def _error_logger(component: str) -> Callable[[Exception], Awaitable[None]]:
     return on_error
 
 
+# Dead-peer detection for the long-lived bus connection (the chart's nats ping_interval/ping_max).
+PING_INTERVAL_SECONDS = 10
+PING_MAX = 3
+
+
 async def connect(settings: Settings, component: str) -> Bus:
     """Connect (reconnecting forever on drops), then provision the streams."""
     if settings.nats_url is None:
@@ -151,6 +156,11 @@ async def connect(settings: Settings, component: str) -> Bus:
         name=f"{component}@{socket.gethostname()}",
         max_reconnect_attempts=-1,
         reconnect_time_wait=1,
+        # A server that went away without closing the connection (a lost node) is noticed in
+        # about 30 s, not nats-py's default 120 s x 2: the client then reconnects to a live
+        # server. Matches the servers' own ping_interval / ping_max (the chart's nats values).
+        ping_interval=PING_INTERVAL_SECONDS,
+        max_outstanding_pings=PING_MAX,
         connect_timeout=max(1, math.ceil(settings.readiness_timeout_seconds)),
         error_cb=_error_logger(component),
     )

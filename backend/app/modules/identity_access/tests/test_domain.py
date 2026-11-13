@@ -184,8 +184,12 @@ def test_session_refresh_window_and_round_trip() -> None:
         assert token_field not in repr(s)  # tokens never end up in logs via repr
 
 
-def test_a_session_from_a_newer_release_still_reads() -> None:
-    """Rolling updates (§14.3): fields a later release adds are ignored, never a crash."""
+def test_a_session_from_a_later_release_still_reads() -> None:
+    """Rolling updates: fields a later release adds are ignored, never a TypeError (#459).
+
+    This must reach main before the release that adds fields, as the reading pod is the older one.
+    """
     s = session()
-    newer = {**s.to_dict(), "a_future_field": {"x": 1}, "another_one": "192.0.2.7"}
-    assert Session.from_dict(newer) == s
+    # Names no release will use (lane C): S2a's real fields would make this compare unequal.
+    later = {**s.to_dict(), "a_future_field": "x", "another_future_field": {"nested": 1}}
+    assert Session.from_dict(later) == s

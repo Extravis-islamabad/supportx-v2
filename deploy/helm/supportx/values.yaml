@@ -378,6 +378,12 @@ nats:
       authorization:
         user: supportx
         password: << $SUPPORTX_NATS_PASSWORD >>
+      # Notice a peer that went away without closing its connections (a lost node) within about
+      # 30 s, not NATS's default 2 min x 2: until then a JetStream leader on the lost server is
+      # not replaced and JetStream calls time out (the HA node-loss test's fan-out, run
+      # 131684903919). The workers' clients use the same (backend/workers/bus.py).
+      ping_interval: "10s"
+      ping_max: 3
   container:
     env:
       SUPPORTX_NATS_PASSWORD:
