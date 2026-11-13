@@ -16,7 +16,7 @@ The downgrade refuses while any tenant has a mapped range or a known device, per
 app.tenant_id set (rule 5h).
 
 Revision ID: 0157
-Revises: 0154
+Revises: 0155
 Created: 2026-11-13
 """
 
@@ -30,7 +30,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0157"
-down_revision: str | None = "0154"
+down_revision: str | None = "0155"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

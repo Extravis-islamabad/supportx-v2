@@ -488,6 +488,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/settings/password-policy/apply` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sign-ins` | `identity.view_sign_ins` | identity.view_sign_ins: all |
+| GET | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all |
+| PUT | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sso-policy` | `identity.manage` | identity.manage: all |

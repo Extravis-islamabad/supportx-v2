@@ -3,8 +3,7 @@
 One notification source (record type "security"), through the one notification engine, in the
 app and by e-mail, urgent and required. The person it is about is told (`the_person`), whoever made
 the change (`notify_actor`: a person who changes their own password still hears of it). Locked,
-once lane A's #480 is on main, so no admin can switch a notice off or redirect it (the admin may
-be the attacker).
+so no admin can switch a notice off or redirect it either (#480; the admin may be the attacker).
 
 Now: a sign-in from a browser or device the person has not used before. Its message names the
 device and the approximate place, never the address, and links to their own sessions, where
@@ -91,6 +90,7 @@ class SecurityNotices:
             NotificationCategory.STATUS,
             EventDefault(enabled=True, recipients=(THE_PERSON,), notify_actor=True),
             required=True,  # people cannot switch it off
+            locked=True,  # nor can an admin change or reset its rule (#480)
         ),
     )
     recipient_kinds: ClassVar[tuple[str, ...]] = (THE_PERSON,)
