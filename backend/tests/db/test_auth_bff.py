@@ -38,7 +38,10 @@ from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore
 from app.modules.identity_access.service import keycloak_logout, sso_test
 from app.modules.identity_access.service.auth import AuthService, binding_digest, user_key
-from app.modules.identity_access.service.worker_sessions import KeycloakSessionInUse
+from app.modules.identity_access.service.worker_sessions import (
+    KeycloakSessionInUse,
+    SessionsUnavailable,
+)
 from app.modules.identity_access.tests.fake_idp import ISSUER, FakeIdp, FakeUser, MemoryKeyValue
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
 from app.shared.api.tests.test_ip_rate_limit import CountingValkey
@@ -971,6 +974,34 @@ async def test_the_pending_keycloak_end_spares_a_session_signed_in_again(
     assert admin.calls == 0
     assert await _keycloak_end_audits(bff) == [("done", "still_in_use")]
     assert (await bff.me()).status_code == 200
+
+
+async def test_an_unknown_session_store_retries_then_gives_up_without_ending_it(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Valkey down in the worker: never end Keycloak's session blind; audited give-up at 1 h."""
+    await bff.login(bff.user("a", email="store-down@demo.test"))
+    csrf = await bff.csrf()
+    bff.idp.available = False
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    (raw,) = await _end_pending_events(bff)
+    envelope = EventEnvelope.model_validate(json.loads(raw))
+    admin = _SessionEnder()
+    admin.up = True
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+
+    async def store_down(*_args: object) -> bool:
+        raise SessionsUnavailable
+
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: store_down)
+    with pytest.raises(SessionsUnavailable):
+        await _deliver(bff, envelope)
+    assert await _keycloak_end_audits(bff) == []
+    later = FrozenClock(envelope.occurred_at + keycloak_logout.GIVE_UP_AFTER + timedelta(minutes=1))
+    monkeypatch.setattr(keycloak_logout, "clock", later)
+    assert await _deliver(bff, envelope) is True
+    assert admin.calls == 0
+    assert await _keycloak_end_audits(bff) == [("failed", "gave_up")]
 
 
 async def test_session_tenant_wins_over_the_dev_header(bff: Bff) -> None:

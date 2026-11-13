@@ -64,7 +64,9 @@ Three smaller problems came with it:
    holds the same Keycloak session (the browser's console or portal shares it, or the person
    signed in again just as Keycloak returned and was handed the same session), it is left alone
    and audited `still_in_use`. A session begun before the person's sessions were ended
-   (deactivation) never counts as live.
+   (deactivation) never counts as live. With the session store unreachable the check is
+   retried like an unreachable Keycloak and ends in the same audited `gave_up`, never in an end
+   made blind.
    Meanwhile the BFF leaves the browser's session cookie in place, now naming a session that no
    longer exists: the next sign-in from that browser is treated as after a timeout and Keycloak
    asks for the password (`prompt=login`, REQ-SEC-029), so Keycloak's surviving session cannot

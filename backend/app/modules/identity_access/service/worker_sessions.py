@@ -10,6 +10,8 @@ either way.
 import uuid
 from collections.abc import Awaitable, Callable
 
+import valkey.exceptions
+
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.core.valkey import client as valkey_client
@@ -23,6 +25,10 @@ log = get_logger(__name__)
 
 TenantSessionEnder = Callable[[uuid.UUID, uuid.UUID], Awaitable[None]]
 KeycloakSessionInUse = Callable[[uuid.UUID, uuid.UUID, str], Awaitable[bool]]
+
+
+class SessionsUnavailable(Exception):
+    """The session store (Valkey) did not answer: whether a session is live is unknown."""
 
 
 def worker_session_ender(settings: Settings) -> TenantSessionEnder | None:
@@ -68,6 +74,8 @@ def worker_keycloak_session_in_use(settings: Settings) -> KeycloakSessionInUse |
             return await store.keycloak_session_in_use(
                 user_key(str(tenant_id), str(user_id)), keycloak_session_id
             )
+        except (valkey.exceptions.ValkeyError, OSError) as exc:
+            raise SessionsUnavailable from exc
         finally:
             await kv.aclose()
 

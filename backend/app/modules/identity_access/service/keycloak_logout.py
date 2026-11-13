@@ -29,6 +29,7 @@ from app.modules.identity_access.infra.keycloak_admin import (
 )
 from app.modules.identity_access.service.worker_sessions import (
     KeycloakSessionInUse,
+    SessionsUnavailable,
     worker_keycloak_session_in_use,
 )
 from app.shared.clock import Clock, system_clock
@@ -71,9 +72,20 @@ async def on_end_pending(envelope: EventEnvelope, session: AsyncSession | None) 
     pending = KeycloakSessionEndPending.model_validate(envelope.payload)
     settings = get_settings()
     in_use = in_use_factory(settings)
-    if in_use is not None and await in_use(
-        envelope.tenant_id, pending.user_id, pending.keycloak_session_id
-    ):
+    try:
+        held = in_use is not None and await in_use(
+            envelope.tenant_id, pending.user_id, pending.keycloak_session_id
+        )
+    except SessionsUnavailable:
+        # Unknown whether a live session holds it: never end it blind. Retried, then the same
+        # audited give-up as an unreachable Keycloak (lane C's #481 re-check).
+        if clock.now() - envelope.occurred_at < GIVE_UP_AFTER:
+            log.info("keycloak_session_end_retry", tenant_id=str(envelope.tenant_id))
+            raise
+        log.warning("keycloak_session_end_given_up", tenant_id=str(envelope.tenant_id))
+        await _audit(session, pending.user_id, AuditOutcome.FAILED, "gave_up")
+        return
+    if held:
         # The browser's other app (console or portal) shares it, or the person signed in again
         # just as Keycloak returned and got the same session: ending it would sign them out.
         await _audit(session, pending.user_id, AuditOutcome.DONE, "still_in_use")
