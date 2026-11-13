@@ -1482,6 +1482,32 @@ it with no reload (rule c). Not built yet.
     the limit at the count.
   - Migration 0156: `work_item_type_settings.copy_limit` and the `copy` file source; the
     downgrade refuses while a tenant holds a copied file or a changed limit (rule 5h).
+- **S6 channels (0159; REQ-INC-025, -026, -066, -015; lane B blocked the mail parts):**
+  - Commands at the top of a mail (`priority = p1`, REQ-INC-025): off by default per incident
+    type, for the fields it allows; only when the mailbox's trusted server vouched for the
+    sender in its Authentication-Results (lane B's parser: topmost trusted header only, one
+    From, DMARC or SPF with aligned DKIM, any doubt not verified; Microsoft 365's unnamed result
+    only with a Graph switch). Each line goes through the API's own edit or assignment as the
+    sender, with no new right (coordinator); the rights are checked before any name is looked
+    up. Failed lines are skipped and the sender told; an unverified sender's commands are set
+    aside, and the history and the mail ledger say so.
+  - Block rules (REQ-INC-026): sender, domain, or plain text in the subject or body (never a
+    pattern). Blocked mail creates nothing and waits in the review queue, its copy kept for the
+    mailbox's quarantine days (14 by default), then removed; an admin's release lets it through.
+  - People kept informed (REQ-INC-066): up to 20 addresses on an incident get its public
+    replies, never its notes; the first mail's Cc join them (setting, on) only from a sender
+    the mailbox's server vouched for (lane B: a forged From must not copy replies to its Cc; the
+    history says when Cc were set aside), never our own addresses or the requester's. Each mail has a stop link: a page that asks first, a single-use
+    token whose hash alone is kept, expiring at min(closed + 30 d, 180 d, mail retention).
+    Replies from those addresses stay held for review as other non-requester replies
+    (coordinator, 2026-11-13; for Haider if AC needs them recorded). Editing the list from the
+    portal is a follow-up.
+  - REQ-INC-015: the requester's assets were already offered first (AC2); the asset's own
+    history for later links and unlinks is lane B's #487 (AC3). Configuration items wait for
+    CMDB (WP-053).
+  - Migration 0159: `mail_block_rules`, `work_item_notify_links`, the `blocked` outcome,
+    the mailbox's trusted servers and quarantine days, the type's mail settings and
+    `work_items.notify_emails`; the downgrade refuses while any tenant uses them (rule 5h).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

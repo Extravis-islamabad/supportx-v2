@@ -94,3 +94,66 @@ def test_flood_replies_count_towards_the_limit_and_are_held() -> None:
     """Product owner, 2026-10-29: replies count towards the flood limit, per sender."""
     assert _route(answers_record=True, recent_from_sender=PER_SENDER_LIMIT) is Outcome.HELD
     assert _route(answers_record=True, recent_from_sender=PER_SENDER_LIMIT - 1) is Outcome.REPLIED
+
+
+# --- block rules (WP-046a S6; REQ-INC-026) ------------------------------------------------------
+
+
+def test_blocked_mail_creates_nothing_even_as_a_reply() -> None:
+    assert _route(blocked=True) is Outcome.BLOCKED
+    assert _route(blocked=True, answers_record=True) is Outcome.BLOCKED
+    # Our own address is still a loop first; automatic mail is told apart before blocking.
+    assert _route(blocked=True, sender="it@acme.test") is Outcome.OWN_ADDRESS
+
+
+def test_blocked_mail_waits_and_may_be_released() -> None:
+    from app.modules.integrations.domain.mailboxes import WAITING, releasable  # noqa: PLC0415
+
+    assert Outcome.BLOCKED in WAITING
+    assert releasable(Outcome.BLOCKED, "block_rule")
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "sender", "subject", "text", "expected"),
+    [
+        ("sender", "Spam@Bad.Test", "spam@bad.test", "", "", True),
+        ("sender", "spam@bad.test", "other@bad.test", "", "", False),
+        ("domain", "bad.test", "x@mail.bad.test", "", "", True),
+        ("domain", "@bad.test", "x@bad.test", "", "", True),
+        ("domain", "bad.test", "x@notbad.test", "", "", False),
+        ("subject", "WIN A PRIZE", "a@b.test", "you win a prize!", "", True),
+        ("body", "unsubscribe here", "a@b.test", "", "…Unsubscribe HERE now", True),
+        ("body", "x", "a@b.test", "", "y" * 70_000 + "x", False),  # only the first 64k read
+        ("subject", ".*", "a@b.test", "anything", "", False),  # never a pattern
+    ],
+)
+def test_block_rules_match_plain_text(
+    kind: str, value: str, sender: str, subject: str, text: str, expected: bool
+) -> None:
+    from app.modules.integrations.domain.mailboxes import (  # noqa: PLC0415
+        BlockKind,
+        BlockRule,
+        blocked_by,
+    )
+
+    rules = [BlockRule(BlockKind(kind), value)]
+    assert blocked_by(rules, sender=sender, subject=subject, text=text) is expected
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "problem"),
+    [
+        ("sender", "not an address", "mailbox_address_invalid"),
+        ("domain", "bad", "host_name_invalid"),
+        ("subject", "   ", "required"),
+        ("domain", "@bad.test", None),
+    ],
+)
+def test_block_rule_values_are_checked(kind: str, value: str, problem: str | None) -> None:
+    from app.modules.integrations.domain.mailboxes import (  # noqa: PLC0415
+        BlockKind,
+        block_rule_problems,
+    )
+
+    found = block_rule_problems(BlockKind(kind), value)
+    assert [code for _, code in found] == ([problem] if problem else [])

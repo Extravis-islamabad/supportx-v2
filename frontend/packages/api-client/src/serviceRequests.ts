@@ -502,3 +502,32 @@ export function useServiceRequestAction(id: string) {
     onError: refetch,
   });
 }
+
+// WP-046a S6 (REQ-INC-066): stopping mails to an address kept informed, without sign-in. The
+// page asks first; only its button stops them (lane B's terms).
+
+/** What a stop link would do (never acts). */
+export function usePeekNotifyLink(token: string | undefined, tenant: string | null) {
+  return useQuery({
+    queryKey: ['notify-links', 'peek', token ?? '', tenant ?? ''],
+    queryFn: () =>
+      call(
+        api.POST('/api/v1/public/notify-links/peek', {
+          body: { token: token ?? '', tenant },
+        }),
+      ),
+    enabled: token !== undefined && token !== '',
+    retry: false,
+    staleTime: Infinity,
+    meta: { silent: true }, // the page says why a link does nothing
+  });
+}
+
+/** Stop the mails, once. */
+export function useStopNotifyLink() {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ token, tenant }: { token: string; tenant: string | null }) =>
+      call(api.POST('/api/v1/public/notify-links/stop', { body: { token, tenant } })),
+  });
+}

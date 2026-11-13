@@ -43,7 +43,7 @@ from app.modules.integrations.service.connections import (
     key_ring,
     open_reader,
 )
-from app.modules.integrations.service.inbound import flood_over, process
+from app.modules.integrations.service.inbound import expire_quarantine, flood_over, process
 from app.modules.integrations.service.secrets import SecretRole
 from app.shared.events import record_event
 from app.shared.files.keyring import KeyRing
@@ -197,6 +197,9 @@ async def fetch_schedule(database: Database, settings: Settings) -> None:
             await fetch_mailbox(database, settings, tenant, mailbox_id, ring=ring)
         async with database.tenant_session(TenantContext(tenant)) as session:
             await warn_expiring(session)
+            # Blocked mail past its quarantine loses its copy (REQ-INC-026), every mailbox.
+            for box in await session.scalars(select(Mailbox).where(Mailbox.deleted_at.is_(None))):
+                await expire_quarantine(session, box, now)
 
 
 async def warn_expiring(session: AsyncSession, now: datetime | None = None) -> int:

@@ -22,7 +22,7 @@ from html import escape as html_escape
 from typing import Literal
 from urllib.parse import urlsplit
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -378,6 +378,75 @@ async def purge_content(session: AsyncSession, now: datetime | None = None) -> i
         update(MailAttachment).where(MailAttachment.message_id.in_(due)).values(content=None)
     )
     return len(due)
+
+
+ERASED_RECIPIENT = "erased@invalid"  # RFC 2606: never deliverable, names nobody
+RECIPIENT_ERASED = "recipient_erased"  # the failure code of a queued mail nobody else gets
+
+
+async def forget_recipient(session: AsyncSession, address: str) -> int:
+    """A person's GDPR erasure: mail to `address` keeps no trace of them; how many messages.
+
+    Called by the erasure job in the tenant's session, **before** the person's address is
+    anonymised (afterwards nothing can find their mail). For every message the address was sent
+    or queued to:
+    - its place in the recipients becomes `ERASED_RECIPIENT`, so the row no longer says to whom;
+    - a message still queued for others only loses this recipient, and goes to the others as
+      planned; one queued for them alone is failed (`recipient_erased`) and never sent;
+    - otherwise (sent, failed, or queued for them alone) the subject, bodies, one-time links and
+      attachments are cleared now rather than at `mail_content_retention_days`;
+    - a message sent on their behalf (`reply_to` is them) loses its reply-to and sender name.
+    The rows are locked (no skip): an erasure waits for a delivery in flight instead of racing
+    it. Idempotent: a second call finds nothing.
+    """
+    wanted = address.strip().lower()
+    if not wanted:
+        return 0
+    rows = list(
+        await session.scalars(
+            select(MailMessage)
+            .where(
+                func.lower(func.array_to_string(MailMessage.recipients, "\n")).contains(
+                    wanted, autoescape=True
+                )
+                | (func.lower(MailMessage.reply_to) == wanted)
+            )
+            .with_for_update()
+        )
+    )
+    changed = 0
+    now = datetime.now(UTC)
+    for row in rows:
+        replied = (row.reply_to or "").strip().lower() == wanted
+        if replied:  # sent on their behalf: their address and name leave it
+            row.reply_to = row.sender_name = None
+        hits = [r for r in row.recipients if r.strip().lower() == wanted]
+        if not hits:
+            if replied:
+                row.updated_at = now
+                changed += 1
+            continue  # otherwise a substring of another address
+        others = [r for r in row.recipients if r.strip().lower() != wanted]
+        if row.state == "queued" and others:
+            row.recipients = others
+        else:
+            row.recipients = [
+                ERASED_RECIPIENT if r.strip().lower() == wanted else r for r in row.recipients
+            ]
+            if row.state == "queued":
+                row.state, row.failure = "failed", RECIPIENT_ERASED
+            row.subject = ""
+            row.text_body = row.html_body = None
+            row.links = None
+            await session.execute(
+                update(MailAttachment)
+                .where(MailAttachment.message_id == row.id)
+                .values(content=None)
+            )
+        row.updated_at = now
+        changed += 1
+    await session.flush()
+    return changed
 
 
 def sender_domain(settings: Settings) -> str:
