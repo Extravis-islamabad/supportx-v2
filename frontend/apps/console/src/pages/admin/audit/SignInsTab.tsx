@@ -11,7 +11,7 @@ import {
   type SignInOutcome,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
-import { deviceText, ToneTag, useDateTime, useLabel, type Tone } from '@supportx/ui';
+import { deviceText, ToneTag, useDateTime, useLabel, usePlaceText, type Tone } from '@supportx/ui';
 
 const OUTCOMES: SignInOutcome[] = ['success', 'failed', 'signed_out', 'locked', 'mfa_failed'];
 const METHODS: SignInMethod[] = [
@@ -49,6 +49,7 @@ function sinceFor(period: Period): string | undefined {
  */
 export function SignInsTab() {
   const t = useLabel();
+  const placeText = usePlaceText();
   const dates = useDateTime();
   const queryClient = useQueryClient();
   const [outcomes, setOutcomes] = useState<SignInOutcome[]>([]);
@@ -181,6 +182,14 @@ export function SignInsTab() {
             title: t('audit.sign_ins.address'),
             width: 150,
             render: (_, row) => <bdi dir="ltr">{row.ip ?? ''}</bdi>,
+          },
+          {
+            // Where the address is, approximately, read now (D-170): a mapped site, the internal
+            // network, or a city and country.
+            key: 'place',
+            title: t('audit.sign_ins.place'),
+            width: 180,
+            render: (_, row) => placeText(row.place) ?? '',
           },
           {
             key: 'device',

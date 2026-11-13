@@ -694,6 +694,7 @@ export const ar: LabelResource = {
   'audit.sign_ins.period.month': 'آخر 30 يومًا',
   'audit.sign_ins.period.week': 'آخر 7 أيام',
   'audit.sign_ins.person': 'الشخص',
+  'audit.sign_ins.place': 'المكان',
   'audit.sign_ins.reason': 'السبب',
   'audit.sign_ins.unknown_person': 'ليس شخصًا معروفًا',
   'audit.sign_ins.when': 'الوقت',

@@ -700,6 +700,7 @@ export const en = {
   'audit.sign_ins.period.month': 'Last 30 days',
   'audit.sign_ins.period.week': 'Last 7 days',
   'audit.sign_ins.person': 'Person',
+  'audit.sign_ins.place': 'Place',
   'audit.sign_ins.reason': 'Reason',
   'audit.sign_ins.unknown_person': 'Not a known person',
   'audit.sign_ins.when': 'When',

@@ -620,30 +620,35 @@ class SiteNetworksOut(BaseModel):
 
     entries: list[SiteNetworkIn]
     version: int
+    geoip_built_at: datetime | None = Field(
+        description="When the installed place database was built (D-170), or null without one."
+    )
 
 
-def _site_map_out(saved: site_networks.SiteMap) -> SiteNetworksOut:
+def _site_map_out(saved: site_networks.SiteMap, request: Request) -> SiteNetworksOut:
     return SiteNetworksOut(
         entries=[SiteNetworkIn(network=net, site_id=site) for net, site in saved.entries],
         version=saved.version,
+        geoip_built_at=_geo(request).built_at(),
     )
 
 
 @router.get("/site-networks", summary="Address ranges mapped to sites")
 async def get_site_networks(
-    response: Response, session: TenantSession, subject: Manage
+    request: Request, response: Response, session: TenantSession, subject: Manage
 ) -> SiteNetworksOut:
     """Which site a sign-in from each range is shown at (D-170); the most specific range wins."""
     del subject
     saved = await site_networks.get_site_map(session)
     set_etag(response, saved.version)
-    return _site_map_out(saved)
+    return _site_map_out(saved, request)
 
 
 @router.put("/site-networks", summary="Save the address ranges mapped to sites")
-async def put_site_networks(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, response, session, subject, audit note
+async def put_site_networks(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, request, response, session, subject, audit note
     body: SiteNetworksBody,
     version: ExpectedVersion,
+    request: Request,
     response: Response,
     session: TenantSession,
     subject: Manage,
@@ -661,7 +666,7 @@ async def put_site_networks(  # noqa: PLR0913, PLR0917 - FastAPI parameters: bod
     note.details = details
     note.skip = not details
     set_etag(response, saved.version)
-    return _site_map_out(saved)
+    return _site_map_out(saved, request)
 
 
 @router.post(

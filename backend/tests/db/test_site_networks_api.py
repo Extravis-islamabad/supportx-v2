@@ -30,7 +30,10 @@ async def _site(world: World) -> str:
 async def test_the_list_is_saved_whole_most_specific_first_and_audited(world: World) -> None:
     site = await _site(world)
     shown = await world.call("GET", PATH, world.a)
-    assert (shown.status_code, shown.json()) == (200, {"entries": [], "version": 0})
+    assert (shown.status_code, shown.json()) == (
+        200,
+        {"entries": [], "version": 0, "geoip_built_at": None},  # no database in the tests
+    )
     body = {
         "entries": [
             {"network": "10.1.0.0/16", "site_id": site},

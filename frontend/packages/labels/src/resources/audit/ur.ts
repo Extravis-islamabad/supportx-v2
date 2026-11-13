@@ -697,6 +697,7 @@ export const ur: LabelResource = {
   'audit.sign_ins.period.month': 'پچھلے 30 دن',
   'audit.sign_ins.period.week': 'پچھلے 7 دن',
   'audit.sign_ins.person': 'شخص',
+  'audit.sign_ins.place': 'مقام',
   'audit.sign_ins.reason': 'وجہ',
   'audit.sign_ins.unknown_person': 'معلوم شخص نہیں',
   'audit.sign_ins.when': 'کب',
