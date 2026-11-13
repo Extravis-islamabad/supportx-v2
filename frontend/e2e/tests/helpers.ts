@@ -44,7 +44,10 @@ export async function signInAs(page: Page, user: E2eUser, path = '/'): Promise<v
       window.localStorage.removeItem('supportx.theme_mode');
     });
     await page.reload();
-    await expect(page.getByTestId('user-menu')).toBeVisible();
+    // A full app load again, as right after sign-in (lane A, #484).
+    await expect(page.getByTestId('user-menu')).toBeVisible({
+      timeout: FIRST_LOAD_AFTER_SIGN_IN_MS,
+    });
   }
 }
 
