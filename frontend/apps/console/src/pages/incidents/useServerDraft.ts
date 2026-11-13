@@ -68,14 +68,19 @@ export function useServerDraft<T extends FieldValues>(
     if (pending || loading) return;
     let typing: number | undefined;
     let retry: number | undefined;
-    const attempt = () => {
+    let live = true; // false once this effect is cleaned up: a late reply starts nothing
+    // `again`: this try follows a 409; a second 409 waits for more typing (no ping-pong).
+    const attempt = (again = false) => {
+      if (!live) return;
       const values = latest.current;
       if (values === null) return;
       const wait = blockedUntil.current - Date.now();
       if (wait > 0) {
         // Backing off: one try when the wait is over, even if nothing is typed meanwhile.
         window.clearTimeout(retry);
-        retry = window.setTimeout(attempt, wait);
+        retry = window.setTimeout(() => {
+          attempt(again);
+        }, wait);
         return;
       }
       saveRef.current.mutate(
@@ -88,8 +93,14 @@ export function useServerDraft<T extends FieldValues>(
           },
           onError: (error: unknown) => {
             if (error instanceof ApiError && error.status === 409) {
-              // Another tab saved first: take its version; the next pause saves again.
-              void refetchRef.current();
+              if (again) return;
+              // Another tab saved first: take its version, then save this tab's typing over it
+              // once (lane C's #495 note); if its draft now waits for a decision, this effect
+              // has been cleaned up and nothing is saved.
+              void refetchRef.current().then((read) => {
+                if (read.isSuccess) version.current = read.data?.version ?? 0; // null: none kept
+                attempt(true);
+              });
               return;
             }
             // No key (503) or no connection: quiet, and tried again later, ever more slowly.
@@ -99,7 +110,9 @@ export function useServerDraft<T extends FieldValues>(
             );
             blockedUntil.current = Date.now() + backoff.current;
             window.clearTimeout(retry);
-            retry = window.setTimeout(attempt, backoff.current);
+            retry = window.setTimeout(() => {
+              attempt();
+            }, backoff.current);
           },
         },
       );
@@ -115,6 +128,7 @@ export function useServerDraft<T extends FieldValues>(
       }, SAVE_AFTER_MS);
     });
     return () => {
+      live = false;
       window.clearTimeout(typing);
       window.clearTimeout(retry);
       subscription.unsubscribe();

@@ -67,4 +67,40 @@ describe('useServerDraft', () => {
     });
     expect(fake.find('PUT', '/api/v1/drafts/incident-new')).toHaveLength(2);
   });
+
+  it('after a conflict the typing is saved once more on the read version, never in a loop', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const fake = fakeApi({
+      'GET /api/v1/drafts/incident-new': {
+        status: 404,
+        body: { code: 'draft_not_found', message_key: 'errors.draft_not_found' },
+      },
+      [PUT]: {
+        status: 409,
+        body: { code: 'version_conflict', message_key: 'errors.version_conflict' },
+      },
+    });
+    restore = fake.restore;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <Harness />
+      </QueryClientProvider>,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'type' }));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_100);
+    });
+    // The first save, the read after its 409, then one more save; a second 409 stops there.
+    expect(fake.find('PUT', '/api/v1/drafts/incident-new')).toHaveLength(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(fake.find('PUT', '/api/v1/drafts/incident-new')).toHaveLength(2);
+  });
 });
