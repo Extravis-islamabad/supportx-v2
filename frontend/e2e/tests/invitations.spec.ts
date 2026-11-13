@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { actionLink, mailTo, privateWindow, setPassword } from '../mail';
 import { keycloakAdmin, keycloakUserId, PORTAL_URL } from '../stack';
-import { expectAccessible, signInAs } from './helpers';
+import { expectAccessible, FIRST_LOAD_AFTER_SIGN_IN_MS, signInAs } from './helpers';
 
 /**
  * WP-039 session 2 (REQ-SEC-005, 006, 018..020, 035; D-099): invitations, the password policy
@@ -89,7 +89,9 @@ test('an invited person sets a password that meets the policy and signs in', asy
     await person.locator('#kc-login').click();
     await person.locator('#password').fill(PASSWORD);
     await person.locator('#kc-login').click();
-    await expect(person.getByTestId('user-menu')).toBeVisible({ timeout: 30_000 });
+    await expect(person.getByTestId('user-menu')).toBeVisible({
+      timeout: FIRST_LOAD_AFTER_SIGN_IN_MS,
+    });
     await expect(row.getByTestId('invitation-status')).toHaveText('Accepted', { timeout: 15_000 });
 
     // Forgot password: no session, the same answer, and the e-mail arrives.
