@@ -1369,6 +1369,23 @@ it with no reload (rule c). Not built yet.
     by a sweep, live on the personal channel.
   - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
     reserved for S3).
+- **S5a (0154; REQ-INC-041, -042; reply and resolution templates):**
+  - A template is a reply (the composer) or a resolution (the resolution editor), with an
+    optional subject and its text in en, ar and ur.
+  - Personal templates are their owner's only, administrators included. Shared ones need the
+    type's settings right to write and may be limited to groups.
+  - Variables come from the one notification catalogue; an unknown one is refused on save.
+    Filling happens on the server: values go in escaped, an empty one reads "not set", and the
+    result is sanitised again.
+  - The language is the screen's choice, then the requester's, then the tenant's default, then
+    any the template has.
+  - Resolution templates of the record's category come first.
+  - Migration 0154 keeps each old text under its tenant's default language. The downgrade is
+    refused once anything new is used.
+  - The shared editor's template menu awaits an optional `fill()` (lane C's conditions). The
+    composer and move dialog fill on the record's own route prefix (incidents, requests).
+  - **Still open:** problems' and changes' move dialogs offer no resolution templates yet.
+    S5b is the form designer and rules, S5c copy, quick create and server drafts.
 - **S3 PR 1 (0147; REQ-INC-068, -069, -070; D-164):**
   - Worklogs are billable or not, and take their owner's cost per hour when the time started
     (lane B's `cost_rate`, #427; a snapshot, never rewritten). Other-cost lines are in the base
@@ -2074,9 +2091,42 @@ it with no reload (rule c). Not built yet.
   - **Tests:** ip_allow_lists (7), network_rules_api (4), sign_in_log_api (4), api_keys (+1),
     auth suites unchanged (109), domain (network 9, sign_in 15), Vitest network (3) and sign-ins
     (3). test_auth_keycloak is split in three (12 pass).
-- [ ] Session 1b: SSO required with break-glass and the admin alert (REQ-SEC-009), MFA with SSO
-  (REQ-SEC-026), the verified sign-in method (a realm mapper, lane B), and the Keycloak events
-  import (AUD-015 AC1). Migration number at the turn.
+- [x] Session 1b (2026-11-13): SSO required, break-glass, MFA with SSO, the verified sign-in
+  method, the Keycloak events import. Migration 0153.
+  - **REQ-SEC-009 (SSO required), AC1-AC3:**
+    - Off, technicians or everyone. It is judged on the verified token, before anyone is created,
+      at sign-in and at a tenant switch.
+    - Turning it on needs an emergency (break-glass) administrator (AC2). The last one cannot be
+      removed while it is on.
+    - Only another tenant admin names one, never yourself, and only an admin with MFA. The IP
+      exemption is a separate, audited setting.
+    - Every emergency sign-in is audited and alerts the other admins (a required, urgent
+      notification). Emergency sign-ins are rate-limited per address.
+  - **REQ-SEC-026 (MFA with SSO):**
+    - The identity provider's MFA is trusted by default (AC1).
+    - With "also require MFA", the tenant's own providers get the post-broker OTP flow (AC2).
+      Other tenants' providers are never touched.
+  - **The verified method:**
+    - The realm mapper `sx_idp` sits on both app clients, added if missing and restored if
+      changed.
+    - Proved in a real Keycloak: password tokens (browser code flow and direct grant, both apps)
+      and directory tokens never carry it; a brokered sign-in carries the alias.
+  - **REQ-AUD-015 AC1 (Keycloak events import):**
+    - Every 60 s, as `supportx-events` (view-events only). Only the consumers worker and the
+      identity Job hold its secret; a rendered-chart test pins this for single-node and HA.
+    - Each event goes to the one tenant its provider alias (confirmed under RLS) or address
+      names. The shared address is counted, never guessed.
+    - The cursor is a millisecond plus an offset, over settled milliseconds only (now - 5 s).
+      Writes are idempotent per event, at most 5,000 per run, and the cursor moves only after
+      the commit.
+  - **Screen:** Single sign-on required card, with the admins' emergency and IP-exemption
+    switches, live.
+  - **Tests:**
+    - Backend: sso_policy_api (5), sso_required_sign_in (4), sign_in_import (3), the
+      keycloak_identity tooling (14 + 2).
+    - Real Keycloak: idp claim (3) and LDAP federation (4).
+    - Chart: events secret, single-node and HA.
+    - Vitest: SSO policy card (2).
 - [ ] Session 2: recent re-authentication, session places, notices, expiring certificates,
   invite links.
 - [ ] Session 3: field-level encryption (ADR-050), personal-data access log.

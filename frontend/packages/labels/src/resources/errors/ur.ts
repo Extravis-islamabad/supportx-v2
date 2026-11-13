@@ -181,6 +181,12 @@ export const ur: LabelResource = {
   'errors.brand_colour_contrast':
     'یہ رنگ پڑھنے میں مشکل ہے: اس پر متن WCAG AA کنٹراسٹ سے کم ہے۔ تجویز کردہ رنگ استعمال کریں یا گہرا رنگ چنیں۔',
   'errors.branding_not_found': 'یہ برانڈ نہیں ملا۔',
+  'errors.break_glass_admin_only': 'صرف ٹیننٹ منتظم ہنگامی منتظمین مقرر کر سکتا ہے۔',
+  'errors.break_glass_ip_exempt_needs_break_glass':
+    'صرف ہنگامی منتظم IP اجازت فہرستوں سے مستثنیٰ ہو سکتا ہے۔',
+  'errors.break_glass_needs_admin': 'صرف ٹیننٹ منتظم ہی ہنگامی منتظم ہو سکتا ہے۔',
+  'errors.break_glass_needs_mfa': 'اس ہنگامی اکاؤنٹ کو استعمال سے پہلے دو مرحلہ سائن اِن درکار ہے۔',
+  'errors.break_glass_not_self': 'آپ کو کوئی اور منتظم ہنگامی منتظم مقرر کرے۔',
   'errors.bulk_job_not_found': 'یہ اجتماعی تبدیلی نہیں ملی۔',
   'errors.calendar_in_use':
     'سائٹس یا سپورٹ گروپس ابھی یہ کیلنڈر استعمال کرتے ہیں۔ پہلے انہیں دوسرا کیلنڈر دیں۔',
@@ -539,6 +545,8 @@ export const ur: LabelResource = {
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
   'errors.field.not_allowed_for_notes': 'نوٹس کے وصول کنندگان نہیں ہوتے۔',
   'errors.field.not_eligible': 'یہ شخص یا گروپ یہ کردار نہیں رکھ سکتا۔',
+  'errors.field.not_for_personal': 'ذاتی سانچہ صرف آپ کا ہے، اس لیے اس کے گروپ نہیں ہوتے۔',
+  'errors.field.not_for_replies': 'صرف حل کے سانچوں کی زمرہ جات ہوتی ہیں۔',
   'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
   'errors.field.not_found': 'یہ اب موجود نہیں۔',
   'errors.field.not_in_past': 'یہ وقت ماضی کا ہونا چاہیے۔',
@@ -687,11 +695,13 @@ export const ur: LabelResource = {
     'خانے کی قسم تبدیل نہیں ہو سکتی۔ نیا خانہ بنائیں اور اسے ریٹائر کریں۔',
   'errors.field.unknown_article_type': 'مضمون کی یہ قسم موجود نہیں یا ختم کر دی گئی ہے۔',
   'errors.field.unknown_builtin_report': 'یہ بلٹ اِن رپورٹ موجود نہیں۔',
+  'errors.field.unknown_category': 'ان میں سے ایک زمرہ یہاں موجود نہیں۔',
   'errors.field.unknown_column': 'یہ کالم ان ریکارڈز کے لیے موجود نہیں۔',
   'errors.field.unknown_dimension': 'رپورٹس کو اس فیلڈ کے مطابق گروپ نہیں کیا جا سکتا۔',
   'errors.field.unknown_entity': 'اس قسم کی کوئی چیز رپورٹ کے لیے موجود نہیں۔',
   'errors.field.unknown_field': 'آپ اس فیلڈ پر فلٹر نہیں کر سکتے۔',
   'errors.field.unknown_folder': 'یہ فولڈر اب موجود نہیں۔',
+  'errors.field.unknown_group': 'ان میں سے ایک گروپ یہاں موجود نہیں۔',
   'errors.field.unknown_key': 'فلٹر کی یہ ترتیب پہچانی نہیں گئی۔',
   'errors.field.unknown_language': 'صرف انگریزی، عربی اور اردو نام قابل قبول ہیں۔',
   'errors.field.unknown_measure': 'یہ پیمانہ ان ریکارڈز کے لیے دستیاب نہیں۔',
@@ -711,6 +721,7 @@ export const ur: LabelResource = {
   'errors.field.unknown_stage': 'اس قسم میں ایسا کوئی مرحلہ نہیں۔',
   'errors.field.unknown_time_zone': 'فہرست سے ٹائم زون منتخب کریں۔',
   'errors.field.unknown_value': 'یہ قدر موجود نہیں (اب نہیں رہی)۔',
+  'errors.field.unknown_variable': 'اس میں ایسا متغیر ہے جو موجود نہیں۔ فہرست میں سے منتخب کریں۔',
   'errors.field.url_not_valid': 'https:// یا http:// سے شروع ہونے والا ویب پتہ درج کریں۔',
   'errors.field.user_not_found': 'یہ شخص آپ کی تنظیم میں موجود نہیں۔',
   'errors.field.value_no_longer_valid': 'یہ قدر اب دستیاب نہیں۔',
@@ -839,6 +850,8 @@ export const ur: LabelResource = {
   'errors.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
   'errors.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
+  'errors.last_break_glass_admin':
+    'سنگل سائن آن لازمی ہونے کے دوران یہ آخری ہنگامی منتظم ہے۔ پہلے کسی اور کو مقرر کریں، یا سنگل سائن آن کی شرط ختم کریں۔',
   'errors.last_tenant_admin': 'ادارے میں کم از کم ایک ادارہ منتظم ہونا ضروری ہے۔',
   'errors.ldap_attribute_invalid': 'ڈائریکٹری خصوصیت کا نام درج کریں: حروف، ہندسے اور خط فاصل۔',
   'errors.ldap_bind_password_missing': 'کوئی بائنڈ پاس ورڈ محفوظ نہیں ہے۔ اسے دوبارہ درج کریں۔',
@@ -1052,6 +1065,10 @@ export const ur: LabelResource = {
   'errors.sso_provider_not_found': 'یہ سنگل سائن آن سیٹ اپ نہیں ملا۔',
   'errors.sso_provider_refused':
     'سائن اِن کی سروس نے یہ ترتیبات قبول نہیں کیں۔ انہیں جانچ کر دوبارہ کوشش کریں۔',
+  'errors.sso_required':
+    'آپ کی تنظیم سنگل سائن آن کا تقاضا کرتی ہے۔ پاس ورڈ کے بجائے اپنی تنظیم کے اکاؤنٹ سے سائن اِن کریں۔',
+  'errors.sso_required_needs_break_glass':
+    'سنگل سائن آن لازمی کرنے سے پہلے کم از کم ایک ہنگامی منتظم، دو مرحلہ سائن اِن کے ساتھ، مقرر کریں۔',
   'errors.sso_switch_off_first':
     'رابطے کا طریقہ بدلنے سے پہلے سیٹ اپ بند کریں، تاکہ کوئی باہر نہ رہ جائے۔',
   'errors.sso_switched_off': 'آزمانے سے پہلے سیٹ اپ چالو کریں یا اسے بدلیں۔',

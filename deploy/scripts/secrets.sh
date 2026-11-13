@@ -50,6 +50,7 @@ if kubectl -n "$NAMESPACE" get secret "$APP_SECRET" >/dev/null 2>&1; then
   add_missing files-keys "$(files_keys)"
   add_missing keycloak-identity-secret "$(rand 24)"
   add_missing keycloak-realm-secret "$(rand 24)"
+  add_missing keycloak-events-client-secret "$(rand 24)"  # supportx-events (view-events only)
   add_missing keycloak-federation-secret "$(rand 24)"  # used only with directory.ldap.enabled
   add_missing temporal-db-password "$(rand 24)"  # used only with temporal.bundled.enabled
   # API keys' own HMAC key (audit row 26). Keys made before it move to it on their next call
@@ -70,6 +71,7 @@ else
     --from-literal=keycloak-admin-password="$(rand 16)" \
     --from-literal=keycloak-identity-secret="$(rand 24)" \
     --from-literal=keycloak-realm-secret="$(rand 24)" \
+    --from-literal=keycloak-events-client-secret="$(rand 24)" \
     --from-literal=keycloak-federation-secret="$(rand 24)" \
     --from-literal=temporal-db-password="$(rand 24)" \
     --from-literal=nats-password="$(rand 24)" \

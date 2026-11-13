@@ -416,6 +416,12 @@ nats:
       authorization:
         user: supportx
         password: << $SUPPORTX_NATS_PASSWORD >>
+      # Notice a peer that went away without closing its connections (a lost node) within about
+      # 30 s, not NATS's default 2 min x 2: until then a JetStream leader on the lost server is
+      # not replaced and JetStream calls time out (the HA node-loss test's fan-out, run
+      # 131684903919). The workers' clients use the same (backend/workers/bus.py).
+      ping_interval: "10s"
+      ping_max: 3
   container:
     env:
       SUPPORTX_NATS_PASSWORD:
@@ -544,11 +550,13 @@ keycloak:
   # service account (least-privileged admin roles) exists with the secret
   # `keycloak-identity-secret`, login events are on and the SSO session fits SupportX's. With
   # `keycloak-realm-secret` it also makes `supportx-realm` (manage-realm only), the account the
-  # consumers worker applies the password policy with.
+  # consumers worker applies the password policy with. With `keycloak-events-client-secret` it
+  # makes `supportx-events` (view-events only), which the consumers worker reads login events with.
   setUpIdentityAdmin: true
   # The breached-password list (supportx-breached.txt) comes from this release's backend image.
   # A larger list of your own: a ConfigMap in the release namespace holding a file of that name,
-  # named here (kubectl create configmap my-lists --from-file=supportx-breached.txt).
+  # named here (kubectl create configmap my-lists --from-file=supportx-breached.txt). A
+  # ConfigMap holds at most 1 MiB, like the release itself (lane C, #471).
   passwordBlacklists:
     configMap: ""
   resources:

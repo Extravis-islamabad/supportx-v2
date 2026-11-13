@@ -10,6 +10,7 @@ from sqlalchemy import (
     Computed,
     ForeignKeyConstraint,
     Index,
+    Integer,
     LargeBinary,
     Numeric,
     SmallInteger,
@@ -56,6 +57,10 @@ class User(TenantEntity):
         UniqueConstraint("tenant_id", "id", name="uq_users_tenant_id_id"),
         CheckConstraint("locale IN ('en', 'ar', 'ur')", name="locale_code"),
         CheckConstraint("status IN ('active', 'disabled')", name="status_code"),
+        CheckConstraint(
+            "break_glass OR NOT break_glass_ip_exempt",
+            name="break_glass_ip_exempt_needs_break_glass",
+        ),
         CheckConstraint(
             "user_type IN ('technician', 'requester', 'service')", name="user_type_code"
         ),
@@ -163,6 +168,10 @@ class User(TenantEntity):
     # an authenticator on their Keycloak account (sign-in, enrolment, reset keep it current).
     mfa_required_since: Mapped[datetime | None]
     mfa_enrolled_at: Mapped[datetime | None]
+    # WP-057 S1b (REQ-SEC-009): a named admin who keeps a local password with MFA while single
+    # sign-on is required; optionally exempt from the IP allow-lists too. Set by tenant admins.
+    break_glass: Mapped[bool] = mapped_column(server_default="false")
+    break_glass_ip_exempt: Mapped[bool] = mapped_column(server_default="false")
     # Owned by SupportX, editable by the user (WP-008); identity fields above come from Keycloak.
     signature: Mapped[str | None] = mapped_column(Text)
     time_zone: Mapped[str | None] = mapped_column(String(64))
@@ -406,6 +415,9 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
         ),
         CheckConstraint("mfa_grace_days BETWEEN 0 AND 30", name="mfa_grace_days_range"),
         CheckConstraint(
+            "sso_required IN ('off', 'technicians', 'everyone')", name="sso_required_code"
+        ),
+        CheckConstraint(
             f"cardinality(console_ip_allow) <= {IP_ALLOW_MAX}", name="console_ip_allow_size"
         ),
         CheckConstraint(
@@ -463,6 +475,10 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     api_ip_allow: Mapped[list[str]] = mapped_column(
         ARRAY(CIDR), server_default=text("'{}'::cidr[]")
     )
+    # REQ-SEC-009, REQ-SEC-026 (WP-057 S1b): single sign-on for nobody, technicians or everyone;
+    # and SupportX's own MFA after a single sign-on too (off: the provider's MFA is trusted).
+    sso_required: Mapped[str] = mapped_column(String(12), server_default="off")
+    sso_also_require_mfa: Mapped[bool] = mapped_column(server_default="false")
 
 
 MFA_MODES = ("off", "optional", "required")
@@ -766,7 +782,10 @@ class SignInImportCursor(Base):
     """How far the Keycloak events import got, per realm (0151). Installation-wide."""
 
     __tablename__ = "sign_in_import_cursor"
+    __table_args__ = (CheckConstraint("last_offset >= 0", name="last_offset_not_negative"),)
 
     realm: Mapped[str] = mapped_column(String(60), primary_key=True)
     last_time_ms: Mapped[int]
+    # Events of last_time_ms already read, when one millisecond held more than a run (0153).
+    last_offset: Mapped[int] = mapped_column(Integer, server_default="0")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

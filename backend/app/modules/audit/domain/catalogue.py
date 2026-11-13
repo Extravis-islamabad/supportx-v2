@@ -195,6 +195,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("identity.settings_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.network_rules_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.sign_ins_viewed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.sso_policy_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.break_glass_changed", AuditCategory.SECURITY, "identity_access"),
+    ("session.break_glass_sign_in", AuditCategory.SECURITY, "identity_access"),
     # the service catalog (WP-030)
     ("catalog.item_changed", AuditCategory.CONFIGURATION, "service_catalog"),
     ("catalog.category_changed", AuditCategory.CONFIGURATION, "service_catalog"),

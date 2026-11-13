@@ -179,6 +179,15 @@ export const en = {
   'errors.brand_colour_contrast':
     'This colour is hard to read: text on it falls below the WCAG AA contrast level. Use the suggested colour or choose a darker one.',
   'errors.branding_not_found': 'This brand was not found.',
+  'errors.break_glass_admin_only': 'Only a tenant administrator can name emergency administrators.',
+  'errors.break_glass_ip_exempt_needs_break_glass':
+    'Only an emergency administrator can be exempt from the IP allow-lists.',
+  'errors.break_glass_needs_admin':
+    'Only a tenant administrator can be an emergency administrator.',
+  'errors.break_glass_needs_mfa':
+    'This emergency account needs two-step sign-in set up before it can be used.',
+  'errors.break_glass_not_self':
+    'Another administrator must name you as an emergency administrator.',
   'errors.bulk_job_not_found': 'This bulk change was not found.',
   'errors.calendar_in_use':
     'Sites or support groups still use this calendar. Give them another calendar first.',
@@ -537,6 +546,8 @@ export const en = {
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
   'errors.field.not_eligible': 'This person or group may not hold this role.',
+  'errors.field.not_for_personal': 'A personal template is yours only, so it has no groups.',
+  'errors.field.not_for_replies': 'Only resolution templates have categories.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
   'errors.field.not_in_past': 'This time must be in the past.',
@@ -682,11 +693,13 @@ export const en = {
     "A field's type cannot change. Add a new field and retire this one.",
   'errors.field.unknown_article_type': 'This article type does not exist or is retired.',
   'errors.field.unknown_builtin_report': 'This built-in report does not exist.',
+  'errors.field.unknown_category': 'One of these categories does not exist here.',
   'errors.field.unknown_column': 'This column does not exist for these records.',
   'errors.field.unknown_dimension': 'Reports cannot be grouped by this field.',
   'errors.field.unknown_entity': 'There is nothing of this kind to report on.',
   'errors.field.unknown_field': 'You cannot filter on this field.',
   'errors.field.unknown_folder': 'This folder does not exist any more.',
+  'errors.field.unknown_group': 'One of these groups does not exist here.',
   'errors.field.unknown_key': 'This filter setting is not recognised.',
   'errors.field.unknown_language': 'Only English, Arabic and Urdu names are supported.',
   'errors.field.unknown_measure': 'This measure is not available for these records.',
@@ -706,6 +719,8 @@ export const en = {
   'errors.field.unknown_stage': 'This type has no such stage.',
   'errors.field.unknown_time_zone': 'Choose a time zone from the list.',
   'errors.field.unknown_value': 'This value does not exist (any more).',
+  'errors.field.unknown_variable':
+    'This uses a variable that does not exist. Pick one from the list.',
   'errors.field.url_not_valid': 'Enter a web address starting with https:// or http://.',
   'errors.field.user_not_found': 'This person does not exist in your organisation.',
   'errors.field.value_no_longer_valid': 'This value is no longer available.',
@@ -834,6 +849,8 @@ export const en = {
   'errors.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
+  'errors.last_break_glass_admin':
+    'This is the last emergency administrator while single sign-on is required. Name another first, or stop requiring single sign-on.',
   'errors.last_tenant_admin': 'The organisation must keep at least one tenant administrator.',
   'errors.ldap_attribute_invalid': 'Enter a directory attribute name: letters, digits and hyphens.',
   'errors.ldap_bind_password_missing': 'No bind password is stored. Enter it again.',
@@ -1045,6 +1062,10 @@ export const en = {
   'errors.sso_provider_not_found': 'This single sign-on set-up was not found.',
   'errors.sso_provider_refused':
     'The sign-in service refused these settings. Check them and try again.',
+  'errors.sso_required':
+    "Your organisation requires single sign-on. Sign in with your organisation's account instead of a password.",
+  'errors.sso_required_needs_break_glass':
+    'Name at least one emergency (break-glass) administrator with two-step sign-in before requiring single sign-on.',
   'errors.sso_switch_off_first':
     'Switch the set-up off before changing how it connects, so nobody is locked out.',
   'errors.sso_switched_off': 'Switch the set-up on, or change it, before testing it.',

@@ -144,6 +144,11 @@ class Settings(BaseSettings):
     # the secret to the consumers worker alone, and only where LDAP is on (never on SaaS).
     keycloak_federation_client_id: str = "supportx-federation"
     keycloak_federation_client_secret: SecretStr | None = None
+    # The sign-in log's import of Keycloak's login events (WP-057 S1b): `supportx-events`,
+    # view-events only; the chart gives the secret to the consumers worker alone. None: no import
+    # (the BFF's own entries are still written).
+    keycloak_events_client_id: str = "supportx-events"
+    keycloak_events_client_secret: SecretStr | None = None
     # Single sign-on checks fetch the provider's discovery document or SAML metadata through the
     # guarded client (private ranges only via egress_allow, below). This also opens loopback, in
     # the dev and test profiles only, where the test identity provider runs on the same machine.
