@@ -258,7 +258,16 @@ export const en = {
   'mail.field.password_keep': 'Leave empty to keep the stored password.',
   'mail.field.port': 'Port',
   'mail.field.protocol': 'Kind of mailbox',
+  'mail.field.quarantine_days': 'Keep blocked mail for (days)',
+  'mail.field.quarantine_days_hint':
+    'Blocked mail waits for review this long, then its copy is removed. 1 to 90 days.',
   'mail.field.security': 'Encryption',
+  'mail.field.trust_provider_results': "Trust Microsoft 365's own result",
+  'mail.field.trust_provider_results_hint':
+    'Microsoft 365 adds its result without a server name. Turn this on only for a Microsoft 365 mailbox; only the topmost result is read.',
+  'mail.field.trusted_servers': 'Trusted mail servers',
+  'mail.field.trusted_servers_hint':
+    'Up to 5 names, such as mx.google.com. Commands written in a mail are applied only when one of these servers confirms the sender. The server must add its own result to each mail and remove any result in arriving mail that claims its name. Leave empty to never apply commands.',
   'mail.field.unknown_senders': 'Mail from people SupportX does not know',
   'mail.field.username': 'User name',
   'mail.flooding': 'A sender is flooding this mailbox: their mail waits for review',
@@ -289,6 +298,7 @@ export const en = {
   'mail.remove_title': 'Stop reading {{address}}?',
   'mail.section.connection': 'Connection',
   'mail.section.mail': 'What mail becomes',
+  'mail.section.sender_check': 'Checking who sent a mail',
   'mail.summary': 'Creates: {{creates}} · Unknown senders: {{strangers}}',
   'mail.test': 'Test',
   'mail.test_failed': 'The mailbox did not answer: {{reason}}.',

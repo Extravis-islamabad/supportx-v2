@@ -253,7 +253,16 @@ export const ar: LabelResource = {
   'mail.field.password_keep': 'اتركه فارغًا للاحتفاظ بكلمة المرور المحفوظة.',
   'mail.field.port': 'المنفذ',
   'mail.field.protocol': 'نوع صندوق البريد',
+  'mail.field.quarantine_days': 'الاحتفاظ بالبريد المحظور (أيام)',
+  'mail.field.quarantine_days_hint':
+    'ينتظر البريد المحظور المراجعة طوال هذه المدة ثم تُحذف نسخته. من 1 إلى 90 يومًا.',
   'mail.field.security': 'التشفير',
+  'mail.field.trust_provider_results': 'الوثوق بنتيجة Microsoft 365',
+  'mail.field.trust_provider_results_hint':
+    'تضيف Microsoft 365 نتيجتها دون اسم خادم. فعّل هذا لصندوق Microsoft 365 فقط؛ تُقرأ النتيجة العليا وحدها.',
+  'mail.field.trusted_servers': 'خوادم البريد الموثوقة',
+  'mail.field.trusted_servers_hint':
+    'حتى 5 أسماء، مثل mx.google.com. لا تُطبَّق الأوامر المكتوبة في البريد إلا عندما يؤكد أحد هذه الخوادم هوية المُرسل. يجب أن يضيف الخادم نتيجته إلى كل رسالة وأن يحذف أي نتيجة في البريد الوارد تدّعي اسمه. اتركها فارغة كي لا تُطبَّق الأوامر أبدًا.',
   'mail.field.unknown_senders': 'البريد من أشخاص لا يعرفهم SupportX',
   'mail.field.username': 'اسم المستخدم',
   'mail.flooding': 'مُرسِل يُغرق صندوق البريد هذا: بريده بانتظار المراجعة',
@@ -287,6 +296,7 @@ export const ar: LabelResource = {
   'mail.remove_title': 'إيقاف قراءة {{address}}؟',
   'mail.section.connection': 'الاتصال',
   'mail.section.mail': 'ما يصبح عليه البريد',
+  'mail.section.sender_check': 'التحقق من مُرسل البريد',
   'mail.summary': 'يُنشئ: {{creates}} · المرسلون غير المعروفين: {{strangers}}',
   'mail.test': 'اختبار',
   'mail.test_failed': 'لم يستجب صندوق البريد: {{reason}}.',

@@ -470,6 +470,7 @@ export const ur: LabelResource = {
   'errors.field.holiday_list_not_found': 'فہرست سے تعطیلات کی فہرستیں منتخب کریں۔',
   'errors.field.holiday_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
   'errors.field.holiday_range_too_long': 'ایک تعطیل زیادہ سے زیادہ ایک سال لمبی ہو سکتی ہے۔',
+  'errors.field.host_name_invalid': 'صرف سرور کے نام لکھیں، جیسے mx.google.com۔',
   'errors.field.ical_invalid': 'یہ iCalendar (.ics) فائل نہیں ہے۔',
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
@@ -523,6 +524,8 @@ export const ur: LabelResource = {
   'errors.field.longer_than_a_week': 'ہفتہ وار ونڈو زیادہ سے زیادہ ایک ہفتے کی ہو سکتی ہے۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
   'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
+  'errors.field.mailbox_provider_results_graph_only':
+    'صرف Microsoft 365 میل باکس Microsoft کے اپنے نتیجے پر اعتماد کر سکتا ہے۔',
   'errors.field.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
   'errors.field.manager_loop':
     'یہ فرد پہلے ہی اس مینیجر کا مینیجر ہے (براہِ راست یا دوسروں کے ذریعے)۔',
@@ -697,6 +700,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_values': 'زیادہ سے زیادہ {{max}} منتخب کریں۔',
   'errors.field.topic_too_deep': 'موضوعات زیادہ سے زیادہ {{max}} درجے گہرے ہو سکتے ہیں۔',
   'errors.field.topic_under_itself': 'کوئی موضوع خود اپنے یا اپنے ذیلی موضوع کے نیچے نہیں جا سکتا۔',
+  'errors.field.trusted_servers_too_many': 'زیادہ سے زیادہ 5 سرور لکھیں۔',
   'errors.field.type_cannot_change':
     'خانے کی قسم تبدیل نہیں ہو سکتی۔ نیا خانہ بنائیں اور اسے ریٹائر کریں۔',
   'errors.field.unknown_article_type': 'مضمون کی یہ قسم موجود نہیں یا ختم کر دی گئی ہے۔',

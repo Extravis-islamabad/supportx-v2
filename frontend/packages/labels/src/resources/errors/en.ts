@@ -471,6 +471,7 @@ export const en = {
   'errors.field.holiday_list_not_found': 'Choose holiday lists from the list.',
   'errors.field.holiday_range_order': 'The last day must be on or after the first day.',
   'errors.field.holiday_range_too_long': 'A holiday can be at most one year long.',
+  'errors.field.host_name_invalid': 'Enter server names only, such as mx.google.com.',
   'errors.field.ical_invalid': 'This is not an iCalendar (.ics) file.',
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
@@ -524,6 +525,8 @@ export const en = {
   'errors.field.longer_than_a_week': 'A weekly window can last a week at most.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
+  'errors.field.mailbox_provider_results_graph_only':
+    "Only a Microsoft 365 mailbox can trust Microsoft's own result.",
   'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
   'errors.field.manager_loop':
     'This person already manages that manager (directly or through others).',
@@ -694,6 +697,7 @@ export const en = {
   'errors.field.too_many_values': 'Choose at most {{max}}.',
   'errors.field.topic_too_deep': 'Topics can be at most {{max}} levels deep.',
   'errors.field.topic_under_itself': 'A topic cannot go under itself or one of its subtopics.',
+  'errors.field.trusted_servers_too_many': 'Name 5 servers at most.',
   'errors.field.type_cannot_change':
     "A field's type cannot change. Add a new field and retire this one.",
   'errors.field.unknown_article_type': 'This article type does not exist or is retired.',

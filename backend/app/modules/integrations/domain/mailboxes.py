@@ -16,7 +16,8 @@ For each fetched message, in this order:
 7. otherwise → a new record of the mailbox's kind, in its group and desk.
 """
 
-from collections.abc import Iterable
+import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -280,3 +281,39 @@ def check_security(security: ConnectionSecurity, *, allow_plain: bool) -> list[s
 
 # The ports a tenant's IMAP host may be reached on (audit #3): never a port scanner.
 IMAP_PORTS = frozenset({143, 993})
+
+
+# --- whose Authentication-Results a mailbox believes (WP-046a S6; lane B's conditions) -------
+
+TRUSTED_SERVERS_MAX = 5
+QUARANTINE_DAYS = (1, 90)
+_HOST_LABEL = re.compile(r"^(?!-)[a-z0-9-]{1,63}(?<!-)$")
+
+
+def host_name(value: str) -> str | None:
+    """A host name lowercased (`mx.google.com`), or None when it is not one.
+
+    At least two labels of letters, digits and hyphens, 253 characters at most. No addresses,
+    ports or wildcards.
+    """
+    name = value.strip().lower().rstrip(".")
+    labels = name.split(".")
+    if len(name) > 253 or len(labels) < 2 or not all(_HOST_LABEL.match(x) for x in labels):  # noqa: PLR2004 - RFC 1035 length, two labels
+        return None
+    return name
+
+
+def trust_problems(
+    protocol: MailboxProtocol, servers: Sequence[str], *, trust_provider: bool
+) -> list[tuple[str, str]]:
+    """(field, code) problems of what a mailbox trusts to vouch for senders."""
+    problems: list[tuple[str, str]] = []
+    if len(servers) > TRUSTED_SERVERS_MAX:
+        problems.append(("trusted_servers", "trusted_servers_too_many"))
+    if any(host_name(s) is None for s in servers):
+        problems.append(("trusted_servers", "host_name_invalid"))
+    if trust_provider and protocol is not MailboxProtocol.GRAPH:
+        # Only Microsoft 365 writes its result without a name; anywhere else an id-less header
+        # could be anyone's.
+        problems.append(("trust_provider_results", "mailbox_provider_results_graph_only"))
+    return problems

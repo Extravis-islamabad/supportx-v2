@@ -35,6 +35,7 @@ from app.modules.integrations.domain.mailboxes import (
     PER_SENDER_LIMIT,
     WAITING,
     MailboxCreates,
+    MailboxProtocol,
     MailboxRules,
     Outcome,
     UnknownSenders,
@@ -70,6 +71,18 @@ def body_html(text: str) -> str:
 def _first_line(text: str) -> str:
     """The first line with words, for a mail without a subject (the incident side fits it)."""
     return next((line.strip() for line in text.splitlines() if line.strip()), "")
+
+
+def _parse(mailbox: Mailbox, raw: bytes) -> InboundMessage:
+    """The message, believing only the servers this mailbox trusts (WP-046a S6)."""
+    return parse(
+        raw,
+        trusted_servers=tuple(mailbox.trusted_servers),
+        # Microsoft's unnamed header, only for a Microsoft 365 mailbox (saving refuses it
+        # elsewhere; checked again here in case the protocol changed since).
+        trust_provider=mailbox.trust_provider_results
+        and mailbox.protocol == MailboxProtocol.GRAPH.value,
+    )
 
 
 def _rules(mailbox: Mailbox) -> MailboxRules:
@@ -423,7 +436,7 @@ async def process(
     own_addresses: tuple[str, ...],
 ) -> Outcome | None:
     """Handle one fetched message; None when it was handled before (skip, but mark it)."""
-    message = parse(raw)
+    message = _parse(mailbox, raw)
     if not await _claim(session, mailbox, message):
         return None
     outcome = await _handle(
@@ -455,7 +468,7 @@ async def release(  # noqa: PLR0913 - the message and who vouches for it, explic
     raw = row.raw
     if raw is None:
         raise NotWaiting
-    message = parse(raw)
+    message = _parse(mailbox, raw)
     outcome = await _handle(
         session, settings, mailbox, message, len(raw), own_addresses=own_addresses, vouched=True
     )

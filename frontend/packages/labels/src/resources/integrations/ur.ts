@@ -261,7 +261,16 @@ export const ur: LabelResource = {
   'mail.field.password_keep': 'محفوظ پاس ورڈ رکھنے کے لیے خالی چھوڑ دیں۔',
   'mail.field.port': 'پورٹ',
   'mail.field.protocol': 'میل باکس کی قسم',
+  'mail.field.quarantine_days': 'روکی گئی میل رکھنے کی مدت (دن)',
+  'mail.field.quarantine_days_hint':
+    'روکی گئی میل اتنی دیر جائزے کا انتظار کرتی ہے، پھر اس کی نقل ہٹا دی جاتی ہے۔ 1 سے 90 دن۔',
   'mail.field.security': 'انکرپشن',
+  'mail.field.trust_provider_results': 'Microsoft 365 کے اپنے نتیجے پر اعتماد',
+  'mail.field.trust_provider_results_hint':
+    'Microsoft 365 اپنا نتیجہ سرور کے نام کے بغیر شامل کرتا ہے۔ اسے صرف Microsoft 365 میل باکس کے لیے آن کریں؛ صرف سب سے اوپر والا نتیجہ پڑھا جاتا ہے۔',
+  'mail.field.trusted_servers': 'قابلِ اعتماد میل سرور',
+  'mail.field.trusted_servers_hint':
+    'زیادہ سے زیادہ 5 نام، جیسے mx.google.com۔ میل میں لکھے احکام صرف تب لاگو ہوتے ہیں جب ان میں سے کوئی سرور بھیجنے والے کی تصدیق کرے۔ سرور کو ہر میل میں اپنا نتیجہ شامل کرنا چاہیے اور آنے والی میل میں اپنے نام کا دعویٰ کرنے والا ہر نتیجہ ہٹا دینا چاہیے۔ احکام کبھی لاگو نہ کرنے کے لیے خالی چھوڑیں۔',
   'mail.field.unknown_senders': 'ان لوگوں کی میل جنہیں SupportX نہیں جانتا',
   'mail.field.username': 'یوزر نیم',
   'mail.flooding': 'ایک بھیجنے والا اس میل باکس کو بھر رہا ہے: ان کی میل جائزے کی منتظر ہے',
@@ -292,6 +301,7 @@ export const ur: LabelResource = {
   'mail.remove_title': '{{address}} پڑھنا بند کریں؟',
   'mail.section.connection': 'کنکشن',
   'mail.section.mail': 'میل کیا بنتی ہے',
+  'mail.section.sender_check': 'میل بھیجنے والے کی جانچ',
   'mail.summary': 'بناتا ہے: {{creates}} · نامعلوم بھیجنے والے: {{strangers}}',
   'mail.test': 'جانچیں',
   'mail.test_failed': 'میل باکس نے جواب نہیں دیا: {{reason}}۔',
