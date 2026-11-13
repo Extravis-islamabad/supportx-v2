@@ -315,6 +315,23 @@ async def revoke_for(
     return int(getattr(done, "rowcount", 0) or 0)
 
 
+async def revoke_for_recipient(
+    session: AsyncSession, recipient_id: uuid.UUID, *, clock: Clock = system_clock
+) -> int:
+    """Every open link sent to a person stops working (their GDPR erasure, ADR-052 step 1)."""
+    done = await session.execute(
+        update(ActionLink)
+        .where(
+            ActionLink.recipient_id == recipient_id,
+            ActionLink.used_at.is_(None),
+            ActionLink.revoked_at.is_(None),
+        )
+        .values(revoked_at=clock.now(), version=ActionLink.version + 1)
+        .execution_options(synchronize_session=False)
+    )
+    return int(getattr(done, "rowcount", 0) or 0)
+
+
 __all__ = [
     "ActionHandler",
     "Actor",
@@ -326,5 +343,6 @@ __all__ = [
     "recipient_of",
     "register_handler",
     "revoke_for",
+    "revoke_for_recipient",
     "use",
 ]

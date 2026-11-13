@@ -98,6 +98,11 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
     # the tenant admin holds them (no defaults). Names pending Haider's naming (PROGRESS.md).
     PermissionSpec("users.view_cost_rates"),
     PermissionSpec("users.manage_cost_rates"),
+    # GDPR (D-171, ADR-052): erasing a person (two admins: one requests, another approves) and
+    # exporting their data (the export job comes with S3). No built-in role but the tenant
+    # admin holds them (no defaults); a custom role may, with a warning in the role editor.
+    PermissionSpec("people.erase"),
+    PermissionSpec("people.export"),
 )
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).

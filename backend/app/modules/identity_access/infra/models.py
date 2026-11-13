@@ -23,6 +23,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, CIDR, INET, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
+from app.modules.identity_access.domain.erasure import (
+    LAST_STEP,
+    OPEN_STATES,
+    ErasureReason,
+    ErasureState,
+)
 from app.modules.identity_access.domain.network import IP_ALLOW_MAX
 from app.modules.identity_access.domain.sign_in import (
     SignInApp,
@@ -134,6 +140,10 @@ class User(TenantEntity):
             unique=True,
             postgresql_where=text("employee_id IS NOT NULL"),
         ),
+        CheckConstraint("char_length(legal_hold_reason) <= 1000", name="legal_hold_reason_length"),
+        CheckConstraint(
+            "(legal_hold_at IS NULL) = (legal_hold_reason IS NULL)", name="legal_hold_complete"
+        ),
         Index("ix_users_tenant_manager", "tenant_id", "manager_id"),
         # Keyset pagination for the sortable columns of GET /users (tenant first, ID last).
         Index("ix_users_tenant_created", "tenant_id", "created_at", "id"),
@@ -220,6 +230,14 @@ class User(TenantEntity):
     search_name: Unmapped[str] = unmapped_column(
         Text, Computed("sx_search_normalize(display_name)", persisted=True)
     )
+    # Legal hold (H1, D-171; migration 0161): a held person is never erased. Set and lifted by
+    # holders of `audit.manage_holds`, each audited with the reason.
+    legal_hold_at: Mapped[datetime | None]
+    legal_hold_by: Mapped[uuid.UUID | None]
+    legal_hold_reason: Mapped[str | None] = mapped_column(Text)
+    # GDPR erasure done (ADR-052 step 5): the row stays, anonymised, so IDs everywhere resolve.
+    erased_at: Mapped[datetime | None]
+    erased_by: Mapped[uuid.UUID | None]
 
 
 SCOPE_CODES = ("all", "site", "group", "own")
@@ -854,6 +872,89 @@ class KnownDevice(TenantKeyed, Timestamps, Base):
     user_id: Mapped[uuid.UUID]
     fingerprint: Mapped[bytes] = mapped_column(LargeBinary)
     last_seen_at: Mapped[datetime]
+
+
+ERASURE_STATES = tuple(state.value for state in ErasureState)
+ERASURE_REASONS = tuple(reason.value for reason in ErasureReason)
+# As migration 0161 wrote the index (same order, so the model matches the migration).
+_OPEN_ORDER = ("requested", "approved", "running", "failed")
+assert set(_OPEN_ORDER) == {state.value for state in OPEN_STATES}  # noqa: S101 - import-time check
+_OPEN = ", ".join(f"'{state}'" for state in _OPEN_ORDER)
+
+
+class PersonErasure(TenantEntity):
+    """One GDPR erasure of a person (D-171, ADR-052 §3; migration 0161).
+
+    Requested by one admin, approved by another, then run by the erasure job step by step:
+    `step` is the next step to run (domain/erasure.Step), so a stopped run resumes there.
+    `last_error_code` is a code, never a message. `keep_files` maps a file ID to the admin's
+    reason for keeping it. `report` is the mentions report shown to the approver (S1b); approval
+    and the job refuse without it. `counts` holds what each step removed, by kind (never data).
+    """
+
+    __tablename__ = "person_erasures"
+    __table_args__ = (
+        CheckConstraint(f"state IN {ERASURE_STATES!r}", name="state_code"),
+        CheckConstraint(f"reason_code IN {ERASURE_REASONS!r}", name="reason_code"),
+        CheckConstraint(f"step BETWEEN 0 AND {LAST_STEP}", name="step_range"),
+        CheckConstraint("attempts >= 0", name="attempts_not_negative"),
+        CheckConstraint("char_length(port_cursor) <= 2000", name="port_cursor_length"),
+        CheckConstraint("char_length(reason_text) <= 1000", name="reason_text_length"),
+        CheckConstraint("jsonb_typeof(keep_files) = 'object'", name="keep_files_object"),
+        CheckConstraint("approved_by IS NULL OR approved_by <> requested_by", name="four_eyes"),
+        CheckConstraint("successor_id <> person_id", name="successor_other"),
+        ForeignKeyConstraint(
+            ["tenant_id", "person_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_person",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "successor_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_successor",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "requested_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_requested_by",
+        ),
+        Index(
+            "uq_person_erasures_open",
+            "tenant_id",
+            "person_id",
+            unique=True,
+            postgresql_where=text(f"state IN ({_OPEN})"),
+        ),
+        Index("ix_person_erasures_tenant_created", "tenant_id", "created_at", "id"),
+        Index("ix_person_erasures_tenant_state", "tenant_id", "state"),
+    )
+
+    person_id: Mapped[uuid.UUID]
+    state: Mapped[str] = mapped_column(String(12), server_default="requested")
+    step: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    # Inside step 4 (ADR-052 §4, batches): the module being erased and its cursor.
+    port_module: Mapped[str | None] = mapped_column(String(60))
+    port_cursor: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(Integer, server_default="0")
+    reason_code: Mapped[str] = mapped_column(String(40))
+    reason_text: Mapped[str | None] = mapped_column(Text)
+    successor_id: Mapped[uuid.UUID]
+    # The successor the job used: the requested one, or the approver when the requested one was
+    # no longer active at job start (lane C's review of ADR-052 §4).
+    effective_successor_id: Mapped[uuid.UUID | None]
+    keep_files: Mapped[dict[str, str]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    requested_by: Mapped[uuid.UUID]
+    requested_at: Mapped[datetime]
+    expires_at: Mapped[datetime]
+    approved_by: Mapped[uuid.UUID | None]
+    approved_at: Mapped[datetime | None]
+    rejected_by: Mapped[uuid.UUID | None]
+    rejected_at: Mapped[datetime | None]
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+    last_error_code: Mapped[str | None] = mapped_column(String(60))
+    report: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    counts: Mapped[dict[str, int]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
 
 
 EXPIRY_THRESHOLDS = (0, 1, 7, 30)  # domain/expiry.py: days before, 0 = run out

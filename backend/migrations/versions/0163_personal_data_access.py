@@ -24,7 +24,7 @@ search_path, closed to PUBLIC, EXECUTE for supportx_app only. The downgrade refu
 tenant has an access entry (rule 5h).
 
 Revision ID: 0163
-Revises: 0158
+Revises: 0161
 Created: 2026-11-14
 """
 
@@ -42,7 +42,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0163"
-down_revision: str | None = "0158"
+down_revision: str | None = "0161"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -155,6 +155,9 @@ def upgrade() -> None:
     op.create_index("ix_personal_data_access_time", TABLE, ["tenant_id", "occurred_at"])
     enable_tenant_rls(TABLE)
     grant_app(TABLE, ("SELECT", "INSERT"))  # append-only: rows leave only through the functions
+    create_definer_function(
+        "audit_erase_access", "p_subject uuid", "integer", _ERASE, volatility="VOLATILE"
+    )
     create_definer_function("audit_purge_access", "", "integer", _PURGE, volatility="VOLATILE")
     create_definer_function(
         "sx_kek_wraps",

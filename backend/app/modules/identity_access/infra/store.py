@@ -206,6 +206,21 @@ class SessionStore:
             return True
         return False
 
+    async def keycloak_session_ids(self, user_key: str) -> list[str]:
+        """The Keycloak session IDs held by a person's live sessions, sorted, each once.
+
+        ADR-052 step 1: each is then ended through ADR-051's path.
+        """
+        found: set[str] = set()
+        for _field, meta in await self.user_sessions(user_key):
+            key = str(meta.get("key"))
+            blob = await self._kv.get(key)
+            record = self._cipher.decrypt(blob, bound_to=key) if blob else None
+            session_id = record.get("keycloak_session_id") if record else None
+            if session_id:
+                found.add(str(session_id))
+        return sorted(found)
+
     async def end_listed_session(self, user_key: str, session: str) -> bool:
         """End one of a person's sessions by its public id; False when it isn't theirs or live."""
         return await self.take_listed_session(user_key, session) is not None

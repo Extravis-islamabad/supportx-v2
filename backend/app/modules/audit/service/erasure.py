@@ -26,14 +26,14 @@ erasure is itself logged (`audit.subject_erased`); everyone else's saves still v
 import uuid
 from typing import Any
 
-from sqlalchemy import bindparam, select, text
+from sqlalchemy import bindparam, delete, select, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import Uuid
 
 from app.modules.audit.domain.catalogue import AuditActorType
 from app.modules.audit.domain.lifecycle import RECORD_TYPES
-from app.modules.audit.infra.models import AuditEntry
+from app.modules.audit.infra.models import AuditEntry, AuditSavedSearch
 from app.modules.audit.service.recording import WORKER, record
 from app.shared.history import FieldChange
 
@@ -47,6 +47,14 @@ _ERASE = (
 _ERASE_ACCESS = text("SELECT audit_erase_access(:subject)").bindparams(
     bindparam("subject", type_=Uuid())
 )
+
+
+async def erase_saved_searches(session: AsyncSession, user_id: uuid.UUID) -> int:
+    """The person's saved audit searches go (their own, private); how many. Idempotent."""
+    result = await session.execute(
+        delete(AuditSavedSearch).where(AuditSavedSearch.owner_id == user_id)
+    )
+    return int(getattr(result, "rowcount", 0) or 0)
 
 
 async def personal_history(session: AsyncSession, user_id: uuid.UUID) -> list[uuid.UUID]:

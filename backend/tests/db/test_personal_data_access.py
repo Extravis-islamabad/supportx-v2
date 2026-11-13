@@ -17,7 +17,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.core.tenancy import TenantContext
 from app.modules.audit.domain.catalogue import AuditActorType
-from app.modules.audit.service import access_log
+from app.modules.audit.service import access_log, erasure
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_incidents_api import World
 
@@ -207,3 +207,29 @@ async def test_a_profile_view_is_one_entry_and_the_report_is_itself_audited(worl
         params={"person": str(seen)},
     )
     assert refused.status_code == 404
+
+
+async def test_only_an_erased_persons_entries_can_be_erased(world: World) -> None:
+    """Lane B (#500): the app cannot empty anyone's entries early. audit_erase_access acts only
+    once the person is erased (users.erased_at, ADR-052 step 5), and erase_subject calls it."""
+    await _switch_on(world, world.a.tenant)
+    person = world.a.requester2
+    assert await _view(world, world.a.tenant, person, datetime.now(UTC))
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        assert await session.scalar(text("SELECT audit_erase_access(:p)"), {"p": person}) == 0
+    assert await _count(world, world.a.tenant, person) == 1  # not erased: nothing goes
+    await world.sql(
+        "UPDATE users SET erased_at = now() WHERE tenant_id = $1 AND id = $2",
+        world.a.tenant,
+        person,
+    )
+    try:
+        async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+            await erasure.erase_subject(session, person)
+        assert await _count(world, world.a.tenant, person) == 0
+    finally:
+        await world.sql(
+            "UPDATE users SET erased_at = NULL WHERE tenant_id = $1 AND id = $2",
+            world.a.tenant,
+            person,
+        )
