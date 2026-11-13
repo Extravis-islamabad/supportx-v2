@@ -33,12 +33,15 @@ SCOPE_KEY = "supportx.body_limit"
 # no root_path today; one would have to be prefixed here (lane C, #496).
 # Routes that raise their cap (body_limit): their early `Content-Length` check waits for the
 # route's own number. Method and path pattern, under /api/v1.
-# The workflow and holiday imports cap themselves below DEFAULT_MAX_BYTES, so are not listed.
+# The workflow and holiday imports cap themselves at 1 MB with their own 422; they raise the cap
+# to 2 MiB so that answer, not this 413, is what an oversized file gets.
 STREAMED: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("POST", re.compile(r"^/api/v1/files$")),
     ("POST", re.compile(r"^/api/v1/people-imports$")),
     ("POST", re.compile(r"^/api/v1/assets/imports$")),
     ("POST", re.compile(r"^/api/v1/[a-z-]+/checklist-library/import$")),
+    ("POST", re.compile(r"^/api/v1/automation/workflows/import$")),
+    ("POST", re.compile(r"^/api/v1/sla/holiday-lists/[^/]+/import$")),
 )
 
 

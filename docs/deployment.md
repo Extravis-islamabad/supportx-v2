@@ -552,9 +552,10 @@ temporarily unavailable. Keycloak being unreachable gives the same answer (ADR-0
 The API reads at most **1 MiB** of any request body and answers a larger one with 413
 `payload_too_large`, whether or not the request declares its length (`app/core/body_limit.py`).
 Only the routes that stream a file take more, each up to its own cap: file uploads (the tenant's
-file limit, at most 100 MB), people imports (5 MB), asset imports (25 MB) and checklist imports
-(5 MB). A proxy in front may refuse earlier (Traefik's `buffering` middleware, nginx's
-`client_max_body_size`); set it to at least 101 MB so uploads still reach the API.
+file limit, at most 100 MB), people imports (5 MB), asset imports (25 MB), checklist imports
+(5 MB), and workflow and holiday imports (1 MB, each with its own message). A proxy in front may
+refuse earlier (Traefik's `buffering` middleware, nginx's `client_max_body_size`); set it to at
+least 101 MB so uploads still reach the API.
 
 A pasted SAML metadata document counts against the 1 MiB as well. An aggregate federation
 file larger than that (a national research federation's, for example) is set up by its metadata
