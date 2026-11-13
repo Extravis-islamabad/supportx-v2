@@ -98,6 +98,8 @@ import { DepartmentPicker, GroupPicker, SitePicker, TechnicianPicker, UserPicker
 import { PriorityTag } from './tags';
 import { TagsInput } from './TagsInput';
 import { pickedOf } from '../assets/raise';
+import { KeptDraftNotice } from './KeptDraft';
+import { useServerDraft } from './useServerDraft';
 import { AssetPickerField } from './RecordAssets';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
@@ -211,6 +213,8 @@ export function NewIncidentPage() {
   const problem = useFormProblem();
   // What was typed survives a session timeout in this tab (REQ-INC-019, REQ-SEC-029 AC2).
   const draft = useKeptDraft(form, 'incident-new');
+  // And on the server, sealed, for a crash or another tab (REQ-INC-019, WP-046a S5c).
+  const serverDraft = useServerDraft(form, 'incident-new', { localRestored: draft.restored });
   const departments = useStructure('departments', true, true);
   /**
    * The requester's department and site fill the empty fields as soon as they are picked, so the
@@ -473,6 +477,8 @@ export function NewIncidentPage() {
       ),
       keep_following: keepFollowing ?? null,
       ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
+      // The kept draft of this form goes with the save (yours only, on the server).
+      draft_form_key: 'incident-new' as const,
     };
     const variant = keepFollowing === undefined ? '' : `-${String(keepFollowing)}`;
     problem.clear();
@@ -1189,7 +1195,9 @@ export function NewIncidentPage() {
               <Button
                 size="small"
                 onClick={() => {
-                  draft.startEmpty(EMPTY);
+                  serverDraft.discard(() => {
+                    draft.startEmpty(EMPTY);
+                  });
                   started.current = {};
                   apply(template);
                 }}
@@ -1200,6 +1208,16 @@ export function NewIncidentPage() {
             }
           />
         )}
+        <KeptDraftNotice
+          form={form}
+          draft={serverDraft}
+          onRestore={(values) => {
+            form.reset({ ...form.getValues(), ...values }, { keepDefaultValues: true });
+          }}
+          onDiscard={() => {
+            draft.discard();
+          }}
+        />
         <Form.Item label={t('templates.field')} htmlFor="inc-template-picker">
           <Select
             id="inc-template-picker"

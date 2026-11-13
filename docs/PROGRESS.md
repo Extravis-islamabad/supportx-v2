@@ -715,7 +715,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Name resolvers for report exports (group, site, department, desk; category path, template,
   incident status and level; custom choices): written by lane C in lane A's modules, reviewed by
   lane A, merged with #84 (2026-10-28).
-- [ ] Kept drafts (REQ-INC-019, REQ-SEC-029 AC2): the new-incident form keeps its input through a
+- [x] Kept drafts (REQ-INC-019, REQ-SEC-029 AC2): the new-incident form keeps its input through a
   timeout (lane B, #87). The record page's in-place edits and the reply/note composer follow in
   WP-020d/e (lane A).
 - [x] QA round on main (2026-10-28, ~/Desktop/qa-wp029/QA-REPORT.md): 14 e2e journeys pass;
@@ -1482,6 +1482,18 @@ it with no reload (rule c). Not built yet.
     the limit at the count.
   - Migration 0156: `work_item_type_settings.copy_limit` and the `copy` file source; the
     downgrade refuses while a tenant holds a copied file or a changed limit (rule 5h).
+- **S5c part 3, kept drafts on the server (0160; REQ-INC-019; lane B blocked, lane C the UI):**
+  - The new-incident form is kept on the server as well as in the tab: sealed with the tenant's
+    field key (ADR-050, `field.work_items.draft`, bound to its row), one per person and form,
+    saved 3 s after typing pauses (60 saves a minute at most). Only its author ever gets it back
+    (404 for everyone else, admins too); only known forms (`incident-new`), plain values only,
+    64 KB at most; restored values go through the create's own checks.
+  - A quiet note above the first field offers it back (Restore, Discard); restoring over typing
+    asks first; one that cannot be read offers Discard only; no key on the installation shows
+    nothing and is tried again later.
+  - It goes when the incident is saved (the sender's own), when discarded, when its owner is
+    deactivated or erased, and after 30 days. No audit (personal and unsent).
+  - Migration 0160: `work_item_drafts`; the downgrade refuses while any tenant holds a draft.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

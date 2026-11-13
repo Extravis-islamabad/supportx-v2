@@ -62,6 +62,25 @@ type Records = Partial<
   >
 >;
 
+/** The new-incident form with a kept draft on the server (readable or not). */
+function keptDraft(unreadable: boolean): (page: Page) => Promise<void> {
+  return async (page) => {
+    await page.route('**/api/v1/drafts/incident-new', (route) =>
+      route.fulfill({
+        json: {
+          form_key: 'incident-new',
+          version: 2,
+          updated_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+          unreadable,
+          values: unreadable ? null : { subject: 'Printer jams on floor 2' },
+        },
+      }),
+    );
+    await page.reload();
+    await page.getByTestId(unreadable ? 'kept-draft-unreadable' : 'kept-draft').waitFor();
+  };
+}
+
 interface Screen {
   key: string;
   /** A path, or one built from the records found at the start (none: skipped, noted). */
@@ -138,6 +157,20 @@ export const SCREENS: Screen[] = [
   { key: 'home', path: '/', app: 'console' },
   { key: 'incidents', path: '/incidents', app: 'console' },
   { key: 'incident-new', path: '/incidents/new', app: 'console' },
+  // WP-046a S5c (REQ-INC-019): a kept draft offered back, and one that could not be read
+  // (lane C). The draft is answered in the browser: the matrix keeps none of its own.
+  {
+    key: 'incident-new',
+    path: '/incidents/new',
+    app: 'console',
+    state: { name: 'kept-draft', open: keptDraft(false) },
+  },
+  {
+    key: 'incident-new',
+    path: '/incidents/new',
+    app: 'console',
+    state: { name: 'kept-draft-unreadable', open: keptDraft(true) },
+  },
   {
     key: 'incident-new',
     path: '/incidents/new',
