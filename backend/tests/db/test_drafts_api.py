@@ -33,8 +33,10 @@ VALUES = {"subject": "Printer jams on floor 2", "description": "<p>Every page.</
 
 def with_key_ring(world: World) -> None:
     settings = world.app.state.settings
+    # No Valkey: the cipher's data-key cache is one per process and would keep a client bound to
+    # an earlier test's event loop; every open then reads the key from the database.
     world.app.state.settings = settings.model_copy(
-        update={"files_keys": SecretStr(KeyRing.generate())}
+        update={"files_keys": SecretStr(KeyRing.generate()), "valkey_url": None}
     )
 
 
