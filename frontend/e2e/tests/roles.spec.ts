@@ -95,16 +95,20 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   // again through Keycloak (SSO) and the requester-only refusal sends them on to the portal. A
   // load that starts before the server has applied the removal still opens the console, so wait
   // for the outcome, not one load (lane B's flake report, Cluster run 43239882763).
+  // The hand-off runs in the app after the page's `load` (/me 401 → sign-in → portal), so each
+  // try waits for the portal itself; reading the URL at `load` saw the console every time while
+  // the browser was on its way to the portal (nightly 43405236295's trace).
+  const portal = new RegExp(`^${PORTAL_URL}`);
   await expect
     .poll(
       async () => {
         await user.goto(`${CONSOLE_URL}/problems`);
-        await user.waitForLoadState('load');
+        await user.waitForURL(portal, { timeout: 8_000 }).catch(() => undefined);
         return user.url();
       },
-      { timeout: 30_000, intervals: [1_000, 2_000, 3_000] },
+      { timeout: 45_000, intervals: [1_000, 2_000, 3_000] },
     )
-    .toMatch(new RegExp(`^${PORTAL_URL}`));
+    .toMatch(portal);
 
   // Clean up: delete the suite's role (nobody holds it any more).
   // Close the drawer with its button: Escape only reaches it while focus is inside, and the
