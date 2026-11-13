@@ -1,4 +1,4 @@
-# 2026-11-13 — WP-046a S5c part 2: copy an incident N times (lane A)
+### 2026-11-13 — WP-046a S5c part 2: copy an incident N times (lane A)
 
 **Scope:** REQ-INC-033 (copy N times, with tasks and attachments when chosen), migration 0156
 (coordinator's number; queue order 0154 → 0155 → 0156 → 0157).

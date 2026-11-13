@@ -37,6 +37,8 @@ from app.shared.labels import label
 from app.shared.richtext import image_file_ids, sanitize_html
 
 DEFAULT_COPY_LIMIT = 20  # REQ-INC-033 AC3's default; each type's own in its settings (0156)
+# The field codes a copy request gives (labels: errors.field.*; checked in test_domain).
+FIELD_PROBLEMS = frozenset({"too_many_copies"})
 SUBJECT_MARK = "work_item.copy_subject"
 # The record's own fields a copy takes (never status, dates, assignment to a person, counters).
 FIELDS = (
@@ -213,6 +215,7 @@ def _with_copied_images(html: str | None, mapping: dict[uuid.UUID, uuid.UUID]) -
 
 __all__ = [
     "DEFAULT_COPY_LIMIT",
+    "FIELD_PROBLEMS",
     "Made",
     "RecordCopyPart",
     "copy_limit",

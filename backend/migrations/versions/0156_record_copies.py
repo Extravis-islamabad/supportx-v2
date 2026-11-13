@@ -11,7 +11,7 @@ old rule cannot hold the source, and relabelling copies as uploads would misstat
 came from.
 
 Revision ID: 0156
-Revises: 0153 (main's head while building; re-pointed onto 0155 at its queue turn)
+Revises: 0155 (re-pointed from 0153 at its queue turn)
 Created: 2026-11-13
 """
 
@@ -21,7 +21,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0156"
-down_revision: str | None = "0153"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0155"  # re-pointed from 0153 at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -16,7 +16,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0153"  # 0156's down revision while building (re-pointed at its queue turn)
+BEFORE = "0155"  # 0156's down revision (re-pointed from 0153 at its queue turn)
 
 
 async def _copy_limit_column(url: str) -> bool:
