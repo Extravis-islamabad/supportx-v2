@@ -113,6 +113,23 @@ class RoleChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class FieldAccessChanged(DomainEvent):
+    """A role's field access rule was set, changed or removed (ADR-047, REQ-ADM-026).
+
+    Compiled subjects go stale (authz consumer), so the person's next request has it. Names the
+    rule only; `mode` is None once removed.
+    """
+
+    event_type: ClassVar[str] = "identity_access.field_access.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "role"
+
+    role_id: uuid.UUID
+    record_type: str
+    field: str
+    mode: Literal["read_only", "masked", "hidden"] | None
+
+
 class UserRoleChanged(DomainEvent):
     """A role was assigned to or removed from a user (WP-016)."""
 
@@ -378,6 +395,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     KeycloakSessionEndPending,
     SessionTenantSwitched,
     RoleChanged,
+    FieldAccessChanged,
     UserRoleChanged,
     GroupRoleChanged,
     UserCreated,

@@ -199,6 +199,9 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     mail_commands: Mapped[bool] = mapped_column(Boolean, server_default="false")
     mail_command_fields: Mapped[list[str]] = mapped_column(ARRAY(String(30)), server_default="{}")
     cc_from_first_mail: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # Set while this type's search text is rebuilt after a field gains its first access rule or
+    # loses its last one: search ignores custom text meanwhile (ADR-047 §6; migration 0162).
+    custom_text_rebuilding_since: Mapped[datetime | None]
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
