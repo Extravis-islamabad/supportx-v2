@@ -248,7 +248,7 @@ describe('Admin › Notifications', () => {
     expect(await within(table).findByText('Fixed for security')).toBeTruthy();
     expect(
       within(table).getByText(
-        'Always sent to the person it is about. No one can switch it off or change it.',
+        'A security notice: always sent to the people it names. No one can switch it off or change who gets it.',
       ),
     ).toBeTruthy();
     const on = within(table).getByTestId('rule-on-incident.assigned');

@@ -1,4 +1,4 @@
-# 2026-11-13 — Locked notification rules (lane A, for WP-057 S2b)
+### 2026-11-13 — Locked notification rules (lane A, for WP-057 S2b)
 
 Lane C's S2b-1 security notices (new-device sign-in, lock-out, password and MFA changed) must reach
 the person even when a tenant admin, who may be the attacker, would rather they did not. `required`
