@@ -47,6 +47,8 @@ class AuditSettingsView:
     refusal_window_minutes: int
     read_categories: tuple[str, ...]
     version: int
+    # REQ-AUD-017: log views and exports of personal data (off until a tenant admin turns it on).
+    personal_data_log: bool = False
 
     def values(self) -> dict[str, object]:
         """The editable values, for history and the audit entry."""
@@ -56,6 +58,7 @@ class AuditSettingsView:
             "refusal_threshold": self.refusal_threshold,
             "refusal_window_minutes": self.refusal_window_minutes,
             "read_categories": list(self.read_categories),
+            "personal_data_log": self.personal_data_log,
         }
 
 
@@ -79,6 +82,7 @@ def _view(row: AuditSettings | None) -> AuditSettingsView:
         refusal_window_minutes=row.refusal_window_minutes,
         read_categories=tuple(sorted(row.read_categories)),
         version=row.version,
+        personal_data_log=row.personal_data_log,
     )
 
 
@@ -100,6 +104,8 @@ def _validate(changes: dict[str, object]) -> list[FieldError]:
                     FieldError(field=f"body.{name}", code=code, message_key=_field_key(code))
                 )
             continue
+        if name == "personal_data_log":
+            continue  # a bool, typed by the API schema
         low, high = LIMITS[name]
         if not isinstance(value, int) or not low <= value <= high:
             code = "out_of_range"
@@ -153,6 +159,7 @@ async def update_settings(
     row.refusal_threshold = after.refusal_threshold
     row.refusal_window_minutes = after.refusal_window_minutes
     row.read_categories = list(after.read_categories)
+    row.personal_data_log = after.personal_data_log
     row.version = after.version
     row.updated_by = context.user_id
     await session.flush()

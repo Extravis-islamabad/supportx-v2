@@ -218,6 +218,9 @@ class AuditSettingsOut(BaseModel):
     refusal_threshold: int
     refusal_window_minutes: int
     read_categories: list[ReadCategory]
+    personal_data_log: bool = Field(
+        description="REQ-AUD-017: views and exports of personal data are logged."
+    )
     version: int
     limits: dict[str, list[int]] = Field(description="Allowed [min, max] per number.")
 
@@ -232,6 +235,7 @@ class AuditSettingsIn(BaseModel):
     refusal_threshold: int | None = None
     refusal_window_minutes: int | None = None
     read_categories: list[ReadCategory] | None = None
+    personal_data_log: bool | None = None
 
 
 async def _names(session: TenantSession, ids: list[uuid.UUID | None]) -> dict[str, str]:
@@ -354,6 +358,7 @@ def _settings(view: AuditSettingsView) -> AuditSettingsOut:
         refusal_threshold=view.refusal_threshold,
         refusal_window_minutes=view.refusal_window_minutes,
         read_categories=[ReadCategory(c) for c in view.read_categories],
+        personal_data_log=view.personal_data_log,
         version=view.version,
         limits={name: list(bounds) for name, bounds in LIMITS.items()},
     )

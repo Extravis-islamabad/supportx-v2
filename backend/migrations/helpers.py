@@ -14,7 +14,11 @@ from app.shared.db.rls import (
     APP_DML_PRIVILEGES,
     actor_audit_statements,
     app_grant_statements,
+    definer_function_statements,
+    drop_definer_function_statements,
+    drop_policy_statements,
     drop_tenant_rls_statements,
+    migrator_read_policy_statements,
     report_column_grant_statements,
     report_grant_statements,
     report_revoke_statements,
@@ -64,4 +68,42 @@ def grant_report_columns(table: str, columns: Sequence[str]) -> None:
 def revoke_report(table: str) -> None:
     """Reverse of `grant_report` (downgrades)."""
     for statement in report_revoke_statements(table):
+        op.execute(statement)
+
+
+def create_definer_function(  # noqa: PLR0913 - one function's parts, explicit
+    name: str,
+    arguments: str,
+    returns: str,
+    body: str,
+    *,
+    language: str = "sql",
+    volatility: str = "STABLE",
+) -> None:
+    """A migrator-owned SECURITY DEFINER function, fixed search_path, EXECUTE for the app only.
+
+    The one way a migration makes one (#476, D-168): the body is reviewed with the migration;
+    everything that decides who may run it is here.
+    """
+    for statement in definer_function_statements(
+        name, arguments, returns, body, language=language, volatility=volatility
+    ):
+        op.execute(statement)
+
+
+def drop_definer_function(signature: str) -> None:
+    """Reverse of `create_definer_function` (downgrades), e.g. `audit_erase_access(uuid)`."""
+    for statement in drop_definer_function_statements(signature):
+        op.execute(statement)
+
+
+def allow_migrator_read(table: str, policy: str) -> None:
+    """A SELECT policy for the migrator on `table` (for a cross-tenant count function only)."""
+    for statement in migrator_read_policy_statements(table, policy):
+        op.execute(statement)
+
+
+def drop_policy(table: str, policy: str) -> None:
+    """Reverse of `allow_migrator_read` (downgrades)."""
+    for statement in drop_policy_statements(table, policy):
         op.execute(statement)
