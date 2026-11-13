@@ -408,3 +408,42 @@ async def test_a_task_s_extra_cost_in_the_history_is_for_the_record_s_editors_on
         assert "125.50" not in owner.text
     finally:
         await _task_owner_access(world, a, on=False)
+
+
+async def test_d164_an_editor_without_view_costs_reads_no_extra_cost_in_the_history(
+    world: World,
+) -> None:
+    """Lane B's #442 review: money follows `<type>.view_costs` (D-164), in the history too.
+
+    A technician who edits the incident but lacks the cost right sees the line masked; someone
+    given `incidents.view_costs` reads the amounts.
+    """
+    from tests.db.test_incidents_api import role  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    task = await _made(world, a, item, title="Order a fuser")
+    costed = await _patch(world, a, a.admin, task, extra_cost="88.40")
+    assert costed.status_code == 200, costed.text
+
+    async def history(user: uuid.UUID) -> httpx.Response:
+        found = await world.call("GET", f"{BASE}/{item['id']}/history", a, user, headers=CONSOLE)
+        assert found.status_code == 200, found.text
+        return found
+
+    editor = await history(a.tech_a)  # works the incident, holds no cost right
+    assert "88.40" not in editor.text
+    lines = [
+        c for e in editor.json()["items"] for c in e["changes"] if c["field"] == "task.extra_cost"
+    ]
+    assert lines, editor.text
+    assert all(c["hidden"] for c in lines)
+    money = await role(
+        world,
+        a,
+        f"Costs {uuid.uuid4().hex[:6]}",
+        [("incidents.view", "all"), ("incidents.view_costs", "all")],
+    )
+    granted = await world.call("PUT", f"/users/{a.requester2}/roles/{money}", a, a.admin)
+    assert granted.status_code == 204, granted.text
+    assert "88.40" in (await history(a.requester2)).text

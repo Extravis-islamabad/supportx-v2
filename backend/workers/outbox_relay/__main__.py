@@ -5,6 +5,7 @@ import sys
 from datetime import timedelta
 
 from app.core.config import Settings
+from app.core.database import database_ssl
 from app.core.logging import get_logger
 from workers import bus, runtime
 from workers.heartbeat import Heartbeat
@@ -27,6 +28,7 @@ def build_relay(
         raise RuntimeError(msg)
     return OutboxRelay(
         dsn=settings.relay_database_url.get_secret_value(),
+        ssl=database_ssl(settings.database_ssl_root_cert),
         js=connected.js,
         names=connected.names,
         batch_size=settings.relay_batch_size,

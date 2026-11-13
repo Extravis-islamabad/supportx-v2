@@ -6,6 +6,8 @@ Every tenant-scoped table, right after `op.create_table(...)`:
     grant_app("tickets")
 """
 
+from collections.abc import Sequence
+
 from alembic import op
 
 from app.shared.db.rls import (
@@ -13,6 +15,7 @@ from app.shared.db.rls import (
     actor_audit_statements,
     app_grant_statements,
     drop_tenant_rls_statements,
+    report_column_grant_statements,
     report_grant_statements,
     report_revoke_statements,
     tenant_rls_statements,
@@ -49,6 +52,12 @@ def grant_app(table: str, privileges: tuple[str, ...] = APP_DML_PRIVILEGES) -> N
 def grant_report(table: str) -> None:
     """Let supportx_report read `table` (WP-035, ADR-033): tables a reporting source reads."""
     for statement in report_grant_statements(table):
+        op.execute(statement)
+
+
+def grant_report_columns(table: str, columns: Sequence[str]) -> None:
+    """Let supportx_report read only `columns` of `table` (a table with free text in it)."""
+    for statement in report_column_grant_statements(table, columns):
         op.execute(statement)
 
 

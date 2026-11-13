@@ -20,6 +20,7 @@ import httpx
 
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailable
+from app.modules.identity_access.domain.sign_in_import import KeycloakEvent
 
 _TOKEN_MARGIN_SECONDS = 30
 
@@ -154,6 +155,18 @@ class RealmAdmin(Protocol):
     async def close(self) -> None: ...  # noqa: D102
 
 
+class EventsReader(Protocol):
+    """Keycloak's login events as `supportx-events` (view-events only; consumers worker only)."""
+
+    realm: str
+
+    async def realm_events(  # noqa: D102 - see KeycloakAdmin
+        self, types: tuple[str, ...], since_ms: int, until_ms: int, *, first: int, limit: int
+    ) -> list[KeycloakEvent]: ...
+
+    async def close(self) -> None: ...  # noqa: D102
+
+
 def admin_base(settings: Settings) -> tuple[str, str] | None:
     """(Keycloak base URL, realm) from the back-channel realm URL; None when not configured."""
     realm_url = settings.oidc_internal_url or settings.oidc_issuer
@@ -237,6 +250,25 @@ class KeycloakAdmin:
             base,
             realm,
             client_id=settings.keycloak_federation_client_id,
+            client_secret=secret.get_secret_value(),
+            timeout=settings.oidc_timeout_seconds,
+        )
+
+    @classmethod
+    def events_from_settings(cls, settings: Settings) -> "KeycloakAdmin | None":
+        """The login-events reader (`supportx-events`, view-events only), or None when not set up.
+
+        The consumers worker makes one per import run, so its token lives for that run only.
+        """
+        found = admin_base(settings)
+        secret = settings.keycloak_events_client_secret
+        if found is None or secret is None or not secret.get_secret_value():
+            return None
+        base, realm = found
+        return cls(
+            base,
+            realm,
+            client_id=settings.keycloak_events_client_id,
             client_secret=secret.get_secret_value(),
             timeout=settings.oidc_timeout_seconds,
         )
@@ -604,6 +636,36 @@ class KeycloakAdmin:
                 )
             )
         return events
+
+    async def realm_events(
+        self, types: tuple[str, ...], since_ms: int, until_ms: int, *, first: int, limit: int
+    ) -> list[KeycloakEvent]:
+        """Events of `types` from `since_ms` to `until_ms` (both inclusive), oldest first."""
+        params: dict[str, Any] = {
+            "type": list(types),
+            "dateFrom": since_ms,  # milliseconds, inclusive (Keycloak 26)
+            "dateTo": until_ms,
+            "direction": "asc",
+            "first": first,
+            "max": limit,
+        }
+        found = []
+        for item in await self._json("GET", "/events", params=params) or []:
+            details = item.get("details") or {}
+            found.append(
+                KeycloakEvent(
+                    id=str(item.get("id") or ""),
+                    type=str(item.get("type", "")),
+                    time_ms=int(item.get("time", 0)),
+                    client_id=item.get("clientId"),
+                    error=item.get("error"),
+                    user_id=item.get("userId"),
+                    ip=item.get("ipAddress"),
+                    identity_provider=details.get("identity_provider"),
+                    redirect_uri=details.get("redirect_uri"),
+                )
+            )
+        return found
 
     async def set_password_policy(self, policy: str) -> None:
         """The realm's password policy (a partial representation: nothing else changes)."""

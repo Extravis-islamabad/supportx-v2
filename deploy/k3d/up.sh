@@ -21,3 +21,19 @@ for _ in $(seq 1 120); do
 done
 kubectl -n kube-system rollout status deploy/traefik --timeout=300s
 bash "$HERE/prereqs.sh"
+
+if [ "${HA_CLUSTER:-0}" = 1 ]; then
+  # Before the chart: cluster DNS never single (two CoreDNS copies, never on one node). With
+  # k3s's one copy, Cluster run 43082299609 lost every name lookup for about six minutes when
+  # the node-loss test stopped its node, and Valkey could not fail over. The same script as an
+  # on-prem HA install on k3s, then the same preflight, strict: any warning fails the bring-up.
+  bash "$HERE/../k3s/cluster-dns-ha.sh"
+  # Traefik the same: two ready copies on two nodes (cluster-ha.yaml installs
+  # deploy/k3s/traefik-ha.yaml). With k3s's one copy, the node-loss test's stopped agent took the
+  # only ingress with it and no request was answered for 90 s, the API pods healthy.
+  bash "$HERE/../k3s/traefik-ha.sh"
+  # And a DNS cache on every node (D-163): with only the two CoreDNS copies, a stopped node's
+  # copy stalled lookups for about 20 s and Valkey's sentinels into TILT (failover about 50 s).
+  bash "$HERE/../k3s/node-local-dns.sh"
+  HA_PREFLIGHT_STRICT=1 bash "$HERE/../k3s/ha-preflight.sh"
+fi

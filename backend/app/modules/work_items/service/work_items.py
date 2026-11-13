@@ -23,7 +23,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol, cast
 
-from sqlalchemy import ColumnElement, Select, and_, delete, exists, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, delete, exists, false, func, or_, select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,6 +58,7 @@ from app.modules.identity_access import (
     scope_filter,
     user_contacts,
     user_names,
+    worker_policy,
 )
 from app.modules.organization import (
     default_desk_id,
@@ -83,11 +84,13 @@ from app.modules.work_items.domain.classification import (
 from app.modules.work_items.domain.closure import MOVE_FIELDS, missing_fields, within_reopen_window
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
+    DONE_CATEGORIES,
     FINAL_CATEGORIES,
     PauseClock,
     ReasonList,
     ReasonMode,
     StatusCategory,
+    TransitionDef,
     WorkItemAction,
     after_assignment,
     move_pause_clock,
@@ -160,7 +163,7 @@ from app.modules.work_items.service import (
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service import stages as stage_service
-from app.modules.work_items.service.access import RESOURCE
+from app.modules.work_items.service.access import COST_TYPES, RESOURCE, VIEW_COSTS
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.display_ids import next_display_number
@@ -430,6 +433,28 @@ async def _relatives(
     return frozenset(found)
 
 
+# A who-may-run refusal (WP-029's transition settings) on a move: 403 with only its kind
+# (`not_offered` or `not_for_you`), never who it is limited to (ADR-049 §5, lane B).
+CONDITION_NOT_MET = "transition_condition_not_met"
+
+
+async def _move_refusal(
+    subject: Subject,
+    transitions: "_Transitions",
+    action: WorkItemAction,
+    step: TransitionDef | None,
+) -> str | None:
+    """ADR-049 §5 steps 3 and 4, for the offer and the move alike (one function, lane B).
+
+    Steps 1 and 2 (the record in scope, the type's right for the action) come first, as
+    before. Then the version's extra right, then who may run it and when it is offered; a
+    condition never stands in for a missing right.
+    """
+    if step is not None and step.permission is not None and not subject.holds(step.permission):
+        return NO_PERMISSION
+    return await transitions.refusal(action.value)
+
+
 class _Transitions:
     """A record's transition settings, checked for one subject (loaded once per view)."""
 
@@ -490,7 +515,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
     cat = await config.load(session, wtype)
-    lifecycle = cat.lifecycle_of(record.lifecycle)
+    lifecycle = cat.lifecycle_for(record)
     final = StatusCategory(record.status_category) in FINAL_CATEGORIES
     allowed_now = set(lifecycle.actions_from(record.status))
     reasons: dict[str, str | None] = {}
@@ -528,8 +553,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         ):
             refused = CANNOT_TAKE
         if refused is None:
-            # Who may run it and when it is offered (REQ-WF-003, 004).
-            refused = await transitions.refusal(action.value)
+            # The version's extra right, then who may run it and when (REQ-WF-003, 004).
+            refused = await _move_refusal(subject, transitions, action, transition)
         actions.append(
             ActionState(
                 action,
@@ -542,9 +567,14 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
                     await transitions.allowed_for(action.value) if refused == NOT_FOR_YOU else None
                 ),
                 missing=tuple(
-                    name
-                    for name in await closing.missing_for(session, cat, record, action)
-                    if name not in MOVE_FIELDS
+                    dict.fromkeys(
+                        name
+                        for name in (
+                            *await closing.missing_for(session, cat, record, action),
+                            *(closing.move_missing(record, transition) if transition else ()),
+                        )
+                        if name not in MOVE_FIELDS
+                    )
                 ),
             )
         )
@@ -689,6 +719,56 @@ async def views_for(
     return view_predicates(subject, zone=zone, now=_now(), reports=reports)
 
 
+def _release_views(subject: Subject) -> dict[str, ColumnElement[bool]]:
+    """The release list's own views (REQ-REL-055), on its role holders and its own fields.
+
+    A release's manager and engineer are kept in two places until they are one (PROGRESS): both
+    are read, so a release is never missed from "My releases" or wrongly "Unassigned".
+    """
+    me = subject.user_id
+    held = select(WorkItemRoleHolder.work_item_id).where(
+        or_(
+            WorkItemRoleHolder.user_id == me,
+            WorkItemRoleHolder.group_id.in_(subject.group_ids) if subject.group_ids else false(),
+        )
+    )
+    named = select(WorkItemReleaseDetails.work_item_id).where(
+        or_(
+            WorkItemReleaseDetails.release_manager_id == me,
+            WorkItemReleaseDetails.release_engineer_id == me,
+        )
+    )
+    staffed = select(WorkItemRoleHolder.work_item_id).where(
+        WorkItemRoleHolder.role.in_(tuple(release_rules.PEOPLE_ROLES))
+    )
+    staffed_by_field = select(WorkItemReleaseDetails.work_item_id).where(
+        or_(
+            WorkItemReleaseDetails.release_manager_id.is_not(None),
+            WorkItemReleaseDetails.release_engineer_id.is_not(None),
+        )
+    )
+    scheduled = select(WorkItemReleaseDetails.work_item_id).where(
+        WorkItemReleaseDetails.scheduled_start.is_not(None)
+    )
+    return {
+        "my_releases": or_(WorkItem.id.in_(held), WorkItem.id.in_(named)),  # AC1
+        "release_unassigned": and_(
+            _open(), WorkItem.id.not_in(staffed), WorkItem.id.not_in(staffed_by_field)
+        ),
+        "scheduled": and_(_open(), WorkItem.id.in_(scheduled)),
+        "unscheduled": and_(_open(), WorkItem.id.not_in(scheduled)),  # AC2
+        "deployed": or_(
+            WorkItem.status == "deployment_deployed",
+            and_(
+                WorkItem.status_category.not_in(
+                    (StatusCategory.CLOSED.value, StatusCategory.CANCELED.value)
+                ),
+                WorkItem.stage.in_(RELEASE_DEPLOYED_STAGES),
+            ),
+        ),
+    }
+
+
 def view_predicates(
     subject: Subject,
     *,
@@ -769,6 +849,7 @@ def view_predicates(
         # emergency path (open), and closed past their review date with the review still open.
         # Releases (WP-058b S4, REQ-REL-053 AC3): a failed or rolled-back deployment.
         "failed": WorkItem.status.in_(RELEASE_FAILED),
+        **_release_views(subject),
         "awaiting_cab": WorkItem.status == CHANGE_AT_CAB,
         "in_implementation": and_(_open(), WorkItem.stage == "implementation"),
         "emergency": and_(_open(), WorkItem.stage_path == "emergency"),
@@ -892,6 +973,8 @@ async def view_filters(
             },
         ),
         "failed": _cond("status", "in", list(RELEASE_FAILED)),
+        # Releases (WP-058b S5a): their people and schedule are the release's own tables.
+        **dict.fromkeys(RELEASE_VIEW_CODES[1:], NOT_EXPRESSIBLE),
         "awaiting_cab": _cond("status", "eq", CHANGE_AT_CAB),
         "in_implementation": NOT_EXPRESSIBLE,  # the stage fields are not in the DSL yet
         "emergency": NOT_EXPRESSIBLE,
@@ -1029,7 +1112,17 @@ PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
 # WP-045d S2 adds the CAB's own view and the change states people look for (REQ-CHG-098).
 # Releases: their failed and rolled-back deployments (REQ-REL-053 AC3), reportable.
 RELEASE_FAILED = ("deployment_failed", "deployment_rolled_back")
-RELEASE_VIEW_CODES = ("failed",)
+# WP-058b S5a (REQ-REL-055): mine (any release role), nobody to run it, (un)scheduled, deployed.
+RELEASE_VIEW_CODES = (
+    "failed",
+    "my_releases",
+    "release_unassigned",
+    "scheduled",
+    "unscheduled",
+    "deployed",
+)
+# Deployed and not closed yet: the deployment done, training and review to come or under way.
+RELEASE_DEPLOYED_STAGES = ("training", "review")
 CHANGE_VIEW_CODES = (
     "pending_approval",
     "awaiting_cab",
@@ -1130,8 +1223,9 @@ PERSON_FIELDS = frozenset(
 )
 
 
-# History fields whose values only the record's editors read; others see them as MASKED.
-EDITORS_ONLY = frozenset({"task.extra_cost"})
+# History fields that are money: their values only for those who may see the record's costs
+# (D-164: `<type>.view_costs`); others see them as MASKED.
+MONEY_FIELDS = frozenset({"task.extra_cost"})
 MASKED: dict[str, bool] = {"masked": True}
 
 
@@ -1159,16 +1253,18 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         entries = [
             replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
         ]
-    # A task's extra cost is for those who may edit the record (WP-046a S1, lane B's #398
-    # review): others keep the line (that it changed, when, by whom) but never the amounts.
-    if any(c.field in EDITORS_ONLY for e in entries for c in e.changes) and not await _may(
-        session, subject, wtype, "edit", record_id
+    # A task's extra cost is money (D-164): only with the type's cost right, as the task API
+    # shows it (lane B's #442 review). Others keep the line (that it changed, when, by whom) but
+    # never the amounts. A type without the right keeps S1's rule, those who may edit.
+    money_right = VIEW_COSTS if wtype.code in COST_TYPES else "edit"
+    if any(c.field in MONEY_FIELDS for e in entries for c in e.changes) and not await _may(
+        session, subject, wtype, money_right, record_id
     ):
         entries = [
             replace(
                 e,
                 changes=[
-                    Change(c.field, MASKED, MASKED) if c.field in EDITORS_ONLY else c
+                    Change(c.field, MASKED, MASKED) if c.field in MONEY_FIELDS else c
                     for c in e.changes
                 ],
             )
@@ -1913,6 +2009,17 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await _end_timers(session, record)
+
+
+async def _end_timers(session: AsyncSession, record: WorkItem) -> None:
+    """Resolved, closed or canceled: running timers become their owners' drafts (REQ-INC-069)."""
+    if StatusCategory(record.status_category) not in DONE_CATEGORIES:
+        return
+    # Imported here: the timer service builds on this module (WP-046a S3).
+    from app.modules.work_items.service import timers  # noqa: PLC0415 - see above
+
+    await timers.save_drafts(session, record)
 
 
 def _closed(record: WorkItem) -> bool:
@@ -2367,6 +2474,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     stage_columns = await _first_stage(
         session, wtype, template, new_change.path if new_change is not None else None
     )
+    chosen_lifecycle = (
+        template.lifecycle if template.lifecycle in cat.lifecycles else STANDARD_LIFECYCLE
+    )
     await change_types.retrospective_start(session, wtype, new_change, stage_columns)
     initial, group_id, technician_id = _from_item(
         started,
@@ -2438,10 +2548,15 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         level=cleaned.get("level"),
         **{name: cleaned.get(name) for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS)},
         template_id=template.id,
-        # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025).
-        lifecycle=template.lifecycle
-        if template.lifecycle in cat.lifecycles
-        else STANDARD_LIFECYCLE,
+        # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025), at its
+        # latest published version: the record keeps that version (ADR-049 §3). A staged type's
+        # version comes with its stage columns.
+        lifecycle=chosen_lifecycle,
+        **(
+            {}
+            if "lifecycle_version" in stage_columns
+            else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
+        ),
         **_item_columns(item, values),
         custom=custom or {},
         custom_text=await _custom_text(session, wtype, custom or {}),
@@ -2546,16 +2661,14 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         )
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle_of(record.lifecycle),
+            cat.lifecycle_for(record),
             record.status,
             had_technician=False,
             has_technician=True,
         )
         if move is not None:
             before = _snapshot(record, STAMP_FIELDS)
-            target = cat.lifecycle_of(record.lifecycle).target(
-                record.status, move, before_cancel=None
-            )
+            target = cat.lifecycle_for(record).target(record.status, move, before_cancel=None)
             changes = await _status_change(
                 session, wtype, record, move, target=target, reason_code=None, reason_text=None
             )
@@ -2789,13 +2902,11 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     """
     if action not in ACTION_PERMISSION:
         raise Conflict(code="invalid_transition", params={"action": action})
+    # ADR-049 §5 steps 1-2: in scope (404 otherwise) and the type's right for the action.
     record = await _for_action(session, subject, wtype, ACTION_PERMISSION[action], record_id)
-    refused = await _Transitions(session, subject, record).refusal(action.value)
-    if refused is not None:
-        raise PermissionDenied(code="transition_not_allowed", params={"reason": refused})
     cat = await config.load(session, wtype)
     try:
-        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
+        step = cat.lifecycle_for(record).transition(record.status, action)
     except InvalidTransition as error:
         raise Conflict(
             code="invalid_transition", params={"from": record.status, "action": action}
@@ -2808,6 +2919,14 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         raise _errors(problems, reason_text={"max_length": 500})
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
+    # Steps 3-4, with the facts read now, after the If-Match check and in this transaction
+    # (the group, the requester or a manager may have changed since the buttons were shown).
+    refused = await _move_refusal(subject, _Transitions(session, subject, record), action, step)
+    if refused == NO_PERMISSION:
+        raise PermissionDenied(params={"permission": step.permission, "reason": NO_PERMISSION})
+    if refused is not None:
+        raise PermissionDenied(code=CONDITION_NOT_MET, params={"kind": refused})
+    closing.check_move_fields(record, step)
     if action == WorkItemAction.START_WORK and record.technician_id is None:
         if await _reason_for(session, subject, wtype, "take", record.id) is not None:
             raise PermissionDenied(
@@ -2830,8 +2949,8 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         record = taken.record
         expected_version = record.version
     try:
-        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
-        target = cat.lifecycle_of(record.lifecycle).target(
+        step = cat.lifecycle_for(record).transition(record.status, action)
+        target = cat.lifecycle_for(record).target(
             record.status,
             action,
             before_cancel=record.status_before_cancel,
@@ -3338,6 +3457,7 @@ async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its s
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await _end_timers(session, record)
     if entries:
         await record_event(
             session,
@@ -3580,6 +3700,7 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
     source: Source,
     risk_reason: str | None = None,
     copying: bool = False,
+    holders: PermissionHolders | None = None,
 ) -> ReleaseDetailsView:
     """Change the fields you send (If-Match on the record). Unchanged input: no new version.
 
@@ -3615,6 +3736,17 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
     if row is None:
         row = spec.model(tenant_id=tenant, work_item_id=record.id)
         session.add(row)
+    # A release's manager and engineer are its roles too: checked as roles, both written.
+    role_problems, role_params, role_changes = await _mirror_details_to_roles(
+        # Every path checks as the API does (a move's fields have no request's policy).
+        session,
+        wtype,
+        record.id,
+        changed,
+        None if copying else (holders or worker_policy()),
+    )
+    if role_problems:
+        raise _errors(role_problems, **role_params)
     for name, value in changed.items():
         setattr(row, name, value)
     await session.flush()
@@ -3631,7 +3763,10 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
         record_id=updated.id,
         version=updated.version,
         kind="updated",
-        changes=[Change(n, _json(current[n]), _json(v)) for n, v in changed.items()],
+        changes=[
+            *(Change(n, _json(current[n]), _json(v)) for n, v in changed.items()),
+            *role_changes,
+        ],
         source=source,
         reason=reason,
     )
@@ -3801,6 +3936,166 @@ async def _holder_problems(
     return problems + people, params
 
 
+async def taken_role(session: AsyncSession, wtype: WorkItemType) -> str:
+    """The role Take makes you: the one marked, else the type's default (a release's engineer)."""
+    definitions = await _role_defs(session, wtype)
+    marked = next((d.code for d in definitions if d.taken_by_take), None)
+    return marked or "release_engineer"
+
+
+async def take_role(  # noqa: PLR0913 - the record and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    *,
+    expected_version: int,
+    source: Source,
+    holders: PermissionHolders,
+) -> RolesView:
+    """Take a release: you become its Take role, when nobody holds it (REQ-REL-057 AC2).
+
+    The take right and the stage's access, then the role's own rules (eligibility), as the Roles
+    tab applies them; the manager and engineer fields follow (both written).
+    """
+    record = await _for_action(
+        session, subject, wtype, "take", record_id, stage_access=stage_service.EDIT
+    )
+    if record.version != expected_version:
+        raise await _conflict(session, _stale(record, expected_version), record.id)
+    role = await taken_role(session, wtype)
+    users, groups = (await _holders_of(session, record.id)).get(role, ([], []))
+    if users == [subject.user_id] and not groups:
+        raise Conflict(code="already_yours")
+    if users or groups:
+        names = await user_names(session, [str(u) for u in users])
+        taken_by = names.get(str(users[0]), "") if users else ""
+        raise Conflict(code="already_taken", params={"taken_by": taken_by})
+    return await _write_role(
+        session,
+        subject,
+        wtype,
+        record,
+        role,
+        user_ids=[subject.user_id],
+        group_ids=[],
+        expected_version=expected_version,
+        source=source,
+        holders=holders,
+    )
+
+
+async def _replace_holders(  # noqa: PLR0913, PLR0917 - the record's role and its holders
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    role: str,
+    users: Sequence[uuid.UUID],
+    groups: Sequence[uuid.UUID],
+) -> None:
+    """`role` is held by exactly these people and groups now (no checks: the callers make them)."""
+    await session.execute(
+        delete(WorkItemRoleHolder).where(
+            WorkItemRoleHolder.work_item_id == record_id, WorkItemRoleHolder.role == role
+        )
+    )
+    tenant = config.tenant_of(session)
+    session.add_all(
+        [
+            WorkItemRoleHolder(
+                tenant_id=tenant, work_item_id=record_id, type=wtype.code, role=role, user_id=u
+            )
+            for u in users
+        ]
+        + [
+            WorkItemRoleHolder(
+                tenant_id=tenant, work_item_id=record_id, type=wtype.code, role=role, group_id=g
+            )
+            for g in groups
+        ]
+    )
+    await session.flush()
+
+
+async def _mirror_role_to_details(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    role: str,
+    users: Sequence[uuid.UUID],
+) -> list[Change]:
+    """A release's manager or engineer role written to its own field too (same transaction).
+
+    The field holds one person: the role's person, or none when a group (or nobody) holds it.
+    Returns the field's change for the same history entry.
+    """
+    name = release_rules.PEOPLE_ROLES.get(role)
+    if wtype.code is not WorkItemTypeCode.RELEASE or name is None:
+        return []
+    spec = _spec(wtype)
+    row = await _details_row(session, spec, record_id)
+    old = getattr(row, name) if row is not None else None
+    new = users[0] if len(users) == 1 else None
+    if old == new:
+        return []
+    if row is None:
+        row = spec.model(tenant_id=config.tenant_of(session), work_item_id=record_id)
+        session.add(row)
+    setattr(row, name, new)
+    await session.flush()
+    return [Change(name, _json(old), _json(new))]
+
+
+async def _mirror_details_to_roles(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    changed: Mapping[str, Any],
+    holders: PermissionHolders | None,
+) -> tuple[list[tuple[str, str]], dict[str, Any], list[Change]]:
+    """A release's manager or engineer field written to its role too, with the role's own checks.
+
+    Returns the problems (on the field), their params, and the roles' changes for history.
+    `holders` None: a copy of another release's people, already held there, not checked again.
+    """
+    if wtype.code is not WorkItemTypeCode.RELEASE:
+        return [], {}, []
+    by_field = {f: r for r, f in release_rules.PEOPLE_ROLES.items() if f in changed}
+    if not by_field:
+        return [], {}, []
+    definitions = {d.code: d for d in await _role_defs(session, wtype)}
+    held = await _holders_of(session, record_id)
+    problems: list[tuple[str, str]] = []
+    params: dict[str, Any] = {}
+    changes: list[Change] = []
+    wanted = {
+        role: [changed[name]] if changed[name] is not None else []
+        for name, role in by_field.items()
+    }
+    # Check every role first, then write (lane A's #438 review): nothing half written.
+    for name, role in by_field.items():
+        definition = definitions.get(role)
+        if definition is not None and holders is not None and wanted[role]:
+            found, found_params = await _person_holder_problems(
+                session, holders, definition, wanted[role]
+            )
+            problems += [(name, code) for _field, code in found]
+            params |= found_params
+    if problems:
+        return problems, params, []
+    for role, users in wanted.items():
+        before = held.get(role, ([], []))
+        await _replace_holders(session, wtype, record_id, role, users, [])
+        changes.append(
+            Change(
+                f"role.{role}",
+                {"users": [str(u) for u in before[0]], "groups": [str(g) for g in before[1]]},
+                {"users": [str(u) for u in users], "groups": []},
+            )
+        )
+    return problems, params, changes
+
+
 async def set_role(  # noqa: PLR0913 - the change and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -3820,6 +4115,34 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    return await _write_role(
+        session,
+        subject,
+        wtype,
+        record,
+        role,
+        user_ids=user_ids,
+        group_ids=group_ids,
+        expected_version=expected_version,
+        source=source,
+        holders=holders,
+    )
+
+
+async def _write_role(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record: WorkItem,
+    role: str,
+    *,
+    user_ids: Sequence[uuid.UUID],
+    group_ids: Sequence[uuid.UUID],
+    expected_version: int,
+    source: Source,
+    holders: PermissionHolders,
+) -> RolesView:
+    """`role`'s new holders on a record the caller may change (its right already checked)."""
     if _closed(record):
         raise Conflict(code="record_closed", params={"status": record.status})
     definition = next((d for d in await _role_defs(session, wtype) if d.code == role), None)
@@ -3836,27 +4159,9 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
         raise _errors(problems, **params)
     if (set(users), set(groups)) == (set(held[0]), set(held[1])):
         return await roles_of(session, subject, wtype, record.id)
-    await session.execute(
-        delete(WorkItemRoleHolder).where(
-            WorkItemRoleHolder.work_item_id == record.id, WorkItemRoleHolder.role == role
-        )
-    )
-    tenant = config.tenant_of(session)
-    session.add_all(
-        [
-            WorkItemRoleHolder(
-                tenant_id=tenant, work_item_id=record.id, type=wtype.code, role=role, user_id=u
-            )
-            for u in users
-        ]
-        + [
-            WorkItemRoleHolder(
-                tenant_id=tenant, work_item_id=record.id, type=wtype.code, role=role, group_id=g
-            )
-            for g in groups
-        ]
-    )
-    await session.flush()
+    await _replace_holders(session, wtype, record.id, role, users, groups)
+    # A release's manager and engineer are its own fields too: both change together.
+    mirrored = await _mirror_role_to_details(session, wtype, record.id, role, users)
     updated = await _update(session, record, expected_version, {})
     await record_changes(
         session,
@@ -3869,7 +4174,8 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
                 f"role.{role}",
                 {"users": [str(u) for u in held[0]], "groups": [str(g) for g in held[1]]},
                 {"users": [str(u) for u in users], "groups": [str(g) for g in groups]},
-            )
+            ),
+            *mirrored,
         ],
         source=source,
     )
@@ -4545,7 +4851,7 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     BUG-03): history keeps them as the person, from their channel, with `requester_action`
     saying what they did. Only the system's own moves (auto-close) are automatic.
     """
-    target = cat.lifecycle_of(record.lifecycle).target(
+    target = cat.lifecycle_for(record).target(
         record.status,
         action,
         before_cancel=record.status_before_cancel,
@@ -4663,7 +4969,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     channel, with the record's new approval status. On approval the item's technician (after
     approval, REQ-SR-008 AC2) is set in the same save, then the usual move to "assigned".
     """
-    target = cat.lifecycle_of(record.lifecycle).target(
+    target = cat.lifecycle_for(record).target(
         record.status,
         action,
         before_cancel=record.status_before_cancel,
@@ -4711,7 +5017,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     )
     move = (
         after_assignment(
-            cat.lifecycle_of(updated.lifecycle),
+            cat.lifecycle_for(updated),
             updated.status,
             had_technician=False,
             has_technician=True,
@@ -4727,7 +5033,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
         wtype,
         updated,
         move,
-        target=cat.lifecycle_of(updated.lifecycle).target(updated.status, move, before_cancel=None),
+        target=cat.lifecycle_for(updated).target(updated.status, move, before_cancel=None),
         reason_code=None,
         reason_text=None,
     )
@@ -4761,7 +5067,7 @@ async def on_requester_reply(  # noqa: PLR0913 - the reply and its context, expl
     """
     cat = await config.load(session, wtype)
     category = StatusCategory(record.status_category)
-    allowed = set(cat.lifecycle_of(record.lifecycle).actions_from(record.status))
+    allowed = set(cat.lifecycle_for(record).actions_from(record.status))
     if category == StatusCategory.PAUSED:
         status = next((s for s in cat.statuses if s.code == record.status), None)
         resumes = status is not None and status.resume_on_requester_reply
@@ -4958,16 +5264,14 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
     )
     if cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle_of(updated.lifecycle),
+            cat.lifecycle_for(updated),
             updated.status,
             had_technician=had_technician,
             has_technician=technician_id is not None,
         )
         if move is not None:
             stamps = _snapshot(updated, STAMP_FIELDS)
-            target = cat.lifecycle_of(updated.lifecycle).target(
-                updated.status, move, before_cancel=None
-            )
+            target = cat.lifecycle_for(updated).target(updated.status, move, before_cancel=None)
             status_columns = await _status_change(
                 session, wtype, updated, move, target=target, reason_code=None, reason_text=None
             )
@@ -5045,7 +5349,21 @@ async def take(  # noqa: PLR0913 - the record and its context, explicit
     source: Source,
     holders: PermissionHolders,
 ) -> WorkItemView:
-    """Become the technician (REQ-INC-054); sets the group when only one of yours can apply."""
+    """Become the technician (REQ-INC-054); sets the group when only one of yours can apply.
+
+    A release has no technician to become: Take makes you its Take role (REQ-REL-057 AC2).
+    """
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        await take_role(
+            session,
+            subject,
+            wtype,
+            record_id,
+            expected_version=expected_version,
+            source=source,
+            holders=holders,
+        )
+        return await get(session, subject, wtype, record_id)
     record = await _for_action(session, subject, wtype, "take", record_id)
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
@@ -5401,6 +5719,87 @@ async def change_list_facts(
         ).where(WorkItemChangeDetails.work_item_id.in_(list(ids)))
     )
     return {r.work_item_id: (r.change_type, r.risk_chosen or r.risk) for r in rows}
+
+
+@dataclass(frozen=True)
+class ReleaseListFacts:
+    """A listed release's own columns (REQ-REL-055): type, version, schedule, people, tasks."""
+
+    release_type: str | None
+    release_version: str | None
+    scheduled_end: datetime | None
+    release_manager_id: uuid.UUID | None
+    release_engineer_id: uuid.UUID | None
+    tasks_done: int
+    tasks_total: int
+
+
+async def release_list_facts(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, ReleaseListFacts]:
+    """Each listed release's columns, in three reads for the page (never one per row).
+
+    Its manager and engineer are its role holders when one person holds them, else its fields
+    (both are kept equal; read both until they are one).
+    """
+    if not ids:
+        return {}
+    wanted = list(ids)
+    details = {
+        r.work_item_id: r
+        for r in await session.scalars(
+            select(WorkItemReleaseDetails).where(WorkItemReleaseDetails.work_item_id.in_(wanted))
+        )
+    }
+    holders: dict[tuple[uuid.UUID, str], list[uuid.UUID]] = {}
+    for holder in await session.scalars(
+        select(WorkItemRoleHolder).where(
+            WorkItemRoleHolder.work_item_id.in_(wanted),
+            WorkItemRoleHolder.role.in_(tuple(release_rules.PEOPLE_ROLES)),
+            WorkItemRoleHolder.user_id.is_not(None),
+        )
+    ):
+        if holder.user_id is not None:  # a group holder names nobody on the row
+            holders.setdefault((holder.work_item_id, holder.role), []).append(holder.user_id)
+    counted = {
+        item: (int(done), int(total))
+        for item, done, total in await session.execute(
+            select(
+                WorkItemTask.work_item_id,
+                func.count().filter(WorkItemTask.status == TaskStatus.DONE.value),
+                func.count(),
+            )
+            .where(
+                WorkItemTask.work_item_id.in_(wanted),
+                WorkItemTask.deleted_at.is_(None),
+                WorkItemTask.status != TaskStatus.CANCELED.value,
+            )
+            .group_by(WorkItemTask.work_item_id)
+        )
+    }
+
+    def person(item: uuid.UUID, role: str, field_value: uuid.UUID | None) -> uuid.UUID | None:
+        held = holders.get((item, role), [])
+        return held[0] if len(held) == 1 else field_value
+
+    found: dict[uuid.UUID, ReleaseListFacts] = {}
+    for item in wanted:
+        row = details.get(item)
+        done, total = counted.get(item, (0, 0))
+        found[item] = ReleaseListFacts(
+            release_type=row.release_type if row else None,
+            release_version=row.release_version if row else None,
+            scheduled_end=row.scheduled_end if row else None,
+            release_manager_id=person(
+                item, "release_manager", row.release_manager_id if row else None
+            ),
+            release_engineer_id=person(
+                item, "release_engineer", row.release_engineer_id if row else None
+            ),
+            tasks_done=done,
+            tasks_total=total,
+        )
+    return found
 
 
 may = _may

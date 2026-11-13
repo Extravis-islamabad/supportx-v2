@@ -381,6 +381,123 @@ describe('Reports', () => {
       expect(screen.getByTestId('report-drill-count').textContent).toBe('Records: 8');
     });
 
+    it.each([
+      ['releases', 'releases', 'REL-4'],
+      ['problems', 'problems', 'PRB-4'],
+      ['service-requests', 'requests', 'SR-4'],
+      ['assets', 'assets', 'AST-4'],
+    ])(
+      'a %s report drills down to its own list (WP-058b S5b, REQ-REL-060)',
+      async (listPath, route, displayId) => {
+        // An asset row names itself and its tag; a work item its ID and subject.
+        const row = {
+          ...fakeIncident({ display_id: displayId, subject: 'Payroll 4.2' }),
+          name: 'Payroll 4.2',
+          tag: displayId,
+        };
+        const fake = api({
+          me: fakeSession(),
+          routes: routes({
+            'POST /api/v1/reports/run': { body: { ...RESULT, list_path: listPath } },
+            [`GET /api/v1/${listPath}`]: {
+              body: { ...EMPTY_LIST, items: [row], estimated_total: 8, people: [] },
+            },
+          }),
+        });
+        render(<App />);
+        const table = await screen.findByTestId('report-table');
+        fireEvent.click(within(table).getByText('P1 – Critical'));
+        const link = await screen.findByRole('link', { name: /Payroll 4\.2/ });
+        expect(link.getAttribute('href')).toBe(`/${route}/${row.id}`);
+        const drill = fake.find('GET', `/api/v1/${listPath}`).at(-1);
+        expect(JSON.parse(drill?.url.searchParams.get('filter') ?? 'null')).toEqual(
+          RESULT.rows[0]?.drill,
+        );
+        expect(fake.find('GET', '/api/v1/incidents')).toHaveLength(0);
+      },
+    );
+
+    it('an asset money bucket says it cannot list yet, never a failed request', async () => {
+      const money = {
+        ...RESULT,
+        list_path: 'assets',
+        rows: RESULT.rows.map((row) => ({
+          ...row,
+          drill: { field: 'book_value', op: 'between', value: [0, 1000] },
+        })),
+      };
+      const fake = api({
+        me: fakeSession(),
+        routes: routes({ 'POST /api/v1/reports/run': { body: money } }),
+      });
+      render(<App />);
+      const table = await screen.findByTestId('report-table');
+      fireEvent.click(within(table).getByText('P1 – Critical'));
+      expect((await screen.findByTestId('report-drill-unavailable')).textContent).toBe(
+        'These records cannot be listed from this chart yet.',
+      );
+      expect(fake.find('GET', '/api/v1/assets')).toHaveLength(0);
+    });
+
+    it('QA 2026-11-12 F-02: a change report groups by its own fields, by name', async () => {
+      const riskGroup = { ...PRIORITY_GROUP, field: 'risk', label_prefix: 'risk_level' };
+      const byRisk = {
+        ...BUILTIN,
+        code: 'changes_by_risk',
+        folder: 'changes',
+        definition: {
+          ...BUILTIN.definition,
+          entity: 'change',
+          group_by: [{ field: 'risk', bucket: null }],
+        },
+      };
+      window.history.pushState({}, '', '/reports/builtin/changes_by_risk');
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'GET /api/v1/reports/library': {
+            body: { builtin: [byRisk], folders: [], reports: [], favourites: [] },
+          },
+          'GET /api/v1/reports/entities/change': {
+            body: {
+              ...ENTITY,
+              entity: 'change',
+              list_path: 'changes',
+              fields: [
+                ...ENTITY.fields,
+                { name: 'risk', type: 'enum', values: [], multiple: false, dimension: riskGroup },
+                {
+                  name: 'change_reason',
+                  type: 'enum',
+                  values: [],
+                  multiple: false,
+                  dimension: { ...riskGroup, field: 'change_reason', kind: 'admin_code' },
+                },
+              ],
+            },
+          },
+          'POST /api/v1/reports/run': {
+            body: {
+              ...RESULT,
+              entity: 'change',
+              list_path: 'changes',
+              groups: [riskGroup],
+              rows: [{ keys: ['high'], values: [3], drill: OPEN }],
+              totals: [3],
+            },
+          },
+        }),
+      });
+      render(<App />);
+      const group = await screen.findByTestId('report-group');
+      await waitFor(() => {
+        expect(group.textContent).toContain('Risk');
+      });
+      expect(group.textContent).not.toMatch(/\brisk\b/);
+      fireEvent.mouseDown(group.querySelector('.ant-select-selector') ?? group);
+      expect(await screen.findByTitle('Reason for change')).toBeDefined();
+    });
+
     it('exports to a file in the background and lists my exports (REQ-RPT-058)', async () => {
       const ready = {
         id: '01900000-0000-7000-8000-00000000e001',

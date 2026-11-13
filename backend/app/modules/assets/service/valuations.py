@@ -46,6 +46,7 @@ from app.modules.assets.infra.models import (
 from app.modules.assets.service.memo import memo
 from app.modules.organization import regional_defaults
 from app.shared.clock import system_clock
+from app.shared.db.deferred import deferred
 
 log = get_logger(__name__)
 
@@ -186,6 +187,13 @@ async def refresh(
         "total_cost": found.summary.total,
         "valued_on": found.on,
     }
+    if new and (buffer := deferred(session)) is not None:
+        # An asset made in this transaction has no valuation to update: a plain insert, one for
+        # the whole import batch (step B). Existing assets keep the upsert below, at once.
+        buffer.add_values(
+            AssetValuation.__table__, {"tenant_id": row.tenant_id, "asset_id": row.id, **values}
+        )
+        return
     statement = insert(AssetValuation).values(tenant_id=row.tenant_id, asset_id=row.id, **values)
     await session.execute(
         statement.on_conflict_do_update(

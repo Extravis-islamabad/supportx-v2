@@ -40,6 +40,8 @@ from app.modules.work_items.infra.models import (
 from app.modules.work_items.service import checklists as service
 from app.modules.work_items.service import reminders
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.idempotency import Created, Idempotency
+from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
 CONFLICT_409: dict[int | str, dict[str, object]] = {
@@ -264,14 +266,22 @@ def add_checklist_collection_routes(router: APIRouter, wtype: WorkItemType) -> N
         "/checklist-library",
         summary="Add a library checklist",
         status_code=status.HTTP_201_CREATED,
+        response_model=LibraryOut,
         dependencies=[
             audited(f"{audit}.checklist_library_created", object_type=f"{audit}_checklist")
         ],
     )
-    async def create_library(body: LibraryIn, session: TenantSession, subject: Admin) -> LibraryOut:
+    async def create_library(
+        body: LibraryIn, session: TenantSession, subject: Admin, idempotency: Idempotency
+    ) -> Response:
         """A name, translations and items (empty ones left out)."""
         del subject
-        return LibraryOut.of(await service.save_library(session, wtype, None, body.model_dump()))
+
+        async def run() -> Created:
+            saved = await service.save_library(session, wtype, None, body.model_dump())
+            return Created(body=LibraryOut.of(saved))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.patch(
         "/checklist-library/{library_id}",
@@ -327,7 +337,7 @@ def add_checklist_collection_routes(router: APIRouter, wtype: WorkItemType) -> N
         )
 
 
-def add_checklist_routes(router: APIRouter, wtype: WorkItemType) -> None:
+def add_checklist_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C901 - one route per operation
     """A record's checklists and its owner's reminders."""
     View = Annotated[Subject, Depends(require_permission(wtype.permission("view")))]  # noqa: N806 - type alias
 
@@ -346,25 +356,33 @@ def add_checklist_routes(router: APIRouter, wtype: WorkItemType) -> None:
         return await _all(session, subject, record_id)
 
     @router.post(
-        "/{record_id}/checklists", summary="Add a checklist", status_code=status.HTTP_201_CREATED
+        "/{record_id}/checklists",
+        summary="Add a checklist",
+        status_code=status.HTTP_201_CREATED,
+        response_model=ChecklistAdded,
     )
-    async def add_checklist(
+    async def add_checklist(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,
         body: ChecklistIn,
         session: TenantSession,
         subject: View,
         request: Request,
-    ) -> ChecklistAdded:
+        idempotency: Idempotency,
+    ) -> Response:
         """From scratch or a library copy the record then owns (AC3); empty items said (AC2)."""
-        view, dropped = await service.add_checklist(
-            session,
-            subject,
-            wtype,
-            record_id,
-            body.model_dump(exclude_unset=True, mode="json"),
-            source=source_of(request),
-        )
-        return ChecklistAdded(checklist=ChecklistOut.of(view), dropped=dropped)
+
+        async def run() -> Created:
+            view, dropped = await service.add_checklist(
+                session,
+                subject,
+                wtype,
+                record_id,
+                body.model_dump(exclude_unset=True, mode="json"),
+                source=source_of(request),
+            )
+            return Created(body=ChecklistAdded(checklist=ChecklistOut.of(view), dropped=dropped))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.post("/{record_id}/checklists/{checklist_id}/items", summary="Add checklist items")
     async def add_items(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -445,23 +463,33 @@ def add_checklist_routes(router: APIRouter, wtype: WorkItemType) -> None:
         return [ReminderOut.of(r) for r in rows]
 
     @router.post(
-        "/{record_id}/reminders", summary="Set a reminder", status_code=status.HTTP_201_CREATED
+        "/{record_id}/reminders",
+        summary="Set a reminder",
+        status_code=status.HTTP_201_CREATED,
+        response_model=ReminderOut,
     )
-    async def add_reminder(
+    async def add_reminder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,
         body: ReminderIn,
         session: TenantSession,
         subject: View,
         request: Request,
-    ) -> ReminderOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """Yours; it alerts you at its time minus its lead (AC1)."""
-        row = await reminders.create(
-            session, subject, wtype, record_id, body.model_dump(), source=source_of(request)
-        )
-        return ReminderOut.of(row)
+
+        async def run() -> Created:
+            row = await reminders.create(
+                session, subject, wtype, record_id, body.model_dump(), source=source_of(request)
+            )
+            return Created(body=ReminderOut.of(row))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
-my_reminders_router = APIRouter(prefix="/my-reminders", tags=["work_items"])
+my_reminders_router = APIRouter(
+    prefix="/my-reminders", tags=["work_items"], dependencies=[Depends(rate_limit("work_items"))]
+)
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
 
 

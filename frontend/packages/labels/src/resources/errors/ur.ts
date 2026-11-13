@@ -181,6 +181,12 @@ export const ur: LabelResource = {
   'errors.brand_colour_contrast':
     'یہ رنگ پڑھنے میں مشکل ہے: اس پر متن WCAG AA کنٹراسٹ سے کم ہے۔ تجویز کردہ رنگ استعمال کریں یا گہرا رنگ چنیں۔',
   'errors.branding_not_found': 'یہ برانڈ نہیں ملا۔',
+  'errors.break_glass_admin_only': 'صرف ٹیننٹ منتظم ہنگامی منتظمین مقرر کر سکتا ہے۔',
+  'errors.break_glass_ip_exempt_needs_break_glass':
+    'صرف ہنگامی منتظم IP اجازت فہرستوں سے مستثنیٰ ہو سکتا ہے۔',
+  'errors.break_glass_needs_admin': 'صرف ٹیننٹ منتظم ہی ہنگامی منتظم ہو سکتا ہے۔',
+  'errors.break_glass_needs_mfa': 'اس ہنگامی اکاؤنٹ کو استعمال سے پہلے دو مرحلہ سائن اِن درکار ہے۔',
+  'errors.break_glass_not_self': 'آپ کو کوئی اور منتظم ہنگامی منتظم مقرر کرے۔',
   'errors.bulk_job_not_found': 'یہ اجتماعی تبدیلی نہیں ملی۔',
   'errors.calendar_in_use':
     'سائٹس یا سپورٹ گروپس ابھی یہ کیلنڈر استعمال کرتے ہیں۔ پہلے انہیں دوسرا کیلنڈر دیں۔',
@@ -269,11 +275,14 @@ export const ur: LabelResource = {
     'ڈومین ابھی اس SupportX کی طرف اشارہ نہیں کرتا: اس کا DNS ریکارڈ دیکھیں۔',
   'errors.domains_not_configured': 'اس انسٹالیشن پر کسٹم ڈومین ترتیب نہیں دیے گئے۔',
   'errors.downtime_not_found': 'یہ بندش کا وقفہ موجود نہیں۔',
+  'errors.duplicate_move': 'ایک ہی حالت سے ایک ہی منتقلی دو بار درج ہے۔ صرف ایک رکھیں۔',
   'errors.entitlement_required': 'آپ کے پلان میں یہ خصوصیت شامل نہیں۔',
   'errors.entitlement_required.detail': '{{feature}} آپ کے ادارے کے پلان کا حصہ نہیں۔',
   'errors.entitlements_unavailable':
     'لائسنس کی معلومات عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
+  'errors.field.address_not_allowed':
+    'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
   'errors.field.already_linked': 'یہ ریکارڈ پہلے سے منسلک ہیں۔',
   'errors.field.announcement_message_required': 'وہ پیغام لکھیں جو لوگ دیکھیں گے۔',
   'errors.field.api_key_allowlist_invalid':
@@ -486,6 +495,13 @@ export const ur: LabelResource = {
   'errors.field.invalid_value': 'یہ قدر درست نہیں۔',
   'errors.field.invalid_website': 'http:// یا https:// سے شروع ہونے والا ویب پتہ درج کریں۔',
   'errors.field.invitation_days_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
+  'errors.field.ip_allow_everything':
+    '“{{entry}}” ہر پتے کی اجازت دے دے گا۔ سب کو اجازت دینے کے لیے فہرست خالی چھوڑیں۔',
+  'errors.field.ip_allow_invalid':
+    '“{{entry}}” کوئی پتہ یا رینج نہیں۔ 192.0.2.0/24 یا 2001:db8::/32 جیسی شکل استعمال کریں۔',
+  'errors.field.ip_allow_locks_you_out':
+    'یہ فہرست آپ کو باہر کر دے گی: آپ کا پتہ {{address}} اس میں نہیں۔ اسے، یا اسے شامل کرنے والی رینج، شامل کریں۔',
+  'errors.field.ip_allow_too_many': 'زیادہ سے زیادہ {{max}} اندراجات استعمال کریں۔',
   'errors.field.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
   'errors.field.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.field.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
@@ -529,6 +545,8 @@ export const ur: LabelResource = {
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
   'errors.field.not_allowed_for_notes': 'نوٹس کے وصول کنندگان نہیں ہوتے۔',
   'errors.field.not_eligible': 'یہ شخص یا گروپ یہ کردار نہیں رکھ سکتا۔',
+  'errors.field.not_for_personal': 'ذاتی سانچہ صرف آپ کا ہے، اس لیے اس کے گروپ نہیں ہوتے۔',
+  'errors.field.not_for_replies': 'صرف حل کے سانچوں کی زمرہ جات ہوتی ہیں۔',
   'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
   'errors.field.not_found': 'یہ اب موجود نہیں۔',
   'errors.field.not_in_past': 'یہ وقت ماضی کا ہونا چاہیے۔',
@@ -562,6 +580,7 @@ export const ur: LabelResource = {
   'errors.field.phone_not_valid': 'فون نمبر درج کریں: ہندسے، خالی جگہ، +، - اور قوسین۔',
   'errors.field.plain_connection_refused':
     'بغیر انکرپشن کنکشن رد کیا جاتا ہے جب تک آپ اجازت نہ دیں۔',
+  'errors.field.port_not_allowed': 'میل پورٹ استعمال کریں: 993 (TLS) یا 143۔',
   'errors.field.private_key_unreadable':
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
   'errors.field.range_end_before_start': 'اختتام آغاز کے بعد ہونا چاہیے۔',
@@ -676,11 +695,13 @@ export const ur: LabelResource = {
     'خانے کی قسم تبدیل نہیں ہو سکتی۔ نیا خانہ بنائیں اور اسے ریٹائر کریں۔',
   'errors.field.unknown_article_type': 'مضمون کی یہ قسم موجود نہیں یا ختم کر دی گئی ہے۔',
   'errors.field.unknown_builtin_report': 'یہ بلٹ اِن رپورٹ موجود نہیں۔',
+  'errors.field.unknown_category': 'ان میں سے ایک زمرہ یہاں موجود نہیں۔',
   'errors.field.unknown_column': 'یہ کالم ان ریکارڈز کے لیے موجود نہیں۔',
   'errors.field.unknown_dimension': 'رپورٹس کو اس فیلڈ کے مطابق گروپ نہیں کیا جا سکتا۔',
   'errors.field.unknown_entity': 'اس قسم کی کوئی چیز رپورٹ کے لیے موجود نہیں۔',
   'errors.field.unknown_field': 'آپ اس فیلڈ پر فلٹر نہیں کر سکتے۔',
   'errors.field.unknown_folder': 'یہ فولڈر اب موجود نہیں۔',
+  'errors.field.unknown_group': 'ان میں سے ایک گروپ یہاں موجود نہیں۔',
   'errors.field.unknown_key': 'فلٹر کی یہ ترتیب پہچانی نہیں گئی۔',
   'errors.field.unknown_language': 'صرف انگریزی، عربی اور اردو نام قابل قبول ہیں۔',
   'errors.field.unknown_measure': 'یہ پیمانہ ان ریکارڈز کے لیے دستیاب نہیں۔',
@@ -695,10 +716,12 @@ export const ur: LabelResource = {
   'errors.field.unknown_recipient': 'منتخب کردہ کوئی شخص اب فعال نہیں یا کوئی گروپ اب موجود نہیں۔',
   'errors.field.unknown_record_type': 'منتخب کریں کہ قاعدہ کس پر لاگو ہو۔',
   'errors.field.unknown_reference': 'یہاں بتایا گیا کوئی شخص یا گروپ اب موجود نہیں۔',
+  'errors.field.unknown_role': 'یہ کردار یہاں موجود نہیں۔ فہرست میں سے کوئی منتخب کریں۔',
   'errors.field.unknown_sort_field': 'فہرست کو اس فیلڈ کے لحاظ سے ترتیب نہیں دیا جا سکتا۔',
   'errors.field.unknown_stage': 'اس قسم میں ایسا کوئی مرحلہ نہیں۔',
   'errors.field.unknown_time_zone': 'فہرست سے ٹائم زون منتخب کریں۔',
   'errors.field.unknown_value': 'یہ قدر موجود نہیں (اب نہیں رہی)۔',
+  'errors.field.unknown_variable': 'اس میں ایسا متغیر ہے جو موجود نہیں۔ فہرست میں سے منتخب کریں۔',
   'errors.field.url_not_valid': 'https:// یا http:// سے شروع ہونے والا ویب پتہ درج کریں۔',
   'errors.field.user_not_found': 'یہ شخص آپ کی تنظیم میں موجود نہیں۔',
   'errors.field.value_no_longer_valid': 'یہ قدر اب دستیاب نہیں۔',
@@ -793,6 +816,8 @@ export const ur: LabelResource = {
   'errors.invitation_not_pending': 'یہ دعوت نامہ اب منتظر نہیں: قبول ہو چکا یا واپس لیا جا چکا۔',
   'errors.invitation_pending': 'اس شخص کا ایک دعوت نامہ منتظر ہے۔ اس کے بجائے اسے دوبارہ بھیجیں۔',
   'errors.invitation_person_cannot_sign_in': 'یہ شخص غیر فعال ہے یا اسے سائن اِن کی اجازت نہیں۔',
+  'errors.ip_not_allowed':
+    'آپ کی تنظیم اس نیٹ ورک سے سائن اِن کی اجازت نہیں دیتی۔ کسی اجازت یافتہ نیٹ ورک سے جڑیں، یا اپنے منتظم سے کہیں۔',
   'errors.job_kind_not_available': 'اس قسم کی جاب ابھی دستیاب نہیں۔',
   'errors.job_size': '1 سے {{max}} تک رنز منتخب کریں۔',
   'errors.kb_article_not_editable':
@@ -825,6 +850,8 @@ export const ur: LabelResource = {
   'errors.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
   'errors.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
+  'errors.last_break_glass_admin':
+    'سنگل سائن آن لازمی ہونے کے دوران یہ آخری ہنگامی منتظم ہے۔ پہلے کسی اور کو مقرر کریں، یا سنگل سائن آن کی شرط ختم کریں۔',
   'errors.last_tenant_admin': 'ادارے میں کم از کم ایک ادارہ منتظم ہونا ضروری ہے۔',
   'errors.ldap_attribute_invalid': 'ڈائریکٹری خصوصیت کا نام درج کریں: حروف، ہندسے اور خط فاصل۔',
   'errors.ldap_bind_password_missing': 'کوئی بائنڈ پاس ورڈ محفوظ نہیں ہے۔ اسے دوبارہ درج کریں۔',
@@ -840,6 +867,18 @@ export const ur: LabelResource = {
   'errors.ldap_host_invalid': 'ڈائریکٹری سرور کا نام یا IP پتہ درج کریں، ldap:// یا راستے کے بغیر۔',
   'errors.ldap_single_tenant_only':
     'AD/LDAP ڈائریکٹریز صرف اس تنصیب پر جوڑی جا سکتی ہیں جو ایک ادارے کے لیے ہو۔',
+  'errors.lifecycle_draft_exists':
+    'اس لائف سائیکل کا مسودہ پہلے سے موجود ہے۔ اسے کھولیں یا پہلے ختم کریں۔',
+  'errors.lifecycle_draft_not_found':
+    'اس لائف سائیکل کا کوئی مسودہ نہیں۔ تبدیلیوں کے لیے مسودہ شروع کریں۔',
+  'errors.lifecycle_version_has_problems_one':
+    'مسودے میں {{count}} مسئلہ ہے جسے شائع کرنے سے پہلے ٹھیک کرنا ہے۔',
+  'errors.lifecycle_version_has_problems_other':
+    'مسودے میں {{count}} مسائل ہیں جنہیں شائع کرنے سے پہلے ٹھیک کرنا ہے۔',
+  'errors.lifecycle_version_last_published':
+    'ورژن {{number}} وہ ہے جس پر نئے ریکارڈ شروع ہوتے ہیں، اس لیے اسے ریٹائر نہیں کیا جا سکتا۔',
+  'errors.lifecycle_version_not_found': 'لائف سائیکل کا یہ ورژن نہیں ملا۔',
+  'errors.lifecycle_version_not_published': 'صرف شائع شدہ ورژن ہی ریٹائر کیا جا سکتا ہے۔',
   'errors.limit_reached':
     'آپ کے پلان کی اس کے لیے حد پوری ہو چکی ہے۔ پلان بڑھانے کے لیے اپنے منتظم سے کہیں۔',
   'errors.link_has_own_route':
@@ -848,6 +887,8 @@ export const ur: LabelResource = {
   'errors.linked_records_not_available': 'منسلک ریکارڈ ابھی دستیاب نہیں۔',
   'errors.list_not_found': 'یہ فہرست ترتیبات محفوظ نہیں کرتی۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
+  'errors.login_not_this_browser':
+    'یہ سائن اِن کسی اور براؤزر میں شروع ہوا تھا یا اس کی میعاد ختم ہو گئی ہے۔ براہِ کرم یہاں دوبارہ سائن اِن کریں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
   'errors.mail_attachment_type': 'اس قسم کی فائل ای میل سے نہیں بھیجی جا سکتی۔',
@@ -900,6 +941,7 @@ export const ur: LabelResource = {
   'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
+  'errors.not_visible': 'آپ یہ تبدیلی نہیں دیکھ سکتے، اس لیے اسے ویسے ہی چھوڑ دیا گیا۔',
   'errors.nothing_to_override':
     'یہ تبدیلی دوبارہ منظوری کی منتظر نہیں، اس لیے نظر انداز کرنے کو کچھ نہیں۔',
   'errors.nothing_to_retry': 'دوبارہ چلانے کے لیے کوئی ناکام مرحلہ نہیں۔',
@@ -1001,6 +1043,8 @@ export const ur: LabelResource = {
     'یہ سرور شروع نہیں ہو سکتا: سائن اِن کی جو کلید اب فہرست میں نہیں، اس کی ابھی ضرورت ہے۔ کلید دوبارہ فہرست میں شامل کریں۔',
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
+  'errors.sign_in_unavailable':
+    'اس وقت سائن اِن دستیاب نہیں۔ براہِ کرم ایک منٹ انتظار کر کے دوبارہ کوشش کریں۔',
   'errors.sign_in_unknown_person':
     'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
   'errors.site_not_found': 'سائٹ نہیں ملی۔',
@@ -1021,6 +1065,10 @@ export const ur: LabelResource = {
   'errors.sso_provider_not_found': 'یہ سنگل سائن آن سیٹ اپ نہیں ملا۔',
   'errors.sso_provider_refused':
     'سائن اِن کی سروس نے یہ ترتیبات قبول نہیں کیں۔ انہیں جانچ کر دوبارہ کوشش کریں۔',
+  'errors.sso_required':
+    'آپ کی تنظیم سنگل سائن آن کا تقاضا کرتی ہے۔ پاس ورڈ کے بجائے اپنی تنظیم کے اکاؤنٹ سے سائن اِن کریں۔',
+  'errors.sso_required_needs_break_glass':
+    'سنگل سائن آن لازمی کرنے سے پہلے کم از کم ایک ہنگامی منتظم، دو مرحلہ سائن اِن کے ساتھ، مقرر کریں۔',
   'errors.sso_switch_off_first':
     'رابطے کا طریقہ بدلنے سے پہلے سیٹ اپ بند کریں، تاکہ کوئی باہر نہ رہ جائے۔',
   'errors.sso_switched_off': 'آزمانے سے پہلے سیٹ اپ چالو کریں یا اسے بدلیں۔',
@@ -1056,9 +1104,16 @@ export const ur: LabelResource = {
   'errors.tenant_not_provisioned':
     'آپ کا ادارہ ابھی SupportX میں ترتیب نہیں دیا گیا۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
   'errors.tenant_suspended': 'آپ کے ادارے کی رسائی معطل ہے۔',
+  'errors.timer_not_running': 'اس ریکارڈ پر آپ کا کوئی ٹائمر نہیں چل رہا۔',
+  'errors.timer_record_done':
+    'یہ ریکارڈ حل یا بند ہو چکا ہے۔ اس کے بجائے وقت کو ورک لاگ کے طور پر درج کریں۔',
+  'errors.timer_running': 'اس ریکارڈ پر آپ کا ٹائمر پہلے سے چل رہا ہے۔',
   'errors.too_many_favourites': 'آپ زیادہ سے زیادہ {{max}} رپورٹس کو ستارہ لگا سکتے ہیں۔',
   'errors.too_many_files': 'ایک ساتھ بہت زیادہ فائلیں: زیادہ سے زیادہ {{max}}۔',
+  'errors.too_many_moves': 'ایک لائف سائیکل میں زیادہ سے زیادہ {{max}} منتقلیاں ہو سکتی ہیں۔',
   'errors.too_many_rules': 'ہر ریکارڈ قسم کے لیے زیادہ سے زیادہ {{max}} قاعدے۔',
+  'errors.transition_condition_not_met':
+    'حالت کی یہ تبدیلی اس وقت اس ریکارڈ پر آپ کے لیے دستیاب نہیں۔',
   'errors.transition_not_allowed': 'حالت کی یہ تبدیلی اس ریکارڈ پر آپ کے لیے دستیاب نہیں۔',
   'errors.transition_not_found': 'حالت کی یہ تبدیلی لائف سائیکل کا حصہ نہیں۔',
   'errors.unauthenticated': 'جاری رکھنے کے لیے براہِ کرم سائن اِن کریں۔',
@@ -1090,6 +1145,7 @@ export const ur: LabelResource = {
   'errors.workflow_instance_not_found': 'ورک فلو کا یہ رن نہیں ملا۔',
   'errors.workflow_job_not_found': 'یہ جاب نہیں ملی۔',
   'errors.workflow_version_not_found': 'ورک فلو کا یہ ورژن نہیں ملا۔',
+  'errors.worklog_record_closed': 'یہاں بند ریکارڈ پر وقت درج یا تبدیل نہیں کیا جا سکتا۔',
   'errors.would_lose_access':
     'اس تبدیلی کے بعد آپ {{display_id}} نہیں دیکھ سکیں گے۔ حوالے کرنے کے لیے تصدیق کریں۔',
 };

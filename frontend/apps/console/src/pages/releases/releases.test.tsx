@@ -273,11 +273,19 @@ describe('console: releases', () => {
     await waitFor(() => {
       expect(last().columns.find((c) => c.key === 'subject')?.width).toBeGreaterThanOrEqual(180);
     });
+    // REQ-REL-055's columns (WP-058b S5a), each with its own width.
     expect(last().columns.map((c) => c.key)).toEqual([
       'id',
       'subject',
+      'type',
       'stage',
       'status',
+      'priority',
+      'manager',
+      'engineer',
+      'version',
+      'end',
+      'tasks',
       'updated',
     ]);
     fireEvent.click(await screen.findByTestId('releases-reset-widths'));
@@ -1127,6 +1135,152 @@ describe('console: releases', () => {
       render(<App />);
       await screen.findByRole('tab', { name: 'Details' });
       expect(screen.queryByRole('tab', { name: 'Workflows' })).toBeNull();
+    });
+  });
+});
+
+describe('console: releases by stage (WP-058b S5b)', () => {
+  const toTesting = {
+    to_status: 'testing_in_progress',
+    to_stage: 'testing',
+    reason_mode: 'none',
+    reason_list: null,
+    required_fields: [],
+    allowed: true,
+    reason: null,
+    missing: [],
+  };
+
+  async function moveTo(stage: string) {
+    fireEvent.click(await screen.findByTestId(`release-board-move-${REL_ID}`));
+    const menus = await screen.findAllByRole('menu');
+    const menu = menus.at(-1);
+    if (menu === undefined) throw new Error('no menu');
+    fireEvent.click(within(menu).getByText(stage));
+  }
+
+  it('REQ-REL-056: the release list opens the board', async () => {
+    window.history.pushState({}, '', '/releases');
+    api();
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('releases-board-open'));
+    expect(await screen.findByTestId('release-board-column-build')).toBeTruthy();
+    expect(window.location.pathname).toBe('/releases/board');
+  });
+
+  it('REQ-REL-056: a release sits in its stage; moving it opens its own move dialog', async () => {
+    window.history.pushState({}, '', '/releases/board');
+    api({ [`GET /api/v1/releases/${REL_ID}/stages`]: { body: { ...panel, moves: [toTesting] } } });
+    render(<App />);
+    const build = await screen.findByTestId('release-board-column-build');
+    expect(await within(build).findByText('REL-1')).toBeTruthy();
+    await moveTo('Testing');
+    expect(await screen.findByTestId('move-dialog')).toBeTruthy();
+  });
+
+  it('REQ-REL-056 AC1: a stage it cannot reach is refused in words and the card stays', async () => {
+    window.history.pushState({}, '', '/releases/board');
+    api();
+    render(<App />);
+    const build = await screen.findByTestId('release-board-column-build');
+    await within(build).findByText('REL-1');
+    await moveTo('Deployment');
+    await waitFor(() => {
+      expect(screen.getByTestId('release-board-refusal').textContent).toContain(
+        'cannot move to Deployment',
+      );
+    });
+    expect(within(build).getByText('REL-1')).toBeTruthy();
+    expect(screen.queryByTestId('move-dialog')).toBeNull();
+  });
+});
+
+describe('console: the release list (WP-058b S5a)', () => {
+  const MANAGER = '01a1a2b3-0000-7000-8000-0000000e0901';
+  const listed = {
+    items: [release],
+    next_cursor: null,
+    has_more: false,
+    people: { [MANAGER]: { display_name: 'Maryam Siddiqui', email: 'maryam@example.test' } },
+    releases: {
+      [REL_ID]: {
+        release_type: null,
+        release_version: '4.2.0',
+        scheduled_end: '2027-03-11T09:00:00Z',
+        release_manager_id: MANAGER,
+        release_engineer_id: null,
+        tasks_done: 0,
+        tasks_total: 1,
+      },
+    },
+  };
+
+  it('REQ-REL-055: each row shows its manager, version and task progress; the release views', async () => {
+    window.history.pushState({}, '', '/releases');
+    const fake = api({ 'GET /api/v1/releases': { body: listed } });
+    render(<App />);
+    const row = await screen.findByTestId('release-row-REL-1');
+    expect(row.textContent).toContain('Maryam Siddiqui');
+    expect(row.textContent).toContain('4.2.0');
+    expect(row.textContent).toContain('0 of 1 done');
+    const bar = screen.getByTestId('releases-filters');
+    const selector = within(bar).getByTestId('releases-view').querySelector('.ant-select-selector');
+    if (selector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(selector);
+    expect(await screen.findByTitle('My releases')).toBeTruthy();
+    fireEvent.click(await screen.findByTitle('Unscheduled'));
+    await waitFor(() => {
+      const last = fake.find('GET', '/api/v1/releases').at(-1);
+      expect(last?.url.searchParams.get('view')).toBe('unscheduled');
+    });
+  });
+
+  it('REQ-REL-057: picked releases get one person in one role, as a bulk job', async () => {
+    window.history.pushState({}, '', '/releases');
+    const job = {
+      id: 'job-1',
+      action: 'assign_role',
+      status: 'queued',
+      total: 1,
+      processed: 0,
+      done_count: 0,
+      skipped_count: 0,
+      results: [],
+      created_at: '2027-03-10T09:00:00Z',
+      finished_at: null,
+    };
+    const fake = api({
+      'GET /api/v1/releases': { body: listed },
+      'GET /api/v1/releases/roles/release_engineer/candidates': {
+        body: [{ id: MANAGER, name: 'Maryam Siddiqui' }],
+      },
+      'POST /api/v1/releases/bulk': { status: 202, body: job },
+      'GET /api/v1/releases/bulk-jobs/job-1': { body: job },
+    });
+    render(<App />);
+    await screen.findByTestId('release-row-REL-1');
+    // The row's own checkbox (the first is the header's select-all).
+    const boxes = within(screen.getByTestId('releases-table')).getAllByRole('checkbox');
+    const box = boxes[1];
+    if (box === undefined) throw new Error('no row checkbox');
+    fireEvent.click(box);
+    fireEvent.click(await screen.findByTestId('inc-bulk-assign_role'));
+    const dialog = await screen.findByTestId('rel-bulk-role');
+    const person = within(dialog)
+      .getByTestId('rel-bulk-role-person')
+      .querySelector('.ant-select-selector');
+    if (person === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(person);
+    fireEvent.click(await screen.findByTitle('Maryam Siddiqui'));
+    fireEvent.click(screen.getByTestId('rel-bulk-role-ok'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/releases/bulk')).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', '/api/v1/releases/bulk');
+    expect(sent?.body).toMatchObject({
+      action: 'assign_role',
+      changes: { role: 'release_engineer', user_ids: [MANAGER] },
+      record_ids: [REL_ID],
     });
   });
 });

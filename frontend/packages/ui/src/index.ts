@@ -10,6 +10,7 @@ export {
 } from './appearance';
 export { useAccess, type Access } from './access';
 export * from './announcements';
+export * from './board';
 export * from './brand';
 export * from './dates';
 export { AppearanceControls } from './AppearanceControls';
@@ -20,7 +21,7 @@ export { contrastRatio, TAG_TONES, TONES, type Tone } from './tones';
 export { PresenceAvatars, type PresenceAvatarsProps } from './PresenceAvatars';
 export { AppearanceProvider, type AppearanceProviderProps } from './AppearanceProvider';
 export { type UrduScript } from './fonts/fonts';
-export { storedMode, systemMode } from './themeMode';
+export { rememberLocale, storedLocale, storedMode, systemMode } from './themeMode';
 export * from './errors';
 export * from './files';
 export * from './licence';

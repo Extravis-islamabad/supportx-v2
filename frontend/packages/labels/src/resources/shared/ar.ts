@@ -60,6 +60,7 @@ export const ar: LabelResource = {
   'appearance.theme.light': 'فاتح',
   'appearance.theme.system': 'اتباع النظام',
   'appearance.title': 'المظهر',
+  'board.move_to': 'نقل إلى…',
   'check_status.failed': 'فشل',
   'check_status.not_configured': 'غير مُهيّأ',
   'check_status.ok': 'سليم',
@@ -442,7 +443,7 @@ export const ar: LabelResource = {
   'richtext.table': 'إدراج جدول',
   'richtext.templates': 'القوالب',
   'richtext.templates_manage': 'إدارة القوالب…',
-  'richtext.templates_none': 'لا توجد قوالب رد بعد',
+  'richtext.templates_none': 'لا توجد قوالب بعد',
   'richtext.text_colour': 'لون النص',
   'richtext.text_style': 'نمط النص',
   'richtext.toolbar': 'التنسيق',
@@ -531,6 +532,15 @@ export const ar: LabelResource = {
     'يعمل مسؤولو المهام على مهامهم دون الوصول إلى الإصدار',
   'settings.closing.release.task_owner_access_help':
     'يرون مهمتهم ومعرّف الإصدار وموضوعه ويمكنهم تغيير حالة المهمة؛ ولا يرون الملاحظات أو الخطط أبدًا.',
+  'settings.closing.release.timer_auto_start': 'بدء المؤقت عندما يفتح شخص إصدارًا يملكه',
+  'settings.closing.release.timer_auto_start_help':
+    'مرة واحدة لكل إصدار، لمالكه. موقوف افتراضيًا: المؤقت الذي لا يلاحظه أحد يسجل وقتًا خاطئًا.',
+  'settings.closing.release.worklog_block_closed': 'لا وقت على الإصدارات المغلقة',
+  'settings.closing.release.worklog_block_closed_help':
+    'بعد إغلاق الإصدار لا يمكن لأحد تسجيل وقته أو تغييره أو إزالته.',
+  'settings.closing.release.worklog_count_nonworking': 'احتساب الوقت خارج ساعات العمل',
+  'settings.closing.release.worklog_count_nonworking_help':
+    'يُحتسب الوقت المسجل على الإصدار خارج ساعات العمل في الإجماليات والتقارير. عند الإيقاف تُحتسب ساعات العمل فقط.',
   'settings.closing.reopen_window_days': 'مدة إعادة الفتح (بالأيام)',
   'settings.closing.reopen_window_help':
     'ردّ مقدّم الطلب خلال هذه الأيام بعد الحل يعيد فتح الحادثة؛ والرد اللاحق ينشئ حادثة جديدة. من 1 إلى 30.',
@@ -542,7 +552,16 @@ export const ar: LabelResource = {
   'settings.closing.task_owner_access': 'يعمل مسؤولو المهام على مهامهم دون الوصول إلى الحادثة',
   'settings.closing.task_owner_access_help':
     'يرون مهمتهم ومعرّف الحادثة وموضوعها ويمكنهم تغيير حالة المهمة؛ ولا يرون المحادثة أو الملاحظات أبدًا.',
+  'settings.closing.timer_auto_start': 'بدء المؤقت عندما يفتح الفني حادثته',
+  'settings.closing.timer_auto_start_help':
+    'مرة واحدة لكل حادثة، للشخص المسندة إليه. موقوف افتراضيًا: المؤقت الذي لا يلاحظه أحد يسجل وقتًا خاطئًا.',
   'settings.closing.title': 'الحل والإغلاق',
+  'settings.closing.worklog_block_closed': 'لا وقت على الحوادث المغلقة',
+  'settings.closing.worklog_block_closed_help':
+    'بعد إغلاق الحادثة لا يمكن لأحد تسجيل وقتها أو تغييره أو إزالته.',
+  'settings.closing.worklog_count_nonworking': 'احتساب الوقت خارج ساعات العمل',
+  'settings.closing.worklog_count_nonworking_help':
+    'يُحتسب الوقت المسجل خارج ساعات العمل في الإجماليات والتقارير. عند الإيقاف تُحتسب ساعات العمل فقط.',
   'settings.closure_codes_help':
     'كيف انتهى الحادث. يُختار عند إغلاق الحادث؛ وتُجمّع التقارير حسبه.',
   'settings.colour': 'اللون',
@@ -576,6 +595,40 @@ export const ar: LabelResource = {
   'settings.leave_title': 'المغادرة دون حفظ؟',
   'settings.levels_help':
     'مستوى الدعم الذي يُعالَج عنده الحادث. يُستخدم في طرق العرض والقواعد والتقارير.',
+  'settings.lifecycle.add_move': 'إضافة انتقال',
+  'settings.lifecycle.discard': 'التخلص من المسودة',
+  'settings.lifecycle.discard_body': 'ستُزال المسودة وانتقالاتها. لا يستخدمها أي سجل.',
+  'settings.lifecycle.discard_title': 'التخلص من مسودة الإصدار {{number}}؟',
+  'settings.lifecycle.draft_help':
+    'غيّر الانتقالات واحفظ المسودة، ثم انشرها عندما لا يبقى ما يحتاج إلى إصلاح.',
+  'settings.lifecycle.draft_title': 'مسودة الإصدار {{number}}',
+  'settings.lifecycle.extra_right': 'صلاحية إضافية مطلوبة',
+  'settings.lifecycle.moves': 'الانتقالات',
+  'settings.lifecycle.new_records_start_here': 'تبدأ السجلات الجديدة هنا',
+  'settings.lifecycle.no_extra_right': 'لا شيء',
+  'settings.lifecycle.problems_title_few': '{{count}} مشكلات يجب إصلاحها قبل النشر',
+  'settings.lifecycle.problems_title_many': '{{count}} مشكلة يجب إصلاحها قبل النشر',
+  'settings.lifecycle.problems_title_one': 'مشكلة واحدة يجب إصلاحها قبل النشر',
+  'settings.lifecycle.problems_title_other': '{{count}} مشكلة يجب إصلاحها قبل النشر',
+  'settings.lifecycle.problems_title_two': 'مشكلتان يجب إصلاحهما قبل النشر',
+  'settings.lifecycle.problems_title_zero': 'لا توجد مشكلات',
+  'settings.lifecycle.publish': 'نشر',
+  'settings.lifecycle.publish_body':
+    'ستبدأ السجلات الجديدة بهذا الإصدار. تبقى السجلات الحالية على الإصدار الذي بدأت به وتحتفظ بانتقالاته.',
+  'settings.lifecycle.publish_title': 'نشر الإصدار {{number}}؟',
+  'settings.lifecycle.published_at': 'تاريخ النشر',
+  'settings.lifecycle.remove_move': 'إزالة {{action}} من {{status}}',
+  'settings.lifecycle.required_fields': 'حقول مطلوبة أولًا',
+  'settings.lifecycle.retire': 'إيقاف',
+  'settings.lifecycle.save_draft': 'حفظ المسودة',
+  'settings.lifecycle.start_draft': 'بدء إصدار جديد',
+  'settings.lifecycle.state': 'الحالة',
+  'settings.lifecycle.unsaved': 'لديك تغييرات غير محفوظة في المسودة.',
+  'settings.lifecycle.version': 'الإصدار',
+  'settings.lifecycle.version_number': 'الإصدار {{number}}',
+  'settings.lifecycle.versions': 'إصدارات دورة الحياة',
+  'settings.lifecycle.versions_help':
+    'كل إصدار مجموعة من انتقالات الحالة. تبدأ السجلات الجديدة بالإصدار المحدد أدناه وتحتفظ به، ولا يتغير الإصدار المنشور أبدًا. من يمكنه تنفيذ الانتقال ومتى يُعرض يُضبطان في الأتمتة ويسريان على كل الإصدارات معًا.',
   'settings.load_failed': 'تعذّر تحميل إعدادات الحوادث. أعد تحميل الصفحة للمحاولة مرة أخرى.',
   'settings.matrix': 'مصفوفة الأولوية',
   'settings.matrix_cell': 'الأولوية للتأثير "{{impact}}" والإلحاح "{{urgency}}"',
@@ -618,6 +671,9 @@ export const ar: LabelResource = {
     'اختر ما إذا كان كل تغيير يطلب سببًا. الإيقاف المؤقت والإلغاء وإعادة الفتح تختار من قوائم الأسباب.',
   'settings.release_closure_codes_help':
     'كيف انتهى الإصدار. يُختار عند إغلاق الإصدار؛ وتُجمِّع التقارير حسبه.',
+  'settings.release_roles.take_help':
+    'يجعلك تولّي الإصدار في هذا الدور عليه، إن لم يشغله أحد بعد. ومن يحق له شغل كل دور يتبع قواعد الدور نفسه.',
+  'settings.release_roles.take_title': 'ما يجعلك إياه التولّي',
   'settings.rename': 'إعادة تسمية',
   'settings.rename_value': 'إعادة تسمية "{{name}}"',
   'settings.resume_on_requester_reply': 'ردّ مقدّم الطلب يستأنفها',
@@ -650,9 +706,12 @@ export const ar: LabelResource = {
   'settings.section.custom-fields': 'الحقول المخصصة',
   'settings.section.general': 'عام',
   'settings.section.levels': 'المستويات',
+  'settings.section.lifecycle': 'دورة الحياة',
   'settings.section.priority': 'الأولوية',
   'settings.section.reasons': 'الأسباب',
   'settings.section.reply-templates': 'قوالب الردود',
+  'settings.section.resolution-templates': 'قوالب الحل',
+  'settings.section.roles': 'الأدوار',
   'settings.section.routing': 'التوجيه والإسناد',
   'settings.section.stages': 'المراحل',
   'settings.section.statuses': 'الحالات',

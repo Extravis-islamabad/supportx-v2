@@ -1,8 +1,8 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights ci-metrics \
+.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check semgrep labels-json backend-test-timings backend-shard-weights ci-metrics \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e e2e-smoke \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
@@ -18,6 +18,8 @@ MOBILE := cd mobile &&
 # `export`).
 export EXPO_NO_TELEMETRY := 1
 PIP_AUDIT_VERSION := 2.10.1
+# Semgrep (audit row 27): the official image, pinned by version and digest; CI runs `make semgrep`.
+SEMGREP_IMAGE := semgrep/semgrep:1.182.1@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6
 OPENAPI_FILE := ../frontend/packages/api-client/openapi.json
 # Generated, never committed (D-127): regenerated, never hand-merged.
 LABELS_JSON := backend/app/shared/labels/resources.json
@@ -207,6 +209,9 @@ openapi-diff: ## Fail on breaking API changes: make openapi-diff base=<openapi.j
 e2e: ## Playwright journeys + axe (needs dev-up, backend-dev, worker-relay, worker-consumers and the console dev server)
 	$(FRONTEND) pnpm --filter @supportx/e2e e2e
 
+e2e-smoke: ## The @smoke journeys only (~5 min; one per critical area), against the same running stack as e2e
+	$(FRONTEND) pnpm --filter @supportx/e2e exec playwright test --grep @smoke
+
 build: generated-frontend ## Production builds of the console and portal
 	$(FRONTEND) pnpm build
 
@@ -233,6 +238,15 @@ licence-check: ## The shipped JS dependencies' licences against the allow-list (
 audit-frontend:
 	$(FRONTEND) pnpm audit || true
 	$(FRONTEND) pnpm audit --audit-level high
+
+# The repo's own rules only (.semgrep.yml), never the online registry, so it runs air-gapped; no
+# metrics, no version check. Files tracked by git, less .semgrepignore. In a git worktree the
+# container cannot read the main checkout's .git: run it from the main checkout or a copy.
+semgrep: ## Static analysis with the repo's Semgrep rules; fails on any finding
+	docker run --rm -v "$(CURDIR):/src" -w /src \
+		-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/src \
+		$(SEMGREP_IMAGE) semgrep scan --config .semgrep.yml --metrics=off \
+		--disable-version-check --error
 
 backend-lint:
 	$(BACKEND) uv run ruff check . && uv run ruff format --check . && uv run lint-imports
@@ -404,7 +418,7 @@ deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgra
 	$(HELM_TEST)
 
 cluster-up-ha: ## Create the four-node k3d cluster for the HA smoke (WP-014b)
-	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 BACKUP_PLUGIN=1 bash deploy/k3d/up.sh
+	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 BACKUP_PLUGIN=1 HA_CLUSTER=1 bash deploy/k3d/up.sh
 
 deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA profile (small requests) on k3d
 	# --mode direct: with several nodes, the default shared-volume import races (a node deletes the
@@ -415,14 +429,26 @@ deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 20m
 	$(HELM_TEST)
 
+cluster-ha-preflight: ## HA preflight on the installed release, strict: Traefik, DNS, NATS/PostgreSQL spread, fast eviction (WP-014b)
+	@SUPPORTX_NAMESPACE=$(NAMESPACE) HA_PREFLIGHT_STRICT=1 bash deploy/k3s/ha-preflight.sh
+
 cluster-ha-smoke: ## HA smoke: the Valkey master dies, a signed-in session survives, no split brain (ADR-038)
 	@bash deploy/k3d/ha-smoke.sh
 
 cluster-ha-egress: ## Egress allow-list on the HA cluster: the namespace reachable, the outside blocked (WP-014b)
 	@bash deploy/k3d/egress-check.sh
 
+cluster-ha-valkey-node-loss: ## Valkey node-loss test: stop the node with the Valkey master after a failover; Sentinel promotes, the session keeps writing (WP-014b)
+	@bash deploy/k3d/valkey-node-loss.sh
+
+cluster-ha-valkey-node-loss-dns: ## Worst case, forced: stop the node with the Valkey master AND a CoreDNS copy; Sentinel promotes, the session keeps writing (WP-014b)
+	@VALKEY_NODE_LOSS_CASE=master-with-dns bash deploy/k3d/valkey-node-loss.sh
+
 cluster-ha-node-loss: ## Node-loss test: stop the agent with PostgreSQL's primary; the session keeps writing (WP-014b)
 	@bash deploy/k3d/node-loss.sh
+
+cluster-ha-dns-restart: ## Cluster DNS after a k3s server restart: still two CoreDNS copies on two nodes, anti-affinity kept (WP-014b)
+	@bash deploy/k3d/dns-after-restart.sh
 
 cluster-ha-restore: ## Restore drill: back up, restore into a new cluster to a chosen moment, check the rows (WP-014b)
 	@bash deploy/k3d/restore-drill.sh

@@ -58,6 +58,7 @@ export const en = {
   'appearance.theme.light': 'Light',
   'appearance.theme.system': 'Follow the system',
   'appearance.title': 'Appearance',
+  'board.move_to': 'Move to…',
   'check_status.failed': 'Failed',
   'check_status.not_configured': 'Not configured',
   'check_status.ok': 'OK',
@@ -435,7 +436,7 @@ export const en = {
   'richtext.table': 'Insert table',
   'richtext.templates': 'Templates',
   'richtext.templates_manage': 'Manage templates…',
-  'richtext.templates_none': 'No reply templates yet',
+  'richtext.templates_none': 'No templates yet',
   'richtext.text_colour': 'Text colour',
   'richtext.text_style': 'Text style',
   'richtext.toolbar': 'Formatting',
@@ -523,6 +524,16 @@ export const en = {
     'Task owners work on their tasks without access to the release',
   'settings.closing.release.task_owner_access_help':
     'They see their task and the release’s ID and subject, and can change the task’s status; never the notes or plans.',
+  'settings.closing.release.timer_auto_start':
+    'Start the timer when someone opens a release they own',
+  'settings.closing.release.timer_auto_start_help':
+    'Once per release, for its owner. Off by default: a timer nobody notices logs wrong time.',
+  'settings.closing.release.worklog_block_closed': 'No time on closed releases',
+  'settings.closing.release.worklog_block_closed_help':
+    'Once a release is closed, nobody can log, change or remove its time.',
+  'settings.closing.release.worklog_count_nonworking': 'Count time outside working hours',
+  'settings.closing.release.worklog_count_nonworking_help':
+    'Time logged on a release outside working hours counts in totals and reports. Off: only working hours count.',
   'settings.closing.reopen_window_days': 'Reopen window (days)',
   'settings.closing.reopen_window_help':
     'A requester reply within this many days of resolving reopens the incident; a later reply starts a new one. From 1 to 30.',
@@ -536,7 +547,16 @@ export const en = {
     'Task owners work on their tasks without access to the incident',
   'settings.closing.task_owner_access_help':
     'They see their task and the incident’s ID and subject, and can change the task’s status; never the conversation or notes.',
+  'settings.closing.timer_auto_start': 'Start the timer when a technician opens their incident',
+  'settings.closing.timer_auto_start_help':
+    'Once per incident, for the person it is assigned to. Off by default: a timer nobody notices logs wrong time.',
   'settings.closing.title': 'Resolving and closing',
+  'settings.closing.worklog_block_closed': 'No time on closed incidents',
+  'settings.closing.worklog_block_closed_help':
+    'Once an incident is closed, nobody can log, change or remove its time.',
+  'settings.closing.worklog_count_nonworking': 'Count time outside working hours',
+  'settings.closing.worklog_count_nonworking_help':
+    'Time logged outside working hours counts in totals and reports. Off: only working hours count.',
   'settings.closure_codes_help':
     'How an incident ended. Picked when an incident is closed; reports group by it.',
   'settings.colour': 'Colour',
@@ -567,6 +587,36 @@ export const en = {
   'settings.leave_title': 'Leave without saving?',
   'settings.levels_help':
     'The support level an incident is handled at. Used in views, rules and reports.',
+  'settings.lifecycle.add_move': 'Add a move',
+  'settings.lifecycle.discard': 'Throw away the draft',
+  'settings.lifecycle.discard_body': 'The draft and its moves are removed. No record uses it.',
+  'settings.lifecycle.discard_title': 'Throw away the draft of version {{number}}?',
+  'settings.lifecycle.draft_help':
+    'Change the moves, save the draft, and publish it once nothing needs fixing.',
+  'settings.lifecycle.draft_title': 'Draft of version {{number}}',
+  'settings.lifecycle.extra_right': 'Extra right needed',
+  'settings.lifecycle.moves': 'Moves',
+  'settings.lifecycle.new_records_start_here': 'New records start here',
+  'settings.lifecycle.no_extra_right': 'None',
+  'settings.lifecycle.problems_title_one': '{{count}} problem to fix before publishing',
+  'settings.lifecycle.problems_title_other': '{{count}} problems to fix before publishing',
+  'settings.lifecycle.publish': 'Publish',
+  'settings.lifecycle.publish_body':
+    'New records will start on this version. Existing records stay on the version they started on and keep its moves.',
+  'settings.lifecycle.publish_title': 'Publish version {{number}}?',
+  'settings.lifecycle.published_at': 'Published',
+  'settings.lifecycle.remove_move': 'Remove {{action}} from {{status}}',
+  'settings.lifecycle.required_fields': 'Fields needed first',
+  'settings.lifecycle.retire': 'Retire',
+  'settings.lifecycle.save_draft': 'Save draft',
+  'settings.lifecycle.start_draft': 'Start a new version',
+  'settings.lifecycle.state': 'State',
+  'settings.lifecycle.unsaved': 'You have unsaved changes to the draft.',
+  'settings.lifecycle.version': 'Version',
+  'settings.lifecycle.version_number': 'Version {{number}}',
+  'settings.lifecycle.versions': 'Life cycle versions',
+  'settings.lifecycle.versions_help':
+    'Each version is a set of status moves. New records start on the version marked below and keep it; a published version never changes. Who may run a move and when it is offered are set in Automation and apply to every version at once.',
   'settings.load_failed': "The incident settings couldn't be loaded. Reload the page to try again.",
   'settings.matrix': 'Priority matrix',
   'settings.matrix_cell': 'Priority for impact "{{impact}}" and urgency "{{urgency}}"',
@@ -609,6 +659,9 @@ export const en = {
     'Choose whether each change asks for a reason. Pausing, cancelling and reopening pick from the reason lists.',
   'settings.release_closure_codes_help':
     'How a release ended. Picked when a release is closed; reports group by it.',
+  'settings.release_roles.take_help':
+    'Taking a release makes you this role on it, when nobody holds it yet. Who may hold each role follows the role’s own rules.',
+  'settings.release_roles.take_title': 'What Take makes you',
   'settings.rename': 'Rename',
   'settings.rename_value': 'Rename "{{name}}"',
   'settings.resume_on_requester_reply': 'A requester reply resumes it',
@@ -638,9 +691,12 @@ export const en = {
   'settings.section.custom-fields': 'Custom fields',
   'settings.section.general': 'General',
   'settings.section.levels': 'Levels',
+  'settings.section.lifecycle': 'Life cycle',
   'settings.section.priority': 'Priority',
   'settings.section.reasons': 'Reasons',
   'settings.section.reply-templates': 'Reply templates',
+  'settings.section.resolution-templates': 'Resolution templates',
+  'settings.section.roles': 'Roles',
   'settings.section.routing': 'Routing and assignment',
   'settings.section.stages': 'Stages',
   'settings.section.statuses': 'Statuses',

@@ -29,8 +29,7 @@ from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import Subject, subject_for, worker_policy
-from app.modules.work_items.domain.changes import CANCELED_STATUS, CLOSED_STATUS
-from app.modules.work_items.domain.lifecycle import WorkItemAction
+from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.lists import (
     BULK_BATCH,
     MAX_BULK,
@@ -38,13 +37,16 @@ from app.modules.work_items.domain.lists import (
     BulkOutcome,
     BulkStatus,
 )
+from app.modules.work_items.domain.stages import StageModel
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemBulkJobProgressed
 from app.modules.work_items.infra.models import WorkItem, WorkItemBulkJob
 from app.modules.work_items.service import change_close, closing
 from app.modules.work_items.service import problems as problem_links
+from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.realtime import BULK_PREFIX
+from app.modules.work_items.service.work_items import StageOffer
 from app.shared.api.listing import ListQuery, order_by
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -63,6 +65,8 @@ _PERMISSION = {
     BulkAction.UNLINK_PROBLEM: "edit",
     BulkAction.CANCEL: "cancel",
     BulkAction.DELETE: "delete",
+    # A release role's holders: the record's edit right, checked again on each one (set_role).
+    BulkAction.ASSIGN_ROLE: "edit",
 }
 _KEYS = {
     BulkAction.EDIT: None,  # any field the edit form has; the update checks each one
@@ -75,9 +79,12 @@ _KEYS = {
     BulkAction.UNLINK_PROBLEM: {"problem_id"},
     BulkAction.CANCEL: {"reason_text"},
     BulkAction.DELETE: set(),
+    BulkAction.ASSIGN_ROLE: {"role", "user_ids", "group_ids"},
 }
-# The staged list's own actions (REQ-CHG-101): other types cancel through their life cycle.
+# The staged lists' own actions (REQ-CHG-101, REQ-REL-057): other types cancel through their
+# life cycle, and only a type with record roles has role holders to set.
 STAGED_ONLY = frozenset({BulkAction.CANCEL, BulkAction.DELETE})
+ROLES_ONLY = frozenset({BulkAction.ASSIGN_ROLE})
 
 
 class JobRepository(Repository[WorkItemBulkJob]):
@@ -97,6 +104,11 @@ def _check_changes(action: BulkAction, changes: dict[str, Any]) -> dict[str, Any
         problems.append(("changes", "required"))
     if action == BulkAction.CANCEL and not str(changes.get("reason_text") or "").strip():
         problems.append(("changes", "required"))  # a cancel says why, for every change
+    if action == BulkAction.ASSIGN_ROLE and (
+        not isinstance(changes.get("role"), str)
+        or not (changes.get("user_ids") or changes.get("group_ids"))
+    ):
+        problems.append(("changes", "required"))  # a role, and someone to hold it
     if action == BulkAction.ASSIGN and not (
         changes.get("group_id") or changes.get("technician_id")
     ):
@@ -151,8 +163,10 @@ async def start(  # noqa: PLR0913 - the job's inputs, explicit
         and wtype.code is not WorkItemTypeCode.INCIDENT
     ):
         raise items.field_errors([("action", "invalid_choice")])  # only incidents have a cause
-    if action in STAGED_ONLY and wtype.code is not WorkItemTypeCode.CHANGE:
-        raise items.field_errors([("action", "invalid_choice")])  # the change list's (CHG-101)
+    if action in STAGED_ONLY and wtype.stages is None:
+        raise items.field_errors([("action", "invalid_choice")])  # the staged lists' (CHG-101)
+    if action in ROLES_ONLY and not wtype.roles:
+        raise items.field_errors([("action", "invalid_choice")])  # REQ-REL-057
     clean = _check_changes(action, changes)
     ids = list(dict.fromkeys(record_ids))
     if not ids:
@@ -444,6 +458,19 @@ async def _apply(  # noqa: C901 - one case per bulk action, flat
             await items.remove(
                 session, subject, wtype, record_id, expected_version=version, source=source
             )
+        case BulkAction.ASSIGN_ROLE:
+            await items.set_role(
+                session,
+                subject,
+                wtype,
+                record_id,
+                str(changes["role"]),
+                user_ids=[uuid.UUID(str(u)) for u in changes.get("user_ids") or []],
+                group_ids=[uuid.UUID(str(g)) for g in changes.get("group_ids") or []],
+                expected_version=version,
+                source=source,
+                holders=holders,
+            )
         case BulkAction.CLOSE if wtype.stages is not None:
             await _close_staged(session, subject, wtype, record_id, version, changes, source)
         case BulkAction.RESOLVE | BulkAction.CLOSE as action:
@@ -477,7 +504,7 @@ async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's v
     changes: Mapping[str, Any],
     source: Source,
 ) -> None:
-    """Close a staged record (a change) by its own listed move that lands in closed (REQ-CHG-101).
+    """Close a staged record by its own listed move that lands in closed (REQ-CHG-101, REL-057).
 
     Its life cycle, closure rules and children decide, as for one change: the move the record
     page would offer, with the code; none from where it is is a skip that says so. A change
@@ -496,11 +523,14 @@ async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's v
         )
         return
     panel = await items.stage_panel(session, subject, wtype, record_id)
+    # Closed by the type's own model (a release and a change each), never one type's constant.
+    model = await stage_service.load_model(session, wtype, panel.record.lifecycle_version)
     closing_move = next(
         (
             m
             for m in panel.moves
-            if m.allowed and (m.lands_in or m.transition.to_status) == CLOSED_STATUS
+            if m.allowed
+            and model.status(m.lands_in or m.transition.to_status).category is StatusCategory.CLOSED
         ),
         None,
     )
@@ -524,6 +554,32 @@ async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's v
     )
 
 
+CANCEL_PERMISSION = "cancel"  # the lifecycle transitions' cancel right (domain models)
+
+
+def cancel_move(moves: Sequence[StageOffer], model: StageModel) -> StageOffer | None:
+    """The bulk cancel's move: the cancel transition, if it is offered at all.
+
+    When the type offers its cancel transition (permission "cancel") from here, only that move
+    counts: not allowed for you means a skip, never another move into canceled, such as a
+    release's rejection (lane A's #452 review). Only a type with no cancel transition from here
+    falls back to an allowed move into canceled. Never by the order the moves come in.
+    """
+    cancels = [m for m in moves if m.transition.permission == CANCEL_PERMISSION]
+    if cancels:
+        return next((m for m in cancels if m.allowed), None)
+    return next(
+        (
+            m
+            for m in moves
+            if m.allowed
+            and model.status(m.lands_in or m.transition.to_status).category
+            is StatusCategory.CANCELED
+        ),
+        None,
+    )
+
+
 async def _cancel_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's values, explicit
     session: AsyncSession,
     subject: Subject,
@@ -539,14 +595,13 @@ async def _cancel_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's 
     point a cancel is offered (implementation in progress or later) is a skip that says so.
     """
     panel = await items.stage_panel(session, subject, wtype, record_id)
-    cancel = next(
-        (
-            m
-            for m in panel.moves
-            if m.allowed and (m.lands_in or m.transition.to_status) == CANCELED_STATUS
-        ),
-        None,
-    )
+    # Canceled by the type's own model (lane A's #438 review), as the close does. A type may
+    # have more than one canceled status (a release's submission can also be REJECTED, which is
+    # canceled too): the bulk cancel is the cancel transition itself (permission "cancel"), and
+    # only a type without one falls back to any move into canceled. Never the order the moves
+    # come in (the flake lane B saw in a merge group: a rejection taken for the cancel).
+    model = await stage_service.load_model(session, wtype, panel.record.lifecycle_version)
+    cancel = cancel_move(panel.moves, model)
     if cancel is None:
         raise Conflict(code="not_cancelable_from_here")
     await items.move_status(

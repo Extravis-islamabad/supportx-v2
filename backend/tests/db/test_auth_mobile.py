@@ -208,3 +208,27 @@ async def test_an_unknown_platform_or_a_strange_version_never_reaches_the_list(b
     header = {SESSION_HEADER: exchanged.json()["session_id"]}
     (row,) = (await bff.client.get("/api/v1/auth/sessions", headers=header)).json()
     assert (row["client"], row["platform"], row["app_version"]) == ("mobile", "android", None)
+
+
+async def test_the_app_sign_in_needs_no_binding_cookie(bff: Bff) -> None:
+    """Audit row 4: the app's S256 challenge binds its sign-in; the system browser that finishes
+    it may not hold cookies from the start, so no binding cookie is set or needed."""
+    verifier = new_verifier()
+    start = await bff.client.get(
+        "/api/v1/auth/login", params={"mobile_challenge": challenge_for(verifier)}
+    )
+    assert "set-cookie" not in start.headers
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
+    bff.client.cookies.clear()
+    answer = await bff.client.get("/api/v1/auth/callback", params={"code": code, "state": state})
+    assert (await exchange(bff, handoff_of(answer), verifier)).status_code == 200
+
+
+async def test_an_app_callback_link_never_ends_a_browser_session(bff: Bff) -> None:
+    """An unbound app callback opened in someone's browser must not sign that browser out."""
+    await bff.login(bff.user("a", email="browser@demo.test", subject="sub-browser"))
+    browser_session = bff.cookie()
+    answer = await mobile_login(bff, bff.user("a", email="other@demo.test"), new_verifier())
+    assert answer.status_code == 302
+    assert bff.cookie() == browser_session
+    assert (await bff.me()).json()["user"]["email"] == "browser@demo.test"

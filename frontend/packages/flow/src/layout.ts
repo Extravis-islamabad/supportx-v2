@@ -131,3 +131,21 @@ function orderRows(
   }
   return new Map(sorted.map((row) => [row, byRow.get(row) ?? []]));
 }
+
+/**
+ * Where a new node goes near `at` without covering another: one row lower at a time until no
+ * node is within a node's width and a row's height (QA 2026-11-12 V-08: steps dropped onto
+ * Start and End until "Tidy layout"). Gives up after 50 rows: the canvas is then tidied by hand.
+ */
+export function freeSpot(
+  at: { x: number; y: number },
+  taken: readonly { x: number; y: number }[],
+): { x: number; y: number } {
+  const covers = (spot: { x: number; y: number }) =>
+    taken.some((p) => Math.abs(p.x - spot.x) < COLUMN - 20 && Math.abs(p.y - spot.y) < ROW - 20);
+  let spot = at;
+  for (let rows = 0; rows < 50 && covers(spot); rows += 1) {
+    spot = { x: spot.x, y: spot.y + ROW };
+  }
+  return spot;
+}

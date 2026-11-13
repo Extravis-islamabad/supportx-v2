@@ -307,6 +307,9 @@ async def test_a_manual_asset_waits_at_most_about_one_transaction_of_a_running_i
     """The tag counter and the limit's lock are held until commit: the time bound keeps it short."""
     a = world.a
     monkeypatch.setattr(imports, "BATCH", 100_000)  # only the time bound ends a transaction
+    # A quarter of the real bound: with a batch's rows written together (step B), 600 rows fit
+    # in one 2 s transaction, and the manual add must arrive while the import still runs.
+    monkeypatch.setattr(imports, "BATCH_SECONDS", 0.5)
     tag = uuid.uuid4().hex[:6]
     product = f"S4c lock laptop {tag}"
     product_id = await _product(world, a, "laptop", product)
@@ -502,3 +505,98 @@ async def test_a_slot_freed_by_an_earlier_row_lets_a_later_new_asset_in(world: W
     assert (_counts(checked), checked["problems"]) == ((3, 1, 1), refused)
     assert (_counts(done), done["problems"]) == ((3, 1, 1), refused)
     assert (await _fresh(world, a, moved))["product_id"] != moved["product_id"]
+
+
+# --- 5: taken tags and serial numbers, checked once per batch (S4c follow-up, step A) ----------
+
+
+async def test_a_batch_refuses_taken_serials_and_tags_as_the_row_path_did(world: World) -> None:
+    """One query per batch finds the tags and serials already taken (trash included); a serial
+    an earlier row of the same batch just took is refused too, with the same problem."""
+    a = world.a
+    tag = uuid.uuid4().hex[:6]
+    product = f"S4c unique laptop {tag}"
+    await _product(world, a, "laptop", product)
+    product_id = (
+        await world.sql(
+            "SELECT id FROM asset_products WHERE tenant_id = $1 AND name = $2", a.tenant, product
+        )
+    )[0]["id"]
+    held = await _add(
+        world,
+        a,
+        {"name": "Holder", "product_id": str(product_id), "serial_number": f"U-{tag}-OLD"},
+    )
+    assert held.status_code == 201, held.text
+    trashed = await _add(
+        world, a, {"name": "Trashed", "product_id": str(product_id), "tag": f"UT-{tag}"}
+    )
+    assert trashed.status_code == 201, trashed.text
+    await world.sql(
+        "UPDATE assets SET deleted_at = now() WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(trashed.json()["id"]),
+    )
+    lines = [
+        "Name,Product,Serial number,Tag",
+        f"First,{product},U-{tag}-NEW,",
+        f"Second,{product},U-{tag}-NEW,",  # the serial the first row just took
+        f"Third,{product},u-{tag}-old,",  # held by an existing asset, any case
+        f"Fourth,{product},U-{tag}-4,ut-{tag}",  # a tag held by an asset in the trash
+        f"Fifth,{product},U-{tag}-5,",
+    ]
+    content = ("\n".join(lines) + "\n").encode()
+    # Add only, matched on tag: every row is a create, so every check is the create's.
+    checked = await _checked(world, a, content, mode="add", match_on="tag")
+    done = await _run_for_real(world, a, checked, a.admin)
+    assert _counts(done) == (2, 0, 3)
+    assert [(p["row"], p["field"], p["code"]) for p in done["problems"]] == [
+        (3, "serial_number", "asset_serial_number_taken"),
+        (4, "serial_number", "asset_serial_number_taken"),
+        (5, "tag", "asset_tag_taken"),
+    ]
+    saved = await world.sql(
+        "SELECT name FROM assets WHERE tenant_id = $1 AND serial_number LIKE $2 ORDER BY name",
+        a.tenant,
+        f"U-{tag}-%",
+    )
+    assert [r["name"] for r in saved] == ["Fifth", "First", "Holder"]
+
+
+async def test_tag_blocks_hand_back_what_a_batch_cut_short_did_not_use(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A batch reserves its tag numbers as one block (S4c follow-up, step A). When the time
+    bound ends it after one row, the rest of the block goes back: one number per saved asset,
+    consecutive, and a manual asset afterwards gets the next one."""
+    a = world.a
+    monkeypatch.setattr(imports, "BATCH_SECONDS", 0.0)  # each transaction applies one row
+    tag = uuid.uuid4().hex[:6]
+    product = f"S4c block laptop {tag}"
+    await _product(world, a, "laptop", product)
+    rows = 12
+    lines = ["Name,Product,Serial number"]
+    lines += [f"Block {n},{product},S4C-K-{tag}-{n:03d}" for n in range(1, rows + 1)]
+    content = ("\n".join(lines) + "\n").encode()
+    before = await _tag_numbers(world, a)
+    checked = await _checked(world, a, content)
+    assert await _tag_numbers(world, a) == before  # the dry run took none
+    done = await _run_for_real(world, a, checked, a.admin)
+    assert _counts(done) == (rows, 0, 0)
+    assert await _tag_numbers(world, a) == before + rows  # no gap
+    product_id = (
+        await world.sql(
+            "SELECT id FROM asset_products WHERE tenant_id = $1 AND name = $2", a.tenant, product
+        )
+    )[0]["id"]
+    manual = await _add(world, a, {"name": "After", "product_id": str(product_id)})
+    assert manual.status_code == 201, manual.text
+    assert await _tag_numbers(world, a) == before + rows + 1
+    tags = await world.sql(
+        "SELECT tag FROM assets WHERE tenant_id = $1 AND (serial_number LIKE $2 OR id = $3)",
+        a.tenant,
+        f"S4C-K-{tag}-%",
+        uuid.UUID(manual.json()["id"]),
+    )
+    numbers = sorted(int(t["tag"].rsplit("-", 1)[-1]) for t in tags)
+    assert numbers == list(range(numbers[0], numbers[0] + rows + 1))  # consecutive

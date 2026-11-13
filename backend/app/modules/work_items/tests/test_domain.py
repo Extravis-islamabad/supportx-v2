@@ -53,6 +53,8 @@ from app.modules.work_items.domain.types import (
     parse_display_id,
 )
 from app.modules.work_items.service.change_windows import FIELD_PROBLEMS as WINDOW_PROBLEMS
+from app.modules.work_items.service.text_templates import FIELD_PROBLEMS as TEMPLATE_PROBLEMS
+from app.modules.work_items.service.work_items import RELEASE_DEPLOYED_STAGES
 from app.shared.domain import InvalidTransition
 
 S = DefaultStatus
@@ -294,6 +296,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     }
     found -= {s.code for s in RELEASE_MODEL.statuses}  # releases' seeded moves (from, to)
     found -= {s.code for s in CHANGE_MODEL.statuses}  # changes' seeded moves (WP-045a)
+    found -= set(RELEASE_DEPLOYED_STAGES)  # the stages a "deployed" release is in (WP-058b S5a)
     # A release's own field names: (start, end) pairs and (name, limit) checks, not problems.
     found -= set(DETAIL_FIELDS) | {"change_reason", "risk_chosen"}  # change field-name pairs too
     found -= {"stage_rules"}  # a template's stage settings, ("stage_path", "stage_rules")
@@ -303,8 +306,8 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     found -= {"category_site", "dismissed", "status_category"}
     # WP-045b: a board mapping's (key, unit kind) pairs and the change-only settings' names.
     found -= {"template", "cab_every_match"}
-    # The boards' and the change windows' codes are labelled from their own sets.
-    known = FIELD_PROBLEMS | BOARD_PROBLEMS | WINDOW_PROBLEMS
+    # The boards', the change windows' and the text templates' codes come from their own sets.
+    known = FIELD_PROBLEMS | BOARD_PROBLEMS | WINDOW_PROBLEMS | TEMPLATE_PROBLEMS
     assert found <= known, sorted(found - known)
 
 

@@ -352,6 +352,7 @@ export const ar: LabelResource = {
   'mailbox_protocol.gmail': 'Gmail',
   'mailbox_protocol.graph': 'Microsoft 365',
   'mailbox_protocol.imap': 'IMAP',
+  'mailbox_reason.address_not_allowed': 'لا يمكن استخدام عنوان خادم البريد',
   'mailbox_reason.imap_fetch_failed': 'لم يسلّم خادم البريد رسالة',
   'mailbox_reason.imap_login_failed': 'رفض خادم البريد اسم المستخدم أو كلمة المرور',
   'mailbox_reason.imap_mark_failed': 'لم يعلّم خادم البريد رسالة كمقروءة',
@@ -382,6 +383,7 @@ export const ar: LabelResource = {
   'mailbox_reason.oauth_not_connected': 'لم يسجّل أحد الدخول بحساب صندوق البريد هذا بعد',
   'mailbox_reason.oauth_unreachable': 'تعذّر الوصول إلى Microsoft أو Google',
   'mailbox_reason.oauth_wrong_account': 'تم تسجيل الدخول بحساب غير حساب صندوق البريد نفسه',
+  'mailbox_reason.port_not_allowed': 'لا يمكن استخدام منفذ خادم البريد',
   'mailbox_reason.secret_store_fallback':
     'تعذّرت قراءة مخزن الأسرار، لذا يستخدم صندوق البريد نسخته السابقة من بيانات الاعتماد. احفظ بيانات الاعتماد مرة أخرى لإصلاح ذلك.',
   'mailbox_security.none': 'بدون تشفير',

@@ -60,6 +60,7 @@ export const ur: LabelResource = {
   'appearance.theme.light': 'ہلکا',
   'appearance.theme.system': 'سسٹم کے مطابق',
   'appearance.title': 'ظاہری شکل',
+  'board.move_to': 'منتقل کریں…',
   'check_status.failed': 'ناکام',
   'check_status.not_configured': 'ترتیب نہیں دیا گیا',
   'check_status.ok': 'ٹھیک ہے',
@@ -431,7 +432,7 @@ export const ur: LabelResource = {
   'richtext.table': 'جدول شامل کریں',
   'richtext.templates': 'سانچے',
   'richtext.templates_manage': 'سانچوں کا انتظام…',
-  'richtext.templates_none': 'ابھی کوئی جواب کا سانچہ نہیں',
+  'richtext.templates_none': 'ابھی کوئی سانچہ نہیں',
   'richtext.text_colour': 'متن کا رنگ',
   'richtext.text_style': 'متن کا انداز',
   'richtext.toolbar': 'فارمیٹنگ',
@@ -519,6 +520,15 @@ export const ur: LabelResource = {
     'کام کے ذمہ دار ریلیز تک رسائی کے بغیر اپنے کام پر کام کریں',
   'settings.closing.release.task_owner_access_help':
     'وہ اپنا کام اور ریلیز کی شناخت اور موضوع دیکھتے ہیں اور کام کی حالت بدل سکتے ہیں؛ نوٹس یا منصوبے کبھی نہیں۔',
+  'settings.closing.release.timer_auto_start': 'جب کوئی اپنی ریلیز کھولے تو ٹائمر شروع کریں',
+  'settings.closing.release.timer_auto_start_help':
+    'ہر ریلیز پر ایک بار، اس کے مالک کے لیے۔ پہلے سے بند: جس ٹائمر پر کسی کی نظر نہ ہو وہ غلط وقت درج کرتا ہے۔',
+  'settings.closing.release.worklog_block_closed': 'بند ریلیزوں پر وقت نہیں',
+  'settings.closing.release.worklog_block_closed_help':
+    'ریلیز بند ہونے کے بعد کوئی اس کا وقت درج، تبدیل یا ختم نہیں کر سکتا۔',
+  'settings.closing.release.worklog_count_nonworking': 'کام کے اوقات سے باہر کا وقت شمار کریں',
+  'settings.closing.release.worklog_count_nonworking_help':
+    'ریلیز پر کام کے اوقات سے باہر درج وقت مجموعوں اور رپورٹوں میں شمار ہوتا ہے۔ بند ہو تو صرف کام کے اوقات شمار ہوتے ہیں۔',
   'settings.closing.reopen_window_days': 'دوبارہ کھولنے کی مدت (دن)',
   'settings.closing.reopen_window_help':
     'حل کے بعد اتنے دنوں میں درخواست گزار کا جواب واقعہ دوبارہ کھولتا ہے؛ بعد کا جواب نیا واقعہ شروع کرتا ہے۔ 1 سے 30 تک۔',
@@ -531,7 +541,16 @@ export const ur: LabelResource = {
     'کام کے ذمہ دار واقعے تک رسائی کے بغیر اپنے کام پر کام کریں',
   'settings.closing.task_owner_access_help':
     'وہ اپنا کام اور واقعے کی شناخت اور موضوع دیکھتے ہیں اور کام کی حالت بدل سکتے ہیں؛ گفتگو یا نوٹس کبھی نہیں۔',
+  'settings.closing.timer_auto_start': 'ٹیکنیشن کے اپنا واقعہ کھولنے پر ٹائمر شروع کریں',
+  'settings.closing.timer_auto_start_help':
+    'ہر واقعے پر ایک بار، اسی شخص کے لیے جسے یہ تفویض ہو۔ پہلے سے بند: جس ٹائمر پر کسی کی نظر نہ ہو وہ غلط وقت درج کرتا ہے۔',
   'settings.closing.title': 'حل اور بندش',
+  'settings.closing.worklog_block_closed': 'بند واقعات پر وقت نہیں',
+  'settings.closing.worklog_block_closed_help':
+    'واقعہ بند ہونے کے بعد کوئی اس کا وقت درج، تبدیل یا ختم نہیں کر سکتا۔',
+  'settings.closing.worklog_count_nonworking': 'کام کے اوقات سے باہر کا وقت شمار کریں',
+  'settings.closing.worklog_count_nonworking_help':
+    'کام کے اوقات سے باہر درج وقت مجموعوں اور رپورٹوں میں شمار ہوتا ہے۔ بند ہو تو صرف کام کے اوقات شمار ہوتے ہیں۔',
   'settings.closure_codes_help':
     'واقعہ کیسے ختم ہوا۔ بند کرتے وقت منتخب کیا جاتا ہے؛ رپورٹس اسی کے مطابق گروپ ہوتی ہیں۔',
   'settings.colour': 'رنگ',
@@ -562,6 +581,37 @@ export const ur: LabelResource = {
   'settings.leave_title': 'محفوظ کیے بغیر چھوڑیں؟',
   'settings.levels_help':
     'وہ سپورٹ سطح جس پر واقعہ نمٹایا جاتا ہے۔ ویوز، قواعد اور رپورٹس میں استعمال ہوتی ہے۔',
+  'settings.lifecycle.add_move': 'منتقلی شامل کریں',
+  'settings.lifecycle.discard': 'مسودہ ختم کریں',
+  'settings.lifecycle.discard_body':
+    'مسودہ اور اس کی منتقلیاں ہٹا دی جائیں گی۔ کوئی ریکارڈ اسے استعمال نہیں کرتا۔',
+  'settings.lifecycle.discard_title': 'ورژن {{number}} کا مسودہ ختم کریں؟',
+  'settings.lifecycle.draft_help':
+    'منتقلیاں بدلیں، مسودہ محفوظ کریں، اور جب کچھ ٹھیک کرنا باقی نہ رہے تو شائع کریں۔',
+  'settings.lifecycle.draft_title': 'ورژن {{number}} کا مسودہ',
+  'settings.lifecycle.extra_right': 'اضافی اختیار درکار',
+  'settings.lifecycle.moves': 'منتقلیاں',
+  'settings.lifecycle.new_records_start_here': 'نئے ریکارڈ یہاں سے شروع ہوتے ہیں',
+  'settings.lifecycle.no_extra_right': 'کوئی نہیں',
+  'settings.lifecycle.problems_title_one': 'شائع کرنے سے پہلے {{count}} مسئلہ ٹھیک کرنا ہے',
+  'settings.lifecycle.problems_title_other': 'شائع کرنے سے پہلے {{count}} مسائل ٹھیک کرنے ہیں',
+  'settings.lifecycle.publish': 'شائع کریں',
+  'settings.lifecycle.publish_body':
+    'نئے ریکارڈ اس ورژن پر شروع ہوں گے۔ موجودہ ریکارڈ اسی ورژن پر رہیں گے جس پر وہ شروع ہوئے تھے اور اس کی منتقلیاں رکھیں گے۔',
+  'settings.lifecycle.publish_title': 'ورژن {{number}} شائع کریں؟',
+  'settings.lifecycle.published_at': 'شائع ہوا',
+  'settings.lifecycle.remove_move': '{{status}} سے {{action}} ہٹائیں',
+  'settings.lifecycle.required_fields': 'پہلے درکار فیلڈز',
+  'settings.lifecycle.retire': 'ریٹائر کریں',
+  'settings.lifecycle.save_draft': 'مسودہ محفوظ کریں',
+  'settings.lifecycle.start_draft': 'نیا ورژن شروع کریں',
+  'settings.lifecycle.state': 'حالت',
+  'settings.lifecycle.unsaved': 'مسودے میں آپ کی غیر محفوظ تبدیلیاں ہیں۔',
+  'settings.lifecycle.version': 'ورژن',
+  'settings.lifecycle.version_number': 'ورژن {{number}}',
+  'settings.lifecycle.versions': 'لائف سائیکل کے ورژن',
+  'settings.lifecycle.versions_help':
+    'ہر ورژن حالت کی منتقلیوں کا ایک مجموعہ ہے۔ نئے ریکارڈ نیچے نشان زدہ ورژن پر شروع ہوتے ہیں اور اسی پر رہتے ہیں؛ شائع شدہ ورژن کبھی نہیں بدلتا۔ کون منتقلی چلا سکتا ہے اور یہ کب پیش کی جاتی ہے، یہ آٹومیشن میں طے ہوتا ہے اور تمام ورژنز پر ایک ساتھ لاگو ہوتا ہے۔',
   'settings.load_failed':
     'واقعات کی ترتیبات لوڈ نہیں ہو سکیں۔ دوبارہ کوشش کے لیے صفحہ ری لوڈ کریں۔',
   'settings.matrix': 'ترجیحی میٹرکس',
@@ -607,6 +657,9 @@ export const ur: LabelResource = {
     'منتخب کریں کہ ہر تبدیلی وجہ پوچھے یا نہیں۔ روکنا، منسوخ کرنا اور دوبارہ کھولنا وجوہات کی فہرستوں سے انتخاب کرتے ہیں۔',
   'settings.release_closure_codes_help':
     'ریلیز کیسے ختم ہوئی۔ ریلیز بند کرتے وقت چنا جاتا ہے؛ رپورٹس اسی کے مطابق گروپ ہوتی ہیں۔',
+  'settings.release_roles.take_help':
+    'ریلیز لینے سے آپ اس پر یہ کردار بن جاتے ہیں، اگر ابھی کسی کے پاس نہ ہو۔ ہر کردار کون رکھ سکتا ہے یہ اس کردار کے اپنے قواعد پر ہے۔',
+  'settings.release_roles.take_title': 'لینے سے آپ کیا بنتے ہیں',
   'settings.rename': 'نام بدلیں',
   'settings.rename_value': '"{{name}}" کا نام بدلیں',
   'settings.resume_on_requester_reply': 'درخواست گزار کا جواب اسے دوبارہ شروع کرتا ہے',
@@ -637,9 +690,12 @@ export const ur: LabelResource = {
   'settings.section.custom-fields': 'اپنی مرضی کے خانے',
   'settings.section.general': 'عمومی',
   'settings.section.levels': 'سطحیں',
+  'settings.section.lifecycle': 'لائف سائیکل',
   'settings.section.priority': 'ترجیح',
   'settings.section.reasons': 'وجوہات',
   'settings.section.reply-templates': 'جوابی سانچے',
+  'settings.section.resolution-templates': 'حل کے سانچے',
+  'settings.section.roles': 'کردار',
   'settings.section.routing': 'روٹنگ اور تفویض',
   'settings.section.stages': 'مراحل',
   'settings.section.statuses': 'حالتیں',

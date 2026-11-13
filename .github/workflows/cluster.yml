@@ -200,7 +200,7 @@ jobs:
     # core profile and e2e, not the HA cluster.
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -239,15 +239,36 @@ jobs:
       - name: Build, import and install the HA profile; helm test
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make deploy-ha
+      # The preflight again, now with the release in: NATS and PostgreSQL on distinct nodes and the
+      # single-copy workers' fast eviction (the bundled SeaweedFS is only an advisory warning).
+      - name: HA preflight on the installed release (strict)
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-preflight
       - name: Egress allow-list (values-ha-ci turns it on) keeps the outside out
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-egress
       - name: Valkey failover keeps a signed-in session (no split brain)
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-smoke
+      # After ha-smoke's failover: the node with the (promoted) Valkey master is stopped; Sentinel
+      # promotes again within 60 s and the session keeps writing; the node returns as a replica.
+      # It leaves the cluster settled (Sentinel, database, DNS) for the node-loss test below.
+      - name: Losing the node with the Valkey master (after a failover) keeps a signed-in session writing
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-valkey-node-loss
+      # The worst case on purpose (Cluster run 43148329223): the stopped node holds the Valkey
+      # master and a CoreDNS copy, placed so by the test itself, never by chance.
+      - name: Losing the node with the Valkey master and a CoreDNS copy keeps a signed-in session writing
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-valkey-node-loss-dns
       - name: Losing the node with PostgreSQL's primary keeps a signed-in session writing
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-node-loss
+      # k3s re-applies its packaged coredns.yaml at every start: prove it keeps the two copies and
+      # the anti-affinity deploy/k3s/cluster-dns-ha.sh gave it (fails if k3s reset them).
+      - name: Cluster DNS keeps two copies on two nodes through a k3s server restart
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-dns-restart
       - name: Restore drill (a backup restored to a chosen moment)
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-restore
@@ -256,15 +277,29 @@ jobs:
         run: |
           kubectl get pods -A -o wide || true
           kubectl -n supportx describe pods | tail -n 200 || true
+          echo "== cluster DNS"; kubectl -n kube-system get pods -o wide -l k8s-app=kube-dns || true
+          # Each sentinel's view. The password stays in the pod (REDISCLI_AUTH from its own env).
+          for pod in supportx-valkey-0 supportx-valkey-1 supportx-valkey-2; do
+            for q in master replicas; do
+              echo "== $pod: SENTINEL $q supportx"
+              # shellcheck disable=SC2016 # expanded inside the container
+              kubectl -n supportx exec --request-timeout=15s "$pod" -c sentinel -- sh -c \
+                'REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -p 26379 --no-auth-warning SENTINEL "$0" supportx' "$q" \
+                | paste -sd' ' | sed 's/ name /\nname /g' || true
+            done
+          done
           for pod in supportx-valkey-0 supportx-valkey-1 supportx-valkey-2; do
             for c in valkey sentinel; do
-              echo "== $pod/$c"; kubectl -n supportx logs "$pod" -c "$c" --tail=60 || true
+              echo "== $pod/$c"; kubectl -n supportx logs "$pod" -c "$c" --since=15m || true
             done
           done
           for d in api centrifugo keycloak; do
             echo "== $d"; kubectl -n supportx logs "deploy/supportx-$d" --all-containers --tail=80 || true
           done
           echo "== migrate"; kubectl -n supportx logs -l app.kubernetes.io/component=migrate --tail=150 --prefix || true
+          # The single-copy fan-out, every pod of it: after a node loss the new copy's start-up is
+          # what the node-loss test waits for (it provisions JetStream through a live server).
+          echo "== fanout"; kubectl -n supportx logs -l app.kubernetes.io/component=fanout --all-containers --tail=80 --prefix || true
           echo "== database"; kubectl -n supportx get clusters.postgresql.cnpg.io -o wide || true
           kubectl -n supportx describe clusters.postgresql.cnpg.io | tail -n 60 || true
           kubectl -n supportx get events --sort-by=.lastTimestamp | tail -n 50 || true
