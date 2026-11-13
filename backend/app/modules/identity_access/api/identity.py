@@ -25,6 +25,7 @@ from sqlalchemy import select
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import NotFound, ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.api.sessions import ListedSessionOut, listed_out
 from app.modules.identity_access.domain import sso as sso_rules
@@ -184,7 +185,7 @@ async def get_settings(
     return _out(await identity_settings.get_identity_settings(session), request)
 
 
-@router.put("/settings", summary="Save sign-in settings")
+@router.put("/settings", summary="Save sign-in settings", dependencies=[RecentAuth])
 async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, request, response, session, subject, audit note
     body: IdentitySettingsBody,
     version: ExpectedVersion,
@@ -408,7 +409,7 @@ async def get_sso_policy(
     return await _policy_out(session, policy)
 
 
-@router.put("/sso-policy", summary="Save the single sign-on policy")
+@router.put("/sso-policy", summary="Save the single sign-on policy", dependencies=[RecentAuth])
 async def put_sso_policy(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     body: SsoPolicyBody,
     version: ExpectedVersion,
@@ -459,7 +460,11 @@ class BreakGlassOut(BaseModel):
     version: int
 
 
-@router.put("/break-glass/{user_id}", summary="Mark or unmark a break-glass admin")
+@router.put(
+    "/break-glass/{user_id}",
+    summary="Mark or unmark a break-glass admin",
+    dependencies=[RecentAuth],
+)
 async def put_break_glass(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     user_id: uuid.UUID,
     body: BreakGlassBody,
@@ -535,7 +540,7 @@ async def get_network_rules(
     return _rules_out(rules, request)
 
 
-@router.put("/network-rules", summary="Save the IP allow-lists")
+@router.put("/network-rules", summary="Save the IP allow-lists", dependencies=[RecentAuth])
 async def put_network_rules(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, request, response, session, subject, audit note
     body: NetworkRulesBody,
     version: ExpectedVersion,
@@ -570,7 +575,11 @@ async def put_network_rules(  # noqa: PLR0913, PLR0917 - FastAPI parameters: bod
     return _rules_out(saved, request)
 
 
-@router.post("/settings/password-policy/apply", summary="Apply the password policy again")
+@router.post(
+    "/settings/password-policy/apply",
+    summary="Apply the password policy again",
+    dependencies=[RecentAuth],
+)
 async def apply_password_policy(
     request: Request,
     session: TenantSession,
@@ -735,6 +744,7 @@ async def list_sso(request: Request, session: TenantSession, subject: Manage) ->
     status_code=status.HTTP_201_CREATED,
     response_model=SsoOut,
     responses={201: {"model": SsoOut, "description": "Created in draft (or replayed)."}},
+    dependencies=[RecentAuth],
 )
 async def create_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     body: SsoBody,
@@ -785,7 +795,10 @@ async def get_sso(
 @router.put(
     "/sso/{provider_id}",
     summary="Change a single sign-on set-up",
-    dependencies=[audited("sso.updated", object_type="sso_provider", object_param="provider_id")],
+    dependencies=[
+        RecentAuth,
+        audited("sso.updated", object_type="sso_provider", object_param="provider_id"),
+    ],
 )
 async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     provider_id: uuid.UUID,
@@ -818,7 +831,8 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     "/sso/{provider_id}/switch-on",
     summary="Switch a single sign-on set-up on",
     dependencies=[
-        audited("sso.switched_on", object_type="sso_provider", object_param="provider_id")
+        RecentAuth,
+        audited("sso.switched_on", object_type="sso_provider", object_param="provider_id"),
     ],
 )
 async def switch_on(  # noqa: PLR0913, PLR0917 - FastAPI parameters
@@ -841,7 +855,8 @@ async def switch_on(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     "/sso/{provider_id}/switch-off",
     summary="Switch a single sign-on set-up off",
     dependencies=[
-        audited("sso.switched_off", object_type="sso_provider", object_param="provider_id")
+        RecentAuth,
+        audited("sso.switched_off", object_type="sso_provider", object_param="provider_id"),
     ],
 )
 async def switch_off(  # noqa: PLR0913, PLR0917 - FastAPI parameters
@@ -866,7 +881,10 @@ async def switch_off(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     "/sso/{provider_id}",
     summary="Remove a single sign-on set-up",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[audited("sso.removed", object_type="sso_provider", object_param="provider_id")],
+    dependencies=[
+        RecentAuth,
+        audited("sso.removed", object_type="sso_provider", object_param="provider_id"),
+    ],
 )
 async def remove_sso(
     provider_id: uuid.UUID,
@@ -1114,7 +1132,9 @@ async def person_sessions(
 ) -> list[ListedSessionOut]:
     """Every session the person has open in this organisation, most recently used first."""
     auth = await _person_auth(request, session, user_id)
-    return listed_out(await auth.listed_sessions(subject.tenant_id, user_id))
+    # Where each session signed in: tenant admins only (lane B's WP-057 S2a condition).
+    rows = await auth.listed_sessions(subject.tenant_id, user_id)
+    return listed_out(rows, show_where=subject.is_tenant_admin)
 
 
 @router.delete(
@@ -1180,7 +1200,7 @@ async def get_mfa_policy(session: TenantSession, subject: Manage) -> MfaPolicyOu
     return MfaPolicyOut(grace_days=await mfa.grace_days(session), roles=roles)
 
 
-@router.put("/mfa/roles/{role_id}", summary="Set a role's MFA mode")
+@router.put("/mfa/roles/{role_id}", summary="Set a role's MFA mode", dependencies=[RecentAuth])
 async def put_mfa_role(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     role_id: uuid.UUID,
     body: MfaRoleIn,
@@ -1204,7 +1224,10 @@ async def put_mfa_role(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     "/people/{user_id}/reset-mfa",
     summary="Reset a person's MFA",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[audited("user.mfa_reset", object_type="user", object_param="user_id")],
+    dependencies=[
+        RecentAuth,
+        audited("user.mfa_reset", object_type="user", object_param="user_id"),
+    ],
 )
 async def reset_mfa(
     user_id: uuid.UUID,

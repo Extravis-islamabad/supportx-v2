@@ -87,6 +87,8 @@ class FakeIdp:
             "name": user.name,
             "locale": user.locale,
             "sid": "kc-session-" + user.subject,
+            # Keycloak always sends when the person last authenticated (WP-057 S2a).
+            "auth_time": now,
             "supportx_roles": list(user.roles),
             "supportx_organizations": {
                 alias: {"tenant_id": [str(tenant)], "id": str(uuid.uuid4())}

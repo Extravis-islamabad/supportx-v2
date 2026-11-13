@@ -291,3 +291,20 @@ ignore_imports = [
     "app.modules.licensing -> app.modules.licensing.infra.**",
     "app.modules.licensing.** -> app.modules.licensing.infra.**",
 ]
+
+[[tool.importlinter.contracts]]
+# ADR-050 (lane B): crypto stays a leaf, the codec and the key-provider shape only. It never
+# reaches the files key ring or field encryption (files already imports crypto: no cycle).
+name = "app.shared.crypto imports neither files nor fields"
+type = "forbidden"
+source_modules = ["app.shared.crypto"]
+forbidden_modules = ["app.shared.files", "app.shared.fields"]
+
+[[tool.importlinter.contracts]]
+# ADR-050 item 4: modules seal and open values through app.shared.fields' package root only;
+# its cipher and purpose registry (and with them the data keys) are not theirs to call.
+name = "Modules use field encryption only through app.shared.fields"
+type = "forbidden"
+source_modules = ["app.modules"]
+forbidden_modules = ["app.shared.fields.cipher", "app.shared.fields.purposes"]
+allow_indirect_imports = true

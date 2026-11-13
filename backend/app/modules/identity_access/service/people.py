@@ -291,6 +291,16 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
     return person
 
 
+async def changes_email(session: AsyncSession, user_id: uuid.UUID, email: object) -> bool:
+    """Whether `email` would change the person's sign-in address (REQ-SEC-027).
+
+    The route then asks for a recent confirmation: the address is where password resets go.
+    Compared as it would be stored (trimmed), so a case-only change still asks.
+    """
+    current = await _person(session, user_id)
+    return clean_text(email) != current.email
+
+
 async def update_person(
     session: AsyncSession,
     user_id: uuid.UUID,

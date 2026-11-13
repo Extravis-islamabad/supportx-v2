@@ -200,6 +200,7 @@ export const ar: LabelResource = {
   'audit.action.domain.verified': 'تحقق من نطاق مخصص',
   'audit.action.file.archive_downloaded': 'نزّل ملفات بصيغة zip',
   'audit.action.file.blocked': 'حظر ملفًا يحتوي على برنامج ضار',
+  'audit.action.file.copied': 'نسخ ملفًا إلى سجل منسوخ',
   'audit.action.file.deleted': 'حذف ملفًا',
   'audit.action.file.downloaded': 'فتح ملفًا من ملاحظة خاصة',
   'audit.action.file.purged': 'أزال ملفات نهائيًا',
@@ -429,7 +430,10 @@ export const ar: LabelResource = {
   'audit.action.service_request.updated': 'عدّل طلب خدمة',
   'audit.action.service_request.withdrawn': 'سحب طلب خدمة بانتظار الموافقة',
   'audit.action.session.break_glass_sign_in': 'سجّل الدخول بحساب طوارئ',
+  'audit.action.session.confirmed': 'أكّد هويته مجددًا',
   'audit.action.session.ended': 'أنهى جلسة تسجيل دخول',
+  'audit.action.session.ended_others': 'سجّل الخروج من كل مكان آخر',
+  'audit.action.session.keycloak_ended': 'أنهى جلسة خدمة تسجيل الدخول المتبقية بعد تسجيل الخروج',
   'audit.action.session.quick_sign_in': 'سجّل الدخول عبر تسجيل الدخول السريع للتطوير',
   'audit.action.session.signed_in': 'سجّل الدخول',
   'audit.action.session.signed_out': 'سجّل الخروج',
@@ -495,6 +499,10 @@ export const ar: LabelResource = {
   'audit.decision.release.approval_decided.rejected': 'رفض إصدارًا',
   'audit.decision.service_request.approval_decided.approved': 'وافق على طلب خدمة',
   'audit.decision.service_request.approval_decided.rejected': 'رفض طلب خدمة',
+  'audit.decision.session.keycloak_ended.ended':
+    'أنهى جلسة خدمة تسجيل الدخول المتبقية بعد تسجيل الخروج',
+  'audit.decision.session.keycloak_ended.not_ended':
+    'تعذّر إنهاء جلسة خدمة تسجيل الدخول المتبقية بعد تسجيل الخروج',
   'audit.detail.entries_checked': 'الإدخالات المفحوصة: {{value}}',
   'audit.detail.first_broken_seq': 'أول موضع مكسور: {{value}}',
   'audit.detail.personal_rows_removed': 'السجلات الشخصية المحذوفة: {{value}}',
@@ -954,6 +962,8 @@ export const ar: LabelResource = {
   'event_type.identity_access.group_role.changed': 'تغيّرت أدوار المجموعة',
   'event_type.identity_access.identity_settings.changed': 'تغيّرت إعدادات تسجيل الدخول',
   'event_type.identity_access.invitation.changed': 'تغيّرت دعوة',
+  'event_type.identity_access.keycloak_session.end_pending':
+    'جلسة خدمة تسجيل الدخول بانتظار الإنهاء',
   'event_type.identity_access.mfa.changed': 'تغيّر تسجيل الدخول بخطوتين',
   'event_type.identity_access.password_policy.changed': 'تغيّرت سياسة كلمات المرور',
   'event_type.identity_access.people_import.progressed': 'تقدّم استيراد الأشخاص',

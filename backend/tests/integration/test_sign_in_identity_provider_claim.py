@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 import httpx
 import pytest
 
+from app.modules.identity_access.domain import sso
 from tests.integration.keycloak_browser import KeycloakBrowser
 from tests.integration.keycloak_container import CONSOLE_ORIGIN, PORTAL_ORIGIN, PrivateKeycloak
 
@@ -224,18 +225,15 @@ def broker(private_keycloak: PrivateKeycloak) -> Iterator[tuple[str, str]]:
                     "providerId": "oidc",
                     "enabled": True,
                     "trustEmail": True,
+                    # SupportX's own broker settings (domain/sso.py), from the provider's real
+                    # discovery document: what a tenant's set-up writes, passMaxAge included.
                     "config": {
-                        "issuer": issuer,
-                        "authorizationUrl": f"{issuer}/protocol/openid-connect/auth",
-                        "tokenUrl": f"{issuer}/protocol/openid-connect/token",
-                        "jwksUrl": f"{issuer}/protocol/openid-connect/certs",
-                        "useJwksUrl": "true",
-                        "validateSignature": "true",
-                        "clientId": "supportx-broker",
+                        **sso.oidc_config(
+                            httpx.get(f"{issuer}/.well-known/openid-configuration").json(),
+                            client_id="supportx-broker",
+                            scopes="openid email profile",
+                        ),
                         "clientSecret": secret,
-                        "clientAuthMethod": "client_secret_post",
-                        "defaultScope": "openid email profile",
-                        "syncMode": "IMPORT",
                     },
                 },
             )
@@ -303,3 +301,50 @@ def test_a_brokered_sign_in_carries_the_providers_alias(
     tokens = _browser_tokens(private_keycloak, username=email, password=PASSWORD, hint=alias)
     assert _claims(tokens["access_token"])[CLAIM] == alias
     assert _claims(tokens["id_token"])[CLAIM] == alias
+
+
+def test_a_confirmation_reaches_the_brokered_provider(
+    private_keycloak: PrivateKeycloak, broker: tuple[str, str]
+) -> None:
+    """WP-057 S2a, lane B A4: prompt=login and max_age=0 make the provider ask again.
+
+    The person is already signed in at the provider (its own session). A confirmation through
+    Keycloak must not be answered from that session: the provider's sign-in form appears again,
+    and only then does the browser come back. Otherwise SupportX would mark someone as confirmed
+    who never proved anything at their provider.
+    """
+    alias, email = broker
+    back_to = f"{CONSOLE_ORIGIN}/api/v1/auth/callback"
+
+    def authorize(**extra: str) -> str:
+        _verifier, challenge = _pkce()
+        query = {
+            "client_id": "supportx-console", "response_type": "code", "scope": "openid",
+            "redirect_uri": back_to, "state": secrets.token_urlsafe(8),
+            "nonce": secrets.token_urlsafe(8), "code_challenge": challenge,
+            "code_challenge_method": "S256", "kc_idp_hint": alias, **extra,
+        }  # fmt: skip
+        return f"{private_keycloak.issuer}/protocol/openid-connect/auth?{urlencode(query)}"
+
+    browser = _Browser()
+    try:
+        browser.code(authorize(), email, PASSWORD, back_to=back_to)  # both sessions now exist
+        response = browser.open(authorize(prompt="login", max_age="0"))
+        asked_again = False
+        for _ in range(12):
+            if response.is_redirect:
+                location = urljoin(str(response.url), response.headers["location"])
+                assert not location.startswith(back_to) or asked_again, (
+                    "the confirmation came back without the provider asking again"
+                )
+                if location.startswith(back_to):
+                    break
+                response = browser.open(location)
+                continue
+            if "/realms/idp-" in str(response.url) and _FORM.search(response.text):
+                asked_again = True  # the provider's own sign-in form, despite its session
+                break
+            break
+        assert asked_again, (response.status_code, str(response.url), _text(response.text))
+    finally:
+        browser.close()

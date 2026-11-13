@@ -208,6 +208,9 @@ export const ur: LabelResource = {
   'notification_rules.col.status': 'صرف اس حالت کے لیے',
   'notification_rules.intro':
     'کون سے واقعات کسے اور کیسے اطلاع دیتے ہیں۔ ہر واقعہ ایک مناسب پہلے سے طے شدہ ترتیب سے شروع ہوتا ہے؛ تبدیلیاں آڈٹ لاگ میں درج ہوتی ہیں۔',
+  'notification_rules.locked': 'سکیورٹی کے لیے طے شدہ',
+  'notification_rules.locked_help':
+    'سکیورٹی اطلاع: ہمیشہ انہی لوگوں کو بھیجی جاتی ہے جن کا اس میں ذکر ہے۔ کوئی اسے بند یا وصول کنندگان تبدیل نہیں کر سکتا۔',
   'notification_rules.none': 'کوئی واقعہ نہیں ملا',
   'notification_rules.required': 'لوگوں کے لیے لازمی',
   'notification_rules.reset': 'پہلے سے طے شدہ پر واپس',
@@ -263,6 +266,11 @@ export const ur: LabelResource = {
     '{{ record.display_id }} کی وارنٹی {{ warranty.ends_on }} کو ختم',
   'notification_template.asset.warranty_expiring.subject':
     'وارنٹی ختم ہو رہی ہے: {{ record.display_id }} {{ record.title }}',
+  'notification_template.break_glass.signed_in.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے ہنگامی ایڈمنسٹریٹر اکاؤنٹ سے سائن اِن کیا، جو سنگل سائن آن لازمی ہونے پر بھی کام کرتا ہے۔ اگر آپ کو اس کی توقع نہیں تھی تو ابھی سائن اِن اور سیکیورٹی دیکھیں: {{ record.link }}',
+  'notification_template.break_glass.signed_in.in_app':
+    '{{ record.title }} نے ہنگامی ایڈمنسٹریٹر اکاؤنٹ سے سائن اِن کیا',
+  'notification_template.break_glass.signed_in.subject': 'ہنگامی سائن اِن: {{ record.title }}',
   'notification_template.change.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی ایک منظوری کسی کے پاس نہیں۔ منظوری کا منتظم اس کا فیصلہ کر سکتا ہے۔',
   'notification_template.change.approval_fallback.in_app':

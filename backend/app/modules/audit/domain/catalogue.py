@@ -90,6 +90,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("session.signed_out", AuditCategory.SESSION, "identity_access"),
     ("session.tenant_switched", AuditCategory.SESSION, "identity_access"),
     ("session.ended", AuditCategory.SESSION, "identity_access"),  # one session ended from a list
+    ("session.ended_others", AuditCategory.SESSION, "identity_access"),  # sign out everywhere else
+    ("session.confirmed", AuditCategory.SESSION, "identity_access"),  # confirmed it's them again
+    # Keycloak's own session, ended in the background after a sign-out it missed (ADR-051)
+    ("session.keycloak_ended", AuditCategory.SESSION, "identity_access"),
     # roles and access
     ("role.created", AuditCategory.ACCESS, "identity_access"),
     ("role.updated", AuditCategory.ACCESS, "identity_access"),
@@ -380,6 +384,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("file.deleted", AuditCategory.RECORDS, "system"),
     ("file.downloaded", AuditCategory.DATA, "system"),
     ("file.archive_downloaded", AuditCategory.DATA, "system"),  # WP-046a S2: a bulk export
+    ("file.copied", AuditCategory.RECORDS, "system"),  # WP-046a S5c: onto a copied record
     ("file.blocked", AuditCategory.SECURITY, "system"),
     ("file.rescan_requested", AuditCategory.SECURITY, "system"),
     ("file.purged", AuditCategory.DATA, "system"),

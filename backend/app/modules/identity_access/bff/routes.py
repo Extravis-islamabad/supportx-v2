@@ -16,6 +16,7 @@ from app.core.entitlements import entitlement_exempt
 from app.core.errors import (
     BadRequest,
     NotFound,
+    PermissionDenied,
     RateLimited,
     ServiceUnavailable,
     Unauthenticated,
@@ -52,19 +53,25 @@ from app.modules.identity_access.domain.mobile import (
 )
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.infra.oidc import IdentityProviderUnavailable
+from app.modules.identity_access.service import confirm as confirm_service
 from app.modules.identity_access.service import password_reset as password_reset_service
 from app.modules.identity_access.service import sso
 from app.modules.identity_access.service.auth import (
     LOGIN_STATE_TTL,
+    SIGN_IN_UNAVAILABLE,
     AccountAction,
     Attempt,
     AuthService,
     EnrolFirst,
     LoginAddress,
     LoginFailure,
+    LoginResult,
     LoginStarted,
     PortalInstead,
+    sign_in_unavailable,
 )
+from app.modules.identity_access.service.confirm import ConfirmFinished
 from app.modules.identity_access.service.sso_test import TestFinished
 from app.modules.identity_access.service.users import requester_only
 from app.modules.organization import (
@@ -73,7 +80,7 @@ from app.modules.organization import (
     regional_defaults,
     tenant_for_host,
 )
-from app.shared.api.ratelimit import AddressLimit, client_address, ip_rate_limit
+from app.shared.api.ratelimit import AddressLimit, client_address, ip_rate_limit, rate_limit
 from app.shared.history import CLIENT_HEADER
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
@@ -97,7 +104,6 @@ log = get_logger(__name__)
 # could not work anyway (its state lives there), so 503 `sign_in_unavailable`, never unlimited.
 LOGINS_PER_ADDRESS = 60  # a minute
 CALLBACKS_PER_ADDRESS = 60  # a minute
-SIGN_IN_UNAVAILABLE = "sign_in_unavailable"
 BREAK_GLASS_PER_ADDRESS = 10  # a minute: far below a normal sign-in's budget
 _BREAK_GLASS_LIMIT = ip_rate_limit(
     "auth_break_glass", BREAK_GLASS_PER_ADDRESS, fail_closed_code=SIGN_IN_UNAVAILABLE, defer=True
@@ -306,13 +312,18 @@ async def login(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of one sig
     # Keycloak's own session must not sign it back in without the password (REQ-SEC-029).
     previous = request.cookies.get(auth.cookie_name)
     timed_out = previous is not None and await auth.store.get_session(previous) is None
-    started = await auth.start_login(
-        app,
-        return_to,
-        await _address(request),
-        reauthenticate=timed_out,
-        mobile=mobile,
-    )
+    address = await _address(request)
+    try:
+        started = await auth.start_login(
+            app, return_to, address, reauthenticate=timed_out, mobile=mobile
+        )
+    except IdentityProviderUnavailable:
+        # Keycloak is unreachable (or just was: the breaker, ADR-051). Say so on the sign-in
+        # landing rather than sending the browser to a dead page; signed-in people keep working.
+        origin = auth.origin(app, address.host) if address is not None else None
+        mobile_return = auth.settings.mobile_redirect_uri if mobile is not None else None
+        failure = LoginFailure(app, sign_in_unavailable(), origin, mobile_return=mobile_return)
+        return await _failure_response(request, auth, failure)
     response = _to_keycloak(auth, started)
     response.headers.update(limited.headers)  # a returned Response gets no injected headers
     return response
@@ -390,13 +401,8 @@ async def _finish_callback(  # noqa: PLR0913, PLR0917 - the callback's parts, pa
         )
     except LoginFailure as failure:
         return await _failure_response(request, auth, failure)
-    if isinstance(result, EnrolFirst):  # past the MFA grace period: Keycloak makes them enrol
-        return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
-    if isinstance(result, PortalInstead):  # a requester on the console: no session, the portal
-        return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
-    if isinstance(result, TestFinished):  # an admin's SSO test: no session, back to the pop-up
-        await _record_sso_test(request, result)
-        return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
+    if not isinstance(result, LoginResult):
+        return await _without_new_session(request, auth, result)
     if result.session.break_glass:
         # A break-glass password sign-in is rarer than any other: its own, stricter budget per
         # address (lane B's review), closed when Valkey is down. Over it, the session it just
@@ -521,6 +527,26 @@ async def _address_tenant(request: Request, address: LoginAddress | None) -> uui
     return None if found is None else found.tenant_id
 
 
+async def _without_new_session(
+    request: Request,
+    auth: AuthService,
+    result: "EnrolFirst | PortalInstead | TestFinished | ConfirmFinished",
+) -> Response:
+    """A callback that ends without a new session: where the browser goes next.
+
+    MFA enrolment first (past the grace period, Keycloak makes them enrol); a requester on the
+    console (the portal instead); an admin's SSO test (back to the pop-up); a confirmation of
+    this browser's session (REQ-SEC-027), audited when it confirmed.
+    """
+    if isinstance(result, TestFinished):
+        await _record_sso_test(request, result)
+    if isinstance(result, ConfirmFinished) and result.confirmed:
+        confirmed = await auth.session_for_confirmed(request)
+        if confirmed is not None:
+            await _audit_session(request, confirmed, "session.confirmed")
+    return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
+
+
 async def _record_sso_test(request: Request, finished: TestFinished) -> None:
     """A passed test marks the set-up tested; every test is audited, in the tenant, as the admin."""
     database: Database | None = getattr(request.app.state, "db", None)
@@ -555,7 +581,12 @@ async def _address(request: Request) -> LoginAddress | None:
 
 
 async def _audit_session(
-    request: Request, session: Session, action_code: str, reason: str | None = None
+    request: Request,
+    session: Session,
+    action_code: str,
+    reason: str | None = None,
+    *,
+    details: dict[str, object] | None = None,
 ) -> None:
     """Audit a sign-in, sign-out or tenant switch (REQ-AUD-002) in its own transaction.
 
@@ -573,7 +604,7 @@ async def _audit_session(
             facts=RequestFacts.of(request, client=session.client),
             object_type="user",
             object_id=session.user_id,
-            **({} if reason is None else {"details": {"reason": reason}}),
+            details={**({} if reason is None else {"reason": reason}), **(details or {})} or None,
         )
     except Exception:
         log.exception("audit_session_entry_failed", action=action_code)
@@ -749,7 +780,11 @@ async def end_my_session(
     """That session ends at once: its next request answers 401. 404 if it isn't yours or live."""
     _session_id, session = found
     ended = await auth.end_listed_session(
-        uuid.UUID(session.tenant_id), uuid.UUID(session.user_id), listed_id
+        uuid.UUID(session.tenant_id),
+        uuid.UUID(session.user_id),
+        listed_id,
+        # This browser's other app shares its Keycloak session: ended here only (WP-057 S2a).
+        keep_keycloak_session=session.keycloak_session_id,
     )
     if not ended:
         raise NotFound(code="session_not_found")
@@ -757,13 +792,88 @@ async def end_my_session(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+class EndedOthersOut(BaseModel):
+    """How many of your other sessions ended."""
+
+    ended: int
+
+
+@router.post(
+    "/sessions/end-others",
+    summary="Sign out everywhere else",
+    dependencies=[Depends(rate_limit("auth_sessions"))],
+)
+@entitlement_exempt
+@public_route  # CurrentSession: a valid session (CSRF-checked, a POST) or 401
+async def end_other_sessions(found: CurrentSession, auth: Auth, request: Request) -> EndedOthersOut:
+    """Every other session you have in this organisation ends; this one keeps working (AC2).
+
+    Their Keycloak sessions end too, so no refresh token of theirs works again, except this
+    browser's other app, which shares this session's Keycloak session and ends here only.
+    """
+    session_id, session = found
+    ended = await auth.end_other_sessions(session_id, session)
+    if ended:
+        # The count only: never which devices or addresses (lane B).
+        await _audit_session(request, session, "session.ended_others", details={"ended": ended})
+    return EndedOthersOut(ended=ended)
+
+
+@router.get(
+    "/confirm",
+    summary="Confirm it is you",
+    status_code=status.HTTP_302_FOUND,
+    response_class=RedirectResponse,
+    dependencies=[Depends(rate_limit("auth_confirm"))],
+)
+@entitlement_exempt
+@public_route  # CurrentSession: only a signed-in browser confirms (REQ-SEC-027)
+async def confirm_identity(
+    found: CurrentSession,
+    auth: Auth,
+    return_to: Annotated[str | None, Query(alias="returnTo", max_length=2048)] = None,
+    attempt: Annotated[str | None, Query(max_length=64)] = None,
+) -> Response:
+    """Ask Keycloak to authenticate you again now, then come back to this session.
+
+    For the console's pop-up: a sensitive action answered 403 `reauth_required`. Keycloak asks for
+    the password (or your identity provider does, `kc_idp_hint`) with `prompt=login` and
+    `max_age=0`; the callback refreshes this session, never makes a new one. Where confirming is
+    not possible (the mobile app, or an identity provider not proven to re-authenticate on
+    request), the pop-up lands on its result page with `status=unavailable`.
+    """
+    session_id, session = found
+    app: Literal["console", "portal"] = "portal" if session.client == "portal" else "console"
+    try:
+        started = await confirm_service.start(
+            auth,
+            session_id,
+            session,
+            return_to,
+            can_reauthenticate_at_provider=await auth.provider_reauthenticates(session),
+            attempt=attempt,
+        )
+    except PermissionDenied:
+        target = confirm_service.confirmed_landing(
+            auth, app, "unavailable", return_to=return_to, attempt=attempt
+        )
+        return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+    return _to_keycloak(auth, started)
+
+
 @router.post("/logout", summary="Log out", status_code=status.HTTP_204_NO_CONTENT)
 @entitlement_exempt
 @public_route
 async def logout(found: CurrentSession, auth: Auth, request: Request) -> Response:
-    """End this session and the Keycloak session; clears the cookie."""
+    """End this session and the Keycloak session; clears the cookie.
+
+    The session ends even when Keycloak cannot be reached (ADR-051); Keycloak's own session is
+    then ended in the background. Meanwhile the cookie is left in place, naming a session that no
+    longer exists: the next sign-in from this browser then asks for the password again
+    (REQ-SEC-029) instead of being let in by Keycloak's still-open session.
+    """
     session_id, session = found
-    await auth.logout(
+    keycloak_unreachable = await auth.logout(
         session_id,
         session,
         attempt=Attempt(
@@ -776,7 +886,8 @@ async def logout(found: CurrentSession, auth: Auth, request: Request) -> Respons
     await _audit_session(request, session, "session.signed_out")
     await _end_realtime(request, session)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    clear_session_cookie(response, auth.settings)
+    if not keycloak_unreachable:
+        clear_session_cookie(response, auth.settings)
     return response
 
 

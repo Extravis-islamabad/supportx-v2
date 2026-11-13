@@ -122,6 +122,32 @@ describe('Admin › Incidents › Closing', () => {
     });
   });
 
+  it('REQ-INC-033 AC3 (WP-046a S5c): the copy limit saves, and stays within 1 to 100', async () => {
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        ...routes(),
+        'PATCH /api/v1/incidents/settings/closure': { body: fakeIncidentCatalogue() },
+      },
+    });
+    open('/admin/incidents/closing');
+    const limit = await screen.findByTestId('settings-copy-limit');
+    expect((limit as HTMLInputElement).value).toBe('20');
+    fireEvent.change(limit, { target: { value: '101' } });
+    fireEvent.click(screen.getByTestId('settings-save'));
+    expect(
+      await screen.findByText(/100/, { selector: '.ant-form-item-explain-error' }),
+    ).toBeDefined();
+    expect(fake.find('PATCH', '/api/v1/incidents/settings/closure')).toHaveLength(0);
+    fireEvent.change(limit, { target: { value: '5' } });
+    fireEvent.click(screen.getByTestId('settings-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/incidents/settings/closure')).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', '/api/v1/incidents/settings/closure');
+    expect(sent?.body).toMatchObject({ copy_limit: 5 });
+  });
+
   it('REQ-INC-096 AC3: auto-close is off and disabled while no channel can tell requesters', async () => {
     api({ me: ADMIN, routes: routes() });
     open('/admin/incidents/closing');

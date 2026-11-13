@@ -138,6 +138,7 @@ class ClosureSettings:
     timer_auto_start: bool = False
     task_dependency_mode: str = "block"  # WP-046a S1 (REQ-INC-075): block or warn
     checklist_item_max: int = 100  # WP-046a S2: items per record, all its checklists
+    copy_limit: int = 20  # WP-046a S5c (REQ-INC-033 AC3): copies one request may make
 
 
 @dataclass(frozen=True)
@@ -952,6 +953,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             timer_auto_start=settings.timer_auto_start,
             task_dependency_mode=settings.task_dependency_mode,
             checklist_item_max=settings.checklist_item_max,
+            copy_limit=settings.copy_limit,
         ),
         last_number=await last_number(session, wtype.counter_key),
     )

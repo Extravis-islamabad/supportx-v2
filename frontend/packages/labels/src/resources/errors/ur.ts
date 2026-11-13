@@ -684,6 +684,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_categories':
     'کوئی آئٹم زیادہ سے زیادہ پانچ دیگر کیٹیگریز میں بھی دکھایا جا سکتا ہے۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
+  'errors.field.too_many_copies': 'ایک وقت میں 1 سے {{max}} نقول بنائیں۔',
   'errors.field.too_many_decimals': 'زیادہ سے زیادہ {{max}} اعشاری مقامات استعمال کریں۔',
   'errors.field.too_many_items': 'اندراجات بہت زیادہ ہیں۔',
   'errors.field.too_many_keywords': 'ہر زبان میں زیادہ سے زیادہ 20 کلیدی الفاظ استعمال کریں۔',
@@ -751,6 +752,8 @@ export const ur: LabelResource = {
   'errors.field.workflow_not_published': 'پہلے یہ ورک فلو شائع کریں۔',
   'errors.field.workflow_wrong_record_type': 'یہ ورک فلو کسی اور قسم کے ریکارڈ کے لیے ہے۔',
   'errors.field.would_loop': 'کوئی ریلیز خود اپنا حصہ نہیں بن سکتی، براہ راست یا دوسروں کے ذریعے۔',
+  'errors.field_keys_unavailable':
+    'محفوظ معلومات ابھی پڑھی یا محفوظ نہیں کی جا سکتیں: انسٹالیشن کی کلید دستیاب نہیں۔ اپنے ایڈمنسٹریٹر سے اسے چیک کرنے کو کہیں۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',
   'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
@@ -793,6 +796,8 @@ export const ur: LabelResource = {
   'errors.instance_not_running': 'یہ ورک فلو نہیں چل رہا، اس لیے اسے روکا نہیں جا سکتا۔',
   'errors.instance_running': 'دوبارہ چلانے سے پہلے اس ورک فلو کو روکیں۔',
   'errors.instances_not_in_workflow': 'منتخب رنز میں سے کچھ اس ورک فلو کے نہیں ({{count}})۔',
+  'errors.interactive_session_required':
+    'یہ ویب کنسول سے سائن اِن ہو کر کریں۔ API کیز اور موبائل ایپ سے یہ ممکن نہیں۔',
   'errors.internal_error': 'ہماری طرف کچھ غلط ہو گیا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.invalid_choice': 'یہ قدر دستیاب انتخاب میں سے نہیں۔',
   'errors.invalid_cursor': 'یہ صفحہ لنک اب درست نہیں۔ پہلے صفحے سے شروع کریں۔',
@@ -953,6 +958,8 @@ export const ur: LabelResource = {
   'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
   'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
   'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
+  'errors.notification_rule_locked':
+    'یہ سکیورٹی اطلاع ہے: کوئی اسے بند نہیں کر سکتا، وصول کنندگان نہیں بدل سکتا اور نہ واپس کر سکتا ہے۔',
   'errors.on_behalf_out_of_scope': 'آپ اس شخص کے لیے درخواست نہیں دے سکتے۔ سروس ڈیسک سے پوچھیں۔',
   'errors.open_work_blocked': 'یہ کام کھلا ہونے تک یہ نہیں ہو سکتا: {{items}}۔',
   'errors.open_work_unconfirmed':
@@ -996,6 +1003,11 @@ export const ur: LabelResource = {
     'آپ اب اسے براہِ راست نہیں دیکھ سکتے۔ تازہ ترین ڈیٹا دیکھنے کے لیے صفحہ دوبارہ لوڈ کریں۔',
   'errors.realtime_not_configured':
     'اس سرور پر براہِ راست اپ ڈیٹس ترتیب نہیں دی گئیں۔ تازہ ترین ڈیٹا دیکھنے کے لیے صفحہ دوبارہ لوڈ کریں۔',
+  'errors.reauth_failed': 'تصدیق نہ ہو سکی کہ یہ آپ ہیں۔ کچھ نہیں بدلا۔',
+  'errors.reauth_required':
+    'جاری رکھنے کے لیے تصدیق کریں کہ یہ آپ ہیں: دوبارہ سائن اِن کریں، پھر ایک بار پھر کوشش کریں۔',
+  'errors.reauth_unavailable':
+    'آپ کی تنظیم آپ کو ایسے فراہم کنندہ کے ذریعے سائن اِن کرتی ہے جو درخواست پر دوبارہ تصدیق نہیں کر سکتا۔ ایڈمنسٹریٹر سے کہیں۔',
   'errors.recipient_deferred': 'وصول کنندہ کے میل سرور نے بعد میں کوشش کرنے کو کہا۔',
   'errors.recipient_refused': 'میل سرور نے وصول کنندہ رد کر دیا۔',
   'errors.record_closed': 'بند یا منسوخ ریکارڈ تبدیل نہیں ہو سکتے۔',
@@ -1049,7 +1061,7 @@ export const ur: LabelResource = {
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unavailable':
-    'اس وقت سائن اِن دستیاب نہیں۔ براہِ کرم ایک منٹ انتظار کر کے دوبارہ کوشش کریں۔',
+    'سائن اِن عارضی طور پر دستیاب نہیں۔ اگر آپ پہلے سے سائن اِن ہیں تو کام جاری رکھ سکتے ہیں۔',
   'errors.sign_in_unknown_person':
     'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
   'errors.site_not_found': 'سائٹ نہیں ملی۔',

@@ -1465,9 +1465,23 @@ it with no reload (rule c). Not built yet.
     and the server applies its rules. A field they need that the dialog lacks is named, with
     "Open the full form" (template and requester carried over; AC2).
   - The list updates live (AC1).
-  - **Next:** copy N times (REQ-INC-033; `copy_limit`, migration number asked). Server drafts
-    (REQ-INC-019) wait for WP-057 S3's field encryption, as approved; today's drafts are kept
-    in the tab (sessionStorage).
+  - **Next:** server drafts (REQ-INC-019) wait for WP-057 S3's field encryption, as approved;
+    today's drafts are kept in the tab (sessionStorage).
+- **S5c part 2 (0156; REQ-INC-033 copy N times):**
+  - Incident › More › Copy: how many (up to the type's limit), and whether its tasks and
+    attachments come. Each copy is a new record through the same create (the template's rules
+    apply), its subject "Copy 2 of: …", its history naming the original. Conversations,
+    worklogs, history, approvals and the assigned person never come (AC2).
+  - Attachments come as new files, each encrypted under its own ID and linked to the copy; the
+    description's images point at the copy's own files. Files that cannot be opened now
+    (scanning, infected, too large, blocked) stay behind, are listed, and their images are
+    removed. One record the actor may not use refuses the whole call (404, nothing written);
+    200 file pairs and 100 MB per call; each copy audited as `file.copied` (lane B's rules).
+    25 MB x 2 copies in about 2 s locally.
+  - Admin › Incidents › Closing › Copies at once: 1 to 100, 20 by default (AC3); a refusal says
+    the limit at the count.
+  - Migration 0156: `work_item_type_settings.copy_limit` and the `copy` file source; the
+    downgrade refuses while a tenant holds a copied file or a changed limit (rule 5h).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2161,9 +2175,79 @@ it with no reload (rule c). Not built yet.
     - Real Keycloak: idp claim (3) and LDAP federation (4).
     - Chart: events secret, single-node and HA.
     - Vitest: SSO policy card (2).
-- [ ] Session 2: recent re-authentication, session places, notices, expiring certificates,
-  invite links.
-- [ ] Session 3: field-level encryption (ADR-050), personal-data access log.
+- [x] Session 2a (2026-11-13): recent re-authentication and the sessions list. No migration.
+  - **REQ-SEC-027 (confirm it is you), AC1-AC2:**
+    - 28 sensitive routes carry `RecentAuth` and are listed in one constant
+      (`app/core/recent_auth.py`). A guard test checks the list both ways.
+    - The rule: a browser session that proved who it is in the last 10 minutes. API keys get
+      `api_key_not_allowed`, the mobile app `interactive_session_required`, and anyone else
+      `reauth_required` (403, so the console never reads it as signed out).
+    - `auth_time` is taken only from the verified, nonce-bound ID token, at sign-in and at a
+      confirmation, never from a refresh.
+    - **The confirmation** (`/auth/confirm`, then Keycloak with `prompt=login`, `max_age=0`,
+      and `kc_idp_hint` for SSO people):
+      - Single use, 5 minutes, from the same browser and for the same session.
+      - `azp` is our client, `sub` is the session's person, and `auth_time` is no older than
+        the start.
+      - It replaces the session's tokens and never creates a session. A new Keycloak `sid`
+        ends the old one.
+      - A refusal changes nothing and goes in the sign-in log as `reauth_failed` (AC2).
+    - **SSO:** the OIDC brokers SupportX makes pass `max_age` (`passMaxAge`). A real-Keycloak
+      test proves the brokered provider is asked again. SAML providers fail closed with
+      `reauth_unavailable`.
+    - **The pop-up:**
+      - The console and portal ask first, and the click opens the pop-up. A blocked pop-up
+        confirms in the whole page.
+      - The API's COOP cuts `window.opener`, so `/confirmed` answers on a same-origin
+        BroadcastChannel tagged with the opener's random attempt id. The answer is only
+        `{type, attempt, status}`.
+      - The opener takes only its own attempt's answer, then retries the change once with
+        the same Idempotency-Key. The way back is always a path on this site.
+    - **Routes still to join the list as they are built:** service identities (S4), webhook
+      secrets and SMTP settings (WP-055), erasure, and changing your own e-mail.
+  - **REQ-SEC-030 (sessions everywhere else):**
+    - Each session shows the device and the address it signed in from. Only its owner and
+      tenant admins see them.
+    - "Sign out everywhere else" is rate-limited and audited with the count only. Each ended
+      session's Keycloak session ends too, except this browser's console/portal twin.
+  - **Tests:**
+    - Backend: confirm_identity (5), sessions_everywhere_else (4), recent_auth_routes (2), the
+      auth BFF suite unchanged (68), domain (30).
+    - Real Keycloak: auth_keycloak (8), isolation (4), realm (1), the idp claim (4, with the
+      brokered provider asked again) and LDAP federation (4).
+    - Vitest: the api-client retry (4), the pop-up, `/confirmed` and the way back (22), the
+      sessions card (26 with the sign-in log).
+    - e2e: `confirm-identity.spec.ts` (AC1 within 5 s, real Keycloak), run by the PR's e2e job.
+- [ ] Session 2b: notices, expiring certificates, invite links, the GeoIP place and the
+  subnet-to-site map (D-170). Migration 0157.
+- [x] Session 3a (2026-11-13): field encryption on the tenant's data keys (ADR-050, D-161).
+  No migration.
+  - **`app.shared.fields`:**
+    - `field_cipher(session, keys, cache)` seals and opens values with the tenant's newest data
+      key (files' `tenant_data_keys`, reused), HKDF per declared purpose through the ADR-048
+      codec.
+    - Values are bound to tenant, table, record and field. Purposes are declared once
+      (`purpose(module, what)`).
+    - The key-provider Protocol lives in `app.shared.crypto`, which stays a leaf. Import-linter
+      enforces it, and modules use only `app.shared.fields`.
+  - **What `open` does when it can't open:**
+    - Data that doesn't open gives None: a logged, counted security event, with a bad tag
+      alerted.
+    - An installation key that can't unwrap the data key raises a 503,
+      `field_keys_unavailable`, so good data is never called unreadable.
+  - **The data-key cache:**
+    - A bounded LRU with a 5-minute TTL, in memory only.
+    - Each entry carries the tenant's generation, a random token in Valkey compared on every hit.
+    - Erasure (`destroy_tenant_keys`) moves it before and after the destroying commit, and fails
+      without Valkey. Valkey down while opening means no cache, never a stale hit (lane B's
+      conditions).
+  - **Tests:** field cipher (8, including the erasure-with-cache case and its control), the cache
+    unit tests (7), and two new import contracts.
+  - **First users** (not in this session): webhook header values (#406, D-161 item 5) with their
+    data step, and lane A's server drafts (REQ-INC-019).
+- [ ] Session 3b: masking, the personal-data access log (AUD-017), the ADR-048 users hook (a
+  removed installation key that still wraps data keys refuses start-up), webhook headers sealed.
+  Migration number asked at its turn.
 - [ ] Session 4: service accounts, key policy, non-person actors, security overview.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per

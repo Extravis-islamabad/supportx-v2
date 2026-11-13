@@ -633,6 +633,7 @@ export const ar: LabelResource = {
   'errors.field.too_many_assets': 'يمكن أن يحتوي السجل على {{max}} أصول على الأكثر.',
   'errors.field.too_many_categories': 'يمكن أن يظهر العنصر في خمس فئات أخرى كحد أقصى.',
   'errors.field.too_many_conditions': 'يحتوي عامل التصفية على شروط كثيرة جدًا.',
+  'errors.field.too_many_copies': 'أنشئ من نسخة واحدة إلى {{max}} نسخة في كل مرة.',
   'errors.field.too_many_decimals': 'استخدم {{max}} منازل عشرية كحد أقصى.',
   'errors.field.too_many_items': 'عدد الإدخالات كبير جدًا.',
   'errors.field.too_many_keywords': 'استخدم 20 كلمة مفتاحية كحد أقصى لكل لغة.',
@@ -696,6 +697,8 @@ export const ar: LabelResource = {
   'errors.field.workflow_not_published': 'انشر سير العمل هذا أولًا.',
   'errors.field.workflow_wrong_record_type': 'سير العمل هذا لنوع آخر من السجلات.',
   'errors.field.would_loop': 'لا يمكن أن يكون الإصدار جزءًا من نفسه، مباشرة أو عبر غيره.',
+  'errors.field_keys_unavailable':
+    'لا يمكن قراءة المعلومات المحمية أو حفظها الآن: مفتاح التثبيت غير متاح. اطلب من المسؤول التحقق منه.',
   'errors.file_link_expired': 'انتهت صلاحية الرابط. افتح الملف مجددًا.',
   'errors.file_not_an_image': 'هذا الملف ليس صورة.',
   'errors.file_not_found': 'هذا الملف غير موجود أو لا يمكنك رؤيته.',
@@ -732,6 +735,8 @@ export const ar: LabelResource = {
   'errors.instance_running': 'أوقف سير العمل هذا قبل تشغيله مرة أخرى.',
   'errors.instances_not_in_workflow':
     'بعض عمليات التشغيل المختارة ليست من سير العمل هذا ({{count}}).',
+  'errors.interactive_session_required':
+    'نفّذ هذا من وحدة التحكم على الويب وأنت مسجّل الدخول. لا يمكن ذلك بمفاتيح API ولا من تطبيق الجوال.',
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
   'errors.invalid_cursor': 'رابط هذه الصفحة لم يعد صالحًا. يرجى إعادة تحميل القائمة.',
@@ -879,6 +884,8 @@ export const ar: LabelResource = {
   'errors.notification_event_not_found': 'حدث الإشعار هذا غير موجود.',
   'errors.notification_not_found': 'هذا الإشعار غير موجود أو ليس لك.',
   'errors.notification_record_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
+  'errors.notification_rule_locked':
+    'هذا إشعار أمني: لا يمكن لأحد إيقافه أو تغيير مستلميه أو إعادة تعيينه.',
   'errors.on_behalf_out_of_scope': 'لا يمكنك تقديم طلب لهذا الشخص. اسأل مكتب الخدمة.',
   'errors.open_work_blocked': 'لا يمكن تنفيذ هذا ما دام هذا العمل مفتوحًا: {{items}}.',
   'errors.open_work_unconfirmed': 'لا يزال هناك عمل مفتوح: {{items}}. أكّد للمتابعة على أي حال.',
@@ -919,6 +926,10 @@ export const ar: LabelResource = {
     'لم يعد بإمكانك متابعة هذا مباشرةً. أعد تحميل الصفحة لرؤية أحدث البيانات.',
   'errors.realtime_not_configured':
     'التحديثات المباشرة غير مُعدّة على هذا الخادم. أعد تحميل الصفحة لرؤية أحدث البيانات.',
+  'errors.reauth_failed': 'لم يتم تأكيد هويتك. لم يتغيّر شيء.',
+  'errors.reauth_required': 'أكّد هويتك للمتابعة: سجّل الدخول مجددًا ثم حاول مرة أخرى.',
+  'errors.reauth_unavailable':
+    'تسجّل مؤسستك دخولك عبر مزوّد لا يمكنه إعادة التأكيد عند الطلب. اطلب ذلك من مسؤول.',
   'errors.recipient_deferred': 'طلب خادم بريد المستلم المحاولة لاحقًا.',
   'errors.recipient_refused': 'رفض خادم البريد المستلم.',
   'errors.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
@@ -968,7 +979,7 @@ export const ar: LabelResource = {
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unavailable':
-    'تسجيل الدخول غير متاح الآن. يرجى الانتظار دقيقة ثم المحاولة مرة أخرى.',
+    'تسجيل الدخول غير متاح مؤقتًا. إذا كنت مسجّل الدخول بالفعل، يمكنك متابعة العمل.',
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
   'errors.site_not_found': 'الموقع غير موجود.',

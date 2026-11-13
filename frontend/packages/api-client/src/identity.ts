@@ -346,6 +346,19 @@ export function useEndMySession() {
   });
 }
 
+/**
+ * Sign out of every other browser and device of yours (REQ-SEC-030); this one stays signed in.
+ * Answers how many were signed out.
+ */
+export function useEndOtherSessions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: () => call(api.POST('/api/v1/auth/sessions/end-others')),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.identity.mySessions }),
+  });
+}
+
 /** A person's signed-in browsers and devices (people admins, users.manage). */
 export function usePersonSessions(userId: string | undefined) {
   return useQuery({

@@ -45,6 +45,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ApprovalPurpose": "approval_purpose",
     "RecipientSet": "problem_recipient_set",
     "CopyPart": "problem_follow_up_copy",
+    "RecordCopyPart": "record_copy_part",  # WP-046a S5c (REQ-INC-033)
     "OutcomeIn.outcome": "ai_outcome",
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",

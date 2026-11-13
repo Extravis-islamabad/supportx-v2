@@ -103,6 +103,12 @@ export function NotificationRulesPage() {
           <Typography.Text strong>{t(`notification_event.${rule.event_code}`)}</Typography.Text>
           <Flex gap={4} wrap>
             {rule.required && <Tag>{t('notification_rules.required')}</Tag>}
+            {/* A security notice: the server refuses changes, so nothing here is editable. */}
+            {rule.locked && (
+              <Tag data-testid={`rule-locked-${rule.event_code}`}>
+                {t('notification_rules.locked')}
+              </Tag>
+            )}
             {/* Only a changed rule is marked: a tag on every row said nothing (CHN-01). */}
             {!rule.is_default && (
               <Tag color="blue">
@@ -110,6 +116,12 @@ export function NotificationRulesPage() {
               </Tag>
             )}
           </Flex>
+          {/* Says why nothing on the row can be changed (coordinator, #480). */}
+          {rule.locked && (
+            <Typography.Text type="secondary">
+              {t('notification_rules.locked_help')}
+            </Typography.Text>
+          )}
         </Flex>
       ),
     },
@@ -119,6 +131,7 @@ export function NotificationRulesPage() {
       render: (_, rule) => (
         <Switch
           checked={rule.enabled}
+          disabled={rule.locked}
           aria-label={t('notification_rules.col.on')}
           onChange={(on) => {
             change(rule, { enabled: on });
@@ -135,6 +148,7 @@ export function NotificationRulesPage() {
           mode="multiple"
           style={{ minWidth: 220 }}
           value={rule.recipients}
+          disabled={rule.locked}
           aria-label={t('notification_rules.col.recipients')}
           options={rule.recipient_kinds.map((kind) => ({
             value: kind,
@@ -153,6 +167,7 @@ export function NotificationRulesPage() {
       render: (_, rule) => (
         <Checkbox.Group
           value={rule.channels}
+          disabled={rule.locked}
           options={CHANNELS.map((c) => ({ value: c, label: t(`notification_channel.${c}`) }))}
           onChange={(channels) => {
             change(rule, { channels });
@@ -175,6 +190,7 @@ export function NotificationRulesPage() {
             style={{ width: '100%', minWidth: 180 }}
             placeholder={t('notification_rules.any_priority')}
             value={priorityOnly(rule)}
+            disabled={rule.locked}
             aria-label={t('notification_rules.col.priority')}
             options={PRIORITIES.map((p) => ({ value: p, label: t(`priority.${p}`) }))}
             onChange={(values) => {
@@ -213,7 +229,7 @@ export function NotificationRulesPage() {
     {
       key: 'reset',
       render: (_, rule) =>
-        rule.is_default ? null : (
+        rule.is_default || rule.locked ? null : (
           <Button
             size="small"
             onClick={() => {
@@ -296,6 +312,7 @@ function StatusCondition({
       style={{ minWidth: 200 }}
       placeholder={t('notification_rules.any_status')}
       value={chosen}
+      disabled={rule.locked}
       aria-label={t('notification_rules.col.status')}
       options={(settings.data?.statuses ?? [])
         .filter((s) => !s.disabled)
