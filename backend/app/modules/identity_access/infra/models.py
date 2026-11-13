@@ -552,6 +552,8 @@ class SsoProvider(TenantEntity):
         ),
         CheckConstraint("state IN ('draft', 'tested', 'on', 'off')", name="state_code"),
         UniqueConstraint("tenant_id", "alias", name="uq_sso_providers_tenant_alias"),
+        # Lets the expiry marks point at a provider of their own tenant only (0158).
+        UniqueConstraint("tenant_id", "id", name="uq_sso_providers_tenant_id_id"),
         Index("ix_sso_providers_tenant_state", "tenant_id", "state"),
     )
 
@@ -570,10 +572,13 @@ class SsoProvider(TenantEntity):
     tested_at: Mapped[datetime | None]
     tested_by: Mapped[uuid.UUID | None]
     switched_on_at: Mapped[datetime | None]
+    # When the OIDC client secret runs out (REQ-SEC-011, WP-057 S2b-2; 0158): entered by an admin
+    # from the identity provider's own console. SupportX never reads the secret itself.
+    client_secret_expires_at: Mapped[datetime | None]
 
 
 INVITATION_STATES = ("pending", "accepted", "revoked")
-INVITATION_DELIVERY = ("email", "existing_account")
+INVITATION_DELIVERY = ("email", "existing_account", "link")
 
 
 class Invitation(TenantEntity):
@@ -586,11 +591,22 @@ class Invitation(TenantEntity):
     __tablename__ = "invitations"
     __table_args__ = (
         CheckConstraint("status IN ('pending', 'accepted', 'revoked')", name="status_code"),
-        CheckConstraint("delivery IN ('email', 'existing_account')", name="delivery_code"),
+        CheckConstraint("delivery IN ('email', 'existing_account', 'link')", name="delivery_code"),
         ForeignKeyConstraint(
             ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_invitations_user"
         ),
         Index("ix_invitations_tenant_user", "tenant_id", "user_id", "status"),
+        CheckConstraint(
+            "link_token_hash IS NULL OR octet_length(link_token_hash) = 32",
+            name="link_token_hash_length",
+        ),
+        Index(
+            "uq_invitations_link_token",
+            "tenant_id",
+            "link_token_hash",
+            unique=True,
+            postgresql_where=text("link_token_hash IS NOT NULL"),
+        ),
         Index("ix_invitations_tenant_created", "tenant_id", "created_at", "id"),
     )
 
@@ -606,6 +622,10 @@ class Invitation(TenantEntity):
     accepted_at: Mapped[datetime | None]
     revoked_at: Mapped[datetime | None]
     sends: Mapped[int] = mapped_column(server_default="1")
+    # The copied invite link (REQ-SEC-021, WP-057 S2b-2; 0158): only the SHA-256 of its token,
+    # single use, valid until `expires_at`; copying again replaces it. Offered without mail only.
+    link_token_hash: Mapped[bytes | None] = mapped_column(LargeBinary)
+    link_copied_at: Mapped[datetime | None]
 
 
 class UserCostRate(TenantEntity):
@@ -834,3 +854,69 @@ class KnownDevice(TenantKeyed, Timestamps, Base):
     user_id: Mapped[uuid.UUID]
     fingerprint: Mapped[bytes] = mapped_column(LargeBinary)
     last_seen_at: Mapped[datetime]
+
+
+EXPIRY_THRESHOLDS = (0, 1, 7, 30)  # domain/expiry.py: days before, 0 = run out
+NOTICE_KINDS = ("locked_out", "password_changed", "password_set", "mfa_added", "mfa_removed")
+
+
+class SecurityNoticeMark(TenantKeyed, Base):
+    """A Keycloak user event already turned into a notice, or kept quiet (REQ-SEC-033; 0158).
+
+    Once per Keycloak event ID. Only what that check and the lock-out count need (lane B): no
+    address, browser or client. `told` False: kept quiet (one lock-out notice an hour; a first
+    password). Purged after 30 days; erasure deletes the person's rows.
+    """
+
+    __tablename__ = "security_notice_marks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_security_notice_marks_user",
+        ),
+        UniqueConstraint("tenant_id", "keycloak_event_id", name="uq_security_notice_marks_once"),
+        CheckConstraint(
+            "kind IN (" + ", ".join(f"'{k}'" for k in NOTICE_KINDS) + ")", name="kind_code"
+        ),
+        Index("ix_security_notice_marks_person", "tenant_id", "user_id", "kind", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    keycloak_event_id: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(32))
+    occurred_at: Mapped[datetime]
+    told: Mapped[bool]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SecurityExpiryMark(TenantKeyed, Base):
+    """An expiry alert already sent (REQ-SEC-011; WP-057 S2b-2; 0158), so each goes once.
+
+    `item` names what runs out: a SAML signing certificate by its SHA-256 fingerprint, or
+    `client_secret`. Append-only; the daily schedule writes one row per alert (and per threshold
+    a late run passes over).
+    """
+
+    __tablename__ = "security_expiry_marks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "provider_id"],
+            ["sso_providers.tenant_id", "sso_providers.id"],
+            name="fk_security_expiry_marks_provider",
+        ),
+        UniqueConstraint(
+            "tenant_id", "provider_id", "item", "threshold", name="uq_security_expiry_marks_once"
+        ),
+        CheckConstraint(
+            "threshold IN (" + ", ".join(str(t) for t in EXPIRY_THRESHOLDS) + ")",
+            name="threshold_code",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    provider_id: Mapped[uuid.UUID]
+    item: Mapped[str] = mapped_column(String(64))
+    threshold: Mapped[int] = mapped_column(SmallInteger)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

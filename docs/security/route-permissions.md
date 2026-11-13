@@ -476,6 +476,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/identity/break-glass/{user_id}` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
+| POST | `/api/v1/identity/invitations/{invitation_id}/link` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations/{invitation_id}/resend` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations/{invitation_id}/revoke` | `users.manage` | users.manage: all |
 | GET | `/api/v1/identity/mfa` | `identity.manage` | identity.manage: all |
@@ -915,6 +916,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/public/branding/{tenant_ref}/login.css` | public | - |
 | GET | `/api/v1/public/branding/{tenant_ref}/{name}` | public | - |
 | GET | `/api/v1/public/domain-check/{token}` | public | - |
+| POST | `/api/v1/public/invite-links/accept` | public | - |
+| POST | `/api/v1/public/invite-links/peek` | public | - |
 | POST | `/api/v1/public/notify-links/peek` | public | - |
 | POST | `/api/v1/public/notify-links/stop` | public | - |
 | GET | `/api/v1/ready` | public | - |

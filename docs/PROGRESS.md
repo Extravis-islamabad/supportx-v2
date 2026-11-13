@@ -2281,6 +2281,31 @@ it with no reload (rule c). Not built yet.
     the Keycloak events import to read those user events (only the types it needs, no other user
     data; lane B reviews that part).
   - **Moved here** from S2b-1 by the coordinator, 2026-11-13.
+  - **Built (2026-11-13, draft PR, lane B blocks):**
+    - Expiry (REQ-SEC-011): `security_expiry_marks`; a daily schedule alerts tenant admins 30, 7
+      and 1 days before, and when it has run out, once each, through a locked notice. It covers
+      SAML signing certificates (from Keycloak) and an OIDC `client_secret_expires_at` that admins
+      enter on the SSO card.
+    - Invite link (REQ-SEC-021), admin side:
+      - with no outgoing mail, an invitation is delivered by link;
+      - `POST /identity/invitations/{id}/link` (recent sign-in, rate-limited, audited, no-store)
+        gives a 32-byte token in the fragment, keeping only its SHA-256;
+      - each copy replaces the last, it lasts at most 7 days, and it is cleared by revoke, resend,
+        acceptance, stopping sign-in and deactivation;
+      - console: "Copy link" and a show-once dialog.
+    - REQ-SEC-033 part 2:
+      - the same import run reads USER_DISABLED_BY_TEMPORARY_LOCKOUT, UPDATE_CREDENTIAL and
+        REMOVE_CREDENTIAL;
+      - `security_notice_marks` (once per event, no address, 30-day purge, erasure);
+      - `AccountSecurityChanged` feeds four locked notices: a lock-out with the earliest time to
+        try again (at most one an hour), password changed (a first password kept quiet), MFA
+        added or removed;
+      - a hint-less event goes to the one tenant the person is in (each tenant asked under RLS), never guessed among
+        several;
+      - realm tooling stores the three types, and the lock-out policy lives once in the domain.
+  - **Still to do in S2b-2:** the public accept side of the invite link and the `/invite` page in
+    both apps. These build on lane A's `app/shared/api/public_links.py` (#485), with lane B's
+    public-side conditions.
 - [x] Session 3a (2026-11-13): field encryption on the tenant's data keys (ADR-050, D-161).
   No migration.
   - **`app.shared.fields`:**

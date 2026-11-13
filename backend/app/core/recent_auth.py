@@ -43,6 +43,7 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/identity/sso/{provider_id}/switch-on",
     "POST /api/v1/identity/sso/{provider_id}/switch-off",
     "POST /api/v1/identity/people/{user_id}/reset-mfa",
+    "POST /api/v1/identity/invitations/{invitation_id}/link",  # hands over a password (SEC-021)
     # Who may do what: roles, their permissions and who holds them.
     "POST /api/v1/roles",
     "PATCH /api/v1/roles/{role_id}",
