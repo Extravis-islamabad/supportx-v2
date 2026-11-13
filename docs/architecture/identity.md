@@ -107,9 +107,11 @@ Life cycle: **draft → tested → on ⇄ off**, removable at any time.
   adds Urdu (and reads Urdu right to left) and a clearer breached-password message.
 - **Breached list:** `files/keycloak/password-blacklists/supportx-breached.txt` (SecLists top
   100,000, MIT; printable ASCII, 8+ characters, lowercased: 46,941 entries; its README has the
-  source and filter). Mounted into Keycloak's `data/password-blacklists` (chart ConfigMap,
-  Compose bind mount) and read offline. An operator may replace it with a larger list of the
-  same name. The golden chart render shows its checksum, not its lines.
+  source and filter). Read offline from Keycloak's `data/password-blacklists`: on Kubernetes the
+  Keycloak pod's init container copies it there from the release's backend image (it is too big
+  for the Helm release, a Secret of at most 1 MiB, so the chart leaves it out); the Compose stack
+  bind-mounts it. A larger list of the same name: a ConfigMap named in
+  `keycloak.passwordBlacklists.configMap`.
 - Lock-out stays the realm's brute-force setting (5 failures); REQ-SEC-005 AC2's "when to try
   again" message is session 3's.
 
