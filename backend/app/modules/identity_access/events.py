@@ -370,6 +370,37 @@ class NewDeviceSignedIn(DomainEvent):
     signed_in_at: datetime
 
 
+class PersonErasureChanged(DomainEvent):
+    """A GDPR erasure was requested, approved, rejected, expired, or its job moved on (ADR-052).
+
+    IDs, the state code and the next step only (never a name or a reason): the erasure screens
+    of people who may erase refetch, and the person's own record follows the step's changes
+    through its ordinary events.
+    """
+
+    event_type: ClassVar[str] = "identity_access.person_erasure.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "person_erasure"
+
+    person_id: uuid.UUID
+    state: Literal["requested", "approved", "running", "done", "rejected", "expired", "failed"]
+    step: int = Field(ge=0, le=8)
+
+
+class PersonErasureCompleted(DomainEvent):
+    """A person was erased (ADR-052 step 7), after `user.status_changed` with reason `erasure`.
+
+    For consumers that act once the whole erasure is done (exports, caches). The person's ID only.
+    """
+
+    event_type: ClassVar[str] = "identity_access.person_erasure.completed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    person_id: uuid.UUID
+    erasure_id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -397,4 +428,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SignInRecorded,
     BreakGlassSignedIn,
     NewDeviceSignedIn,
+    PersonErasureChanged,
+    PersonErasureCompleted,
 )

@@ -337,6 +337,22 @@ async def update_person(
     return await _save(session, current, expected_version, clean, source)
 
 
+async def save_marks(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    expected_version: int,
+    values: Mapping[str, Any],
+    source: Source = "ui",
+) -> User:
+    """Fields no person form edits (the legal hold, D-171 H1), saved as any person change.
+
+    If-Match, field history and `user.updated` as `update_person`; the caller checks the values.
+    """
+    current = await _person(session, user_id)
+    return await _save(session, current, expected_version, values, source)
+
+
 async def _save(
     session: AsyncSession,
     current: User,
@@ -446,6 +462,8 @@ async def set_sign_in(  # noqa: PLR0913 - the record, the version and the change
     current = await _person(session, user_id)
     if allowed == current.can_sign_in:
         return await _save(session, current, expected_version, {}, "ui")
+    if allowed and current.erased_at is not None:
+        raise Conflict(code="person_already_erased")
     if allowed and not current.email:
         raise _invalid([("email", "email_required_for_sign_in", {})])
     if not allowed and user_id == actor_id:
@@ -521,6 +539,8 @@ async def reactivate(  # noqa: PLR0913 - the record, the version and what is kep
     `directory`: the directory enabled the person again (the sync keeps what they held).
     """
     current = await _person(session, user_id)
+    if current.erased_at is not None:
+        raise Conflict(code="person_already_erased")  # erasure is not undoable (ADR-052)
     history: Source = "ui" if directory is None else "integration"
     if current.status == "active":
         return await _save(session, current, expected_version, {}, history)

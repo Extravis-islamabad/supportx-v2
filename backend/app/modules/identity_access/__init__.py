@@ -12,7 +12,11 @@ Public interface for other modules: `UserType`, `Subject`, `ResourceType`, `auth
 the role editor's preview), `cost_rate` (a person's cost per hour at a moment, for worklog cost
 snapshots; no permission check inside, the caller gates who sees money), and
 `get_policy` (FastAPI dependency giving the policy service, e.g. who holds a permission, for
-owner pickers). Sessions reach the rest of the app only as the `TenantContext` resolved by
+owner pickers); GDPR erasure (ADR-052): `PersonData`, `ErasureBatch`, `ERASE_BATCH` and
+`register_person_data` (each module that holds person data registers its port; `REQUIRED_PORTS`
+lists those the job will not run without), `ERASED_ON_REQUEST` (D2a: the one marker for blanked
+requester text, from app.shared.erasure), and `legal_hold` / `person_held` (H1: a held person is
+never erased). Sessions reach the rest of the app only as the `TenantContext` resolved by
 app.core.tenancy; routes declare permissions with app.core.authorization.require_permission.
 """
 
@@ -39,6 +43,8 @@ from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.account import router as account_router
 from app.modules.identity_access.api.api_keys import router as api_keys_router
 from app.modules.identity_access.api.cost_rates import router as cost_rates_router
+from app.modules.identity_access.api.erasure import erasures_router
+from app.modules.identity_access.api.erasure import people_router as privacy_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
@@ -78,6 +84,8 @@ from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import (
     break_glass_notifications,
     directory,
+    erasure_job,
+    legal_hold,
     mfa,
     security_notices,
     sign_in_import,
@@ -117,6 +125,7 @@ from app.modules.identity_access.service.federation import (
     sync_ldap_federation,
 )
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
+from app.modules.identity_access.service.legal_hold import person_held
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
@@ -126,6 +135,14 @@ from app.modules.identity_access.service.people import (
     register_people_usage,
 )
 from app.modules.identity_access.service.people_import import run_people_imports
+from app.modules.identity_access.service.person_data import (
+    ERASE_BATCH,
+    REQUIRED_PORTS,
+    ErasureBatch,
+    PersonData,
+    register_person_data,
+)
+from app.modules.identity_access.service.person_data_ports import register_lane_b_ports
 from app.modules.identity_access.service.policy import (
     FieldRule,
     PolicyService,
@@ -178,6 +195,7 @@ from app.modules.organization import (
     unregister_site_people_counter,
 )
 from app.shared.clock import system_clock
+from app.shared.erasure import ERASED_ON_REQUEST
 from app.shared.labels import missing_labels
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
@@ -394,6 +412,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
 security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
+register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 
 module = ModuleSpec(
     name="identity_access",
@@ -410,6 +429,8 @@ module = ModuleSpec(
         account_router,
         api_keys_router,
         realtime_router,
+        privacy_router,  # legal hold and GDPR erasure (D-171, ADR-052)
+        erasures_router,
     ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
@@ -437,6 +458,8 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
         # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
         ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
+        # GDPR erasures (ADR-052): expire unapproved requests, run approved ones step by step.
+        ScheduleSpec("identity_access__person_erasures", 30, erasure_job.erasure_schedule),
     ],
 )
 
@@ -450,16 +473,20 @@ __all__ = [
     "ASSET_MANAGER",
     "CHANGE_MANAGER",
     "DEPARTMENT_VIEWER",
+    "ERASED_ON_REQUEST",
+    "ERASE_BATCH",
     "KNOWLEDGE_MANAGER",
     "PROBLEM_MANAGER",
     "PURCHASE_MANAGER",
     "RELEASE_MANAGER",
     "REPORT_VIEWER",
+    "REQUIRED_PORTS",
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",
     "TEAM_LEAD",
     "AccessRule",
     "DutyLookup",
+    "ErasureBatch",
     "FederationFailed",
     "FederationNotInstalled",
     "FieldRule",
@@ -467,6 +494,7 @@ __all__ = [
     "MailRecipient",
     "NotifiablePerson",
     "OpenDuty",
+    "PersonData",
     "Placement",
     "PolicyService",
     "RecordFacts",
@@ -496,14 +524,17 @@ __all__ = [
     "federated_users",
     "federation_installed",
     "get_policy",
+    "legal_hold",
     "mail_recipients",
     "module",
     "notifiable_people",
     "people_matching",
     "person_by_email",
+    "person_held",
     "person_placement",
     "put_ldap_federation",
     "register_duties",
+    "register_person_data",
     "release_from_directory",
     "remove_ldap_federation",
     "remove_service_identity_role",

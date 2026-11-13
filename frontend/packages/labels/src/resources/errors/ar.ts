@@ -258,6 +258,22 @@ export const ar: LabelResource = {
   'errors.entitlement_required.detail': '{{feature}} غير مشمول في خطة مؤسستك.',
   'errors.entitlements_unavailable':
     'معلومات الترخيص غير متاحة مؤقتًا. يرجى المحاولة مرة أخرى بعد قليل.',
+  'errors.erasure_already_open': 'يوجد طلب مفتوح لمحو بيانات هذا الشخص.',
+  'errors.erasure_approval_invalid': 'لم يعد اعتماد هذا المحو صالحًا.',
+  'errors.erasure_break_glass_account': 'لا يمكن محو حساب طوارئ. أزِله من حسابات الطوارئ أولًا.',
+  'errors.erasure_identity_unavailable': 'تعذّر الوصول إلى خدمة تسجيل الدخول. ستُعاد المحاولة.',
+  'errors.erasure_needs_another_admin': 'يجب أن يعتمد هذا المحو مسؤولٌ آخر.',
+  'errors.erasure_not_found': 'طلب المحو هذا غير موجود.',
+  'errors.erasure_not_pending': 'لم يعد بالإمكان تغيير طلب المحو هذا.',
+  'errors.erasure_of_self': 'لا يمكنك محو بياناتك بنفسك.',
+  'errors.erasure_port_missing':
+    'جزء من المنتج لا يستطيع محو البيانات الشخصية بعد. تواصل مع الدعم.',
+  'errors.erasure_report_unavailable':
+    'لا يمكن اعتماد المحو بعد: تقرير المواضع التي يُذكر فيها الشخص غير متاح.',
+  'errors.erasure_request_expired':
+    'انتهت صلاحية طلب المحو هذا. اطلبه مجددًا إن كان لا يزال مطلوبًا.',
+  'errors.erasure_sessions_unavailable': 'تعذّر إنهاء الجلسات الآن. ستُعاد المحاولة.',
+  'errors.erasure_step_failed': 'لم تنجح إحدى خطوات المحو. ستُعاد المحاولة.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
   'errors.field.address_not_allowed':
     'لا يمكن استخدام عنوان الخادم هذا. استخدم الاسم العام لخادم البريد.',
@@ -398,6 +414,12 @@ export const ar: LabelResource = {
   'errors.field.end_or_duration_required': 'أدخل وقت انتهاء أو مدة.',
   'errors.field.english_label_required': 'الاسم بالإنجليزية مطلوب.',
   'errors.field.english_text_required': 'أضف النص الإنجليزي: يظهر حيثما لا توجد ترجمة.',
+  'errors.field.erasure_confirm_name_mismatch': 'اكتب اسم الشخص كما يظهر تمامًا.',
+  'errors.field.erasure_keep_file_unknown': 'لم يرفع هذا الشخص هذا الملف.',
+  'errors.field.erasure_keep_files_too_many': 'احتفظ بـ {{max}} ملفات على الأكثر.',
+  'errors.field.erasure_keep_reason_required': 'اذكر سبب الاحتفاظ بهذا الملف.',
+  'errors.field.erasure_successor_is_person': 'اختر شخصًا غير الشخص الذي تُمحى بياناته.',
+  'errors.field.erasure_successor_not_active': 'اختر شخصًا نشطًا ليتولى المسؤولية.',
   'errors.field.exception_range_order': 'يجب أن يكون اليوم الأخير في اليوم الأول أو بعده.',
   'errors.field.exception_range_too_long': 'يمكن أن تغطي الساعات الخاصة سنة واحدة على الأكثر.',
   'errors.field.exception_ranges_overlap':
@@ -815,6 +837,7 @@ export const ar: LabelResource = {
   // WP-040 AD/LDAP (D-130)
   'errors.ldap_host_invalid': 'أدخل اسم خادم الدليل أو عنوان IP الخاص به، دون ldap:// أو مسار.',
   'errors.ldap_single_tenant_only': 'لا يمكن ربط أدلة AD/LDAP إلا في تثبيت يخدم مؤسسة واحدة.',
+  'errors.legal_hold_not_set': 'هذا الشخص ليس تحت الحجز القانوني.',
   'errors.lifecycle_draft_exists': 'لدورة الحياة هذه مسودة بالفعل. افتحها أو تخلّص منها أولًا.',
   'errors.lifecycle_draft_not_found':
     'لا توجد مسودة لدورة الحياة هذه. ابدأ مسودة لإجراء التغييرات.',
@@ -914,6 +937,8 @@ export const ar: LabelResource = {
   'errors.people_import_file_too_large': 'حجم الملف أكبر من 5 ميغابايت.',
   'errors.people_import_file_unsafe': 'لم يُفتح المصنف: يتضخم إلى حجم يفوق حجمه بكثير.',
   'errors.permission_denied': 'ليست لديك صلاحية للقيام بذلك.',
+  'errors.person_already_erased': 'تم محو بيانات هذا الشخص.',
+  'errors.person_on_legal_hold': 'هذا الشخص تحت الحجز القانوني ولا يمكن محو بياناته.',
   'errors.pick_list_not_found': 'هذه القائمة غير موجودة.',
   'errors.pick_list_value_not_found': 'هذه القيمة لم تعد موجودة.',
   'errors.plain_connection_refused': 'يُرفض الاتصال غير المشفّر ما لم تسمح به.',

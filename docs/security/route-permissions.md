@@ -457,6 +457,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
 | PATCH | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
 | GET | `/api/v1/entitlements` | signed_in | - |
+| GET | `/api/v1/erasures` | `people.erase` | people.erase: all |
+| GET | `/api/v1/erasures/{erasure_id}` | `people.erase` | people.erase: all |
+| POST | `/api/v1/erasures/{erasure_id}/approve` | `people.erase` | people.erase: all |
+| POST | `/api/v1/erasures/{erasure_id}/reject` | `people.erase` | people.erase: all |
 | POST | `/api/v1/files` | signed_in | - |
 | POST | `/api/v1/files/attach` | signed_in | - |
 | GET | `/api/v1/files/content/{token}` | signed_in | - |
@@ -737,6 +741,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/people-imports` | `users.manage` | users.manage: all |
 | POST | `/api/v1/people-imports` | `users.manage` | users.manage: all |
 | GET | `/api/v1/people-imports/{import_id}` | `users.manage` | users.manage: all |
+| POST | `/api/v1/people/{user_id}/erasure` | `people.erase` | people.erase: all |
+| PUT | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` | audit.manage_holds: all |
+| POST | `/api/v1/people/{user_id}/legal-hold/lift` | `audit.manage_holds` | audit.manage_holds: all |
 | GET | `/api/v1/permissions` | `roles.view` | roles.view: all |
 | GET | `/api/v1/portal/changes` | signed_in | - |
 | POST | `/api/v1/portal/changes` | signed_in | - |
@@ -1730,6 +1737,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `assets.view_financials` | all | all |
 | tenant_admin | `audit.export` | all | all |
 | tenant_admin | `audit.manage` | all | all |
+| tenant_admin | `audit.manage_holds` | all | all |
 | tenant_admin | `audit.verify` | all | all |
 | tenant_admin | `audit.view` | all | all |
 | tenant_admin | `automation.manage` | all | all |
@@ -1808,6 +1816,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `licence.manage` | all | all |
 | tenant_admin | `mailboxes.manage` | all | all |
 | tenant_admin | `notifications.manage` | all | all |
+| tenant_admin | `people.erase` | all | all |
+| tenant_admin | `people.export` | all | all |
 | tenant_admin | `problems.add_note` | all | all |
 | tenant_admin | `problems.approve` | all | all |
 | tenant_admin | `problems.assign` | all | all |
