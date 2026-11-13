@@ -70,24 +70,29 @@ const PROBLEM = (field: string, code: string, params: Record<string, unknown> = 
     errors: [{ field: `body.${field}`, code, message_key: `errors.field.${code}`, params }],
   },
 });
+const TEMPLATE = {
+  id: 'rt-1',
+  kind: 'reply',
+  name: 'Restart',
+  subject: null,
+  bodies: { en: '<p>Restart it.</p>' },
+  body: '<p>Restart it.</p>',
+  visibility: 'shared',
+  mine: false,
+  group_ids: [],
+  category_ids: [],
+  may_edit: true,
+  version: 1,
+};
 const COMMON = {
   'GET /api/v1/incidents/settings': { body: fakeIncidentCatalogue() },
   'GET /api/v1/incidents/templates': { body: [fakeIncidentTemplate(), VPN_TEMPLATE] },
   'GET /api/v1/incidents/categories': { body: TREE },
   'GET /api/v1/organization/groups': { body: [] },
   'GET /api/v1/organization/sites': { body: [] },
-  'GET /api/v1/incidents/reply-templates': {
-    body: [
-      {
-        id: 'rt-1',
-        name: 'Restart',
-        body: '<p>Restart it.</p>',
-        version: 1,
-        created_at: '2026-10-24T09:00:00Z',
-        updated_at: '2026-10-24T09:00:00Z',
-      },
-    ],
-  },
+  'GET /api/v1/incidents/reply-templates': { body: [TEMPLATE] },
+  // The admin screen's own list (WP-046a S5a): shared ones and your personal ones.
+  'GET /api/v1/incidents/reply-templates/manage': { body: [TEMPLATE] },
 };
 
 function selectorOf(select: HTMLElement): Element {

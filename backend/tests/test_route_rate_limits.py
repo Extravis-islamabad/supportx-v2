@@ -18,7 +18,7 @@ from conftest import make_settings
 from tests.test_route_permissions import _dependencies, api_routes
 
 # Lower this in the same PR that removes a row; never raise it.
-PINNED = 20
+PINNED = 16
 
 KNOWN_UNLIMITED = frozenset(
     {
@@ -38,10 +38,6 @@ KNOWN_UNLIMITED = frozenset(
         "POST /api/v1/auth/switch-tenant",  # identity_access.bff.routes
         "GET /api/v1/health",  # system: a probe; kubelet calls it, never limited
         "GET /api/v1/ready",  # system: a probe; a 429 would fail readiness, never limited
-        "DELETE /api/v1/my-reminders/{reminder_id}",  # work_items.api.checklist_routes
-        "GET /api/v1/my-reminders",  # work_items.api.checklist_routes
-        "PATCH /api/v1/my-reminders/{reminder_id}",  # work_items.api.checklist_routes
-        "GET /api/v1/my-tasks",  # work_items.api.parts_routes
     }
 )
 
