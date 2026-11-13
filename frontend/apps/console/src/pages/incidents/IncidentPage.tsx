@@ -1016,6 +1016,14 @@ function Details({
       edit: { kind: 'tags', value: item.tags },
       filled: item.tags.length > 0,
     },
+    {
+      // WP-046a S6 (REQ-INC-066): addresses that get public replies by e-mail, never notes.
+      key: 'notify_emails',
+      label: t('work_item.field.notify_emails'),
+      view: <bdi dir="ltr">{listFormat(item.notify_emails ?? [])}</bdi>,
+      edit: { kind: 'tags', value: item.notify_emails ?? [] },
+      filled: (item.notify_emails ?? []).length > 0,
+    },
     // Custom fields (WP-026): the ones the template shows, and any other holding a value
     // (retired ones read-only, marked).
     ...(customFields.data ?? [])

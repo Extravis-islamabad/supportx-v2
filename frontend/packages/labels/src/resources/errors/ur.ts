@@ -682,6 +682,7 @@ export const ur: LabelResource = {
   'errors.field.too_deep': 'زمروں کی زیادہ سے زیادہ تین سطحیں ہیں۔',
   'errors.field.too_many': 'وصول کنندگان بہت زیادہ ہیں۔',
   'errors.field.too_many_actions': 'ایک قاعدے میں زیادہ سے زیادہ {{max}} عمل ہو سکتے ہیں۔',
+  'errors.field.too_many_addresses': 'زیادہ سے زیادہ 20 پتوں کو باخبر رکھیں۔',
   'errors.field.too_many_approvers': 'ایک مرحلے میں زیادہ سے زیادہ 10 منظور کنندگان ہو سکتے ہیں۔',
   'errors.field.too_many_assets': 'ایک ریکارڈ میں زیادہ سے زیادہ {{max}} اثاثے ہو سکتے ہیں۔',
   'errors.field.too_many_categories':
@@ -966,6 +967,8 @@ export const ur: LabelResource = {
   'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
   'errors.notification_rule_locked':
     'یہ سکیورٹی اطلاع ہے: کوئی اسے بند نہیں کر سکتا، وصول کنندگان نہیں بدل سکتا اور نہ واپس کر سکتا ہے۔',
+  'errors.notify_link_not_found':
+    'یہ لنک اب کام نہیں کرتا۔ شاید یہ پہلے استعمال ہو چکا ہے یا اس کی مدت ختم ہو گئی ہے۔',
   'errors.on_behalf_out_of_scope': 'آپ اس شخص کے لیے درخواست نہیں دے سکتے۔ سروس ڈیسک سے پوچھیں۔',
   'errors.open_work_blocked': 'یہ کام کھلا ہونے تک یہ نہیں ہو سکتا: {{items}}۔',
   'errors.open_work_unconfirmed':

@@ -680,6 +680,7 @@ export const en = {
   'errors.field.too_deep': 'Categories have at most three levels.',
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.too_many_actions': 'A rule can have at most {{max}} actions.',
+  'errors.field.too_many_addresses': 'Keep at most 20 addresses informed.',
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
   'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
@@ -960,6 +961,8 @@ export const en = {
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
   'errors.notification_rule_locked':
     'This is a security notice: no one can switch it off, change who gets it or reset it.',
+  'errors.notify_link_not_found':
+    'This link no longer works. It may have been used already, or it has expired.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',

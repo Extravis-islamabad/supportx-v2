@@ -247,6 +247,8 @@ class _Context:
     sender_id: uuid.UUID | None
     # Attachments refused only when stored (quota, permission): kept on the ledger row.
     not_kept: list[attachments.NotKept] = field(default_factory=list)
+    # Our own addresses: never kept informed of a record (a loop with ourselves).
+    own: tuple[str, ...] = ()
 
     def ledger_params(self) -> dict[str, str]:
         """The ledger row's params: which attachments could not be kept, if any."""
@@ -359,6 +361,7 @@ async def _create(ctx: _Context, *, create_requester: bool) -> Outcome:
         message_id=ctx.message.message_id,
         text=ctx.message.text,
         sender_verified=ctx.message.sender_verified,
+        cc=tuple(a for a in ctx.message.cc if a not in {o.lower() for o in ctx.own}),
     )
     await _keep_files(
         ctx, screened, owner=(OwnerType.WORK_ITEM, created.record_id), person=requester
@@ -450,7 +453,7 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
     )
     if target is None:
         return await _finish(session, mailbox, message, Outcome.HELD, reason="no_target")
-    ctx = _Context(session, settings, mailbox, message, target, sender_id)
+    ctx = _Context(session, settings, mailbox, message, target, sender_id, own=own_addresses)
     if decision.outcome is Outcome.AUTOMATIC and found is not None:
         return await _automatic(ctx, found, decision.reason)
     if decision.outcome not in (Outcome.CREATED, Outcome.REPLIED):

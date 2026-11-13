@@ -20,6 +20,7 @@ from app.modules.work_items.domain.classification import (
     check_matrix,
     compute_priority,
 )
+from app.modules.work_items.domain.kept_informed import FIELD_PROBLEMS as KEPT_PROBLEMS
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
@@ -310,7 +311,14 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     # S5b: a rule's joiners ("and", "or"), a section's flags and a layout's default label place.
     found -= {"or", "collapsed", "top"}
     # The boards', the change windows' and the text templates' codes come from their own sets.
-    known = FIELD_PROBLEMS | BOARD_PROBLEMS | WINDOW_PROBLEMS | TEMPLATE_PROBLEMS | COPY_PROBLEMS
+    known = (
+        FIELD_PROBLEMS
+        | BOARD_PROBLEMS
+        | WINDOW_PROBLEMS
+        | TEMPLATE_PROBLEMS
+        | COPY_PROBLEMS
+        | KEPT_PROBLEMS
+    )
     assert found <= known, sorted(found - known)
 
 

@@ -909,6 +909,8 @@ export {
   useActionLink,
   usePeekActionLink,
   usePublicActionLink,
+  usePeekNotifyLink,
+  useStopNotifyLink,
   usePublicPeekActionLink,
   useRequestTasks,
   useRequestTaskStatus,

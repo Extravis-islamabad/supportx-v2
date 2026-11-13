@@ -632,6 +632,7 @@ export const ar: LabelResource = {
   'errors.field.too_deep': 'للفئات ثلاثة مستويات كحد أقصى.',
   'errors.field.too_many': 'عدد المستلمين كبير جدًا.',
   'errors.field.too_many_actions': 'يمكن أن تحتوي القاعدة على {{max}} إجراء كحد أقصى.',
+  'errors.field.too_many_addresses': 'أبقِ 20 عنوانًا على الأكثر على اطلاع.',
   'errors.field.too_many_approvers': 'يمكن أن تضم المرحلة 10 موافقين على الأكثر.',
   'errors.field.too_many_assets': 'يمكن أن يحتوي السجل على {{max}} أصول على الأكثر.',
   'errors.field.too_many_categories': 'يمكن أن يظهر العنصر في خمس فئات أخرى كحد أقصى.',
@@ -891,6 +892,7 @@ export const ar: LabelResource = {
   'errors.notification_record_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
   'errors.notification_rule_locked':
     'هذا إشعار أمني: لا يمكن لأحد إيقافه أو تغيير مستلميه أو إعادة تعيينه.',
+  'errors.notify_link_not_found': 'لم يعد هذا الرابط يعمل. ربما استُخدم من قبل أو انتهت صلاحيته.',
   'errors.on_behalf_out_of_scope': 'لا يمكنك تقديم طلب لهذا الشخص. اسأل مكتب الخدمة.',
   'errors.open_work_blocked': 'لا يمكن تنفيذ هذا ما دام هذا العمل مفتوحًا: {{items}}.',
   'errors.open_work_unconfirmed': 'لا يزال هناك عمل مفتوح: {{items}}. أكّد للمتابعة على أي حال.',

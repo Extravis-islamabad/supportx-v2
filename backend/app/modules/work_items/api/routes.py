@@ -162,6 +162,11 @@ class WorkItemIn(BaseModel):
     impact_details: str | None = Field(
         default=None, max_length=IMPACT_DETAILS_MAX * 2, description="Plain text."
     )
+    notify_emails: list[str] | None = Field(
+        default=None,
+        max_length=40,
+        description="Incidents: addresses that get public replies, never notes (20 kept at most).",
+    )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40, description="A `level` list code.")
     # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
@@ -267,6 +272,11 @@ class WorkItemPatch(BaseModel):
     category_id: uuid.UUID | None = None
     impact: Impact | None = None
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
+    notify_emails: list[str] | None = Field(
+        default=None,
+        max_length=40,
+        description="Incidents: addresses that get public replies, never notes (20 kept at most).",
+    )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40)
     # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
@@ -608,6 +618,9 @@ class WorkItemOut(BaseModel):
     category_id: uuid.UUID | None
     impact: Impact | None
     impact_details: str | None
+    notify_emails: list[str] = Field(
+        default_factory=list, description="People kept informed by e-mail (REQ-INC-066)."
+    )
     urgency: Urgency | None
     priority: Priority
     priority_source: PrioritySource
@@ -774,6 +787,7 @@ _RECORD_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "notify_emails",
     "urgency",
     "priority",
     "priority_source",

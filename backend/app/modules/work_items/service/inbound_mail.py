@@ -24,6 +24,7 @@ from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import AppError, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import mail_recipients, subject_for, worker_policy
+from app.modules.work_items.domain import kept_informed
 from app.modules.work_items.domain.mail_commands import CommandField
 from app.modules.work_items.domain.types import INCIDENT, SUBJECT_MAX, Channel, parse_display_id
 from app.modules.work_items.infra.models import WorkItem
@@ -118,6 +119,23 @@ async def _by_token(session: AsyncSession, token: str) -> WorkItem | None:
     return row
 
 
+async def _kept_informed(
+    session: AsyncSession, requester_id: uuid.UUID, cc: Sequence[str]
+) -> list[str]:
+    """The first mail's Cc kept informed (REQ-INC-066), when the type says so.
+
+    Never the requester's own address: they hear as the requester.
+    """
+    if not cc:
+        return []
+    cat = await catalogue.load(session, INCIDENT)
+    if not cat.cc_from_first_mail:
+        return []
+    known = await mail_recipients(session, [requester_id])
+    mine = known[requester_id].email if requester_id in known else None
+    return kept_informed.from_first_mail(cc, excluded=[mine] if mine else [])
+
+
 class IncidentsFromMail:
     """`InboundTarget` for incidents."""
 
@@ -153,6 +171,7 @@ class IncidentsFromMail:
         message_id: str,
         text: str = "",
         sender_verified: bool = False,
+        cc: Sequence[str] = (),
     ) -> CreatedRecord:
         """A new incident in the requester's name, channel e-mail, routed with the mailbox's group.
 
@@ -164,7 +183,12 @@ class IncidentsFromMail:
         requester = await subject_for(session, _tenant(session), requester_id)
         planned = await mail_commands.plan(session, INCIDENT, text, sender_verified=sender_verified)
         template = await mail_commands.template_choice(session, INCIDENT, requester, planned)
-        values = {} if template.template_id is None else {"template_id": template.template_id}
+        values: dict[str, object] = (
+            {} if template.template_id is None else {"template_id": template.template_id}
+        )
+        kept = await _kept_informed(session, requester_id, cc)
+        if kept:
+            values["notify_emails"] = kept
         title = fit_subject(subject)
         if not title:  # neither a subject nor any text: a stored name, in the requester's language
             known = await mail_recipients(session, [requester_id])

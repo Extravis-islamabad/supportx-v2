@@ -100,11 +100,13 @@ class InboundTarget(Protocol):
         message_id: str,
         text: str = "",
         sender_verified: bool = False,
+        cc: Sequence[str] = (),
     ) -> CreatedRecord:
         """A new record; InboundRefused when the module's rules refuse it.
 
         `text`: the mail's plain text, for commands written at its top; `sender_verified`: the
-        mailbox's trusted server vouched for the sender (only then may commands apply).
+        mailbox's trusted server vouched for the sender (only then may commands apply); `cc`: the
+        mail's Cc without our own addresses, who may be kept informed (REQ-INC-066).
         """
         ...
 
