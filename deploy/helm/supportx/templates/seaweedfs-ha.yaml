@@ -66,8 +66,8 @@ spec:
   ports:
     - {name: s3, port: 8333, targetPort: s3}
 ---
-# Masters and volume servers find each other by these stable names (pod.service), published
-# before the pods are ready: raft needs its peers' addresses to elect a leader at all.
+# Masters find each other by these stable names (pod.service), published before the pods are
+# ready: raft needs its peers' addresses to elect a leader at all.
 apiVersion: v1
 kind: Service
 metadata:
@@ -83,6 +83,12 @@ spec:
     - {name: http, port: 9333, targetPort: http}
     - {name: grpc, port: 19333, targetPort: grpc}
 ---
+# Volume servers' names resolve only while they are ready (unlike the masters'): they announce
+# themselves to the masters by heartbeat, so nothing needs their names before that. A lost node's
+# volume server then stops resolving once the node is NotReady, and each filer's S3 gateway, which
+# caches volume locations with no expiry and retries a failed server every 30 s with a fixed 30 s
+# dial timeout (SeaweedFS 4.48), fails over in milliseconds instead of stalling 30 s per try:
+# measured one 30 s stall, then clean (D-166; it was a stall about every 60 s for minutes).
 apiVersion: v1
 kind: Service
 metadata:
@@ -91,7 +97,7 @@ metadata:
     {{- include "supportx.labels" $volume | nindent 4 }}
 spec:
   clusterIP: None
-  publishNotReadyAddresses: true
+  publishNotReadyAddresses: false
   selector:
     {{- include "supportx.selector" $volume | nindent 4 }}
   ports:

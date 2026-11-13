@@ -31,3 +31,9 @@
 - **Open:** the file-store backup (audit gap #1); the single-node `weed server` still sends
   SeaweedFS's anonymous usage statistics (default on), to fix in its own PR as it changes the
   golden file.
+- **Reads after a node loss (time-boxed investigation):** the stalls came from each filer's S3
+  gateway. Its cache of volume locations has no expiry, it retries a failed server every 30 s,
+  and the dial timeout is a fixed 30 s (SeaweedFS 4.48). The masters drop the dead server within
+  5–55 s. The volume Service no longer publishes not-ready pods, so a lost node's volume server
+  stops resolving once the node is NotReady. Measured on a throwaway k3d: one 30 s stall, then
+  clean, against a stall about every 60 s for minutes. TCP keepalive sysctls made no difference.
