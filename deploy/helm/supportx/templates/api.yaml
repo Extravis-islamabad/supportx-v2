@@ -39,6 +39,11 @@ spec:
             {{- include "supportx.filesEnv" . | nindent 12 }}
             - name: SUPPORTX_SERVICE_NAME
               value: supportx-api
+            {{- if .Values.geoip.existingClaim }}
+            # The approximate sign-in place (WP-057 S2b, D-170): the mounted DB-IP Lite file.
+            - name: SUPPORTX_GEOIP_DB
+              value: /var/lib/supportx/geoip/{{ .Values.geoip.file }}
+            {{- end }}
           ports:
             - {name: http, containerPort: 8000}
             - {name: metrics, containerPort: 9464}
@@ -66,11 +71,20 @@ spec:
             {{- end }}
             {{- with include "supportx.internalCaMount" . | trim }}{{ . | nindent 12 }}{{ end }}
             {{- with include "supportx.dbCaMount" . | trim }}{{ . | nindent 12 }}{{ end }}
+            {{- if .Values.geoip.existingClaim }}
+            - {name: geoip, mountPath: /var/lib/supportx/geoip, readOnly: true}
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
         {{- with include "supportx.internalCaVolume" . | trim }}{{ . | nindent 8 }}{{ end }}
         {{- with include "supportx.dbCaVolume" . | trim }}{{ . | nindent 8 }}{{ end }}
+        {{- if .Values.geoip.existingClaim }}
+        # Read-only by every API pod: a ReadOnlyMany (or ReadWriteMany) claim the operator fills
+        # with the place database, refreshed monthly through the mirror (docs/deployment.md).
+        - name: geoip
+          persistentVolumeClaim: {claimName: {{ .Values.geoip.existingClaim }}, readOnly: true}
+        {{- end }}
         {{- if .Values.app.licenceSecret }}
         # Read only by the licensing module (CLAUDE.md rule f).
         - name: licence

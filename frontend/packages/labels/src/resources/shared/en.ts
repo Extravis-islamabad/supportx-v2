@@ -1,6 +1,8 @@
 // shared labels (see ../README.md). English is the reference.
 export const en = {
   'about.close': 'Close',
+  'about.geoip_attribution': 'Approximate sign-in places use IP to City Lite data (CC BY 4.0) by',
+  'about.geoip_provider': 'DB-IP.com',
   'about.made_by': 'Made by Extravis',
   'about.open': 'About SupportX',
   'about.version': 'Version {{version}}',

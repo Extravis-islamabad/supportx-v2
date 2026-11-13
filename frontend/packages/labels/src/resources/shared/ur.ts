@@ -3,6 +3,9 @@ import type { LabelResource } from '../en';
 // shared labels (see ../README.md).
 export const ur: LabelResource = {
   'about.close': 'بند کریں',
+  'about.geoip_attribution':
+    'سائن اِن کے تقریبی مقامات IP to City Lite ڈیٹا (CC BY 4.0) استعمال کرتے ہیں، فراہم کنندہ:',
+  'about.geoip_provider': 'DB-IP.com',
   'about.made_by': 'Extravis کی تیار کردہ',
   'about.open': 'SupportX کے بارے میں',
   'about.version': 'ورژن {{version}}',
