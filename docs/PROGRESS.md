@@ -1362,6 +1362,16 @@ it with no reload (rule c). Not built yet.
     auto-start once for the record's technician. Live on the personal channel only.
 - **S3 PR 2 (no migration; REQ-INC-071; #432):** time analysis per status, group and
   technician, open and paused, on the record's calendar; the incident's Time tab.
+- **S5c part 1 (no migration; REQ-INC-018 quick create):**
+  - Incidents list › Quick create: subject, requester and an optional priority (with its
+    reason), without leaving the list.
+  - It is the same create as the full form: the default template's starting values go with it
+    and the server applies its rules. A field they need that the dialog lacks is named, with
+    "Open the full form" (template and requester carried over; AC2).
+  - The list updates live (AC1).
+  - **Next:** copy N times (REQ-INC-033; `copy_limit`, migration number asked). Server drafts
+    (REQ-INC-019) wait for WP-057 S3's field encryption, as approved; today's drafts are kept
+    in the tab (sessionStorage).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
