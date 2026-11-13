@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, select, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -140,27 +141,39 @@ async def put(  # noqa: PLR0913, PLR0917 - the draft and its version, explicit
     cipher = field_cipher_for(session, settings)
     now = datetime.now(UTC)
     if row is None:
-        row = WorkItemDraft(
-            id=new_id(),  # UUIDv7, made before sealing
-            tenant_id=tenant_id,
-            owner_id=owner_id,
-            type=wtype,
-            form_key=form_key,
-            body="",
-            version=1,
-            created_at=now,
-            updated_at=now,
+        draft_id = new_id()  # UUIDv7, made before sealing: the row is inserted with it (lane B)
+        body = await cipher.seal(DRAFT, Binding(TABLE, draft_id, "body"), plain)
+        # Two first saves at once (two tabs, both If-Match 0): one inserts, the other finds the
+        # row taken and is told it is stale, never a 500 (lane B's #495 review).
+        inserted = await session.scalar(
+            insert(WorkItemDraft)
+            .values(
+                id=draft_id,
+                tenant_id=tenant_id,
+                owner_id=owner_id,
+                type=wtype,
+                form_key=form_key,
+                body=body,
+                version=1,
+                created_at=now,
+                updated_at=now,
+            )
+            .on_conflict_do_nothing(index_elements=["tenant_id", "owner_id", "type", "form_key"])
+            .returning(WorkItemDraft.id)
         )
-        # Sealed to the ID the row is inserted with (lane B), before it is written.
-        row.body = await cipher.seal(DRAFT, Binding(TABLE, row.id, "body"), plain)
-        session.add(row)
+        if inserted is None:
+            raise Conflict(
+                code="version_conflict", params={"expected_version": 0, "current_version": 1}
+            )
+        version = 1
     else:
         row.body = await cipher.seal(DRAFT, Binding(TABLE, row.id, "body"), plain)
         row.version += 1
         row.updated_at = now
-    await session.flush()
-    await _announce(session, owner_id, form_key, row.version)
-    return row.version
+        await session.flush()
+        version = row.version
+    await _announce(session, owner_id, form_key, version)
+    return version
 
 
 async def discard(session: AsyncSession, owner_id: uuid.UUID, form_key: str) -> None:

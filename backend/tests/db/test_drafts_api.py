@@ -190,3 +190,22 @@ async def test_the_signal_names_the_form_and_version_only(world: World) -> None:
     )
     payload = json.loads(rows[-1]["envelope"])["payload"]
     assert payload == {"owner_id": str(a.tech_a), "form_key": "incident-new", "version": 1}
+
+
+async def test_two_first_saves_at_once_keep_one_draft(world: World) -> None:
+    """Two tabs' first saves together (both If-Match 0): one is kept, the other is stale."""
+    import asyncio  # noqa: PLC0415 - one test
+
+    with_key_ring(world)
+    a = world.a
+    first, second = await asyncio.gather(
+        keep(world, a.tech_a, subject="From tab one"),
+        keep(world, a.tech_a, subject="From tab two"),
+    )
+    assert sorted([first.status_code, second.status_code]) == [200, 409]
+    rows = await world.sql(
+        "SELECT count(*) AS n FROM work_item_drafts WHERE tenant_id = $1 AND owner_id = $2",
+        a.tenant,
+        a.tech_a,
+    )
+    assert rows[0]["n"] == 1
