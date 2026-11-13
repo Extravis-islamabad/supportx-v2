@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
 import { CONSOLE_URL, passwordOf, REPO, SEEDED, USERS } from '../stack';
-import { expectAccessible } from './helpers';
+import { expectAccessible, FIRST_LOAD_AFTER_SIGN_IN_MS } from './helpers';
 
 /**
  * WP-017 end to end (REQ-ADM-055, REQ-PRT-016, REQ-SEC-003, REQ-SEC-004), on two tenant addresses:
@@ -94,7 +94,7 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
   );
 
   await signInOn(page, DEMO, USERS.admin.email, passwordOf('admin'));
-  await expect(page.getByTestId('user-menu')).toBeVisible();
+  await expect(page.getByTestId('user-menu')).toBeVisible({ timeout: FIRST_LOAD_AFTER_SIGN_IN_MS });
   expect(new URL(page.url()).host).toBe(new URL(DEMO).host); // the session stays on the address
   try {
     // A brand-manager upload, scanned, then saved with a colour and a product name.
@@ -144,7 +144,9 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
     const watcher = await browser.newContext();
     const live = await watcher.newPage();
     await signInOn(live, DEMO, USERS.admin.email, passwordOf('admin'));
-    await expect(live.getByTestId('user-menu')).toBeVisible();
+    await expect(live.getByTestId('user-menu')).toBeVisible({
+      timeout: FIRST_LOAD_AFTER_SIGN_IN_MS,
+    });
     await save(page, {
       primary_colour: BRAND,
       logo_file_id: fileId,
@@ -185,7 +187,9 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
         await expect(other).toHaveURL(/scope=[^&]*organization%3Aother/);
         await expect.poll(() => primaryButtonColour(other)).toBe('rgb(126, 64, 209)');
         await signInOn(other, OTHER, SEEDED.other.email, SEEDED.other.password);
-        await expect(other.getByTestId('user-menu')).toBeVisible();
+        await expect(other.getByTestId('user-menu')).toBeVisible({
+          timeout: FIRST_LOAD_AFTER_SIGN_IN_MS,
+        });
         await expect(other.getByTestId('brand-logo-full').first()).not.toHaveAttribute(
           'src',
           /\/public\/branding\//,

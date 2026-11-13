@@ -67,9 +67,11 @@ spec:
 {{- end }}
 {{- with $egress.database }}
 ---
-# The database's own pods only (CloudNativePG's instances, a restore cluster's included: they
-# carry cnpg.io/cluster, not app.kubernetes.io/component): an external backup target and its
-# port, least privilege (D-166; the audit's rule against opening an address to every pod).
+# The database's own pods only: an external backup target and its port, least privilege (D-166;
+# the audit's rule against opening an address to every pod). CloudNativePG's pods carry
+# cnpg.io/cluster (not app.kubernetes.io/component); only this release's clusters are selected,
+# the chart's <release>-pg and the restore runbook's <release>-pg-restore (docs/runbooks/restore.md),
+# never another release's or another team's CloudNativePG cluster in the namespace.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -79,7 +81,7 @@ metadata:
 spec:
   podSelector:
     matchExpressions:
-      - {key: cnpg.io/cluster, operator: Exists}
+      - {key: cnpg.io/cluster, operator: In, values: [{{ $rel }}-pg, {{ $rel }}-pg-restore]}
   policyTypes: [Egress]
   egress:
     {{- toYaml . | nindent 4 }}
