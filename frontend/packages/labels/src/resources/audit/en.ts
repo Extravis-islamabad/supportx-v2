@@ -440,6 +440,7 @@ export const en = {
   'audit.action.session.confirmed': 'Confirmed it was them again',
   'audit.action.session.ended': 'Ended a signed-in session',
   'audit.action.session.ended_others': 'Signed out everywhere else',
+  'audit.action.session.keycloak_ended': 'Ended a sign-in service session left by a sign-out',
   'audit.action.session.quick_sign_in': 'Signed in with the dev quick sign-in',
   'audit.action.session.signed_in': 'Signed in',
   'audit.action.session.signed_out': 'Signed out',
@@ -505,6 +506,10 @@ export const en = {
   'audit.decision.release.approval_decided.rejected': 'Rejected a release',
   'audit.decision.service_request.approval_decided.approved': 'Approved a service request',
   'audit.decision.service_request.approval_decided.rejected': 'Rejected a service request',
+  'audit.decision.session.keycloak_ended.ended':
+    'Ended a sign-in service session left by a sign-out',
+  'audit.decision.session.keycloak_ended.not_ended':
+    'Could not end a sign-in service session left by a sign-out',
   'audit.detail.entries_checked': 'Entries checked: {{value}}',
   'audit.detail.first_broken_seq': 'First broken position: {{value}}',
   'audit.detail.personal_rows_removed': 'Personal records removed: {{value}}',
@@ -963,6 +968,8 @@ export const en = {
   'event_type.identity_access.identity_settings.changed': 'Sign-in settings changed',
   'event_type.identity_access.invitation.changed': 'Invitation changed',
   'event_type.identity_access.invitation.link_copied': 'Invitation link copied',
+  'event_type.identity_access.keycloak_session.end_pending':
+    'Sign-in service session waiting to end',
   'event_type.identity_access.mfa.changed': 'Two-step sign-in changed',
   'event_type.identity_access.new_device.signed_in': 'Sign-in from a new device',
   'event_type.identity_access.password_policy.changed': 'Password policy changed',

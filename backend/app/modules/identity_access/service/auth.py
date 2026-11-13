@@ -246,6 +246,18 @@ class LoginAddress:
     organization: str
 
 
+SIGN_IN_UNAVAILABLE = "sign_in_unavailable"
+
+
+def sign_in_unavailable() -> ServiceUnavailable:
+    """Signing in cannot happen right now (Keycloak or the login state store is down).
+
+    The UI says so and that people already signed in keep working (ADR-051): a browser is sent
+    back with `?auth_error=sign_in_unavailable`, an API client gets the 503 problem.
+    """
+    return ServiceUnavailable(code=SIGN_IN_UNAVAILABLE)
+
+
 class LoginFailure(Exception):
     """A login that could not complete: which app it was for, and the problem to report."""
 
@@ -489,6 +501,19 @@ class AuthService:
             PkcePair.generate(),
         )
         binding = secrets.token_urlsafe(32) if mobile is None else None
+        # Keycloak's address first: while it is unreachable (ADR-051) this raises
+        # IdentityProviderUnavailable before any login state is stored.
+        url = await self.oidc.authorization_url(
+            self.client(app, origin),
+            state=state,
+            nonce=nonce,
+            pkce=pkce,
+            organization=address.organization if address is not None else None,
+            # A password change asks for the current password first (REQ-SEC-028 AC2); setting
+            # MFA up too (D-104): only the person may add an authenticator to their account.
+            prompt="login" if reauthenticate or account_action is not None else None,
+            action=None if account_action is None else ACCOUNT_ACTIONS[account_action],
+        )
         await self.store.put_login(
             state,
             {
@@ -503,17 +528,6 @@ class AuthService:
                 **(mobile.pending() if mobile is not None else {}),
             },
             LOGIN_STATE_TTL,
-        )
-        url = await self.oidc.authorization_url(
-            self.client(app, origin),
-            state=state,
-            nonce=nonce,
-            pkce=pkce,
-            organization=address.organization if address is not None else None,
-            # A password change asks for the current password first (REQ-SEC-028 AC2); setting
-            # MFA up too (D-104): only the person may add an authenticator to their account.
-            prompt="login" if reauthenticate or account_action is not None else None,
-            action=None if account_action is None else ACCOUNT_ACTIONS[account_action],
         )
         return LoginStarted(url, state, binding)
 
@@ -608,7 +622,9 @@ class AuthService:
             # session still stands) runs them before anything else (REQ-SEC-024 AC2).
             return EnrolFirst(self._login_again(app, origin, pending["return_to"], mobile))
         except AppError as exc:
-            raise LoginFailure(app, exc, origin, mobile_return=mobile_return) from exc
+            # The code exchange found Keycloak gone (ADR-051): the sign-in landing says so.
+            problem = sign_in_unavailable() if isinstance(exc, IdentityProviderUnavailable) else exc
+            raise LoginFailure(app, problem, origin, mobile_return=mobile_return) from exc
         if previous_session_id and mobile is None:
             # Rotation: the browser's pre-login session (if any) dies here. Never on the app's
             # sign-in: the system browser's session is not the app's, and an unbound callback
@@ -1390,8 +1406,15 @@ class AuthService:
 
     async def logout(
         self, session_id: str, session: Session, *, attempt: Attempt | None = None
-    ) -> None:
-        """End the local session and the Keycloak SSO session (back channel)."""
+    ) -> bool:
+        """End the local session and the Keycloak SSO session (back channel).
+
+        Never waits for Keycloak (ADR-051): the SupportX session ends first, whatever Keycloak
+        does. When Keycloak cannot be reached, `keycloak_session.end_pending` goes into the
+        outbox with the sign-out and the consumers worker ends Keycloak's session once it
+        answers (service/keycloak_logout.py). True when Keycloak could not be reached, so its
+        own session may still stand for a while.
+        """
         if attempt is not None:  # the sign-in log (REQ-AUD-015): a sign-out
             facts = attempt.facts(
                 SignInOutcome.SIGNED_OUT, session.user_uuid, method=_stored_method(session)
@@ -1400,19 +1423,30 @@ class AuthService:
         await self.store.delete_session(session_id)
         await self._sessions_changed(session.tenant_uuid, session.user_uuid)
         client = self.client(_client_app(session))
+        pending: str | None = None
+        unreachable = False
         try:
             await self._end_keycloak_session(client, session.refresh_token)
         except IdentityProviderUnavailable:
             log.warning("keycloak_logout_failed", subject=session.subject)
+            unreachable = True
+            pending = session.keycloak_session_id
+            if pending is None:  # an old session without Keycloak's ID: its idle timeout ends it
+                log.warning("keycloak_logout_not_retried", subject=session.subject)
         # Last, and never fatal: the session is already gone, which is what the user asked for.
         # The session lives in Valkey, so this event cannot share a transaction with it.
         if self.database is not None:
             try:
                 await record_logout(
-                    self.database, session.tenant_uuid, session.user_uuid, _client_app(session)
+                    self.database,
+                    session.tenant_uuid,
+                    session.user_uuid,
+                    _client_app(session),
+                    keycloak_session_to_end=pending,
                 )
             except (SQLAlchemyError, OSError):
                 log.exception("logout_event_not_recorded", subject=session.subject)
+        return unreachable
 
     async def end_session(self, session_id: str, session: Session) -> None:
         """End only this SupportX session, recorded as a logout; Keycloak's own session stays.

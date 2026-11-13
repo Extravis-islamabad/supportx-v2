@@ -48,6 +48,14 @@ in the `supportx-app` Secret (`keycloak-admin-password`).
 | `supportx-nats-0` (JetStream) | NATS chart 2.15.1 | 1 / 1 | 4222, 7777 metrics | chart |
 | `supportx-valkey` (sessions, caches, rate limits; no persistence) | Valkey chart 0.12.0 | 1 / 1 | 6379, 9121 metrics | chart |
 
+**Readiness (`/api/v1/ready`).** PostgreSQL, Valkey and NATS are required: when one does not
+answer, the API pod is taken out of service (503). Keycloak is reported, not required (ADR-051):
+people already signed in never need it per request, so when it does not answer `/ready` stays 200
+and lists `keycloak` under `degraded`; only new sign-ins, sign-in admin changes and the
+back-channel end of a sign-out wait for it (a sign-out still ends the SupportX session at once
+and Keycloak's own session is ended in the background). Alert on `degraded` containing
+`keycloak`. The event workers and the malware signatures are reported the same way.
+
 Public routes (one host, D-038): `/api` → API, `/connection` + `/emulation` → Centrifugo,
 `/auth` → Keycloak (`/auth/admin` only in dev), `/portal/` and `/` → web. Gateway API (Traefik on
 k3s) by default; `routing.mode=ingress` for a plain Ingress.
@@ -536,7 +544,8 @@ spending it; with Valkey down that cannot be read, so it goes to the console.
 **The sign-in routes fail closed.** Every other route allows requests while Valkey is down (losing
 rate limiting for a moment beats losing the API, ADR-020). A sign-in needs Valkey anyway (its
 one-time state lives there), so letting it through unlimited buys nothing; it answers 503
-`sign_in_unavailable` with `Retry-After: 2`, and the sign-in page says to try again in a minute.
+`sign_in_unavailable` with `Retry-After: 2`, and the sign-in page says that signing in is
+temporarily unavailable. Keycloak being unreachable gives the same answer (ADR-051).
 
 ## Egress allow-list (opt-in)
 

@@ -1,7 +1,10 @@
 """Event contracts published by identity_access (WP-007; docs/architecture/events.md).
 
 Payloads carry IDs and codes only (architecture.md §8.2): no email address, name, token or
-session ID ever goes into an event. Consumers that need more ask identity_access.
+session ID ever goes into an event. Consumers that need more ask identity_access. One stated
+exception (ADR-051): `keycloak_session.end_pending` names Keycloak's own session ID, an identifier
+that authorises nothing (ending it takes the identity service account); a SupportX session ID or
+any token never.
 """
 
 import uuid
@@ -65,6 +68,22 @@ class UserLoggedOut(DomainEvent):
 
     user_id: uuid.UUID
     client: ClientApp
+
+
+class KeycloakSessionEndPending(DomainEvent):
+    """A sign-out ended the SupportX session while Keycloak was unreachable (ADR-051).
+
+    The person is signed out of SupportX already; this asks the consumers worker to end their
+    Keycloak session too, through the admin API, once Keycloak answers again. No token: the
+    session ID is enough for the admin API and authorises nothing on its own.
+    """
+
+    event_type: ClassVar[str] = "identity_access.keycloak_session.end_pending"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    keycloak_session_id: str = Field(min_length=1, max_length=128)
 
 
 class SessionTenantSwitched(DomainEvent):
@@ -405,6 +424,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     UserUpdated,
     UserLoggedIn,
     UserLoggedOut,
+    KeycloakSessionEndPending,
     SessionTenantSwitched,
     RoleChanged,
     UserRoleChanged,

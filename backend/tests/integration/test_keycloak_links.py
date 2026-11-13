@@ -20,7 +20,7 @@ import shutil
 import socket
 import subprocess
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 import httpx
@@ -36,7 +36,7 @@ READY_SECONDS = 240
 REALM = "links"
 
 
-@dataclass(frozen=True)
+@dataclass  # ports are picked again when a docker run is retried
 class Stack:
     network: str
     keycloak: str
@@ -50,6 +50,12 @@ class Stack:
         return f"http://127.0.0.1:{self.http_port}"
 
 
+GREENMAIL_OPTS = (
+    "GREENMAIL_OPTS=-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0"
+    " -Dgreenmail.auth.disabled"
+)
+
+
 def _free_port() -> int:
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
@@ -57,7 +63,36 @@ def _free_port() -> int:
 
 
 def _docker(*args: str) -> None:
-    subprocess.run(["docker", *args], check=True, capture_output=True)  # noqa: S603, S607
+    """Run docker; on failure say why (its stderr), never the arguments (they hold a password)."""
+    done = subprocess.run(["docker", *args], check=False, capture_output=True)  # noqa: S603, S607
+    if done.returncode != 0:
+        stderr = done.stderr.decode(errors="replace").strip()
+        msg = f"docker {args[0]} exited {done.returncode}: {stderr[-800:]}"
+        raise DockerFailed(msg)
+
+
+class DockerFailed(RuntimeError):
+    """A docker command failed (its stderr in the message)."""
+
+
+def _run_container(name: str, args: Callable[[], list[str]]) -> None:
+    """`docker run -d` with up to three tries (lane A's #477 drop: exit 125, cause unrecorded).
+
+    A free port probed here can be taken by another job before docker binds it, and a registry
+    pull can fail once; each retry removes the half-made container and asks `args` again, so a
+    caller that picks its ports inside `args` gets fresh ones.
+    """
+    for attempt in range(1, 4):
+        try:
+            _docker("run", "-d", "--rm", "--name", name, *args())
+        except DockerFailed as failed:
+            subprocess.run(["docker", "rm", "-f", name], check=False, capture_output=True)  # noqa: S603, S607
+            if attempt == 3:
+                raise
+            print(f"retrying {name}: {failed}")  # noqa: T201 - shows in the CI log on a later failure
+            time.sleep(5)
+        else:
+            return
 
 
 def _wait(url: str) -> None:
@@ -82,22 +117,28 @@ def stack() -> Iterator[Stack]:
     )
     _docker("network", "create", "--label", LABEL, found.network)
     try:
-        _docker(
-            "run", "-d", "--rm", "--name", found.greenmail, "--label", LABEL,
-            "--network", found.network,
-            "-e", "GREENMAIL_OPTS=-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0"
-            " -Dgreenmail.auth.disabled",
-            "-p", f"127.0.0.1:{found.imap_port}:3143",
-            GREENMAIL_IMAGE,
-        )  # fmt: skip
-        _docker(
-            "run", "-d", "--rm", "--name", found.keycloak, "--label", LABEL, "-m", "1g",
-            "--network", found.network,
-            "-e", "KC_BOOTSTRAP_ADMIN_USERNAME=admin",
-            "-e", f"KC_BOOTSTRAP_ADMIN_PASSWORD={found.admin_password}",
-            "-p", f"127.0.0.1:{found.http_port}:{found.http_port}",
-            KEYCLOAK_IMAGE, "start-dev", f"--http-port={found.http_port}",
-        )  # fmt: skip
+
+        def greenmail() -> list[str]:
+            found.imap_port = _free_port()
+            return [
+                "--label", LABEL, "--network", found.network,
+                "-e", GREENMAIL_OPTS,
+                "-p", f"127.0.0.1:{found.imap_port}:3143",
+                GREENMAIL_IMAGE,
+            ]  # fmt: skip
+
+        def keycloak() -> list[str]:
+            found.http_port = _free_port()
+            return [
+                "--label", LABEL, "-m", "1g", "--network", found.network,
+                "-e", "KC_BOOTSTRAP_ADMIN_USERNAME=admin",
+                "-e", f"KC_BOOTSTRAP_ADMIN_PASSWORD={found.admin_password}",
+                "-p", f"127.0.0.1:{found.http_port}:{found.http_port}",
+                KEYCLOAK_IMAGE, "start-dev", f"--http-port={found.http_port}",
+            ]  # fmt: skip
+
+        _run_container(found.greenmail, greenmail)
+        _run_container(found.keycloak, keycloak)
         _wait(f"{found.base}/realms/master/.well-known/openid-configuration")
         with _admin(found) as admin:
             admin.post(
