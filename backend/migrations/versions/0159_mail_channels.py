@@ -160,6 +160,7 @@ def _waiting_index(outcomes: str) -> None:
         WAITING_INDEX,
         "mail_fetched",
         ["tenant_id", "mailbox_id", "created_at"],
+        # nosemgrep: sx.sql-format - `outcomes` is one of two fixed code lists in this file
         postgresql_where=sa.text(f"outcome IN ({outcomes})"),
     )
 
