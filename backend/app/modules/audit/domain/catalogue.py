@@ -382,6 +382,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("file.deleted", AuditCategory.RECORDS, "system"),
     ("file.downloaded", AuditCategory.DATA, "system"),
     ("file.archive_downloaded", AuditCategory.DATA, "system"),  # WP-046a S2: a bulk export
+    ("file.copied", AuditCategory.RECORDS, "system"),  # WP-046a S5c: onto a copied record
     ("file.blocked", AuditCategory.SECURITY, "system"),
     ("file.rescan_requested", AuditCategory.SECURITY, "system"),
     ("file.purged", AuditCategory.DATA, "system"),
