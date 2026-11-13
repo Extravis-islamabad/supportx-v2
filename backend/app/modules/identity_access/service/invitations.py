@@ -379,7 +379,7 @@ async def copy_link(
     )
     base = brand.console_url if for_console else brand.portal_url
     tenant = "" if settings.tenant_base_domain else f"?t={quote(brand.tenant_slug)}"
-    return CopiedLink(token, row.expires_at, f"{base}{INVITE_PAGE}{tenant}#token={token}")
+    return CopiedLink(token, row.expires_at, f"{base}{INVITE_PAGE}{tenant}#{token}")
 
 
 async def clear_links(session: AsyncSession, user_id: uuid.UUID) -> None:

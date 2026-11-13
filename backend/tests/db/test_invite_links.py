@@ -54,14 +54,14 @@ async def test_without_mail_a_link_is_copied_once_and_only_its_hash_is_kept(worl
     link = urlsplit(str(first["link"]))
     assert link.path.endswith("/invite")
     assert "token" not in link.query  # the token is only ever in the fragment
-    token = link.fragment.removeprefix("token=")
+    token = link.fragment
     assert len(token) >= 43
     stored = await _stored_hash(world, str(invitation["id"]))
     assert stored == hashlib.sha256(token.encode()).digest()
     # A second copy replaces it: the first link stops working.
     status, second = await _copy(world, str(invitation["id"]), int(str(invitation["version"])) + 1)
     assert status == 200, second
-    again = urlsplit(str(second["link"])).fragment.removeprefix("token=")
+    again = urlsplit(str(second["link"])).fragment
     assert again != token
     assert (
         await _stored_hash(world, str(invitation["id"])) == hashlib.sha256(again.encode()).digest()
@@ -114,7 +114,7 @@ async def _copied(world: World, email: str) -> tuple[str, str, str]:
     assert status == 200, body
     link = urlsplit(str(body["link"]))
     slug = dict(p.split("=", 1) for p in link.query.split("&") if p)["t"]
-    return str(invitation["id"]), link.fragment.removeprefix("token="), slug
+    return str(invitation["id"]), link.fragment, slug
 
 
 async def test_a_copied_link_sets_the_first_password_once(

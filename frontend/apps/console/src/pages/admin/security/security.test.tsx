@@ -365,7 +365,7 @@ describe('invitations (WP-039 session 2, REQ-SEC-018..020)', () => {
   });
 
   it('without outgoing mail, a link is copied once and shown in a dialog (REQ-SEC-021)', async () => {
-    const link = 'https://acme.example/portal/invite?t=acme#token=abc';
+    const link = 'https://acme.example/portal/invite?t=acme#abc';
     const fake = api(
       routes({
         routes: {
