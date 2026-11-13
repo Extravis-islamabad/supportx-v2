@@ -78,6 +78,8 @@ from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import (
     break_glass_notifications,
     directory,
+    expiry_alerts,
+    expiry_notifications,
     mfa,
     security_notices,
     sign_in_import,
@@ -393,6 +395,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
 security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
+expiry_notifications.register()  # admins hear before a sign-in certificate or secret runs out
 
 module = ModuleSpec(
     name="identity_access",
@@ -428,6 +431,8 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__sign_in_import", 60, sign_in_import.import_schedule),
         # Past the MFA grace period: Keycloak's enrol actions (WP-039 session 3, REQ-SEC-024).
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
+        # Sign-in certificates and client secrets about to run out (WP-057 S2b-2, REQ-SEC-011).
+        ScheduleSpec("identity_access__expiry_alerts", 86400, expiry_alerts.expiry_schedule),
         # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
         ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
     ],

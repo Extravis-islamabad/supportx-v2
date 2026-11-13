@@ -30,6 +30,12 @@ export const ur: LabelResource = {
   'event_delivery.stalled.title': 'واقعات کی ترسیل رکی ہوئی ہے',
   'event_delivery_state.ok': 'ترسیل جاری',
   'event_delivery_state.stalled': 'رکی ہوئی',
+  'notice.sign_in_secret.days_1': 'ایک دن کے اندر ختم ہو جائے گی',
+  'notice.sign_in_secret.days_30': '30 دن میں ختم ہو جائے گی',
+  'notice.sign_in_secret.days_7': '7 دن میں ختم ہو جائے گی',
+  'notice.sign_in_secret.expired': 'ختم ہو چکی ہے',
+  'notice.sign_in_secret.item_certificate': 'دستخطی سرٹیفکیٹ',
+  'notice.sign_in_secret.item_client_secret': 'کلائنٹ کی خفیہ کلید',
   'notification.open_record': '{{id}} کھولیں',
   'notification_area.announcement': 'اعلانات',
   'notification_area.asset': 'اثاثے',
@@ -47,6 +53,7 @@ export const ur: LabelResource = {
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.security': 'سیکیورٹی اطلاعات',
   'notification_area.service_request': 'سروس کی درخواستیں',
+  'notification_area.sign_in_secret': 'سائن اِن کے سرٹیفکیٹ اور خفیہ کلیدیں',
   'notification_area.task': 'کام',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
@@ -146,6 +153,8 @@ export const ur: LabelResource = {
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
+  'notification_event.sign_in_secret.expiring':
+    'سائن اِن کا سرٹیفکیٹ یا خفیہ کلید ختم ہونے والی ہے',
   'notification_event.task.assigned': 'آپ کو ایک کام دیا گیا',
   'notification_event.task.overdue': 'آپ کا کام تاخیر کا شکار ہے',
   'notification_event.task.starts_soon': 'آپ کا کام جلد شروع ہو رہا ہے',
@@ -197,6 +206,7 @@ export const ur: LabelResource = {
   'notification_recipient.reviewer': 'جائزہ کار',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.stock_watchers': 'کم از کم حد کے نامزد لوگ',
+  'notification_recipient.tenant_admins': 'ادارے کے ایڈمنسٹریٹرز',
   'notification_recipient.the_person': 'متعلقہ شخص',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
   'notification_recipient.workflow_audience': 'ورک فلو میں نامزد افراد',
@@ -711,6 +721,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
+  'notification_template.sign_in_secret.expiring.body':
+    'السلام علیکم {{ recipient.name }}،\n\nسنگل سائن آن "{{ record.title }}" کی {{ notice.item }} {{ notice.left }} ({{ notice.expires }})۔ ختم ہونے پر لوگ اس کے ذریعے سائن اِن نہیں کر سکیں گے۔ شناخت فراہم کنندہ سے اس کی تجدید کریں اور سائن اِن اور سیکیورٹی میں اپ ڈیٹ کریں: {{ record.link }}',
+  'notification_template.sign_in_secret.expiring.in_app':
+    '{{ record.title }}: {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
+  'notification_template.sign_in_secret.expiring.subject':
+    'سنگل سائن آن {{ record.title }}: {{ notice.item }} {{ notice.left }}',
   'notification_template.task.assigned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر کام "{{ task.title }}" اب آپ کا ہے۔',
   'notification_template.task.assigned.in_app':
@@ -764,6 +780,10 @@ export const ur: LabelResource = {
   'notification_variable.security.device': 'سائن اِن › براؤزر اور آلہ',
   'notification_variable.security.place': 'سائن اِن › تقریبی مقام',
   'notification_variable.security.when': 'سائن اِن › وقت',
+  'notification_variable.sign_in_secret.expires': 'سنگل سائن آن › ختم ہونے کی تاریخ',
+  'notification_variable.sign_in_secret.item': 'سنگل سائن آن › کیا ختم ہو رہا ہے',
+  'notification_variable.sign_in_secret.left': 'سنگل سائن آن › باقی وقت',
+  'notification_variable.sign_in_secret.provider': 'سنگل سائن آن › نام',
   'notification_variable.site.name': 'مقام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
   'notification_variable.stock.minimum': 'اسٹاک › کم از کم',

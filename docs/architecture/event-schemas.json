@@ -2941,6 +2941,43 @@
         "type": "object"
       }
     },
+    "identity_access.sign_in_secret.expiring": {
+      "1": {
+        "description": "A sign-in certificate or client secret is about to run out, or has (REQ-SEC-011).\n\nWP-057 S2b-2: the tenant's admins are told, once per threshold (30, 7, 1 days; 0 = run out).\nIDs and codes only: the provider, which kind of item, the threshold and the date.",
+        "properties": {
+          "days_left": {
+            "title": "Days Left",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "item": {
+            "enum": [
+              "certificate",
+              "client_secret"
+            ],
+            "title": "Item",
+            "type": "string"
+          },
+          "provider_id": {
+            "format": "uuid",
+            "title": "Provider Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_id",
+          "item",
+          "days_left",
+          "expires_at"
+        ],
+        "title": "SignInSecretExpiring",
+        "type": "object"
+      }
+    },
     "identity_access.sso_provider.changed": {
       "1": {
         "description": "A single sign-on set-up was added, changed, tested, switched on or off, or removed.",

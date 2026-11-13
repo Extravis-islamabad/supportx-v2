@@ -28,6 +28,12 @@ export const en = {
   'event_delivery.stalled.title': 'Event delivery is stalled',
   'event_delivery_state.ok': 'Delivering',
   'event_delivery_state.stalled': 'Stalled',
+  'notice.sign_in_secret.days_1': 'runs out within a day',
+  'notice.sign_in_secret.days_30': 'runs out in 30 days',
+  'notice.sign_in_secret.days_7': 'runs out in 7 days',
+  'notice.sign_in_secret.expired': 'has run out',
+  'notice.sign_in_secret.item_certificate': 'signing certificate',
+  'notice.sign_in_secret.item_client_secret': 'client secret',
   'notification.open_record': 'Open {{id}}',
   'notification_area.announcement': 'Announcements',
   'notification_area.asset': 'Assets',
@@ -45,6 +51,7 @@ export const en = {
   'notification_area.rule_step': 'Rules and escalations',
   'notification_area.security': 'Security notices',
   'notification_area.service_request': 'Service requests',
+  'notification_area.sign_in_secret': 'Sign-in certificates and secrets',
   'notification_area.task': 'Tasks',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
@@ -143,6 +150,7 @@ export const en = {
   'notification_event.service_request.received': 'Request received: acknowledgement',
   'notification_event.service_request.rejected': 'Request rejected',
   'notification_event.service_request.withdrawn': 'Request withdrawn',
+  'notification_event.sign_in_secret.expiring': 'A sign-in certificate or secret is running out',
   'notification_event.task.assigned': 'A task is given to you',
   'notification_event.task.overdue': 'Your task is overdue',
   'notification_event.task.starts_soon': 'Your task starts soon',
@@ -194,6 +202,7 @@ export const en = {
   'notification_recipient.reviewer': 'Reviewer',
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.stock_watchers': "The minimum's people",
+  'notification_recipient.tenant_admins': 'The tenant administrators',
   'notification_recipient.the_person': 'The person it is about',
   'notification_recipient.topic_owner': 'Topic owner',
   'notification_recipient.workflow_audience': 'People the workflow names',
@@ -708,6 +717,12 @@ export const en = {
     '{{ record.display_id }} was withdrawn: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'Withdrawn: {{ record.display_id }} {{ record.title }}',
+  'notification_template.sign_in_secret.expiring.body':
+    'Hello {{ recipient.name }},\n\nThe {{ notice.item }} of the single sign-on "{{ record.title }}" {{ notice.left }} ({{ notice.expires }}). When it runs out, people cannot sign in through it. Renew it at the identity provider and update it in Sign-in and security: {{ record.link }}',
+  'notification_template.sign_in_secret.expiring.in_app':
+    '{{ record.title }}: the {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
+  'notification_template.sign_in_secret.expiring.subject':
+    'Single sign-on {{ record.title }}: the {{ notice.item }} {{ notice.left }}',
   'notification_template.task.assigned.body':
     'Hello {{ recipient.name }},\n\nThe task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" is now yours.',
   'notification_template.task.assigned.in_app':
@@ -761,6 +776,10 @@ export const en = {
   'notification_variable.security.device': 'Sign-in › Browser and device',
   'notification_variable.security.place': 'Sign-in › Approximate place',
   'notification_variable.security.when': 'Sign-in › Time',
+  'notification_variable.sign_in_secret.expires': 'Single sign-on › Runs out on',
+  'notification_variable.sign_in_secret.item': 'Single sign-on › What runs out',
+  'notification_variable.sign_in_secret.left': 'Single sign-on › Time left',
+  'notification_variable.sign_in_secret.provider': 'Single sign-on › Name',
   'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
   'notification_variable.stock.minimum': 'Stock › Minimum',

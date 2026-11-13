@@ -961,6 +961,8 @@ export const ur: LabelResource = {
   'event_type.identity_access.role.changed': 'کردار تبدیل ہوا',
   'event_type.identity_access.session.tenant_switched': 'ادارہ تبدیل کیا',
   'event_type.identity_access.sign_in.recorded': 'سائن اِن درج ہوا',
+  'event_type.identity_access.sign_in_secret.expiring':
+    'سائن اِن سرٹیفکیٹ یا خفیہ کلید ختم ہو رہی ہے',
   'event_type.identity_access.sso_provider.changed': 'سنگل سائن آن کا سیٹ اپ بدلا',
   'event_type.identity_access.user.created': 'فرد شامل کیا گیا',
   'event_type.identity_access.user.logged_in': 'سائن اِن کیا',

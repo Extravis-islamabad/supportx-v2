@@ -351,6 +351,23 @@ class NewDeviceSignedIn(DomainEvent):
     signed_in_at: datetime
 
 
+class SignInSecretExpiring(DomainEvent):
+    """A sign-in certificate or client secret is about to run out, or has (REQ-SEC-011).
+
+    WP-057 S2b-2: the tenant's admins are told, once per threshold (30, 7, 1 days; 0 = run out).
+    IDs and codes only: the provider, which kind of item, the threshold and the date.
+    """
+
+    event_type: ClassVar[str] = "identity_access.sign_in_secret.expiring"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sso_provider"
+
+    provider_id: uuid.UUID
+    item: Literal["certificate", "client_secret"]
+    days_left: int
+    expires_at: datetime
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -377,4 +394,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SignInRecorded,
     BreakGlassSignedIn,
     NewDeviceSignedIn,
+    SignInSecretExpiring,
 )

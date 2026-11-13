@@ -40,7 +40,8 @@ _VARIABLES = (
 )
 
 
-async def _admins(session: AsyncSession) -> list[uuid.UUID]:
+async def tenant_admins(session: AsyncSession) -> list[uuid.UUID]:
+    """The tenant's active admins (at most ADMINS_LIMIT): who hears of sign-in security events."""
     found = await session.scalars(
         select(UserRole.user_id)
         .join(Role, Role.id == UserRole.role_id)
@@ -88,7 +89,7 @@ class BreakGlassNotifications:
         person = await session.get(User, user_id)
         if person is None:
             return None
-        others = frozenset(a for a in await _admins(session) if a != user_id)
+        others = frozenset(a for a in await tenant_admins(session) if a != user_id)
         values: dict[str, VariableValue] = {
             "record.title": person.display_name,
             "record.link": LINK,
@@ -109,7 +110,9 @@ class BreakGlassNotifications:
     ) -> RecordAccess:
         """FULL for the tenant's admins (checked at send time), nobody else."""
         del record_id
-        return RecordAccess.FULL if user_id in set(await _admins(session)) else RecordAccess.NONE
+        return (
+            RecordAccess.FULL if user_id in set(await tenant_admins(session)) else RecordAccess.NONE
+        )
 
 
 SOURCE = BreakGlassNotifications()

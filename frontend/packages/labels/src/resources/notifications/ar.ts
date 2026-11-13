@@ -30,6 +30,12 @@ export const ar: LabelResource = {
   'event_delivery.stalled.title': 'توقف تسليم الأحداث',
   'event_delivery_state.ok': 'يجري التسليم',
   'event_delivery_state.stalled': 'متوقف',
+  'notice.sign_in_secret.days_1': 'تنتهي خلال يوم',
+  'notice.sign_in_secret.days_30': 'تنتهي خلال 30 يومًا',
+  'notice.sign_in_secret.days_7': 'تنتهي خلال 7 أيام',
+  'notice.sign_in_secret.expired': 'انتهت',
+  'notice.sign_in_secret.item_certificate': 'شهادة التوقيع',
+  'notice.sign_in_secret.item_client_secret': 'سر العميل',
   'notification.open_record': 'فتح {{id}}',
   'notification_area.announcement': 'الإعلانات',
   'notification_area.asset': 'الأصول',
@@ -47,6 +53,7 @@ export const ar: LabelResource = {
   'notification_area.rule_step': 'القواعد والتصعيدات',
   'notification_area.security': 'الإشعارات الأمنية',
   'notification_area.service_request': 'طلبات الخدمة',
+  'notification_area.sign_in_secret': 'شهادات وأسرار تسجيل الدخول',
   'notification_area.task': 'المهام',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
@@ -146,6 +153,7 @@ export const ar: LabelResource = {
   'notification_event.service_request.received': 'استلام الطلب: إشعار',
   'notification_event.service_request.rejected': 'رفض الطلب',
   'notification_event.service_request.withdrawn': 'سحب الطلب',
+  'notification_event.sign_in_secret.expiring': 'شهادة أو سر لتسجيل الدخول على وشك الانتهاء',
   'notification_event.task.assigned': 'أُسندت إليك مهمة',
   'notification_event.task.overdue': 'مهمتك متأخرة',
   'notification_event.task.starts_soon': 'مهمتك تبدأ قريبًا',
@@ -196,6 +204,7 @@ export const ar: LabelResource = {
   'notification_recipient.reviewer': 'المراجِع',
   'notification_recipient.step_owner': 'مالك القاعدة (وإلا فمسؤولوها)',
   'notification_recipient.stock_watchers': 'الأشخاص المحددون للحد الأدنى',
+  'notification_recipient.tenant_admins': 'مسؤولو المؤسسة',
   'notification_recipient.the_person': 'الشخص المعني',
   'notification_recipient.topic_owner': 'مالك الموضوع',
   'notification_recipient.workflow_audience': 'الأشخاص الذين يحدّدهم سير العمل',
@@ -709,6 +718,12 @@ export const ar: LabelResource = {
     'سُحب {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'تم السحب: {{ record.display_id }} {{ record.title }}',
+  'notification_template.sign_in_secret.expiring.body':
+    'مرحبًا {{ recipient.name }}،\n\nصلاحية {{ notice.item }} لتسجيل الدخول الموحّد "{{ record.title }}" {{ notice.left }} ({{ notice.expires }}). عند انتهائها لن يتمكن المستخدمون من تسجيل الدخول عبره. جدّدها لدى مزوّد الهوية وحدّثها في تسجيل الدخول والأمان: {{ record.link }}',
+  'notification_template.sign_in_secret.expiring.in_app':
+    '{{ record.title }}: صلاحية {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
+  'notification_template.sign_in_secret.expiring.subject':
+    'تسجيل الدخول الموحّد {{ record.title }}: صلاحية {{ notice.item }} {{ notice.left }}',
   'notification_template.task.assigned.body':
     'مرحبًا {{ recipient.name }}،\n\nأصبحت المهمة "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" لك الآن.',
   'notification_template.task.assigned.in_app':
@@ -761,6 +776,10 @@ export const ar: LabelResource = {
   'notification_variable.security.device': 'تسجيل الدخول › المتصفح والجهاز',
   'notification_variable.security.place': 'تسجيل الدخول › المكان التقريبي',
   'notification_variable.security.when': 'تسجيل الدخول › الوقت',
+  'notification_variable.sign_in_secret.expires': 'تسجيل الدخول الموحّد › ينتهي في',
+  'notification_variable.sign_in_secret.item': 'تسجيل الدخول الموحّد › ما سينتهي',
+  'notification_variable.sign_in_secret.left': 'تسجيل الدخول الموحّد › الوقت المتبقي',
+  'notification_variable.sign_in_secret.provider': 'تسجيل الدخول الموحّد › الاسم',
   'notification_variable.site.name': 'الموقع',
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
   'notification_variable.stock.minimum': 'المخزون › الحد الأدنى',

@@ -965,6 +965,7 @@ export const en = {
   'event_type.identity_access.role.changed': 'Role changed',
   'event_type.identity_access.session.tenant_switched': 'Switched organisation',
   'event_type.identity_access.sign_in.recorded': 'Sign-in logged',
+  'event_type.identity_access.sign_in_secret.expiring': 'Sign-in certificate or secret running out',
   'event_type.identity_access.sso_provider.changed': 'Single sign-on set-up changed',
   'event_type.identity_access.user.created': 'Person added',
   'event_type.identity_access.user.logged_in': 'Signed in',
