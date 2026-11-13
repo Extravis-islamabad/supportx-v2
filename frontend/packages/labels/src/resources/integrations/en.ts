@@ -223,6 +223,11 @@ export const en = {
   'mail.add': 'Add a mailbox',
   'mail.add_title': 'Add a mailbox',
   'mail.edit_title': 'Change mailbox',
+  'mail.email_changed.body':
+    '{{who}} changed the sign-in e-mail of your {{organisation}} account at {{when}}. It is no longer this address: sign-ins and password resets now go to the new one. If you did not expect this, contact your {{organisation}} administrators straight away.',
+  'mail.email_changed.body_self':
+    'The sign-in e-mail of your {{organisation}} account was changed at {{when}}. It is no longer this address: sign-ins and password resets now go to the new one. If you did not do this, contact your {{organisation}} administrators straight away.',
+  'mail.email_changed.subject': 'The sign-in e-mail of your {{organisation}} account was changed',
   'mail.field.address': 'E-mail address',
   'mail.field.after_fetch': 'After reading a message',
   'mail.field.after_fetch_hint':

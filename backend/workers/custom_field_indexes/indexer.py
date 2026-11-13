@@ -97,7 +97,10 @@ async def build(
 ) -> IndexFailure | None:
     """Build one index on an autocommit connection; None when it is valid afterwards."""
     failure: IndexFailure | None = None
+    # SET takes no bound parameters; ":d" formats integers only.
+    # nosemgrep: sx.sql-format - an integer (":d")
     await conn.exec_driver_sql(f"SET lock_timeout = '{lock_timeout:d}s'")
+    # nosemgrep: sx.sql-format - an integer (":d")
     await conn.exec_driver_sql(f"SET statement_timeout = '{build_timeout:d}s'")
     try:
         await conn.exec_driver_sql(statement)
@@ -117,6 +120,7 @@ async def build(
     if valid:
         return None
     if valid is False:
+        # nosemgrep: sx.sql-format - index_name(): validated field keys, as in the CREATE
         await conn.exec_driver_sql(f"DROP INDEX CONCURRENTLY IF EXISTS {name}")
     return failure or IndexFailure.UNEXPECTED
 

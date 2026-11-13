@@ -17,6 +17,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from ssl import SSLContext
 from urllib.parse import urlsplit, urlunsplit
 
 import asyncpg
@@ -136,10 +137,15 @@ class RolePasswords:
     relay: str
 
 
-async def bootstrap(admin_url: str, database: str, passwords: RolePasswords) -> bool:
-    """Roles + database + schema. Idempotent; never drops or alters data. True if created."""
+async def bootstrap(
+    admin_url: str, database: str, passwords: RolePasswords, ssl: SSLContext | None = None
+) -> bool:
+    """Roles + database + schema. Idempotent; never drops or alters data. True if created.
+
+    `ssl`: verify-full to the server (app.core.database.database_ssl), as in the deploy Job.
+    """
     _check_database_name(database)
-    admin = await asyncpg.connect(admin_url)
+    admin = await asyncpg.connect(admin_url, ssl=ssl)
     try:
         # Roles and grants are cluster-wide catalog rows: two bootstraps at once (parallel test
         # workers, or two lanes on one dev server) fail with "tuple concurrently updated". One at
@@ -156,7 +162,7 @@ async def bootstrap(admin_url: str, database: str, passwords: RolePasswords) -> 
         )
         existed = await admin.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", database)
         await run_script(admin, "database.sql", {"database": database})
-        in_database = await asyncpg.connect(with_database(admin_url, database))
+        in_database = await asyncpg.connect(with_database(admin_url, database), ssl=ssl)
         try:
             await run_script(in_database, "schema.sql", {})
         finally:

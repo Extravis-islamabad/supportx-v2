@@ -43,6 +43,7 @@ from app.modules.identity_access.service import sso as sso_service
 from app.modules.identity_access.service.identity_settings import DEFAULTS, STATE_FIELDS
 from app.modules.identity_access.service.users import provision_user
 from app.modules.identity_access.tests.fake_idp import MemoryKeyValue
+from app.shared.egress import Allowance
 from conftest import make_settings
 from tests.db.test_access_api import Org, fake_session, make_org
 from tooling.db_testing import ThrowawayDatabase
@@ -255,17 +256,22 @@ async def world(
 ) -> AsyncIterator[World]:
     accepted = {"right-secret"}
 
-    async def fetch(url: str, *, allow_loopback: bool = False) -> str:
-        del allow_loopback
+    async def fetch(url: str, *, allowance: Allowance, tenant_id: object = None) -> str:
+        del allowance, tenant_id
         if url == f"{ISSUER}/.well-known/openid-configuration":
             return json.dumps(DISCOVERY)
         missing = "unreachable"
         raise FetchError(missing)
 
     async def client_check(
-        token_url: str, client_id: str, secret: str, *, allow_loopback: bool = False
+        token_url: str,
+        client_id: str,
+        secret: str,
+        *,
+        allowance: Allowance,
+        tenant_id: object = None,
     ) -> bool:
-        del token_url, client_id, allow_loopback
+        del token_url, client_id, allowance, tenant_id
         return secret in accepted
 
     monkeypatch.setattr(sso_service, "fetch_document", fetch)

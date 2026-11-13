@@ -179,6 +179,15 @@ export const en = {
   'errors.brand_colour_contrast':
     'This colour is hard to read: text on it falls below the WCAG AA contrast level. Use the suggested colour or choose a darker one.',
   'errors.branding_not_found': 'This brand was not found.',
+  'errors.break_glass_admin_only': 'Only a tenant administrator can name emergency administrators.',
+  'errors.break_glass_ip_exempt_needs_break_glass':
+    'Only an emergency administrator can be exempt from the IP allow-lists.',
+  'errors.break_glass_needs_admin':
+    'Only a tenant administrator can be an emergency administrator.',
+  'errors.break_glass_needs_mfa':
+    'This emergency account needs two-step sign-in set up before it can be used.',
+  'errors.break_glass_not_self':
+    'Another administrator must name you as an emergency administrator.',
   'errors.bulk_job_not_found': 'This bulk change was not found.',
   'errors.calendar_in_use':
     'Sites or support groups still use this calendar. Give them another calendar first.',
@@ -269,6 +278,7 @@ export const en = {
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
   'errors.downtime_not_found': 'This downtime window does not exist.',
+  'errors.duplicate_move': 'The same move is listed twice from one status. Keep one.',
   'errors.entitlement_required': 'Your plan does not include this feature.',
   'errors.entitlement_required.detail': '{{feature}} is not part of your organisation’s plan.',
   'errors.entitlements_unavailable':
@@ -433,6 +443,7 @@ export const en = {
   'errors.field.expiry_before_review': 'The expiry date must be after the review date.',
   'errors.field.fallback_fixed': 'The default policy always applies and has no conditions.',
   'errors.field.field_always_required': 'Subject and requester are always shown and required.',
+  'errors.field.field_locked': 'A form rule locks this field, so it cannot be changed here.',
   'errors.field.field_not_settable': 'A rule cannot set this field.',
   'errors.field.field_retired': 'This field is retired and takes no new values.',
   'errors.field.field_set_twice': 'This field is already set by another action of the rule.',
@@ -487,6 +498,13 @@ export const en = {
   'errors.field.invalid_value': 'This value is not valid for the field.',
   'errors.field.invalid_website': 'Enter a web address starting with http:// or https://.',
   'errors.field.invitation_days_out_of_range': 'Use between {{min}} and {{max}} days.',
+  'errors.field.ip_allow_everything':
+    '“{{entry}}” would allow every address. Leave the list empty to allow everyone.',
+  'errors.field.ip_allow_invalid':
+    '“{{entry}}” is not an address or range. Use a form like 192.0.2.0/24 or 2001:db8::/32.',
+  'errors.field.ip_allow_locks_you_out':
+    'This list would shut you out: your address {{address}} is not in it. Add it, or a range that holds it.',
+  'errors.field.ip_allow_too_many': 'Use at most {{max}} entries.',
   'errors.field.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.field.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.field.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
@@ -522,13 +540,17 @@ export const en = {
   'errors.field.name_needs_letters': 'Use at least one letter or digit in the name.',
   'errors.field.name_required': 'Enter a name.',
   'errors.field.name_taken': 'Another one already uses this name.',
+  'errors.field.needs_collapsible': 'Only a collapsible section can start closed.',
   'errors.field.needs_scheduled_start': 'A reminder before the start needs a scheduled start.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
   'errors.field.not_a_field': 'This field does not exist for this type.',
+  'errors.field.not_a_form_field': 'This field is not on the form.',
   'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
   'errors.field.not_eligible': 'This person or group may not hold this role.',
+  'errors.field.not_for_personal': 'A personal template is yours only, so it has no groups.',
+  'errors.field.not_for_replies': 'Only resolution templates have categories.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
   'errors.field.not_in_past': 'This time must be in the past.',
@@ -594,6 +616,7 @@ export const en = {
   'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
   'errors.field.role_held_by_record':
     "This role follows the record's own field. Change it in the details panel.",
+  'errors.field.rule_too_deep': 'Conditions nest at most three levels.',
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
@@ -601,6 +624,9 @@ export const en = {
     'Use at least the idle timeout and at most {{max}} hours.',
   'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
   'errors.field.site_inactive': 'This site is inactive. Choose an active site.',
+  'errors.field.site_network_invalid':
+    'Enter a range such as 10.1.0.0/16 (with the host part zero), or one address.',
+  'errors.field.site_network_too_many': 'At most {{max}} ranges can be mapped.',
   'errors.field.site_not_found': 'This site does not exist.',
   'errors.field.sso_certificate_expired':
     'The certificate has expired. Ask the identity provider for a current one.',
@@ -658,6 +684,7 @@ export const en = {
   'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
+  'errors.field.too_many_copies': 'Make 1 to {{max}} copies at a time.',
   'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
   'errors.field.too_many_items': 'There are too many entries.',
   'errors.field.too_many_keywords': 'Use at most 20 keywords per language.',
@@ -674,11 +701,13 @@ export const en = {
     "A field's type cannot change. Add a new field and retire this one.",
   'errors.field.unknown_article_type': 'This article type does not exist or is retired.',
   'errors.field.unknown_builtin_report': 'This built-in report does not exist.',
+  'errors.field.unknown_category': 'One of these categories does not exist here.',
   'errors.field.unknown_column': 'This column does not exist for these records.',
   'errors.field.unknown_dimension': 'Reports cannot be grouped by this field.',
   'errors.field.unknown_entity': 'There is nothing of this kind to report on.',
   'errors.field.unknown_field': 'You cannot filter on this field.',
   'errors.field.unknown_folder': 'This folder does not exist any more.',
+  'errors.field.unknown_group': 'One of these groups does not exist here.',
   'errors.field.unknown_key': 'This filter setting is not recognised.',
   'errors.field.unknown_language': 'Only English, Arabic and Urdu names are supported.',
   'errors.field.unknown_measure': 'This measure is not available for these records.',
@@ -693,10 +722,13 @@ export const en = {
     'Someone chosen is no longer active, or a group no longer exists.',
   'errors.field.unknown_record_type': 'Choose what the rule applies to.',
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
+  'errors.field.unknown_role': 'This role does not exist here. Choose one from the list.',
   'errors.field.unknown_sort_field': 'The list cannot be sorted by this field.',
   'errors.field.unknown_stage': 'This type has no such stage.',
   'errors.field.unknown_time_zone': 'Choose a time zone from the list.',
   'errors.field.unknown_value': 'This value does not exist (any more).',
+  'errors.field.unknown_variable':
+    'This uses a variable that does not exist. Pick one from the list.',
   'errors.field.url_not_valid': 'Enter a web address starting with https:// or http://.',
   'errors.field.user_not_found': 'This person does not exist in your organisation.',
   'errors.field.value_no_longer_valid': 'This value is no longer available.',
@@ -721,6 +753,8 @@ export const en = {
   'errors.field.workflow_not_published': 'Publish this workflow first.',
   'errors.field.workflow_wrong_record_type': 'This workflow is for another kind of record.',
   'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
+  'errors.field_keys_unavailable':
+    'Protected information cannot be read or saved right now: the installation key is not available. Ask your administrator to check it.',
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',
@@ -762,6 +796,8 @@ export const en = {
   'errors.instance_running': 'Stop this workflow before running it again.',
   'errors.instances_not_in_workflow':
     'Some of the chosen runs are not runs of this workflow ({{count}}).',
+  'errors.interactive_session_required':
+    'Do this in the web console while signed in. API keys and the mobile app cannot.',
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
@@ -791,6 +827,8 @@ export const en = {
   'errors.invitation_pending': 'This person has an invitation waiting. Send it again instead.',
   'errors.invitation_person_cannot_sign_in':
     'This person is deactivated or not allowed to sign in.',
+  'errors.ip_not_allowed':
+    'Your organisation does not allow sign-in from this network. Connect from an allowed network, or ask your administrator.',
   'errors.job_kind_not_available': 'This kind of job is not available yet.',
   'errors.job_size': 'Choose between 1 and {{max}} runs.',
   'errors.kb_article_not_editable':
@@ -823,6 +861,8 @@ export const en = {
   'errors.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
+  'errors.last_break_glass_admin':
+    'This is the last emergency administrator while single sign-on is required. Name another first, or stop requiring single sign-on.',
   'errors.last_tenant_admin': 'The organisation must keep at least one tenant administrator.',
   'errors.ldap_attribute_invalid': 'Enter a directory attribute name: letters, digits and hyphens.',
   'errors.ldap_bind_password_missing': 'No bind password is stored. Enter it again.',
@@ -839,6 +879,17 @@ export const en = {
     "Enter the directory server's host name or IP address, without ldap:// or a path.",
   'errors.ldap_single_tenant_only':
     'AD/LDAP directories can only be connected on an installation that serves one organisation.',
+  'errors.lifecycle_draft_exists':
+    'This life cycle already has a draft. Open it, or throw it away first.',
+  'errors.lifecycle_draft_not_found': 'This life cycle has no draft. Start one to make changes.',
+  'errors.lifecycle_version_has_problems_one':
+    'The draft has {{count}} problem to fix before it can be published.',
+  'errors.lifecycle_version_has_problems_other':
+    'The draft has {{count}} problems to fix before it can be published.',
+  'errors.lifecycle_version_last_published':
+    'Version {{number}} is the one new records start on, so it cannot be retired.',
+  'errors.lifecycle_version_not_found': 'This life cycle version was not found.',
+  'errors.lifecycle_version_not_published': 'Only a published version can be retired.',
   'errors.limit_reached':
     'Your plan’s limit for this has been reached. Ask your administrator to extend the plan.',
   'errors.link_has_own_route':
@@ -905,6 +956,8 @@ export const en = {
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
+  'errors.notification_rule_locked':
+    'This is a security notice: no one can switch it off, change who gets it or reset it.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',
@@ -950,6 +1003,10 @@ export const en = {
     'You can no longer follow this live. Reload the page to see the latest data.',
   'errors.realtime_not_configured':
     'Live updates are not set up on this server. Reload the page to see the latest data.',
+  'errors.reauth_failed': 'That did not confirm it was you. Nothing was changed.',
+  'errors.reauth_required': 'Confirm it is you to continue: sign in again, then try once more.',
+  'errors.reauth_unavailable':
+    'Your organisation signs you in through a provider that cannot confirm it again on request. Ask an administrator.',
   'errors.recipient_deferred': "The recipient's mail server asked to try later.",
   'errors.recipient_refused': 'The mail server refused the recipient.',
   'errors.record_closed': 'Closed and cancelled records cannot be changed.',
@@ -1002,7 +1059,7 @@ export const en = {
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unavailable':
-    'Signing in is not available right now. Please wait a minute and try again.',
+    'Sign-in is temporarily unavailable. If you’re already signed in, you can keep working.',
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
   'errors.site_not_found': 'The site was not found.',
@@ -1023,6 +1080,10 @@ export const en = {
   'errors.sso_provider_not_found': 'This single sign-on set-up was not found.',
   'errors.sso_provider_refused':
     'The sign-in service refused these settings. Check them and try again.',
+  'errors.sso_required':
+    "Your organisation requires single sign-on. Sign in with your organisation's account instead of a password.",
+  'errors.sso_required_needs_break_glass':
+    'Name at least one emergency (break-glass) administrator with two-step sign-in before requiring single sign-on.',
   'errors.sso_switch_off_first':
     'Switch the set-up off before changing how it connects, so nobody is locked out.',
   'errors.sso_switched_off': 'Switch the set-up on, or change it, before testing it.',
@@ -1060,9 +1121,16 @@ export const en = {
   'errors.tenant_not_provisioned':
     'Your organisation is not set up in SupportX yet. Please contact your administrator.',
   'errors.tenant_suspended': 'Your organisation’s access is suspended.',
+  'errors.timer_not_running': 'You have no timer running on this record.',
+  'errors.timer_record_done':
+    'This record is resolved or closed. Log the time as a worklog instead.',
+  'errors.timer_running': 'Your timer is already running on this record.',
   'errors.too_many_favourites': 'You can star up to {{max}} reports.',
   'errors.too_many_files': 'Too many files at once: at most {{max}}.',
+  'errors.too_many_moves': 'A life cycle can have at most {{max}} moves.',
   'errors.too_many_rules': 'At most {{max}} rules per record type.',
+  'errors.transition_condition_not_met':
+    'This status change is not available to you on this record now.',
   'errors.transition_not_allowed': 'This status change is not available to you on this record.',
   'errors.transition_not_found': 'That status change is not part of the life cycle.',
   'errors.unauthenticated': 'Please sign in to continue.',
@@ -1093,6 +1161,7 @@ export const en = {
   'errors.workflow_instance_not_found': 'This workflow run was not found.',
   'errors.workflow_job_not_found': 'This job was not found.',
   'errors.workflow_version_not_found': 'That version of the workflow was not found.',
+  'errors.worklog_record_closed': "Time can't be logged or changed on a closed record here.",
   'errors.would_lose_access':
     'After this change you will no longer see {{display_id}}. Confirm to hand it over.',
 } as const;

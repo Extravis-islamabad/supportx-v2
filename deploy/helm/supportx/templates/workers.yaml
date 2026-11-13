@@ -41,6 +41,16 @@ spec:
       {{- include "supportx.pullSecrets" $ | nindent 6 }}
       {{- include "supportx.podSecurityContext" $ | nindent 6 }}
       {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
+      {{- /* The single-copy workers move off a lost node in seconds, not 300 (ha.fastEvictionSeconds). */}}
+      {{- if and $.Values.ha.enabled $.Values.ha.fastEvictionSeconds (has $w.component (list "fanout" "indexes")) }}
+      tolerations:
+        {{- range $taint := list "node.kubernetes.io/unreachable" "node.kubernetes.io/not-ready" }}
+        - key: {{ $taint }}
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: {{ int $.Values.ha.fastEvictionSeconds }}
+        {{- end }}
+      {{- end }}
       terminationGracePeriodSeconds: 30
       initContainers:
         {{- include "supportx.waitForMigrate" $ | nindent 8 }}
@@ -80,6 +90,9 @@ spec:
             # Applies the password policy admins save (manage-realm); no other pod holds it.
             - name: SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: keycloak-realm-secret, optional: true}}
+            # Reads Keycloak's login events into the sign-in log (view-events); no other pod holds it.
+            - name: SUPPORTX_KEYCLOAK_EVENTS_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: keycloak-events-client-secret, optional: true}}
             {{- if $.Values.directory.ldap.enabled }}
             # Writes the AD/LDAP connection admins set up (manage-realm); no other pod holds it.
             - name: SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET
@@ -106,7 +119,11 @@ spec:
             {{- toYaml $w.resources | nindent 12 }}
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
+            {{- with include "supportx.internalCaMount" $ | trim }}{{ . | nindent 12 }}{{ end }}
+            {{- with include "supportx.dbCaMount" $ | trim }}{{ . | nindent 12 }}{{ end }}
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- with include "supportx.internalCaVolume" $ | trim }}{{ . | nindent 8 }}{{ end }}
+        {{- with include "supportx.dbCaVolume" $ | trim }}{{ . | nindent 8 }}{{ end }}
 {{- end }}

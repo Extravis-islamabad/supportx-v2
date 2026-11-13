@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { CONSOLE_URL, SEEDED } from '../stack';
 import { signIn } from './helpers';
 
-test('a technician logs in to the console, sees name and tenant, and logs out', async ({
+test('a technician logs in to the console, sees name and tenant, and logs out @smoke', async ({
   page,
 }) => {
   await signIn(page, SEEDED.tech.email, SEEDED.tech.password);

@@ -75,13 +75,25 @@ class Settings(BaseSettings):
     valkey_sentinels: str | None = None
     valkey_sentinel_master: str = Field(default="supportx", min_length=1, max_length=64)
     valkey_sentinel_password: SecretStr | None = None  # None: the same as Valkey's own
+    # TLS to Valkey and its sentinels (audit row 5; the chart's internal CA in values-ha.yaml).
+    # Set: `valkey_url` must be valkeys:// (or rediss://), and every connection checks the server
+    # certificate against this CA and the host name dialled. Unset: as the URL says.
+    valkey_tls_ca_file: Path | None = None
     nats_url: SecretStr | None = None
+    # TLS to NATS (audit row 5; the chart's internal CA in values-ha.yaml). Set: `nats_url` must
+    # be tls://, and the server certificate is checked against this CA and the URL's host name.
+    nats_tls_ca_file: Path | None = None
     readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
     # Database (WP-005). `database_url` is the application role (supportx_app) through PgBouncer
     # in transaction mode; `migration_database_url` is supportx_migrator straight to PostgreSQL,
     # used only by Alembic and dev tooling, never by the running API.
     migration_database_url: SecretStr | None = None
+    # TLS to PostgreSQL, verified (audit row 5): the CA the server's (or PgBouncer's) certificate
+    # chains to. Set: every connection is sslmode verify-full against it (the host name
+    # checked). Unset: asyncpg's default, which encrypts when the server offers it but checks
+    # nothing. The chart mounts CloudNativePG's own CA, or an external database's.
+    database_ssl_root_cert: Path | None = None
     db_pool_size: int = Field(default=10, ge=1, le=200)
     db_max_overflow: int = Field(default=10, ge=0, le=200)
     db_pool_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
@@ -132,9 +144,14 @@ class Settings(BaseSettings):
     # the secret to the consumers worker alone, and only where LDAP is on (never on SaaS).
     keycloak_federation_client_id: str = "supportx-federation"
     keycloak_federation_client_secret: SecretStr | None = None
-    # Single sign-on checks fetch the provider's discovery document or SAML metadata. Loopback
-    # addresses are refused (server-side request forgery) unless allowed: dev and CI only, where
-    # the test identity provider runs on the same machine.
+    # The sign-in log's import of Keycloak's login events (WP-057 S1b): `supportx-events`,
+    # view-events only; the chart gives the secret to the consumers worker alone. None: no import
+    # (the BFF's own entries are still written).
+    keycloak_events_client_id: str = "supportx-events"
+    keycloak_events_client_secret: SecretStr | None = None
+    # Single sign-on checks fetch the provider's discovery document or SAML metadata through the
+    # guarded client (private ranges only via egress_allow, below). This also opens loopback, in
+    # the dev and test profiles only, where the test identity provider runs on the same machine.
     sso_fetch_allow_loopback: bool = False
     # Guarded outbound calls (workflow webhooks, outbound webhooks; ADR-043 §8): what the
     # installation opens beyond the public internet, as CIDRs or host names (an on-prem ERP on a
@@ -288,8 +305,11 @@ class Settings(BaseSettings):
     cursor_secret: SecretStr | None = None
     # API keys (WP-041, D-128): the server key their secrets are hashed under (HMAC-SHA-256).
     # Kept outside the database, so a leaked database alone cannot be used to test guesses.
-    # None = derived from SUPPORTX_SESSION_SECRET; with neither, API keys are unavailable (never a
-    # random key: every key would stop working at the next restart). Rotating it ends every key.
+    # Required in production (audit row 26): a key of its own, so the session secret never guards
+    # API keys. Dev and test without it derive one from SUPPORTX_SESSION_SECRET; with neither, API
+    # keys are unavailable (never a random key: every key would stop working at the next restart).
+    # Keys hashed under that derived key before it was set move to it on their next good call while
+    # SUPPORTX_SESSION_SECRET stays set (service/api_keys.py). Rotating it ends every key.
     api_key_secret: SecretStr | None = None
     # The key behind custom-domain verification proofs (WP-017). None = SUPPORTX_SESSION_SECRET
     # (the legacy secret, as before D-162), never the session key ring.
@@ -303,7 +323,13 @@ class Settings(BaseSettings):
     # listed use "default". JSON in the environment, e.g.
     # SUPPORTX_RATE_LIMITS='{"users": {"user": 300, "tenant": 3000}}'.
     rate_limits: dict[str, dict[str, int]] = Field(
-        default_factory=lambda: {"default": {"user": 600, "tenant": 6000}}
+        default_factory=lambda: {
+            "default": {"user": 600, "tenant": 6000},
+            # Signing out everywhere else (WP-057 S2a, lane B): a few a minute is plenty.
+            "auth_sessions": {"user": 10, "tenant": 1000},
+            # Confirming who you are (WP-057 S2a, REQ-SEC-027; lane B A3): per person.
+            "auth_confirm": {"user": 10, "tenant": 1000},
+        }
     )
     # Prefix for every Valkey key the API writes (tests use a random one).
     valkey_key_prefix: str = Field(default="supportx:", max_length=40)
@@ -343,6 +369,12 @@ class Settings(BaseSettings):
     object_storage_secret_key: SecretStr | None = None
     object_storage_bucket: str = Field(default="supportx", pattern=r"^[a-z0-9][a-z0-9.-]{2,62}$")
     object_storage_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+
+    # The approximate sign-in place (WP-057 S2b, D-170): the DB-IP Lite city database (.mmdb, about
+    # 126 MB) on a mounted volume, never in the image; refreshed monthly through the mirror and
+    # shipped in the offline bundle. Not set or unreadable: no place is shown (never an error);
+    # internal ranges and admin-mapped networks still show "Internal network" or their site.
+    geoip_db: Path | None = None
 
     # Files (WP-022, ADR-028, docs/architecture/files.md). `files_keys` is the installation key
     # ring that wraps each tenant's data keys: "<key id>:<base64 32 bytes>, ..." with the active
@@ -463,6 +495,26 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def _valkey_tls_needs_a_tls_url(self) -> Self:
+        """A CA with a plaintext URL would look protected and be in clear: refused at start."""
+        if self.valkey_tls_ca_file is not None and self.valkey_url is not None:
+            scheme = urlsplit(self.valkey_url.get_secret_value()).scheme
+            if scheme not in {"valkeys", "rediss"}:
+                msg = "SUPPORTX_VALKEY_TLS_CA_FILE needs a valkeys:// SUPPORTX_VALKEY_URL"
+                raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _nats_tls_needs_a_tls_url(self) -> Self:
+        """As for Valkey: a CA with a nats:// URL would look protected and be in clear."""
+        url = self.nats_url
+        plaintext = url is not None and urlsplit(url.get_secret_value()).scheme != "tls"
+        if self.nats_tls_ca_file is not None and plaintext:
+            msg = "SUPPORTX_NATS_TLS_CA_FILE needs a tls:// SUPPORTX_NATS_URL"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
     def _production_requires_backing_services(self) -> Self:
         if self.profile == "production":
             required = (
@@ -475,6 +527,7 @@ class Settings(BaseSettings):
                 "centrifugo_api_url",
                 "centrifugo_api_key",
                 "centrifugo_token_secret",
+                "api_key_secret",  # its own key, never the session secret (audit row 26)
             )
             missing = [name for name in required if getattr(self, name) is None]
             if self.session_secret is None and self.session_keys is None:
@@ -491,6 +544,12 @@ class Settings(BaseSettings):
                 and len(self.session_secret.get_secret_value()) < SESSION_KEY_MIN_LENGTH
             ):
                 msg = "SUPPORTX_SESSION_SECRET must be at least 32 characters in production"
+                raise ValueError(msg)
+            if (
+                self.api_key_secret is not None
+                and len(self.api_key_secret.get_secret_value()) < SESSION_KEY_MIN_LENGTH
+            ):
+                msg = "SUPPORTX_API_KEY_SECRET must be at least 32 characters in production"
                 raise ValueError(msg)
             if urlsplit(self.mobile_redirect_uri).scheme != "https":
                 # see ADR-044 item 3: a mis-set chart value would send every hand-off code in
@@ -522,10 +581,11 @@ class Settings(BaseSettings):
                 raise ValueError(msg)
         if self.session_keys is None or self.session_secret is not None:
             return
-        # Without SUPPORTX_SESSION_SECRET these fall back to nothing: every API key would stop
-        # working, list cursors would differ per replica and domain proofs would fail.
+        # Without SUPPORTX_SESSION_SECRET these fall back to nothing: list cursors would differ
+        # per replica and domain proofs would fail. SUPPORTX_API_KEY_SECRET is required in
+        # production on its own (audit row 26); API keys not yet moved to it stop working once
+        # SUPPORTX_SESSION_SECRET goes.
         needed = {
-            "SUPPORTX_API_KEY_SECRET": self.api_key_secret,
             "SUPPORTX_CURSOR_SECRET": self.cursor_secret,
             "SUPPORTX_DOMAIN_PROOF_SECRET": self.domain_proof_secret,
         }
@@ -535,8 +595,7 @@ class Settings(BaseSettings):
                 "session_keys_need_legacy_secret: SUPPORTX_SESSION_KEYS is set without "
                 "SUPPORTX_SESSION_SECRET, so production also needs "
                 f"{', '.join(missing)}. Keep SUPPORTX_SESSION_SECRET set (it no longer seals "
-                "sessions once 'legacy' leaves the ring), or set these; a new "
-                "SUPPORTX_API_KEY_SECRET ends every existing API key "
+                "sessions once 'legacy' leaves the ring), or set these "
                 "(docs/guides/rotating-the-sign-in-key.md, upgrade notes)"
             )
             raise ValueError(msg)

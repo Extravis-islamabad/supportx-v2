@@ -62,6 +62,7 @@ from app.modules.work_items.domain.lists import BulkAction, BulkStatus, ViewVisi
 from app.modules.work_items.domain.parts import LinkKind, TaskPriority, TaskStatus, WorklogType
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
 from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, Channel, WorkItemTypeCode
+from app.modules.work_items.domain.versions import FIRST_VERSION, VersionState
 from app.shared.db.models import (
     Actors,
     Base,
@@ -90,6 +91,7 @@ class WorkItemTypeSettings(TenantKeyed, Base):
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
         CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
+        CheckConstraint("copy_limit BETWEEN 1 AND 100", name="copy_limit_range"),
         CheckConstraint(
             "task_dependency_mode IN ('block', 'warn')", name="task_dependency_mode_code"
         ),
@@ -149,6 +151,10 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     # WP-058b S3 (0142; REQ-REL-048), releases only: a stage with open tasks cannot be left
     # (off: it can, and the stage tab's counter shows what is open).
     open_stage_tasks_block: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # WP-046a S3 (0147, REQ-INC-070): worklog rules; the timer never starts by itself by default.
+    worklog_block_closed: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    worklog_count_nonworking: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    timer_auto_start: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
     first_response_on: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default="{reply,public_note}"
@@ -185,6 +191,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     segregation_strict: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-046a S2 (0144, REQ-INC-077): the most items one checklist may hold (admins set it).
     checklist_item_max: Mapped[int] = mapped_column(Integer, server_default="100")
+    # WP-046a S5c (0156; REQ-INC-033 AC3): how many copies one request may make.
+    copy_limit: Mapped[int] = mapped_column(Integer, server_default="20")
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
@@ -239,6 +247,41 @@ class WorkItemStatus(TenantKeyed, Base):
     set_by: Mapped[str] = mapped_column(String(10), server_default="person")
 
 
+class WorkItemLifecycleVersion(TenantKeyed, Timestamps, Actors, Versioned, Base):
+    """One version of a type's life cycle (ADR-049): draft, published or retired.
+
+    `number` is the life cycle's version (records point at it through `lifecycle_version`);
+    `version` is the row's own optimistic-concurrency counter (rule g). Staged types use the
+    "standard" life cycle only.
+    """
+
+    __tablename__ = "work_item_lifecycle_versions"
+    __table_args__ = (
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint("lifecycle ~ '^[a-z][a-z0-9_]{1,39}$'", name="lifecycle_format"),
+        CheckConstraint(_codes("state", VersionState), name="state_code"),
+        CheckConstraint("number >= 1", name="number_positive"),
+        # One draft at a time per life cycle: an edit of a published version makes it.
+        Index(
+            "uq_work_item_lifecycle_versions_one_draft",
+            "tenant_id",
+            "type",
+            "lifecycle",
+            unique=True,
+            postgresql_where=text("state = 'draft'"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20), primary_key=True)
+    lifecycle: Mapped[str] = mapped_column(String(40), primary_key=True)
+    number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    state: Mapped[str] = mapped_column(String(10))
+    published_at: Mapped[datetime | None]
+    published_by: Mapped[uuid.UUID | None]
+    # The last validation's problems ([{code, params}]); empty when it would publish.
+    problems: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+
+
 class WorkItemTransition(TenantKeyed, Base):
     """`action` from `from_status` leads to `to_status` (NULL: back to the status before cancel)."""
 
@@ -269,6 +312,16 @@ class WorkItemTransition(TenantKeyed, Base):
             ],
             name="fk_work_item_transitions_to",
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "type", "lifecycle", "lifecycle_version"],
+            [
+                "work_item_lifecycle_versions.tenant_id",
+                "work_item_lifecycle_versions.type",
+                "work_item_lifecycle_versions.lifecycle",
+                "work_item_lifecycle_versions.number",
+            ],
+            name="fk_work_item_transitions_version",
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -276,11 +329,20 @@ class WorkItemTransition(TenantKeyed, Base):
     lifecycle: Mapped[str] = mapped_column(
         String(40), primary_key=True, server_default=STANDARD_LIFECYCLE
     )
+    # The version of that set it belongs to (ADR-049 §1, §4).
+    lifecycle_version: Mapped[int] = mapped_column(
+        Integer, primary_key=True, server_default=str(FIRST_VERSION)
+    )
     from_status: Mapped[str] = mapped_column(String(40), primary_key=True)
     action: Mapped[str] = mapped_column(String(30), primary_key=True)
     to_status: Mapped[str | None] = mapped_column(String(40))
     reason_mode: Mapped[str] = mapped_column(String(10))
     reason_list: Mapped[str | None] = mapped_column(String(20))
+    # ADR-049 §4 (as amended): an extra right and the fields the move needs, per version. Who
+    # may run it, when it is offered and what follows stay WP-029's transition settings
+    # (automation), version-wide.
+    permission: Mapped[str | None] = mapped_column(String(40))
+    required_fields: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
 
 
 class WorkItemReason(TenantKeyed, Base):
@@ -436,6 +498,12 @@ class WorkItemTemplate(TenantEntity):
             name="stage_rules_object",
         ),
         CheckConstraint("cardinality(limited_group_ids) <= 50", name="limited_group_ids_count"),
+        # WP-046a S5b (0155): the designer's layout and the form rules.
+        CheckConstraint("layout IS NULL OR jsonb_typeof(layout) = 'object'", name="layout_object"),
+        CheckConstraint(
+            "jsonb_typeof(form_rules) = 'array' AND jsonb_array_length(form_rules) <= 50",
+            name="form_rules_array",
+        ),
         Index("ix_work_item_templates_tenant_type", "tenant_id", "type", "disabled_at"),
         Index(
             "uq_work_item_templates_tenant_type_default",
@@ -477,6 +545,12 @@ class WorkItemTemplate(TenantEntity):
     tasks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     # WP-046a S2 (0144, REQ-INC-040): the checklists a record made from this template gets.
     checklists: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )
+    # WP-046a S5b (0155; REQ-INC-036, -037): the create form's sections for technicians and
+    # requesters (NULL: one plain list), and the form rules the server enforces on every save.
+    layout: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    form_rules: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")
     )
 
@@ -932,17 +1006,35 @@ class WorkItemFollower(TenantEntity):
 
 
 class WorkItemReplyTemplate(TenantEntity):
-    """A reply template technicians insert into the composer (REQ-INC-058)."""
+    """A reply template (REQ-INC-058, -041) or a resolution template (REQ-INC-042).
+
+    Its text per language (`bodies`); personal (its owner's only) or shared (the settings right
+    to write; `group_ids` limits who is offered it); a resolution template's categories come
+    first for those categories. `body` is the pre-0154 single text, kept until a contract step.
+    """
 
     __tablename__ = "work_item_reply_templates"
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("length(btrim(name)) BETWEEN 1 AND 120", name="name_length"),
-        CheckConstraint("char_length(body) BETWEEN 1 AND 100000", name="body_length"),
+        CheckConstraint(
+            "body IS NULL OR char_length(body) BETWEEN 1 AND 100000", name="body_length"
+        ),
+        CheckConstraint("kind IN ('reply', 'resolution')", name="kind_code"),
+        CheckConstraint("visibility IN ('personal', 'shared')", name="visibility_code"),
+        CheckConstraint(
+            "visibility <> 'personal' OR owner_id IS NOT NULL", name="personal_has_owner"
+        ),
+        CheckConstraint("jsonb_typeof(bodies) = 'object'", name="bodies_object"),
+        CheckConstraint(
+            "subject IS NULL OR length(btrim(subject)) BETWEEN 1 AND 200", name="subject_length"
+        ),
         Index(
-            "uq_wirt_tenant_type_name",
+            "uq_wirt_tenant_type_kind_owner_name",
             "tenant_id",
             "type",
+            "kind",
+            text("coalesce(owner_id, '00000000-0000-0000-0000-000000000000'::uuid)"),
             text("lower(name)"),
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
@@ -950,8 +1042,19 @@ class WorkItemReplyTemplate(TenantEntity):
     )
 
     type: Mapped[str] = mapped_column(String(20))
+    kind: Mapped[str] = mapped_column(String(10), server_default="reply")
     name: Mapped[str] = mapped_column(String(120))
-    body: Mapped[str] = mapped_column(Text)
+    subject: Mapped[str | None] = mapped_column(String(200))
+    body: Mapped[str | None] = mapped_column(Text)
+    bodies: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    visibility: Mapped[str] = mapped_column(String(10), server_default="shared")
+    owner_id: Mapped[uuid.UUID | None]
+    group_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
+    category_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
 
 
 class WorkItemView(TenantEntity):
@@ -1341,7 +1444,9 @@ class WorkItemTaskDependency(TenantKeyed, Base):
 class WorkItemWorklog(TenantEntity):
     """Time spent on a work item (REQ-INC-067): whose, what kind, when and how long.
 
-    Times only (costs are V1, D-047). Start, end and minutes always agree (domain/parts.py).
+    Start, end and minutes always agree (domain/parts.py). WP-046a S3 (0147, REQ-INC-068): billable
+    time, and the technician cost from the cost per hour taken when the time was logged (a
+    snapshot); a draft is time a running timer saved when its record was resolved or closed.
     """
 
     __tablename__ = "work_item_worklogs"
@@ -1358,6 +1463,8 @@ class WorkItemWorklog(TenantEntity):
         ),
         Index("ix_wiw_tenant_item_start", "tenant_id", "work_item_id", "started_at", "id"),
         Index("ix_wiw_tenant_owner_start", "tenant_id", "owner_id", "started_at"),
+        CheckConstraint("cost_rate IS NULL OR cost_rate >= 0", name="cost_rate_not_negative"),
+        CheckConstraint("(cost_rate IS NULL) = (technician_cost IS NULL)", name="cost_with_rate"),
     )
 
     work_item_id: Mapped[uuid.UUID]
@@ -1369,6 +1476,87 @@ class WorkItemWorklog(TenantEntity):
     description: Mapped[str | None] = mapped_column(Text)
     # WP-058b S3 (0142): the staged record's stage when the time was logged (null otherwise).
     stage: Mapped[str | None] = mapped_column(String(40))
+    billable: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    cost_rate: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    technician_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    draft: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class WorkItemWorklogCost(TenantEntity):
+    """A worklog's other cost (WP-046a S3, REQ-INC-068), in the tenant's base currency.
+
+    Paid in another currency: the original amount, its currency and the rate the person entered
+    (no automatic exchange rates; D-164).
+    """
+
+    __tablename__ = "work_item_worklog_costs"
+    __table_args__ = (
+        _work_item_fk("fk_wiwc_work_item"),
+        ForeignKeyConstraint(["worklog_id"], ["work_item_worklogs.id"]),
+        CheckConstraint("amount >= 0", name="amount_not_negative"),
+        CheckConstraint(
+            "original_currency IS NULL OR original_currency ~ '^[A-Z]{3}$'",
+            name="currency_format",
+        ),
+        CheckConstraint(
+            "(original_amount IS NULL) = (original_currency IS NULL)"
+            " AND (original_amount IS NULL) = (exchange_rate IS NULL)",
+            name="original_together",
+        ),
+        CheckConstraint("exchange_rate IS NULL OR exchange_rate > 0", name="rate_positive"),
+        Index(
+            "ix_wiwc_tenant_worklog",
+            "tenant_id",
+            "worklog_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_wiwc_tenant_item",
+            "tenant_id",
+            "work_item_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    worklog_id: Mapped[uuid.UUID]
+    work_item_id: Mapped[uuid.UUID]
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    original_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    original_currency: Mapped[str | None] = mapped_column(String(3))
+    exchange_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 8))
+    note: Mapped[str | None] = mapped_column(String(500))
+
+
+class WorkItemTimer(TenantEntity):
+    """A person's running timer on a record (WP-046a S3, REQ-INC-069): one per person per record."""
+
+    __tablename__ = "work_item_timers"
+    __table_args__ = (
+        _work_item_fk("fk_wit_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wit_user"
+        ),
+        Index(
+            "ux_wit_tenant_item_user",
+            "tenant_id",
+            "work_item_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_wit_tenant_user",
+            "tenant_id",
+            "user_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    user_id: Mapped[uuid.UUID]
+    started_at: Mapped[datetime]
+    comment: Mapped[str | None] = mapped_column(String(500))
+    auto_started: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class WorkItemLink(TenantEntity):

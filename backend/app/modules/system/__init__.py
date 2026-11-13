@@ -25,6 +25,7 @@ from fastapi import FastAPI
 
 from app.core.authorization import PermissionSpec
 from app.core.config import Settings
+from app.core.database import database_ssl
 from app.core.modules import ModuleSpec
 from app.modules.system.api.action_links import public_router as public_links_router
 from app.modules.system.api.action_links import router as action_links_router
@@ -57,10 +58,14 @@ from app.shared.schedules import ScheduleSpec
 
 
 def build_readiness_service(settings: Settings) -> ReadinessService:
-    """Probe every configured dependency (PostgreSQL, Valkey, NATS, Keycloak).
+    """Probe every configured dependency (PostgreSQL, Valkey, NATS critical; Keycloak reported).
 
-    Unconfigured dependencies are reported as such, not skipped. The event workers are
-    reported from their heartbeats as informational checks.
+    Unconfigured dependencies are reported as such, not skipped (an unconfigured Keycloak is a
+    configuration error and keeps the pod unready). A configured Keycloak that does not answer is
+    informational (ADR-051): signed-in people never need it per request (sessions live in Valkey,
+    the keys are cached), so a Keycloak outage must only stop new sign-ins, never take every API
+    pod out of service. The event workers are reported from their heartbeats as informational
+    checks too.
     """
     probes: list[DependencyProbe] = []
     not_configured: list[str] = []
@@ -73,18 +78,26 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
             not_configured.append(name)
         else:
             found = url.get_secret_value()
-            probes.append(
-                ValkeyProbe(found, settings) if probe_type is ValkeyProbe else probe_type(found)
-            )
+            if probe_type is ValkeyProbe:
+                probes.append(ValkeyProbe(found, settings))
+            elif probe_type is PostgresProbe:
+                probes.append(PostgresProbe(found, database_ssl(settings.database_ssl_root_cert)))
+            elif probe_type is NatsProbe:
+                probes.append(NatsProbe(found, settings.nats_tls_ca_file))
+            else:
+                probes.append(probe_type(found))
+    informational: list[DependencyProbe] = []
     if settings.oidc_issuer is None:
         not_configured.append("keycloak")
     else:
         # The realm as this process reaches it (inside a cluster: the internal URL, WP-014).
-        probes.append(KeycloakProbe(settings.oidc_internal_url or settings.oidc_issuer))
+        # Informational, not critical (ADR-051): listed under `degraded` when it fails.
+        informational.append(KeycloakProbe(settings.oidc_internal_url or settings.oidc_issuer))
     return ReadinessService(
         probes,
         not_configured=not_configured,
         informational=[
+            *informational,
             *_worker_probes(settings),
             *_scanner_probes(settings),
             *_session_key_probes(settings),
@@ -130,6 +143,7 @@ def _worker_probes(settings: Settings) -> list[DependencyProbe]:
             kind=kind,
             stale_after_s=settings.heartbeat_stale_seconds,
             backlog_after_s=settings.event_backlog_stalled_seconds if kind == "relay" else None,
+            tls_ca_file=settings.nats_tls_ca_file,
         )
         for name, kind in (
             ("outbox_relay", "relay"),

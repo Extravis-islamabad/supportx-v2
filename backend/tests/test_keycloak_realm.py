@@ -43,6 +43,13 @@ def test_the_production_realm_never_allows_the_password_grant() -> None:
     assert "ssoSessionIdleTimeoutRememberMe" not in base
 
 
+def test_both_realms_rotate_refresh_tokens() -> None:
+    """Audit row 26: every refresh token works once; the BFF stores each new one."""
+    for path in (BASE_REALM, DEV_REALM):
+        realm = json.loads(path.read_text(encoding="utf-8"))
+        assert (realm["revokeRefreshToken"], realm["refreshTokenMaxReuse"]) == (True, 0), path
+
+
 def test_the_dev_realm_has_the_quick_sign_in_settings() -> None:
     dev = json.loads(DEV_REALM.read_text(encoding="utf-8"))
     week = 7 * 86400

@@ -53,6 +53,8 @@ from app.modules.work_items.domain.types import (
     parse_display_id,
 )
 from app.modules.work_items.service.change_windows import FIELD_PROBLEMS as WINDOW_PROBLEMS
+from app.modules.work_items.service.record_copies import FIELD_PROBLEMS as COPY_PROBLEMS
+from app.modules.work_items.service.text_templates import FIELD_PROBLEMS as TEMPLATE_PROBLEMS
 from app.modules.work_items.service.work_items import RELEASE_DEPLOYED_STAGES
 from app.shared.domain import InvalidTransition
 
@@ -305,8 +307,10 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     found -= {"category_site", "dismissed", "status_category"}
     # WP-045b: a board mapping's (key, unit kind) pairs and the change-only settings' names.
     found -= {"template", "cab_every_match"}
-    # The boards' and the change windows' codes are labelled from their own sets.
-    known = FIELD_PROBLEMS | BOARD_PROBLEMS | WINDOW_PROBLEMS
+    # S5b: a rule's joiners ("and", "or"), a section's flags and a layout's default label place.
+    found -= {"or", "collapsed", "top"}
+    # The boards', the change windows' and the text templates' codes come from their own sets.
+    known = FIELD_PROBLEMS | BOARD_PROBLEMS | WINDOW_PROBLEMS | TEMPLATE_PROBLEMS | COPY_PROBLEMS
     assert found <= known, sorted(found - known)
 
 

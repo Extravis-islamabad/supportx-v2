@@ -29,9 +29,12 @@ WAL works.
 
 ## 2. Stop writes
 
-Scale the API and workers to zero so nothing writes while you restore:
+Scale the API and workers to zero so nothing writes while you restore. The HA SeaweedFS filers
+(D-166) stay up: when the backups are in this release's own SeaweedFS (dev), the restore reads
+them through the filers. CI's and production's backups are outside the cluster's nodes.
 ```sh
-kubectl -n supportx scale deploy -l app.kubernetes.io/instance=supportx --replicas=0
+kubectl -n supportx scale deploy --replicas=0 \
+  -l 'app.kubernetes.io/instance=supportx,app.kubernetes.io/component!=seaweedfs-filer'
 ```
 
 ## 3. Restore into a new cluster
@@ -46,6 +49,11 @@ sed -e 's|RESTORE_NAME|supportx-pg-restore|' -e 's|SOURCE_NAME|supportx-pg|' \
 kubectl -n supportx wait clusters.postgresql.cnpg.io/supportx-pg-restore --for=condition=Ready --timeout=30m
 ```
 
+Keep the name `<release>-pg-restore` (here `supportx-pg-restore`) when the egress allow-list
+is on (`networkPolicies.egress.enabled`): the rule that opens an external backup target
+(`networkPolicies.egress.database`) selects only the clusters `<release>-pg` and
+`<release>-pg-restore`, so a restore cluster under another name cannot read the backups.
+
 ## 4. Check it
 
 Look at the data as of the chosen moment before switching to it, for example the newest records:
@@ -53,6 +61,16 @@ Look at the data as of the chosen moment before switching to it, for example the
 kubectl -n supportx exec supportx-pg-restore-1 -c postgres -- psql -U postgres -d supportx \
   -c "SELECT max(created_at) FROM work_items"
 ```
+
+With the HA SeaweedFS (D-166), the filers' file tree is the `seaweedfs_filer` database of this
+same cluster, so it is restored to the same moment (the CI drill checks it has its entries):
+```sh
+kubectl -n supportx exec supportx-pg-restore-1 -c postgres -- psql -U postgres -d seaweedfs_filer \
+  -c "SELECT count(*) FROM filemeta"
+```
+Files uploaded after the moment then have no entry (their data stays on the volume servers,
+unused); files deleted after it have an entry but may have lost their data once SeaweedFS
+reclaimed the space. The SupportX records restored to the same moment match the file tree.
 
 ## 5. Switch to it
 

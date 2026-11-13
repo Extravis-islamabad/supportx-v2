@@ -17,6 +17,7 @@ import { ChecklistLibraryTab } from './ChecklistLibraryTab';
 import { ClosingTab } from './ClosingTab';
 import { CustomFieldsTab } from './CustomFieldsTab';
 import { GeneralTab } from './GeneralTab';
+import { LifecycleTab } from './LifecycleTab';
 import { PickListEditor } from './PickListEditor';
 import { PriorityTab } from './PriorityTab';
 import { ReplyTemplatesTab } from './ReplyTemplatesTab';
@@ -31,6 +32,7 @@ const SECTIONS = [
   'checklists',
   'custom-fields',
   'statuses',
+  'lifecycle',
   'reasons',
   'priority',
   'categories',
@@ -38,6 +40,7 @@ const SECTIONS = [
   'closure-codes',
   'closing',
   'reply-templates',
+  'resolution-templates',
   'task-templates',
   'repeat-rules',
 ] as const;
@@ -89,6 +92,9 @@ export function IncidentSettingsPage() {
         return <CategoriesTab />;
       case 'reply-templates':
         return <ReplyTemplatesTab />;
+      case 'resolution-templates':
+        // REQ-INC-042: the resolution editor's own templates, by category.
+        return <ReplyTemplatesTab kind="resolution" />;
       case 'task-templates':
         return <TaskTemplatesTab />;
       default:
@@ -101,6 +107,8 @@ export function IncidentSettingsPage() {
         return <GeneralTab catalogue={cat} />;
       case 'statuses':
         return <StatusesTab catalogue={cat} />;
+      case 'lifecycle':
+        return <LifecycleTab catalogue={cat} />;
       case 'reasons':
         return (
           <Flex vertical gap={16}>

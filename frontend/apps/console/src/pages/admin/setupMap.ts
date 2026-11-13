@@ -218,7 +218,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
   },
   { key: 'files', group: 'organisation', labelKey: 'nav.admin_files', permission: 'files.manage' },
   { key: 'licence', group: 'licence', labelKey: 'nav.admin_licence', permission: 'licence.manage' },
-  { key: 'audit', group: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },
+  {
+    key: 'audit',
+    group: 'audit',
+    labelKey: 'nav.audit',
+    permission: 'audit.view',
+    // The sign-in log's own right opens the page too, on its one tab (WP-057 S1a).
+    also: 'identity.view_sign_ins',
+  },
 ];
 
 /**

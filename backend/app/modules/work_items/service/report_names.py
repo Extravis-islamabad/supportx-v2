@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.work_items.domain.types import CHANGE, INCIDENT, PROBLEM, WorkItemType
+from app.modules.work_items.domain.types import CHANGE, INCIDENT, PROBLEM, RELEASE, WorkItemType
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTemplate
 from app.modules.work_items.service.catalogue import load
 from app.shared.labels import has_label, label
@@ -179,3 +179,9 @@ def register() -> None:
     register_names("change.status", _status_names_of(CHANGE))
     register_names("change.change_type", _list_names_of(CHANGE, "change_type", "change_type"))
     register_names("change.change_reason", _list_names_of(CHANGE, "change_reason", "change_reason"))
+    # Releases (WP-058b S5b, REQ-REL-060): their statuses and own pick lists.
+    register_names("release.status", _status_names_of(RELEASE))
+    register_names("release.release_type", _list_names_of(RELEASE, "release_type", "release_type"))
+    register_names(
+        "release.release_reason", _list_names_of(RELEASE, "release_reason", "release_reason")
+    )

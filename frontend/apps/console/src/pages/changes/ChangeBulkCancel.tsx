@@ -40,7 +40,10 @@ export function ChangeBulkCancel({
       title={t(cancel ? `${base}.bulk.cancel_title` : `${base}.bulk.delete_title`, {
         count: ids.length,
       })}
-      okText={t(cancel ? `${base}.bulk.cancel_ok` : `${base}.bulk.delete_ok`)}
+      // One change or several, in the button's words too (QA 2026-11-12 F-08).
+      okText={t(cancel ? `${base}.bulk.cancel_ok` : `${base}.bulk.delete_ok`, {
+        count: ids.length,
+      })}
       cancelText={t('incidents.bulk.cancel')}
       okButtonProps={{
         danger: true,

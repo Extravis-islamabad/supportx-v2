@@ -33,6 +33,7 @@ export const ar: LabelResource = {
   'notification.open_record': 'فتح {{id}}',
   'notification_area.announcement': 'الإعلانات',
   'notification_area.asset': 'الأصول',
+  'notification_area.break_glass': 'تسجيلات دخول الطوارئ',
   'notification_area.change': 'التغييرات',
   'notification_area.connector': 'الموصلات',
   'notification_area.incident': 'الحوادث',
@@ -44,6 +45,7 @@ export const ar: LabelResource = {
   'notification_area.release': 'الإصدارات',
   'notification_area.reminder': 'التذكيرات',
   'notification_area.rule_step': 'القواعد والتصعيدات',
+  'notification_area.security': 'الإشعارات الأمنية',
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_area.task': 'المهام',
   'notification_category.approval': 'الموافقات',
@@ -67,6 +69,7 @@ export const ar: LabelResource = {
   'notification_event.asset.mentioned': 'إشارة في ملاحظة أصل',
   'notification_event.asset.stock_low': 'المخزون عند حده الأدنى',
   'notification_event.asset.warranty_expiring': 'الضمان ينتهي قريبًا',
+  'notification_event.break_glass.signed_in': 'سجّل مسؤول طوارئ الدخول',
   'notification_event.change.approval_fallback': 'موافقة تغيير بلا من يقرر',
   'notification_event.change.approval_requested': 'مطلوب موافقة على تغيير',
   'notification_event.change.approved': 'تغيير مُوافَق عليه',
@@ -133,6 +136,7 @@ export const ar: LabelResource = {
   'notification_event.release.public_reply': 'رد على مقدم الطلب',
   'notification_event.reminder.due': 'تذكيرك',
   'notification_event.rule_step.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
+  'notification_event.security.new_device': 'تسجيل دخول من متصفح أو جهاز جديد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
@@ -185,12 +189,14 @@ export const ar: LabelResource = {
   'notification_recipient.new_follower': 'المتابع الجديد',
   'notification_recipient.new_investigator': 'المحقق المضاف',
   'notification_recipient.on_behalf_of': 'الشخص المعني',
+  'notification_recipient.other_tenant_admins': 'مسؤولو المؤسسة الآخرون',
   'notification_recipient.owner': 'مالك المقالة',
   'notification_recipient.previous_assignee': 'الفني السابق',
   'notification_recipient.requester': 'مقدّم الطلب',
   'notification_recipient.reviewer': 'المراجِع',
   'notification_recipient.step_owner': 'مالك القاعدة (وإلا فمسؤولوها)',
   'notification_recipient.stock_watchers': 'الأشخاص المحددون للحد الأدنى',
+  'notification_recipient.the_person': 'الشخص المعني',
   'notification_recipient.topic_owner': 'مالك الموضوع',
   'notification_recipient.workflow_audience': 'الأشخاص الذين يحدّدهم سير العمل',
   'notification_rules.any_priority': 'أي أولوية',
@@ -204,6 +210,9 @@ export const ar: LabelResource = {
   'notification_rules.col.status': 'فقط للحالة',
   'notification_rules.intro':
     'الأحداث التي تُرسل إشعارات ولمن وكيف. يبدأ كل حدث بإعداد افتراضي مناسب، وتُسجَّل التغييرات في سجل التدقيق.',
+  'notification_rules.locked': 'ثابت لأسباب أمنية',
+  'notification_rules.locked_help':
+    'إشعار أمني: يُرسل دائمًا إلى الأشخاص الذين يحددهم. لا يمكن لأحد إيقافه أو تغيير مستلميه.',
   'notification_rules.none': 'لا يوجد حدث مطابق',
   'notification_rules.required': 'إلزامي للأشخاص',
   'notification_rules.reset': 'العودة إلى الافتراضي',
@@ -259,6 +268,11 @@ export const ar: LabelResource = {
     'ينتهي ضمان {{ record.display_id }} في {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'الضمان ينتهي: {{ record.display_id }} {{ record.title }}',
+  'notification_template.break_glass.signed_in.body':
+    'مرحبًا {{ recipient.name }}،\n\nسجّل {{ record.title }} الدخول بحساب المسؤول الطارئ، الذي يعمل حتى عندما يكون تسجيل الدخول الموحّد مطلوبًا. إن لم تكن تتوقع ذلك، فراجع صفحة تسجيل الدخول والأمان الآن: {{ record.link }}',
+  'notification_template.break_glass.signed_in.in_app':
+    'سجّل {{ record.title }} الدخول بحساب المسؤول الطارئ',
+  'notification_template.break_glass.signed_in.subject': 'تسجيل دخول طارئ: {{ record.title }}',
   'notification_template.change.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\nلدى {{ record.display_id }} "{{ record.title }}" موافقة لا يتولاها أحد. يمكن لمسؤول الموافقات أن يقررها.',
   'notification_template.change.approval_fallback.in_app':
@@ -635,6 +649,12 @@ export const ar: LabelResource = {
     'انتقل {{ record.display_id }} إلى مجموعته دون أن يُسند إلى أحد: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'لم يُسند إلى أحد: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.new_device.body':
+    'مرحبًا {{ recipient.name }}،\n\nتم تسجيل الدخول إلى حسابك للتو من متصفح أو جهاز لم تستخدمه من قبل:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nإن كان هذا أنت فلا شيء عليك. وإن لم يكن، فغيّر كلمة المرور واستخدم "تسجيل الخروج من كل مكان آخر" في حسابك: {{ record.link }}',
+  'notification_template.security.new_device.in_app':
+    'تسجيل دخول جديد من {{ notice.device }} ({{ notice.place }})',
+  'notification_template.security.new_device.subject':
+    'تسجيل دخول جديد إلى حسابك: {{ notice.device }}',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -712,6 +732,7 @@ export const ar: LabelResource = {
   'notification_variable.article.reason': 'المقالة › السبب',
   'notification_variable.article.review_on': 'المقالة › تاريخ المراجعة',
   'notification_variable.assignee.name': 'الفني › الاسم',
+  'notification_variable.break_glass.person': 'مسؤول الطوارئ › الاسم',
   'notification_variable.category.name': 'الفئة',
   'notification_variable.change.from_status': 'التغيير › الحالة السابقة',
   'notification_variable.connector.name': 'الموصل › الاسم',
@@ -737,6 +758,9 @@ export const ar: LabelResource = {
   'notification_variable.reminder.note': 'ملاحظة التذكير',
   'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
   'notification_variable.rule.name': 'القاعدة',
+  'notification_variable.security.device': 'تسجيل الدخول › المتصفح والجهاز',
+  'notification_variable.security.place': 'تسجيل الدخول › المكان التقريبي',
+  'notification_variable.security.when': 'تسجيل الدخول › الوقت',
   'notification_variable.site.name': 'الموقع',
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
   'notification_variable.stock.minimum': 'المخزون › الحد الأدنى',

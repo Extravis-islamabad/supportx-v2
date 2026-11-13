@@ -18,7 +18,7 @@ from app.main import create_app
 from app.modules.audit.domain.catalogue import ACTIONS
 from app.modules.audit.service.recording import AUDIT_ATTR, AuditRouteSpec
 from conftest import make_settings
-from tests.test_route_permissions import _dependencies, api_routes
+from tooling.route_permissions import api_routes, route_dependencies
 
 # Permissions that make a write administrative (users, roles, organisation, settings, audit).
 ADMIN_PERMISSIONS = frozenset(
@@ -55,7 +55,7 @@ NOT_AUDITED: frozenset[str] = frozenset(
 
 
 def _audit_spec(dependant: Any) -> AuditRouteSpec | None:  # noqa: ANN401 - FastAPI Dependant
-    for call in _dependencies(dependant):
+    for call in route_dependencies(dependant):
         spec = getattr(call, AUDIT_ATTR, None)
         if isinstance(spec, AuditRouteSpec):
             return spec
@@ -75,7 +75,7 @@ def _privileged(method: str, path: str, access: str) -> bool:
 
 def privileged_routes(app: FastAPI) -> Iterator[tuple[str, AuditRouteSpec | None]]:
     for method, path, dependant, endpoint in api_routes(app):
-        access = str(declared_access(list(_dependencies(dependant)), endpoint))
+        access = str(declared_access(list(route_dependencies(dependant)), endpoint))
         if _privileged(method, path, access):
             yield f"{method} {path}", _audit_spec(dependant)
 

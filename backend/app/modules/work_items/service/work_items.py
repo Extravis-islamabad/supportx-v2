@@ -84,11 +84,13 @@ from app.modules.work_items.domain.classification import (
 from app.modules.work_items.domain.closure import MOVE_FIELDS, missing_fields, within_reopen_window
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
+    DONE_CATEGORIES,
     FINAL_CATEGORIES,
     PauseClock,
     ReasonList,
     ReasonMode,
     StatusCategory,
+    TransitionDef,
     WorkItemAction,
     after_assignment,
     move_pause_clock,
@@ -161,7 +163,7 @@ from app.modules.work_items.service import (
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service import stages as stage_service
-from app.modules.work_items.service.access import RESOURCE
+from app.modules.work_items.service.access import COST_TYPES, RESOURCE, VIEW_COSTS
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.display_ids import next_display_number
@@ -431,6 +433,28 @@ async def _relatives(
     return frozenset(found)
 
 
+# A who-may-run refusal (WP-029's transition settings) on a move: 403 with only its kind
+# (`not_offered` or `not_for_you`), never who it is limited to (ADR-049 §5, lane B).
+CONDITION_NOT_MET = "transition_condition_not_met"
+
+
+async def _move_refusal(
+    subject: Subject,
+    transitions: "_Transitions",
+    action: WorkItemAction,
+    step: TransitionDef | None,
+) -> str | None:
+    """ADR-049 §5 steps 3 and 4, for the offer and the move alike (one function, lane B).
+
+    Steps 1 and 2 (the record in scope, the type's right for the action) come first, as
+    before. Then the version's extra right, then who may run it and when it is offered; a
+    condition never stands in for a missing right.
+    """
+    if step is not None and step.permission is not None and not subject.holds(step.permission):
+        return NO_PERMISSION
+    return await transitions.refusal(action.value)
+
+
 class _Transitions:
     """A record's transition settings, checked for one subject (loaded once per view)."""
 
@@ -491,7 +515,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
     cat = await config.load(session, wtype)
-    lifecycle = cat.lifecycle_of(record.lifecycle)
+    lifecycle = cat.lifecycle_for(record)
     final = StatusCategory(record.status_category) in FINAL_CATEGORIES
     allowed_now = set(lifecycle.actions_from(record.status))
     reasons: dict[str, str | None] = {}
@@ -529,8 +553,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         ):
             refused = CANNOT_TAKE
         if refused is None:
-            # Who may run it and when it is offered (REQ-WF-003, 004).
-            refused = await transitions.refusal(action.value)
+            # The version's extra right, then who may run it and when (REQ-WF-003, 004).
+            refused = await _move_refusal(subject, transitions, action, transition)
         actions.append(
             ActionState(
                 action,
@@ -543,9 +567,14 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
                     await transitions.allowed_for(action.value) if refused == NOT_FOR_YOU else None
                 ),
                 missing=tuple(
-                    name
-                    for name in await closing.missing_for(session, cat, record, action)
-                    if name not in MOVE_FIELDS
+                    dict.fromkeys(
+                        name
+                        for name in (
+                            *await closing.missing_for(session, cat, record, action),
+                            *(closing.move_missing(record, transition) if transition else ()),
+                        )
+                        if name not in MOVE_FIELDS
+                    )
                 ),
             )
         )
@@ -1194,8 +1223,9 @@ PERSON_FIELDS = frozenset(
 )
 
 
-# History fields whose values only the record's editors read; others see them as MASKED.
-EDITORS_ONLY = frozenset({"task.extra_cost"})
+# History fields that are money: their values only for those who may see the record's costs
+# (D-164: `<type>.view_costs`); others see them as MASKED.
+MONEY_FIELDS = frozenset({"task.extra_cost"})
 MASKED: dict[str, bool] = {"masked": True}
 
 
@@ -1223,16 +1253,18 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         entries = [
             replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
         ]
-    # A task's extra cost is for those who may edit the record (WP-046a S1, lane B's #398
-    # review): others keep the line (that it changed, when, by whom) but never the amounts.
-    if any(c.field in EDITORS_ONLY for e in entries for c in e.changes) and not await _may(
-        session, subject, wtype, "edit", record_id
+    # A task's extra cost is money (D-164): only with the type's cost right, as the task API
+    # shows it (lane B's #442 review). Others keep the line (that it changed, when, by whom) but
+    # never the amounts. A type without the right keeps S1's rule, those who may edit.
+    money_right = VIEW_COSTS if wtype.code in COST_TYPES else "edit"
+    if any(c.field in MONEY_FIELDS for e in entries for c in e.changes) and not await _may(
+        session, subject, wtype, money_right, record_id
     ):
         entries = [
             replace(
                 e,
                 changes=[
-                    Change(c.field, MASKED, MASKED) if c.field in EDITORS_ONLY else c
+                    Change(c.field, MASKED, MASKED) if c.field in MONEY_FIELDS else c
                     for c in e.changes
                 ],
             )
@@ -1977,6 +2009,17 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await _end_timers(session, record)
+
+
+async def _end_timers(session: AsyncSession, record: WorkItem) -> None:
+    """Resolved, closed or canceled: running timers become their owners' drafts (REQ-INC-069)."""
+    if StatusCategory(record.status_category) not in DONE_CATEGORIES:
+        return
+    # Imported here: the timer service builds on this module (WP-046a S3).
+    from app.modules.work_items.service import timers  # noqa: PLC0415 - see above
+
+    await timers.save_drafts(session, record)
 
 
 def _closed(record: WorkItem) -> bool:
@@ -2379,7 +2422,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     group (history: "routed to the group of the way it came in").
     """
     cat = await config.load(session, wtype)
+    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
+    # The template's form rules first (REQ-INC-037): what they set or clear is then checked
+    # like any other input, and what they refuse is reported with the other field errors.
+    ruled = await templates.apply_form_rules(session, wtype, template, values, before=None)
+    values = ruled.values
     cleaned, problems = _check_fields(values, creating=True)
+    problems += ruled.problems
     manual, priority_reason, priority_problems = _priority_input(values)
     problems += priority_problems
     if manual is not None and not subject.holds(wtype.permission("change_priority")):
@@ -2400,10 +2449,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     item = await _request_item(session, subject, wtype, values)
     started = _started(item, cat)
     problems += [] if item is None else list(item.answer_problems)
-    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
-    problems += await templates.required_problems(
-        session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
-    )
+    problems += [
+        p
+        for p in await templates.required_problems(
+            session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
+        )
+        if p not in problems  # a rule's "required" already said it
+    ]
     new_change, change_problems = change_types.prepare(wtype, cat, values, template)
     problems += change_problems + change_types.problems_for(wtype, values)
     problems += _check_level(cat, cleaned.get("level"), current=None)
@@ -2430,6 +2482,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     # A staged type starts in its path's first stage and that stage's first status (ADR-041).
     stage_columns = await _first_stage(
         session, wtype, template, new_change.path if new_change is not None else None
+    )
+    chosen_lifecycle = (
+        template.lifecycle if template.lifecycle in cat.lifecycles else STANDARD_LIFECYCLE
     )
     await change_types.retrospective_start(session, wtype, new_change, stage_columns)
     initial, group_id, technician_id = _from_item(
@@ -2502,10 +2557,15 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         level=cleaned.get("level"),
         **{name: cleaned.get(name) for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS)},
         template_id=template.id,
-        # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025).
-        lifecycle=template.lifecycle
-        if template.lifecycle in cat.lifecycles
-        else STANDARD_LIFECYCLE,
+        # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025), at its
+        # latest published version: the record keeps that version (ADR-049 §3). A staged type's
+        # version comes with its stage columns.
+        lifecycle=chosen_lifecycle,
+        **(
+            {}
+            if "lifecycle_version" in stage_columns
+            else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
+        ),
         **_item_columns(item, values),
         custom=custom or {},
         custom_text=await _custom_text(session, wtype, custom or {}),
@@ -2610,16 +2670,14 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         )
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle_of(record.lifecycle),
+            cat.lifecycle_for(record),
             record.status,
             had_technician=False,
             has_technician=True,
         )
         if move is not None:
             before = _snapshot(record, STAMP_FIELDS)
-            target = cat.lifecycle_of(record.lifecycle).target(
-                record.status, move, before_cancel=None
-            )
+            target = cat.lifecycle_for(record).target(record.status, move, before_cancel=None)
             changes = await _status_change(
                 session, wtype, record, move, target=target, reason_code=None, reason_text=None
             )
@@ -2655,7 +2713,18 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     if _closed(record):
         raise Conflict(code="record_closed", params={"status": record.status})
     cat = await config.load(session, wtype)
+    # The record's template's form rules (REQ-INC-037), on the record as this edit leaves it.
+    ruled = await templates.apply_form_rules(
+        session,
+        wtype,
+        await templates.of_record(session, record.template_id),
+        values,
+        before={name: getattr(record, name) for name in templates.FORM_FIELDS},
+        before_custom=record.custom or {},
+    )
+    values = ruled.values
     cleaned, problems = _check_fields(values, creating=False)
+    problems += ruled.problems
     priority_sent = "priority" in values
     manual, priority_reason, priority_problems = (
         _priority_input(values) if priority_sent else (None, None, [])
@@ -2853,13 +2922,11 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     """
     if action not in ACTION_PERMISSION:
         raise Conflict(code="invalid_transition", params={"action": action})
+    # ADR-049 §5 steps 1-2: in scope (404 otherwise) and the type's right for the action.
     record = await _for_action(session, subject, wtype, ACTION_PERMISSION[action], record_id)
-    refused = await _Transitions(session, subject, record).refusal(action.value)
-    if refused is not None:
-        raise PermissionDenied(code="transition_not_allowed", params={"reason": refused})
     cat = await config.load(session, wtype)
     try:
-        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
+        step = cat.lifecycle_for(record).transition(record.status, action)
     except InvalidTransition as error:
         raise Conflict(
             code="invalid_transition", params={"from": record.status, "action": action}
@@ -2872,6 +2939,14 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         raise _errors(problems, reason_text={"max_length": 500})
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
+    # Steps 3-4, with the facts read now, after the If-Match check and in this transaction
+    # (the group, the requester or a manager may have changed since the buttons were shown).
+    refused = await _move_refusal(subject, _Transitions(session, subject, record), action, step)
+    if refused == NO_PERMISSION:
+        raise PermissionDenied(params={"permission": step.permission, "reason": NO_PERMISSION})
+    if refused is not None:
+        raise PermissionDenied(code=CONDITION_NOT_MET, params={"kind": refused})
+    closing.check_move_fields(record, step)
     if action == WorkItemAction.START_WORK and record.technician_id is None:
         if await _reason_for(session, subject, wtype, "take", record.id) is not None:
             raise PermissionDenied(
@@ -2894,8 +2969,8 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         record = taken.record
         expected_version = record.version
     try:
-        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
-        target = cat.lifecycle_of(record.lifecycle).target(
+        step = cat.lifecycle_for(record).transition(record.status, action)
+        target = cat.lifecycle_for(record).target(
             record.status,
             action,
             before_cancel=record.status_before_cancel,
@@ -3402,6 +3477,7 @@ async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its s
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await _end_timers(session, record)
     if entries:
         await record_event(
             session,
@@ -4795,7 +4871,7 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     BUG-03): history keeps them as the person, from their channel, with `requester_action`
     saying what they did. Only the system's own moves (auto-close) are automatic.
     """
-    target = cat.lifecycle_of(record.lifecycle).target(
+    target = cat.lifecycle_for(record).target(
         record.status,
         action,
         before_cancel=record.status_before_cancel,
@@ -4913,7 +4989,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     channel, with the record's new approval status. On approval the item's technician (after
     approval, REQ-SR-008 AC2) is set in the same save, then the usual move to "assigned".
     """
-    target = cat.lifecycle_of(record.lifecycle).target(
+    target = cat.lifecycle_for(record).target(
         record.status,
         action,
         before_cancel=record.status_before_cancel,
@@ -4961,7 +5037,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     )
     move = (
         after_assignment(
-            cat.lifecycle_of(updated.lifecycle),
+            cat.lifecycle_for(updated),
             updated.status,
             had_technician=False,
             has_technician=True,
@@ -4977,7 +5053,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
         wtype,
         updated,
         move,
-        target=cat.lifecycle_of(updated.lifecycle).target(updated.status, move, before_cancel=None),
+        target=cat.lifecycle_for(updated).target(updated.status, move, before_cancel=None),
         reason_code=None,
         reason_text=None,
     )
@@ -5011,7 +5087,7 @@ async def on_requester_reply(  # noqa: PLR0913 - the reply and its context, expl
     """
     cat = await config.load(session, wtype)
     category = StatusCategory(record.status_category)
-    allowed = set(cat.lifecycle_of(record.lifecycle).actions_from(record.status))
+    allowed = set(cat.lifecycle_for(record).actions_from(record.status))
     if category == StatusCategory.PAUSED:
         status = next((s for s in cat.statuses if s.code == record.status), None)
         resumes = status is not None and status.resume_on_requester_reply
@@ -5208,16 +5284,14 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
     )
     if cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle_of(updated.lifecycle),
+            cat.lifecycle_for(updated),
             updated.status,
             had_technician=had_technician,
             has_technician=technician_id is not None,
         )
         if move is not None:
             stamps = _snapshot(updated, STAMP_FIELDS)
-            target = cat.lifecycle_of(updated.lifecycle).target(
-                updated.status, move, before_cancel=None
-            )
+            target = cat.lifecycle_for(updated).target(updated.status, move, before_cancel=None)
             status_columns = await _status_change(
                 session, wtype, updated, move, target=target, reason_code=None, reason_text=None
             )

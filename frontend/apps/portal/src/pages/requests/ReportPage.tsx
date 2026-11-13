@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { usePortalTemplates, useReportIssue, type PortalTemplate } from '@supportx/api-client';
+import { asFormRules, evaluateRules } from '@supportx/forms';
 import {
   FormFooter,
   lengthLimit,
@@ -59,9 +60,20 @@ export function ReportPage() {
   if (templates.isLoading) return <Skeleton active />;
   const offered = templates.data ?? [];
   const chosen = offered.find((x) => x.id === templateId) ?? offered[0];
-  const fields = new Set((chosen?.fields ?? []).map((f) => f.name));
-  const required = new Set((chosen?.fields ?? []).filter((f) => f.required).map((f) => f.name));
   const empty = (html: string) => html.replace(/<[^>]*>/g, '').trim() === '';
+  // The template's form rules over the requester's own fields (REQ-INC-037): the same
+  // evaluator as the server's, which enforces every rule again when the issue is sent.
+  const ruled = evaluateRules(
+    asFormRules(chosen?.form_rules ?? []),
+    Object.fromEntries((chosen?.fields ?? []).map((f) => [f.name, [true, f.required] as const])),
+    { subject, description: empty(description) ? '' : description },
+  );
+  const fields = new Set(
+    (chosen?.fields ?? []).map((f) => f.name).filter((n) => ruled.fields[n]?.shown !== false),
+  );
+  const required = new Set(
+    (chosen?.fields ?? []).map((f) => f.name).filter((n) => ruled.fields[n]?.required === true),
+  );
   const ready =
     chosen !== undefined &&
     subject.trim() !== '' &&
@@ -142,6 +154,7 @@ export function ReportPage() {
               required={required.has('description')}
             >
               <RichTextField
+                toolbar="basic"
                 value={description}
                 onChange={setDescription}
                 label={t('portal.report.description')}

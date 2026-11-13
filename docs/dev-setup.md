@@ -71,7 +71,8 @@ dark / high contrast, right-to-left, language); the tenant switcher
 profile** in the user menu (open it in two browsers and save in both to see the conflict
 dialog); `/dev/components` (development builds only: chart, every error message). Licence states
 are driven with `make dev-subscription` (see "Plans and licence limits"). Playwright: `make e2e`
-(frontend/e2e/README.md). How the frontend is built: docs/architecture/frontend.md.
+(frontend/e2e/README.md), or `make e2e-smoke` for the ~5-minute `@smoke` subset. How the
+frontend is built: docs/architecture/frontend.md.
 
 ## 4. Services, ports and logins
 
@@ -508,6 +509,12 @@ Their workflows (`ci.yml`, `security.yml`, `stack-smoke.yml`) trigger on `merge_
 `pull_request`; a required check without that trigger would stall the queue
 (`backend/tests/test_ci_triggers.py` guards it). Docs-only groups take the fast path.
 
+`static analysis (Semgrep)` (`security.yml`, audit row 27) is not required yet: it runs the
+repo's own rules in `.semgrep.yml` (never the online registry) on ready pull requests, queue
+groups and nightly. Run it locally with `make semgrep` from the main checkout (inside a git
+worktree the container cannot read the shared `.git`). A safe finding gets
+`nosemgrep: <rule id> - <reason>` on the line before it.
+
 How to merge a pull request:
 
 1. Merge the latest `main` into the branch if it conflicts or needs a renumber (migrations,
@@ -529,6 +536,42 @@ checks), the queue page at https://github.com/Extravis-islamabad/supportx-v2/que
 and the group's runs), `gh pr merge <number> --disable-auto` (take a pull request out again).
 Never `--admin` and never force-push: the ruleset refuses both, and asking for a bypass is a
 product owner decision.
+
+## Security code owners (D-168)
+
+`.github/CODEOWNERS` names `@supportx-reviewer`, the security reviewer's account, for the code
+that decides who gets in and what they may see: sign-in, sessions and tokens (the BFF, the session
+cipher and store, OIDC, API keys, MFA, SSO, password reset), the policy layer, roles and the
+identity permission catalogue, the generated route-permission map (below), tenant isolation (`app/core/tenancy.py`, `app/shared/db/rls.py`,
+`migrations/helpers.py`, the RLS guard), the request edge (settings, middleware, trusted proxies,
+rate limits), the shared crypto, egress and files packages, the audit and licensing modules, the
+deployment secrets script, network policies and Keycloak files, and the security scans with
+`CODEOWNERS` itself. Nothing else is owned: D-168 dropped D-007's catch-all `* @devhat-pm`, since
+every lane pushes as that account and it can't approve its own PRs. A mistake in
+these files can leak one tenant's data to another or let someone in, so a second pair of eyes is
+required there, and only there, to keep reviews fast elsewhere.
+
+The file takes effect once Haider has created the reviewer account and turned on "Require review
+from code owners" in the `main` ruleset; until then it only requests reviews. Nobody but Haider
+handles that account or its sign-in.
+
+Module `api/` folders and permission catalogues are not owned (Haider, 2026-11-13), as nearly every
+feature PR touches them. Instead `docs/security/route-permissions.md` is: every `/api/v1` route
+with the access it declares (`require_permission` keys, `signed_in` or `public`) and the scopes
+each permission takes, then every built-in role's permissions and scopes. It is generated from
+code, never edited by hand: after adding a route, changing a route's permission, adding a
+permission or changing a role default, run `make route-permissions` and commit the result.
+`backend/tests/test_route_permission_map.py` fails on a stale file, so such a PR changes an owned
+file and gets the security review; a feature PR that leaves access alone doesn't.
+
+Migrations are not code-owned as a whole, since nearly every work package adds one. Instead (option
+(b)), SQL that decides table access (`CREATE`/`ALTER`/`DROP POLICY`, `GRANT`, `REVOKE`,
+`ALTER DEFAULT PRIVILEGES`) appears only in the owned helpers: `migrations/helpers.py`
+(`enable_tenant_rls`, `grant_app`, `grant_report`, ...), which runs the statements
+`app/shared/db/rls.py` builds. `backend/tests/test_migration_policy_sql.py` fails on any such SQL
+in `migrations/versions/` outside the merged migrations that already had it (a fixed list, as
+merged migrations are never edited). Need something the helpers can't do? Add a helper; that
+change gets the security review.
 
 ## Tool versions
 

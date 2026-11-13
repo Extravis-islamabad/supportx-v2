@@ -36,7 +36,7 @@ async function setLastName(page: Page, email: string, lastName: string): Promise
   expect(saved.status(), await saved.text()).toBe(200);
 }
 
-test("users list: another admin's change appears in the admin's list without a reload", async ({
+test("users list: another admin's change appears in the admin's list without a reload @smoke", async ({
   browser,
 }) => {
   // Since D-092 SupportX owns the person record: the change is made by a second admin here,

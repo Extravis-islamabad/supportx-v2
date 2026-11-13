@@ -38,6 +38,9 @@ images:
   clamav: clamav/clamav:1.5.4-debian
   mailpit: axllent/mailpit:v1.31.6   # dev profile only (mailCatcher)
   valkey: valkey/valkey:9.1.2        # HA only (valkeyHa, ADR-038); the bundled chart's own otherwise
+  # HA on k3s only (D-163): NodeLocal DNSCache, a cluster add-on that deploy/k3s/node-local-dns.sh
+  # installs (the chart never deploys it). Listed here so the air-gapped mirror carries it.
+  nodeLocalDns: registry.k8s.io/dns/k8s-dns-node-cache:1.27.1@sha256:6748acde83ac08626a27a554da5364e8cac64bc950c6a1b6b939a3d27b364ae7
   # Local AI (WP-037, D-131): pinned by digest; mirrored through Zot like the others (D-038).
   llamaCpp: ghcr.io/ggml-org/llama.cpp:server-b11960@sha256:8052c13edd987de8858f8150031e025ac3d66823f09cf3ec8220899c4abce220
   # Bundled Temporal (temporal.bundled): the server, and admin-tools for its schema Job.
@@ -51,6 +54,9 @@ images:
 secrets:
   app: supportx-app                 # Opaque: app keys, role passwords, NATS/Valkey passwords
   keycloakDb: supportx-db-keycloak  # kubernetes.io/basic-auth for the keycloak database owner
+  # kubernetes.io/basic-auth (username seaweedfs_filer) for the HA SeaweedFS filers' metadata
+  # database (objectStorage.seaweedfs.ha, D-166); read only with that on.
+  seaweedfsFilerDb: supportx-db-seaweedfs-filer
   # Sign-in key ring (D-162, ADR-048; docs/guides/rotating-the-sign-in-key.md), newest first.
   # Each entry names its key ID and the key of `app` holding its secret (hex or base64url, at
   # least 32 characters); never the secret itself. {id: legacy} without `key` is session-secret.
@@ -186,10 +192,21 @@ postgresql:
   # external: a DBA-managed server; set the host and run tooling/sql once as superuser.
   mode: cnpg
   database: supportx
+  # TLS to the database, verified (audit row 5; docs/deployment.md, Transport security): the API,
+  # the workers and the migrate Job connect with sslmode verify-full against the server's CA
+  # (SUPPORTX_DATABASE_SSL_ROOT_CERT). cnpg: the cluster's own CA (Secret <release>-pg-ca, made
+  # by CloudNativePG); its PgBouncer serves the cluster's server certificate, which then also
+  # names the pooler. external: your server's CA in external.caSecret. Off: asyncpg's default,
+  # encrypted when the server offers TLS but nothing checked.
+  tls:
+    verify: true
   external:
     host: ""
     port: 5432
     poolerHost: ""                  # PgBouncer in transaction mode, if any (else = host)
+    # With tls.verify: a Secret holding the CA your server's (and pooler's) certificate chains
+    # to, as `ca.crt`. The host names above must be in that certificate.
+    caSecret: ""
   cnpg:
     instances: 1
     storage: {size: 20Gi, storageClass: ""}
@@ -233,7 +250,8 @@ postgresql:
       encryptionByBucketPolicy: false
 
 # --- Object storage (S3 API only, D-016; WP-018, reused by WP-022) ---------------------------------------
-# seaweedfs: a minimal single-node SeaweedFS in this release (on-prem, ADR-012, D-076).
+# seaweedfs: SeaweedFS in this release (on-prem, ADR-012, D-076): one pod by default, or the
+#            replicated topology below with objectStorage.seaweedfs.ha (values-ha.yaml, D-166).
 # external:  any S3-compatible store (the cloud provider's S3 on SaaS). Credentials always come
 #            from the app Secret (keys s3-access-key, s3-secret-key).
 objectStorage:
@@ -248,14 +266,58 @@ objectStorage:
     resources:
       requests: {cpu: 50m, memory: 128Mi}
       limits: {cpu: "1", memory: 512Mi}
+    # HA (D-166, ADR-038 addendum): SeaweedFS's own replication instead of the one pod above.
+    # Three masters (raft), volume servers each keeping a copy of every volume on another server,
+    # and filers running the S3 gateway behind the same <release>-seaweedfs Service and port, so
+    # the app sees no change. Every copy of a component on its own node (required anti-affinity,
+    # whatever ha.antiAffinity says): a copy on another server is then a copy on another node.
+    # The filers' metadata lives in this release's CloudNativePG cluster (its own database and
+    # role, in the same backups). Needs postgresql.mode cnpg. Disk: each file is stored
+    # (1 + extra copies) times, so 2x with 001 (docs/deployment.md, Profiles).
+    ha:
+      enabled: false
+      # SeaweedFS replica placement "xyz", extra copies on other servers of the same rack (z):
+      # 001 = two copies in all, 002 = three (needs three volume servers up to write).
+      replication: "001"
+      # Minutes between the leader master's maintenance runs (empty volumes deleted, volumes
+      # balanced, missing copies re-made: volume.fix.replication).
+      maintenanceMinutes: 17
+      master:
+        replicas: 3                   # raft: an odd number; 2 of 3 keep the cluster writable
+        storage: {size: 1Gi, storageClass: ""}
+        resources:
+          requests: {cpu: 50m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+      volume:
+        replicas: 3
+        storage: {size: 20Gi, storageClass: ""}
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
+      filer:
+        replicas: 2
+        database: seaweedfs_filer     # its own database and role (seaweedfs_filer) in the cluster
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
 
 # --- Files and malware scanning (WP-022, ADR-028, D-082) -------------------------------------------
+# The approximate sign-in place (WP-057 S2b, D-170): the DB-IP Lite city database (.mmdb, about
+# 126 MB, CC BY 4.0) on a volume the operator provides, never in an image. Empty: no city is shown
+# (internal ranges and admin-mapped networks still name the internal network or the site).
+geoip:
+  existingClaim: ""                 # a ReadOnlyMany/ReadWriteMany claim holding the file
+  file: dbip-city-lite.mmdb         # its name on that volume
+
 files:
   # Files wait as "scanning" until a scanner has checked them. Off only knowingly: files are then
   # stored "not scanned" and administrators are warned (docs/architecture/files.md).
   scanRequired: true
 clamav:
   enabled: true
+  # Copies of clamd (each with its own signatures volume and freshclam); values-ha.yaml runs two.
+  # The consumers worker reaches them through one Service, which balances its connections.
+  replicas: 1
   # Signature updates. Default: ClamAV's public mirrors. Air-gapped: a private mirror on the
   # internal network (e.g. http://mirror.internal/clamav), or none at all and the offline bundle
   # loaded with deploy/scripts/clamav-signatures.sh. Signatures older than 7 days raise an alert.
@@ -361,6 +423,12 @@ nats:
       authorization:
         user: supportx
         password: << $SUPPORTX_NATS_PASSWORD >>
+      # Notice a peer that went away without closing its connections (a lost node) within about
+      # 30 s, not NATS's default 2 min x 2: until then a JetStream leader on the lost server is
+      # not replaced and JetStream calls time out (the HA node-loss test's fan-out, run
+      # 131684903919). The workers' clients use the same (backend/workers/bus.py).
+      ping_interval: "10s"
+      ping_max: 3
   container:
     env:
       SUPPORTX_NATS_PASSWORD:
@@ -434,12 +502,39 @@ valkeyHa:
   enabled: false
   replicas: 3
   quorum: 2                         # sentinels that must agree the master is down
-  downAfterMilliseconds: 5000
-  failoverTimeoutMilliseconds: 60000
+  # Sentinel promotes only a replica whose link to the master has been down for less than
+  # 10 x down-after plus the master's SDOWN age. Losing a node can also stall DNS (a dead CoreDNS
+  # endpoint until the node goes NotReady), and the sentinels, which resolve hostnames
+  # synchronously, then reach SDOWN late: 77 s after the stop in Cluster run 43148329223, when
+  # 5 s (a 50 s allowance) ruled out every replica (-failover-abort-no-good-slave). 10 s gives a
+  # 100 s allowance; keep the DNS failover window (about the node-monitor grace period,
+  # docs/deployment.md) inside it. Do not lower this without that check.
+  downAfterMilliseconds: 10000
+  # An aborted failover (e.g. -failover-abort-no-good-slave) is retried only after 2 x this:
+  # 30 s gives a retry 60 s later (60 s gave 120 s, with the API unready on Valkey meanwhile).
+  failoverTimeoutMilliseconds: 30000
   maxmemory: 256mb
+  # TLS only between the app, Centrifugo, the servers and the sentinels (audit row 5), on the
+  # same ports, with a certificate from the internal CA (internalTls; cert-manager required).
+  # values-ha.yaml turns it on.
+  tls:
+    enabled: false
+    reloadIntervalSeconds: 3600     # how often Valkey checks its certificate files for a renewal
   resources:
     requests: {cpu: 50m, memory: 96Mi}
     limits: {cpu: 500m, memory: 384Mi}
+
+# --- Internal TLS (audit row 5; templates/internal-tls.yaml) -----------------------------------------
+# cert-manager signs the in-cluster servers' certificates (valkeyHa.tls, NATS) when any of them has
+# TLS on. Default: the chart's own CA, a self-signed root kept only in `caSecret`; pods get its
+# ca.crt, never its key. On-prem with your own PKI: set `issuerRef` to your cert-manager Issuer or
+# ClusterIssuer (CA, Vault, ...) and `caSecret` to a Secret holding its root as `ca.crt`.
+internalTls:
+  issuerRef: {}                     # e.g. {name: corp-ca, kind: ClusterIssuer}
+  caSecret: ""                      # default: <release>-internal-ca
+  caDuration: 87600h                # the chart's own root: ten years
+  duration: 8760h                   # each server certificate: a year, renewed 30 days before
+  renewBefore: 720h
 
 centrifugo:
   replicas: 1                       # more than one needs the Valkey engine: valkeyHa (ADR-038)
@@ -462,8 +557,16 @@ keycloak:
   # service account (least-privileged admin roles) exists with the secret
   # `keycloak-identity-secret`, login events are on and the SSO session fits SupportX's. With
   # `keycloak-realm-secret` it also makes `supportx-realm` (manage-realm only), the account the
-  # consumers worker applies the password policy with.
+  # consumers worker applies the password policy with. With `keycloak-events-client-secret` it
+  # makes `supportx-events` (view-events only), which the consumers worker reads login events with.
   setUpIdentityAdmin: true
+  # The breached-password list (supportx-breached.txt) comes from this release's backend image.
+  # A larger list of your own: a ConfigMap in the release namespace holding a file of that name,
+  # named here (kubectl create configmap my-lists --from-file=supportx-breached.txt). That
+  # ConfigMap is itself capped at 1 MiB (the Kubernetes object limit), like the release (lane C,
+  # #471): a bigger list needs a data image of its own, not a ConfigMap.
+  passwordBlacklists:
+    configMap: ""
   resources:
     requests: {cpu: 250m, memory: 768Mi}
     limits: {cpu: "2", memory: 1536Mi}
@@ -510,19 +613,41 @@ mailCatcher:
 routing:
   mode: gateway                     # gateway | ingress | none
   hostnames: []                     # empty = every host that reaches the gateway
+  # HTTPS at the gateway (audit row 5; docs/deployment.md "Transport security"). On by default:
+  # browsers carry the session cookie and every password over this hop. Turn it off only where
+  # something in front already terminates TLS, or on the local k3d cluster (values-dev.yaml).
+  tls:
+    enabled: true
+    # The kubernetes.io/tls Secret the HTTPS listener serves: your own certificate (on-prem), or
+    # where cert-manager writes one when `issuerRef` is set (default name then: <release>-tls).
+    # The older routing.gateway.tlsSecret / routing.ingress.tlsSecret still work.
+    secretName: ""
+    # A cert-manager Issuer or ClusterIssuer (e.g. {name: letsencrypt, kind: ClusterIssuer}):
+    # the chart then asks it for a certificate for `hostnames` (or publicUrl's host).
+    issuerRef: {}
+    # Plain HTTP answers only with a 301 to https (gateway mode). Ingress mode: Traefik serves the
+    # app on HTTPS only and ingress-nginx redirects (see routing.ingress.enforcesHttps).
+    redirectHttp: true
   gateway:
     create: true                    # false = attach the routes to an existing Gateway
     name: ""                        # default: <release>
     namespace: ""                   # default: release namespace
     className: traefik
+    # Plain HTTP: the only listener with routing.tls off, else only the redirect to https.
     listenerName: web
     port: 8000                      # Traefik's web entrypoint inside the cluster
-    protocol: HTTP
-    tlsSecret: ""                   # with protocol HTTPS
+    # HTTPS (routing.tls.enabled).
+    tlsListenerName: websecure
+    tlsPort: 8443                   # Traefik's websecure entrypoint inside the cluster
+    tlsSecret: ""                   # older name of routing.tls.secretName
   ingress:
     className: traefik
     annotations: {}
-    tlsSecret: ""
+    # With routing.tls on, the chart keeps the app off plain HTTP for the classes it knows
+    # (traefik: websecure only; nginx: redirect to https). Any other class: make it redirect or
+    # refuse http yourself, then set this to true, or the chart refuses to render.
+    enforcesHttps: false
+    tlsSecret: ""                   # older name of routing.tls.secretName
 
 # --- observability ------------------------------------------------------------------------------------
 metrics:
@@ -541,11 +666,19 @@ networkPolicies:
     enabled: false
     extra: []                       # every pod, e.g. a forward proxy: [{to: [{ipBlock: {cidr: 10.0.0.5/32}}], ports: [{protocol: TCP, port: 3128}]}]
     components: {}                  # per component, e.g. {keycloak: [LDAP servers], consumers: [SMTP relay], api: [...]}
+    # The database's pods only (CloudNativePG instances carry no component label): an external
+    # backup target, e.g. [{to: [{ipBlock: {cidr: 10.0.0.9/32}}], ports: [{protocol: TCP, port: 443}]}].
+    database: []
     # The Kubernetes API, for CloudNativePG's pods and the API and worker pods' wait-for-migrate.
     # Empty: read from the default/kubernetes EndpointSlice at install time. `helm template` and
     # GitOps can't read it: set them, e.g. kubeApiCidrs: [10.0.0.10/32], kubeApiPorts: [6443].
     kubeApiCidrs: []
     kubeApiPorts: [6443]
+    # More DNS server addresses every pod may reach on port 53, as CIDRs. NodeLocal DNSCache
+    # (D-163, deploy/k3s/node-local-dns.sh) answers from the node's own network on a link-local
+    # address and on the kube-dns Service address itself, so the kube-dns pod rule above no
+    # longer matches its answers' path: values-ha.yaml lists both (k3s's default kube-dns address).
+    dnsAddresses: []
 
 # Extra annotations on SupportX's own pods (make deploy-dev sets one per build: dev images keep
 # the same tag, so this is what rolls them).
@@ -558,6 +691,10 @@ ha:
   # Kept during a voluntary disruption (a node drain, an upgrade) for every component running
   # more than one copy.
   minAvailable: 1
+  # Seconds the single-copy workers (fan-out, custom field indexes) stay on a NotReady or
+  # unreachable node before Kubernetes evicts them; 0 = Kubernetes' default (300 s).
+  # values-ha.yaml sets it.
+  fastEvictionSeconds: 0
 
 podAnnotations: {}
 
