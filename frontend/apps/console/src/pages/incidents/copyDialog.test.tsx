@@ -84,6 +84,10 @@ describe('Copy an incident', () => {
     render(<App />);
     await clickAction('inc-op-copy');
     expect(await screen.findByText('Up to 5 at a time.')).toBeDefined();
+    // The limit holds as typed, not only after the server refuses (lane C).
+    expect(screen.getByTestId('inc-copy-count').getAttribute('aria-valuemax')).toBe('5');
+    // The parts are one group, named by its label.
+    expect(screen.getByRole('group', { name: 'Also copy' })).toBeDefined();
   });
 
   it('AC3: a refusal over the limit says the limit at the count', async () => {

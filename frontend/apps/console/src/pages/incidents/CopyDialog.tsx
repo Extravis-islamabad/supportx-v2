@@ -112,6 +112,7 @@ export function CopyDialog({
           <InputNumber
             id="inc-copy-count"
             min={1}
+            max={shownMax}
             precision={0}
             value={count}
             onChange={(next) => {
@@ -121,16 +122,19 @@ export function CopyDialog({
             data-testid="inc-copy-count"
           />
         </Form.Item>
-        <Form.Item label={t('incidents.copy.with')}>
-          <Checkbox.Group<RecordCopyPart>
-            value={parts}
-            onChange={setParts}
-            options={PARTS.map((part) => ({
-              value: part,
-              label: t(`record_copy_part.${part}`),
-            }))}
-            data-testid="inc-copy-parts"
-          />
+        {/* The checkboxes are one group named by its label (lane C's #477 review). */}
+        <Form.Item label={<span id="inc-copy-with">{t('incidents.copy.with')}</span>}>
+          <div role="group" aria-labelledby="inc-copy-with">
+            <Checkbox.Group<RecordCopyPart>
+              value={parts}
+              onChange={setParts}
+              options={PARTS.map((part) => ({
+                value: part,
+                label: t(`record_copy_part.${part}`),
+              }))}
+              data-testid="inc-copy-parts"
+            />
+          </div>
         </Form.Item>
       </Form>
     </Modal>
