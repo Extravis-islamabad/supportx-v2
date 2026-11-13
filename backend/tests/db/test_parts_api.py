@@ -431,6 +431,15 @@ async def test_req_inc_071_time_per_status_paused_and_reopen_keeps_time(world: W
         (("resolved", "in_progress"), "2026-11-11T14:00:00Z"),
     ):
         await _line(world, a, item, move, at)
+    # The creation's own lines (none -> new -> assigned) go to the start too: left at the real
+    # time they would sort last and put the record back in "assigned" until now, which counts as
+    # open but not in progress, inside business hours only (a CI flake at 17:42 UTC, #432).
+    await world.sql(
+        "UPDATE field_changes SET occurred_at = '2026-11-11T09:00:00Z'"
+        " WHERE tenant_id = $1 AND record_id = $2 AND occurred_at > '2026-11-12T00:00:00Z'",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
     found = await world.call("GET", f"{BASE}/{item['id']}/time-analysis", a, a.tech_a)
     assert found.status_code == 200, found.text
     body = found.json()
