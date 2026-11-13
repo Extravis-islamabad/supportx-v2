@@ -178,3 +178,25 @@ async def test_field_cipher_for_takes_the_keys_from_the_settings(world: World) -
     with pytest.raises(FieldKeysUnavailable):
         async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
             await field_cipher_for(session, without).seal(SECRET, HERE, "x")
+
+
+def test_a_malformed_key_setting_is_a_503_not_a_500(world: World) -> None:
+    """Lane B: a garbled SUPPORTX_FILES_KEYS is an operations fault (field_keys_unavailable)."""
+    for garbage in ("not-a-ring", "k1:!!!notbase64", "k1:" + "A" * 10):
+        settings = world.app.state.settings.model_copy(update={"files_keys": SecretStr(garbage)})
+        with pytest.raises(FieldKeysUnavailable):
+            field_keys(settings)
+
+
+async def test_a_shared_cache_never_crosses_tenants(world: World) -> None:
+    """Lane B: tenant B opening A's text through a cache A warmed gets None; A's entry stays."""
+    cache = DataKeyCache(MemoryGenerations())
+    text = await _seal(world, "tenant A only")
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        assert await field_cipher(session, RING, cache).open(SECRET, HERE, text) == "tenant A only"
+    assert len(cache) == 1  # A's data key is cached
+    async with world.app.state.db.tenant_session(TenantContext(world.b.tenant)) as session:
+        assert await field_cipher(session, RING, cache).open(SECRET, HERE, text) is None
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        assert await field_cipher(session, RING, cache).open(SECRET, HERE, text) == "tenant A only"
+    assert len(cache) == 1  # B's attempt cached nothing and evicted nothing

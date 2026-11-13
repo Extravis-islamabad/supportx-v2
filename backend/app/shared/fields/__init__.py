@@ -4,6 +4,8 @@ Modules import only from here: `purpose` to declare theirs, `field_cipher` and `
 and open, `FieldKeysUnavailable` for the 503. The key provider and the data keys stay inside.
 """
 
+import hashlib
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -17,7 +19,7 @@ from app.shared.fields.cache import (
 )
 from app.shared.fields.cipher import Binding, FieldCipher, FieldKeysUnavailable, field_cipher
 from app.shared.fields.purposes import PurposeError, purpose
-from app.shared.files.keyring import KeyRing
+from app.shared.files.keyring import KeyRing, KeyRingError
 
 _process_cache: DataKeyCache | None = None
 _rings: dict[str, KeyRing] = {}
@@ -54,6 +56,8 @@ __all__ = [
 def field_keys(settings: Settings) -> KeyRing | None:
     """The installation's key provider (ADR-050 item 1), chosen here only; None when not set.
 
+    A malformed `SUPPORTX_FILES_KEYS` raises FieldKeysUnavailable (503), as a missing key does.
+
     Today the installation ring, `SUPPORTX_FILES_KEYS`, parsed once per process per value.
     A customer-managed KMS would be chosen here too, and no module would change.
     """
@@ -61,11 +65,16 @@ def field_keys(settings: Settings) -> KeyRing | None:
     if secret is None:
         return None
     value = secret.get_secret_value()
-    ring = _rings.get(value)
+    # Remembered by a hash of the value (lane B): the secret itself is never a dictionary key.
+    digest = hashlib.sha256(value.encode()).hexdigest()
+    ring = _rings.get(digest)
     if ring is None:
-        ring = KeyRing.parse(value)
+        try:
+            ring = KeyRing.parse(value)
+        except KeyRingError as exc:  # a malformed setting: an operations fault, never a 500
+            raise FieldKeysUnavailable from exc
         _rings.clear()  # one installation ring per process: a new value replaces the old
-        _rings[value] = ring
+        _rings[digest] = ring
     return ring
 
 
