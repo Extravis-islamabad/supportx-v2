@@ -1,6 +1,7 @@
 # ADR-050: Field encryption — one key-provider interface, tenant data keys reused from files, ADR-048 blobs bound to the record and field
 
-- **Status:** Proposed (WP-057 S3a, lane C, 2026-11-13)
+- **Status:** Proposed (WP-057 S3a, lane C, 2026-11-13). Shape approved by the coordinator;
+  approved in principle by lane B with the conditions now written in (2026-11-13).
 - **Deciders:** Haider (Product Owner), through the coordinator; lane B reviews (blocking, D-149)
 - **Related:** D-161 (field encryption reuses the files key ring), ADR-048 (key ring and sealed-blob
   format), ADR-028 (files: tenant data keys wrapped by the installation key), D-021 (PyCA
@@ -24,8 +25,9 @@ how the two fit together, and what the modules call.
 
 ## Decision
 
-1. **The key provider** (`app/shared/crypto/provider.py`) is the only thing that touches the
-   installation key:
+1. **The key provider** is the only thing that touches the installation key. Its *Protocol*
+   lives in `app/shared/crypto/provider.py` (crypto stays a leaf: the codec and this Protocol,
+   importing nothing of files or fields); its implementations live in `app/shared/fields/`:
 
    ```python
    class KeyProvider(Protocol):
@@ -57,7 +59,8 @@ how the two fit together, and what the modules call.
      draft), the caller binds to the ID it is about to use;
    - **text form** = `sx2:` + base64url, for text and JSONB columns.
 
-4. **What modules call** (`app/shared/crypto/fields.py`):
+4. **What modules call** (`app/shared/fields/`, a new shared package importing crypto's codec and
+   files' data keys through two narrow calls, `current_data_key` and `data_key`):
 
    ```python
    cipher = await field_cipher(session)   # the session's tenant (app.tenant_id), the provider
@@ -65,19 +68,33 @@ how the two fit together, and what the modules call.
    value = await cipher.open(purpose, bound_to, text)      # -> str | None
    ```
 
-   - `seal` uses the tenant's newest data key. `open` uses the data key the blob names, and
-     returns None for anything that does not open (tampered, another tenant's, unknown key). A
-     caller shows such a value as unreadable, never as empty and never as an error page.
+   - `seal` uses the tenant's newest data key, and refuses a `bound_to` with an empty or missing
+     part. `open` uses the data key the blob names.
+   - **What `open` does when it cannot open**, by cause:
+     - **the data** is wrong (a bad tag, a malformed blob, a data key ID this tenant does not
+       have): it returns None. A caller shows such a value as unreadable, never as empty and
+       never as an error page;
+     - **the installation key** cannot unwrap the data key (a missing or wrong Secret: operations,
+       not data): it raises, and the API answers 503 `field_keys_unavailable`, so good data is
+       never marked unreadable because of a configuration fault.
    - **A None from `open` is a security event, never silent.** It is logged as
      `field_unreadable` with the purpose, the data key ID and the reason class (unknown key,
      bad tag, malformed) only, never the value, the blob or the bound record's content. It is
      counted in a metric labelled by purpose and reason, and an alert fires on any bad tag,
      since that means someone changed stored data.
-   - Unwrapped data keys are cached per process for 5 minutes, keyed by (tenant, data key ID), and
-     never logged, pickled or put in Valkey.
-   - Modules never see a data key or the provider. They import only `field_cipher` and their
-     purposes, through `app.shared.crypto` (import-linter keeps the provider private to it and to
-     the files service).
+   - Unwrapped data keys are cached per process for 5 minutes, keyed by (tenant, data key ID), in
+     a bounded LRU (about 1,000 keys), in memory only: never logged, pickled or put in Valkey. A
+     data key's unwrapped value never changes for its ID, so rotation needs no invalidation.
+   - **Tenant erasure empties the cache at once in every process:** the erasure step writes a
+     `fields.tenant_keys_destroyed` event to the outbox, and every API and worker process drops
+     that tenant's keys when it arrives, so crypto-shredding never waits for a cache to expire.
+     A test proves `open` fails right after erasure.
+   - **Purposes** are constants in the owning module; a guard test refuses a purpose used by two
+     modules. A value bound to an ID not yet inserted (a draft) must be inserted with exactly that
+     ID (tested).
+   - Modules never see a data key or the provider. Import-linter contracts: `app.shared.crypto`
+     imports neither `app.shared.files` nor `app.shared.fields` (no cycle: files already imports
+     crypto), and modules import `app.shared.fields` only through its package root.
 
 5. **Rotation**, as D-161 item 4:
    - **A new installation key** is a configuration change: list the new key first. Files'
