@@ -50,8 +50,14 @@ export const en = {
   'account.sessions.app_on': 'SupportX app on {{platform}}',
   'account.sessions.end': 'Sign out',
   'account.sessions.end_body': 'It is signed out at once and has to sign in again to continue.',
+  'account.sessions.end_others': 'Sign out everywhere else',
+  'account.sessions.end_others_body':
+    'Every other browser and device is signed out at once and has to sign in again. This one stays signed in.',
+  'account.sessions.end_others_title': 'Sign out of every other browser and device?',
   'account.sessions.end_title': 'Sign out of this device?',
   'account.sessions.ended': 'Signed out of that device',
+  'account.sessions.ended_others_one': 'Signed out of 1 other browser or device',
+  'account.sessions.ended_others_other': 'Signed out of {{count}} other browsers and devices',
   'account.sessions.help':
     'Wherever you are signed in to this organisation. Sign out of any you don’t recognise or no longer use, such as a lost phone.',
   'account.sessions.none': 'No other sessions',
@@ -59,6 +65,7 @@ export const en = {
   'account.sessions.title': 'Signed-in browsers and devices',
   'account.sessions.version': 'version {{version}}',
   'account.sessions.when': 'Signed in {{started}} · last used {{used}}',
+  'account.sessions.where': '{{device}} · from {{ip}}',
   'account.sso_only':
     "You sign in through your organisation's single sign-on, so there is no password here.",
   'account.title': 'Sign-in and security',

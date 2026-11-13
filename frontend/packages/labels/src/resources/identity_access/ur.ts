@@ -53,8 +53,14 @@ export const ur: LabelResource = {
   'account.sessions.end': 'سائن آؤٹ',
   'account.sessions.end_body':
     'یہ فوراً سائن آؤٹ ہو جاتا ہے اور جاری رکھنے کے لیے دوبارہ سائن اِن کرنا ہوگا۔',
+  'account.sessions.end_others': 'باقی ہر جگہ سے سائن آؤٹ کریں',
+  'account.sessions.end_others_body':
+    'باقی ہر براؤزر اور آلہ فوراً سائن آؤٹ ہو جائے گا اور اسے دوبارہ سائن اِن کرنا ہوگا۔ یہ براؤزر سائن اِن رہے گا۔',
+  'account.sessions.end_others_title': 'باقی تمام براؤزرز اور آلات سے سائن آؤٹ کریں؟',
   'account.sessions.end_title': 'اس آلے سے سائن آؤٹ کریں؟',
   'account.sessions.ended': 'اس آلے سے سائن آؤٹ ہو گیا',
+  'account.sessions.ended_others_one': '1 دوسرے براؤزر یا آلے سے سائن آؤٹ ہو گیا',
+  'account.sessions.ended_others_other': '{{count}} دوسرے براؤزرز اور آلات سے سائن آؤٹ ہو گیا',
   'account.sessions.help':
     'جہاں جہاں آپ اس تنظیم میں سائن اِن ہیں۔ جسے آپ نہیں پہچانتے یا اب استعمال نہیں کرتے، جیسے گمشدہ فون، اس سے سائن آؤٹ کریں۔',
   'account.sessions.none': 'کوئی اور سیشن نہیں',
@@ -62,6 +68,7 @@ export const ur: LabelResource = {
   'account.sessions.title': 'سائن اِن براؤزر اور آلات',
   'account.sessions.version': 'ورژن {{version}}',
   'account.sessions.when': 'سائن اِن {{started}} · آخری استعمال {{used}}',
+  'account.sessions.where': '{{device}} · {{ip}} سے',
   'account.sso_only':
     'آپ اپنی تنظیم کے سنگل سائن آن سے سائن اِن کرتے ہیں، اس لیے یہاں کوئی پاس ورڈ نہیں۔',
   'account.title': 'سائن اِن اور سکیورٹی',

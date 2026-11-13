@@ -298,6 +298,7 @@ export {
   accountActionUrl,
   useAccountSecurity,
   useEndMySession,
+  useEndOtherSessions,
   useEndPersonSession,
   useMySessions,
   usePersonSessions,
