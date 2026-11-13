@@ -761,6 +761,10 @@ class SsoBody(BaseModel):
     slo_url: str | None = None
     certificate: str | None = None
     entity_id: str | None = None
+    client_secret_expires_at: datetime | None = Field(
+        default=None,
+        description="OpenID Connect: when the client secret runs out (admins are told before).",
+    )
 
     def values(self) -> sso.SsoInput:
         """The service's input."""
@@ -796,6 +800,9 @@ class SsoOut(BaseModel):
         description="SupportX's SAML metadata for this set-up (give it to the provider)."
     )
     redirect_uri: str = Field(description="Where the provider sends people back (OIDC).")
+    client_secret_expires_at: datetime | None = Field(
+        default=None, description="OpenID Connect: when the client secret runs out, if entered."
+    )
     version: int
 
 
@@ -821,6 +828,7 @@ def _sso_out(request: Request, view: sso.SsoView) -> SsoOut:
         switched_on_at=view.switched_on_at,
         service_provider_metadata_url=issuer + view.service_provider_metadata_path,
         redirect_uri=f"{issuer}/broker/{view.alias}/endpoint",
+        client_secret_expires_at=view.client_secret_expires_at,
         version=view.version,
     )
 
