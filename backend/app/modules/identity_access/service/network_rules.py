@@ -13,6 +13,7 @@ tenant switch, again when a session refreshes, at the realtime token and when an
 
 import ipaddress
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -148,8 +149,34 @@ async def save_network_rules(
     changed = [COLUMNS[app] for app in NetworkApp if after[app] != current.lists.get(app, ())]
     if not changed:
         return current, {}
-    context = session.info[SESSION_TENANT_KEY]
     columns = {COLUMNS[app]: [str(n) for n in parsed[app]] for app in NetworkApp}
+    version = await save_settings_version(
+        session, expected_version=expected_version, changed=changed, columns=columns
+    )
+    details: dict[str, object] = {
+        "changed_fields": changed,
+        "before": {COLUMNS[app]: list(current.lists.get(app, ())) for app in NetworkApp},
+        "after": {COLUMNS[app]: list(after[app]) for app in NetworkApp},
+        "version": version,
+    }
+    return NetworkRules(after, version), details
+
+
+async def save_settings_version(
+    session: AsyncSession,
+    *,
+    expected_version: int,
+    changed: list[str],
+    columns: Mapping[str, object] | None = None,
+) -> int:
+    """Write `columns` to the tenant's identity settings and move their version, or 409.
+
+    Shared by the settings saved under this row's version (the allow-lists, the site map): the
+    upsert only applies at `expected_version` (version 0 = never saved), and the change is in the
+    outbox in the same transaction (rule b).
+    """
+    context = session.info[SESSION_TENANT_KEY]
+    values = dict(columns or {})
     statement = (
         insert(IdentitySettings)
         .values(
@@ -157,12 +184,12 @@ async def save_network_rules(
             created_by=context.user_id,
             updated_by=context.user_id,
             version=1,
-            **columns,
+            **values,
         )
         .on_conflict_do_update(
             index_elements=[IdentitySettings.tenant_id],
             set_={
-                **columns,
+                **values,
                 "updated_at": datetime.now(UTC),
                 "updated_by": context.user_id,
                 "version": IdentitySettings.version + 1,
@@ -180,10 +207,4 @@ async def save_network_rules(
         aggregate_id=context.tenant_id,
         aggregate_version=version,
     )
-    details: dict[str, object] = {
-        "changed_fields": changed,
-        "before": {COLUMNS[app]: list(current.lists.get(app, ())) for app in NetworkApp},
-        "after": {COLUMNS[app]: list(after[app]) for app in NetworkApp},
-        "version": version,
-    }
-    return NetworkRules(after, version), details
+    return int(version)

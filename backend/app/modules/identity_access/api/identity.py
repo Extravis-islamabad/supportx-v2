@@ -30,6 +30,7 @@ from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.api.sessions import ListedSessionOut, listed_out
 from app.modules.identity_access.domain import sso as sso_rules
 from app.modules.identity_access.domain.network import NetworkApp, address_of
+from app.modules.identity_access.domain.place import MAX_SITE_NETWORKS
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.domain.sign_in import SignInApp, SignInMethod, SignInOutcome
 from app.modules.identity_access.domain.sign_in_policy import SsoRequired
@@ -52,6 +53,7 @@ from app.modules.identity_access.service import (
     network_rules,
     password_reset,
     sign_in_log,
+    site_networks,
     sso,
     sso_test,
 )
@@ -573,6 +575,72 @@ async def put_network_rules(  # noqa: PLR0913, PLR0917 - FastAPI parameters: bod
     note.skip = not details
     set_etag(response, saved.version)
     return _rules_out(saved, request)
+
+
+class SiteNetworkIn(BaseModel):
+    """One address range and the site it means."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    network: str = Field(max_length=64, description="A range such as 10.1.0.0/16, or one address.")
+    site_id: uuid.UUID
+
+
+class SiteNetworksBody(BaseModel):
+    """The whole list (replaces what is saved)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entries: list[SiteNetworkIn] = Field(max_length=MAX_SITE_NETWORKS)
+
+
+class SiteNetworksOut(BaseModel):
+    """The ranges as saved, most specific first, and the settings version (If-Match)."""
+
+    entries: list[SiteNetworkIn]
+    version: int
+
+
+def _site_map_out(saved: site_networks.SiteMap) -> SiteNetworksOut:
+    return SiteNetworksOut(
+        entries=[SiteNetworkIn(network=net, site_id=site) for net, site in saved.entries],
+        version=saved.version,
+    )
+
+
+@router.get("/site-networks", summary="Address ranges mapped to sites")
+async def get_site_networks(
+    response: Response, session: TenantSession, subject: Manage
+) -> SiteNetworksOut:
+    """Which site a sign-in from each range is shown at (D-170); the most specific range wins."""
+    del subject
+    saved = await site_networks.get_site_map(session)
+    set_etag(response, saved.version)
+    return _site_map_out(saved)
+
+
+@router.put("/site-networks", summary="Save the address ranges mapped to sites")
+async def put_site_networks(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, response, session, subject, audit note
+    body: SiteNetworksBody,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote, audited("identity.site_networks_changed", object_type="identity_settings")
+    ],
+) -> SiteNetworksOut:
+    """Replace the list. Sign-ins from now on show the site; earlier ones are read the same way."""
+    saved, details = await site_networks.save_site_map(
+        session,
+        [(entry.network, entry.site_id) for entry in body.entries],
+        expected_version=version,
+    )
+    note.object_id = str(subject.tenant_id)
+    note.details = details
+    note.skip = not details
+    set_etag(response, saved.version)
+    return _site_map_out(saved)
 
 
 @router.post(

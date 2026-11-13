@@ -218,6 +218,7 @@ export const ar: LabelResource = {
   'audit.action.identity.password_policy_reapplied': 'طبّق سياسة كلمات المرور مجددًا',
   'audit.action.identity.settings_changed': 'غيّر إعدادات تسجيل الدخول',
   'audit.action.identity.sign_ins_viewed': 'عرض سجل تسجيل الدخول',
+  'audit.action.identity.site_networks_changed': 'غيّر نطاقات العناوين المرتبطة بالمواقع',
   'audit.action.identity.sso_policy_changed': 'غيّر سياسة الدخول الموحد',
   'audit.action.incident.access_changed': 'غيّر صلاحيات الوصول إلى حادثة',
   'audit.action.incident.approval_decided': 'سجّل قرار موافقة على حادثة',

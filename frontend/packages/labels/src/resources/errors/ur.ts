@@ -621,6 +621,9 @@ export const ur: LabelResource = {
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
   'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
   'errors.field.site_inactive': 'یہ سائٹ غیر فعال ہے۔ فعال سائٹ منتخب کریں۔',
+  'errors.field.site_network_invalid':
+    '10.1.0.0/16 جیسی رینج درج کریں (ہوسٹ والا حصہ صفر ہو)، یا ایک ایڈریس۔',
+  'errors.field.site_network_too_many': 'زیادہ سے زیادہ {{max}} رینجز منسلک کی جا سکتی ہیں۔',
   'errors.field.site_not_found': 'یہ مقام موجود نہیں۔',
   'errors.field.sso_certificate_expired':
     'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے۔ شناخت فراہم کنندہ سے نیا لیں۔',

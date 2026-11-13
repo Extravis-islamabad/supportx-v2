@@ -218,6 +218,7 @@ export const ur: LabelResource = {
   'audit.action.identity.password_policy_reapplied': 'پاس ورڈ پالیسی دوبارہ لاگو کی',
   'audit.action.identity.settings_changed': 'سائن اِن کی ترتیبات بدلیں',
   'audit.action.identity.sign_ins_viewed': 'سائن اِن لاگ دیکھا',
+  'audit.action.identity.site_networks_changed': 'سائٹس سے منسلک ایڈریس رینجز بدلیں',
   'audit.action.identity.sso_policy_changed': 'سنگل سائن آن پالیسی بدلی',
   'audit.action.incident.access_changed': 'واقعے تک رسائی رکھنے والے بدلے',
   'audit.action.incident.approval_decided': 'واقعے پر منظوری کا فیصلہ درج کیا',

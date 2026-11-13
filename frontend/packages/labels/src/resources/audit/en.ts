@@ -221,6 +221,7 @@ export const en = {
   'audit.action.identity.password_policy_reapplied': 'Applied the password policy again',
   'audit.action.identity.settings_changed': 'Changed the sign-in settings',
   'audit.action.identity.sign_ins_viewed': 'Viewed the sign-in log',
+  'audit.action.identity.site_networks_changed': 'Changed the address ranges mapped to sites',
   'audit.action.identity.sso_policy_changed': 'Changed the single sign-on policy',
   'audit.action.incident.access_changed': 'Changed who can see or work on an incident',
   'audit.action.incident.approval_decided': 'Recorded an approval decision on an incident',
