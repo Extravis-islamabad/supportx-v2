@@ -433,7 +433,10 @@ ROUTES = [
         ),
         _identity_changed,
     ),
-    RealtimeRoute(("identity_access.invitation.changed",), _invitation_changed),
+    RealtimeRoute(
+        ("identity_access.invitation.changed", "identity_access.invitation.link_copied"),
+        _invitation_changed,
+    ),
     RealtimeRoute(("identity_access.api_key.changed",), _api_key_changed),
     RealtimeRoute(("identity_access.user_cost_rate.changed",), _cost_rate_changed),
     RealtimeRoute(("identity_access.sign_in.recorded",), _sign_in_recorded),

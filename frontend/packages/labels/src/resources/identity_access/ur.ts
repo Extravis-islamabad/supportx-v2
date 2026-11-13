@@ -188,10 +188,27 @@ export const ur: LabelResource = {
     'میرا اکاؤنٹ میں، پورٹل اور کنسول دونوں میں۔ ڈائریکٹری کے رکھے نمبر صرف پڑھنے کے لیے رہتے ہیں۔',
   'invitation_delivery.email': 'ای میل سے',
   'invitation_delivery.existing_account': 'پہلے سے اکاؤنٹ ہے',
+  'invitation_delivery.link': 'کاپی کیے گئے لنک کے ذریعے',
   'invitation_status.accepted': 'قبول شدہ',
   'invitation_status.expired': 'میعاد ختم',
   'invitation_status.pending': 'منتظر',
   'invitation_status.revoked': 'واپس لیا گیا',
+  'invite_page.again': 'دوبارہ لکھیں',
+  'invite_page.done_body': 'اپنے ای میل پتے اور ابھی منتخب کیے گئے پاس ورڈ سے سائن اِن کریں۔',
+  'invite_page.done_title': 'آپ کا پاس ورڈ رکھ دیا گیا',
+  'invite_page.intro':
+    'آپ کو SupportX میں مدعو کیا گیا ہے۔ ایک پاس ورڈ منتخب کریں؛ آپ اسی اور اپنے ای میل پتے سے سائن اِن کریں گے۔ پاس ورڈ میں یہ ہونا چاہیے:',
+  'invite_page.mismatch': 'دونوں پاس ورڈ ایک جیسے نہیں ہیں۔',
+  'invite_page.password': 'نیا پاس ورڈ',
+  'invite_page.rule_digit': 'ایک ہندسہ',
+  'invite_page.rule_length_one': 'کم از کم {{count}} حرف',
+  'invite_page.rule_length_other': 'کم از کم {{count}} حروف',
+  'invite_page.rule_lower': 'ایک چھوٹا لاطینی حرف',
+  'invite_page.rule_special': 'کوئی علامت، جیسے ! یا #',
+  'invite_page.rule_upper': 'ایک بڑا لاطینی حرف',
+  'invite_page.sign_in': 'سائن اِن',
+  'invite_page.submit': 'پاس ورڈ رکھیں',
+  'invite_page.title': 'اپنا پاس ورڈ رکھیں',
   // WP-039 session 3: MFA, my account
   'mfa_mode.off': 'بند',
   'mfa_mode.optional': 'اختیاری',
@@ -990,11 +1007,16 @@ export const ur: LabelResource = {
   'security.field.portal_idle': 'پورٹل: غیرفعالی کے بعد سائن آؤٹ',
   'security.intro':
     'لوگ آپ کی تنظیم میں کیسے سائن اِن کرتے ہیں: سنگل سائن آن، سیشن کی مہلتیں اور پہلی بار کون سائن اِن کر سکتا ہے۔ ہر تبدیلی آڈٹ لاگ میں درج ہوتی ہے۔',
+  'security.invitations.copy_link': 'لنک نقل کریں',
   'security.invitations.earlier_links_work':
     'پہلے بھیجے گئے لنک بھی میعاد ختم ہونے تک کام کرتے رہیں گے۔',
   'security.invitations.expires': 'لنک کام کرے گا تک',
   'security.invitations.intro':
     'ان لوگوں کو دعوت دیں جنہیں آپ نے شامل یا درآمد کیا اور جنہوں نے ابھی سائن اِن نہیں کیا: لوگ میں ان کے ریکارڈ سے۔ ای میل آپ کی تنظیم کی طرف سے، ان کی زبان میں آتی ہے، اور اس کا لنک ایک بار کام کرتا ہے۔',
+  'security.invitations.link_copied': 'لنک نقل ہو گیا',
+  'security.invitations.link_note':
+    'باہر جانے والی میل ترتیب نہیں دی گئی، اس لیے یہ لنک خود، نجی طور پر پہنچائیں۔ جس کے پاس بھی یہ ہو وہ اس شخص کا پاس ورڈ رکھ سکتا ہے۔ یہ {{date}} تک ایک بار کام کرتا ہے۔ نیا لنک نقل کرنے سے یہ والا رک جاتا ہے۔',
+  'security.invitations.link_title': '{{email}} کے لیے دعوت نامے کا لنک',
   'security.invitations.none': 'ابھی کوئی دعوت نامہ نہیں۔',
   'security.invitations.person': 'شخص',
   'security.invitations.resend': 'دوبارہ بھیجیں',
@@ -1109,6 +1131,9 @@ export const ur: LabelResource = {
   'security.sso.certificate': 'دستخطی سرٹیفکیٹ',
   'security.sso.client_id': 'کلائنٹ آئی ڈی',
   'security.sso.client_secret': 'کلائنٹ سیکرٹ',
+  'security.sso.client_secret_expires_at': 'کلائنٹ کی خفیہ کلید کی میعاد ختم ہونے کی تاریخ',
+  'security.sso.client_secret_expires_hint':
+    'شناخت فراہم کنندہ کے کنسول سے۔ ایڈمنسٹریٹرز کو 30، 7 اور 1 دن پہلے بتایا جاتا ہے۔',
   'security.sso.display_name': 'سائن اِن بٹن پر نام',
   'security.sso.domains': 'ای میل ڈومین',
   'security.sso.domains_hint':

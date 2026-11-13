@@ -96,7 +96,7 @@ import { KnowledgePicker } from '../knowledge/KnowledgePicker';
 import { KnownErrorTool } from '../problems/KnownErrorTool';
 import { KnowledgeSlotContext, type KnowledgeSlot } from './knowledgeSlot';
 import { IncidentSla } from './IncidentSla';
-import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
+import { IncidentLinks, IncidentTasks, IncidentTime, IncidentWorklogs } from './IncidentParts';
 import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
 import { IncidentHistory } from './IncidentHistory';
@@ -811,6 +811,12 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   },
                 ]
               : []),
+            // WP-046a S3 (REQ-INC-071): where the time went.
+            {
+              key: 'time',
+              label: t('incidents.tab.time'),
+              children: <IncidentTime item={item} />,
+            },
             {
               key: 'history',
               label: t('incidents.tab.history', { count: item.history_count }),

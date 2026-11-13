@@ -533,7 +533,18 @@ export const ar: LabelResource = {
   'errors.field.owner_not_allowed':
     'لا يملك هذا الشخص صلاحية إدارة الإعلانات، لذا لا يمكن أن يكون مالكًا.',
   'errors.field.parent_loop': 'سيجعله هذا أصلًا لنفسه.',
+  'errors.field.password_breached': 'كلمة المرور هذه معروفة من تسريبات بيانات. اختر غيرها.',
+  'errors.field.password_is_email': 'يجب ألا تكون عنوان بريدك الإلكتروني.',
+  'errors.field.password_is_username': 'يجب ألا تكون اسم المستخدم الخاص بك.',
+  'errors.field.password_needs_digit': 'أضف رقمًا.',
+  'errors.field.password_needs_lower': 'أضف حرفًا لاتينيًا صغيرًا.',
+  'errors.field.password_needs_special': 'أضف رمزًا مثل ! أو #.',
+  'errors.field.password_needs_upper': 'أضف حرفًا لاتينيًا كبيرًا.',
   'errors.field.password_policy_out_of_range': 'استخدم قيمة بين {{min}} و{{max}}.',
+  'errors.field.password_rejected': 'لم تُقبل كلمة المرور هذه. اختر غيرها.',
+  'errors.field.password_too_long': 'طويلة جدًا: استخدم 128 حرفًا على الأكثر.',
+  'errors.field.password_too_short': 'قصيرة جدًا: استخدم أحرفًا أكثر.',
+  'errors.field.password_used_before': 'استخدمت كلمة المرور هذه من قبل. اختر كلمة جديدة.',
   'errors.field.pattern_mismatch': 'هذه القيمة ليست بالتنسيق المتوقع.',
   'errors.field.pattern_too_complex':
     'هذا النمط يكرر مجموعة تتكرر هي نفسها، مما قد يجعل الحفظ بطيئًا جدًا. بسّطه، مثل [A-Z]+ بدلًا من ([A-Z]+)+.',
@@ -776,6 +787,12 @@ export const ar: LabelResource = {
   'errors.invitation_not_pending': 'لم تعد هذه الدعوة بانتظار القبول: قُبلت أو سُحبت.',
   'errors.invitation_pending': 'لدى هذا الشخص دعوة بانتظار القبول. أرسلها مجددًا بدلًا من ذلك.',
   'errors.invitation_person_cannot_sign_in': 'هذا الشخص معطّل أو غير مسموح له بتسجيل الدخول.',
+  'errors.invite_link_has_account':
+    'لدى هذا الشخص كلمة مرور بالفعل: يسجّل الدخول كالمعتاد، فلا يوجد رابط لنسخه.',
+  'errors.invite_link_invalid':
+    'رابط الدعوة هذا لا يعمل. ربما استُخدم أو استُبدل برابط أحدث أو انتهت صلاحيته. اطلب رابطًا جديدًا ممن دعاك.',
+  'errors.invite_link_mail_configured':
+    'البريد الصادر مُعدّ، لذا تُرسل الدعوة بالبريد الإلكتروني. أعد إرسالها بدلًا من نسخ رابط.',
   'errors.ip_not_allowed':
     'لا تسمح مؤسستك بتسجيل الدخول من هذه الشبكة. اتصل من شبكة مسموح بها، أو اطلب ذلك من المسؤول.',
   'errors.job_kind_not_available': 'هذا النوع من المهام غير متاح بعد.',
@@ -916,7 +933,7 @@ export const ar: LabelResource = {
   'errors.password_policy_platform': 'تحدد المنصة سياسة كلمات المرور في هذا التثبيت.',
   'errors.password_reset_not_signed_in':
     'لم يسجّل هذا الشخص الدخول بعد. أرسل إليه دعوة بدلًا من ذلك.',
-  'errors.payload_too_large': 'حجم الملف المرفوع كبير جدًا.',
+  'errors.payload_too_large': 'ما أُرسل أكبر من أن يُقبل. أرسل أقل، أو ملفًا أصغر.',
   'errors.people_import_file_not_readable': 'استخدم ملف CSV أو مصنف Excel بصيغة {{xlsx}}.',
   'errors.people_import_file_too_large': 'حجم الملف أكبر من 5 ميغابايت.',
   'errors.people_import_file_unsafe': 'لم يُفتح المصنف: يتضخم إلى حجم يفوق حجمه بكثير.',

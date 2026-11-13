@@ -50,6 +50,33 @@ ready_pods() {  # ready_pods <label selector> <node to leave out>: ready pods el
     | .metadata.name'
 }
 fanout_ready_off() { [ -n "$(ready_pods "$FANOUT_LABELS" "$1")" ]; }
+# Why a fan-out copy off the stopped node is not ready (three runs failed here with only the dead
+# copy's logs to read, 43307414807, 131530642943, 43462162931): for each copy elsewhere, its
+# conditions and recent events, its containers' logs, and its own /readyz answer through the API
+# server's pod proxy. Never fails the caller.
+fanout_diagnose() {  # fanout_diagnose <stopped node>
+  local pod port
+  for pod in $(kubectl -n "$NAMESPACE" get pods -l "$FANOUT_LABELS" -o json |
+    jq -r --arg n "$1" '.items[] | select(.spec.nodeName != $n) | .metadata.name'); do
+    echo "== fan-out copy $pod (not on $1)"
+    kubectl -n "$NAMESPACE" get pod "$pod" -o json |
+      jq -r '"phase \(.status.phase); started \(.status.startTime // "-")",
+        (.status.conditions[]? | "  \(.type)=\(.status) \(.reason // "") \(.message // "")"),
+        (.status.containerStatuses[]? | "  \(.name): ready=\(.ready) restarts=\(.restartCount) \(.state | keys | first)")' || true
+    kubectl -n "$NAMESPACE" get events --field-selector "involvedObject.name=$pod" \
+      --sort-by=.lastTimestamp -o custom-columns=AT:.lastTimestamp,REASON:.reason,MSG:.message |
+      tail -n 15 || true
+    kubectl -n "$NAMESPACE" logs "$pod" --all-containers --tail=80 --prefix || true
+    port="$(kubectl -n "$NAMESPACE" get pod "$pod" -o json |
+      jq -r '[.spec.containers[].ports[]? | select(.name == "metrics") | .containerPort] | first // empty')" ||
+      port=""
+    if [ -n "$port" ]; then
+      echo "-- $pod /readyz:"
+      kubectl get --raw "/api/v1/namespaces/$NAMESPACE/pods/$pod:$port/proxy/readyz" 2>&1 | head -c 2000 || true
+      echo
+    fi
+  done
+}
 # The highest value of a jq path in the events stream's details over the live NATS servers; the
 # highest, because a follower may trail the leader by a moment. 0 when none answers.
 nats_max() {  # nats_max <jq path within the stream detail> <node to leave out>
@@ -133,7 +160,7 @@ if [ "$fanout_node" = "$node" ]; then
     { echo "the fan-out was on $node and no ready copy runs elsewhere within ${FANOUT_BUDGET} s"
       js_leaders "$node"
       kubectl -n "$NAMESPACE" get pods -l "$FANOUT_LABELS" -o wide
-      kubectl -n "$NAMESPACE" logs -l "$FANOUT_LABELS" --all-containers --tail=60 --prefix || true
+      fanout_diagnose "$node"
       exit 1; }
   echo "the fan-out moved off $node: ready on another node after ${took}s more"
   js_leaders "$node"
@@ -147,7 +174,8 @@ mark="$(nats_max '.state.last_seq' "$node")"
 [ "$mark" -gt 0 ] || { echo "cannot read the events stream from any live NATS server"; exit 1; }
 save_locale '"en"' || { echo "the write after the fan-out check failed (last answer: $(head -c 300 "$BODY"))"; exit 1; }
 took="$(until_ok "$FANOUT_BUDGET" fanout_acked_past "$mark" "$node")" ||
-  { echo "the fan-out did not acknowledge an event past stream sequence $mark within ${FANOUT_BUDGET} s"; exit 1; }
+  { echo "the fan-out did not acknowledge an event past stream sequence $mark within ${FANOUT_BUDGET} s"
+    js_leaders "$node"; fanout_diagnose "$node"; exit 1; }
 echo "live updates flow: the fan-out acknowledged past sequence $mark after ${took}s"
 for pod in $VALKEY_PODS; do
   [ "$(node_of "$pod")" = "$node" ] && continue

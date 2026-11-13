@@ -41,6 +41,7 @@ from app.modules.identity_access.api.api_keys import router as api_keys_router
 from app.modules.identity_access.api.cost_rates import router as cost_rates_router
 from app.modules.identity_access.api.field_access import router as field_access_router
 from app.modules.identity_access.api.identity import router as identity_router
+from app.modules.identity_access.api.invite_links import public_router as invite_links_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
@@ -79,6 +80,8 @@ from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import (
     break_glass_notifications,
     directory,
+    expiry_alerts,
+    expiry_notifications,
     mfa,
     security_notices,
     sign_in_import,
@@ -399,6 +402,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
 security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
+expiry_notifications.register()  # admins hear before a sign-in certificate or secret runs out
 
 module = ModuleSpec(
     name="identity_access",
@@ -413,6 +417,7 @@ module = ModuleSpec(
         access_router,
         access_settings_router,
         identity_router,
+        invite_links_router,  # WP-057 S2b-2: a copied invite link's set-password (REQ-SEC-021)
         account_router,
         api_keys_router,
         realtime_router,
@@ -441,6 +446,8 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__sign_in_import", 60, sign_in_import.import_schedule),
         # Past the MFA grace period: Keycloak's enrol actions (WP-039 session 3, REQ-SEC-024).
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
+        # Sign-in certificates and client secrets about to run out (WP-057 S2b-2, REQ-SEC-011).
+        ScheduleSpec("identity_access__expiry_alerts", 86400, expiry_alerts.expiry_schedule),
         # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
         ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
     ],

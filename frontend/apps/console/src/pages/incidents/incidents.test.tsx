@@ -153,6 +153,7 @@ describe('One incident', () => {
       'All files',
       'Worklogs',
       'Links',
+      'Time',
       'History (1)',
       'Automation',
     ]);

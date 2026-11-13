@@ -257,6 +257,47 @@ export function useInvitationAction() {
   });
 }
 
+/**
+ * No outgoing mail (REQ-SEC-021): a new single-use link to pass on another way. The token is in
+ * the link's fragment only and is shown once; each copy ends the last.
+ */
+export function useCopyInviteLink() {
+  const changed = useInvitationsChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.POST('/api/v1/identity/invitations/{invitation_id}/link', {
+          params: { path: { invitation_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSuccess: changed,
+    onError: onConflict(changed),
+  });
+}
+
+/** A copied invite link (REQ-SEC-021), no sign-in: whether it works, which app, the rules. */
+export function usePeekInviteLink(token: string | undefined, tenant: string | null) {
+  return useQuery({
+    queryKey: ['invite-links', 'peek', token ?? '', tenant ?? ''],
+    queryFn: () =>
+      call(api.POST('/api/v1/public/invite-links/peek', { body: { token: token ?? '', tenant } })),
+    enabled: token !== undefined && token !== '',
+    retry: false,
+    staleTime: Infinity,
+    meta: { silent: true }, // the page says why a link does nothing
+  });
+}
+
+/** Set the first password from a copied invite link, once. */
+export function useAcceptInviteLink() {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (body: { token: string; tenant: string | null; password: string }) =>
+      call(api.POST('/api/v1/public/invite-links/accept', { body })),
+  });
+}
+
 /** Keycloak asks the person for a new password at their next sign-in; their sessions end. */
 export function useRequireNewPassword() {
   return useMutation({

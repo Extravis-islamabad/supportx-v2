@@ -184,10 +184,27 @@ export const en = {
     'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',
   'invitation_delivery.email': 'By e-mail',
   'invitation_delivery.existing_account': 'Already has an account',
+  'invitation_delivery.link': 'By a copied link',
   'invitation_status.accepted': 'Accepted',
   'invitation_status.expired': 'Expired',
   'invitation_status.pending': 'Waiting',
   'invitation_status.revoked': 'Withdrawn',
+  'invite_page.again': 'Type it again',
+  'invite_page.done_body': 'Sign in with your e-mail address and the password you just chose.',
+  'invite_page.done_title': 'Your password is set',
+  'invite_page.intro':
+    "You were invited to SupportX. Choose a password; you'll sign in with it and your e-mail address. Your password needs:",
+  'invite_page.mismatch': 'The two passwords are not the same.',
+  'invite_page.password': 'New password',
+  'invite_page.rule_digit': 'a digit',
+  'invite_page.rule_length_one': 'at least {{count}} character',
+  'invite_page.rule_length_other': 'at least {{count}} characters',
+  'invite_page.rule_lower': 'a lower-case letter',
+  'invite_page.rule_special': 'a symbol, such as ! or #',
+  'invite_page.rule_upper': 'a capital letter',
+  'invite_page.sign_in': 'Sign in',
+  'invite_page.submit': 'Set password',
+  'invite_page.title': 'Set your password',
   // WP-039 session 3: MFA, my account
   'mfa_mode.off': 'Off',
   'mfa_mode.optional': 'Optional',
@@ -992,11 +1009,16 @@ export const en = {
   'security.field.portal_idle': 'Portal: sign out after inactivity',
   'security.intro':
     'How people sign in to your organisation: single sign-on, session timeouts and who may sign in for the first time. Every change is recorded in the audit log.',
+  'security.invitations.copy_link': 'Copy link',
   'security.invitations.earlier_links_work':
     'Links sent earlier also still work until they expire.',
   'security.invitations.expires': 'Link works until',
   'security.invitations.intro':
     'Invite people you added or imported who have not signed in yet: from their record in People. The e-mail comes from your organisation, in their language, and its link works once.',
+  'security.invitations.link_copied': 'Link copied',
+  'security.invitations.link_note':
+    "Outgoing mail is not set up, so pass this link on yourself, privately. Anyone who has it can set this person's password. It works once, until {{date}}. Copying a new link stops this one.",
+  'security.invitations.link_title': 'Invitation link for {{email}}',
   'security.invitations.none': 'No invitations yet.',
   'security.invitations.person': 'Person',
   'security.invitations.resend': 'Send again',
@@ -1110,6 +1132,9 @@ export const en = {
   'security.sso.certificate': 'Signing certificate',
   'security.sso.client_id': 'Client ID',
   'security.sso.client_secret': 'Client secret',
+  'security.sso.client_secret_expires_at': 'Client secret runs out on',
+  'security.sso.client_secret_expires_hint':
+    "From the identity provider's console. The administrators are told 30, 7 and 1 days before.",
   'security.sso.display_name': 'Name on the sign-in button',
   'security.sso.domains': 'Email domains',
   'security.sso.domains_hint':

@@ -261,6 +261,8 @@ export const ar: LabelResource = {
   'audit.action.incident.template_created': 'أضاف قالب حوادث',
   'audit.action.incident.unlinked': 'أزال ربطًا من حادثة',
   'audit.action.incident.updated': 'عدّل حادثة',
+  'audit.action.invitation.accepted': 'قبل دعوة',
+  'audit.action.invitation.link_copied': 'نسخ رابط دعوة',
   'audit.action.invitation.resent': 'أعاد إرسال دعوة',
   'audit.action.invitation.revoked': 'سحب دعوة',
   'audit.action.invitation.sent': 'أرسل دعوة',
@@ -966,12 +968,15 @@ export const ar: LabelResource = {
   'event_type.automation.workflow_instance.changed': 'تقدّم سير العمل',
   'event_type.automation.workflow_job.progressed': 'تقدّمت مهمة سير عمل',
   'event_type.identity_access.access_settings.changed': 'تغيّر نطاق رؤية الفنيين',
+  'event_type.identity_access.account_security.changed':
+    'قُفل حساب أو تغيّرت كلمة مروره أو تحقق دخوله',
   'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
   'event_type.identity_access.break_glass.signed_in': 'تسجيل دخول طوارئ',
   'event_type.identity_access.field_access.changed': 'تم تغيير صلاحيات حقل',
   'event_type.identity_access.group_role.changed': 'تغيّرت أدوار المجموعة',
   'event_type.identity_access.identity_settings.changed': 'تغيّرت إعدادات تسجيل الدخول',
   'event_type.identity_access.invitation.changed': 'تغيّرت دعوة',
+  'event_type.identity_access.invitation.link_copied': 'نُسخ رابط دعوة',
   'event_type.identity_access.keycloak_session.end_pending':
     'جلسة خدمة تسجيل الدخول بانتظار الإنهاء',
   'event_type.identity_access.mfa.changed': 'تغيّر تسجيل الدخول بخطوتين',
@@ -981,6 +986,8 @@ export const ar: LabelResource = {
   'event_type.identity_access.role.changed': 'تم تغيير دور',
   'event_type.identity_access.session.tenant_switched': 'تم تبديل المؤسسة',
   'event_type.identity_access.sign_in.recorded': 'سُجّل تسجيل دخول',
+  'event_type.identity_access.sign_in_secret.expiring':
+    'شهادة أو سر لتسجيل الدخول على وشك الانتهاء',
   'event_type.identity_access.sso_provider.changed': 'تغيّر إعداد تسجيل الدخول الموحّد',
   'event_type.identity_access.user.created': 'أُضيف شخص',
   'event_type.identity_access.user.logged_in': 'تسجيل الدخول',

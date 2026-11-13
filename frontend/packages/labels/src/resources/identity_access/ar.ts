@@ -186,10 +186,31 @@ export const ar: LabelResource = {
     'في حسابي، في البوابة ووحدة التحكم. تبقى الأرقام التي يحتفظ بها الدليل للقراءة فقط.',
   'invitation_delivery.email': 'بالبريد',
   'invitation_delivery.existing_account': 'لديه حساب بالفعل',
+  'invitation_delivery.link': 'عبر رابط منسوخ',
   'invitation_status.accepted': 'مقبولة',
   'invitation_status.expired': 'منتهية',
   'invitation_status.pending': 'بانتظار القبول',
   'invitation_status.revoked': 'مسحوبة',
+  'invite_page.again': 'اكتبها مرة أخرى',
+  'invite_page.done_body': 'سجّل الدخول بعنوان بريدك الإلكتروني وكلمة المرور التي اخترتها للتو.',
+  'invite_page.done_title': 'عُيّنت كلمة مرورك',
+  'invite_page.intro':
+    'دُعيت إلى SupportX. اختر كلمة مرور لتسجّل الدخول بها مع عنوان بريدك الإلكتروني. تحتاج كلمة المرور إلى:',
+  'invite_page.mismatch': 'كلمتا المرور غير متطابقتين.',
+  'invite_page.password': 'كلمة المرور الجديدة',
+  'invite_page.rule_digit': 'رقم',
+  'invite_page.rule_length_few': '{{count}} أحرف على الأقل',
+  'invite_page.rule_length_many': '{{count}} حرفًا على الأقل',
+  'invite_page.rule_length_one': 'حرف واحد على الأقل',
+  'invite_page.rule_length_other': '{{count}} حرف على الأقل',
+  'invite_page.rule_length_two': 'حرفان على الأقل',
+  'invite_page.rule_length_zero': '{{count}} حرف على الأقل',
+  'invite_page.rule_lower': 'حرف لاتيني صغير',
+  'invite_page.rule_special': 'رمز مثل ! أو #',
+  'invite_page.rule_upper': 'حرف لاتيني كبير',
+  'invite_page.sign_in': 'تسجيل الدخول',
+  'invite_page.submit': 'تعيين كلمة المرور',
+  'invite_page.title': 'عيّن كلمة المرور',
   // WP-039 session 3: MFA, my account
   'mfa_mode.off': 'معطّلة',
   'mfa_mode.optional': 'اختيارية',
@@ -975,11 +996,16 @@ export const ar: LabelResource = {
   'security.field.portal_idle': 'البوابة: تسجيل الخروج بعد عدم النشاط',
   'security.intro':
     'كيف يسجّل الأشخاص الدخول إلى مؤسستك: تسجيل الدخول الموحّد ومهل الجلسات ومن يمكنه تسجيل الدخول لأول مرة. يُسجَّل كل تغيير في سجل التدقيق.',
+  'security.invitations.copy_link': 'نسخ الرابط',
   'security.invitations.earlier_links_work':
     'الروابط المرسلة سابقًا لا تزال تعمل أيضًا حتى تنتهي صلاحيتها.',
   'security.invitations.expires': 'يعمل الرابط حتى',
   'security.invitations.intro':
     'ادعُ الأشخاص الذين أضفتهم أو استوردتهم ولم يسجّلوا الدخول بعد، من سجلّهم في الأشخاص. يصل البريد من مؤسستك وبلغتهم، ويعمل رابطه مرة واحدة.',
+  'security.invitations.link_copied': 'نُسخ الرابط',
+  'security.invitations.link_note':
+    'البريد الصادر غير مُعدّ، لذا مرّر هذا الرابط بنفسك وبشكل خاص. يستطيع كل من يملكه تعيين كلمة مرور هذا الشخص. يعمل مرة واحدة حتى {{date}}. نسخ رابط جديد يوقف هذا الرابط.',
+  'security.invitations.link_title': 'رابط الدعوة لـ {{email}}',
   'security.invitations.none': 'لا توجد دعوات بعد.',
   'security.invitations.person': 'الشخص',
   'security.invitations.resend': 'إرسال مجددًا',
@@ -1118,6 +1144,9 @@ export const ar: LabelResource = {
   'security.sso.certificate': 'شهادة التوقيع',
   'security.sso.client_id': 'معرّف العميل',
   'security.sso.client_secret': 'كلمة سر العميل',
+  'security.sso.client_secret_expires_at': 'تنتهي صلاحية سر العميل في',
+  'security.sso.client_secret_expires_hint':
+    'من وحدة تحكم مزوّد الهوية. يُبلَّغ المسؤولون قبل 30 و7 أيام ويوم واحد.',
   'security.sso.display_name': 'الاسم على زر تسجيل الدخول',
   'security.sso.domains': 'نطاقات البريد',
   'security.sso.domains_hint':

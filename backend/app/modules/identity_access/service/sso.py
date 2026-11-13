@@ -77,6 +77,9 @@ class SsoInput:
     slo_url: str | None = None
     certificate: str | None = None
     entity_id: str | None = None
+    # When the OIDC client secret runs out (REQ-SEC-011), from the provider's own console: the
+    # admins are told 30, 7 and 1 days before. Never read from the secret itself.
+    client_secret_expires_at: datetime | None = None
 
     @property
     def protocol(self) -> sso.Protocol:
@@ -112,6 +115,7 @@ class SsoView:
     switched_on_at: datetime | None
     version: int
     service_provider_metadata_path: str = field(default="")
+    client_secret_expires_at: datetime | None = None
 
 
 def _view(row: SsoProvider) -> SsoView:
@@ -132,7 +136,13 @@ def _view(row: SsoProvider) -> SsoView:
         version=row.version,
         # Keycloak's service provider metadata for this set-up (SAML: give it to the provider).
         service_provider_metadata_path=f"/broker/{row.alias}/endpoint/descriptor",
+        client_secret_expires_at=row.client_secret_expires_at,
     )
+
+
+def _secret_expiry(values: SsoInput) -> datetime | None:
+    """The client secret's expiry, for OpenID Connect only (SAML has certificates instead)."""
+    return values.client_secret_expires_at if values.protocol == "oidc" else None
 
 
 def _invalid(problems: list[sso.Problem]) -> ValidationFailed:
@@ -471,6 +481,7 @@ async def create_provider(
             settings=_public_settings(values, config) | {"added_domains": added},
             domains=domains,
             email_redirect=values.email_redirect,
+            client_secret_expires_at=_secret_expiry(values),
             last_check=asdict(
                 CheckResult(
                     ok=not warnings,
@@ -490,7 +501,7 @@ async def create_provider(
     return _view(row)
 
 
-async def update_provider(  # noqa: PLR0913 - the record, its input and version, keyword-only rest
+async def update_provider(  # noqa: PLR0913, PLR0915 - the record and its input; one statement per stored field
     session: AsyncSession,
     admin: IdentityAdmin | None,
     provider_id: uuid.UUID,
@@ -563,6 +574,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
     row.display_name = values.display_name.strip()
     row.domains = domains
     row.email_redirect = values.email_redirect
+    row.client_secret_expires_at = _secret_expiry(values)
     row.settings = public | {"added_domains": sorted((ours - gone) | set(added))}
     row.last_check = asdict(
         CheckResult(

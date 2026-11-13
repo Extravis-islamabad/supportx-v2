@@ -40,6 +40,7 @@ from app.modules.identity_access.service.directory import (
     UserRepository,
     explain_user_conflict,
 )
+from app.modules.identity_access.service.invitations import clear_links
 from app.modules.identity_access.service.roles import (
     grant_system_role,
     guard_last_admin,
@@ -455,6 +456,7 @@ async def set_sign_in(  # noqa: PLR0913 - the record, the version and the change
         values["invited_at"] = datetime.now(UTC)
     updated = await _save(session, current, expected_version, values, "ui")
     if not allowed:
+        await clear_links(session, user_id)  # a copied invite link stops working (REQ-SEC-021)
         _end_after_commit(session, user_id, end_sessions)
     return updated
 
@@ -493,6 +495,7 @@ async def deactivate(  # noqa: PLR0913 - the record, the version and who asks, e
         aggregate_id=user_id,
         aggregate_version=updated.version,
     )
+    await clear_links(session, user_id)  # a copied invite link stops working (REQ-SEC-021)
     _end_after_commit(session, user_id, end_sessions)
     return updated
 
