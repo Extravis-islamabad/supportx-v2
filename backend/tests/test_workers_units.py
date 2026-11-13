@@ -148,3 +148,27 @@ async def test_dev_logger_logs_one_line_per_event() -> None:
     assert entry["event"] == "event_received"
     assert entry["event_type"] == "identity_access.user.logged_in"
     assert entry["aggregate"] == "user:u-1"
+
+
+async def test_the_bus_notices_a_lost_server_within_about_30_s(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A powered-off server never closes its connections: pings must find it (node-loss flake).
+
+    nats-py's defaults (120 s x 2) left a fan-out on a dead server for minutes; the chart's
+    servers use the same 10 s x 3 (values.yaml nats.config.merge).
+    """
+    seen: dict[str, object] = {}
+
+    class Stop(Exception):
+        pass
+
+    async def fake_connect(*_args: object, **kwargs: object) -> None:
+        seen.update(kwargs)
+        raise Stop
+
+    monkeypatch.setattr("workers.bus.nats.connect", fake_connect)
+    with pytest.raises(Stop):
+        await bus.connect(make_settings(nats_url="nats://bus:4222"), "fanout")
+    assert (seen["ping_interval"], seen["max_outstanding_pings"]) == (10, 3)
+    assert bus.PING_INTERVAL_SECONDS * bus.PING_MAX <= 30
