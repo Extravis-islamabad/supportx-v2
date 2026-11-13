@@ -80,6 +80,7 @@ export {
   currentTimeZone,
   etagFor,
   IDEMPOTENCY_HEADER,
+  confirmUrl,
   loginUrl,
   onConnectivity,
   onSessionId,

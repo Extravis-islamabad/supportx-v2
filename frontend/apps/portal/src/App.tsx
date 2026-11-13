@@ -7,11 +7,13 @@ import { RealtimeProvider } from '@supportx/realtime';
 import {
   AddressBranding,
   AppearanceProvider,
+  ConfirmedPage,
   storedLocale,
   createQueryClient,
   DevSignInPage,
   ErrorBoundary,
   ErrorReporterProvider,
+  isConfirmedPage,
   isDevSignIn,
   LicenceProvider,
   PASSWORD_RESET_PATH,
@@ -44,7 +46,11 @@ export function App({ navigate }: AppProps) {
         <AddressBranding />
         <ErrorBoundary>
           <ErrorReporterProvider>
-            {window.location.pathname === PASSWORD_RESET_PATH ? (
+            {isConfirmedPage(window.location.pathname) ? (
+              // A confirmation's landing (REQ-SEC-027): it tells the opener and closes. Outside
+              // the session gate, so it never starts a sign-in of its own.
+              <ConfirmedPage />
+            ) : window.location.pathname === PASSWORD_RESET_PATH ? (
               // "Forgot password?" is for people who cannot sign in (WP-039 session 2).
               <PasswordResetPage app="portal" />
             ) : isDevSignIn(window.location.pathname) ? (

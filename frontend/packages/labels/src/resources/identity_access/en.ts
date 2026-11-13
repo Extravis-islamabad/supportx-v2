@@ -843,6 +843,16 @@ export const en = {
   'readiness_check.session_keys': 'Sign-in keys',
   'readiness_status.not_ready': 'Not ready',
   'readiness_status.ready': 'Ready',
+  'reauth.back': 'Back to SupportX',
+  'reauth.body':
+    'This change needs a recent sign-in. Sign in again in a new window, and the change goes ahead as soon as you are done.',
+  'reauth.close_window': 'You can close this window.',
+  'reauth.confirm': 'Sign in again',
+  'reauth.done_failed': 'We could not confirm it is you. Nothing was changed.',
+  'reauth.done_ok': 'Thank you, you are confirmed.',
+  'reauth.title': 'Confirm it is you',
+  'reauth.waiting':
+    'Finish signing in in the window that opened. This message closes by itself when you are done.',
   'role.asset_manager': 'Asset manager',
   'role.asset_manager.description':
     'Manages assets, the CMDB, software licences and discovery results for the whole organisation.',

@@ -840,6 +840,16 @@ export const ur: LabelResource = {
   'readiness_check.session_keys': 'سائن اِن کی کلیدیں',
   'readiness_status.not_ready': 'تیار نہیں',
   'readiness_status.ready': 'تیار',
+  'reauth.back': 'SupportX پر واپس جائیں',
+  'reauth.body':
+    'اس تبدیلی کے لیے حال ہی میں سائن اِن ضروری ہے۔ نئی ونڈو میں دوبارہ سائن اِن کریں، آپ کے مکمل کرتے ہی تبدیلی ہو جائے گی۔',
+  'reauth.close_window': 'آپ یہ ونڈو بند کر سکتے ہیں۔',
+  'reauth.confirm': 'دوبارہ سائن اِن کریں',
+  'reauth.done_failed': 'آپ کی شناخت کی تصدیق نہیں ہو سکی۔ کچھ بھی تبدیل نہیں ہوا۔',
+  'reauth.done_ok': 'شکریہ، آپ کی تصدیق ہو گئی۔',
+  'reauth.title': 'تصدیق کریں کہ یہ آپ ہیں',
+  'reauth.waiting':
+    'کھلنے والی ونڈو میں سائن اِن مکمل کریں۔ آپ کے مکمل کرتے ہی یہ پیغام خود بند ہو جائے گا۔',
   'role.asset_manager': 'اثاثہ مینیجر',
   'role.asset_manager.description':
     'پوری تنظیم کے اثاثوں، CMDB، سافٹ ویئر لائسنسوں اور دریافت کے نتائج کا انتظام کرتا ہے۔',

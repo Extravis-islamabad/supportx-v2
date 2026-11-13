@@ -31,6 +31,9 @@ export { PersonSessions, SESSIONS_CHANGED, SignedInSessionsCard } from './Signed
 export { ContactDetailsCard } from './ContactDetailsCard';
 export { MfaReminder } from './MfaReminder';
 export { PASSWORD_RESET_PATH, PasswordResetPage } from './PasswordResetPage';
+export { ConfirmedPage } from './reauth/ConfirmedPage';
+export { CONFIRMED_PATH, isConfirmedPage, safeReturnTo } from './reauth/confirmation';
+export { ReauthDialog } from './reauth/ReauthDialog';
 export { DevSignInPage } from './DevSignInPage';
 export { isDevSignIn } from './devSignIn';
 export { FROM_CONSOLE, SessionGate, type SessionGateProps } from './SessionGate';

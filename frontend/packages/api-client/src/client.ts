@@ -313,3 +313,13 @@ export function loginUrl(app: App, returnTo: string): string {
   const params = new URLSearchParams({ app, returnTo });
   return `${API_BASE}/auth/login?${params.toString()}`;
 }
+
+/**
+ * Where to confirm who you are (REQ-SEC-027): Keycloak asks again, then the browser lands on the
+ * UI's /confirmed page with the result, `returnTo` and, from a pop-up, the opener's `attempt` id.
+ */
+export function confirmUrl(returnTo: string, attempt?: string): string {
+  const params = new URLSearchParams({ returnTo });
+  if (attempt !== undefined) params.set('attempt', attempt);
+  return `${API_BASE}/auth/confirm?${params.toString()}`;
+}

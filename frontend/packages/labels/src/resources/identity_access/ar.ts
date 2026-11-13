@@ -820,6 +820,16 @@ export const ar: LabelResource = {
   'readiness_check.session_keys': 'مفاتيح تسجيل الدخول',
   'readiness_status.not_ready': 'غير جاهز',
   'readiness_status.ready': 'جاهز',
+  'reauth.back': 'العودة إلى SupportX',
+  'reauth.body':
+    'يتطلب هذا التغيير تسجيل دخول حديثًا. سجّل الدخول مجددًا في نافذة جديدة، وسيُنفَّذ التغيير فور انتهائك.',
+  'reauth.close_window': 'يمكنك إغلاق هذه النافذة.',
+  'reauth.confirm': 'سجّل الدخول مجددًا',
+  'reauth.done_failed': 'تعذّر التأكد من هويتك. لم يُغيَّر شيء.',
+  'reauth.done_ok': 'شكرًا، تم تأكيد هويتك.',
+  'reauth.title': 'أكّد هويتك',
+  'reauth.waiting':
+    'أكمل تسجيل الدخول في النافذة التي فُتحت. ستُغلق هذه الرسالة تلقائيًا عند انتهائك.',
   'role.asset_manager': 'مدير الأصول',
   'role.asset_manager.description':
     'يدير الأصول وقاعدة بيانات الإعدادات وتراخيص البرامج ونتائج الاكتشاف للمؤسسة كلها.',
