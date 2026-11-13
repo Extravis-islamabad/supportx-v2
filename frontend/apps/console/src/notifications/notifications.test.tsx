@@ -232,6 +232,25 @@ describe('Admin › Notifications', () => {
     expect(saved?.body).toMatchObject({ enabled: false, recipients: ['requester'] });
   });
 
+  it('WP-057 S2b: a locked security notice shows its rules read-only, with no reset', async () => {
+    const locked = fakeNotificationRule({
+      event_code: 'incident.assigned',
+      category: 'assignment',
+      required: true,
+      locked: true,
+      is_default: false, // a rule saved before the lock: still no reset to offer
+      version: 2,
+    });
+    api({ me: ADMIN, routes: { 'GET /api/v1/notifications/rules': { body: [locked] } } });
+    window.history.pushState({}, '', '/admin/notifications');
+    render(<App />);
+    const table = await screen.findByTestId('notification-rules');
+    expect(await within(table).findByText('Fixed for security')).toBeTruthy();
+    const on = within(table).getByTestId('rule-on-incident.assigned');
+    expect(on.hasAttribute('disabled')).toBe(true);
+    expect(within(table).queryByTestId('rule-reset-incident.assigned')).toBeNull();
+  });
+
   it('REQ-CHG-103: a change rule fires on the statuses chosen, saved as its condition', async () => {
     const entered = fakeNotificationRule({
       event_code: 'change.status_entered',

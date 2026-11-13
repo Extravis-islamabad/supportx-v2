@@ -208,6 +208,7 @@ export const ur: LabelResource = {
   'notification_rules.col.status': 'صرف اس حالت کے لیے',
   'notification_rules.intro':
     'کون سے واقعات کسے اور کیسے اطلاع دیتے ہیں۔ ہر واقعہ ایک مناسب پہلے سے طے شدہ ترتیب سے شروع ہوتا ہے؛ تبدیلیاں آڈٹ لاگ میں درج ہوتی ہیں۔',
+  'notification_rules.locked': 'سکیورٹی کے لیے طے شدہ',
   'notification_rules.none': 'کوئی واقعہ نہیں ملا',
   'notification_rules.required': 'لوگوں کے لیے لازمی',
   'notification_rules.reset': 'پہلے سے طے شدہ پر واپس',
