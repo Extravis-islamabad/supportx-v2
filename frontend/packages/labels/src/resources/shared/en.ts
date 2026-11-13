@@ -175,6 +175,11 @@ export const en = {
   'locale.ar': 'العربية',
   'locale.en': 'English',
   'locale.ur': 'اردو',
+  'mail_command_field.category': 'Category',
+  'mail_command_field.group': 'Group',
+  'mail_command_field.priority': 'Priority',
+  'mail_command_field.technician': 'Technician',
+  'mail_command_field.template': 'Template',
   'mobile.about.app_version': 'App version',
   'mobile.about.server': 'Server',
   'mobile.about.server_status': 'Server status',
@@ -470,6 +475,9 @@ export const en = {
   'settings.categories': 'Categories',
   'settings.categories_help':
     'Category, subcategory and item. Retired entries are not offered on new incidents but still show on the incidents that use them.',
+  'settings.cc_from_first_mail': "Keep the first e-mail's Cc informed",
+  'settings.cc_from_first_mail_help':
+    'Addresses in Cc on the mail that opens an incident get its public replies (20 at most). Each mail has a link to stop them.',
   'settings.changed_elsewhere':
     'Someone else changed these settings just now. The latest version is shown; please make your change again.',
   'settings.checklists.add': 'New library checklist',
@@ -621,6 +629,11 @@ export const en = {
   'settings.lifecycle.versions_help':
     'Each version is a set of status moves. New records start on the version marked below and keep it; a published version never changes. Who may run a move and when it is offered are set in Automation and apply to every version at once.',
   'settings.load_failed': "The incident settings couldn't be loaded. Reload the page to try again.",
+  'settings.mail': 'E-mail',
+  'settings.mail_command_fields': 'Fields a mail may set',
+  'settings.mail_commands': 'Apply commands written in an e-mail',
+  'settings.mail_commands_help':
+    "A mail may start with lines such as priority = p1. They are applied as the sender, only when the mailbox's trusted server confirmed who sent it, and only for changes the sender could make in SupportX.",
   'settings.matrix': 'Priority matrix',
   'settings.matrix_cell': 'Priority for impact "{{impact}}" and urgency "{{urgency}}"',
   'settings.matrix_help':

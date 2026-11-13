@@ -24,13 +24,15 @@ from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import AppError, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import mail_recipients, subject_for, worker_policy
+from app.modules.work_items.domain.mail_commands import CommandField
 from app.modules.work_items.domain.types import INCIDENT, SUBJECT_MAX, Channel, parse_display_id
 from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service import asset_links, catalogue
+from app.modules.work_items.service import asset_links, catalogue, mail_commands
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.conversations import add_requester_reply
 from app.shared.labels import label
 from app.shared.mail.ports import (
+    CommandLine,
     CreatedRecord,
     FoundRecord,
     InboundRefused,
@@ -149,14 +151,20 @@ class IncidentsFromMail:
         body_html: str,
         group_id: uuid.UUID | None,
         message_id: str,
+        text: str = "",
+        sender_verified: bool = False,
     ) -> CreatedRecord:
         """A new incident in the requester's name, channel e-mail, routed with the mailbox's group.
 
         Created as the requester would in the portal (their own rights, priority, routing and
         automation as for any new record); the mailbox's group is the entry point's group.
+        Commands at the top of the mail (REQ-INC-025) apply as the sender, see mail_commands.
         """
         del message_id  # the ledger keeps it
         requester = await subject_for(session, _tenant(session), requester_id)
+        planned = await mail_commands.plan(session, INCIDENT, text, sender_verified=sender_verified)
+        template = await mail_commands.template_choice(session, INCIDENT, requester, planned)
+        values = {} if template.template_id is None else {"template_id": template.template_id}
         title = fit_subject(subject)
         if not title:  # neither a subject nor any text: a stored name, in the requester's language
             known = await mail_recipients(session, [requester_id])
@@ -167,7 +175,12 @@ class IncidentsFromMail:
                 session,
                 requester,
                 INCIDENT,
-                {"subject": title, "description": body_html, "requester_id": requester_id},
+                {
+                    "subject": title,
+                    "description": body_html,
+                    "requester_id": requester_id,
+                    **values,
+                },
                 source="email",
                 holders=worker_policy(),
                 channel=Channel.EMAIL,
@@ -175,7 +188,29 @@ class IncidentsFromMail:
             )
         # REQ-AST-025 AC2: the requester's asset when the tenant says so and they hold one.
         await asset_links.attach_emailed(session, made.record)
-        return CreatedRecord(RECORD_TYPE, made.record.id, made.record.display_id)
+        if planned is None:
+            return CreatedRecord(RECORD_TYPE, made.record.id, made.record.display_id)
+        if planned.not_verified:
+            await mail_commands.note_not_verified(session, made.record)
+            return CreatedRecord(
+                RECORD_TYPE, made.record.id, made.record.display_id, commands_not_verified=True
+            )
+        applied, refused = await mail_commands.apply(
+            (session, INCIDENT, made.record, requester, worker_policy()),
+            [c for c in planned.commands if c.field is not CommandField.TEMPLATE],
+        )
+        not_applied = sorted(
+            [*planned.rejected, *template.rejected, *refused], key=lambda r: r.line
+        )
+        return CreatedRecord(
+            RECORD_TYPE,
+            made.record.id,
+            made.record.display_id,
+            commands_applied=len(applied) + (template.template_id is not None),
+            commands_not_applied=tuple(
+                CommandLine(r.line, r.text, r.problem.value) for r in not_applied
+            ),
+        )
 
     async def reply_from_mail(  # noqa: PLR0913 - the port's fields, explicit
         self,

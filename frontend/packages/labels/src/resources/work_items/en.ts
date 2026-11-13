@@ -1265,6 +1265,7 @@ export const en = {
   'link_relation.merged_into': 'Merged into',
   'link_relation.related': 'Related to',
   'link_relation.started_release': 'Started release',
+  'mail_commands.priority_reason': 'Set in the e-mail that opened this incident',
   'my_tasks.blocked': 'Waiting for other tasks',
   'my_tasks.none': 'No open tasks for you.',
   'my_tasks.title': 'My tasks',
@@ -2359,6 +2360,7 @@ export const en = {
   'work_item.field.last_reopened_at': 'Last reopened',
   'work_item.field.level': 'Level',
   'work_item.field.link': 'Link',
+  'work_item.field.mail_commands': 'Commands in the e-mail',
   'work_item.field.note_visibility': 'Note visibility',
   'work_item.field.on_behalf_of_id': 'On behalf of',
   'work_item.field.open_work_confirmed': 'Open work confirmed',
@@ -2440,6 +2442,8 @@ export const en = {
   'work_item.history.linked': '{{who}} added a link ({{kind}})',
   'work_item.history.logged': '{{who}} logged {{duration}} ({{type}})',
   'work_item.history.logged_for': '{{who}} logged {{duration}} ({{type}}) for {{person}}',
+  'work_item.history.mail_commands.not_verified':
+    'Commands in this e-mail were not applied: the sender could not be verified',
   'work_item.history.reapproval_restarted':
     '{{who}} sent it back for approval again because {{fields}} changed',
   'work_item.history.set': '{{who}} set {{field}} to {{new}}',

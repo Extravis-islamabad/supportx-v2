@@ -186,6 +186,11 @@ export const ar: LabelResource = {
   'locale.ar': 'العربية',
   'locale.en': 'English',
   'locale.ur': 'اردو',
+  'mail_command_field.category': 'الفئة',
+  'mail_command_field.group': 'المجموعة',
+  'mail_command_field.priority': 'الأولوية',
+  'mail_command_field.technician': 'الفني',
+  'mail_command_field.template': 'القالب',
   'mobile.about.app_version': 'إصدار التطبيق',
   'mobile.about.server': 'الخادم',
   'mobile.about.server_status': 'حالة الخادم',
@@ -477,6 +482,9 @@ export const ar: LabelResource = {
   'settings.categories': 'الفئات',
   'settings.categories_help':
     'فئة وفئة فرعية وعنصر. لا تُعرض الإدخالات المتوقفة في الحوادث الجديدة لكنها تبقى ظاهرة في الحوادث التي تستخدمها.',
+  'settings.cc_from_first_mail': 'إبقاء نسخة أول رسالة على اطلاع',
+  'settings.cc_from_first_mail_help':
+    'تتلقى العناوين الموجودة في النسخة على الرسالة التي تفتح البلاغ ردوده العامة (20 على الأكثر). في كل رسالة رابط لإيقافها.',
   'settings.changed_elsewhere':
     'غيّر شخص آخر هذه الإعدادات للتو. يُعرض أحدث إصدار؛ يرجى إجراء تغييرك مرة أخرى.',
   'settings.checklists.add': 'قائمة تحقق جديدة في المكتبة',
@@ -633,6 +641,11 @@ export const ar: LabelResource = {
   'settings.lifecycle.versions_help':
     'كل إصدار مجموعة من انتقالات الحالة. تبدأ السجلات الجديدة بالإصدار المحدد أدناه وتحتفظ به، ولا يتغير الإصدار المنشور أبدًا. من يمكنه تنفيذ الانتقال ومتى يُعرض يُضبطان في الأتمتة ويسريان على كل الإصدارات معًا.',
   'settings.load_failed': 'تعذّر تحميل إعدادات الحوادث. أعد تحميل الصفحة للمحاولة مرة أخرى.',
+  'settings.mail': 'البريد الإلكتروني',
+  'settings.mail_command_fields': 'الحقول التي يمكن للبريد تعيينها',
+  'settings.mail_commands': 'تطبيق الأوامر المكتوبة في البريد',
+  'settings.mail_commands_help':
+    'قد تبدأ الرسالة بأسطر مثل priority = p1. تُطبَّق باسم المُرسل فقط عندما يؤكد الخادم الموثوق لصندوق البريد هويته، وفقط للتغييرات التي يمكن للمُرسل إجراؤها في SupportX.',
   'settings.matrix': 'مصفوفة الأولوية',
   'settings.matrix_cell': 'الأولوية للتأثير "{{impact}}" والإلحاح "{{urgency}}"',
   'settings.matrix_help':

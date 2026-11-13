@@ -1425,6 +1425,7 @@ export const ar: LabelResource = {
   'link_relation.merged_into': 'دُمجت في',
   'link_relation.related': 'مرتبطة بـ',
   'link_relation.started_release': 'بدأ الإصدار',
+  'mail_commands.priority_reason': 'عُيّنت في الرسالة التي فتحت هذا البلاغ',
   'my_tasks.blocked': 'بانتظار مهام أخرى',
   'my_tasks.none': 'لا توجد مهام مفتوحة لك.',
   'my_tasks.title': 'مهامي',
@@ -2655,6 +2656,7 @@ export const ar: LabelResource = {
   'work_item.field.last_reopened_at': 'آخر إعادة فتح',
   'work_item.field.level': 'المستوى',
   'work_item.field.link': 'رابط',
+  'work_item.field.mail_commands': 'الأوامر في الرسالة',
   'work_item.field.note_visibility': 'ظهور الملاحظة',
   'work_item.field.on_behalf_of_id': 'نيابة عن',
   'work_item.field.open_work_confirmed': 'تأكيد العمل المفتوح',
@@ -2736,6 +2738,8 @@ export const ar: LabelResource = {
   'work_item.history.linked': 'أضاف {{who}} رابطًا ({{kind}})',
   'work_item.history.logged': 'سجّل {{who}} {{duration}} ({{type}})',
   'work_item.history.logged_for': 'سجّل {{who}} {{duration}} ({{type}}) لـ {{person}}',
+  'work_item.history.mail_commands.not_verified':
+    'لم تُطبَّق الأوامر في هذه الرسالة: تعذّر التحقق من المُرسل',
   'work_item.history.reapproval_restarted':
     'أعاد {{who}} إرساله للموافقة مجددًا لأن {{fields}} تغيّر',
   'work_item.history.set': 'عيّن {{who}} {{field}} إلى {{new}}',

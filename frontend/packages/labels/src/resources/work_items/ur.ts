@@ -1270,6 +1270,7 @@ export const ur: LabelResource = {
   'link_relation.merged_into': 'میں ضم کیا گیا',
   'link_relation.related': 'متعلقہ',
   'link_relation.started_release': 'ریلیز شروع کی',
+  'mail_commands.priority_reason': 'اس واقعے کو کھولنے والی ای میل میں سیٹ کی گئی',
   'my_tasks.blocked': 'دوسرے کاموں کا انتظار',
   'my_tasks.none': 'آپ کے لیے کوئی کھلا کام نہیں۔',
   'my_tasks.title': 'میرے کام',
@@ -2363,6 +2364,7 @@ export const ur: LabelResource = {
   'work_item.field.last_reopened_at': 'آخری بار دوبارہ کھلا',
   'work_item.field.level': 'سطح',
   'work_item.field.link': 'ربط',
+  'work_item.field.mail_commands': 'ای میل کے احکام',
   'work_item.field.note_visibility': 'نوٹ کی مرئیت',
   'work_item.field.on_behalf_of_id': 'کی جانب سے',
   'work_item.field.open_work_confirmed': 'کھلے کام کی تصدیق',
@@ -2444,6 +2446,8 @@ export const ur: LabelResource = {
   'work_item.history.linked': '{{who}} نے ایک ربط شامل کیا ({{kind}})',
   'work_item.history.logged': '{{who}} نے {{duration}} درج کیے ({{type}})',
   'work_item.history.logged_for': '{{who}} نے {{person}} کے لیے {{duration}} درج کیے ({{type}})',
+  'work_item.history.mail_commands.not_verified':
+    'اس ای میل کے احکام لاگو نہیں ہوئے: بھیجنے والے کی تصدیق نہیں ہو سکی',
   'work_item.history.reapproval_restarted':
     '{{who}} نے اسے دوبارہ منظوری کے لیے بھیجا کیونکہ {{fields}} بدل گیا',
   'work_item.history.set': '{{who}} نے {{field}} {{new}} مقرر کیا',

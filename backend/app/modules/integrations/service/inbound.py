@@ -51,7 +51,13 @@ from app.shared.files.ports import OwnerType
 from app.shared.labels import plain_label
 from app.shared.mail import Language, MailRefused, OutgoingMail, mail_configured, queue_mail
 from app.shared.mail.domain.inbound import InboundMessage, parse, reply_text, request_text
-from app.shared.mail.ports import FoundRecord, InboundRefused, InboundTarget, inbound_target
+from app.shared.mail.ports import (
+    CreatedRecord,
+    FoundRecord,
+    InboundRefused,
+    InboundTarget,
+    inbound_target,
+)
 
 log = get_logger(__name__)
 RECORD_TYPE = "incident"  # what mailboxes create at MVP (service requests join with WP-030)
@@ -348,13 +354,54 @@ async def _create(ctx: _Context, *, create_requester: bool) -> Outcome:
         + attachments.not_kept_html(screened.not_kept, language),
         group_id=ctx.mailbox.group_id,
         message_id=ctx.message.message_id,
+        text=ctx.message.text,
+        sender_verified=ctx.message.sender_verified,
     )
     await _keep_files(
         ctx, screened, owner=(OwnerType.WORK_ITEM, created.record_id), person=requester
     )
+    await _commands_answer(ctx, created, requester)
     return await _finish(
         ctx.session, ctx.mailbox, ctx.message, Outcome.CREATED,
-        record=(created.record_type, created.record_id), params=ctx.ledger_params(),
+        record=(created.record_type, created.record_id),
+        params=ctx.ledger_params() | _commands_params(created),
+    )  # fmt: skip
+
+
+def _commands_params(created: CreatedRecord) -> dict[str, str]:
+    """The ledger row says what became of the mail's commands (lane B's condition 7)."""
+    if created.commands_not_verified:
+        return {"commands": "not_verified"}
+    if created.commands_applied or created.commands_not_applied:
+        return {
+            "commands_applied": str(created.commands_applied),
+            "commands_not_applied": str(len(created.commands_not_applied)),
+        }
+    return {}
+
+
+async def _commands_answer(ctx: _Context, created: CreatedRecord, person: uuid.UUID) -> None:
+    """Tell the sender which command lines were not applied, and why (REQ-INC-025 AC2)."""
+    if created.commands_not_verified:
+        # Logged without the mail's text (lane B's condition 7); the record's history says so.
+        log.info("mail_commands_not_verified", mailbox_id=str(ctx.mailbox.id))
+        return
+    if not created.commands_not_applied:
+        return
+    language = await attachments.language_of(ctx.session, person)
+    lines = "\n".join(
+        plain_label(
+            "mailbox_answer.commands_line",
+            language,
+            line=str(item.line),
+            text=item.text,
+            reason=plain_label(f"mail_command_problem.{item.problem}", language),
+        )
+        for item in created.commands_not_applied
+    )
+    await _answer(
+        ctx.session, ctx.settings, ctx.mailbox, ctx.message, "mailbox_answer.commands_not_applied",
+        person=person, id=created.display_id, lines=lines,
     )  # fmt: skip
 
 

@@ -319,6 +319,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "DeliveryState": "delivery_state",
     "EntryKind": "entry_kind",
     "FirstResponseAction": "first_response_action",
+    "CommandField": "mail_command_field",  # WP-046a S6: what a mail may set
     "FollowReason": "follow_reason",
     "ReplyMode": "reply_mode",
     "TypingIn.state": "typing_state",

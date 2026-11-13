@@ -411,6 +411,30 @@ async def find_site(session: AsyncSession, value: str) -> uuid.UUID | None:
 
 # --- support groups -------------------------------------------------------------------------------
 
+
+async def find_group(session: AsyncSession, value: str) -> uuid.UUID | None:
+    """An active support group by its name, case-insensitive and trimmed.
+
+    For mail commands (WP-046a S6: `group = Network`). None when there is none, or more than one
+    by that name.
+    """
+    name = value.strip().lower()
+    if not name:
+        return None
+    found = list(
+        await session.scalars(
+            select(SupportGroup.id)
+            .where(
+                func.lower(SupportGroup.name) == name,
+                SupportGroup.deleted_at.is_(None),
+                SupportGroup.disabled_at.is_(None),
+            )
+            .limit(2)
+        )
+    )
+    return found[0] if len(found) == 1 else None
+
+
 GROUP_FIELDS = ("name", "description", "email", "sender_name")
 
 

@@ -176,6 +176,11 @@ export const ur: LabelResource = {
   'locale.ar': 'العربية',
   'locale.en': 'English',
   'locale.ur': 'اردو',
+  'mail_command_field.category': 'زمرہ',
+  'mail_command_field.group': 'گروپ',
+  'mail_command_field.priority': 'ترجیح',
+  'mail_command_field.technician': 'تکنیکی ماہر',
+  'mail_command_field.template': 'سانچہ',
   'mobile.about.app_version': 'ایپ کا ورژن',
   'mobile.about.server': 'سرور',
   'mobile.about.server_status': 'سرور کی حالت',
@@ -466,6 +471,9 @@ export const ur: LabelResource = {
   'settings.categories': 'زمرے',
   'settings.categories_help':
     'زمرہ، ذیلی زمرہ اور آئٹم۔ ریٹائرڈ اندراجات نئے واقعات پر پیش نہیں ہوتے لیکن انہیں استعمال کرنے والے واقعات پر نظر آتے رہتے ہیں۔',
+  'settings.cc_from_first_mail': 'پہلی ای میل کے Cc کو باخبر رکھیں',
+  'settings.cc_from_first_mail_help':
+    'واقعہ کھولنے والی میل کے Cc میں موجود پتوں کو اس کے عوامی جوابات ملتے ہیں (زیادہ سے زیادہ 20)۔ ہر میل میں انہیں روکنے کا لنک ہوتا ہے۔',
   'settings.changed_elsewhere':
     'کسی اور نے ابھی یہ ترتیبات بدلی ہیں۔ تازہ ترین ورژن دکھایا گیا ہے؛ براہِ کرم اپنی تبدیلی دوبارہ کریں۔',
   'settings.checklists.add': 'نئی لائبریری چیک لسٹ',
@@ -617,6 +625,11 @@ export const ur: LabelResource = {
     'ہر ورژن حالت کی منتقلیوں کا ایک مجموعہ ہے۔ نئے ریکارڈ نیچے نشان زدہ ورژن پر شروع ہوتے ہیں اور اسی پر رہتے ہیں؛ شائع شدہ ورژن کبھی نہیں بدلتا۔ کون منتقلی چلا سکتا ہے اور یہ کب پیش کی جاتی ہے، یہ آٹومیشن میں طے ہوتا ہے اور تمام ورژنز پر ایک ساتھ لاگو ہوتا ہے۔',
   'settings.load_failed':
     'واقعات کی ترتیبات لوڈ نہیں ہو سکیں۔ دوبارہ کوشش کے لیے صفحہ ری لوڈ کریں۔',
+  'settings.mail': 'ای میل',
+  'settings.mail_command_fields': 'وہ فیلڈ جو میل سیٹ کر سکتی ہے',
+  'settings.mail_commands': 'ای میل میں لکھے احکام لاگو کریں',
+  'settings.mail_commands_help':
+    'میل priority = p1 جیسی سطروں سے شروع ہو سکتی ہے۔ یہ بھیجنے والے کے طور پر صرف تب لاگو ہوتی ہیں جب میل باکس کا قابلِ اعتماد سرور بھیجنے والے کی تصدیق کرے، اور صرف وہ تبدیلیاں جو بھیجنے والا SupportX میں کر سکتا ہو۔',
   'settings.matrix': 'ترجیحی میٹرکس',
   'settings.matrix_cell': 'اثر "{{impact}}" اور فوریت "{{urgency}}" کے لیے ترجیح',
   'settings.matrix_help':
