@@ -10,6 +10,7 @@ import {
 } from '@supportx/api-client';
 import {
   ConflictDialog,
+  DateTimeField,
   Drawer,
   FormProblem,
   lengthLimit,
@@ -45,6 +46,7 @@ interface Form {
   issuer: string;
   client_id: string;
   client_secret: string;
+  client_secret_expires_at: string | null;
   scopes: string;
   metadata: string;
   metadata_url: string;
@@ -69,6 +71,7 @@ function formFrom(saved: SsoProvider | null, preset: Preset): Form {
     issuer: text(settings.issuer) || (preset === 'google' ? GOOGLE_ISSUER : ''),
     client_id: text(settings.client_id),
     client_secret: '',
+    client_secret_expires_at: saved?.client_secret_expires_at ?? null,
     scopes: text(settings.scopes) || 'openid email profile',
     metadata: '',
     metadata_url: '',
@@ -177,6 +180,7 @@ export function SsoEditor({
         issuer: form.issuer.trim(),
         client_id: form.client_id.trim(),
         client_secret: form.client_secret === '' ? null : form.client_secret,
+        client_secret_expires_at: form.client_secret_expires_at,
         scopes: form.scopes.trim(),
       };
     }
@@ -405,6 +409,19 @@ export function SsoEditor({
                 data-testid="sso-client_secret"
               />,
               'security.sso.secret_hint',
+            )}
+            {field(
+              'client_secret_expires_at',
+              'security.sso.client_secret_expires_at',
+              // REQ-SEC-011: the tenant's admins are told 30, 7 and 1 days before (WP-057 S2b-2).
+              <DateTimeField
+                id="sso-client_secret_expires_at"
+                value={form.client_secret_expires_at}
+                onChange={(value) => {
+                  set({ client_secret_expires_at: value }, 'client_secret_expires_at');
+                }}
+              />,
+              'security.sso.client_secret_expires_hint',
             )}
             {field('scopes', 'security.sso.scopes', textInput('scopes'))}
           </>

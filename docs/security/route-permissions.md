@@ -428,6 +428,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/changes/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/changes/{record_id}/tasks/{task_id}/dependencies` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/tasks/{task_id}/move` | `changes.view` | changes.view: all/site/group/own |
+| GET | `/api/v1/changes/{record_id}/time-analysis` | `changes.view` | changes.view: all/site/group/own |
 | DELETE | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own |
@@ -476,6 +477,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/identity/break-glass/{user_id}` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
+| POST | `/api/v1/identity/invitations/{invitation_id}/link` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations/{invitation_id}/resend` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations/{invitation_id}/revoke` | `users.manage` | users.manage: all |
 | GET | `/api/v1/identity/mfa` | `identity.manage` | identity.manage: all |
@@ -606,6 +608,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/incidents/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/incidents/{record_id}/tasks/{task_id}/dependencies` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/tasks/{task_id}/move` | `incidents.view` | incidents.view: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/time-analysis` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own |
@@ -893,6 +896,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/problems/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/problems/{record_id}/tasks/{task_id}/dependencies` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/tasks/{task_id}/move` | `problems.view` | problems.view: all/site/group/own |
+| GET | `/api/v1/problems/{record_id}/time-analysis` | `problems.view` | problems.view: all/site/group/own |
 | DELETE | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own |
@@ -915,6 +919,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/public/branding/{tenant_ref}/login.css` | public | - |
 | GET | `/api/v1/public/branding/{tenant_ref}/{name}` | public | - |
 | GET | `/api/v1/public/domain-check/{token}` | public | - |
+| POST | `/api/v1/public/invite-links/accept` | public | - |
+| POST | `/api/v1/public/invite-links/peek` | public | - |
 | POST | `/api/v1/public/notify-links/peek` | public | - |
 | POST | `/api/v1/public/notify-links/stop` | public | - |
 | GET | `/api/v1/ready` | public | - |
@@ -1050,6 +1056,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/releases/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/releases/{record_id}/tasks/{task_id}/dependencies` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/tasks/{task_id}/move` | `releases.view` | releases.view: all/site/group/own |
+| GET | `/api/v1/releases/{record_id}/time-analysis` | `releases.view` | releases.view: all/site/group/own |
 | DELETE | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own |
@@ -1196,6 +1203,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/service-requests/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/service-requests/{record_id}/tasks/{task_id}/dependencies` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/tasks/{task_id}/move` | `requests.view` | requests.view: all/site/group/own |
+| GET | `/api/v1/service-requests/{record_id}/time-analysis` | `requests.view` | requests.view: all/site/group/own |
 | DELETE | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own |

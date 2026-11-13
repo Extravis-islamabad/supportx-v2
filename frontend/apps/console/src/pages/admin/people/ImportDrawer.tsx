@@ -30,7 +30,7 @@ import {
   FormProblem,
   type Tone,
   ToneTag,
-  useAppearance,
+  useDateTime,
   useFormProblem,
   useLabel,
 } from '@supportx/ui';
@@ -159,10 +159,9 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
 function ImportItem({ job }: { job: PeopleImport }) {
   const t = useLabel();
   const formats = useFormatWords();
-  const { intlLocale } = useAppearance();
+  const dates = useDateTime(); // the app's one date format (QA 2026-11-12 V-10)
   const [showProblems, setShowProblems] = useState(false);
   const percent = job.total === 0 ? 0 : Math.round((job.processed / job.total) * 100);
-  const when = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
   return (
     <List.Item data-testid={`people-import-${job.id}`}>
       <Space direction="vertical" style={{ width: '100%' }}>
@@ -174,7 +173,7 @@ function ImportItem({ job }: { job: PeopleImport }) {
             {t(`people_import_status.${job.status}`)}
           </ToneTag>
         </Flex>
-        <Typography.Text type="secondary">{when.format(new Date(job.created_at))}</Typography.Text>
+        <Typography.Text type="secondary">{dates.format(job.created_at)}</Typography.Text>
         {job.status === 'failed' && job.failure !== null && (
           <Alert
             type="error"

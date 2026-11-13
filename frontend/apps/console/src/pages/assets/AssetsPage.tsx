@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { ApartmentOutlined } from '@ant-design/icons';
 import { App, Button, Flex, Grid, Input, Select, Table, Typography } from 'antd';
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import {
   ApiError,
@@ -33,6 +34,7 @@ import {
   Drawer,
   EmptyText,
   FilterBar,
+  HeaderActions,
   ListNotice,
   ListPage,
   NoAccess,
@@ -43,7 +45,9 @@ import {
   useAppearance,
   useColumnWidths,
   useLabel,
+  useLicence,
   WriteButton,
+  type MoreAction,
 } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
@@ -63,6 +67,7 @@ import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
 import { SelectPageBox } from '../incidents/list/ColumnChooser';
+import { MyExportsButton } from '../reports/exports';
 
 /**
  * The asset list (WP-049a s2; WP-049b s4a, REQ-AST-047): the product type tree beside the list
@@ -79,7 +84,22 @@ import { SelectPageBox } from '../incidents/list/ColumnChooser';
 // WP-049b S4b: a bulk job takes up to 1,000 assets (REQ-AST-051); the server says so too.
 const BULK_MAX = ASSET_BULK_MAX;
 const LIST_SETTINGS_CHANGED = 'system.list_settings_changed';
-const OWN_WIDTHS: Record<string, number> = { name: 220 };
+// Every column starts at a width of its own (QA 2026-11-12 V-03): the table then knows how wide
+// it is, scrolls sideways inside its box, and the columns pinned at its sides stay put.
+const OWN_WIDTHS: Record<string, number> = {
+  tag: 130,
+  name: 220,
+  user: 160,
+  department: 170,
+  parent: 130,
+  product: 190,
+  type: 150,
+  site: 180,
+  serial: 150,
+  state: 140,
+};
+const SELECT_WIDTH = 48;
+const RESTORE_WIDTH = 120;
 
 /** Every product type ID in the branch (the node and below), for a saved view's filter. */
 function branchIds(nodes: TypeNode[], id: string): string[] {
@@ -107,6 +127,12 @@ export function AssetsPage() {
   const queryClient = useQueryClient();
   const allowed = access.can('assets.view');
   const screens = Grid.useBreakpoint();
+  const { writable } = useLicence();
+  // On a phone the type tree waits behind a button (QA 2026-11-12 V-03: its 20 rows came before
+  // any asset); from md up it sits beside the list.
+  const narrow = screens.md !== true;
+  const [treeOpen, setTreeOpen] = useState(false);
+  const [myExportsOpen, setMyExportsOpen] = useState(false);
   const [search, setSearch] = useState('');
   // The view and the tree node live in the address, so a view can be shared as a link.
   const [params, setParams] = useSearchParams();
@@ -187,9 +213,11 @@ export function AssetsPage() {
     parent: t('assets.list.parent'),
     product: t('assets.record.product'),
     type: t('assets.admin.product_type'),
-    state: t('assets.record.state'),
     site: t('assets.record.site_id'),
     serial: t('assets.record.serial_number'),
+    // Last, pinned at the end side on wide screens: the state stays in sight, and its edge
+    // shows that more columns lie under it (the sideways-scroll cue).
+    state: t('assets.record.state'),
   };
   // Each person's widths per view, kept for them (the shared store; not in the trash).
   const widths = useColumnWidths({
@@ -201,6 +229,10 @@ export function AssetsPage() {
     minWidths: { name: 160 },
     label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
   });
+  // Pinned columns from md up only: on a phone they would take most of the width. Ant Design's
+  // table reads `left` as the start side: in Arabic and Urdu it pins them on the right itself.
+  const startSide: 'left' | undefined = narrow ? undefined : 'left';
+  const endSide: 'right' | undefined = narrow ? undefined : 'right';
   if (!allowed) return <NoAccess titleKey="nav.assets" />;
   const page = list.data?.pages;
   const nameIn = (pick: 'people' | 'parents' | 'products', id: string | null | undefined) =>
@@ -233,8 +265,14 @@ export function AssetsPage() {
     key,
     title: titles[key],
     width: widths.width(key),
+    fixed: key === 'tag' ? startSide : key === 'state' && !trash ? endSide : undefined,
     onHeaderCell: () => widths.header(key),
   });
+  // The table's own width: it scrolls inside its box when the box is narrower (never the page).
+  const tableWidth =
+    (selectable ? SELECT_WIDTH : 0) +
+    (trash ? RESTORE_WIDTH : 0) +
+    Object.keys(titles).reduce((sum, key) => sum + (widths.width(key) ?? OWN_WIDTHS[key] ?? 0), 0);
   const typeName = (id: string) => {
     const found = types.data?.find((x) => x.id === id);
     return found === undefined ? '' : nameOf(found.names, locale);
@@ -398,6 +436,62 @@ export function AssetsPage() {
         </Button>
       </Flex>
     ) : undefined;
+  const canImport =
+    access.can('assets.manage') || access.can('vendors.create') || access.can('vendors.manage');
+  const goTo = (key: string, path: string, label: string): MoreAction => ({
+    key,
+    label,
+    onClick: () => void navigate(path),
+    testId: `assets-${key}-link`,
+  });
+  const moreActions: MoreAction[] = [
+    ...(canImport
+      ? [
+          {
+            key: 'import',
+            label: t('assets.import.open'),
+            // A read-only licence keeps the import closed, as WriteButton does elsewhere.
+            disabled: !writable,
+            onClick: () => {
+              setImportOpen(true);
+            },
+            testId: 'assets-import-open',
+          },
+        ]
+      : []),
+    ...(access.can('reports.export')
+      ? [
+          {
+            key: 'my-exports',
+            label: t('reports.my_exports'),
+            onClick: () => {
+              setMyExportsOpen(true);
+            },
+            testId: 'report-my-exports',
+          },
+        ]
+      : []),
+    goTo('vendors', '/assets/vendors', t('assets.record.vendors')),
+    goTo('groups', '/assets/groups', t('assets.groups.title')),
+    goTo('loans', '/assets/loans', t('assets.loans.title')),
+    goTo('consumables', '/assets/consumables', t('assets.stock.title')),
+    goTo('audits', '/assets/audits', t('assets.audits.title')),
+  ];
+  // On a phone: the type tree opens from here, the chosen type named on the button.
+  const chosenType = typeId === undefined ? '' : typeName(typeId);
+  const treeToggle = !trash && narrow && (
+    <Button
+      icon={<ApartmentOutlined />}
+      aria-expanded={treeOpen}
+      aria-controls="asset-tree-panel"
+      onClick={() => {
+        setTreeOpen(!treeOpen);
+      }}
+      data-testid="asset-tree-toggle"
+    >
+      {chosenType === '' ? t('assets.tree.label') : t('assets.tree.chosen', { type: chosenType })}
+    </Button>
+  );
   return (
     <ListPage
       testId="assets-list"
@@ -407,48 +501,32 @@ export function AssetsPage() {
           count={total === undefined ? undefined : String(total)}
           testId="assets-header"
           extra={
-            <Flex gap={8} wrap align="center">
-              <Link to="/assets/vendors" data-testid="assets-vendors-link">
-                {t('assets.record.vendors')}
-              </Link>
-              <Link to="/assets/groups" data-testid="assets-groups-link">
-                {t('assets.groups.title')}
-              </Link>
-              <Link to="/assets/loans" data-testid="assets-loans-link">
-                {t('assets.loans.title')}
-              </Link>
-              <Link to="/assets/consumables" data-testid="assets-consumables-link">
-                {t('assets.stock.title')}
-              </Link>
-              <Link to="/assets/audits" data-testid="assets-audits-link">
-                {t('assets.audits.title')}
-              </Link>
-              <AssetListExport filter={exportFilter} title={t('nav.assets')} />
-              {(access.can('assets.manage') ||
-                access.can('vendors.create') ||
-                access.can('vendors.manage')) && (
-                <WriteButton
-                  onClick={() => {
-                    setImportOpen(true);
-                  }}
-                  data-testid="assets-import-open"
-                >
-                  {t('assets.import.open')}
-                </WriteButton>
-              )}
-              {access.can('assets.manage') && (
-                <WriteButton
-                  type="primary"
-                  onClick={() => {
-                    clear();
-                    setAdding({ draft: draftOf(null), key: crypto.randomUUID() });
-                  }}
-                  data-testid="asset-add"
-                >
-                  {t('assets.record.add')}
-                </WriteButton>
-              )}
-            </Flex>
+            // D-147 template C (QA 2026-11-12 V-03): Export and "Add asset" stay in sight; the
+            // asset registers, "My exports" and the import wait in "More".
+            <HeaderActions
+              testId="assets-header-actions"
+              buttons={[
+                {
+                  key: 'export',
+                  node: <AssetListExport filter={exportFilter} title={t('nav.assets')} />,
+                },
+              ]}
+              more={moreActions}
+              primary={
+                access.can('assets.manage') ? (
+                  <WriteButton
+                    type="primary"
+                    onClick={() => {
+                      clear();
+                      setAdding({ draft: draftOf(null), key: crypto.randomUUID() });
+                    }}
+                    data-testid="asset-add"
+                  >
+                    {t('assets.record.add')}
+                  </WriteButton>
+                ) : undefined
+              }
+            />
           }
         />
       }
@@ -490,10 +568,15 @@ export function AssetsPage() {
             />
           }
           quick={
-            widths.changed ? (
-              <Button onClick={widths.reset} data-testid="assets-reset-widths">
-                {t('layout.reset_widths')}
-              </Button>
+            treeToggle !== false || widths.changed ? (
+              <>
+                {treeToggle}
+                {widths.changed && (
+                  <Button onClick={widths.reset} data-testid="assets-reset-widths">
+                    {t('layout.reset_widths')}
+                  </Button>
+                )}
+              </>
             ) : undefined
           }
         />
@@ -522,8 +605,9 @@ export function AssetsPage() {
         }}
       />
       <Flex gap={16} wrap={!screens.md} align="flex-start">
-        {!trash && (
+        {!trash && (!narrow || treeOpen) && (
           <nav
+            id="asset-tree-panel"
             aria-label={t('assets.tree.label')}
             style={{
               flex: screens.md ? '0 0 240px' : '1 1 100%',
@@ -568,6 +652,9 @@ export function AssetsPage() {
             rowSelection={
               selectable
                 ? {
+                    // Pinned with the tag, at the start side (the width the table's sum counts).
+                    fixed: startSide,
+                    columnWidth: SELECT_WIDTH,
                     selectedRowKeys: selected,
                     // Labelled boxes; the header one is safe in antd's hidden measure row (axe
                     // label and aria-hidden-focus, found once the showcase had assets).
@@ -594,7 +681,7 @@ export function AssetsPage() {
             components={widths.components}
             loading={list.isLoading}
             dataSource={rows}
-            scroll={{ x: 'max-content' }}
+            scroll={{ x: tableWidth }}
             locale={{
               // Nothing to say while the first page loads; a search or type with no match says so.
               emptyText: list.isLoading ? (
@@ -669,12 +756,6 @@ export function AssetsPage() {
                 ),
               },
               {
-                ...column('state'),
-                render: (_: unknown, asset: AssetRecord) => (
-                  <ToneTag tone="default">{stateName(asset.state_id)}</ToneTag>
-                ),
-              },
-              {
                 ...column('site'),
                 render: (_: unknown, asset: AssetRecord) =>
                   asset.site_id == null ? '' : <bdi dir="auto">{siteName(asset.site_id)}</bdi>,
@@ -683,6 +764,12 @@ export function AssetsPage() {
                 ...column('serial'),
                 render: (_: unknown, asset: AssetRecord) => (
                   <bdi dir="ltr">{asset.serial_number ?? ''}</bdi>
+                ),
+              },
+              {
+                ...column('state'),
+                render: (_: unknown, asset: AssetRecord) => (
+                  <ToneTag tone="default">{stateName(asset.state_id)}</ToneTag>
                 ),
               },
               ...(trash
@@ -720,6 +807,7 @@ export function AssetsPage() {
           )}
         </Flex>
       </Flex>
+      <MyExportsButton button={false} open={myExportsOpen} onOpenChange={setMyExportsOpen} />
       <ImportWizard
         open={importOpen}
         onClose={() => {

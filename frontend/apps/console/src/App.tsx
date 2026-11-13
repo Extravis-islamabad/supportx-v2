@@ -20,6 +20,8 @@ import {
   isDevSignIn,
   LicenceProvider,
   PASSWORD_RESET_PATH,
+  InvitePage,
+  isInvitePage,
   PasswordResetPage,
   SessionGate,
   TenantBranding,
@@ -76,6 +78,9 @@ export function App({ navigate }: AppProps) {
             ) : window.location.pathname === PASSWORD_RESET_PATH ? (
               // "Forgot password?" is for people who cannot sign in (WP-039 session 2).
               <PasswordResetPage app="console" />
+            ) : isInvitePage(window.location.pathname) ? (
+              // A copied invite link (REQ-SEC-021): its own page, no session; nobody signs in here.
+              <InvitePage app="console" />
             ) : isDevSignIn(window.location.pathname) ? (
               // Dev-only quick sign-in (D-151): the API answers 404 anywhere but the local stack.
               <DevSignInPage />

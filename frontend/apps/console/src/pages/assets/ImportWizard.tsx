@@ -273,7 +273,13 @@ export function ImportWizard({ open, onClose }: { open: boolean; onClose: () => 
                 ref={input}
                 type="file"
                 accept=".csv,.txt,.xlsx"
+                // Out of sight and out of the tab order: the styled button below opens it. The
+                // attribute alone lost to Ant Design's form styles (display: block for a file
+                // input), so the browser's own "Choose File" showed too (QA 2026-11-12 F-03).
                 hidden
+                style={{ display: 'none' }}
+                tabIndex={-1}
+                aria-hidden
                 onChange={(event) => {
                   setFile(event.target.files?.[0]);
                 }}
@@ -288,7 +294,16 @@ export function ImportWizard({ open, onClose }: { open: boolean; onClose: () => 
                 >
                   {t('assets.import.choose_file')}
                 </Button>
-                {file !== undefined && <bdi dir="auto">{file.name}</bdi>}
+                <Typography.Text
+                  type={file === undefined ? 'secondary' : undefined}
+                  data-testid="asset-import-file-name"
+                >
+                  {file === undefined ? (
+                    t('assets.import.no_file')
+                  ) : (
+                    <bdi dir="auto">{file.name}</bdi>
+                  )}
+                </Typography.Text>
               </Flex>
             </Form.Item>
             <WriteButton

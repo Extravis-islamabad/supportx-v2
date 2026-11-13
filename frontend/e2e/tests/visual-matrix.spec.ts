@@ -301,6 +301,9 @@ export const SCREENS: Screen[] = [
     state: {
       name: 'node-chosen',
       open: async (page) => {
+        // On a phone the tree waits behind its button (QA 2026-11-12 V-03): open it first.
+        const toggle = page.getByTestId('asset-tree-toggle');
+        if (await toggle.isVisible()) await toggle.click({ timeout: STATE_TIMEOUT });
         // The first type after "All types": its branch listed, its row chosen.
         await page
           .getByRole('treeitem')

@@ -347,9 +347,14 @@ export function ConsumablesPage() {
                 {row.stocks.map((s) => {
                   const level = stockLevelKey(s);
                   return (
-                    <Typography.Text key={s.id}>
-                      <bdi dir="auto">{siteName(s.site_id)}</bdi>
-                      {`: ${plainQuantity(s.quantity)}`}
+                    // One label with both values (QA 2026-11-12 V-14): the site and the amount
+                    // are isolated in it, so Arabic reads "<site>: 35" in order, never "35 :<site>".
+                    // The level is below or at minimum (F-15, polish 4).
+                    <Typography.Text key={s.id} data-testid={`consumable-stock-${s.id}`}>
+                      {t('assets.stock.site_quantity', {
+                        site: siteName(s.site_id),
+                        quantity: plainQuantity(s.quantity),
+                      })}
                       {level !== null && (
                         <>
                           {' '}
