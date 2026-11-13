@@ -262,6 +262,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
 
 # Items per record across its checklists (the column's check, migration 0144).
 CHECKLIST_MIN, CHECKLIST_MAX = 1, 1000
+COPY_MIN, COPY_MAX = 1, 100  # WP-046a S5c: the column's own range (0156)
 
 # WP-046a S3 (REQ-INC-070): the worklog rules, on every type with worklogs.
 WORKLOG_RULES = ("worklog_block_closed", "worklog_count_nonworking", "timer_auto_start")
@@ -274,6 +275,7 @@ CLOSURE_FIELDS = (
     "auto_close_days",
     "reopen_window_days",
     "checklist_item_max",
+    "copy_limit",
 )
 
 
@@ -292,6 +294,7 @@ def _closure_before(current: Catalogue) -> dict[str, Any]:
         "timer_auto_start": c.timer_auto_start,
         "task_dependency_mode": c.task_dependency_mode,
         "checklist_item_max": c.checklist_item_max,
+        "copy_limit": c.copy_limit,
     }
 
 
@@ -364,6 +367,10 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - on
         if _days(values["checklist_item_max"], CHECKLIST_MIN, CHECKLIST_MAX) is None:
             problem("checklist_item_max", "out_of_range", min=CHECKLIST_MIN, max=CHECKLIST_MAX)
         changes["checklist_item_max"] = values["checklist_item_max"]
+    if "copy_limit" in values:  # WP-046a S5c (REQ-INC-033 AC3): copies one request may make
+        if _days(values["copy_limit"], COPY_MIN, COPY_MAX) is None:
+            problem("copy_limit", "out_of_range", min=COPY_MIN, max=COPY_MAX)
+        changes["copy_limit"] = values["copy_limit"]
     if "auto_close_days" in values:
         days = values["auto_close_days"]
         if days is not None and _days(days, AUTO_CLOSE_MIN, AUTO_CLOSE_MAX) is None:

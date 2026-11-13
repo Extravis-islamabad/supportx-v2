@@ -577,6 +577,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/{record_id}/conversation/{entry_id}` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/copies` | `incidents.create` | incidents.create: all |
 | PUT | `/api/v1/incidents/{record_id}/due-dates/{kind}` | `incidents.edit_due_dates` | incidents.edit_due_dates: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/followers` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/followers/{user_id}` | `incidents.view` | incidents.view: all/site/group/own |

@@ -200,6 +200,7 @@ export const ur: LabelResource = {
   'audit.action.domain.verified': 'کسٹم ڈومین کی تصدیق کی',
   'audit.action.file.archive_downloaded': 'فائلیں zip کے طور پر ڈاؤن لوڈ کیں',
   'audit.action.file.blocked': 'میلویئر والی فائل بلاک کی',
+  'audit.action.file.copied': 'ایک فائل نقل شدہ ریکارڈ پر نقل کی',
   'audit.action.file.deleted': 'فائل حذف کی',
   'audit.action.file.downloaded': 'نجی نوٹ کی فائل کھولی',
   'audit.action.file.purged': 'فائلیں مستقل طور پر ہٹائیں',

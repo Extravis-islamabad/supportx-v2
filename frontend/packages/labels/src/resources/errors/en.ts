@@ -681,6 +681,7 @@ export const en = {
   'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
+  'errors.field.too_many_copies': 'Make 1 to {{max}} copies at a time.',
   'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
   'errors.field.too_many_items': 'There are too many entries.',
   'errors.field.too_many_keywords': 'Use at most 20 keywords per language.',
@@ -749,6 +750,8 @@ export const en = {
   'errors.field.workflow_not_published': 'Publish this workflow first.',
   'errors.field.workflow_wrong_record_type': 'This workflow is for another kind of record.',
   'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
+  'errors.field_keys_unavailable':
+    'Protected information cannot be read or saved right now: the installation key is not available. Ask your administrator to check it.',
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',
@@ -950,6 +953,8 @@ export const en = {
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
+  'errors.notification_rule_locked':
+    'This is a security notice: no one can switch it off, change who gets it or reset it.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',

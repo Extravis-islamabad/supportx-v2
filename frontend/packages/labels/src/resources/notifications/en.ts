@@ -205,6 +205,9 @@ export const en = {
   'notification_rules.col.status': 'Only for status',
   'notification_rules.intro':
     'Which events notify whom, and how. Every event starts with a sensible default; changes are recorded in the audit log.',
+  'notification_rules.locked': 'Fixed for security',
+  'notification_rules.locked_help':
+    'A security notice: always sent to the people it names. No one can switch it off or change who gets it.',
   'notification_rules.none': 'No event matches',
   'notification_rules.required': 'Required for people',
   'notification_rules.reset': 'Back to default',
