@@ -10,6 +10,7 @@ Public interface for other modules: none yet.
 
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
+from app.modules.integrations.api.block_rules import router as block_rules_router
 from app.modules.integrations.api.catalogue import catalogue_router
 from app.modules.integrations.api.connector_settings import router as connector_settings_router
 from app.modules.integrations.api.directories import router as directories_router
@@ -41,6 +42,7 @@ module = ModuleSpec(
         directories_router,
         ldap_directories_router,
         connector_settings_router,
+        block_rules_router,
     ],
     # Tenant admins hold every permission; mailboxes are theirs (and custom roles').
     permissions=(

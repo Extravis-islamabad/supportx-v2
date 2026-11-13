@@ -62,6 +62,28 @@ type Records = Partial<
   >
 >;
 
+const STOP_TOKEN = 'S'.repeat(43);
+
+/** The stop-mails page with its public calls answered in the browser; `press`: also stop. */
+function stopMails(press: boolean): (page: Page) => Promise<void> {
+  return async (page) => {
+    await page.route('**/api/v1/public/notify-links/peek', (route) =>
+      route.fulfill({ json: { display_id: 'INC-12', address: 'b***@acme.test' } }),
+    );
+    await page.route('**/api/v1/public/notify-links/stop', (route) =>
+      route.fulfill({ status: 204, body: '' }),
+    );
+    const url = new URL(page.url());
+    url.hash = STOP_TOKEN;
+    await page.goto(url.href);
+    await page.getByTestId('stop-mails-ask').waitFor();
+    if (press) {
+      await page.getByTestId('stop-mails-button').click();
+      await page.getByTestId('stop-mails-done').waitFor();
+    }
+  };
+}
+
 interface Screen {
   key: string;
   /** A path, or one built from the records found at the start (none: skipped, noted). */
@@ -520,6 +542,22 @@ export const SCREENS: Screen[] = [
   { key: 'portal-service-requests', path: '/service-requests', app: 'portal' },
   { key: 'portal-approvals', path: '/approvals', app: 'portal' },
   { key: 'portal-approval-link', path: '/requests/approval-link', app: 'portal' },
+  // WP-046a S6 (REQ-INC-066): stopping mails to someone kept informed, no sign-in. A made-up
+  // token shows the dead link; the ask and done states answer the two public calls in the
+  // browser (the matrix has no mail to take a real link from), lane C's #485 review.
+  { key: 'portal-stop-mails', path: `/stop-mails#${STOP_TOKEN}`, app: 'portal' },
+  {
+    key: 'portal-stop-mails',
+    path: `/stop-mails#${STOP_TOKEN}`,
+    app: 'portal',
+    state: { name: 'ask', open: stopMails(false) },
+  },
+  {
+    key: 'portal-stop-mails',
+    path: `/stop-mails#${STOP_TOKEN}`,
+    app: 'portal',
+    state: { name: 'done', open: stopMails(true) },
+  },
   { key: 'portal-account', path: '/account', app: 'portal' },
   { key: 'portal-search', path: '/search?q=password', app: 'portal' },
   { key: 'portal-not-found', path: '/no/such/page', app: 'portal' },

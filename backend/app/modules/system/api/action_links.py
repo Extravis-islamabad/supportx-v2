@@ -17,14 +17,13 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-import valkey.exceptions
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field
 
 from app.core.authorization import public_route, require_signed_in
 from app.core.database import Database, TenantSession, get_database
 from app.core.entitlements import ENTITLEMENT_GATE_STATE, EntitlementGate, entitlement_exempt
-from app.core.errors import AppError, RateLimited, ValidationFailed
+from app.core.errors import AppError, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.audit import (
     AuditActorType,
@@ -36,10 +35,11 @@ from app.modules.audit import (
     record_alone,
 )
 from app.modules.identity_access import Subject, subject_for
-from app.modules.organization import tenant_for_host, tenant_for_slug
+from app.modules.organization import link_tenant
 from app.shared import action_links
 from app.shared.action_links.domain import TOKEN_LENGTH
-from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, ip_rate_limit, rate_limit
+from app.shared.api.public_links import NO_TENANT, PublicLinks
+from app.shared.api.ratelimit import ip_rate_limit, rate_limit
 
 router = APIRouter(
     prefix="/action-links",
@@ -127,78 +127,15 @@ public_router = APIRouter(
 )
 DatabaseDep = Annotated[Database, Depends(get_database)]
 PUBLIC_GROUP = "action_links_public"
-
-
-# Where the address and the slug name no tenant, the token is looked up here: no tenant has this
-# id, so row-level security finds nothing and the answer is the wrong token's, at its cost
-# (lane B's review: an unknown tenant must look like a wrong token).
-NO_TENANT = uuid.UUID(int=0)
+# The shared public-link guard (moved to app/shared/api/public_links.py, unchanged).
+PUBLIC = PublicLinks(group=PUBLIC_GROUP, scope_name="action-links-address", resolver=link_tenant)
 
 
 async def _public_tenant(
     request: Request, response: Response, database: Database, slug: str | None
 ) -> uuid.UUID:
-    """Where the token is looked up: the address's tenant, else the link's `?t=` slug.
-
-    The address (subdomain or verified domain) wins; a slug naming another tenant is refused.
-    Without tenant subdomains (on-prem, k3s) the address names none and the slug does. It only
-    decides where the token is looked up: the token is the secret, and a token used on another
-    tenant's address is simply not found there. Every way of not finding a tenant gives
-    `NO_TENANT`, so the answer and its cost are a wrong token's.
-    """
-    slug = slug or None  # an empty `?t=` is no slug (lane B)
-    # Two limits (lane B's review). Before any lookup, both budgets keyed on the client address
-    # alone: a sweep over slugs or tenants' addresses shares one budget, and no client fills
-    # another's. After it, the resolved tenant's own budget, as before ?t=: junk with unknown
-    # slugs only ever fills NO_TENANT's, which no real link uses. Every request makes both hits.
-    await _public_limit(request, response, _address_scope(request))
-    tenant_id = await _resolve(request, database, slug)
-    # Enforces only: its headers would tell an unknown slug's shared count from a real one's.
-    await _public_limit(request, response, tenant_id, headers=False)
-    return tenant_id
-
-
-def _address(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
-
-
-def _address_scope(request: Request) -> uuid.UUID:
-    """A budget scope of the client address alone, never shared with a tenant or another client."""
-    return uuid.uuid5(NO_TENANT, f"action-links-address:{_address(request)}")
-
-
-async def _resolve(request: Request, database: Database, slug: str | None) -> uuid.UUID:
-    found = await tenant_for_host(
-        database, request.headers.get("host"), request.app.state.settings.tenant_base_domain
-    )
-    if found is not None:
-        return found.tenant_id if slug is None or slug == found.slug else NO_TENANT
-    if slug is None:
-        return NO_TENANT
-    by_slug = await tenant_for_slug(database, slug)  # a bad pattern: None, before any query
-    return by_slug.tenant_id if by_slug is not None else NO_TENANT
-
-
-async def _public_limit(
-    request: Request, response: Response, tenant_id: uuid.UUID, *, headers: bool = True
-) -> None:
-    """Rate limit by client address: there is no person to key on (lane B).
-
-    `headers`: whether this hit's RateLimit-* headers go on the response.
-    """
-    limiter: RateLimiter | None = getattr(request.app.state, RATE_LIMITER_STATE, None)
-    if limiter is None:
-        return
-    try:
-        decision = await limiter.hit(PUBLIC_GROUP, tenant_id, f"address:{_address(request)}")
-    except (valkey.exceptions.ValkeyError, OSError):
-        return  # the limiter is down: the token stays the protection
-    if not decision.allowed:
-        raise RateLimited(
-            params={"retry_after_seconds": decision.reset_seconds}, headers=decision.headers()
-        )
-    if headers:
-        response.headers.update(decision.headers())
+    """Where the token is looked up (see `PublicLinks.tenant`)."""
+    return await PUBLIC.tenant(request, response, database, slug)
 
 
 async def _recipient(
