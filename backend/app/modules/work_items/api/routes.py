@@ -85,6 +85,7 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, Work
 from app.modules.work_items.service import (
     asset_links,
     change_links,
+    drafts,
     record_copies,
     release_links,
     resolution,
@@ -248,6 +249,11 @@ class WorkItemIn(BaseModel):
     keep_following: bool | None = Field(
         default=None,
         description="With confirm_lose_access: keep following it (null: tenant default, D-068).",
+    )
+    draft_form_key: str | None = Field(
+        default=None,
+        max_length=40,
+        description="The form whose kept draft goes with this save (yours only; REQ-INC-019).",
     )
 
 
@@ -2724,6 +2730,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             from_record = values.pop("from_record_id", None)
             if from_record is not None and wtype.code is not WorkItemTypeCode.CHANGE:
                 raise service.field_errors([("from_record_id", "not_allowed")])
+            draft_form_key = values.pop("draft_form_key", None)
             asset_ids = values.pop("asset_ids", None) or []
             if asset_ids and wtype.code not in _WITH_ASSETS:
                 raise service.field_errors([("asset_ids", "not_allowed")])
@@ -2743,6 +2750,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
                 await asset_links.link_new(
                     session, subject, view.record, asset_ids, source=source_of(request)
                 )
+            # REQ-INC-019: the sender's own kept draft of the form goes with the save (lane B 8).
+            await drafts.saved(session, subject.user_id, draft_form_key)
             out = WorkItemOut.of(view)
             return Created(
                 body=out, headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'}

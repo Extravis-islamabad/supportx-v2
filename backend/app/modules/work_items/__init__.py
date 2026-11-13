@@ -45,6 +45,7 @@ from app.modules.work_items.api.change_window_routes import (
 )
 from app.modules.work_items.api.change_window_routes import router as change_window_router
 from app.modules.work_items.api.checklist_routes import my_reminders_router
+from app.modules.work_items.api.draft_routes import router as draft_router
 from app.modules.work_items.api.parts_routes import my_tasks_router, my_timers_router
 from app.modules.work_items.api.portal_change_routes import router as portal_change_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
@@ -71,6 +72,7 @@ from app.modules.work_items.service import (
     change_notifications,
     change_reminders,
     checklists,
+    drafts,
     inbound_mail,
     notifications,
     parts,
@@ -201,6 +203,7 @@ module = ModuleSpec(
     routers=[
         *(build_router(wtype) for wtype in TYPES.values()),
         portal_router,
+        draft_router,  # REQ-INC-019: kept drafts of unsent create forms
         portal_request_router,  # WP-030 D9
         portal_home_router,  # WP-032 D1
         approval_settings_router,  # D-146: the approval chair (WP-048b S2)
@@ -220,6 +223,7 @@ module = ModuleSpec(
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
         INCIDENT.feature,
+        INCIDENT.feature,  # kept drafts (incident-new)
         SERVICE_REQUEST.feature,
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
         None,  # approval settings: the engine is core, every type with approvals uses them
@@ -249,11 +253,13 @@ module = ModuleSpec(
     channels=CHANNELS,
     realtime=ROUTES,
     # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
-    consumers=[APPROVER_LEFT],
+    consumers=[APPROVER_LEFT, drafts.OWNER_LEFT],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     # REQ-INC-096: resolved records the requester was told about close after N business days.
     schedules=[
+        # REQ-INC-019: kept drafts untouched for 30 days go (lane B).
+        ScheduleSpec("work_items__drafts_purge", 86400, drafts.purge_schedule),
         ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule),
         # REQ-SR-023 AC3: daily, no approval waits on someone no longer active.
         ScheduleSpec("work_items__inactive_approvers", 86400, inactive_approvers_schedule),
