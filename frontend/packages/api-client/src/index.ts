@@ -436,6 +436,8 @@ export {
   type CausingProblem,
   useIncidentTasks,
   useIncidentWorklogs,
+  useTimeAnalysis,
+  type TimeAnalysis,
   useLinkChange,
   useMyTasks,
   useAllMyTasks,
