@@ -261,6 +261,7 @@ export const ar: LabelResource = {
   'audit.action.incident.template_created': 'أضاف قالب حوادث',
   'audit.action.incident.unlinked': 'أزال ربطًا من حادثة',
   'audit.action.incident.updated': 'عدّل حادثة',
+  'audit.action.invitation.accepted': 'قبل دعوة',
   'audit.action.invitation.link_copied': 'نسخ رابط دعوة',
   'audit.action.invitation.resent': 'أعاد إرسال دعوة',
   'audit.action.invitation.revoked': 'سحب دعوة',

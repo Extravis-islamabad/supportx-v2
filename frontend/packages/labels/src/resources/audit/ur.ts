@@ -261,6 +261,7 @@ export const ur: LabelResource = {
   'audit.action.incident.template_created': 'واقعے کا سانچہ شامل کیا',
   'audit.action.incident.unlinked': 'واقعے سے ایک ربط ہٹایا',
   'audit.action.incident.updated': 'واقعے میں ترمیم کی',
+  'audit.action.invitation.accepted': 'دعوت نامہ قبول کیا',
   'audit.action.invitation.link_copied': 'دعوت نامے کا لنک نقل کیا',
   'audit.action.invitation.resent': 'دعوت نامہ دوبارہ بھیجا',
   'audit.action.invitation.revoked': 'دعوت نامہ واپس لیا',

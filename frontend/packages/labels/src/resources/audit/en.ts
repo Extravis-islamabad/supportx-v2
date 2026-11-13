@@ -264,6 +264,7 @@ export const en = {
   'audit.action.incident.template_created': 'Added an incident template',
   'audit.action.incident.unlinked': 'Removed a link from an incident',
   'audit.action.incident.updated': 'Changed an incident',
+  'audit.action.invitation.accepted': 'Accepted an invitation',
   'audit.action.invitation.link_copied': 'Copied an invitation link',
   'audit.action.invitation.resent': 'Sent an invitation again',
   'audit.action.invitation.revoked': 'Withdrew an invitation',

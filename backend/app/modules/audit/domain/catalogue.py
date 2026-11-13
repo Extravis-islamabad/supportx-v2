@@ -224,6 +224,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("sso.removed", AuditCategory.SECURITY, "identity_access"),
     ("invitation.sent", AuditCategory.ACCESS, "identity_access"),
     ("invitation.resent", AuditCategory.ACCESS, "identity_access"),
+    ("invitation.accepted", AuditCategory.ACCESS, "identity_access"),  # a copied link's password
     ("invitation.link_copied", AuditCategory.ACCESS, "identity_access"),
     ("invitation.revoked", AuditCategory.ACCESS, "identity_access"),
     ("user.password_reset_forced", AuditCategory.SECURITY, "identity_access"),

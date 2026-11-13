@@ -330,6 +330,8 @@ class Settings(BaseSettings):
             # Confirming who you are (WP-057 S2a, REQ-SEC-027; lane B A3): per person.
             "auth_confirm": {"user": 10, "tenant": 1000},
             "invite_link": {"user": 20, "tenant": 1000},  # copied invite links (REQ-SEC-021)
+            # Their public side, keyed on the client address (no one is signed in): few a minute.
+            "invite_links_public": {"user": 10, "tenant": 300},
         }
     )
     # Prefix for every Valkey key the API writes (tests use a random one).

@@ -916,6 +916,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/public/branding/{tenant_ref}/login.css` | public | - |
 | GET | `/api/v1/public/branding/{tenant_ref}/{name}` | public | - |
 | GET | `/api/v1/public/domain-check/{token}` | public | - |
+| POST | `/api/v1/public/invite-links/accept` | public | - |
+| POST | `/api/v1/public/invite-links/peek` | public | - |
 | POST | `/api/v1/public/notify-links/peek` | public | - |
 | POST | `/api/v1/public/notify-links/stop` | public | - |
 | GET | `/api/v1/ready` | public | - |

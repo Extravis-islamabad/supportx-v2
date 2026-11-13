@@ -18,7 +18,7 @@ The downgrade refuses while any tenant has a mark, a secret expiry or a copied l
 with app.tenant_id set (rule 5h).
 
 Revision ID: 0158
-Revises: 0157
+Revises: 0159
 Created: 2026-11-13
 """
 
@@ -30,7 +30,7 @@ from alembic import op
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0158"
-down_revision: str | None = "0157"
+down_revision: str | None = "0159"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

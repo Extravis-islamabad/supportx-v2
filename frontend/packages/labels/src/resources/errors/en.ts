@@ -571,7 +571,18 @@ export const en = {
   'errors.field.out_of_range': 'This number is outside the allowed range.',
   'errors.field.owner_not_allowed': 'This person may not manage announcements, so cannot own one.',
   'errors.field.parent_loop': 'This would make it its own parent.',
+  'errors.field.password_breached': 'This password is known from data breaches. Choose another.',
+  'errors.field.password_is_email': 'It must not be your e-mail address.',
+  'errors.field.password_is_username': 'It must not be your user name.',
+  'errors.field.password_needs_digit': 'Add a digit.',
+  'errors.field.password_needs_lower': 'Add a lower-case letter.',
+  'errors.field.password_needs_special': 'Add a symbol, such as ! or #.',
+  'errors.field.password_needs_upper': 'Add a capital letter.',
   'errors.field.password_policy_out_of_range': 'Use between {{min}} and {{max}}.',
+  'errors.field.password_rejected': 'This password was not accepted. Choose another.',
+  'errors.field.password_too_long': 'Too long: use at most 128 characters.',
+  'errors.field.password_too_short': 'Too short: use more characters.',
+  'errors.field.password_used_before': 'You have used this password before. Choose a new one.',
   'errors.field.pattern_mismatch': 'This value does not have the expected format.',
   'errors.field.pattern_too_complex':
     'This pattern repeats a group that itself repeats, which could make saving very slow. Simplify it, for example [A-Z]+ instead of ([A-Z]+)+.',
@@ -834,6 +845,8 @@ export const en = {
     'This person is deactivated or not allowed to sign in.',
   'errors.invite_link_has_account':
     'This person already has a password: they sign in as usual, so there is no link to copy.',
+  'errors.invite_link_invalid':
+    'This invitation link does not work. It may have been used, replaced by a newer one, or run out. Ask whoever invited you for a new link.',
   'errors.invite_link_mail_configured':
     'Outgoing mail is set up, so the invitation goes by e-mail. Send it again instead of copying a link.',
   'errors.ip_not_allowed':
