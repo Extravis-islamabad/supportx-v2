@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.identity_access.domain.place import Place
 from app.modules.identity_access.events import AccountSecurityChanged, NewDeviceSignedIn
 from app.modules.identity_access.infra.models import User
+from app.modules.organization import site_names
 from app.shared.events import EventEnvelope
 from app.shared.labels import LANGUAGES, label
 from app.shared.notifications.ports import (
@@ -71,17 +72,29 @@ def device_value(code: str | None) -> VariableValue:
     )
 
 
-def place_value(stored: object) -> VariableValue:
-    """The approximate place in words: the internal network, a mapped site, or a city."""
+def place_value(stored: object, site_name: str | None = None) -> VariableValue:
+    """The approximate place in words: the internal network, a mapped site, or a city.
+
+    A mapped site is named as it is called now (`site_name`); a site gone since, or not found,
+    says "a mapped site".
+    """
     place = Place.from_dict(stored)
     if place is None:
         return LabelRef("sign_in_place.unknown")
     if place.kind == "internal":
         return LabelRef("sign_in_place.internal")
     if place.kind == "site":
-        return LabelRef("sign_in_place.site_unknown")
+        return site_name or LabelRef("sign_in_place.site_unknown")
     parts = [p for p in (place.city, place.country) if p]
     return ", ".join(parts) if parts else LabelRef("sign_in_place.unknown")
+
+
+async def _site_name(session: AsyncSession, payload: dict[str, object]) -> str | None:
+    """The mapped site's name now, when the notice's place is one (organization's lookup)."""
+    place = Place.from_dict(payload.get("place"))
+    if place is None or place.kind != "site" or place.site_id is None:
+        return None
+    return (await site_names(session, [place.site_id])).get(place.site_id)
 
 
 def _moment(value: object) -> datetime | None:
@@ -138,7 +151,7 @@ class SecurityNotices:
             return None
         values: dict[str, VariableValue] = {
             "notice.device": device_value(payload.get("device")),
-            "notice.place": place_value(payload.get("place")),
+            "notice.place": place_value(payload.get("place"), await _site_name(session, payload)),
             # When it happened in Keycloak, not when the import read it.
             "notice.when": _moment(payload.get("occurred_at")) or envelope.occurred_at,
             "record.link": CONSOLE_LINK,
