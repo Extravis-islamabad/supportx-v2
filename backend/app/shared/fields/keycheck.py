@@ -40,7 +40,10 @@ async def wraps(database: Database) -> dict[str, int]:
     """How many data keys each KEK wraps, over every tenant."""
     async with database.platform_session() as session:
         rows = (await session.execute(_WRAPS)).all()
-    return {str(kek): int(count) for kek, count in rows}
+    totals: dict[str, int] = {}
+    for kek, count in rows:  # one row per tenant and key: added up here
+        totals[str(kek)] = totals.get(str(kek), 0) + int(count)
+    return totals
 
 
 async def missing_keys(database: Database, ring: KeyRing) -> dict[str, int]:

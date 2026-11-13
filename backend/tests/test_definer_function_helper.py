@@ -10,7 +10,6 @@ from app.shared.db.rls import (
     APP_ROLE,
     definer_function_statements,
     drop_definer_function_statements,
-    migrator_read_policy_statements,
 )
 
 
@@ -44,12 +43,9 @@ def test_nothing_but_the_body_is_shaped_by_the_caller(
         definer_function_statements(name, arguments, "integer", body, **options)
 
 
-def test_the_downgrade_and_the_migrator_policy_name_one_thing_each() -> None:
+def test_the_downgrade_names_one_function() -> None:
     assert drop_definer_function_statements("audit_purge_access(timestamptz)") == [
         "DROP FUNCTION audit_purge_access(timestamptz)"
     ]
     with pytest.raises(ValueError):  # noqa: PT011
         drop_definer_function_statements("f(); DROP TABLE x")
-    assert migrator_read_policy_statements("tenant_data_keys", "kek_count") == [
-        "CREATE POLICY kek_count ON tenant_data_keys FOR SELECT TO supportx_migrator USING (true)"
-    ]

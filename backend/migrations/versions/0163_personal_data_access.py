@@ -12,8 +12,9 @@
 - `audit_settings.personal_data_log`: the tenant's switch (off by default).
 - `sx_kek_wraps()`: how many data keys each key-encryption key wraps, over every tenant, and
   nothing else (no tenant, no key). The API refuses to start while a KEK no longer in the ring
-  still wraps any (lane B's #490 conditions), through a migrator read policy on
-  `tenant_data_keys` that only this function can use (the migrator has no login).
+  still wraps any (lane B's conditions). It reads each tenant in turn through the ordinary
+  tenant policies, setting `app.tenant_id` and putting the caller's back: no policy of its own,
+  so the RLS guard stays strict.
 
 Every function is made by `create_definer_function` (migrations/helpers.py, D-168): fixed
 search_path, closed to PUBLIC, EXECUTE for supportx_app only. The downgrade refuses while any
@@ -31,10 +32,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 from migrations.helpers import (
-    allow_migrator_read,
     create_definer_function,
     drop_definer_function,
-    drop_policy,
     enable_tenant_rls,
     grant_app,
 )
@@ -46,7 +45,6 @@ depends_on: str | Sequence[str] | None = None
 
 TABLE = "personal_data_access"
 KINDS = ("view", "export", "ai_masking")
-KEYS_POLICY = "tenant_data_keys_kek_count"
 
 # The tenant, from the transaction's setting: no parameter can name another one.
 _TENANT = "NULLIF(current_setting('app.tenant_id', true), '')::uuid"
@@ -64,7 +62,22 @@ _PURGE = f"""
     )
     SELECT count(*)::integer FROM gone
 """  # noqa: S608 - fixed names, no input
-_WRAPS = "SELECT kek_id::text, count(*)::bigint FROM tenant_data_keys GROUP BY kek_id"
+# Every tenant in turn, through the ordinary tenant policies (no policy of its own, so the RLS
+# guard stays strict); the caller's app.tenant_id is put back afterwards. Rows per tenant and
+# key, never naming the tenant: the caller adds them up.
+_WRAPS = """
+DECLARE
+    t uuid;
+    own text := current_setting('app.tenant_id', true);
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        RETURN QUERY
+            SELECT d.kek_id::text, count(*)::bigint FROM tenant_data_keys d GROUP BY d.kek_id;
+    END LOOP;
+    PERFORM set_config('app.tenant_id', coalesce(own, ''), true);
+END
+"""
 
 
 def upgrade() -> None:
@@ -130,8 +143,14 @@ def upgrade() -> None:
     create_definer_function(
         "audit_purge_access", "p_before timestamptz", "integer", _PURGE, volatility="VOLATILE"
     )
-    allow_migrator_read("tenant_data_keys", KEYS_POLICY)
-    create_definer_function("sx_kek_wraps", "", "TABLE (kek_id text, wraps bigint)", _WRAPS)
+    create_definer_function(
+        "sx_kek_wraps",
+        "",
+        "TABLE (kek_id text, wraps bigint)",
+        _WRAPS,
+        language="plpgsql",
+        volatility="VOLATILE",  # it sets app.tenant_id per tenant, then puts it back
+    )
 
 
 # Each tenant's rows are visible only with its app.tenant_id set (RLS FORCE).
@@ -155,7 +174,6 @@ def downgrade() -> None:
     """Drops what upgrade added only while no tenant has an entry (rule 5h)."""
     op.execute(_REFUSE_IF_ANY)
     drop_definer_function("sx_kek_wraps()")
-    drop_policy("tenant_data_keys", KEYS_POLICY)
     drop_definer_function("audit_purge_access(timestamptz)")
     drop_definer_function("audit_erase_access(uuid)")
     op.drop_table(TABLE)  # its indexes and policies go with it

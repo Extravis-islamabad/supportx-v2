@@ -172,8 +172,8 @@ still wraps. `make keys-check` answers the same question before the key is remov
   - fixes the search_path;
   - closes the function to PUBLIC and opens it to supportx_app alone;
   - is the only way a migration may make a SECURITY DEFINER function (#476 guard).
-- **A migrator-only read policy** on `tenant_data_keys` lets the function count. The migrator has
-  no login in the API or workers.
+- **No policy of its own:** the function reads each tenant in turn through the ordinary tenant
+  policies, setting `app.tenant_id` and putting the caller's back, so the RLS guard stays strict.
 
 **Admin-marked fields (REQ-SEC-040), decided for S3b-2:**
 - **One mechanism with ADR-047.** Its field access per role decides who sees a field. A

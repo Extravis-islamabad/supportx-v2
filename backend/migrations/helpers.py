@@ -16,9 +16,7 @@ from app.shared.db.rls import (
     app_grant_statements,
     definer_function_statements,
     drop_definer_function_statements,
-    drop_policy_statements,
     drop_tenant_rls_statements,
-    migrator_read_policy_statements,
     report_column_grant_statements,
     report_grant_statements,
     report_revoke_statements,
@@ -94,16 +92,4 @@ def create_definer_function(  # noqa: PLR0913 - one function's parts, explicit
 def drop_definer_function(signature: str) -> None:
     """Reverse of `create_definer_function` (downgrades), e.g. `audit_erase_access(uuid)`."""
     for statement in drop_definer_function_statements(signature):
-        op.execute(statement)
-
-
-def allow_migrator_read(table: str, policy: str) -> None:
-    """A SELECT policy for the migrator on `table` (for a cross-tenant count function only)."""
-    for statement in migrator_read_policy_statements(table, policy):
-        op.execute(statement)
-
-
-def drop_policy(table: str, policy: str) -> None:
-    """Reverse of `allow_migrator_read` (downgrades)."""
-    for statement in drop_policy_statements(table, policy):
         op.execute(statement)

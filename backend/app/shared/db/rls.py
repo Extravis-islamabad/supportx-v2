@@ -201,18 +201,3 @@ def definer_function_statements(  # noqa: PLR0913 - one statement's parts, expli
 def drop_definer_function_statements(signature: str) -> list[str]:
     """Reverse of `definer_function_statements` (downgrades)."""
     return [f"DROP FUNCTION {_check_signature(signature)}"]
-
-
-def migrator_read_policy_statements(table: str, policy: str) -> list[str]:
-    """Let the migrator (the owner of definer functions) read every tenant's rows of `table`.
-
-    FORCE RLS binds the owner too; a cross-tenant definer function needs this to count across
-    tenants. The migrator has no login in the API or workers, so only such functions use it.
-    """
-    t, p = _check(table), _check(policy)
-    return [f"CREATE POLICY {p} ON {t} FOR SELECT TO {MIGRATOR_ROLE} USING (true)"]
-
-
-def drop_policy_statements(table: str, policy: str) -> list[str]:
-    """Reverse of `migrator_read_policy_statements` (downgrades)."""
-    return [f"DROP POLICY {_check(policy)} ON {_check(table)}"]
