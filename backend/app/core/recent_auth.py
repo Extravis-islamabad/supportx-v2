@@ -49,6 +49,10 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "PATCH /api/v1/roles/{role_id}",
     "PUT /api/v1/users/{user_id}/roles/{role_id}",
     "PUT /api/v1/roles/{role_id}/groups/{group_id}",
+    # Who sees which fields (ADR-047, lane B's #499 review): as sensitive as role changes.
+    "POST /api/v1/field-access/rules",
+    "PATCH /api/v1/field-access/rules/{rule_id}",
+    "DELETE /api/v1/field-access/rules/{rule_id}",
     "PUT /api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}",
     # Keys, exports and secret-bearing connections.
     "POST /api/v1/api-keys",

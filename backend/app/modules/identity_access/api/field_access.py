@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.domain.field_access import FieldMode
 from app.modules.identity_access.domain.policy import Subject
@@ -190,6 +191,7 @@ async def list_rules(
 @router.post(
     "/rules",
     summary="Restrict a field for a role",
+    dependencies=[RecentAuth],  # as sensitive as role changes (REQ-SEC-027)
     status_code=status.HTTP_201_CREATED,
     response_model=FieldRuleOut,
     responses={**WRITE, 201: {"model": FieldRuleOut, "description": "Created (or replayed)."}},
@@ -222,7 +224,12 @@ async def add_rule(
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
-@router.patch("/rules/{rule_id}", summary="Change a field access rule", responses=WRITE)
+@router.patch(
+    "/rules/{rule_id}",
+    summary="Change a field access rule",
+    dependencies=[RecentAuth],
+    responses=WRITE,
+)
 async def change_rule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     rule_id: uuid.UUID,
     body: FieldRulePatch,
@@ -245,6 +252,7 @@ async def change_rule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 @router.delete(
     "/rules/{rule_id}",
     summary="Remove a field access rule",
+    dependencies=[RecentAuth],
     status_code=status.HTTP_204_NO_CONTENT,
     responses=WRITE,
 )

@@ -16,9 +16,12 @@ from typing import Any
 import asyncpg
 import httpx
 import pytest
+from fastapi import Request
 
+from app.core.recent_auth import SignInFreshness, record_freshness
+from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.modules.identity_access.domain.field_access import to_json
-from tests.db.test_access_api import Org, World, problem, world  # noqa: F401 - the fixture
+from tests.db.test_access_api import Org, World, fake_session, problem, world  # noqa: F401
 from tests.db.test_incidents_api import CONSOLE
 
 RULES = "/field-access/rules"
@@ -309,3 +312,39 @@ async def test_rules_are_isolated_per_tenant(world: World) -> None:  # noqa: F81
             await _insert_as(conn, b.tenant, a.tenant, uuid.UUID(rule["role_id"]))
     finally:
         await conn.close()
+
+
+async def _stale_session(request: Request) -> TenantContext | None:
+    """Signed in through the browser, but the last confirmation is older than the window."""
+    tenant, user = request.headers.get("x-test-tenant"), request.headers.get("x-test-user")
+    if tenant is None:
+        return None
+    record_freshness(request, SignInFreshness(interactive=True, recent=False))
+    return TenantContext(uuid.UUID(tenant), uuid.UUID(user) if user else None)
+
+
+async def test_rule_changes_need_a_recent_confirmation(world: World) -> None:  # noqa: F811
+    """REQ-SEC-027, lane B's #499 review: like role changes, a stale sign-in confirms first."""
+    a = world.a
+    field = await _custom_field(world, a)
+    technician = await world.role_id(a, "technician")
+    rule = (await _rule(world, a, technician, field)).json()
+    other = await _custom_field(world, a, "B")
+    setattr(world.app.state, SESSION_RESOLVER_STATE, _stale_session)
+    try:
+        assert problem(await _rule(world, a, technician, other)) == (
+            403,
+            "reauth_required",
+        )
+        changed = await world.call(
+            "PATCH", f"{RULES}/{rule['id']}", a, a.admin, json={"mode": "masked"},
+            headers={"If-Match": '"1"'},
+        )  # fmt: skip
+        assert problem(changed) == (403, "reauth_required")
+        removed = await world.call(
+            "DELETE", f"{RULES}/{rule['id']}", a, a.admin, headers={"If-Match": '"1"'}
+        )
+        assert problem(removed) == (403, "reauth_required")
+        assert (await world.call("GET", RULES, a, a.admin)).status_code == 200  # reading: fine
+    finally:
+        setattr(world.app.state, SESSION_RESOLVER_STATE, fake_session)
