@@ -764,6 +764,10 @@ export const ar: LabelResource = {
   'errors.invitation_not_pending': 'لم تعد هذه الدعوة بانتظار القبول: قُبلت أو سُحبت.',
   'errors.invitation_pending': 'لدى هذا الشخص دعوة بانتظار القبول. أرسلها مجددًا بدلًا من ذلك.',
   'errors.invitation_person_cannot_sign_in': 'هذا الشخص معطّل أو غير مسموح له بتسجيل الدخول.',
+  'errors.invite_link_has_account':
+    'لدى هذا الشخص كلمة مرور بالفعل: يسجّل الدخول كالمعتاد، فلا يوجد رابط لنسخه.',
+  'errors.invite_link_mail_configured':
+    'البريد الصادر مُعدّ، لذا تُرسل الدعوة بالبريد الإلكتروني. أعد إرسالها بدلًا من نسخ رابط.',
   'errors.ip_not_allowed':
     'لا تسمح مؤسستك بتسجيل الدخول من هذه الشبكة. اتصل من شبكة مسموح بها، أو اطلب ذلك من المسؤول.',
   'errors.job_kind_not_available': 'هذا النوع من المهام غير متاح بعد.',

@@ -257,6 +257,25 @@ export function useInvitationAction() {
   });
 }
 
+/**
+ * No outgoing mail (REQ-SEC-021): a new single-use link to pass on another way. The token is in
+ * the link's fragment only and is shown once; each copy ends the last.
+ */
+export function useCopyInviteLink() {
+  const changed = useInvitationsChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.POST('/api/v1/identity/invitations/{invitation_id}/link', {
+          params: { path: { invitation_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSuccess: changed,
+    onError: onConflict(changed),
+  });
+}
+
 /** Keycloak asks the person for a new password at their next sign-in; their sessions end. */
 export function useRequireNewPassword() {
   return useMutation({

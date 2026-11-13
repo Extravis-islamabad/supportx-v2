@@ -368,6 +368,18 @@ class SignInSecretExpiring(DomainEvent):
     expires_at: datetime
 
 
+class InvitationLinkCopied(DomainEvent):
+    """An admin copied a single-use invite link for a pending invitation (REQ-SEC-021).
+
+    WP-057 S2b-2. Its own event (not a new `change` of the v1 InvitationChanged contract). IDs
+    only; never the link or its token.
+    """
+
+    event_type: ClassVar[str] = "identity_access.invitation.link_copied"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "invitation"
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -395,4 +407,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     BreakGlassSignedIn,
     NewDeviceSignedIn,
     SignInSecretExpiring,
+    InvitationLinkCopied,
 )

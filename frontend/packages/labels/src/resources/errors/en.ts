@@ -827,6 +827,10 @@ export const en = {
   'errors.invitation_pending': 'This person has an invitation waiting. Send it again instead.',
   'errors.invitation_person_cannot_sign_in':
     'This person is deactivated or not allowed to sign in.',
+  'errors.invite_link_has_account':
+    'This person already has a password: they sign in as usual, so there is no link to copy.',
+  'errors.invite_link_mail_configured':
+    'Outgoing mail is set up, so the invitation goes by e-mail. Send it again instead of copying a link.',
   'errors.ip_not_allowed':
     'Your organisation does not allow sign-in from this network. Connect from an allowed network, or ask your administrator.',
   'errors.job_kind_not_available': 'This kind of job is not available yet.',

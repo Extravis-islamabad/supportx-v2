@@ -21,18 +21,21 @@ Someone who already has a Keycloak password (a person of another tenant) gets th
 and no e-mail: they sign in as they are used to (`delivery = existing_account`).
 """
 
+import hashlib
+import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Literal
+from urllib.parse import quote
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, NotFound
-from app.modules.identity_access.events import InvitationChanged
+from app.modules.identity_access.events import InvitationChanged, InvitationLinkCopied
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
@@ -44,6 +47,7 @@ from app.modules.organization import email_branding, get_current_tenant
 from app.shared.events import record_event
 from app.shared.history import stale_version
 from app.shared.ids import new_id
+from app.shared.mail import mail_configured
 
 Status = Literal["pending", "accepted", "expired", "revoked"]
 SET_PASSWORD = "UPDATE_PASSWORD"  # noqa: S105 - the name of a Keycloak required action, not a secret
@@ -130,15 +134,20 @@ async def _brand(
     )
 
 
-async def _deliver(
+async def _deliver(  # noqa: PLR0913 - the person and how to reach them, keyword-only rest
     session: AsyncSession,
     settings: Settings,
     admin: IdentityAdmin,
     person: User,
     *,
     valid_days: int,
+    send: bool = True,
 ) -> tuple[str, bool, str]:
-    """(Keycloak account, whether SupportX created it, delivery) after sending or linking."""
+    """(Keycloak account, whether SupportX created it, delivery) after sending or linking.
+
+    `send` False (no outgoing mail set up, REQ-SEC-021): the account is made and joined to the
+    organization, and no e-mail goes; an admin copies a single-use link instead (`link`).
+    """
     organization = await organization_of(session, admin)
     found = await admin.find_user(person.email or "")
     created = found is None
@@ -154,6 +163,8 @@ async def _deliver(
     await admin.add_member(organization.id, account)
     if found is not None and found.has_password:
         return account, created, "existing_account"
+    if not send:
+        return account, created, "link"
     await _brand(session, settings, admin, account, person)
     await admin.send_actions_email(account, [SET_PASSWORD], valid_days * 86400)
     return account, created, "email"
@@ -172,7 +183,7 @@ async def invite(
         raise Conflict(code="invitation_pending", params={"invitation_id": str(pending)})
     valid_days = (await get_identity_settings(session)).invitation_valid_days
     account, created, delivery = await _deliver(
-        session, settings, keycloak, person, valid_days=valid_days
+        session, settings, keycloak, person, valid_days=valid_days, send=mail_configured(settings)
     )
     now = datetime.now(UTC)
     context = session.info[SESSION_TENANT_KEY]
@@ -233,9 +244,10 @@ async def resend(
         if found is not None and found.id == row.keycloak_user_id and not found.has_password:
             await keycloak.delete_user(row.keycloak_user_id)
     account, created, delivery = await _deliver(
-        session, settings, keycloak, person, valid_days=valid_days
+        session, settings, keycloak, person, valid_days=valid_days, send=mail_configured(settings)
     )
     now = datetime.now(UTC)
+    row.link_token_hash = None  # a resend ends any copied link
     row.keycloak_user_id = account
     row.created_account = row.created_account or created
     row.delivery = delivery
@@ -269,6 +281,7 @@ async def revoke(
             await keycloak.remove_member(organization.id, row.keycloak_user_id)
     row.status = "revoked"
     row.revoked_at = datetime.now(UTC)
+    row.link_token_hash = None  # a copied link dies with it (lane B)
     row.version += 1
     await session.flush()
     await _changed(session, row, "revoked")
@@ -298,9 +311,79 @@ async def mark_accepted(session: AsyncSession, user_id: uuid.UUID, now: datetime
     if row is None:
         return
     row.status, row.accepted_at = "accepted", now
+    row.link_token_hash = None  # single use
     row.version += 1
     await session.flush()
     await _changed(session, row, "accepted")
+
+
+LINK_TOKEN_BYTES = 32
+LINK_MAX_AGE = timedelta(days=7)
+INVITE_PAGE = "invite"  # the set-password page, in the console and the portal
+
+
+@dataclass(frozen=True)
+class CopiedLink:
+    """A copied invite link's token (shown once, never stored) and when it stops working."""
+
+    token: str
+    expires_at: datetime
+    link: str  # a technician's opens the console; anyone else's, the portal
+
+
+def link_token_hash(token: str) -> bytes:
+    """What is stored and looked up: the SHA-256 of the token's text, never the token."""
+    return hashlib.sha256(token.encode("ascii")).digest()
+
+
+async def copy_link(
+    session: AsyncSession,
+    settings: Settings,
+    invitation_id: uuid.UUID,
+    *,
+    expected_version: int,
+    now: datetime,
+) -> CopiedLink:
+    """A new single-use link for a pending invitation, for when no mail is set up (REQ-SEC-021).
+
+    Each copy replaces the last (earlier copies stop working). The link works until the
+    invitation expires, at most LINK_MAX_AGE from this copy (lane B).
+    """
+    if mail_configured(settings):
+        raise Conflict(code="invite_link_mail_configured")
+    row = await _row(session, invitation_id, expected_version)
+    if row.status != "pending" or row.expires_at <= now:
+        raise Conflict(code="invitation_not_pending")
+    if row.delivery == "existing_account":
+        raise Conflict(code="invite_link_has_account")  # they sign in as they are used to
+    token = secrets.token_urlsafe(LINK_TOKEN_BYTES)  # 32 random bytes
+    row.link_token_hash = link_token_hash(token)
+    row.link_copied_at = now
+    row.expires_at = min(row.expires_at, now + LINK_MAX_AGE)
+    row.version += 1
+    await session.flush()
+    await record_event(
+        session, InvitationLinkCopied(), aggregate_id=row.id, aggregate_version=row.version
+    )
+    person = await session.get(User, row.user_id)
+    for_console = person is not None and person.user_type == "technician"
+    # The tenant's own address, as e-mailed links use; where no subdomain names the tenant, `t`
+    # does (D-132). The token goes in the fragment only, which a browser never sends.
+    brand = await email_branding(
+        session, settings, session.info[SESSION_TENANT_KEY].tenant_id, "en"
+    )
+    base = brand.console_url if for_console else brand.portal_url
+    tenant = "" if settings.tenant_base_domain else f"?t={quote(brand.tenant_slug)}"
+    return CopiedLink(token, row.expires_at, f"{base}{INVITE_PAGE}{tenant}#token={token}")
+
+
+async def clear_links(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """The person's copied invite links stop working (deactivated, sign-in stopped)."""
+    await session.execute(
+        update(Invitation)
+        .where(Invitation.user_id == user_id, Invitation.link_token_hash.is_not(None))
+        .values(link_token_hash=None, updated_at=datetime.now(UTC))
+    )
 
 
 async def _changed(session: AsyncSession, row: Invitation, change: str) -> None:

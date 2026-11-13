@@ -972,11 +972,16 @@ export const ar: LabelResource = {
   'security.field.portal_idle': 'البوابة: تسجيل الخروج بعد عدم النشاط',
   'security.intro':
     'كيف يسجّل الأشخاص الدخول إلى مؤسستك: تسجيل الدخول الموحّد ومهل الجلسات ومن يمكنه تسجيل الدخول لأول مرة. يُسجَّل كل تغيير في سجل التدقيق.',
+  'security.invitations.copy_link': 'نسخ الرابط',
   'security.invitations.earlier_links_work':
     'الروابط المرسلة سابقًا لا تزال تعمل أيضًا حتى تنتهي صلاحيتها.',
   'security.invitations.expires': 'يعمل الرابط حتى',
   'security.invitations.intro':
     'ادعُ الأشخاص الذين أضفتهم أو استوردتهم ولم يسجّلوا الدخول بعد، من سجلّهم في الأشخاص. يصل البريد من مؤسستك وبلغتهم، ويعمل رابطه مرة واحدة.',
+  'security.invitations.link_copied': 'نُسخ الرابط',
+  'security.invitations.link_note':
+    'البريد الصادر غير مُعدّ، لذا مرّر هذا الرابط بنفسك وبشكل خاص. يستطيع كل من يملكه تعيين كلمة مرور هذا الشخص. يعمل مرة واحدة حتى {{date}}. نسخ رابط جديد يوقف هذا الرابط.',
+  'security.invitations.link_title': 'رابط الدعوة لـ {{email}}',
   'security.invitations.none': 'لا توجد دعوات بعد.',
   'security.invitations.person': 'الشخص',
   'security.invitations.resend': 'إرسال مجددًا',

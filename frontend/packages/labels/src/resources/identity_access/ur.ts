@@ -987,11 +987,16 @@ export const ur: LabelResource = {
   'security.field.portal_idle': 'پورٹل: غیرفعالی کے بعد سائن آؤٹ',
   'security.intro':
     'لوگ آپ کی تنظیم میں کیسے سائن اِن کرتے ہیں: سنگل سائن آن، سیشن کی مہلتیں اور پہلی بار کون سائن اِن کر سکتا ہے۔ ہر تبدیلی آڈٹ لاگ میں درج ہوتی ہے۔',
+  'security.invitations.copy_link': 'لنک نقل کریں',
   'security.invitations.earlier_links_work':
     'پہلے بھیجے گئے لنک بھی میعاد ختم ہونے تک کام کرتے رہیں گے۔',
   'security.invitations.expires': 'لنک کام کرے گا تک',
   'security.invitations.intro':
     'ان لوگوں کو دعوت دیں جنہیں آپ نے شامل یا درآمد کیا اور جنہوں نے ابھی سائن اِن نہیں کیا: لوگ میں ان کے ریکارڈ سے۔ ای میل آپ کی تنظیم کی طرف سے، ان کی زبان میں آتی ہے، اور اس کا لنک ایک بار کام کرتا ہے۔',
+  'security.invitations.link_copied': 'لنک نقل ہو گیا',
+  'security.invitations.link_note':
+    'باہر جانے والی میل ترتیب نہیں دی گئی، اس لیے یہ لنک خود، نجی طور پر پہنچائیں۔ جس کے پاس بھی یہ ہو وہ اس شخص کا پاس ورڈ رکھ سکتا ہے۔ یہ {{date}} تک ایک بار کام کرتا ہے۔ نیا لنک نقل کرنے سے یہ والا رک جاتا ہے۔',
+  'security.invitations.link_title': '{{email}} کے لیے دعوت نامے کا لنک',
   'security.invitations.none': 'ابھی کوئی دعوت نامہ نہیں۔',
   'security.invitations.person': 'شخص',
   'security.invitations.resend': 'دوبارہ بھیجیں',

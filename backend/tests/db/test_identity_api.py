@@ -276,7 +276,15 @@ async def world(
 
     monkeypatch.setattr(sso_service, "fetch_document", fetch)
     monkeypatch.setattr(sso_service, "client_accepted", client_check)
-    app: FastAPI = create_app(make_settings(database_url=migrated_db.app_url))
+    # Outgoing mail set up (it feeds Keycloak's e-mails too): invitations go by e-mail. The
+    # copied-link tests (test_invite_links.py) turn it off (REQ-SEC-021).
+    app: FastAPI = create_app(
+        make_settings(
+            database_url=migrated_db.app_url,
+            mail_smtp_host="mail.test",
+            mail_from_address="support@acme.test",
+        )
+    )
     async with app.router.lifespan_context(app):
         setattr(app.state, SESSION_RESOLVER_STATE, fake_session)
         admin = FakeAdmin()

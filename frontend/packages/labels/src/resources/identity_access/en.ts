@@ -989,11 +989,16 @@ export const en = {
   'security.field.portal_idle': 'Portal: sign out after inactivity',
   'security.intro':
     'How people sign in to your organisation: single sign-on, session timeouts and who may sign in for the first time. Every change is recorded in the audit log.',
+  'security.invitations.copy_link': 'Copy link',
   'security.invitations.earlier_links_work':
     'Links sent earlier also still work until they expire.',
   'security.invitations.expires': 'Link works until',
   'security.invitations.intro':
     'Invite people you added or imported who have not signed in yet: from their record in People. The e-mail comes from your organisation, in their language, and its link works once.',
+  'security.invitations.link_copied': 'Link copied',
+  'security.invitations.link_note':
+    "Outgoing mail is not set up, so pass this link on yourself, privately. Anyone who has it can set this person's password. It works once, until {{date}}. Copying a new link stops this one.",
+  'security.invitations.link_title': 'Invitation link for {{email}}',
   'security.invitations.none': 'No invitations yet.',
   'security.invitations.person': 'Person',
   'security.invitations.resend': 'Send again',

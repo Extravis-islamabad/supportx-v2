@@ -316,6 +316,7 @@ export {
   useSetMfaMode,
   useCreateSso,
   useIdentitySettings,
+  useCopyInviteLink,
   useInvitationAction,
   useInvitations,
   useInvite,

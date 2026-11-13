@@ -2714,6 +2714,14 @@
         "type": "object"
       }
     },
+    "identity_access.invitation.link_copied": {
+      "1": {
+        "description": "An admin copied a single-use invite link for a pending invitation (REQ-SEC-021).\n\nWP-057 S2b-2. Its own event (not a new `change` of the v1 InvitationChanged contract). IDs\nonly; never the link or its token.",
+        "properties": {},
+        "title": "InvitationLinkCopied",
+        "type": "object"
+      }
+    },
     "identity_access.mfa.changed": {
       "1": {
         "description": "An MFA policy, a person's enrolment or an admin reset changed (WP-039 session 3).",
