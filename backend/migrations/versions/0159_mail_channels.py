@@ -18,7 +18,7 @@ The downgrade refuses while any tenant uses any of it (rule 5h): block rules, bl
 trusted servers, mail commands, addresses kept informed or their links.
 
 Revision ID: 0159
-Revises: 0156 (main's head while building; re-pointed at its queue turn)
+Revises: 0157 (re-pointed from 0156 at its queue turn)
 Created: 2026-11-13
 """
 
@@ -32,7 +32,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0159"
-down_revision: str | None = "0156"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0157"  # re-pointed from 0156 at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
