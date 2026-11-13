@@ -437,6 +437,39 @@ export function useSaveNetworkRules() {
   });
 }
 
+export type SiteNetworks = components['schemas']['SiteNetworksOut'];
+export type SiteNetworkEntry = components['schemas']['SiteNetworkIn'];
+
+/** The address ranges mapped to sites (D-170), and the place database's build date. */
+export function useSiteNetworks() {
+  return useQuery({
+    queryKey: queryKeys.identity.siteNetworks,
+    queryFn: () => call(api.GET('/api/v1/identity/site-networks')),
+    staleTime: 0,
+  });
+}
+
+/** Replace the whole list; a wrong entry comes back at `entries.<n>`. */
+export function useSaveSiteNetworks() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ entries, version }: { entries: SiteNetworkEntry[]; version: number }) =>
+      call(
+        api.PUT('/api/v1/identity/site-networks', {
+          params: { header: ifMatch(version) },
+          body: { entries },
+        }),
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.identity.siteNetworks, saved);
+    },
+    onError: onConflict(
+      () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.siteNetworks }),
+    ),
+  });
+}
+
 export interface SignInFilters {
   outcome?: SignInOutcome[];
   method?: SignInMethod[];

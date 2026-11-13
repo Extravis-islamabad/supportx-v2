@@ -18,6 +18,7 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "PlaceOut.kind": "sign_in_place_kind",  # WP-057 S2b-1 (D-170)
     "TemplateKind": "text_template_kind",  # WP-046a S5a
     "TemplateVisibility": "text_template_visibility",
     "VersionState": "lifecycle_version_state",  # ADR-049 (WP-046a S4)

@@ -8,6 +8,7 @@ any token never.
 """
 
 import uuid
+from datetime import datetime
 from typing import ClassVar, Literal
 
 from pydantic import Field
@@ -349,6 +350,26 @@ class BreakGlassSignedIn(DomainEvent):
     user_id: uuid.UUID
 
 
+class NewDeviceSignedIn(DomainEvent):
+    """A person signed in from a browser or device they have not used before (REQ-SEC-033).
+
+    WP-057 S2b-1: they are told (a locked security notice), never on their first sign-in ever.
+    Carries the device code (domain/sign_in.device, never the User-Agent) and the approximate
+    place (domain/place.py's stored form), never the address: the known_devices table keeps only
+    a keyed fingerprint, so the notice can only say this from the event. Internal (the outbox and
+    the notification consumer), never sent to a browser.
+    """
+
+    event_type: ClassVar[str] = "identity_access.new_device.signed_in"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    device: str | None
+    place: dict[str, str] | None
+    signed_in_at: datetime
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -375,4 +396,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     UserCostRateChanged,
     SignInRecorded,
     BreakGlassSignedIn,
+    NewDeviceSignedIn,
 )

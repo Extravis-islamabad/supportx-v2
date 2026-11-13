@@ -54,6 +54,7 @@ from app.modules.identity_access.domain.mobile import (
     verifier_matches,
 )
 from app.modules.identity_access.domain.network import NetworkApp, address_of
+from app.modules.identity_access.domain.place import place_of
 from app.modules.identity_access.domain.session import Session, TenantChoice
 from app.modules.identity_access.domain.sign_in import (
     SignInApp,
@@ -69,6 +70,9 @@ from app.modules.identity_access.domain.sign_in_policy import (
 )
 from app.modules.identity_access.domain.sso import DEPARTMENT_ATTRIBUTE, SITE_ATTRIBUTE
 from app.modules.identity_access.events import BreakGlassSignedIn
+from app.modules.identity_access.infra.crypto import session_ring
+from app.modules.identity_access.infra.device_keys import device_keys
+from app.modules.identity_access.infra.geoip import GeoIp
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminNotConfigured,
     IdentityAdminUnavailable,
@@ -88,7 +92,9 @@ from app.modules.identity_access.service import (
     api_keys,
     break_glass,
     confirm,
+    known_devices,
     sign_in_log,
+    site_networks,
     sso_test,
 )
 from app.modules.identity_access.service import mfa as mfa_service
@@ -224,6 +230,7 @@ class ListedSession:
     current: bool
     ip: str | None = None
     device: str | None = None
+    place: dict[str, Any] | None = None  # domain/place.py's stored form
 
 
 def user_key(tenant_id: str, user_id: str) -> str:
@@ -387,6 +394,10 @@ class AuthService:
         self.database = database
         self.clock = clock
         self.cookie_name = cookie_name
+        # The approximate sign-in place (WP-057 S2b, D-170): the mounted GeoIP file, if any.
+        self.geo = GeoIp(settings.geoip_db)
+        # Known-device fingerprints (WP-057 S2b-1): their own HMAC keys from the session ring.
+        self.device_keys = device_keys(session_ring(settings))
         self.idle = timedelta(seconds=settings.session_idle_timeout_seconds)
         self.absolute = timedelta(seconds=settings.session_absolute_timeout_seconds)
         # Set by the module startup once the policy service exists (WP-016).
@@ -998,7 +1009,7 @@ class AuthService:
                 # Keycloak could not be told: never loop through sign-in, say so instead.
                 raise PermissionDenied(code="mfa_enrolment_unavailable")
             raise MfaEnrolmentDue
-        return Session(
+        built = Session(
             mfa_due_at=None if mfa.due_at is None else mfa.due_at.isoformat(),
             subject=identity.subject,
             user_id=str(user.user_id),
@@ -1029,7 +1040,35 @@ class AuthService:
             sign_in_ip=attempt.ip if attempt is not None else None,
             device=device(attempt.user_agent) if attempt is not None else None,
             auth_time=_iso_seconds(identity.auth_time),
+            place=await self.place_at(
+                uuid.UUID(target.tenant_id), attempt.ip if attempt is not None else None
+            ),
         )
+        if attempt is not None:
+            # REQ-SEC-033: a browser or device they have not used before tells the person.
+            await known_devices.on_sign_in(
+                self.database,
+                tenant_id=uuid.UUID(target.tenant_id),
+                user_id=user.user_id,
+                keys=self.device_keys,
+                device=built.device,
+                ip=attempt.ip,
+                place=built.place,
+                now=now,
+            )
+        return built
+
+    async def place_at(self, tenant_id: uuid.UUID, ip: str | None) -> dict[str, Any] | None:
+        """The approximate place of `ip` in `tenant_id` (its site map, then GeoIP), stored form.
+
+        Help for the person reading their sessions or sign-ins, never a reason to fail one: no
+        address, no database or no match is simply no place.
+        """
+        if ip is None or self.database is None:
+            return None
+        networks = await site_networks.tenant_site_networks(self.database, tenant_id)
+        found = place_of(ip, networks, self.geo.lookup)
+        return None if found is None else found.to_dict()
 
     async def _log_policy_refusal(
         self,
@@ -1157,6 +1196,7 @@ class AuthService:
                 current=sid == mine,
                 ip=meta.get("ip"),
                 device=meta.get("device"),
+                place=meta.get("place") if isinstance(meta.get("place"), dict) else None,
             )
             for sid, meta in rows
         ]
@@ -1497,6 +1537,8 @@ class AuthService:
             created_at=self.clock.now(),
             idle_seconds=user.session_idle_seconds,
             absolute_seconds=user.session_absolute_seconds,
+            # The new tenant maps its own address ranges to its own sites.
+            place=await self.place_at(tenant_id, session.sign_in_ip),
         )
         await self.store.delete_session(session_id)
         return await self._save_new(switched), switched

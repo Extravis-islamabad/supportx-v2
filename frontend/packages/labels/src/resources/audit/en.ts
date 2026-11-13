@@ -222,6 +222,7 @@ export const en = {
   'audit.action.identity.password_policy_reapplied': 'Applied the password policy again',
   'audit.action.identity.settings_changed': 'Changed the sign-in settings',
   'audit.action.identity.sign_ins_viewed': 'Viewed the sign-in log',
+  'audit.action.identity.site_networks_changed': 'Changed the address ranges mapped to sites',
   'audit.action.identity.sso_policy_changed': 'Changed the single sign-on policy',
   'audit.action.incident.access_changed': 'Changed who can see or work on an incident',
   'audit.action.incident.approval_decided': 'Recorded an approval decision on an incident',
@@ -705,6 +706,7 @@ export const en = {
   'audit.sign_ins.period.month': 'Last 30 days',
   'audit.sign_ins.period.week': 'Last 7 days',
   'audit.sign_ins.person': 'Person',
+  'audit.sign_ins.place': 'Place',
   'audit.sign_ins.reason': 'Reason',
   'audit.sign_ins.unknown_person': 'Not a known person',
   'audit.sign_ins.when': 'When',
@@ -965,6 +967,7 @@ export const en = {
   'event_type.identity_access.keycloak_session.end_pending':
     'Sign-in service session waiting to end',
   'event_type.identity_access.mfa.changed': 'Two-step sign-in changed',
+  'event_type.identity_access.new_device.signed_in': 'Sign-in from a new device',
   'event_type.identity_access.password_policy.changed': 'Password policy changed',
   'event_type.identity_access.people_import.progressed': 'People import progressed',
   'event_type.identity_access.role.changed': 'Role changed',

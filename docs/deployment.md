@@ -610,6 +610,36 @@ CI runs the HA cluster with egress on (`values-ha-ci.yaml`), and `make cluster-h
 that the namespace answers and the outside doesn't. chart-lint checks that the chart refuses to
 render without the control plane's addresses, and that no egress rule opens `0.0.0.0/0`.
 
+## Approximate sign-in place (GeoIP)
+
+Sessions and the sign-in log show roughly where a sign-in came from (WP-057 S2b, D-170). The order
+is fixed:
+1. **An address range an admin mapped to a site** (Admin › Sign-in and security › Address ranges by
+   site), for internal and public ranges alike.
+2. **"Internal network"** for private, loopback, link-local and carrier-grade NAT addresses, never
+   a guessed city.
+3. **A city and country** from the DB-IP Lite city database, when one is installed.
+
+The database is a file of about 126 MB (`dbip-city-lite.mmdb`), CC BY 4.0, credited on the About
+dialog. It is **never in an image**: give the API pods a ReadOnlyMany (or ReadWriteMany) volume
+holding it and set:
+
+```yaml
+geoip:
+  existingClaim: supportx-geoip     # the claim holding the file
+  file: dbip-city-lite.mmdb         # its name there
+```
+
+- **Refresh it monthly through the mirror**, and in air-gapped installs from the offline update
+  bundle, by replacing the file on the volume. Each API pod opens it once, so roll the API out
+  after a refresh (`kubectl rollout restart deployment/<release>-api`); until then the pods keep
+  the file they opened.
+- **On a single node** (k3s), a `ReadWriteOnce` claim from the local-path provisioner works:
+  every API pod runs on that node.
+- **Admins see its age:** the card shows the date the database was built.
+- **Without it,** sign-ins outside the mapped ranges show no city. Nothing else changes and
+  nothing fails.
+
 ## Backups
 
 `postgresql.cnpg.backup.enabled` turns on CloudNativePG's Barman Cloud plugin (a cluster

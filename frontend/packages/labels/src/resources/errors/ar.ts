@@ -579,6 +579,9 @@ export const ar: LabelResource = {
     'استخدم مدة لا تقل عن مهلة عدم النشاط ولا تزيد على {{max}} ساعة.',
   'errors.field.session_idle_out_of_range': 'استخدم ما بين {{min}} و{{max}} دقيقة.',
   'errors.field.site_inactive': 'هذا الموقع غير نشط. اختر موقعًا نشطًا.',
+  'errors.field.site_network_invalid':
+    'أدخل نطاقًا مثل 10.1.0.0/16 (مع جعل جزء المضيف صفرًا)، أو عنوانًا واحدًا.',
+  'errors.field.site_network_too_many': 'يمكن ربط {{max}} نطاقًا على الأكثر.',
   'errors.field.site_not_found': 'هذا الموقع غير موجود.',
   'errors.field.sso_certificate_expired': 'انتهت صلاحية الشهادة. اطلب شهادة سارية من مزوّد الهوية.',
   'errors.field.sso_certificate_missing': 'لا تحتوي البيانات الوصفية على شهادة توقيع.',

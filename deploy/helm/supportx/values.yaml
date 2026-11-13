@@ -302,6 +302,13 @@ objectStorage:
           limits: {cpu: "1", memory: 512Mi}
 
 # --- Files and malware scanning (WP-022, ADR-028, D-082) -------------------------------------------
+# The approximate sign-in place (WP-057 S2b, D-170): the DB-IP Lite city database (.mmdb, about
+# 126 MB, CC BY 4.0) on a volume the operator provides, never in an image. Empty: no city is shown
+# (internal ranges and admin-mapped networks still name the internal network or the site).
+geoip:
+  existingClaim: ""                 # a ReadOnlyMany/ReadWriteMany claim holding the file
+  file: dbip-city-lite.mmdb         # its name on that volume
+
 files:
   # Files wait as "scanning" until a scanner has checked them. Off only knowingly: files are then
   # stored "not scanned" and administrators are warned (docs/architecture/files.md).

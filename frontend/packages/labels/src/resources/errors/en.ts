@@ -624,6 +624,9 @@ export const en = {
     'Use at least the idle timeout and at most {{max}} hours.',
   'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
   'errors.field.site_inactive': 'This site is inactive. Choose an active site.',
+  'errors.field.site_network_invalid':
+    'Enter a range such as 10.1.0.0/16 (with the host part zero), or one address.',
+  'errors.field.site_network_too_many': 'At most {{max}} ranges can be mapped.',
   'errors.field.site_not_found': 'This site does not exist.',
   'errors.field.sso_certificate_expired':
     'The certificate has expired. Ask the identity provider for a current one.',

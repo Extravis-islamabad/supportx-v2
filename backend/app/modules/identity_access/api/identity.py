@@ -27,12 +27,14 @@ from app.core.database import TenantSession
 from app.core.errors import NotFound, ProblemDetail
 from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
-from app.modules.identity_access.api.sessions import ListedSessionOut, listed_out
+from app.modules.identity_access.api.sessions import ListedSessionOut, PlaceOut, listed_out
 from app.modules.identity_access.domain import sso as sso_rules
 from app.modules.identity_access.domain.network import NetworkApp, address_of
+from app.modules.identity_access.domain.place import MAX_SITE_NETWORKS, place_of
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.domain.sign_in import SignInApp, SignInMethod, SignInOutcome
 from app.modules.identity_access.domain.sign_in_policy import SsoRequired
+from app.modules.identity_access.infra.geoip import GeoIp
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
@@ -52,6 +54,7 @@ from app.modules.identity_access.service import (
     network_rules,
     password_reset,
     sign_in_log,
+    site_networks,
     sso,
     sso_test,
 )
@@ -238,6 +241,10 @@ class SignInEventOut(BaseModel):
     ip: str | None
     device: str | None
     identity_provider: str | None
+    place: PlaceOut | None = Field(
+        default=None,
+        description="Where the address is, approximately, read now (D-170); none once erased.",
+    )
 
 
 class SignInPersonOut(BaseModel):
@@ -253,6 +260,12 @@ class SignInLogPage(BaseModel):
     items: list[SignInEventOut]
     people: dict[str, SignInPersonOut]
     next_cursor: str | None
+
+
+def _geo(request: Request) -> GeoIp:
+    """The process's GeoIP reader (the sign-in service's), or one that answers nothing."""
+    auth: AuthService | None = getattr(request.app.state, "auth", None)
+    return auth.geo if auth is not None else GeoIp(None)
 
 
 @router.get("/sign-ins", summary="The sign-in log")
@@ -319,6 +332,15 @@ async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of 
         str(person.id): SignInPersonOut(display_name=person.display_name, email=person.email)
         for person in await session.scalars(select(User).where(User.id.in_(named)))
     }
+    # The place is read now from the stored address (never stored itself: erasing the address
+    # erases the place), with today's site map and GeoIP file (D-170).
+    networks = (await site_networks.get_site_map(session)).networks()
+    geo = _geo(request)
+
+    def place(ip: str | None) -> PlaceOut | None:
+        found = place_of(ip, networks, geo.lookup) if ip is not None else None
+        return None if found is None else PlaceOut.of(found.to_dict())
+
     last_row = rows[-1] if rows else None
     return SignInLogPage(
         items=[
@@ -333,6 +355,7 @@ async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of 
                 ip=str(r.ip) if r.ip is not None else None,
                 device=r.device,
                 identity_provider=r.identity_provider,
+                place=place(str(r.ip) if r.ip is not None else None),
             )
             for r in rows
         ],
@@ -573,6 +596,77 @@ async def put_network_rules(  # noqa: PLR0913, PLR0917 - FastAPI parameters: bod
     note.skip = not details
     set_etag(response, saved.version)
     return _rules_out(saved, request)
+
+
+class SiteNetworkIn(BaseModel):
+    """One address range and the site it means."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    network: str = Field(max_length=64, description="A range such as 10.1.0.0/16, or one address.")
+    site_id: uuid.UUID
+
+
+class SiteNetworksBody(BaseModel):
+    """The whole list (replaces what is saved)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entries: list[SiteNetworkIn] = Field(max_length=MAX_SITE_NETWORKS)
+
+
+class SiteNetworksOut(BaseModel):
+    """The ranges as saved, most specific first, and the settings version (If-Match)."""
+
+    entries: list[SiteNetworkIn]
+    version: int
+    geoip_built_at: datetime | None = Field(
+        description="When the installed place database was built (D-170), or null without one."
+    )
+
+
+def _site_map_out(saved: site_networks.SiteMap, request: Request) -> SiteNetworksOut:
+    return SiteNetworksOut(
+        entries=[SiteNetworkIn(network=net, site_id=site) for net, site in saved.entries],
+        version=saved.version,
+        geoip_built_at=_geo(request).built_at(),
+    )
+
+
+@router.get("/site-networks", summary="Address ranges mapped to sites")
+async def get_site_networks(
+    request: Request, response: Response, session: TenantSession, subject: Manage
+) -> SiteNetworksOut:
+    """Which site a sign-in from each range is shown at (D-170); the most specific range wins."""
+    del subject
+    saved = await site_networks.get_site_map(session)
+    set_etag(response, saved.version)
+    return _site_map_out(saved, request)
+
+
+@router.put("/site-networks", summary="Save the address ranges mapped to sites")
+async def put_site_networks(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, request, response, session, subject, audit note
+    body: SiteNetworksBody,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote, audited("identity.site_networks_changed", object_type="identity_settings")
+    ],
+) -> SiteNetworksOut:
+    """Replace the list. Sign-ins from now on show the site; earlier ones are read the same way."""
+    saved, details = await site_networks.save_site_map(
+        session,
+        [(entry.network, entry.site_id) for entry in body.entries],
+        expected_version=version,
+    )
+    note.object_id = str(subject.tenant_id)
+    note.details = details
+    note.skip = not details
+    set_etag(response, saved.version)
+    return _site_map_out(saved, request)
 
 
 @router.post(

@@ -219,6 +219,7 @@ export const ar: LabelResource = {
   'audit.action.identity.password_policy_reapplied': 'طبّق سياسة كلمات المرور مجددًا',
   'audit.action.identity.settings_changed': 'غيّر إعدادات تسجيل الدخول',
   'audit.action.identity.sign_ins_viewed': 'عرض سجل تسجيل الدخول',
+  'audit.action.identity.site_networks_changed': 'غيّر نطاقات العناوين المرتبطة بالمواقع',
   'audit.action.identity.sso_policy_changed': 'غيّر سياسة الدخول الموحد',
   'audit.action.incident.access_changed': 'غيّر صلاحيات الوصول إلى حادثة',
   'audit.action.incident.approval_decided': 'سجّل قرار موافقة على حادثة',
@@ -699,6 +700,7 @@ export const ar: LabelResource = {
   'audit.sign_ins.period.month': 'آخر 30 يومًا',
   'audit.sign_ins.period.week': 'آخر 7 أيام',
   'audit.sign_ins.person': 'الشخص',
+  'audit.sign_ins.place': 'المكان',
   'audit.sign_ins.reason': 'السبب',
   'audit.sign_ins.unknown_person': 'ليس شخصًا معروفًا',
   'audit.sign_ins.when': 'الوقت',
@@ -965,6 +967,7 @@ export const ar: LabelResource = {
   'event_type.identity_access.keycloak_session.end_pending':
     'جلسة خدمة تسجيل الدخول بانتظار الإنهاء',
   'event_type.identity_access.mfa.changed': 'تغيّر تسجيل الدخول بخطوتين',
+  'event_type.identity_access.new_device.signed_in': 'تسجيل دخول من جهاز جديد',
   'event_type.identity_access.password_policy.changed': 'تغيّرت سياسة كلمات المرور',
   'event_type.identity_access.people_import.progressed': 'تقدّم استيراد الأشخاص',
   'event_type.identity_access.role.changed': 'تم تغيير دور',
