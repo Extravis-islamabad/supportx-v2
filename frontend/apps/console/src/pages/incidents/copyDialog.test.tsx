@@ -19,9 +19,12 @@ const ADMIN = fakeSession({ display_name: 'Amal Admin', roles: ['tenant_admin', 
 const ITEM = fakeIncident();
 const PATH = `/api/v1/incidents/${ITEM.id}`;
 
-function routes(copies: FakeRoute) {
+function routes(copies: FakeRoute, copyLimit = 20) {
+  const catalogue = fakeIncidentCatalogue();
   return {
-    'GET /api/v1/incidents/settings': { body: fakeIncidentCatalogue() },
+    'GET /api/v1/incidents/settings': {
+      body: { ...catalogue, closure: { ...catalogue.closure, copy_limit: copyLimit } },
+    },
     'GET /api/v1/incidents/templates': { body: [fakeIncidentTemplate()] },
     'GET /api/v1/incidents/categories': { body: [] },
     'GET /api/v1/organization/groups': { body: [] },
@@ -50,7 +53,10 @@ describe('Copy an incident', () => {
     ];
     const fake = consoleApi({
       me: ADMIN,
-      routes: routes({ status: 201, body: { items: copies } }),
+      routes: routes({
+        status: 201,
+        body: { items: copies, files_not_copied: [{ file_id: 'f-1', reason: 'scanning' }] },
+      }),
     });
     restore = fake.restore;
     render(<App />);
@@ -65,6 +71,19 @@ describe('Copy an incident', () => {
     expect(sent?.body).toEqual({ count: 2, parts: ['tasks'] });
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
     expect(await screen.findByText('Made INC-11 and INC-12.')).toBeDefined();
+    // A file still being checked stays behind, and the technician is told (lane B).
+    expect(await screen.findByText(/1 file could not be copied now/)).toBeDefined();
+  });
+
+  it("AC3: the count's help says the type's own limit", async () => {
+    const fake = consoleApi({
+      me: ADMIN,
+      routes: routes({ status: 201, body: { items: [], files_not_copied: [] } }, 5),
+    });
+    restore = fake.restore;
+    render(<App />);
+    await clickAction('inc-op-copy');
+    expect(await screen.findByText('Up to 5 at a time.')).toBeDefined();
   });
 
   it('AC3: a refusal over the limit says the limit at the count', async () => {

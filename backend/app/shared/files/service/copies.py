@@ -223,8 +223,11 @@ async def copy_to_records(  # noqa: C901, PLR0912, PLR0913, PLR0915 - lane B's r
     access = owner_access(owner_type)
     try:
         await access.check(session, actor, owner_type, source_id, Action.VIEW)
-        for target in targets:
-            await access.check(session, actor, owner_type, target, Action.ATTACH)
+        # Each target's record, for its links (a link to a record names it, as an upload's).
+        owners = {
+            target: await access.check(session, actor, owner_type, target, Action.ATTACH)
+            for target in targets
+        }
     except PermissionDenied as error:
         # One record they may not use refuses the whole call, as not found (lane B).
         raise NotFound(code="work_item_not_found") from error
@@ -299,6 +302,8 @@ async def copy_to_records(  # noqa: C901, PLR0912, PLR0913, PLR0915 - lane B's r
                     file_id=stored.id,
                     owner_type=owner_type.value,
                     owner_id=target,
+                    record_type=owners[target].record_type,
+                    record_id=owners[target].record_id,
                     inline=is_inline,
                 )
             )

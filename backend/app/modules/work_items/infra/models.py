@@ -91,6 +91,7 @@ class WorkItemTypeSettings(TenantKeyed, Base):
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
         CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
+        CheckConstraint("copy_limit BETWEEN 1 AND 100", name="copy_limit_range"),
         CheckConstraint(
             "task_dependency_mode IN ('block', 'warn')", name="task_dependency_mode_code"
         ),
@@ -190,6 +191,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     segregation_strict: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-046a S2 (0144, REQ-INC-077): the most items one checklist may hold (admins set it).
     checklist_item_max: Mapped[int] = mapped_column(Integer, server_default="100")
+    # WP-046a S5c (0156; REQ-INC-033 AC3): how many copies one request may make.
+    copy_limit: Mapped[int] = mapped_column(Integer, server_default="20")
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.

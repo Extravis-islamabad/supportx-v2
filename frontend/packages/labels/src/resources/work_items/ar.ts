@@ -1047,6 +1047,17 @@ export const ar: LabelResource = {
   'incidents.copy.confirm_zero': 'إنشاء {{count}} نسخة',
   'incidents.copy.count': 'عدد النسخ',
   'incidents.copy.count_help': 'حتى {{max}} في كل مرة.',
+  'incidents.copy.files_left_out_few':
+    'تعذّر نسخ {{count}} ملفات الآن (ما زالت قيد الفحص أو غير آمنة) فبقيت في الأصل.',
+  'incidents.copy.files_left_out_many':
+    'تعذّر نسخ {{count}} ملفًا الآن (ما زالت قيد الفحص أو غير آمنة) فبقيت في الأصل.',
+  'incidents.copy.files_left_out_one':
+    'تعذّر نسخ ملف واحد الآن (ما زال قيد الفحص أو غير آمن) فبقي في الأصل.',
+  'incidents.copy.files_left_out_other':
+    'تعذّر نسخ {{count}} ملف الآن (ما زالت قيد الفحص أو غير آمنة) فبقيت في الأصل.',
+  'incidents.copy.files_left_out_two':
+    'تعذّر نسخ ملفين الآن (ما زالا قيد الفحص أو غير آمنين) فبقيا في الأصل.',
+  'incidents.copy.files_left_out_zero': 'لم يُترك أي ملف.',
   'incidents.copy.help':
     'كل نسخة حادث جديد يذكر سجله هذا الحادث ويبيّن موضوعه أنه نسخة. تُنسخ الحقول دائمًا، ولا تُنسخ المحادثة أو سجلات العمل أو السجل أبدًا.',
   'incidents.copy.made': 'تم إنشاء {{ids}}.',

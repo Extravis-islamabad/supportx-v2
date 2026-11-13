@@ -1407,9 +1407,23 @@ it with no reload (rule c). Not built yet.
     and the server applies its rules. A field they need that the dialog lacks is named, with
     "Open the full form" (template and requester carried over; AC2).
   - The list updates live (AC1).
-  - **Next:** copy N times (REQ-INC-033; `copy_limit`, migration number asked). Server drafts
-    (REQ-INC-019) wait for WP-057 S3's field encryption, as approved; today's drafts are kept
-    in the tab (sessionStorage).
+  - **Next:** server drafts (REQ-INC-019) wait for WP-057 S3's field encryption, as approved;
+    today's drafts are kept in the tab (sessionStorage).
+- **S5c part 2 (0156; REQ-INC-033 copy N times):**
+  - Incident › More › Copy: how many (up to the type's limit), and whether its tasks and
+    attachments come. Each copy is a new record through the same create (the template's rules
+    apply), its subject "Copy 2 of: …", its history naming the original. Conversations,
+    worklogs, history, approvals and the assigned person never come (AC2).
+  - Attachments come as new files, each encrypted under its own ID and linked to the copy; the
+    description's images point at the copy's own files. Files that cannot be opened now
+    (scanning, infected, too large, blocked) stay behind, are listed, and their images are
+    removed. One record the actor may not use refuses the whole call (404, nothing written);
+    200 file pairs and 100 MB per call; each copy audited as `file.copied` (lane B's rules).
+    25 MB x 2 copies in about 2 s locally.
+  - Admin › Incidents › Closing › Copies at once: 1 to 100, 20 by default (AC3); a refusal says
+    the limit at the count.
+  - Migration 0156: `work_item_type_settings.copy_limit` and the `copy` file source; the
+    downgrade refuses while a tenant holds a copied file or a changed limit (rule 5h).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

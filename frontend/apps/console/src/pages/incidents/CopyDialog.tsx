@@ -1,7 +1,12 @@
 import { App, Checkbox, Form, InputNumber, Modal, Typography } from 'antd';
 import { useState } from 'react';
 
-import { ApiError, useCopyIncident, type RecordCopyPart } from '@supportx/api-client';
+import {
+  ApiError,
+  useCopyIncident,
+  useIncidentCatalogue,
+  type RecordCopyPart,
+} from '@supportx/api-client';
 import { useListFormat, type LabelParams } from '@supportx/labels';
 import { reportError, useLabel } from '@supportx/ui';
 
@@ -11,7 +16,7 @@ import { reportError, useLabel } from '@supportx/ui';
 // count when it refuses (AC3).
 
 const PARTS: readonly RecordCopyPart[] = ['tasks', 'attachments'];
-const SHOWN_MAX = 20; // the default limit; the server's own (per type) is the one that counts
+const DEFAULT_MAX = 20; // until the settings load; the server's own limit is the one that counts
 
 export function CopyDialog({
   open,
@@ -28,6 +33,7 @@ export function CopyDialog({
   const listFormat = useListFormat();
   const { message } = App.useApp();
   const copy = useCopyIncident(recordId);
+  const shownMax = useIncidentCatalogue().data?.closure.copy_limit ?? DEFAULT_MAX;
   const [count, setCount] = useState(1);
   const [parts, setParts] = useState<RecordCopyPart[]>([]);
   const [key, setKey] = useState(() => crypto.randomUUID());
@@ -54,6 +60,12 @@ export function CopyDialog({
               ),
             }),
           );
+          // Files that could not be copied now (scanning, infected, too large) stay behind.
+          if (made.files_not_copied.length > 0) {
+            void message.warning(
+              t('incidents.copy.files_left_out', { count: made.files_not_copied.length }),
+            );
+          }
           close();
         },
         onError: (error) => {
@@ -93,7 +105,7 @@ export function CopyDialog({
           validateStatus={problem === null ? undefined : 'error'}
           help={
             problem === null
-              ? t('incidents.copy.count_help', { max: SHOWN_MAX })
+              ? t('incidents.copy.count_help', { max: shownMax })
               : t(problem.key, problem.params)
           }
         >

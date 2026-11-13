@@ -1067,6 +1067,9 @@ class WorkItemClosureOut(BaseModel):
     checklist_item_max: int = Field(
         default=100, description="Checklist items per record, all its checklists (1 to 1000)."
     )
+    copy_limit: int = Field(
+        default=20, description="How many copies one request may make (1 to 100)."
+    )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
     )
@@ -1356,6 +1359,7 @@ class WorkItemCatalogueOut(BaseModel):
                     'Literal["block", "warn"]', cat.closure.task_dependency_mode
                 ),
                 checklist_item_max=cat.closure.checklist_item_max,
+                copy_limit=cat.closure.copy_limit,
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1385,6 +1389,7 @@ class WorkItemClosurePatch(BaseModel):
     timer_auto_start: StrictBool | None = None
     task_dependency_mode: Literal["block", "warn"] | None = None
     checklist_item_max: int | None = Field(default=None, description="1 to 1000.")
+    copy_limit: int | None = Field(default=None, description="1 to 100.")
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -1666,10 +1671,20 @@ class RecordCopiesIn(BaseModel):
     parts: list[RecordCopyPart] = Field(default_factory=list, max_length=len(RecordCopyPart))
 
 
+class FileLeftOutOut(BaseModel):
+    """One of the original's files that did not come with the copies, and why (lane B)."""
+
+    file_id: uuid.UUID
+    reason: str = Field(
+        description="The file's state (e.g. scanning, infected), too_large or blocked."
+    )
+
+
 class RecordCopiesOut(BaseModel):
-    """The copies made, in order."""
+    """The copies made, in order, and the original's files that did not come."""
 
     items: list[WorkItemOut]
+    files_not_copied: list[FileLeftOutOut]
 
 
 class ChangePrefillOut(BaseModel):
@@ -3801,7 +3816,15 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
                     facts=RequestFacts.of(request),
                 )
                 views = [await service.get(session, subject, wtype, r.id) for r in made.records]
-                return Created(body=RecordCopiesOut(items=[WorkItemOut.of(v) for v in views]))
+                return Created(
+                    body=RecordCopiesOut(
+                        items=[WorkItemOut.of(v) for v in views],
+                        files_not_copied=[
+                            FileLeftOutOut(file_id=n.file_id, reason=n.reason)
+                            for n in made.not_copied
+                        ],
+                    )
+                )
 
             return await idempotency.run({"copy_of": str(record_id), **body.model_dump()}, run)
 

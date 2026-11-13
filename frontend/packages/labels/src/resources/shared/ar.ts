@@ -514,6 +514,9 @@ export const ar: LabelResource = {
   'settings.closing.complete_open_work': 'إكمال العمل المفتوح عند الإغلاق',
   'settings.closing.complete_open_work_help': 'يؤدي إغلاق الحادثة إلى تعليم عملها المفتوح كمكتمل.',
   'settings.closing.condition.review_completed': 'اكتمال المراجعة',
+  'settings.closing.copy_limit': 'النسخ في المرة الواحدة',
+  'settings.closing.copy_limit_help':
+    'عدد نسخ الحادثة التي يمكن إنشاؤها في طلب واحد، من {{min}} إلى {{max}}.',
   'settings.closing.days_range': 'من {{min}} إلى {{max}} يوم عمل.',
   'settings.closing.help':
     'ما يلزم لحل الحادثة وإغلاقها، وما يحدث للعمل المفتوح، والمدة التي يمكن خلالها لمقدّم الطلب إعادة فتحها بالرد.',

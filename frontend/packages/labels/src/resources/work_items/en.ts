@@ -919,6 +919,10 @@ export const en = {
   'incidents.copy.confirm_other': 'Make {{count}} copies',
   'incidents.copy.count': 'How many copies',
   'incidents.copy.count_help': 'Up to {{max}} at a time.',
+  'incidents.copy.files_left_out_one':
+    '{{count}} file could not be copied now (still being checked, or not safe) and stayed behind.',
+  'incidents.copy.files_left_out_other':
+    '{{count}} files could not be copied now (still being checked, or not safe) and stayed behind.',
   'incidents.copy.help':
     'Each copy is a new incident whose history names this one and whose subject says it is a copy. The fields always come; the conversation, worklogs and history never do.',
   'incidents.copy.made': 'Made {{ids}}.',

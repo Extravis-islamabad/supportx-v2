@@ -17,6 +17,7 @@ from collections.abc import Collection
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.audit import RequestFacts
@@ -24,7 +25,7 @@ from app.modules.audit import record as record_audit
 from app.modules.identity_access import Subject
 from app.modules.organization import offered_languages
 from app.modules.work_items.domain.types import SUBJECT_MAX, WorkItemType
-from app.modules.work_items.infra.models import WorkItem
+from app.modules.work_items.infra.models import WorkItem, WorkItemTypeSettings
 from app.modules.work_items.service import parts
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.work_items import PermissionHolders
@@ -35,7 +36,7 @@ from app.shared.history import Source
 from app.shared.labels import label
 from app.shared.richtext import image_file_ids, sanitize_html
 
-DEFAULT_COPY_LIMIT = 20  # REQ-INC-033 AC3's default; per type once its setting exists
+DEFAULT_COPY_LIMIT = 20  # REQ-INC-033 AC3's default; each type's own in its settings (0156)
 SUBJECT_MARK = "work_item.copy_subject"
 # The record's own fields a copy takes (never status, dates, assignment to a person, counters).
 FIELDS = (
@@ -72,9 +73,11 @@ class Made:
 
 
 async def copy_limit(session: AsyncSession, wtype: WorkItemType) -> int:
-    """How many copies one request may make (the type's setting comes with its migration)."""
-    del session, wtype
-    return DEFAULT_COPY_LIMIT
+    """How many copies one request may make (20 unless an admin changed it)."""
+    found = await session.scalar(
+        select(WorkItemTypeSettings.copy_limit).where(WorkItemTypeSettings.type == wtype.code)
+    )
+    return int(found or DEFAULT_COPY_LIMIT)
 
 
 def marked_subject(subject: str, number: int, language: str) -> str:

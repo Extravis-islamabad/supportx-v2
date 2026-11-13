@@ -40,7 +40,9 @@ from app.shared.db.models import (
 
 STATES = ("scanning", "clean", "infected", "scan_failed", "not_scanned", "deleted")
 OWNER_TYPES = ("work_item", "conversation_entry", "draft", "branding", "kb_article")
-SOURCES = ("ui", "api", "email", "portal", "knowledge")  # knowledge: copies (D-121)
+# knowledge: an article's images copied into a reply (D-121); copy: a record's files copied
+# onto its copies (WP-046a S5c, 0156).
+SOURCES = ("ui", "api", "email", "portal", "knowledge", "copy")
 
 
 class StoredFile(TenantEntity):

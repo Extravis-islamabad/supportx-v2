@@ -79,6 +79,8 @@ const PROFILES: Record<SettingsBase, ClosingProfile> = {
 const DAYS = { min: 1, max: 30 };
 // Checklist items per record (WP-046a S2): the server's own range.
 const ITEMS = { min: 1, max: 1000 };
+// Copies one request may make (WP-046a S5c, REQ-INC-033 AC3): the server's own range.
+const COPIES = { min: 1, max: 100 };
 const AUTO_CLOSE_DEFAULT = 3; // Appendix A (D3)
 // Settings whose problems show at their own field.
 const PLACED = new Set([
@@ -87,6 +89,7 @@ const PLACED = new Set([
   'auto_close_days',
   'reopen_window_days',
   'checklist_item_max',
+  'copy_limit',
 ]);
 
 /** WP-046a S3: the worklog rules' switches, in the order shown (each with its help text). */
@@ -112,6 +115,7 @@ interface Draft {
   autoCloseDays: number | null;
   reopenDays: number | null;
   itemMax: number | null;
+  copyLimit: number | null;
 }
 
 /**
@@ -148,6 +152,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     autoCloseDays: closure.auto_close_days ?? AUTO_CLOSE_DEFAULT,
     reopenDays: closure.reopen_window_days,
     itemMax: closure.checklist_item_max,
+    copyLimit: closure.copy_limit,
   };
   const draftState = useDraft(source, catalogue.version);
   const { draft, edit, stale } = draftState;
@@ -174,14 +179,28 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     draft.itemMax === null
       ? t('errors.field.required')
       : numberProblem(t, draft.itemMax, { ...ITEMS, whole: true });
+  // Only incidents can be copied (the copy route is theirs).
+  const copies = profile.type === 'incident';
+  const copyLimitProblem = !copies
+    ? null
+    : draft.copyLimit === null
+      ? t('errors.field.required')
+      : numberProblem(t, draft.copyLimit, { ...COPIES, whole: true });
   const problemAt = (field: string) => {
     if (field === 'auto_close_days' && autoCloseProblem !== null) return autoCloseProblem;
     if (field === 'reopen_window_days' && reopenProblem !== null) return reopenProblem;
     if (field === 'checklist_item_max' && itemMaxProblem !== null) return itemMaxProblem;
+    if (field === 'copy_limit' && copyLimitProblem !== null) return copyLimitProblem;
     return byField[field];
   };
   const submit = () => {
-    if (autoCloseProblem !== null || reopenProblem !== null || itemMaxProblem !== null) return;
+    if (
+      autoCloseProblem !== null ||
+      reopenProblem !== null ||
+      itemMaxProblem !== null ||
+      copyLimitProblem !== null
+    )
+      return;
     const body: ClosurePatch = {
       resolve_requires: draft.resolve,
       close_requires: draft.close,
@@ -194,6 +213,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       timer_auto_start: draft.timerAutoStart,
       reopen_window_days: draft.reopenDays,
       checklist_item_max: draft.itemMax,
+      ...(copies ? { copy_limit: draft.copyLimit } : {}),
     };
     // Only sent when it changes: the server refuses switching it on without a channel.
     const autoCloseDays = draft.autoClose ? draft.autoCloseDays : null;
@@ -455,6 +475,24 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                 data-testid="settings-checklist-item-max"
               />
             </Form.Item>
+            {copies && (
+              <Form.Item
+                label={t('settings.closing.copy_limit')}
+                htmlFor="settings-copy-limit"
+                validateStatus={problemAt('copy_limit') === undefined ? undefined : 'error'}
+                help={problemAt('copy_limit') ?? t('settings.closing.copy_limit_help', COPIES)}
+              >
+                <InputNumber
+                  id="settings-copy-limit"
+                  value={draft.copyLimit}
+                  style={{ width: 160 }}
+                  onChange={(value) => {
+                    edit({ ...draft, copyLimit: typeof value === 'number' ? value : null });
+                  }}
+                  data-testid="settings-copy-limit"
+                />
+              </Form.Item>
+            )}
           </Flex>
           {/* A refusal with no field to point at (QA WP-029 BUG-02); field ones show in place. */}
           {(Object.keys(byField).length === 0 ||

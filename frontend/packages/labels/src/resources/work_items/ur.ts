@@ -922,6 +922,10 @@ export const ur: LabelResource = {
   'incidents.copy.confirm_other': '{{count}} نقول بنائیں',
   'incidents.copy.count': 'کتنی نقول',
   'incidents.copy.count_help': 'ایک وقت میں {{max}} تک۔',
+  'incidents.copy.files_left_out_one':
+    '{{count}} فائل ابھی کاپی نہیں ہو سکی (ابھی جانچ جاری ہے یا محفوظ نہیں) اور اصل میں رہ گئی۔',
+  'incidents.copy.files_left_out_other':
+    '{{count}} فائلیں ابھی کاپی نہیں ہو سکیں (ابھی جانچ جاری ہے یا محفوظ نہیں) اور اصل میں رہ گئیں۔',
   'incidents.copy.help':
     'ہر نقل ایک نیا واقعہ ہے جس کی تاریخ میں اس کا نام ہوتا ہے اور جس کا موضوع بتاتا ہے کہ یہ نقل ہے۔ فیلڈز ہمیشہ آتی ہیں؛ گفتگو، کام کے اندراج اور تاریخ کبھی نہیں۔',
   'incidents.copy.made': '{{ids}} بن گئے۔',

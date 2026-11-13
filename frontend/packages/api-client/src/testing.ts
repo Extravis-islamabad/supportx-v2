@@ -673,6 +673,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       complete_open_work: false,
       auto_close_days: null,
       checklist_item_max: 100, // WP-046a S2
+      copy_limit: 20, // WP-046a S5c
       reopen_window_days: 7,
       task_owner_access: false, // WP-020e (D-112): off by default
       task_dependency_mode: 'block', // WP-046a S1 (REQ-INC-075)
