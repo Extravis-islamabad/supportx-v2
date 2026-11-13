@@ -2,11 +2,14 @@
 
 - `personal_data_access` (audit module, lane B blocks): who viewed or exported whose personal
   data, and the AI masking counts (REQ-AI-019). Never a value: field codes and counts only.
-  Tenant table, RLS forced, **append-only** for the app role (SELECT and INSERT). Rows go only
-  through two migrator-owned functions, with the tenant from `app.tenant_id`, never a parameter:
-  - `audit_erase_access(subject)`: a person's erasure (ADR-052 step 6, after
-    `audit_erase_subject`, in the same transaction);
-  - `audit_purge_access(before)`: the daily retention purge.
+  Tenant table, RLS forced, **append-only** for the app role (SELECT and INSERT). Rows leave
+  only through migrator-owned functions, with the tenant from `app.tenant_id`, never a parameter:
+  - `audit_purge_access()`: the daily retention purge. It takes NO cutoff: it computes its own
+    from the tenant's audit retention (at least 365 days), so the app can never empty the log
+    with a future date (lane B, #500).
+  - `audit_erase_access(subject)`: a person's erasure (ADR-052 step 6). It deletes only when that
+    person is already erased (`users.erased_at`, set by step 5; #498's 0161), so the app can
+    never use it to empty someone's entries early (lane B, #500). Hence 0163 follows 0161.
   A view is written once per accessor, record and 15 minutes (`dedupe_key`, unique per tenant):
   live refetches never flood it.
 - `audit_settings.personal_data_log`: the tenant's switch (off by default).
@@ -45,19 +48,34 @@ depends_on: str | Sequence[str] | None = None
 
 TABLE = "personal_data_access"
 KINDS = ("view", "export", "ai_masking")
+RETENTION_DEFAULT_DAYS = 3 * 365  # audit's default (service/settings.py) while no row exists
 
 # The tenant, from the transaction's setting: no parameter can name another one.
 _TENANT = "NULLIF(current_setting('app.tenant_id', true), '')::uuid"
 _ERASE = f"""
     WITH gone AS (
-        DELETE FROM {TABLE} WHERE tenant_id = {_TENANT} AND subject_person_id = p_subject
+        DELETE FROM {TABLE} a
+        WHERE a.tenant_id = {_TENANT}
+          AND a.subject_person_id = p_subject
+          AND EXISTS (
+              SELECT 1 FROM users u
+              WHERE u.tenant_id = {_TENANT} AND u.id = p_subject AND u.erased_at IS NOT NULL
+          )
         RETURNING 1
     )
     SELECT count(*)::integer FROM gone
 """  # noqa: S608 - fixed names, no input
 _PURGE = f"""
     WITH gone AS (
-        DELETE FROM {TABLE} WHERE tenant_id = {_TENANT} AND occurred_at < p_before
+        DELETE FROM {TABLE}
+        WHERE tenant_id = {_TENANT}
+          AND occurred_at < now() - make_interval(days => greatest(
+              365,
+              coalesce(
+                  (SELECT s.retention_days FROM audit_settings s WHERE s.tenant_id = {_TENANT}),
+                  {RETENTION_DEFAULT_DAYS}
+              )
+          ))
         RETURNING 1
     )
     SELECT count(*)::integer FROM gone
@@ -137,12 +155,7 @@ def upgrade() -> None:
     op.create_index("ix_personal_data_access_time", TABLE, ["tenant_id", "occurred_at"])
     enable_tenant_rls(TABLE)
     grant_app(TABLE, ("SELECT", "INSERT"))  # append-only: rows leave only through the functions
-    create_definer_function(
-        "audit_erase_access", "p_subject uuid", "integer", _ERASE, volatility="VOLATILE"
-    )
-    create_definer_function(
-        "audit_purge_access", "p_before timestamptz", "integer", _PURGE, volatility="VOLATILE"
-    )
+    create_definer_function("audit_purge_access", "", "integer", _PURGE, volatility="VOLATILE")
     create_definer_function(
         "sx_kek_wraps",
         "",
@@ -174,7 +187,7 @@ def downgrade() -> None:
     """Drops what upgrade added only while no tenant has an entry (rule 5h)."""
     op.execute(_REFUSE_IF_ANY)
     drop_definer_function("sx_kek_wraps()")
-    drop_definer_function("audit_purge_access(timestamptz)")
+    drop_definer_function("audit_purge_access()")
     drop_definer_function("audit_erase_access(uuid)")
     op.drop_table(TABLE)  # its indexes and policies go with it
     op.drop_column("audit_settings", "personal_data_log")

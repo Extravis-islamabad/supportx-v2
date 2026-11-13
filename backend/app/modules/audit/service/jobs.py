@@ -242,7 +242,7 @@ async def run_retention(database: Database, settings: Settings) -> None:
                 break
         # REQ-AUD-017: access entries past the same retention go (lane B), via audit_purge_access.
         async with database.tenant_session(TenantContext(tenant)) as session:
-            purged = await access_log.purge(session, datetime.now(UTC))
+            purged = await access_log.purge(session)
         if purged:
             log.info("personal_data_access_purged", tenant_id=str(tenant), entries=purged)
     async with database.platform_session() as session:

@@ -77,8 +77,8 @@ async def erase_subject(session: AsyncSession, user_id: uuid.UUID) -> int:
     rows = await personal_history(session, user_id)
     result: dict[str, Any] = await session.scalar(_ERASE, {"subject": user_id, "rows": rows}) or {}
     removed = int(result.get("personal_rows", 0))
-    # Their personal-data access entries as the subject go too, through the migrator-owned
-    # function (the app role can only append to that log; lane B, WP-057 S3b-1).
+    # Their personal-data access entries as the subject (REQ-AUD-017): the app may only append to
+    # that log, so through the function, which acts only for an erased person (lane B, #500).
     access = int(await session.scalar(_ERASE_ACCESS, {"subject": user_id}) or 0)
     await record(
         session,

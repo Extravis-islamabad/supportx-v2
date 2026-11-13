@@ -9,8 +9,8 @@ code, never values: the fields viewed are field codes, the masking is counts per
   same 15 minutes is written once (`dedupe_key`, unique per tenant), so live refetches and list
   re-renders never flood it. Exports and masking are written every time.
 - **Append-only**: the app role may only insert and read. Rows leave through the migrator-owned
-  `audit_purge_access` (the daily purge, past the audit retention) and `audit_erase_access`
-  (a person's erasure, in erasure.py).
+  `audit_purge_access()` (the daily purge; it computes the cutoff itself, at least 365 days) and,
+  after #498, an erased person's delete (it checks `users.erased_at`).
 - **Read** with `audit.view_personal_data_access` (api/routes.py); each query is itself audited.
 
 One API for every writer: the people screens and exports here, ADR-047 §9's audit entry views
@@ -155,10 +155,13 @@ async def entries(  # noqa: PLR0913 - the person and the period's bounds, keywor
     return list(await session.scalars(statement))
 
 
-_PURGE = text("SELECT audit_purge_access(:before)")
+_PURGE = text("SELECT audit_purge_access()")
 
 
-async def purge(session: AsyncSession, now: datetime) -> int:
-    """Entries past the tenant's audit retention go (lane B: the same retention as the log)."""
-    days = (await load_settings(session)).retention_days
-    return int(await session.scalar(_PURGE, {"before": now - timedelta(days=days)}) or 0)
+async def purge(session: AsyncSession) -> int:
+    """Entries past the tenant's audit retention go (lane B: the same retention as the log).
+
+    The function computes the cutoff itself (at least 365 days): the app passes no date, so it
+    can never empty the log early.
+    """
+    return int(await session.scalar(_PURGE) or 0)
