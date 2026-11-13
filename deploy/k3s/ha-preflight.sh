@@ -22,18 +22,17 @@
 #     (ha.fastEvictionSeconds);
 #   - with the egress allow-list on and NodeLocal DNSCache running: the policy lets pods reach
 #     the cache's addresses (networkPolicies.egress.dnsAddresses), or every lookup is dropped;
-#   - advisory, never failing even when strict: the bundled SeaweedFS is a single copy, not HA
-#     (decision b, 2026-11-12: HA installs use their own S3-compatible store). CI's k3d HA cluster
-#     runs it on purpose, so it must not fail the strict bring-up.
+#   - the bundled SeaweedFS, replicated (objectStorage.seaweedfs.ha, D-166): three masters or
+#     more on distinct nodes, volume servers on two distinct nodes or more, and a default
+#     replication that keeps a second copy (not 000), read from the master pods' own arguments.
+#     The single-copy SeaweedFS under HA is a warning. External object storage: skipped.
 # Before the install (`make cluster-up-ha` runs this ahead of the chart) the release checks are
 # skipped, not failed.
 set -euo pipefail
 
 NAMESPACE="${SUPPORTX_NAMESPACE:-supportx}"
 warnings=0
-advisories=0
 warn() { echo "WARNING: $*"; warnings=$((warnings + 1)); }
-advise() { echo "WARNING (advisory): $*"; advisories=$((advisories + 1)); }
 # Nodes of a namespace's scheduled pods with a label, one line per pod (repeats show sharing).
 pod_nodes() {  # pod_nodes <namespace> <label selector>
   kubectl -n "$1" get pods -l "$2" -o json | jq -r '.items[]
@@ -179,11 +178,48 @@ else
     fi
   fi
 
-  if [ "$(kubectl -n "$NAMESPACE" get statefulsets -l app.kubernetes.io/part-of=supportx,app.kubernetes.io/component=seaweedfs -o name | count)" -gt 0 ]; then
-    advise "the bundled SeaweedFS runs in $NAMESPACE: one copy, not highly available. While its" \
-      "node is down, attachments cannot be uploaded or opened. HA installs use their own" \
-      "S3-compatible store (MinIO cluster, Ceph RGW, cloud S3): objectStorage.mode=external" \
-      "(docs/deployment.md, Profiles)"
+  # Object storage (D-166). Labels as the chart sets them: seaweedfs is the single pod,
+  # seaweedfs-master / -volume the replicated topology.
+  sw() { echo "app.kubernetes.io/part-of=supportx,app.kubernetes.io/component=$1"; }
+  if [ "$(kubectl -n "$NAMESPACE" get statefulsets -l "$(sw seaweedfs)" -o name | count)" -gt 0 ]; then
+    warn "the bundled SeaweedFS runs as one copy in $NAMESPACE: while its node is down," \
+      "attachments cannot be uploaded or opened, and a lost disk loses them. Install with" \
+      "values-ha.yaml (objectStorage.seaweedfs.ha.enabled, D-166; moving the files over:" \
+      "docs/deployment.md), or use your own S3-compatible store (objectStorage.mode external)"
+  elif [ "$(kubectl -n "$NAMESPACE" get statefulsets -l "$(sw seaweedfs-master)" -o name | count)" -gt 0 ]; then
+    masters="$(pod_nodes "$NAMESPACE" "$(sw seaweedfs-master)")"
+    if [ "$(echo "$masters" | count)" -lt 3 ] || [ "$(echo "$masters" | sort | uniq -d | count)" -gt 0 ]; then
+      warn "SeaweedFS masters: $(echo "$masters" | count) scheduled ($(echo "$masters" | sort | uniq -c | awk '{print $2 " x" $1}' | paste -sd, -)):" \
+        "raft needs three on distinct nodes, so that a lost node leaves a majority. Install with" \
+        "values-ha.yaml (required anti-affinity) on three nodes or more"
+    else
+      echo "ok: SeaweedFS masters on $(echo "$masters" | count) distinct nodes"
+    fi
+    volumes="$(pod_nodes "$NAMESPACE" "$(sw seaweedfs-volume)")"
+    if [ "$(echo "$volumes" | sort -u | count)" -lt 2 ] || [ "$(echo "$volumes" | sort | uniq -d | count)" -gt 0 ]; then
+      warn "SeaweedFS volume servers: $(echo "$volumes" | count) scheduled ($(echo "$volumes" | sort | uniq -c | awk '{print $2 " x" $1}' | paste -sd, -)):" \
+        "the copies of a file are on different servers, so the servers must be on distinct nodes" \
+        "(two or more). Install with values-ha.yaml (required anti-affinity)"
+    else
+      echo "ok: SeaweedFS volume servers on $(echo "$volumes" | count) distinct nodes"
+    fi
+    # What the masters actually run with: each pod's -defaultReplication argument.
+    replication="$(kubectl -n "$NAMESPACE" get pods -l "$(sw seaweedfs-master)" -o json | jq -r '.items[]
+      | [.spec.containers[] | select(.name == "master") | .args[]?
+        | select(startswith("-defaultReplication=")) | ltrimstr("-defaultReplication=")]
+      | first // "none"' | sort -u)"
+    case "$replication" in
+      001|002) echo "ok: SeaweedFS default replication $replication" ;;
+      010|011|100|101|110|200)
+        warn "SeaweedFS masters run with default replication $replication: it places copies by" \
+          "rack or data centre, which the chart does not label (one rack, one data centre), so new" \
+          "volumes cannot be placed. Use 001 or 002 (objectStorage.seaweedfs.ha.replication)" ;;
+      *) warn "SeaweedFS masters run with default replication '$(echo "$replication" | paste -sd, -)':" \
+           "000 (or none) keeps one copy of each file, so a lost volume server loses files. Set" \
+           "objectStorage.seaweedfs.ha.replication to 001 (values-ha.yaml)" ;;
+    esac
+  else
+    echo "skipped: no bundled SeaweedFS in $NAMESPACE (external object storage)"
   fi
 fi
 
@@ -191,7 +227,6 @@ fi
 # "Front load balancer"): a lost or just-rejoined node drops requests only if the load balancer
 # in front of the nodes keeps sending to it.
 echo "note: the load balancer in front of the nodes must health-check each node's ingress port (80/443) and skip failing nodes; DNS round robin alone is not HA (docs/deployment.md)"
-[ "$advisories" -gt 0 ] && echo "ha-preflight: $advisories advisory warning(s) (never fail the check)"
 if [ "$warnings" -gt 0 ]; then
   echo "ha-preflight: $warnings warning(s)"
   [ "${HA_PREFLIGHT_STRICT:-0}" = 1 ] && exit 1
