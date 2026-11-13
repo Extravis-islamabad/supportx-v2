@@ -5847,6 +5847,33 @@
         "type": "object"
       }
     },
+    "work_items.draft.changed": {
+      "1": {
+        "description": "A person's kept draft was saved or discarded (REQ-INC-019): their other tabs refresh.\n\nThe person and the form only, never what the draft holds (lane B's condition 7).",
+        "properties": {
+          "form_key": {
+            "title": "Form Key",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner_id",
+          "form_key",
+          "version"
+        ],
+        "title": "WorkItemDraftChanged",
+        "type": "object"
+      }
+    },
     "work_items.follower.added": {
       "1": {
         "description": "Someone follows the record now (REQ-INC-056/151).",

@@ -1070,6 +1070,7 @@ export const en = {
   'event_type.work_items.conversation.added': 'Reply or note added',
   'event_type.work_items.conversation.delivery_changed': 'Reply delivery changed',
   'event_type.work_items.conversation.visibility_changed': 'Note made public or private',
+  'event_type.work_items.draft.changed': 'Kept draft changed',
   'event_type.work_items.follower.added': 'Follower added',
   'event_type.work_items.follower.removed': 'Follower removed',
   'event_type.work_items.list_settings.changed': 'List settings changed',
