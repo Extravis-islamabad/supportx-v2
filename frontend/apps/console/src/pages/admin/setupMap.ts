@@ -116,6 +116,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'config.service_desk',
     also: 'settings.manage',
   },
+  // WP-058b S4: how releases close and what their stages hold; the release settings API's gate.
+  {
+    key: 'releases',
+    group: 'service_desk',
+    labelKey: 'nav.admin_releases',
+    permission: 'config.service_desk',
+    also: 'settings.manage',
+  },
   // The change screens: change advisory boards. The change manager and admins (Haider).
   {
     key: 'change-boards',
@@ -210,7 +218,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
   },
   { key: 'files', group: 'organisation', labelKey: 'nav.admin_files', permission: 'files.manage' },
   { key: 'licence', group: 'licence', labelKey: 'nav.admin_licence', permission: 'licence.manage' },
-  { key: 'audit', group: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },
+  {
+    key: 'audit',
+    group: 'audit',
+    labelKey: 'nav.audit',
+    permission: 'audit.view',
+    // The sign-in log's own right opens the page too, on its one tab (WP-057 S1a).
+    also: 'identity.view_sign_ins',
+  },
 ];
 
 /**

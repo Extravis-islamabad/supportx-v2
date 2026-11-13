@@ -51,18 +51,6 @@ binaryData:
   {{- end }}
   {{- end }}
 ---
-# The breached-password list the realm's password policy names (REQ-SEC-005, D-089 D2): shipped
-# with the chart, read offline. An operator with a larger list replaces this ConfigMap's file.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "supportx.name" $c }}-password-blacklists
-  labels:
-    {{- include "supportx.labels" $c | nindent 4 }}
-data:
-  supportx-breached.txt: |
-    {{- .Files.Get "files/keycloak/password-blacklists/supportx-breached.txt" | nindent 4 }}
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -108,14 +96,33 @@ spec:
             limits: {cpu: 200m, memory: 128Mi}
           volumeMounts:
             - {name: build, mountPath: /build}
+        {{- if not .Values.keycloak.passwordBlacklists.configMap }}
+        # The breached-password list the realm's password policy names (REQ-SEC-005, D-089 D2),
+        # read offline. It comes in the backend image of this release, not in the chart: a Helm
+        # release is one Secret of at most 1 MiB, and the list alone took more than half of it.
+        - name: copy-password-blacklists
+          image: {{ include "supportx.image" (dict "root" . "name" "backend") }}
+          imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+          command: ["cp", "/opt/supportx/keycloak/password-blacklists/supportx-breached.txt", "/lists/"]
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          volumeMounts:
+            - {name: password-blacklists, mountPath: /lists}
+        {{- end }}
       containers:
         - name: keycloak
           image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.keycloak) }}
           args: ["start", "--import-realm"]
           env:
             - {name: KC_DB, value: postgres}
+            # PostgreSQL JDBC driver options (ADR-051): after a database failover, a connection to
+            # the old primary that never sees a reset (its node is gone) is dropped within
+            # socketTimeout instead of hanging; connects give up after connectTimeout; TCP
+            # keepalives on. Seconds. 60 s is far above any query Keycloak makes in service.
             - name: KC_DB_URL
-              value: "jdbc:postgresql://{{ include "supportx.dbHost" . }}:{{ include "supportx.dbPort" . }}/keycloak"
+              value: "jdbc:postgresql://{{ include "supportx.dbHost" . }}:{{ include "supportx.dbPort" . }}/keycloak?connectTimeout=10&socketTimeout=60&tcpKeepAlive=true"
             - name: KC_DB_USERNAME
               valueFrom: {secretKeyRef: {name: {{ .Values.secrets.keycloakDb }}, key: username}}
             - name: KC_DB_PASSWORD
@@ -181,7 +188,11 @@ spec:
               - {key: {{ replace "/" "__" $file }}, path: {{ $file }}}
               {{- end }}
         - name: password-blacklists
-          configMap: {name: {{ include "supportx.name" $c }}-password-blacklists}
+          {{- with .Values.keycloak.passwordBlacklists.configMap }}
+          configMap: {name: {{ . }}}
+          {{- else }}
+          emptyDir: {sizeLimit: 8Mi}
+          {{- end }}
         - name: build
           emptyDir: {}
         - name: data-tmp

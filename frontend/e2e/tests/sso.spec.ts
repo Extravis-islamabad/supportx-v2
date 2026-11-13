@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
 import { keycloakAdmin, keycloakUserId, stackEnv } from '../stack';
-import { expectAccessible, signInAs } from './helpers';
+import { expectAccessible, FIRST_LOAD_AFTER_SIGN_IN_MS, signInAs } from './helpers';
 
 /**
  * WP-039 (REQ-SEC-007, REQ-SEC-013, REQ-SEC-017): single sign-on set up in SupportX screens
@@ -196,7 +196,9 @@ test('single sign-on: set up, tested in a private window, switched on, used', as
     await person.locator('#username').fill(PERSON.email);
     await person.locator('#kc-login').click();
     await signInAtProvider(person);
-    await expect(person.getByTestId('user-menu')).toBeVisible({ timeout: 30_000 });
+    await expect(person.getByTestId('user-menu')).toBeVisible({
+      timeout: FIRST_LOAD_AFTER_SIGN_IN_MS,
+    });
     const me = (await (await person.request.get('/api/v1/auth/me')).json()) as {
       user: { email: string; user_type: string };
       tenant: { name: string };

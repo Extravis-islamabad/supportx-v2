@@ -51,7 +51,7 @@ async function attach(page: Page, name: string, mimeType: string, buffer: Buffer
     .setInputFiles({ name, mimeType, buffer });
 }
 
-test('files: checked live, previewed, malware blocked, accessible in every theme and Arabic', async ({
+test('files: checked live, previewed, malware blocked, accessible in every theme and Arabic @smoke', async ({
   page,
 }) => {
   test.setTimeout(240_000);

@@ -90,6 +90,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("session.signed_out", AuditCategory.SESSION, "identity_access"),
     ("session.tenant_switched", AuditCategory.SESSION, "identity_access"),
     ("session.ended", AuditCategory.SESSION, "identity_access"),  # one session ended from a list
+    ("session.ended_others", AuditCategory.SESSION, "identity_access"),  # sign out everywhere else
+    ("session.confirmed", AuditCategory.SESSION, "identity_access"),  # confirmed it's them again
+    # Keycloak's own session, ended in the background after a sign-out it missed (ADR-051)
+    ("session.keycloak_ended", AuditCategory.SESSION, "identity_access"),
     # roles and access
     ("role.created", AuditCategory.ACCESS, "identity_access"),
     ("role.updated", AuditCategory.ACCESS, "identity_access"),
@@ -163,6 +167,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.created", AuditCategory.ACCESS, "identity_access"),
     ("user.changed", AuditCategory.ACCESS, "identity_access"),
     ("user.type_changed", AuditCategory.ACCESS, "identity_access"),
+    # a person's cost per hour (REQ-INC-068): old and new rate and start in the details
+    ("user.cost_rate_changed", AuditCategory.ACCESS, "identity_access"),
+    # D-164: every view of a person's rates is audited too (the worklog cost snapshot is not).
+    ("user.cost_rate_viewed", AuditCategory.ACCESS, "identity_access"),
     ("user.sign_in_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.deactivated", AuditCategory.ACCESS, "identity_access"),
     ("user.reactivated", AuditCategory.ACCESS, "identity_access"),
@@ -189,6 +197,12 @@ ACTIONS: dict[str, Action] = _actions(
     ("desk.changed", AuditCategory.CONFIGURATION, "organization"),
     # branding and addresses (WP-017)
     ("identity.settings_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.network_rules_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.site_networks_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.sign_ins_viewed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.sso_policy_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.break_glass_changed", AuditCategory.SECURITY, "identity_access"),
+    ("session.break_glass_sign_in", AuditCategory.SECURITY, "identity_access"),
     # the service catalog (WP-030)
     ("catalog.item_changed", AuditCategory.CONFIGURATION, "service_catalog"),
     ("catalog.category_changed", AuditCategory.CONFIGURATION, "service_catalog"),
@@ -231,6 +245,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("announcement.settings_changed", AuditCategory.CONFIGURATION, "announcements"),
     ("notification.rule_changed", AuditCategory.CONFIGURATION, "notifications"),
     ("notification.rule_reset", AuditCategory.CONFIGURATION, "notifications"),
@@ -272,6 +288,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("service_request.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.deleted", AuditCategory.RECORDS, "work_items"),
     ("service_request.restored", AuditCategory.RECORDS, "work_items"),
     # WP-030 s2: approval decisions and withdrawals (REQ-SR-025, -061).
@@ -294,6 +312,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("problem.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
     ("problem.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("problem.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("problem.deleted", AuditCategory.RECORDS, "work_items"),
     ("problem.restored", AuditCategory.RECORDS, "work_items"),
     ("problem.bulk_started", AuditCategory.RECORDS, "work_items"),
@@ -321,6 +341,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("release.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
     ("release.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("release.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("release.deleted", AuditCategory.RECORDS, "work_items"),
     ("release.restored", AuditCategory.RECORDS, "work_items"),
     ("release.bulk_started", AuditCategory.RECORDS, "work_items"),
@@ -348,6 +370,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("change.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
     ("change.task_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("change.task_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.deleted", AuditCategory.RECORDS, "work_items"),
     ("change.restored", AuditCategory.RECORDS, "work_items"),
     ("change.bulk_started", AuditCategory.RECORDS, "work_items"),
@@ -360,6 +384,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("file.uploaded", AuditCategory.RECORDS, "system"),
     ("file.deleted", AuditCategory.RECORDS, "system"),
     ("file.downloaded", AuditCategory.DATA, "system"),
+    ("file.archive_downloaded", AuditCategory.DATA, "system"),  # WP-046a S2: a bulk export
+    ("file.copied", AuditCategory.RECORDS, "system"),  # WP-046a S5c: onto a copied record
     ("file.blocked", AuditCategory.SECURITY, "system"),
     ("file.rescan_requested", AuditCategory.SECURITY, "system"),
     ("file.purged", AuditCategory.DATA, "system"),

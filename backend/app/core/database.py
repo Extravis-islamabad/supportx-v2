@@ -21,9 +21,12 @@ recommends. This works with any transaction-mode pooler and PgBouncer version a 
 on-prem; the cost is one extra parse per statement. See docs/architecture/tenancy.md.
 """
 
+import socket
+import ssl
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Depends, Request
@@ -42,6 +45,7 @@ from app.core.config import Settings
 from app.core.errors import ServiceUnavailable
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext, resolve_tenant
+from app.core.tls import verified_context
 
 TENANT_SETTING = "app.tenant_id"
 USER_SETTING = "app.user_id"
@@ -76,6 +80,7 @@ _SET_REPORT = text(
     "SELECT set_config('statement_timeout', :timeout_ms, true), "
     "set_config('transaction_read_only', 'on', true)"
 )
+# nosemgrep: sx.sql-format - REPORT_ROLE is a constant role name in this module
 _SET_REPORT_ROLE = text(f"SET LOCAL ROLE {REPORT_ROLE}")
 
 
@@ -92,6 +97,16 @@ def to_async_url(url: str) -> str:
     raise ValueError(msg)
 
 
+def database_ssl(root_cert: Path | None) -> ssl.SSLContext | None:
+    """Asyncpg's `ssl` for verify-full against `root_cert`; None leaves asyncpg's default.
+
+    asyncpg takes the context as it is: a checked chain and host name is sslmode verify-full
+    (audit row 5). The URL cannot carry sslmode here: SQLAlchemy would pass it to asyncpg as an
+    unknown keyword.
+    """
+    return verified_context(root_cert) if root_cert is not None else None
+
+
 def _unique_statement_name() -> str:
     return f"__supportx_{uuid.uuid4().hex}__"
 
@@ -106,6 +121,44 @@ def pgbouncer_safe_connect_args(application_name: str) -> dict[str, Any]:
     }
 
 
+# A connection to a pod that vanished (its node lost) gets no reset: without these, a pooled
+# connection waits out the whole command timeout (120 s) before it fails, and a request can meet
+# several of them (Cluster run 43135183726: the write came back after 294 s of 300). With them,
+# the kernel gives up on an unanswered connection in about 15 s and the pool's pre-ping or the
+# next command fails fast, so the request gets a fresh connection to a live pooler copy.
+TCP_USER_TIMEOUT_MS = 15_000  # unacknowledged data: the connection is dead after 15 s
+TCP_KEEPALIVE = (10, 5, 3)  # idle 10 s, then a probe every 5 s, dead after 3 missed
+
+
+def _detect_dead_peers(dbapi_connection: Any) -> None:  # noqa: ANN401 - the dialect's adapted connection
+    """Kernel-level dead-peer detection on one new asyncpg connection's TCP socket.
+
+    asyncpg has no setting for these, so they are set on the socket itself; each option only
+    where the platform has it (Linux in every image; a developer's macOS lacks some), and never
+    on a Unix socket. Best effort: a connection without them still works, as before.
+    """
+    raw = getattr(dbapi_connection, "driver_connection", None)
+    transport = getattr(raw, "_transport", None)  # asyncpg keeps no public handle on it
+    sock = transport.get_extra_info("socket") if transport is not None else None
+    if sock is None or sock.family not in (socket.AF_INET, socket.AF_INET6):
+        return
+    idle, interval, count = TCP_KEEPALIVE
+    options = [
+        (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+        (socket.IPPROTO_TCP, getattr(socket, "TCP_KEEPIDLE", None), idle),
+        (socket.IPPROTO_TCP, getattr(socket, "TCP_KEEPINTVL", None), interval),
+        (socket.IPPROTO_TCP, getattr(socket, "TCP_KEEPCNT", None), count),
+        (socket.IPPROTO_TCP, getattr(socket, "TCP_USER_TIMEOUT", None), TCP_USER_TIMEOUT_MS),
+    ]
+    for level, name, value in options:
+        if name is None:
+            continue
+        try:
+            sock.setsockopt(level, name, value)
+        except OSError:  # pragma: no cover - a platform that has the name but refuses it
+            log.debug("db_socket_option_refused", option=name)
+
+
 def create_engine(  # noqa: PLR0913 - keyword-only pool settings, all optional
     url: str,
     *,
@@ -116,18 +169,21 @@ def create_engine(  # noqa: PLR0913 - keyword-only pool settings, all optional
     use_null_pool: bool = False,
     connect_timeout: float | None = None,
     command_timeout: float | None = None,
+    ssl: ssl.SSLContext | None = None,
 ) -> AsyncEngine:
     """Async engine for the application role. `use_null_pool` is for tests and one-shot tools.
 
     `connect_timeout` and `command_timeout` (seconds) bound how long asyncpg waits on a server
     that stopped answering; None keeps asyncpg's own behaviour (no limit on commands), for work
-    that may legitimately run long, such as index builds.
+    that may legitimately run long, such as index builds. `ssl` comes from `database_ssl`.
     """
     connect_args = pgbouncer_safe_connect_args(application_name)
     if connect_timeout is not None:
         connect_args["timeout"] = connect_timeout
     if command_timeout is not None:
         connect_args["command_timeout"] = command_timeout
+    if ssl is not None:
+        connect_args["ssl"] = ssl
     pool_args: dict[str, Any] = (
         {"poolclass": NullPool}
         if use_null_pool
@@ -138,11 +194,13 @@ def create_engine(  # noqa: PLR0913 - keyword-only pool settings, all optional
             "pool_pre_ping": True,
         }
     )
-    return create_async_engine(
+    engine = create_async_engine(
         to_async_url(url),
         connect_args=connect_args,
         **pool_args,
     )
+    event.listen(engine.sync_engine, "connect", lambda conn, _record: _detect_dead_peers(conn))
+    return engine
 
 
 def reporting_command_timeout(settings: Settings) -> float:
@@ -181,6 +239,33 @@ def _apply_context(
         connection.execute(_SET_REPORT_ROLE)
 
 
+TRANSACTION_MEMO_KEY = "supportx.transaction_memo"
+
+
+def transaction_memo(session: AsyncSession, namespace: str) -> dict[Any, Any] | None:
+    """A dict that lives until the session's transaction ends, for reads repeated within it.
+
+    Cleared on commit, rollback and savepoint rollback (below), so a memo never outlives what
+    it read, and a later transaction always reads again. Whoever writes the memoised rows pops
+    their entry in the same transaction. None for a platform session, which may switch tenant
+    between statements: nothing is memoised there.
+    """
+    info = session.info
+    if not isinstance(info.get(SESSION_TENANT_KEY), TenantContext):
+        return None
+    memos: dict[str, dict[Any, Any]] = info.setdefault(TRANSACTION_MEMO_KEY, {})
+    return memos.setdefault(namespace, {})
+
+
+def _forget_memos(session: Session, *_args: object) -> None:
+    session.info.pop(TRANSACTION_MEMO_KEY, None)
+
+
+# after_soft_rollback also covers a rolled-back savepoint, whose writes the memo may have seen.
+for _name in ("after_commit", "after_rollback", "after_soft_rollback"):
+    event.listen(TenantAwareSession, _name, _forget_memos)
+
+
 class Database:
     """Engine plus session factories for one process."""
 
@@ -205,6 +290,7 @@ class Database:
                 pool_timeout=settings.db_pool_timeout_seconds,
                 connect_timeout=settings.db_connect_timeout_seconds,
                 command_timeout=settings.db_command_timeout_seconds,
+                ssl=database_ssl(settings.database_ssl_root_cert),
             ),
             settings,
         )
@@ -239,6 +325,7 @@ class Database:
                 pool_timeout=settings.db_pool_timeout_seconds,
                 connect_timeout=settings.db_connect_timeout_seconds,
                 command_timeout=reporting_command_timeout(settings),
+                ssl=database_ssl(settings.database_ssl_root_cert),
             )
         )
 

@@ -116,6 +116,13 @@ class Identity:
     roles: tuple[str, ...]
     memberships: tuple[Membership, ...]
     keycloak_session_id: str | None
+    # The identity provider alias this sign-in came through (the `sx_idp` claim of the verified
+    # ID token, WP-057 S1b), or None: a password, LDAP or direct-grant sign-in.
+    identity_provider: str | None = None
+    # When the person last proved who they are (the ID token's `auth_time`, seconds since the
+    # epoch; WP-057 S2a, REQ-SEC-027). Read at login and at a confirmation only, never from a
+    # refresh's token (lane B's condition A1).
+    auth_time: int | None = None
 
     @property
     def user_type(self) -> Literal[UserType.TECHNICIAN, UserType.REQUESTER]:
@@ -200,7 +207,27 @@ def identity_from(claims: Mapping[str, Any]) -> Identity:
         else (),
         memberships=memberships_from(claims),
         keycloak_session_id=sid if isinstance(sid, str) else None,
+        identity_provider=_idp(claims.get(IDP_CLAIM)),
+        auth_time=_auth_time(claims.get("auth_time")),
     )
+
+
+def _auth_time(value: object) -> int | None:
+    """A positive whole number of seconds, or None (absent or malformed: never trusted)."""
+    if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+        return value
+    return None
+
+
+IDP_CLAIM = "sx_idp"  # deploy/helm/supportx/files/keycloak: a user-session note, never userinfo
+IDP_ALIAS_MAX = 80  # sign_in_events.identity_provider
+
+
+def _idp(value: object) -> str | None:
+    """A non-empty alias, or None (absent, empty or not a string: never trusted as SSO)."""
+    if isinstance(value, str) and value.strip() and len(value) <= IDP_ALIAS_MAX:
+        return value
+    return None
 
 
 _SAFE_PATH = re.compile(r"^/[A-Za-z0-9\-._~!$&'()*+,;=:@%/?#]*$")

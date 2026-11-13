@@ -134,7 +134,12 @@ def rule_of(row: NotificationRule) -> Rule:
 
 
 async def rule_for(session: AsyncSession, event: NotificationEvent) -> Rule:
-    """The tenant's rule for the event, else its shipped default (no set-up step)."""
+    """The tenant's rule for the event, else its shipped default (no set-up step).
+
+    A locked event always uses its default, even over a rule saved before it was locked.
+    """
+    if event.locked:
+        return Rule.from_default(event.default)
     row = await session.scalar(
         select(NotificationRule).where(
             NotificationRule.event_code == event.code, NotificationRule.deleted_at.is_(None)

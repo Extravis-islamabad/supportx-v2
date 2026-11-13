@@ -5,9 +5,15 @@ export const en = {
   'age_bucket.7_to_30_days': '7 to 30 days',
   'age_bucket.over_30_days': 'Over 30 days',
   'age_bucket.under_1_day': 'Under 1 day',
+  'dashboard.changes': 'Changes',
+  'dashboard.changes.description':
+    'How changes go and where they stand: success rate, emergencies, outcomes, risk and reasons.',
   'dashboard.my_work': 'My work',
   'dashboard.my_work.description':
     'Your open incidents, what you resolved this week and the queue.',
+  'dashboard.releases': 'Releases',
+  'dashboard.releases.description':
+    'Open releases by stage, how many deployed on time, overdue stages and failed releases.',
   'dashboard.service_desk': 'Service desk',
   'dashboard.service_desk.description':
     'Open work across the desk: queues, priorities, channels and the daily flow.',
@@ -23,6 +29,18 @@ export const en = {
   'dashboard_widget.backlog_trend': 'Backlog trend',
   'dashboard_widget.backlog_trend.description':
     'Incidents still open at the end of each week, the last 90 days.',
+  'dashboard_widget.change_emergency_share': 'Emergency changes',
+  'dashboard_widget.change_emergency_share.description':
+    'Share of changes raised in the last 90 days that took the emergency path.',
+  'dashboard_widget.change_failed': 'Failed or backed out',
+  'dashboard_widget.change_failed.description':
+    'Changes raised in the last 90 days whose implementation failed or was backed out.',
+  'dashboard_widget.change_freeze_overrides': 'Freeze overrides',
+  'dashboard_widget.change_freeze_overrides.description':
+    'Changes raised in the last 90 days that went ahead in a blocking freeze.',
+  'dashboard_widget.change_success_rate': 'Change success rate',
+  'dashboard_widget.change_success_rate.description':
+    'Share of changes raised in the last 90 days whose implementation passed, of those with an outcome.',
   'dashboard_widget.created_vs_resolved': 'Created vs resolved',
   'dashboard_widget.created_vs_resolved.description':
     'Incidents created and resolved each day of the last 30 days.',
@@ -85,6 +103,17 @@ export const en = {
   'dashboard_widget.received_today.description': 'Incidents logged in the last 24 hours.',
   'dashboard_widget.recently_updated': 'Recently updated',
   'dashboard_widget.recently_updated.description': 'The incidents changed most recently.',
+  'dashboard_widget.release_failed': 'Failed or rolled back',
+  'dashboard_widget.release_failed.description':
+    'Releases raised in the last 90 days whose deployment failed or was rolled back.',
+  'dashboard_widget.release_on_time_rate': 'Deployed on time',
+  'dashboard_widget.release_on_time_rate.description':
+    'Of the releases raised in the last 90 days whose deployment ended, the share that ended before the deployment stage’s scheduled end.',
+  'dashboard_widget.release_open': 'Open releases',
+  'dashboard_widget.release_open.description': 'Releases not closed or cancelled yet.',
+  'dashboard_widget.release_overdue': 'Stages overdue',
+  'dashboard_widget.release_overdue.description':
+    'Open releases with a stage past its scheduled end and not yet done.',
   'dashboard_widget.reopened_30_days': 'Reopened (30 days)',
   'dashboard_widget.reopened_30_days.description':
     'Incidents of the last 30 days that were reopened.',
@@ -218,6 +247,28 @@ export const en = {
   'measure.asset.total_cost_total': 'Total cost of ownership',
   'measure.asset.total_cost_total.help':
     'What the assets cost to buy and keep (service, moves, contracts and other costs), added up, in the base currency.',
+  'measure.change.actual_downtime_total': 'Actual downtime',
+  'measure.change.actual_downtime_total.help':
+    'Total downtime that actually happened during the changes.',
+  'measure.change.average_implementation_time': 'Average implementation time',
+  'measure.change.average_implementation_time.help':
+    'Mean time from the actual start to the actual end of implementation, for changes with both.',
+  'measure.change.count': 'Changes',
+  'measure.change.count.help': 'Every change that matches the filters and that you may see.',
+  'measure.change.emergency_share': 'Emergency share',
+  'measure.change.emergency_share.help': 'Share of changes that took the emergency path.',
+  'measure.change.failed_count': 'Failed or backed out',
+  'measure.change.failed_count.help': 'Changes whose implementation failed or was backed out.',
+  'measure.change.freeze_override_count': 'Freeze overrides',
+  'measure.change.freeze_override_count.help':
+    "Changes that went ahead in a blocking freeze, by an override or an emergency board's decision.",
+  'measure.change.planned_downtime_total': 'Planned downtime',
+  'measure.change.planned_downtime_total.help': 'Total downtime planned for the changes.',
+  'measure.change.retrospective_share': 'Retrospective share',
+  'measure.change.retrospective_share.help': 'Share of changes recorded after the work was done.',
+  'measure.change.success_rate': 'Success rate',
+  'measure.change.success_rate.help':
+    'Share of changes whose implementation passed, of the changes whose implementation has an outcome. No outcome yet means no rate.',
   'measure.incident.average_reassignments': 'Average reassignments',
   'measure.incident.average_reassignments.help':
     'Average number of times an incident moved to another group or technician.',
@@ -262,8 +313,21 @@ export const en = {
     'Open or waiting incidents with no group and no technician.',
   'measure.problem.count': 'Problems',
   'measure.problem.count.help': 'Every problem that matches the filters and that you may see.',
+  'measure.release.average_approval_turnaround': 'Approval turnaround',
+  'measure.release.average_approval_turnaround.help':
+    'Average time from an approval being asked for to its decision, over decided approvals.',
   'measure.release.count': 'Releases',
   'measure.release.count.help': 'Every release that matches the filters and that you may see.',
+  'measure.release.failed_count': 'Failed or rolled back',
+  'measure.release.failed_count.help': 'Releases whose deployment failed or was rolled back.',
+  'measure.release.on_time_rate': 'On-time delivery',
+  'measure.release.on_time_rate.help':
+    'Of the releases whose deployment ended, the share that ended before the deployment stage’s scheduled end. A release still deploying is not counted.',
+  'measure.release.open_count': 'Open releases',
+  'measure.release.open_count.help': 'Releases not closed or cancelled yet.',
+  'measure.release.overdue_count': 'Overdue stages',
+  'measure.release.overdue_count.help':
+    'Open releases with a stage past its scheduled end and not yet done.',
   'measure.service_request.count': 'Service requests',
   'measure.service_request.count.help':
     'Every service request that matches the filters and that you may see.',
@@ -282,6 +346,53 @@ export const en = {
   'report.assets_warranty_ending': 'Warranties ending in the next 90 days',
   'report.assets_warranty_ending.description':
     'Assets whose warranty ends within 90 days, by the month it ends.',
+  'report.changes_by_outcome': 'Changes by outcome',
+  'report.changes_by_outcome.description':
+    'Changes raised in the last 90 days whose implementation has an outcome, by that outcome.',
+  'report.changes_by_reason': 'Changes by reason',
+  'report.changes_by_reason.description':
+    'Changes raised in the last 90 days, by the reason for the change.',
+  'report.changes_by_risk': 'Changes by risk',
+  'report.changes_by_risk.description': 'Changes raised in the last 90 days, by risk level.',
+  'report.changes_by_status': 'Changes by status',
+  'report.changes_by_status.description': 'Changes raised in the period, by their current status.',
+  'report.changes_by_type': 'Changes by type',
+  'report.changes_by_type.description': 'Changes raised in the last 90 days, by change type.',
+  'report.changes_downtime_per_month': 'Planned and actual downtime per month',
+  'report.changes_downtime_per_month.description':
+    'Downtime planned and downtime that happened, month by month over a year.',
+  'report.changes_emergency_share_per_month': 'Emergency share per month',
+  'report.changes_emergency_share_per_month.description':
+    'Share of changes that took the emergency path, month by month over a year.',
+  'report.changes_freeze_overrides_by_group': 'Freeze overrides by group',
+  'report.changes_freeze_overrides_by_group.description':
+    'Changes raised in the last 90 days that went ahead in a blocking freeze, by support group.',
+  'report.changes_implementation_time_by_type': 'Implementation time by change type',
+  'report.changes_implementation_time_by_type.description':
+    'Mean actual implementation time of changes raised in the last 90 days, by change type.',
+  'report.changes_open_ageing': 'Ageing of open changes',
+  'report.changes_open_ageing.description': 'How long open and waiting changes have been open.',
+  'report.changes_open_by_group': 'Open changes by group',
+  'report.changes_open_by_group.description': 'Open and waiting changes, by support group.',
+  'report.changes_open_by_priority': 'Open changes by priority',
+  'report.changes_open_by_priority.description': 'Open and waiting changes, by priority.',
+  'report.changes_open_by_stage': 'Open changes by stage',
+  'report.changes_open_by_stage.description': 'Open and waiting changes, by the stage they are in.',
+  'report.changes_open_by_status': 'Open changes by status',
+  'report.changes_open_by_status.description': 'Open and waiting changes, by status.',
+  'report.changes_open_by_technician': 'Open changes by owner',
+  'report.changes_open_by_technician.description':
+    'Open and waiting changes, by the person who owns them.',
+  'report.changes_received_per_week': 'Changes raised per week',
+  'report.changes_received_per_week.description': 'New changes each week, over six months.',
+  'report.changes_resolved_per_week': 'Changes completed per week',
+  'report.changes_resolved_per_week.description': 'Changes completed each week, over six months.',
+  'report.changes_success_rate_by_group': 'Success rate by group',
+  'report.changes_success_rate_by_group.description':
+    'Success rate and number of changes raised in the last 90 days, by support group.',
+  'report.changes_success_rate_by_type': 'Success rate by change type',
+  'report.changes_success_rate_by_type.description':
+    'Success rate and number of changes raised in the last 90 days, by change type.',
   'report.incidents_all': 'All incidents',
   'report.incidents_all.description': 'Every incident created in the period, by status.',
   'report.incidents_by_status': 'Incidents by status',
@@ -356,20 +467,41 @@ export const en = {
   'report.problems_received_per_week.description': 'New problems each week, over six months.',
   'report.problems_resolved_per_week': 'Problems resolved per week',
   'report.problems_resolved_per_week.description': 'Problems resolved each week, over six months.',
+  'report.releases_approval_time_by_type': 'Approval turnaround by type',
+  'report.releases_approval_time_by_type.description':
+    'Average approval turnaround of releases raised in the last 90 days, by release type.',
+  'report.releases_by_closure_code': 'Releases by closure code',
+  'report.releases_by_closure_code.description':
+    'Closed releases raised in the last 90 days, by how they ended.',
+  'report.releases_by_risk': 'Releases by risk',
+  'report.releases_by_risk.description': 'Releases raised in the last 90 days, by risk.',
   'report.releases_by_status': 'Releases by status',
   'report.releases_by_status.description':
     'Releases created in the period, by their current status.',
+  'report.releases_by_type': 'Releases by type',
+  'report.releases_by_type.description': 'Releases raised in the last 90 days, by release type.',
+  'report.releases_failed_by_type': 'Failed releases by type',
+  'report.releases_failed_by_type.description':
+    'Releases raised in the last 90 days that failed or were rolled back, against all, by release type.',
+  'report.releases_on_time_per_month': 'On-time delivery per month',
+  'report.releases_on_time_per_month.description':
+    'The share of deployments that ended on time, month by month over the last year.',
   'report.releases_open_ageing': 'Ageing of open releases',
   'report.releases_open_ageing.description': 'How long open and waiting releases have been open.',
   'report.releases_open_by_group': 'Open releases by group',
   'report.releases_open_by_group.description': 'Open and waiting releases, by support group.',
   'report.releases_open_by_priority': 'Open releases by priority',
   'report.releases_open_by_priority.description': 'Open and waiting releases, by priority.',
+  'report.releases_open_by_stage': 'Open releases by stage',
+  'report.releases_open_by_stage.description': 'Open releases, by the stage they are in.',
   'report.releases_open_by_status': 'Open releases by status',
   'report.releases_open_by_status.description': 'Open and waiting releases, by status.',
   'report.releases_open_by_technician': 'Open releases by technician',
   'report.releases_open_by_technician.description':
     'Open and waiting releases, by assigned technician.',
+  'report.releases_overdue_by_manager': 'Overdue stages by release manager',
+  'report.releases_overdue_by_manager.description':
+    'Open releases with an overdue stage, by their release manager.',
   'report.releases_received_per_week': 'Releases received per week',
   'report.releases_received_per_week.description': 'New releases each week, over six months.',
   'report.releases_resolved_per_week': 'Releases completed per week',
@@ -524,6 +656,7 @@ export const en = {
   'reports.delete_folder_named': 'Delete the folder “{{name}}”',
   'reports.download': 'Download',
   'reports.drill_count': 'Records: {{count}}',
+  'reports.drill_unavailable': 'These records cannot be listed from this chart yet.',
   'reports.duration_days': '{{days}} d {{hours}} h',
   'reports.duration_hours': '{{hours}} h {{minutes}} min',
   'reports.duration_minutes': '{{minutes}} min',

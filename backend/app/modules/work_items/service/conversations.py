@@ -32,7 +32,6 @@ from app.modules.identity_access import Subject, authorize_stored, user_contacts
 from app.modules.work_items.domain.conversation import (
     BODY_MAX,
     RECIPIENTS_MAX,
-    TEMPLATE_NAME_MAX,
     EntryKind,
     FollowReason,
     ReplyMode,
@@ -47,14 +46,12 @@ from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.events import (
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
-    WorkItemReplyTemplatesChanged,
     WorkItemUpdated,
 )
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemConversation,
     WorkItemFollower,
-    WorkItemReplyTemplate,
 )
 from app.modules.work_items.service import followers
 from app.modules.work_items.service import work_items as items
@@ -88,12 +85,6 @@ class ConversationRepository(Repository[WorkItemConversation]):
     """Conversation entries of the session's tenant."""
 
     model = WorkItemConversation
-
-
-class TemplateRepository(Repository[WorkItemReplyTemplate]):
-    """Reply templates of the session's tenant."""
-
-    model = WorkItemReplyTemplate
 
 
 async def email_channel_configured(session: AsyncSession) -> bool:
@@ -736,138 +727,7 @@ async def counters(
     return found
 
 
-# --- reply templates ------------------------------------------------------------------------------
-
-
-async def templates(session: AsyncSession, wtype: WorkItemType) -> list[WorkItemReplyTemplate]:
-    """The tenant's reply templates of the type, by name."""
-    rows = await session.scalars(
-        select(WorkItemReplyTemplate)
-        .where(WorkItemReplyTemplate.type == wtype.code, WorkItemReplyTemplate.deleted_at.is_(None))
-        .order_by(func.lower(WorkItemReplyTemplate.name), WorkItemReplyTemplate.id)
-    )
-    return list(rows)
-
-
-async def _check_template(
-    session: AsyncSession,
-    wtype: WorkItemType,
-    name: str,
-    body: str,
-    *,
-    except_id: uuid.UUID | None = None,
-) -> tuple[str, str]:
-    problems: list[tuple[str, str]] = []
-    clean_name = " ".join(name.split())
-    if not clean_name:
-        problems.append(("name", "required"))
-    elif len(clean_name) > TEMPLATE_NAME_MAX:
-        problems.append(("name", "value_too_long"))
-    else:
-        same = select(WorkItemReplyTemplate.id).where(
-            WorkItemReplyTemplate.type == wtype.code,
-            WorkItemReplyTemplate.deleted_at.is_(None),
-            func.lower(WorkItemReplyTemplate.name) == clean_name.lower(),
-        )
-        if except_id is not None:
-            same = same.where(WorkItemReplyTemplate.id != except_id)
-        if await session.scalar(same) is not None:
-            problems.append(("name", "duplicate_name"))
-    clean_body = sanitize_html(body)
-    if is_blank(clean_body):
-        problems.append(("body", "required"))
-    elif len(clean_body) > BODY_MAX:
-        problems.append(("body", "value_too_long"))
-    if problems:
-        raise items.field_errors(problems)
-    return clean_name, clean_body
-
-
-async def _template_changed(
-    session: AsyncSession,
-    wtype: WorkItemType,
-    row: WorkItemReplyTemplate,
-    kind: str,
-    source: Source,
-) -> None:
-    await record_changes(
-        session,
-        record_type="work_item_reply_template",
-        record_id=row.id,
-        version=row.version,
-        kind="deleted" if kind == "deleted" else ("created" if kind == "created" else "updated"),
-        changes=[] if kind == "deleted" else [Change("name", None, row.name)],
-        source=source,
-    )
-    await record_event(
-        session,
-        WorkItemReplyTemplatesChanged(type=wtype.code, template_id=row.id),
-        aggregate_id=row.id,
-        aggregate_version=row.version,
-    )
-
-
-async def create_template(
-    session: AsyncSession, wtype: WorkItemType, *, name: str, body: str, source: Source
-) -> WorkItemReplyTemplate:
-    """A new reply template (settings.manage)."""
-    clean_name, clean_body = await _check_template(session, wtype, name, body)
-    row = await TemplateRepository(session).add(
-        WorkItemReplyTemplate(type=wtype.code, name=clean_name, body=clean_body)
-    )
-    await _template_changed(session, wtype, row, "created", source)
-    return row
-
-
-async def _template(
-    session: AsyncSession, wtype: WorkItemType, template_id: uuid.UUID
-) -> WorkItemReplyTemplate:
-    row: WorkItemReplyTemplate | None = await session.scalar(
-        select(WorkItemReplyTemplate).where(
-            WorkItemReplyTemplate.id == template_id,
-            WorkItemReplyTemplate.type == wtype.code,
-            WorkItemReplyTemplate.deleted_at.is_(None),
-        )
-    )
-    if row is None:
-        raise NotFound(code="reply_template_not_found")
-    return row
-
-
-async def update_template(  # noqa: PLR0913 - the template, its version and the change, explicit
-    session: AsyncSession,
-    wtype: WorkItemType,
-    template_id: uuid.UUID,
-    *,
-    expected_version: int,
-    name: str,
-    body: str,
-    source: Source,
-) -> WorkItemReplyTemplate:
-    """Rename or rewrite a template (If-Match)."""
-    row = await _template(session, wtype, template_id)
-    clean_name, clean_body = await _check_template(session, wtype, name, body, except_id=row.id)
-    updated = await TemplateRepository(session).update(
-        row.id, expected_version=expected_version, changes={"name": clean_name, "body": clean_body}
-    )
-    await _template_changed(session, wtype, updated, "updated", source)
-    return updated
-
-
-async def delete_template(
-    session: AsyncSession,
-    wtype: WorkItemType,
-    template_id: uuid.UUID,
-    *,
-    expected_version: int,
-    source: Source,
-) -> None:
-    """Remove a template (soft delete); text already inserted into replies stays."""
-    row = await _template(session, wtype, template_id)
-    removed = await TemplateRepository(session).soft_delete(
-        row.id, expected_version=expected_version
-    )
-    await _template_changed(session, wtype, removed, "deleted", source)
+# --- reply templates: service/text_templates.py (WP-046a S5a) -------------------------------------
 
 
 def require_view(subject: Subject, wtype: WorkItemType) -> None:

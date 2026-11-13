@@ -131,6 +131,22 @@ describe('asset audits (REQ-AST-042, 043)', () => {
     expect(await within(table).findByText('1 of 2 found')).toBeTruthy();
   });
 
+  it('the bar fills by the found share, as its text says: 1 of 6 found is a sixth (V-15)', async () => {
+    window.history.pushState({}, '', '/assets/audits');
+    const sixth = { ...audit, progress: { ...audit.progress, expected: 6, marked: 3, found: 1 } };
+    const fake = api(['tenant_admin'], { 'GET /api/v1/assets/audits': { body: [sixth] } });
+    restore = fake.restore;
+    render(<App />);
+    const table = await screen.findByTestId('asset-audits');
+    expect(await within(table).findByText('1 of 6 found')).toBeTruthy();
+    const bar = within(table).getByRole('progressbar');
+    expect(bar.getAttribute('aria-valuenow')).toBe('17');
+    // The marked share is in the name, not drawn as a second, longer fill.
+    expect(bar.getAttribute('aria-label')).toBe('3 of 6 marked, 1 found');
+    expect(bar.querySelectorAll('.ant-progress-bg')).toHaveLength(1);
+    expect(bar.querySelector<HTMLElement>('.ant-progress-bg')?.style.width).toBe('17%');
+  });
+
   it('plans an audit with an Idempotency-Key', async () => {
     window.history.pushState({}, '', '/assets/audits');
     const fake = api(['tenant_admin'], {
@@ -454,6 +470,43 @@ describe('labels, scans and history origin on the asset page', () => {
     expect((await screen.findByTestId('asset-history-origin')).textContent).toBe(
       'Overdue scan rule: not scanned for 60 days',
     );
+  });
+
+  it('later links and unlinks name the record, or say a record (REQ-INC-015 AC3)', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=history`);
+    const entry = (version: number, kind: string, change: Record<string, unknown>) => ({
+      version,
+      kind,
+      actor_id: null,
+      actor_name: null,
+      source: 'system',
+      reason: null,
+      occurred_at: '2026-11-13T10:00:00Z',
+      changes: [{ field: 'linked_work_item', ...change }],
+      origin: null,
+    });
+    const named = { work_item_id: 'w1', display_id: 'INC-42', type: 'incident' };
+    const unnamed = { work_item_id: 'w2', display_id: null, type: null };
+    const fake = assetApi(['tenant_admin'], {
+      [`GET /api/v1/assets/${asset.id}/history`]: {
+        body: {
+          items: [
+            entry(7, 'child_added', { old: null, new: named }),
+            entry(6, 'child_removed', { old: named, new: null }),
+            entry(5, 'child_added', { old: null, new: unnamed }),
+            entry(4, 'child_removed', { old: unnamed, new: null }),
+          ],
+          next_cursor: null,
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByText('INC-42 linked to this asset')).toBeTruthy();
+    expect(screen.getByText('INC-42 unlinked from this asset')).toBeTruthy();
+    expect(screen.getByText('A record was linked to this asset')).toBeTruthy();
+    expect(screen.getByText('A record was unlinked from this asset')).toBeTruthy();
+    expect(screen.queryByText('linked_work_item')).toBeNull(); // never the code
   });
 
   it("a fix's history entry names the audit it came from", async () => {

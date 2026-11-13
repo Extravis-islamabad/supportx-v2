@@ -30,6 +30,7 @@ from app.modules.automation.events import AutomationChanged
 from app.modules.automation.infra.models import TransitionSetting
 from app.modules.automation.service.business_rules import _invalid
 from app.modules.automation.service.registry import record_type as registered
+from app.modules.identity_access import role_names
 from app.shared.events import record_event
 from app.shared.history import stale_version
 
@@ -77,6 +78,14 @@ async def _check(
             problems.append((name, "too_many_values", {"max": MAX_LIST}))
     if not set(relatives) <= {r.value for r in Relative}:
         problems.append(("relatives", "invalid_choice", {}))
+    # Roles are checked within the tenant like groups (ADR-049 §5): one the tenant does not
+    # have, or another tenant's, is refused at save (the session's RLS hides others' roles).
+    known = {r.key for r in await role_names(session, sorted(set(roles)))}
+    problems += [
+        (f"roles.{index}", "unknown_role", {})
+        for index, key in enumerate(roles)
+        if key not in known
+    ]
     for index, group in enumerate(groups):
         found = await kind.check_values(session, {"group_id": group})
         if found:

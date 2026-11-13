@@ -30,7 +30,7 @@ import {
 
 import { useDebounced } from '../../useDebounced';
 import { BulkBar, BulkDialog, BulkProgress } from '../incidents/list/bulk';
-import type { Selection } from '../incidents/list/model';
+import { useBulkRefresh, type Selection } from '../incidents/list/model';
 import { StatusTag } from '../incidents/tags';
 import { listValueName, stageName } from '../staged/labels';
 import { ChangeBulkCancel } from './ChangeBulkCancel';
@@ -132,12 +132,20 @@ export function ChangesPage() {
   useListChannel('changes', () => {
     void queryClient.invalidateQueries({ queryKey: changeKeys.list });
   });
+  useBulkRefresh('change', () => {
+    void queryClient.invalidateQueries({ queryKey: changeKeys.list });
+  });
   useEffect(() => {
     if (list.error) reportError(list.error);
   }, [list.error]);
   const settings = useStagedSettings('changes');
   const total = list.data?.estimated_total;
   const rows = list.data?.items ?? [];
+  const picked = rows.filter((row) => selection.ids.includes(row.id));
+  const allFinal =
+    !selection.all &&
+    picked.length > 0 &&
+    picked.every((row) => row.status_category === 'closed' || row.status_category === 'canceled');
   const selected = selection.ids.length > 0;
   // Type and risk come beside the rows (REQ-CHG-098); the risk is the one in force (chosen or scored).
   const facts = list.data?.changes ?? {};
@@ -195,7 +203,9 @@ export function ChangesPage() {
               else if (action === 'assign' || action === 'take') setBulkAction(action);
               else if (action === 'cancel' || action === 'delete') setEnding(action);
             }}
-            canEdit={(action) => CHANGE_BULK.includes(action)}
+            // Changes already closed or cancelled can only go to the trash: take, assign,
+            // close and cancel would only be skipped (QA 2026-11-12 F-08).
+            canEdit={(action) => CHANGE_BULK.includes(action) && (action === 'delete' || !allFinal)}
             noun="changes"
           />
         ) : (

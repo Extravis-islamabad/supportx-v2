@@ -17,7 +17,9 @@ All of them see only the records the viewer may see; the counters too (D-158).
 
 `work_items.asset_link.changed` with `at_creation: true` means the work item was raised with the
 asset (REQ-AST-045): the asset's history then says "INC-n raised from this asset", the display
-ID read at write time through the labeler work items register with automation.
+ID read at write time through the labeler work items register with automation. A link made or
+removed later says "INC-n linked" or "INC-n unlinked" (REQ-INC-015 AC3: both records' histories;
+the work item writes its own line).
 """
 
 import re
@@ -40,6 +42,7 @@ from app.shared.history import Change, Source, record_changes
 
 PAGE_DEFAULT, PAGE_MAX = 25, 100
 RAISED_FIELD = "raised_work_item"  # the history line of REQ-AST-045
+LINKED_FIELD = "linked_work_item"  # a later link or unlink (REQ-INC-015 AC3)
 _KIND = re.compile(r"^[a-z][a-z_]{0,39}$")
 
 
@@ -220,16 +223,18 @@ async def _display_id(
 
 
 async def on_asset_link_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
-    """REQ-AST-045: a work item raised with this asset adds a line to the asset's history.
+    """A work item linked to this asset, or unlinked, adds a line to the asset's history.
 
-    Only for `at_creation` links (lane A's flag); a link made later is the panel's, not the
-    history's. The record's display ID is looked up now, so the line reads "INC-1042 raised
-    from this asset"; a record already gone gives the generic line. Idempotent: the consumer
-    runs each event once (its claim), and a line is written only when the asset still exists.
+    Raised with the asset (`at_creation`, lane A's flag): "INC-1042 raised from this asset"
+    (REQ-AST-045). Linked or unlinked later: "INC-1042 linked" / "unlinked" (REQ-INC-015 AC3).
+    The record's display ID is looked up now; a record already gone gives the generic line.
+    Idempotent: the consumer runs each event once (its claim), and a line is written only when
+    the asset still exists.
     """
     assert session is not None  # noqa: S101 - transactional consumer
     payload = envelope.payload
-    if not payload.get("at_creation") or payload.get("change") != "added":
+    change = payload.get("change")
+    if change not in ("added", "removed"):
         return
     asset = await session.scalar(
         select(Asset).where(Asset.id == uuid.UUID(str(payload["asset_id"])))
@@ -238,18 +243,19 @@ async def on_asset_link_changed(envelope: EventEnvelope, session: AsyncSession |
         return
     work_item = uuid.UUID(str(payload["work_item_id"]))
     display_id, kind = await _display_id(session, work_item, payload.get("type"))
+    named = {"work_item_id": str(work_item), "display_id": display_id, "type": kind}
+    if change == "removed":
+        line = Change(LINKED_FIELD, named, None)
+    elif payload.get("at_creation"):
+        line = Change(RAISED_FIELD, None, named)
+    else:
+        line = Change(LINKED_FIELD, None, named)
     await record_changes(
         session,
         record_type=RECORD_TYPE,
         record_id=asset.id,
         version=asset.version,
-        kind="child_added",
-        changes=[
-            Change(
-                RAISED_FIELD,
-                None,
-                {"work_item_id": str(work_item), "display_id": display_id, "type": kind},
-            )
-        ],
+        kind="child_removed" if change == "removed" else "child_added",
+        changes=[line],
         source="system",
     )

@@ -9,8 +9,8 @@ or inactive and not already its vendor), `vendor_names` (for display), and
 `register_vendor_usage` (a module whose records name vendors says how many do, so a vendor in
 use cannot be deleted). WP-049b S4b (REQ-AST-053, the vendor import from the asset screens):
 `create_vendor` and `update_vendor` (the same calls as the API, with their permissions),
-`find_vendor` and `find_vendor_id` (by name), and the permissions `VENDORS_CREATE` and
-`VENDORS_MANAGE`.
+`find_vendor` and `find_vendor_id` (by name; S4c: `find_vendors`, many names in one query), and
+the permissions `VENDORS_CREATE` and `VENDORS_MANAGE`.
 """
 
 from app.core.authorization import PermissionSpec
@@ -25,6 +25,7 @@ from app.modules.procurement.service.vendors import (
     create_vendor,
     find_vendor,
     find_vendor_id,
+    find_vendors,
     register_vendor_usage,
     update_vendor,
     vendor_names,
@@ -64,6 +65,7 @@ __all__ = [
     "create_vendor",
     "find_vendor",
     "find_vendor_id",
+    "find_vendors",
     "module",
     "register_vendor_usage",
     "update_vendor",

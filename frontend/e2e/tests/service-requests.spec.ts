@@ -133,7 +133,7 @@ async function cleanUp(admin: Page, requests: string[], items: string[]): Promis
   }
 }
 
-test('raise, approve from the drawer, fulfil and confirm receipt, all live', async ({
+test('raise, approve from the drawer, fulfil and confirm receipt, all live @smoke', async ({
   browser,
 }) => {
   const tag = crypto.randomUUID().slice(0, 8);

@@ -112,6 +112,9 @@ COPY --chown=root:root backend/app ./app
 COPY --chown=root:root backend/workers ./workers
 COPY --chown=root:root backend/migrations ./migrations
 COPY --chown=root:root backend/tooling ./tooling
+# Keycloak's breached-password list (REQ-SEC-005, D-089 D2): 456 KB, too big for the Helm release
+# (a release is one Secret, at most 1 MiB), so it ships here and the Keycloak pod copies it in.
+COPY --chown=root:root deploy/helm/supportx/files/keycloak/password-blacklists/supportx-breached.txt /opt/supportx/keycloak/password-blacklists/
 # The label dictionary is generated, never committed (D-127): `make generated` before the build.
 RUN test -f app/shared/labels/resources.json \
  || { echo "resources.json missing: run make generated before building images (D-127)" >&2; exit 1; }

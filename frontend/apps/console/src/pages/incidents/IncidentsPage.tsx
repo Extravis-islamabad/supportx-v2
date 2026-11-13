@@ -56,6 +56,7 @@ import {
   useMinWidth,
 } from '@supportx/ui';
 
+import { QuickCreateDialog } from './QuickCreateDialog';
 import { choiceName, fieldName } from '../customFields/values';
 import { useReportWords } from '../reports/names';
 import { useIncidentFieldName } from './conflict';
@@ -78,7 +79,7 @@ import {
   draftOf,
   exportFilter,
   rangeFilter,
-  useBulkLive,
+  useBulkRefresh,
   type SearchChip,
   type Selection,
   type TimeRangeValue,
@@ -126,6 +127,7 @@ export function IncidentsPage() {
   const allowed = can('incidents.view');
   const [mode, setMode] = useState<'current' | 'trash'>('current');
   const [panel, setPanel] = useState<'exports' | 'bulk' | null>(null);
+  const [quick, setQuick] = useState(false);
   const wideWindow = useMinWidth(GROUP_DEFAULT_MIN_WIDTH);
   // A built-in view code, or `custom:<saved view id>`.
   const [view, setView] = useState<string>(DEFAULT_VIEW);
@@ -264,9 +266,9 @@ export function IncidentsPage() {
       refreshRecord(queryClient, queryKeys.incidents.detail(id), message);
     }
   });
+  // A bulk job's batch: one refresh for the whole batch (REQ-INC-120), not one per record.
+  useBulkRefresh('incident', refreshLists);
   useTenantChannel((message) => {
-    // A bulk job's batch: one refresh for the whole batch (REQ-INC-120), not one per record.
-    if (message.type === LISTS_CHANGED) refreshLists();
     if (message.type === VIEWS_CHANGED) refreshList(queryClient, queryKeys.incidents.savedViews);
   });
   usePersonalChannel((message) => {
@@ -276,7 +278,6 @@ export function IncidentsPage() {
       refreshList(queryClient, queryKeys.incidents.listSetting(settingKey));
     }
   });
-  useBulkLive();
   const listKey = JSON.stringify([view, filter ?? null, trash]);
   const selection: Selection = picked.list === listKey ? picked : { ids: [], all: false };
   const setSelection = (next: Selection) => {
@@ -388,6 +389,33 @@ export function IncidentsPage() {
                 trash
                   ? []
                   : [
+                      // Quick create without leaving the list (REQ-INC-018): its own button
+                      // before New, so the main action stays last (template C, lane C).
+                      ...(can('incidents.create')
+                        ? [
+                            {
+                              key: 'quick',
+                              node: (
+                                <WriteButton
+                                  onClick={() => {
+                                    setQuick(true);
+                                  }}
+                                  data-testid="inc-quick-open"
+                                >
+                                  {t('incidents.quick.open')}
+                                </WriteButton>
+                              ),
+                              overflow: {
+                                key: 'quick',
+                                label: t('incidents.quick.open'),
+                                onClick: () => {
+                                  setQuick(true);
+                                },
+                                testId: 'inc-quick-open-menu',
+                              },
+                            },
+                          ]
+                        : []),
                       {
                         key: 'export',
                         node: (
@@ -458,6 +486,12 @@ export function IncidentsPage() {
         />
       }
     >
+      <QuickCreateDialog
+        open={quick}
+        onClose={() => {
+          setQuick(false);
+        }}
+      />
       <MyExportsButton
         button={false}
         open={panel === 'exports'}

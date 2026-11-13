@@ -38,6 +38,7 @@ def test_header_is_off_by_default(settings_factory: Callable[..., Settings], pro
 def test_header_is_ignored_in_production(settings_factory: Callable[..., Settings]) -> None:
     production = settings_factory(
         profile="production",
+        mobile_redirect_uri="https://sx.example.com/mobile/auth",
         database_url="postgresql://u:p@db/x",
         valkey_url="valkey://:p@kv:6379/0",
         nats_url="nats://bus:4222",
@@ -48,6 +49,7 @@ def test_header_is_ignored_in_production(settings_factory: Callable[..., Setting
         centrifugo_api_url="http://127.0.0.1:1",
         centrifugo_api_key="k",
         centrifugo_token_secret="c" * 32,
+        api_key_secret="k" * 32,
         dev_tenant_header=True,  # even explicitly enabled
     )
     assert production.tenant_header_enabled is False

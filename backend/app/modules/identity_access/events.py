@@ -1,10 +1,14 @@
 """Event contracts published by identity_access (WP-007; docs/architecture/events.md).
 
 Payloads carry IDs and codes only (architecture.md §8.2): no email address, name, token or
-session ID ever goes into an event. Consumers that need more ask identity_access.
+session ID ever goes into an event. Consumers that need more ask identity_access. One stated
+exception (ADR-051): `keycloak_session.end_pending` names Keycloak's own session ID, an identifier
+that authorises nothing (ending it takes the identity service account); a SupportX session ID or
+any token never.
 """
 
 import uuid
+from datetime import datetime
 from typing import ClassVar, Literal
 
 from pydantic import Field
@@ -64,6 +68,22 @@ class UserLoggedOut(DomainEvent):
 
     user_id: uuid.UUID
     client: ClientApp
+
+
+class KeycloakSessionEndPending(DomainEvent):
+    """A sign-out ended the SupportX session while Keycloak was unreachable (ADR-051).
+
+    The person is signed out of SupportX already; this asks the consumers worker to end their
+    Keycloak session too, through the admin API, once Keycloak answers again. No token: the
+    session ID is enough for the admin API and authorises nothing on its own.
+    """
+
+    event_type: ClassVar[str] = "identity_access.keycloak_session.end_pending"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    keycloak_session_id: str = Field(min_length=1, max_length=128)
 
 
 class SessionTenantSwitched(DomainEvent):
@@ -289,11 +309,73 @@ class ApiKeyChanged(DomainEvent):
     owner_id: uuid.UUID
 
 
+class UserCostRateChanged(DomainEvent):
+    """A person's cost per hour was set, changed or removed (REQ-INC-068).
+
+    IDs and the kind of change only, never the amount: screens with `users.view_cost_rates`
+    refetch the person's rates.
+    """
+
+    event_type: ClassVar[str] = "identity_access.user_cost_rate.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user_cost_rate"
+
+    user_id: uuid.UUID
+    change: Literal["created", "updated", "deleted"]
+
+
+class SignInRecorded(DomainEvent):
+    """A sign-in event was written to the tenant's log (REQ-AUD-015; WP-057 S1a).
+
+    The outcome only, never the person, address or device: open sign-in logs refetch.
+    """
+
+    event_type: ClassVar[str] = "identity_access.sign_in.recorded"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sign_in_event"
+
+    outcome: Literal["success", "failed", "signed_out", "locked", "mfa_failed"]
+
+
+class BreakGlassSignedIn(DomainEvent):
+    """A break-glass admin signed in with a password while single sign-on is required.
+
+    REQ-SEC-009 AC3 (WP-057 S1b): every other tenant admin is told. IDs only.
+    """
+
+    event_type: ClassVar[str] = "identity_access.break_glass.signed_in"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+
+
+class NewDeviceSignedIn(DomainEvent):
+    """A person signed in from a browser or device they have not used before (REQ-SEC-033).
+
+    WP-057 S2b-1: they are told (a locked security notice), never on their first sign-in ever.
+    Carries the device code (domain/sign_in.device, never the User-Agent) and the approximate
+    place (domain/place.py's stored form), never the address: the known_devices table keeps only
+    a keyed fingerprint, so the notice can only say this from the event. Internal (the outbox and
+    the notification consumer), never sent to a browser.
+    """
+
+    event_type: ClassVar[str] = "identity_access.new_device.signed_in"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    device: str | None
+    place: dict[str, str] | None
+    signed_in_at: datetime
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
     UserLoggedIn,
     UserLoggedOut,
+    KeycloakSessionEndPending,
     SessionTenantSwitched,
     RoleChanged,
     UserRoleChanged,
@@ -311,4 +393,8 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SsoProviderChanged,
     InvitationChanged,
     ApiKeyChanged,
+    UserCostRateChanged,
+    SignInRecorded,
+    BreakGlassSignedIn,
+    NewDeviceSignedIn,
 )

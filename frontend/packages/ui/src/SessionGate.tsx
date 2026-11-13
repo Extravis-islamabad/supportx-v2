@@ -1,4 +1,4 @@
-import { Button, Flex, Result, Spin } from 'antd';
+import { Button, Flex, Result, Spin, Typography } from 'antd';
 import { useEffect, type ReactNode } from 'react';
 
 import {
@@ -13,8 +13,10 @@ import {
 import { label, LOCALES, type Locale } from '@supportx/labels';
 
 import { useAppearance, useLabel } from './appearance';
+import { ReauthDialog } from './reauth/ReauthDialog';
 import { BrandedPage, BrandLogo } from './brand';
 import { IdleWatcher } from './IdleWatcher';
+import { rememberLocale } from './themeMode';
 
 const CONSOLE_REQUESTER_ONLY = 'console_requester_only';
 /** The portal home's query when the console sent a requester there (it says why). */
@@ -80,6 +82,7 @@ export function SessionGate({ app, children, navigate = defaultNavigate }: Sessi
   useEffect(() => {
     if (userLocale !== undefined && isLocale(userLocale)) {
       setLocale(userLocale);
+      rememberLocale(userLocale); // the next visit's loading screen is in it (V-01)
     }
     // setLocale is recreated with the appearance context; only a new user locale should apply.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: apply once per locale
@@ -127,11 +130,23 @@ export function SessionGate({ app, children, navigate = defaultNavigate }: Sessi
   }
   if (me === undefined || me === null) {
     return (
-      <Flex vertical justify="center" align="center" gap={24} style={{ minHeight: '100vh' }}>
+      // The page's own background (the theme's), the logo, a spinner and the words under it:
+      // never a grey box round them (QA 2026-11-12 V-01).
+      <Flex
+        vertical
+        justify="center"
+        align="center"
+        gap={16}
+        role="status"
+        aria-live="polite"
+        style={{ minHeight: '100vh' }}
+        data-testid="session-loading"
+      >
         <BrandLogo height={40} />
-        <Spin tip={t(me === null ? 'auth.redirecting_to_login' : 'auth.checking_session')}>
-          <div style={{ padding: 48 }} />
-        </Spin>
+        <Spin />
+        <Typography.Text type="secondary">
+          {t(me === null ? 'auth.redirecting_to_login' : 'auth.checking_session')}
+        </Typography.Text>
       </Flex>
     );
   }
@@ -139,6 +154,8 @@ export function SessionGate({ app, children, navigate = defaultNavigate }: Sessi
     <>
       {children(me)}
       {me.idle_timeout_seconds != null && <IdleWatcher idleSeconds={me.idle_timeout_seconds} />}
+      {/* A sensitive change asks for a recent sign-in (REQ-SEC-027): confirmed in a pop-up. */}
+      <ReauthDialog />
     </>
   );
 }

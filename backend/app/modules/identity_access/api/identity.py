@@ -12,39 +12,60 @@ audited (D-089 D7) and reaches other open settings pages live.
   secret is accepted, never returned.
 """
 
+import ipaddress
 import uuid
 from dataclasses import replace
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import NotFound, ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
-from app.modules.identity_access.api.sessions import ListedSessionOut, listed_out
+from app.modules.identity_access.api.sessions import ListedSessionOut, PlaceOut, listed_out
 from app.modules.identity_access.domain import sso as sso_rules
+from app.modules.identity_access.domain.network import NetworkApp, address_of
+from app.modules.identity_access.domain.place import MAX_SITE_NETWORKS, place_of
 from app.modules.identity_access.domain.policy import Subject
+from app.modules.identity_access.domain.sign_in import SignInApp, SignInMethod, SignInOutcome
+from app.modules.identity_access.domain.sign_in_policy import SsoRequired
+from app.modules.identity_access.infra.geoip import GeoIp
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
 )
-from app.modules.identity_access.infra.models import MAX_IDLE_SECONDS, MIN_IDLE_SECONDS, User
+from app.modules.identity_access.infra.models import (
+    MAX_IDLE_SECONDS,
+    MIN_IDLE_SECONDS,
+    SignInEvent,
+    User,
+)
 from app.modules.identity_access.service import (
+    api_keys,
+    break_glass,
     identity_settings,
     invitations,
     mfa,
+    network_rules,
     password_reset,
+    sign_in_log,
+    site_networks,
     sso,
     sso_test,
 )
 from app.modules.identity_access.service.auth import AuthService
 from app.modules.organization import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.filters import FieldType
 from app.shared.api.idempotency import Created, Idempotency
-from app.shared.api.ratelimit import rate_limit
+from app.shared.api.listing import CursorScope, SortKey, get_cursor_codec
+from app.shared.api.ratelimit import client_address, rate_limit
+from app.shared.egress import Allowance, installation_allowance
 
 RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ProblemDetail, "description": "Not signed in."},
@@ -167,7 +188,7 @@ async def get_settings(
     return _out(await identity_settings.get_identity_settings(session), request)
 
 
-@router.put("/settings", summary="Save sign-in settings")
+@router.put("/settings", summary="Save sign-in settings", dependencies=[RecentAuth])
 async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, request, response, session, subject, audit note
     body: IdentitySettingsBody,
     version: ExpectedVersion,
@@ -198,7 +219,461 @@ async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, ve
     return _out(saved, request)
 
 
-@router.post("/settings/password-policy/apply", summary="Apply the password policy again")
+# --- the sign-in log (REQ-AUD-015; WP-057 S1a) ---------------------------------------------------
+
+ViewSignIns = Annotated[Subject, Depends(require_permission("identity.view_sign_ins"))]
+_LOG_KEYS = (
+    SortKey("occurred_at", SignInEvent.occurred_at, FieldType.DATETIME, descending=True),
+    SortKey("id", SignInEvent.id, FieldType.UUID, descending=True),
+)
+
+
+class SignInEventOut(BaseModel):
+    """One entry: codes the UI labels (outcome, reason, method, app, device), never raw text."""
+
+    id: uuid.UUID
+    occurred_at: datetime
+    outcome: SignInOutcome
+    reason: str | None
+    method: SignInMethod
+    app: SignInApp
+    user_id: uuid.UUID | None
+    ip: str | None
+    device: str | None
+    identity_provider: str | None
+    place: PlaceOut | None = Field(
+        default=None,
+        description="Where the address is, approximately, read now (D-170); none once erased.",
+    )
+
+
+class SignInPersonOut(BaseModel):
+    """A person the page names."""
+
+    display_name: str
+    email: str | None
+
+
+class SignInLogPage(BaseModel):
+    """A page of the log, newest first, and the people it names."""
+
+    items: list[SignInEventOut]
+    people: dict[str, SignInPersonOut]
+    next_cursor: str | None
+
+
+def _geo(request: Request) -> GeoIp:
+    """The process's GeoIP reader (the sign-in service's), or one that answers nothing."""
+    auth: AuthService | None = getattr(request.app.state, "auth", None)
+    return auth.geo if auth is not None else GeoIp(None)
+
+
+@router.get("/sign-ins", summary="The sign-in log")
+async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of one list
+    request: Request,
+    session: TenantSession,
+    subject: ViewSignIns,
+    note: Annotated[
+        AuditNote, audited("identity.sign_ins_viewed", object_type="identity_settings")
+    ],
+    outcome: Annotated[list[SignInOutcome] | None, Query()] = None,
+    method: Annotated[list[SignInMethod] | None, Query()] = None,
+    user_id: uuid.UUID | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    cursor: Annotated[str | None, Query(max_length=2048)] = None,
+    limit: Annotated[int, Query(ge=1, le=sign_in_log.PAGE_MAX)] = 50,
+) -> SignInLogPage:
+    """Every sign-in event of the organisation, newest first (AC2: by outcome and time).
+
+    Reading it is a read of personal data: each call is audited with its filters, never the
+    rows (the coordinator).
+    """
+    note.object_id = str(subject.tenant_id)
+    note.details = {
+        "outcome": sorted(o.value for o in outcome or ()),
+        "method": sorted(m.value for m in method or ()),
+        "user_id": str(user_id) if user_id else None,
+        "since": since.isoformat() if since else None,
+        "until": until.isoformat() if until else None,
+        "page": "next" if cursor else "first",
+    }
+    scope = CursorScope(
+        endpoint="identity.sign_ins",
+        tenant_id=subject.tenant_id,
+        user_id=subject.user_id,
+        sort="occurred_at.desc,id.desc",
+        # The filters a cursor belongs to: the same list, never another one's page.
+        filter_fingerprint=repr(
+            (sorted(outcome or ()), sorted(method or ()), user_id, since, until, limit)
+        ),
+    )
+    codec = get_cursor_codec(request)
+    before = None
+    if cursor is not None:
+        at, last = codec.decode(cursor, scope, _LOG_KEYS)
+        before = (at, last)
+    rows = await sign_in_log.list_events(
+        session,
+        sign_in_log.LogFilter(
+            outcomes=tuple(outcome or ()),
+            methods=tuple(method or ()),
+            user_id=user_id,
+            since=since,
+            until=until,
+            before=before,
+            limit=limit + 1,
+        ),
+    )
+    more = len(rows) > limit
+    rows = rows[:limit]
+    named = {r.user_id for r in rows if r.user_id is not None}
+    people = {
+        str(person.id): SignInPersonOut(display_name=person.display_name, email=person.email)
+        for person in await session.scalars(select(User).where(User.id.in_(named)))
+    }
+    # The place is read now from the stored address (never stored itself: erasing the address
+    # erases the place), with today's site map and GeoIP file (D-170).
+    networks = (await site_networks.get_site_map(session)).networks()
+    geo = _geo(request)
+
+    def place(ip: str | None) -> PlaceOut | None:
+        found = place_of(ip, networks, geo.lookup) if ip is not None else None
+        return None if found is None else PlaceOut.of(found.to_dict())
+
+    last_row = rows[-1] if rows else None
+    return SignInLogPage(
+        items=[
+            SignInEventOut(
+                id=r.id,
+                occurred_at=r.occurred_at,
+                outcome=SignInOutcome(r.outcome),
+                reason=r.reason,
+                method=SignInMethod(r.method),
+                app=SignInApp(r.app),
+                user_id=r.user_id,
+                ip=str(r.ip) if r.ip is not None else None,
+                device=r.device,
+                identity_provider=r.identity_provider,
+                place=place(str(r.ip) if r.ip is not None else None),
+            )
+            for r in rows
+        ],
+        people=people,
+        next_cursor=(
+            codec.encode(scope, _LOG_KEYS, (last_row.occurred_at, last_row.id))
+            if more and last_row is not None
+            else None
+        ),
+    )
+
+
+# --- single sign-on required and break-glass admins (REQ-SEC-009, REQ-SEC-026; WP-057 S1b) -------
+
+
+class SsoPolicyBody(BaseModel):
+    """For whom single sign-on is required, and whether SupportX asks its own MFA after it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sso_required: SsoRequired
+    sso_also_require_mfa: bool
+
+
+class TenantAdminOut(BaseModel):
+    """A tenant admin, who may be named a break-glass admin (with MFA set up)."""
+
+    user_id: uuid.UUID
+    display_name: str
+    mfa_enrolled: bool
+    break_glass: bool
+    break_glass_ip_exempt: bool
+    version: int
+
+
+class SsoPolicyOut(BaseModel):
+    """The policy, the tenant's admins with their break-glass marks, and the version."""
+
+    sso_required: SsoRequired
+    sso_also_require_mfa: bool
+    break_glass_admins: int
+    admins: list[TenantAdminOut]
+    version: int
+
+
+async def _policy_out(session: TenantSession, policy: break_glass.SsoPolicy) -> SsoPolicyOut:
+    return SsoPolicyOut(
+        sso_required=policy.required,
+        sso_also_require_mfa=policy.also_require_mfa,
+        break_glass_admins=await break_glass.active_break_glass(session),
+        admins=[
+            TenantAdminOut(
+                user_id=a.user_id,
+                display_name=a.display_name,
+                mfa_enrolled=a.mfa_enrolled,
+                break_glass=a.break_glass,
+                break_glass_ip_exempt=a.ip_exempt,
+                version=a.version,
+            )
+            for a in await break_glass.tenant_admins(session)
+        ],
+        version=policy.version,
+    )
+
+
+@router.get("/sso-policy", summary="Single sign-on policy")
+async def get_sso_policy(
+    response: Response, session: TenantSession, subject: Manage
+) -> SsoPolicyOut:
+    """Whether single sign-on is required, for whom, and MFA after it."""
+    del subject
+    policy = await break_glass.get_sso_policy(session)
+    set_etag(response, policy.version)
+    return await _policy_out(session, policy)
+
+
+@router.put("/sso-policy", summary="Save the single sign-on policy", dependencies=[RecentAuth])
+async def put_sso_policy(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    body: SsoPolicyBody,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote, audited("identity.sso_policy_changed", object_type="identity_settings")
+    ],
+) -> SsoPolicyOut:
+    """Save it. Requiring single sign-on needs an active break-glass admin first (AC2)."""
+    saved, details = await break_glass.save_sso_policy(
+        session,
+        required=body.sso_required,
+        also_require_mfa=body.sso_also_require_mfa,
+        expected_version=version,
+    )
+    changed = details.get("changed_fields")
+    if isinstance(changed, list) and "sso_also_require_mfa" in changed:
+        # The tenant's own identity providers ask for SupportX's code after sign-in, or stop
+        # (REQ-SEC-026). In the same request: if Keycloak refuses, the saved setting rolls back.
+        await sso.apply_post_broker_flow(
+            session, _admin(request), enabled=body.sso_also_require_mfa
+        )
+    note.object_id = str(subject.tenant_id)
+    note.details = details
+    note.skip = not details
+    set_etag(response, saved.version)
+    return await _policy_out(session, saved)
+
+
+class BreakGlassBody(BaseModel):
+    """Whether the person is a break-glass admin, and also outside the IP allow-lists."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    break_glass: bool
+    break_glass_ip_exempt: bool = False
+
+
+class BreakGlassOut(BaseModel):
+    """The person's marks and their record's version."""
+
+    user_id: uuid.UUID
+    break_glass: bool
+    break_glass_ip_exempt: bool
+    version: int
+
+
+@router.put(
+    "/break-glass/{user_id}",
+    summary="Mark or unmark a break-glass admin",
+    dependencies=[RecentAuth],
+)
+async def put_break_glass(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    user_id: uuid.UUID,
+    body: BreakGlassBody,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[AuditNote, audited("identity.break_glass_changed", object_type="user")],
+) -> BreakGlassOut:
+    """Only a tenant admin, for a tenant admin with MFA; never the last one while required."""
+    state, details = await break_glass.set_break_glass(
+        session,
+        subject,
+        user_id,
+        break_glass=body.break_glass,
+        ip_exempt=body.break_glass_ip_exempt,
+        expected_version=version,
+    )
+    note.object_id = str(user_id)
+    note.details = details
+    note.skip = not details
+    set_etag(response, state.version)
+    return BreakGlassOut(
+        user_id=state.user_id,
+        break_glass=state.break_glass,
+        break_glass_ip_exempt=state.ip_exempt,
+        version=state.version,
+    )
+
+
+# --- IP allow-lists (REQ-SEC-034; WP-057 S1a) ---------------------------------------------------
+
+
+class NetworkRulesBody(BaseModel):
+    """The three lists, each in full (CIDR ranges or single addresses; empty = no restriction)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    console_ip_allow: list[str] = Field(max_length=200)
+    portal_ip_allow: list[str] = Field(max_length=200)
+    api_ip_allow: list[str] = Field(max_length=200)
+
+
+class NetworkRulesOut(BaseModel):
+    """The lists as saved, the address this request comes from (to add it), and the version."""
+
+    console_ip_allow: list[str]
+    portal_ip_allow: list[str]
+    api_ip_allow: list[str]
+    your_address: str | None
+    version: int
+
+
+def _rules_out(rules: network_rules.NetworkRules, request: Request) -> NetworkRulesOut:
+    here = address_of(client_address(request))
+    return NetworkRulesOut(
+        console_ip_allow=list(rules.lists[NetworkApp.CONSOLE]),
+        portal_ip_allow=list(rules.lists[NetworkApp.PORTAL]),
+        api_ip_allow=list(rules.lists[NetworkApp.API]),
+        your_address=str(here) if here is not None else None,
+        version=rules.version,
+    )
+
+
+@router.get("/network-rules", summary="IP allow-lists")
+async def get_network_rules(
+    request: Request, response: Response, session: TenantSession, subject: Manage
+) -> NetworkRulesOut:
+    """Who may sign in to the console and the portal, and call the API, by address."""
+    del subject
+    rules = await network_rules.get_network_rules(session)
+    set_etag(response, rules.version)
+    return _rules_out(rules, request)
+
+
+@router.put("/network-rules", summary="Save the IP allow-lists", dependencies=[RecentAuth])
+async def put_network_rules(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, request, response, session, subject, audit note
+    body: NetworkRulesBody,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote, audited("identity.network_rules_changed", object_type="identity_settings")
+    ],
+) -> NetworkRulesOut:
+    """Save all three lists. Refused, at the list, when it would shut you out (AC2).
+
+    Applies to sign-ins and tenant switches at once, and to signed-in sessions at their next
+    refresh (within minutes).
+    """
+    saved, details = await network_rules.save_network_rules(
+        session,
+        {
+            NetworkApp.CONSOLE: body.console_ip_allow,
+            NetworkApp.PORTAL: body.portal_ip_allow,
+            NetworkApp.API: body.api_ip_allow,
+        },
+        expected_version=version,
+        admin_address=address_of(client_address(request)),
+        via_api_key=api_keys.bearer(request.headers.get("authorization")) is not None,
+    )
+    note.object_id = str(subject.tenant_id)
+    note.details = details
+    note.skip = not details
+    set_etag(response, saved.version)
+    return _rules_out(saved, request)
+
+
+class SiteNetworkIn(BaseModel):
+    """One address range and the site it means."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    network: str = Field(max_length=64, description="A range such as 10.1.0.0/16, or one address.")
+    site_id: uuid.UUID
+
+
+class SiteNetworksBody(BaseModel):
+    """The whole list (replaces what is saved)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entries: list[SiteNetworkIn] = Field(max_length=MAX_SITE_NETWORKS)
+
+
+class SiteNetworksOut(BaseModel):
+    """The ranges as saved, most specific first, and the settings version (If-Match)."""
+
+    entries: list[SiteNetworkIn]
+    version: int
+    geoip_built_at: datetime | None = Field(
+        description="When the installed place database was built (D-170), or null without one."
+    )
+
+
+def _site_map_out(saved: site_networks.SiteMap, request: Request) -> SiteNetworksOut:
+    return SiteNetworksOut(
+        entries=[SiteNetworkIn(network=net, site_id=site) for net, site in saved.entries],
+        version=saved.version,
+        geoip_built_at=_geo(request).built_at(),
+    )
+
+
+@router.get("/site-networks", summary="Address ranges mapped to sites")
+async def get_site_networks(
+    request: Request, response: Response, session: TenantSession, subject: Manage
+) -> SiteNetworksOut:
+    """Which site a sign-in from each range is shown at (D-170); the most specific range wins."""
+    del subject
+    saved = await site_networks.get_site_map(session)
+    set_etag(response, saved.version)
+    return _site_map_out(saved, request)
+
+
+@router.put("/site-networks", summary="Save the address ranges mapped to sites")
+async def put_site_networks(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, request, response, session, subject, audit note
+    body: SiteNetworksBody,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote, audited("identity.site_networks_changed", object_type="identity_settings")
+    ],
+) -> SiteNetworksOut:
+    """Replace the list. Sign-ins from now on show the site; earlier ones are read the same way."""
+    saved, details = await site_networks.save_site_map(
+        session,
+        [(entry.network, entry.site_id) for entry in body.entries],
+        expected_version=version,
+    )
+    note.object_id = str(subject.tenant_id)
+    note.details = details
+    note.skip = not details
+    set_etag(response, saved.version)
+    return _site_map_out(saved, request)
+
+
+@router.post(
+    "/settings/password-policy/apply",
+    summary="Apply the password policy again",
+    dependencies=[RecentAuth],
+)
 async def apply_password_policy(
     request: Request,
     session: TenantSession,
@@ -223,8 +698,18 @@ def _admin(request: Request) -> IdentityAdmin | None:
     return getattr(request.app.state, "identity_admin", None)
 
 
-def _allow_loopback(request: Request) -> bool:
-    return bool(request.app.state.settings.sso_fetch_allow_loopback)
+def _fetch_allowance(request: Request) -> Allowance:
+    """What a sign-in set-up's check may contact: the installation's list (audit #3).
+
+    Plus loopback where `sso_fetch_allow_loopback` is set in the dev and test profiles (their
+    test identity provider runs on the same machine).
+    """
+    settings = request.app.state.settings
+    allowance = installation_allowance(settings)
+    if settings.sso_fetch_allow_loopback and settings.profile in {"dev", "test"}:
+        loopback = (ipaddress.ip_network("127.0.0.0/8"), ipaddress.ip_network("::1/128"))
+        return Allowance(allowance.networks + loopback, allowance.hosts, allowance.ports)
+    return allowance
 
 
 def _require_domain_proof(request: Request) -> bool:
@@ -232,7 +717,7 @@ def _require_domain_proof(request: Request) -> bool:
 
 
 Admin = Annotated[IdentityAdmin | None, Depends(_admin)]
-AllowLoopback = Annotated[bool, Depends(_allow_loopback)]
+FetchAllowance = Annotated[Allowance, Depends(_fetch_allowance)]
 RequireDomainProof = Annotated[bool, Depends(_require_domain_proof)]
 
 
@@ -353,6 +838,7 @@ async def list_sso(request: Request, session: TenantSession, subject: Manage) ->
     status_code=status.HTTP_201_CREATED,
     response_model=SsoOut,
     responses={201: {"model": SsoOut, "description": "Created in draft (or replayed)."}},
+    dependencies=[RecentAuth],
 )
 async def create_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     body: SsoBody,
@@ -360,7 +846,7 @@ async def create_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     session: TenantSession,
     subject: Manage,
     admin: Admin,
-    allow_loopback: AllowLoopback,
+    allowance: FetchAllowance,
     require_domain_proof: RequireDomainProof,
     idempotency: Idempotency,
     note: Annotated[AuditNote, audited("sso.added", object_type="sso_provider")],
@@ -374,7 +860,7 @@ async def create_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
             session,
             admin,
             body.values(),
-            allow_loopback=allow_loopback,
+            allowance=allowance,
             require_domain_proof=require_domain_proof,
         )
         note.skip = False
@@ -403,7 +889,10 @@ async def get_sso(
 @router.put(
     "/sso/{provider_id}",
     summary="Change a single sign-on set-up",
-    dependencies=[audited("sso.updated", object_type="sso_provider", object_param="provider_id")],
+    dependencies=[
+        RecentAuth,
+        audited("sso.updated", object_type="sso_provider", object_param="provider_id"),
+    ],
 )
 async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     provider_id: uuid.UUID,
@@ -414,7 +903,7 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     session: TenantSession,
     subject: Manage,
     admin: Admin,
-    allow_loopback: AllowLoopback,
+    allowance: FetchAllowance,
     require_domain_proof: RequireDomainProof,
 ) -> SsoOut:
     """A connection change sends it back to draft (an "on" set-up: switch it off first)."""
@@ -425,7 +914,7 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
         provider_id,
         body.values(),
         expected_version=version,
-        allow_loopback=allow_loopback,
+        allowance=allowance,
         require_domain_proof=require_domain_proof,
     )
     set_etag(response, view.version)
@@ -436,7 +925,8 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     "/sso/{provider_id}/switch-on",
     summary="Switch a single sign-on set-up on",
     dependencies=[
-        audited("sso.switched_on", object_type="sso_provider", object_param="provider_id")
+        RecentAuth,
+        audited("sso.switched_on", object_type="sso_provider", object_param="provider_id"),
     ],
 )
 async def switch_on(  # noqa: PLR0913, PLR0917 - FastAPI parameters
@@ -459,7 +949,8 @@ async def switch_on(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     "/sso/{provider_id}/switch-off",
     summary="Switch a single sign-on set-up off",
     dependencies=[
-        audited("sso.switched_off", object_type="sso_provider", object_param="provider_id")
+        RecentAuth,
+        audited("sso.switched_off", object_type="sso_provider", object_param="provider_id"),
     ],
 )
 async def switch_off(  # noqa: PLR0913, PLR0917 - FastAPI parameters
@@ -484,7 +975,10 @@ async def switch_off(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     "/sso/{provider_id}",
     summary="Remove a single sign-on set-up",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[audited("sso.removed", object_type="sso_provider", object_param="provider_id")],
+    dependencies=[
+        RecentAuth,
+        audited("sso.removed", object_type="sso_provider", object_param="provider_id"),
+    ],
 )
 async def remove_sso(
     provider_id: uuid.UUID,
@@ -732,7 +1226,9 @@ async def person_sessions(
 ) -> list[ListedSessionOut]:
     """Every session the person has open in this organisation, most recently used first."""
     auth = await _person_auth(request, session, user_id)
-    return listed_out(await auth.listed_sessions(subject.tenant_id, user_id))
+    # Where each session signed in: tenant admins only (lane B's WP-057 S2a condition).
+    rows = await auth.listed_sessions(subject.tenant_id, user_id)
+    return listed_out(rows, show_where=subject.is_tenant_admin)
 
 
 @router.delete(
@@ -798,7 +1294,7 @@ async def get_mfa_policy(session: TenantSession, subject: Manage) -> MfaPolicyOu
     return MfaPolicyOut(grace_days=await mfa.grace_days(session), roles=roles)
 
 
-@router.put("/mfa/roles/{role_id}", summary="Set a role's MFA mode")
+@router.put("/mfa/roles/{role_id}", summary="Set a role's MFA mode", dependencies=[RecentAuth])
 async def put_mfa_role(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     role_id: uuid.UUID,
     body: MfaRoleIn,
@@ -822,7 +1318,10 @@ async def put_mfa_role(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     "/people/{user_id}/reset-mfa",
     summary="Reset a person's MFA",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[audited("user.mfa_reset", object_type="user", object_param="user_id")],
+    dependencies=[
+        RecentAuth,
+        audited("user.mfa_reset", object_type="user", object_param="user_id"),
+    ],
 )
 async def reset_mfa(
     user_id: uuid.UUID,

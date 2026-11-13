@@ -55,6 +55,11 @@ export const queryKeys = {
     invitations: ['identity', 'invitations'] as const,
     personInvitations: (userId: string) => ['identity', 'invitations', userId] as const,
     mfa: ['identity', 'mfa'] as const,
+    networkRules: ['identity', 'network-rules'] as const,
+    siteNetworks: ['identity', 'site-networks'] as const,
+    ssoPolicy: ['identity', 'sso-policy'] as const,
+    signIns: (filters: Record<string, unknown>) => ['identity', 'sign-ins', filters] as const,
+    signInsAll: ['identity', 'sign-ins'] as const,
     accountSecurity: ['identity', 'account-security'] as const,
     mySessions: ['identity', 'sessions', 'mine'] as const,
     personSessions: (userId: string) => ['identity', 'sessions', userId] as const,
@@ -308,5 +313,7 @@ export const queryKeys = {
     all: ['users'] as const,
     list: (query: UsersQuery) => ['users', 'list', query] as const,
     detail: (id: string) => ['users', 'detail', id] as const,
+    // A person's cost per hour (money): its own key, never inside the person record's.
+    costRates: (id: string) => ['users', 'cost-rates', id] as const,
   },
 };

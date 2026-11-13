@@ -158,9 +158,32 @@ async def test_a_mailbox_stays_in_its_tenant(world: World) -> None:
 
 async def test_testing_an_unreachable_server_says_why(world: World) -> None:
     with_key_ring(world)
-    created = (await add(world, host="127.0.0.1", port=1)).json()
-    tested = await world.call(
-        "POST", f"{BASE}/{created['id']}/test", world.a, world.a.admin, json={}
-    )
+    # The installation opens loopback (test profile only); nothing listens on its IMAP port.
+    settings = world.app.state.settings
+    world.app.state.settings = settings.model_copy(update={"egress_allow": ["127.0.0.1/32"]})
+    try:
+        created = (await add(world, host="127.0.0.1", port=143)).json()
+        tested = await world.call(
+            "POST", f"{BASE}/{created['id']}/test", world.a, world.a.admin, json={}
+        )
+    finally:
+        world.app.state.settings = settings
     assert tested.status_code == 200, tested.text
     assert tested.json() == {"ok": False, "reason": "imap_unreachable"}
+
+
+@pytest.mark.parametrize("host", ["10.0.0.5", "169.254.169.254", "[::ffff:10.0.0.5]"])
+async def test_audit_3_a_host_no_tenant_may_reach_is_refused_at_save(
+    world: World, host: str
+) -> None:
+    """Private and cloud-metadata addresses are refused with the code only (audit #3)."""
+    with_key_ring(world)
+    refused = await add(world, host=host, port=993)
+    assert field_codes(refused) == {"host": "address_not_allowed"}
+
+
+async def test_audit_3_a_port_other_than_imap_is_refused_at_save(world: World) -> None:
+    with_key_ring(world)
+    assert field_codes(await add(world, host="imap.example.com", port=110)) == {
+        "port": "port_not_allowed"
+    }

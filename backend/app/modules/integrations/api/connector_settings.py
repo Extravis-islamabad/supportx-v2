@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.integrations.service import connector_settings as service
@@ -78,7 +79,7 @@ async def get_connector_settings(
     return _out(values)
 
 
-@router.put("", summary="Save connector defaults")
+@router.put("", summary="Save connector defaults", dependencies=[RecentAuth])
 async def put_connector_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     body: ConnectorSettingsIn,
     version: ExpectedVersion,

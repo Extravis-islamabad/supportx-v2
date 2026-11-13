@@ -24,6 +24,8 @@ from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.work_items.domain.approvals import LevelRule
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
+from app.modules.work_items.domain.form_layout import LabelPosition
+from app.modules.work_items.domain.form_rules import RuleAction
 from app.modules.work_items.domain.lifecycle import ReasonMode, WorkItemAction
 from app.modules.work_items.domain.parts import TaskPriority
 from app.modules.work_items.domain.templates import (
@@ -37,12 +39,14 @@ from app.modules.work_items.domain.templates import (
     is_custom,
     rules_from_json,
 )
-from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType
+from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItemTemplate
 from app.modules.work_items.service import configuration
 from app.modules.work_items.service import templates as template_service
+from app.modules.work_items.service import work_items as items_service
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.idempotency import Created, Idempotency
 from app.shared.history import source_of
 
 CONFLICT: dict[int | str, dict[str, Any]] = {
@@ -216,6 +220,10 @@ class RoleDefOut(BaseModel):
     eligibility: EligibilityIO | None
     system: bool
     disabled: bool
+    take: bool = Field(
+        default=False,
+        description="Take makes you this role (releases; one per type, else the engineer).",
+    )
 
 
 class RoleDefIn(BaseModel):
@@ -238,6 +246,9 @@ class RoleDefPatch(BaseModel):
     description: dict[str, str] | None = None
     eligibility: EligibilityIO | None = None
     disabled: bool | None = None
+    take: bool | None = Field(
+        default=None, description="Releases: Take makes you this role (moves the marker here)."
+    )
 
 
 class ListOrderIn(BaseModel):
@@ -303,6 +314,84 @@ class TemplateTaskIO(BaseModel):
     )
 
 
+class TemplateChecklistIO(BaseModel):
+    """A checklist the template adds to each new record, if its condition matches (INC-040)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(max_length=400)
+    items: list[str] = Field(default_factory=list, max_length=1000)
+    condition: Any = Field(
+        default=None,
+        description="A filter over the record's list fields (the list filter DSL); null: always.",
+    )
+
+
+class FormSectionIO(BaseModel):
+    """One section of a template's form (REQ-INC-036)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(max_length=40)
+    names: dict[str, str] = Field(
+        default_factory=dict, description="Its heading per language (en, ar, ur); none: no heading."
+    )
+    columns: int = Field(default=1, ge=1, le=2, description="One or two columns.")
+    collapsible: bool = False
+    collapsed: bool = Field(default=False, description="Starts closed (collapsible only).")
+    fields: list[str] = Field(
+        default_factory=list,
+        max_length=200,
+        description="Field names in order (built-in, or custom.<key>); each once per layout.",
+    )
+
+
+class FormLayoutPartIO(BaseModel):
+    """One audience's layout: where labels sit and the sections."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label_position: LabelPosition = LabelPosition.TOP
+    sections: list[FormSectionIO] = Field(max_length=20)
+
+
+class FormLayoutIO(BaseModel):
+    """The technician form's layout and, optionally, the requester form's own."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    technician: FormLayoutPartIO
+    requester: FormLayoutPartIO | None = Field(
+        default=None, description="None: the portal uses the technician layout."
+    )
+
+
+class FormRuleActionIO(BaseModel):
+    """What a matching rule does to one field (REQ-INC-037)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    do: RuleAction
+    field: str = Field(max_length=60)
+    value: str | int | bool | None = Field(default=None, description="`set` only.")
+    keep_value: bool | None = Field(
+        default=None, description="`hide` only: keep the value instead of clearing it on save."
+    )
+
+
+class FormRuleIO(BaseModel):
+    """A form rule: when its condition holds, its actions apply (browser and server alike)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(max_length=40)
+    when: Any = Field(
+        description="A condition: {field, op, value} with op eq, ne, in, not_in, is_null or"
+        " is_not_null, nested in and / or lists (at most 3 deep, 20 conditions)."
+    )
+    then: list[FormRuleActionIO] = Field(min_length=1, max_length=20)
+
+
 class TemplateOut(BaseModel):
     """A template as admins and the create form see it."""
 
@@ -336,6 +425,17 @@ class TemplateOut(BaseModel):
     tasks: list[TemplateTaskIO] = Field(
         default_factory=list, description="Tasks each new record gets (REQ-INC-040)."
     )
+    checklists: list[TemplateChecklistIO] = Field(
+        default_factory=list, description="Checklists each new record gets (REQ-INC-040)."
+    )
+    layout: FormLayoutIO | None = Field(
+        default=None, description="The create form's sections (REQ-INC-036); none: one list."
+    )
+    form_rules: list[FormRuleIO] = Field(
+        default_factory=list,
+        description="Show, hide, require, lock or set fields on a condition; the server enforces"
+        " them on every save (REQ-INC-037).",
+    )
     version: int
 
     @classmethod
@@ -368,6 +468,9 @@ class TemplateOut(BaseModel):
             stage_path=row.stage_path,
             stage_rules=row.stage_rules,
             tasks=[TemplateTaskIO.model_validate(t) for t in row.tasks or []],
+            checklists=[TemplateChecklistIO.model_validate(c) for c in row.checklists or []],
+            layout=FormLayoutIO.model_validate(row.layout) if row.layout else None,
+            form_rules=[FormRuleIO.model_validate(r) for r in row.form_rules or []],
             version=row.version,
         )
 
@@ -403,6 +506,20 @@ class TemplateIn(BaseModel):
         description="Tasks each new record gets, if their condition matches (REQ-INC-040)."
         " Replaces all of them; existing records keep theirs.",
     )
+    checklists: list[TemplateChecklistIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
+    )
+    layout: FormLayoutIO | None = Field(
+        default=None, description="The create form's sections (REQ-INC-036); null: one list."
+    )
+    form_rules: list[FormRuleIO] | None = Field(
+        default=None,
+        max_length=50,
+        description="The form rules (REQ-INC-037). Replaces all of them.",
+    )
 
 
 class TemplatePatch(BaseModel):
@@ -437,6 +554,20 @@ class TemplatePatch(BaseModel):
         max_length=20,
         description="Tasks each new record gets, if their condition matches (REQ-INC-040)."
         " Replaces all of them; existing records keep theirs.",
+    )
+    checklists: list[TemplateChecklistIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Checklists each new record gets, if their condition matches (REQ-INC-040)."
+        " Replaces all of them; existing records keep theirs.",
+    )
+    layout: FormLayoutIO | None = Field(
+        default=None, description="The create form's sections (REQ-INC-036); null: one list."
+    )
+    form_rules: list[FormRuleIO] | None = Field(
+        default=None,
+        max_length=50,
+        description="The form rules (REQ-INC-037). Replaces all of them.",
     )
 
 
@@ -574,8 +705,14 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
 
         @router.get("/settings/roles", summary="Roles and who may hold them")
         async def get_role_defs(session: TenantSession, subject: Admin) -> list[RoleDefOut]:
-            """Every role in order, retired ones included (marked)."""
+            """Every role in order, retired ones included (marked); `take` on the Take role."""
             del subject
+            rows = await configuration.role_def_rows(session, wtype)
+            taken = (
+                await items_service.taken_role(session, wtype)
+                if wtype.code is WorkItemTypeCode.RELEASE
+                else None
+            )
             return [
                 RoleDefOut(
                     code=r.code,
@@ -587,8 +724,9 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
                     else None,
                     system=r.system,
                     disabled=r.disabled_at is not None,
+                    take=r.code == taken,
                 )
-                for r in await configuration.role_def_rows(session, wtype)
+                for r in rows
             ]
 
         @router.post(
@@ -900,8 +1038,13 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             TemplateOut.of(t) for t in await template_service.offered_to(session, subject, rows)
         ]
 
-    @router.post("/templates", summary="Add a template", status_code=status.HTTP_201_CREATED)
-    async def create_template(
+    @router.post(
+        "/templates",
+        summary="Add a template",
+        status_code=status.HTTP_201_CREATED,
+        response_model=TemplateOut,
+    )
+    async def create_template(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         body: TemplateIn,
         session: TenantSession,
         subject: Admin,
@@ -909,23 +1052,29 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         note: Annotated[
             AuditNote, audited(f"{audit}.template_created", object_type=f"{audit}_template")
         ],
-    ) -> TemplateOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """A new template (never the default until made so)."""
         del subject
-        row = await template_service.create_template(
-            session,
-            wtype,
-            # exclude_unset: a field rule changes only the flags sent (the rest keep theirs).
-            body.model_dump(exclude_unset=True, exclude_none=True, mode="json"),
-            source=source_of(request),
-        )
-        note.object_id = str(row.id)
-        return TemplateOut.of(row)
+
+        async def run() -> Created:
+            row = await template_service.create_template(
+                session,
+                wtype,
+                # exclude_unset: a field rule changes only the flags sent (the rest keep theirs).
+                body.model_dump(exclude_unset=True, exclude_none=True, mode="json"),
+                source=source_of(request),
+            )
+            note.object_id = str(row.id)
+            return Created(body=TemplateOut.of(row))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.post(
         "/templates/{template_id}/copy",
         summary="Copy a template",
         status_code=status.HTTP_201_CREATED,
+        response_model=TemplateOut,
     )
     async def copy_template(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         template_id: uuid.UUID,
@@ -936,15 +1085,20 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         note: Annotated[
             AuditNote, audited(f"{audit}.template_created", object_type=f"{audit}_template")
         ],
-    ) -> TemplateOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """An independent copy, marked as a copy of the original (REQ-INC-035 AC3)."""
         del subject
-        row = await template_service.copy_template(
-            session, wtype, template_id, labels=body.labels, source=source_of(request)
-        )
-        note.object_id = str(row.id)
-        note.details = {"copied_from_id": str(template_id)}
-        return TemplateOut.of(row)
+
+        async def run() -> Created:
+            row = await template_service.copy_template(
+                session, wtype, template_id, labels=body.labels, source=source_of(request)
+            )
+            note.object_id = str(row.id)
+            note.details = {"copied_from_id": str(template_id)}
+            return Created(body=TemplateOut.of(row))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.patch("/templates/{template_id}", summary="Change a template", responses=CONFLICT)
     async def patch_template(  # noqa: PLR0913, PLR0917 - FastAPI dependencies

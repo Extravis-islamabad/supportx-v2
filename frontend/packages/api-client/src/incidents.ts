@@ -223,7 +223,7 @@ export function useIncidentAssignees(
   groupId: string | null,
   search: string,
   enabled = true,
-  base: 'incidents' | 'problems' | 'service-requests' | 'changes' = 'incidents',
+  base: 'incidents' | 'problems' | 'service-requests' | 'changes' | 'releases' = 'incidents',
 ) {
   return useQuery({
     queryKey: [...queryKeys.incidents.assignees(groupId, search), base],
@@ -298,6 +298,26 @@ export function useCreateIncident() {
     mutationFn: ({ body, key }: { body: IncidentInput; key: string }) =>
       call(api.POST('/api/v1/incidents', { params: { header: { 'Idempotency-Key': key } }, body })),
     onSuccess: saved,
+  });
+}
+
+export type RecordCopyPart = components['schemas']['RecordCopyPart'];
+
+/** Copy an incident one or more times (REQ-INC-033); one Idempotency-Key per request. */
+export function useCopyIncident(id: string) {
+  const saved = useSaved();
+  return useMutation({
+    meta: { silent: true }, // the dialog shows the limit at its field
+    mutationFn: ({ count, parts, key }: { count: number; parts: RecordCopyPart[]; key: string }) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/copies', {
+          params: { path: { record_id: id }, header: { 'Idempotency-Key': key } },
+          body: { count, parts },
+        }),
+      ),
+    onSuccess: (made) => {
+      for (const copy of made.items) saved(copy);
+    },
   });
 }
 

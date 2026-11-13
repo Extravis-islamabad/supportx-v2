@@ -18,6 +18,12 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "PlaceOut.kind": "sign_in_place_kind",  # WP-057 S2b-1 (D-170)
+    "TemplateKind": "text_template_kind",  # WP-046a S5a
+    "TemplateVisibility": "text_template_visibility",
+    "VersionState": "lifecycle_version_state",  # ADR-049 (WP-046a S4)
+    "ReleaseFollowUpIn.kind": "work_item_type",  # WP-058b S4
+    "ReleaseFollowUpOut.relation": "releases.failed.relation",
     "InstanceOut.status": "workflow_instance_status",  # WP-048b
     "WorkItemClosureOut.task_dependency_mode": "task_dependency_mode",  # WP-046a S1
     "WorkItemClosurePatch.task_dependency_mode": "task_dependency_mode",
@@ -40,6 +46,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ApprovalPurpose": "approval_purpose",
     "RecipientSet": "problem_recipient_set",
     "CopyPart": "problem_follow_up_copy",
+    "RecordCopyPart": "record_copy_part",  # WP-046a S5c (REQ-INC-033)
     "OutcomeIn.outcome": "ai_outcome",
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
@@ -60,6 +67,7 @@ ENUM_PREFIXES: dict[str, str] = {
     # Asset financials (WP-049b s2)
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",
+    "RateState": "people.cost_rate.state",  # a person's cost per hour (REQ-INC-068)
     "TermsSource": "asset_terms_source",
     # Labels, audits, scans and the overdue rule (WP-049b s3)
     "AssetChangeOriginOut.kind": "asset_change_origin",
@@ -138,6 +146,8 @@ ENUM_PREFIXES: dict[str, str] = {
     # Tasks, worklogs and links (WP-020e)
     "TaskStatus": "task_status",
     "TaskPriority": "task_priority",
+    "LabelPosition": "form_label_position",  # WP-046a S5b
+    "RuleAction": "form_rule_action",
     "WorklogType": "worklog_type",
     "LinkKind": "link_kind",
     "PortalSettingsOut.search_sources[]": "portal.search.group",
@@ -183,6 +193,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFormatsOut.formats[]": "report_export_format",
     "ReportExportIn.language": "locale",
     "ReportRunIn.language": "locale",
+    "ArchiveIn.language": "locale",  # WP-046a S2: the zip manifest's language
     "ReportExportOut.status": "report_export_status",
     "ReportSettingsOut.week_start": "report_week_start",
     "ReportSettingsPatch.week_start": "report_week_start",
@@ -197,6 +208,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "AuditCategory": "audit_category",
     "AuditClient": "audit_client",
     "AuditOutcome": "audit_outcome",
+    "SignInOutcome": "sign_in_outcome",  # WP-057 S1a (REQ-AUD-015)
+    "SignInMethod": "sign_in_method",
+    "SignInApp": "sign_in_app",
+    "SsoRequired": "sso_required_mode",  # WP-057 S1b (REQ-SEC-009)
     "FingerprintStatus": "audit_fingerprint_status",  # WP-064 S2 (ADR-046)
     "ExportFilter": "audit_export_filter",
     "AuditExportIn.format": "audit_export_format",

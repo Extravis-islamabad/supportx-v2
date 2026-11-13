@@ -1,5 +1,5 @@
 import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -57,11 +57,30 @@ async def test_store_hashes_keys_and_login_state_is_single_use() -> None:
     assert await store.lock("s", timedelta(seconds=5)) is not None
 
 
+async def test_a_keycloak_session_is_in_use_only_while_a_live_session_holds_it() -> None:
+    """ADR-051 (lane C, #481): the delayed Keycloak end checks this before it runs."""
+    store = SessionStore(MemoryKeyValue(), SessionCipher("k" * 40))
+    began = datetime(2026, 11, 13, 9, 0, tzinfo=UTC)
+    record = {"tenant_id": "t", "user_id": "u", "created_at": began.isoformat()}
+    await store.put_session("a", record | {"keycloak_session_id": "kc-1"}, timedelta(minutes=5))
+    await store.put_session("b", record | {"keycloak_session_id": "kc-2"}, timedelta(minutes=5))
+    assert await store.keycloak_session_in_use("t:u", "kc-1") is True
+    assert await store.keycloak_session_in_use("t:u", "kc-3") is False
+    assert await store.keycloak_session_in_use("t:other", "kc-1") is False
+    await store.delete_session("a")
+    assert await store.keycloak_session_in_use("t:u", "kc-1") is False
+    # Sessions ended by a deactivation are dead even while their records linger.
+    await store.end_user_sessions("t:u", began, timedelta(minutes=5))
+    assert await store.keycloak_session_in_use("t:u", "kc-2") is False
+
+
 class _ReplyLostKeyValue(MemoryKeyValue):
     """The Valkey client's retry after a lost reply: the first SET NX ran, the retry sees it."""
 
-    async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None:
-        await super().set(key, value, px=px, nx=nx)
+    async def set(
+        self, key: str, value: bytes, *, px: int, nx: bool = False, xx: bool = False
+    ) -> bool | None:
+        await super().set(key, value, px=px, nx=nx, xx=xx)
         return None if nx else True
 
 
@@ -200,3 +219,97 @@ async def test_back_channel_calls_never_use_the_public_host() -> None:
     # The browser still goes to the public login page.
     url = await oidc.authorization_url(CLIENT, state="s", nonce="n", pkce=PkcePair.generate())
     assert url.startswith(f"{public}/protocol/openid-connect/auth?")
+
+
+# --- the back channel's circuit breaker (ADR-051) ------------------------------------------------
+
+
+class _Ticker:
+    """A monotonic clock that moves only when told to."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def _is_open(oidc: OidcClient) -> bool:
+    return not oidc.reachable
+
+
+def _counting_idp(idp: FakeIdp, calls: list[str]) -> httpx.AsyncClient:
+    def counting(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        return idp.handler(request)
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(counting))
+
+
+async def test_unreachable_keycloak_opens_the_breaker_for_fifteen_seconds() -> None:
+    idp, calls, ticker = FakeIdp(), list[str](), _Ticker()
+    oidc = OidcClient(ISSUER, _counting_idp(idp, calls), monotonic=ticker)
+    await oidc.metadata()  # cached: the next calls go straight to the token endpoint
+    idp.available = False
+
+    with pytest.raises(IdentityProviderUnavailable):
+        await oidc.refresh(CLIENT, "rt")
+    tried = len(calls)
+    assert _is_open(oidc)
+
+    ticker.now += 14.9
+    with pytest.raises(IdentityProviderUnavailable):
+        await oidc.refresh(CLIENT, "rt")  # fails fast: the transport is not touched
+    with pytest.raises(IdentityProviderUnavailable):
+        await oidc.end_session(CLIENT, "rt")
+    with pytest.raises(IdentityProviderUnavailable):
+        await oidc.authorization_url(CLIENT, state="s", nonce="n", pkce=PkcePair.generate())
+    assert len(calls) == tried
+
+    ticker.now += 0.2  # past the cool-down: one call tries again (half-open), and fails
+    with pytest.raises(IdentityProviderUnavailable):
+        await oidc.refresh(CLIENT, "rt")
+    assert len(calls) == tried + 1
+    with pytest.raises(IdentityProviderUnavailable):
+        await oidc.refresh(CLIENT, "rt")  # open again for another cool-down
+    assert len(calls) == tried + 1
+
+    ticker.now += 15.1
+    idp.available = True  # back: the trial call gets an answer (a refusal) and closes it
+    with pytest.raises(TokenRejectedError):
+        await oidc.refresh(CLIENT, "unknown")
+    assert not _is_open(oidc)
+    assert len(calls) == tried + 2
+    with pytest.raises(TokenRejectedError):
+        await oidc.refresh(CLIENT, "unknown")
+    assert len(calls) == tried + 3  # closed: every call goes through again
+
+
+async def test_a_keycloak_refusal_never_opens_the_breaker() -> None:
+    idp, calls = FakeIdp(refresh_ok=False), list[str]()
+    oidc = OidcClient(ISSUER, _counting_idp(idp, calls), monotonic=_Ticker())
+    for _ in range(3):
+        with pytest.raises(TokenRejectedError):  # 400 invalid_grant
+            await oidc.refresh(CLIENT, "spent")
+    assert oidc.reachable
+    assert calls.count("/realms/supportx/protocol/openid-connect/token") == 3
+
+
+async def test_a_5xx_from_keycloak_or_its_proxy_opens_the_breaker() -> None:
+    calls: list[str] = []
+    idp = FakeIdp()
+
+    def gateway_down(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path.endswith("/token"):
+            return httpx.Response(503)
+        return idp.handler(request)
+
+    oidc = OidcClient(
+        ISSUER, httpx.AsyncClient(transport=httpx.MockTransport(gateway_down)), monotonic=_Ticker()
+    )
+    with pytest.raises(IdentityProviderUnavailable):
+        await oidc.refresh(CLIENT, "rt")
+    with pytest.raises(IdentityProviderUnavailable):
+        await oidc.refresh(CLIENT, "rt")
+    assert calls.count(calls[-1]) == 1  # the token endpoint was tried once

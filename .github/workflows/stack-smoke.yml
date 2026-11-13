@@ -3,6 +3,8 @@
 # tests against the real Keycloak/Valkey/PgBouncer, and the Playwright journeys (login, shell,
 # users, profile conflicts, read-only mode, axe accessibility) in a real browser (WP-002/006/010). The .env is generated per run by `make dev-init` with throwaway random
 # secrets; nothing secret is stored in the repo or in GitHub.
+# The `smoke` job runs only the `@smoke` journeys (~5 min), nightly and on a manual run with
+# suite=smoke; it is not a required check.
 name: Stack smoke
 
 on:
@@ -15,6 +17,12 @@ on:
   schedule:
     - cron: "41 2 * * *" # nightly 02:41 UTC: catches upstream image or registry breakage
   workflow_dispatch:
+    inputs:
+      suite:
+        description: "full: the three e2e shards (core); smoke: only the @smoke journeys (~5 min)"
+        type: choice
+        options: [full, smoke]
+        default: full
 
 permissions:
   contents: read
@@ -33,7 +41,8 @@ jobs:
     name: core profile, integration and e2e ${{ matrix.shard }}/3
     # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
     # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
+    # A manual run with suite=smoke runs only the smoke job below.
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.suite != 'smoke') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
     runs-on: ubuntu-24.04
     # The Playwright suite outgrew one job: 85 journeys took ~45 min even when green, so the job hit
     # its limit before any error or report was printed. Three shards, each on its own stack (the
@@ -208,6 +217,148 @@ jobs:
           retention-days: 7
       - name: Tear down
         if: ${{ always() && steps.changes.outputs.run == 'true' }}
+        run: |
+          make dev-down
+          docker rm -f clamav || true
+
+  smoke:
+    name: e2e smoke (@smoke journeys)
+    # One journey per critical area (tests titled `@smoke`, frontend/e2e/README.md), ~5 min of
+    # tests: a quick nightly signal and a cheap manual run (suite=smoke) after a risky merge.
+    # Not a required check and never on pull_request or merge_group (guarded by
+    # backend/tests/test_ci_triggers.py). The stack starts exactly as in core above: keep the
+    # two in step (actionlint 1.7.7 refuses YAML aliases, so the steps are repeated).
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.suite == 'smoke') }}
+    runs-on: ubuntu-24.04
+    # 30, not 20 (lane C's #461 review): setup is about 3.5 min warm, Playwright's step 12 min,
+    # and a cold ClamAV cache in a new ISO week adds up to 10 min; never cut before it reports.
+    timeout-minutes: 30
+    env:
+      SUPPORTX_AI_FAKE_ECHO: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Playwright image (version checked, pulled, retried)
+        uses: ./.github/actions/playwright-in-image
+        with:
+          part: pull
+      - name: Generate throwaway .env
+        run: |
+          make dev-init
+          # Mask every generated secret so it can never appear in the job log.
+          grep -E '^[A-Z_]+=[0-9a-f]{32}$' deploy/compose/.env | cut -d= -f2 |
+            while read -r secret; do echo "::add-mask::$secret"; done
+      - name: Start core profile (incl. Keycloak with the supportx realm)
+        run: make dev-up
+      - name: dev-check
+        run: make dev-check
+      # The files journey scans with the real ClamAV (D-082 D9); the same weekly cache as core.
+      - name: ClamAV signature cache key (ISO week)
+        id: week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/clamav-db
+          key: clamav-db-${{ steps.week.outputs.week }}
+          restore-keys: clamav-db-
+      - name: Start ClamAV (real scanner for the files journey)
+        run: |
+          mkdir -p ~/clamav-db && chmod 777 ~/clamav-db
+          docker run -d --name clamav -p 127.0.0.1:23310:3310 -v ~/clamav-db:/var/lib/clamav \
+            -e CLAMD_CONF_StreamMaxLength=101M clamav/clamav:1.5.4-debian
+          for _ in $(seq 1 120); do
+            docker exec clamav clamdcheck.sh >/dev/null 2>&1 && break
+            sleep 5
+          done
+          docker exec clamav clamdcheck.sh
+      - uses: ./.github/actions/setup-backend
+      - name: Keycloak identity service account
+        run: make keycloak-identity
+      - uses: ./.github/actions/setup-frontend
+      - uses: ./.github/actions/generated
+        with:
+          frontend: "true"
+      - name: Configure, migrate and seed the dev database; RLS guard
+        run: make backend-env db-migrate db-seed db-guard
+      - name: Start the API, the event workers and the console
+        run: |
+          (cd backend && nohup uv run uvicorn app.main:create_app --factory \
+            --host 127.0.0.1 --port 8000 --no-access-log > ../api.log 2>&1 &)
+          (cd backend && nohup uv run python -m workers.outbox_relay > ../relay.log 2>&1 &)
+          (cd backend && nohup uv run python -m workers.consumers > ../consumers.log 2>&1 &)
+          (cd backend && nohup uv run python -m workers.realtime_fanout > ../fanout.log 2>&1 &)
+          (cd backend && nohup uv run python -m workers.custom_field_indexes > ../indexes.log 2>&1 &)
+          (cd frontend && nohup pnpm --filter @supportx/console dev > ../console.log 2>&1 &)
+          (cd frontend && nohup pnpm --filter @supportx/portal dev > ../portal.log 2>&1 &)
+          for _ in $(seq 1 60); do
+            curl -fsS http://localhost:5173/api/v1/ready >/dev/null &&
+              curl -fsS http://localhost:5174/api/v1/ready >/dev/null && break
+            sleep 2
+          done
+          curl -fsS http://localhost:5173/api/v1/ready
+          curl -fsS http://localhost:5174/api/v1/ready
+      # The same command as `make e2e-smoke`, in the pinned image. The JSON report feeds the job
+      # summary; it is written beside playwright-report/, which the HTML reporter empties first.
+      - name: Playwright (@smoke journeys, in Chromium)
+        timeout-minutes: 12
+        uses: ./.github/actions/playwright-in-image
+        env:
+          E2E_GLOBAL_TIMEOUT_MINUTES: "10" # Playwright stops itself first, printing every failure
+          PLAYWRIGHT_JSON_OUTPUT_FILE: smoke-results.json
+        with:
+          part: run
+          args: |
+            test
+            --grep
+            @smoke
+            --reporter=list,html,json
+          env: |
+            E2E_GLOBAL_TIMEOUT_MINUTES
+            PLAYWRIGHT_JSON_OUTPUT_FILE
+            SUPPORTX_AI_FAKE_ECHO
+      - name: Summary (total and per-test time)
+        if: ${{ always() }}
+        working-directory: frontend/e2e
+        run: |
+          if [ ! -f smoke-results.json ]; then
+            echo "### Smoke: no results (the run did not finish)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          jq -r '
+            .stats as $s
+            | "### Smoke: \(($s.duration / 1000) | floor) s in total",
+              "",
+              "Passed \($s.expected), failed \($s.unexpected), flaky \($s.flaky), skipped \($s.skipped).",
+              "",
+              "| Test | Result | Seconds |",
+              "|---|---|---|",
+              ( [.. | objects | select(has("specs")) | .specs[]] | .[]
+                | "| \(.file): \(.title) | \(.tests[0].status) | \(([.tests[0].results[].duration] | add // 0) / 1000 | floor) |" )
+          ' smoke-results.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Diagnostics on failure
+        if: ${{ failure() }}
+        run: |
+          make dev-ps
+          tail -n 200 api.log relay.log consumers.log fanout.log indexes.log console.log portal.log || true
+          grep -hE '\[(warning|error) ' api.log consumers.log relay.log | tail -n 100 || true
+          docker compose --project-directory deploy/compose -f deploy/compose/docker-compose.yml \
+            --profile full logs --no-color --tail=200 keycloak postgres pgbouncer centrifugo
+          docker logs --tail=100 clamav || true
+      # Always, not only on failure: the report shows each journey's time, so the suite's size
+      # stays visible.
+      - name: Upload Playwright report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-smoke
+          path: |
+            frontend/e2e/playwright-report
+            frontend/e2e/smoke-results.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Tear down
+        if: ${{ always() }}
         run: |
           make dev-down
           docker rm -f clamav || true

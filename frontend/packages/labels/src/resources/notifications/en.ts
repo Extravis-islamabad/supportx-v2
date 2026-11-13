@@ -31,6 +31,7 @@ export const en = {
   'notification.open_record': 'Open {{id}}',
   'notification_area.announcement': 'Announcements',
   'notification_area.asset': 'Assets',
+  'notification_area.break_glass': 'Emergency sign-ins',
   'notification_area.change': 'Changes',
   'notification_area.connector': 'Connectors',
   'notification_area.incident': 'Incidents',
@@ -40,7 +41,9 @@ export const en = {
   'notification_area.problem': 'Problems',
   'notification_area.problem_repeat': 'Problems',
   'notification_area.release': 'Releases',
+  'notification_area.reminder': 'Reminders',
   'notification_area.rule_step': 'Rules and escalations',
+  'notification_area.security': 'Security notices',
   'notification_area.service_request': 'Service requests',
   'notification_area.task': 'Tasks',
   'notification_category.approval': 'Approvals',
@@ -64,6 +67,7 @@ export const en = {
   'notification_event.asset.mentioned': 'Mentioned in an asset note',
   'notification_event.asset.stock_low': 'Stock at its minimum',
   'notification_event.asset.warranty_expiring': 'Warranty ending soon',
+  'notification_event.break_glass.signed_in': 'An emergency administrator signed in',
   'notification_event.change.approval_fallback': 'Change approval with nobody to decide',
   'notification_event.change.approval_requested': 'Change approval needed',
   'notification_event.change.approved': 'Change approved',
@@ -127,7 +131,9 @@ export const en = {
   'notification_event.problem.target_warning': 'Problem target date close',
   'notification_event.problem_repeat.detected': 'Repeated incidents found',
   'notification_event.release.public_reply': 'Reply to the requester',
+  'notification_event.reminder.due': 'Your reminder',
   'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
+  'notification_event.security.new_device': 'A sign-in from a new browser or device',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
@@ -181,12 +187,14 @@ export const en = {
   'notification_recipient.new_follower': 'The new follower',
   'notification_recipient.new_investigator': 'The investigator added',
   'notification_recipient.on_behalf_of': 'Person it is for',
+  'notification_recipient.other_tenant_admins': 'The other tenant administrators',
   'notification_recipient.owner': 'Article owner',
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
   'notification_recipient.reviewer': 'Reviewer',
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.stock_watchers': "The minimum's people",
+  'notification_recipient.the_person': 'The person it is about',
   'notification_recipient.topic_owner': 'Topic owner',
   'notification_recipient.workflow_audience': 'People the workflow names',
   'notification_rules.any_priority': 'Any priority',
@@ -200,6 +208,9 @@ export const en = {
   'notification_rules.col.status': 'Only for status',
   'notification_rules.intro':
     'Which events notify whom, and how. Every event starts with a sensible default; changes are recorded in the audit log.',
+  'notification_rules.locked': 'Fixed for security',
+  'notification_rules.locked_help':
+    'A security notice: always sent to the people it names. No one can switch it off or change who gets it.',
   'notification_rules.none': 'No event matches',
   'notification_rules.required': 'Required for people',
   'notification_rules.reset': 'Back to default',
@@ -255,6 +266,11 @@ export const en = {
     'Warranty of {{ record.display_id }} ends on {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'Warranty ending: {{ record.display_id }} {{ record.title }}',
+  'notification_template.break_glass.signed_in.body':
+    'Hello {{ recipient.name }},\n\n{{ record.title }} signed in with their emergency administrator account, which works even while single sign-on is required. If you did not expect this, check Sign-in and security now: {{ record.link }}',
+  'notification_template.break_glass.signed_in.in_app':
+    '{{ record.title }} signed in with their emergency administrator account',
+  'notification_template.break_glass.signed_in.subject': 'Emergency sign-in: {{ record.title }}',
   'notification_template.change.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has an approval that nobody holds. An approval administrator can decide it.',
   'notification_template.change.approval_fallback.in_app':
@@ -621,12 +637,23 @@ export const en = {
     '{{ conversation.author }} replied on {{ record.display_id }}',
   'notification_template.release.public_reply.subject':
     'New reply on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.reminder.due.body':
+    'Hello {{ recipient.name }},\n\nYour reminder on {{ record.display_id }} "{{ record.title }}" is at {{ reminder.at }}:\n\n{{ reminder.note }}',
+  'notification_template.reminder.due.in_app': 'Reminder at {{ reminder.at }}: {{ reminder.note }}',
+  'notification_template.reminder.due.subject':
+    'Reminder: {{ reminder.note }} ({{ record.display_id }})',
   'notification_template.rule_step.assignee_unavailable.body':
     'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
   'notification_template.rule_step.assignee_unavailable.in_app':
     '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'Nobody assigned: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.new_device.body':
+    'Hello {{ recipient.name }},\n\nYour account was just signed in to from a browser or device you have not used before:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nIf this was you, there is nothing to do. If it was not, change your password and use "Sign out everywhere else" in your account: {{ record.link }}',
+  'notification_template.security.new_device.in_app':
+    'New sign-in from {{ notice.device }} ({{ notice.place }})',
+  'notification_template.security.new_device.subject':
+    'New sign-in to your account: {{ notice.device }}',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -705,6 +732,7 @@ export const en = {
   'notification_variable.article.reason': 'Article › Reason',
   'notification_variable.article.review_on': 'Article › Review date',
   'notification_variable.assignee.name': 'Technician › Name',
+  'notification_variable.break_glass.person': 'Emergency administrator › Name',
   'notification_variable.category.name': 'Category',
   'notification_variable.change.from_status': 'Change › Previous status',
   'notification_variable.connector.name': 'Connector › Name',
@@ -726,8 +754,13 @@ export const en = {
   'notification_variable.record.priority': 'Record › Priority',
   'notification_variable.record.status': 'Record › Status',
   'notification_variable.record.title': 'Record › Subject',
+  'notification_variable.reminder.at': 'Reminder time',
+  'notification_variable.reminder.note': 'Reminder note',
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
+  'notification_variable.security.device': 'Sign-in › Browser and device',
+  'notification_variable.security.place': 'Sign-in › Approximate place',
+  'notification_variable.security.when': 'Sign-in › Time',
   'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
   'notification_variable.stock.minimum': 'Stock › Minimum',

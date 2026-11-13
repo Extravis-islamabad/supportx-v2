@@ -31,6 +31,8 @@ class BulkAction(StrEnum):
     # WP-046a S1 (0141; REQ-CHG-101): the change list's cancel (with a reason) and trash.
     CANCEL = "cancel"
     DELETE = "delete"
+    # WP-058b S5a (0149; REQ-REL-057): a release role's holders (manager, engineer ...).
+    ASSIGN_ROLE = "assign_role"
 
 
 class BulkStatus(StrEnum):

@@ -8,7 +8,7 @@ creates take an Idempotency-Key.
 
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -17,13 +17,19 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail, ValidationFailed
+from app.core.recent_auth import require_recent_auth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.api.routes import UserDetail
 from app.modules.identity_access.domain.identity import PersonType, UserType
 from app.modules.identity_access.domain.people_import import MAX_FILE_BYTES
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import PeopleImport
-from app.modules.identity_access.service import access_settings, people, people_import
+from app.modules.identity_access.service import (
+    access_settings,
+    email_change_notice,
+    people,
+    people_import,
+)
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -130,7 +136,6 @@ async def create_person(
 @people_router.patch(
     "/{user_id}/person",
     summary="Change a person's record",
-    dependencies=[audited("user.changed", object_type="user", object_param="user_id")],
 )
 async def update_person(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     user_id: uuid.UUID,
@@ -140,8 +145,20 @@ async def update_person(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     session: TenantSession,
     subject: Manage,
     request: Request,
+    note: Annotated[AuditNote, audited("user.changed", object_type="user", object_param="user_id")],
 ) -> UserDetail:
-    """Only the fields sent change; a stale If-Match gets an explained 409."""
+    """Only the fields sent change; a stale If-Match gets an explained 409.
+
+    A different sign-in e-mail needs a recent confirmation (REQ-SEC-027; CONDITIONAL_RECENT_AUTH)
+    and is named in the audit entry (the fact, never the address: the field history has it).
+    """
+    old_email: str | None = None
+    if "email" in body.model_fields_set and await people.changes_email(
+        session, user_id, body.email
+    ):
+        await require_recent_auth(request)
+        note.details["sign_in_email_changed"] = True
+        old_email = (await people.get_person(session, user_id)).email
     person = await people.update_person(
         session,
         user_id,
@@ -149,6 +166,17 @@ async def update_person(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         changes=body.model_dump(include=body.model_fields_set),
         source=source_of(request),
     )
+    if old_email:
+        # The address that is no longer theirs hears who changed it and when (WP-057 S2b-1).
+        # Audited with the change (lane A): whether the old address was told (no mail set up: not).
+        note.details["old_address_told"] = await email_change_notice.send(
+            session,
+            request.app.state.settings,
+            person,
+            old_email=old_email,
+            changed_by=subject.user_id,
+            changed_at=datetime.now(UTC),
+        )
     set_etag(response, person.version)
     return UserDetail.of(person, subject)
 

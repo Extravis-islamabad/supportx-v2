@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
@@ -23,10 +23,15 @@ from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.asset_routes import add_asset_routes
+from app.modules.work_items.api.checklist_routes import (
+    add_checklist_collection_routes,
+    add_checklist_routes,
+)
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
 )
+from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
@@ -80,6 +85,7 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, Work
 from app.modules.work_items.service import (
     asset_links,
     change_links,
+    record_copies,
     release_links,
     resolution,
     stage_approvals,
@@ -94,10 +100,12 @@ from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
 from app.modules.work_items.service.closing import MoveInput, requester_channel_states
+from app.modules.work_items.service.record_copies import RecordCopyPart
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
 from app.shared.api.ratelimit import rate_limit
+from app.shared.files.service.core import FileServices
 from app.shared.history import Actors, ChangeKind, HistoryEntry, Source, source_of
 from app.shared.labels import strip_isolates
 
@@ -903,6 +911,18 @@ class ListChangeFactsOut(BaseModel):
     risk: RiskLevel | None
 
 
+class ListReleaseFactsOut(BaseModel):
+    """A release's own columns for its list row (REQ-REL-055)."""
+
+    release_type: str | None
+    release_version: str | None
+    scheduled_end: datetime | None
+    release_manager_id: uuid.UUID | None
+    release_engineer_id: uuid.UUID | None
+    tasks_done: int
+    tasks_total: int = Field(description="Its tasks, canceled ones not counted.")
+
+
 class WorkItemPage(Page[WorkItemListItem]):
     """One page of a list, with the display names of the people on it."""
 
@@ -910,6 +930,10 @@ class WorkItemPage(Page[WorkItemListItem]):
     changes: dict[str, ListChangeFactsOut] = Field(
         default_factory=dict,
         description="Changes only: each row's type and risk (the effective one), by record ID.",
+    )
+    releases: dict[str, ListReleaseFactsOut] = Field(
+        default_factory=dict,
+        description="Releases only: each row's own columns, by record ID.",
     )
 
 
@@ -1027,9 +1051,24 @@ class WorkItemClosureOut(BaseModel):
     task_owner_access: bool = Field(
         description="A task's owner may work on it without access to the record (D-112)."
     )
+    worklog_block_closed: bool = Field(
+        default=False, description="No worklog on a closed record (REQ-INC-070)."
+    )
+    worklog_count_nonworking: bool = Field(
+        default=True, description="Non-working hours count in worklogs and time (REQ-INC-070)."
+    )
+    timer_auto_start: bool = Field(
+        default=False, description="Opening a record you own starts your timer, once."
+    )
     task_dependency_mode: Literal["block", "warn"] = Field(
         default="block",
         description="An open predecessor refuses a task's start or completion, or only warns.",
+    )
+    checklist_item_max: int = Field(
+        default=100, description="Checklist items per record, all its checklists (1 to 1000)."
+    )
+    copy_limit: int = Field(
+        default=20, description="How many copies one request may make (1 to 100)."
     )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
@@ -1313,9 +1352,14 @@ class WorkItemCatalogueOut(BaseModel):
                 auto_close_days=cat.closure.auto_close_days,
                 reopen_window_days=cat.closure.reopen_window_days,
                 task_owner_access=cat.closure.task_owner_access,
+                worklog_block_closed=cat.closure.worklog_block_closed,
+                worklog_count_nonworking=cat.closure.worklog_count_nonworking,
+                timer_auto_start=cat.closure.timer_auto_start,
                 task_dependency_mode=cast(
                     'Literal["block", "warn"]', cat.closure.task_dependency_mode
                 ),
+                checklist_item_max=cat.closure.checklist_item_max,
+                copy_limit=cat.closure.copy_limit,
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1339,7 +1383,13 @@ class WorkItemClosurePatch(BaseModel):
     )
     reopen_window_days: int | None = None
     task_owner_access: bool | None = None
+    # Strict: a JSON true or false only, never "yes" or 1 read as true.
+    worklog_block_closed: StrictBool | None = None
+    worklog_count_nonworking: StrictBool | None = None
+    timer_auto_start: StrictBool | None = None
     task_dependency_mode: Literal["block", "warn"] | None = None
+    checklist_item_max: int | None = Field(default=None, description="1 to 1000.")
+    copy_limit: int | None = Field(default=None, description="1 to 100.")
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -1610,6 +1660,31 @@ class ChangeCopyIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     parts: list[Literal["plans", "roles"]] = Field(default_factory=list, max_length=2)
+
+
+class RecordCopiesIn(BaseModel):
+    """How many copies, and what comes with their fields (REQ-INC-033)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    count: int = Field(default=1, ge=1, le=100, description="The type's limit applies (AC3).")
+    parts: list[RecordCopyPart] = Field(default_factory=list, max_length=len(RecordCopyPart))
+
+
+class FileLeftOutOut(BaseModel):
+    """One of the original's files that did not come with the copies, and why (lane B)."""
+
+    file_id: uuid.UUID
+    reason: str = Field(
+        description="The file's state (e.g. scanning, infected), too_large or blocked."
+    )
+
+
+class RecordCopiesOut(BaseModel):
+    """The copies made, in order, and the original's files that did not come."""
+
+    items: list[WorkItemOut]
+    files_not_copied: list[FileLeftOutOut]
 
 
 class ChangePrefillOut(BaseModel):
@@ -2002,6 +2077,48 @@ class ParentIn(BaseModel):
     parent_id: uuid.UUID | None
 
 
+class CloseLinkedChangesIn(BaseModel):
+    """The closure code the release's changes close with (WP-058b S5a; REQ-REL-052)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    closure_code: str = Field(min_length=1, max_length=40)
+
+
+class LinkedChangeClosedOut(BaseModel):
+    """One linked change: closed, or skipped and why (a code the UI words).
+
+    A change you may not see has no ID, number or title (`not_visible`).
+    """
+
+    id: uuid.UUID | None
+    display_id: str | None
+    closed: bool
+    code: str | None = None
+    params: dict[str, Any] | None = None
+    field: str | None = Field(default=None, description="A field problem's field, if any.")
+
+
+class ReleaseFollowUpIn(BaseModel):
+    """What to make after a failed deployment (REQ-REL-053 AC2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["problem", "release"]
+    subject: str = Field(min_length=1, max_length=200)
+
+
+class ReleaseFollowUpOut(BaseModel):
+    """A problem the release caused, or a release that follows it up."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    type: str
+    relation: Literal["caused_problem", "follow_up_release"]
+    status_category: str
+
+
 class ParentOut(BaseModel):
     """The release's parent now."""
 
@@ -2156,7 +2273,43 @@ async def _change_facts(
     }
 
 
-def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
+async def _release_facts(
+    session: AsyncSession, wtype: WorkItemType, ids: list[uuid.UUID]
+) -> dict[str, ListReleaseFactsOut]:
+    """A release list's own columns per row: a few reads for the page (REQ-REL-055)."""
+    if wtype.code is not WorkItemTypeCode.RELEASE or not ids:
+        return {}
+    facts = await service.release_list_facts(session, ids)
+    return {
+        str(i): ListReleaseFactsOut(
+            release_type=f.release_type,
+            release_version=f.release_version,
+            scheduled_end=f.scheduled_end,
+            release_manager_id=f.release_manager_id,
+            release_engineer_id=f.release_engineer_id,
+            tasks_done=f.tasks_done,
+            tasks_total=f.tasks_total,
+        )
+        for i, f in facts.items()
+    }
+
+
+FILES_STATE = "files"  # the system module keeps the API's FileServices on app.state
+
+
+def _copy_files(request: Request) -> FileServices:
+    """The API's file services, for copying a record's files (as knowledge's links do)."""
+    found: FileServices | None = getattr(request.app.state, FILES_STATE, None)
+    if found is None:
+        found = FileServices.from_settings(request.app.state.settings)
+        setattr(request.app.state, FILES_STATE, found)
+    return found
+
+
+CopyFiles = Annotated[FileServices, Depends(_copy_files)]
+
+
+def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
         prefix=f"/{wtype.path}",
@@ -2187,8 +2340,18 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         session: Any,  # noqa: ANN401 - TenantSession (an AsyncSession) from the route
         page: PageResult[WorkItem],
     ) -> WorkItemPage:
+        ids = [r.id for r in page.rows]
+        releases = await _release_facts(session, wtype, ids)
+        # A release's manager and engineer are named on its row too.
+        named = {
+            str(u)
+            for f in releases.values()
+            for u in (f.release_manager_id, f.release_engineer_id)
+            if u is not None
+        }
         people = sorted(
             {str(u) for r in page.rows for u in (r.requester_id, r.technician_id) if u is not None}
+            | named
         )
         return WorkItemPage(
             items=[_item(r) for r in page.rows],
@@ -2196,7 +2359,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             has_more=page.has_more,
             estimated_total=page.estimated_total,
             people=_people(await user_contacts(session, people)),
-            changes=await _change_facts(session, wtype, [r.id for r in page.rows]),
+            changes=await _change_facts(session, wtype, ids),
+            releases=releases,
         )
 
     @router.get("", summary=f"List {wtype.path}")
@@ -2440,8 +2604,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             for n in await settings_service.list_categories(session, wtype)
         ]
 
-    @router.post("/categories", summary="Add a category", status_code=status.HTTP_201_CREATED)
-    async def create_category(
+    @router.post(
+        "/categories",
+        summary="Add a category",
+        status_code=status.HTTP_201_CREATED,
+        response_model=WorkItemCategoryOut,
+    )
+    async def create_category(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         body: WorkItemCategoryIn,
         session: TenantSession,
         subject: Admin,
@@ -2449,21 +2618,26 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         note: Annotated[
             AuditNote, audited(f"{audit}.category_created", object_type=f"{audit}_category")
         ],
-    ) -> WorkItemCategoryOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """A new node (at most three levels)."""
         del subject
-        node = await settings_service.create_category(
-            session,
-            wtype,
-            parent_id=body.parent_id,
-            labels=body.labels,
-            default_group_id=body.default_group_id,
-            source=source_of(request),
-        )
-        out = WorkItemCategoryOut.of(node)
-        note.object_id = str(out.id)
-        note.details = {"parent_id": body.parent_id}
-        return out
+
+        async def run() -> Created:
+            node = await settings_service.create_category(
+                session,
+                wtype,
+                parent_id=body.parent_id,
+                labels=body.labels,
+                default_group_id=body.default_group_id,
+                source=source_of(request),
+            )
+            out = WorkItemCategoryOut.of(node)
+            note.object_id = str(out.id)
+            note.details = {"parent_id": body.parent_id}
+            return Created(body=out)
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.patch("/categories/{category_id}", summary="Change a category", responses=CONFLICT)
     async def patch_category(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -2520,8 +2694,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
     add_parts_collection_routes(router, wtype)
+    add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
+    if wtype.stages is None:
+        # ADR-049: life cycle versions of the action-based types; staged types version with
+        # their stages (S4c, lane C), so changes and releases get none of these routes yet.
+        add_lifecycle_routes(router, wtype)
 
     @router.post(
         "",
@@ -2984,6 +3163,88 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             )
             return ParentOut(parent_id=parent)
 
+        @router.post(
+            "/{record_id}/changes/close",
+            summary="Close the release's changes you may close",
+            responses=CONFLICT,
+        )
+        async def close_release_changes(
+            record_id: uuid.UUID,
+            body: CloseLinkedChangesIn,
+            session: TenantSession,
+            subject: View,
+            request: Request,
+        ) -> list[LinkedChangeClosedOut]:
+            """REQ-REL-052: each change not closed yet closes by its own close, with this code.
+
+            As you: one you may not close (your right, its life cycle, its rules or open work) is
+            skipped with why, never forced. Nothing on the release itself changes.
+            """
+            found = await release_links.close_linked_changes(
+                session,
+                subject,
+                wtype,
+                record_id,
+                closure_code=body.closure_code,
+                source=source_of(request),
+            )
+            return [LinkedChangeClosedOut(**vars(f)) for f in found]
+
+        @router.get("/{record_id}/follow-ups", summary="What was made after the release failed")
+        async def get_follow_ups(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[ReleaseFollowUpOut]:
+            """The problems it caused and the releases that follow it up, those you may see."""
+            found = await release_links.follow_ups(session, subject, record_id)
+            return [ReleaseFollowUpOut(**vars(f)) for f in found]
+
+        @router.post(
+            "/{record_id}/follow-ups",
+            summary="Make a problem or a follow-up release after a failed deployment",
+            status_code=status.HTTP_201_CREATED,
+            response_model=ReleaseFollowUpOut,
+            responses=CONFLICT,
+        )
+        async def post_follow_up(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ReleaseFollowUpIn,
+            session: TenantSession,
+            subject: View,
+            policy: Policy,
+            idempotency: Idempotency,
+            request: Request,
+        ) -> Response:
+            """Only on a failed or rolled-back release (409 release_not_failed, REQ-REL-053 AC2).
+
+            Needs the new record's create permission. The problem is linked as caused by the
+            release, the release as following it, and both records keep the link in history.
+            """
+
+            async def run() -> Created:
+                made = await release_links.create_follow_up(
+                    session,
+                    subject,
+                    record_id,
+                    kind=body.kind,
+                    title=body.subject.strip(),
+                    holders=policy,
+                    source=source_of(request),
+                )
+                return Created(
+                    body=ReleaseFollowUpOut(
+                        id=made.id,
+                        display_id=made.display_id,
+                        subject=made.subject,
+                        type=made.type,
+                        relation="caused_problem"
+                        if body.kind == "problem"
+                        else "follow_up_release",
+                        status_category=made.status_category,
+                    )
+                )
+
+            return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
         # WP-058b S1 (REQ-REL-033): the changes in the release, live on both records.
         @router.get("/{record_id}/changes", summary="The changes in the release")
         async def get_release_changes(
@@ -3092,8 +3353,12 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             subject: Edit,
             response: Response,
             request: Request,
+            policy: Policy,
         ) -> ReleaseDetailsOut:
-            """Needs If-Match (the release's version). A risk change needs `risk_reason`."""
+            """Needs If-Match (the release's version). A risk change needs `risk_reason`.
+
+            The manager and engineer are the release's roles too: only eligible people.
+            """
             sent = body.model_dump(include=body.model_fields_set - {"risk_reason"})
             view = await service.update_release_details(
                 session,
@@ -3104,6 +3369,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 values=sent,
                 source=source_of(request),
                 risk_reason=body.risk_reason,
+                holders=policy,
             )
             set_etag(response, view.record.version)
             return ReleaseDetailsOut.of(view)
@@ -3512,8 +3778,59 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             people=_people(people),
         )
 
+    if wtype.code is WorkItemTypeCode.INCIDENT:  # WP-046a S5c: copy N times (REQ-INC-033)
+
+        @router.post(
+            "/{record_id}/copies",
+            summary=f"Copy the {name} one or more times",
+            status_code=status.HTTP_201_CREATED,
+            response_model=RecordCopiesOut,
+        )
+        async def copy_records(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: RecordCopiesIn,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+            files: CopyFiles,
+        ) -> Response:
+            """New records from this one's fields, each naming it in its history.
+
+            Never its conversation, worklogs, history or assignment to a person. Send an
+            Idempotency-Key: a retry returns the same 201.
+            """
+
+            async def run() -> Created:
+                made = await record_copies.copy_record(
+                    session,
+                    subject,
+                    wtype,
+                    record_id,
+                    count=body.count,
+                    parts_chosen=frozenset(body.parts),
+                    source=source_of(request),
+                    holders=policy,
+                    files=files,
+                    facts=RequestFacts.of(request),
+                )
+                views = [await service.get(session, subject, wtype, r.id) for r in made.records]
+                return Created(
+                    body=RecordCopiesOut(
+                        items=[WorkItemOut.of(v) for v in views],
+                        files_not_copied=[
+                            FileLeftOutOut(file_id=n.file_id, reason=n.reason)
+                            for n in made.not_copied
+                        ],
+                    )
+                )
+
+            return await idempotency.run({"copy_of": str(record_id), **body.model_dump()}, run)
+
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
+    add_checklist_routes(router, wtype)  # WP-046a S2: checklists and personal reminders
     # REQ-AST-025: assets on incidents and requests (the forms and the e-mail ask for them).
     if wtype.code in _WITH_ASSETS:
         add_asset_routes(router, wtype)

@@ -49,14 +49,18 @@ export function useStagedSettings(path: StagedPath, enabled = true) {
   });
 }
 
-/** The rail and the moves offered from the current status (ADR-041 §7). */
-export function useStagedPanel(path: StagedPath, id: string) {
-  return useQuery({
+/** The rail and the moves offered, as query options: for a screen that asks on demand (a board). */
+export function stagedPanelQuery(path: StagedPath, id: string) {
+  return {
     queryKey: stagedKeys(path).part(id, 'stages'),
     queryFn: () =>
       call(api.GET(at(path, `${RECORD}/stages`), { params: { path: { record_id: id } } })),
-    enabled: id !== '',
-  });
+  };
+}
+
+/** The rail and the moves offered from the current status (ADR-041 §7). */
+export function useStagedPanel(path: StagedPath, id: string) {
+  return useQuery({ ...stagedPanelQuery(path, id), enabled: id !== '' });
 }
 
 /** A listed move, with If-Match on the record and the values the move asks for. */
@@ -112,6 +116,28 @@ export function useRoleDefs(path: StagedPath | undefined) {
     // A designer without the settings view gets a 403: labels fall back to the codes quietly,
     // never a global error toast (lane A's #420 review).
     meta: { silent: true },
+  });
+}
+
+/**
+ * Make one role what Take makes you (releases, REQ-REL-057 AC2), on the type's settings version
+ * the screen showed; the roles and the settings refetch.
+ */
+export function useSetTakeRole(path: StagedPath) {
+  const queryClient = useQueryClient();
+  const keys = stagedKeys(path);
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ code, version }: { code: string; version: number }) =>
+      call(
+        api.PATCH(at(path, '/api/v1/releases/settings/roles/{code}'), {
+          params: { path: { code }, header: ifMatch(version) },
+          body: { take: true },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.settings });
+    },
   });
 }
 

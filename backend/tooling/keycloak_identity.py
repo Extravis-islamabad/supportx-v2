@@ -31,6 +31,13 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   secret (SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET) only on an on-prem install that turned
   LDAP on, never on SaaS. Without the secret an existing client is switched off, never deleted,
   so nothing can use it; the identity account never gets manage-realm;
+- the console and portal clients put the identity provider a person signed in through into the
+  ID and access tokens as `sx_idp` (WP-057 S1b, lane B's review): a user-session note only
+  Keycloak's broker writes, never a user attribute and never userinfo, so a password, LDAP or
+  direct-grant token never carries it. SupportX's "single sign-on required" reads it;
+- the flow `supportx-otp-after-broker` exists (one REQUIRED OTP-form step): a tenant that also
+  requires SupportX's MFA after single sign-on (REQ-SEC-026) has its identity providers point at
+  it; nobody else's do;
 - a realm still on the password policy SupportX shipped before WP-039 gets the new default
   (Appendix A, with the breached list); a policy anyone chose is never touched;
 - the browser flow offers recovery codes as a second step (REQ-SEC-025): Keycloak ships that
@@ -40,6 +47,10 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   one (REQ-SEC-005 AC2, D-104): 5 failures, then 15 minutes, 15 more for each failure after
   that, at most an hour; failures remembered 12 hours. Keycloak cannot double the wait
   (measured on 26.8.1), so it grows in equal steps;
+- refresh tokens rotate (audit row 26): `revokeRefreshToken` on with `refreshTokenMaxReuse` 0,
+  so each refresh token works once and a stolen, already-used one is refused. The BFF stores
+  the new token after every refresh and serialises refreshes per session, so nobody notices.
+  Set again on every run: this is a security baseline, not an operator choice;
 - the user profile declares the attributes single sign-on brings (department and site, read by
   SupportX at a person's first sign-in, REQ-SEC-007 AC3): Keycloak 26 drops undeclared ones.
   Only admins see or change them; the realm's other attributes are kept as they are.
@@ -53,6 +64,7 @@ operator then creates the client by hand once: docs/architecture/identity.md).
 Environment: SUPPORTX_KEYCLOAK_URL, SUPPORTX_KEYCLOAK_ADMIN_USER (default admin),
 SUPPORTX_KEYCLOAK_ADMIN_PASSWORD, SUPPORTX_KEYCLOAK_REALM (default supportx),
 SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET, SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET (optional),
+SUPPORTX_KEYCLOAK_EVENTS_CLIENT_SECRET (optional, WP-057 S1b),
 SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET (optional: on-prem installs with LDAP only),
 SUPPORTX_KEYCLOAK_WAIT_SECONDS (default 300).
 """
@@ -68,6 +80,7 @@ from typing import Any
 import httpx
 
 from app.modules.identity_access.domain.password_policy import PasswordPolicy, to_keycloak
+from app.modules.identity_access.domain.sso import POST_BROKER_FLOW
 from tooling.keycloak_theme import KeycloakUnavailableError, admin_token
 
 CLIENT_ID = "supportx-identity"
@@ -80,6 +93,8 @@ REALM_CLIENT_ID = "supportx-realm"
 REALM_ROLES = ("manage-realm",)  # the password policy; held by the consumers worker only
 FEDERATION_CLIENT_ID = "supportx-federation"
 FEDERATION_ROLES = ("manage-realm",)  # the LDAP user-federation component (D-118); nothing else
+EVENTS_CLIENT_ID = "supportx-events"
+EVENTS_ROLES = ("view-events",)  # the sign-in log import (WP-057 S1b); nothing else (lane B)
 # Lock-out (REQ-SEC-005 AC2, D-104), and what the realm import shipped before WP-039 session 3.
 LOCKOUT = {
     "bruteForceProtected": True,
@@ -110,6 +125,8 @@ EVENTS_EXPIRATION_SECONDS = 7 * 86400
 # The longest SupportX sessions (Appendix A caps: portal 30 days absolute; 24 hours idle at most).
 SSO_IDLE_SECONDS = 24 * 3600
 SSO_MAX_SECONDS = 30 * 86400
+# One use per refresh token (audit row 26); also in the realm import files.
+REFRESH_ROTATION = {"revokeRefreshToken": True, "refreshTokenMaxReuse": 0}
 RETRY_SECONDS = 5.0
 EMAIL_THEME = "supportx"
 # What identity provider mappers store on a person (domain/sso.py DEPARTMENT/SITE_ATTRIBUTE).
@@ -152,6 +169,7 @@ class Target:
     secret: str = field(repr=False, default="")
     realm: str = "supportx"
     realm_secret: str = field(repr=False, default="")  # supportx-realm; empty = not made
+    events_secret: str = field(repr=False, default="")  # supportx-events; empty = not made
     # supportx-federation: only on an on-prem install with LDAP on; empty = off (never deleted).
     federation_secret: str = field(repr=False, default="")
     smtp: dict[str, str] | None = field(repr=False, default=None)  # Keycloak's smtpServer
@@ -169,6 +187,10 @@ CLIENT_TEXTS = {
     FEDERATION_CLIENT_ID: (
         "SupportX directory federation",
         "Service account SupportX writes the on-prem AD/LDAP connection with (WP-040, D-118).",
+    ),
+    EVENTS_CLIENT_ID: (
+        "SupportX sign-in log",
+        "Service account the SupportX worker reads login events with (WP-057 S1b).",
     ),
 }
 
@@ -281,6 +303,111 @@ async def _ensure_events(
     return ["login events on"]
 
 
+IDP_CLAIM_MAPPER: dict[str, Any] = {
+    "name": "sign-in-identity-provider",
+    "protocol": "openid-connect",
+    "protocolMapper": "oidc-usersessionmodel-note-mapper",
+    "consentRequired": False,
+    "config": {
+        "user.session.note": "identity_provider",
+        "claim.name": "sx_idp",
+        "jsonType.label": "String",
+        "id.token.claim": "true",
+        "access.token.claim": "true",
+        "introspection.token.claim": "true",
+        "userinfo.token.claim": "false",
+    },
+}
+APP_CLIENTS = ("supportx-console", "supportx-portal")
+
+
+async def _ensure_idp_claim(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """The `sx_idp` mapper on the app clients (the realm import has it; older realms get it)."""
+    changes: list[str] = []
+    base = f"/admin/realms/{realm}/clients"
+    for client_id in APP_CLIENTS:
+        found = await client.get(base, headers=headers, params={"clientId": client_id})
+        found.raise_for_status()
+        if not found.json():
+            continue  # a realm without the app client (a bare test realm): nothing to add to
+        internal = str(found.json()[0]["id"])
+        mappers = await client.get(f"{base}/{internal}/protocol-mappers/models", headers=headers)
+        mappers.raise_for_status()
+        current = next(
+            (m for m in mappers.json() if m.get("name") == IDP_CLAIM_MAPPER["name"]), None
+        )
+        if current is None:
+            made = await client.post(
+                f"{base}/{internal}/protocol-mappers/models", headers=headers, json=IDP_CLAIM_MAPPER
+            )
+            made.raise_for_status()
+            changes.append(f"{client_id}: sign-in identity provider claim added")
+        elif (
+            current.get("config") != IDP_CLAIM_MAPPER["config"]
+            or current.get("protocolMapper") != IDP_CLAIM_MAPPER["protocolMapper"]
+        ):
+            # Drifted (say userinfo turned on by hand): put back exactly what SupportX trusts.
+            fixed = await client.put(
+                f"{base}/{internal}/protocol-mappers/models/{current['id']}",
+                headers=headers,
+                json={**IDP_CLAIM_MAPPER, "id": current["id"]},
+            )
+            fixed.raise_for_status()
+            changes.append(f"{client_id}: sign-in identity provider claim set back")
+    return changes
+
+
+async def _ensure_post_broker_flow(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """The flow SupportX puts after a single sign-on when a tenant also requires its MFA.
+
+    REQ-SEC-026 AC2 (WP-057 S1b): one REQUIRED step, Keycloak's OTP form. A person with a code
+    generator is asked for a code; one without is made to set it up first (the form adds the
+    required action), so nobody passes untested (lane B). Made once, never duplicated; the
+    tenant's identity providers point at it only while their tenant asks for it (sso.py).
+    """
+    base = f"/admin/realms/{realm}/authentication/flows"
+    flows = await client.get(base, headers=headers)
+    flows.raise_for_status()
+    changes: list[str] = []
+    if not any(f.get("alias") == POST_BROKER_FLOW for f in flows.json()):
+        made = await client.post(
+            base,
+            headers=headers,
+            json={
+                "alias": POST_BROKER_FLOW,
+                "description": "SupportX: a code after single sign-on (REQ-SEC-026)",
+                "providerId": "basic-flow",
+                "topLevel": True,
+                "builtIn": False,
+            },
+        )
+        made.raise_for_status()
+        changes.append("post-broker MFA flow created")
+    executions_path = f"{base}/{POST_BROKER_FLOW}/executions"
+    executions = await client.get(executions_path, headers=headers)
+    executions.raise_for_status()
+    otp = next((e for e in executions.json() if e.get("providerId") == "auth-otp-form"), None)
+    if otp is None:
+        added = await client.post(
+            f"{executions_path}/execution", headers=headers, json={"provider": "auth-otp-form"}
+        )
+        added.raise_for_status()
+        executions = await client.get(executions_path, headers=headers)
+        executions.raise_for_status()
+        otp = next(e for e in executions.json() if e.get("providerId") == "auth-otp-form")
+        changes.append("post-broker MFA flow: code step added")
+    if otp.get("requirement") != "REQUIRED":
+        required = {**otp, "requirement": "REQUIRED"}
+        put = await client.put(executions_path, headers=headers, json=required)
+        put.raise_for_status()
+        changes.append("post-broker MFA flow: code step required")
+    return changes
+
+
 async def _ensure_sso_session(
     client: httpx.AsyncClient, headers: dict[str, str], realm: str
 ) -> list[str]:
@@ -299,6 +426,20 @@ async def _ensure_sso_session(
     # A partial representation: Keycloak updates only the fields it is given.
     (await client.put(path, headers=headers, json=update)).raise_for_status()
     return ["SSO session raised to the SupportX maximum"]
+
+
+async def _ensure_refresh_rotation(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """Refresh tokens used once each, on fresh and upgraded realms alike (audit row 26)."""
+    path = f"/admin/realms/{realm}"
+    current = await client.get(path, headers=headers)
+    current.raise_for_status()
+    found = current.json()
+    if all(found.get(key) == value for key, value in REFRESH_ROTATION.items()):
+        return []
+    (await client.put(path, headers=headers, json=REFRESH_ROTATION)).raise_for_status()
+    return ["refresh-token rotation on"]
 
 
 async def _ensure_user_profile(
@@ -393,6 +534,21 @@ async def _ensure_realm_client(
     return changes + await _ensure_roles(client, headers, realm, internal, REALM_ROLES)
 
 
+async def _ensure_events_client(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str, secret: str
+) -> list[str]:
+    """`supportx-events` with exactly EVENTS_ROLES (view-events), when its secret is given.
+
+    The sign-in log's import reads Keycloak's login events with it (WP-057 S1b): a client of
+    its own, as supportx-identity holds far more than reading events (lane B: least privilege).
+    Client credentials only; any other role on its service account is taken away every run.
+    """
+    if not secret:
+        return []
+    internal, changes = await _ensure_client(client, headers, realm, secret, EVENTS_CLIENT_ID)
+    return changes + await _ensure_roles(client, headers, realm, internal, EVENTS_ROLES)
+
+
 async def _ensure_federation_client(
     client: httpx.AsyncClient, headers: dict[str, str], realm: str, secret: str
 ) -> list[str]:
@@ -483,6 +639,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     internal, changes = await _ensure_client(client, headers, target.realm, target.secret)
     changes += await _ensure_roles(client, headers, target.realm, internal)
     changes += await _ensure_realm_client(client, headers, target.realm, target.realm_secret)
+    changes += await _ensure_events_client(client, headers, target.realm, target.events_secret)
     changes += await _ensure_federation_client(
         client, headers, target.realm, target.federation_secret
     )
@@ -490,7 +647,10 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     changes += await _upgrade_lockout(client, headers, target.realm)
     changes += await _enable_recovery_codes(client, headers, target.realm)
     changes += await _ensure_events(client, headers, target.realm)
+    changes += await _ensure_idp_claim(client, headers, target.realm)
+    changes += await _ensure_post_broker_flow(client, headers, target.realm)
     changes += await _ensure_sso_session(client, headers, target.realm)
+    changes += await _ensure_refresh_rotation(client, headers, target.realm)
     changes += await _ensure_user_profile(client, headers, target.realm)
     changes += await _ensure_smtp(client, headers, target.realm, target.smtp)
     changes += await _ensure_email_theme(client, headers, target.realm)
@@ -536,6 +696,7 @@ def main() -> int:  # pragma: no cover - thin CLI over tested functions
         secret=secret,
         realm=realm,
         realm_secret=env.get("SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET", ""),
+        events_secret=env.get("SUPPORTX_KEYCLOAK_EVENTS_CLIENT_SECRET", ""),
         federation_secret=env.get("SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET", ""),
         smtp=smtp_from_env(dict(env)),
     )

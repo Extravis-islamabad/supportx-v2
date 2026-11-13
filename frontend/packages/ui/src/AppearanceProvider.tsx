@@ -1,4 +1,4 @@
-import { App as AntApp, ConfigProvider } from 'antd';
+import { App as AntApp, ConfigProvider, theme as antdTheme } from 'antd';
 import dayjs from 'dayjs';
 import updateLocale from 'dayjs/plugin/updateLocale';
 import 'dayjs/locale/ar';
@@ -21,6 +21,7 @@ import {
 } from './appearance';
 import type { Density } from './density';
 import { useDropdownFit } from './dropdownFit';
+import { useUntabbedTableMeasureRows } from './tableMeasureRows';
 import { useSelectAria } from './selectAria';
 import { buildTheme, DEFAULT_BRANDING, type Branding, type ThemeMode } from './theme';
 import { MODE_STORAGE_KEY, storedMode, systemMode } from './themeMode';
@@ -190,6 +191,8 @@ export function AppearanceProvider({
 
   useFavicon(brand);
   useDropdownFit();
+  // Tables' hidden measure rows hold copies of header controls: out of the tab order.
+  useUntabbedTableMeasureRows();
   useSelectAria();
   const appearance = useMemo<Appearance>(
     () => ({
@@ -227,6 +230,17 @@ export function AppearanceProvider({
     () => buildTheme(mode, brand, locale, density, textScale, urduScript),
     [mode, brand, locale, density, textScale, urduScript],
   );
+  // The page itself takes the theme, not only Ant Design's boxes: the background behind
+  // everything (the loading screen, a short page) and the browser's own parts, its scrollbars
+  // and form controls (QA 2026-11-12 V-01: a white splash in dark; V-02: a white scrollbar strip).
+  const pageBackground = useMemo(
+    () => antdTheme.getDesignToken(themeConfig).colorBgLayout,
+    [themeConfig],
+  );
+  useEffect(() => {
+    document.documentElement.style.colorScheme = mode === 'dark' ? 'dark' : 'light';
+    document.body.style.background = pageBackground;
+  }, [mode, pageBackground]);
 
   return (
     <AppearanceContext.Provider value={appearance}>

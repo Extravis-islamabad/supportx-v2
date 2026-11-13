@@ -24,6 +24,7 @@ from sqlalchemy import select, text
 from app.core.database import Database
 from app.core.errors import LimitReached
 from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
+from app.core.recent_auth import SignInFreshness, record_freshness
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
 from app.modules.identity_access.domain.identity import Identity, UserType
@@ -114,12 +115,17 @@ async def _create() -> dict[str, str]:
 SAMPLE = ModuleSpec(name="esm_sample", routers=[sample], feature="esm")
 
 
+FRESH = SignInFreshness(interactive=True, recent=True)
+
+
 async def fake_session(request: Request) -> TenantContext | None:
     tenant = request.headers.get("x-test-tenant")
     if tenant is None:
         return None
     user = request.headers.get("x-test-user")
     roles = frozenset(filter(None, request.headers.get("x-test-roles", "").split(",")))
+    # A signed-in browser that confirmed just now (REQ-SEC-027's RecentAuth passes).
+    record_freshness(request, FRESH)
     return TenantContext(uuid.UUID(tenant), uuid.UUID(user) if user else None, roles=roles)
 
 
@@ -389,3 +395,25 @@ async def test_check_limit_and_remaining(
         with pytest.raises(LookupError):
             await seats.check_limit(session, LimitKey.ASSETS)
     assert (check.used, check.limit, check.allowed, remaining) == (1, 4, True, 3)
+
+
+async def test_the_limit_lock_is_taken_once_per_transaction_and_again_after_a_rollback(
+    seats: EntitlementService, app_db: Database, migrated_db: ThrowawayDatabase
+) -> None:
+    """`hold` skips a second lock in the same transaction (an import reserves per row), but a
+    rolled-back savepoint releases a lock it took, so the next `hold` takes it again."""
+    tenant = await create_tenant(migrated_db.migrator_url, "Hold", limits={"technicians": 5})
+    held = text(
+        "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid()"
+    )
+    async with app_db.tenant_session(TenantContext(tenant)) as session:
+        await seats.hold(session, LimitKey.TECHNICIANS)
+        await seats.hold(session, LimitKey.TECHNICIANS)
+        assert await session.scalar(held) == 1
+        savepoint = await session.begin_nested()
+        await seats.hold(session, LimitKey.ASSETS)  # a lock taken inside the savepoint
+        assert await session.scalar(held) == 2
+        await savepoint.rollback()
+        assert await session.scalar(held) == 1  # PostgreSQL released the savepoint's lock
+        await seats.hold(session, LimitKey.ASSETS)
+        assert await session.scalar(held) == 2

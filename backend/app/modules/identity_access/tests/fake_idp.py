@@ -36,6 +36,8 @@ class FakeUser:
     locale: str = "en"
     roles: tuple[str, ...] = ("technician",)
     organizations: dict[str, uuid.UUID] = field(default_factory=dict)  # alias -> tenant id
+    # A sign-in through an identity provider (WP-057 S1b): Keycloak's `sx_idp` claim.
+    identity_provider: str | None = None
 
 
 @dataclass
@@ -50,6 +52,10 @@ class FakeIdp:
     pending: dict[str, tuple[FakeUser, str, str]] = field(default_factory=dict)
     last_redirect_uri: str | None = None
     refresh_tokens: dict[str, tuple[FakeUser, str]] = field(default_factory=dict)
+    # Refresh tokens already used once: refused again, as the realm's revokeRefreshToken with
+    # refreshTokenMaxReuse 0 does (audit row 26). `refreshed_with` lists every one presented.
+    spent_refresh_tokens: set[str] = field(default_factory=set)
+    refreshed_with: list[str] = field(default_factory=list)
     ended_sessions: list[str] = field(default_factory=list)
     token_overrides: dict[str, Any] = field(default_factory=dict)
     now: Callable[[], float] = time.time  # point at a FrozenClock to keep token times in step
@@ -81,6 +87,8 @@ class FakeIdp:
             "name": user.name,
             "locale": user.locale,
             "sid": "kc-session-" + user.subject,
+            # Keycloak always sends when the person last authenticated (WP-057 S2a).
+            "auth_time": now,
             "supportx_roles": list(user.roles),
             "supportx_organizations": {
                 alias: {"tenant_id": [str(tenant)], "id": str(uuid.uuid4())}
@@ -89,6 +97,8 @@ class FakeIdp:
         }
         if nonce is not None:
             claims["nonce"] = nonce
+        if user.identity_provider is not None:
+            claims["sx_idp"] = user.identity_provider
         return {**claims, **self.token_overrides}
 
     def issue_code(self, authorize_url: str, user: FakeUser) -> tuple[str, str]:
@@ -170,9 +180,12 @@ class FakeIdp:
             if form["grant_type"] == "password":
                 self.password_grants.append(form)
                 return self._password_grant(form)
-            entry2 = self.refresh_tokens.get(form["refresh_token"])
-            if entry2 is None or not self.refresh_ok:
+            presented = form["refresh_token"]
+            self.refreshed_with.append(presented)
+            entry2 = self.refresh_tokens.get(presented)
+            if entry2 is None or not self.refresh_ok or presented in self.spent_refresh_tokens:
                 return httpx.Response(400, json={"error": "invalid_grant"})
+            self.spent_refresh_tokens.add(presented)
             return httpx.Response(200, json=self._tokens(entry2[0], entry2[1], None))
         if path.endswith("/logout"):
             self.ended_sessions.append(form.get("refresh_token", ""))
@@ -201,9 +214,13 @@ class MemoryKeyValue:
     async def getdel(self, key: str) -> bytes | None:
         return self.data.pop(key, None)
 
-    async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None:
+    async def set(
+        self, key: str, value: bytes, *, px: int, nx: bool = False, xx: bool = False
+    ) -> bool | None:
         assert px > 0
         if nx and key in self.data:
+            return None
+        if xx and key not in self.data:
             return None
         self.data[key] = value
         return True
