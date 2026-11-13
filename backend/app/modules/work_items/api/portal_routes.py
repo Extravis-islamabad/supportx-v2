@@ -24,8 +24,11 @@ from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.work_items.api.routes import RESOLUTION_MAX, RESPONSES
+from app.modules.work_items.api.settings_routes import FormRuleIO
 from app.modules.work_items.domain.classification import Impact, Urgency
 from app.modules.work_items.domain.conversation import EntryKind
+from app.modules.work_items.domain.form_layout import LabelPosition, LayoutAudience, arrange
+from app.modules.work_items.domain.form_rules import limited_to
 from app.modules.work_items.domain.portal import (
     KnownProblem,
     PortalReach,
@@ -102,6 +105,17 @@ class PortalFieldOut(BaseModel):
     required: bool
 
 
+class PortalSectionOut(BaseModel):
+    """A section of the portal form (the requester layout, or the technician one)."""
+
+    id: str
+    names: dict[str, str]
+    columns: int
+    collapsible: bool
+    collapsed: bool
+    fields: list[TemplateField]
+
+
 class PortalTemplateOut(BaseModel):
     """A form the portal offers: its name and the requester's fields, nothing staff-side."""
 
@@ -111,13 +125,41 @@ class PortalTemplateOut(BaseModel):
     description: str | None
     is_default: bool
     fields: list[PortalFieldOut]
+    label_position: LabelPosition = LabelPosition.TOP
+    sections: list[PortalSectionOut] = Field(
+        default_factory=list,
+        description="The requester layout (REQ-INC-036), with only the fields above.",
+    )
+    form_rules: list[FormRuleIO] = Field(
+        default_factory=list,
+        description="The form rules that read and change only the fields above (REQ-INC-037);"
+        " the server enforces every rule of the template on save.",
+    )
 
     @classmethod
     def of(cls, row: WorkItemTemplate) -> "PortalTemplateOut":
         """The template as the portal shows it, fields in the form's order."""
         rules = rules_from_json(row.field_rules)
         fillable = requester_fillable(rules)
+        order = [f.value for f in TemplateField if f.value in fillable]
+        laid = arrange(row.layout, LayoutAudience.REQUESTER, order)
         return cls(
+            label_position=laid.label_position,
+            sections=[
+                PortalSectionOut(
+                    id=s.id,
+                    names=dict(s.names),
+                    columns=s.columns,
+                    collapsible=s.collapsible,
+                    collapsed=s.collapsed,
+                    fields=[TemplateField(f) for f in s.fields],
+                )
+                for s in laid.sections
+                if s.fields
+            ],
+            form_rules=[
+                FormRuleIO.model_validate(r) for r in limited_to(row.form_rules or [], order)
+            ],
             id=row.id,
             code=row.code,
             labels=row.labels,

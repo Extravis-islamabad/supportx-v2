@@ -485,6 +485,22 @@ export const SCREENS: Screen[] = [
     app: 'console',
     sideOnly: true,
   })),
+  // WP-046a S5b: the template drawer with the form designer and a form rule open (lane C).
+  {
+    key: 'admin-incidents-template-designer',
+    path: '/admin/incidents/templates',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'designer',
+      open: async (page) => {
+        await click('tpl-admin-new')(page);
+        await click('tpl-layout-on')(page);
+        await click('tpl-frule-add')(page);
+        await page.getByTestId('tpl-layout').scrollIntoViewIfNeeded();
+      },
+    },
+  },
   ...Object.entries(ADMIN_SECTIONS).flatMap(([area, sections]) =>
     sections.map<Screen>((section) => ({
       key: `admin-${area}-${section}`,
