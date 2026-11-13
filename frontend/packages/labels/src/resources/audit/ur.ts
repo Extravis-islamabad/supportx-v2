@@ -432,6 +432,8 @@ export const ur: LabelResource = {
   'audit.action.service_request.withdrawn': 'منظوری کی منتظر سروس درخواست واپس لی',
   'audit.action.session.break_glass_sign_in': 'ہنگامی اکاؤنٹ سے سائن اِن کیا',
   'audit.action.session.ended': 'سائن اِن سیشن ختم کیا',
+  'audit.action.session.keycloak_ended':
+    'سائن آؤٹ کے بعد باقی رہ جانے والا سائن اِن سروس کا سیشن ختم کیا',
   'audit.action.session.quick_sign_in': 'ڈیولپمنٹ کے فوری سائن اِن سے سائن اِن کیا',
   'audit.action.session.signed_in': 'سائن اِن کیا',
   'audit.action.session.signed_out': 'سائن آؤٹ کیا',
@@ -498,6 +500,10 @@ export const ur: LabelResource = {
   'audit.decision.release.approval_decided.rejected': 'ریلیز مسترد کی',
   'audit.decision.service_request.approval_decided.approved': 'سروس کی درخواست منظور کی',
   'audit.decision.service_request.approval_decided.rejected': 'سروس کی درخواست مسترد کی',
+  'audit.decision.session.keycloak_ended.ended':
+    'سائن آؤٹ کے بعد باقی رہ جانے والا سائن اِن سروس کا سیشن ختم کیا',
+  'audit.decision.session.keycloak_ended.not_ended':
+    'سائن آؤٹ کے بعد باقی رہ جانے والا سائن اِن سروس کا سیشن ختم نہیں ہو سکا',
   'audit.detail.entries_checked': 'جانچے گئے اندراجات: {{value}}',
   'audit.detail.first_broken_seq': 'پہلا ٹوٹا ہوا مقام: {{value}}',
   'audit.detail.personal_rows_removed': 'ہٹائے گئے ذاتی ریکارڈ: {{value}}',
@@ -950,6 +956,8 @@ export const ur: LabelResource = {
   'event_type.identity_access.group_role.changed': 'گروپ کے کردار بدلے',
   'event_type.identity_access.identity_settings.changed': 'سائن اِن کی ترتیبات بدلیں',
   'event_type.identity_access.invitation.changed': 'دعوت نامہ بدلا',
+  'event_type.identity_access.keycloak_session.end_pending':
+    'سائن اِن سروس کا سیشن ختم ہونے کا منتظر',
   'event_type.identity_access.mfa.changed': 'دو مرحلہ سائن اِن بدلا',
   'event_type.identity_access.password_policy.changed': 'پاس ورڈ پالیسی بدلی',
   'event_type.identity_access.people_import.progressed': 'افراد کی درآمد آگے بڑھی',

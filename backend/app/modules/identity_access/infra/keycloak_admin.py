@@ -14,7 +14,7 @@ it may touch: callers pass the tenant, and organization lookups check the organi
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
 
@@ -501,6 +501,17 @@ class KeycloakAdmin:
     async def logout_user(self, user_id: str) -> None:
         """End every Keycloak session of a person (REQ-SEC-031); unknown is fine."""
         await self._call("POST", f"/users/{user_id}/logout", missing_ok=True)
+
+    async def end_session(self, session_id: str) -> bool:
+        """End one Keycloak session by its ID (ADR-051); False if it was already gone.
+
+        Keycloak's `DELETE /admin/realms/{realm}/sessions/{id}` (manage-users, which the
+        identity service account holds): a back-channel logout of that session only, the
+        person's other devices keep theirs.
+        """
+        path = f"/sessions/{quote(session_id, safe='')}"
+        found = await self._call("DELETE", path, missing_ok=True)
+        return found is not None
 
     async def user_attributes(self, user_id: str) -> dict[str, list[str]]:
         """A person's Keycloak attributes (set by identity provider mappers); unknown: none."""

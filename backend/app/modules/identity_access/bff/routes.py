@@ -52,10 +52,12 @@ from app.modules.identity_access.domain.mobile import (
 )
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.infra.oidc import IdentityProviderUnavailable
 from app.modules.identity_access.service import password_reset as password_reset_service
 from app.modules.identity_access.service import sso
 from app.modules.identity_access.service.auth import (
     LOGIN_STATE_TTL,
+    SIGN_IN_UNAVAILABLE,
     AccountAction,
     Attempt,
     AuthService,
@@ -64,6 +66,7 @@ from app.modules.identity_access.service.auth import (
     LoginFailure,
     LoginStarted,
     PortalInstead,
+    sign_in_unavailable,
 )
 from app.modules.identity_access.service.sso_test import TestFinished
 from app.modules.identity_access.service.users import requester_only
@@ -97,7 +100,6 @@ log = get_logger(__name__)
 # could not work anyway (its state lives there), so 503 `sign_in_unavailable`, never unlimited.
 LOGINS_PER_ADDRESS = 60  # a minute
 CALLBACKS_PER_ADDRESS = 60  # a minute
-SIGN_IN_UNAVAILABLE = "sign_in_unavailable"
 BREAK_GLASS_PER_ADDRESS = 10  # a minute: far below a normal sign-in's budget
 _BREAK_GLASS_LIMIT = ip_rate_limit(
     "auth_break_glass", BREAK_GLASS_PER_ADDRESS, fail_closed_code=SIGN_IN_UNAVAILABLE, defer=True
@@ -306,13 +308,18 @@ async def login(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of one sig
     # Keycloak's own session must not sign it back in without the password (REQ-SEC-029).
     previous = request.cookies.get(auth.cookie_name)
     timed_out = previous is not None and await auth.store.get_session(previous) is None
-    started = await auth.start_login(
-        app,
-        return_to,
-        await _address(request),
-        reauthenticate=timed_out,
-        mobile=mobile,
-    )
+    address = await _address(request)
+    try:
+        started = await auth.start_login(
+            app, return_to, address, reauthenticate=timed_out, mobile=mobile
+        )
+    except IdentityProviderUnavailable:
+        # Keycloak is unreachable (or just was: the breaker, ADR-051). Say so on the sign-in
+        # landing rather than sending the browser to a dead page; signed-in people keep working.
+        origin = auth.origin(app, address.host) if address is not None else None
+        mobile_return = auth.settings.mobile_redirect_uri if mobile is not None else None
+        failure = LoginFailure(app, sign_in_unavailable(), origin, mobile_return=mobile_return)
+        return await _failure_response(request, auth, failure)
     response = _to_keycloak(auth, started)
     response.headers.update(limited.headers)  # a returned Response gets no injected headers
     return response
@@ -761,9 +768,15 @@ async def end_my_session(
 @entitlement_exempt
 @public_route
 async def logout(found: CurrentSession, auth: Auth, request: Request) -> Response:
-    """End this session and the Keycloak session; clears the cookie."""
+    """End this session and the Keycloak session; clears the cookie.
+
+    The session ends even when Keycloak cannot be reached (ADR-051); Keycloak's own session is
+    then ended in the background. Meanwhile the cookie is left in place, naming a session that no
+    longer exists: the next sign-in from this browser then asks for the password again
+    (REQ-SEC-029) instead of being let in by Keycloak's still-open session.
+    """
     session_id, session = found
-    await auth.logout(
+    keycloak_unreachable = await auth.logout(
         session_id,
         session,
         attempt=Attempt(
@@ -776,7 +789,8 @@ async def logout(found: CurrentSession, auth: Auth, request: Request) -> Respons
     await _audit_session(request, session, "session.signed_out")
     await _end_realtime(request, session)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    clear_session_cookie(response, auth.settings)
+    if not keycloak_unreachable:
+        clear_session_cookie(response, auth.settings)
     return response
 
 
