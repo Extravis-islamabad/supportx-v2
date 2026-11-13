@@ -82,9 +82,11 @@ export function StopMailsPage() {
     );
   }
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 640, margin: '48px auto', padding: '0 16px' }}>
-      <Typography.Title level={1}>{t('kept_informed.stop.title')}</Typography.Title>
-      {content}
-    </Flex>
+    <main>
+      <Flex vertical gap={16} style={{ maxWidth: 640, margin: '48px auto', padding: '0 16px' }}>
+        <Typography.Title level={1}>{t('kept_informed.stop.title')}</Typography.Title>
+        {content}
+      </Flex>
+    </main>
   );
 }
