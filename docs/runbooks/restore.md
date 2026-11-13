@@ -29,9 +29,12 @@ WAL works.
 
 ## 2. Stop writes
 
-Scale the API and workers to zero so nothing writes while you restore:
+Scale the API and workers to zero so nothing writes while you restore. The HA SeaweedFS filers
+(D-166) stay up: when the backups are in this release's own SeaweedFS (dev), the restore reads
+them through the filers. CI's and production's backups are outside the cluster's nodes.
 ```sh
-kubectl -n supportx scale deploy -l app.kubernetes.io/instance=supportx --replicas=0
+kubectl -n supportx scale deploy --replicas=0 \
+  -l 'app.kubernetes.io/instance=supportx,app.kubernetes.io/component!=seaweedfs-filer'
 ```
 
 ## 3. Restore into a new cluster
@@ -53,6 +56,16 @@ Look at the data as of the chosen moment before switching to it, for example the
 kubectl -n supportx exec supportx-pg-restore-1 -c postgres -- psql -U postgres -d supportx \
   -c "SELECT max(created_at) FROM work_items"
 ```
+
+With the HA SeaweedFS (D-166), the filers' file tree is the `seaweedfs_filer` database of this
+same cluster, so it is restored to the same moment (the CI drill checks it has its entries):
+```sh
+kubectl -n supportx exec supportx-pg-restore-1 -c postgres -- psql -U postgres -d seaweedfs_filer \
+  -c "SELECT count(*) FROM filemeta"
+```
+Files uploaded after the moment then have no entry (their data stays on the volume servers,
+unused); files deleted after it have an entry but may have lost their data once SeaweedFS
+reclaimed the space. The SupportX records restored to the same moment match the file tree.
 
 ## 5. Switch to it
 

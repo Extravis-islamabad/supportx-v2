@@ -1,6 +1,7 @@
 {{- if eq .Values.postgresql.mode "cnpg" }}
 {{- $c := dict "root" . "component" "postgresql" -}}
 {{- $pg := .Values.postgresql.cnpg -}}
+{{- $filerDb := ternary .Values.objectStorage.seaweedfs.ha.filer.database "" (and (eq .Values.objectStorage.mode "seaweedfs") .Values.objectStorage.seaweedfs.ha.enabled) -}}
 # PostgreSQL 16 + pgvector through the CloudNativePG operator (D1, D-037). The bootstrap database
 # is Keycloak's; SupportX's own roles and database come from tooling/sql via the migrate Job
 # (one source with the dev stack and CI). Backups and replicas: WP-014b.
@@ -31,6 +32,33 @@ spec:
       {{- range $k, $v := $pg.parameters }}
       {{ $k }}: {{ $v | quote }}
       {{- end }}
+    {{- with $filerDb }}
+    # The HA SeaweedFS filers' role (D-166) signs in to its own database only, over TLS; to every
+    # other database (SupportX's, Keycloak's, Temporal's) it is refused before any password.
+    # These come before CloudNativePG's closing "host all all all" rule.
+    pg_hba:
+      - hostssl {{ . }} seaweedfs_filer all scram-sha-256
+      - host all seaweedfs_filer all reject
+    {{- end }}
+  {{- if $filerDb }}
+  # The HA SeaweedFS filers' role (D-166): sign-in only, nothing else (no superuser, no new
+  # databases or roles, no replication, no row-level security bypass). It owns its database
+  # (seaweedfs-ha.yaml) and nothing else. Password: the secrets.seaweedfsFilerDb Secret.
+  managed:
+    roles:
+      - name: seaweedfs_filer
+        ensure: present
+        login: true
+        superuser: false
+        createdb: false
+        createrole: false
+        inherit: false
+        replication: false
+        bypassrls: false
+        connectionLimit: {{ add 10 (mul 20 (int .Values.objectStorage.seaweedfs.ha.filer.replicas)) }}
+        passwordSecret:
+          name: {{ .Values.secrets.seaweedfsFilerDb }}
+  {{- end }}
   {{- if eq (include "supportx.dbTls" .) "true" }}
   certificates:
     # The app reaches PostgreSQL through the pooler, and CloudNativePG's PgBouncer serves this

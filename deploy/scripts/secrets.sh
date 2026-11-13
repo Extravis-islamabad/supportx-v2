@@ -12,6 +12,9 @@ set -euo pipefail
 NAMESPACE="${1:-supportx}"
 APP_SECRET="supportx-app"
 KEYCLOAK_DB_SECRET="supportx-db-keycloak"
+# The HA SeaweedFS filers' database role (D-166, objectStorage.seaweedfs.ha): created everywhere,
+# read only with that on. CloudNativePG's managed role takes its password from it.
+FILER_DB_SECRET="supportx-db-seaweedfs-filer"
 
 rand() { openssl rand -hex "${1:-32}"; }
 # Audit anchor-signing key (WP-018, ADR-027): "<key id>:<base64 32-byte Ed25519 seed>".
@@ -89,4 +92,14 @@ else
     --from-literal=username=keycloak \
     --from-literal=password="$(rand 24)" >/dev/null
   echo "secret $NAMESPACE/$KEYCLOAK_DB_SECRET created"
+fi
+
+if kubectl -n "$NAMESPACE" get secret "$FILER_DB_SECRET" >/dev/null 2>&1; then
+  echo "secret $NAMESPACE/$FILER_DB_SECRET exists: left unchanged"
+else
+  kubectl -n "$NAMESPACE" create secret generic "$FILER_DB_SECRET" \
+    --type=kubernetes.io/basic-auth \
+    --from-literal=username=seaweedfs_filer \
+    --from-literal=password="$(rand 24)" >/dev/null
+  echo "secret $NAMESPACE/$FILER_DB_SECRET created"
 fi
