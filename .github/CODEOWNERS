@@ -19,6 +19,8 @@
 /backend/app/modules/identity_access/service/sso.py @supportx-reviewer
 /backend/app/modules/identity_access/service/service_identities.py @supportx-reviewer
 /backend/app/modules/identity_access/service/password_reset.py @supportx-reviewer
+/backend/app/modules/identity_access/service/break_glass.py @supportx-reviewer
+/backend/app/modules/identity_access/domain/sign_in_policy.py @supportx-reviewer
 
 # Who may do what: the policy layer, roles and the identity permission catalogue (§11.2).
 /backend/app/modules/identity_access/service/policy.py @supportx-reviewer
@@ -32,6 +34,9 @@
 /backend/app/modules/*/api/ @supportx-reviewer
 /backend/app/main.py @supportx-reviewer
 /backend/app/core/modules.py @supportx-reviewer
+# The guards that hold every route to a permission and every create to an Idempotency-Key.
+/backend/tests/test_route_permissions.py @supportx-reviewer
+/backend/tests/test_create_routes_idempotent.py @supportx-reviewer
 
 # Each module's permission catalogue (the PermissionSpec lists collected at startup).
 /backend/app/modules/ai/__init__.py @supportx-reviewer
@@ -55,6 +60,8 @@
 # Tenant isolation (rule 5a): tenant context, the RLS statements, and the only way migrations may
 # write policies or grants (option b), with the test that enforces it.
 /backend/app/core/tenancy.py @supportx-reviewer
+/backend/app/core/database.py @supportx-reviewer
+/backend/migrations/env.py @supportx-reviewer
 /backend/app/shared/db/rls.py @supportx-reviewer
 /backend/migrations/helpers.py @supportx-reviewer
 /backend/tests/test_migration_policy_sql.py @supportx-reviewer
@@ -78,6 +85,8 @@
 # Deployment secrets, network policies and the Keycloak realm and identity setup.
 /deploy/scripts/secrets.sh @supportx-reviewer
 /deploy/helm/supportx/templates/networkpolicies*.yaml @supportx-reviewer
+/deploy/helm/supportx/templates/internal-tls.yaml @supportx-reviewer
+/deploy/helm/supportx/templates/routing.yaml @supportx-reviewer
 /deploy/helm/supportx/files/keycloak/ @supportx-reviewer
 /backend/tooling/keycloak_identity.py @supportx-reviewer
 
