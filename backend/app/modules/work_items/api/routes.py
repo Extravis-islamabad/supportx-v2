@@ -31,6 +31,7 @@ from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
 )
+from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
@@ -2260,7 +2261,7 @@ async def _release_facts(
     }
 
 
-def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
+def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
         prefix=f"/{wtype.path}",
@@ -2648,6 +2649,10 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
+    if wtype.stages is None:
+        # ADR-049: life cycle versions of the action-based types; staged types version with
+        # their stages (S4c, lane C), so changes and releases get none of these routes yet.
+        add_lifecycle_routes(router, wtype)
 
     @router.post(
         "",

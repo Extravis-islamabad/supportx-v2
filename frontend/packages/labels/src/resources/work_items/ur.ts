@@ -1213,6 +1213,22 @@ export const ur: LabelResource = {
   'level.tier_4': 'درجہ 4',
   'lifecycle.guided_analysis': 'رہنمائی شدہ تجزیہ',
   'lifecycle.standard': 'معیاری',
+  'lifecycle_problem.no_moves': 'لائف سائیکل میں کوئی منتقلی نہیں۔',
+  'lifecycle_problem.permission_not_allowed':
+    '{{permission}} کسی منتقلی کے لیے لازم نہیں کیا جا سکتا۔ اس قسم کا کوئی اختیار منتخب کریں۔',
+  'lifecycle_problem.reason_list_without_prompt':
+    '{{status}} سے {{action}} کی وجوہات کی فہرست ہے لیکن یہ وجہ نہیں پوچھتا۔',
+  'lifecycle_problem.required_field_unknown': '{{field}} اس قسم کا فیلڈ نہیں ہے۔',
+  'lifecycle_problem.return_not_allowed':
+    'صرف «منسوخی واپس لیں» اور «دوبارہ شروع کریں» پچھلی حالت میں واپس جا سکتے ہیں، {{action}} نہیں۔',
+  'lifecycle_problem.status_no_way_out':
+    '{{status}} سے نکلنے کا کوئی راستہ نہیں۔ اس سے ایک منتقلی شامل کریں، یا اسے بند یا منسوخ حالت بنائیں۔',
+  'lifecycle_problem.system_status_target':
+    '{{status}} صرف سسٹم طے کرتا ہے، اس لیے {{action}} اس تک نہیں لے جا سکتا۔',
+  'lifecycle_problem.unknown_status': '{{status}} اس قسم کی حالت نہیں ہے۔',
+  'lifecycle_version_state.draft': 'مسودہ',
+  'lifecycle_version_state.published': 'شائع شدہ',
+  'lifecycle_version_state.retired': 'ریٹائرڈ',
   'link_kind.caused_by': 'کی وجہ سے',
   'link_kind.caused_by_release': 'ریلیز کی وجہ سے',
   'link_kind.change_for': 'اس کے لیے تبدیلی',
