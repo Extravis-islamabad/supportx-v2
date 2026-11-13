@@ -443,6 +443,7 @@ export const en = {
   'errors.field.expiry_before_review': 'The expiry date must be after the review date.',
   'errors.field.fallback_fixed': 'The default policy always applies and has no conditions.',
   'errors.field.field_always_required': 'Subject and requester are always shown and required.',
+  'errors.field.field_locked': 'A form rule locks this field, so it cannot be changed here.',
   'errors.field.field_not_settable': 'A rule cannot set this field.',
   'errors.field.field_retired': 'This field is retired and takes no new values.',
   'errors.field.field_set_twice': 'This field is already set by another action of the rule.',
@@ -539,9 +540,11 @@ export const en = {
   'errors.field.name_needs_letters': 'Use at least one letter or digit in the name.',
   'errors.field.name_required': 'Enter a name.',
   'errors.field.name_taken': 'Another one already uses this name.',
+  'errors.field.needs_collapsible': 'Only a collapsible section can start closed.',
   'errors.field.needs_scheduled_start': 'A reminder before the start needs a scheduled start.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
   'errors.field.not_a_field': 'This field does not exist for this type.',
+  'errors.field.not_a_form_field': 'This field is not on the form.',
   'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
@@ -613,6 +616,7 @@ export const en = {
   'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
   'errors.field.role_held_by_record':
     "This role follows the record's own field. Change it in the details panel.",
+  'errors.field.rule_too_deep': 'Conditions nest at most three levels.',
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
@@ -786,6 +790,8 @@ export const en = {
   'errors.instance_running': 'Stop this workflow before running it again.',
   'errors.instances_not_in_workflow':
     'Some of the chosen runs are not runs of this workflow ({{count}}).',
+  'errors.interactive_session_required':
+    'Do this in the web console while signed in. API keys and the mobile app cannot.',
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
@@ -944,6 +950,8 @@ export const en = {
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
+  'errors.notification_rule_locked':
+    'This is a security notice: no one can switch it off, change who gets it or reset it.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',
@@ -989,6 +997,10 @@ export const en = {
     'You can no longer follow this live. Reload the page to see the latest data.',
   'errors.realtime_not_configured':
     'Live updates are not set up on this server. Reload the page to see the latest data.',
+  'errors.reauth_failed': 'That did not confirm it was you. Nothing was changed.',
+  'errors.reauth_required': 'Confirm it is you to continue: sign in again, then try once more.',
+  'errors.reauth_unavailable':
+    'Your organisation signs you in through a provider that cannot confirm it again on request. Ask an administrator.',
   'errors.recipient_deferred': "The recipient's mail server asked to try later.",
   'errors.recipient_refused': 'The mail server refused the recipient.',
   'errors.record_closed': 'Closed and cancelled records cannot be changed.',

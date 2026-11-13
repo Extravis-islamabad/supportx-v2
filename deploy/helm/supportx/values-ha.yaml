@@ -23,10 +23,12 @@
 #   - the ingress: two copies on different nodes. k3s ships one Traefik copy: copy
 #     deploy/k3s/traefik-ha.yaml into /var/lib/rancher/k3s/server/manifests/ (a HelmChartConfig,
 #     kept through restarts) and check with deploy/k3s/traefik-ha.sh;
-#   - object storage: the bundled SeaweedFS (objectStorage.mode seaweedfs) is ONE copy, not HA.
-#     Point the chart at your own S3-compatible store (objectStorage.mode external; the preflight
-#     warns, advisory only, while the bundled one runs). docs/deployment.md, Profiles, lists what
-#     runs how many copies.
+#   - object storage: the bundled SeaweedFS runs replicated here (objectStorage.seaweedfs.ha,
+#     D-166): three masters, three volume servers keeping two copies of every file (001), two
+#     filers with the S3 gateway, each on its own node. Plan twice the disk of the files. Your own
+#     S3-compatible store (objectStorage.mode external) stays supported. The preflight checks the
+#     masters' and volume servers' spread and the replication. docs/deployment.md, Profiles, lists
+#     what runs how many copies.
 # Recommended, not required: node-monitor-grace-period 20 s on kube-controller-manager (k3s:
 # deploy/k3s/config-ha.yaml; CI runs it). A lost node's endpoints (CoreDNS, pooler, API) then
 # drop in about 20 s instead of 40-50 s; pods still move only after the default 300 s
@@ -157,3 +159,10 @@ temporal:
   bundled:
     enabled: true
     replicas: 2
+
+# Object storage (D-166): SeaweedFS's own replication, every file on two volume servers on two
+# nodes; the filers' metadata in the database above (its own database and role).
+objectStorage:
+  seaweedfs:
+    ha:
+      enabled: true

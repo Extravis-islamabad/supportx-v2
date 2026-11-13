@@ -81,6 +81,7 @@ announcement and a migration path that removes nothing silently (Haider's rule).
 |---|---|
 | `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, `api-key-secret` (the API keys' own HMAC key, required in production; [API keys](api/keys.md)), any `session-key-*` listed in `secrets.sessionKeys` (the sign-in key ring, D-162; [rotating it](guides/rotating-the-sign-in-key.md)), `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027), `temporal-db-password` (the bundled Temporal's `temporal` role, with `temporal.bundled.enabled`) |
 | `supportx-db-keycloak` (basic-auth) | `username` = `keycloak`, `password` |
+| `supportx-db-seaweedfs-filer` (basic-auth) | `username` = `seaweedfs_filer`, `password`: the HA SeaweedFS filers' database role (`objectStorage.seaweedfs.ha`, D-166); CloudNativePG sets the role's password from it |
 | `supportx-pg-superuser` | created by CloudNativePG; used only by the migrate Job |
 
 ## Profiles
@@ -128,19 +129,37 @@ announcement and a migration path that removes nothing silently (Haider's rule).
   | NodeLocal DNSCache | 1 per node *(preflight)* | `deploy/k3s/node-local-dns.sh` (below); each node's pods use their own node's cache |
   | CloudNativePG operator | 2, hostname spread *(preflight)* | `deploy/k3d/prereqs.sh` shows how |
   | Barman Cloud plugin | 2, hostname spread | the same; the operator blocks a cluster's changes, failover included, while its plugin is unreachable |
+  | SeaweedFS masters (bundled object storage) | 3 (one raft group), required anti-affinity *(preflight)* | raft elects a new leader among the other two (2 of 3); PodDisruptionBudget keeps 2 |
+  | SeaweedFS volume servers | 3, required anti-affinity *(preflight)* | every file has **2 copies** on two servers on two nodes (replication `001`, *preflight*); the leader re-makes missing copies (`volume.fix.replication`, every 17 minutes) |
+  | SeaweedFS filers with the S3 gateway | 2, required anti-affinity | the other filer serves through the same `supportx-seaweedfs` Service; their metadata is in the PostgreSQL cluster above (own database and role) |
   | **Single copy, and why that is acceptable** | | |
   | Realtime fan-out | 1 (ADR-023: merge windows and per-tenant rate limits are in memory) | fast eviction *(preflight)*: evicted 30 s after its node goes NotReady (`ha.fastEvictionSeconds`), so it runs again elsewhere about 50 s after the loss instead of five minutes. Meanwhile live updates pause; screens reconcile by refetch when their realtime connection returns (architecture.md §8.3). The node-loss test checks that it moves and that events reach it again. |
   | Custom field index worker | 1 (D-088: one builder, behind an advisory lock) | background work only; fast eviction as the fan-out *(preflight)* |
   | local-path-provisioner (k3s) | 1 | only creates new volumes; local volumes are bound to their node anyway |
   | metrics-server (k3s) | 1 | only feeds the HPA, which keeps its current count meanwhile |
   | cert-manager | 1 | renewals start days before expiry; its webhook matters only while certificate resources are applied |
-  | **Not highly available: use your own** | | |
-  | Object storage (bundled SeaweedFS) | 1 StatefulSet, not HA | HA installs point the chart at their own S3-compatible store (below). The preflight warns (advisory, never failing) when the bundled one runs. A bundled HA SeaweedFS is pending a roadmap decision. |
 
-  **Object storage for HA: your own S3-compatible store.** The bundled SeaweedFS
-  (`objectStorage.mode: seaweedfs`) is a single copy: while its node is down, attachments cannot
-  be uploaded or opened. An HA install points the chart at its own highly available
-  S3-compatible store (a MinIO cluster, Ceph RGW, or a cloud S3):
+  **Object storage: the bundled SeaweedFS, replicated (D-166).** With `values-ha.yaml` the
+  bundled SeaweedFS (`objectStorage.mode: seaweedfs`) runs SeaweedFS's own replication
+  (`objectStorage.seaweedfs.ha`) instead of the single pod of the single-node profile: three
+  masters, three volume servers and two filers running the S3 gateway, each on its own node,
+  behind the same `supportx-seaweedfs:8333` Service, so the app's settings do not change. Every
+  file is written to two volume servers (replication `001`; `002` keeps three copies and needs
+  every volume server up to write), so a lost node loses no file, and uploads and downloads go on
+  within a minute (the object-storage node-loss test below). The filers keep the file tree in the
+  release's CloudNativePG cluster: its own database (`seaweedfs_filer`) and role
+  (`seaweedfs_filer`), which may sign in to that database only (pg_hba) and has no other rights.
+  Because it is the same cluster, the file tree is in the same database backups and comes back
+  with the same restore (the restore drill checks it). While the database fails over, file
+  reads and writes pause with the rest of SupportX.
+
+  **Sizing:** plan the volume servers' disks for twice the stored files with `001` (three times
+  with `002`), plus room to re-make the copies of one lost server on the others. Set
+  `objectStorage.seaweedfs.ha.volume.storage.size` per server accordingly.
+
+  **Your own S3-compatible store stays supported.** An HA install may instead point the chart
+  at its own highly available S3-compatible store (a MinIO cluster, NetApp StorageGRID or ONTAP
+  S3, Ceph RGW, or a cloud S3); then no SeaweedFS is installed at all:
 
   ```yaml
   objectStorage:
@@ -155,6 +174,41 @@ announcement and a migration path that removes nothing silently (Haider's rule).
   on, the database backups then go to that store too (`postgresql.cnpg.backup`, a separate bucket
   and credentials recommended), and it must encrypt at rest (`postgresql.cnpg.backup.encryption`
   or `encryptionByBucketPolicy: true`); the chart refuses otherwise (Backups).
+
+  **Replication is not a backup.** Two copies mean a lost server or disk loses nothing. A file
+  deleted or overwritten (by a person, a bug or an attacker) is deleted or overwritten in every
+  copy at once, though. The file-store backup (the offsite rclone copy, audit gap #1) is still
+  needed, as it is with an external store.
+
+  **Upgrade note for existing HA installs.** `values-ha.yaml` now turns the replicated store
+  on, so an HA release upgraded with it starts the new store **empty**: follow the steps below in
+  a maintenance window. To upgrade the rest first, keep the old store with
+  `--set objectStorage.seaweedfs.ha.enabled=false`. The preflight then warns that the
+  single-copy store runs under HA, and `HA_PREFLIGHT_STRICT=1` fails, until the move is done.
+
+  **Moving an existing single-copy install to HA.** The chart does not move files from the
+  single SeaweedFS pod to the replicated topology: the two are different stores (the filers'
+  metadata moves into PostgreSQL), and switching `objectStorage.seaweedfs.ha.enabled` on an
+  installed release starts the replicated one empty. Move the files by hand, in a maintenance
+  window, with rclone (approved, D-038), not automated:
+
+  1. Before the upgrade, stop uploads (scale the API and the consumers worker to 0) and copy the
+     bucket out of the old store, through a port-forward to its S3 port
+     (`kubectl -n supportx port-forward svc/supportx-seaweedfs 8333:8333`), to a disk or another
+     S3 bucket with room for it: `rclone copy old:supportx /backup/supportx`, with an rclone
+     remote `old` of type `s3`, provider `SeaweedFS`, endpoint `http://127.0.0.1:8333` and the
+     app Secret's `s3-access-key` / `s3-secret-key`. Keep the old pod's volume until the end.
+  2. Upgrade with `values-ha.yaml`; wait until `deploy/k3s/ha-preflight.sh` passes.
+  3. Copy the bucket into the new store through the same Service name (now the filers):
+     `rclone copy /backup/supportx new:supportx`.
+  4. Verify every object, size and checksum: `rclone check /backup/supportx new:supportx`
+     (and `rclone check old:supportx new:supportx` while the old store can still be reached). It
+     must report 0 differences before the API is scaled back up.
+  5. Only then delete the old pod's volume (`data-supportx-seaweedfs-0`), with the product
+     owner's confirmation (CLAUDE.md rule h).
+
+  The database backups (`backups/postgres` in the same bucket, in dev) are files like any
+  other: copy them too, or start a fresh backup chain after the move.
 
   **Cluster DNS: at least two copies on different nodes (k3s ships one).** With one copy, losing
   its node stops every name lookup in the cluster until Kubernetes re-creates the pod, about
@@ -242,12 +296,14 @@ announcement and a migration path that removes nothing silently (Haider's rule).
   schedulable node and kube-proxy not in ipvs mode. Once SupportX is installed in
   `SUPPORTX_NAMESPACE` (default `supportx`) it also checks the release: NATS servers and PostgreSQL
   instances each on distinct nodes, the fast-eviction tolerations on the fan-out and index workers,
-  and, with the egress allow-list on, the cache's addresses in it. Each unmet requirement prints a
-  WARNING and how to fix it (exit 0; `HA_PREFLIGHT_STRICT=1` fails on any warning, as `make
-  cluster-up-ha` does before the install and `make cluster-ha-preflight` after it). The bundled
-  SeaweedFS gets an advisory warning that never fails, even when strict. Run it before the install,
-  after it, and after any cluster upgrade. `helm install` with `values-ha.yaml` also warns in its
-  notes when `kube-system/coredns` runs one copy.
+  with the egress allow-list on the cache's addresses in it, and the bundled SeaweedFS when it
+  runs: three masters on distinct nodes, volume servers on two distinct nodes or more, and a
+  default replication of `001` or `002` (read from the master pods' own arguments); the
+  single-copy SeaweedFS under HA is a warning. External object storage is skipped. Each unmet
+  requirement prints a WARNING and how to fix it (exit 0; `HA_PREFLIGHT_STRICT=1` fails on any
+  warning, as `make cluster-up-ha` does before the install and `make cluster-ha-preflight` after
+  it). Run it before the install, after it, and after any cluster upgrade. `helm install` with
+  `values-ha.yaml` also warns in its notes when `kube-system/coredns` runs one copy.
 
   **Node-monitor grace period: 20 s recommended (not required).** Until Kubernetes marks a lost
   node NotReady (the controller manager's `node-monitor-grace-period`, about 40-50 s by default),
@@ -499,6 +555,10 @@ true (WP-014b). With it on, pods may reach:
   and `ports`):
   - `networkPolicies.egress.extra`: rules for every pod;
   - `networkPolicies.egress.components.<component>`: rules for one component's pods.
+  - `networkPolicies.egress.database`: rules for the database's pods only (CloudNativePG's
+    instances, a restore cluster's included). An external backup target goes here: its address
+    and port then reach the database and nothing else. Don't put it in `extra`, which opens it to
+    every pod in the namespace.
 
 **Addresses only.** NetworkPolicies match IP ranges, never host names. A service known only by
 name (Microsoft Graph, an AI provider, a CDN) has no fixed addresses. Without a CNI with
@@ -551,11 +611,22 @@ unreachable. The database's WAL is archived continuously and a base backup is ta
 restored to any moment within `retentionPolicy` (30 days by default).
 
 **Production: back up to storage outside the cluster.** By default the backups go to this
-release's own SeaweedFS, which is fine for dev and CI but shares the database's failure domain:
-losing the cluster or its disks loses the backups too, and the chart warns about it. For
+release's own SeaweedFS, which is fine for dev but shares the database's failure domain:
+losing the cluster or its disks loses the backups too, and the chart warns about it. With the
+replicated SeaweedFS it matters more: its filers' file tree lives in this same database, so a
+lost database also makes the in-cluster backups unreadable until it is back. For
 production set `destinationPath`, `endpointURL` and `credentialsSecret` (keys `ACCESS_KEY_ID`,
 `ACCESS_SECRET_KEY`) to a bucket elsewhere, with credentials of its own, so the application's
 keys can't touch the backups.
+
+**CI does the same.** On the k3d HA cluster, `make deploy-ha` starts a store outside the
+cluster's nodes (`deploy/k3d/ci-backup-store.sh`: one SeaweedFS container from the chart's pinned
+image on the k3d network, its own S3 keys in the `supportx-ci-backups-s3` Secret, SSE-S3 with a key
+of its own, so `encryption: AES256`) and points the backups, the restore drill and an egress rule
+for its address and port 8333 at it. With the replicated SeaweedFS on every node, an in-cluster
+archive also lost a copy in the node-loss test, and PostgreSQL's end-of-recovery WAL lookups
+stalled the promotion (Cluster run 43376122580). `make cluster-down` removes the store with the
+cluster.
 
 **Encrypted at rest.** The target encrypts (S3 server-side): set `encryption` to `AES256` or
 `aws:kms`, or use a bucket whose policy encrypts every object. Barman Cloud has no client-side
@@ -581,7 +652,7 @@ Jaeger, Perses) come with WP-014b.
 | Cluster › `images` | PRs touching `deploy/` or the Makefile, nightly | build both images (not pushed), Trivy gate (fixable HIGH/CRITICAL fail), CycloneDX SBOMs as artifacts |
 | Cluster › `smoke` | same | k3d with the pinned k3s, `make deploy-dev` (incl. `helm test`), public routes through the gateway |
 | Cluster › `e2e` | nightly, on demand | everything above, then every Playwright journey against the cluster |
-| Cluster › `ha-smoke` | nightly, on demand, PRs labelled `full-ci` | a four-node k3d cluster with `values-ha.yaml`. The bring-up gives CoreDNS two copies on different nodes and runs the HA preflight (strict). First the Valkey master is killed (the session survives, no split brain). Then the node with the promoted Valkey master is stopped (`make cluster-ha-valkey-node-loss`): Sentinel promotes again within 60 s, the session writes again, the old master returns as a replica. The same again in the worst case, forced by the test (`make cluster-ha-valkey-node-loss-dns`): the stopped node holds the Valkey master and a CoreDNS copy. Then the agent with PostgreSQL's primary is stopped (`make cluster-ha-node-loss`): a standby is promoted, the session writes again, and the node rejoins as a standby. Then the k3s server restarts (`make cluster-ha-dns-restart`): CoreDNS keeps two copies on two nodes and its anti-affinity |
+| Cluster › `ha-smoke` | nightly, on demand, PRs labelled `full-ci` | a four-node k3d cluster with `values-ha.yaml`. The bring-up gives CoreDNS two copies on different nodes and runs the HA preflight (strict). First the Valkey master is killed (the session survives, no split brain). Then the node with the promoted Valkey master is stopped (`make cluster-ha-valkey-node-loss`): Sentinel promotes again within 60 s, the session writes again, the old master returns as a replica. The same again in the worst case, forced by the test (`make cluster-ha-valkey-node-loss-dns`): the stopped node holds the Valkey master and a CoreDNS copy. Then the agent with PostgreSQL's primary is stopped (`make cluster-ha-node-loss`): a standby is promoted, the session writes again, and the node rejoins as a standby. Then the node with SeaweedFS's raft leader and a volume server is stopped (`make cluster-ha-objects-node-loss`, D-166; the test hands the leadership to an agent without the database primary or the Valkey master): 20 attachments uploaded before still download intact and 5 new ones upload within 60 s, and after the return `volume.fix.replication` brings every volume back to two copies. Then the k3s server restarts (`make cluster-ha-dns-restart`): CoreDNS keeps two copies on two nodes and its anti-affinity |
 
 ## Runbooks
 

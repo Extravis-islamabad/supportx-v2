@@ -180,6 +180,9 @@ async def test_only_the_realm_account_may_set_the_password_policy(
     )
     try:
         await realm.set_password_policy(to_keycloak(PasswordPolicy(min_length=14)))
+        # Back to the shipped policy: the Keycloak is shared by the whole session, and the realm
+        # test (test_auth_keycloak_realm.py) checks length(12) when it shares a shard with this.
+        await realm.set_password_policy(to_keycloak(PasswordPolicy()))
     finally:
         await realm.close()
     with pytest.raises(IdentityAdminUnavailable):

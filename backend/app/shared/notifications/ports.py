@@ -106,6 +106,10 @@ class NotificationEvent:
     category: NotificationCategory
     default: EventDefault
     required: bool = False  # people cannot switch it off (approvals, assigned to me, mentions)
+    # Admins cannot change or reset the rule either: the shipped default always applies (a
+    # security notice the person must get even when an admin, maybe the attacker, would rather
+    # they did not; WP-057 S2b, break-glass).
+    locked: bool = False
     # False: only for people who see the record in full (a private note); anyone else gets
     # nothing, not even word that it happened (REQ-NTF-010).
     public: bool = True

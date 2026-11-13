@@ -24,6 +24,7 @@ from sqlalchemy import select, text
 from app.core.database import Database
 from app.core.errors import LimitReached
 from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
+from app.core.recent_auth import SignInFreshness, record_freshness
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
 from app.modules.identity_access.domain.identity import Identity, UserType
@@ -114,12 +115,17 @@ async def _create() -> dict[str, str]:
 SAMPLE = ModuleSpec(name="esm_sample", routers=[sample], feature="esm")
 
 
+FRESH = SignInFreshness(interactive=True, recent=True)
+
+
 async def fake_session(request: Request) -> TenantContext | None:
     tenant = request.headers.get("x-test-tenant")
     if tenant is None:
         return None
     user = request.headers.get("x-test-user")
     roles = frozenset(filter(None, request.headers.get("x-test-roles", "").split(",")))
+    # A signed-in browser that confirmed just now (REQ-SEC-027's RecentAuth passes).
+    record_freshness(request, FRESH)
     return TenantContext(uuid.UUID(tenant), uuid.UUID(user) if user else None, roles=roles)
 
 

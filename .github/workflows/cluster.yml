@@ -239,8 +239,9 @@ jobs:
       - name: Build, import and install the HA profile; helm test
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make deploy-ha
-      # The preflight again, now with the release in: NATS and PostgreSQL on distinct nodes and the
-      # single-copy workers' fast eviction (the bundled SeaweedFS is only an advisory warning).
+      # The preflight again, now with the release in: NATS, PostgreSQL and SeaweedFS's masters and
+      # volume servers on distinct nodes, SeaweedFS's replication, and the single-copy workers' fast
+      # eviction.
       - name: HA preflight on the installed release (strict)
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-preflight
@@ -264,6 +265,12 @@ jobs:
       - name: Losing the node with PostgreSQL's primary keeps a signed-in session writing
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-node-loss
+      # HA SeaweedFS (D-166): the node with the raft leader and a volume server (placed so by the
+      # test, never by chance) is stopped; 20 attachments still download intact and 5 new ones
+      # upload within 60 s; after the return every volume has its two copies again.
+      - name: Losing the node with the SeaweedFS leader and a volume server keeps every attachment
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-objects-node-loss
       # k3s re-applies its packaged coredns.yaml at every start: prove it keeps the two copies and
       # the anti-affinity deploy/k3s/cluster-dns-ha.sh gave it (fails if k3s reset them).
       - name: Cluster DNS keeps two copies on two nodes through a k3s server restart
@@ -296,11 +303,36 @@ jobs:
           for d in api centrifugo keycloak; do
             echo "== $d"; kubectl -n supportx logs "deploy/supportx-$d" --all-containers --tail=80 || true
           done
-          echo "== migrate"; kubectl -n supportx logs -l app.kubernetes.io/component=migrate --tail=150 --prefix || true
-          # The single-copy fan-out, every pod of it: after a node loss the new copy's start-up is
-          # what the node-loss test waits for (it provisions JetStream through a live server).
+          # Keycloak, every copy and its previous container: after a node loss the surviving copy
+          # must keep serving (the API's readiness needs it), and a restart says why here.
+          for pod in $(kubectl -n supportx get pods -l app.kubernetes.io/component=keycloak -o name); do
+            echo "== $pod"; kubectl -n supportx logs "$pod" -c keycloak --tail=60 --request-timeout=20s || true
+            kubectl -n supportx logs "$pod" -c keycloak --previous --tail=40 --request-timeout=20s || true
+          done
+          kubectl -n supportx describe pods -l app.kubernetes.io/component=keycloak | grep -E "^Name:|^Node:|Last State|Reason|Exit Code|Restart Count|Liveness|Readiness|Startup|Unhealthy" || true
+          # The single-copy fan-out (every pod of it: after a node loss the new copy's start-up
+          # is what the node-loss test waits for).
           echo "== fanout"; kubectl -n supportx logs -l app.kubernetes.io/component=fanout --all-containers --tail=80 --prefix || true
+          echo "== migrate"; kubectl -n supportx logs -l app.kubernetes.io/component=migrate --tail=150 --prefix || true
+          for c in seaweedfs-master seaweedfs-volume seaweedfs-filer; do
+            echo "== $c"; kubectl -n supportx logs -l "app.kubernetes.io/component=$c" --tail=60 --prefix || true
+          done
           echo "== database"; kubectl -n supportx get clusters.postgresql.cnpg.io -o wide || true
+          # Why a failover took long (D-166 runs: 194 s and 70 s, against ~40 s before): the
+          # operator, its Barman Cloud plugin (failover waits while it is unreachable) and each
+          # instance's own log, previous container included after a restart.
+          echo "== cnpg operator"; kubectl -n cnpg-system logs -l app.kubernetes.io/name=cloudnative-pg --tail=120 --prefix || true
+          echo "== barman cloud plugin"; kubectl -n cnpg-system logs -l app.kubernetes.io/name=plugin-barman-cloud --tail=120 --prefix || true
+          kubectl -n cnpg-system logs -l app.kubernetes.io/name=plugin-barman-cloud --previous --tail=60 --prefix || true
+          # One pod at a time: a selector stops at the first pod whose node is unreachable.
+          for pod in $(kubectl -n supportx get pods -l cnpg.io/podRole=instance -o name); do
+            echo "== database instance $pod"; kubectl -n supportx logs "$pod" -c postgres --since=15m --request-timeout=20s 2>&1 |
+              grep -iE "restore|promot|archive|timeline|history|recovery|failover|barman|timeout" | tail -n 40 || true
+          done
+          # Why an operator or plugin copy restarted during the loss (OOM, probe, lost lease).
+          echo "== cnpg-system events"; kubectl -n cnpg-system get events --sort-by=.lastTimestamp | tail -n 40 || true
+          kubectl -n cnpg-system describe pods | grep -E "^Name:|^Node:|Last State|Reason|Exit Code|Restart Count|Liveness|Readiness" || true
+          echo "== failover in the operator log"; kubectl -n cnpg-system logs -l app.kubernetes.io/name=cloudnative-pg --since=15m --prefix | grep -iE "failover|promot|primary|lease|plugin|deadline|unavailable" | tail -n 60 || true
           kubectl -n supportx describe clusters.postgresql.cnpg.io | tail -n 60 || true
           kubectl -n supportx get events --sort-by=.lastTimestamp | tail -n 50 || true
 

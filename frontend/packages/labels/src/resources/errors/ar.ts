@@ -405,6 +405,7 @@ export const ar: LabelResource = {
   'errors.field.expiry_before_review': 'يجب أن يكون تاريخ الانتهاء بعد تاريخ المراجعة.',
   'errors.field.fallback_fixed': 'السياسة الافتراضية تُطبَّق دائمًا وليس لها شروط.',
   'errors.field.field_always_required': 'الموضوع ومقدم الطلب ظاهران ومطلوبان دائمًا.',
+  'errors.field.field_locked': 'تقفل قاعدة نموذج هذا الحقل، لذا لا يمكن تغييره هنا.',
   'errors.field.field_not_settable': 'لا يمكن للقاعدة تعيين هذا الحقل.',
   'errors.field.field_retired': 'هذا الحقل موقوف ولا يقبل قيمًا جديدة.',
   'errors.field.field_set_twice': 'هذا الحقل معيّن بالفعل بإجراء آخر في القاعدة.',
@@ -500,9 +501,11 @@ export const ar: LabelResource = {
   'errors.field.name_needs_letters': 'استخدم حرفًا أو رقمًا واحدًا على الأقل في الاسم.',
   'errors.field.name_required': 'أدخل اسمًا.',
   'errors.field.name_taken': 'هذا الاسم مستخدم بالفعل.',
+  'errors.field.needs_collapsible': 'يمكن أن يبدأ القسم القابل للطي فقط مغلقًا.',
   'errors.field.needs_scheduled_start': 'يحتاج التذكير قبل البدء إلى موعد بدء مجدول.',
   'errors.field.no_default_allowed': 'لا يمكن أن يكون لهذا الحقل قيمة أولية.',
   'errors.field.not_a_field': 'هذا الحقل غير موجود لهذا النوع.',
+  'errors.field.not_a_form_field': 'هذا الحقل ليس في النموذج.',
   'errors.field.not_a_technician': 'لا يحقق في مشكلة إلا فني يعمل على المشكلات.',
   'errors.field.not_allowed': 'هذا غير مسموح مع القيم الأخرى.',
   'errors.field.not_allowed_for_notes': 'الملاحظات ليس لها مستلمون.',
@@ -568,6 +571,7 @@ export const ar: LabelResource = {
   'errors.field.review_required_to_close': 'أكمل مراجعة الإصدار قبل إغلاقه.',
   'errors.field.role_disabled': 'هذا الدور متوقف: لا يمكن منحه لأي شخص جديد.',
   'errors.field.role_held_by_record': 'يتبع هذا الدور حقلًا في السجل نفسه. غيّره من لوحة التفاصيل.',
+  'errors.field.rule_too_deep': 'تتداخل الشروط ثلاثة مستويات كحد أقصى.',
   'errors.field.same_folder': 'اختر مجلدًا مختلفًا لتقاريره.',
   'errors.field.schedule_never_runs': 'بهذه التواريخ لن تعمل الجدولة أبدًا.',
   'errors.field.scope_not_allowed': 'هذا النطاق غير متاح لهذه الصلاحية.',
@@ -728,6 +732,8 @@ export const ar: LabelResource = {
   'errors.instance_running': 'أوقف سير العمل هذا قبل تشغيله مرة أخرى.',
   'errors.instances_not_in_workflow':
     'بعض عمليات التشغيل المختارة ليست من سير العمل هذا ({{count}}).',
+  'errors.interactive_session_required':
+    'نفّذ هذا من وحدة التحكم على الويب وأنت مسجّل الدخول. لا يمكن ذلك بمفاتيح API ولا من تطبيق الجوال.',
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
   'errors.invalid_cursor': 'رابط هذه الصفحة لم يعد صالحًا. يرجى إعادة تحميل القائمة.',
@@ -875,6 +881,8 @@ export const ar: LabelResource = {
   'errors.notification_event_not_found': 'حدث الإشعار هذا غير موجود.',
   'errors.notification_not_found': 'هذا الإشعار غير موجود أو ليس لك.',
   'errors.notification_record_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
+  'errors.notification_rule_locked':
+    'هذا إشعار أمني: لا يمكن لأحد إيقافه أو تغيير مستلميه أو إعادة تعيينه.',
   'errors.on_behalf_out_of_scope': 'لا يمكنك تقديم طلب لهذا الشخص. اسأل مكتب الخدمة.',
   'errors.open_work_blocked': 'لا يمكن تنفيذ هذا ما دام هذا العمل مفتوحًا: {{items}}.',
   'errors.open_work_unconfirmed': 'لا يزال هناك عمل مفتوح: {{items}}. أكّد للمتابعة على أي حال.',
@@ -915,6 +923,10 @@ export const ar: LabelResource = {
     'لم يعد بإمكانك متابعة هذا مباشرةً. أعد تحميل الصفحة لرؤية أحدث البيانات.',
   'errors.realtime_not_configured':
     'التحديثات المباشرة غير مُعدّة على هذا الخادم. أعد تحميل الصفحة لرؤية أحدث البيانات.',
+  'errors.reauth_failed': 'لم يتم تأكيد هويتك. لم يتغيّر شيء.',
+  'errors.reauth_required': 'أكّد هويتك للمتابعة: سجّل الدخول مجددًا ثم حاول مرة أخرى.',
+  'errors.reauth_unavailable':
+    'تسجّل مؤسستك دخولك عبر مزوّد لا يمكنه إعادة التأكيد عند الطلب. اطلب ذلك من مسؤول.',
   'errors.recipient_deferred': 'طلب خادم بريد المستلم المحاولة لاحقًا.',
   'errors.recipient_refused': 'رفض خادم البريد المستلم.',
   'errors.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
