@@ -955,6 +955,7 @@ export const ur: LabelResource = {
   'event_type.identity_access.identity_settings.changed': 'سائن اِن کی ترتیبات بدلیں',
   'event_type.identity_access.invitation.changed': 'دعوت نامہ بدلا',
   'event_type.identity_access.mfa.changed': 'دو مرحلہ سائن اِن بدلا',
+  'event_type.identity_access.new_device.signed_in': 'نئے آلے سے سائن اِن',
   'event_type.identity_access.password_policy.changed': 'پاس ورڈ پالیسی بدلی',
   'event_type.identity_access.people_import.progressed': 'افراد کی درآمد آگے بڑھی',
   'event_type.identity_access.role.changed': 'کردار تبدیل ہوا',

@@ -43,6 +43,7 @@ export const en = {
   'notification_area.release': 'Releases',
   'notification_area.reminder': 'Reminders',
   'notification_area.rule_step': 'Rules and escalations',
+  'notification_area.security': 'Security notices',
   'notification_area.service_request': 'Service requests',
   'notification_area.task': 'Tasks',
   'notification_category.approval': 'Approvals',
@@ -132,6 +133,7 @@ export const en = {
   'notification_event.release.public_reply': 'Reply to the requester',
   'notification_event.reminder.due': 'Your reminder',
   'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
+  'notification_event.security.new_device': 'A sign-in from a new browser or device',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
@@ -192,6 +194,7 @@ export const en = {
   'notification_recipient.reviewer': 'Reviewer',
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.stock_watchers': "The minimum's people",
+  'notification_recipient.the_person': 'The person it is about',
   'notification_recipient.topic_owner': 'Topic owner',
   'notification_recipient.workflow_audience': 'People the workflow names',
   'notification_rules.any_priority': 'Any priority',
@@ -637,6 +640,12 @@ export const en = {
     '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'Nobody assigned: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.new_device.body':
+    'Hello {{ recipient.name }},\n\nYour account was just signed in to from a browser or device you have not used before:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nIf this was you, there is nothing to do. If it was not, change your password and use "Sign out everywhere else" in your account: {{ record.link }}',
+  'notification_template.security.new_device.in_app':
+    'New sign-in from {{ notice.device }} ({{ notice.place }})',
+  'notification_template.security.new_device.subject':
+    'New sign-in to your account: {{ notice.device }}',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -741,6 +750,9 @@ export const en = {
   'notification_variable.reminder.note': 'Reminder note',
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
+  'notification_variable.security.device': 'Sign-in › Browser and device',
+  'notification_variable.security.place': 'Sign-in › Approximate place',
+  'notification_variable.security.when': 'Sign-in › Time',
   'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
   'notification_variable.stock.minimum': 'Stock › Minimum',

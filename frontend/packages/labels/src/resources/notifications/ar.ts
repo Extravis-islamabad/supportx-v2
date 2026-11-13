@@ -45,6 +45,7 @@ export const ar: LabelResource = {
   'notification_area.release': 'الإصدارات',
   'notification_area.reminder': 'التذكيرات',
   'notification_area.rule_step': 'القواعد والتصعيدات',
+  'notification_area.security': 'الإشعارات الأمنية',
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_area.task': 'المهام',
   'notification_category.approval': 'الموافقات',
@@ -135,6 +136,7 @@ export const ar: LabelResource = {
   'notification_event.release.public_reply': 'رد على مقدم الطلب',
   'notification_event.reminder.due': 'تذكيرك',
   'notification_event.rule_step.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
+  'notification_event.security.new_device': 'تسجيل دخول من متصفح أو جهاز جديد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
@@ -194,6 +196,7 @@ export const ar: LabelResource = {
   'notification_recipient.reviewer': 'المراجِع',
   'notification_recipient.step_owner': 'مالك القاعدة (وإلا فمسؤولوها)',
   'notification_recipient.stock_watchers': 'الأشخاص المحددون للحد الأدنى',
+  'notification_recipient.the_person': 'الشخص المعني',
   'notification_recipient.topic_owner': 'مالك الموضوع',
   'notification_recipient.workflow_audience': 'الأشخاص الذين يحدّدهم سير العمل',
   'notification_rules.any_priority': 'أي أولوية',
@@ -638,6 +641,12 @@ export const ar: LabelResource = {
     'انتقل {{ record.display_id }} إلى مجموعته دون أن يُسند إلى أحد: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'لم يُسند إلى أحد: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.new_device.body':
+    'مرحبًا {{ recipient.name }}،\n\nتم تسجيل الدخول إلى حسابك للتو من متصفح أو جهاز لم تستخدمه من قبل:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nإن كان هذا أنت فلا شيء عليك. وإن لم يكن، فغيّر كلمة المرور واستخدم "تسجيل الخروج من كل مكان آخر" في حسابك: {{ record.link }}',
+  'notification_template.security.new_device.in_app':
+    'تسجيل دخول جديد من {{ notice.device }} ({{ notice.place }})',
+  'notification_template.security.new_device.subject':
+    'تسجيل دخول جديد إلى حسابك: {{ notice.device }}',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -741,6 +750,9 @@ export const ar: LabelResource = {
   'notification_variable.reminder.note': 'ملاحظة التذكير',
   'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
   'notification_variable.rule.name': 'القاعدة',
+  'notification_variable.security.device': 'تسجيل الدخول › المتصفح والجهاز',
+  'notification_variable.security.place': 'تسجيل الدخول › المكان التقريبي',
+  'notification_variable.security.when': 'تسجيل الدخول › الوقت',
   'notification_variable.site.name': 'الموقع',
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
   'notification_variable.stock.minimum': 'المخزون › الحد الأدنى',

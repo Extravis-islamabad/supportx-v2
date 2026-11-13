@@ -2761,6 +2761,56 @@
         "type": "object"
       }
     },
+    "identity_access.new_device.signed_in": {
+      "1": {
+        "description": "A person signed in from a browser or device they have not used before (REQ-SEC-033).\n\nWP-057 S2b-1: they are told (a locked security notice), never on their first sign-in ever.\nCarries the device code (domain/sign_in.device, never the User-Agent) and the approximate\nplace (domain/place.py's stored form), never the address: the known_devices table keeps only\na keyed fingerprint, so the notice can only say this from the event. Internal (the outbox and\nthe notification consumer), never sent to a browser.",
+        "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "signed_in_at": {
+            "format": "date-time",
+            "title": "Signed In At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "device",
+          "place",
+          "signed_in_at"
+        ],
+        "title": "NewDeviceSignedIn",
+        "type": "object"
+      }
+    },
     "identity_access.password_policy.changed": {
       "1": {
         "description": "An admin saved the password policy, or asked to apply it again.\n\nThe worker writes it into the realm, reading it from the settings when applied, so only the\nnewest policy is ever written.",

@@ -959,6 +959,7 @@ export const en = {
   'event_type.identity_access.identity_settings.changed': 'Sign-in settings changed',
   'event_type.identity_access.invitation.changed': 'Invitation changed',
   'event_type.identity_access.mfa.changed': 'Two-step sign-in changed',
+  'event_type.identity_access.new_device.signed_in': 'Sign-in from a new device',
   'event_type.identity_access.password_policy.changed': 'Password policy changed',
   'event_type.identity_access.people_import.progressed': 'People import progressed',
   'event_type.identity_access.role.changed': 'Role changed',

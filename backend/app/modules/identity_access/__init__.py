@@ -79,6 +79,7 @@ from app.modules.identity_access.service import (
     break_glass_notifications,
     directory,
     mfa,
+    security_notices,
     sign_in_import,
     sign_in_log,
 )
@@ -391,6 +392,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
+security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
 
 module = ModuleSpec(
     name="identity_access",

@@ -70,6 +70,8 @@ from app.modules.identity_access.domain.sign_in_policy import (
 )
 from app.modules.identity_access.domain.sso import DEPARTMENT_ATTRIBUTE, SITE_ATTRIBUTE
 from app.modules.identity_access.events import BreakGlassSignedIn
+from app.modules.identity_access.infra.crypto import session_ring
+from app.modules.identity_access.infra.device_keys import device_keys
 from app.modules.identity_access.infra.geoip import GeoIp
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminNotConfigured,
@@ -90,6 +92,7 @@ from app.modules.identity_access.service import (
     api_keys,
     break_glass,
     confirm,
+    known_devices,
     sign_in_log,
     site_networks,
     sso_test,
@@ -381,6 +384,8 @@ class AuthService:
         self.cookie_name = cookie_name
         # The approximate sign-in place (WP-057 S2b, D-170): the mounted GeoIP file, if any.
         self.geo = GeoIp(settings.geoip_db)
+        # Known-device fingerprints (WP-057 S2b-1): their own HMAC keys from the session ring.
+        self.device_keys = device_keys(session_ring(settings))
         self.idle = timedelta(seconds=settings.session_idle_timeout_seconds)
         self.absolute = timedelta(seconds=settings.session_absolute_timeout_seconds)
         # Set by the module startup once the policy service exists (WP-016).
@@ -988,7 +993,7 @@ class AuthService:
                 # Keycloak could not be told: never loop through sign-in, say so instead.
                 raise PermissionDenied(code="mfa_enrolment_unavailable")
             raise MfaEnrolmentDue
-        return Session(
+        built = Session(
             mfa_due_at=None if mfa.due_at is None else mfa.due_at.isoformat(),
             subject=identity.subject,
             user_id=str(user.user_id),
@@ -1023,6 +1028,19 @@ class AuthService:
                 uuid.UUID(target.tenant_id), attempt.ip if attempt is not None else None
             ),
         )
+        if attempt is not None:
+            # REQ-SEC-033: a browser or device they have not used before tells the person.
+            await known_devices.on_sign_in(
+                self.database,
+                tenant_id=uuid.UUID(target.tenant_id),
+                user_id=user.user_id,
+                keys=self.device_keys,
+                device=built.device,
+                ip=attempt.ip,
+                place=built.place,
+                now=now,
+            )
+        return built
 
     async def place_at(self, tenant_id: uuid.UUID, ip: str | None) -> dict[str, Any] | None:
         """The approximate place of `ip` in `tenant_id` (its site map, then GeoIP), stored form.

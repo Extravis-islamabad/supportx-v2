@@ -45,6 +45,7 @@ export const ur: LabelResource = {
   'notification_area.release': 'ریلیزز',
   'notification_area.reminder': 'یاد دہانیاں',
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
+  'notification_area.security': 'سیکیورٹی اطلاعات',
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_area.task': 'کام',
   'notification_category.approval': 'منظوریاں',
@@ -135,6 +136,7 @@ export const ur: LabelResource = {
   'notification_event.release.public_reply': 'درخواست گزار کو جواب',
   'notification_event.reminder.due': 'آپ کی یاد دہانی',
   'notification_event.rule_step.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
+  'notification_event.security.new_device': 'نئے براؤزر یا آلے سے سائن اِن',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
@@ -195,6 +197,7 @@ export const ur: LabelResource = {
   'notification_recipient.reviewer': 'جائزہ کار',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.stock_watchers': 'کم از کم حد کے نامزد لوگ',
+  'notification_recipient.the_person': 'متعلقہ شخص',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
   'notification_recipient.workflow_audience': 'ورک فلو میں نامزد افراد',
   'notification_rules.any_priority': 'کوئی بھی ترجیح',
@@ -640,6 +643,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} کسی کو تفویض کیے بغیر اپنے گروپ میں چلا گیا: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'کسی کو تفویض نہیں: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.new_device.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کے اکاؤنٹ میں ابھی ایسے براؤزر یا آلے سے سائن اِن ہوا جو آپ نے پہلے استعمال نہیں کیا:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nاگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔ اگر نہیں، تو اپنا پاس ورڈ بدلیں اور اپنے اکاؤنٹ میں "باقی ہر جگہ سے سائن آؤٹ کریں" استعمال کریں: {{ record.link }}',
+  'notification_template.security.new_device.in_app':
+    '{{ notice.device }} سے نیا سائن اِن ({{ notice.place }})',
+  'notification_template.security.new_device.subject':
+    'آپ کے اکاؤنٹ میں نیا سائن اِن: {{ notice.device }}',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
@@ -744,6 +753,9 @@ export const ur: LabelResource = {
   'notification_variable.reminder.note': 'یاد دہانی کا نوٹ',
   'notification_variable.requester.name': 'درخواست گزار › نام',
   'notification_variable.rule.name': 'اصول',
+  'notification_variable.security.device': 'سائن اِن › براؤزر اور آلہ',
+  'notification_variable.security.place': 'سائن اِن › تقریبی مقام',
+  'notification_variable.security.when': 'سائن اِن › وقت',
   'notification_variable.site.name': 'مقام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
   'notification_variable.stock.minimum': 'اسٹاک › کم از کم',

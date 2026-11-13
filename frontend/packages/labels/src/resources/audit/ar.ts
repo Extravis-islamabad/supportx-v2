@@ -959,6 +959,7 @@ export const ar: LabelResource = {
   'event_type.identity_access.identity_settings.changed': 'تغيّرت إعدادات تسجيل الدخول',
   'event_type.identity_access.invitation.changed': 'تغيّرت دعوة',
   'event_type.identity_access.mfa.changed': 'تغيّر تسجيل الدخول بخطوتين',
+  'event_type.identity_access.new_device.signed_in': 'تسجيل دخول من جهاز جديد',
   'event_type.identity_access.password_policy.changed': 'تغيّرت سياسة كلمات المرور',
   'event_type.identity_access.people_import.progressed': 'تقدّم استيراد الأشخاص',
   'event_type.identity_access.role.changed': 'تم تغيير دور',
