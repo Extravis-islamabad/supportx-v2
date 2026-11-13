@@ -1347,6 +1347,21 @@ it with no reload (rule c). Not built yet.
     by a sweep, live on the personal channel.
   - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
     reserved for S3).
+- **S3 PR 1 (0147; REQ-INC-068, -069, -070; D-164):**
+  - Worklogs are billable or not, and take their owner's cost per hour when the time started
+    (lane B's `cost_rate`, #427; a snapshot, never rewritten). Other-cost lines are in the base
+    currency, or another currency with the rate entered (D-164: no automatic rates).
+  - Totals: billable and non-billable time, technician, other and total cost.
+  - `<type>.view_costs` (D-164) gates every cost on incidents, requests, problems, changes and
+    releases, a task's extra cost included: the service desk manager everywhere, the change
+    manager on changes, the release manager on releases. Without it the API hides them.
+  - Closure settings: no time on closed records (409), count non-working hours, timer
+    auto-start (off by default).
+  - Personal timers: one per person per record, on the server; stop prefills a worklog; resolve,
+    close or cancel turns running timers into drafts that count once their owner confirms them;
+    auto-start once for the record's technician. Live on the personal channel only.
+- **S3 PR 2 (no migration; REQ-INC-071; #432):** time analysis per status, group and
+  technician, open and paused, on the record's calendar; the incident's Time tab.
 - **S5c part 1 (no migration; REQ-INC-018 quick create):**
   - Incidents list › Quick create: subject, requester and an optional priority (with its
     reason), without leaving the list.
@@ -1357,6 +1372,7 @@ it with no reload (rule c). Not built yet.
   - **Next:** copy N times (REQ-INC-033; `copy_limit`, migration number asked). Server drafts
     (REQ-INC-019) wait for WP-057 S3's field encryption, as approved; today's drafts are kept
     in the tab (sessionStorage).
+
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
   (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).
