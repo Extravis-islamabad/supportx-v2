@@ -76,19 +76,21 @@ function GraceDays() {
           }
         >
           <label htmlFor="security-mfa-grace">{t('security.mfa.grace')}</label>
-          <InputNumber
-            id="security-mfa-grace"
-            value={days}
-            onChange={(value) => {
-              if (edited === undefined) setBase(current);
-              setEdited(value);
-            }}
-            suffix={t('security.password.days')}
-            style={{ width: 168 }}
-            status={bad ? 'error' : undefined}
-            aria-describedby="security-mfa-grace-problem"
-            data-testid="security-mfa-grace"
-          />
+          {/* The unit in its own box: inside the field it ran under the arrows in Arabic. */}
+          <Space.Compact>
+            <InputNumber
+              id="security-mfa-grace"
+              value={days}
+              onChange={(value) => {
+                if (edited === undefined) setBase(current);
+                setEdited(value);
+              }}
+              status={bad ? 'error' : undefined}
+              aria-describedby="security-mfa-grace-problem"
+              data-testid="security-mfa-grace"
+            />
+            <Space.Addon>{t('security.password.days')}</Space.Addon>
+          </Space.Compact>
         </FieldNote>
         <WriteButton
           loading={save.isPending}

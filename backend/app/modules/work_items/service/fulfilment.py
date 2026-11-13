@@ -117,7 +117,7 @@ async def _start_on_first_task(
         return record
     wtype = TYPES[WorkItemTypeCode.SERVICE_REQUEST]
     cat = await config.load(session, wtype)
-    lifecycle = cat.lifecycle_of(record.lifecycle)
+    lifecycle = cat.lifecycle_for(record)
     if not cat.first_task_starts_work or not lifecycle.allows(
         record.status, WorkItemAction.START_WORK
     ):
@@ -197,7 +197,7 @@ async def after_task_change(
         return None
     wtype = TYPES[WorkItemTypeCode.SERVICE_REQUEST]
     cat = await config.load(session, wtype)
-    if not cat.lifecycle_of(record.lifecycle).allows(record.status, WorkItemAction.RESOLVE):
+    if not cat.lifecycle_for(record).allows(record.status, WorkItemAction.RESOLVE):
         return None
     try:
         # A savepoint: when the closing rules refuse (a required resolution, open work that

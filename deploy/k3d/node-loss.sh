@@ -98,13 +98,11 @@ took="$(until_ok 300 promoted "$primary")" ||
 echo "promoted after ${took}s: $(pg '{.status.currentPrimary}')"
 # The API's database sockets give up on a lost pooler copy in about 15 s (TCP_USER_TIMEOUT,
 # app/core/database.py), so a request meets a live copy soon after (run 1 took 294 s before).
-# 90 s, not 60 (the coordinator, #425): after a node loss the sentinels stall on lookups that
-# reach the lost node's CoreDNS endpoint (until it drops, about 20 s with the shipped grace
-# period); Sentinel resolves synchronously, so a stall over 2 s puts it in TILT, which lasts a
-# fixed 30 s (not configurable). Failover then takes about 50 s (runs 43153098860 and
-# 43157246881: 37-54 s). NodeLocal DNSCache, the next lane B PR, removes the stall and brings
-# these back to 60 s or less.
-WRITE_BUDGET=90
+# 60 s (D-163): NodeLocal DNSCache (deploy/k3s/node-local-dns.sh) answers the sentinels'
+# lookups from every node's own cache, so a lost node's CoreDNS copy no longer stalls them
+# into TILT (a fixed 30 s pause). Before it, failover took about 50 s and this was 90 s
+# (runs 43153098860 and 43157246881: 37-54 s).
+WRITE_BUDGET=60
 took="$(until_ok "$WRITE_BUDGET" save_locale '"ar"')" ||
   { echo "the session or the write did not come back within ${WRITE_BUDGET} s of the promotion (last answer: $(head -c 300 "$BODY"))"; show_write_trace; exit 1; }
 echo "the same session writes again after ${took}s more"

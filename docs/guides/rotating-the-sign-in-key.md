@@ -71,10 +71,11 @@ else is lost.
 - Nothing changes until you set `SUPPORTX_SESSION_KEYS`: the existing secret is the ring `legacy`
   and every session stays signed in. Sessions saved before the upgrade stay readable while
   `legacy` is listed.
-- **Keep `SUPPORTX_SESSION_SECRET` set** even after `legacy` leaves the ring. API keys are hashed
-  under a key derived from it, and list paging and domain proofs use it too. Removing it would
-  silently end every API key, so production **refuses to start** with `SUPPORTX_SESSION_KEYS`
-  but no `SUPPORTX_SESSION_SECRET`, unless `SUPPORTX_API_KEY_SECRET`, `SUPPORTX_CURSOR_SECRET`
-  and `SUPPORTX_DOMAIN_PROOF_SECRET` are all set. Setting a new `SUPPORTX_API_KEY_SECRET` ends
-  every existing API key: their owners must make new ones.
+- **Keep `SUPPORTX_SESSION_SECRET` set** even after `legacy` leaves the ring. List paging and
+  domain proofs use it, and API keys made before `SUPPORTX_API_KEY_SECRET` was set still need it
+  until their next call moves them to that key ([API keys](../api/keys.md), operators' section).
+  Production **refuses to start** with `SUPPORTX_SESSION_KEYS` but no `SUPPORTX_SESSION_SECRET`,
+  unless `SUPPORTX_CURSOR_SECRET` and `SUPPORTX_DOMAIN_PROOF_SECRET` are set, and always requires
+  `SUPPORTX_API_KEY_SECRET` (audit row 26). Changing `SUPPORTX_API_KEY_SECRET` later ends every
+  existing API key: their owners must make new ones.
 - Rotating the sign-in key never changes API keys, list paging or domain proofs.

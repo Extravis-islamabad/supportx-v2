@@ -38,7 +38,7 @@ from app.modules.work_items.domain.closure import (
     missing_fields,
     open_work_modes,
 )
-from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
+from app.modules.work_items.domain.lifecycle import StatusCategory, TransitionDef, WorkItemAction
 from app.modules.work_items.domain.releases import EMERGENCY_PATH
 from app.modules.work_items.domain.templates import CONFIRMED_BY_REQUESTER, PickList
 from app.modules.work_items.domain.types import GUIDED_ANALYSIS, WorkItemTypeCode
@@ -332,6 +332,29 @@ def _required(cat: Catalogue, action: WorkItemAction, custom_keys: frozenset[str
         for name in listed
         if not name.startswith("custom.") or name.removeprefix("custom.") in custom_keys
     ]
+
+
+def move_missing(record: WorkItem, step: TransitionDef) -> list[str]:
+    """The fields the record's life cycle version requires for this move that it lacks.
+
+    ADR-049 §4: per version, on top of the closure rules; the offer lists them and the move
+    refuses while any is empty.
+    """
+    if not step.required_fields:
+        return []
+    values = {
+        name: getattr(record, name, None)
+        for name in step.required_fields
+        if not name.startswith("custom.")
+    }
+    return missing_fields(step.required_fields, values, record.custom or {})
+
+
+def check_move_fields(record: WorkItem, step: TransitionDef) -> None:
+    """422 `closure_rules` naming each field the move still needs (`required_for_move`)."""
+    missing = move_missing(record, step)
+    if missing:
+        raise _refused([(name, "required_for_move", {}) for name in missing])
 
 
 async def missing_for(

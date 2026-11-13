@@ -1,9 +1,15 @@
 """Single sign-on rules, pure (WP-039, domain/sso.py) and the fetcher's address rule."""
 
+import ipaddress
+from urllib.parse import urlsplit
+
+import httpcore
 import pytest
 
 from app.modules.identity_access.domain import sso
-from app.modules.identity_access.infra.fetch import blocked, rejected
+from app.modules.identity_access.infra.fetch import BLOCKED, FetchError, fetch_document, rejected
+from app.shared.egress import Allowance
+from app.shared.egress.addresses import IPAddress
 
 
 def test_domains_are_cleaned_and_public_or_malformed_ones_refused() -> None:
@@ -109,10 +115,70 @@ def test_urls_and_addresses_a_check_may_contact() -> None:
     assert sso.check_url("ftp://idp.test", "issuer") is not None
     assert sso.check_url("https://user:pw@idp.test", "issuer") is not None
     assert sso.check_url("https://idp.test/x", "issuer") is None
-    assert blocked("169.254.169.254", allow_loopback=True)  # cloud metadata, never
-    assert blocked("127.0.0.1", allow_loopback=False)
-    assert not blocked("127.0.0.1", allow_loopback=True)
-    assert not blocked("10.1.2.3", allow_loopback=False)  # on-prem providers live there
+
+
+PUBLIC_ONLY = Allowance()  # no list: the public internet only
+LISTED = Allowance.from_config(["10.1.0.0/16", "idp.corp.internal"])
+DEV = Allowance.from_config(["127.0.0.0/8"], allow_loopback=True)
+
+
+async def _blocked(url: str, allowance: Allowance, *answers: str) -> bool:
+    """Whether the fetch is refused on its address, before any connection (audit #3)."""
+
+    async def resolver(host: str, port: int) -> list[IPAddress]:
+        del host, port
+        return [ipaddress.ip_address(a) for a in answers]
+
+    try:
+        await fetch_document(url, allowance=allowance, resolver=resolver)
+    except FetchError as error:
+        return error.code == BLOCKED
+    return False
+
+
+@pytest.mark.parametrize(
+    ("url", "allowance", "answers", "refused"),
+    [
+        ("https://169.254.169.254/latest", LISTED, (), True),  # cloud metadata, never
+        ("https://[fe80::1]/x", LISTED, (), True),  # link-local IPv6, never
+        ("https://10.1.2.3/x", PUBLIC_ONLY, (), True),  # private: only the installation opens it
+        ("https://172.16.0.9:8443/x", PUBLIC_ONLY, (), True),
+        ("https://100.64.0.1/x", PUBLIC_ONLY, (), True),  # CGNAT
+        ("https://127.0.0.1/x", PUBLIC_ONLY, (), True),  # loopback
+        ("https://[::ffff:10.1.2.3]/x", PUBLIC_ONLY, (), True),  # an IPv4-mapped private address
+        ("https://idp.example.com/x", PUBLIC_ONLY, ("10.1.2.3",), True),  # a name to a private one
+        ("https://idp.example.com/x", PUBLIC_ONLY, ("93.184.216.34", "10.9.9.9"), True),  # any bad
+        ("https://idp.example.com/x", LISTED, ("169.254.169.254",), True),
+    ],
+)
+async def test_a_set_up_check_never_reaches_private_or_metadata_addresses(
+    url: str, allowance: Allowance, answers: tuple[str, ...], *, refused: bool
+) -> None:
+    assert await _blocked(url, allowance, *answers) is refused
+
+
+@pytest.mark.parametrize(
+    ("url", "allowance", "answers"),
+    [
+        ("https://10.1.2.3:8443/x", LISTED, ()),  # a listed on-prem provider, on any port
+        ("https://idp.corp.internal/x", LISTED, ("192.168.4.4",)),  # a listed host name
+        ("http://127.0.0.1:8080/x", DEV, ()),  # dev and test: the local provider
+    ],
+)
+async def test_the_installation_may_open_its_own_providers(
+    url: str, allowance: Allowance, answers: tuple[str, ...], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    connected: list[tuple[str, int]] = []
+
+    async def connect_tcp(self: object, host: str, port: int, **kwargs: object) -> None:
+        del self, kwargs
+        connected.append((host, port))
+        raise httpcore.ConnectError(host)  # no real network in a unit test
+
+    monkeypatch.setattr(httpcore.AnyIOBackend, "connect_tcp", connect_tcp)
+    assert await _blocked(url, allowance, *answers) is False
+    assert len(connected) == 1  # the checked address, once (pinned: never resolved again)
+    assert connected[0][0] == (answers[0] if answers else urlsplit(url).hostname)
 
 
 @pytest.mark.parametrize(

@@ -14,7 +14,7 @@ from app.modules.organization.api.branding import PUBLIC_BRANDING_PER_ADDRESS
 from app.modules.organization.api.domains import DOMAIN_CHECKS_PER_ADDRESS
 from app.shared.api.ratelimit import RATE_LIMITER_STATE
 from tests.db import test_auth_bff
-from tests.db.test_auth_bff import CONSOLE, Bff
+from tests.db.test_auth_bff import CONSOLE, PORTAL, Bff
 from tests.db.test_auth_mobile import APP_RETURN, new_verifier
 
 pytestmark = test_auth_bff.pytestmark
@@ -63,6 +63,64 @@ async def test_callback_is_limited_per_address(bff: Bff, monkeypatch: pytest.Mon
     # A refused callback leaves a real state alone: once the window passes it still works.
     from_address(bff, monkeypatch, "203.0.113.10")
     assert (await bff.login(bff.user("a"))).status_code == 302
+
+
+async def _flood_callbacks(bff: Bff) -> None:
+    junk = {"code": "x", "state": "made-up"}
+    for _ in range(CALLBACKS_PER_ADDRESS):
+        await bff.client.get("/api/v1/auth/callback", params=junk)
+
+
+async def test_a_refused_callback_goes_back_to_the_app_its_sign_in_started_in(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The pending login says which app; it is read, never spent, so the retry still works."""
+    from_address(bff, monkeypatch, "203.0.113.11")
+    start = await bff.client.get("/api/v1/auth/login", params={"app": "portal"})
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
+    await _flood_callbacks(bff)
+    page = await bff.client.get(
+        "/api/v1/auth/callback", params={"code": code, "state": state}, headers=HTML
+    )
+    assert page.status_code == 303
+    assert page.headers["location"] == f"{PORTAL}/?auth_error=rate_limited"
+    # An unknown state (a scripted flood) goes to the console, as before.
+    junk = await bff.client.get(
+        "/api/v1/auth/callback", params={"code": "x", "state": "made-up"}, headers=HTML
+    )
+    assert junk.headers["location"] == f"{CONSOLE}/?auth_error=rate_limited"
+    # The state was not spent: from an address with budget left, the same callback signs in.
+    from_address(bff, monkeypatch, "203.0.113.12")
+    done = await bff.client.get("/api/v1/auth/callback", params={"code": code, "state": state})
+    assert done.status_code == 302, done.text
+    assert done.headers["location"].startswith(PORTAL)
+
+
+async def test_a_refused_app_callback_goes_back_to_the_app(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from_address(bff, monkeypatch, "203.0.113.13")
+    params = {"mobile_challenge": challenge_for(new_verifier())}
+    start = await bff.client.get("/api/v1/auth/login", params=params)
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
+    await _flood_callbacks(bff)
+    page = await bff.client.get(
+        "/api/v1/auth/callback", params={"code": code, "state": state}, headers=HTML
+    )
+    target = httpx.URL(page.headers["location"])
+    assert f"{target.scheme}://{target.host}:{target.port}{target.path}" == APP_RETURN
+    assert target.params["auth_error"] == "rate_limited"
+
+
+async def test_a_refused_callback_with_valkey_down_goes_to_the_console(bff: Bff) -> None:
+    """With Valkey down the pending login cannot be read: the console, as before."""
+    start = await bff.client.get("/api/v1/auth/login", params={"app": "portal"})
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
+    valkey_down(bff)
+    page = await bff.client.get(
+        "/api/v1/auth/callback", params={"code": code, "state": state}, headers=HTML
+    )
+    assert page.headers["location"] == f"{CONSOLE}/?auth_error=sign_in_unavailable"
 
 
 async def test_sign_in_fails_closed_when_valkey_is_down(bff: Bff) -> None:

@@ -57,6 +57,7 @@ from app.modules.identity_access.service import sso
 from app.modules.identity_access.service.auth import (
     LOGIN_STATE_TTL,
     AccountAction,
+    Attempt,
     AuthService,
     EnrolFirst,
     LoginAddress,
@@ -72,7 +73,7 @@ from app.modules.organization import (
     regional_defaults,
     tenant_for_host,
 )
-from app.shared.api.ratelimit import AddressLimit, ip_rate_limit
+from app.shared.api.ratelimit import AddressLimit, client_address, ip_rate_limit
 from app.shared.history import CLIENT_HEADER
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
@@ -97,6 +98,10 @@ log = get_logger(__name__)
 LOGINS_PER_ADDRESS = 60  # a minute
 CALLBACKS_PER_ADDRESS = 60  # a minute
 SIGN_IN_UNAVAILABLE = "sign_in_unavailable"
+BREAK_GLASS_PER_ADDRESS = 10  # a minute: far below a normal sign-in's budget
+_BREAK_GLASS_LIMIT = ip_rate_limit(
+    "auth_break_glass", BREAK_GLASS_PER_ADDRESS, fail_closed_code=SIGN_IN_UNAVAILABLE, defer=True
+)
 LoginLimit = Annotated[
     AddressLimit,
     Depends(
@@ -353,7 +358,8 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
     cookie is spent here, whether the sign-in succeeds or fails.
     """
     if limited.refusal is not None:  # the state is left alone: a retry in its 10 minutes works
-        return await _failure_response(request, auth, LoginFailure("console", limited.refusal))
+        failure = await auth.refused_callback(state, limited.refusal)
+        return await _failure_response(request, auth, failure)
     response = await _finish_callback(request, auth, code, state, error, kc_action_status)
     response.headers.update(limited.headers)  # a returned Response gets no injected headers
     if state and login_cookie_name(auth.settings, state) in request.cookies:
@@ -379,6 +385,8 @@ async def _finish_callback(  # noqa: PLR0913, PLR0917 - the callback's parts, pa
             binding=binding,
             host=request.headers.get("host"),
             action_status=kc_action_status,
+            client_ip=client_address(request),  # REQ-SEC-034: before anyone is looked up
+            user_agent=request.headers.get("user-agent"),  # the sign-in log's device
         )
     except LoginFailure as failure:
         return await _failure_response(request, auth, failure)
@@ -389,7 +397,22 @@ async def _finish_callback(  # noqa: PLR0913, PLR0917 - the callback's parts, pa
     if isinstance(result, TestFinished):  # an admin's SSO test: no session, back to the pop-up
         await _record_sso_test(request, result)
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
+    if result.session.break_glass:
+        # A break-glass password sign-in is rarer than any other: its own, stricter budget per
+        # address (lane B's review), closed when Valkey is down. Over it, the session it just
+        # made ends, Keycloak's too, and the sign-in is refused like any other.
+        counted = await _BREAK_GLASS_LIMIT(request, Response())
+        if counted.refusal is not None:
+            await auth.withdraw_sign_in(result.session_id, result.session)
+            app: Literal["console", "portal"] = (
+                "portal" if result.session.client == "portal" else "console"
+            )
+            return await _failure_response(request, auth, LoginFailure(app, counted.refusal))
     await _audit_session(request, result.session, "session.signed_in")
+    if result.session.break_glass:
+        # A break-glass admin past "single sign-on required" (REQ-SEC-009 AC3): its own entry;
+        # the BreakGlassSignedIn event alerts the other tenant admins.
+        await _audit_session(request, result.session, "session.break_glass_sign_in")
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)
     if not result.mobile:  # the app gets a hand-off code in the address instead (ADR-044)
         set_session_cookie(response, auth.settings, result.session_id)
@@ -740,7 +763,16 @@ async def end_my_session(
 async def logout(found: CurrentSession, auth: Auth, request: Request) -> Response:
     """End this session and the Keycloak session; clears the cookie."""
     session_id, session = found
-    await auth.logout(session_id, session)
+    await auth.logout(
+        session_id,
+        session,
+        attempt=Attempt(
+            "portal" if session.client == "portal" else "console",
+            client_address(request),
+            request.headers.get("user-agent"),
+            mobile=request.headers.get(SESSION_HEADER) is not None,
+        ),
+    )
     await _audit_session(request, session, "session.signed_out")
     await _end_realtime(request, session)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -760,7 +792,9 @@ async def switch_tenant(
 ) -> MeResponse:
     """Make another of the user's tenants active. Issues a new session ID and CSRF token."""
     session_id, session = found
-    new_id, switched = await auth.switch_tenant(session_id, session, body.tenant_id)
+    new_id, switched = await auth.switch_tenant(
+        session_id, session, body.tenant_id, client_ip=client_address(request)
+    )
     await _audit_session(request, switched, "session.tenant_switched")
     if request.cookies.get(auth.cookie_name) is None and request.headers.get(SESSION_HEADER):
         # The mobile app (ADR-044): the new ID in the header only. A cookie would be kept by

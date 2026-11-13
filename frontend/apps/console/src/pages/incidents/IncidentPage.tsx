@@ -24,6 +24,7 @@ import {
   useDeleteIncident,
   useIncident,
   useIncidentTasks,
+  useAutoStartTimer,
   useIncidentCatalogue,
   useIncidentCategories,
   attachDrafts,
@@ -210,6 +211,14 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   useEffect(() => {
     rememberIncident(me, item.id);
   }, [me, item.id]);
+  // WP-046a S3 (REQ-INC-069): with the type's auto-start on, opening your own record starts
+  // your timer, once ever (the server decides and keeps it to once).
+  const { mutate: autoStartTimer } = useAutoStartTimer(item.id);
+  const autoStart = catalogue.data?.closure.timer_auto_start === true;
+  const mine = me !== null && item.technician_id === me && canEditParts;
+  useEffect(() => {
+    if (autoStart && mine) autoStartTimer();
+  }, [autoStart, mine, item.id, autoStartTimer]);
   const stopTyping = (userId: string) => {
     clearTimeout(typingTimers.current.get(userId));
     typingTimers.current.delete(userId);

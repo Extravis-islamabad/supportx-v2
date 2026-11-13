@@ -40,7 +40,13 @@ class Allowance:
 
     networks: tuple[IPNetwork, ...] = ()
     hosts: frozenset[str] = frozenset()  # lower-case names whose addresses may be private
-    ports: frozenset[int] = field(default=DEFAULT_PORTS)
+    # The ports a call may use; None = any port (identity providers often listen on 8443: the
+    # address rules still apply, which is what keeps a call off internal services).
+    ports: frozenset[int] | None = field(default=DEFAULT_PORTS)
+
+    def any_port(self) -> "Allowance":
+        """The same networks and hosts, on any port."""
+        return Allowance(self.networks, self.hosts, None)
 
     @classmethod
     def from_config(

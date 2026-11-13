@@ -14,6 +14,7 @@ from app.shared.api.ratelimit import (
     AddressLimit,
     RateLimiter,
     SettingsPolicyProvider,
+    address_bucket,
     ip_rate_limit,
 )
 
@@ -88,6 +89,36 @@ async def test_each_address_has_its_own_budget_with_headers() -> None:
     # Its own key space, and no address in any key (personal data).
     assert all(key.startswith("t:rlip:") for key in fake.counts)
     assert not any("10.0.0" in key for key in fake.counts)
+
+
+async def test_ipv6_counts_per_64_and_ipv4_per_address() -> None:
+    """An IPv6 client rotating inside its /64 is one client; IPv4 neighbours are not."""
+    fake = CountingValkey()
+    app = build(fake)
+    rotating = ["2001:db8:1:2::1", "2001:db8:1:2:aaaa::7", "2001:db8:1:2:ffff:ffff:ffff:ffff"]
+    answers = [(await get(app, "/open", address)).status_code for address in rotating]
+    assert answers == [200, 200, 429]
+    assert (await get(app, "/open", "2001:db8:1:3::1")).status_code == 200  # the next /64
+    assert [(await get(app, "/open", f"192.0.2.{n}")).status_code for n in (1, 2, 3)] == [
+        200,
+        200,
+        200,
+    ]
+    assert not any("2001" in key or "192.0.2" in key for key in fake.counts)
+
+
+@pytest.mark.parametrize(
+    ("address", "bucket"),
+    [
+        ("203.0.113.9", "203.0.113.9"),
+        ("2001:db8:1:2:3:4:5:6", "2001:db8:1:2::/64"),
+        ("2001:DB8:1:2::9", "2001:db8:1:2::/64"),
+        ("::ffff:203.0.113.9", "203.0.113.9"),  # IPv4-mapped: the IPv4 address
+        ("unknown", "unknown"),
+    ],
+)
+def test_address_bucket(address: str, bucket: str) -> None:
+    assert address_bucket(address) == bucket
 
 
 async def test_valkey_down_fails_open_unless_the_route_says_closed() -> None:
