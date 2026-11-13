@@ -10,6 +10,7 @@ import pytest
 from tooling.keycloak_identity import (
     CLIENT_ID,
     EVENT_TYPES,
+    EVENTS_CLIENT_ID,
     FEDERATION_CLIENT_ID,
     LOCKOUT,
     OLD_DEFAULT_POLICY,
@@ -55,6 +56,9 @@ class FakeKeycloak:
             },
         ]
         self.password = "right"
+        # WP-057 S1b: SupportX's post-broker flow (authentication/flows, its executions).
+        self.flows: list[dict[str, Any]] = []
+        self.flow_executions: list[dict[str, Any]] = []
 
     @property
     def held(self) -> list[dict[str, str]]:
@@ -67,6 +71,24 @@ class FakeKeycloak:
 
     def client(self, client_id: str) -> dict[str, Any]:
         return next(c for c in self.clients if c["clientId"] == client_id)
+
+    def _flows(self, method: str, path: str, body: Any) -> httpx.Response | None:  # noqa: ANN401 - JSON
+        """SupportX's post-broker flow and its one step (WP-057 S1b); None for other paths."""
+        if path == "/admin/realms/supportx/authentication/flows":
+            if method == "POST":
+                self.flows.append(body)
+                return httpx.Response(201)
+            return httpx.Response(200, json=self.flows)
+        if not path.startswith("/admin/realms/supportx/authentication/flows/supportx-otp-after"):
+            return None
+        if method == "POST":
+            step = {"id": "e-pb", "providerId": body["provider"], "requirement": "DISABLED"}
+            self.flow_executions.append(step)
+            return httpx.Response(201)
+        if method == "PUT":
+            self.flow_executions = [body]
+            return httpx.Response(202)
+        return httpx.Response(200, json=self.flow_executions)
 
     def handler(self, request: httpx.Request) -> httpx.Response:  # noqa: C901, PLR0911, PLR0912 - one fake for the whole admin API
         path = request.url.path.removeprefix("/auth")
@@ -116,6 +138,9 @@ class FakeKeycloak:
             elif method == "DELETE":
                 self.held_by[parts[1]] = [r for r in held if r not in body]
             return httpx.Response(200 if method == "GET" else 204, json=self.held_by[parts[1]])
+        flows = self._flows(method, path, body)
+        if flows is not None:
+            return flows
         if path == "/admin/realms/supportx/authentication/flows/browser/executions":
             if method == "PUT":
                 for execution in self.executions:
@@ -141,6 +166,7 @@ async def _run(
     password: str = "right",  # noqa: S107 - test data
     realm_secret: str = "",
     federation_secret: str = "",
+    events_secret: str = "",
 ) -> Result:
     return await run(
         Target(
@@ -150,6 +176,7 @@ async def _run(
             secret=SECRET,
             realm_secret=realm_secret,
             federation_secret=federation_secret,
+            events_secret=events_secret,
         ),
         wait_seconds=0,
         transport=httpx.MockTransport(keycloak.handler),
@@ -202,6 +229,19 @@ async def test_never_shortens_a_longer_realm_session_or_drops_event_types() -> N
     await _run(keycloak)
     assert keycloak.realm["ssoSessionMaxLifespan"] == 2 * SSO_MAX_SECONDS
     assert keycloak.events["enabledEventTypes"][0] == "UPDATE_PASSWORD"
+
+
+async def test_audit_26_an_upgraded_realm_gets_refresh_token_rotation_once() -> None:
+    keycloak = FakeKeycloak()
+    assert keycloak.realm is not None
+    keycloak.realm.update({"revokeRefreshToken": False, "refreshTokenMaxReuse": 3})
+    first = await _run(keycloak)
+    assert (keycloak.realm["revokeRefreshToken"], keycloak.realm["refreshTokenMaxReuse"]) == (
+        True,
+        0,
+    )
+    assert "refresh-token rotation on" in first.changes
+    assert "refresh-token rotation on" not in (await _run(keycloak)).changes
 
 
 async def test_missing_realm_and_refused_admin_change_nothing() -> None:
@@ -362,3 +402,45 @@ async def test_recovery_codes_are_offered_at_sign_in_once() -> None:
     await _run(keycloak)
     assert keycloak.executions[1]["requirement"] == "REQUIRED"
     assert keycloak.writes == []
+
+
+async def test_the_post_broker_mfa_flow_is_made_once_with_one_required_code_step() -> None:
+    """REQ-SEC-026 AC2 (WP-057 S1b): made once, never duplicated; the step is required."""
+    keycloak = FakeKeycloak()
+    result = await _run(keycloak)
+    assert "post-broker MFA flow created" in result.changes
+    assert [f["alias"] for f in keycloak.flows] == ["supportx-otp-after-broker"]
+    assert [(e["providerId"], e["requirement"]) for e in keycloak.flow_executions] == [
+        ("auth-otp-form", "REQUIRED")
+    ]
+    keycloak.writes.clear()
+    await _run(keycloak)
+    assert len(keycloak.flows) == 1
+    assert not [w for w in keycloak.writes if "authentication/flows/supportx-otp" in w]
+
+
+EVENTS_SECRET = secrets.token_urlsafe(24)  # made at run time, as FEDERATION_SECRET
+
+
+async def test_the_events_client_reads_events_only_and_loses_any_extra_role() -> None:
+    """WP-057 S1b (lane B): supportx-events holds exactly view-events; extras are taken away."""
+    keycloak = FakeKeycloak()
+    assert EVENTS_CLIENT_ID not in {c["clientId"] for c in keycloak.clients}
+    await _run(keycloak)  # no secret: not made
+    assert EVENTS_CLIENT_ID not in {c["clientId"] for c in keycloak.clients}
+    result = await _run(keycloak, events_secret="events-s3cret")
+    events = keycloak.client(EVENTS_CLIENT_ID)
+    assert f"client {EVENTS_CLIENT_ID} created" in result.changes
+    assert events["serviceAccountsEnabled"] is True
+    assert not events["standardFlowEnabled"]
+    assert not events["directAccessGrantsEnabled"]
+    assert not events["implicitFlowEnabled"]
+    assert events["publicClient"] is False
+    assert not events.get("redirectUris")
+    held = keycloak.held_by[f"sa-{events['id']}"]
+    assert sorted(r["name"] for r in held) == ["view-events"]
+    # Someone gives it more by hand: the next run takes it away.
+    held.append({"id": "manage-users", "name": "manage-users"})
+    again = await _run(keycloak, events_secret="events-s3cret")
+    assert sorted(r["name"] for r in keycloak.held_by[f"sa-{events['id']}"]) == ["view-events"]
+    assert again.outcome is Outcome.UPDATED  # the extra role was taken away

@@ -138,6 +138,7 @@ async def test_production_ignores_the_tenant_header(
         centrifugo_api_url="http://127.0.0.1:1",
         centrifugo_api_key="k",
         centrifugo_token_secret="c" * 32,
+        api_key_secret="k" * 32,
         dev_tenant_header=True,
     )
     async with run_app(build_app(production)) as client:

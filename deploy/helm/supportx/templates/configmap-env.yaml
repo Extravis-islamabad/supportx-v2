@@ -33,6 +33,18 @@ data:
   SUPPORTX_VALKEY_SENTINELS: {{ join "," $hosts | quote }}
   SUPPORTX_VALKEY_SENTINEL_MASTER: supportx
   {{- end }}
+  {{- if eq (include "supportx.valkeyTls" .) "true" }}
+  # TLS only (audit row 5): certificates checked against the internal CA and the pod names.
+  SUPPORTX_VALKEY_TLS_CA_FILE: /etc/supportx/tls/internal-ca/ca.crt
+  {{- end }}
+  {{- if eq (include "supportx.dbTls" .) "true" }}
+  # PostgreSQL verify-full (audit row 5): the server's (and PgBouncer's) certificate checked.
+  SUPPORTX_DATABASE_SSL_ROOT_CERT: /etc/supportx/tls/postgres/ca.crt
+  {{- end }}
+  {{- if eq (include "supportx.natsTls" .) "true" }}
+  # TLS to NATS (audit row 5): tls:// with the internal CA, the service name checked.
+  SUPPORTX_NATS_TLS_CA_FILE: /etc/supportx/tls/internal-ca/ca.crt
+  {{- end }}
   # /metrics (and the workers' /healthz, /readyz) on the internal port (WP-014).
   SUPPORTX_METRICS_EXPORTER: prometheus
   SUPPORTX_METRICS_HOST: "0.0.0.0"

@@ -17,7 +17,7 @@ moves its `seed_version` forward first (UPDATE ... WHERE seed_version < n RETURN
 
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -67,9 +67,11 @@ from app.modules.work_items.domain.types import (
     WorkItemType,
     WorkItemTypeCode,
 )
+from app.modules.work_items.domain.versions import FIRST_VERSION, RUNNABLE_STATES, VersionState
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemCategory,
+    WorkItemLifecycleVersion,
     WorkItemPathStage,
     WorkItemPriorityCell,
     WorkItemReason,
@@ -130,6 +132,10 @@ class ClosureSettings:
     auto_close_days: int | None
     reopen_window_days: int
     task_owner_access: bool = False  # WP-020e (D-112)
+    # WP-046a S3 (REQ-INC-070): worklog rules; the timer never starts by itself by default.
+    worklog_block_closed: bool = False
+    worklog_count_nonworking: bool = True
+    timer_auto_start: bool = False
     task_dependency_mode: str = "block"  # WP-046a S1 (REQ-INC-075): block or warn
     checklist_item_max: int = 100  # WP-046a S2: items per record, all its checklists
 
@@ -181,18 +187,39 @@ class Catalogue:
     open_stage_tasks_block: bool  # WP-058b S3: releases, a stage's open tasks hold its move out
     cab_every_match: bool  # WP-045b S3: changes go to every matching board
     reapproval: Mapping[str, Any] | None  # WP-045b S4: the stored policy (None: shipped)
-    lifecycle: Lifecycle  # the standard one; a record follows `lifecycle_of(record.lifecycle)`
-    lifecycles: Mapping[str, Lifecycle]  # every transition set by code (WP-044a s4)
+    lifecycle: Lifecycle  # the standard one; a record follows `lifecycle_for(record)`
+    # Every transition set by code (WP-044a s4), at its latest published version: what a new
+    # record starts on.
+    lifecycles: Mapping[str, Lifecycle]
     statuses: list[StatusInfo]
     matrix: Mapping[tuple[str, str], str]
     scales: list[ScaleValue]
     reasons: list[ReasonInfo]  # every pick list, retired values included (marked)
     closure: ClosureSettings
     last_number: int = 0  # the last display number handed out (0: none yet)
+    # ADR-049: every runnable (published or retired) version of every set, by (code, number),
+    # and each set's latest published number (what a new record is made on).
+    versions: Mapping[tuple[str, int], Lifecycle] = field(default_factory=dict)
+    latest: Mapping[str, int] = field(default_factory=dict)
 
-    def lifecycle_of(self, code: str | None) -> Lifecycle:
-        """The transition set a record follows; the standard one for an unknown code."""
-        return self.lifecycles.get(code or STANDARD_LIFECYCLE, self.lifecycle)
+    def lifecycle_of(self, code: str | None, version: int | None = None) -> Lifecycle:
+        """The transition set at a version (None: its latest); the standard one if unknown.
+
+        A record runs on its own version (ADR-049 §3): publishing a newer one never changes
+        the moves of a record made before it (REQ-INC-049 AC3).
+        """
+        name = code or STANDARD_LIFECYCLE
+        if version is not None and (name, version) in self.versions:
+            return self.versions[(name, version)]
+        return self.lifecycles.get(name, self.lifecycle)
+
+    def lifecycle_for(self, record: Any) -> Lifecycle:  # noqa: ANN401 - a WorkItem (no import cycle)
+        """The moves `record` follows: its own set at its own version."""
+        return self.lifecycle_of(record.lifecycle, record.lifecycle_version)
+
+    def latest_version(self, code: str | None) -> int:
+        """The version a new record on `code` starts on."""
+        return self.latest.get(code or STANDARD_LIFECYCLE, FIRST_VERSION)
 
     def used_actions(self) -> list[WorkItemAction]:
         """Every user action any of the type's transition sets has, in the fixed order."""
@@ -306,12 +333,30 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
             for i, (code, colour) in enumerate(values)
         ]
     )
+    # Each shipped life cycle starts as version 1 (ADR-049); staged types' status moves run on
+    # the "standard" one. The version rows go in first, as drafts: the database lets moves be
+    # written only into a draft (0152's trigger). They are published once seeded (below).
+    seeded_lifecycles = sorted({*wtype.lifecycles, STANDARD_LIFECYCLE})
+    session.add_all(
+        [
+            WorkItemLifecycleVersion(
+                tenant_id=tenant,
+                type=wtype.code,
+                lifecycle=code,
+                number=FIRST_VERSION,
+                state=VersionState.DRAFT.value,
+            )
+            for code in seeded_lifecycles
+        ]
+    )
+    await session.flush()
     session.add_all(
         [
             WorkItemTransition(
                 tenant_id=tenant,
                 type=wtype.code,
                 lifecycle=code,
+                lifecycle_version=FIRST_VERSION,
                 from_status=t.from_status,
                 action=t.action,
                 to_status=t.to_status,
@@ -379,6 +424,16 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
                 )
         await session.flush()
     await session.flush()
+    await session.execute(
+        update(WorkItemLifecycleVersion)
+        .where(
+            WorkItemLifecycleVersion.type == wtype.code,
+            WorkItemLifecycleVersion.lifecycle.in_(seeded_lifecycles),
+            WorkItemLifecycleVersion.number == FIRST_VERSION,
+            WorkItemLifecycleVersion.state == VersionState.DRAFT.value,
+        )
+        .values(state=VersionState.PUBLISHED.value, published_at=datetime.now(UTC))
+    )
 
 
 def _stage_columns(staged: StageModel | None, code: str) -> dict[str, Any]:
@@ -764,6 +819,16 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             .order_by(WorkItemStatus.sort_order, WorkItemStatus.code)
         )
     )
+    # Runnable versions only (ADR-049): a draft is never what a record moves by.
+    runnable = {
+        (v.lifecycle, v.number): VersionState(v.state)
+        for v in await session.scalars(
+            select(WorkItemLifecycleVersion).where(
+                WorkItemLifecycleVersion.type == wtype.code,
+                WorkItemLifecycleVersion.state.in_([s.value for s in RUNNABLE_STATES]),
+            )
+        )
+    }
     transition_rows = list(
         await session.scalars(
             select(WorkItemTransition).where(WorkItemTransition.type == wtype.code)
@@ -772,8 +837,8 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
     status_defs = [
         StatusDef(s.code, StatusCategory(s.category), s.colour, s.system) for s in status_rows
     ]
-    lifecycles = {
-        code: Lifecycle.build(
+    versions = {
+        key: Lifecycle.build(
             status_defs,
             [
                 TransitionDef(
@@ -782,17 +847,34 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
                     t.to_status,
                     ReasonMode(t.reason_mode),
                     ReasonList(t.reason_list) if t.reason_list else None,
+                    permission=t.permission,
+                    required_fields=tuple(t.required_fields or ()),
                 )
                 for t in transition_rows
-                if t.lifecycle == code
+                if (t.lifecycle, t.lifecycle_version) == key
             ],
         )
-        # The standard set first, then the others by code.
+        # Every runnable version, even one with no moves of its own (a staged type moves by
+        # its status transitions): its records still need a life cycle to read.
+        for key in sorted(runnable)
+    }
+    latest = {
+        code: max(
+            n for (c, n), state in runnable.items() if c == code and state is VersionState.PUBLISHED
+        )
+        for code in {c for (c, _n), state in runnable.items() if state is VersionState.PUBLISHED}
+    }
+    # The standard set first, then the others by code, each at its latest published version.
+    lifecycles = {
+        code: versions[(code, latest[code])]
         for code in [
             STANDARD_LIFECYCLE,
-            *sorted({t.lifecycle for t in transition_rows} - {STANDARD_LIFECYCLE}),
+            *sorted(set(latest) - {STANDARD_LIFECYCLE}),
         ]
+        if (code, latest.get(code)) in versions
     }
+    if STANDARD_LIFECYCLE not in lifecycles:  # no published standard version (yet): no moves
+        lifecycles = {STANDARD_LIFECYCLE: Lifecycle.build(status_defs, []), **lifecycles}
     lifecycle = lifecycles[STANDARD_LIFECYCLE]
     cells = await session.scalars(
         select(WorkItemPriorityCell).where(WorkItemPriorityCell.type == wtype.code)
@@ -829,6 +911,8 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         default_urgency=settings.default_urgency,
         lifecycle=lifecycle,
         lifecycles=lifecycles,
+        versions=versions,
+        latest=latest,
         statuses=[
             StatusInfo(
                 s.code,
@@ -863,6 +947,9 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             auto_close_days=settings.auto_close_days,
             reopen_window_days=settings.reopen_window_days,
             task_owner_access=settings.task_owner_access,
+            worklog_block_closed=settings.worklog_block_closed,
+            worklog_count_nonworking=settings.worklog_count_nonworking,
+            timer_auto_start=settings.timer_auto_start,
             task_dependency_mode=settings.task_dependency_mode,
             checklist_item_max=settings.checklist_item_max,
         ),

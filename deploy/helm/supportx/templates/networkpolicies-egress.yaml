@@ -2,7 +2,7 @@
 Egress allow-list (WP-014b), opt-in: networkPolicies.egress.enabled, off by default.
 
 On, every pod in the release namespace may reach only:
-  - DNS (kube-dns in kube-system);
+  - DNS (kube-dns in kube-system, and networkPolicies.egress.dnsAddresses: NodeLocal DNSCache);
   - other pods in this namespace (the database, PgBouncer, NATS, Valkey, Keycloak, SeaweedFS,
     clamd: their own ingress policies still decide who gets in);
   - the rules in networkPolicies.egress.extra (every pod) and
@@ -35,6 +35,9 @@ spec:
           podSelector:
             matchLabels:
               k8s-app: kube-dns
+        {{- range $egress.dnsAddresses }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
       ports:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}

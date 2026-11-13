@@ -2,6 +2,13 @@
 # the dev realm with its demo users, demo tenants seeded, images built locally and imported.
 publicUrl: http://supportx.localhost:8080
 
+# Plain http on purpose, the local cluster only: the e2e suite and the HA tests (values-ha-ci.yaml
+# sits on top of this file) reach supportx.localhost:8080 with no certificate to trust. Every
+# other profile serves HTTPS and redirects HTTP (routing.tls, docs/deployment.md).
+routing:
+  tls:
+    enabled: false
+
 images:
   backend: {repository: supportx-backend, tag: dev, pullPolicy: Never}
   worker: {repository: supportx-worker, tag: dev, pullPolicy: Never}
@@ -20,6 +27,10 @@ keycloak:
     limits: {cpu: "2", memory: 1Gi}
 
 postgresql:
+  # The local cluster keeps asyncpg's default (encrypted, unchecked), as before; values-ha.yaml
+  # turns verification on for the HA tests that sit on top of this file.
+  tls:
+    verify: false
   cnpg:
     devNodePort: 30432          # 127.0.0.1:25433 on the host (deploy/k3d/cluster.yaml)
     storage: {size: 2Gi}

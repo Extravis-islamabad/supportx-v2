@@ -68,3 +68,24 @@ sxk_[0-9a-hjkmnp-tv-z]{26}_[0-9a-hjkmnp-tv-z]{26}_[A-Za-z0-9_-]{43}
 
 A key is `sxk_`, the organisation's ID, the key's ID and a 43-character random secret. If a key
 leaks, revoke it at once in Admin > API keys (or My profile > API keys for your own).
+
+## For operators: the installation's API-key key
+
+SupportX never stores a key's secret, only an HMAC-SHA-256 of it under a key kept outside the
+database, so a copied database alone cannot be used to test guesses. That key is
+`SUPPORTX_API_KEY_SECRET` (Kubernetes: key `api-key-secret` of the `supportx-app` Secret, made by
+`deploy/scripts/secrets.sh` with a random value). Production **refuses to start** without it, or
+with one shorter than 32 characters: it is never the session secret (engineering-practices audit
+row 26). Dev and test without it derive one from `SUPPORTX_SESSION_SECRET`.
+
+**Upgrading an installation that had no `SUPPORTX_API_KEY_SECRET`:** run
+`deploy/scripts/secrets.sh` again (it adds `api-key-secret` and changes nothing else), or set the
+variable yourself to a new random value of at least 32 characters, then upgrade. No key stops
+working: keys made before the upgrade were hashed under a key derived from
+`SUPPORTX_SESSION_SECRET`, and each one is re-hashed under the new key on its first successful
+call. Keep `SUPPORTX_SESSION_SECRET` set until every integration has made a call after the
+upgrade; a key never used in that time stops working once the session secret is removed, and
+its owner makes a new one.
+
+Changing `SUPPORTX_API_KEY_SECRET` later ends every existing API key. Back it up with the other
+installation secrets.

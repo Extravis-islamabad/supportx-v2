@@ -139,6 +139,11 @@ async def _check_version(
         raise await stale_settings(session, wtype, current, expected_version)
 
 
+# Other settings services (life cycle versions, ADR-049) bump the same settings version.
+bump = _bump
+check_version = _check_version
+
+
 # --- statuses -------------------------------------------------------------------------------------
 
 
@@ -232,6 +237,8 @@ async def update_transition(  # noqa: PLR0913 - the change and its context, expl
             source=source,
             user_id=user_id,
         )
+    # A reason prompt is a setting, not the life cycle's shape (ADR-049): it applies to the move
+    # in every version, so records on an older version ask the same as new ones.
     await session.execute(
         update(WorkItemTransition)
         .where(

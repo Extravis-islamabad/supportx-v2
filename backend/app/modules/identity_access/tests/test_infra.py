@@ -60,8 +60,10 @@ async def test_store_hashes_keys_and_login_state_is_single_use() -> None:
 class _ReplyLostKeyValue(MemoryKeyValue):
     """The Valkey client's retry after a lost reply: the first SET NX ran, the retry sees it."""
 
-    async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None:
-        await super().set(key, value, px=px, nx=nx)
+    async def set(
+        self, key: str, value: bytes, *, px: int, nx: bool = False, xx: bool = False
+    ) -> bool | None:
+        await super().set(key, value, px=px, nx=nx, xx=xx)
         return None if nx else True
 
 

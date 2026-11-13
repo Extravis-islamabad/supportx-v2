@@ -63,6 +63,21 @@ nats_max() {  # nats_max <jq path within the stream detail> <node to leave out>
   done
   echo "$best"
 }
+# Who leads JetStream (its meta group), the events stream and the fan-out's consumer, as one live
+# server sees it. A leader on the stopped node is replaced only once its peers notice the node is
+# gone (NATS ping_interval x ping_max on the routes), which is what a slow fan-out waits on.
+js_leaders() {  # js_leaders <node to leave out>
+  local pod
+  pod="$(ready_pods app.kubernetes.io/name=nats,app.kubernetes.io/component=nats "$1" | head -n 1)"
+  [ -n "$pod" ] || { echo "JetStream leaders: no live NATS server answers"; return 0; }
+  kubectl -n "$NAMESPACE" exec --request-timeout=10s "$pod" -c nats -- \
+    wget -qO- 'http://127.0.0.1:8222/jsz?accounts=true&streams=true&consumers=true' 2>/dev/null |
+    jq -r --arg s "$EVENTS_STREAM" --arg c "$FANOUT_CONSUMER" '
+      "JetStream leaders (as \(.server_name // "?") sees them): meta \(.meta_cluster.leader // "none")"
+      + ", \($s) \([.account_details[]?.stream_detail[]? | select(.name == $s) | .cluster.leader // "none"] | first // "none")"
+      + ", \($c) \([.account_details[]?.stream_detail[]? | select(.name == $s) | .consumer_detail[]? | select(.name == $c) | .cluster.leader // "none"] | first // "none")"' ||
+    echo "JetStream leaders: $pod did not answer"
+}
 # Acknowledged past <sequence>: the fan-out received and handled an event written after it.
 fanout_acked_past() {  # fanout_acked_past <sequence> <node to leave out>
   # shellcheck disable=SC2016 # $c is jq's variable (nats_max passes it), not this shell's
@@ -88,6 +103,7 @@ esac
 wait_settled 60 || exit 1
 dns_guard "$node" || exit 1
 fanout_node="$(kubectl -n "$NAMESPACE" get pods -l "$FANOUT_LABELS" -o jsonpath='{.items[0].spec.nodeName}')"
+js_leaders ""  # before the stop: which leaders the test is about to take away
 echo "== stop $node (PostgreSQL primary $primary; also on it:" \
   "$(kubectl -n "$NAMESPACE" get pods --field-selector "spec.nodeName=$node" -o name | sed 's#pod/##' | tr '\n' ' '))"
 STOPPED="$node"
@@ -98,13 +114,11 @@ took="$(until_ok 300 promoted "$primary")" ||
 echo "promoted after ${took}s: $(pg '{.status.currentPrimary}')"
 # The API's database sockets give up on a lost pooler copy in about 15 s (TCP_USER_TIMEOUT,
 # app/core/database.py), so a request meets a live copy soon after (run 1 took 294 s before).
-# 90 s, not 60 (the coordinator, #425): after a node loss the sentinels stall on lookups that
-# reach the lost node's CoreDNS endpoint (until it drops, about 20 s with the shipped grace
-# period); Sentinel resolves synchronously, so a stall over 2 s puts it in TILT, which lasts a
-# fixed 30 s (not configurable). Failover then takes about 50 s (runs 43153098860 and
-# 43157246881: 37-54 s). NodeLocal DNSCache, the next lane B PR, removes the stall and brings
-# these back to 60 s or less.
-WRITE_BUDGET=90
+# 60 s (D-163): NodeLocal DNSCache (deploy/k3s/node-local-dns.sh) answers the sentinels'
+# lookups from every node's own cache, so a lost node's CoreDNS copy no longer stalls them
+# into TILT (a fixed 30 s pause). Before it, failover took about 50 s and this was 90 s
+# (runs 43153098860 and 43157246881: 37-54 s).
+WRITE_BUDGET=60
 took="$(until_ok "$WRITE_BUDGET" save_locale '"ar"')" ||
   { echo "the session or the write did not come back within ${WRITE_BUDGET} s of the promotion (last answer: $(head -c 300 "$BODY"))"; show_write_trace; exit 1; }
 echo "the same session writes again after ${took}s more"
@@ -117,8 +131,12 @@ show_write_trace
 if [ "$fanout_node" = "$node" ]; then
   took="$(until_ok "$FANOUT_BUDGET" fanout_ready_off "$node")" ||
     { echo "the fan-out was on $node and no ready copy runs elsewhere within ${FANOUT_BUDGET} s"
-      kubectl -n "$NAMESPACE" get pods -l "$FANOUT_LABELS" -o wide; exit 1; }
+      js_leaders "$node"
+      kubectl -n "$NAMESPACE" get pods -l "$FANOUT_LABELS" -o wide
+      kubectl -n "$NAMESPACE" logs -l "$FANOUT_LABELS" --all-containers --tail=60 --prefix || true
+      exit 1; }
   echo "the fan-out moved off $node: ready on another node after ${took}s more"
+  js_leaders "$node"
 else
   echo "the fan-out was on ${fanout_node:-no node}, not on $node: it did not need to move"
 fi

@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Design system: Ant Design theme tokens, appearance (light/dark, RTL, locale), wrapped components (architecture.md §9.2).",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tokens": "./src/tokens.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

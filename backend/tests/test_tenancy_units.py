@@ -49,6 +49,7 @@ def test_header_is_ignored_in_production(settings_factory: Callable[..., Setting
         centrifugo_api_url="http://127.0.0.1:1",
         centrifugo_api_key="k",
         centrifugo_token_secret="c" * 32,
+        api_key_secret="k" * 32,
         dev_tenant_header=True,  # even explicitly enabled
     )
     assert production.tenant_header_enabled is False

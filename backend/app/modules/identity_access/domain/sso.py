@@ -233,6 +233,10 @@ def route_domains(
     return found
 
 
+# REQ-SEC-026 (WP-057 S1b): the flow the identity step makes (tooling/keycloak_identity.py).
+POST_BROKER_FLOW = "supportx-otp-after-broker"
+
+
 def representation(  # noqa: PLR0913 - every part of the provider, keyword-only
     *,
     alias: str,
@@ -241,8 +245,13 @@ def representation(  # noqa: PLR0913 - every part of the provider, keyword-only
     config: dict[str, str],
     state: State,
     client_secret: str | None = None,
+    post_broker_flow: str | None = None,
 ) -> dict[str, Any]:
-    """The Keycloak identity provider for a set-up in `state` (secret only when given)."""
+    """The Keycloak identity provider for a set-up in `state` (secret only when given).
+
+    `post_broker_flow`: SupportX's code-after-sign-in flow while the tenant also requires its
+    own MFA after single sign-on (REQ-SEC-026); empty otherwise, so a PUT clears it.
+    """
     if client_secret is not None:
         config = config | {"clientSecret": client_secret}
     return {
@@ -256,6 +265,7 @@ def representation(  # noqa: PLR0913 - every part of the provider, keyword-only
         "storeToken": False,
         "linkOnly": False,
         "firstBrokerLoginFlowAlias": "first broker login",
+        "postBrokerLoginFlowAlias": post_broker_flow or "",
         "config": config,
     }
 

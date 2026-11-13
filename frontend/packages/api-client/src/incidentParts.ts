@@ -198,7 +198,9 @@ export function useIncidentWorklogs(id: string, enabled = true, base: PartsBase 
 
 export type WorklogChange =
   | { kind: 'create'; worklog: IncidentWorklogInput }
-  | { kind: 'delete'; worklogId: string; version: number };
+  | { kind: 'delete'; worklogId: string; version: number }
+  // A timer's draft, confirmed by its owner (WP-046a S3, REQ-INC-069 AC2), with its type.
+  | { kind: 'confirm'; worklogId: string; version: number; worklogType: WorklogType };
 
 /** Log time on a record, or remove a worklog. */
 export function useWorklogChange(id: string, base: PartsBase = 'incidents') {
@@ -210,6 +212,18 @@ export function useWorklogChange(id: string, base: PartsBase = 'incidents') {
           api.POST(at(base, '/api/v1/incidents/{record_id}/worklogs'), {
             params: { path: { record_id: id } },
             body: change.worklog,
+          }),
+        );
+        return;
+      }
+      if (change.kind === 'confirm') {
+        await call(
+          api.PATCH(at(base, '/api/v1/incidents/{record_id}/worklogs/{worklog_id}'), {
+            params: {
+              path: { record_id: id, worklog_id: change.worklogId },
+              header: ifMatch(change.version),
+            },
+            body: { draft: false, worklog_type: change.worklogType },
           }),
         );
         return;

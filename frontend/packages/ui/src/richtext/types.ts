@@ -8,6 +8,13 @@ export interface RichTextTemplate {
   name: string;
   /** Sanitised rich text (HTML) from the server. */
   body: string;
+  /**
+   * The text to insert, filled for this record by the server (variables, the reader's
+   * language; WP-046a S5a). Inserted instead of `body` when given; nothing when it gives ''
+   * or fails. Same trust as `body`: server-sanitised HTML on the editor's allow-list, each
+   * variable's value escaped as text, never markup.
+   */
+  fill?: () => Promise<string>;
 }
 
 export interface RichTextFieldProps {

@@ -303,8 +303,8 @@ async def test_req_wf_004_who_may_run_is_shown_disabled_with_the_reason_and_refu
     other = await world.call("GET", f"{BASE}/{item['id']}", org, org.tech_c)
     assert offered(other.json(), "resolve") == (False, "not_for_you")
     refused = await world.act(org, org.tech_c, other.json(), "resolve")
-    assert problem(refused) == (403, "transition_not_allowed")
-    assert refused.json()["params"] == {"reason": "not_for_you"}
+    assert problem(refused) == (403, "transition_condition_not_met")  # ADR-049 §5
+    assert refused.json()["params"] == {"kind": "not_for_you"}
     mine = await world.call("GET", f"{BASE}/{item['id']}", org, org.tech_a)
     assert offered(mine.json(), "resolve") == (True, None)
     assert (await world.act(org, org.tech_a, mine.json(), "resolve")).status_code == 200
