@@ -28,6 +28,7 @@ from app.shared.api.listing import CursorCodec
 from app.shared.api.openapi import add_filter_schema, add_security, route_access
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
 from app.shared.events import EventRegistry, install_registry
+from app.shared.fields.keycheck import check_key_wraps
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
     REALTIME_STATE,
@@ -59,6 +60,9 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Created here, not at import, so the pool belongs to the server's event loop.
         app.state.db = Database.from_settings(settings)
+        # A key-encryption key removed while it still wraps data keys would leave tenants' files
+        # and encrypted fields unreadable: refuse to start, naming only key IDs (ADR-050).
+        await check_key_wraps(app.state.db, settings)
         limiter_valkey = _start_rate_limiter(app, settings)
         centrifugo = CentrifugoClient.from_settings(settings)
         setattr(app.state, CENTRIFUGO_STATE, centrifugo)
