@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
+from app.core.body_limit import body_limit
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail, ValidationFailed
 from app.core.recent_auth import require_recent_auth
@@ -368,6 +369,7 @@ class ImportTarget(BaseModel):
 @imports_router.post(
     "",
     summary="Import people from a CSV or Excel file",
+    dependencies=[Depends(body_limit(MAX_FILE_BYTES + 1))],  # the route checks its own cap
     status_code=status.HTTP_201_CREATED,
     response_model=ImportOut,
     responses={201: {"model": ImportOut, "description": "Queued (or replayed)."}},
