@@ -78,9 +78,12 @@ vcli() {  # vcli <pod> <valkey|sentinel> <args...>
   local pod="$1" container="$2" port=6379
   shift 2
   [ "$container" = sentinel ] && port=26379
+  # The chart's own vcli (its common.sh): the password from the pod's environment, never on a
+  # command line, and the internal CA when Valkey TLS is on (audit row 5), so these checks work
+  # with TLS on or off.
   # shellcheck disable=SC2016 # expanded inside the container: the password never leaves it
   kubectl -n "$NAMESPACE" exec --request-timeout=10s "$pod" -c "$container" -- sh -c \
-    'REDISCLI_AUTH="$VALKEY_PASSWORD" exec valkey-cli -p "$0" --no-auth-warning "$@"' "$port" "$@" \
+    '. /scripts/common.sh; vcli -p "$0" "$@"' "$port" "$@" \
     2>/dev/null | tr -d '\r'
 }
 # SENTINEL master / replicas print flat "key" / "value" lines; one field of the master, or one

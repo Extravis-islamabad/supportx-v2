@@ -6,6 +6,7 @@ SUPPORTX_MIGRATION_DATABASE_URL from settings. The application role never runs m
 
 import asyncio
 import re
+import ssl
 
 from alembic import context
 from sqlalchemy.engine import Connection
@@ -19,7 +20,7 @@ import app.shared.files.infra.models
 import app.shared.list_settings.infra.models
 import app.shared.mail.infra.models  # noqa: F401 - registers the mail tables (WP-039)
 from app.core.config import Settings
-from app.core.database import to_async_url
+from app.core.database import database_ssl, to_async_url
 from app.core.modules import discover_modules
 from app.shared.db.models import Base
 
@@ -66,8 +67,23 @@ def _configure(connection: Connection) -> None:
         context.run_migrations()
 
 
+def _database_ssl() -> ssl.SSLContext | None:
+    """verify-full TLS (audit row 5): the deploy Job passes its context; otherwise the setting."""
+    explicit = context.config.attributes.get("database_ssl")
+    if isinstance(explicit, ssl.SSLContext):
+        return explicit
+    if "database_url" in context.config.attributes:
+        return None  # tests and tooling pass the URL in code, and the context with it if any
+    return database_ssl(Settings().database_ssl_root_cert)
+
+
 async def _run_online() -> None:
-    engine = create_async_engine(to_async_url(_database_url()), poolclass=NullPool)
+    found = _database_ssl()
+    engine = create_async_engine(
+        to_async_url(_database_url()),
+        poolclass=NullPool,
+        connect_args={"ssl": found} if found is not None else {},
+    )
     try:
         async with engine.connect() as connection:
             await connection.run_sync(_configure)

@@ -30,6 +30,7 @@ from nats.js.kv import KeyValue
 
 from app.core.config import Settings
 from app.core.logging import get_logger
+from app.core.tls import nats_tls
 from app.shared.events import BusNames
 from workers.resilience import Connectivity
 
@@ -141,8 +142,12 @@ async def connect(settings: Settings, component: str) -> Bus:
     if settings.nats_url is None:
         msg = "SUPPORTX_NATS_URL is not set (make backend-env)"
         raise RuntimeError(msg)
+    url = settings.nats_url.get_secret_value()
+    tls, tls_hostname = nats_tls(url, settings.nats_tls_ca_file)
     client = await nats.connect(
-        settings.nats_url.get_secret_value(),
+        url,
+        tls=tls,
+        tls_hostname=tls_hostname,
         name=f"{component}@{socket.gethostname()}",
         max_reconnect_attempts=-1,
         reconnect_time_wait=1,
