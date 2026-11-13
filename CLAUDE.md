@@ -144,6 +144,11 @@ through an httpcore network backend.
 (Python) and `@sentry/react` (MIT/BSD): personal data scrubbed before sending, source maps never
 public, an optional component inside customer installs (errors never leave their network).
 
+**Approved additions (D-170, WP-057):** the DB-IP Lite city database (CC BY 4.0, attribution on the
+About page) and the `maxminddb` reader (Apache-2.0) for an approximate sign-in place. Internal
+ranges show "Internal network" or an admin-mapped site name, never a guessed city. The database
+ships in the offline update bundle with its date shown.
+
 **Approved additions (D-134):** PostgreSQL's pg_trgm extension (trigram similarity; created by
 migration 0020).
 
