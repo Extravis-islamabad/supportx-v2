@@ -4,6 +4,7 @@
 """
 
 import uuid
+from collections.abc import Iterable
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
@@ -38,7 +39,7 @@ from app.modules.work_items.infra.models import (
     WorkItemWorklogCost,
 )
 from app.modules.work_items.service import parts as service
-from app.modules.work_items.service import task_templates, timers
+from app.modules.work_items.service import task_templates, time_analysis, timers
 from app.shared.api.concurrency import ExpectedVersion, etag_for, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -456,6 +457,48 @@ def _worklogs_out(
     )
 
 
+class WorkItemTimeByOut(BaseModel):
+    """Seconds with one status, group or technician (`key` null: no group, or nobody)."""
+
+    key: str | None
+    seconds: int
+
+
+class WorkItemTimeAnalysisOut(BaseModel):
+    """How long the record has been open and where its time went (REQ-INC-071)."""
+
+    business_hours: bool = Field(
+        description="On the record's working calendar; false: every hour counts (AC2)."
+    )
+    as_of: datetime
+    open_seconds: int = Field(description="Time in an open or paused status.")
+    paused_seconds: int
+    by_status: list[WorkItemTimeByOut]
+    by_group: list[WorkItemTimeByOut] = Field(description="While open only.")
+    by_technician: list[WorkItemTimeByOut] = Field(description="While open only.")
+
+    @classmethod
+    def of(cls, view: time_analysis.TimeAnalysisView) -> "WorkItemTimeAnalysisOut":
+        """From the service's view, each list longest first."""
+        found = view.analysis
+
+        def listed(values: Iterable[tuple[str | None, int]]) -> list[WorkItemTimeByOut]:
+            return [
+                WorkItemTimeByOut(key=k, seconds=v)
+                for k, v in sorted(values, key=lambda kv: -kv[1])
+            ]
+
+        return cls(
+            business_hours=view.business_hours,
+            as_of=view.as_of,
+            open_seconds=found.open_seconds,
+            paused_seconds=found.paused_seconds,
+            by_status=listed(found.by_status.items()),
+            by_group=listed(found.by_group.items()),
+            by_technician=listed(found.by_technician.items()),
+        )
+
+
 async def _worklog_out(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, row: WorkItemWorklog
 ) -> WorkItemWorklogOut:
@@ -826,6 +869,17 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
         )
         rows = await service.tasks(session, subject, wtype, record_id)
         return _tasks_out(rows, await service.dependencies_of(session, record_id))
+
+    # --- time analysis (WP-046a S3, REQ-INC-071) --------------------------------------------------
+
+    @router.get("/{record_id}/time-analysis", summary="Where the record's time went")
+    async def get_time_analysis(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> WorkItemTimeAnalysisOut:
+        """Time per status, group and technician, open and paused, until now (AC1-AC3)."""
+        return WorkItemTimeAnalysisOut.of(
+            await time_analysis.time_analysis(session, subject, wtype, record_id)
+        )
 
     # --- your timer (WP-046a S3, REQ-INC-069) ----------------------------------------------------
 

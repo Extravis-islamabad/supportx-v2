@@ -197,6 +197,7 @@ export const queryKeys = {
     tasks: (id: string) => ['incidents', 'tasks', id] as const,
     myTasks: ['incidents', 'my-tasks'] as const,
     worklogs: (id: string) => ['incidents', 'worklogs', id] as const,
+    timeAnalysis: (id: string) => ['incidents', 'time-analysis', id] as const,
     links: (id: string) => ['incidents', 'links', id] as const,
   },
   customFields: {
