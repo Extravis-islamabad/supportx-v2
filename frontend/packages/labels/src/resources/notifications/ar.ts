@@ -262,6 +262,11 @@ export const ar: LabelResource = {
     'ينتهي ضمان {{ record.display_id }} في {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'الضمان ينتهي: {{ record.display_id }} {{ record.title }}',
+  'notification_template.break_glass.signed_in.body':
+    'مرحبًا {{ recipient.name }}،\n\nسجّل {{ record.title }} الدخول بحساب المسؤول الطارئ، الذي يعمل حتى عندما يكون تسجيل الدخول الموحّد مطلوبًا. إن لم تكن تتوقع ذلك، فراجع صفحة تسجيل الدخول والأمان الآن: {{ record.link }}',
+  'notification_template.break_glass.signed_in.in_app':
+    'سجّل {{ record.title }} الدخول بحساب المسؤول الطارئ',
+  'notification_template.break_glass.signed_in.subject': 'تسجيل دخول طارئ: {{ record.title }}',
   'notification_template.change.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\nلدى {{ record.display_id }} "{{ record.title }}" موافقة لا يتولاها أحد. يمكن لمسؤول الموافقات أن يقررها.',
   'notification_template.change.approval_fallback.in_app':
