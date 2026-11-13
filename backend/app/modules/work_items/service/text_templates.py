@@ -58,6 +58,21 @@ from app.shared.richtext import is_blank, sanitize_html
 # The type's settings right: shared templates are written with it.
 SETTINGS_RIGHTS = ("config.service_desk", "settings.manage")
 NOT_FOUND = "reply_template_not_found"
+# The field codes a template's checks give (labels: errors.field.*; checked in test_domain).
+FIELD_PROBLEMS = frozenset(
+    {
+        "duplicate_name",
+        "invalid_choice",
+        "not_for_personal",
+        "not_for_replies",
+        "required",
+        "too_many_values",
+        "unknown_category",
+        "unknown_group",
+        "unknown_variable",
+        "value_too_long",
+    }
+)
 NOT_SET = "text_template.not_set"  # the placeholder of an empty variable, per language
 OFFERED = frozenset(v.name for v in VARIABLES)
 
@@ -429,6 +444,7 @@ async def _tenant_language(session: AsyncSession) -> str:
 
 
 __all__ = [
+    "FIELD_PROBLEMS",
     "NOT_FOUND",
     "SETTINGS_RIGHTS",
     "Filled",
