@@ -66,7 +66,8 @@ class BreakGlassNotifications:
             SIGNED_IN,
             NotificationCategory.STATUS,
             EventDefault(enabled=True, recipients=(OTHER_ADMINS,)),
-            required=True,  # a security alert: admins cannot switch it off
+            required=True,  # a security alert: people cannot switch it off
+            locked=True,  # nor can an admin change or reset its rule
         ),
     )
     recipient_kinds: ClassVar[tuple[str, ...]] = (OTHER_ADMINS,)

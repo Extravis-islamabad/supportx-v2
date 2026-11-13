@@ -7,15 +7,21 @@ are out of scope when only technicians are required. The method comes from the v
 token's `sx_idp` (lane B's condition 2) and is logged.
 """
 
+import json
 import uuid
 
 import asyncpg
 import pytest
 
+from app.core.database import Database, create_engine
 from app.core.errors import RateLimited
+from app.core.tenancy import TenantContext
 from app.modules.identity_access.bff import routes
+from app.modules.notifications.service.engine import dispatch
 from app.shared.api.ratelimit import AddressLimit
+from app.shared.events import EventEnvelope
 from tests.db.test_auth_bff import Bff, bff
+from tests.db.test_notifications_api import NO_MAIL
 from tooling.db_testing import ThrowawayDatabase
 
 __all__ = ["bff"]  # the fixture, re-used
@@ -74,6 +80,10 @@ async def test_requesters_are_out_of_scope_when_only_technicians_are_required(bf
 async def test_req_sec_009_ac3_a_break_glass_admin_gets_in_audited_and_alerted(bff: Bff) -> None:
     a, _b = bff.tenants
     email = _email("glass")
+    # Another tenant admin, known to the tenant, who must hear of it.
+    other = bff.user("a", email=_email("other-admin"), roles=("tenant_admin", "technician"))
+    assert (await bff.login(other)).status_code == 302
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": await bff.csrf()})
     admin = bff.user("a", email=email, roles=("tenant_admin", "technician"))
     assert (await bff.login(admin)).status_code == 302  # known to the tenant first
     await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": await bff.csrf()})
@@ -99,6 +109,12 @@ async def test_req_sec_009_ac3_a_break_glass_admin_gets_in_audited_and_alerted(b
         "identity_access.break_glass.signed_in",
     )
     assert alerted[0]["n"] == 1
+    # ...and the engine really delivers it: the other admin is told in the app (and by e-mail
+    # once mail is set up), the emergency admin is not (a missing message template once made
+    # this raise, so no admin was ever told).
+    told = await _deliver(bff, a, "identity_access.break_glass.signed_in")
+    assert ("break_glass.signed_in", other.email, "in_app", "sent") in told
+    assert all(row[1] != email for row in told)
 
 
 async def test_a_mobile_sso_sign_in_carries_its_method_and_is_let_in(bff: Bff) -> None:
@@ -150,3 +166,28 @@ async def test_a_break_glass_sign_in_over_its_budget_ends_both_sessions(
     assert refused.status_code == 429, refused.text
     assert len(bff.idp.ended_sessions) == ended_before + 1  # Keycloak's session ended too
     assert (await bff.client.get("/api/v1/auth/me")).status_code == 401  # and ours never began
+
+
+async def _deliver(bff: Bff, tenant: uuid.UUID, event_type: str) -> set[tuple[str, str, str, str]]:
+    """Hand the tenant's events of `event_type` to the notification engine; what it delivered."""
+    rows = await _sql(
+        bff.db,
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1 AND event_type = $2",
+        tenant,
+        event_type,
+    )
+    database = Database(create_engine(bff.db.app_url, application_name="test"))
+    try:
+        for row in rows:
+            envelope = EventEnvelope.model_validate(json.loads(row["envelope"]))
+            async with database.tenant_session(TenantContext(tenant)) as session:
+                await dispatch(session, NO_MAIL, envelope)
+    finally:
+        await database.dispose()
+    found = await _sql(
+        bff.db,
+        "SELECT d.event_code, u.email, d.channel, d.state FROM notification_deliveries d"
+        " JOIN users u ON u.tenant_id = d.tenant_id AND u.id = d.user_id WHERE d.tenant_id = $1",
+        tenant,
+    )
+    return {(r["event_code"], r["email"], r["channel"], r["state"]) for r in found}

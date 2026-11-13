@@ -14,7 +14,7 @@ from app.core.recent_auth import (
 )
 from app.main import create_app
 from conftest import make_settings
-from tests.test_route_permissions import _dependencies, api_routes
+from tooling.route_permissions import api_routes, route_dependencies
 
 
 def _guarded() -> set[str]:
@@ -22,7 +22,7 @@ def _guarded() -> set[str]:
     return {
         f"{method} {path}"
         for method, path, dependant, _endpoint in api_routes(app)
-        if require_recent_auth in set(_dependencies(dependant))
+        if require_recent_auth in set(route_dependencies(dependant))
     }
 
 

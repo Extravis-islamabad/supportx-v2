@@ -348,6 +348,25 @@ topologySpreadConstraints:
 {{- printf "%s-temporal-schema-%d" .Release.Name (int .Release.Revision) -}}
 {{- end -}}
 
+{{/* HA SeaweedFS pods (seaweedfs-ha.yaml, D-166): the image's `seaweed` user, and every copy of
+a component on its own node, required whatever ha.antiAffinity says (two copies on one node would
+fall together, and "001" then no longer means two nodes). Takes the component dict. */}}
+{{- define "supportx.seaweedfsPod" -}}
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile: {type: RuntimeDefault}
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            {{- include "supportx.selector" . | nindent 12 }}
+{{- end -}}
+
 {{/*
 Internal TLS (audit row 5; templates/internal-tls.yaml). "true" when the release's Valkey speaks
 TLS; when any in-cluster server does (the CA is then made and mounted).

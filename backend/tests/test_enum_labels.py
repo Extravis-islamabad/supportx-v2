@@ -145,6 +145,8 @@ ENUM_PREFIXES: dict[str, str] = {
     # Tasks, worklogs and links (WP-020e)
     "TaskStatus": "task_status",
     "TaskPriority": "task_priority",
+    "LabelPosition": "form_label_position",  # WP-046a S5b
+    "RuleAction": "form_rule_action",
     "WorklogType": "worklog_type",
     "LinkKind": "link_kind",
     "PortalSettingsOut.search_sources[]": "portal.search.group",

@@ -54,6 +54,9 @@ images:
 secrets:
   app: supportx-app                 # Opaque: app keys, role passwords, NATS/Valkey passwords
   keycloakDb: supportx-db-keycloak  # kubernetes.io/basic-auth for the keycloak database owner
+  # kubernetes.io/basic-auth (username seaweedfs_filer) for the HA SeaweedFS filers' metadata
+  # database (objectStorage.seaweedfs.ha, D-166); read only with that on.
+  seaweedfsFilerDb: supportx-db-seaweedfs-filer
   # Sign-in key ring (D-162, ADR-048; docs/guides/rotating-the-sign-in-key.md), newest first.
   # Each entry names its key ID and the key of `app` holding its secret (hex or base64url, at
   # least 32 characters); never the secret itself. {id: legacy} without `key` is session-secret.
@@ -247,7 +250,8 @@ postgresql:
       encryptionByBucketPolicy: false
 
 # --- Object storage (S3 API only, D-016; WP-018, reused by WP-022) ---------------------------------------
-# seaweedfs: a minimal single-node SeaweedFS in this release (on-prem, ADR-012, D-076).
+# seaweedfs: SeaweedFS in this release (on-prem, ADR-012, D-076): one pod by default, or the
+#            replicated topology below with objectStorage.seaweedfs.ha (values-ha.yaml, D-166).
 # external:  any S3-compatible store (the cloud provider's S3 on SaaS). Credentials always come
 #            from the app Secret (keys s3-access-key, s3-secret-key).
 objectStorage:
@@ -262,6 +266,40 @@ objectStorage:
     resources:
       requests: {cpu: 50m, memory: 128Mi}
       limits: {cpu: "1", memory: 512Mi}
+    # HA (D-166, ADR-038 addendum): SeaweedFS's own replication instead of the one pod above.
+    # Three masters (raft), volume servers each keeping a copy of every volume on another server,
+    # and filers running the S3 gateway behind the same <release>-seaweedfs Service and port, so
+    # the app sees no change. Every copy of a component on its own node (required anti-affinity,
+    # whatever ha.antiAffinity says): a copy on another server is then a copy on another node.
+    # The filers' metadata lives in this release's CloudNativePG cluster (its own database and
+    # role, in the same backups). Needs postgresql.mode cnpg. Disk: each file is stored
+    # (1 + extra copies) times, so 2x with 001 (docs/deployment.md, Profiles).
+    ha:
+      enabled: false
+      # SeaweedFS replica placement "xyz", extra copies on other servers of the same rack (z):
+      # 001 = two copies in all, 002 = three (needs three volume servers up to write).
+      replication: "001"
+      # Minutes between the leader master's maintenance runs (empty volumes deleted, volumes
+      # balanced, missing copies re-made: volume.fix.replication).
+      maintenanceMinutes: 17
+      master:
+        replicas: 3                   # raft: an odd number; 2 of 3 keep the cluster writable
+        storage: {size: 1Gi, storageClass: ""}
+        resources:
+          requests: {cpu: 50m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+      volume:
+        replicas: 3
+        storage: {size: 20Gi, storageClass: ""}
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
+      filer:
+        replicas: 2
+        database: seaweedfs_filer     # its own database and role (seaweedfs_filer) in the cluster
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
 
 # --- Files and malware scanning (WP-022, ADR-028, D-082) -------------------------------------------
 # The approximate sign-in place (WP-057 S2b, D-170): the DB-IP Lite city database (.mmdb, about
@@ -627,6 +665,9 @@ networkPolicies:
     enabled: false
     extra: []                       # every pod, e.g. a forward proxy: [{to: [{ipBlock: {cidr: 10.0.0.5/32}}], ports: [{protocol: TCP, port: 3128}]}]
     components: {}                  # per component, e.g. {keycloak: [LDAP servers], consumers: [SMTP relay], api: [...]}
+    # The database's pods only (CloudNativePG instances carry no component label): an external
+    # backup target, e.g. [{to: [{ipBlock: {cidr: 10.0.0.9/32}}], ports: [{protocol: TCP, port: 443}]}].
+    database: []
     # The Kubernetes API, for CloudNativePG's pods and the API and worker pods' wait-for-migrate.
     # Empty: read from the default/kubernetes EndpointSlice at install time. `helm template` and
     # GitOps can't read it: set them, e.g. kubeApiCidrs: [10.0.0.10/32], kubeApiPorts: [6443].

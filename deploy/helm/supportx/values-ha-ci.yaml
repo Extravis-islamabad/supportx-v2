@@ -11,7 +11,10 @@ keycloak:
 postgresql:
   cnpg:
     # Backups on (WP-014b): the restore drill (deploy/k3d/restore-drill.sh) restores them into a
-    # new cluster. The in-cluster SeaweedFS is the target here, fine for CI only.
+    # new cluster. `make deploy-ha` sends them to a store outside the k3d nodes, as production's
+    # go outside the cluster (deploy/k3d/ci-backup-store.sh, D-166): with the replicated SeaweedFS
+    # on every node, the node-loss test degraded an in-cluster archive too and stalled the
+    # database's promotion (Cluster run 43376122580). Without that values file: in-cluster.
     backup:
       enabled: true
     resources:
@@ -22,6 +25,21 @@ postgresql:
 valkeyHa:
   resources:
     requests: {cpu: 20m, memory: 32Mi}
+# HA SeaweedFS (D-166): eight small pods beside everything else.
+objectStorage:
+  seaweedfs:
+    ha:
+      master:
+        storage: {size: 256Mi}
+        resources:
+          requests: {cpu: 20m, memory: 32Mi}
+      volume:
+        storage: {size: 2Gi}
+        resources:
+          requests: {cpu: 20m, memory: 64Mi}
+      filer:
+        resources:
+          requests: {cpu: 20m, memory: 64Mi}
 # Two clamd copies (values-ha.yaml): small requests so both fit beside everything else.
 clamav:
   resources:
