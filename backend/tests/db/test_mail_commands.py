@@ -51,7 +51,13 @@ def _vouched(sender: str) -> str:
     return f"{MX}; dmarc=pass header.from={sender.rsplit('@', 1)[1]}"
 
 
-async def _setup(world: World, *, commands: bool, trusted: bool = True) -> None:
+async def _setup(
+    world: World,
+    *,
+    commands: bool,
+    trusted: bool = True,
+    fields: list[str] | None = None,
+) -> None:
     org = world.a
     # Through the settings API, as an admin would (incidents only; If-Match on its version).
     current = await world.call("GET", "/incidents/settings", org, org.admin)
@@ -60,7 +66,10 @@ async def _setup(world: World, *, commands: bool, trusted: bool = True) -> None:
         "/incidents/settings",
         org,
         org.admin,
-        json={"mail_commands": commands, "mail_command_fields": ["category", "priority", "group"]},
+        json={
+            "mail_commands": commands,
+            "mail_command_fields": fields or ["category", "priority", "group"],
+        },
         headers={"If-Match": f'"{current.json()["version"]}"'},
     )
     assert saved.status_code == 200, saved.text
@@ -199,3 +208,21 @@ async def test_a_requester_cannot_do_by_mail_what_they_cannot_do_in_the_app(
     assert made["group_id"] == org.ga  # the mailbox's group: the requester may not reassign
     (answer,) = await _answers(world)
     assert "you cannot make this change" in answer
+
+
+async def test_a_requester_learns_nothing_about_who_exists(world: World) -> None:
+    """Lane B's #485 review: no lookup before the rights check, so a real person and a nobody
+    come back the same, and so do a real group and a made-up one."""
+    await _setup(world, commands=True, fields=["category", "priority", "group", "technician"])
+    org = world.a
+    sender = await _email(world, org.requester)
+    real = await _email(world, org.tech_a)
+    group = (await world.sql("SELECT name FROM support_groups WHERE id = $1", org.gb))[0]["name"]
+    for named in (f"technician = {real}", "technician = nobody@alpha.test",
+                  f"group = {group}", "group = No such group"):  # fmt: skip
+        raw = _mail(sender, f"{named}\n\nHelp.", results=_vouched(sender))
+        assert await _send(world, raw) is Outcome.CREATED
+    answers = await _answers(world)
+    assert len(answers) == 4
+    assert all("you cannot make this change" in a for a in answers)
+    assert not any("nothing by that name" in a for a in answers)

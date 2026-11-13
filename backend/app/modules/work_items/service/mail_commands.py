@@ -233,6 +233,12 @@ async def _fields(run: _Run, by_field: Mapping[CommandField, Command]) -> None:
         (CommandField.CATEGORY, "category_id", _category),
         (CommandField.PRIORITY, "priority", _priority),
     )
+    named = [by_field[f] for f, _, _ in lookups if f in by_field]
+    if named and not await items.may_edit(run.session, run.sender, run.wtype, run.record.id):
+        # Refused before any lookup: no answer tells whether a name exists (lane B's review).
+        for line in named:
+            run.refuse(line, LineProblem.REFUSED)
+        return
     for wanted, name, lookup in lookups:
         command = by_field.get(wanted)
         if command is None:
@@ -267,6 +273,14 @@ async def _assignment(run: _Run, by_field: Mapping[CommandField, Command]) -> No
     """Group and technician together, through the API's assignment (D-154's group rule holds)."""
     from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - cycle
 
+    named = [by_field[f] for f in (CommandField.GROUP, CommandField.TECHNICIAN) if f in by_field]
+    if not named:
+        return
+    if not await items.may_assign(run.session, run.sender, run.wtype, run.record.id):
+        # Refused before looking up the group or person: no answer tells whether they exist.
+        for line in named:
+            run.refuse(line, LineProblem.REFUSED)
+        return
     group_id, technician_id = run.record.group_id, run.record.technician_id
     using: list[Command] = []
     if (command := by_field.get(CommandField.GROUP)) is not None:

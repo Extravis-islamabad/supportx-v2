@@ -358,6 +358,17 @@ async def may_edit(
     return await _may(session, subject, wtype, "edit", record_id)
 
 
+async def may_assign(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may assign the record (its type's assign permission, in scope).
+
+    Mail commands ask first, before looking up any group or person a mail names, so the answer
+    never tells someone without the right whether that name exists (lane B's #485 review).
+    """
+    return await _may(session, subject, wtype, "assign", record_id)
+
+
 async def labels_of(
     session: AsyncSession, wtype: WorkItemType, record_ids: Sequence[uuid.UUID]
 ) -> dict[uuid.UUID, tuple[str, str]]:
