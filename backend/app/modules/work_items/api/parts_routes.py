@@ -11,13 +11,17 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
+from app.modules.organization import base_currency
 from app.modules.work_items.domain.parts import (
     COMMENT_MAX,
+    COST_NOTE_MAX,
+    COSTS_MAX,
     DESCRIPTION_MAX,
     TITLE_MAX,
     LinkKind,
@@ -30,12 +34,15 @@ from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemTask,
     WorkItemTaskTemplate,
+    WorkItemTimer,
     WorkItemWorklog,
+    WorkItemWorklogCost,
 )
 from app.modules.work_items.service import parts as service
-from app.modules.work_items.service import task_templates, time_analysis
+from app.modules.work_items.service import task_templates, time_analysis, timers
 from app.shared.api.concurrency import ExpectedVersion, etag_for, set_etag
 from app.shared.api.idempotency import Created, Idempotency
+from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
 CONFLICT_409: dict[int | str, dict[str, object]] = {
@@ -247,6 +254,35 @@ class WorkItemMyTaskOut(BaseModel):
     subject: str
 
 
+Money = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2)]
+
+
+class WorkItemWorklogCostIn(BaseModel):
+    """An other cost (REQ-INC-068), in the base currency or paid in another.
+
+    In the base currency: `amount`. In another: `original_amount`, `original_currency` and the
+    `exchange_rate` to the base currency; the amount is then computed, to the cent (no automatic
+    rates).
+    """
+
+    amount: Money | None = None
+    original_amount: Money | None = None
+    original_currency: str | None = Field(default=None, min_length=3, max_length=3)
+    exchange_rate: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=8)
+    note: str | None = Field(default=None, max_length=COST_NOTE_MAX * 2)
+
+
+class WorkItemWorklogCostOut(BaseModel):
+    """An other cost as stored, in the base currency."""
+
+    id: uuid.UUID
+    amount: Decimal
+    original_amount: Decimal | None
+    original_currency: str | None
+    exchange_rate: Decimal | None
+    note: str | None
+
+
 class WorkItemWorklogIn(BaseModel):
     """Time spent: a start and an end or a duration (in minutes); both must agree if sent."""
 
@@ -256,6 +292,8 @@ class WorkItemWorklogIn(BaseModel):
     ended_at: datetime | None = None
     minutes: int | None = Field(default=None, ge=0)
     description: str | None = Field(default=None, max_length=DESCRIPTION_MAX * 2)
+    billable: bool = Field(default=False, description="Time the customer is charged for.")
+    costs: list[WorkItemWorklogCostIn] = Field(default_factory=list, max_length=COSTS_MAX)
 
 
 class WorkItemWorklogPatch(BaseModel):
@@ -267,6 +305,13 @@ class WorkItemWorklogPatch(BaseModel):
     ended_at: datetime | None = None
     minutes: int | None = Field(default=None, ge=0)
     description: str | None = Field(default=None, max_length=DESCRIPTION_MAX * 2)
+    billable: bool | None = None
+    draft: Literal[False] | None = Field(
+        default=None, description="False confirms a timer's draft (REQ-INC-069 AC2)."
+    )
+    costs: list[WorkItemWorklogCostIn] | None = Field(
+        default=None, max_length=COSTS_MAX, description="Replaces all the worklog's other costs."
+    )
 
 
 class WorkItemWorklogOut(BaseModel):
@@ -284,11 +329,36 @@ class WorkItemWorklogOut(BaseModel):
     stage: str | None = Field(
         default=None, description="A staged record's stage when it was logged (WP-058b S3)."
     )
+    billable: bool = False
+    draft: bool = Field(
+        default=False, description="A timer's time saved on close, counted once confirmed."
+    )
+    money_hidden: bool = Field(
+        default=False, description="You may not see costs here: the cost fields are empty."
+    )
+    cost_rate: Decimal | None = Field(
+        default=None, description="The owner's cost per hour when the time started (a snapshot)."
+    )
+    technician_cost: Decimal | None = None
+    costs: list[WorkItemWorklogCostOut] = Field(default_factory=list)
 
     @classmethod
-    def of(cls, row: WorkItemWorklog) -> "WorkItemWorklogOut":
-        """From a row."""
-        return cls.model_validate(row, from_attributes=True)
+    def of(
+        cls,
+        row: WorkItemWorklog,
+        costs: list[WorkItemWorklogCost] | None = None,
+        *,
+        money: bool = True,
+    ) -> "WorkItemWorklogOut":
+        """From a row; its costs only when `money` (the type's cost right, REQ-INC-068 AC2)."""
+        out = cls.model_validate(row, from_attributes=True)
+        if money:
+            out.costs = [
+                WorkItemWorklogCostOut.model_validate(c, from_attributes=True) for c in costs or []
+            ]
+        else:
+            out.money_hidden, out.cost_rate, out.technician_cost = True, None, None
+        return out
 
 
 class WorkItemMinutesBy(BaseModel):
@@ -305,6 +375,13 @@ class WorkItemWorklogsOut(BaseModel):
     minutes: int
     by_owner: list[WorkItemMinutesBy]
     by_type: list[WorkItemMinutesBy]
+    billable_minutes: int = 0
+    non_billable_minutes: int = 0
+    money_hidden: bool = False
+    currency: str | None = Field(default=None, description="The base currency of the costs.")
+    technician_cost: Decimal | None = None
+    other_cost: Decimal | None = None
+    total_cost: Decimal | None = None
 
 
 class WorkItemLinkIn(BaseModel):
@@ -319,9 +396,7 @@ class WorkItemLinkOut(BaseModel):
 
     id: uuid.UUID
     kind: LinkKind
-    relation: Literal[
-        "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
-    ]
+    relation: service.Relation
     other_id: uuid.UUID | None = Field(description="Only when you may see the other record.")
     other_type: WorkItemTypeCode | None = Field(
         default=None, description="The other record's type, when you may see it (WP-044a)."
@@ -359,13 +434,26 @@ def _tasks_out(
     )
 
 
-def _worklogs_out(rows: list[WorkItemWorklog]) -> WorkItemWorklogsOut:
-    totals = service.totals_of(rows)
+def _worklogs_out(
+    rows: list[WorkItemWorklog],
+    costs: dict[uuid.UUID, list[WorkItemWorklogCost]],
+    *,
+    money: bool,
+    currency: str,
+) -> WorkItemWorklogsOut:
+    totals = service.totals_of(rows, costs)
     return WorkItemWorklogsOut(
-        items=[WorkItemWorklogOut.of(r) for r in rows],
+        items=[WorkItemWorklogOut.of(r, costs.get(r.id), money=money) for r in rows],
         minutes=totals.minutes,
         by_owner=[WorkItemMinutesBy(key=str(k), minutes=v) for k, v in totals.by_owner.items()],
         by_type=[WorkItemMinutesBy(key=k, minutes=v) for k, v in totals.by_type.items()],
+        billable_minutes=totals.billable_minutes,
+        non_billable_minutes=totals.non_billable_minutes,
+        money_hidden=not money,
+        currency=currency if money else None,
+        technician_cost=totals.technician_cost if money else None,
+        other_cost=totals.other_cost if money else None,
+        total_cost=totals.total_cost if money else None,
     )
 
 
@@ -411,13 +499,65 @@ class WorkItemTimeAnalysisOut(BaseModel):
         )
 
 
+async def _worklog_out(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, row: WorkItemWorklog
+) -> WorkItemWorklogOut:
+    """One worklog with its costs, masked without the cost right."""
+    costs = await service.worklog_costs(session, row.work_item_id)
+    money = await service.may_see_money(session, subject, wtype, row.work_item_id)
+    return WorkItemWorklogOut.of(row, costs.get(row.id), money=money)
+
+
+class WorkItemTimerIn(BaseModel):
+    """Start your timer; an optional note of what you are on."""
+
+    comment: str | None = Field(default=None, max_length=COMMENT_MAX * 2)
+
+
+class WorkItemTimerOut(BaseModel):
+    """Your running timer on a record (only ever yours, REQ-INC-069)."""
+
+    id: uuid.UUID
+    work_item_id: uuid.UUID
+    started_at: datetime
+    comment: str | None
+    auto_started: bool
+    version: int
+
+    @classmethod
+    def of(cls, row: WorkItemTimer) -> "WorkItemTimerOut":
+        """From a row."""
+        return cls.model_validate(row, from_attributes=True)
+
+
+class WorkItemTimerStoppedOut(BaseModel):
+    """What a stopped timer prefills a new worklog with; nothing is logged until it is saved."""
+
+    started_at: datetime
+    ended_at: datetime
+    minutes: int
+    comment: str | None
+
+
+class MyTimerOut(BaseModel):
+    """One of your running timers, with its record (the header's list)."""
+
+    timer: WorkItemTimerOut
+    work_item_id: uuid.UUID
+    record_type: WorkItemTypeCode
+    display_id: str
+    subject: str
+
+
 class AllMyTaskOut(WorkItemMyTaskOut):
     """A task you own on any work item type, with its record's type (REQ-INC-076)."""
 
     record_type: WorkItemTypeCode
 
 
-my_tasks_router = APIRouter(prefix="/my-tasks", tags=["work_items"])
+my_tasks_router = APIRouter(
+    prefix="/my-tasks", tags=["work_items"], dependencies=[Depends(rate_limit("work_items"))]
+)
 
 
 @my_tasks_router.get("", summary="Your open tasks on every type")
@@ -434,6 +574,29 @@ async def all_my_tasks(
             record_type=WorkItemTypeCode(record.type),
         )
         for task, record in await service.all_my_tasks(session, subject)
+    ]
+
+
+# Rate limited like every route (#445's guard, audit #14).
+my_timers_router = APIRouter(
+    prefix="/my-timers", tags=["work_items"], dependencies=[Depends(rate_limit("work_items"))]
+)
+
+
+@my_timers_router.get("", summary="Your running timers on every type")
+async def all_my_timers(
+    session: TenantSession, subject: Annotated[Subject, Depends(require_signed_in())]
+) -> list[MyTimerOut]:
+    """Oldest first; only records you may still see (REQ-INC-069: shown on every screen)."""
+    return [
+        MyTimerOut(
+            timer=WorkItemTimerOut.of(timer),
+            work_item_id=record.id,
+            record_type=WorkItemTypeCode(record.type),
+            display_id=record.display_id,
+            subject=record.subject,
+        )
+        for timer, record in await timers.mine(session, subject)
     ]
 
 
@@ -466,17 +629,22 @@ def add_parts_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
         "/task-templates",
         summary="Add a task template",
         status_code=status.HTTP_201_CREATED,
+        response_model=TaskTemplateOut,
         dependencies=[
             audited(f"{audit}.task_template_created", object_type=f"{audit}_task_template")
         ],
     )
     async def create_task_template(
-        body: TaskTemplateIn, session: TenantSession, subject: Admin
-    ) -> TaskTemplateOut:
+        body: TaskTemplateIn, session: TenantSession, subject: Admin, idempotency: Idempotency
+    ) -> Response:
         """A name and its tasks (REQ-INC-074)."""
         del subject
-        row = await task_templates.create_template(session, wtype, body.model_dump(mode="json"))
-        return TaskTemplateOut.of(row)
+
+        async def run() -> Created:
+            row = await task_templates.create_template(session, wtype, body.model_dump(mode="json"))
+            return Created(body=TaskTemplateOut.of(row))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.patch(
         "/task-templates/{template_id}",
@@ -656,20 +824,26 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
         "/{record_id}/tasks/from-template",
         summary="Add a task template's tasks",
         status_code=status.HTTP_201_CREATED,
+        response_model=WorkItemTasksOut,
     )
-    async def tasks_from_template(
+    async def tasks_from_template(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,
         body: FromTemplateIn,
         session: TenantSession,
         subject: View,
         request: Request,
-    ) -> WorkItemTasksOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """At the end of the list, each ready to edit (REQ-INC-074 AC1); needs edit."""
-        await task_templates.add_from_template(
-            session, subject, wtype, record_id, body.template_id, source=source_of(request)
-        )
-        rows = await service.tasks(session, subject, wtype, record_id)
-        return _tasks_out(rows, await service.dependencies_of(session, record_id))
+
+        async def run() -> Created:
+            await task_templates.add_from_template(
+                session, subject, wtype, record_id, body.template_id, source=source_of(request)
+            )
+            rows = await service.tasks(session, subject, wtype, record_id)
+            return Created(body=_tasks_out(rows, await service.dependencies_of(session, record_id)))
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.put(
         "/{record_id}/tasks/{task_id}/dependencies",
@@ -707,14 +881,98 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
             await time_analysis.time_analysis(session, subject, wtype, record_id)
         )
 
+    # --- your timer (WP-046a S3, REQ-INC-069) ----------------------------------------------------
+
+    @router.get("/{record_id}/timer", summary="Your timer on this record")
+    async def my_timer(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> WorkItemTimerOut | None:
+        """Yours only, or null."""
+        row = await timers.mine_on(session, subject, wtype, record_id)
+        return None if row is None else WorkItemTimerOut.of(row)
+
+    @router.post(
+        "/{record_id}/timer",
+        summary="Start your timer",
+        status_code=status.HTTP_201_CREATED,
+        responses=CONFLICT_409,
+        response_model=WorkItemTimerOut,
+    )
+    async def start_timer(
+        record_id: uuid.UUID,
+        body: WorkItemTimerIn,
+        session: TenantSession,
+        subject: View,
+        idempotency: Idempotency,
+    ) -> Response:
+        """As logging time: the record's edit right, or an investigator. One running per record.
+
+        Idempotency-Key (audit #19): a retried start replays the first answer, never a
+        `timer_running` refusal for the timer it just started.
+        """
+
+        async def run() -> Created:
+            row = await timers.start(session, subject, wtype, record_id, comment=body.comment)
+            return Created(WorkItemTimerOut.of(row), {})
+
+        return await idempotency.run(
+            {"record_id": str(record_id), **body.model_dump(mode="json")},
+            run,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    @router.post("/{record_id}/timer/stop", summary="Stop your timer", responses=CONFLICT_409)
+    async def stop_timer(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> WorkItemTimerStoppedOut:
+        """Ends it and returns the worklog to prefill; log it to keep the time."""
+        stopped = await timers.stop(session, subject, wtype, record_id)
+        return WorkItemTimerStoppedOut(
+            started_at=stopped.started_at,
+            ended_at=stopped.ended_at,
+            minutes=stopped.minutes,
+            comment=stopped.comment,
+        )
+
+    @router.delete(
+        "/{record_id}/timer",
+        summary="Discard your timer",
+        status_code=status.HTTP_204_NO_CONTENT,
+        responses=CONFLICT_409,
+    )
+    async def discard_timer(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> Response:
+        """Ends it without logging anything."""
+        await timers.discard(session, subject, wtype, record_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.post("/{record_id}/timer/auto", summary="Start your timer if the type does so")
+    async def auto_start_timer(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> WorkItemTimerOut | None:
+        """The record page calls it when it opens (null when nothing started).
+
+        With the type's setting on, a record you are the technician of starts your timer once,
+        never again after it ran.
+        """
+        row = await timers.auto_start(session, subject, wtype, record_id)
+        return None if row is None else WorkItemTimerOut.of(row)
+
     # --- worklogs ---------------------------------------------------------------------------------
 
     @router.get("/{record_id}/worklogs", summary="Worklogs of a record")
     async def list_worklogs(
         record_id: uuid.UUID, session: TenantSession, subject: View
     ) -> WorkItemWorklogsOut:
-        """Newest first, with totals per person and per type."""
-        return _worklogs_out(await service.worklogs(session, subject, wtype, record_id))
+        """Newest first, with totals per person and per type; costs with the cost right."""
+        rows = await service.worklogs(session, subject, wtype, record_id)
+        return _worklogs_out(
+            rows,
+            await service.worklog_costs(session, record_id),
+            money=await service.may_see_money(session, subject, wtype, record_id),
+            currency=await base_currency(session),
+        )
 
     @router.post(
         "/{record_id}/worklogs",
@@ -741,7 +999,8 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
                 body.model_dump(mode="python"),
                 source=source_of(request),
             )
-            return Created(body=WorkItemWorklogOut.of(row), headers={"ETag": etag_for(row.version)})
+            out = await _worklog_out(session, subject, wtype, row)
+            return Created(body=out, headers={"ETag": etag_for(row.version)})
 
         return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -770,7 +1029,7 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
             source=source_of(request),
         )
         set_etag(response, row.version)
-        return WorkItemWorklogOut.of(row)
+        return await _worklog_out(session, subject, wtype, row)
 
     @router.delete(
         "/{record_id}/worklogs/{worklog_id}",

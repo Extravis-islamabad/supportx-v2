@@ -79,6 +79,19 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/**
+ * Tell the screen a field changed, once it listens: publishing before the screen has subscribed
+ * would be lost, and the test would wait on a change that never comes (the CI flake, 11-09).
+ */
+async function broadcast(realtime: ReturnType<typeof scriptedRealtime>) {
+  await waitFor(() => {
+    expect(realtime.channels().some((name) => name.endsWith(':broadcast'))).toBe(true);
+  });
+  act(() => {
+    realtime.publish(':broadcast', { type: 'metadata.custom_fields_changed', ids: [] });
+  });
+}
+
 describe('Admin › Incidents › Custom fields', () => {
   it('lists fields by label and type, never by key', async () => {
     api({ me: ADMIN, routes: COMMON });
@@ -218,18 +231,14 @@ describe('Admin › Incidents › Custom fields', () => {
       'Index pending',
     );
     field = { ...FLOOR, index_state: 'building', version: 2 };
-    act(() => {
-      realtime.publish(':broadcast', { type: 'metadata.custom_fields_changed', ids: [] });
-    });
+    await broadcast(realtime);
     await waitFor(() => {
       expect(screen.getByTestId('cf-index-affected_floor').textContent).toBe('Building index');
     });
     fireEvent.click(screen.getByTestId('cf-edit-affected_floor'));
     fireEvent.click(await screen.findByText('For integrations and performance'));
     field = { ...FLOOR, index_state: 'failed', index_error: 'busy', version: 3 };
-    act(() => {
-      realtime.publish(':broadcast', { type: 'metadata.custom_fields_changed', ids: [] });
-    });
+    await broadcast(realtime);
     expect((await screen.findByTestId('cf-index-failure')).textContent).toBe(
       'The index could not be built: The incidents table was busy with other maintenance. You can ask again.',
     );
@@ -253,9 +262,7 @@ describe('Admin › Incidents › Custom fields', () => {
     open('/admin/incidents/custom-fields');
     await screen.findByTestId('cf-name-affected_floor');
     fields = [FLOOR, URGENT];
-    act(() => {
-      realtime.publish(':broadcast', { type: 'metadata.custom_fields_changed', ids: [] });
-    });
+    await broadcast(realtime);
     expect((await screen.findByTestId('cf-name-urgent_call')).textContent).toBe('Urgent call');
   });
 });

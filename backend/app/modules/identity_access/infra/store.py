@@ -23,6 +23,8 @@ LOCK_PREFIX = "sx:session-lock:"
 # A person's sessions started before this moment are over (deactivation, sign-in turned off).
 ENDED_PREFIX = "sx:sessions-ended:"
 SSO_TEST_PREFIX = "sx:sso-test:"
+# A mobile sign-in's one-time hand-off code (ADR-044): the session it stands for, briefly.
+HANDOFF_PREFIX = "sx:handoff:"
 LIMIT_PREFIX = "sx:limit:"
 # A person's sessions, listed for My account and admins (ADR-044 item 5): one hash per person,
 # field = the session's public id, value = its description, encrypted.
@@ -45,7 +47,9 @@ class KeyValue(Protocol):
 
     async def get(self, key: str) -> bytes | None: ...  # noqa: D102 - mirrors Valkey
     async def getdel(self, key: str) -> bytes | None: ...  # noqa: D102
-    async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None: ...  # noqa: D102
+    async def set(  # noqa: D102
+        self, key: str, value: bytes, *, px: int, nx: bool = False, xx: bool = False
+    ) -> bool | None: ...
     async def delete(self, key: str) -> int: ...  # noqa: D102
     async def count(self, key: str, *, px: int) -> int: ...  # noqa: D102 - one more hit, kept px ms
     async def hset(self, key: str, field: str, value: bytes, *, px: int) -> None: ...  # noqa: D102 - field, then the key's TTL
@@ -68,8 +72,10 @@ class ValkeyKeyValue:
         value: bytes | None = await self._client.getdel(key)
         return value
 
-    async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None:  # noqa: D102
-        result: bool | None = await self._client.set(key, value, px=px, nx=nx)
+    async def set(  # noqa: D102
+        self, key: str, value: bytes, *, px: int, nx: bool = False, xx: bool = False
+    ) -> bool | None:
+        result: bool | None = await self._client.set(key, value, px=px, nx=nx, xx=xx)
         return result
 
     async def delete(self, key: str) -> int:  # noqa: D102
@@ -122,29 +128,52 @@ class SessionStore:
         self._kv = kv
         self._cipher = cipher
 
-    async def put_session(self, session_id: str, data: dict[str, Any], ttl: timedelta) -> None:
+    async def put_session(
+        self,
+        session_id: str,
+        data: dict[str, Any],
+        ttl: timedelta,
+        *,
+        only_if_present: bool = False,
+    ) -> bool:
         """Store (or replace) a session record until `ttl` elapses, and list it for its person.
+
+        `only_if_present` (SET XX): replace the record only if it still exists, and return False
+        when it does not. A refresh or a touch must never bring back a session someone signed out
+        while the request was in flight (lane C's #451 review).
 
         Every save (sign-in, refresh, tenant switch) updates the person's list, so "last used"
         is the last save. A deleted or rotated session leaves a stale entry, which the list
         drops when it finds the session gone (`user_sessions`).
         """
         key = _hashed(SESSION_PREFIX, session_id)
-        await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+        written = await self._kv.set(
+            key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl), xx=only_if_present
+        )
+        if only_if_present and not written:
+            return False  # gone: never listed again either
         tenant, user = data.get("tenant_id"), data.get("user_id")
         if tenant and user:
             index = _hashed(INDEX_PREFIX, f"{tenant}:{user}")
             field = public_id(session_id)
             meta = {
                 "key": key,
-                "client": data.get("client"),
+                # A mobile session signs in through the console or portal client (ADR-044), but
+                # the person's list names the phone: its platform is set on mobile sessions only.
+                "client": "mobile" if data.get("device_platform") else data.get("client"),
                 "created_at": data.get("created_at"),
                 "last_seen_at": data.get("last_seen_at"),
                 "platform": data.get("device_platform"),
                 "app_version": data.get("app_version"),
+                # Where it signed in and on what (REQ-SEC-030): shown to its owner and tenant
+                # admins only (lane B), sealed like the rest of the entry.
+                "ip": data.get("sign_in_ip"),
+                "device": data.get("device"),
+                "place": data.get("place"),
             }
             sealed = self._cipher.encrypt(meta, bound_to=f"{index}:{field}")
             await self._kv.hset(index, field, sealed, px=_ms(ttl))
+        return True
 
     async def user_sessions(self, user_key: str) -> list[tuple[str, dict[str, Any]]]:
         """(public id, description) of a person's live sessions; stale entries are removed."""
@@ -158,15 +187,46 @@ class SessionStore:
             found.append((field, meta))
         return found
 
+    async def keycloak_session_in_use(self, user_key: str, keycloak_session_id: str) -> bool:
+        """Whether a live session of this person still holds that Keycloak session (ADR-051).
+
+        The console and portal of one browser share a Keycloak session, and signing in again
+        just as Keycloak returns may reuse it: a delayed end must never cut either. A session
+        begun before the person's sessions were ended (deactivation) is not live and never counts.
+        """
+        ended = await self.user_sessions_ended(user_key)
+        for _field, meta in await self.user_sessions(user_key):
+            key = str(meta.get("key"))
+            blob = await self._kv.get(key)
+            record = self._cipher.decrypt(blob, bound_to=key) if blob else None
+            if record is None or record.get("keycloak_session_id") != keycloak_session_id:
+                continue
+            if ended is not None and datetime.fromisoformat(record["created_at"]) <= ended:
+                continue
+            return True
+        return False
+
     async def end_listed_session(self, user_key: str, session: str) -> bool:
         """End one of a person's sessions by its public id; False when it isn't theirs or live."""
+        return await self.take_listed_session(user_key, session) is not None
+
+    async def take_listed_session(self, user_key: str, session: str) -> dict[str, Any] | None:
+        """End one of a person's sessions by its public id and return its record (WP-057 S2a).
+
+        Only within the person's own index, so another person's id is never found (404). The
+        record comes back (empty if it could not be read) so its Keycloak session can be ended
+        too; None when it isn't theirs or live.
+        """
         index = _hashed(INDEX_PREFIX, user_key)
         for field, meta in await self.user_sessions(user_key):
             if field == session:
-                await self._kv.delete(str(meta["key"]))
+                key = str(meta["key"])
+                blob = await self._kv.get(key)
+                data = self._cipher.decrypt(blob, bound_to=key) if blob else None
+                await self._kv.delete(key)
                 await self._kv.hdel(index, field)
-                return True
-        return False
+                return data or {}
+        return None
 
     async def get_session(self, session_id: str) -> dict[str, Any] | None:
         """The session record, or None if unknown, expired or undecryptable."""
@@ -205,6 +265,23 @@ class SessionStore:
     async def get_sso_test(self, test_id: str) -> dict[str, Any] | None:
         """A test's record, or None when unknown or expired."""
         key = _hashed(SSO_TEST_PREFIX, test_id)
+        blob = await self._kv.get(key)
+        return self._cipher.decrypt(blob, bound_to=key) if blob else None
+
+    async def put_handoff(self, code: str, data: dict[str, Any], ttl: timedelta) -> None:
+        """Remember a mobile hand-off code (the session ID and its challenge), encrypted."""
+        key = _hashed(HANDOFF_PREFIX, code)
+        await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+
+    async def take_handoff(self, code: str) -> dict[str, Any] | None:
+        """Fetch and delete a hand-off code: usable exactly once, even when the exchange fails."""
+        key = _hashed(HANDOFF_PREFIX, code)
+        blob = await self._kv.getdel(key)
+        return self._cipher.decrypt(blob, bound_to=key) if blob else None
+
+    async def peek_login(self, state: str) -> dict[str, Any] | None:
+        """Read a pending login without spending it (where a refused callback goes back to)."""
+        key = _hashed(LOGIN_PREFIX, state)
         blob = await self._kv.get(key)
         return self._cipher.decrypt(blob, bound_to=key) if blob else None
 

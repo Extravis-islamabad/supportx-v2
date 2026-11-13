@@ -1,8 +1,8 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights \
+.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors route-permissions setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check semgrep labels-json backend-test-timings backend-shard-weights ci-metrics \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e e2e-smoke \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
@@ -12,6 +12,8 @@
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 PIP_AUDIT_VERSION := 2.10.1
+# Semgrep (audit row 27): the official image, pinned by version and digest; CI runs `make semgrep`.
+SEMGREP_IMAGE := semgrep/semgrep:1.182.1@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6
 OPENAPI_FILE := ../frontend/packages/api-client/openapi.json
 # Generated, never committed (D-127): regenerated, never hand-merged.
 LABELS_JSON := backend/app/shared/labels/resources.json
@@ -183,6 +185,9 @@ decisions: ## Render every docs/decisions/D-NNN.md into one table at docs/_build
 progress-log: ## Render docs/progress-log/ newest first into docs/_build/PROGRESS-log.md (D-123)
 	$(BACKEND) uv run python -m tooling.docs_entries progress-log
 
+route-permissions: generated-backend ## Write the code-owned route-permission map and role matrix to docs/security/route-permissions.md (D-168)
+	$(BACKEND) uv run python -m tooling.route_permissions
+
 api-errors: generated-backend ## The API's error codes with their English text, into docs/_build/api/errors.md (WP-041)
 	$(BACKEND) uv run python -m tooling.api_errors
 
@@ -198,6 +203,9 @@ openapi-diff: ## Fail on breaking API changes: make openapi-diff base=<openapi.j
 
 e2e: ## Playwright journeys + axe (needs dev-up, backend-dev, worker-relay, worker-consumers and the console dev server)
 	$(FRONTEND) pnpm --filter @supportx/e2e e2e
+
+e2e-smoke: ## The @smoke journeys only (~5 min; one per critical area), against the same running stack as e2e
+	$(FRONTEND) pnpm --filter @supportx/e2e exec playwright test --grep @smoke
 
 build: generated-frontend ## Production builds of the console and portal
 	$(FRONTEND) pnpm build
@@ -226,6 +234,15 @@ audit-frontend:
 	$(FRONTEND) pnpm audit || true
 	$(FRONTEND) pnpm audit --audit-level high
 
+# The repo's own rules only (.semgrep.yml), never the online registry, so it runs air-gapped; no
+# metrics, no version check. Files tracked by git, less .semgrepignore. In a git worktree the
+# container cannot read the main checkout's .git: run it from the main checkout or a copy.
+semgrep: ## Static analysis with the repo's Semgrep rules; fails on any finding
+	docker run --rm -v "$(CURDIR):/src" -w /src \
+		-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/src \
+		$(SEMGREP_IMAGE) semgrep scan --config .semgrep.yml --metrics=off \
+		--disable-version-check --error
+
 backend-lint:
 	$(BACKEND) uv run ruff check . && uv run ruff format --check . && uv run lint-imports
 	$(MAKE) openapi-check events-check
@@ -249,6 +266,12 @@ backend-shard-weights: ## Refresh tests/shard_weights.json from a CI run's file 
 	dir=$$(mktemp -d); gh run download "$$run" --pattern 'backend-timings-*' --dir "$$dir"; \
 	jq -s 'add | to_entries | sort_by(.key) | from_entries' "$$dir"/*/timings.json > backend/tests/shard_weights.json; \
 	rm -r "$$dir"; echo "tests/shard_weights.json from CI run $$run"
+
+# Read-only: merge-queue runs, PRs merged, merge-group size and PR shard minutes per day, to see
+# what CI test selection saves (tooling/ci_metrics.py). CSV=<path> also writes a CSV.
+DAYS ?= 1
+ci-metrics: ## Daily CI numbers from GitHub, read-only (DAYS=1, CSV=<path>)
+	$(BACKEND) uv run python -m tooling.ci_metrics --days $(DAYS) $(if $(CSV),--csv $(abspath $(CSV)))
 
 # Exactly CI's install (WP-012 follow-up d): fails here, not after a push, when the lockfile or
 # pnpm's build-script approvals (pnpm-workspace.yaml allowBuilds) are out of date.
@@ -376,16 +399,22 @@ deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgra
 	$(HELM_TEST)
 
 cluster-up-ha: ## Create the four-node k3d cluster for the HA smoke (WP-014b)
-	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 BACKUP_PLUGIN=1 bash deploy/k3d/up.sh
+	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 BACKUP_PLUGIN=1 HA_CLUSTER=1 bash deploy/k3d/up.sh
 
 deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA profile (small requests) on k3d
 	# --mode direct: with several nodes, the default shared-volume import races (a node deletes the
 	# tarball while others still read it, and k3d still reports success).
 	k3d image import --mode direct supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	# The database backups go to a store outside the k3d nodes, as production's go outside the
+	# cluster (D-166): its address, bucket, Secret and egress rule come in as one more values file.
+	backup_values="$$(K3D_CLUSTER=$(K3D_CLUSTER) SUPPORTX_NAMESPACE=$(NAMESPACE) bash deploy/k3d/ci-backup-store.sh up)" && \
 	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
-		-f $(CHART)/values-ha.yaml -f $(CHART)/values-ha-ci.yaml \
+		-f $(CHART)/values-ha.yaml -f $(CHART)/values-ha-ci.yaml -f "$$backup_values" \
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 20m
 	$(HELM_TEST)
+
+cluster-ha-preflight: ## HA preflight on the installed release, strict: Traefik, DNS, NATS/PostgreSQL/SeaweedFS spread, replication, fast eviction (WP-014b, D-166)
+	@SUPPORTX_NAMESPACE=$(NAMESPACE) HA_PREFLIGHT_STRICT=1 bash deploy/k3s/ha-preflight.sh
 
 cluster-ha-smoke: ## HA smoke: the Valkey master dies, a signed-in session survives, no split brain (ADR-038)
 	@bash deploy/k3d/ha-smoke.sh
@@ -393,8 +422,20 @@ cluster-ha-smoke: ## HA smoke: the Valkey master dies, a signed-in session survi
 cluster-ha-egress: ## Egress allow-list on the HA cluster: the namespace reachable, the outside blocked (WP-014b)
 	@bash deploy/k3d/egress-check.sh
 
+cluster-ha-valkey-node-loss: ## Valkey node-loss test: stop the node with the Valkey master after a failover; Sentinel promotes, the session keeps writing (WP-014b)
+	@bash deploy/k3d/valkey-node-loss.sh
+
+cluster-ha-valkey-node-loss-dns: ## Worst case, forced: stop the node with the Valkey master AND a CoreDNS copy; Sentinel promotes, the session keeps writing (WP-014b)
+	@VALKEY_NODE_LOSS_CASE=master-with-dns bash deploy/k3d/valkey-node-loss.sh
+
 cluster-ha-node-loss: ## Node-loss test: stop the agent with PostgreSQL's primary; the session keeps writing (WP-014b)
 	@bash deploy/k3d/node-loss.sh
+
+cluster-ha-objects-node-loss: ## Object-storage node-loss test: stop the node with the SeaweedFS leader and a volume server; files still read and write, copies come back (D-166)
+	@bash deploy/k3d/objects-node-loss.sh
+
+cluster-ha-dns-restart: ## Cluster DNS after a k3s server restart: still two CoreDNS copies on two nodes, anti-affinity kept (WP-014b)
+	@bash deploy/k3d/dns-after-restart.sh
 
 cluster-ha-restore: ## Restore drill: back up, restore into a new cluster to a chosen moment, check the rows (WP-014b)
 	@bash deploy/k3d/restore-drill.sh
@@ -405,7 +446,9 @@ cluster-test: ## helm test: every internal route answers and Valkey enforces aut
 cluster-e2e: ## Playwright journeys against the k3d cluster (ARGS="tests/login.spec.ts" for one file)
 	@bash deploy/k3d/e2e.sh $(ARGS)
 
-cluster-down: ## DELETE the k3d cluster and all its data (asks you to type "yes" first)
+cluster-down: ## DELETE the k3d cluster, its backup store and all their data (asks you to type "yes" first)
 	@printf 'This deletes the k3d cluster "$(K3D_CLUSTER)" and every volume in it.\nType "yes" to continue: '; \
 		read answer; [ "$$answer" = "yes" ] || { echo "Cancelled."; exit 1; }
+	# The HA cluster's backup store first: k3d can't remove a network a container still uses.
+	K3D_CLUSTER=$(K3D_CLUSTER) bash deploy/k3d/ci-backup-store.sh down
 	k3d cluster delete $(K3D_CLUSTER)

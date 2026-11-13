@@ -1,0 +1,42 @@
+# k3s's bundled Traefik on the staging laptop (D-169; docs/runbooks/staging-laptop.md, step 3).
+# Copy to /var/lib/rancher/k3s/server/manifests/traefik-config.yaml and change the LAN range
+# below to your own (e.g. 192.168.0.0/24). k3s re-applies the file at every start.
+#
+# The same as deploy/k3d/traefik-config.yaml (Gateway API provider on, D2; open realtime
+# connections, WP-011), plus three things for a laptop on a LAN:
+#   - websecure gets the same open timeouts as web: the single-node profile serves HTTPS on it;
+#   - port 80 (web) is not exposed on the laptop: only HTTPS is;
+#   - the load balancer accepts only the LAN range. ServiceLB forwards ports with iptables rules
+#     that ufw's input rules do not see, so this is what limits who reaches port 443.
+# Keys are the Traefik chart's own (k3s v1.36.5+k3s1 bundles chart 40.1.0).
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    providers:
+      kubernetesGateway:
+        enabled: true
+    gateway:
+      enabled: false
+    ports:
+      web:
+        expose:
+          default: false
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+            writeTimeout: 0
+            idleTimeout: 3600s
+      websecure:
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+            writeTimeout: 0
+            idleTimeout: 3600s
+    service:
+      spec:
+        loadBalancerSourceRanges:
+          - 192.168.1.0/24      # CHANGE: your LAN range

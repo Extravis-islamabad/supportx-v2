@@ -62,6 +62,7 @@ import {
   useDateTime,
   useLabel,
   useMinWidth,
+  usePageCrumbs,
   WriteButton,
   type PanelSection,
   type PropertyItem,
@@ -162,6 +163,8 @@ const HISTORY_FIELDS = new Set([
   'note',
   'scan',
   'raised_work_item',
+  // REQ-INC-015 AC3: a record linked to or unlinked from the asset later.
+  'linked_work_item',
   // WP-049b S4b (REQ-AST-052): a merge's lines on both assets.
   'merged_into',
   'merged_from',
@@ -229,6 +232,8 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const me = useSession().data?.user.id;
   const [params, setParams] = useSearchParams();
   // Money (REQ-AST-036..038) only for people with assets.view_financials: no tab, no figures.
+  // The path in the top bar and the tab's title: Assets › Finance laptop 01 (QA 2026-11-11 F-17).
+  usePageCrumbs([{ label: t('nav.assets'), path: '/assets' }, { label: asset.name }]);
   const seesMoney = access.can('assets.view_financials');
   const asked = params.get('tab') as TabKey;
   const tab: TabKey =
@@ -952,7 +957,21 @@ function AssetHistory({ id }: { id: string }) {
         ? t(`assets.record.${name}`)
         : t('assets.record.other_field');
   // REQ-AST-045: "INC-42 raised from this asset" (the record's ID when the event named it).
-  const line = (change: { field: string; new?: unknown }) => {
+  // REQ-INC-015 AC3: "INC-42 linked" / "INC-42 unlinked" for links made or removed later.
+  const line = (change: { field: string; old?: unknown; new?: unknown }) => {
+    if (change.field === 'linked_work_item') {
+      const removed = change.new == null;
+      const named = ((removed ? change.old : change.new) ?? {}) as { display_id?: string | null };
+      const id = named.display_id;
+      if (id != null && id !== '') {
+        return t(removed ? 'assets.record.unlinked_record' : 'assets.record.linked_record', {
+          display_id: id,
+        });
+      }
+      return t(
+        removed ? 'assets.record.unlinked_record_unnamed' : 'assets.record.linked_record_unnamed',
+      );
+    }
     if (change.field !== 'raised_work_item') return field(change.field);
     const raised = (change.new ?? {}) as { display_id?: string | null };
     return raised.display_id != null && raised.display_id !== ''

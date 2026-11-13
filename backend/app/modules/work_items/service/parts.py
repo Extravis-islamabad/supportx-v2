@@ -21,23 +21,28 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules import automation, licensing
 from app.modules.identity_access import Subject
+from app.modules.organization import base_currency
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.parts import (
     COMMENT_MAX,
+    COSTS_MAX,
     DESCRIPTION_MAX,
     MAX_TASKS,
     OPEN_TASK_STATUSES,
     TITLE_MAX,
+    CostLine,
     LinkKind,
     TaskStatus,
     WorklogTimes,
+    cost_line,
     moved,
+    technician_cost,
     worklog_times,
 )
 from app.modules.work_items.domain.tasks import (
@@ -57,15 +62,19 @@ from app.modules.work_items.infra.models import (
     WorkItemTaskDependency,
     WorkItemTypeSettings,
     WorkItemWorklog,
+    WorkItemWorklogCost,
 )
-from app.modules.work_items.service import followers
+from app.modules.work_items.service import catalogue, cost_rates, followers
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.access import COST_TYPES, VIEW_COSTS
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
 
 RECORD_TYPE = "work_item"
+# REQ-INC-070: "no worklogs on closed records" is on, and this record is closed.
+WORKLOG_RECORD_CLOSED = "worklog_record_closed"
 _CHANGES: dict[str, Literal["added", "changed", "removed"]] = {
     "child_added": "added",
     "child_changed": "changed",
@@ -83,6 +92,12 @@ class WorklogRepository(Repository[WorkItemWorklog]):
     """Worklogs of the session's tenant."""
 
     model = WorkItemWorklog
+
+
+class WorklogCostRepository(Repository[WorkItemWorklogCost]):
+    """Worklog other costs of the session's tenant (WP-046a S3)."""
+
+    model = WorkItemWorklogCost
 
 
 class LinkRepository(Repository[WorkItemLink]):
@@ -155,12 +170,26 @@ async def _work_access(
     return record, full
 
 
+# Timers (WP-046a S3) log time as worklogs do: the same access.
+work_access = _work_access
+
+
 async def _for_work(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> WorkItem:
     """Tasks: `edit`, or an investigator of this record (ADR-040), nothing wider."""
     record, _full = await _work_access(session, subject, wtype, record_id)
     return record
+
+
+async def for_work(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> WorkItem:
+    """The record, if the subject may work on its parts (tasks, checklists).
+
+    `edit`, or an investigator of it; a closed change is locked (REQ-CHG-097).
+    """
+    return await _for_work(session, subject, wtype, record_id)
 
 
 def _own_time_only(wtype: WorkItemType, subject: Subject, owner_id: uuid.UUID | None) -> None:
@@ -332,7 +361,7 @@ async def create_task(  # noqa: PLR0913 - the record, the task and the source, e
     record = await _for_work(session, subject, wtype, record_id)
     existing = await _tasks(session, record_id)
     if len(existing) >= MAX_TASKS:
-        raise items.field_errors([("title", "too_many_items")], max=MAX_TASKS)
+        raise items.field_errors([("title", "too_many_items")], title={"max": MAX_TASKS})
     stages = await _stages_of(session, wtype, record)
     clean = _task_values(values, creating=True, stages=stages)
     if stages is not None and "stage" not in clean:
@@ -617,11 +646,13 @@ def is_overdue(task: WorkItemTask, now: datetime | None = None) -> bool:
 async def may_see_money(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> bool:
-    """A task's extra cost: for those who may edit the record (the coordinator, WP-046a S1).
+    """Money on a record: worklog rates and costs, cost totals and a task's extra cost (S3).
 
-    Never for a task-only owner or an investigator without edit; S3 decides task and worklog cost
-    visibility once for both.
+    One right, `<type>.view_costs` (REQ-INC-068 AC2, D-164); a type without it (no
+    worklog costs) keeps S1's rule, those who may edit the record.
     """
+    if wtype.code in COST_TYPES:
+        return await items.may(session, subject, wtype, VIEW_COSTS, record_id)
     return await items.may(session, subject, wtype, "edit", record_id)
 
 
@@ -702,7 +733,9 @@ async def set_dependencies(  # noqa: PLR0913, PLR0917 - the task, what it waits 
     task = await _task(session, record_id, task_id)
     wanted = list(dict.fromkeys(depends_on))
     if len(wanted) > MAX_DEPENDENCIES:
-        raise items.field_errors([("depends_on", "too_many_items")], max=MAX_DEPENDENCIES)
+        raise items.field_errors(
+            [("depends_on", "too_many_items")], depends_on={"max": MAX_DEPENDENCIES}
+        )
     siblings = {t.id: t for t in await _tasks(session, record_id)}
     if any(d not in siblings for d in wanted):
         raise items.field_errors([("depends_on", "invalid_value")])
@@ -847,7 +880,7 @@ async def open_workflow_tasks(  # noqa: PLR0913 - the node's command, explicit
     """The node's checklist at the end of the record's tasks, each naming its node."""
     existing = await _tasks(session, record.id)
     if len(existing) + len(titles) > MAX_TASKS:
-        raise items.field_errors([("title", "too_many_items")], max=MAX_TASKS)
+        raise items.field_errors([("title", "too_many_items")], title={"max": MAX_TASKS})
     position = (existing[-1].position + 1) if existing else 0
     repository = TaskRepository(session)
     made: list[WorkItemTask] = []
@@ -911,11 +944,28 @@ async def workflow_task_settled(
 
 @dataclass(frozen=True)
 class WorklogTotals:
-    """Minutes in all, per person and per worklog type (AC3)."""
+    """Minutes in all, per person and per worklog type (AC3); billable and costs (S3).
+
+    Drafts (a timer's time saved on close, not yet confirmed) count nowhere. Costs are in the
+    base currency; the API leaves them out for those without the cost right.
+    """
 
     minutes: int
     by_owner: dict[uuid.UUID, int]
     by_type: dict[str, int]
+    billable_minutes: int = 0
+    technician_cost: Decimal = Decimal("0.00")
+    other_cost: Decimal = Decimal("0.00")
+
+    @property
+    def non_billable_minutes(self) -> int:
+        """The rest of the time."""
+        return self.minutes - self.billable_minutes
+
+    @property
+    def total_cost(self) -> Decimal:
+        """Technician and other costs together."""
+        return self.technician_cost + self.other_cost
 
 
 async def _worklogs(session: AsyncSession, record_id: uuid.UUID) -> list[WorkItemWorklog]:
@@ -927,14 +977,45 @@ async def _worklogs(session: AsyncSession, record_id: uuid.UUID) -> list[WorkIte
     return list(rows)
 
 
-def totals_of(rows: list[WorkItemWorklog]) -> WorklogTotals:
-    """Totals of a record's worklogs."""
+def totals_of(
+    rows: list[WorkItemWorklog], costs: dict[uuid.UUID, list[WorkItemWorklogCost]] | None = None
+) -> WorklogTotals:
+    """Totals of a record's confirmed worklogs (drafts left out)."""
     by_owner: dict[uuid.UUID, int] = defaultdict(int)
     by_type: dict[str, int] = defaultdict(int)
-    for row in rows:
+    counted = [r for r in rows if not r.draft]
+    for row in counted:
         by_owner[row.owner_id] += row.minutes
         by_type[row.worklog_type] += row.minutes
-    return WorklogTotals(sum(r.minutes for r in rows), dict(by_owner), dict(by_type))
+    lines = costs or {}
+    return WorklogTotals(
+        sum(r.minutes for r in counted),
+        dict(by_owner),
+        dict(by_type),
+        billable_minutes=sum(r.minutes for r in counted if r.billable),
+        technician_cost=sum(
+            (r.technician_cost for r in counted if r.technician_cost is not None), Decimal("0.00")
+        ),
+        other_cost=sum((c.amount for r in counted for c in lines.get(r.id, [])), Decimal("0.00")),
+    )
+
+
+async def worklog_costs(
+    session: AsyncSession, record_id: uuid.UUID
+) -> dict[uuid.UUID, list[WorkItemWorklogCost]]:
+    """A record's other-cost lines by worklog, in the order entered."""
+    rows = await session.scalars(
+        select(WorkItemWorklogCost)
+        .where(
+            WorkItemWorklogCost.work_item_id == record_id,
+            WorkItemWorklogCost.deleted_at.is_(None),
+        )
+        .order_by(WorkItemWorklogCost.created_at, WorkItemWorklogCost.id)
+    )
+    found: dict[uuid.UUID, list[WorkItemWorklogCost]] = defaultdict(list)
+    for row in rows:
+        found[row.worklog_id].append(row)
+    return dict(found)
 
 
 async def worklogs(
@@ -966,6 +1047,78 @@ def _worklog_history(row: WorkItemWorklog) -> list[Change]:
     ]
 
 
+async def _open_for_worklogs(session: AsyncSession, wtype: WorkItemType, record: WorkItem) -> None:
+    """REQ-INC-070: with "no worklogs on closed records" on, a closed record refuses time."""
+    if (
+        items.is_closed(record)
+        and (await catalogue.load(session, wtype)).closure.worklog_block_closed
+    ):
+        raise Conflict(code=WORKLOG_RECORD_CLOSED, params={"status": record.status})
+
+
+async def _cost_snapshot(
+    session: AsyncSession, owner_id: uuid.UUID, started_at: datetime, minutes: int
+) -> tuple[Decimal | None, Decimal | None]:
+    """The owner's rate when the time started and the cost it gives (REQ-INC-068 AC1).
+
+    A snapshot: a later rate change never rewrites logged time. No rate set: neither.
+    """
+    rate = await cost_rates.rate_at(session, owner_id, started_at)
+    return (rate, technician_cost(minutes, rate)) if rate is not None else (None, None)
+
+
+# A timer's draft worklog takes its cost as a logged one does (WP-046a S3).
+cost_snapshot = _cost_snapshot
+
+
+async def _cost_lines(session: AsyncSession, values: Any) -> list[CostLine]:  # noqa: ANN401 - the API's list of dicts, checked here
+    """Other costs as sent, each checked; problems name the line (`costs.<n>.<field>`)."""
+    if not isinstance(values, list):
+        raise items.field_errors([("costs", "invalid_value")])
+    if len(values) > COSTS_MAX:
+        raise items.field_errors([("costs", "too_many_items")])
+    base = await base_currency(session)
+    lines: list[CostLine] = []
+    problems: list[tuple[str, str]] = []
+    for index, value in enumerate(values):
+        found = cost_line(value, base)
+        if isinstance(found, tuple):
+            problems.append((f"costs.{index}.{found[0]}", found[1]))
+        else:
+            lines.append(found)
+    if problems:
+        raise items.field_errors(problems)
+    return lines
+
+
+async def _store_costs(session: AsyncSession, row: WorkItemWorklog, lines: list[CostLine]) -> None:
+    """Replace the worklog's other costs with these (a worklog's lines change together).
+
+    The worklog's own version guards the change, so the old lines go at the version read here.
+    """
+    repository = WorklogCostRepository(session)
+    for old in list(
+        await session.scalars(
+            select(WorkItemWorklogCost).where(
+                WorkItemWorklogCost.worklog_id == row.id, WorkItemWorklogCost.deleted_at.is_(None)
+            )
+        )
+    ):
+        await repository.soft_delete(old.id, expected_version=old.version)
+    for line in lines:
+        await repository.add(
+            WorkItemWorklogCost(
+                worklog_id=row.id,
+                work_item_id=row.work_item_id,
+                amount=line.amount,
+                original_amount=line.original_amount,
+                original_currency=line.original_currency,
+                exchange_rate=line.exchange_rate,
+                note=line.note,
+            )
+        )
+
+
 async def create_worklog(  # noqa: PLR0913 - the record, the worklog and the source, explicit
     session: AsyncSession,
     subject: Subject,
@@ -980,15 +1133,22 @@ async def create_worklog(  # noqa: PLR0913 - the record, the worklog and the sou
     if not full:
         owner = values.get("owner_id")
         _own_time_only(wtype, subject, uuid.UUID(str(owner)) if owner else None)
+    await _open_for_worklogs(session, wtype, record)
     times = _times(values)
     problems: list[tuple[str, str]] = []
     description = _text(values.get("description"), "description", DESCRIPTION_MAX, problems)
     if problems:
         raise items.field_errors(problems)
+    lines = await _cost_lines(session, values.get("costs") or [])
+    owner_id = values.get("owner_id") or subject.user_id
+    rate, cost = await _cost_snapshot(session, owner_id, times.started_at, times.minutes)
     row = await WorklogRepository(session).add(
         WorkItemWorklog(
             work_item_id=record.id,
-            owner_id=values.get("owner_id") or subject.user_id,
+            owner_id=owner_id,
+            billable=bool(values.get("billable", False)),
+            cost_rate=rate,
+            technician_cost=cost,
             worklog_type=values["worklog_type"],
             started_at=times.started_at,
             ended_at=times.ended_at,
@@ -999,6 +1159,8 @@ async def create_worklog(  # noqa: PLR0913 - the record, the worklog and the sou
             stage=record.stage if wtype.stages is not None else None,
         )
     )
+    if lines:
+        await _store_costs(session, row, lines)
     await _recorded(
         session, record, "worklog", row.id, "child_added", _worklog_history(row), source
     )
@@ -1020,6 +1182,31 @@ async def _worklog(
     return found
 
 
+def _worklog_flags(values: dict[str, Any]) -> dict[str, Any]:
+    """Billable, and a timer's draft confirmed by its owner (REQ-INC-068, -069)."""
+    flags: dict[str, Any] = {}
+    if values.get("billable") is not None:
+        flags["billable"] = bool(values["billable"])
+    if values.get("draft") is False:  # only ever confirmed, never made a draft again
+        flags["draft"] = False
+    return flags
+
+
+def _changed_times(row: WorkItemWorklog, values: dict[str, Any]) -> WorklogTimes:
+    """The worklog's times with the change, checked together again."""
+    merged = {
+        "started_at": row.started_at,
+        "ended_at": row.ended_at,
+        "minutes": row.minutes,
+        **values,
+    }
+    if "minutes" in values and "ended_at" not in values:
+        merged["ended_at"] = None  # a new duration moves the end
+    elif "ended_at" in values and "minutes" not in values:
+        merged["minutes"] = None  # a new end gives the duration
+    return _times(merged)
+
+
 async def update_worklog(  # noqa: PLR0913, PLR0917 - the worklog, its version, the change and source
     session: AsyncSession,
     subject: Subject,
@@ -1033,22 +1220,13 @@ async def update_worklog(  # noqa: PLR0913, PLR0917 - the worklog, its version, 
 ) -> WorkItemWorklog:
     """Change a worklog (If-Match); the times are checked together again."""
     record, full = await _work_access(session, subject, wtype, record_id)
+    await _open_for_worklogs(session, wtype, record)
     row = await _worklog(session, record_id, worklog_id)
     if not full:
         _own_time_only(wtype, subject, row.owner_id)
         if values.get("owner_id"):
             _own_time_only(wtype, subject, uuid.UUID(str(values["owner_id"])))
-    merged = {
-        "started_at": row.started_at,
-        "ended_at": row.ended_at,
-        "minutes": row.minutes,
-        **values,
-    }
-    if "minutes" in values and "ended_at" not in values:
-        merged["ended_at"] = None  # a new duration moves the end
-    elif "ended_at" in values and "minutes" not in values:
-        merged["minutes"] = None  # a new end gives the duration
-    times = _times(merged)
+    times = _changed_times(row, values)
     changes: dict[str, Any] = {
         "started_at": times.started_at,
         "ended_at": times.ended_at,
@@ -1058,15 +1236,25 @@ async def update_worklog(  # noqa: PLR0913, PLR0917 - the worklog, its version, 
     for name in ("owner_id", "worklog_type"):
         if values.get(name) is not None:
             changes[name] = values[name]
+    changes |= _worklog_flags(values)
     if "description" in values:
         changes["description"] = _text(
             values["description"], "description", DESCRIPTION_MAX, problems
         )
     if problems:
         raise items.field_errors(problems)
+    lines = await _cost_lines(session, values["costs"]) if values.get("costs") is not None else None
+    owner_id = changes.get("owner_id", row.owner_id)
+    if (owner_id, times.started_at, times.minutes) != (row.owner_id, row.started_at, row.minutes):
+        # Another person, start or duration: the cost is taken again for the time as it now is.
+        changes["cost_rate"], changes["technician_cost"] = await _cost_snapshot(
+            session, owner_id, times.started_at, times.minutes
+        )
     updated = await WorklogRepository(session).update(
         row.id, expected_version=expected_version, changes=changes
     )
+    if lines is not None:
+        await _store_costs(session, updated, lines)
     await _recorded(
         session, record, "worklog", updated.id, "child_changed", _worklog_history(updated), source
     )
@@ -1085,6 +1273,7 @@ async def delete_worklog(  # noqa: PLR0913 - the worklog, its version and the so
 ) -> None:
     """Remove a worklog (soft delete)."""
     record, full = await _work_access(session, subject, wtype, record_id)
+    await _open_for_worklogs(session, wtype, record)
     row = await _worklog(session, record_id, worklog_id)
     if not full:
         _own_time_only(wtype, subject, row.owner_id)
@@ -1130,8 +1319,15 @@ async def links(
     rows = await session.scalars(
         select(WorkItemLink)
         .where(
-            or_(WorkItemLink.source_id == record_id, WorkItemLink.target_id == record_id),
-            WorkItemLink.kind.in_(_LISTED),
+            or_(
+                and_(
+                    or_(WorkItemLink.source_id == record_id, WorkItemLink.target_id == record_id),
+                    WorkItemLink.kind.in_(_LISTED),
+                ),
+                # The release's own links show on the record it caused or started; the release
+                # page lists those itself (lane C's follow-ups), so only from this side.
+                and_(WorkItemLink.source_id == record_id, WorkItemLink.kind.in_(_TO_RELEASE)),
+            ),
             WorkItemLink.deleted_at.is_(None),
         )
         .order_by(WorkItemLink.created_at, WorkItemLink.id)
@@ -1172,10 +1368,21 @@ _LISTED = (
     LinkKind.CAUSED_BY.value,
     LinkKind.MERGED_INTO.value,
 )
+# A record to the release that caused it or that it started (lane C's WP-058b), listed only on
+# the record's side.
+_TO_RELEASE = (LinkKind.CAUSED_BY_RELEASE.value, LinkKind.STARTED_RELEASE.value)
 
 
 Relation = Literal[
-    "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
+    "related",
+    "follows",
+    "followed_by",
+    "caused_by",
+    "causes",
+    "merged_into",
+    "merged_from",
+    "caused_by_release",
+    "started_release",
 ]
 
 
@@ -1190,7 +1397,11 @@ def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
             return "caused_by" if mine_is_source else "causes"
         case LinkKind.MERGED_INTO:
             return "merged_into" if mine_is_source else "merged_from"
-        case _:  # never listed (_LISTED)
+        case LinkKind.CAUSED_BY_RELEASE if mine_is_source:
+            return "caused_by_release"
+        case LinkKind.STARTED_RELEASE if mine_is_source:
+            return "started_release"
+        case _:  # never listed (_LISTED, _TO_RELEASE from the record's side)
             msg = f"link kind {kind} is not listed here"
             raise ValueError(msg)
 

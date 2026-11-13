@@ -196,7 +196,9 @@ async def test_module_functions_use_the_installed_service() -> None:
             await licensing.reserve_capacity(session, LimitKey.TECHNICIANS)
         assert caught.value.instance_code == "limit_reached"
         assert caught.value.params == {"limit": "technicians", "max": 50}
-        assert session.statements == 2  # two advisory locks: hold + reserve
+        # One advisory lock: `reserve` finds the lock `hold` took earlier in the same
+        # transaction (`hold` remembers it per transaction, WP-049b S4c follow-up).
+        assert session.statements == 1
         summary = await licensing.summary(session, show_usage=True, is_admin=False)
         assert summary.edition is Edition.PROFESSIONAL
         assert summary.admin_warning is False

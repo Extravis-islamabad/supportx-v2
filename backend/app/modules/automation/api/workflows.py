@@ -19,6 +19,7 @@ from sqlalchemy import func, select
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.interpreter import InstanceStatus
 from app.modules.automation.domain.workflows import (
@@ -55,8 +56,14 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query, paginate
+from app.shared.api.ratelimit import rate_limit
 
-router = APIRouter(prefix="/automation/workflows", tags=["automation"])
+# Every workflow route counts against its own budget (audit #14; architecture.md §10).
+router = APIRouter(
+    prefix="/automation/workflows",
+    tags=["automation"],
+    dependencies=[Depends(rate_limit("workflows"))],
+)
 Manage = Annotated[Subject, Depends(require_permission("workflows.manage"))]
 Run = Annotated[Subject, Depends(require_permission("workflows.run"))]
 Policy = Annotated[PolicyService, Depends(get_policy)]
@@ -1195,12 +1202,13 @@ async def run_as(
     summary="Give the run-as identity a role",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[
+        RecentAuth,
         audited(
             "automation.workflow_run_as_role_added",
             object_type="workflow",
             object_param="workflow_id",
             detail_params=("role_id",),
-        )
+        ),
     ],
 )
 async def add_run_as_role(

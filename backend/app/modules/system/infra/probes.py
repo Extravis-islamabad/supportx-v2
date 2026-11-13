@@ -10,6 +10,8 @@ import json
 import math
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from ssl import SSLContext
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -24,7 +26,9 @@ from nats.aio.client import Client as NatsClient
 from opentelemetry import metrics
 
 from app.core.config import Settings
+from app.core.tls import nats_tls
 from app.core.valkey import client as valkey_client
+from app.core.valkey import tls_options as valkey_tls_options
 from app.modules.system.domain.readiness import FailureReason, ProbeFailedError
 from app.shared.files.infra.scanner import Scanner, ScannerUnavailableError
 
@@ -34,14 +38,15 @@ class PostgresProbe:
 
     name = "postgres"
 
-    def __init__(self, dsn: str) -> None:
+    def __init__(self, dsn: str, ssl: SSLContext | None = None) -> None:
         self._dsn = dsn
+        self._ssl = ssl  # verify-full when set (app.core.database.database_ssl)
 
     async def check(self, timeout_s: float) -> None:
         """Connect, run `SELECT 1`, disconnect."""
         try:
             connection = await asyncpg.connect(
-                self._dsn, timeout=timeout_s, command_timeout=timeout_s
+                self._dsn, timeout=timeout_s, command_timeout=timeout_s, ssl=self._ssl
             )
         except asyncpg.InvalidAuthorizationSpecificationError as exc:
             raise ProbeFailedError(FailureReason.AUTH_FAILED) from exc
@@ -76,7 +81,8 @@ class ValkeyProbe:
             client = valkey_client(self._settings, retry=None, retry_on_error=[], **timeouts)
         else:
             # valkey-py ships no annotations for from_url; the return type is declared here.
-            client = valkey.asyncio.from_url(self._url, **timeouts)  # type: ignore[no-untyped-call]
+            tls = valkey_tls_options(self._settings) if self._settings is not None else {}
+            client = valkey.asyncio.from_url(self._url, **timeouts, **tls)  # type: ignore[no-untyped-call]
         try:
             if await client.ping() is not True:
                 raise ProbeFailedError(FailureReason.UNEXPECTED_RESPONSE)
@@ -97,7 +103,7 @@ async def _ignore_nats_error(_error: Exception) -> None:
     """nats-py logs every connection error by default; the probe reports its own reason."""
 
 
-async def _connect_nats(url: str, timeout_s: float) -> NatsClient:
+async def _connect_nats(url: str, timeout_s: float, ca_file: Path | None) -> NatsClient:
     """One short-lived NATS connection that fails fast instead of retrying."""
     # nats-py keeps retrying a refused initial connection instead of failing fast, which would
     # turn "unreachable" into a timeout; a plain TCP connect answers that first.
@@ -107,9 +113,12 @@ async def _connect_nats(url: str, timeout_s: float) -> NatsClient:
     )
     writer.close()
     await writer.wait_closed()
+    tls, tls_hostname = nats_tls(url, ca_file)
     try:
         return await nats.connect(
             url,
+            tls=tls,
+            tls_hostname=tls_hostname,
             connect_timeout=timeout_s,
             allow_reconnect=False,
             max_reconnect_attempts=0,
@@ -126,12 +135,13 @@ class NatsProbe:
 
     name = "nats"
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, tls_ca_file: Path | None = None) -> None:
         self._url = url
+        self._tls_ca_file = tls_ca_file
 
     async def check(self, timeout_s: float) -> None:
         """Connect without reconnecting, flush, close."""
-        client = await _connect_nats(self._url, timeout_s)
+        client = await _connect_nats(self._url, timeout_s, self._tls_ca_file)
         try:
             # nats-py takes whole seconds here.
             await client.flush(timeout=max(1, math.ceil(timeout_s)))
@@ -155,9 +165,11 @@ class WorkerHeartbeatProbe:
         kind: str,
         stale_after_s: float,
         backlog_after_s: float | None = None,
+        tls_ca_file: Path | None = None,
     ) -> None:
         self.name = name
         self._url = url
+        self._tls_ca_file = tls_ca_file
         self._bucket = bucket
         self._prefix = f"{kind}."
         self._stale_after_s = stale_after_s
@@ -169,7 +181,7 @@ class WorkerHeartbeatProbe:
         `disconnected`: the newest heartbeat says the worker cannot reach PostgreSQL or NATS now
         (workers/resilience.py). `backlog` (relay): its oldest unpublished event is too old.
         """
-        client = await _connect_nats(self._url, timeout_s)
+        client = await _connect_nats(self._url, timeout_s, self._tls_ca_file)
         try:
             newest = await self._newest_heartbeat(client)
         finally:
@@ -240,6 +252,26 @@ _signature_age = metrics.get_meter("supportx.files").create_gauge(
     unit="s",
     description="Age of ClamAV's virus signatures, as clamd reports them (WP-014b).",
 )
+
+
+class SessionKeysProbe:
+    """Informational: more sign-in keys listed than one overlap needs (D-162, ADR-048).
+
+    Old keys that are never retired keep every one of them able to open sessions. A warning in
+    /ready, never unready: sessions work either way. No I/O: the count is the settings'.
+    """
+
+    name = "session_keys"
+
+    def __init__(self, listed: int, *, most: int) -> None:
+        self._listed = listed
+        self._most = most
+
+    async def check(self, timeout_s: float) -> None:
+        """Raise ProbeFailedError(TOO_MANY_KEYS) above `most` listed keys."""
+        del timeout_s
+        if self._listed > self._most:
+            raise ProbeFailedError(FailureReason.TOO_MANY_KEYS)
 
 
 class MalwareSignaturesProbe:

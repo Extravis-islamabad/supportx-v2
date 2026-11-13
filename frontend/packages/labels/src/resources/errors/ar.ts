@@ -2,6 +2,13 @@ import type { LabelResource } from '../en';
 
 // errors labels (see ../README.md).
 export const ar: LabelResource = {
+  'checklist_import_failure.not_text': 'الملف ليس ملفًا نصيًا (CSV) بترميز UTF-8.',
+  'checklist_import_failure.too_large': 'الملف أكبر من 5 ميغابايت.',
+  'checklist_import_failure.too_many_columns': 'يحتوي صف على أكثر من 40 عمودًا.',
+  'checklist_import_failure.too_many_rows': 'يحتوي الملف على أكثر من 5000 صف.',
+  'checklist_import_reason.empty': 'صف فارغ',
+  'checklist_import_reason.too_many_items': 'يتجاوز حد عناصر قائمة التحقق',
+  'checklist_import_reason.value_too_long': 'أطول من 500 حرف',
   'errors.action_link_expired': 'انتهت صلاحية هذا الرابط. افتح الطلب في التطبيق بدلًا منه.',
   'errors.action_link_not_found': 'هذا الرابط غير صالح.',
   'errors.action_link_revoked': 'لم يعد هذا مطلوبًا: تم البت في الطلب أو سحبه.',
@@ -35,6 +42,9 @@ export const ar: LabelResource = {
   'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
   'errors.approval_pending': '{{display_id}} ينتظر موافقة بالفعل.',
   'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',
+  'errors.archive_busy': 'لديك تنزيلان قيد التشغيل بالفعل. حاول مرة أخرى بعد دقيقة.',
+  'errors.archive_too_large': 'يتجاوز حجم هذه الملفات {{max_mb}} ميغابايت. اختر ملفات أقل.',
+  'errors.archive_too_many_files': 'يمكنك تنزيل {{max}} ملف كحد أقصى في المرة الواحدة.',
   'errors.asset_acknowledgement_answered': 'لقد أجبت عن هذا بالفعل.',
   'errors.asset_acknowledgement_not_found': 'هذا الإقرار ليس لك أو لم يعد موجودًا.',
   'errors.asset_already_disposed': 'لهذا الأصل سجل تخلّص بالفعل.',
@@ -128,6 +138,7 @@ export const ar: LabelResource = {
   'errors.asset_product_type_in_use': 'لا تزال منتجات تستخدم نوع المنتج هذا ({{used}}).',
   'errors.asset_product_type_not_found': 'نوع المنتج هذا غير موجود.',
   'errors.asset_restore_merged': 'دُمج هذا الأصل في {{asset}}. أكّد لاستعادته وحده.',
+  'errors.asset_site_not_managed': 'يمكنك إضافة الأصول أو نقلها إلى المواقع التي تديرها فقط.',
   'errors.asset_state_in_use':
     'لا تزال انتقالات في دورات الحياة تستخدم هذه الحالة ({{used}}). أزلها أولًا.',
   'errors.asset_state_not_found': 'حالة الأصل هذه غير موجودة.',
@@ -158,6 +169,13 @@ export const ar: LabelResource = {
   'errors.brand_colour_contrast':
     'يصعب قراءة هذا اللون: النص عليه أقل من مستوى التباين WCAG AA. استخدم اللون المقترح أو اختر لونًا أغمق.',
   'errors.branding_not_found': 'لم يتم العثور على هذه العلامة التجارية.',
+  'errors.break_glass_admin_only': 'لا يعيّن مسؤولي الطوارئ إلا مسؤول المؤسسة.',
+  'errors.break_glass_ip_exempt_needs_break_glass':
+    'لا يُستثنى من قوائم عناوين IP إلا مسؤول الطوارئ.',
+  'errors.break_glass_needs_admin': 'لا يكون مسؤول الطوارئ إلا مسؤولًا للمؤسسة.',
+  'errors.break_glass_needs_mfa':
+    'يحتاج حساب الطوارئ هذا إلى إعداد تسجيل الدخول بخطوتين قبل استخدامه.',
+  'errors.break_glass_not_self': 'يجب أن يعيّنك مسؤول آخر مسؤولًا للطوارئ.',
   'errors.bulk_job_not_found': 'لم يتم العثور على هذا التغيير الجماعي.',
   'errors.calendar_in_use':
     'لا تزال مواقع أو فرق دعم تستخدم هذا التقويم. اختر لها تقويمًا آخر أولًا.',
@@ -177,6 +195,9 @@ export const ar: LabelResource = {
   'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.change_window_blocked':
     'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
+  'errors.checklist_item_not_found': 'لم يعد عنصر قائمة التحقق هذا موجودًا.',
+  'errors.checklist_library_not_found': 'لم تعد قائمة التحقق هذه في المكتبة موجودة أو متاحة.',
+  'errors.checklist_not_found': 'لم تعد قائمة التحقق هذه موجودة.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.command_in_flight':
@@ -186,6 +207,10 @@ export const ar: LabelResource = {
   'errors.contact_editing_off': 'لا تسمح مؤسستك بتغيير بيانات الاتصال هنا. اسأل مكتب الخدمة.',
   'errors.conversation_entry_not_found': 'لم يعد هذا الرد أو الملاحظة موجودًا.',
   'errors.copy_reference': 'نسخ المرجع',
+  'errors.cost_rate_date_taken': 'لهذا الشخص تكلفة تبدأ من هذا الوقت. غيّرها بدلًا من ذلك.',
+  'errors.cost_rate_not_found': 'التكلفة غير موجودة.',
+  'errors.cost_rate_superseded':
+    'تسري الآن تكلفة أحدث، فلم يعد بالإمكان تغيير هذه. حدّد تكلفة جديدة بدلًا من ذلك.',
   'errors.csrf_failed': 'تعذّر التحقق من هذا الطلب. يرجى إعادة تحميل الصفحة والمحاولة مرة أخرى.',
   'errors.currency_change_needs_confirmation':
     'يتطلب تغيير العملة الأساسية تأكيدًا: تبقى المبالغ المسجلة سابقًا بالعملة القديمة.',
@@ -228,11 +253,14 @@ export const ar: LabelResource = {
   'errors.domain_wrong_answer': 'النطاق لا يشير إلى SupportX هذا بعد: تحقق من سجل DNS.',
   'errors.domains_not_configured': 'النطاقات المخصصة غير مهيأة في هذا التثبيت.',
   'errors.downtime_not_found': 'نافذة التوقف هذه غير موجودة.',
+  'errors.duplicate_move': 'الانتقال نفسه مُدرج مرتين من الحالة نفسها. أبقِ واحدًا فقط.',
   'errors.entitlement_required': 'خطتك لا تتضمن هذه الميزة.',
   'errors.entitlement_required.detail': '{{feature}} غير مشمول في خطة مؤسستك.',
   'errors.entitlements_unavailable':
     'معلومات الترخيص غير متاحة مؤقتًا. يرجى المحاولة مرة أخرى بعد قليل.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
+  'errors.field.address_not_allowed':
+    'لا يمكن استخدام عنوان الخادم هذا. استخدم الاسم العام لخادم البريد.',
   'errors.field.already_linked': 'هذان السجلان مرتبطان بالفعل.',
   'errors.field.announcement_message_required': 'اكتب الرسالة التي سيراها الناس.',
   'errors.field.api_key_allowlist_invalid': 'أدخل حتى 20 عنوانًا أو شبكة صالحة، مثل 10.0.0.0/8.',
@@ -377,6 +405,7 @@ export const ar: LabelResource = {
   'errors.field.expiry_before_review': 'يجب أن يكون تاريخ الانتهاء بعد تاريخ المراجعة.',
   'errors.field.fallback_fixed': 'السياسة الافتراضية تُطبَّق دائمًا وليس لها شروط.',
   'errors.field.field_always_required': 'الموضوع ومقدم الطلب ظاهران ومطلوبان دائمًا.',
+  'errors.field.field_locked': 'تقفل قاعدة نموذج هذا الحقل، لذا لا يمكن تغييره هنا.',
   'errors.field.field_not_settable': 'لا يمكن للقاعدة تعيين هذا الحقل.',
   'errors.field.field_retired': 'هذا الحقل موقوف ولا يقبل قيمًا جديدة.',
   'errors.field.field_set_twice': 'هذا الحقل معيّن بالفعل بإجراء آخر في القاعدة.',
@@ -430,6 +459,13 @@ export const ar: LabelResource = {
   'errors.field.invalid_value': 'هذه القيمة غير صالحة لهذا الحقل.',
   'errors.field.invalid_website': 'أدخل عنوان ويب يبدأ بـ http:// أو https://.',
   'errors.field.invitation_days_out_of_range': 'استخدم بين {{min}} و{{max}} يومًا.',
+  'errors.field.ip_allow_everything':
+    '«{{entry}}» يسمح بكل العناوين. اترك القائمة فارغة للسماح للجميع.',
+  'errors.field.ip_allow_invalid':
+    '«{{entry}}» ليس عنوانًا أو نطاقًا. استخدم صيغة مثل 192.0.2.0/24 أو 2001:db8::/32.',
+  'errors.field.ip_allow_locks_you_out':
+    'ستمنعك هذه القائمة من الدخول: عنوانك {{address}} ليس فيها. أضفه، أو نطاقًا يتضمنه.',
+  'errors.field.ip_allow_too_many': 'استخدم {{max}} إدخالًا على الأكثر.',
   'errors.field.kb_vote_comment_too_long': 'اجعل التعليق في حدود 1000 حرف.',
   'errors.field.kb_vote_reason_for_no_only': 'السبب يُذكر مع «لا» فقط.',
   'errors.field.kb_vote_reason_unknown': 'اختر أحد الأسباب المعروضة.',
@@ -465,13 +501,17 @@ export const ar: LabelResource = {
   'errors.field.name_needs_letters': 'استخدم حرفًا أو رقمًا واحدًا على الأقل في الاسم.',
   'errors.field.name_required': 'أدخل اسمًا.',
   'errors.field.name_taken': 'هذا الاسم مستخدم بالفعل.',
+  'errors.field.needs_collapsible': 'يمكن أن يبدأ القسم القابل للطي فقط مغلقًا.',
   'errors.field.needs_scheduled_start': 'يحتاج التذكير قبل البدء إلى موعد بدء مجدول.',
   'errors.field.no_default_allowed': 'لا يمكن أن يكون لهذا الحقل قيمة أولية.',
   'errors.field.not_a_field': 'هذا الحقل غير موجود لهذا النوع.',
+  'errors.field.not_a_form_field': 'هذا الحقل ليس في النموذج.',
   'errors.field.not_a_technician': 'لا يحقق في مشكلة إلا فني يعمل على المشكلات.',
   'errors.field.not_allowed': 'هذا غير مسموح مع القيم الأخرى.',
   'errors.field.not_allowed_for_notes': 'الملاحظات ليس لها مستلمون.',
   'errors.field.not_eligible': 'لا يمكن لهذا الشخص أو هذه المجموعة شغل هذا الدور.',
+  'errors.field.not_for_personal': 'القالب الشخصي لك وحدك، فلا مجموعات له.',
+  'errors.field.not_for_replies': 'قوالب الحل وحدها لها فئات.',
   'errors.field.not_for_this_status': 'هذا الإعداد للحالات التي تنتظر شخصًا ما فقط.',
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
   'errors.field.not_in_past': 'يجب أن يكون هذا الوقت في الماضي.',
@@ -501,6 +541,7 @@ export const ar: LabelResource = {
   'errors.field.person_not_in_group': 'هذا الشخص ليس عضوًا في المجموعة المختارة.',
   'errors.field.phone_not_valid': 'أدخل رقم هاتف: أرقام ومسافات و+ و- وأقواس.',
   'errors.field.plain_connection_refused': 'يُرفض الاتصال دون تشفير ما لم تسمح به.',
+  'errors.field.port_not_allowed': 'استخدم منفذ بريد: 993 (TLS) أو 143.',
   'errors.field.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
   'errors.field.range_end_before_start': 'يجب أن تكون النهاية بعد البداية.',
   'errors.field.read_category_unknown': 'لا يمكن تسجيل هذا النوع من القراءة.',
@@ -527,8 +568,10 @@ export const ar: LabelResource = {
   'errors.field.required_to_leave_stage': 'املأ هذا الحقل قبل مغادرة هذه المرحلة.',
   'errors.field.required_to_resolve': 'مطلوب قبل الحل.',
   'errors.field.review_date_past': 'اختر اليوم أو تاريخًا لاحقًا.',
+  'errors.field.review_required_to_close': 'أكمل مراجعة الإصدار قبل إغلاقه.',
   'errors.field.role_disabled': 'هذا الدور متوقف: لا يمكن منحه لأي شخص جديد.',
   'errors.field.role_held_by_record': 'يتبع هذا الدور حقلًا في السجل نفسه. غيّره من لوحة التفاصيل.',
+  'errors.field.rule_too_deep': 'تتداخل الشروط ثلاثة مستويات كحد أقصى.',
   'errors.field.same_folder': 'اختر مجلدًا مختلفًا لتقاريره.',
   'errors.field.schedule_never_runs': 'بهذه التواريخ لن تعمل الجدولة أبدًا.',
   'errors.field.scope_not_allowed': 'هذا النطاق غير متاح لهذه الصلاحية.',
@@ -536,6 +579,9 @@ export const ar: LabelResource = {
     'استخدم مدة لا تقل عن مهلة عدم النشاط ولا تزيد على {{max}} ساعة.',
   'errors.field.session_idle_out_of_range': 'استخدم ما بين {{min}} و{{max}} دقيقة.',
   'errors.field.site_inactive': 'هذا الموقع غير نشط. اختر موقعًا نشطًا.',
+  'errors.field.site_network_invalid':
+    'أدخل نطاقًا مثل 10.1.0.0/16 (مع جعل جزء المضيف صفرًا)، أو عنوانًا واحدًا.',
+  'errors.field.site_network_too_many': 'يمكن ربط {{max}} نطاقًا على الأكثر.',
   'errors.field.site_not_found': 'هذا الموقع غير موجود.',
   'errors.field.sso_certificate_expired': 'انتهت صلاحية الشهادة. اطلب شهادة سارية من مزوّد الهوية.',
   'errors.field.sso_certificate_missing': 'لا تحتوي البيانات الوصفية على شهادة توقيع.',
@@ -590,6 +636,7 @@ export const ar: LabelResource = {
   'errors.field.too_many_assets': 'يمكن أن يحتوي السجل على {{max}} أصول على الأكثر.',
   'errors.field.too_many_categories': 'يمكن أن يظهر العنصر في خمس فئات أخرى كحد أقصى.',
   'errors.field.too_many_conditions': 'يحتوي عامل التصفية على شروط كثيرة جدًا.',
+  'errors.field.too_many_copies': 'أنشئ من نسخة واحدة إلى {{max}} نسخة في كل مرة.',
   'errors.field.too_many_decimals': 'استخدم {{max}} منازل عشرية كحد أقصى.',
   'errors.field.too_many_items': 'عدد الإدخالات كبير جدًا.',
   'errors.field.too_many_keywords': 'استخدم 20 كلمة مفتاحية كحد أقصى لكل لغة.',
@@ -605,11 +652,13 @@ export const ar: LabelResource = {
   'errors.field.type_cannot_change': 'لا يمكن تغيير نوع الحقل. أضف حقلًا جديدًا وأوقف هذا الحقل.',
   'errors.field.unknown_article_type': 'نوع المقالة هذا غير موجود أو متوقف.',
   'errors.field.unknown_builtin_report': 'هذا التقرير المضمّن غير موجود.',
+  'errors.field.unknown_category': 'إحدى هذه الفئات غير موجودة هنا.',
   'errors.field.unknown_column': 'هذا العمود غير موجود لهذه السجلات.',
   'errors.field.unknown_dimension': 'لا يمكن تجميع التقارير حسب هذا الحقل.',
   'errors.field.unknown_entity': 'لا يوجد شيء من هذا النوع لإعداد تقرير عنه.',
   'errors.field.unknown_field': 'لا يمكنك التصفية حسب هذا الحقل.',
   'errors.field.unknown_folder': 'هذا المجلد لم يعد موجودًا.',
+  'errors.field.unknown_group': 'إحدى هذه المجموعات غير موجودة هنا.',
   'errors.field.unknown_key': 'إعداد التصفية هذا غير معروف.',
   'errors.field.unknown_language': 'الأسماء مدعومة بالإنجليزية والعربية والأردية فقط.',
   'errors.field.unknown_measure': 'هذا المقياس غير متاح لهذه السجلات.',
@@ -623,10 +672,12 @@ export const ar: LabelResource = {
   'errors.field.unknown_recipient': 'أحد المختارين لم يعد نشطًا أو أن مجموعة لم تعد موجودة.',
   'errors.field.unknown_record_type': 'اختر ما تنطبق عليه القاعدة.',
   'errors.field.unknown_reference': 'لم يعد أحد الأشخاص أو المجموعات المذكورة هنا موجودًا.',
+  'errors.field.unknown_role': 'هذا الدور غير موجود هنا. اختر دورًا من القائمة.',
   'errors.field.unknown_sort_field': 'لا يمكن ترتيب القائمة حسب هذا الحقل.',
   'errors.field.unknown_stage': 'لا توجد مرحلة بهذا الاسم لهذا النوع.',
   'errors.field.unknown_time_zone': 'اختر منطقة زمنية من القائمة.',
   'errors.field.unknown_value': 'هذه القيمة غير موجودة (لم تعد موجودة).',
+  'errors.field.unknown_variable': 'يستخدم هذا متغيرًا غير موجود. اختر واحدًا من القائمة.',
   'errors.field.url_not_valid': 'أدخل عنوان ويب يبدأ بـ https:// أو http://.',
   'errors.field.user_not_found': 'هذا الشخص غير موجود في مؤسستك.',
   'errors.field.value_no_longer_valid': 'هذه القيمة لم تعد متاحة.',
@@ -649,6 +700,8 @@ export const ar: LabelResource = {
   'errors.field.workflow_not_published': 'انشر سير العمل هذا أولًا.',
   'errors.field.workflow_wrong_record_type': 'سير العمل هذا لنوع آخر من السجلات.',
   'errors.field.would_loop': 'لا يمكن أن يكون الإصدار جزءًا من نفسه، مباشرة أو عبر غيره.',
+  'errors.field_keys_unavailable':
+    'لا يمكن قراءة المعلومات المحمية أو حفظها الآن: مفتاح التثبيت غير متاح. اطلب من المسؤول التحقق منه.',
   'errors.file_link_expired': 'انتهت صلاحية الرابط. افتح الملف مجددًا.',
   'errors.file_not_an_image': 'هذا الملف ليس صورة.',
   'errors.file_not_found': 'هذا الملف غير موجود أو لا يمكنك رؤيته.',
@@ -664,6 +717,8 @@ export const ar: LabelResource = {
   'errors.follower_not_found': 'هذا الشخص لا يتابعه.',
   'errors.group_not_found': 'مجموعة الدعم غير موجودة.',
   'errors.group_not_led': 'يمكنك إدارة المجموعات التي تقودها فقط.',
+  'errors.handoff_invalid':
+    'انتهت صلاحية تسجيل الدخول هذا أو تم استخدامه من قبل. يرجى تسجيل الدخول مرة أخرى.',
   'errors.holiday_list_not_found': 'قائمة العطلات هذه غير موجودة أو حُذفت.',
   'errors.holiday_not_found': 'هذه العطلة غير موجودة أو حُذفت.',
   'errors.ical_too_large': 'حجم الملف أكبر من 1 ميغابايت.',
@@ -683,6 +738,8 @@ export const ar: LabelResource = {
   'errors.instance_running': 'أوقف سير العمل هذا قبل تشغيله مرة أخرى.',
   'errors.instances_not_in_workflow':
     'بعض عمليات التشغيل المختارة ليست من سير العمل هذا ({{count}}).',
+  'errors.interactive_session_required':
+    'نفّذ هذا من وحدة التحكم على الويب وأنت مسجّل الدخول. لا يمكن ذلك بمفاتيح API ولا من تطبيق الجوال.',
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
   'errors.invalid_cursor': 'رابط هذه الصفحة لم يعد صالحًا. يرجى إعادة تحميل القائمة.',
@@ -691,6 +748,8 @@ export const ar: LabelResource = {
   'errors.invalid_filter': 'تعذّر تطبيق عامل التصفية. تحقّق من الشرط المحدّد.',
   'errors.invalid_idempotency_key': 'معرّف الطلب غير صالح.',
   'errors.invalid_login_state': 'انتهت صلاحية رابط تسجيل الدخول هذا. يرجى البدء من جديد.',
+  'errors.invalid_mobile_challenge':
+    'تعذّر على التطبيق بدء تسجيل الدخول. يرجى تحديث التطبيق والمحاولة مرة أخرى.',
   'errors.invalid_number': 'أدخل رقمًا.',
   'errors.invalid_page_size': 'عدد الصفوف المطلوبة لصفحة واحدة كبير جدًا.',
   'errors.invalid_report': 'لا يمكن تشغيل هذا التقرير كما هو. تحقق من الأجزاء المحددة.',
@@ -705,6 +764,8 @@ export const ar: LabelResource = {
   'errors.invitation_not_pending': 'لم تعد هذه الدعوة بانتظار القبول: قُبلت أو سُحبت.',
   'errors.invitation_pending': 'لدى هذا الشخص دعوة بانتظار القبول. أرسلها مجددًا بدلًا من ذلك.',
   'errors.invitation_person_cannot_sign_in': 'هذا الشخص معطّل أو غير مسموح له بتسجيل الدخول.',
+  'errors.ip_not_allowed':
+    'لا تسمح مؤسستك بتسجيل الدخول من هذه الشبكة. اتصل من شبكة مسموح بها، أو اطلب ذلك من المسؤول.',
   'errors.job_kind_not_available': 'هذا النوع من المهام غير متاح بعد.',
   'errors.job_size': 'اختر بين 1 و{{max}} من عمليات التشغيل.',
   'errors.kb_article_not_editable':
@@ -734,6 +795,8 @@ export const ar: LabelResource = {
   'errors.kb_vote_comment_too_long': 'اجعل التعليق في حدود 1000 حرف.',
   'errors.kb_vote_reason_for_no_only': 'السبب يُذكر مع «لا» فقط.',
   'errors.kb_vote_reason_unknown': 'اختر أحد الأسباب المعروضة.',
+  'errors.last_break_glass_admin':
+    'هذا آخر مسؤول طوارئ أثناء اشتراط الدخول الموحد. عيّن غيره أولًا، أو أوقف اشتراط الدخول الموحد.',
   'errors.last_tenant_admin': 'يجب أن يبقى في المؤسسة مسؤول واحد على الأقل.',
   'errors.ldap_attribute_invalid': 'أدخل اسم سمة في الدليل: أحرف وأرقام وشرطات.',
   'errors.ldap_bind_password_missing': 'لا توجد كلمة مرور ربط محفوظة. أدخلها مرة أخرى.',
@@ -747,6 +810,20 @@ export const ar: LabelResource = {
   // WP-040 AD/LDAP (D-130)
   'errors.ldap_host_invalid': 'أدخل اسم خادم الدليل أو عنوان IP الخاص به، دون ldap:// أو مسار.',
   'errors.ldap_single_tenant_only': 'لا يمكن ربط أدلة AD/LDAP إلا في تثبيت يخدم مؤسسة واحدة.',
+  'errors.lifecycle_draft_exists': 'لدورة الحياة هذه مسودة بالفعل. افتحها أو تخلّص منها أولًا.',
+  'errors.lifecycle_draft_not_found':
+    'لا توجد مسودة لدورة الحياة هذه. ابدأ مسودة لإجراء التغييرات.',
+  'errors.lifecycle_version_has_problems_few': 'في المسودة {{count}} مشكلات يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_many': 'في المسودة {{count}} مشكلة يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_one': 'في المسودة مشكلة واحدة يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_other':
+    'في المسودة {{count}} مشكلة يجب إصلاحها قبل نشرها.',
+  'errors.lifecycle_version_has_problems_two': 'في المسودة مشكلتان يجب إصلاحهما قبل نشرها.',
+  'errors.lifecycle_version_has_problems_zero': 'لا توجد مشكلات في المسودة.',
+  'errors.lifecycle_version_last_published':
+    'الإصدار {{number}} هو الذي تبدأ به السجلات الجديدة، لذا لا يمكن إيقافه.',
+  'errors.lifecycle_version_not_found': 'لم يُعثر على إصدار دورة الحياة هذا.',
+  'errors.lifecycle_version_not_published': 'لا يمكن إيقاف إلا إصدار منشور.',
   'errors.limit_reached': 'تم الوصول إلى الحد المسموح به في خطتك. اطلب من المسؤول توسيع الخطة.',
   'errors.link_has_own_route':
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
@@ -754,6 +831,8 @@ export const ar: LabelResource = {
   'errors.linked_records_not_available': 'السجلات المرتبطة غير متاحة بعد.',
   'errors.list_not_found': 'هذه القائمة لا تحتفظ بإعدادات.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
+  'errors.login_not_this_browser':
+    'بدأ تسجيل الدخول هذا في متصفح آخر أو انتهت صلاحيته. يرجى تسجيل الدخول من جديد هنا.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
   'errors.mail_attachment_type': 'لا يمكن إرسال هذا النوع من الملفات بالبريد.',
@@ -792,6 +871,7 @@ export const ar: LabelResource = {
   'errors.node_not_mapped':
     'خطوة يقف عندها هذا التشغيل ليس لها مكان في الإصدار الجديد: اربطها بخطوة.',
   'errors.not_a_member': 'أنت لست عضوًا في هذه المؤسسة.',
+  'errors.not_a_person': 'هذه هوية خدمة وليست شخصًا: لا تكلفة ساعة لها.',
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
   'errors.not_cancelable_from_here': 'لا يمكن إلغاؤه من مكانه الحالي.',
@@ -801,11 +881,14 @@ export const ar: LabelResource = {
   'errors.not_known_error': '{{display_id}} ليس خطأً معروفًا.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
   'errors.not_resolved': 'لم يعد هذا بانتظار ردّك: لم يعد محلولًا الآن.',
+  'errors.not_visible': 'لا يمكنك رؤية هذا التغيير، لذا تُرك كما هو.',
   'errors.nothing_to_override': 'هذا التغيير لا ينتظر الموافقة مجددًا، فلا يوجد ما يُتجاوز.',
   'errors.nothing_to_retry': 'لا توجد خطوة فاشلة لتشغيلها مرة أخرى.',
   'errors.notification_event_not_found': 'حدث الإشعار هذا غير موجود.',
   'errors.notification_not_found': 'هذا الإشعار غير موجود أو ليس لك.',
   'errors.notification_record_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
+  'errors.notification_rule_locked':
+    'هذا إشعار أمني: لا يمكن لأحد إيقافه أو تغيير مستلميه أو إعادة تعيينه.',
   'errors.on_behalf_out_of_scope': 'لا يمكنك تقديم طلب لهذا الشخص. اسأل مكتب الخدمة.',
   'errors.open_work_blocked': 'لا يمكن تنفيذ هذا ما دام هذا العمل مفتوحًا: {{items}}.',
   'errors.open_work_unconfirmed': 'لا يزال هناك عمل مفتوح: {{items}}. أكّد للمتابعة على أي حال.',
@@ -846,12 +929,18 @@ export const ar: LabelResource = {
     'لم يعد بإمكانك متابعة هذا مباشرةً. أعد تحميل الصفحة لرؤية أحدث البيانات.',
   'errors.realtime_not_configured':
     'التحديثات المباشرة غير مُعدّة على هذا الخادم. أعد تحميل الصفحة لرؤية أحدث البيانات.',
+  'errors.reauth_failed': 'لم يتم تأكيد هويتك. لم يتغيّر شيء.',
+  'errors.reauth_required': 'أكّد هويتك للمتابعة: سجّل الدخول مجددًا ثم حاول مرة أخرى.',
+  'errors.reauth_unavailable':
+    'تسجّل مؤسستك دخولك عبر مزوّد لا يمكنه إعادة التأكيد عند الطلب. اطلب ذلك من مسؤول.',
   'errors.recipient_deferred': 'طلب خادم بريد المستلم المحاولة لاحقًا.',
   'errors.recipient_refused': 'رفض خادم البريد المستلم.',
   'errors.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
   'errors.record_not_editable': 'يجب أن تتمكن من تعديل السجل للقيام بذلك.',
   'errors.reference_copied': 'تم نسخ المرجع',
   'errors.reference_is': 'المرجع: {{reference}}',
+  'errors.release_not_failed': 'تُعرض المتابعات بعد فشل نشر الإصدار أو التراجع عنه.',
+  'errors.reminder_not_found': 'لم يعد هذا التذكير موجودًا.',
   'errors.repeat_hit_not_found': 'لم تعد مجموعة الحوادث المتكررة هذه موجودة.',
   'errors.repeat_rule_not_found': 'لم تعد قاعدة الحوادث المتكررة هذه موجودة.',
   'errors.reply_template_not_found': 'لم يعد قالب الرد هذا موجودًا.',
@@ -888,8 +977,12 @@ export const ar: LabelResource = {
     'تحصل هوية سير العمل أو الموصل على أدوارها من إعداداتها الخاصة، وليس من هنا.',
   'errors.service_unavailable': 'الخدمة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل.',
   'errors.session_expired': 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.',
+  'errors.session_key_still_in_use':
+    'لا يمكن تشغيل هذا الخادم: مفتاح تسجيل دخول لم يعد مُدرجًا ما زال مطلوبًا. أدرِج المفتاح مرة أخرى.',
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
+  'errors.sign_in_unavailable':
+    'تسجيل الدخول غير متاح مؤقتًا. إذا كنت مسجّل الدخول بالفعل، يمكنك متابعة العمل.',
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
   'errors.site_not_found': 'الموقع غير موجود.',
@@ -908,6 +1001,10 @@ export const ar: LabelResource = {
   'errors.sso_provider_missing': 'هذا الإعداد غير موجود في خدمة تسجيل الدخول. أزِله وأضفه من جديد.',
   'errors.sso_provider_not_found': 'لم يُعثر على إعداد تسجيل الدخول الموحّد هذا.',
   'errors.sso_provider_refused': 'رفضت خدمة تسجيل الدخول هذه الإعدادات. راجعها وحاول مجددًا.',
+  'errors.sso_required':
+    'تشترط مؤسستك الدخول الموحد. سجّل الدخول بحساب مؤسستك بدلًا من كلمة المرور.',
+  'errors.sso_required_needs_break_glass':
+    'عيّن مسؤول طوارئ واحدًا على الأقل لديه تسجيل الدخول بخطوتين قبل اشتراط الدخول الموحد.',
   'errors.sso_switch_off_first': 'أوقف الإعداد قبل تغيير طريقة اتصاله، حتى لا يُحرم أحد من الدخول.',
   'errors.sso_switched_off': 'شغّل الإعداد أو غيّره قبل اختباره.',
   'errors.sso_test_not_found': 'انتهى هذا الاختبار. ابدأ اختبارًا جديدًا.',
@@ -938,9 +1035,14 @@ export const ar: LabelResource = {
   'errors.tenant_not_found': 'تعذّر العثور على مؤسستك.',
   'errors.tenant_not_provisioned': 'لم يتم إعداد مؤسستك في SupportX بعد. يرجى التواصل مع المسؤول.',
   'errors.tenant_suspended': 'تم تعليق وصول مؤسستك.',
+  'errors.timer_not_running': 'ليس لديك مؤقت يعمل على هذا السجل.',
+  'errors.timer_record_done': 'هذا السجل محلول أو مغلق. سجّل الوقت كسجل عمل بدلاً من ذلك.',
+  'errors.timer_running': 'مؤقتك يعمل بالفعل على هذا السجل.',
   'errors.too_many_favourites': 'يمكنك تمييز {{max}} تقريرًا كحد أقصى.',
   'errors.too_many_files': 'ملفات كثيرة دفعة واحدة: {{max}} على الأكثر.',
+  'errors.too_many_moves': 'يمكن أن تحتوي دورة الحياة على {{max}} انتقال كحد أقصى.',
   'errors.too_many_rules': '{{max}} قاعدة كحد أقصى لكل نوع سجل.',
+  'errors.transition_condition_not_met': 'تغيير الحالة هذا غير متاح لك على هذا السجل الآن.',
   'errors.transition_not_allowed': 'تغيير الحالة هذا غير متاح لك على هذا السجل.',
   'errors.transition_not_found': 'هذا التغيير في الحالة ليس جزءًا من دورة الحياة.',
   'errors.unauthenticated': 'يرجى تسجيل الدخول للمتابعة.',
@@ -969,5 +1071,6 @@ export const ar: LabelResource = {
   'errors.workflow_instance_not_found': 'لم يُعثر على تشغيل سير العمل هذا.',
   'errors.workflow_job_not_found': 'لم يُعثر على هذه المهمة.',
   'errors.workflow_version_not_found': 'لم يُعثر على هذا الإصدار من سير العمل.',
+  'errors.worklog_record_closed': 'لا يمكن تسجيل الوقت أو تغييره في سجل مغلق هنا.',
   'errors.would_lose_access': 'بعد هذا التغيير لن ترى {{display_id}} بعد الآن. أكّد لتسليمه.',
 };

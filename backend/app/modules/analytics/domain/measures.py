@@ -58,6 +58,9 @@ class MeasureSpec:
     end: str | None = None  # AVERAGE_DURATION (records without an end are not averaged)
     minus: str | None = None  # AVERAGE_DURATION: a seconds field to subtract (paused time)
     where: Any = None  # COUNT_WHERE, RATE: a filter DSL tree over the same fields
+    # RATE only: the records the share is of (default: all). A group with none of them has no
+    # rate (shown as no data), never 0% (WP-045d S4c: success rate is of changes with an outcome).
+    of: Any = None
 
 
 _OPEN = {"field": "status_category", "op": "in", "value": ["open", "paused"]}
@@ -192,13 +195,127 @@ ASSET_MEASURES: tuple[MeasureSpec, ...] = (
     MeasureSpec("total_cost_total", MeasureKind.TOTAL, Unit.NUMBER, field="total_cost"),
 )
 
+# Changes (WP-045d S4c, REQ-CHG-116): how they went. Every field is part of what a viewer of the
+# change already sees on its record, and the source holds only the changes they may list, so no
+# measure needs a permission of its own. Rates are of a stated set: success of the changes whose
+# implementation has an outcome; emergency and retrospective shares of all changes counted.
+_OUTCOME_SET = {"field": "implementation_outcome", "op": "is_not_null"}
+CHANGE_MEASURES: tuple[MeasureSpec, ...] = (
+    *COUNT_ONLY,
+    MeasureSpec(
+        "success_rate",
+        MeasureKind.RATE,
+        Unit.PERCENT,
+        Better.UP,
+        where={
+            "field": "implementation_outcome",
+            "op": "in",
+            "value": ["successful", "successful_with_issues"],
+        },
+        of=_OUTCOME_SET,
+    ),
+    MeasureSpec(
+        "failed_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={"field": "implementation_outcome", "op": "in", "value": ["failed", "backed_out"]},
+    ),
+    MeasureSpec(
+        "emergency_share",
+        MeasureKind.RATE,
+        Unit.PERCENT,
+        Better.DOWN,
+        where={"field": "stage_path", "op": "eq", "value": "emergency"},
+    ),
+    MeasureSpec(
+        "retrospective_share",
+        MeasureKind.RATE,
+        Unit.PERCENT,
+        Better.DOWN,
+        where={"field": "retrospective", "op": "eq", "value": True},
+    ),
+    MeasureSpec(
+        "freeze_override_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={"field": "freeze_overridden", "op": "eq", "value": True},
+    ),
+    # Actual implementation time only: changes without both actual times are not averaged.
+    MeasureSpec(
+        "average_implementation_time",
+        MeasureKind.AVERAGE,
+        Unit.SECONDS,
+        Better.DOWN,
+        field="implementation_seconds",
+    ),
+    MeasureSpec(
+        "planned_downtime_total",
+        MeasureKind.TOTAL,
+        Unit.SECONDS,
+        field="planned_downtime_seconds",
+    ),
+    MeasureSpec(
+        "actual_downtime_total",
+        MeasureKind.TOTAL,
+        Unit.SECONDS,
+        Better.DOWN,
+        field="actual_downtime_seconds",
+    ),
+)
+
+# Releases (WP-058b S5b, REQ-REL-060): how they went. As for changes, every field is something a
+# viewer of the release already sees, and the source holds only the releases they may list. The
+# on-time rate is of the releases whose deployment ended (AC2: ended before its stage's
+# scheduled end); a release still deploying is neither on time nor late.
+RELEASE_MEASURES: tuple[MeasureSpec, ...] = (
+    *COUNT_ONLY,
+    MeasureSpec("open_count", MeasureKind.COUNT_WHERE, Unit.COUNT, Better.DOWN, where=_OPEN),
+    MeasureSpec(
+        "on_time_rate",
+        MeasureKind.RATE,
+        Unit.PERCENT,
+        Better.UP,
+        where={"field": "deployed_on_time", "op": "eq", "value": True},
+        of={"field": "deployment_ended", "op": "eq", "value": True},
+    ),
+    MeasureSpec(
+        "overdue_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={"and": [_OPEN, {"field": "stage_overdue", "op": "eq", "value": True}]},
+    ),
+    MeasureSpec(
+        "failed_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={
+            "field": "status",
+            "op": "in",
+            "value": ["deployment_failed", "deployment_rolled_back"],
+        },
+    ),
+    MeasureSpec(
+        "average_approval_turnaround",
+        MeasureKind.AVERAGE,
+        Unit.SECONDS,
+        Better.DOWN,
+        field="approval_turnaround_seconds",
+    ),
+)
+
 MEASURES: Mapping[str, Mapping[str, MeasureSpec]] = MappingProxyType(
     {
         "incident": MappingProxyType({m.code: m for m in INCIDENT_MEASURES}),
         "asset": MappingProxyType({m.code: m for m in ASSET_MEASURES}),
+        "change": MappingProxyType({m.code: m for m in CHANGE_MEASURES}),
+        "release": MappingProxyType({m.code: m for m in RELEASE_MEASURES}),
         **{
             entity: MappingProxyType({m.code: m for m in COUNT_ONLY})
-            for entity in ("service_request", "problem", "release")
+            for entity in ("service_request", "problem")
         },
     }
 )

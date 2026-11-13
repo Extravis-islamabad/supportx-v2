@@ -30,6 +30,7 @@ class FailureReason(StrEnum):
     DISCONNECTED = "disconnected"  # the worker runs but cannot reach PostgreSQL or NATS
     BACKLOG = "backlog"  # events wait to be published for longer than they should
     STALE_SIGNATURES = "stale_signatures"  # ClamAV's signatures are too old (no updates arrive)
+    TOO_MANY_KEYS = "too_many_keys"  # more sign-in keys listed than an overlap needs (D-162)
     ERROR = "error"
 
 

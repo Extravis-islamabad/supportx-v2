@@ -10,6 +10,8 @@ either way.
 import uuid
 from collections.abc import Awaitable, Callable
 
+import valkey.exceptions
+
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.core.valkey import client as valkey_client
@@ -22,18 +24,23 @@ from app.shared.realtime import SESSION_ENDED, CentrifugoClient, CentrifugoError
 log = get_logger(__name__)
 
 TenantSessionEnder = Callable[[uuid.UUID, uuid.UUID], Awaitable[None]]
+KeycloakSessionInUse = Callable[[uuid.UUID, uuid.UUID, str], Awaitable[bool]]
+
+
+class SessionsUnavailable(Exception):
+    """The session store (Valkey) did not answer: whether a session is live is unknown."""
 
 
 def worker_session_ender(settings: Settings) -> TenantSessionEnder | None:
     """`end(tenant_id, user_id)`, or None where sessions are not configured (tests, dev)."""
-    if settings.valkey_url is None or settings.session_secret is None:
+    cipher = SessionCipher.from_settings(settings)
+    if settings.valkey_url is None or cipher is None:
         return None
-    secret = settings.session_secret.get_secret_value()
 
     async def end(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         kv = valkey_client(settings)
         try:
-            store = SessionStore(ValkeyKeyValue(kv), SessionCipher(secret))
+            store = SessionStore(ValkeyKeyValue(kv), cipher)
             await store.end_user_sessions(
                 user_key(str(tenant_id), str(user_id)), system_clock.now(), MAX_SESSION
             )
@@ -52,3 +59,24 @@ def worker_session_ender(settings: Settings) -> TenantSessionEnder | None:
             await realtime.aclose()
 
     return end
+
+
+def worker_keycloak_session_in_use(settings: Settings) -> KeycloakSessionInUse | None:
+    """`in_use(tenant_id, user_id, keycloak_session_id)`, or None where sessions are not set up."""
+    cipher = SessionCipher.from_settings(settings)
+    if settings.valkey_url is None or cipher is None:
+        return None
+
+    async def in_use(tenant_id: uuid.UUID, user_id: uuid.UUID, keycloak_session_id: str) -> bool:
+        kv = valkey_client(settings)
+        try:
+            store = SessionStore(ValkeyKeyValue(kv), cipher)
+            return await store.keycloak_session_in_use(
+                user_key(str(tenant_id), str(user_id)), keycloak_session_id
+            )
+        except (valkey.exceptions.ValkeyError, OSError) as exc:
+            raise SessionsUnavailable from exc
+        finally:
+            await kv.aclose()
+
+    return in_use

@@ -38,6 +38,35 @@
   list has no row checkboxes or selection bar. It is built in **WP-047a** (SR V1, lane A). Until
   then the list shows no checkboxes at all, rather than dead ones.
 
+### Engineering-practices audit (#444), lane B security items
+
+Branch `fix/security-audit-a` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b.md):
+- [x] Row 4, login CSRF: each browser sign-in bound to its browser (per-sign-in cookie).
+- [ ] Row 3, egress: SaaS values profile with `networkPolicies.egress.enabled` on. **Blocked:**
+  no SaaS values file exists yet (WP-014d builds the SaaS cell); turn egress on there. The
+  `fetch.py` DNS-pin part is another lane's.
+- [x] Row 14, lane B's part: per-address limits on `/auth/login` and `/auth/callback` (fail
+  closed), public branding, domain check, public action links; `organization` limits on
+  `/organization/tenant` and `/organization/settings`. Still open: automation (lane C) and custom
+  fields (lane A) routes, `/auth/me`, `/auth/sessions`, realtime tokens, `/my-tasks`,
+  `/my-reminders`; API keys sharing their owner's budget.
+- [x] Row 15, HSTS on the console and portal nginx responses. Still open from the audit's HSTS
+  row: the chart's port-80 listener with an https redirect.
+
+Branch `fix/security-audit-b1` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b-b1.md):
+- [x] Row 26, API-key HMAC key: `SUPPORTX_API_KEY_SECRET` required in production (32+ characters),
+  never the session secret; keys hashed under the old derived key move on their next good call
+  while `SUPPORTX_SESSION_SECRET` stays set. Chart passes `api-key-secret`, secrets.sh makes it.
+- [x] Row 26, refresh-token rotation: `revokeRefreshToken` on, `refreshTokenMaxReuse` 0 (realm
+  files and the keycloak-identity Job); the BFF never saves or re-sends a spent token.
+- [x] Idempotency-Key on `POST /api/v1/audit/saved-searches`.
+- [x] Row 14 follow-ups: IPv6 counted per /64 in `ip_rate_limit`; a rate-limited callback goes
+  back to the app its sign-in started in.
+- [x] Row 27, Semgrep in CI with the repo's own rules (`.semgrep.yml`, `make semgrep`); not a
+  required check yet.
+- [ ] Row 3, LDAP host pin: waits for `app/shared/egress/sockets.py` (`pinned_address`), not on
+  main yet.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -92,6 +121,13 @@ decisions D1-D13 (D-038).
    › Automation (Triggers, Transitions, Business rules, Routing) and Admin › Organization use a
    class nothing defines, so they are probably visible. Switch them to `.sx-visually-hidden` once
    lane C's header branch lands; check with axe and a screenshot.
+6. **D-162 (lane B, 2026-11-12): rotatable sign-in key ring built** (ADR-048, migration 0146,
+   docs/guides/rotating-the-sign-in-key.md). Lane C's WP-057 is to reuse its blob format and
+   key-users hook. Migration 0146's `down_revision` is re-pointed at queue time.
+7. **Follow-up: a platform audit log for installation events** (coordinator, #418). Events of
+   the installation rather than a tenant (sign-in key rotations, D-162) are written into every
+   tenant's log today, by a background announcer; a platform log for the operator would hold
+   them once. Needs an ADR (it sits beside ADR-027's per-tenant chain).
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -289,6 +325,43 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   every replica connected to it (master); afterwards only the server counts. Tests in
   `backend/tests/ha/test_valkey_failover.py`; the remaining unplanned-crash gap is in
   [deployment.md](deployment.md) (Profiles, "Valkey failover and readiness").
+  **HA cluster DNS fix (2026-11-12, lane B, branch `fix/ha-cluster-dns-valkey`):** Cluster run
+  43082299609 stopped the node with k3s's only CoreDNS copy; for about six minutes nothing
+  resolved, the sentinels kept entering TILT and every later failover aborted
+  (`-failover-abort-no-good-slave`). Now cluster DNS runs two copies on different nodes
+  (`deploy/k3s/cluster-dns-ha.sh`, run by `make cluster-up-ha` and documented for on-prem and
+  customer-managed clusters), `deploy/k3s/ha-preflight.sh` warns about a single copy, Valkey's
+  pods use short lookups of fully qualified names (`dnsConfig`), node-loss.sh waits for Sentinel
+  to settle first, and a new test stops the node with the Valkey master after a failover
+  (`make cluster-ha-valkey-node-loss`). Proven only by the next Cluster dispatch.
+  Round 2 (proving run 43148329223, node-loss red: the stopped node held the PG primary, the
+  Valkey master and a CoreDNS copy; SDOWN 77 s after the stop, every failover aborted): Sentinel
+  down-after 10 s (a 100 s replica allowance) and failover-timeout 30 s (an aborted failover
+  retries after 60 s); node-monitor grace period 20 s in `deploy/k3s/config-ha.yaml` and the k3d
+  HA cluster; a forced worst-case test, master plus CoreDNS on the stopped node
+  (`make cluster-ha-valkey-node-loss-dns`).
+  - [x] NodeLocal DNSCache (D-163, 2026-11-13) removes the dead-endpoint window, without a
+    shorter grace period: `deploy/k3s/node-local-dns.sh`, required by the preflight; the
+    node-loss budgets are back to 60 s and a sentinel TILT fails the test.
+  Round 3 (2026-11-12, the coordinator's sweep of single copies in the HA profile; the proving
+  run lost k3s's only Traefik copy with the stopped node and no request was answered for 90 s):
+  Traefik two copies with required anti-affinity (`deploy/k3s/traefik-ha.yaml`, a
+  HelmChartConfig; the k3d HA cluster uses the same file, `deploy/k3s/traefik-ha.sh` checks);
+  NATS and the CloudNativePG cluster with required anti-affinity; workflow timers 2; ClamAV 2
+  with staggered signature pulls; fast eviction (30 s) for the single-copy fan-out and index
+  workers; the preflight checks all of it (`make cluster-ha-preflight` after the install, CI
+  too) and node-loss.sh proves live updates resume after the fan-out moves. What runs how many
+  copies: [deployment.md](deployment.md) (Profiles).
+  - [x] **Bundled HA SeaweedFS (D-166, ADR-038 Addendum A):** in `values-ha.yaml` SeaweedFS's
+    own replication: 3 masters (raft), 3 volume servers with replication 001 (two copies on two
+    nodes), 2 filers with the S3 gateway behind the unchanged Service; the filers' metadata in
+    its own database and role in the release's CloudNativePG cluster (same backups, checked by
+    the restore drill). The preflight checks the spread and the replication; the HA job's
+    object-storage node-loss test (`make cluster-ha-objects-node-loss`) stops the node with the
+    raft leader and a volume server. External S3 stays supported. Moving a single-copy install
+    is a documented rclone copy ([deployment.md](deployment.md), Profiles). Still open: the
+    file-store backup (audit gap #1); the single-node pod still sends SeaweedFS's anonymous
+    usage statistics (its golden file unchanged here; fix in its own PR).
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -316,7 +389,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Scope:** `values-saas.yaml`; External Secrets Operator; cert-manager with DNS-01 wildcard
   certificates; managed PostgreSQL option; admission-time signature verification; per-tenant
   hostnames (WP-017).
-- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite.
+- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite;
+  the egress NetworkPolicy allow-list (`networkPolicies.egress`) is ON in `values-saas.yaml`, with
+  the Kubernetes API addresses set, and the egress check passes on the cell (audit #3, the
+  coordinator 2026-11-12; until then the app-level pins are the protection: IMAP hosts #446,
+  fetch.py WP-057 S1, LDAP hosts lane B's security PR B).
 - **Depends on:** WP-014c, WP-017
 
 ### [ ] WP-015 — Clickable prototype of console and portal
@@ -1278,6 +1355,133 @@ it with no reload (rule c). Not built yet.
   - add_child refuses any holding loop through lane C's `release_links.holds`.
   - **Still open:** the "caused incidents" change report field and the `caused_by_change` link
     kind (REQ-CHG-116) come once #396's type fields are on main.
+    The link kind's CHECK is already widened (0141), so that step needs no migration.
+- **S2 (0144; REQ-INC-040, -077, -078, -080, -082; #407):**
+  - Checklists: typed or from the library, several per record. A tick records who and when.
+    Unticked items are open work, completed by the system on close.
+  - Record templates add their checklists when their condition matches.
+  - The library has a read-only CSV import (5 MB, 5,000 rows, 40 columns; bad rows listed).
+  - A list past `checklist_item_max` (Admin › Incidents › Closing) is refused whole.
+  - All files: the record's own, its replies' and notes', listed in one tab and downloadable as
+    one zip. Lane B's rules apply: each file checked again, left-out files named in
+    `manifest.txt`, two downloads per person at once, 200 files and 500 MB, audited.
+  - Personal reminders: on the record and in the header drawer, the owner's only, alerted once
+    by a sweep, live on the personal channel.
+  - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
+    reserved for S3).
+- **S5a (0154; REQ-INC-041, -042; reply and resolution templates):**
+  - A template is a reply (the composer) or a resolution (the resolution editor), with an
+    optional subject and its text in en, ar and ur.
+  - Personal templates are their owner's only, administrators included. Shared ones need the
+    type's settings right to write and may be limited to groups.
+  - Variables come from the one notification catalogue; an unknown one is refused on save.
+    Filling happens on the server: values go in escaped, an empty one reads "not set", and the
+    result is sanitised again.
+  - The language is the screen's choice, then the requester's, then the tenant's default, then
+    any the template has.
+  - Resolution templates of the record's category come first.
+  - Migration 0154 keeps each old text under its tenant's default language. The downgrade is
+    refused once anything new is used.
+  - The shared editor's template menu awaits an optional `fill()` (lane C's conditions). The
+    composer and move dialog fill on the record's own route prefix (incidents, requests).
+  - **Still open:** problems' and changes' move dialogs offer no resolution templates yet.
+    S5b is the form designer and rules, S5c copy, quick create and server drafts.
+- **S5b (0155; REQ-INC-036, -037; form designer and form rules):**
+  - Migration 0155 adds `work_item_templates.layout` and `form_rules` (expand only).
+  - Layouts: sections with names in en, ar and ur, one or two columns, collapsible (optionally
+    starting closed), and labels above or beside. Requesters get their own layout or the
+    technician one. A field no section names goes at the end, so a new custom field is never
+    lost.
+  - Form rules: show, hide (optionally keeping the value), require, lock or set, on a condition.
+    Conditions are a bounded part of the filter DSL: eq, ne, in, not_in, is_null and
+    is_not_null, with and/or nesting at most 3 deep and at most 20 conditions.
+  - The Python and TypeScript evaluators run the same vectors
+    (`docs/architecture/form-rule-vectors.json`, AC3).
+  - The server enforces the rules on every create and edit, from the console, portal, e-mail
+    or API:
+    - a rule's `required` is the same field error as the browser's (AC1);
+    - a hidden field is cleared, through history, unless the rule keeps it (AC2);
+    - a locked field changed by hand is `field_locked`;
+    - a rule's value fills an empty field.
+    - On an edit, a field is required only when the edit newly requires it or empties it
+      (D-086).
+  - The portal gets only the rules and sections over the requester's own fields (036 AC2).
+  - The designer in Admin › Incidents › Templates is keyboard-first: every move is a button or
+    a choice. It previews the technician and requester forms in both reading directions
+    (036 AC3) and links to making a new custom field.
+  - **Still open:**
+    - drag to reorder (keyboard moves for V1, plan answer 3);
+    - the portal form draws only subject and description today, so requester sections take
+      effect there once it shows more fields;
+    - rules over assignment fields don't run on the assign route;
+    - a rule (or a template setting) that requires a field requesters can't fill blocks portal
+      creates from that template, as base template settings already do. Follow-up (lane B): a
+      save-time check on for_requesters templates that refuses or warns when a rule requires,
+      sets or hides a field requesters can't fill;
+    - designer keyboard polish (lane C, non-blocking): keep focus after a move, a remove or at
+      a list's end, and announce moves to screen readers.
+- **S3 PR 1 (0147; REQ-INC-068, -069, -070; D-164):**
+  - Worklogs are billable or not, and take their owner's cost per hour when the time started
+    (lane B's `cost_rate`, #427; a snapshot, never rewritten). Other-cost lines are in the base
+    currency, or another currency with the rate entered (D-164: no automatic rates).
+  - Totals: billable and non-billable time, technician, other and total cost.
+  - `<type>.view_costs` (D-164) gates every cost on incidents, requests, problems, changes and
+    releases, a task's extra cost included: the service desk manager everywhere, the change
+    manager on changes, the release manager on releases. Without it the API hides them.
+  - Closure settings: no time on closed records (409), count non-working hours, timer
+    auto-start (off by default).
+  - Personal timers: one per person per record, on the server; stop prefills a worklog; resolve,
+    close or cancel turns running timers into drafts that count once their owner confirms them;
+    auto-start once for the record's technician. Live on the personal channel only.
+- **S3 PR 2 (no migration; REQ-INC-071; #432):** time analysis per status, group and
+  technician, open and paused, on the record's calendar; the incident's Time tab.
+- **S4a (0152; REQ-INC-049 AC1-AC3; ADR-049 with Amendment 1):**
+  - `work_item_lifecycle_versions`: each life cycle's versions (draft, published, retired), for
+    action-based and staged types. The data step makes every life cycle version 1, published,
+    and gives every record and staged transition version 1, once per tenant, records in
+    batches. The downgrade refuses once anything is beyond version 1.
+  - A record runs on its own version: the catalogue loads every runnable version, and a new
+    record starts on the latest published one. Publishing never changes a record made before.
+  - Versions over HTTP (`/settings/lifecycles/{lifecycle}/...`): start a draft (a copy), replace
+    its moves (saved with its problems, each naming what to fix), publish only without
+    problems, throw it away, retire a version new records no longer start on. If-Match on the
+    type's settings version, audited, live.
+  - A move gains, per version, an extra right and fields needed first; the offer lists them and
+    the move refuses (403 naming the right; 422 `required_for_move`).
+  - Who may run a move stays WP-029's transition settings, **version-wide** (Amendment 1),
+    hardened to ADR-049 §5: one function for the offer and the move, facts read after If-Match,
+    a 403 `transition_condition_not_met` with only its kind, fail closed, roles and groups
+    checked within the tenant at save, run-as identities limited like people. One test per rule.
+  - Admin › Incidents › Life cycle and Admin › Service requests (template E): versions, the
+    draft's moves as a table, problems in words, publish saying existing records stay on their
+    version. Guide: docs/guides/life-cycle-versions.md.
+  - **Not yet (S4b, no migration):** the canvas designer on packages/flow (AC4), migrating
+    records to a newer version (§7), staged types' version editing (§8; they keep version 1),
+    and problems' settings page (none exists yet; the API serves problems already).
+- **S5c part 1 (no migration; REQ-INC-018 quick create):**
+  - Incidents list › Quick create: subject, requester and an optional priority (with its
+    reason), without leaving the list.
+  - It is the same create as the full form: the default template's starting values go with it
+    and the server applies its rules. A field they need that the dialog lacks is named, with
+    "Open the full form" (template and requester carried over; AC2).
+  - The list updates live (AC1).
+  - **Next:** server drafts (REQ-INC-019) wait for WP-057 S3's field encryption, as approved;
+    today's drafts are kept in the tab (sessionStorage).
+- **S5c part 2 (0156; REQ-INC-033 copy N times):**
+  - Incident › More › Copy: how many (up to the type's limit), and whether its tasks and
+    attachments come. Each copy is a new record through the same create (the template's rules
+    apply), its subject "Copy 2 of: …", its history naming the original. Conversations,
+    worklogs, history, approvals and the assigned person never come (AC2).
+  - Attachments come as new files, each encrypted under its own ID and linked to the copy; the
+    description's images point at the copy's own files. Files that cannot be opened now
+    (scanning, infected, too large, blocked) stay behind, are listed, and their images are
+    removed. One record the actor may not use refuses the whole call (404, nothing written);
+    200 file pairs and 100 MB per call; each copy audited as `file.copied` (lane B's rules).
+    25 MB x 2 copies in about 2 s locally.
+  - Admin › Incidents › Closing › Copies at once: 1 to 100, 20 by default (AC3); a refusal says
+    the limit at the count.
+  - Migration 0156: `work_item_type_settings.copy_limit` and the `copy` file source; the
+    downgrade refuses while a tenant holds a copied file or a changed limit (rule 5h).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -1587,7 +1791,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11; 4c 2026-11-12)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1822,6 +2026,38 @@ it with no reload (rule c). Not built yet.
   - **Follow-up (WP-049b):** batched inserts for imports (rows written in batches, not one
     savepoint per row). If a 20,000-row run takes more than about 10 minutes on the stack, this
     is done before the polish round, not after QA (coordinator, 2026-11-11).
+  - **S4c result (#434, 2026-11-12): below target.** CI, 20,000 rows: dry run 596 → 425 s, real
+    run 936 → 589 s (29.4 ms a row), against targets of 120 s and 240 s. The coordinator shipped it
+    as it was (correct, reviewed, 35-40% faster) and asked for a profile by phase.
+  - **Profile (2026-11-12):** SQL is about 87% of the time: about 16 statements per created row
+    at about 1 ms each, none slow. The dry run costs as much as the run (it writes, then rolls
+    back).
+  - **Step A (assets only, this PR):** 27,072 → 14,862 statements for a 1,000-row dry run plus
+    run (−45%), about 7.4 per created row, all of them inserts:
+    - #435's per-transaction definitions memo (custom fields): 2 reads a row gone;
+    - the asset limit's advisory lock taken once per transaction (taken again after a rolled-back
+      savepoint, which releases it);
+    - a new asset's INSERT returns its defaults (no SELECT after it);
+    - the product kept for the (sub)transaction;
+    - no scope query for a just-saved asset when the manage grant is scope "all" without a
+      condition (`unrestricted`);
+    - the batch's taken tags and serials in one query (in-batch duplicates still refused);
+    - tag numbers in one block per batch, the unused rest handed back before the savepoint is
+      released. A dry run takes none, a batch with a refused row redoes row by row, and no gap
+      is left (the coordinator's rule; tested).
+    CI (Audit scale run 43189974597, 20,000 rows): real run 228.2 s (target 240 s, met), dry run
+    219.6 s (target 120 s, not yet: Step B).
+  - **Step B (approved by the coordinator and lanes A and C, 2026-11-12):** an import batch's
+    outbox events, field history, audit entries (with their personal rows and sealing queue) and
+    valuations are buffered (`app/shared/db/deferred.py`, `deferred_writes`, import-only) and
+    written as one multi-row INSERT per table, chunked under asyncpg's parameter limit, in
+    foreign-key order with the outbox last, before the batch savepoint is released. The dry run
+    discards the buffer instead of writing it. Rows are built exactly as before (ids, times and
+    entry hashes at the call), so the relay (ORDER BY id) and audit sealing (occurred_at,
+    entry_id) see the same order. A savepoint rolled back inside the block drops its rows. A
+    guard raises if a buffered table is read or written around the buffer while rows wait.
+    Locally: 14,862 → 2,911 statements for 1,000 rows, dry run plus run (about 1.1 per created
+    asset). The CI figure goes in the PR.
   - **Merge and links:** the merge moves every live work-item link of the duplicate, including
     records the merging person may not see (only a count comes back to them), inside the
     merge's own transaction (lane A's note).
@@ -1844,7 +2080,213 @@ it with no reload (rule c). Not built yet.
     (change product as such, add to group and loanable stay synchronous, depreciation, labels,
     scan now), field mapping in the import wizard (fixed headings for now), imports of licences,
     CIs, contracts and POs (their modules), loans and bookings moving on merge (refused
-    instead), a faster import path for 20,000 rows, the e2e journey.
+    instead), the e2e journey.
+- [x] **Session 4c (no migration; faster asset imports, the S4b follow-up; coordinator
+  conditions 2026-11-12):** each row still goes through `create_asset` / `update_asset` (or the
+  consumable and vendor calls) with its own permission check, history, outbox event and audit
+  entry; no bulk INSERT. What changed around them (`service/imports.py`):
+  - Product, site and vendor names resolved once per job (`Lookups`: made per job for its
+    tenant and importer, refuses any other session, answers as `find_site` / `find_vendor_id`
+    do, which apply no person's scope); the records a batch matches read in one query
+    (assets by lower(tag or serial), consumables by product, vendors by name through
+    procurement's new `find_vendors`).
+  - Rows checked first without writing, in the row path's order; the passing rows of a batch
+    go through the services in one savepoint (rolled back in a dry run); any refusal rolls it
+    back and redoes those rows one by one, each in its own savepoint and checked afresh, so the
+    problems are exactly the row path's. A key twice in a batch splits the savepoint there.
+  - A transaction ends after 100 rows or about 2 s (`BATCH_SECONDS`), so the tag counter row
+    and the asset limit's lock are held briefly; tag numbers still come from the caller's
+    transaction, so a dry run gives them all back.
+  - The asset service reads tenant configuration (defaults, the default state, settings, the
+    type tree, the time zone) once per (sub)transaction (`service/memo.py`), skips reads a new
+    asset cannot need (cost lines, disposal, custom-field definitions without custom values,
+    a second UPDATE, a second advisory lock), and in an import's batch savepoint counts the
+    asset limit once under its lock, then adds one per slot taken (a refusal redoes the rows
+    one by one with fresh counts).
+  - Measured locally (backend/tests/db/test_asset_import_scale.py, 2,000 rows, the loaded
+    shared Mac): before 70.5 s dry run, 75.1 s run (35 and 38 ms a row); after 32.8 s and 33.2 s
+    (16 and 17 ms a row). The CI figure for 20,000 rows comes from an audit-scale dispatch
+    (`asset_import_rows`), not from this Mac.
+  - Tests: tests/db/test_asset_import_batches.py (8: lookups per job, tenant and importer;
+    the out-of-scope rows of a mixed batch refused one by one; one refused row in a full batch
+    with exact problems; tag numbers untouched by a dry run and one per saved row; a manual add
+    waits about one 2 s transaction (measured 2.0 s); consumables matched as before); the S4b
+    import tests unchanged.
+  - **Open:** the remaining per-row reads are other modules' (custom-field definitions three
+    times, the licence count and lock, the audit entry) or the save itself; a further step
+    (a per-transaction cache of metadata's definitions, eager server defaults instead of the
+    refresh after insert) needs those owners. The import of a site-scoped manager may add
+    assets at any site, as `create_asset` allows today (only updates are scope-checked).
+
+### [~] WP-057 — Security and audit: sign-in policy, network rules, sign-in log, encryption, service accounts (lane C; D-149; plan approved 2026-11-12; 6 sessions; lane B blocks every PR)
+
+- [x] Session 1a (2026-11-12): IP allow-lists, the sign-in log and the SSO fetch pin. Migration 0151.
+  - **REQ-SEC-034 (IP allow-lists), AC1-AC3:**
+    - One list per app: console, portal and API (keys).
+    - Checked before the person is looked up or created, at sign-in and at a tenant switch. A
+      person in several tenants lands in one that admits them.
+    - Checked again at every refresh and at the realtime token.
+    - A save that would shut out the admin is refused (AC2). Every change is audited.
+  - **REQ-AUD-015 (sign-in log):**
+    - The BFF writes sign-ins, IP refusals and sign-outs (person only where known; a device
+      code, never the User-Agent).
+    - Live, behind its own right (`identity.view_sign_ins`, tenant admin only, grantable; each
+      read audited).
+    - Erasure clears the address and device. Entries go after 90 days.
+    - **AC2 met. AC1 (a failed SSO's reason) OPEN until S1b**, with the Keycloak events import.
+  - **Audit #3 (fetch part):** set-up checks are pinned through the guarded egress client.
+    Private ranges only where the installation lists them.
+  - **Tests:** ip_allow_lists (7), network_rules_api (4), sign_in_log_api (4), api_keys (+1),
+    auth suites unchanged (109), domain (network 9, sign_in 15), Vitest network (3) and sign-ins
+    (3). test_auth_keycloak is split in three (12 pass).
+- [x] Session 1b (2026-11-13): SSO required, break-glass, MFA with SSO, the verified sign-in
+  method, the Keycloak events import. Migration 0153.
+  - **REQ-SEC-009 (SSO required), AC1-AC3:**
+    - Off, technicians or everyone. It is judged on the verified token, before anyone is created,
+      at sign-in and at a tenant switch.
+    - Turning it on needs an emergency (break-glass) administrator (AC2). The last one cannot be
+      removed while it is on.
+    - Only another tenant admin names one, never yourself, and only an admin with MFA. The IP
+      exemption is a separate, audited setting.
+    - Every emergency sign-in is audited and alerts the other admins (a required, urgent
+      notification). Emergency sign-ins are rate-limited per address.
+  - **REQ-SEC-026 (MFA with SSO):**
+    - The identity provider's MFA is trusted by default (AC1).
+    - With "also require MFA", the tenant's own providers get the post-broker OTP flow (AC2).
+      Other tenants' providers are never touched.
+  - **The verified method:**
+    - The realm mapper `sx_idp` sits on both app clients, added if missing and restored if
+      changed.
+    - Proved in a real Keycloak: password tokens (browser code flow and direct grant, both apps)
+      and directory tokens never carry it; a brokered sign-in carries the alias.
+  - **REQ-AUD-015 AC1 (Keycloak events import):**
+    - Every 60 s, as `supportx-events` (view-events only). Only the consumers worker and the
+      identity Job hold its secret; a rendered-chart test pins this for single-node and HA.
+    - Each event goes to the one tenant its provider alias (confirmed under RLS) or address
+      names. The shared address is counted, never guessed.
+    - The cursor is a millisecond plus an offset, over settled milliseconds only (now - 5 s).
+      Writes are idempotent per event, at most 5,000 per run, and the cursor moves only after
+      the commit.
+  - **Screen:** Single sign-on required card, with the admins' emergency and IP-exemption
+    switches, live.
+  - **Tests:**
+    - Backend: sso_policy_api (5), sso_required_sign_in (4), sign_in_import (3), the
+      keycloak_identity tooling (14 + 2).
+    - Real Keycloak: idp claim (3) and LDAP federation (4).
+    - Chart: events secret, single-node and HA.
+    - Vitest: SSO policy card (2).
+- [x] Session 2a (2026-11-13): recent re-authentication and the sessions list. No migration.
+  - **REQ-SEC-027 (confirm it is you), AC1-AC2:**
+    - 28 sensitive routes carry `RecentAuth` and are listed in one constant
+      (`app/core/recent_auth.py`). A guard test checks the list both ways.
+    - The rule: a browser session that proved who it is in the last 10 minutes. API keys get
+      `api_key_not_allowed`, the mobile app `interactive_session_required`, and anyone else
+      `reauth_required` (403, so the console never reads it as signed out).
+    - `auth_time` is taken only from the verified, nonce-bound ID token, at sign-in and at a
+      confirmation, never from a refresh.
+    - **The confirmation** (`/auth/confirm`, then Keycloak with `prompt=login`, `max_age=0`,
+      and `kc_idp_hint` for SSO people):
+      - Single use, 5 minutes, from the same browser and for the same session.
+      - `azp` is our client, `sub` is the session's person, and `auth_time` is no older than
+        the start.
+      - It replaces the session's tokens and never creates a session. A new Keycloak `sid`
+        ends the old one.
+      - A refusal changes nothing and goes in the sign-in log as `reauth_failed` (AC2).
+    - **SSO:** the OIDC brokers SupportX makes pass `max_age` (`passMaxAge`). A real-Keycloak
+      test proves the brokered provider is asked again. SAML providers fail closed with
+      `reauth_unavailable`.
+    - **The pop-up:**
+      - The console and portal ask first, and the click opens the pop-up. A blocked pop-up
+        confirms in the whole page.
+      - The API's COOP cuts `window.opener`, so `/confirmed` answers on a same-origin
+        BroadcastChannel tagged with the opener's random attempt id. The answer is only
+        `{type, attempt, status}`.
+      - The opener takes only its own attempt's answer, then retries the change once with
+        the same Idempotency-Key. The way back is always a path on this site.
+    - **Routes still to join the list as they are built:** service identities (S4), webhook
+      secrets and SMTP settings (WP-055), erasure, and changing your own e-mail.
+  - **REQ-SEC-030 (sessions everywhere else):**
+    - Each session shows the device and the address it signed in from. Only its owner and
+      tenant admins see them.
+    - "Sign out everywhere else" is rate-limited and audited with the count only. Each ended
+      session's Keycloak session ends too, except this browser's console/portal twin.
+  - **Tests:**
+    - Backend: confirm_identity (5), sessions_everywhere_else (4), recent_auth_routes (2), the
+      auth BFF suite unchanged (68), domain (30).
+    - Real Keycloak: auth_keycloak (8), isolation (4), realm (1), the idp claim (4, with the
+      brokered provider asked again) and LDAP federation (4).
+    - Vitest: the api-client retry (4), the pop-up, `/confirmed` and the way back (22), the
+      sessions card (26 with the sign-in log).
+    - e2e: `confirm-identity.spec.ts` (AC1 within 5 s, real Keycloak), run by the PR's e2e job.
+- [x] Session 2b-1 (2026-11-13): the approximate place, known devices, and the first security
+  notices. Migration 0157. D-170 is recorded in this PR.
+  - **The place (D-170):** sessions and the sign-in log show where a sign-in came from, in a
+    fixed order:
+    - an admin-mapped address range shows its site (Admin › Security, the most specific range
+      wins, saved whole under the settings version, audited);
+    - an internal address shows "Internal network", never a guessed city;
+    - otherwise the DB-IP Lite city and country.
+    The sign-in log stores no place: it is read from the stored address, so erasure takes both.
+    A session keeps the place of its sign-in, worked out again at a tenant switch.
+  - **The GeoIP file:** the `maxminddb` reader on the file at `SUPPORTX_GEOIP_DB`.
+    - It comes from `geoip.existingClaim`, mounted read-only into the API pods only. The ~126 MB
+      file is never in an image.
+    - Any failure means no place, never an error.
+    - Admins see the file's build date. DB-IP is credited on About (CC BY 4.0), and
+      deployment.md says how to provide and refresh it.
+  - **Known devices (REQ-SEC-033, part 1):**
+    - keyed fingerprints only (HMAC under a known-device key from the session ring; device code
+      plus /24 or /48), checked under every ring key, so a rotation never makes devices new;
+    - at most 50 per person, deleted by erasure;
+    - a new device (never on the first sign-in) raises `NewDeviceSignedIn` and a required,
+      urgent, locked security notice to the person: the device and the place, never the
+      address, with a link to their sessions.
+  - **A changed sign-in e-mail** is mailed to the OLD address: who changed it and when, no link,
+    in the person's language and the tenant's brand. The `user.changed` entry records the send.
+  - **Tests:**
+    - place (22), GeoIP (3, plus 1 with a real file when given), known-device fingerprints (4);
+    - RLS for both tables (5), site-map API (5), known devices end to end (2), the old-address
+      mail (1), the GeoIP chart (2);
+    - the sessions and sign-in log suites unchanged;
+    - Vitest: the site-map card (3).
+- [ ] Session 2b-2: certificate and secret expiry (REQ-SEC-011), the invite link (REQ-SEC-021),
+  and REQ-SEC-033 part 2. Migration 0158.
+  - **REQ-SEC-033 part 2:** the lock-out, password-changed and MFA-changed notices, which need
+    the Keycloak events import to read those user events (only the types it needs, no other user
+    data; lane B reviews that part).
+  - **Moved here** from S2b-1 by the coordinator, 2026-11-13.
+- [x] Session 3a (2026-11-13): field encryption on the tenant's data keys (ADR-050, D-161).
+  No migration.
+  - **`app.shared.fields`:**
+    - `field_cipher(session, keys, cache)` seals and opens values with the tenant's newest data
+      key (files' `tenant_data_keys`, reused), HKDF per declared purpose through the ADR-048
+      codec.
+    - Values are bound to tenant, table, record and field. Purposes are declared once
+      (`purpose(module, what)`).
+    - The key-provider Protocol lives in `app.shared.crypto`, which stays a leaf. Import-linter
+      enforces it, and modules use only `app.shared.fields`.
+  - **What `open` does when it can't open:**
+    - Data that doesn't open gives None: a logged, counted security event, with a bad tag
+      alerted.
+    - An installation key that can't unwrap the data key raises a 503,
+      `field_keys_unavailable`, so good data is never called unreadable.
+  - **The data-key cache:**
+    - A bounded LRU with a 5-minute TTL, in memory only.
+    - Each entry carries the tenant's generation, a random token in Valkey compared on every hit.
+    - Erasure (`destroy_tenant_keys`) moves it before and after the destroying commit, and fails
+      without Valkey. Valkey down while opening means no cache, never a stale hit (lane B's
+      conditions).
+  - **Tests:** field cipher (8, including the erasure-with-cache case and its control), the cache
+    unit tests (7), and two new import contracts.
+  - **First users** (not in this session): webhook header values (#406, D-161 item 5) with their
+    data step, and lane A's server drafts (REQ-INC-019).
+- [ ] Session 3b: masking, the personal-data access log (AUD-017), the ADR-048 users hook (a
+  removed installation key that still wraps data keys refuses start-up), webhook headers sealed.
+  Migration number asked at its turn.
+- [ ] Session 4: service accounts, key policy, non-person actors, security overview.
+- [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
+- [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
+  tenant) moved to LATER (D-165).
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
@@ -1870,6 +2312,33 @@ it with no reload (rule c). Not built yet.
   the save-latency check.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
+
+### [~] User cost rates — a person's cost per hour for worklog costs (lane B; for lane A's WP-046a S3, REQ-INC-068; migration 0148; built 2026-11-12)
+
+- [x] `user_cost_rates` (identity_access; migration 0148, down revision 0142, re-pointed at the
+  queue turn): rate Numeric(12, 2) ≥ 0, the tenant's base currency when set, `effective_from`;
+  RLS forced, no DELETE grant (soft delete), unique live start per person, an index for "the rate
+  in force". The downgrade refuses per tenant while any rate exists (removed ones too).
+- [x] Rights `users.view_cost_rates` and `users.manage_cost_rates`: no built-in role but the
+  tenant admin holds them (role matrix unchanged); grantable to a custom role such as Finance (D-164, Haider 2026-11-12).
+- [x] API: `GET /api/v1/users/{id}/cost-rates` (view), `POST` (view + manage,
+  Idempotency-Key), `PATCH /api/v1/users/{id}/cost-rates/{rate_id}` and `DELETE` (view + manage,
+  If-Match). The current and upcoming rates may change; a superseded one is refused
+  (`cost_rate_superseded`), a taken start too (`cost_rate_date_taken`); a service identity
+  gets `not_a_person`. Audited as `user.cost_rate_changed` (old and new rate and start), and every read of a person's rates as `user.cost_rate_viewed` (D-164: which rates were shown, never amounts; the worklog cost snapshot through the port is not a view). History
+  on the rate; the person's own history gets the rate's ID only. Event
+  `identity_access.user_cost_rate.changed` (IDs and the kind of change) on the `user_cost_rates`
+  list channel (users.view_cost_rates). Never in the person record, lists, search, exports or
+  /me (tested).
+- [x] Read port `app.modules.identity_access.cost_rate(session, user_id, at) -> Decimal | None`:
+  the rate in force at `at` (aware, else ValueError), through RLS, no permission check (for
+  snapshots; the caller gates who sees money).
+- [x] Console: the person drawer's "Cost per hour" tab (view right only), with set, change and
+  remove for the manage right; live; en/ar/ur.
+- [ ] **Follow-up when lane A's `CostRates` port is on main:** add
+  `work_items/service/cost_rate_port.py`, the adapter calling `identity_access.cost_rate`. Not
+  built here, since lane A's port (default None) is not on main yet.
+- [ ] No people admin guide exists yet: the cost rate line goes in when one is written.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
@@ -2166,7 +2635,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     in the PR.
   - **Open:** per-environment guarding (WP-053); a release emergency route would be a new
     decision; GiST range index not needed (lane A, 7 ms worst case).
-- [~] Session 3 (2026-11-11): stage work for releases. Migration 0142.
+- [x] Session 3 (2026-11-11): stage work for releases. Migration 0142 (#422).
   - **REQ-REL-048:** the stage-task refusal is shared with changes (lane A's OK) and names the
     first open task (`task`, `task_id`, `tasks`, `more`; never its text). Releases can switch it
     off (`open_stage_tasks_block`). The rail shows each stage's tasks done / total, live.
@@ -2185,8 +2654,79 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     task templates (#398, WP-046a S1). Proved on a release by their
     `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
   - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
-- [ ] S4: closure and rollback.
-  S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
+- [x] Session 4 (2026-11-12): closure and rollback. No migration (seed version 5). #428.
+  - **Closure codes (REQ-REL-050):** releases close with their own codes (completed, completed
+    with issues, rolled back, deferred, rejected, cancelled). Older tenants are topped up once:
+    an incident-style code is switched off only while untouched and unused by any release; one
+    audit entry (`work_item.settings_topped_up`).
+  - **Open work (REQ-REL-052):** new shared kinds `linked_changes` and `child_releases` (warn),
+    named "CHG-12 Subject"; the staged move dialog lists open work and moves on only once
+    confirmed.
+  - **Failure (REQ-REL-053):** a failed deployment shows its backout plan and Mark rolled back;
+    Create problem (caused_by_release) and Create follow-up release (follows), listed on the
+    release; `POST/GET /releases/{id}/follow-ups` (Idempotency-Key); a Failed view.
+  - **Cancel and reopen (REQ-REL-054):** a cancelled release offers to unlink its visible changes;
+    reopening keeps the closure in history and on the rail.
+  - **Closure rule "review completed" (REQ-REL-051 AC1):** a release's close rule may list it
+    (never its resolve rule, never another type's); closing before the review is completed is
+    refused with `review_required_to_close`; completing the review in the closing move passes;
+    an emergency release always needs it. Stored in `close_requires` (no migration).
+  - **Admin › Releases (template E):** closure codes, Closing (release fields and kinds; no
+    auto-close or reopen window, which follow requester replies) and Stages
+    (`open_stage_tasks_block`). Lane A's PickListEditor and ClosingTab are shared through
+    `SettingsBaseContext` and `useSettingsChange(base)`; incident behaviour unchanged.
+  - **Tests:** test_release_closure_codes (2), test_release_open_work (3), test_release_flow
+    (reopen), test_release_closure_rules (3); Vitest releases.test.tsx (REL-052..054),
+    release-settings.test.tsx (5).
+  - **Open:**
+    - REQ-REL-051 AC2 (bulk close report) goes with S5's bulk actions.
+    - REQ-REL-052's offer to close the linked changes the user may close → S5 (the coordinator,
+      2026-11-12), through lane A's public `close_change` (one savepoint per change; lane A's
+      small PR before S5). The kinds warn and list only until then.
+    - Lane A lists `caused_by_release` / `follows` on the problem, incident and request pages in
+      their next polish.
+- [~] Session 5a (2026-11-12): the release list, views and bulk actions. Migration 0149.
+  - **Views (REQ-REL-055 AC1, AC2):** my releases (any release role, both stores), unassigned
+    (no manager or engineer), scheduled, unscheduled, deployed (not closed), failed, cancelled,
+    closed. The list carries each row's type, version, scheduled end, manager, engineer (named)
+    and task progress in a few reads per page.
+  - **Bulk (REQ-REL-057):** assign, a new `assign_role` (manager or engineer, through the Roles
+    tab's own checks, per release), take, close (the type's closed category, not the change's
+    code), cancel and trash; skips with their reasons. The change list's close and cancel dialogs
+    and the bulk hooks take a base (lane A's, rule 8 notice sent).
+  - **Take (AC2):** makes you the release's Take role: the engineer, or the role the tenant marks
+    in Release settings › Roles (`work_item_role_defs.taken_by_take`, one per type).
+  - **Manager and engineer in two stores** (release_details.*_id and the role holders): every
+    write path (the Roles tab, the details panel, bulk assign_role, Take) writes both in one
+    transaction, with one test per path; the details panel now checks eligibility as the Roles
+    tab does (the coordinator, after F-02). **Later cleanup:** make them one store.
+  - **REQ-REL-052's offer:** a closing release's move dialog closes the changes you may close,
+    each through lane A's `close_change` in its own savepoint; each result closed or why not.
+  - **Tests:** test_release_bulk_api (4), test_release_people_sync (6), test_release_views_api
+    (4), test_release_close_changes_api (1), test_release_bulk_role_migration; Vitest
+    releases.test.tsx (2 more), release-close-changes.test.tsx (2), release-settings.test.tsx (1
+    more).
+- [~] Session 5b (2026-11-12): the board, reporting and the record page's rest. Migration 0150.
+  - **Board (REQ-REL-056):** `StageBoard` in packages/ui (domain-free; WP-046 can reuse it):
+    drag a card or use its "Move to" menu (keyboard, either direction); a refused move stays and
+    says why in a live region (AC1). /releases/board: a drop runs the release's own move through
+    its move dialog, or names why not; other viewers see moves live (AC2).
+  - **Reporting (REQ-REL-060):** release fields (stage, path, type, reason, risk, manager,
+    engineer, deployment ended, deployed on time, stage overdue, approval turnaround), measures
+    (open, on-time rate of the deployments that ended (AC2), overdue stages, failed or rolled
+    back, approval turnaround), 8 built-in reports, KPIs and the Releases dashboard (AC1).
+    Measures count only the releases the viewer may list (group-scope test). No cost fields:
+    D-164's `releases.view_costs` gate applies once release costs exist.
+  - **0150:** column-level SELECT for supportx_report on release details (not the notes) and on
+    approvals (times only); the comment, decider and notes are refused (test), RLS holds.
+  - **Drill-down:** a report drills to its own type's list: releases, problems, requests and
+    assets as well as changes (the item from polish #433; lane B told for assets).
+  - **REQ-REL-058:** live association counts in the side panel (AC3); AC2 holds by design (the
+    release page has no inline edit, fields change only through the edit form), so no switch.
+  - **Tests:** test_release_reports (4); Vitest board (4), releases.test.tsx board (2),
+    release-associations (1), reports drill-down (4).
+  - **Board button** on the release list (after #438).
+  S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)

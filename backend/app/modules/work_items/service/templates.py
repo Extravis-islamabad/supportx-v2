@@ -9,6 +9,7 @@ template can never offer a value a create would refuse (REQ-WI-009 AC4); a value
 
 import uuid
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -24,7 +25,10 @@ from app.modules.organization import (
     existing_unit_ids,
     memberships,
 )
+from app.modules.work_items.domain import form_rules as form_rule_domain
+from app.modules.work_items.domain.checklists import clean_items, item_problems
 from app.modules.work_items.domain.classification import Impact, Urgency
+from app.modules.work_items.domain.form_layout import layout_problems
 from app.modules.work_items.domain.stages import (
     DEFAULT_PATH,
     parse_stage_rules,
@@ -360,6 +364,42 @@ async def _known_custom(
     )
 
 
+# --- form layout and rules (WP-046a S5b; REQ-INC-036, -037) --------------------------------------
+
+
+async def _form_settings(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    values: Mapping[str, Any],
+    current: WorkItemTemplate | None,
+) -> tuple[dict[str, Any], list[tuple[str, str]]]:
+    """The layout and form rules sent (or a copy's), checked against the tenant's fields.
+
+    Names are the form's: every built-in field and the type's current custom fields
+    (`custom.<key>`); subject and requester can never be hidden or locked.
+    """
+    if "layout" not in values and "form_rules" not in values:
+        return {}, []
+    known = await metadata.definitions(session, wtype.code.value)
+    names = [f.value for f in TemplateField] + [
+        f"{CUSTOM_PREFIX}{key}" for key, found in known.items() if not found.retired
+    ]
+    columns: dict[str, Any] = {}
+    problems: list[tuple[str, str]] = []
+    if "layout" in values:
+        problems += layout_problems(values["layout"], names)
+        columns["layout"] = _json(values["layout"])
+    if "form_rules" in values:
+        raw = values["form_rules"] if values["form_rules"] is not None else []
+        problems += form_rule_domain.rule_problems(
+            raw, names, fixed=[f.value for f in FIXED_FIELDS]
+        )
+        columns["form_rules"] = _json(raw)
+    if current is None:
+        columns.setdefault("form_rules", [])
+    return columns, problems
+
+
 # --- stage settings (staged types; ADR-041, REQ-REL-011, -013) -----------------------------------
 
 
@@ -431,6 +471,37 @@ def _template_tasks(raw: Any) -> tuple[list[dict[str, Any]], list[tuple[str, str
     return tasks, problems
 
 
+MAX_TEMPLATE_CHECKLISTS = 10
+
+
+def _template_checklists(raw: Any) -> tuple[list[dict[str, Any]], list[tuple[str, str]]]:  # noqa: ANN401 - JSON
+    """A template's checklists (REQ-INC-040): a title, items, an optional list-filter condition."""
+    if raw in (None, []):
+        return [], []
+    if not isinstance(raw, list) or len(raw) > MAX_TEMPLATE_CHECKLISTS:
+        return [], [("checklists", "too_many_items")]
+    found: list[dict[str, Any]] = []
+    problems: list[tuple[str, str]] = []
+    for index, spec in enumerate(raw):
+        spec = spec if isinstance(spec, dict) else {}  # noqa: PLW2901 - the same entry, typed
+        title = " ".join(str(spec.get("title") or "").split())
+        cleaned = clean_items(spec.get("items") or [])
+        if not title:
+            problems.append((f"checklists.{index}.title", "required"))
+        problems += [(f"checklists.{index}.{f}", c) for f, c in item_problems(cleaned.items, 1000)]
+        condition = spec.get("condition")
+        if condition is not None:
+            try:
+                compile_filter(condition, FIELDS, now=datetime.now(UTC))
+            except ValidationFailed:
+                problems.append((f"checklists.{index}.condition", "invalid_value"))
+        found.append(
+            {"title": title, "items": cleaned.items}
+            | ({"condition": condition} if condition is not None else {})
+        )
+    return found, problems
+
+
 async def _lifecycle(
     session: AsyncSession, wtype: WorkItemType, value: object
 ) -> tuple[str | None, list[tuple[str, str]]]:
@@ -476,9 +547,19 @@ async def create_template(
     problems += codes
     tasks, codes = _template_tasks(values.get("tasks", copied_from.tasks if copied_from else None))
     problems += codes
+    checklists, codes = _template_checklists(
+        values.get("checklists", copied_from.checklists if copied_from else None)
+    )
+    problems += codes
     if await _name_taken(session, wtype, labels, exclude=None):
         problems.append(("labels", "duplicate_name"))
     stage_columns, codes = await _stage_settings(session, wtype, values, None)
+    problems += codes
+    form_values = dict(values)
+    if copied_from is not None:  # a copy keeps the layout and rules unless new ones are sent
+        form_values.setdefault("layout", copied_from.layout)
+        form_values.setdefault("form_rules", copied_from.form_rules)
+    form_columns, codes = await _form_settings(session, wtype, form_values, None)
     problems += codes
     for_requesters = bool(
         values.get("for_requesters", copied_from.for_requesters if copied_from else False)
@@ -498,6 +579,7 @@ async def create_template(
         stage_columns.setdefault("stage_rules", copied_from.stage_rules if copied_from else None)
     template = WorkItemTemplate(
         **stage_columns,
+        **form_columns,
         type=wtype.code,
         desk_id=copied_from.desk_id if copied_from else await default_desk_id(session),
         labels=labels,
@@ -511,6 +593,7 @@ async def create_template(
         copied_from_id=copied_from.id if copied_from else None,
         lifecycle=lifecycle,
         tasks=tasks,
+        checklists=checklists,
     )
     await TemplateRepository(session).add(template)
     await _changed(
@@ -616,11 +699,17 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
     if "tasks" in values:  # REQ-INC-040: new records only; existing records keep their tasks
         changes["tasks"], codes = _template_tasks(values["tasks"])
         problems += codes
+    if "checklists" in values:  # REQ-INC-040: new records only; existing records keep theirs
+        changes["checklists"], codes = _template_checklists(values["checklists"])
+        problems += codes
     if "lifecycle" in values:  # new records only: running ones keep theirs (REQ-INC-049 style)
         changes["lifecycle"], codes = await _lifecycle(session, wtype, values["lifecycle"])
         problems += codes
     stage_columns, codes = await _stage_settings(session, wtype, values, template)
     changes.update(stage_columns)
+    problems += codes
+    form_columns, codes = await _form_settings(session, wtype, values, template)
+    changes.update(form_columns)
     problems += codes
     rules = rules_from_json(template.field_rules)
     defaults: dict[str, Any] = dict(template.defaults)
@@ -778,3 +867,174 @@ async def emptied_required(
 
 def _empty(value: Any) -> bool:  # noqa: ANN401 - any field value
     return value is None or value in ("", [])
+
+
+# --- form rules on every save (WP-046a S5b; REQ-INC-037) ------------------------------------------
+
+
+@dataclass(frozen=True)
+class RuledValues:
+    """A save's values after the template's form rules, and what the rules refuse.
+
+    `values` is the request's own shape (built-in names, and `custom` as a whole map when a
+    rule touched a custom field): rule-set values filled in, hidden fields cleared, so the usual
+    checks and history see them like any other input.
+    """
+
+    values: dict[str, Any]
+    problems: list[tuple[str, str]] = field(default_factory=list)
+    required: frozenset[str] = frozenset()
+
+
+def _form_values(record: Mapping[str, Any], custom: Mapping[str, Any]) -> dict[str, Any]:
+    names = [f.value for f in TemplateField]
+    return {
+        **{n: _json(record.get(n)) for n in names if n in record},
+        **{f"{CUSTOM_PREFIX}{k}": v for k, v in custom.items()},
+    }
+
+
+async def _rule_base(
+    session: AsyncSession, wtype: WorkItemType, template: WorkItemTemplate
+) -> dict[str, tuple[bool, bool]]:
+    """Each field's (shown, required) from the template, without retired custom fields."""
+    rules = rules_from_json(template.field_rules)
+    custom = [n for n in rules if is_custom(n)]
+    if custom:
+        known = await metadata.definitions(session, wtype.code.value)
+        for name in custom:
+            found = known.get(name.removeprefix(CUSTOM_PREFIX))
+            if found is None or found.retired:
+                del rules[name]
+    return {n: (r.shown, r.required) for n, r in rules.items()}
+
+
+def _put(
+    values: dict[str, Any],
+    custom: dict[str, Any] | None,
+    name: str,
+    value: Any,  # noqa: ANN401 - a field value
+) -> None:
+    if name.startswith(CUSTOM_PREFIX) and custom is not None:
+        custom[name.removeprefix(CUSTOM_PREFIX)] = value
+    else:
+        values[name] = value
+
+
+async def apply_form_rules(  # noqa: C901, PLR0912, PLR0913 - one step per kind of rule, flat; the save's two sides
+    session: AsyncSession,
+    wtype: WorkItemType,
+    template: WorkItemTemplate | None,
+    values: Mapping[str, Any],
+    *,
+    before: Mapping[str, Any] | None,
+    before_custom: Mapping[str, Any] | None = None,
+) -> RuledValues:
+    """The template's form rules applied to a create (`before` None) or an edit.
+
+    The same evaluator as the browser's, so the API and e-mail paths obey what the form shows
+    (REQ-INC-037):
+    - a field a rule sets takes that value when it is empty;
+    - a field a rule hides is cleared unless the rule keeps its value (AC2);
+    - a field a rule requires must have a value: on a create always, on an edit when the rule
+      newly requires it or the edit empties it (D-086: an old record is not blocked for a rule
+      it never met). The code is `required`, the browser's own (AC1);
+    - a field a rule locks cannot be changed by hand (`field_locked`): on a create it holds
+      only the template's starting value or the rule's.
+    """
+    out = dict(values)
+    if template is None or not template.form_rules:
+        return RuledValues(out)
+    rules = list(template.form_rules)
+    base = await _rule_base(session, wtype, template)
+    sent_custom = values.get("custom")
+    custom_before = dict(before_custom or {})
+    custom_after = (
+        {**custom_before, **(sent_custom or {})} if before is not None else dict(sent_custom or {})
+    )
+    old = _form_values(before or {}, custom_before) if before is not None else {}
+    new = {**old, **_form_values(values, custom_after)}
+    state = form_rule_domain.evaluate(rules, base, new)
+    # Only what was sent and what the rules change: the save merges it over the record's
+    # current values, so an unchanged custom value is never checked again (lane B's review).
+    custom_out: dict[str, Any] | None = None
+    if any(n.startswith(CUSTOM_PREFIX) for n in [*state.set_values, *state.fields]):
+        custom_out = dict(sent_custom or {})
+    problems: list[tuple[str, str]] = []
+    locked_by = state if before is None else form_rule_domain.evaluate(rules, base, old)
+    defaults = dict(template.defaults or {})
+    for name, ruled in locked_by.fields.items():
+        if not ruled.locked or _fixed_name(name):
+            continue
+        given = new.get(name)
+        if before is None:
+            allowed = {_json(defaults.get(name)), _json(state.set_values.get(name))}
+            if not form_rule_domain.empty(given) and _json(given) not in allowed:
+                problems.append((name, "field_locked"))
+        elif _json(given) != _json(old.get(name)):
+            problems.append((name, "field_locked"))
+    for name, value in state.set_values.items():
+        typed = _as_input(name, value)
+        if typed is _INVALID:
+            problems.append((name, "invalid_value"))
+            continue
+        _put(out, custom_out, name, typed)
+        new[name] = value
+    for name, ruled in state.fields.items():
+        if not ruled.shown and not ruled.keep_value and not form_rule_domain.empty(new.get(name)):
+            _put(out, custom_out, name, [] if name == TemplateField.TAGS.value else None)
+            new[name] = None
+    required_before = (
+        set()
+        if before is None
+        else {
+            n for n, r in form_rule_domain.evaluate(rules, base, old).fields.items() if r.required
+        }
+    )
+    for name, ruled in state.fields.items():
+        if not ruled.required or _fixed_name(name) or not form_rule_domain.empty(new.get(name)):
+            continue
+        emptied = before is not None and not form_rule_domain.empty(old.get(name))
+        if before is None or name not in required_before or emptied:
+            problems.append((name, "required"))
+    if custom_out is not None:
+        out["custom"] = custom_out
+    required = frozenset(n for n, r in state.fields.items() if r.required)
+    return RuledValues(out, problems, required)
+
+
+# The record attributes the form shows (the template's built-in fields).
+FORM_FIELDS = tuple(f.value for f in TemplateField)
+
+
+async def of_record(
+    session: AsyncSession, template_id: uuid.UUID | None
+) -> WorkItemTemplate | None:
+    """A record's template, even a turned-off one (its records keep its rules)."""
+    if template_id is None:
+        return None
+    found: WorkItemTemplate | None = await session.scalar(
+        select(WorkItemTemplate).where(WorkItemTemplate.id == template_id)
+    )
+    return found
+
+
+_INVALID = object()
+
+
+def _as_input(name: str, value: Any) -> Any:  # noqa: ANN401 - a rule's JSON value
+    """A rule's value as the request body would carry it.
+
+    A typed id reaches the service as a UUID (the API model parses it), so a rule's must too:
+    otherwise it would be checked differently from the same value typed by hand (lane B).
+    """
+    if name.endswith("_id") and not name.startswith(CUSTOM_PREFIX) and isinstance(value, str):
+        try:
+            return uuid.UUID(value)
+        except ValueError:
+            return _INVALID
+    return value
+
+
+def _fixed_name(name: str) -> bool:
+    return name in set(TemplateField) and TemplateField(name) in FIXED_FIELDS

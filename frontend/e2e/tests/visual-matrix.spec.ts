@@ -115,6 +115,7 @@ const ADMIN_SECTIONS: Record<string, string[]> = {
   incidents: [
     'general',
     'templates',
+    'checklists', // WP-046a S2: the checklist library
     'custom-fields',
     'statuses',
     'reasons',
@@ -213,6 +214,8 @@ export const SCREENS: Screen[] = [
   },
   { key: 'my-tasks', path: '/my-tasks', app: 'console' }, // WP-046a S1 (REQ-INC-076)
   { key: 'change-calendar', path: '/changes/calendar', app: 'console' }, // WP-045c S3
+  // WP-058b S5b (REQ-REL-056): releases by stage, the shared StageBoard.
+  { key: 'release-board', path: '/releases/board', app: 'console' },
   {
     // WP-058b S1: the shared staged calendar on releases, and its timeline view (the fifth).
     key: 'release-calendar',
@@ -393,6 +396,26 @@ export const SCREENS: Screen[] = [
     app: 'console',
     state: { name: 'workflows', open: tab('workflows') },
   },
+  // WP-046a S2: a record's checklists and all its files (template A's tabs), and your
+  // reminders in the header (lane C's condition: 390 and 1280, en/ar, top/side).
+  {
+    key: 'incident-checklists',
+    path: incident,
+    app: 'console',
+    state: { name: 'checklists', open: tab('checklists') },
+  },
+  {
+    key: 'incident-files',
+    path: incident,
+    app: 'console',
+    state: { name: 'files', open: tab('files') },
+  },
+  {
+    key: 'home-reminders',
+    path: '/',
+    app: 'console',
+    state: { name: 'reminders', open: click('reminders-drawer-open') },
+  },
   // WP-048b S4: the designer, "template A header + canvas body"; its outline and problems.
   {
     key: 'admin-workflow',
@@ -428,6 +451,8 @@ export const SCREENS: Screen[] = [
   { key: 'profile', path: '/profile', app: 'console' },
   { key: 'not-found', path: '/no/such/page', app: 'console' },
   { key: 'admin', path: '/admin', app: 'console' },
+  // WP-057 S1a (REQ-AUD-015): Audit › Sign-ins.
+  { key: 'admin-audit-sign-ins', path: '/admin/audit?tab=sign_ins', app: 'console' },
   ...[
     'users',
     'roles',
@@ -449,12 +474,33 @@ export const SCREENS: Screen[] = [
     'catalog',
     'workflows',
     'change-windows', // WP-045c S3 (lane C's #381 review)
+    // WP-058b S4: Admin › Releases, each section (template E).
+    'releases/closure-codes',
+    'releases/closing',
+    'releases/stages',
+    'releases/roles', // WP-058b S5a: what Take makes you
   ].map<Screen>((page) => ({
     key: `admin-${page.replace('/', '-')}`,
     path: `/admin/${page}`,
     app: 'console',
     sideOnly: true,
   })),
+  // WP-046a S5b: the template drawer with the form designer and a form rule open (lane C).
+  {
+    key: 'admin-incidents-template-designer',
+    path: '/admin/incidents/templates',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'designer',
+      open: async (page) => {
+        await click('tpl-admin-new')(page);
+        await click('tpl-layout-on')(page);
+        await click('tpl-frule-add')(page);
+        await page.getByTestId('tpl-layout').scrollIntoViewIfNeeded();
+      },
+    },
+  },
   ...Object.entries(ADMIN_SECTIONS).flatMap(([area, sections]) =>
     sections.map<Screen>((section) => ({
       key: `admin-${area}-${section}`,
@@ -529,11 +575,21 @@ function checks(): string[] {
   }
   // A dialog, drawer, menu or popup lies over the page on purpose: only elements of the same
   // layer can overlap (QA9: the open assign dialog and notifications drawer were findings).
+  // So does a sticky or fixed bar (a card's Save bar kept in reach, QA6 ADM-04): in a full-page
+  // shot it is drawn where the first screen ends, over whatever field lies there, which a person
+  // scrolls past (lane C's #460: the password card's "overlap" in Arabic at 390 px was this).
+  const floating = (el: Element): Element | null => {
+    for (let node: Element | null = el; node !== null; node = node.parentElement) {
+      const position = getComputedStyle(node).position;
+      if (position === 'sticky' || position === 'fixed') return node;
+    }
+    return null;
+  };
   const layer = (el: Element) =>
     el.closest(
       '.ant-modal-root, .ant-drawer, .ant-dropdown, .ant-popover, .ant-select-dropdown, ' +
         '.ant-picker-dropdown, .ant-tooltip, .ant-notification, .ant-message',
-    );
+    ) ?? floating(el);
   const firstBoxes = boxes.slice(0, 150);
   firstBoxes.forEach((aEl, i) => {
     const a = aEl.getBoundingClientRect();

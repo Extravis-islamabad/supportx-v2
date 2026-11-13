@@ -50,6 +50,30 @@ PLATFORM_TABLES: dict[str, tuple[frozenset[str], str]] = {
             "never change what a tenant is entitled to."
         ),
     ),
+    "session_key_ids": (
+        frozenset({"SELECT", "INSERT", "UPDATE"}),
+        (
+            "The installation's sign-in key IDs (D-162, ADR-048, migration 0146): one ring per "
+            "installation, so no tenant owns a row. IDs and dates only, never key material; "
+            "start-up records new IDs and retires missing ones, and nothing ever deletes one."
+        ),
+    ),
+    "session_key_events": (
+        frozenset({"SELECT", "INSERT", "UPDATE"}),
+        (
+            "Claimed changes of the installation's sign-in key ring (D-162, migration 0146), "
+            "waiting to be written into each tenant's audit log; IDs and counts only, the "
+            "announcer marks them done. Per-tenant progress lives in session_key_announcements."
+        ),
+    ),
+    "sign_in_import_cursor": (
+        frozenset({"SELECT", "INSERT", "UPDATE"}),
+        (
+            "How far the Keycloak sign-in events import got, per realm (WP-057 S1a, migration "
+            "0151): Keycloak's events are the realm's, so no tenant owns the cursor. A realm name "
+            "and a time only; the events themselves go into each tenant's own sign_in_events."
+        ),
+    ),
 }
 # Not application data at all: never reachable by supportx_app.
 IGNORED_TABLES: dict[str, str] = {

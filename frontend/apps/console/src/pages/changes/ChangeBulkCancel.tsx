@@ -1,7 +1,7 @@
 import { Form, Input, Modal, Typography } from 'antd';
 import { useState } from 'react';
 
-import { useStartChangeBulk } from '@supportx/api-client';
+import { useStartBulk, type StagedPath } from '@supportx/api-client';
 import { FormProblem, lengthLimit, useFormProblem, useLabel } from '@supportx/ui';
 
 /**
@@ -14,14 +14,18 @@ export function ChangeBulkCancel({
   action,
   onClose,
   onStarted,
+  base = 'changes',
 }: {
   ids: string[];
   action: 'cancel' | 'delete' | null;
   onClose: () => void;
   onStarted: (jobId: string) => void;
+  /** The changes' list, or the releases' (REQ-REL-057). */
+  base?: StagedPath;
 }) {
   const t = useLabel();
-  const start = useStartChangeBulk();
+  const start = useStartBulk(base);
+  const id = base === 'changes' ? 'chg' : 'rel'; // the test ids each list has had
   const problem = useFormProblem();
   const [reason, setReason] = useState('');
   const close = () => {
@@ -33,22 +37,29 @@ export function ChangeBulkCancel({
   return (
     <Modal
       open={action !== null}
-      title={t(cancel ? 'changes.bulk.cancel_title' : 'changes.bulk.delete_title', {
+      title={t(cancel ? `${base}.bulk.cancel_title` : `${base}.bulk.delete_title`, {
         count: ids.length,
       })}
-      okText={t(cancel ? 'changes.bulk.cancel_ok' : 'changes.bulk.delete_ok')}
+      // One change or several, in the button's words too (QA 2026-11-12 F-08).
+      okText={t(cancel ? `${base}.bulk.cancel_ok` : `${base}.bulk.delete_ok`, {
+        count: ids.length,
+      })}
       cancelText={t('incidents.bulk.cancel')}
       okButtonProps={{
         danger: true,
         disabled: cancel && reason.trim() === '',
-        'data-testid': 'chg-bulk-cancel-ok',
+        'data-testid': `${id}-bulk-cancel-ok`,
       }}
       confirmLoading={start.isPending}
       onCancel={close}
       onOk={() => {
         if (action === null) return;
         start.mutate(
-          { action, recordIds: ids, reason: reason.trim() },
+          {
+            action,
+            recordIds: ids,
+            changes: action === 'cancel' ? { reason_text: reason.trim() } : {},
+          },
           {
             onSuccess: (job) => {
               setReason('');
@@ -65,24 +76,24 @@ export function ChangeBulkCancel({
       {cancel ? (
         <Form layout="vertical">
           <Form.Item
-            label={t('changes.bulk.cancel_reason')}
-            htmlFor="chg-bulk-cancel-reason"
+            label={t(`${base}.bulk.cancel_reason`)}
+            htmlFor={`${id}-bulk-cancel-reason`}
             required
           >
             <Input.TextArea
-              id="chg-bulk-cancel-reason"
+              id={`${id}-bulk-cancel-reason`}
               value={reason}
               count={lengthLimit(2000)}
               autoSize={{ minRows: 2 }}
               onChange={(e) => {
                 setReason(e.target.value);
               }}
-              data-testid="chg-bulk-cancel-reason"
+              data-testid={`${id}-bulk-cancel-reason`}
             />
           </Form.Item>
         </Form>
       ) : (
-        <Typography.Paragraph>{t('changes.bulk.delete_body')}</Typography.Paragraph>
+        <Typography.Paragraph>{t(`${base}.bulk.delete_body`)}</Typography.Paragraph>
       )}
     </Modal>
   );

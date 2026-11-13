@@ -14,15 +14,17 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   ApiError,
+  checklistKeys,
   queryKeys,
   useCausingProblem,
   useDeleteIncident,
   useIncident,
   useIncidentTasks,
+  useAutoStartTimer,
   useIncidentCatalogue,
   useIncidentCategories,
   attachDrafts,
@@ -74,6 +76,7 @@ import {
   Tabs,
 } from '@supportx/ui';
 
+import { CopyDialog } from './CopyDialog';
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
@@ -84,7 +87,7 @@ import { useIncidentFieldName } from './conflict';
 import { IncidentConversation, type Typing } from './IncidentConversation';
 import { IncidentFiles } from './IncidentFiles';
 import { rememberIncident } from './recent';
-import { DEFAULT_TAB, lastTab, rememberTab } from './tabs';
+import { DEFAULT_TAB, lastTab, RECORD_TABS, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { KnowledgeCard } from '../knowledge/KnowledgeCard';
@@ -97,6 +100,9 @@ import { IncidentLinks, IncidentTasks, IncidentTime, IncidentWorklogs } from './
 import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
 import { IncidentHistory } from './IncidentHistory';
+import { RecordAllFiles } from './RecordAllFiles';
+import { RecordChecklists } from './RecordChecklists';
+import { RecordReminders } from './RecordReminders';
 import { CategoryCascade } from './CategoryCascade';
 import {
   categoryPath,
@@ -173,6 +179,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [changedBy, setChangedBy] = useState<string | null>(null);
   const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
@@ -185,8 +192,17 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   });
   // A record just made opens on Conversation, whatever tab was used last (QA6-INC-04).
   const justMade = (useLocation().state as { justMade?: boolean } | null)?.justMade === true;
-  const [tab, setTab] = useState<string>(() => (justMade ? DEFAULT_TAB : lastTab(me)));
+  // A link to a tab (`?tab=tasks`) opens on it, as changes do (QA 2026-11-12 F-10); then a
+  // record just made opens on Conversation; otherwise the tab this user used last.
+  const [params] = useSearchParams();
+  const asked = params.get('tab');
+  const known = asked !== null && (RECORD_TABS as readonly string[]).includes(asked);
+  const [tab, setTab] = useState<string>(() =>
+    known ? asked : justMade ? DEFAULT_TAB : lastTab(me),
+  );
   const [replyRequest, setReplyRequest] = useState(0);
+  // A composer is open: its Send is the one primary action, so the header's buttons go quiet.
+  const [composing, setComposing] = useState(false);
   const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   // Tasks, worklogs and links follow the record's edit permission (WP-020e).
   const canEditParts = item.operations.find((o) => o.action === 'edit')?.allowed === true;
@@ -195,6 +211,14 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   useEffect(() => {
     rememberIncident(me, item.id);
   }, [me, item.id]);
+  // WP-046a S3 (REQ-INC-069): with the type's auto-start on, opening your own record starts
+  // your timer, once ever (the server decides and keeps it to once).
+  const { mutate: autoStartTimer } = useAutoStartTimer(item.id);
+  const autoStart = catalogue.data?.closure.timer_auto_start === true;
+  const mine = me !== null && item.technician_id === me && canEditParts;
+  useEffect(() => {
+    if (autoStart && mine) autoStartTimer();
+  }, [autoStart, mine, item.id, autoStartTimer]);
   const stopTyping = (userId: string) => {
     clearTimeout(typingTimers.current.get(userId));
     typingTimers.current.delete(userId);
@@ -252,6 +276,9 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(item.id) });
       } else if (part === 'worklog') {
         void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
+      } else if (part === 'checklist') {
+        // WP-046a S2: a checklist added, ticked or removed.
+        void queryClient.invalidateQueries({ queryKey: checklistKeys.of('incidents', item.id) });
       } else if (part === 'asset') {
         // REQ-AST-025: an asset linked or unlinked.
         void queryClient.invalidateQueries({
@@ -403,6 +430,18 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           onClick: () => void navigate(`/problems/new?incident=${item.id}`),
         }
       : null,
+    // WP-046a S5c (REQ-INC-033): copy it one or more times.
+    can('incidents.create')
+      ? {
+          key: 'copy',
+          label: t('incidents.copy.open'),
+          allowed: true,
+          testId: 'inc-op-copy',
+          onClick: () => {
+            setCopying(true);
+          },
+        }
+      : null,
     deleteOp !== undefined && deleteOp.reason !== 'no_permission'
       ? {
           key: 'delete',
@@ -516,6 +555,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           <ActionBar
             actions={actions}
             max={3}
+            quiet={composing}
             testId="inc-operations"
             lead={
               <>
@@ -639,6 +679,13 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                     },
                   ]
                 : []),
+              // Your own reminders on it (WP-046a S2, REQ-INC-082): yours only.
+              {
+                key: 'reminders',
+                title: t('reminders.title'),
+                bare: true,
+                children: <RecordReminders recordId={item.id} />,
+              },
               {
                 key: 'followers',
                 title: t('incidents.panel.followers'),
@@ -665,6 +712,14 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         }
       >
         <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
+        <CopyDialog
+          open={copying}
+          recordId={item.id}
+          displayId={item.display_id}
+          onClose={() => {
+            setCopying(false);
+          }}
+        />
         <AssignDialog
           item={item}
           open={assigning}
@@ -697,6 +752,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   typing={typing}
                   replyRequest={replyRequest}
                   replyMode={replyMode}
+                  onComposingChange={setComposing}
                 />
               ),
             },
@@ -724,6 +780,16 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               key: 'tasks',
               label: <TasksTabLabel id={item.id} />,
               children: <IncidentTasks item={item} canEdit={canEditParts} />,
+            },
+            {
+              key: 'checklists',
+              label: t('checklists.tab'),
+              children: <RecordChecklists recordId={item.id} canEdit={canEditParts} />,
+            },
+            {
+              key: 'files',
+              label: t('files.all.tab'),
+              children: <RecordAllFiles recordType="incident" recordId={item.id} />,
             },
             {
               key: 'worklogs',

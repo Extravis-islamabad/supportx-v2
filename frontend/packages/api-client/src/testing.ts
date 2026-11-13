@@ -122,6 +122,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['dashboards.share', 'all'],
   ['dashboards.manage_defaults', 'all'],
   ['identity.manage', 'all'],
+  ['identity.view_sign_ins', 'all'], // the sign-in log (WP-057 S1a): the tenant admin's only
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
   ['integrations.manage_email', 'all'],
@@ -671,9 +672,15 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       open_work: { tasks: 'warn', checklists: 'warn', child_incidents: 'warn', approvals: 'block' },
       complete_open_work: false,
       auto_close_days: null,
+      checklist_item_max: 100, // WP-046a S2
+      copy_limit: 20, // WP-046a S5c
       reopen_window_days: 7,
       task_owner_access: false, // WP-020e (D-112): off by default
       task_dependency_mode: 'block', // WP-046a S1 (REQ-INC-075)
+      // WP-046a S3 (REQ-INC-069/070) defaults: no block, non-working hours count, no auto-start.
+      worklog_block_closed: false,
+      worklog_count_nonworking: true,
+      timer_auto_start: false,
       requester_channels: [],
       requester_channel_states: [],
     },
@@ -889,6 +896,7 @@ export function fakeNotificationRule(
     record_type: 'incident',
     category: 'created',
     required: false,
+    locked: false,
     is_default: true,
     enabled: true,
     recipients: ['requester'],

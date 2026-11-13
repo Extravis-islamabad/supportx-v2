@@ -47,6 +47,7 @@ from app.modules.audit.infra.models import AuditEntry, AuditPersonal, AuditQueue
 from app.modules.audit.service.fingerprints import EntryFingerprint, for_saves
 from app.modules.audit.service.settings import load_settings
 from app.shared.clock import Clock, system_clock
+from app.shared.db.deferred import deferred
 from app.shared.events import record_event
 from app.shared.history import CLIENT_HEADER, SavedRecord, recorded_change_ids
 from app.shared.ids import new_id
@@ -196,12 +197,17 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
         "fingerprint_saves": list(fingerprint.saves) if fingerprint is not None else None,
         "personal_subjects": list(fingerprint.subjects) if fingerprint is not None else None,
     }
-    session.add(AuditEntry(**row, entry_hash=entry_hash(row)))
-    session.add_all(personal)
-    session.add(
-        AuditQueueItem(tenant_id=context.tenant_id, entry_id=entry_id, occurred_at=occurred_at)
-    )
-    await session.flush()
+    entry = AuditEntry(**row, entry_hash=entry_hash(row))
+    queued = AuditQueueItem(tenant_id=context.tenant_id, entry_id=entry_id, occurred_at=occurred_at)
+    if (buffer := deferred(session)) is not None:
+        # An import batch (step B): the entry first, then its personal data and queue place, one
+        # INSERT per table for the whole batch; the event below is buffered too.
+        buffer.add(entry, *personal, queued)
+    else:
+        session.add(entry)
+        session.add_all(personal)
+        session.add(queued)
+        await session.flush()
     await record_event(session, AuditEntryRecorded(entry_id=entry_id), aggregate_id=entry_id)
     return entry_id
 

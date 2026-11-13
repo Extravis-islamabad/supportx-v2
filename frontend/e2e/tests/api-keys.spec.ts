@@ -8,7 +8,7 @@ import { expectAccessible, signInAs } from './helpers';
  * one-time dialog, calls the API with it (allowed within its scope, refused outside it naming the
  * scope), revokes it, and its next call is refused. The key ends revoked (suite data only).
  */
-test('API key: made on screen, shown once, limited to its scope, refused once revoked', async ({
+test('API key: made on screen, shown once, limited to its scope, refused once revoked @smoke', async ({
   page,
 }) => {
   test.setTimeout(120_000);

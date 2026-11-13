@@ -273,11 +273,19 @@ describe('console: releases', () => {
     await waitFor(() => {
       expect(last().columns.find((c) => c.key === 'subject')?.width).toBeGreaterThanOrEqual(180);
     });
+    // REQ-REL-055's columns (WP-058b S5a), each with its own width.
     expect(last().columns.map((c) => c.key)).toEqual([
       'id',
       'subject',
+      'type',
       'stage',
       'status',
+      'priority',
+      'manager',
+      'engineer',
+      'version',
+      'end',
+      'tasks',
       'updated',
     ]);
     fireEvent.click(await screen.findByTestId('releases-reset-widths'));
@@ -369,6 +377,174 @@ describe('console: releases', () => {
       to_status: 'build_completed',
       fields: { release_version: '4.2.0' },
     });
+  });
+
+  it('REQ-REL-052 AC1: open work is named, and the move goes on only once confirmed', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    let tries = 0;
+    const fake = api({
+      [`POST /api/v1/releases/${REL_ID}/moves`]: () => {
+        tries += 1;
+        return tries === 1
+          ? {
+              status: 409,
+              body: problem(409, 'open_work_unconfirmed', {
+                params: { count: 1, items: 'CHG-12 Core switch firmware' },
+              }),
+            }
+          : { body: { ...release, version: 8 } };
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('release-more'));
+    fireEvent.click(await screen.findByTestId('move-build_completed'));
+    fireEvent.change(await screen.findByTestId('move-field-release_version'), {
+      target: { value: '4.2.0' },
+    });
+    fireEvent.click(screen.getByTestId('move-ok'));
+    const open = await screen.findByTestId('move-open-work');
+    expect(open.textContent).toContain('CHG-12 Core switch firmware');
+    expect(screen.getByTestId('move-ok').textContent).toBe('Confirm and continue');
+    fireEvent.click(screen.getByTestId('move-ok'));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/moves`)).toHaveLength(2);
+    });
+    const [first, second] = fake.find('POST', `/api/v1/releases/${REL_ID}/moves`);
+    expect(first?.body).toMatchObject({ confirm_open_work: false });
+    expect(second?.body).toMatchObject({ confirm_open_work: true });
+  });
+
+  it('REQ-REL-053 AC1: a failed deployment shows its backout plan and "Mark rolled back"', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const failed = { ...release, status: 'deployment_failed', stage: 'deployment' };
+    api({
+      [`GET /api/v1/releases/${REL_ID}`]: { body: failed, headers: { ETag: '"7"' } },
+      [`GET /api/v1/releases/${REL_ID}/stages`]: {
+        body: {
+          ...panel,
+          stage: 'deployment',
+          status: 'deployment_failed',
+          moves: [
+            {
+              to_status: 'deployment_rolled_back',
+              to_stage: 'deployment',
+              reason_mode: 'required',
+              reason_list: null,
+              required_fields: [],
+              allowed: true,
+              reason: null,
+              missing: [],
+            },
+          ],
+        },
+      },
+      [`GET /api/v1/releases/${REL_ID}/plan`]: {
+        body: [{ section: 'backout', content: '<p>Restore build 4.1.</p>', version: 1 }],
+      },
+    });
+    render(<App />);
+    const box = await screen.findByTestId('release-failed');
+    expect(box.textContent).toContain('The deployment failed');
+    expect((await screen.findByTestId('release-failed-backout')).textContent).toContain(
+      'Restore build 4.1.',
+    );
+    fireEvent.click(screen.getByTestId('release-mark-rolled-back'));
+    expect(await screen.findByTestId('move-dialog')).toBeTruthy();
+    expect(screen.getByTestId('move-reason')).toBeTruthy(); // the rollback asks for its reason
+  });
+
+  it('REQ-REL-053 AC2: a failed release makes its problem, linked, and lists it', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const failed = { ...release, status: 'deployment_failed', stage: 'deployment' };
+    const made = {
+      id: '01a1a2b3-0000-7000-8000-0000000f0901',
+      display_id: 'PRB-3',
+      subject: 'Deployment failure: REL-1 Payroll 4.2',
+      type: 'problem',
+      relation: 'caused_problem',
+      status_category: 'open',
+    };
+    let listed: object[] = [];
+    const fake = api(
+      {
+        [`GET /api/v1/releases/${REL_ID}`]: { body: failed, headers: { ETag: '"7"' } },
+        [`GET /api/v1/releases/${REL_ID}/plan`]: { body: [] },
+        [`GET /api/v1/releases/${REL_ID}/follow-ups`]: () => ({ body: listed }),
+        [`POST /api/v1/releases/${REL_ID}/follow-ups`]: () => {
+          listed = [made];
+          return { status: 201, body: made };
+        },
+      },
+      ['releases.view', 'releases.create', 'releases.edit', 'problems.create'],
+    );
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('release-create-problem'));
+    const title = await screen.findByTestId<HTMLInputElement>('release-follow-up-title');
+    expect(title.value).toBe('Deployment failure: REL-1 Payroll 4.2');
+    const dialog = await screen.findByTestId('release-follow-up-dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create problem' }));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/releases/${REL_ID}/follow-ups`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', `/api/v1/releases/${REL_ID}/follow-ups`);
+    expect(sent?.body).toEqual({
+      kind: 'problem',
+      subject: 'Deployment failure: REL-1 Payroll 4.2',
+    });
+    expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect((await screen.findByTestId('release-follow-ups')).textContent).toContain(
+      'PRB-3 Deployment failure: REL-1 Payroll 4.2',
+    );
+  });
+
+  it('REQ-REL-054: a canceled release offers to unlink the changes still in it', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const CHG = '01a1a2b3-0000-7000-8000-00000058b201';
+    const canceled = { ...release, status: 'closure_canceled', stage: 'closure' };
+    const fake = api({
+      [`GET /api/v1/releases/${REL_ID}`]: { body: canceled, headers: { ETag: '"7"' } },
+      [`GET /api/v1/releases/${REL_ID}/changes`]: {
+        body: [
+          {
+            id: CHG,
+            visible: true,
+            display_id: 'CHG-5',
+            subject: 'Database upgrade',
+            stage: 'implementation',
+            status: 'implementation_scheduled',
+            status_category: 'open',
+          },
+          {
+            id: '01a1a2b3-0000-7000-8000-00000058b202',
+            visible: false,
+            display_id: null,
+            subject: null,
+            stage: null,
+            status: null,
+            status_category: null,
+          },
+        ],
+      },
+      [`DELETE /api/v1/releases/${REL_ID}/changes/${CHG}`]: { status: 204 },
+    });
+    render(<App />);
+    const offer = await screen.findByTestId('release-canceled-changes');
+    expect(offer.textContent).toContain('1 change is still in this cancelled release');
+    expect(offer.textContent).toContain('CHG-5 Database upgrade');
+    fireEvent.click(screen.getByTestId('release-unlink-changes'));
+    await waitFor(() => {
+      expect(fake.find('DELETE', `/api/v1/releases/${REL_ID}/changes/${CHG}`)).toHaveLength(1);
+    });
+    // The hidden change is never unlinked from here.
+    expect(fake.calls.filter((c) => c.method === 'DELETE')).toHaveLength(1);
+  });
+
+  it('the failed panel is absent while the deployment has not failed', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    await screen.findByTestId('release-page');
+    expect(screen.queryByTestId('release-failed')).toBeNull();
   });
 
   it('asks for the reason of a rejection and the comment a level requires, then decides', async () => {
@@ -959,6 +1135,152 @@ describe('console: releases', () => {
       render(<App />);
       await screen.findByRole('tab', { name: 'Details' });
       expect(screen.queryByRole('tab', { name: 'Workflows' })).toBeNull();
+    });
+  });
+});
+
+describe('console: releases by stage (WP-058b S5b)', () => {
+  const toTesting = {
+    to_status: 'testing_in_progress',
+    to_stage: 'testing',
+    reason_mode: 'none',
+    reason_list: null,
+    required_fields: [],
+    allowed: true,
+    reason: null,
+    missing: [],
+  };
+
+  async function moveTo(stage: string) {
+    fireEvent.click(await screen.findByTestId(`release-board-move-${REL_ID}`));
+    const menus = await screen.findAllByRole('menu');
+    const menu = menus.at(-1);
+    if (menu === undefined) throw new Error('no menu');
+    fireEvent.click(within(menu).getByText(stage));
+  }
+
+  it('REQ-REL-056: the release list opens the board', async () => {
+    window.history.pushState({}, '', '/releases');
+    api();
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('releases-board-open'));
+    expect(await screen.findByTestId('release-board-column-build')).toBeTruthy();
+    expect(window.location.pathname).toBe('/releases/board');
+  });
+
+  it('REQ-REL-056: a release sits in its stage; moving it opens its own move dialog', async () => {
+    window.history.pushState({}, '', '/releases/board');
+    api({ [`GET /api/v1/releases/${REL_ID}/stages`]: { body: { ...panel, moves: [toTesting] } } });
+    render(<App />);
+    const build = await screen.findByTestId('release-board-column-build');
+    expect(await within(build).findByText('REL-1')).toBeTruthy();
+    await moveTo('Testing');
+    expect(await screen.findByTestId('move-dialog')).toBeTruthy();
+  });
+
+  it('REQ-REL-056 AC1: a stage it cannot reach is refused in words and the card stays', async () => {
+    window.history.pushState({}, '', '/releases/board');
+    api();
+    render(<App />);
+    const build = await screen.findByTestId('release-board-column-build');
+    await within(build).findByText('REL-1');
+    await moveTo('Deployment');
+    await waitFor(() => {
+      expect(screen.getByTestId('release-board-refusal').textContent).toContain(
+        'cannot move to Deployment',
+      );
+    });
+    expect(within(build).getByText('REL-1')).toBeTruthy();
+    expect(screen.queryByTestId('move-dialog')).toBeNull();
+  });
+});
+
+describe('console: the release list (WP-058b S5a)', () => {
+  const MANAGER = '01a1a2b3-0000-7000-8000-0000000e0901';
+  const listed = {
+    items: [release],
+    next_cursor: null,
+    has_more: false,
+    people: { [MANAGER]: { display_name: 'Maryam Siddiqui', email: 'maryam@example.test' } },
+    releases: {
+      [REL_ID]: {
+        release_type: null,
+        release_version: '4.2.0',
+        scheduled_end: '2027-03-11T09:00:00Z',
+        release_manager_id: MANAGER,
+        release_engineer_id: null,
+        tasks_done: 0,
+        tasks_total: 1,
+      },
+    },
+  };
+
+  it('REQ-REL-055: each row shows its manager, version and task progress; the release views', async () => {
+    window.history.pushState({}, '', '/releases');
+    const fake = api({ 'GET /api/v1/releases': { body: listed } });
+    render(<App />);
+    const row = await screen.findByTestId('release-row-REL-1');
+    expect(row.textContent).toContain('Maryam Siddiqui');
+    expect(row.textContent).toContain('4.2.0');
+    expect(row.textContent).toContain('0 of 1 done');
+    const bar = screen.getByTestId('releases-filters');
+    const selector = within(bar).getByTestId('releases-view').querySelector('.ant-select-selector');
+    if (selector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(selector);
+    expect(await screen.findByTitle('My releases')).toBeTruthy();
+    fireEvent.click(await screen.findByTitle('Unscheduled'));
+    await waitFor(() => {
+      const last = fake.find('GET', '/api/v1/releases').at(-1);
+      expect(last?.url.searchParams.get('view')).toBe('unscheduled');
+    });
+  });
+
+  it('REQ-REL-057: picked releases get one person in one role, as a bulk job', async () => {
+    window.history.pushState({}, '', '/releases');
+    const job = {
+      id: 'job-1',
+      action: 'assign_role',
+      status: 'queued',
+      total: 1,
+      processed: 0,
+      done_count: 0,
+      skipped_count: 0,
+      results: [],
+      created_at: '2027-03-10T09:00:00Z',
+      finished_at: null,
+    };
+    const fake = api({
+      'GET /api/v1/releases': { body: listed },
+      'GET /api/v1/releases/roles/release_engineer/candidates': {
+        body: [{ id: MANAGER, name: 'Maryam Siddiqui' }],
+      },
+      'POST /api/v1/releases/bulk': { status: 202, body: job },
+      'GET /api/v1/releases/bulk-jobs/job-1': { body: job },
+    });
+    render(<App />);
+    await screen.findByTestId('release-row-REL-1');
+    // The row's own checkbox (the first is the header's select-all).
+    const boxes = within(screen.getByTestId('releases-table')).getAllByRole('checkbox');
+    const box = boxes[1];
+    if (box === undefined) throw new Error('no row checkbox');
+    fireEvent.click(box);
+    fireEvent.click(await screen.findByTestId('inc-bulk-assign_role'));
+    const dialog = await screen.findByTestId('rel-bulk-role');
+    const person = within(dialog)
+      .getByTestId('rel-bulk-role-person')
+      .querySelector('.ant-select-selector');
+    if (person === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(person);
+    fireEvent.click(await screen.findByTitle('Maryam Siddiqui'));
+    fireEvent.click(screen.getByTestId('rel-bulk-role-ok'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/releases/bulk')).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', '/api/v1/releases/bulk');
+    expect(sent?.body).toMatchObject({
+      action: 'assign_role',
+      changes: { role: 'release_engineer', user_ids: [MANAGER] },
+      record_ids: [REL_ID],
     });
   });
 });

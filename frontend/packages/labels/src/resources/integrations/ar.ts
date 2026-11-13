@@ -219,6 +219,12 @@ export const ar: LabelResource = {
   'mail.add': 'إضافة صندوق بريد',
   'mail.add_title': 'إضافة صندوق بريد',
   'mail.edit_title': 'تغيير صندوق البريد',
+  'mail.email_changed.body':
+    'غيّر {{who}} البريد الإلكتروني لتسجيل الدخول إلى حسابك في {{organisation}} في {{when}}. لم يعد هذا العنوان: تذهب عمليات تسجيل الدخول وإعادة تعيين كلمة المرور الآن إلى العنوان الجديد. إن لم تكن تتوقع ذلك، فتواصل مع مسؤولي {{organisation}} فورًا.',
+  'mail.email_changed.body_self':
+    'تم تغيير البريد الإلكتروني لتسجيل الدخول إلى حسابك في {{organisation}} في {{when}}. لم يعد هذا العنوان: تذهب عمليات تسجيل الدخول وإعادة تعيين كلمة المرور الآن إلى العنوان الجديد. إن لم تقم بذلك، فتواصل مع مسؤولي {{organisation}} فورًا.',
+  'mail.email_changed.subject':
+    'تم تغيير البريد الإلكتروني لتسجيل الدخول إلى حسابك في {{organisation}}',
   'mail.field.address': 'عنوان البريد الإلكتروني',
   'mail.field.after_fetch': 'بعد قراءة رسالة',
   'mail.field.after_fetch_hint': 'لا تتغير الرسالة على خادم البريد إلا بعد أن يحفظها SupportX.',
@@ -352,6 +358,7 @@ export const ar: LabelResource = {
   'mailbox_protocol.gmail': 'Gmail',
   'mailbox_protocol.graph': 'Microsoft 365',
   'mailbox_protocol.imap': 'IMAP',
+  'mailbox_reason.address_not_allowed': 'لا يمكن استخدام عنوان خادم البريد',
   'mailbox_reason.imap_fetch_failed': 'لم يسلّم خادم البريد رسالة',
   'mailbox_reason.imap_login_failed': 'رفض خادم البريد اسم المستخدم أو كلمة المرور',
   'mailbox_reason.imap_mark_failed': 'لم يعلّم خادم البريد رسالة كمقروءة',
@@ -382,6 +389,7 @@ export const ar: LabelResource = {
   'mailbox_reason.oauth_not_connected': 'لم يسجّل أحد الدخول بحساب صندوق البريد هذا بعد',
   'mailbox_reason.oauth_unreachable': 'تعذّر الوصول إلى Microsoft أو Google',
   'mailbox_reason.oauth_wrong_account': 'تم تسجيل الدخول بحساب غير حساب صندوق البريد نفسه',
+  'mailbox_reason.port_not_allowed': 'لا يمكن استخدام منفذ خادم البريد',
   'mailbox_reason.secret_store_fallback':
     'تعذّرت قراءة مخزن الأسرار، لذا يستخدم صندوق البريد نسخته السابقة من بيانات الاعتماد. احفظ بيانات الاعتماد مرة أخرى لإصلاح ذلك.',
   'mailbox_security.none': 'بدون تشفير',

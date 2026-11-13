@@ -232,6 +232,20 @@ def _scope_predicate(
     return parts[0] if len(parts) == 1 else or_(*parts)
 
 
+def unrestricted(subject: Subject, permission: str) -> bool:
+    """Whether the subject holds `permission` over every record, so `scope_filter` is TRUE.
+
+    That is a grant of scope "all" with no attribute condition.
+    For a caller that just saved a record and must confirm it is within reach (assets,
+    `_within_scope`): with this true the confirming query can only say yes. Never a stand-in for
+    an existence check of a record someone named: `authorize_stored` still does that.
+    """
+    return any(
+        grant.scope == "all" and grant.condition is None
+        for grant in subject.grants.get(permission, ())
+    )
+
+
 async def authorize_stored(  # noqa: PLR0913, PLR0917 - the record is identified by model and id
     session: AsyncSession,
     subject: Subject,

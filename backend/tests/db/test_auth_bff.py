@@ -21,21 +21,37 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.config import Settings
 from app.core.errors import NotFound
+from app.core.tenancy import TenantContext
 from app.modules.identity_access.bff.cookies import (
     DEV_COOKIE_NAME,
+    DEV_LOGIN_COOKIE_PREFIX,
     PRODUCTION_COOKIE_NAME,
     cookie_name,
+    login_cookie_name,
     set_session_cookie,
 )
+from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.crypto import SessionCipher
-from app.modules.identity_access.infra.keycloak_admin import LoginEvent
+from app.modules.identity_access.infra.keycloak_admin import (
+    IdentityAdminRefused,
+    IdentityAdminUnavailable,
+    LoginEvent,
+)
 from app.modules.identity_access.infra.models import SESSION_LIMITS
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore
-from app.modules.identity_access.service import sso_test
-from app.modules.identity_access.service.auth import AuthService
+from app.modules.identity_access.service import keycloak_logout, sso_test
+from app.modules.identity_access.service.auth import AuthService, binding_digest, user_key
+from app.modules.identity_access.service.worker_sessions import (
+    KeycloakSessionInUse,
+    SessionsUnavailable,
+)
 from app.modules.identity_access.tests.fake_idp import ISSUER, FakeIdp, FakeUser, MemoryKeyValue
+from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
+from app.shared.api.tests.test_ip_rate_limit import CountingValkey
 from app.shared.clock import FrozenClock
+from app.shared.crypto import key_id_of
+from app.shared.events import EventEnvelope, claim
 from conftest import make_settings
 from tests.app_state import set_state
 from tests.db.test_api_tenancy import build_app
@@ -115,13 +131,26 @@ async def bff(
         service = AuthService(
             settings=settings,
             store=SessionStore(kv, SessionCipher(settings.session_secret.get_secret_value())),  # type: ignore[union-attr]
-            oidc=OidcClient(ISSUER, idp.client()),
+            # The breaker's cool-down (ADR-051) follows the world's frozen clock too.
+            oidc=OidcClient(ISSUER, idp.client(), monotonic=lambda: clock.now().timestamp()),
             database=app.state.db,
             clock=clock,
             cookie_name=cookie_name(settings),
         )
         app.state.auth = service
         app.state.session_resolver = service.resolve
+        # Rate limits on memory too: the settings' Valkey is unreachable on purpose, and the
+        # sign-in routes fail closed without one (audit row 14).
+        # The world's frozen clock, never wall time: the limiter counts in fixed windows, and a
+        # test whose requests straddled a window edge saw its count reset (a flake in CI on
+        # test_login_is_limited_per_address, 2026-11-12).
+        limiter = RateLimiter(
+            CountingValkey(),
+            prefix="t:",
+            provider=SettingsPolicyProvider(settings),
+            clock=lambda: clock.now().timestamp(),
+        )
+        setattr(app.state, RATE_LIMITER_STATE, limiter)
         transport = ASGITransport(app=app, raise_app_exceptions=False)
         async with AsyncClient(transport=transport, base_url=CONSOLE) as client:
             yield Bff(app, client, idp, kv, clock, settings, tenant_pair, migrated_db)
@@ -147,8 +176,10 @@ async def test_login_sets_a_safe_session_cookie_and_returns_to_the_app(bff: Bff)
     response = await bff.login(bff.user("a"), return_to="/tickets?id=7")
     assert response.status_code == 302
     assert response.headers["location"] == f"{CONSOLE}/tickets?id=7"
-    set_cookie = response.headers["set-cookie"]
-    assert set_cookie.startswith(f"{DEV_COOKIE_NAME}=")
+    # The other Set-Cookie clears the login-binding cookie (audit row 4).
+    (set_cookie,) = (
+        c for c in response.headers.get_list("set-cookie") if c.startswith(f"{DEV_COOKIE_NAME}=")
+    )
     for flag in ("HttpOnly", "Path=/", "SameSite=lax"):
         assert flag in set_cookie
     assert "Max-Age" not in set_cookie  # browser-session cookie; the server enforces timeouts
@@ -387,6 +418,122 @@ async def test_callback_state_is_single_use(bff: Bff) -> None:
     assert forged.json()["code"] == "invalid_login_state"
 
 
+# --- login CSRF: the sign-in is bound to the browser that started it (audit row 4) -----------
+
+
+def login_cookies(bff: Bff) -> dict[str, str]:
+    return {k: v for k, v in bff.client.cookies.items() if k.startswith(DEV_LOGIN_COOKIE_PREFIX)}
+
+
+async def started_elsewhere(bff: Bff, user: FakeUser) -> tuple[str, str, dict[str, str]]:
+    """An attacker's sign-in, stopped at Keycloak: code, state and the attacker's own cookies."""
+    attacker = AsyncClient(transport=bff.client._transport, base_url=CONSOLE)  # noqa: SLF001 - same app
+    async with attacker:
+        start = await attacker.get("/api/v1/auth/login")
+        assert start.status_code == 302, start.text
+        code, state = bff.idp.issue_code(start.headers["location"], user)
+        return code, state, dict(attacker.cookies.items())
+
+
+async def test_login_sets_a_binding_cookie_per_sign_in(bff: Bff) -> None:
+    start = await bff.client.get("/api/v1/auth/login")
+    _code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
+    name = login_cookie_name(bff.settings, state)
+    (set_cookie,) = start.headers.get_list("set-cookie")
+    assert set_cookie.startswith(f"{name}=")
+    for flag in ("HttpOnly", "Path=/", "SameSite=lax", "Max-Age=600"):
+        assert flag in set_cookie
+    token = bff.client.cookies[name]
+    # Only the hash is kept server-side: the token itself appears in no stored login state.
+    pending = await bff.app.state.auth.store.take_login(state)
+    assert pending["binding"] == binding_digest(token)
+    assert token not in json.dumps(pending)
+    # A second tab gets its own cookie; the first one's is untouched.
+    await bff.client.get("/api/v1/auth/login")
+    assert len(login_cookies(bff)) == 2
+
+
+def test_production_binding_cookie_is_host_prefixed() -> None:
+    # model_copy skips validation: production needs real secrets this test never reads.
+    production = make_settings(profile="test").model_copy(update={"profile": "production"})
+    assert login_cookie_name(production, "s").startswith("__Host-supportx_login_")
+    assert login_cookie_name(make_settings(profile="test"), "s").startswith(DEV_LOGIN_COOKIE_PREFIX)
+    assert login_cookie_name(production, "s") != login_cookie_name(production, "t")
+
+
+async def test_callback_without_the_binding_cookie_is_refused(bff: Bff) -> None:
+    start = await bff.client.get("/api/v1/auth/login")
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
+    bff.client.cookies.clear()
+    refused = await bff.client.get("/api/v1/auth/callback", params={"code": code, "state": state})
+    assert (refused.status_code, refused.json()["code"]) == (400, "login_not_this_browser")
+    assert bff.cookie() is None
+
+
+async def test_attackers_callback_link_cannot_sign_in_another_browser(bff: Bff) -> None:
+    """The login CSRF of audit row 4: the victim's browser opens the attacker's callback link."""
+    victim = bff.user("a", email="victim@demo.test", subject="sub-victim")
+    await bff.login(victim)
+    victim_session = bff.cookie()
+    assert victim_session is not None
+    code, state, attacker_cookies = await started_elsewhere(
+        bff, bff.user("a", email="attacker@demo.test", subject="sub-attacker")
+    )
+    assert login_cookie_name(bff.settings, state) in attacker_cookies
+    html = {"Accept": "text/html"}
+    refused = await bff.client.get(
+        "/api/v1/auth/callback", params={"code": code, "state": state}, headers=html
+    )
+    assert refused.status_code == 303
+    assert refused.headers["location"] == f"{CONSOLE}/?auth_error=login_not_this_browser"
+    # Still the victim, still signed in: the rotation never ran.
+    assert bff.cookie() == victim_session
+    assert (await bff.me()).json()["user"]["email"] == "victim@demo.test"
+
+
+async def test_another_browsers_binding_cookie_is_refused(bff: Bff) -> None:
+    """A cookie of the right name with another browser's token: the hash does not match."""
+    code, state, _attacker = await started_elsewhere(bff, bff.user("a"))
+    mine = await bff.client.get("/api/v1/auth/login")
+    assert mine.status_code == 302
+    (my_token,) = login_cookies(bff).values()
+    bff.client.cookies.set(login_cookie_name(bff.settings, state), my_token, domain="console.test")
+    refused = await bff.client.get("/api/v1/auth/callback", params={"code": code, "state": state})
+    assert (refused.status_code, refused.json()["code"]) == (400, "login_not_this_browser")
+    # The state is spent: the attacker cannot try again with it either.
+    again = await bff.client.get("/api/v1/auth/callback", params={"code": code, "state": state})
+    assert again.json()["code"] == "invalid_login_state"
+
+
+async def test_binding_cookie_is_cleared_after_the_callback(bff: Bff) -> None:
+    assert (await bff.login(bff.user("a"))).status_code == 302
+    assert login_cookies(bff) == {}
+    assert bff.cookie() is not None
+    # And on a failure too.
+    start = await bff.client.get("/api/v1/auth/login")
+    _code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
+    assert len(login_cookies(bff)) == 1
+    denied = await bff.client.get(
+        "/api/v1/auth/callback", params={"error": "access_denied", "state": state}
+    )
+    assert denied.json()["code"] == "login_failed"
+    cleared = denied.headers["set-cookie"]
+    assert cleared.startswith(f"{login_cookie_name(bff.settings, state)}=")
+    assert "Max-Age=0" in cleared
+    assert login_cookies(bff) == {}
+
+
+async def test_two_tabs_signing_in_at_once_both_finish(bff: Bff) -> None:
+    first = await bff.client.get("/api/v1/auth/login", params={"returnTo": "/one"})
+    second = await bff.client.get("/api/v1/auth/login", params={"returnTo": "/two"})
+    code1, state1 = bff.idp.issue_code(first.headers["location"], bff.user("a"))
+    code2, state2 = bff.idp.issue_code(second.headers["location"], bff.user("a"))
+    done1 = await bff.client.get("/api/v1/auth/callback", params={"code": code1, "state": state1})
+    assert done1.headers["location"] == f"{CONSOLE}/one"
+    done2 = await bff.client.get("/api/v1/auth/callback", params={"code": code2, "state": state2})
+    assert done2.headers["location"] == f"{CONSOLE}/two"
+
+
 async def test_keycloak_errors_and_bad_tokens_fail_the_login(bff: Bff) -> None:
     start = await bff.client.get("/api/v1/auth/login")
     _code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
@@ -444,9 +591,43 @@ async def test_keycloak_down_at_login_is_a_clean_503(bff: Bff) -> None:
     bff.idp.available = False
     response = await bff.client.get("/api/v1/auth/login")
     assert response.status_code == 503
-    assert response.json()["code"] == "identity_provider_unavailable"
+    assert response.json()["code"] == "sign_in_unavailable"
     assert "Traceback" not in response.text
     assert "ConnectError" not in response.text
+
+
+HTML = {"Accept": "text/html"}
+
+
+async def test_keycloak_down_sends_the_browser_to_the_sign_in_landing(bff: Bff) -> None:
+    """ADR-051: the sign-in page says so; nothing is sent to a dead Keycloak."""
+    bff.idp.available = False
+    first = await bff.client.get("/api/v1/auth/login", headers=HTML)
+    assert first.status_code == 303
+    assert first.headers["location"] == f"{CONSOLE}/?auth_error=sign_in_unavailable"
+    # The breaker is open now: the next sign-in is answered without trying Keycloak again.
+    bff.idp.available = True
+    second = await bff.client.get("/api/v1/auth/login", params={"app": "portal"}, headers=HTML)
+    assert second.headers["location"] == f"{PORTAL}/?auth_error=sign_in_unavailable"
+    # After the cool-down it tries again, and Keycloak answers.
+    bff.clock.advance(timedelta(seconds=16))
+    third = await bff.client.get("/api/v1/auth/login", headers=HTML)
+    assert third.status_code == 302
+    assert third.headers["location"].startswith(ISSUER)
+
+
+async def test_keycloak_down_at_the_callback_sends_the_browser_to_the_sign_in_landing(
+    bff: Bff,
+) -> None:
+    start = await bff.client.get("/api/v1/auth/login", params={"returnTo": "/x"})
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
+    bff.idp.available = False  # gone between the sign-in page and the code exchange
+    response = await bff.client.get(
+        "/api/v1/auth/callback", params={"code": code, "state": state}, headers=HTML
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == f"{CONSOLE}/?auth_error=sign_in_unavailable"
+    assert bff.cookie() is None
 
 
 # --- CSRF ---------------------------------------------------------------------------------------
@@ -504,6 +685,88 @@ async def test_expired_access_token_is_refreshed_silently(bff: Bff) -> None:
     assert len(bff.idp.refresh_tokens) == issued + 1
 
 
+async def _stored(bff: Bff) -> Session:
+    sid = bff.cookie()
+    assert sid is not None
+    data = await bff.app.state.auth.store.get_session(sid)
+    assert data is not None
+    return Session.from_dict(data)
+
+
+async def test_audit_26_every_refresh_stores_the_new_refresh_token(bff: Bff) -> None:
+    """Keycloak rotates refresh tokens (revokeRefreshToken): each one is sent once, never again."""
+    await bff.login(bff.user("a"))
+    first = (await _stored(bff)).refresh_token
+    bff.clock.advance(timedelta(minutes=6))
+    assert (await bff.me()).status_code == 200
+    second = (await _stored(bff)).refresh_token
+    assert second != first
+    bff.clock.advance(timedelta(minutes=6))
+    assert (await bff.me()).status_code == 200
+    third = (await _stored(bff)).refresh_token
+    assert third not in {first, second}
+    assert bff.idp.refreshed_with == [first, second]  # each token used exactly once
+    assert {first, second} <= bff.idp.spent_refresh_tokens
+
+
+async def test_audit_26_a_request_that_lost_the_refresh_race_never_sends_the_spent_token(
+    bff: Bff,
+) -> None:
+    await bff.login(bff.user("a"))
+    sid = bff.cookie()
+    assert sid is not None
+    stale = await _stored(bff)  # read by a request that is about to refresh too
+    bff.clock.advance(timedelta(minutes=6))
+    assert (await bff.me()).status_code == 200  # another request refreshes first
+    sent = list(bff.idp.refreshed_with)
+    latest = await bff.app.state.auth._refresh(sid, stale)  # noqa: SLF001 - the race itself
+    assert latest is not None
+    assert latest.refresh_token == (await _stored(bff)).refresh_token != stale.refresh_token
+    assert bff.idp.refreshed_with == sent  # the spent token was not sent again
+    assert (await bff.me()).status_code == 200  # and nobody was signed out
+
+
+async def test_audit_26_a_request_waiting_on_the_refresh_never_saves_its_stale_copy(
+    bff: Bff,
+) -> None:
+    await bff.login(bff.user("a"))
+    sid = bff.cookie()
+    assert sid is not None
+    held = await bff.app.state.auth.store.lock(sid, timedelta(seconds=15))
+    assert held is not None  # another request is refreshing this session
+    before = {k: v for k, v in bff.kv.data.items() if k.startswith("sx:session:")}
+    bff.clock.advance(timedelta(minutes=6))
+    assert (await bff.me()).status_code == 200
+    assert {k: v for k, v in bff.kv.data.items() if k.startswith("sx:session:")} == before
+    assert bff.idp.refreshed_with == []
+    await bff.app.state.auth.store.unlock(sid, held)
+
+
+async def test_audit_26_a_sign_out_during_the_refresh_is_never_undone(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane C's #451 review: the session is deleted (signed out elsewhere) while Keycloak answers
+    the refresh; the refresh's write is conditional (SET XX), so the session stays gone and the
+    request ends as expired, never revived with fresh tokens."""
+    await bff.login(bff.user("a"))
+    sid = bff.cookie()
+    assert sid is not None
+    auth = bff.app.state.auth
+    real_refresh = auth.oidc.refresh
+
+    async def signed_out_meanwhile(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401 - passthrough
+        tokens = await real_refresh(*args, **kwargs)
+        await auth.store.delete_session(sid)  # the sign-out lands mid-refresh
+        return tokens
+
+    monkeypatch.setattr(auth.oidc, "refresh", signed_out_meanwhile)
+    bff.clock.advance(timedelta(minutes=6))
+    answer = await bff.me()
+    assert answer.status_code == 401, answer.text
+    assert answer.json()["code"] == "session_expired"
+    assert await auth.store.get_session(sid) is None  # still signed out
+
+
 async def test_refused_refresh_ends_the_session_cleanly(bff: Bff) -> None:
     await bff.login(bff.user("a"))
     bff.idp.refresh_ok = False  # e.g. the user was logged out or disabled in Keycloak
@@ -544,6 +807,237 @@ async def test_logout_ends_both_sessions(bff: Bff) -> None:
     )
     assert len(bff.idp.ended_sessions) == 1
     assert (await bff.me()).status_code == 401
+
+
+async def _end_pending_events(bff: Bff) -> list[str]:
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        rows = await conn.fetch(
+            "SELECT envelope::text AS raw FROM outbox_events WHERE tenant_id = $1"
+            " AND event_type = 'identity_access.keycloak_session.end_pending' ORDER BY id",
+            bff.tenants[0],
+        )
+    finally:
+        await conn.close()
+    return [r["raw"] for r in rows]
+
+
+async def test_logout_with_keycloak_down_ends_the_session_at_once(bff: Bff) -> None:
+    """ADR-051: signed out of SupportX now; Keycloak's own session is ended in the background."""
+    user = bff.user("a", email="leaving@demo.test")
+    await bff.login(user)
+    csrf = await bff.csrf()
+    bff.idp.available = False
+    response = await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    assert response.status_code == 204
+    assert (await bff.me()).status_code == 401  # the cookie's session is gone
+    # The dead cookie stays, so the next sign-in here asks for the password (REQ-SEC-029)
+    # instead of riding Keycloak's still-open session.
+    assert bff.cookie() is not None
+    assert bff.idp.ended_sessions == []
+    (raw,) = await _end_pending_events(bff)
+    envelope = json.loads(raw)
+    assert envelope["payload"]["keycloak_session_id"] == "kc-session-" + user.subject
+    assert set(envelope["payload"]) == {"user_id", "keycloak_session_id"}
+    assert "refresh" not in raw  # no token ever goes into the outbox
+    bff.idp.available = True
+    bff.clock.advance(timedelta(seconds=16))
+    again = await bff.client.get("/api/v1/auth/login", headers=HTML)
+    assert "prompt=login" in again.headers["location"]
+
+
+async def test_logout_with_keycloak_up_leaves_nothing_pending(bff: Bff) -> None:
+    await bff.login(bff.user("a", email="leaving-ok@demo.test"))
+    csrf = await bff.csrf()
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    assert await _end_pending_events(bff) == []
+
+
+class _SessionEnder:
+    """Keycloak's admin API for the background end: down until told otherwise."""
+
+    def __init__(self) -> None:
+        self.up = False
+        self.ended: list[str] = []
+        self.calls = 0
+
+    async def end_session(self, session_id: str) -> bool:
+        self.calls += 1
+        if not self.up:
+            raise IdentityAdminUnavailable
+        known = session_id not in self.ended
+        self.ended.append(session_id)
+        return known
+
+    async def close(self) -> None:
+        return None
+
+
+async def _deliver(bff: Bff, envelope: EventEnvelope) -> bool:
+    """One delivery as the consumers worker makes it: claim and handler in one transaction."""
+    async with bff.app.state.db.tenant_session(TenantContext(envelope.tenant_id)) as session:
+        if not await claim(session, keycloak_logout.KEYCLOAK_SESSION_END.name, envelope):
+            return False
+        await keycloak_logout.on_end_pending(envelope, session)
+    return True
+
+
+def _in_use_from(bff: Bff) -> KeycloakSessionInUse:
+    """The worker's check against this app's session store (the default builds one from Valkey)."""
+
+    async def in_use(tenant_id: uuid.UUID, user_id: uuid.UUID, keycloak_session_id: str) -> bool:
+        store = bff.app.state.auth.store
+        return bool(
+            await store.keycloak_session_in_use(
+                user_key(str(tenant_id), str(user_id)), keycloak_session_id
+            )
+        )
+
+    return in_use
+
+
+async def _keycloak_end_audits(bff: Bff) -> list[tuple[str, str]]:
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        rows = await conn.fetch(
+            "SELECT outcome, details FROM audit_entries WHERE tenant_id = $1"
+            " AND action = 'session.keycloak_ended' ORDER BY occurred_at",
+            bff.tenants[0],
+        )
+    finally:
+        await conn.close()
+    return [(r["outcome"], json.loads(r["details"])["result"]) for r in rows]
+
+
+async def test_the_pending_keycloak_end_is_retried_until_it_works_and_audited(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user = bff.user("a", email="retry@demo.test")
+    await bff.login(user)
+    csrf = await bff.csrf()
+    bff.idp.available = False
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    (raw,) = await _end_pending_events(bff)
+    envelope = EventEnvelope.model_validate(json.loads(raw))
+    admin = _SessionEnder()
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: _in_use_from(bff))
+
+    with pytest.raises(IdentityAdminUnavailable):  # still down: the worker naks and retries
+        await _deliver(bff, envelope)
+    assert await _keycloak_end_audits(bff) == []
+
+    admin.up = True
+    assert await _deliver(bff, envelope) is True
+    assert admin.ended == ["kc-session-" + user.subject]
+    assert await _keycloak_end_audits(bff) == [("done", "ended")]
+
+    assert await _deliver(bff, envelope) is False  # the same event again: skipped
+    assert admin.calls == 2
+    assert await _keycloak_end_audits(bff) == [("done", "ended")]
+
+
+async def test_the_pending_keycloak_end_gives_up_after_an_hour_and_says_so(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await bff.login(bff.user("a", email="gave-up@demo.test"))
+    csrf = await bff.csrf()
+    bff.idp.available = False
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    (raw,) = await _end_pending_events(bff)
+    envelope = EventEnvelope.model_validate(json.loads(raw))
+    admin = _SessionEnder()
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: _in_use_from(bff))
+    later = FrozenClock(envelope.occurred_at + keycloak_logout.GIVE_UP_AFTER + timedelta(minutes=1))
+    monkeypatch.setattr(keycloak_logout, "clock", later)
+    assert await _deliver(bff, envelope) is True  # acknowledged: no further retries
+    assert await _keycloak_end_audits(bff) == [("failed", "gave_up")]
+
+
+async def test_the_pending_keycloak_end_spares_a_session_signed_in_again(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane C (#481): signing in again as Keycloak returns may reuse its session; keep it."""
+    user = bff.user("a", email="came-back@demo.test")
+    await bff.login(user)
+    csrf = await bff.csrf()
+    bff.idp.available = False
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    (raw,) = await _end_pending_events(bff)
+    envelope = EventEnvelope.model_validate(json.loads(raw))
+    bff.idp.available = True
+    bff.clock.advance(timedelta(seconds=16))
+    await bff.login(user)  # the fake IdP hands back the same Keycloak session
+    assert (await bff.me()).status_code == 200
+    admin = _SessionEnder()
+    admin.up = True
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: _in_use_from(bff))
+    assert await _deliver(bff, envelope) is True
+    assert admin.calls == 0
+    assert await _keycloak_end_audits(bff) == [("done", "still_in_use")]
+    assert (await bff.me()).status_code == 200
+
+
+async def test_an_unknown_session_store_retries_then_gives_up_without_ending_it(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Valkey down in the worker: never end Keycloak's session blind; audited give-up at 1 h."""
+    await bff.login(bff.user("a", email="store-down@demo.test"))
+    csrf = await bff.csrf()
+    bff.idp.available = False
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    (raw,) = await _end_pending_events(bff)
+    envelope = EventEnvelope.model_validate(json.loads(raw))
+    admin = _SessionEnder()
+    admin.up = True
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+
+    async def store_down(*_args: object) -> bool:
+        raise SessionsUnavailable
+
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: store_down)
+    with pytest.raises(SessionsUnavailable):
+        await _deliver(bff, envelope)
+    assert await _keycloak_end_audits(bff) == []
+    later = FrozenClock(envelope.occurred_at + keycloak_logout.GIVE_UP_AFTER + timedelta(minutes=1))
+    monkeypatch.setattr(keycloak_logout, "clock", later)
+    assert await _deliver(bff, envelope) is True
+    assert admin.calls == 0
+    assert await _keycloak_end_audits(bff) == [("failed", "gave_up")]
+
+
+class _RefusingEnder(_SessionEnder):
+    async def end_session(self, session_id: str) -> bool:  # noqa: ARG002 - SessionEnder's shape
+        self.calls += 1
+        raise IdentityAdminRefused(403, "forbidden")
+
+
+async def test_the_pending_keycloak_end_says_when_it_cannot_run_or_is_refused(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Not configured, or a 4xx other than 404: audited once, never retried."""
+    await bff.login(bff.user("a", email="no-admin@demo.test"))
+    csrf = await bff.csrf()
+    bff.idp.available = False
+    await bff.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    (raw,) = await _end_pending_events(bff)
+    envelope = EventEnvelope.model_validate(json.loads(raw))
+    monkeypatch.setattr(keycloak_logout, "in_use_factory", lambda _settings: _in_use_from(bff))
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: None)
+    assert await _deliver(bff, envelope) is True
+    assert await _keycloak_end_audits(bff) == [("failed", "not_configured")]
+
+    refused = envelope.model_copy(update={"event_id": uuid.uuid4()})
+    admin = _RefusingEnder()
+    monkeypatch.setattr(keycloak_logout, "admin_factory", lambda _settings: admin)
+    assert await _deliver(bff, refused) is True
+    assert admin.calls == 1
+    assert await _keycloak_end_audits(bff) == [
+        ("failed", "not_configured"),
+        ("failed", "refused"),
+    ]
 
 
 async def test_session_tenant_wins_over_the_dev_header(bff: Bff) -> None:
@@ -1222,3 +1716,33 @@ async def test_a_failed_sso_test_says_why_and_leaves_the_set_up_untested(bff: Bf
     finally:
         await conn.close()
     assert state == "draft"
+
+
+# --- the sign-in key ring (D-162, ADR-048) ------------------------------------------------------
+
+
+async def test_a_session_survives_a_key_rotation_and_moves_to_the_new_key(bff: Bff) -> None:
+    """Nobody is signed out: the old key stays readable, the next save seals under the new one."""
+    assert (await bff.login(bff.user("a", email="rotate@demo.test"))).status_code == 302
+    session_key = next(k for k in bff.kv.data if k.startswith("sx:session:"))
+    assert key_id_of(bff.kv.data[session_key]) == "legacy"
+    # The operator lists a new newest key and keeps "legacy" for the overlap; the API restarts.
+    rotated = make_settings(
+        session_secret=bff.settings.session_secret.get_secret_value(),  # type: ignore[union-attr]  # set by the fixture
+        session_keys=json.dumps([{"id": "k2", "secret": "n" * 40}, {"id": "legacy"}]),
+    )
+    cipher = SessionCipher.from_settings(rotated)
+    assert cipher is not None
+    bff.app.state.auth.store = SessionStore(bff.kv, cipher)
+    me = await bff.me()
+    assert me.status_code == 200, me.text
+    bff.clock.advance(timedelta(minutes=2))  # past the touch interval: the record is saved again
+    assert (await bff.me()).status_code == 200
+    assert key_id_of(bff.kv.data[session_key]) == "k2"
+    # Once "legacy" is retired, the moved session still works.
+    retired = SessionCipher.from_settings(
+        make_settings(session_keys=json.dumps([{"id": "k2", "secret": "n" * 40}]))
+    )
+    assert retired is not None
+    bff.app.state.auth.store = SessionStore(bff.kv, retired)
+    assert (await bff.me()).status_code == 200

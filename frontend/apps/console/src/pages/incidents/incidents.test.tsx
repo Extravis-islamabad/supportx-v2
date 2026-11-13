@@ -149,6 +149,8 @@ describe('One incident', () => {
       'Conversation (1)', // the description, and no replies or notes yet
       'Details',
       'Tasks',
+      'Checklists', // WP-046a S2
+      'All files',
       'Worklogs',
       'Links',
       'Time',

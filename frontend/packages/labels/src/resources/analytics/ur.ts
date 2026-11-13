@@ -7,8 +7,14 @@ export const ur: LabelResource = {
   'age_bucket.7_to_30_days': '7 سے 30 دن',
   'age_bucket.over_30_days': '30 دن سے زیادہ',
   'age_bucket.under_1_day': '1 دن سے کم',
+  'dashboard.changes': 'تبدیلیاں',
+  'dashboard.changes.description':
+    'تبدیلیاں کیسی جا رہی ہیں اور کہاں کھڑی ہیں: کامیابی کی شرح، ہنگامی تبدیلیاں، نتائج، خطرہ اور وجوہات۔',
   'dashboard.my_work': 'میرا کام',
   'dashboard.my_work.description': 'آپ کے کھلے واقعات، اس ہفتے آپ نے کیا حل کیا اور قطار۔',
+  'dashboard.releases': 'ریلیزیں',
+  'dashboard.releases.description':
+    'مرحلے کے لحاظ سے کھلی ریلیزیں، کتنی وقت پر تعینات ہوئیں، تاخیر والے مراحل اور ناکام ریلیزیں۔',
   'dashboard.service_desk': 'سروس ڈیسک',
   'dashboard.service_desk.description':
     'پورے ڈیسک کا کھلا کام: قطاریں، ترجیحات، چینل اور روزانہ بہاؤ۔',
@@ -24,6 +30,18 @@ export const ur: LabelResource = {
   'dashboard_widget.backlog_trend': 'زیر التوا رجحان',
   'dashboard_widget.backlog_trend.description':
     'پچھلے 90 دن میں ہر ہفتے کے آخر تک کھلے رہنے والے واقعات۔',
+  'dashboard_widget.change_emergency_share': 'ہنگامی تبدیلیاں',
+  'dashboard_widget.change_emergency_share.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں میں سے ہنگامی راستہ لینے والی کا حصہ۔',
+  'dashboard_widget.change_failed': 'ناکام یا واپس لی گئیں',
+  'dashboard_widget.change_failed.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں جن کا نفاذ ناکام ہوا یا واپس لیا گیا۔',
+  'dashboard_widget.change_freeze_overrides': 'فریز سے استثنا',
+  'dashboard_widget.change_freeze_overrides.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں جو روکنے والے فریز کے دوران آگے بڑھیں۔',
+  'dashboard_widget.change_success_rate': 'تبدیلیوں کی کامیابی کی شرح',
+  'dashboard_widget.change_success_rate.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں میں سے، جن کا نتیجہ ہے، کتنی کا نفاذ کامیاب رہا۔',
   'dashboard_widget.created_vs_resolved': 'درج بمقابلہ حل شدہ',
   'dashboard_widget.created_vs_resolved.description':
     'پچھلے 30 دن میں ہر روز درج اور حل ہونے والے واقعات۔',
@@ -88,6 +106,17 @@ export const ur: LabelResource = {
   'dashboard_widget.received_today.description': 'پچھلے 24 گھنٹوں میں درج واقعات۔',
   'dashboard_widget.recently_updated': 'حال ہی میں تبدیل شدہ',
   'dashboard_widget.recently_updated.description': 'وہ واقعات جن میں حال ہی میں تبدیلی ہوئی۔',
+  'dashboard_widget.release_failed': 'ناکام یا واپس لی گئی',
+  'dashboard_widget.release_failed.description':
+    'پچھلے 90 دنوں کی وہ ریلیزیں جن کی تعیناتی ناکام ہوئی یا واپس لی گئی۔',
+  'dashboard_widget.release_on_time_rate': 'وقت پر تعینات',
+  'dashboard_widget.release_on_time_rate.description':
+    'پچھلے 90 دنوں کی ان ریلیزوں میں سے جن کی تعیناتی ختم ہوئی، وہ حصہ جو تعیناتی کے مرحلے کے مقررہ اختتام سے پہلے ختم ہوا۔',
+  'dashboard_widget.release_open': 'کھلی ریلیزیں',
+  'dashboard_widget.release_open.description': 'وہ ریلیزیں جو ابھی بند یا منسوخ نہیں ہوئیں۔',
+  'dashboard_widget.release_overdue': 'تاخیر شدہ مراحل',
+  'dashboard_widget.release_overdue.description':
+    'کھلی ریلیزیں جن کا کوئی مرحلہ مقررہ اختتام سے آگے نکل گیا اور ابھی مکمل نہیں ہوا۔',
   'dashboard_widget.reopened_30_days': 'دوبارہ کھولے گئے (30 دن)',
   'dashboard_widget.reopened_30_days.description': 'پچھلے 30 دن کے وہ واقعات جو دوبارہ کھولے گئے۔',
   'dashboard_widget.reopened_by_group': 'دوبارہ کھولے گئے بلحاظ گروپ',
@@ -219,6 +248,27 @@ export const ur: LabelResource = {
   'measure.asset.total_cost_total': 'ملکیت کی کل لاگت',
   'measure.asset.total_cost_total.help':
     'اثاثے خریدنے اور رکھنے کی مجموعی لاگت (سروس، منتقلی، معاہدے اور دیگر)، بنیادی کرنسی میں۔',
+  'measure.change.actual_downtime_total': 'اصل بندش',
+  'measure.change.actual_downtime_total.help': 'تبدیلیوں کے دوران اصل میں ہونے والی کل بندش۔',
+  'measure.change.average_implementation_time': 'نفاذ کا اوسط وقت',
+  'measure.change.average_implementation_time.help':
+    'نفاذ کے اصل آغاز سے اصل اختتام تک کا اوسط وقت، ان تبدیلیوں کے لیے جن کے دونوں ہیں۔',
+  'measure.change.count': 'تبدیلیاں',
+  'measure.change.count.help': 'ہر وہ تبدیلی جو فلٹرز سے ملتی ہے اور جسے آپ دیکھ سکتے ہیں۔',
+  'measure.change.emergency_share': 'ہنگامی حصہ',
+  'measure.change.emergency_share.help': 'ہنگامی راستہ لینے والی تبدیلیوں کا حصہ۔',
+  'measure.change.failed_count': 'ناکام یا واپس لی گئیں',
+  'measure.change.failed_count.help': 'وہ تبدیلیاں جن کا نفاذ ناکام ہوا یا واپس لیا گیا۔',
+  'measure.change.freeze_override_count': 'فریز سے استثنا',
+  'measure.change.freeze_override_count.help':
+    'وہ تبدیلیاں جو روکنے والے فریز میں استثنا یا ہنگامی بورڈ کے فیصلے سے آگے بڑھیں۔',
+  'measure.change.planned_downtime_total': 'منصوبہ بند بندش',
+  'measure.change.planned_downtime_total.help': 'تبدیلیوں کے لیے منصوبہ بند کل بندش۔',
+  'measure.change.retrospective_share': 'بعد میں درج حصہ',
+  'measure.change.retrospective_share.help': 'کام ہو جانے کے بعد درج کی گئی تبدیلیوں کا حصہ۔',
+  'measure.change.success_rate': 'کامیابی کی شرح',
+  'measure.change.success_rate.help':
+    'جن تبدیلیوں کے نفاذ کا نتیجہ ہے، ان میں سے کامیاب نفاذ کا حصہ۔ ابھی کوئی نتیجہ نہیں تو کوئی شرح نہیں۔',
   'measure.incident.average_reassignments': 'دوبارہ تفویض کی اوسط تعداد',
   'measure.incident.average_reassignments.help':
     'کسی واقعے کے دوسرے گروپ یا ٹیکنیشن کو منتقل ہونے کی اوسط تعداد۔',
@@ -263,8 +313,21 @@ export const ur: LabelResource = {
     'کھلے یا انتظار والے واقعات جن کا نہ کوئی گروپ ہے نہ ٹیکنیشن۔',
   'measure.problem.count': 'مسائل',
   'measure.problem.count.help': 'ہر وہ مسئلہ جو فلٹرز سے ملتا ہو اور جسے آپ دیکھ سکتے ہوں۔',
+  'measure.release.average_approval_turnaround': 'منظوری کا وقت',
+  'measure.release.average_approval_turnaround.help':
+    'منظوری مانگنے سے فیصلے تک کا اوسط وقت، فیصلہ شدہ منظوریوں پر۔',
   'measure.release.count': 'ریلیزز',
   'measure.release.count.help': 'ہر وہ ریلیز جو فلٹرز سے ملتی ہو اور جسے آپ دیکھ سکتے ہوں۔',
+  'measure.release.failed_count': 'ناکام یا واپس لی گئی',
+  'measure.release.failed_count.help': 'وہ ریلیزیں جن کی تعیناتی ناکام ہوئی یا واپس لی گئی۔',
+  'measure.release.on_time_rate': 'وقت پر فراہمی',
+  'measure.release.on_time_rate.help':
+    'جن ریلیزوں کی تعیناتی ختم ہوئی ان میں سے وہ حصہ جو تعیناتی کے مرحلے کے مقررہ اختتام سے پہلے ختم ہوا۔ ابھی تعینات ہوتی ریلیز شمار نہیں ہوتی۔',
+  'measure.release.open_count': 'کھلی ریلیزیں',
+  'measure.release.open_count.help': 'وہ ریلیزیں جو ابھی بند یا منسوخ نہیں ہوئیں۔',
+  'measure.release.overdue_count': 'تاخیر شدہ مراحل',
+  'measure.release.overdue_count.help':
+    'کھلی ریلیزیں جن کا کوئی مرحلہ مقررہ اختتام سے آگے نکل گیا اور ابھی مکمل نہیں ہوا۔',
   'measure.service_request.count': 'سروس درخواستیں',
   'measure.service_request.count.help':
     'ہر وہ سروس درخواست جو فلٹرز سے ملتی ہو اور جسے آپ دیکھ سکتے ہوں۔',
@@ -284,6 +347,56 @@ export const ur: LabelResource = {
   'report.assets_warranty_ending': 'اگلے 90 دنوں میں ختم ہونے والی وارنٹیاں',
   'report.assets_warranty_ending.description':
     'وہ اثاثے جن کی وارنٹی 90 دنوں میں ختم ہو رہی ہے، ختم ہونے کے مہینے کے مطابق۔',
+  'report.changes_by_outcome': 'نتیجے کے مطابق تبدیلیاں',
+  'report.changes_by_outcome.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں جن کے نفاذ کا نتیجہ ہے، اس نتیجے کے مطابق۔',
+  'report.changes_by_reason': 'وجہ کے مطابق تبدیلیاں',
+  'report.changes_by_reason.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں، تبدیلی کی وجہ کے مطابق۔',
+  'report.changes_by_risk': 'خطرے کے مطابق تبدیلیاں',
+  'report.changes_by_risk.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں، خطرے کی سطح کے مطابق۔',
+  'report.changes_by_status': 'حیثیت کے مطابق تبدیلیاں',
+  'report.changes_by_status.description': 'مدت میں مانگی گئی تبدیلیاں، موجودہ حیثیت کے مطابق۔',
+  'report.changes_by_type': 'قسم کے مطابق تبدیلیاں',
+  'report.changes_by_type.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں، تبدیلی کی قسم کے مطابق۔',
+  'report.changes_downtime_per_month': 'ماہانہ منصوبہ بند اور اصل بندش',
+  'report.changes_downtime_per_month.description':
+    'منصوبہ بند بندش اور اصل میں ہونے والی بندش، ایک سال میں ہر ماہ۔',
+  'report.changes_emergency_share_per_month': 'ماہانہ ہنگامی حصہ',
+  'report.changes_emergency_share_per_month.description':
+    'ہنگامی راستہ لینے والی تبدیلیوں کا حصہ، ایک سال میں ہر ماہ۔',
+  'report.changes_freeze_overrides_by_group': 'گروپ کے مطابق فریز سے استثنا',
+  'report.changes_freeze_overrides_by_group.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیاں جو روکنے والے فریز میں آگے بڑھیں، سپورٹ گروپ کے مطابق۔',
+  'report.changes_implementation_time_by_type': 'تبدیلی کی قسم کے مطابق نفاذ کا وقت',
+  'report.changes_implementation_time_by_type.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں کا اوسط اصل نفاذ وقت، قسم کے مطابق۔',
+  'report.changes_open_ageing': 'کھلی تبدیلیوں کی عمر',
+  'report.changes_open_ageing.description': 'کھلی اور انتظار والی تبدیلیاں کتنے عرصے سے کھلی ہیں۔',
+  'report.changes_open_by_group': 'گروپ کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_group.description': 'کھلی اور انتظار والی تبدیلیاں، سپورٹ گروپ کے مطابق۔',
+  'report.changes_open_by_priority': 'ترجیح کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_priority.description': 'کھلی اور انتظار والی تبدیلیاں، ترجیح کے مطابق۔',
+  'report.changes_open_by_stage': 'مرحلے کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_stage.description':
+    'کھلی اور انتظار والی تبدیلیاں، ان کے موجودہ مرحلے کے مطابق۔',
+  'report.changes_open_by_status': 'حیثیت کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_status.description': 'کھلی اور انتظار والی تبدیلیاں، حیثیت کے مطابق۔',
+  'report.changes_open_by_technician': 'ذمہ دار کے مطابق کھلی تبدیلیاں',
+  'report.changes_open_by_technician.description':
+    'کھلی اور انتظار والی تبدیلیاں، ان کے ذمہ دار شخص کے مطابق۔',
+  'report.changes_received_per_week': 'ہفتہ وار مانگی گئی تبدیلیاں',
+  'report.changes_received_per_week.description': 'چھ ماہ میں ہر ہفتے نئی تبدیلیاں۔',
+  'report.changes_resolved_per_week': 'ہفتہ وار مکمل تبدیلیاں',
+  'report.changes_resolved_per_week.description': 'چھ ماہ میں ہر ہفتے مکمل ہونے والی تبدیلیاں۔',
+  'report.changes_success_rate_by_group': 'گروپ کے مطابق کامیابی کی شرح',
+  'report.changes_success_rate_by_group.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں کی کامیابی کی شرح اور تعداد، سپورٹ گروپ کے مطابق۔',
+  'report.changes_success_rate_by_type': 'تبدیلی کی قسم کے مطابق کامیابی کی شرح',
+  'report.changes_success_rate_by_type.description':
+    'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں کی کامیابی کی شرح اور تعداد، قسم کے مطابق۔',
   'report.incidents_all': 'تمام واقعات',
   'report.incidents_all.description': 'مدت میں بننے والا ہر واقعہ، حیثیت کے مطابق۔',
   'report.incidents_by_status': 'حیثیت کے مطابق واقعات',
@@ -356,19 +469,40 @@ export const ur: LabelResource = {
   'report.problems_received_per_week.description': 'چھ ماہ میں ہر ہفتے نئے مسائل۔',
   'report.problems_resolved_per_week': 'ہفتہ وار حل شدہ مسائل',
   'report.problems_resolved_per_week.description': 'چھ ماہ میں ہر ہفتے حل ہونے والے مسائل۔',
+  'report.releases_approval_time_by_type': 'قسم وار منظوری کا وقت',
+  'report.releases_approval_time_by_type.description':
+    'پچھلے 90 دنوں کی ریلیزوں کا اوسط منظوری کا وقت، ریلیز کی قسم کے مطابق۔',
+  'report.releases_by_closure_code': 'بندش کوڈ کے لحاظ سے ریلیزیں',
+  'report.releases_by_closure_code.description':
+    'پچھلے 90 دنوں کی بند ریلیزیں، ان کے ختم ہونے کے طریقے کے مطابق۔',
+  'report.releases_by_risk': 'خطرے کے لحاظ سے ریلیزیں',
+  'report.releases_by_risk.description': 'پچھلے 90 دنوں کی ریلیزیں، خطرے کے مطابق۔',
   'report.releases_by_status': 'حیثیت کے مطابق ریلیزز',
   'report.releases_by_status.description': 'مدت میں بننے والی ریلیزز، موجودہ حیثیت کے مطابق۔',
+  'report.releases_by_type': 'قسم وار ریلیزیں',
+  'report.releases_by_type.description': 'پچھلے 90 دنوں کی ریلیزیں، ریلیز کی قسم کے مطابق۔',
+  'report.releases_failed_by_type': 'قسم وار ناکام ریلیزیں',
+  'report.releases_failed_by_type.description':
+    'پچھلے 90 دنوں کی ناکام یا واپس لی گئی ریلیزیں سب کے مقابلے میں، ریلیز کی قسم کے مطابق۔',
+  'report.releases_on_time_per_month': 'ماہانہ وقت پر فراہمی',
+  'report.releases_on_time_per_month.description':
+    'وقت پر ختم ہونے والی تعیناتیوں کا حصہ، پچھلے سال ماہ بہ ماہ۔',
   'report.releases_open_ageing': 'کھلی ریلیزز کی عمر',
   'report.releases_open_ageing.description': 'کھلی اور انتظار والی ریلیزز کتنے عرصے سے کھلی ہیں۔',
   'report.releases_open_by_group': 'گروپ کے مطابق کھلی ریلیزز',
   'report.releases_open_by_group.description': 'کھلی اور انتظار والی ریلیزز، سپورٹ گروپ کے مطابق۔',
   'report.releases_open_by_priority': 'ترجیح کے مطابق کھلی ریلیزز',
   'report.releases_open_by_priority.description': 'کھلی اور انتظار والی ریلیزز، ترجیح کے مطابق۔',
+  'report.releases_open_by_stage': 'مرحلہ وار کھلی ریلیزیں',
+  'report.releases_open_by_stage.description': 'کھلی ریلیزیں، اس مرحلے کے مطابق جس میں وہ ہیں۔',
   'report.releases_open_by_status': 'حیثیت کے مطابق کھلی ریلیزز',
   'report.releases_open_by_status.description': 'کھلی اور انتظار والی ریلیزز، حیثیت کے مطابق۔',
   'report.releases_open_by_technician': 'ٹیکنیشن کے مطابق کھلی ریلیزز',
   'report.releases_open_by_technician.description':
     'کھلی اور انتظار والی ریلیزز، مقرر ٹیکنیشن کے مطابق۔',
+  'report.releases_overdue_by_manager': 'ریلیز مینیجر وار تاخیر شدہ مراحل',
+  'report.releases_overdue_by_manager.description':
+    'تاخیر شدہ مرحلے والی کھلی ریلیزیں، ان کے ریلیز مینیجر کے مطابق۔',
   'report.releases_received_per_week': 'ہفتہ وار موصول ریلیزز',
   'report.releases_received_per_week.description': 'چھ ماہ میں ہر ہفتے نئی ریلیزز۔',
   'report.releases_resolved_per_week': 'ہفتہ وار مکمل ریلیزز',
@@ -523,6 +657,7 @@ export const ur: LabelResource = {
   'reports.delete_folder_named': 'فولڈر “{{name}}” حذف کریں',
   'reports.download': 'ڈاؤن لوڈ',
   'reports.drill_count': 'ریکارڈز: {{count}}',
+  'reports.drill_unavailable': 'یہ ریکارڈ ابھی اس چارٹ سے فہرست میں نہیں دکھائے جا سکتے۔',
   'reports.duration_days': '{{days}} دن {{hours}} گھنٹے',
   'reports.duration_hours': '{{hours}} گھنٹے {{minutes}} منٹ',
   'reports.duration_minutes': '{{minutes}} منٹ',

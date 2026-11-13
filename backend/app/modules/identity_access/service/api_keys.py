@@ -36,6 +36,7 @@ from app.core.errors import (
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.domain import api_keys as rules
+from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.events import ApiKeyChanged
 from app.modules.identity_access.infra.models import ApiKey, User
@@ -43,6 +44,7 @@ from app.modules.identity_access.service.identity_settings import (
     IdentitySettingsView,
     get_identity_settings,
 )
+from app.modules.identity_access.service.network_rules import admitted, get_network_rules
 from app.shared.events import record_event
 from app.shared.ids import new_id
 
@@ -51,14 +53,40 @@ SERVICE = "service"
 OWNERS_MAX = 500  # one per connector instance: far more than any tenant runs
 
 
+# The context of the key derived from SUPPORTX_SESSION_SECRET: every hash made before the API-key
+# key became its own production setting (audit row 26) is under it.
+_LEGACY_CONTEXT = b"supportx-api-keys-v1"
+
+
+def _derived_from_session_secret(settings: Settings) -> bytes | None:
+    if settings.session_secret is None:
+        return None
+    secret = settings.session_secret.get_secret_value().encode()
+    return hmac.new(secret, _LEGACY_CONTEXT, hashlib.sha256).digest()
+
+
 def server_key(settings: Settings) -> bytes | None:
-    """The key secrets are hashed under: its own setting, else derived from the session secret."""
+    """The key new secrets are hashed under: SUPPORTX_API_KEY_SECRET.
+
+    Production refuses to start without it (audit row 26), so the session secret never guards API
+    keys there. Dev and test without it derive one from SUPPORTX_SESSION_SECRET (the legacy
+    secret, never the session key ring, D-162), so a dev stack needs no extra setting.
+    """
     if settings.api_key_secret is not None:
         return settings.api_key_secret.get_secret_value().encode()
-    if settings.session_secret is not None:
-        secret = settings.session_secret.get_secret_value().encode()
-        return hmac.new(secret, b"supportx-api-keys-v1", hashlib.sha256).digest()
-    return None
+    return _derived_from_session_secret(settings)
+
+
+def legacy_server_key(settings: Settings) -> bytes | None:
+    """The key hashes made before SUPPORTX_API_KEY_SECRET was set are under, or None.
+
+    Only while SUPPORTX_SESSION_SECRET is still set: such a key is re-hashed under the new key on
+    its first good call (`authenticate`), so existing integrations keep working through the
+    upgrade and the session secret stops mattering to them after it.
+    """
+    if settings.api_key_secret is None:
+        return None  # the derived key is already the current one
+    return _derived_from_session_secret(settings)
 
 
 def _require_server_key(settings: Settings) -> bytes:
@@ -222,6 +250,29 @@ async def _changed(
     )
 
 
+async def _check_secret(
+    session: AsyncSession,
+    row: ApiKey,
+    parsed: rules.ParsedKey,
+    server: bytes,
+    legacy: bytes | None,
+) -> None:
+    """The secret against the stored hash; a hash under the legacy key moves to the current one."""
+    if rules.secret_matches(server, parsed.key_id, parsed.secret, row.secret_hash):
+        return
+    if legacy is None or not rules.secret_matches(
+        legacy, parsed.key_id, parsed.secret, row.secret_hash
+    ):
+        raise Unauthenticated(code="api_key_invalid")
+    # Made under the session-secret key: move it to the API-key key now (audit row 26). Guarded
+    # by the old hash, so two replicas re-hashing at once write the same value once.
+    await session.execute(
+        update(ApiKey)
+        .where(ApiKey.id == row.id, ApiKey.secret_hash == row.secret_hash)
+        .values(secret_hash=rules.secret_hash(server, parsed.key_id, parsed.secret))
+    )
+
+
 async def authenticate(
     database: Database, settings: Settings, text: str, facts: RequestFacts, now: datetime
 ) -> TenantContext:
@@ -232,15 +283,13 @@ async def authenticate(
     server = server_key(settings)
     if server is None:
         raise ServiceUnavailable(code="api_keys_unavailable")
+    legacy = legacy_server_key(settings)
     tenant_only = TenantContext(parsed.tenant_id)
     async with database.tenant_session(tenant_only) as session:
         row = await session.get(ApiKey, parsed.key_id)
-        if (
-            row is None
-            or row.deleted_at is not None
-            or not rules.secret_matches(server, parsed.key_id, parsed.secret, row.secret_hash)
-        ):
+        if row is None or row.deleted_at is not None:
             raise Unauthenticated(code="api_key_invalid")
+        await _check_secret(session, row, parsed, server, legacy)
         if row.revoked_at is not None:
             raise Unauthenticated(code="api_key_revoked")
         if row.expires_at is not None and row.expires_at <= now:
@@ -248,7 +297,12 @@ async def authenticate(
         owner = await session.get(User, row.owner_id)
         if owner is None or owner.deleted_at is not None or owner.status != "active":
             raise Unauthenticated(code="api_key_owner_inactive")
-        allowed = rules.address_allowed(facts.ip, row.ip_allowlist)
+        # The key's own list, then the tenant's API list (REQ-SEC-034): both must admit it.
+        key_allowed = rules.address_allowed(facts.ip, row.ip_allowlist)
+        tenant_allowed = admitted(
+            await get_network_rules(session), NetworkApp.API, address_of(facts.ip)
+        )
+        allowed = key_allowed and tenant_allowed
         if allowed and (
             row.last_used_at is None or now - row.last_used_at >= rules.LAST_USED_EVERY
         ):
@@ -267,9 +321,12 @@ async def authenticate(
             facts=facts,
             object_type="api_key",
             object_id=key_id,
-            details={"name": name, "reason": "address_not_allowed"},
+            details={
+                "name": name,
+                "reason": "address_not_allowed" if not key_allowed else "tenant_ip_not_allowed",
+            },
         )
-        raise PermissionDenied(code="api_key_ip_refused")
+        raise PermissionDenied(code="api_key_ip_refused" if not key_allowed else "ip_not_allowed")
     return TenantContext(parsed.tenant_id, owner_id, api_key_id=key_id, api_scopes=scopes)
 
 

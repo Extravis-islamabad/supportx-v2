@@ -31,6 +31,7 @@ from app.core.errors import (
     PermissionDenied,
     ValidationFailed,
 )
+from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import SYSTEM_ROLES, TENANT_ADMIN, Catalogue
 from app.modules.identity_access.domain.policy import Subject, can_delegate
 from app.modules.identity_access.events import GroupRoleChanged, RoleChanged, UserRoleChanged
@@ -352,7 +353,9 @@ async def _service_members(session: AsyncSession, user_ids: Sequence[uuid.UUID])
     if not user_ids:
         return False
     found = await session.scalar(
-        select(User.id).where(User.id.in_(user_ids), User.user_type == "service").limit(1)
+        select(User.id)
+        .where(User.id.in_(user_ids), User.user_type == UserType.SERVICE.value)
+        .limit(1)
     )
     return found is not None
 
@@ -608,7 +611,7 @@ async def assign_role(  # noqa: PLR0913 - the request, the two IDs and which rou
     user_type = await session.scalar(select(User.user_type).where(User.id == user_id))
     if user_type is None:
         raise NotFound(code="user_not_found")
-    if user_type == "service":
+    if user_type == UserType.SERVICE.value:
         if people_only:
             raise PermissionDenied(code=SERVICE_IDENTITY_OWN_PATH)
         await role_allowed_for_service(session, policy.catalogue, role_id)

@@ -114,9 +114,9 @@ const noSetting = (key: string) => ({
   version: null,
 });
 
-function viewsApi(routes = {}) {
+function viewsApi(routes = {}, locale?: 'ar' | 'ur') {
   return consoleApi({
-    me: fakeSession({ roles: ['tenant_admin'] }),
+    me: fakeSession({ roles: ['tenant_admin'], ...(locale ? { locale } : {}) }),
     routes: {
       'GET /api/v1/assets': { body: listPage },
       'GET /api/v1/assets/product-types': { body: types },
@@ -200,6 +200,25 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
       ).toBe(true);
     });
     expect(computer.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it("a row's name and count are joined the way the language joins them (، in Arabic and Urdu)", async () => {
+    for (const locale of ['ar', 'ur'] as const) {
+      window.history.pushState({}, '', '/assets');
+      const fake = viewsApi({}, locale);
+      restore = fake.restore;
+      const { unmount } = render(<App />);
+      const tree = await screen.findByRole('tree');
+      const computer = await within(tree).findByTestId(`asset-tree-${COMPUTER}`);
+      await waitFor(() => {
+        expect(computer.getAttribute('aria-label')).toMatch(/5/);
+      });
+      const label = computer.getAttribute('aria-label') ?? '';
+      expect(label, locale).toContain('\u060C ');
+      expect(label, locale).not.toContain(', ');
+      unmount();
+      restore();
+    }
   });
 
   it('typeahead: a key moves to the next row starting with it, wrapping; quick keys make a prefix', async () => {

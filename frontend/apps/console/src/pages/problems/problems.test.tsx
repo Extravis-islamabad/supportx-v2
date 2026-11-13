@@ -531,6 +531,34 @@ describe('console: problems', () => {
     });
   });
 
+  it('lane C WP-058b: the release that caused the problem shows, opening the release', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const REL_ID = '01a1a2b3-0000-7000-8000-00000000e101';
+    api({
+      [`GET /api/v1/problems/${PRB_ID}/links`]: {
+        body: [
+          {
+            id: crypto.randomUUID(),
+            kind: 'caused_by_release',
+            relation: 'caused_by_release',
+            other_id: REL_ID,
+            other_type: 'release',
+            other_display_id: 'REL-12',
+            other_subject: 'Mail gateway upgrade',
+            other_known_error: false,
+            comment: null,
+            version: 1,
+            created_at: '2026-11-12T09:00:00Z',
+          },
+        ],
+      },
+    });
+    render(<App />);
+    const section = await screen.findByTestId('prb-releases');
+    expect(section.textContent).toContain('Caused by release');
+    expect(within(section).getByRole('link').getAttribute('href')).toBe(`/releases/${REL_ID}`);
+  });
+
   it('known error: the marker, one action that flips in place, and removing asks a reason', async () => {
     window.history.pushState({}, '', `/problems/${PRB_ID}`);
     const marked = {

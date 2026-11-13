@@ -227,6 +227,11 @@ export const ur: LabelResource = {
   'mail.add': 'میل باکس شامل کریں',
   'mail.add_title': 'میل باکس شامل کریں',
   'mail.edit_title': 'میل باکس تبدیل کریں',
+  'mail.email_changed.body':
+    '{{who}} نے {{when}} کو {{organisation}} میں آپ کے اکاؤنٹ کی سائن اِن ای میل بدل دی۔ اب یہ پتا نہیں رہا: سائن اِن اور پاس ورڈ ری سیٹ اب نئے پتے پر جاتے ہیں۔ اگر آپ کو اس کی توقع نہیں تھی تو فوراً {{organisation}} کے ایڈمنسٹریٹرز سے رابطہ کریں۔',
+  'mail.email_changed.body_self':
+    '{{when}} کو {{organisation}} میں آپ کے اکاؤنٹ کی سائن اِن ای میل بدل دی گئی۔ اب یہ پتا نہیں رہا: سائن اِن اور پاس ورڈ ری سیٹ اب نئے پتے پر جاتے ہیں۔ اگر یہ آپ نے نہیں کیا تو فوراً {{organisation}} کے ایڈمنسٹریٹرز سے رابطہ کریں۔',
+  'mail.email_changed.subject': '{{organisation}} میں آپ کے اکاؤنٹ کی سائن اِن ای میل بدل دی گئی',
   'mail.field.address': 'ای میل پتہ',
   'mail.field.after_fetch': 'پیغام پڑھنے کے بعد',
   'mail.field.after_fetch_hint': 'میل سرور پر پیغام صرف تب بدلتا ہے جب SupportX اسے محفوظ کر لے۔',
@@ -354,6 +359,7 @@ export const ur: LabelResource = {
   'mailbox_protocol.gmail': 'Gmail',
   'mailbox_protocol.graph': 'Microsoft 365',
   'mailbox_protocol.imap': 'IMAP',
+  'mailbox_reason.address_not_allowed': 'میل سرور کا ایڈریس استعمال نہیں ہو سکتا',
   'mailbox_reason.imap_fetch_failed': 'میل سرور نے پیغام نہیں دیا',
   'mailbox_reason.imap_login_failed': 'میل سرور نے یوزر نیم یا پاس ورڈ مسترد کر دیا',
   'mailbox_reason.imap_mark_failed': 'میل سرور نے پیغام کو پڑھا ہوا نشان زد نہیں کیا',
@@ -384,6 +390,7 @@ export const ur: LabelResource = {
   'mailbox_reason.oauth_unreachable': 'Microsoft یا Google تک رسائی نہیں ہو سکی',
   'mailbox_reason.oauth_wrong_account':
     'سائن اِن میل باکس کے اپنے اکاؤنٹ کے بجائے کسی اور اکاؤنٹ سے ہوا',
+  'mailbox_reason.port_not_allowed': 'میل سرور کا پورٹ استعمال نہیں ہو سکتا',
   'mailbox_reason.secret_store_fallback':
     'رازوں کا ذخیرہ پڑھا نہیں جا سکا، اس لیے میل باکس اپنی اسناد کی پچھلی نقل استعمال کر رہا ہے۔ اسے ٹھیک کرنے کے لیے اسناد دوبارہ محفوظ کریں۔',
   'mailbox_security.none': 'انکرپشن کے بغیر',

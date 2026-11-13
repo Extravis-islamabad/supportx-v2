@@ -21,6 +21,7 @@ from app.core.config import Settings
 from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
 from app.modules.integrations.domain.mailboxes import (
     CONNECTOR_KIND,
+    IMAP_PORTS,
     WAITING,
     AfterFetch,
     AuthModel,
@@ -51,6 +52,8 @@ from app.modules.integrations.service.connections import (
     start_consent,
 )
 from app.modules.integrations.service.fetching import own_addresses
+from app.shared.egress import EgressError, installation_allowance
+from app.shared.egress.sockets import NOT_ALLOWED, pinned_address
 from app.shared.events import record_event
 from app.shared.files.keyring import KeyRing
 
@@ -144,6 +147,8 @@ def _problems(values: Mapping[str, Any], *, has_secret: bool) -> list[FieldError
             for name in ("host", "port", "username")
             if not values.get(name)
         ]
+        if values.get("port") and values["port"] not in IMAP_PORTS:  # audit #3: no port scanner
+            errors.append(_field_error("port", "port_not_allowed"))
         if not has_secret:
             errors.append(_field_error("password", "required"))
     auth_model, kind = values.get("auth_model"), values.get("credential_kind")
@@ -242,6 +247,26 @@ async def _store_secret(session: AsyncSession, row: Mailbox, ring: KeyRing, secr
     await secrets.put(session, row, ring, secrets.SecretRole.CREDENTIAL, secret)
 
 
+async def _host_problems(values: Mapping[str, Any], settings: Settings) -> list[FieldError]:
+    """Audit #3: a tenant's IMAP host must resolve only to addresses a tenant may reach.
+
+    Saved names are checked here and again at every connection (DNS may change since). A name
+    that does not resolve yet is not refused here: the connection test reports it. The error
+    says only `address_not_allowed`, never which address or range.
+    """
+    host, port = values.get("host"), values.get("port")
+    if MailboxProtocol(values.get("protocol") or MailboxProtocol.IMAP) is not MailboxProtocol.IMAP:
+        return []
+    if not host or not port or port not in IMAP_PORTS:
+        return []  # required and port problems are _problems'
+    try:
+        await pinned_address(str(host), int(port), installation_allowance(settings))
+    except EgressError as exc:
+        if exc.code == NOT_ALLOWED:
+            return [_field_error("host", NOT_ALLOWED)]
+    return []
+
+
 async def create_mailbox(
     session: AsyncSession,
     settings: Settings,
@@ -251,7 +276,9 @@ async def create_mailbox(
     password: str | None,
 ) -> MailboxView:
     """A new mailbox; fetched at the next poll once its connection works (or its consent)."""
-    if errors := _problems(values, has_secret=bool(password)):
+    if errors := _problems(values, has_secret=bool(password)) or await _host_problems(
+        values, settings
+    ):
         raise ValidationFailed(errors=errors)
     ring = key_ring(settings)
     if ring is None:
@@ -294,7 +321,9 @@ async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the ch
             params={"expected_version": expected_version, "current_version": row.version},
         )
     merged = {name: getattr(row, name) for name in FIELDS} | dict(values)
-    if errors := _problems(merged, has_secret=bool(password) or row.secret_sealed is not None):
+    if errors := _problems(
+        merged, has_secret=bool(password) or row.secret_sealed is not None
+    ) or await _host_problems(merged, settings):
         raise ValidationFailed(errors=errors)
     signed_in = {"protocol", "auth_model", "client_id", "directory_id", "address"}
     if any(name in values and values[name] != getattr(row, name) for name in signed_in):

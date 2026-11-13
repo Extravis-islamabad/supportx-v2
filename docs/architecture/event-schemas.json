@@ -2614,6 +2614,23 @@
         "type": "object"
       }
     },
+    "identity_access.break_glass.signed_in": {
+      "1": {
+        "description": "A break-glass admin signed in with a password while single sign-on is required.\n\nREQ-SEC-009 AC3 (WP-057 S1b): every other tenant admin is told. IDs only.",
+        "properties": {
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "BreakGlassSignedIn",
+        "type": "object"
+      }
+    },
     "identity_access.group_role.changed": {
       "1": {
         "description": "A support group gained or lost a role: its members' access changes (WP-042).",
@@ -2697,6 +2714,30 @@
         "type": "object"
       }
     },
+    "identity_access.keycloak_session.end_pending": {
+      "1": {
+        "description": "A sign-out ended the SupportX session while Keycloak was unreachable (ADR-051).\n\nThe person is signed out of SupportX already; this asks the consumers worker to end their\nKeycloak session too, through the admin API, once Keycloak answers again. No token: the\nsession ID is enough for the admin API and authorises nothing on its own.",
+        "properties": {
+          "keycloak_session_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Keycloak Session Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "keycloak_session_id"
+        ],
+        "title": "KeycloakSessionEndPending",
+        "type": "object"
+      }
+    },
     "identity_access.mfa.changed": {
       "1": {
         "description": "An MFA policy, a person's enrolment or an admin reset changed (WP-039 session 3).",
@@ -2741,6 +2782,56 @@
           "change"
         ],
         "title": "MfaChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.new_device.signed_in": {
+      "1": {
+        "description": "A person signed in from a browser or device they have not used before (REQ-SEC-033).\n\nWP-057 S2b-1: they are told (a locked security notice), never on their first sign-in ever.\nCarries the device code (domain/sign_in.device, never the User-Agent) and the approximate\nplace (domain/place.py's stored form), never the address: the known_devices table keeps only\na keyed fingerprint, so the notice can only say this from the event. Internal (the outbox and\nthe notification consumer), never sent to a browser.",
+        "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "signed_in_at": {
+            "format": "date-time",
+            "title": "Signed In At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "device",
+          "place",
+          "signed_in_at"
+        ],
+        "title": "NewDeviceSignedIn",
         "type": "object"
       }
     },
@@ -2848,6 +2939,29 @@
           "client"
         ],
         "title": "SessionTenantSwitched",
+        "type": "object"
+      }
+    },
+    "identity_access.sign_in.recorded": {
+      "1": {
+        "description": "A sign-in event was written to the tenant's log (REQ-AUD-015; WP-057 S1a).\n\nThe outcome only, never the person, address or device: open sign-in logs refetch.",
+        "properties": {
+          "outcome": {
+            "enum": [
+              "success",
+              "failed",
+              "signed_out",
+              "locked",
+              "mfa_failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "SignInRecorded",
         "type": "object"
       }
     },
@@ -3193,6 +3307,33 @@
           "changed_fields"
         ],
         "title": "UserUpdated",
+        "type": "object"
+      }
+    },
+    "identity_access.user_cost_rate.changed": {
+      "1": {
+        "description": "A person's cost per hour was set, changed or removed (REQ-INC-068).\n\nIDs and the kind of change only, never the amount: screens with `users.view_cost_rates`\nrefetch the person's rates.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "change"
+        ],
+        "title": "UserCostRateChanged",
         "type": "object"
       }
     },
@@ -5762,6 +5903,53 @@
         ],
         "title": "WorkItemPartChangedV2",
         "type": "object"
+      },
+      "3": {
+        "description": "As V2, with a record's checklists, personal reminders and timers (WP-046a S2/S3).\n\nNew allowed values retype `part`, so a new schema version (docs/architecture/events.md\n\"Versioning\"); v1 and v2 stay registered and keep publishing their parts. A reminder or a\nrunning timer (REQ-INC-082, -069) is its owner's only: realtime tells their personal\nchannel, never the record's. `timer` is reserved here for S3, so S3 needs no V4.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "task",
+              "worklog",
+              "link",
+              "plan_section",
+              "stage_schedule",
+              "downtime",
+              "checklist",
+              "reminder",
+              "timer"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "part",
+          "part_id",
+          "change"
+        ],
+        "title": "WorkItemPartChangedV3",
+        "type": "object"
       }
     },
     "work_items.portal_settings.changed": {
@@ -5847,6 +6035,41 @@
           "incident_count"
         ],
         "title": "ProblemRepeatDetected",
+        "type": "object"
+      }
+    },
+    "work_items.reminder.due": {
+      "1": {
+        "description": "A person's own reminder on a record alerts them (WP-046a S2; REQ-INC-082 AC1).\n\nRaised once by the sweep at its time minus its lead. IDs only; the source re-reads the\nreminder at send time and says nothing if it moved, was completed, or its owner can no\nlonger see the record (the coordinator).",
+        "properties": {
+          "remind_at": {
+            "format": "date-time",
+            "title": "Remind At",
+            "type": "string"
+          },
+          "reminder_id": {
+            "format": "uuid",
+            "title": "Reminder Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "reminder_id",
+          "user_id",
+          "remind_at"
+        ],
+        "title": "WorkItemReminderDue",
         "type": "object"
       }
     },

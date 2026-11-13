@@ -7,6 +7,8 @@ export const RECORD_TABS = [
   'conversation',
   'details',
   'tasks',
+  'checklists', // WP-046a S2
+  'files',
   'worklogs',
   'links',
   'time',

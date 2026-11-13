@@ -452,3 +452,25 @@ async def test_req_inc_071_time_per_status_paused_and_reopen_keeps_time(world: W
     assert "seconds" not in refused.text
     paths = world.app.openapi()["paths"]
     assert not [p for p in paths if p.startswith("/api/v1/portal") and "time" in p]
+
+
+async def test_release_links_show_on_the_record_s_side_only(world: World) -> None:
+    """Lane C's WP-058b: a record a release caused or started lists that release (labelled from
+    its side); the release lists those itself, so its links tab stays as it was."""
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga))
+    release = await world.create(a, a.admin, group_id=str(a.ga))  # stands in for the release
+    # Written as lane C's release flow writes it (no API here): superuser, tenant explicit.
+    for kind in ("caused_by_release", "started_release"):
+        await world.sql(
+            "INSERT INTO work_item_links (id, tenant_id, source_id, target_id, kind)"
+            " VALUES (gen_random_uuid(), $1, $2, $3, $4)",
+            a.tenant,
+            uuid.UUID(item["id"]),
+            uuid.UUID(release["id"]),
+            kind,
+        )
+    mine = await links(world, a, a.admin, item)
+    assert sorted(link["relation"] for link in mine) == ["caused_by_release", "started_release"]
+    assert {link["other_id"] for link in mine} == {release["id"]}
+    assert await links(world, a, a.admin, release) == []
