@@ -450,6 +450,13 @@ export const ar: LabelResource = {
   'errors.field.invalid_value': 'هذه القيمة غير صالحة لهذا الحقل.',
   'errors.field.invalid_website': 'أدخل عنوان ويب يبدأ بـ http:// أو https://.',
   'errors.field.invitation_days_out_of_range': 'استخدم بين {{min}} و{{max}} يومًا.',
+  'errors.field.ip_allow_everything':
+    '«{{entry}}» يسمح بكل العناوين. اترك القائمة فارغة للسماح للجميع.',
+  'errors.field.ip_allow_invalid':
+    '«{{entry}}» ليس عنوانًا أو نطاقًا. استخدم صيغة مثل 192.0.2.0/24 أو 2001:db8::/32.',
+  'errors.field.ip_allow_locks_you_out':
+    'ستمنعك هذه القائمة من الدخول: عنوانك {{address}} ليس فيها. أضفه، أو نطاقًا يتضمنه.',
+  'errors.field.ip_allow_too_many': 'استخدم {{max}} إدخالًا على الأكثر.',
   'errors.field.kb_vote_comment_too_long': 'اجعل التعليق في حدود 1000 حرف.',
   'errors.field.kb_vote_reason_for_no_only': 'السبب يُذكر مع «لا» فقط.',
   'errors.field.kb_vote_reason_unknown': 'اختر أحد الأسباب المعروضة.',
@@ -731,6 +738,8 @@ export const ar: LabelResource = {
   'errors.invitation_not_pending': 'لم تعد هذه الدعوة بانتظار القبول: قُبلت أو سُحبت.',
   'errors.invitation_pending': 'لدى هذا الشخص دعوة بانتظار القبول. أرسلها مجددًا بدلًا من ذلك.',
   'errors.invitation_person_cannot_sign_in': 'هذا الشخص معطّل أو غير مسموح له بتسجيل الدخول.',
+  'errors.ip_not_allowed':
+    'لا تسمح مؤسستك بتسجيل الدخول من هذه الشبكة. اتصل من شبكة مسموح بها، أو اطلب ذلك من المسؤول.',
   'errors.job_kind_not_available': 'هذا النوع من المهام غير متاح بعد.',
   'errors.job_size': 'اختر بين 1 و{{max}} من عمليات التشغيل.',
   'errors.kb_article_not_editable':

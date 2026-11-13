@@ -69,8 +69,11 @@ def test_only_the_installation_opens_private_ranges_and_never_link_local() -> No
     assert allowed(ipaddress.ip_address("10.21.5.5"), "x", opened) is False
     assert allowed(ipaddress.ip_address("192.168.9.9"), "ERP.internal.", opened) is True
     assert allowed(ipaddress.ip_address("169.254.169.254"), "x", opened) is False  # never
+    assert opened.ports is not None
     assert 8443 in opened.ports
     assert {80, 443} <= opened.ports
+    assert opened.any_port().ports is None  # the same networks and hosts, any port
+    assert opened.any_port().networks == opened.networks
 
 
 class Resolver:

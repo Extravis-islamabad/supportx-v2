@@ -488,6 +488,13 @@ export const ur: LabelResource = {
   'errors.field.invalid_value': 'یہ قدر درست نہیں۔',
   'errors.field.invalid_website': 'http:// یا https:// سے شروع ہونے والا ویب پتہ درج کریں۔',
   'errors.field.invitation_days_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
+  'errors.field.ip_allow_everything':
+    '“{{entry}}” ہر پتے کی اجازت دے دے گا۔ سب کو اجازت دینے کے لیے فہرست خالی چھوڑیں۔',
+  'errors.field.ip_allow_invalid':
+    '“{{entry}}” کوئی پتہ یا رینج نہیں۔ 192.0.2.0/24 یا 2001:db8::/32 جیسی شکل استعمال کریں۔',
+  'errors.field.ip_allow_locks_you_out':
+    'یہ فہرست آپ کو باہر کر دے گی: آپ کا پتہ {{address}} اس میں نہیں۔ اسے، یا اسے شامل کرنے والی رینج، شامل کریں۔',
+  'errors.field.ip_allow_too_many': 'زیادہ سے زیادہ {{max}} اندراجات استعمال کریں۔',
   'errors.field.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
   'errors.field.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.field.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
@@ -796,6 +803,8 @@ export const ur: LabelResource = {
   'errors.invitation_not_pending': 'یہ دعوت نامہ اب منتظر نہیں: قبول ہو چکا یا واپس لیا جا چکا۔',
   'errors.invitation_pending': 'اس شخص کا ایک دعوت نامہ منتظر ہے۔ اس کے بجائے اسے دوبارہ بھیجیں۔',
   'errors.invitation_person_cannot_sign_in': 'یہ شخص غیر فعال ہے یا اسے سائن اِن کی اجازت نہیں۔',
+  'errors.ip_not_allowed':
+    'آپ کی تنظیم اس نیٹ ورک سے سائن اِن کی اجازت نہیں دیتی۔ کسی اجازت یافتہ نیٹ ورک سے جڑیں، یا اپنے منتظم سے کہیں۔',
   'errors.job_kind_not_available': 'اس قسم کی جاب ابھی دستیاب نہیں۔',
   'errors.job_size': '1 سے {{max}} تک رنز منتخب کریں۔',
   'errors.kb_article_not_editable':

@@ -44,6 +44,9 @@ async def signed_in_user(
     """
     if (await resolve_tenant(request)).user_id is None:
         raise Unauthenticated
+    auth = getattr(request.app.state, "auth", None)
+    if auth is not None:  # a realtime token is more access: the IP allow-list first
+        await auth.check_address(request)
     return subject
 
 
