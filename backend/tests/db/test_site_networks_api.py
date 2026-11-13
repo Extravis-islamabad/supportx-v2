@@ -9,8 +9,12 @@
 
 import json
 import uuid
+from datetime import timedelta
+
+import asyncpg
 
 from tests.db.test_identity_api import World, _admin_rows, world
+from tests.db.test_sign_in_log_api import _event
 
 __all__ = ["world"]  # the fixture, re-used
 
@@ -127,3 +131,32 @@ async def test_only_identity_managers_see_or_change_the_list(world: World) -> No
         "PUT", PATH, world.a, world.a.tech, json={"entries": []}, headers={"If-Match": '"0"'}
     )
     assert put.status_code == 403
+
+
+async def test_the_sign_in_log_shows_the_place_read_now_from_the_address(world: World) -> None:
+    """D-170: internal until its range is mapped, then the site; erased address, no place."""
+    site = await _site(world)
+    event = await _event(world, world.a, outcome="success", ago=timedelta(minutes=5))
+
+    async def place() -> object:
+        listed = await world.call("GET", "/identity/sign-ins", world.a)
+        assert listed.status_code == 200, listed.text
+        (item,) = [i for i in listed.json()["items"] if i["id"] == str(event)]
+        return item["place"]
+
+    assert await place() == {"kind": "internal", "site_id": None, "city": None, "country": None}
+    mapped = await world.call(
+        "PUT",
+        PATH,
+        world.a,
+        json={"entries": [{"network": "192.0.2.0/24", "site_id": site}]},
+        headers={"If-Match": '"0"'},
+    )
+    assert mapped.status_code == 200, mapped.text
+    assert await place() == {"kind": "site", "site_id": site, "city": None, "country": None}
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:  # what the GDPR erasure job does to the row
+        await conn.execute("UPDATE sign_in_events SET ip = NULL WHERE id = $1", event)
+    finally:
+        await conn.close()
+    assert await place() is None

@@ -169,6 +169,7 @@ class SessionStore:
                 # admins only (lane B), sealed like the rest of the entry.
                 "ip": data.get("sign_in_ip"),
                 "device": data.get("device"),
+                "place": data.get("place"),
             }
             sealed = self._cipher.encrypt(meta, bound_to=f"{index}:{field}")
             await self._kv.hset(index, field, sealed, px=_ms(ttl))

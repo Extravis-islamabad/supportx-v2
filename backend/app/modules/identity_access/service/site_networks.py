@@ -53,7 +53,7 @@ async def get_site_map(session: AsyncSession) -> SiteMap:
     """The tenant's ranges (empty when never saved)."""
     settings = await session.scalar(select(IdentitySettings))
     rows = await session.execute(select(SiteNetworkRow.network, SiteNetworkRow.site_id))
-    entries = _ordered([(str(net), site) for net, site in rows.tuples()])
+    entries = _ordered([(str(net), site) for net, site in rows.all()])
     return SiteMap(entries, settings.version if settings is not None else 0)
 
 

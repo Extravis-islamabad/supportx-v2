@@ -27,13 +27,14 @@ from app.core.database import TenantSession
 from app.core.errors import NotFound, ProblemDetail
 from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
-from app.modules.identity_access.api.sessions import ListedSessionOut, listed_out
+from app.modules.identity_access.api.sessions import ListedSessionOut, PlaceOut, listed_out
 from app.modules.identity_access.domain import sso as sso_rules
 from app.modules.identity_access.domain.network import NetworkApp, address_of
-from app.modules.identity_access.domain.place import MAX_SITE_NETWORKS
+from app.modules.identity_access.domain.place import MAX_SITE_NETWORKS, place_of
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.domain.sign_in import SignInApp, SignInMethod, SignInOutcome
 from app.modules.identity_access.domain.sign_in_policy import SsoRequired
+from app.modules.identity_access.infra.geoip import GeoIp
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
@@ -240,6 +241,10 @@ class SignInEventOut(BaseModel):
     ip: str | None
     device: str | None
     identity_provider: str | None
+    place: PlaceOut | None = Field(
+        default=None,
+        description="Where the address is, approximately, read now (D-170); none once erased.",
+    )
 
 
 class SignInPersonOut(BaseModel):
@@ -255,6 +260,12 @@ class SignInLogPage(BaseModel):
     items: list[SignInEventOut]
     people: dict[str, SignInPersonOut]
     next_cursor: str | None
+
+
+def _geo(request: Request) -> GeoIp:
+    """The process's GeoIP reader (the sign-in service's), or one that answers nothing."""
+    auth: AuthService | None = getattr(request.app.state, "auth", None)
+    return auth.geo if auth is not None else GeoIp(None)
 
 
 @router.get("/sign-ins", summary="The sign-in log")
@@ -321,6 +332,15 @@ async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of 
         str(person.id): SignInPersonOut(display_name=person.display_name, email=person.email)
         for person in await session.scalars(select(User).where(User.id.in_(named)))
     }
+    # The place is read now from the stored address (never stored itself: erasing the address
+    # erases the place), with today's site map and GeoIP file (D-170).
+    networks = (await site_networks.get_site_map(session)).networks()
+    geo = _geo(request)
+
+    def place(ip: str | None) -> PlaceOut | None:
+        found = place_of(ip, networks, geo.lookup) if ip is not None else None
+        return None if found is None else PlaceOut.of(found.to_dict())
+
     last_row = rows[-1] if rows else None
     return SignInLogPage(
         items=[
@@ -335,6 +355,7 @@ async def get_sign_ins(  # noqa: PLR0913, PLR0917 - FastAPI query parameters of 
                 ip=str(r.ip) if r.ip is not None else None,
                 device=r.device,
                 identity_provider=r.identity_provider,
+                place=place(str(r.ip) if r.ip is not None else None),
             )
             for r in rows
         ],
