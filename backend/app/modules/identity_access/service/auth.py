@@ -54,7 +54,12 @@ from app.modules.identity_access.domain.mobile import (
 )
 from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.session import Session, TenantChoice
-from app.modules.identity_access.domain.sign_in import SignInApp, SignInMethod, SignInOutcome
+from app.modules.identity_access.domain.sign_in import (
+    SignInApp,
+    SignInMethod,
+    SignInOutcome,
+    device,
+)
 from app.modules.identity_access.domain.sign_in_policy import (
     BREAK_GLASS_NEEDS_MFA,
     SSO_REQUIRED,
@@ -116,6 +121,11 @@ def _identity_of(session: Session) -> Identity:
         keycloak_session_id=session.keycloak_session_id,
         identity_provider=session.identity_provider,
     )
+
+
+def _iso_seconds(epoch: int | None) -> str | None:
+    """Seconds since the epoch as an ISO time (UTC), or None."""
+    return None if epoch is None else datetime.fromtimestamp(epoch, UTC).isoformat()
 
 
 def _stored_method(session: Session) -> SignInMethod | None:
@@ -204,6 +214,8 @@ class ListedSession:
     started_at: datetime | None
     last_used_at: datetime | None
     current: bool
+    ip: str | None = None
+    device: str | None = None
 
 
 def user_key(tenant_id: str, user_id: str) -> str:
@@ -893,6 +905,11 @@ class AuthService:
             sign_in_method=method.value,
             identity_provider=identity.identity_provider,
             break_glass=verdict.break_glass,
+            # Where and on what it signed in (REQ-SEC-030), and when the person last proved who
+            # they are (REQ-SEC-027): the verified ID token's auth_time, at login only.
+            sign_in_ip=attempt.ip if attempt is not None else None,
+            device=device(attempt.user_agent) if attempt is not None else None,
+            auth_time=_iso_seconds(identity.auth_time),
         )
 
     async def _log_policy_refusal(
@@ -1019,25 +1036,77 @@ class AuthService:
                 started_at=_moment(meta.get("created_at")),
                 last_used_at=_moment(meta.get("last_seen_at")),
                 current=sid == mine,
+                ip=meta.get("ip"),
+                device=meta.get("device"),
             )
             for sid, meta in rows
         ]
         return sorted(found, key=lambda s: s.last_used_at or s.started_at or _EPOCH, reverse=True)
 
     async def end_listed_session(
-        self, tenant_id: uuid.UUID, user_id: uuid.UUID, session: str
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        session: str,
+        *,
+        keep_keycloak_session: str | None = None,
     ) -> bool:
         """End one of a person's sessions by its listed id; its next call answers 401.
 
-        Their live connections in the tenant are cut too, so the ended one can't keep listening;
-        the others reconnect with their own sessions (as after a sign-out).
+        Its Keycloak session ends too (WP-057 S2a, the coordinator's rule), so its refresh token
+        is spent, unless it is `keep_keycloak_session`: the caller's own, shared by the console and
+        portal of one browser, which only ends locally. Their live connections in the tenant are
+        cut too, so the ended one can't keep listening; the others reconnect with their own
+        sessions (as after a sign-out).
         """
-        ended = await self.store.end_listed_session(user_key(str(tenant_id), str(user_id)), session)
+        ended = await self._take_and_end(
+            user_key(str(tenant_id), str(user_id)), session, keep_keycloak_session
+        )
         if ended:
             await self._sessions_changed(tenant_id, user_id)
             if self.end_realtime is not None:
                 await self.end_realtime(tenant_id, user_id)
         return ended
+
+    async def end_other_sessions(self, session_id: str, session: Session) -> int:
+        """Sign out everywhere else (REQ-SEC-030 AC2): every other session in this tenant ends.
+
+        This one stays working. Each ended session's Keycloak session ends too, except a twin
+        sharing this one's Keycloak session (the console and portal of this browser), which ends
+        here only, so signing out the others never signs this browser out. How many ended.
+        """
+        mine = public_id(session_id)
+        key = user_key(session.tenant_id, session.user_id)
+        ended = 0
+        for listed, _meta in await self.store.user_sessions(key):
+            if listed == mine:
+                continue
+            if await self._take_and_end(key, listed, session.keycloak_session_id):
+                ended += 1
+        if ended:
+            await self._sessions_changed(session.tenant_uuid, session.user_uuid)
+            if self.end_realtime is not None:
+                await self.end_realtime(session.tenant_uuid, session.user_uuid)
+        return ended
+
+    async def _take_and_end(self, key: str, listed: str, keep_keycloak_session: str | None) -> bool:
+        """End one listed session here and, unless it shares the kept one, at Keycloak."""
+        record = await self.store.take_listed_session(key, listed)
+        if record is None:
+            return False
+        try:
+            ended = Session.from_dict(record) if record else None
+        except (KeyError, TypeError, ValueError):
+            ended = None  # unreadable: it is gone here, and its token expires on its own
+        if ended is None or not ended.refresh_token:
+            return True
+        if keep_keycloak_session is not None and ended.keycloak_session_id == keep_keycloak_session:
+            return True  # this browser's own Keycloak session: ended here only
+        try:
+            await self._end_keycloak_session(self.client(_client_app(ended)), ended.refresh_token)
+        except IdentityProviderUnavailable:
+            log.warning("keycloak_logout_failed", subject=ended.subject)
+        return True
 
     async def end_sessions(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """End every session of a person in a tenant, now (REQ-SEC-031).

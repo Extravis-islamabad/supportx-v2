@@ -187,5 +187,5 @@ def test_session_refresh_window_and_round_trip() -> None:
 def test_a_session_from_a_newer_release_still_reads() -> None:
     """Rolling updates (§14.3): fields a later release adds are ignored, never a crash."""
     s = session()
-    newer = {**s.to_dict(), "sign_in_ip": "192.0.2.7", "a_future_field": {"x": 1}}
+    newer = {**s.to_dict(), "a_future_field": {"x": 1}, "another_one": "192.0.2.7"}
     assert Session.from_dict(newer) == s

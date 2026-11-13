@@ -1114,7 +1114,9 @@ async def person_sessions(
 ) -> list[ListedSessionOut]:
     """Every session the person has open in this organisation, most recently used first."""
     auth = await _person_auth(request, session, user_id)
-    return listed_out(await auth.listed_sessions(subject.tenant_id, user_id))
+    # Where each session signed in: tenant admins only (lane B's WP-057 S2a condition).
+    rows = await auth.listed_sessions(subject.tenant_id, user_id)
+    return listed_out(rows, show_where=subject.is_tenant_admin)
 
 
 @router.delete(
