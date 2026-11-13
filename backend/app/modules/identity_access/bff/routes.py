@@ -825,6 +825,7 @@ async def confirm_identity(
     found: CurrentSession,
     auth: Auth,
     return_to: Annotated[str | None, Query(alias="returnTo", max_length=2048)] = None,
+    attempt: Annotated[str | None, Query(max_length=64)] = None,
 ) -> Response:
     """Ask Keycloak to authenticate you again now, then come back to this session.
 
@@ -843,9 +844,12 @@ async def confirm_identity(
             session,
             return_to,
             can_reauthenticate_at_provider=await auth.provider_reauthenticates(session),
+            attempt=attempt,
         )
     except PermissionDenied:
-        target = auth.landing(app, confirm_service.CONFIRMED_PATH + "?status=unavailable")
+        target = confirm_service.confirmed_landing(
+            auth, app, "unavailable", return_to=return_to, attempt=attempt
+        )
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
     return _to_keycloak(auth, started)
 

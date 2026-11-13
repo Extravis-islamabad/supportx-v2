@@ -21,11 +21,13 @@ every provider SupportX creates, sso.py). SAML providers are not proven to, so t
 `reauth_unavailable` rather than a confirmation that never reached their provider (fail closed).
 """
 
+import re
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import urlencode
 
 from app.core.errors import PermissionDenied
 from app.core.logging import get_logger
@@ -46,6 +48,9 @@ CLOCK_SKEW = timedelta(seconds=2)
 REAUTH_FAILED = "reauth_failed"
 REAUTH_UNAVAILABLE = "reauth_unavailable"
 CONFIRMED_PATH = "/confirmed"  # the UI's page that tells the opener and closes (REQ-SEC-027)
+# The opener's id for one confirmation, echoed to /confirmed so the opener knows the answer is its
+# own. Not a secret (the server decides; the answer only triggers a retry the server checks).
+ATTEMPT = re.compile(r"[A-Za-z0-9_-]{16,64}")
 
 
 @dataclass(frozen=True)
@@ -56,13 +61,14 @@ class ConfirmFinished:
     confirmed: bool
 
 
-async def start(
+async def start(  # noqa: PLR0913 - the session, where back to, and the keyword-only flags
     auth: "AuthService",
     session_id: str,
     session: Session,
     return_to: str | None,
     *,
     can_reauthenticate_at_provider: bool,
+    attempt: str | None = None,
 ) -> "LoginStarted":
     """Remember a one-time confirmation for this session; Keycloak's URL and the binding."""
     from app.modules.identity_access.service.auth import (  # noqa: PLC0415 - avoids a cycle
@@ -89,6 +95,7 @@ async def start(
             "binding": binding_digest(binding),
             "confirm": public_id(session_id),
             "started_at": auth.clock.now().isoformat(),
+            "attempt": safe_attempt(attempt),
         },
         CONFIRM_TTL,
     )
@@ -193,22 +200,39 @@ def _session(record: dict[str, Any] | None) -> Session | None:
         return None
 
 
+def safe_attempt(value: str | None) -> str | None:
+    """The opener's attempt id when well formed, else None (it is echoed into a URL)."""
+    return value if value is not None and ATTEMPT.fullmatch(value) else None
+
+
+def confirmed_landing(
+    auth: "AuthService",
+    app: Literal["console", "portal"],
+    status: Literal["ok", "failed", "unavailable"],
+    *,
+    return_to: str | None,
+    attempt: str | None,
+) -> str:
+    """The UI's /confirmed page: the result, where to go back to, and the opener's attempt id."""
+    query = {"status": status, "returnTo": safe_return_to(return_to)}
+    if (checked := safe_attempt(attempt)) is not None:
+        query["attempt"] = checked
+    return auth.landing(app, f"{CONFIRMED_PATH}?{urlencode(query)}")
+
+
 def _landing(
     auth: "AuthService", app: Literal["console", "portal"], pending: dict[str, Any]
 ) -> Callable[..., str]:
     def build(*, confirmed: bool) -> str:
-        status = "ok" if confirmed else "failed"
-        back = pending.get("return_to") or "/"
-        query = f"?status={status}&returnTo={_quote(back)}"
-        return auth.landing(app, CONFIRMED_PATH + query)
+        return confirmed_landing(
+            auth,
+            app,
+            "ok" if confirmed else "failed",
+            return_to=pending.get("return_to"),
+            attempt=pending.get("attempt"),
+        )
 
     return build
-
-
-def _quote(value: str) -> str:
-    from urllib.parse import quote  # noqa: PLC0415 - one use
-
-    return quote(value, safe="")
 
 
 async def _log_refusal(  # noqa: PLR0913 - the attempt's parts, keyword-only

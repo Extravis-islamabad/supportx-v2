@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlsplit
 import asyncpg
 import httpx
 
+from app.modules.identity_access.service import confirm
 from app.modules.identity_access.tests.fake_idp import FakeUser
 from tests.db.test_auth_bff import Bff, bff
 
@@ -42,9 +43,14 @@ async def _guarded(bff: Bff) -> httpx.Response:
     )
 
 
+ATTEMPT = "attempt-0123456789abcdef"  # the opener's id, echoed to /confirmed
+
+
 async def _confirm(bff: Bff, person: FakeUser) -> httpx.Response:
     """Start a confirmation in this browser and finish it at the fake Keycloak as `person`."""
-    started = await bff.client.get("/api/v1/auth/confirm", params={"returnTo": "/admin/security"})
+    started = await bff.client.get(
+        "/api/v1/auth/confirm", params={"returnTo": "/admin/security", "attempt": ATTEMPT}
+    )
     assert started.status_code == 302, started.text
     query = parse_qs(urlsplit(started.headers["location"]).query)
     assert (query["prompt"], query["max_age"]) == (["login"], ["0"])  # authenticated now
@@ -56,7 +62,10 @@ def _status(done: httpx.Response) -> str:
     assert done.status_code == 303, done.text
     landing = urlsplit(done.headers["location"])
     assert landing.path.endswith("/confirmed")
-    return parse_qs(landing.query)["status"][0]
+    query = parse_qs(landing.query)
+    # The opener's pop-up listener matches its own attempt; the way back is the page it was on.
+    assert (query["attempt"], query["returnTo"]) == ([ATTEMPT], ["/admin/security"])
+    return query["status"][0]
 
 
 async def test_req_sec_027_ac1_fresh_passes_stale_asks_and_a_confirmation_lets_it_through(
@@ -124,3 +133,16 @@ async def test_a_new_keycloak_session_replaces_and_ends_the_old_one(bff: Bff) ->
     bff.idp.token_overrides = {}
     assert len(bff.idp.ended_sessions) == before + 1  # the old chain ended (lane B A5)
     assert (await _guarded(bff)).status_code == 200
+
+
+def test_only_a_well_formed_attempt_id_is_echoed() -> None:
+    assert confirm.safe_attempt(ATTEMPT) == ATTEMPT
+    for bad in (
+        None,
+        "",
+        "short",
+        "<script>alert(1)</script>-padding",
+        "a" * 65,
+        "x&status=ok-0000",
+    ):
+        assert confirm.safe_attempt(bad) is None
