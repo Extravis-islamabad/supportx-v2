@@ -650,6 +650,9 @@ networkPolicies:
     enabled: false
     extra: []                       # every pod, e.g. a forward proxy: [{to: [{ipBlock: {cidr: 10.0.0.5/32}}], ports: [{protocol: TCP, port: 3128}]}]
     components: {}                  # per component, e.g. {keycloak: [LDAP servers], consumers: [SMTP relay], api: [...]}
+    # The database's pods only (CloudNativePG instances carry no component label): an external
+    # backup target, e.g. [{to: [{ipBlock: {cidr: 10.0.0.9/32}}], ports: [{protocol: TCP, port: 443}]}].
+    database: []
     # The Kubernetes API, for CloudNativePG's pods and the API and worker pods' wait-for-migrate.
     # Empty: read from the default/kubernetes EndpointSlice at install time. `helm template` and
     # GitOps can't read it: set them, e.g. kubeApiCidrs: [10.0.0.10/32], kubeApiPorts: [6443].

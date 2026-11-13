@@ -103,8 +103,8 @@ up() {
   fi
   ip="$(store_ip)"
   [ -n "$ip" ] || { log "backup store has no address on $NETWORK"; exit 1; }
-  # The restore drill's restore cluster reads through the same ObjectStore, so this covers it.
-  # `extra`: CloudNativePG's instance pods carry no app.kubernetes.io/component label.
+  # `database`: the database's pods only (CloudNativePG instances, the restore drill's restore
+  # cluster's included, which reads through the same ObjectStore), never every pod (least privilege).
   cat >"$VALUES" <<EOF
 # Written by deploy/k3d/ci-backup-store.sh (CI only, D-166): the backups outside the k3d nodes.
 postgresql:
@@ -116,7 +116,7 @@ postgresql:
       encryption: AES256
 networkPolicies:
   egress:
-    extra:
+    database:
       - to: [{ipBlock: {cidr: $ip/32}}]
         ports: [{protocol: TCP, port: 8333}]
 EOF

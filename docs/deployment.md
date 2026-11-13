@@ -555,6 +555,10 @@ true (WP-014b). With it on, pods may reach:
   and `ports`):
   - `networkPolicies.egress.extra`: rules for every pod;
   - `networkPolicies.egress.components.<component>`: rules for one component's pods.
+  - `networkPolicies.egress.database`: rules for the database's pods only (CloudNativePG's
+    instances, a restore cluster's included). An external backup target goes here: its address
+    and port then reach the database and nothing else. Don't put it in `extra`, which opens it to
+    every pod in the namespace.
 
 **Addresses only.** NetworkPolicies match IP ranges, never host names. A service known only by
 name (Microsoft Graph, an AI provider, a CDN) has no fixed addresses. Without a CNI with

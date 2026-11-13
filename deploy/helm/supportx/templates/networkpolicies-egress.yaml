@@ -65,6 +65,25 @@ spec:
     {{- toYaml $rules | nindent 4 }}
 {{- end }}
 {{- end }}
+{{- with $egress.database }}
+---
+# The database's own pods only (CloudNativePG's instances, a restore cluster's included: they
+# carry cnpg.io/cluster, not app.kubernetes.io/component): an external backup target and its
+# port, least privilege (D-166; the audit's rule against opening an address to every pod).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-database-egress
+  labels:
+    {{- include "supportx.labels" (dict "root" $ "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: cnpg.io/cluster, operator: Exists}
+  policyTypes: [Egress]
+  egress:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
 {{- $kubeApiUsers := list
   (dict "name" "cluster" "match" (list (dict "key" "cnpg.io/cluster" "operator" "Exists")))
   (dict "name" "poolername" "match" (list (dict "key" "cnpg.io/poolerName" "operator" "Exists")))
