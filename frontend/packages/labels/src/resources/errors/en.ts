@@ -945,7 +945,7 @@ export const en = {
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
   'errors.notification_rule_locked':
-    'This is a security notice: its rule cannot be changed or reset.',
+    'A security notice always reaches the person it is about, so no one can switch it off, change who gets it or reset it.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',

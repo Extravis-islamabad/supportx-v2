@@ -116,6 +116,12 @@ export function NotificationRulesPage() {
               </Tag>
             )}
           </Flex>
+          {/* Says why nothing on the row can be changed (coordinator, #480). */}
+          {rule.locked && (
+            <Typography.Text type="secondary">
+              {t('notification_rules.locked_help')}
+            </Typography.Text>
+          )}
         </Flex>
       ),
     },

@@ -209,6 +209,8 @@ export const ur: LabelResource = {
   'notification_rules.intro':
     'کون سے واقعات کسے اور کیسے اطلاع دیتے ہیں۔ ہر واقعہ ایک مناسب پہلے سے طے شدہ ترتیب سے شروع ہوتا ہے؛ تبدیلیاں آڈٹ لاگ میں درج ہوتی ہیں۔',
   'notification_rules.locked': 'سکیورٹی کے لیے طے شدہ',
+  'notification_rules.locked_help':
+    'ہمیشہ متعلقہ شخص کو بھیجی جاتی ہے۔ کوئی اسے بند یا تبدیل نہیں کر سکتا۔',
   'notification_rules.none': 'کوئی واقعہ نہیں ملا',
   'notification_rules.required': 'لوگوں کے لیے لازمی',
   'notification_rules.reset': 'پہلے سے طے شدہ پر واپس',

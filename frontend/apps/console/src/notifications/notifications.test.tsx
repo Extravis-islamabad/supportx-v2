@@ -246,6 +246,11 @@ describe('Admin › Notifications', () => {
     render(<App />);
     const table = await screen.findByTestId('notification-rules');
     expect(await within(table).findByText('Fixed for security')).toBeTruthy();
+    expect(
+      within(table).getByText(
+        'Always sent to the person it is about. No one can switch it off or change it.',
+      ),
+    ).toBeTruthy();
     const on = within(table).getByTestId('rule-on-incident.assigned');
     expect(on.hasAttribute('disabled')).toBe(true);
     expect(within(table).queryByTestId('rule-reset-incident.assigned')).toBeNull();
