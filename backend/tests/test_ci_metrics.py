@@ -72,11 +72,15 @@ JOBS: dict[int, list[dict[str, str | None]]] = {
 }
 
 
+FAILED_JOBS: dict[int, tuple[str, ...]] = {2: ("backend tests 3/8",)}
+
+
 class Recorded:
     """Answers the gh calls ci_metrics makes from the recordings above, and logs them."""
 
-    def __init__(self) -> None:
+    def __init__(self, gone: frozenset[int] = frozenset()) -> None:
         self.calls: list[list[str]] = []
+        self.gone = gone  # runs whose jobs the API no longer returns
 
     def __call__(self, args: list[str]) -> str:
         self.calls.append(args)
@@ -87,6 +91,10 @@ class Recorded:
             return json.dumps(MERGED)
         if args[0] == "api":
             run_id = int(args[2].split("/runs/", 1)[1].split("/", 1)[0])
+            if run_id in self.gone:
+                raise subprocess.CalledProcessError(1, ["gh", *args])
+            if "filter=latest" in args[2]:  # the failed jobs of a queue run
+                return "".join(f"{name}\n" for name in FAILED_JOBS.get(run_id, ()))
             return "\n".join(json.dumps(job) for job in JOBS[run_id]) + "\n"
         raise AssertionError(args)
 
@@ -119,8 +127,10 @@ def test_the_cli_prints_a_table_and_writes_csv(
     assert "PR shard min" in out
     assert "2026-11-12" in out
     lines = target.read_text().splitlines()
-    assert lines[0] == "day,queue_runs,queue_ok,prs_merged,groups,avg_group,pr_shard_minutes"
-    assert lines[1] == "2026-11-11,2,1,2,1,2.0,15.0"
+    assert lines[0] == (
+        "day,queue_runs,queue_ok,prs_merged,groups,avg_group,pr_shard_minutes,unread"
+    )
+    assert lines[1] == "2026-11-11,2,1,2,1,2.0,15.0,0"
     with pytest.raises(SystemExit):
         ci_metrics.main(["--days", "0"], run=Recorded(), today=TODAY)
 
@@ -138,3 +148,19 @@ def test_gh_is_called_without_a_shell(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(subprocess, "run", fake_run)
     assert ci_metrics.gh(["run", "list"]) == "[]"
     assert seen == [["gh", "run", "list"]]
+
+
+def test_a_run_the_api_no_longer_returns_is_counted_never_fatal() -> None:
+    """One expired run used to stop the whole report (DAYS=7, run 43093087219, 2026-11-13)."""
+    rows = ci_metrics.collect(Recorded(gone=frozenset({100})), 2, today=TODAY)
+    assert (rows[0].pr_shard_minutes, rows[0].unread) == (0.0, 1)
+    assert (rows[1].pr_shard_minutes, rows[1].unread) == (0.0, 0)
+
+
+def test_failed_queue_runs_name_their_failed_jobs(capsys: pytest.CaptureFixture[str]) -> None:
+    found = ci_metrics.failed_queue_runs(Recorded(), 2, today=TODAY)
+    assert found == [ci_metrics.FailedRun("2026-11-11", 2, "x1", ("backend tests 3/8",))]
+    gone = ci_metrics.failed_queue_runs(Recorded(gone=frozenset({2})), 2, today=TODAY)
+    assert gone[0].jobs == ("unread",)
+    assert ci_metrics.main(["--days", "2", "--failures"], run=Recorded(), today=TODAY) == 0
+    assert "failed queue run 2 (2026-11-11, x1): backend tests 3/8" in capsys.readouterr().out

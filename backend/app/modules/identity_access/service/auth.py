@@ -880,8 +880,9 @@ class AuthService:
         if request.method not in SAFE_METHODS:
             self._check_csrf(request, session)
         if session.needs_refresh(now):
-            refreshed = await self._refresh(session_id, session)
+            # The allow-list first: an address about to be refused never costs a token rotation.
             await self._admit_or_end(session_id, session, request)
+            refreshed = await self._refresh(session_id, session)
             if refreshed is None:
                 # Another request holds the refresh: answer with what we read, but never save it.
                 # With refresh-token rotation (the realm's revokeRefreshToken, audit row 26) a

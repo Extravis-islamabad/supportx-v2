@@ -510,7 +510,8 @@ keycloak:
   setUpIdentityAdmin: true
   # The breached-password list (supportx-breached.txt) comes from this release's backend image.
   # A larger list of your own: a ConfigMap in the release namespace holding a file of that name,
-  # named here (kubectl create configmap my-lists --from-file=supportx-breached.txt).
+  # named here (kubectl create configmap my-lists --from-file=supportx-breached.txt). A
+  # ConfigMap holds at most 1 MiB, like the release itself (lane C, #471).
   passwordBlacklists:
     configMap: ""
   resources:
