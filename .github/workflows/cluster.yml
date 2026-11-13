@@ -303,6 +303,13 @@ jobs:
           for d in api centrifugo keycloak; do
             echo "== $d"; kubectl -n supportx logs "deploy/supportx-$d" --all-containers --tail=80 || true
           done
+          # Keycloak, every copy and its previous container: after a node loss the surviving copy
+          # must keep serving (the API's readiness needs it), and a restart says why here.
+          for pod in $(kubectl -n supportx get pods -l app.kubernetes.io/component=keycloak -o name); do
+            echo "== $pod"; kubectl -n supportx logs "$pod" -c keycloak --tail=60 --request-timeout=20s || true
+            kubectl -n supportx logs "$pod" -c keycloak --previous --tail=40 --request-timeout=20s || true
+          done
+          kubectl -n supportx describe pods -l app.kubernetes.io/component=keycloak | grep -E "^Name:|^Node:|Last State|Reason|Exit Code|Restart Count|Liveness|Readiness|Startup|Unhealthy" || true
           # The single-copy fan-out (every pod of it: after a node loss the new copy's start-up
           # is what the node-loss test waits for).
           echo "== fanout"; kubectl -n supportx logs -l app.kubernetes.io/component=fanout --all-containers --tail=80 --prefix || true
