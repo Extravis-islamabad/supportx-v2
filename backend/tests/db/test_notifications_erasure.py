@@ -98,6 +98,17 @@ async def test_an_erased_persons_notifications_go_and_nobody_elses(world: World)
     rule = (await world.call("GET", "/notifications/rules", org, org.admin)).json()
     after = next(r for r in rule if r["event_code"] == "incident.created")
     assert after["user_ids"] == [str(org.tech_a)]
+    # The rule moved on: an admin's save from before the erasure is stale (lane B's #492 review).
+    assert after["version"] == named.json()["version"] + 1
+    stale = await world.call(
+        "PUT",
+        "/notifications/rules/incident.created",
+        org,
+        org.admin,
+        json={**_rule(created), "user_ids": [str(org.tech_b), str(org.tech_a)]},
+        headers={"If-Match": f'"{named.json()["version"]}"'},
+    )
+    assert stale.status_code == 409
     # Another tenant's same-named event does nothing here (RLS: the session's tenant only).
     await _handle(world, _changed(other.tenant, org.tech_a, "erasure"))
     assert await _counts(world, org, org.tech_a) == before_a

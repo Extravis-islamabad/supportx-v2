@@ -11,17 +11,19 @@ Their e-mails' content lives in the mail sender's own queue and goes with its re
 """
 
 import uuid
+from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, update
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.modules.notifications.events import RuleChanged
 from app.modules.notifications.infra.models import (
     Notification,
     NotificationDelivery,
     NotificationRule,
 )
-from app.shared.events import ConsumerSpec, EventEnvelope
+from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 
 log = get_logger(__name__)
 ERASURE = "erasure"
@@ -33,12 +35,31 @@ async def forget(session: AsyncSession, user_id: uuid.UUID) -> tuple[int, int]:
         delete(NotificationDelivery).where(NotificationDelivery.user_id == user_id)
     )
     entries = await session.execute(delete(Notification).where(Notification.user_id == user_id))
-    # Rules that name the person: they are no longer anyone to tell.
-    await session.execute(
-        update(NotificationRule)
-        .where(NotificationRule.user_ids.contains([user_id]))
-        .values(user_ids=func.array_remove(NotificationRule.user_ids, user_id))
+    # Rules that name the person: they are no longer anyone to tell. A change like an admin's
+    # (lane B's #492 review): a new version, so a stale save cannot put them back, and the
+    # rules screen's signal; neither names the person.
+    rules = list(
+        await session.scalars(
+            select(NotificationRule)
+            .where(
+                NotificationRule.user_ids.contains([user_id]),
+                NotificationRule.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
     )
+    now = datetime.now(UTC)
+    for rule in rules:
+        rule.user_ids = [u for u in rule.user_ids if u != user_id]
+        rule.version += 1
+        rule.updated_at = now
+        await session.flush()
+        await record_event(
+            session,
+            RuleChanged(event_code=rule.event_code, changed_fields=["user_ids"]),
+            aggregate_id=rule.id,
+            aggregate_version=rule.version,
+        )
     return (
         int(getattr(deliveries, "rowcount", 0) or 0),
         int(getattr(entries, "rowcount", 0) or 0),
