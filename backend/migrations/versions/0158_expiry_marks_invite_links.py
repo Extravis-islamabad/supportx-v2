@@ -6,7 +6,7 @@ Expand only, no data step:
   names its provider (tenant-scoped key: `uq_sso_providers_tenant_id_id`, added here) and what
   runs out (a certificate's SHA-256, or `client_secret`). Tenant table, RLS forced.
 - `sso_providers.client_secret_expires_at`: an OIDC client secret's expiry, entered by an admin.
-- `invitations.link_token_hash` (the SHA-256 of a copied invite link's token, 32 bytes, unique per
+- `invitations.delivery` gains `link`, and `invitations.link_token_hash` (the SHA-256 of a copied invite link's token, 32 bytes, unique per
   tenant) and `invitations.link_copied_at`. The token itself is never stored.
 
 The downgrade refuses while any tenant has a mark, a secret expiry or a copied link, per tenant
@@ -44,6 +44,13 @@ def upgrade() -> None:
     op.add_column(INVITATIONS, sa.Column("link_token_hash", sa.LargeBinary(), nullable=True))
     op.add_column(
         INVITATIONS, sa.Column("link_copied_at", sa.DateTime(timezone=True), nullable=True)
+    )
+    # A link is a third way to deliver an invitation (when no mail is set up, REQ-SEC-021).
+    op.drop_constraint(op.f(f"ck_{INVITATIONS}_delivery_code"), INVITATIONS, type_="check")
+    op.create_check_constraint(
+        op.f(f"ck_{INVITATIONS}_delivery_code"),
+        INVITATIONS,
+        "delivery IN ('email', 'existing_account', 'link')",
     )
     op.create_check_constraint(
         op.f(f"ck_{INVITATIONS}_link_token_hash_length"),
@@ -108,7 +115,9 @@ BEGIN
         IF EXISTS (SELECT 1 FROM {PROVIDERS} WHERE client_secret_expires_at IS NOT NULL) THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has a client secret expiry (rule 5h)', t;
         END IF;
-        IF EXISTS (SELECT 1 FROM {INVITATIONS} WHERE link_token_hash IS NOT NULL) THEN
+        IF EXISTS (
+            SELECT 1 FROM {INVITATIONS} WHERE link_token_hash IS NOT NULL OR delivery = 'link'
+        ) THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has a copied invite link (rule 5h)', t;
         END IF;
     END LOOP;
@@ -123,6 +132,12 @@ def downgrade() -> None:
     op.drop_table(MARKS)  # its policies go with it
     op.drop_index("uq_invitations_link_token", table_name=INVITATIONS)
     op.drop_constraint(op.f(f"ck_{INVITATIONS}_link_token_hash_length"), INVITATIONS, type_="check")
+    op.drop_constraint(op.f(f"ck_{INVITATIONS}_delivery_code"), INVITATIONS, type_="check")
+    op.create_check_constraint(
+        op.f(f"ck_{INVITATIONS}_delivery_code"),
+        INVITATIONS,
+        "delivery IN ('email', 'existing_account')",
+    )
     op.drop_column(INVITATIONS, "link_copied_at")
     op.drop_column(INVITATIONS, "link_token_hash")
     op.drop_column(PROVIDERS, "client_secret_expires_at")

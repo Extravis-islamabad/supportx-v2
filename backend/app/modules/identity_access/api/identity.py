@@ -1080,8 +1080,11 @@ class InvitationOut(BaseModel):
     user_id: uuid.UUID
     email: str
     status: Literal["pending", "accepted", "expired", "revoked"]
-    delivery: Literal["email", "existing_account"] = Field(
-        description="existing_account: they already have a password and can sign in now."
+    delivery: Literal["email", "existing_account", "link"] = Field(
+        description=(
+            "existing_account: they already have a password and can sign in now. link: no mail"
+            " is set up, so an admin copies a single-use link to them (REQ-SEC-021)."
+        )
     )
     sent_at: datetime
     expires_at: datetime

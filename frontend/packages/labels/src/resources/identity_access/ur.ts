@@ -184,6 +184,7 @@ export const ur: LabelResource = {
     'میرا اکاؤنٹ میں، پورٹل اور کنسول دونوں میں۔ ڈائریکٹری کے رکھے نمبر صرف پڑھنے کے لیے رہتے ہیں۔',
   'invitation_delivery.email': 'ای میل سے',
   'invitation_delivery.existing_account': 'پہلے سے اکاؤنٹ ہے',
+  'invitation_delivery.link': 'کاپی کیے گئے لنک کے ذریعے',
   'invitation_status.accepted': 'قبول شدہ',
   'invitation_status.expired': 'میعاد ختم',
   'invitation_status.pending': 'منتظر',

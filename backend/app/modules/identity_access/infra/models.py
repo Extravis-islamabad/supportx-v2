@@ -578,7 +578,7 @@ class SsoProvider(TenantEntity):
 
 
 INVITATION_STATES = ("pending", "accepted", "revoked")
-INVITATION_DELIVERY = ("email", "existing_account")
+INVITATION_DELIVERY = ("email", "existing_account", "link")
 
 
 class Invitation(TenantEntity):
@@ -591,7 +591,7 @@ class Invitation(TenantEntity):
     __tablename__ = "invitations"
     __table_args__ = (
         CheckConstraint("status IN ('pending', 'accepted', 'revoked')", name="status_code"),
-        CheckConstraint("delivery IN ('email', 'existing_account')", name="delivery_code"),
+        CheckConstraint("delivery IN ('email', 'existing_account', 'link')", name="delivery_code"),
         ForeignKeyConstraint(
             ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_invitations_user"
         ),

@@ -182,6 +182,7 @@ export const ar: LabelResource = {
     'في حسابي، في البوابة ووحدة التحكم. تبقى الأرقام التي يحتفظ بها الدليل للقراءة فقط.',
   'invitation_delivery.email': 'بالبريد',
   'invitation_delivery.existing_account': 'لديه حساب بالفعل',
+  'invitation_delivery.link': 'عبر رابط منسوخ',
   'invitation_status.accepted': 'مقبولة',
   'invitation_status.expired': 'منتهية',
   'invitation_status.pending': 'بانتظار القبول',

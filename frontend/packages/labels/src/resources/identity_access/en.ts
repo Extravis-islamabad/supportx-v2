@@ -180,6 +180,7 @@ export const en = {
     'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',
   'invitation_delivery.email': 'By e-mail',
   'invitation_delivery.existing_account': 'Already has an account',
+  'invitation_delivery.link': 'By a copied link',
   'invitation_status.accepted': 'Accepted',
   'invitation_status.expired': 'Expired',
   'invitation_status.pending': 'Waiting',
