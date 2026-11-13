@@ -1,9 +1,8 @@
-# Every change needs review from the repository owner (product owner, D-007) until a team exists.
-* @devhat-pm
-
-# Security code owners (D-168, docs/dev-setup.md "Security code owners"). The last matching line
-# wins, so the paths below need the security reviewer's approval once "Require review from code
-# owners" is on. Kept tight: file-level where a module mixes security and feature code.
+# Security code owners (D-168, docs/dev-setup.md "Security code owners"): only these paths are
+# owned, by the security reviewer, once "Require review from code owners" is on. D-168 drops
+# D-007's catch-all (`* @devhat-pm`): every lane pushes as that account, which can't approve its
+# own PRs, so with code-owner review on every PR would block. Kept tight: file-level where a
+# module mixes security and feature code.
 
 # Sign-in, sessions and tokens: the backend-for-frontend, session cipher and store, OIDC, outbound
 # fetches, the Keycloak admin client, and the services behind them.

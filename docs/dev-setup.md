@@ -546,7 +546,8 @@ module's permission catalogue, every module's `api/` folder (where routes declar
 `migrations/helpers.py`, the RLS guard), the request edge (settings, middleware, trusted proxies,
 rate limits), the shared crypto, egress and files packages, the audit and licensing modules, the
 deployment secrets script, network policies and Keycloak files, and the security scans with
-`CODEOWNERS` itself. Everything else keeps the repository owner's catch-all line. A mistake in
+`CODEOWNERS` itself. Nothing else is owned: D-168 dropped D-007's catch-all `* @devhat-pm`, since
+every lane pushes as that account and it can't approve its own PRs. A mistake in
 these files can leak one tenant's data to another or let someone in, so a second pair of eyes is
 required there, and only there, to keep reviews fast elsewhere.
 
