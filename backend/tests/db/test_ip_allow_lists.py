@@ -94,9 +94,12 @@ async def test_a_live_session_ends_at_its_next_refresh_once_restricted(bff: Bff)
     assert (await bff.me()).status_code == 200
     await _restrict(bff.db, a, "console_ip_allow", [ELSEWHERE])
     assert (await bff.me()).status_code == 200  # within the access token's life: unchanged
-    bff.clock.advance(timedelta(minutes=6))  # the next call refreshes, and checks again
+    bff.clock.advance(timedelta(minutes=6))  # the next call would refresh, and checks first
+    refreshes = len(bff.idp.refreshed_with)
     response = await bff.me()
     assert (response.status_code, response.json()["code"]) == (403, "ip_not_allowed")
+    # Refused before the refresh: the token endpoint never saw it (lane C's polish 5 note).
+    assert len(bff.idp.refreshed_with) == refreshes
     assert (await bff.me()).json()["code"] == "unauthenticated"  # the session is gone
 
 

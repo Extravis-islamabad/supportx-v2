@@ -236,9 +236,12 @@ done
 grep -q 'SUPPORTX_DATABASE_SSL_ROOT_CERT' "$OUT/single-node.yaml" && { echo "single-node: PostgreSQL verification is HA-first" >&2; exit 1; }
 EXT_TLS="-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.tls.secretName=t --set postgresql.mode=external --set postgresql.external.host=db.example.com --set temporal.bundled.enabled=false --set temporal.address=temporal.example.com:7233"
 # shellcheck disable=SC2086 # the flags are meant to be split
-if helm template supportx "$CHART" --namespace supportx $EXT_TLS >/dev/null 2>&1; then
+# Refused for that reason, not another one (lane C, #467): the message must name caSecret.
+if EXT_ERR="$(helm template supportx "$CHART" --namespace supportx $EXT_TLS 2>&1 >/dev/null)"; then
   echo "postgresql: verify on with an external database and no caSecret must be refused" >&2; exit 1
 fi
+grep -q 'postgresql.external.caSecret' <<<"$EXT_ERR" ||
+  { echo "postgresql: refused, but not for the missing caSecret: $EXT_ERR" >&2; exit 1; }
 # Captured first: grep -q stops reading early, and pipefail would then count helm's broken pipe.
 # shellcheck disable=SC2086
 EXT_OUT="$(helm template supportx "$CHART" --namespace supportx $EXT_TLS --set postgresql.external.caSecret=db-ca)"
