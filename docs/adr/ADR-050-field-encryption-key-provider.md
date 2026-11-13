@@ -67,7 +67,12 @@ how the two fit together, and what the modules call.
 
    - `seal` uses the tenant's newest data key. `open` uses the data key the blob names, and
      returns None for anything that does not open (tampered, another tenant's, unknown key). A
-     caller shows such a value as unreadable and never as an error page.
+     caller shows such a value as unreadable, never as empty and never as an error page.
+   - **A None from `open` is a security event, never silent.** It is logged as
+     `field_unreadable` with the purpose, the data key ID and the reason class (unknown key,
+     bad tag, malformed) only, never the value, the blob or the bound record's content. It is
+     counted in a metric labelled by purpose and reason, and an alert fires on any bad tag,
+     since that means someone changed stored data.
    - Unwrapped data keys are cached per process for 5 minutes, keyed by (tenant, data key ID), and
      never logged, pickled or put in Valkey.
    - Modules never see a data key or the provider. They import only `field_cipher` and their
@@ -89,8 +94,12 @@ how the two fit together, and what the modules call.
    S3b's. Until then, files' existing behaviour stands: an unlisted key fails when its data is
    read.
 
-7. **Crypto-shredding:** deleting a tenant's data keys makes its files and its encrypted fields
-   unreadable together, which is what tenant deletion needs.
+7. **Erasing a tenant** destroys its data keys (crypto-shredding, as with files, ADR-028). Every
+   field sealed for that tenant, in the database and in every backup, becomes unreadable at the
+   same moment as its files, because only the destroyed data keys open them. Nothing has to find
+   or rewrite those values. Erasing one person (GDPR) does not use this: a person's sealed fields
+   are deleted or blanked by the erasure job like their other fields, because the tenant's data
+   keys are shared by everyone in it.
 
 ## Why reuse files' data keys instead of a second set
 
