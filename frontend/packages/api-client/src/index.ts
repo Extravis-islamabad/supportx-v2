@@ -85,6 +85,8 @@ export {
   onSessionId,
   rememberEtag,
   reportConnectivity,
+  setReauthConfirmer,
+  type ReauthOutcome,
   REQUEST_ID_HEADER,
   SESSION_HEADER,
   setApiOrigin,
