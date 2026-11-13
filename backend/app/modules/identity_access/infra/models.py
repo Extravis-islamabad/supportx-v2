@@ -789,3 +789,48 @@ class SignInImportCursor(Base):
     # Events of last_time_ms already read, when one millisecond held more than a run (0153).
     last_offset: Mapped[int] = mapped_column(Integer, server_default="0")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class SiteNetwork(TenantKeyed, Timestamps, Actors, Base):
+    """An admin's address range → site, for the sign-in place (WP-057 S2b, D-170; 0157).
+
+    Edited as one list with the tenant's identity settings (their `version` is the If-Match), so
+    rows have no version of their own. The most specific prefix wins (domain/place.py). At most
+    MAX_SITE_NETWORKS per tenant, checked by the service; one row per range.
+    """
+
+    __tablename__ = "site_networks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "site_id"], ["sites.tenant_id", "sites.id"], name="fk_site_networks_site"
+        ),
+        UniqueConstraint("tenant_id", "network", name="uq_site_networks_network"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    network: Mapped[str] = mapped_column(CIDR)
+    site_id: Mapped[uuid.UUID]
+
+
+class KnownDevice(TenantKeyed, Timestamps, Base):
+    """A browser or device a person has signed in from before (REQ-SEC-033; WP-057 S2b; 0157).
+
+    Only a keyed fingerprint: HMAC(the "known-device" key of the ADR-048 ring, user, device code,
+    the address's /24 or /48). Never the address or the browser string, so the table reveals
+    nothing on its own. A sign-in whose fingerprint is new sends the person a notice. Erasure
+    deletes the person's rows.
+    """
+
+    __tablename__ = "known_devices"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_known_devices_user"
+        ),
+        UniqueConstraint("tenant_id", "user_id", "fingerprint", name="uq_known_devices_print"),
+        CheckConstraint("octet_length(fingerprint) = 32", name="fingerprint_length"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID]
+    fingerprint: Mapped[bytes] = mapped_column(LargeBinary)
+    last_seen_at: Mapped[datetime]
