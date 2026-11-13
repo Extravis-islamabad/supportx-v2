@@ -926,7 +926,7 @@ export const ar: LabelResource = {
   'errors.password_policy_platform': 'تحدد المنصة سياسة كلمات المرور في هذا التثبيت.',
   'errors.password_reset_not_signed_in':
     'لم يسجّل هذا الشخص الدخول بعد. أرسل إليه دعوة بدلًا من ذلك.',
-  'errors.payload_too_large': 'حجم الملف المرفوع كبير جدًا.',
+  'errors.payload_too_large': 'ما أُرسل أكبر من أن يُقبل. أرسل أقل، أو ملفًا أصغر.',
   'errors.people_import_file_not_readable': 'استخدم ملف CSV أو مصنف Excel بصيغة {{xlsx}}.',
   'errors.people_import_file_too_large': 'حجم الملف أكبر من 5 ميغابايت.',
   'errors.people_import_file_unsafe': 'لم يُفتح المصنف: يتضخم إلى حجم يفوق حجمه بكثير.',

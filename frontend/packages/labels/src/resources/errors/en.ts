@@ -998,7 +998,7 @@ export const en = {
   'errors.password_policy_platform': 'The platform sets the password policy on this installation.',
   'errors.password_reset_not_signed_in':
     'This person has not signed in yet. Send them an invitation instead.',
-  'errors.payload_too_large': 'The upload is too large.',
+  'errors.payload_too_large': 'What was sent is too large to accept. Send less, or a smaller file.',
   'errors.people_import_file_not_readable': 'Use a CSV file or an Excel workbook ({{xlsx}}).',
   'errors.people_import_file_too_large': 'The file is larger than 5 MB.',
   'errors.people_import_file_unsafe':
