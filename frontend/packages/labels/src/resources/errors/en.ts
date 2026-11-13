@@ -487,6 +487,13 @@ export const en = {
   'errors.field.invalid_value': 'This value is not valid for the field.',
   'errors.field.invalid_website': 'Enter a web address starting with http:// or https://.',
   'errors.field.invitation_days_out_of_range': 'Use between {{min}} and {{max}} days.',
+  'errors.field.ip_allow_everything':
+    '“{{entry}}” would allow every address. Leave the list empty to allow everyone.',
+  'errors.field.ip_allow_invalid':
+    '“{{entry}}” is not an address or range. Use a form like 192.0.2.0/24 or 2001:db8::/32.',
+  'errors.field.ip_allow_locks_you_out':
+    'This list would shut you out: your address {{address}} is not in it. Add it, or a range that holds it.',
+  'errors.field.ip_allow_too_many': 'Use at most {{max}} entries.',
   'errors.field.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.field.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.field.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
@@ -791,6 +798,8 @@ export const en = {
   'errors.invitation_pending': 'This person has an invitation waiting. Send it again instead.',
   'errors.invitation_person_cannot_sign_in':
     'This person is deactivated or not allowed to sign in.',
+  'errors.ip_not_allowed':
+    'Your organisation does not allow sign-in from this network. Connect from an allowed network, or ask your administrator.',
   'errors.job_kind_not_available': 'This kind of job is not available yet.',
   'errors.job_size': 'Choose between 1 and {{max}} runs.',
   'errors.kb_article_not_editable':
@@ -1060,6 +1069,10 @@ export const en = {
   'errors.tenant_not_provisioned':
     'Your organisation is not set up in SupportX yet. Please contact your administrator.',
   'errors.tenant_suspended': 'Your organisation’s access is suspended.',
+  'errors.timer_not_running': 'You have no timer running on this record.',
+  'errors.timer_record_done':
+    'This record is resolved or closed. Log the time as a worklog instead.',
+  'errors.timer_running': 'Your timer is already running on this record.',
   'errors.too_many_favourites': 'You can star up to {{max}} reports.',
   'errors.too_many_files': 'Too many files at once: at most {{max}}.',
   'errors.too_many_rules': 'At most {{max}} rules per record type.',
@@ -1093,6 +1106,7 @@ export const en = {
   'errors.workflow_instance_not_found': 'This workflow run was not found.',
   'errors.workflow_job_not_found': 'This job was not found.',
   'errors.workflow_version_not_found': 'That version of the workflow was not found.',
+  'errors.worklog_record_closed': "Time can't be logged or changed on a closed record here.",
   'errors.would_lose_access':
     'After this change you will no longer see {{display_id}}. Confirm to hand it over.',
 } as const;

@@ -24,7 +24,7 @@ const LIVE = { timeout: 3_000 };
  * test user, who then opens the console with exactly the allowed menus; taking the role away
  * sends them back to the portal. The role is deleted at the end (suite-owned data only).
  */
-test('custom role: create, assign, see the menus, remove', async ({ browser }) => {
+test('custom role: create, assign, see the menus, remove @smoke', async ({ browser }) => {
   const adminContext = await browser.newContext();
   const userContext = await browser.newContext();
   const admin = await adminContext.newPage();

@@ -49,9 +49,13 @@ Life cycle: **draft → tested → on ⇄ off**, removable at any time.
      (email, names, department, site). Its email domains become the organization's domains,
      routed to it. Public mail domains are refused; a domain another organization has is refused
      by Keycloak; two set-ups of a tenant never share one.
-   - Fetches follow the request-forgery rules of `infra/fetch.py`: no link-local (cloud metadata),
-     multicast, reserved or unspecified addresses, loopback only with
-     `SUPPORTX_SSO_FETCH_ALLOW_LOOPBACK=true` (dev and CI), no redirects, 5 seconds, 1 MB.
+   - Fetches go through the one guarded client (`app/shared/egress`, ADR-043 §8; WP-057 S1,
+     audit #3): the host is resolved once and the connection is pinned to the checked address;
+     never link-local (cloud metadata), multicast or unspecified addresses; private ranges, CGNAT
+     and loopback only where the installation lists them in `SUPPORTX_EGRESS_ALLOW` (an on-prem
+     provider on a private network is listed there), loopback also with
+     `SUPPORTX_SSO_FETCH_ALLOW_LOOPBACK=true` in the dev and test profiles only; any port; no
+     redirects, 1 MB.
 2. **Test**, in a private window. The admin copies the link; the private window goes straight
    to the provider (`kc_idp_hint`), lands on `/sso-test-done` (no session needed), and the admin's
    screen shows who signed in and what came for department and site. No SupportX session and no

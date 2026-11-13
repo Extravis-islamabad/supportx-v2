@@ -11,9 +11,10 @@
 #      node-loss.sh's); then it settles again;
 #   4. stop that node (k3d node stop), as a node that loses power, once cluster DNS is sure to
 #      survive it (two CoreDNS copies, deploy/k3s/cluster-dns-ha.sh);
-#   5. within 90 s the live sentinels name one new master on a live node; within 120 s more the
-#      same session's write succeeds (the stopped node's API copy keeps its endpoints until
-#      Kubernetes marks the node NotReady, about 50 s);
+#   5. within 60 s the live sentinels name one new master on a live node, none of them in TILT
+#      (NodeLocal DNSCache, D-163); within 120 s more the same session's write succeeds (the
+#      stopped node's API copy keeps its endpoints until Kubernetes marks the node NotReady,
+#      about 50 s);
 #   6. the node starts again: within 300 s the old master is a replica, exactly one master runs,
 #      and every sentinel lists two healthy replicas; the database is back to three ready
 #      instances and cluster DNS to two nodes, so node-loss.sh starts on a settled cluster.
@@ -180,15 +181,14 @@ dns_guard "$node" || exit 1
 echo "== stop $node (Valkey master $master; also on it:" \
   "$(kubectl -n "$NAMESPACE" get pods --field-selector "spec.nodeName=$node" -o name | sed 's#pod/##' | tr '\n' ' '))"
 STOPPED="$node"
+STOPPED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 k3d node stop "$node"
 
-# 90 s, not 60 (the coordinator, #425): after a node loss the sentinels stall on lookups that
-# reach the lost node's CoreDNS endpoint (until it drops, about 20 s with the shipped grace
-# period); Sentinel resolves synchronously, so a stall over 2 s puts it in TILT, which lasts a
-# fixed 30 s (not configurable). Failover then takes about 50 s (runs 43153098860 and
-# 43157246881: 37-54 s). NodeLocal DNSCache, the next lane B PR, removes the stall and brings
-# these back to 60 s or less.
-PROMOTE_BUDGET=90
+# 60 s (D-163): NodeLocal DNSCache (deploy/k3s/node-local-dns.sh) answers the sentinels'
+# lookups from every node's own cache, so a lost node's CoreDNS copy no longer stalls them
+# into TILT (a fixed 30 s pause). Before it, failover took about 50 s and this was 90 s
+# (runs 43153098860 and 43157246881: 37-54 s).
+PROMOTE_BUDGET=60
 took="$(until_ok "$PROMOTE_BUDGET" failed_over "$master" "$node")" ||
   { echo "the live sentinels named no new master on a live node within ${PROMOTE_BUDGET} s"
     for pod in $VALKEY_PODS; do
@@ -196,6 +196,18 @@ took="$(until_ok "$PROMOTE_BUDGET" failed_over "$master" "$node")" ||
       echo "  $pod's sentinel names: $(master_of "$pod" || true)"
     done
     exit 1; }
+# No sentinel went into TILT (D-163): with a cache on every node a lost CoreDNS copy no longer
+# stalls their lookups. A TILT here means the cache is not answering, whatever the timing.
+for pod in $VALKEY_PODS; do
+  [ "$(node_of "$pod")" = "$node" ] && continue
+  tilts="$(kubectl -n "$NAMESPACE" logs "$pod" -c sentinel --since-time="$STOPPED_AT" 2>/dev/null | grep -c '+tilt' || true)"
+  if [ "${tilts:-0}" -gt 0 ]; then
+    echo "$pod's sentinel entered TILT $tilts time(s) after $node stopped: its lookups stalled" \
+      "(is NodeLocal DNSCache ready on every node? deploy/k3s/node-local-dns.sh)"
+    exit 1
+  fi
+done
+echo "no sentinel entered TILT"
 for pod in $VALKEY_PODS; do
   [ "$(node_of "$pod")" = "$node" ] && continue
   promoted="$(master_of "$pod" || true)"

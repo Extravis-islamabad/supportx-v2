@@ -7,7 +7,7 @@ Every `index_worker_interval_seconds` it builds the custom field indexes admins 
 import asyncio
 import sys
 
-from app.core.database import Database, create_engine
+from app.core.database import Database, create_engine, database_ssl
 from app.core.logging import get_logger
 from app.core.modules import discover_modules
 from workers import runtime
@@ -31,6 +31,7 @@ async def main(stop: asyncio.Event) -> None:
             application_name="supportx-index-worker",
             pool_size=2,
             max_overflow=1,
+            ssl=database_ssl(settings.database_ssl_root_cert),
         )
     )
     started.set()
