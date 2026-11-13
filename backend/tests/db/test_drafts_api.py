@@ -209,3 +209,38 @@ async def test_two_first_saves_at_once_keep_one_draft(world: World) -> None:
         a.tech_a,
     )
     assert rows[0]["n"] == 1
+
+
+async def test_the_second_of_two_open_inserts_is_told_it_is_stale(world: World) -> None:
+    """The conflict branch itself: one session's first save is still open when another's
+    arrives; the second waits on the unique key, then finds the row taken (lane B)."""
+    import asyncio  # noqa: PLC0415 - one test
+
+    from app.core.errors import Conflict  # noqa: PLC0415 - one test
+
+    with_key_ring(world)
+    a = world.a
+    settings = world.app.state.settings
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    try:
+        context = TenantContext(a.tenant, user_id=a.tech_a)
+        async with database.tenant_session(context) as first:
+            await drafts.put(
+                first, settings, a.tenant, a.tech_a, "incident-new", VALUES, expected_version=0
+            )
+
+            async def second() -> int:
+                async with database.tenant_session(context) as session:
+                    return await drafts.put(
+                        session, settings, a.tenant, a.tech_a, "incident-new", VALUES,
+                        expected_version=0,
+                    )  # fmt: skip
+
+            waiting = asyncio.create_task(second())
+            await asyncio.sleep(0.5)  # it now waits on the first's uncommitted row
+            assert not waiting.done()
+        # The first commits on leaving its block; the second then finds the row taken.
+        with pytest.raises(Conflict):
+            await waiting
+    finally:
+        await database.dispose()
