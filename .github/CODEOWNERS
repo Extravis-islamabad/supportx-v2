@@ -29,33 +29,21 @@
 /backend/app/modules/identity_access/domain/policy.py @supportx-reviewer
 /backend/app/core/authorization.py @supportx-reviewer
 
-# Where routes declare their permission (require_permission / authorize): every module's api/
-# folder, the /api/v1 router (main.py) and the registry that mounts every module router.
-/backend/app/modules/*/api/ @supportx-reviewer
+# Who may call which route: the generated route-permission map and role matrix (D-168, Haider
+# 2026-11-13). Module api/ folders and permission catalogues are not owned; a new route, a changed
+# route permission or a changed role default changes the map, so it needs this review and other
+# feature PRs don't. With the generator, its staleness test and the role matrix's pin.
+/docs/security/route-permissions.md @supportx-reviewer
+/backend/tooling/route_permissions.py @supportx-reviewer
+/backend/tests/test_route_permission_map.py @supportx-reviewer
+/backend/app/modules/identity_access/tests/role_matrix.json @supportx-reviewer
+/backend/app/modules/identity_access/tests/test_role_matrix.py @supportx-reviewer
+# The /api/v1 router (main.py) and the registry that mounts every module router.
 /backend/app/main.py @supportx-reviewer
 /backend/app/core/modules.py @supportx-reviewer
 # The guards that hold every route to a permission and every create to an Idempotency-Key.
 /backend/tests/test_route_permissions.py @supportx-reviewer
 /backend/tests/test_create_routes_idempotent.py @supportx-reviewer
-
-# Each module's permission catalogue (the PermissionSpec lists collected at startup).
-/backend/app/modules/ai/__init__.py @supportx-reviewer
-/backend/app/modules/analytics/__init__.py @supportx-reviewer
-/backend/app/modules/announcements/__init__.py @supportx-reviewer
-/backend/app/modules/assets/__init__.py @supportx-reviewer
-/backend/app/modules/automation/__init__.py @supportx-reviewer
-/backend/app/modules/identity_access/__init__.py @supportx-reviewer
-/backend/app/modules/integrations/__init__.py @supportx-reviewer
-/backend/app/modules/knowledge/__init__.py @supportx-reviewer
-/backend/app/modules/notifications/__init__.py @supportx-reviewer
-/backend/app/modules/organization/__init__.py @supportx-reviewer
-/backend/app/modules/procurement/__init__.py @supportx-reviewer
-/backend/app/modules/service_catalog/__init__.py @supportx-reviewer
-/backend/app/modules/sla/__init__.py @supportx-reviewer
-/backend/app/modules/system/__init__.py @supportx-reviewer
-/backend/app/modules/work_items/__init__.py @supportx-reviewer
-/backend/app/modules/work_items/service/access.py @supportx-reviewer
-/backend/app/modules/work_items/service/portal.py @supportx-reviewer
 
 # Tenant isolation (rule 5a): tenant context, the RLS statements, and the only way migrations may
 # write policies or grants (option b), with the test that enforces it.

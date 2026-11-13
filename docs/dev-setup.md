@@ -540,9 +540,8 @@ product owner decision.
 
 `.github/CODEOWNERS` names `@supportx-reviewer`, the security reviewer's account, for the code
 that decides who gets in and what they may see: sign-in, sessions and tokens (the BFF, the session
-cipher and store, OIDC, API keys, MFA, SSO, password reset), the policy layer, roles and every
-module's permission catalogue, every module's `api/` folder (where routes declare their
-`require_permission`), tenant isolation (`app/core/tenancy.py`, `app/shared/db/rls.py`,
+cipher and store, OIDC, API keys, MFA, SSO, password reset), the policy layer, roles and the
+identity permission catalogue, the generated route-permission map (below), tenant isolation (`app/core/tenancy.py`, `app/shared/db/rls.py`,
 `migrations/helpers.py`, the RLS guard), the request edge (settings, middleware, trusted proxies,
 rate limits), the shared crypto, egress and files packages, the audit and licensing modules, the
 deployment secrets script, network policies and Keycloak files, and the security scans with
@@ -554,6 +553,15 @@ required there, and only there, to keep reviews fast elsewhere.
 The file takes effect once Haider has created the reviewer account and turned on "Require review
 from code owners" in the `main` ruleset; until then it only requests reviews. Nobody but Haider
 handles that account or its sign-in.
+
+Module `api/` folders and permission catalogues are not owned (Haider, 2026-11-13), as nearly every
+feature PR touches them. Instead `docs/security/route-permissions.md` is: every `/api/v1` route
+with the access it declares (`require_permission` keys, `signed_in` or `public`) and the scopes
+each permission takes, then every built-in role's permissions and scopes. It is generated from
+code, never edited by hand: after adding a route, changing a route's permission, adding a
+permission or changing a role default, run `make route-permissions` and commit the result.
+`backend/tests/test_route_permission_map.py` fails on a stale file, so such a PR changes an owned
+file and gets the security review; a feature PR that leaves access alone doesn't.
 
 Migrations are not code-owned as a whole, since nearly every work package adds one. Instead (option
 (b)), SQL that decides table access (`CREATE`/`ALTER`/`DROP POLICY`, `GRANT`, `REVOKE`,
