@@ -190,5 +190,6 @@ def test_a_session_from_a_later_release_still_reads() -> None:
     This must reach main before the release that adds fields, as the reading pod is the older one.
     """
     s = session()
-    later = {**s.to_dict(), "auth_time": "2026-11-13T05:00:00+00:00", "device": "desktop"}
+    # Names no release will use (lane C): S2a's real fields would make this compare unequal.
+    later = {**s.to_dict(), "a_future_field": "x", "another_future_field": {"nested": 1}}
     assert Session.from_dict(later) == s
