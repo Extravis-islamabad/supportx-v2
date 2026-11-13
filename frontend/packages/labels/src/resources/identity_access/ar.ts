@@ -1114,6 +1114,9 @@ export const ar: LabelResource = {
   'security.sso.certificate': 'شهادة التوقيع',
   'security.sso.client_id': 'معرّف العميل',
   'security.sso.client_secret': 'كلمة سر العميل',
+  'security.sso.client_secret_expires_at': 'تنتهي صلاحية سر العميل في',
+  'security.sso.client_secret_expires_hint':
+    'من وحدة تحكم مزوّد الهوية. يُبلَّغ المسؤولون قبل 30 و7 أيام ويوم واحد.',
   'security.sso.display_name': 'الاسم على زر تسجيل الدخول',
   'security.sso.domains': 'نطاقات البريد',
   'security.sso.domains_hint':

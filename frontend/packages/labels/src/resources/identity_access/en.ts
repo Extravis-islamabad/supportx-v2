@@ -1106,6 +1106,9 @@ export const en = {
   'security.sso.certificate': 'Signing certificate',
   'security.sso.client_id': 'Client ID',
   'security.sso.client_secret': 'Client secret',
+  'security.sso.client_secret_expires_at': 'Client secret runs out on',
+  'security.sso.client_secret_expires_hint':
+    "From the identity provider's console. The administrators are told 30, 7 and 1 days before.",
   'security.sso.display_name': 'Name on the sign-in button',
   'security.sso.domains': 'Email domains',
   'security.sso.domains_hint':

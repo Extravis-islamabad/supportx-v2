@@ -1105,6 +1105,9 @@ export const ur: LabelResource = {
   'security.sso.certificate': 'دستخطی سرٹیفکیٹ',
   'security.sso.client_id': 'کلائنٹ آئی ڈی',
   'security.sso.client_secret': 'کلائنٹ سیکرٹ',
+  'security.sso.client_secret_expires_at': 'کلائنٹ کی خفیہ کلید کی میعاد ختم ہونے کی تاریخ',
+  'security.sso.client_secret_expires_hint':
+    'شناخت فراہم کنندہ کے کنسول سے۔ ایڈمنسٹریٹرز کو 30، 7 اور 1 دن پہلے بتایا جاتا ہے۔',
   'security.sso.display_name': 'سائن اِن بٹن پر نام',
   'security.sso.domains': 'ای میل ڈومین',
   'security.sso.domains_hint':
