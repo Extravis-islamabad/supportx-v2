@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ServiceUnavailable
 from app.core.logging import get_logger
 from app.shared.crypto import KeyMaterial, from_text, key_id_of, open_sealed, seal, to_text
+from app.shared.fields.cache import DataKeyCache
 from app.shared.fields.purposes import is_declared
 from app.shared.files.keyring import KeyRing, KeyRingError
 from app.shared.files.service.core import (
@@ -77,6 +78,8 @@ class FieldCipher:
     # The installation's provider (app.shared.crypto.KeyProvider): files' KeyRing today; None
     # when SUPPORTX_FILES_KEYS is not set, and then nothing seals or opens (503).
     keys: KeyRing | None
+    # The process's data-key cache (cache.py), or None: every open reads the database.
+    cache: DataKeyCache | None = None
 
     def _ring(self) -> KeyRing:
         if self.keys is None:
@@ -110,7 +113,16 @@ class FieldCipher:
             self._unreadable(checked, key_ref, "malformed")
             return None
         try:
-            secret = await data_key(self.session, self._ring(), key_uuid)
+            ring = self._ring()
+
+            async def load() -> bytes:
+                return await data_key(self.session, ring, key_uuid)
+
+            secret = (
+                await self.cache.data_key(tenant, key_uuid, load)
+                if self.cache is not None
+                else await load()
+            )
         except FilesNotConfiguredError:
             self._unreadable(checked, key_ref, "unknown_key")
             return None  # not this tenant's
@@ -133,9 +145,11 @@ class FieldCipher:
             log.error("field_tampered", purpose=purpose, data_key=key_ref)
 
 
-def field_cipher(session: AsyncSession, keys: KeyRing | None) -> FieldCipher:
+def field_cipher(
+    session: AsyncSession, keys: KeyRing | None, cache: DataKeyCache | None = None
+) -> FieldCipher:
     """The cipher for the session's tenant, with the installation's key provider."""
-    return FieldCipher(session, keys)
+    return FieldCipher(session, keys, cache)
 
 
 __all__: Sequence[str] = ("Binding", "FieldCipher", "FieldKeysUnavailable", "field_cipher")

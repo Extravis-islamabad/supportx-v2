@@ -10,11 +10,21 @@ Real PostgreSQL as the application role, files' `tenant_data_keys` and installat
 
 import uuid
 
+import asyncpg
 import pytest
 
 from app.core.tenancy import TenantContext
 from app.shared.crypto import from_text, key_id_of
-from app.shared.fields import Binding, FieldKeysUnavailable, PurposeError, field_cipher, purpose
+from app.shared.fields import (
+    Binding,
+    DataKeyCache,
+    FieldKeysUnavailable,
+    PurposeError,
+    destroy_tenant_keys,
+    field_cipher,
+    purpose,
+)
+from app.shared.fields.tests.test_cache import MemoryGenerations
 from app.shared.files.keyring import KeyRing
 from app.shared.files.service.core import rotate_data_key
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
@@ -111,3 +121,41 @@ async def test_undeclared_purposes_and_empty_bindings_are_refused(world: World) 
             await field_cipher(session, RING).seal("field.tests.nobody", HERE, "x")
     with pytest.raises(ValueError, match="bound to"):
         await _seal(world, "x", binding=Binding("", RECORD, "f"))
+
+
+async def test_erasure_empties_every_cache_at_once(world: World) -> None:
+    """Lane B: crypto-shredding is immediate even in a process that cached the data key."""
+    generations = MemoryGenerations()
+    cache = DataKeyCache(generations)
+    text = await _seal(world, "kept until erased")
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        assert await field_cipher(session, RING, cache).open(SECRET, HERE, text) is not None
+    assert len(cache) == 1  # cached in this process
+
+    async def destroy() -> None:
+        conn = await asyncpg.connect(world.db.admin_url)
+        try:  # the tenant erasure job's step: the data keys go (superuser: tenant named)
+            await conn.execute("DELETE FROM tenant_data_keys WHERE tenant_id = $1", world.a.tenant)
+        finally:
+            await conn.close()
+
+    await destroy_tenant_keys(generations, world.a.tenant, destroy)
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        assert await field_cipher(session, RING, cache).open(SECRET, HERE, text) is None
+
+
+async def test_without_the_generation_a_cached_key_would_outlive_its_erasure(world: World) -> None:
+    """Why the bump is needed: a plain delete leaves this process's cached key working."""
+    generations = MemoryGenerations()
+    cache = DataKeyCache(generations)
+    text = await _seal(world, "the control case")
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        cipher = field_cipher(session, RING, cache)
+        assert await cipher.open(SECRET, HERE, text) == "the control case"
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute("DELETE FROM tenant_data_keys WHERE tenant_id = $1", world.a.tenant)
+    finally:
+        await conn.close()
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        assert await field_cipher(session, RING, cache).open(SECRET, HERE, text) is not None

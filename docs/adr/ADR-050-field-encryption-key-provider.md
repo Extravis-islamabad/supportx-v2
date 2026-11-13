@@ -85,10 +85,16 @@ how the two fit together, and what the modules call.
    - Unwrapped data keys are cached per process for 5 minutes, keyed by (tenant, data key ID), in
      a bounded LRU (about 1,000 keys), in memory only: never logged, pickled or put in Valkey. A
      data key's unwrapped value never changes for its ID, so rotation needs no invalidation.
-   - **Tenant erasure empties the cache at once in every process:** the erasure step writes a
-     `fields.tenant_keys_destroyed` event to the outbox, and every API and worker process drops
-     that tenant's keys when it arrives, so crypto-shredding never waits for a cache to expire.
-     A test proves `open` fails right after erasure.
+   - **Tenant erasure empties the cache at once in every process** (lane B, 2026-11-13). Each
+     entry carries the tenant's *generation* when it was read: a random token in Valkey
+     (`fields:generation:<tenant>`), never a counter, so a key Valkey lost and recreated can never
+     repeat a value an old entry holds. Every hit compares it with Valkey's; a different or
+     missing one is a miss. Erasure (`destroy_tenant_keys`) moves the generation before and again
+     after the transaction that destroys the data keys commits, and is not done until that last
+     move succeeds: with Valkey unreachable the erasure job retries or fails. Valkey unreachable
+     while opening: the cache is bypassed, never a stale hit. Every entry also expires after 5
+     minutes. Tests prove `open` fails right after erasure in a process that had cached the key,
+     and that a plain delete without the generation would not have been enough.
    - **Purposes** are constants in the owning module; a guard test refuses a purpose used by two
      modules. A value bound to an ID not yet inserted (a draft) must be inserted with exactly that
      ID (tested).
