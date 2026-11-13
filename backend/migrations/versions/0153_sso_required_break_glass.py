@@ -18,7 +18,7 @@ The downgrade refuses while any tenant uses any of them, per tenant with app.ten
 (rule 5h).
 
 Revision ID: 0153
-Revises: 0151
+Revises: 0152
 Created: 2026-11-13
 """
 
@@ -28,8 +28,8 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0153"
-# Re-pointed onto main's head at the queue turn (after 0151 and lane A's 0152).
-down_revision: str | None = "0151"
+# main's head at its queue turn (after #454's 0152).
+down_revision: str | None = "0152"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
