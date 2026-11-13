@@ -266,6 +266,7 @@ export const ar: LabelResource = {
   'errors.erasure_not_found': 'طلب المحو هذا غير موجود.',
   'errors.erasure_not_pending': 'لم يعد بالإمكان تغيير طلب المحو هذا.',
   'errors.erasure_of_self': 'لا يمكنك محو بياناتك بنفسك.',
+  'errors.erasure_port_kind_undeclared': 'أبلغ جزء من المنتج عن شيء لم يعلن عنه. تواصل مع الدعم.',
   'errors.erasure_port_missing':
     'جزء من المنتج لا يستطيع محو البيانات الشخصية بعد. تواصل مع الدعم.',
   'errors.erasure_report_unavailable':

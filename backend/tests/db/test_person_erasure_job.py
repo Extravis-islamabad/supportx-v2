@@ -256,6 +256,7 @@ class Spy:
                 self.port = port
                 self.module = port.module
                 self.order = port.order
+                self.kinds = port.kinds
 
             async def erase_person(self, *args: Any, **kwargs: Any) -> ErasureBatch:  # noqa: ANN401 - passed on
                 spy.calls.append(self.module)
@@ -490,6 +491,7 @@ async def test_ports_run_in_batches_each_committed(
     class Batched:
         module: ClassVar[str] = "test_batched"
         order: ClassVar[int] = 150
+        kinds: ClassVar[frozenset[str]] = frozenset({"test_rows"})
 
         async def erase_person(
             self,

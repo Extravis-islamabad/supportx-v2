@@ -8,13 +8,21 @@ defect, never a silent skip.
 
 Order bands (lane C's review): 100-199 references (lists, recipients, memberships), 500-599
 owned objects and personal rows, 900-999 derived data (AI summaries and embeddings), so derived
-data goes after the text it came from is blanked. A module picks a number inside its band; ties
-run in module-name order.
+data goes after the text it came from is blanked. A port picks a number inside its band; ties
+run in key order. A port's `module` is its registry key: the module's name, or
+`<module>.<part>` when a module has work in more than one band (lane A: work_items' references
+in band 100, its owned rows in band 500). REQUIRED_PORTS lists keys.
+
+Each port declares the `kinds` its counts use; the job refuses an undeclared one, and every kind
+has a label `erasure_count.<kind>` in en/ar/ur (the erasure screens show the counts; a test
+checks the labels). A port raises `ErasureStepFailed(code)` for a failure it can name: the job
+retries it and records the code, never an exception's text.
 
 S1 defines erasure only. `export_person` (with its streaming `ExportWriter`, ADR-052 §4) joins
 the protocol with the export job in S3; ports then add it.
 """
 
+import re
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -40,6 +48,23 @@ REQUIRED_PORTS: frozenset[str] = frozenset(
 )
 
 
+_KEY = re.compile(r"^[a-z][a-z0-9_]{0,40}(\.[a-z][a-z0-9_]{0,15})?$")
+_KIND = re.compile(r"^[a-z][a-z0-9_]{0,60}$")
+
+
+def count_label(kind: str) -> str:
+    """The label key a count kind is shown with."""
+    return f"erasure_count.{kind}"
+
+
+class ErasureStepFailed(Exception):
+    """A port's failure it can name (a coded `errors.<code>`): retried, the code recorded."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 @dataclass(frozen=True)
 class ErasureBatch:
     """One bounded batch of a port's erasure: counts by kind (never data), and where to go on.
@@ -63,8 +88,9 @@ class PersonData(Protocol):
     kind only: never data, in counts, logs or errors.
     """
 
-    module: ClassVar[str]
+    module: ClassVar[str]  # the registry key: "<module>" or "<module>.<part>"
     order: ClassVar[int]
+    kinds: ClassVar[frozenset[str]]  # the count kinds it may return (each labelled)
 
     async def erase_person(  # noqa: D102, PLR0913 - see the class docstring; the contract
         self,
@@ -79,7 +105,7 @@ class PersonData(Protocol):
 
 
 class PortRegistrationError(RuntimeError):
-    """A port with no module name, outside the bands, or a second one for a module."""
+    """A port with a bad key or kinds, outside the bands, or a second one for a key."""
 
 
 _PORTS: dict[str, PersonData] = {}
@@ -88,8 +114,11 @@ _PORTS: dict[str, PersonData] = {}
 def register_person_data(port: PersonData) -> None:
     """Register a module's port (at module import). Registering the same object again is fine."""
     name = port.module
-    if not name or not name.replace("_", "").isalnum():
-        msg = f"person-data port needs a module name, got {name!r}"
+    if not name or not _KEY.fullmatch(name):
+        msg = f"person-data port needs a key like 'module' or 'module.part', got {name!r}"
+        raise PortRegistrationError(msg)
+    if not port.kinds or not all(_KIND.fullmatch(kind) for kind in port.kinds):
+        msg = f"person-data port {name!r} must declare its count kinds as codes"
         raise PortRegistrationError(msg)
     if not any(port.order in band for band in BANDS):
         msg = f"person-data port {name!r} has order {port.order} outside the bands"

@@ -53,7 +53,11 @@ from app.modules.identity_access.infra.models import Invitation, PersonErasure, 
 from app.modules.identity_access.service.directory import USER_RECORD_TYPE
 from app.modules.identity_access.service.erasure import expire_due, refusal
 from app.modules.identity_access.service.people import save_marks
-from app.modules.identity_access.service.person_data import missing_ports, registered_ports
+from app.modules.identity_access.service.person_data import (
+    ErasureStepFailed,
+    missing_ports,
+    registered_ports,
+)
 from app.modules.identity_access.service.person_data_ports import (
     revoke_api_keys,
     revoke_invitations,
@@ -95,6 +99,26 @@ class RunOutcome:
     state: str
     step: int
     error_code: str | None = None
+
+
+# The count kinds the job itself records (each labelled `erasure_count.<kind>`; the ports declare
+# theirs on the port).
+JOB_KINDS: frozenset[str] = frozenset(
+    {
+        "action_links_revoked",
+        "api_keys_revoked",
+        "audit_personal_rows_removed",
+        "files_kept",
+        "invitations_revoked",
+        "keycloak_accounts_deleted",
+        "keycloak_memberships_removed",
+        "keycloak_sessions_ending",
+        "mail_messages_cleared",
+        "person_fields_cleared",
+        "sessions_ended",
+        "successor_replaced",
+    }
+)
 
 
 class StepRefused(Exception):
@@ -267,6 +291,9 @@ async def _ports(run: _Run) -> None:
             now=run.now,
             cursor=row.port_cursor if row.port_module == current else None,
         )
+        undeclared = sorted(set(batch.counts) - set(ports[index].kinds))
+        if undeclared:  # a release defect: its counts would show unlabelled (lane A's review)
+            raise StepRefused(rules.PORT_KIND_UNDECLARED, {"port": current, "kinds": undeclared})
         for kind, count in batch.counts.items():
             run.counts[kind] = run.counts.get(kind, 0) + int(count)
         if batch.cursor is not None:
@@ -509,7 +536,7 @@ async def _one_step(  # noqa: C901, PLR0911 - one step's whole life: checks, wor
         except StepRefused as refused:
             await session.refresh(row)
             return await _fail(session, row, refused.code, now, refused.details)
-        except StepUnavailable as passing:
+        except (StepUnavailable, ErasureStepFailed) as passing:
             unavailable = passing.code
         except Exception as exc:  # noqa: BLE001 - any failure is retried; its code, not its text
             log.warning(

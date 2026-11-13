@@ -118,6 +118,7 @@ def test_typed_name_ignores_case_and_spacing() -> None:
 class _Port:
     module: ClassVar[str] = "test_port"
     order: ClassVar[int] = 150
+    kinds: ClassVar[frozenset[str]] = frozenset({"test_rows"})
 
     async def erase_person(
         self,
@@ -202,3 +203,59 @@ def test_the_d2a_marker_is_one_shared_value() -> None:
     assert REEXPORTED == ERASED_ON_REQUEST == "erased_on_request"
     assert is_erased_marker("erased_on_request")
     assert not is_erased_marker("Printer is broken")
+
+
+def test_every_count_kind_is_labelled_in_every_language() -> None:
+    """Lane A's #498 review: the erasure screens show counts, so each kind has a label."""
+    import app.modules.identity_access  # noqa: F401, PLC0415 - registers lane B's ports
+    from app.modules.identity_access.service.erasure_job import JOB_KINDS  # noqa: PLC0415
+    from app.modules.identity_access.service.person_data import (  # noqa: PLC0415
+        count_label,
+        registered_ports,
+    )
+    from app.shared.labels import LANGUAGES, missing_labels  # noqa: PLC0415
+
+    kinds = set(JOB_KINDS)
+    for port in registered_ports():
+        kinds |= set(port.kinds)
+    assert missing_labels([count_label(kind) for kind in sorted(kinds)], LANGUAGES) == []
+
+
+def test_a_module_may_register_one_port_per_band() -> None:
+    """Lane A's #498 review: `<module>.<part>` keys, so references run before owned rows."""
+    from typing import ClassVar  # noqa: PLC0415
+
+    from app.modules.identity_access.service.person_data import (  # noqa: PLC0415
+        ErasureBatch,
+        PortRegistrationError,
+        register_person_data,
+        registered_ports,
+        unregister_person_data,
+    )
+
+    class _Port:
+        order: ClassVar[int] = 150
+        module: ClassVar[str] = "example.references"
+        kinds: ClassVar[frozenset[str]] = frozenset({"followers_removed"})
+
+        async def erase_person(self, *_a: object, **_k: object) -> ErasureBatch:
+            return ErasureBatch({"followers_removed": 0})
+
+    class _Owned(_Port):
+        order: ClassVar[int] = 550
+        module: ClassVar[str] = "example.owned"
+
+    class _NoKinds(_Port):
+        module: ClassVar[str] = "example.bad"
+        kinds: ClassVar[frozenset[str]] = frozenset()
+
+    try:
+        register_person_data(_Port())
+        register_person_data(_Owned())
+        keys = [p.module for p in registered_ports()]
+        assert keys.index("example.references") < keys.index("example.owned")
+        with pytest.raises(PortRegistrationError):
+            register_person_data(_NoKinds())
+    finally:
+        unregister_person_data("example.references")
+        unregister_person_data("example.owned")

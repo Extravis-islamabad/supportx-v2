@@ -290,6 +290,8 @@ export const ur: LabelResource = {
   'errors.erasure_not_found': 'یہ درخواست موجود نہیں۔',
   'errors.erasure_not_pending': 'اس درخواست میں اب تبدیلی نہیں ہو سکتی۔',
   'errors.erasure_of_self': 'آپ اپنا ڈیٹا خود نہیں مٹا سکتے۔',
+  'errors.erasure_port_kind_undeclared':
+    'پروڈکٹ کے ایک حصے نے ایسی چیز بتائی جس کا اس نے اعلان نہیں کیا تھا۔ سپورٹ سے رابطہ کریں۔',
   'errors.erasure_port_missing':
     'پروڈکٹ کا ایک حصہ ابھی ذاتی ڈیٹا نہیں مٹا سکتا۔ سپورٹ سے رابطہ کریں۔',
   'errors.erasure_report_unavailable':

@@ -88,6 +88,18 @@ class IdentityAccessData:
 
     module: ClassVar[str] = "identity_access"
     order: ClassVar[int] = 510
+    kinds: ClassVar[frozenset[str]] = frozenset(
+        {
+            "api_keys_revoked",
+            "api_key_traces_cleared",
+            "invitations_revoked",
+            "invitation_addresses_cleared",
+            "cost_rates_deleted",
+            "roles_removed",
+            "sign_ins_cleared",
+            "known_devices_deleted",
+        }
+    )
 
     async def erase_person(  # noqa: PLR0913 - the port contract (ADR-052 §4)
         self,
@@ -150,6 +162,9 @@ class OrganizationData:
 
     module: ClassVar[str] = "organization"
     order: ClassVar[int] = 120
+    kinds: ClassVar[frozenset[str]] = frozenset(
+        {"site_memberships", "group_memberships", "groups_led", "departments_headed"}
+    )
 
     async def erase_person(  # noqa: PLR0913 - the port contract (ADR-052 §4)
         self,
@@ -171,6 +186,7 @@ class ActionLinksData:
 
     module: ClassVar[str] = "action_links"
     order: ClassVar[int] = 110
+    kinds: ClassVar[frozenset[str]] = frozenset({"action_links_revoked"})
 
     async def erase_person(  # noqa: PLR0913 - the port contract (ADR-052 §4)
         self,
@@ -194,6 +210,7 @@ class ListSettingsData:
 
     module: ClassVar[str] = "list_settings"
     order: ClassVar[int] = 520
+    kinds: ClassVar[frozenset[str]] = frozenset({"list_settings_deleted"})
 
     async def erase_person(  # noqa: PLR0913 - the port contract (ADR-052 §4)
         self,
@@ -216,6 +233,7 @@ class AuditData:
 
     module: ClassVar[str] = "audit"
     order: ClassVar[int] = 530
+    kinds: ClassVar[frozenset[str]] = frozenset({"audit_searches_deleted"})
 
     async def erase_person(  # noqa: PLR0913 - the port contract (ADR-052 §4)
         self,
@@ -242,6 +260,7 @@ class FilesData:
 
     module: ClassVar[str] = "files"
     order: ClassVar[int] = 590
+    kinds: ClassVar[frozenset[str]] = frozenset({"files_deleted"})
 
     async def erase_person(  # noqa: PLR0913 - the port contract (ADR-052 §4)
         self,

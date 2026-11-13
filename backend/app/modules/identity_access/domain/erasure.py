@@ -79,6 +79,7 @@ NOT_FOUND = "erasure_not_found"
 ALREADY_ERASED = "person_already_erased"
 LAST_ADMIN = "last_tenant_admin"  # the existing code of roles.guard_last_admin
 PORT_MISSING = "erasure_port_missing"
+PORT_KIND_UNDECLARED = "erasure_port_kind_undeclared"
 APPROVAL_INVALID = "erasure_approval_invalid"
 IDENTITY_UNAVAILABLE = "erasure_identity_unavailable"
 SESSIONS_UNAVAILABLE = "erasure_sessions_unavailable"
@@ -87,7 +88,16 @@ HOLD_NOT_SET = "legal_hold_not_set"
 
 # Codes a run stops on for good (state failed), as opposed to a passing failure it retries.
 REFUSALS: frozenset[str] = frozenset(
-    {ERASE_SELF, BREAK_GLASS, HELD, LAST_ADMIN, REPORT_UNAVAILABLE, PORT_MISSING, APPROVAL_INVALID}
+    {
+        ERASE_SELF,
+        BREAK_GLASS,
+        HELD,
+        LAST_ADMIN,
+        REPORT_UNAVAILABLE,
+        PORT_MISSING,
+        PORT_KIND_UNDECLARED,
+        APPROVAL_INVALID,
+    }
 )
 # Every code an erasure row's last_error_code can hold (`errors.<code>` labels too).
 ERROR_CODES: frozenset[str] = REFUSALS | {

@@ -75,8 +75,9 @@ skip: the person-level check is the whole hold, and it fails closed.
 
 ```python
 class PersonData(Protocol):
-    module: ClassVar[str]          # registry key, e.g. "work_items"
+    module: ClassVar[str]          # registry key: "work_items", or "work_items.references"
     order: ClassVar[int]           # within a band (below)
+    kinds: ClassVar[frozenset[str]]  # the count kinds it returns, each labelled
 
     async def erase_person(
         self, session: AsyncSession, person_id: UUID, *, successor_id: UUID,
@@ -102,6 +103,13 @@ register_person_data(impl)         # identity_access's registry, at module impor
 **Order bands** (lane C): `100–199` references (lists, recipients, memberships), `500–599` owned
 objects and personal rows, `900–999` derived data (AI summaries and embeddings), so derived data is
 removed after the text it came from is blanked. A module picks a number inside its band.
+
+**Keys, kinds and errors** (lane A): a module with work in two bands registers one port per band
+under `<module>.<part>` (e.g. `work_items.references` in 100s, `work_items.owned` in 500s);
+`REQUIRED_PORTS` lists keys. A port declares the count kinds it returns; each has a label
+`erasure_count.<kind>` in en/ar/ur (tested), and the job refuses an undeclared kind
+(`erasure_port_kind_undeclared`). A port raises `ErasureStepFailed(code)` for a failure it can
+name: retried, and only the code is recorded.
 
 **Batches** (lane A): a person with tens of thousands of records cannot be erased in one
 transaction. Each call does at most `ERASE_BATCH` rows (500) and returns a cursor; the runner
@@ -133,6 +141,9 @@ lands):
 - **Derived data** (AI summaries and embeddings of records they requested, their prompts) is
   deleted in the derived band, after the text it came from is blanked.
 - **Text they wrote on organisation records stays** (D1a), shown with the erased name.
+- **Open records assigned to them** (lane A): go back to their group's unassigned queue
+  (technician cleared, history source "erasure"), not to the successor, since an assignee must
+  be in the record's group (D-154). Closed records keep the erased name.
 - **Records they requested** (D2a): the requester's personal free text (subject, description,
   custom text, `personal_data` custom fields, answers) is replaced by the reserved marker
   `erased_on_request` (shown through labels as "Removed at the person's request"; a required

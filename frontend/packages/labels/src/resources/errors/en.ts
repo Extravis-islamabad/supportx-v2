@@ -293,6 +293,8 @@ export const en = {
   'errors.erasure_not_found': 'This erasure no longer exists.',
   'errors.erasure_not_pending': 'This erasure can no longer be changed.',
   'errors.erasure_of_self': 'You cannot erase yourself.',
+  'errors.erasure_port_kind_undeclared':
+    'A part of the product reported something it did not declare. Contact support.',
   'errors.erasure_port_missing':
     'Part of the product cannot erase personal data yet. Contact support.',
   'errors.erasure_report_unavailable':
