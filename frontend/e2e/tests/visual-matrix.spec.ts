@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { PORTAL_URL, passwordOf, SEEDED, USERS } from '../stack';
 import { signIn } from './helpers';
@@ -65,19 +65,35 @@ type Records = Partial<
 /** The new-incident form with a kept draft on the server (readable or not). */
 function keptDraft(unreadable: boolean): (page: Page) => Promise<void> {
   return async (page) => {
-    await page.route('**/api/v1/drafts/incident-new', (route) =>
-      route.fulfill({
-        json: {
-          form_key: 'incident-new',
-          version: 2,
-          updated_at: new Date(Date.now() - 10 * 60_000).toISOString(),
-          unreadable,
-          values: unreadable ? null : { subject: 'Printer jams on floor 2' },
-        },
-      }),
-    );
+    const url = '**/api/v1/drafts/incident-new';
+    const answer = (route: Route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({
+            json: {
+              form_key: 'incident-new',
+              version: 2,
+              updated_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+              unreadable,
+              values: unreadable ? null : { subject: 'Printer jams on floor 2' },
+            },
+          })
+        : route.continue();
+    await page.route(url, answer);
+    // Every shot shares one tab: an earlier shot's own copy of this form (sessionStorage) would
+    // count as restored and hide the server's note (lane C, matrix 43474443928).
+    await page.evaluate(() => {
+      for (const name of Object.keys(window.sessionStorage)) {
+        if (name.startsWith('supportx.draft.')) window.sessionStorage.removeItem(name);
+      }
+    });
     await page.reload();
-    await page.getByTestId(unreadable ? 'kept-draft-unreadable' : 'kept-draft').waitFor();
+    try {
+      await page.getByTestId(unreadable ? 'kept-draft-unreadable' : 'kept-draft').waitFor();
+    } finally {
+      // Read once and kept (staleTime Infinity): the note stays, and later shots on this tab get
+      // the real answer again.
+      await page.unroute(url, answer);
+    }
   };
 }
 

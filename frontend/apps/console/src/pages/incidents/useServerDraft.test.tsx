@@ -21,15 +21,22 @@ function Harness() {
   const form = useForm<{ subject: string }>({ defaultValues: { subject: '' } });
   useServerDraft(form, 'incident-new', { localRestored: false });
   return (
-    <button
-      type="button"
-      onClick={() => {
-        form.setValue('subject', 'Printer on fire', { shouldDirty: true });
-      }}
-    >
-      type
-    </button>
+    <>
+      <input aria-label="subject" {...form.register('subject')} />
+      <button
+        type="button"
+        onClick={() => {
+          form.setValue('subject', 'From the template'); // what a template or rule does
+        }}
+      >
+        template
+      </button>
+    </>
   );
+}
+
+function type(text: string) {
+  fireEvent.change(screen.getByRole('textbox', { name: 'subject' }), { target: { value: text } });
 }
 
 describe('useServerDraft', () => {
@@ -56,7 +63,7 @@ describe('useServerDraft', () => {
       await vi.advanceTimersByTimeAsync(10);
     });
     act(() => {
-      fireEvent.click(screen.getByRole('button', { name: 'type' }));
+      type('Printer on fire');
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3_100); // the pause after typing
@@ -91,7 +98,7 @@ describe('useServerDraft', () => {
       await vi.advanceTimersByTimeAsync(10);
     });
     act(() => {
-      fireEvent.click(screen.getByRole('button', { name: 'type' }));
+      type('Printer on fire');
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3_100);
@@ -102,5 +109,49 @@ describe('useServerDraft', () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
     expect(fake.find('PUT', '/api/v1/drafts/incident-new')).toHaveLength(2);
+  });
+
+  it('values a template or rule sets are not kept until the person types', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const fake = fakeApi({
+      'GET /api/v1/drafts/incident-new': {
+        status: 404,
+        body: { code: 'draft_not_found', message_key: 'errors.draft_not_found' },
+      },
+      [PUT]: {
+        status: 200,
+        body: {
+          form_key: 'incident-new',
+          version: 1,
+          updated_at: '2026-11-13T10:00:00Z',
+          unreadable: false,
+          values: null,
+        },
+      },
+    });
+    restore = fake.restore;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <Harness />
+      </QueryClientProvider>,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'template' }));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(fake.find('PUT', '/api/v1/drafts/incident-new')).toHaveLength(0);
+    act(() => {
+      type('Printer on fire');
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_100);
+    });
+    expect(fake.find('PUT', '/api/v1/drafts/incident-new')).toHaveLength(1);
   });
 });

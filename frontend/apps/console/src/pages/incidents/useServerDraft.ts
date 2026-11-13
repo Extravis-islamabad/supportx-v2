@@ -42,6 +42,7 @@ export function useServerDraft<T extends FieldValues>(
   const formRef = useRef(form);
   const refetchRef = useRef(kept.refetch);
   const latest = useRef<Record<string, unknown> | null>(null);
+  const typed = useRef(false); // the person has changed a field since the form opened
 
   // The newest objects each render, read through refs: the save timer below depends on none of
   // them, so a re-render never restarts it (lane C's #495 review).
@@ -117,7 +118,11 @@ export function useServerDraft<T extends FieldValues>(
         },
       );
     };
-    const subscription = watch((values) => {
+    const subscription = watch((values, { type }) => {
+      // Only the person's own typing is kept: a template, a rule or a restore sets values too
+      // (no event type), and opening the form must keep nothing (matrix 43474443928).
+      if (type === 'change') typed.current = true;
+      if (!typed.current) return;
       window.clearTimeout(typing);
       typing = window.setTimeout(() => {
         // An untouched form (just opened, or reset after a save) keeps nothing.
