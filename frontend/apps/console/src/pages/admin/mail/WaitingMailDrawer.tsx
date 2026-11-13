@@ -12,7 +12,13 @@ import { en, useListFormat } from '@supportx/labels';
 import { Drawer, markHandled, reportError, useDateTime, useLabel, WriteButton } from '@supportx/ui';
 
 // Reasons this module gives; any other is the record owner's refusal, an error code.
-const OWN_REASONS = new Set(['sender_rate', 'not_requester', 'no_target', 'too_large']);
+const OWN_REASONS = new Set([
+  'sender_rate',
+  'not_requester',
+  'no_target',
+  'too_large',
+  'block_rule', // WP-046a S6: a block rule matched; release lets it through
+]);
 // The incident side refused for fields a template or rule asks for (params.fields: their names).
 const FIELDS_NEEDED = 'mail_fields_needed';
 

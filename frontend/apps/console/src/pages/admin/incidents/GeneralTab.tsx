@@ -22,7 +22,7 @@ import {
 } from '@supportx/ui';
 
 import { scaleLabel } from '../../incidents/labels';
-import { useDraft, useSettingsSave } from './helpers';
+import { useDraft, useSettingsBase, useSettingsSave } from './helpers';
 import { numberProblem } from '../../../numbers';
 import { Problems } from './shared';
 
@@ -30,6 +30,8 @@ const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as 
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
 const FIRST_RESPONSE = ['reply', 'public_note', 'private_note'] as const;
+// What a mail may set (WP-046a S6; REQ-INC-025), in the server's order.
+const MAIL_FIELDS = ['category', 'priority', 'group', 'technician', 'template'] as const;
 const NONE = '';
 
 function StaleNotice({ onReload }: { onReload: () => void }) {
@@ -62,6 +64,9 @@ interface General {
   follow: boolean;
   dueTime: boolean;
   first: string[];
+  mailCommands: boolean;
+  mailFields: string[];
+  ccFromMail: boolean;
 }
 
 function savedOf(catalogue: IncidentCatalogue): General {
@@ -75,6 +80,9 @@ function savedOf(catalogue: IncidentCatalogue): General {
     follow: catalogue.keep_following_on_handover,
     dueTime: catalogue.portal_show_due_time,
     first: [...catalogue.first_response_on],
+    mailCommands: catalogue.mail_commands,
+    mailFields: [...(catalogue.mail_command_fields ?? [])],
+    ccFromMail: catalogue.cc_from_first_mail,
   };
 }
 
@@ -89,6 +97,8 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const { save, conflictDialog, pending, problems, byField, clear } = useSettingsSave();
+  // Mailboxes make incidents: the mail settings are theirs only.
+  const incidents = useSettingsBase() === 'incidents';
   const saved = savedOf(catalogue);
   const state = useDraft(saved, catalogue.version);
   const { draft, stale, base } = state;
@@ -122,6 +132,13 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     if (draft.follow !== saved.follow) body.keep_following_on_handover = draft.follow;
     if (draft.dueTime !== saved.dueTime) body.portal_show_due_time = draft.dueTime;
     if (!same(draft.first, saved.first)) body.first_response_on = draft.first;
+    if (incidents) {
+      if (draft.mailCommands !== saved.mailCommands) body.mail_commands = draft.mailCommands;
+      if (!same(draft.mailFields, saved.mailFields)) {
+        body.mail_command_fields = MAIL_FIELDS.filter((f) => draft.mailFields.includes(f));
+      }
+      if (draft.ccFromMail !== saved.ccFromMail) body.cc_from_first_mail = draft.ccFromMail;
+    }
     save({ kind: 'settings', body }, discard, base);
   };
   const problemAt = (field: string) =>
@@ -298,6 +315,48 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
           </fieldset>
         </Flex>
       </SettingsCard>
+      {incidents && (
+        <SettingsCard title={t('settings.mail')} testId="settings-mail">
+          <Flex vertical gap={16}>
+            <Toggle
+              id="settings-mail-commands"
+              checked={draft.mailCommands}
+              onChange={(mailCommands) => {
+                set({ mailCommands });
+              }}
+              title={t('settings.mail_commands')}
+              help={t('settings.mail_commands_help')}
+            />
+            {draft.mailCommands && (
+              <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+                <legend>
+                  <Typography.Text strong>{t('settings.mail_command_fields')}</Typography.Text>
+                </legend>
+                <Checkbox.Group
+                  value={draft.mailFields}
+                  onChange={(values) => {
+                    set({ mailFields: values });
+                  }}
+                  options={MAIL_FIELDS.map((code) => ({
+                    value: code,
+                    label: t(`mail_command_field.${code}`),
+                  }))}
+                  data-testid="settings-mail-command-fields"
+                />
+              </fieldset>
+            )}
+            <Toggle
+              id="settings-cc-from-mail"
+              checked={draft.ccFromMail}
+              onChange={(ccFromMail) => {
+                set({ ccFromMail });
+              }}
+              title={t('settings.cc_from_first_mail')}
+              help={t('settings.cc_from_first_mail_help')}
+            />
+          </Flex>
+        </SettingsCard>
+      )}
       <StickySaveBar
         changes={changedKeys.length}
         saving={pending}

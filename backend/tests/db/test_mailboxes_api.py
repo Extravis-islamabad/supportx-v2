@@ -187,3 +187,64 @@ async def test_audit_3_a_port_other_than_imap_is_refused_at_save(world: World) -
     assert field_codes(await add(world, host="imap.example.com", port=110)) == {
         "port": "port_not_allowed"
     }
+
+
+async def test_s6_trusted_servers_are_host_names_audited_before_and_after(world: World) -> None:
+    """WP-046a S6, lane B's condition 6: whose results vouch for a sender is security set-up."""
+    with_key_ring(world)
+    created = await add(world, address="trust@alpha.test")
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert (body["trusted_servers"], body["trust_provider_results"]) == ([], False)
+    assert body["quarantine_days"] == 14
+    path = f"{BASE}/{body['id']}"
+    version = f'"{body["version"]}"'
+
+    async def patch(**values: Any) -> httpx.Response:  # noqa: ANN401 - JSON
+        return await world.call(
+            "PATCH", path, world.a, world.a.admin, json=values, headers={"If-Match": version}
+        )
+
+    assert field_codes(await patch(trusted_servers=["mx.alpha.test:25"])) == {
+        "trusted_servers": "host_name_invalid"
+    }
+    assert field_codes(await patch(trusted_servers=["*.alpha.test"])) == {
+        "trusted_servers": "host_name_invalid"
+    }
+    assert (await patch(trusted_servers=[f"mx{i}.alpha.test" for i in range(6)])).status_code == 422
+    # Microsoft's unnamed header is believed only for a Microsoft 365 mailbox.
+    assert field_codes(await patch(trust_provider_results=True)) == {
+        "trust_provider_results": "mailbox_provider_results_graph_only"
+    }
+    assert (await patch(quarantine_days=91)).status_code == 422
+    saved = await patch(trusted_servers=["MX.Alpha.Test.", "mx.alpha.test"], quarantine_days=30)
+    assert saved.status_code == 200, saved.text
+    assert (saved.json()["trusted_servers"], saved.json()["quarantine_days"]) == (
+        ["mx.alpha.test"],
+        30,
+    )
+    entries = await world.sql(
+        "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = 'mailbox.changed'"
+        " AND outcome = 'done' ORDER BY occurred_at",
+        world.a.tenant,
+    )
+    details = json.loads(entries[-1]["details"])
+    assert (details["trusted_servers.before"], details["trusted_servers.after"]) == (
+        [],
+        ["mx.alpha.test"],
+    )
+    # A change to something else says nothing about trust.
+    version = saved.headers["etag"]
+    assert (await patch(display_name="Help")).status_code == 200
+    last = await world.sql(
+        "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = 'mailbox.changed'"
+        " AND outcome = 'done' ORDER BY occurred_at DESC LIMIT 1",
+        world.a.tenant,
+    )
+    assert "trusted_servers.before" not in json.loads(last[0]["details"] or "{}")
+    # Mailbox managers only: a technician cannot change it.
+    tech = await world.call(
+        "PATCH", path, world.a, world.a.tech_a, json={"trusted_servers": []},
+        headers={"If-Match": version},
+    )  # fmt: skip
+    assert tech.status_code == 403
