@@ -225,11 +225,13 @@ export const en = {
   'mail.block_rules.add': 'Add rule',
   'mail.block_rules.added': 'Rule added.',
   'mail.block_rules.enabled': 'On',
+  'mail.block_rules.enabled_for': 'Rule for {{value}} on',
   'mail.block_rules.intro':
     "Mail that matches a rule creates nothing and waits for review for the mailbox's quarantine days. Plain text only.",
   'mail.block_rules.kind': 'Rule',
   'mail.block_rules.none': 'No block rules',
   'mail.block_rules.remove': 'Remove',
+  'mail.block_rules.remove_confirm': 'Remove the rule for {{value}}?',
   'mail.block_rules.title': 'Blocked mail',
   'mail.block_rules.value': 'Value',
   'mail.edit_title': 'Change mailbox',

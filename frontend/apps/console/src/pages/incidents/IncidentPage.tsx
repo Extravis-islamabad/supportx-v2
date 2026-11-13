@@ -1020,7 +1020,8 @@ function Details({
       // WP-046a S6 (REQ-INC-066): addresses that get public replies by e-mail, never notes.
       key: 'notify_emails',
       label: t('work_item.field.notify_emails'),
-      view: <bdi dir="ltr">{listFormat(item.notify_emails ?? [])}</bdi>,
+      // Each address isolated left to right; the list's joiners follow the page (lane C).
+      view: listFormat((item.notify_emails ?? []).map((address) => `\u2066${address}\u2069`)),
       edit: { kind: 'tags', value: item.notify_emails ?? [] },
       filled: (item.notify_emails ?? []).length > 0,
     },

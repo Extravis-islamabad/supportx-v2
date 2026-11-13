@@ -62,4 +62,44 @@ describe('Stop these e-mails', () => {
     );
     expect(screen.queryByTestId('stop-mails-button')).toBeNull();
   });
+
+  it('in Arabic the masked address is isolated in the sentence (lane C)', async () => {
+    window.localStorage.setItem('supportx.locale', 'ar');
+    window.history.pushState({}, '', `/stop-mails#${TOKEN}`);
+    const fake = fakeApi({
+      [PEEK]: { body: { display_id: 'INC-12', address: 'b***@acme.test' } },
+    });
+    restore = () => {
+      fake.restore();
+      window.localStorage.removeItem('supportx.locale');
+    };
+    render(<App />);
+    const ask = (await screen.findByTestId('stop-mails-ask')).textContent;
+    expect(ask).toContain('\u2068b***@acme.test\u2069');
+  });
+
+  it('an outage on the button keeps the button for another try', async () => {
+    window.history.pushState({}, '', `/stop-mails#${TOKEN}`);
+    const fake = fakeApi({
+      [PEEK]: { body: { display_id: 'INC-12', address: 'b***@acme.test' } },
+      [STOP]: {
+        status: 503,
+        body: {
+          type: 'about:blank',
+          title: 'Service Unavailable',
+          status: 503,
+          code: 'service_unavailable',
+          message_key: 'errors.service_unavailable',
+          params: {},
+          errors: [],
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('stop-mails-button'));
+    expect(await screen.findByTestId('stop-mails-failed')).toBeTruthy();
+    expect(screen.queryByTestId('stop-mails-gone')).toBeNull();
+    expect(screen.getByTestId('stop-mails-button')).toBeTruthy();
+  });
 });

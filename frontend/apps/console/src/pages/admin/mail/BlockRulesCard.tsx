@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { App, Flex, Input, List, Select, Switch, Typography } from 'antd';
+import { App, Flex, Input, List, Popconfirm, Select, Switch, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -40,7 +40,7 @@ export function BlockRulesCard() {
   const remove = useRemoveMailBlockRule();
   const [kind, setKind] = useState<MailBlockKind>('domain');
   const [value, setValue] = useState('');
-  const [problem, setProblem] = useState<string>();
+  const [problem, setProblem] = useState<{ key: string; params: ApiError['params'] }>();
   useTenantChannel((event) => {
     if (event.type === 'integrations.mail_block_rules_changed') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.mailboxes.blockRules });
@@ -60,7 +60,12 @@ export function BlockRulesCard() {
           // Said at the field: a duplicate, or a value that is not an address or domain.
           if (error instanceof ApiError && (error.status === 422 || error.status === 409)) {
             markHandled(error);
-            setProblem(error.fieldErrors[0]?.message_key ?? `errors.${error.code}`);
+            const field = error.fieldErrors[0];
+            setProblem(
+              field === undefined
+                ? { key: `errors.${error.code}`, params: error.params }
+                : { key: field.message_key, params: field.params ?? {} },
+            );
             return;
           }
           reportError(error);
@@ -88,7 +93,7 @@ export function BlockRulesCard() {
               value={value}
               count={lengthLimit(320)}
               status={problem === undefined ? undefined : 'error'}
-              aria-describedby="mail-block-value-problem"
+              aria-describedby={problem === undefined ? undefined : 'mail-block-value-problem'}
               onChange={(event) => {
                 setValue(event.target.value);
                 setProblem(undefined);
@@ -103,7 +108,7 @@ export function BlockRulesCard() {
                 id="mail-block-value-problem"
                 data-testid="mail-block-value-problem"
               >
-                {t(problem, { max: 500 })}
+                {t(problem.key, problem.params)}
               </Typography.Text>
             )}
           </Flex>
@@ -128,7 +133,7 @@ export function BlockRulesCard() {
                 <Switch
                   key="on"
                   checked={rule.enabled}
-                  aria-label={t('mail.block_rules.enabled')}
+                  aria-label={t('mail.block_rules.enabled_for', { value: rule.value })}
                   loading={toggle.isPending && toggle.variables.id === rule.id}
                   onChange={(enabled) => {
                     toggle.mutate(
@@ -138,21 +143,31 @@ export function BlockRulesCard() {
                   }}
                   data-testid="mail-block-rule-enabled"
                 />,
-                <WriteButton
+                <Popconfirm
                   key="remove"
-                  danger
-                  size="small"
-                  onClick={() => {
+                  title={t('mail.block_rules.remove_confirm', { value: rule.value })}
+                  okText={t('mail.block_rules.remove')}
+                  cancelText={t('actions.cancel')}
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => {
                     remove.mutate({ id: rule.id, version: rule.version }, { onError: reportError });
                   }}
-                  data-testid="mail-block-rule-remove"
                 >
-                  {t('mail.block_rules.remove')}
-                </WriteButton>,
+                  <WriteButton danger size="small" data-testid="mail-block-rule-remove">
+                    {t('mail.block_rules.remove')}
+                  </WriteButton>
+                </Popconfirm>,
               ]}
             >
               <List.Item.Meta
-                title={<Typography.Text dir="auto">{rule.value}</Typography.Text>}
+                title={
+                  // Addresses and domains read left to right; subject and body text as written.
+                  <Typography.Text
+                    dir={rule.kind === 'sender' || rule.kind === 'domain' ? 'ltr' : 'auto'}
+                  >
+                    {rule.value}
+                  </Typography.Text>
+                }
                 description={t(`mail_block_kind.${rule.kind}`)}
               />
             </List.Item>

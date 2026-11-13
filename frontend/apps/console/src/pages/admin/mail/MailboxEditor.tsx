@@ -554,6 +554,8 @@ export function MailboxEditor({
           'mail.field.trusted_servers',
           <Select
             id="mailbox-trusted_servers"
+            // Host names read left to right in every language (lane C).
+            style={{ direction: 'ltr' }}
             mode="tags"
             open={false}
             maxCount={TRUSTED_MAX}

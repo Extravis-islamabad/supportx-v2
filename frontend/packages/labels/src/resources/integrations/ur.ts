@@ -229,11 +229,13 @@ export const ur: LabelResource = {
   'mail.block_rules.add': 'اصول شامل کریں',
   'mail.block_rules.added': 'اصول شامل ہو گیا۔',
   'mail.block_rules.enabled': 'آن',
+  'mail.block_rules.enabled_for': '{{value}} کا اصول آن',
   'mail.block_rules.intro':
     'کسی اصول سے ملنے والی میل کچھ نہیں بناتی اور میل باکس کی روکے رکھنے کی مدت تک جائزے کا انتظار کرتی ہے۔ صرف سادہ متن۔',
   'mail.block_rules.kind': 'اصول',
   'mail.block_rules.none': 'روک کا کوئی اصول نہیں',
   'mail.block_rules.remove': 'ہٹائیں',
+  'mail.block_rules.remove_confirm': '{{value}} کا اصول ہٹائیں؟',
   'mail.block_rules.title': 'روکی گئی میل',
   'mail.block_rules.value': 'قدر',
   'mail.edit_title': 'میل باکس تبدیل کریں',

@@ -221,11 +221,13 @@ export const ar: LabelResource = {
   'mail.block_rules.add': 'إضافة قاعدة',
   'mail.block_rules.added': 'أُضيفت القاعدة.',
   'mail.block_rules.enabled': 'مفعّلة',
+  'mail.block_rules.enabled_for': 'تفعيل القاعدة لـ {{value}}',
   'mail.block_rules.intro':
     'البريد المطابق لقاعدة لا يُنشئ شيئًا وينتظر المراجعة طوال أيام الحجز لصندوق البريد. نص عادي فقط.',
   'mail.block_rules.kind': 'القاعدة',
   'mail.block_rules.none': 'لا توجد قواعد حظر',
   'mail.block_rules.remove': 'حذف',
+  'mail.block_rules.remove_confirm': 'حذف القاعدة لـ {{value}}؟',
   'mail.block_rules.title': 'البريد المحظور',
   'mail.block_rules.value': 'القيمة',
   'mail.edit_title': 'تغيير صندوق البريد',
