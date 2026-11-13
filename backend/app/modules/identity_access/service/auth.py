@@ -35,6 +35,7 @@ from app.core.errors import (
     Unauthenticated,
 )
 from app.core.logging import get_logger
+from app.core.recent_auth import RECENT_AUTH_WINDOW, SignInFreshness, record_freshness
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts
 from app.modules.identity_access.domain import quick_sign_in as quick
@@ -1147,6 +1148,10 @@ class AuthService:
         if key is not None:
             if self.database is None:
                 raise ServiceUnavailable(code="api_keys_unavailable")
+            # A key can never confirm who holds it (REQ-SEC-027): sensitive routes refuse it.
+            record_freshness(
+                request, SignInFreshness(interactive=False, recent=False, api_key=True)
+            )
             return await api_keys.authenticate(
                 self.database, self.settings, key, RequestFacts.of(request), self.clock.now()
             )
@@ -1154,9 +1159,20 @@ class AuthService:
         if found is None:
             return None
         _session_id, session = found
+        record_freshness(request, self._freshness(session))
         return TenantContext(
             tenant_id=session.tenant_uuid, user_id=session.user_uuid, roles=frozenset(session.roles)
         )
+
+    def _freshness(self, session: Session) -> SignInFreshness:
+        """For RecentAuth (REQ-SEC-027): a browser session, and whether it confirmed recently.
+
+        The mobile app cannot confirm in a pop-up, so it is not interactive for these routes.
+        """
+        interactive = session.device_platform is None
+        confirmed = _moment(session.auth_time)
+        recent = confirmed is not None and self.clock.now() - confirmed <= RECENT_AUTH_WINDOW
+        return SignInFreshness(interactive=interactive, recent=interactive and recent)
 
     def _check_csrf(self, request: Request, session: Session) -> None:
         """Synchronizer token: the header must equal the token stored in the server-side session."""

@@ -17,6 +17,7 @@ from app.core.authorization import require_permission
 from app.core.config import Settings
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.integrations.domain.ldap import Security, Vendor
@@ -180,6 +181,7 @@ async def get_ldap_directory(
     summary="Connect an AD/LDAP directory",
     status_code=status.HTTP_201_CREATED,
     response_model=LdapDirectoryOut,
+    dependencies=[RecentAuth],
 )
 async def create_ldap_directory(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: LdapDirectoryIn,
@@ -209,7 +211,7 @@ async def create_ldap_directory(  # noqa: PLR0913, PLR0917 - FastAPI dependencie
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
-@router.put("/{directory_id}", summary="Change an AD/LDAP directory")
+@router.put("/{directory_id}", summary="Change an AD/LDAP directory", dependencies=[RecentAuth])
 async def update_ldap_directory(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     directory_id: uuid.UUID,
     body: LdapDirectoryIn,
@@ -247,7 +249,10 @@ async def update_ldap_directory(  # noqa: PLR0913, PLR0917 - FastAPI dependencie
     summary="Disconnect an AD/LDAP directory",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[
-        audited("directory.removed", object_type="directory_connector", object_param="directory_id")
+        RecentAuth,
+        audited(
+            "directory.removed", object_type="directory_connector", object_param="directory_id"
+        ),
     ],
 )
 async def remove_ldap_directory(
