@@ -39,15 +39,23 @@ export function useServerDraft<T extends FieldValues>(
   const blockedUntil = useRef(0);
   const { watch } = form;
   const saveRef = useRef(save);
+  const formRef = useRef(form);
+  const refetchRef = useRef(kept.refetch);
+  const latest = useRef<Record<string, unknown> | null>(null);
 
+  // The newest objects each render, read through refs: the save timer below depends on none of
+  // them, so a re-render never restarts it (lane C's #495 review).
   useEffect(() => {
     saveRef.current = save;
+    formRef.current = form;
+    refetchRef.current = kept.refetch;
   });
   useEffect(() => {
     if (kept.data != null) version.current = kept.data.version;
   }, [kept.data]);
   // The tab's own copy came back: that is this work; the server copy needs no question.
   const pending = !decided && !localRestored && kept.data != null;
+  const loading = kept.isLoading;
 
   // Another tab of the same person kept or discarded: read the version again.
   usePersonalChannel((event) => {
@@ -57,43 +65,61 @@ export function useServerDraft<T extends FieldValues>(
   });
 
   useEffect(() => {
-    if (pending || kept.isLoading) return;
-    let timer: number | undefined;
-    const subscription = watch((values) => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (Date.now() < blockedUntil.current) return;
-        const defaults = form.formState.defaultValues;
-        if (JSON.stringify(values) === JSON.stringify(defaults)) return;
-        saveRef.current.mutate(
-          { values: values, version: version.current },
-          {
-            onSuccess: (saved) => {
-              version.current = saved.version;
-              backoff.current = 0;
-            },
-            onError: (error: unknown) => {
-              if (error instanceof ApiError && error.status === 409) {
-                // Another tab saved first: take its version, the next pause saves again.
-                void kept.refetch();
-                return;
-              }
-              // No key (503) or no connection: quiet, and tried again later, ever more slowly.
-              backoff.current = Math.min(
-                BACKOFF_MAX_MS,
-                backoff.current === 0 ? SAVE_AFTER_MS * 2 : backoff.current * 2,
-              );
-              blockedUntil.current = Date.now() + backoff.current;
-            },
+    if (pending || loading) return;
+    let typing: number | undefined;
+    let retry: number | undefined;
+    const attempt = () => {
+      const values = latest.current;
+      if (values === null) return;
+      const wait = blockedUntil.current - Date.now();
+      if (wait > 0) {
+        // Backing off: one try when the wait is over, even if nothing is typed meanwhile.
+        window.clearTimeout(retry);
+        retry = window.setTimeout(attempt, wait);
+        return;
+      }
+      saveRef.current.mutate(
+        { values, version: version.current },
+        {
+          onSuccess: (saved) => {
+            version.current = saved.version;
+            backoff.current = 0;
+            if (latest.current === values) latest.current = null; // saved: nothing waits
           },
-        );
+          onError: (error: unknown) => {
+            if (error instanceof ApiError && error.status === 409) {
+              // Another tab saved first: take its version; the next pause saves again.
+              void refetchRef.current();
+              return;
+            }
+            // No key (503) or no connection: quiet, and tried again later, ever more slowly.
+            backoff.current = Math.min(
+              BACKOFF_MAX_MS,
+              backoff.current === 0 ? SAVE_AFTER_MS * 2 : backoff.current * 2,
+            );
+            blockedUntil.current = Date.now() + backoff.current;
+            window.clearTimeout(retry);
+            retry = window.setTimeout(attempt, backoff.current);
+          },
+        },
+      );
+    };
+    const subscription = watch((values) => {
+      window.clearTimeout(typing);
+      typing = window.setTimeout(() => {
+        // An untouched form (just opened, or reset after a save) keeps nothing.
+        const defaults = formRef.current.formState.defaultValues;
+        if (JSON.stringify(values) === JSON.stringify(defaults)) return;
+        latest.current = values;
+        attempt();
       }, SAVE_AFTER_MS);
     });
     return () => {
-      window.clearTimeout(timer);
+      window.clearTimeout(typing);
+      window.clearTimeout(retry);
       subscription.unsubscribe();
     };
-  }, [pending, kept, watch, form]);
+  }, [pending, loading, watch]);
 
   return {
     /** The kept draft waiting for a decision, or null. */

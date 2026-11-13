@@ -5,6 +5,9 @@ import { useDateTime, useLabel } from '@supportx/ui';
 
 import type { useServerDraft } from './useServerDraft';
 
+// Where the time goes in the label (split there): no language's text contains it.
+const WHEN = '\u0000when\u0000';
+
 /** The note above the first field: a kept draft, with Restore (if readable) and Discard. */
 export function KeptDraftNotice<T extends FieldValues>({
   form,
@@ -54,6 +57,7 @@ export function KeptDraftNotice<T extends FieldValues>({
     );
   }
   const values = kept.values;
+  const [before = '', after = ''] = t('kept_draft.found', { when: WHEN }).split(WHEN);
   const restore = () => {
     draft.restored();
     onRestore(values);
@@ -64,8 +68,12 @@ export function KeptDraftNotice<T extends FieldValues>({
       showIcon
       role="status"
       message={
+        // One label with {{when}}, so each language orders its own words (lane C); the time
+        // stays a real node, between the label's own isolation marks.
         <span>
-          {t('kept_draft.found_before')} {when}
+          {before}
+          {when}
+          {after}
         </span>
       }
       action={
