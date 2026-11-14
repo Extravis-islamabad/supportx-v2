@@ -71,6 +71,7 @@ from app.modules.organization import (
 from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
+from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain import kept_informed
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
@@ -301,8 +302,11 @@ class WorkItemView:
     conversation: list[ActionState] = field(default_factory=list)
     following: bool = False
     conversation_count: int = 0
-    # Fields this subject may not read (problems: the root cause without view_root_cause).
+    # Fields this subject may not read: role rules (ADR-047) and the older permission gates (the
+    # root cause without view_root_cause). Both come back null and are listed by name.
     hidden: frozenset[str] = frozenset()
+    # Fields shown as masked (ADR-047): null too, listed apart so the page says "masked".
+    masked: frozenset[str] = frozenset()
     # Problems: who last changed each analysis field, and when (REQ-PRB-030).
     analysis_changes: tuple["AnalysisChange", ...] = ()
     # Problems: closing needs the review summary (REQ-PRB-053, D-140 Q4).
@@ -607,7 +611,12 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             if refused is None and final:
                 refused = RECORD_CLOSED
             operations.append(ActionState(op, allowed=refused is None, reason=refused))
-    hidden = await hidden_fields(session, subject, wtype, record.id)
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record.id),
+    )
+    hidden = unseen.all  # the analysis trail names no withheld field either
     analysis = (
         await _analysis_changes(session, record.id, hidden)
         if wtype.code is WorkItemTypeCode.PROBLEM
@@ -646,7 +655,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         conversation=conversation,
         following=await followers.current(session, record.id, subject.user_id) is not None,
         conversation_count=int(entries or 0),
-        hidden=hidden,
+        hidden=unseen.hidden,
+        masked=unseen.masked,
         analysis_changes=analysis,
         review_required=closing.review_required(cat, record),
     )
@@ -1260,10 +1270,25 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     entries, cursor = await history_entries(
         session, RECORD_TYPE, record_id, before=before, limit=limit, actors=actors
     )
-    hidden = await hidden_fields(session, subject, wtype, record_id)
-    if hidden:  # the root cause stays out of the history too (D-140 Q7)
+    # Withheld fields stay out of the history too: hidden ones (role rules, ADR-047, and the root
+    # cause without view_root_cause, D-140 Q7) are left out; masked ones keep the line (that it
+    # changed, when, by whom) but never the values, as money does below.
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record_id),
+    )
+    if unseen.all:
         entries = [
-            replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+            replace(
+                e,
+                changes=[
+                    Change(c.field, MASKED, MASKED) if c.field in unseen.masked else c
+                    for c in e.changes
+                    if c.field not in unseen.hidden
+                ],
+            )
+            for e in entries
         ]
     # A task's extra cost is money (D-164): only with the type's cost right, as the task API
     # shows it (lane B's #442 review). Others keep the line (that it changed, when, by whom) but
@@ -1649,6 +1674,38 @@ async def _analysis_changes(
         )
         for name, actor_type, actor, at in rows
     )
+
+
+def _given(values: Mapping[str, Any], defaults: Mapping[str, Any]) -> list[str]:
+    """The fields a create's input fills in (`custom.<key>` for custom ones).
+
+    Not an empty one, and not one holding the chosen template's own default: the form sends the
+    template's values back as it shows them, and that is the template's choice, not the
+    person's (lane B's #503 review; the same rule as a locked field's).
+    """
+
+    def filled(name: str, value: Any) -> bool:  # noqa: ANN401 - any JSON value
+        return value not in (None, "", [], {}) and _json(value) != _json(defaults.get(name))
+
+    return [n for n, v in values.items() if n != "custom" and filled(n, v)] + [
+        f"custom.{k}" for k, v in (values.get("custom") or {}).items() if filled(f"custom.{k}", v)
+    ]
+
+
+def require_writable(subject: Subject, wtype: WorkItemType, changed: Sequence[str]) -> None:
+    """403 `field_read_only` when a person changes a field their roles may only read (ADR-047 §8).
+
+    `changed` names really changed fields (`custom.<key>` for custom ones), so a form sending a
+    read-only value back unchanged passes. A service identity's writes (a workflow's, a
+    connector's) are system writes and pass; what they read is still restricted.
+    """
+    if not subject.person:
+        return
+    locked = field_rules.refused(
+        changed, field_rules.read_only(subject.field_access, wtype.code.value)
+    )
+    if locked:
+        raise PermissionDenied(code="field_read_only", params={"field": locked[0]})
 
 
 async def hidden_fields(
@@ -2442,6 +2499,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     template = await templates.for_create(session, wtype, values.get("template_id"), subject)
     # The template's form rules first (REQ-INC-037): what they set or clear is then checked
     # like any other input, and what they refuse is reported with the other field errors.
+    # What the person filled in themselves (before the form rules): a read-only field they may
+    # not set (ADR-047 §8); values a rule sets are the server's, not theirs.
+    require_writable(subject, wtype, _given(values, template.defaults or {}))
     ruled = await templates.apply_form_rules(session, wtype, template, values, before=None)
     values = ruled.values
     cleaned, problems = _check_fields(values, creating=True)
@@ -2764,6 +2824,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         for n, v in values.items()
         if n != "custom" and _json(getattr(record, n, None)) != _json(v)
     ] + [f"custom.{k}" for k, v in (values.get("custom") or {}).items() if custom_now.get(k) != v]
+    require_writable(subject, wtype, sent)
     problems += await _read_only_problems(session, record, sent)
     if problems:
         raise _errors(problems)

@@ -523,6 +523,7 @@ class PolicyService:
             group_ids=group_ids,
             is_tenant_admin=TENANT_ADMIN in role_keys,
             fields=await field_access_of(session, role_ids),
+            person=user.user_type != UserType.SERVICE.value,
         )
 
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
@@ -632,6 +633,10 @@ class PolicyService:
             # An API key: its owner's live grants, narrowed to what the key's scopes cover. Every
             # check (routes and services) then sees both rules at once (REQ-INT-021, D-128).
             subject = for_key(subject, context.api_scopes)
+        # A request is always a person's write as field rules see it (ADR-047 §8), a service
+        # identity's API key included: only in-process jobs under their own identity are system
+        # writes (lane B's #503 review).
+        subject = replace(subject, person=True)
         setattr(request.state, SUBJECT_STATE, subject)
         return subject
 

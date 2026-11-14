@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import metadata
 from app.modules.identity_access import Subject
+from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.service.access import FIELDS, type_fields
 from app.modules.work_items.service.work_items import staff_rows
@@ -135,13 +136,15 @@ class WorkItemSource:
             # Single choices group by their admin label; multi-choice is not groupable (MVP).
             if spec.type == FieldType.ENUM and not spec.array:
                 dimensions[name] = Dimension(_D.ADMIN_CODE)
+        # Not the fields the viewer's roles hide or mask (ADR-047 §5): a report, a dashboard or an
+        # export naming one is refused by the compiler, never shown blank.
+        withheld = field_rules.unseen(subject.field_access, self._wtype.code.value).all
+        fields = {n: f for n, f in {**FIELDS.fields, **own, **custom}.items() if n not in withheld}
         return ReportingSource(
             entity=self.entity,
             rows=staff_rows(subject, self._wtype),
-            fields=ResourceFields(
-                FIELDS.name, {**FIELDS.fields, **own, **custom}, FIELDS.id_column
-            ),
-            dimensions=dimensions,
+            fields=ResourceFields(FIELDS.name, fields, FIELDS.id_column),
+            dimensions={n: d for n, d in dimensions.items() if n not in withheld},
             list_path=self._wtype.path,
         )
 
