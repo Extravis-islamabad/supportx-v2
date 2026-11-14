@@ -341,3 +341,61 @@ async def test_a_failing_listener_fails_the_rule_change(
         )
         == []
     )
+
+
+async def test_the_schedule_rebuilds_every_marked_type_and_ignores_the_rest(
+    world: World,  # noqa: F811
+) -> None:
+    """The consumers worker's periodic job: marked types rebuilt and cleared, others left."""
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Codename"}},
+        headers=CONSOLE,
+    )
+    key = made.json()["key"]
+    await world.create(a, a.admin, group_id=str(a.ga), custom={key: "Lynx8"})
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        # Not a custom field, or not a work item type: nothing to rebuild, nothing marked.
+        await search_rebuild.mark(session, "incident", "impact_details")
+        await search_rebuild.mark(session, "asset", f"custom.{key}")
+    await search_rebuild.on_field_access_changed(
+        EventEnvelope.model_validate(
+            {
+                "event_id": str(uuid.uuid4()),
+                "event_type": "identity_access.field_access.changed",
+                "schema_version": 1,
+                "tenant_id": str(a.tenant),
+                "aggregate_type": "role",
+                "aggregate_id": str(uuid.uuid4()),
+                "aggregate_version": 1,
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "actor": {"type": "system", "id": "test"},
+                "payload": {"role_id": str(uuid.uuid4()), "record_type": "incident"},
+            }
+        ),
+        None,  # no session: nothing to do
+    )
+    marks = await world.sql(
+        "SELECT type FROM work_item_type_settings"
+        " WHERE tenant_id = $1 AND custom_text_rebuilding_since IS NOT NULL",
+        a.tenant,
+    )
+    assert marks == []
+    assert await search_rebuild.rebuild(world.app.state.db, a.tenant, INCIDENT) is True  # unmarked
+
+    await _restrict(world, a, f"custom.{key}")
+    await search_rebuild.rebuild_schedule(world.app.state.db, world.app.state.settings)
+    marks = await world.sql(
+        "SELECT type FROM work_item_type_settings"
+        " WHERE tenant_id = $1 AND custom_text_rebuilding_since IS NOT NULL",
+        a.tenant,
+    )
+    assert marks == []
+    rows = await world.sql(
+        "SELECT custom_text FROM work_items WHERE tenant_id = $1 AND type = 'incident'", a.tenant
+    )
+    assert not any("Lynx8" in json.dumps(r["custom_text"]) for r in rows)
