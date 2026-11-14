@@ -2477,6 +2477,22 @@ it with no reload (rule c). Not built yet.
   ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
   retry action for a failed erasure; the erasure screens (report, passage, redaction).
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- **S2, lane A's ports (0166; lane B blocked):**
+  - `work_items.references` (150): follows, record roles and board seats removed; chairs to the
+    successor; open tasks unassigned; pending approvals to the approval administrators
+    (`approver_erased`), never granted, with a required notice (the change fallback notice made
+    required too); their address off kept-informed lists and other messages' to/cc.
+  - `work_items.owned` (550): list settings, reminders, timers, drafts, private views and
+    personal reply templates deleted; shared ones to the successor; records they requested
+    lose the requester's text (subject the reserved marker, description, custom free text and
+    answers blanked); open records assigned to them back to the group's queue.
+  - `notifications` (560): deliveries, entries, rule mentions and preferences.
+    `integrations` (570): mail they sent cleared (ledger kept), block rules naming them removed.
+    `automation` (580): availability and round-robin rows; owned rules, triggers and workflows to
+    the successor. `sla` (190): nothing of theirs (IDs point at the anonymised row).
+  - 0166: DELETE on eight private tables, guarded so only the ports delete; `approver_erased`;
+    two requester indexes built concurrently. `work_items.records_requested_by` (#504) for
+    lane C's ai port.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
