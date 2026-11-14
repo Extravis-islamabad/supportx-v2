@@ -448,6 +448,8 @@ class FieldChangeRedaction(TenantKeyed, Base):
     mention_id: Mapped[uuid.UUID]
     old_digest: Mapped[str] = mapped_column(Text)
     new_digest: Mapped[str] = mapped_column(Text)
+    # For auditors reading the table: whether the digests were salted (a personal field). The
+    # verifier never trusts it: it takes the field's half from the record type's own spec.
     salted: Mapped[bool] = mapped_column(Boolean)
     redacted_at: Mapped[datetime]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

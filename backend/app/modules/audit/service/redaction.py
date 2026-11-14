@@ -96,7 +96,11 @@ async def redact_signed_history(
     old: list[str] = []
     new: list[str] = []
     salted: list[bool] = []
+    seen: set[uuid.UUID] = set()
     for row in rows:
+        if row.id in seen:  # each history row once (lane C's #511 review)
+            continue
+        seen.add(row.id)
         signer = signers.get(row.change_id)
         if signer is None or (row.old_value is None and row.new_value is None):
             continue
