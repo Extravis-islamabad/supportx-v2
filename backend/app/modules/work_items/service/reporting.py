@@ -146,6 +146,7 @@ class WorkItemSource:
             fields=ResourceFields(FIELDS.name, fields, FIELDS.id_column),
             dimensions={n: d for n, d in dimensions.items() if n not in withheld},
             list_path=self._wtype.path,
+            withheld=withheld,
         )
 
 

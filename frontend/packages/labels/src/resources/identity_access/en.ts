@@ -192,6 +192,7 @@ export const en = {
   'erasure_count.list_settings_deleted': 'Saved list views deleted',
   'erasure_count.mail_messages_cleared': 'E-mails cleared',
   'erasure_count.person_fields_cleared': 'Profile details cleared',
+  'erasure_count.profile_history_rows_erased': 'Profile history entries erased',
   'erasure_count.roles_removed': 'Roles removed',
   'erasure_count.sessions_ended': 'Sessions ended',
   'erasure_count.sign_ins_cleared': 'Sign-in log entries cleared',
@@ -396,7 +397,19 @@ export const en = {
   'people.vip': 'VIP',
   'people.visibility.site': 'All requests of their site',
   'people.visibility.tenant_rule': "Organisation's rule",
+  'people_erasure.attachment_content_not_searched':
+    'Attachment contents were not searched; only file names and details were.',
   'people_erasure.erased_on_request': "Removed at the person's request",
+  'people_erasure.history_kept_fingerprinted':
+    'Earlier history of this field was kept: a signed audit entry covers it, so it stays until signed history can be redacted',
+  'people_erasure.mail_bodies_not_searched':
+    'Inbound mail bodies were not searched; only their subjects were.',
+  'people_erasure.match_kind.email': 'Email address',
+  'people_erasure.match_kind.name': 'Name',
+  'people_erasure.match_kind.phone': 'Phone number',
+  'people_erasure.mention_state.found': 'Found',
+  'people_erasure.mention_state.left': 'Left in place',
+  'people_erasure.mention_state.redacted': 'Removed',
   'people_erasure.reason.consent_withdrawn': 'Consent withdrawn',
   'people_erasure.reason.legal_obligation': 'Legal obligation',
   'people_erasure.reason.no_longer_needed': 'No longer needed',
