@@ -306,6 +306,8 @@ export const ur: LabelResource = {
   'errors.erasure_request_expired':
     'اس درخواست کی میعاد ختم ہو گئی ہے۔ اگر اب بھی ضرورت ہو تو دوبارہ درخواست کریں۔',
   'errors.erasure_sessions_unavailable': 'ابھی سیشن ختم نہیں ہو سکے۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_signed_history_kept':
+    'اس مٹانے کی ابھی منظوری یا عمل نہیں ہو سکتا: ایک ترمیم شدہ عبارت اب بھی دستخط شدہ ریکارڈ کی تاریخ میں محفوظ ہے، جس کی ابھی ترمیم نہیں ہو سکتی۔',
   'errors.erasure_step_failed': 'مٹانے کا ایک مرحلہ کامیاب نہیں ہوا۔ دوبارہ کوشش کی جائے گی۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
   'errors.field.address_not_allowed':

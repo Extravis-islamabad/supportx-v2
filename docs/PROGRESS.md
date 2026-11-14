@@ -2470,7 +2470,9 @@ it with no reload (rule c). Not built yet.
   fingerprinted rows kept and counted) and `audit_erase_profile_history` (after `erased_at`,
   step 6), in 0164 on #500's helper.
 - [ ] Follow-up before the work-item mention ports: blank fingerprinted history rows too, with
-  pre-blank field digests kept and a `redacted_on_request` verifier status (ADR-046).
+  pre-blank field digests kept and a `redacted_on_request` verifier status (ADR-046). Until
+  then approval and job start refuse an erasure that kept such a row
+  (`erasure_signed_history_kept`; flip `SIGNED_HISTORY_REDACTION` with the verifier).
 - [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
   ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
   retry action for a failed erasure; the erasure screens (report, passage, redaction).

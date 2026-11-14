@@ -57,6 +57,7 @@ from app.modules.identity_access.service.erasure_mentions import (
     build_report_batch,
     report_complete,
     reports_due,
+    signed_history_kept,
 )
 from app.modules.identity_access.service.people import save_marks
 from app.modules.identity_access.service.person_data import (
@@ -171,6 +172,8 @@ async def _recheck(run: _Run) -> None:
         raise StepRefused(rules.APPROVAL_INVALID)
     if not report_complete(row.report):  # D-171 (a): never run on an incomplete report
         raise StepRefused(rules.REPORT_UNAVAILABLE)
+    if await signed_history_kept(run.session, row.id):  # D-171: never keep a redacted original
+        raise StepRefused(rules.SIGNED_HISTORY_KEPT)
     if person.id in {row.requested_by, row.approved_by}:
         raise StepRefused(rules.ERASE_SELF)
     # The approver vouches for the run and is the fallback successor: still active, not erased,

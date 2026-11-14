@@ -48,6 +48,9 @@
     row and tenant B untouched); an unredacted or unknown mention changes nothing; profile
     history untouched before `erased_at`, blanked after, idempotent, unreachable from tenant B;
     the whole-job test checks step 6.
+  - D-171 keeps no redacted original: approval and job start refuse an erasure whose redaction
+    kept a signed history row (`erasure_signed_history_kept`, labelled en/ar/ur, tested) until
+    the verifier follow-up lands (the coordinator, 2026-11-14).
 - **Not done:** asset descriptions and loan/audit comments are not searched (they describe the
   asset, not people); S2 may add them. A phone number written next to other digits (a date
   run into it) is not matched.

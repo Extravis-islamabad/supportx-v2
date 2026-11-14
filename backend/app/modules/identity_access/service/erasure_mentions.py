@@ -429,6 +429,27 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
     return Redacted(row, done)
 
 
+# Whether signed history rows can be redacted: False until the audit verifier has a
+# `redacted_on_request` status with the field digests kept before blanking (ADR-046 follow-up).
+# Until then an erasure that kept such a row is refused at approval and at job start.
+SIGNED_HISTORY_REDACTION = False
+
+
+async def signed_history_kept(session: AsyncSession, erasure_id: uuid.UUID) -> bool:
+    """Whether a redacted mention of the erasure left text in signed history (D-171)."""
+    if SIGNED_HISTORY_REDACTION:
+        return False
+    kept = await session.scalar(
+        select(func.count())
+        .select_from(PersonErasureMention)
+        .where(
+            PersonErasureMention.erasure_id == erasure_id,
+            PersonErasureMention.history_kept > 0,
+        )
+    )
+    return bool(kept)
+
+
 _REDACT_HISTORY = text("SELECT history_redact_field(:mention) AS result")
 
 

@@ -281,6 +281,8 @@ export const ar: LabelResource = {
   'errors.erasure_request_expired':
     'انتهت صلاحية طلب المحو هذا. اطلبه مجددًا إن كان لا يزال مطلوبًا.',
   'errors.erasure_sessions_unavailable': 'تعذّر إنهاء الجلسات الآن. ستُعاد المحاولة.',
+  'errors.erasure_signed_history_kept':
+    'لا يمكن اعتماد هذا المحو أو تشغيله بعد: لا يزال مقطع منقّح محفوظًا في سجل موقّع لا يمكن تنقيحه بعد.',
   'errors.erasure_step_failed': 'لم تنجح إحدى خطوات المحو. ستُعاد المحاولة.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
   'errors.field.address_not_allowed':

@@ -310,6 +310,8 @@ export const en = {
     'This erasure request has expired. Ask again if it is still needed.',
   'errors.erasure_sessions_unavailable':
     'Sessions could not be ended just now. The erasure will try again.',
+  'errors.erasure_signed_history_kept':
+    'This erasure cannot be approved or run yet: a redacted passage is still kept in signed record history, which cannot be redacted yet.',
   'errors.erasure_step_failed': 'A step of the erasure did not work. It will try again.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
   'errors.field.address_not_allowed':

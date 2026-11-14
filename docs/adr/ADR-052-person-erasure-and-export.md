@@ -155,6 +155,9 @@ lands):
 - **Files they uploaded are deleted** (D-171 b) unless their ID is in `keep_files` (kept with the
   admin's reason, audited per file by the job). Shared files service: `files.forget_uploader`.
 - **Costs** (D3a): rates deleted, worklog amounts kept.
+- **Mail block rules** naming their address as sender **stay unchanged**: the tenant's own
+  security control (legitimate interest); an erasure never lifts a block (the coordinator,
+  2026-11-14).
 - **No data in counts, logs or errors.** Counts by kind only; failures raise a coded error.
 - **No events that name the person**; ordinary change events (IDs, changed fields) as for any
   change, so screens follow live.
@@ -214,7 +217,9 @@ release defect, never a silent skip).
   tampering; the mention's `history_kept` counts them and the screen says so
   (`people_erasure.history_kept_fingerprinted`). Blanking those needs the pre-blank field
   digests kept and a `redacted_on_request` verifier status: a follow-up before the work-item
-  mention ports register (lane C agreed, 2026-11-14).
+  mention ports register (lane C agreed, 2026-11-14). D-171 keeps no redacted original, so
+  until then an erasure with a kept row is **refused** at approval and at job start
+  (`erasure_signed_history_kept`; the coordinator, 2026-11-14).
 
 ### 5. Export (REQ-ADM-100)
 

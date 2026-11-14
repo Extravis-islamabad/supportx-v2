@@ -90,6 +90,10 @@ HOLD_NOT_SET = "legal_hold_not_set"
 REPORT_NOT_REVIEWED = "erasure_report_not_reviewed"
 MENTION_NOT_FOUND = "erasure_mention_not_found"
 MENTION_PORT_MISSING = "erasure_mention_port_missing"
+# D-171: redacted originals are not kept. While signed history (rows a fingerprinted audit entry
+# commits to, ADR-046) cannot be redacted yet, an erasure with such a row kept is never approved
+# or run (the coordinator, 2026-11-14).
+SIGNED_HISTORY_KEPT = "erasure_signed_history_kept"
 REDACTION_HISTORY_REASON = "erasure_redaction"  # the history reason code of a redaction
 
 # Codes a run stops on for good (state failed), as opposed to a passing failure it retries.
@@ -103,6 +107,7 @@ REFUSALS: frozenset[str] = frozenset(
         PORT_MISSING,
         PORT_KIND_UNDECLARED,
         APPROVAL_INVALID,
+        SIGNED_HISTORY_KEPT,
     }
 )
 # Every code an erasure row's last_error_code can hold (`errors.<code>` labels too).

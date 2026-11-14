@@ -33,7 +33,11 @@ from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.people import clean_text
 from app.modules.identity_access.events import PersonErasureChanged
 from app.modules.identity_access.infra.models import PersonErasure, User
-from app.modules.identity_access.service.erasure_mentions import leave_found, report_complete
+from app.modules.identity_access.service.erasure_mentions import (
+    leave_found,
+    report_complete,
+    signed_history_kept,
+)
 from app.modules.identity_access.service.legal_hold import person_held
 from app.modules.identity_access.service.people import get_person
 from app.modules.identity_access.service.roles import guard_last_admin, holds_tenant_admin
@@ -261,6 +265,9 @@ async def approve(  # noqa: PLR0913 - the erasure, its version, who and the type
         # The approver must have looked at the report themselves (D-171 a: "the approver sees
         # the report"), not only someone else (lane B's review of S1b).
         raise Conflict(code=rules.REPORT_NOT_REVIEWED)
+    if await signed_history_kept(session, row.id):
+        # D-171: a redacted original is never kept; signed history cannot be redacted yet.
+        raise Conflict(code=rules.SIGNED_HISTORY_KEPT)
     row.state = ErasureState.APPROVED.value
     row.approved_by, row.approved_at = actor_id, now
     row.version += 1

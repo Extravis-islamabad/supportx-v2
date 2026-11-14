@@ -816,6 +816,31 @@ async def test_redaction_blanks_only_the_mentions_field_in_history(world: World)
         )
         == 1
     )
+    # D-171: a redacted original is never kept, so this erasure is never approved (the
+    # coordinator, 2026-11-14) until signed history can be redacted too.
+    erasure_id = uuid.UUID(erasure["id"])
+    approver = await _second_admin(world, a)
+    await _complete(world, a, erasure_id)
+    version = (await _get(world, a, erasure))["version"]
+    reviewed = await world.call(
+        "POST",
+        f"/erasures/{erasure_id}/report/reviewed",
+        a,
+        approver,
+        headers={"If-Match": f'"{version}"'},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    refused = await world.call(
+        "POST",
+        f"/erasures/{erasure_id}/approve",
+        a,
+        approver,
+        json={"confirm_name": name},
+        headers={"If-Match": f'"{version + 1}"'},
+    )
+    assert _code(refused) == (409, "erasure_signed_history_kept")
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await erasure_mentions.signed_history_kept(session, erasure_id) is True
 
 
 async def test_history_redaction_needs_a_redacted_mention(world: World) -> None:
