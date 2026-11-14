@@ -7,6 +7,7 @@ import {
   usePersonalDataAccess,
   type PersonalDataAccessEntry,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useListChannel } from '@supportx/realtime';
 import { EmptyText, useDateTime, useLabel } from '@supportx/ui';
 
@@ -35,6 +36,7 @@ function sinceFor(period: Period): string | undefined {
  */
 export function PersonalDataAccessTab() {
   const t = useLabel();
+  const listFormat = useListFormat();
   const dates = useDateTime();
   const queryClient = useQueryClient();
   const [person, setPerson] = useState<string>();
@@ -117,7 +119,7 @@ export function PersonalDataAccessTab() {
                 key: 'fields',
                 title: t('audit.personal_access.fields'),
                 render: (_, row) =>
-                  row.fields.map((field) => t(`access_field.${field}`)).join(', '),
+                  listFormat(row.fields.map((field) => t(`access_field.${field}`))),
               },
             ]}
           />
