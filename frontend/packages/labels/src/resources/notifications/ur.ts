@@ -25,6 +25,9 @@ export const ur: LabelResource = {
   'delivery_state.retrying': 'دوبارہ کوشش جاری',
   'delivery_state.sent': 'بھیج دیا گیا',
   'delivery_state.waiting': 'میل ترتیب دیے جانے کا انتظار',
+  'erasure_count.deliveries_deleted': 'اطلاعات کی ترسیلات حذف کی گئیں',
+  'erasure_count.notifications_deleted': 'ایپ کے اندر اطلاعات حذف کی گئیں',
+  'erasure_count.preferences_deleted': 'اطلاعات کی ترجیحات حذف کی گئیں',
   'event_delivery.stalled.body':
     'اطلاعات، براہ راست اپ ڈیٹس اور ایکسپورٹس میں تاخیر ہے۔ کچھ ضائع نہیں ہوگا: سروس بحال ہوتے ہی یہ بھیج دیے جائیں گے۔',
   'event_delivery.stalled.title': 'واقعات کی ترسیل رکی ہوئی ہے',
