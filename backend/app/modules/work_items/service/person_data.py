@@ -78,16 +78,23 @@ class Run:
 async def _batched(
     phases: Sequence[tuple[str, Batch]], run: Run, cursor: str | None
 ) -> ErasureBatch:
-    """Run one batch of the current phase; the cursor names the phase and the last id."""
+    """Run the current phase's next batch; a phase with nothing to do hands on at once.
+
+    So a person with nothing left is done in one call (cursor None, zero counts: the contract's
+    idempotence), and a call that did work says where to go on (`phase|after`).
+    """
     names = [name for name, _ in phases]
     phase, _, after_text = (cursor or f"{names[0]}|").partition("|")
     after = uuid.UUID(after_text) if after_text else None
-    index = names.index(phase)
-    counts, last = await phases[index][1](run, after)
-    if last is not None:
-        return ErasureBatch(counts, f"{phase}|{last}")
-    following = names[index + 1] if index + 1 < len(names) else None
-    return ErasureBatch(counts, None if following is None else f"{following}|")
+    for index in range(names.index(phase), len(names)):
+        counts, last = await phases[index][1](run, after)
+        if last is not None:  # a full batch: more of this phase may follow
+            return ErasureBatch(counts, f"{names[index]}|{last}")
+        if counts:  # this phase is done; the next starts with the next call
+            following = names[index + 1] if index + 1 < len(names) else None
+            return ErasureBatch(counts, None if following is None else f"{following}|")
+        after = None  # nothing here: on to the next phase in this call
+    return ErasureBatch({})
 
 
 def _deleting(kind: str, model: Any, owner: Any) -> Batch:  # noqa: ANN401 - a model and its column
@@ -404,7 +411,9 @@ async def _requested(run: Run, after: uuid.UUID | None) -> tuple[dict[str, int],
 OWNED_PHASES: tuple[tuple[str, Batch], ...] = (
     (
         "list_settings",
-        _deleting("list_settings_deleted", WorkItemListSetting, WorkItemListSetting.user_id),
+        _deleting(
+            "work_item_list_settings_deleted", WorkItemListSetting, WorkItemListSetting.user_id
+        ),
     ),
     ("reminders", _deleting("reminders_deleted", WorkItemReminder, WorkItemReminder.user_id)),
     ("timers", _deleting("timers_deleted", WorkItemTimer, WorkItemTimer.user_id)),
@@ -425,7 +434,7 @@ class Owned:
     order: ClassVar[int] = 550
     kinds: ClassVar[frozenset[str]] = frozenset(
         {
-            "list_settings_deleted",
+            "work_item_list_settings_deleted",
             "reminders_deleted",
             "timers_deleted",
             "drafts_deleted",

@@ -8,6 +8,7 @@ from typing import ClassVar
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.modules import discover_modules
 from app.modules.identity_access.domain import erasure as rules
 from app.modules.identity_access.domain.erasure import ErasureState, Step
 from app.modules.identity_access.service import person_data
@@ -25,6 +26,10 @@ from app.modules.identity_access.service.person_data import (
 from app.modules.identity_access.service.person_data_ports import LANE_B_PORTS
 from app.shared.erasure import ERASED_ON_REQUEST, ERASED_ON_REQUEST_LABEL, is_erased_marker
 from tests.test_error_labels import label_keys
+
+# Every module registers its port at import, as at start-up: the required list names other lanes'
+# ports too (each owner adds its key with its port, ADR-052 §4).
+discover_modules()
 
 ID = uuid.UUID("01936b6e-0000-7000-8000-000000000001")
 
@@ -138,7 +143,7 @@ def test_lane_b_ports_are_registered_in_their_bands_and_required() -> None:
     names = [port.module for port in registered_ports()]
     lane_b = [port.module for port in LANE_B_PORTS]
     assert set(lane_b) <= set(names)
-    assert frozenset(lane_b) == REQUIRED_PORTS
+    assert frozenset(lane_b) <= REQUIRED_PORTS  # other lanes add their own keys (ADR-052)
     assert missing_ports() == []
     # References first (links, memberships), then owned rows, files last of lane B's.
     ordered = [name for name in names if name in lane_b]
