@@ -1,4 +1,4 @@
-# 2026-11-14 — ADR-052 S2: lane A's mentions ports (lane A)
+### 2026-11-14 — ADR-052 S2: lane A's mentions ports (lane A)
 
 The `PersonMentions` contract from lane B's S1b (#506). Plan sent to lane B, approved with six
 conditions, all applied.

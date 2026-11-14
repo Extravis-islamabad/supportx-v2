@@ -69,7 +69,10 @@ PHASES = ("records", "conversation", "tasks", "worklogs")
 ERASE_RIGHT = "people.erase"
 
 # The record's own text, by field: plain text, or sanitised HTML.
-PLAIN = ("subject", "impact_details")
+PLAIN = (
+    "subject",
+    "impact_details",
+)
 HTML = (
     "description",
     "resolution",
@@ -416,7 +419,14 @@ async def _redact_part(
     session: AsyncSession, mention: Mention, terms: MentionTerms, marker: str
 ) -> bool:
     part_kind: Literal["task", "worklog"] = "task" if mention.record_type == TASK else "worklog"
-    allowed = ("title", "description") if part_kind == "task" else ("description",)
+    allowed = (
+        (
+            "title",
+            "description",
+        )
+        if part_kind == "task"
+        else ("description",)
+    )
     if mention.field not in allowed:
         return False
     part: WorkItemTask | WorkItemWorklog | None = (
