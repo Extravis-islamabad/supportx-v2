@@ -20,6 +20,12 @@ on:
           run uses one shard, so a template PR shoots only what it migrates (D-147).
         required: false
         default: ""
+      langs:
+        description: >-
+          Languages to shoot (comma-separated: en, ar, ur). Empty: en and ar. Use "ur" or
+          "en,ar,ur" for a PR's Urdu shots.
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -96,6 +102,7 @@ jobs:
         uses: ./.github/actions/playwright-in-image
         env:
           VISUAL_SCREENS: ${{ inputs.screens }} # through env, never into the script text
+          VISUAL_LANGS: ${{ inputs.langs }}
           VISUAL_SHARD: ${{ matrix.shard }}/${{ inputs.screens != '' && 1 || 6 }}
           VISUAL_MATRIX: "1"
           VISUAL_OUT: ${{ github.workspace }}/frontend/e2e/visual-matrix
@@ -112,6 +119,7 @@ jobs:
             VISUAL_OUT
             VISUAL_SHARD
             VISUAL_SCREENS
+            VISUAL_LANGS
             SUPPORTX_CONSOLE_URL
             SUPPORTX_PORTAL_URL
       - name: Diagnostics on failure

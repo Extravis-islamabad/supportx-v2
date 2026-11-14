@@ -37,7 +37,17 @@ function wanted(screen: { key: string }): boolean {
 
 const LAYOUTS = ['side', 'side_compact', 'top'] as const;
 const THEMES = ['light', 'dark'] as const;
-const LANGS = ['en', 'ar'] as const;
+const ALL_LANGS = ['en', 'ar', 'ur'] as const;
+type Lang = (typeof ALL_LANGS)[number];
+// The languages to shoot: en and ar by default; `VISUAL_LANGS=ur` (or `en,ar,ur`) adds Urdu for a
+// run that needs it (a PR's Urdu shots, lane A's #513), without growing every nightly run.
+const LANGS: readonly Lang[] = (() => {
+  const asked = (process.env.VISUAL_LANGS ?? 'en,ar')
+    .split(',')
+    .map((lang) => lang.trim())
+    .filter((lang): lang is Lang => (ALL_LANGS as readonly string[]).includes(lang));
+  return asked.length > 0 ? asked : ['en', 'ar'];
+})();
 const WIDTHS = [1440, 1280, 390] as const;
 
 type Layout = (typeof LAYOUTS)[number];
