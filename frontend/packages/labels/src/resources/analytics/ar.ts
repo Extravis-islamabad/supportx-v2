@@ -232,6 +232,7 @@ export const ar: LabelResource = {
   'dashboards.wider': 'أعرض',
   'dashboards.wider_named': 'أعرض: {{name}}',
   'dashboards.widget_failed': 'تعذّر تحميل هذا العنصر.',
+  'dashboards.widget_not_permitted': 'غير متاح لك: تستخدم هذه الأداة بيانات لا يعرضها دورك.',
   'dashboards.widget_title': 'العنوان',
   'dashboards.widget_unavailable': 'التقرير الذي يعتمد عليه هذا العنصر غير متاح لك.',
   'dashboards.your_home': 'صفحتك الرئيسية',
@@ -601,6 +602,8 @@ export const ar: LabelResource = {
   'report_order.value_desc': 'الأكبر أولًا',
   'report_schedule_result.attachment_too_large':
     'كان الملف أكبر من 10 ميغابايت. ضيّق التقرير أو اختر الملخص.',
+  'report_schedule_result.field_not_permitted':
+    'متوقف مؤقتًا: يستخدم التقرير حقلًا لم يعد بإمكان مالكه رؤيته.',
   'report_schedule_result.mail_not_configured': 'لم يتم إعداد البريد الصادر.',
   'report_schedule_result.mail_refused': 'تعذّر إرسال البريد الإلكتروني.',
   'report_schedule_result.no_recipients': 'لا يوجد مستلم نشط لديه بريد إلكتروني.',

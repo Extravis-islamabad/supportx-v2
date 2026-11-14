@@ -50,6 +50,10 @@ class ReportingSource:
     fields: ResourceFields  # the list's filter allowlist, custom fields included
     dimensions: Mapping[str, Dimension]  # keys are names in `fields`
     list_path: str  # drill-down opens this list with the same filter, e.g. "incidents"
+    # Fields the viewer's roles hide or mask (ADR-047 §5): already out of `fields` and
+    # `dimensions`; named here so a definition using one is refused as not permitted (never as
+    # unknown, never shown blank).
+    withheld: frozenset[str] = frozenset()
 
 
 class SourceProvider(Protocol):

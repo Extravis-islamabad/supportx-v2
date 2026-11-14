@@ -207,6 +207,7 @@ export const ar: LabelResource = {
   'erasure_count.list_settings_deleted': 'طرق عرض القوائم المحفوظة المحذوفة',
   'erasure_count.mail_messages_cleared': 'رسائل البريد الممسوحة',
   'erasure_count.person_fields_cleared': 'تفاصيل الملف الشخصي الممسوحة',
+  'erasure_count.profile_history_rows_erased': 'إدخالات سجل الملف الشخصي الممحوة',
   'erasure_count.report_exports_deleted': 'تصديرات التقارير المحذوفة',
   'erasure_count.report_favourites_deleted': 'التقارير المفضلة الممسوحة',
   'erasure_count.report_folders_moved': 'مجلدات التقارير المُسلَّمة إلى الخلف',
@@ -399,7 +400,19 @@ export const ar: LabelResource = {
   'people.vip': 'شخص مهم',
   'people.visibility.site': 'كل طلبات موقعه',
   'people.visibility.tenant_rule': 'قاعدة المؤسسة',
+  'people_erasure.attachment_content_not_searched':
+    'لم يُبحث في محتوى المرفقات؛ بُحث في أسماء الملفات وتفاصيلها فقط.',
   'people_erasure.erased_on_request': 'أُزيل بطلب من الشخص',
+  'people_erasure.history_kept_fingerprinted':
+    'تم الاحتفاظ بالسجل السابق لهذا الحقل: يغطيه إدخال تدقيق موقّع، فيبقى إلى أن يصبح تنقيح السجل الموقّع ممكنًا',
+  'people_erasure.mail_bodies_not_searched':
+    'لم يُبحث في نصوص الرسائل الواردة؛ بُحث في عناوينها فقط.',
+  'people_erasure.match_kind.email': 'البريد الإلكتروني',
+  'people_erasure.match_kind.name': 'الاسم',
+  'people_erasure.match_kind.phone': 'رقم الهاتف',
+  'people_erasure.mention_state.found': 'موجود',
+  'people_erasure.mention_state.left': 'تُرك كما هو',
+  'people_erasure.mention_state.redacted': 'أُزيل',
   'people_erasure.reason.consent_withdrawn': 'سُحبت الموافقة',
   'people_erasure.reason.legal_obligation': 'التزام قانوني',
   'people_erasure.reason.no_longer_needed': 'لم تعد مطلوبة',

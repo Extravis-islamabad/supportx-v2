@@ -209,6 +209,7 @@ export const ur: LabelResource = {
   'erasure_count.list_settings_deleted': 'حذف شدہ محفوظ فہرست منظر',
   'erasure_count.mail_messages_cleared': 'صاف کی گئی ای میلز',
   'erasure_count.person_fields_cleared': 'صاف کی گئی پروفائل تفصیلات',
+  'erasure_count.profile_history_rows_erased': 'مٹائی گئی پروفائل تاریخ کی تفصیلات',
   'erasure_count.report_exports_deleted': 'رپورٹ ایکسپورٹس حذف کیے گئے',
   'erasure_count.report_favourites_deleted': 'پسندیدہ رپورٹس صاف کی گئیں',
   'erasure_count.report_folders_moved': 'رپورٹ فولڈر جانشین کے حوالے کیے گئے',
@@ -396,7 +397,19 @@ export const ur: LabelResource = {
   'people.vip': 'وی آئی پی',
   'people.visibility.site': 'ان کی سائٹ کی تمام درخواستیں',
   'people.visibility.tenant_rule': 'ادارے کا اصول',
+  'people_erasure.attachment_content_not_searched':
+    'منسلکات کے مواد میں تلاش نہیں کی گئی؛ صرف فائلوں کے نام اور تفصیلات دیکھی گئیں۔',
   'people_erasure.erased_on_request': 'فرد کی درخواست پر ہٹا دیا گیا',
+  'people_erasure.history_kept_fingerprinted':
+    'اس فیلڈ کی پچھلی تاریخ رکھی گئی ہے: ایک دستخط شدہ آڈٹ اندراج اس کا احاطہ کرتا ہے، اس لیے یہ دستخط شدہ تاریخ کی ترمیم ممکن ہونے تک رہے گی',
+  'people_erasure.mail_bodies_not_searched':
+    'آنے والی ای میلز کے متن میں تلاش نہیں کی گئی؛ صرف ان کے موضوعات دیکھے گئے۔',
+  'people_erasure.match_kind.email': 'ای میل پتا',
+  'people_erasure.match_kind.name': 'نام',
+  'people_erasure.match_kind.phone': 'فون نمبر',
+  'people_erasure.mention_state.found': 'ملا',
+  'people_erasure.mention_state.left': 'جوں کا توں چھوڑ دیا گیا',
+  'people_erasure.mention_state.redacted': 'ہٹا دیا گیا',
   'people_erasure.reason.consent_withdrawn': 'رضامندی واپس لے لی گئی',
   'people_erasure.reason.legal_obligation': 'قانونی ذمہ داری',
   'people_erasure.reason.no_longer_needed': 'اب ضرورت نہیں',

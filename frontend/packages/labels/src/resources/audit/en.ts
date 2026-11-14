@@ -314,7 +314,11 @@ export const en = {
   'audit.action.person.erasure_expired': "A person's erasure request expired",
   'audit.action.person.erasure_failed': "A person's erasure stopped",
   'audit.action.person.erasure_file_kept': 'Kept a file of an erased person',
+  'audit.action.person.erasure_mention_redacted': 'Removed a mention of a person being erased',
+  'audit.action.person.erasure_mention_viewed': 'Viewed a passage naming a person being erased',
   'audit.action.person.erasure_rejected': "Rejected a person's erasure",
+  'audit.action.person.erasure_report_reviewed':
+    "Reviewed the mentions report of a person's erasure",
   'audit.action.person.erasure_requested': "Asked for a person's erasure",
   'audit.action.person.legal_hold_lifted': "Lifted a person's legal hold",
   'audit.action.person.legal_hold_set': 'Put a person on legal hold',

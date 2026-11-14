@@ -288,8 +288,14 @@ export const en = {
   'errors.erasure_approval_invalid': 'The approval of this erasure is no longer valid.',
   'errors.erasure_break_glass_account':
     'A break-glass account cannot be erased. Remove it from break-glass first.',
+  'errors.erasure_directory_sync_unsafe':
+    "This erasure cannot be approved yet: directory sync could still write the person's details back.",
   'errors.erasure_identity_unavailable':
     'The sign-in service could not be reached. The erasure will try again.',
+  'errors.erasure_mention_not_found':
+    'That mention was not found in this erasure, or you cannot see the record it is in.',
+  'errors.erasure_mention_port_missing':
+    'That mention cannot be changed: the part of the product it is in is not available.',
   'errors.erasure_needs_another_admin': 'Another administrator must approve this erasure.',
   'errors.erasure_not_found': 'This erasure no longer exists.',
   'errors.erasure_not_pending': 'This erasure can no longer be changed.',
@@ -300,12 +306,18 @@ export const en = {
     'Part of the product cannot erase personal data yet. Contact support.',
   'errors.erasure_records_unavailable':
     'The records this person requested could not be listed just now. The erasure will try again.',
+  'errors.erasure_redaction_too_long':
+    'This passage cannot be redacted here: the marker would make the text longer than the field allows. Shorten the text first.',
+  'errors.erasure_report_not_reviewed':
+    'This erasure cannot be approved yet: an admin must first review the report of where the person is named.',
   'errors.erasure_report_unavailable':
-    'Erasures cannot be approved yet: the report of where the person is named is not available.',
+    'This erasure cannot be approved yet: the report of where the person is named is not complete.',
   'errors.erasure_request_expired':
     'This erasure request has expired. Ask again if it is still needed.',
   'errors.erasure_sessions_unavailable':
     'Sessions could not be ended just now. The erasure will try again.',
+  'errors.erasure_signed_history_kept':
+    'This erasure cannot be approved or run yet: a redacted passage is still kept in signed record history, which cannot be redacted yet.',
   'errors.erasure_step_failed': 'A step of the erasure did not work. It will try again.',
   'errors.erasure_storage_unavailable':
     'The file store could not be reached to delete report exports. The erasure will try again.',
@@ -811,6 +823,7 @@ export const en = {
   'errors.field_access_rule_not_found': 'This field rule no longer exists.',
   'errors.field_keys_unavailable':
     'Protected information cannot be read or saved right now: the installation key is not available. Ask your administrator to check it.',
+  'errors.field_not_permitted': 'This report uses a field that is not available to you.',
   'errors.field_not_ruleable': 'This field cannot be restricted.',
   'errors.field_read_only': "You may only read this field, so it can't be changed.",
   'errors.file_link_expired': 'The link expired. Open the file again.',

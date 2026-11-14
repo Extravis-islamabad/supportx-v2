@@ -20,6 +20,14 @@ retries it and records the code, never an exception's text.
 
 S1 defines erasure only. `export_person` (with its streaming `ExportWriter`, ADR-052 §4) joins
 the protocol with the export job in S3; ports then add it.
+
+**Mentions (S1b, D-171 a).** A module whose text other people write may name the person
+implements `PersonMentions` and calls `register_mentions(impl)`, with the same registry key as its
+erasure port (one object may implement both). `find_mentions` returns where the person is named
+(record, field, kind, count: never text) in bounded batches; `redact_mention` replaces the matched
+occurrences in that one field with the D2a marker; `passage` returns the field's current text
+to someone whose own rights let them read the record. The report is complete only when every
+key in `REQUIRED_MENTION_PORTS` has run, and approval waits for a complete, reviewed report.
 """
 
 import re
@@ -27,9 +35,14 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionTerms
+
+if TYPE_CHECKING:
+    from app.modules.identity_access.domain.policy import Subject
 
 # Batches (lane A's review): one call does at most this many rows and returns a cursor; the job
 # commits, stores the cursor and calls again in a fresh transaction until it is None.
@@ -163,3 +176,130 @@ def registered_ports() -> list[PersonData]:
 def missing_ports(required: frozenset[str] = REQUIRED_PORTS) -> list[str]:
     """Required modules with no registered port (sorted)."""
     return sorted(required - set(_PORTS))
+
+
+# --- mentions (S1b, D-171 a) ----------------------------------------------------------------------
+
+MENTION_BATCH = 500  # rows a find_mentions call looks at, at most
+
+# The mention ports the report is not complete without (the one place that lists them). S1b
+# ships identity_access's, files' and assets'; the others land with S2 (lane A's work items and
+# integrations, lane C's knowledge and announcements). Until they do, every report stays
+# incomplete, so approval stays refused in practice (erasure_report_unavailable): no erasure can
+# run before S2. Never shrink this to make a report complete.
+REQUIRED_MENTION_PORTS: frozenset[str] = frozenset(
+    {
+        "identity_access",
+        "assets",
+        "files",
+        "work_items",
+        "integrations",
+        "knowledge",
+        "announcements",
+    }
+)
+
+
+@dataclass(frozen=True)
+class Mention:
+    """One place the person is named: a field of a record, by kind, how often. Never the text."""
+
+    record_type: str
+    record_id: uuid.UUID
+    field: str
+    match_kind: MentionMatchKind
+    occurrences: int
+
+
+@dataclass(frozen=True)
+class MentionBatch:
+    """One bounded batch of a port's search, and where to go on (None: done)."""
+
+    mentions: tuple[Mention, ...]
+    cursor: str | None = None
+
+
+@runtime_checkable
+class PersonMentions(Protocol):
+    """One module's part of the mentions report and redaction (ADR-052 S1b).
+
+    All three run in a tenant session (RLS). `find_mentions` looks at no more than
+    MENTION_BATCH rows per call, skips the person's own records where those are the erasure's
+    to clear, and returns mentions only (no snippets, no text). `redact_mention` replaces only
+    the occurrences of `mention.match_kind` in that one field of that one record with `marker`
+    (the reserved code, labelled by the UI), bumps the record's version, writes history naming
+    the field only (old and new None, reason `erasure_redaction`) and the record's ordinary
+    change event; it returns False when nothing matched any more (idempotent). `passage` returns
+    the field's current text when `subject`'s own rights let them read the record **and that
+    field** (its own field rules, and ADR-047 field access: a field a role hides or masks from
+    them is None; the registry also checks field access by the mention's record type and field
+    name, so a port names fields as its field catalogue does), else None.
+
+    Scale (lane A's #506 review): `find_mentions` may narrow its scan with an index (full-text,
+    trigram) as long as it never misses an exact match; it confirms each candidate with
+    `count_matches`. Rich text (sanitised HTML) uses `count_matches_html` / `redact_html`: text
+    between tags only, never a tag or an attribute.
+    """
+
+    module: ClassVar[str]  # the registry key, as the erasure port's
+
+    async def find_mentions(  # noqa: D102 - see the class docstring; the contract
+        self,
+        session: AsyncSession,
+        person_id: uuid.UUID,
+        *,
+        terms: MentionTerms,
+        cursor: str | None,
+    ) -> MentionBatch: ...
+
+    async def redact_mention(  # noqa: D102 - see the class docstring; the contract
+        self,
+        session: AsyncSession,
+        mention: Mention,
+        *,
+        terms: MentionTerms,
+        marker: str,
+        now: datetime,
+    ) -> bool: ...
+
+    async def passage(  # noqa: D102 - see the class docstring; the contract
+        self, session: AsyncSession, subject: "Subject", mention: Mention
+    ) -> str | None: ...
+
+
+_MENTIONS: dict[str, PersonMentions] = {}
+
+
+def register_mentions(port: PersonMentions) -> None:
+    """Register a module's mentions port (at module import). The same object again is fine."""
+    name = port.module
+    if not name or not _KEY.fullmatch(name):
+        msg = f"mentions port needs a key like 'module' or 'module.part', got {name!r}"
+        raise PortRegistrationError(msg)
+    current = _MENTIONS.get(name)
+    if current is not None and current is not port:
+        msg = f"mentions port {name!r} is registered twice"
+        raise PortRegistrationError(msg)
+    _MENTIONS[name] = port
+
+
+def unregister_mentions(module: str) -> None:
+    """Take a mentions port out (tests only)."""
+    _MENTIONS.pop(module, None)
+
+
+def mention_ports() -> list[PersonMentions]:
+    """Every registered mentions port, in the order the report runs them (by key)."""
+    return [_MENTIONS[key] for key in sorted(_MENTIONS)]
+
+
+def mention_port(module: str) -> PersonMentions | None:
+    """The mentions port registered under `module`, if any."""
+    return _MENTIONS.get(module)
+
+
+def missing_mention_ports(
+    done: frozenset[str] | set[str], required: frozenset[str] = REQUIRED_MENTION_PORTS
+) -> list[str]:
+    """Required mention ports that have not run (sorted)."""
+    return sorted(required - set(done))

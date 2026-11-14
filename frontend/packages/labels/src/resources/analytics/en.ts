@@ -235,6 +235,8 @@ export const en = {
   'dashboards.wider': 'Wider',
   'dashboards.wider_named': 'Wider: {{name}}',
   'dashboards.widget_failed': 'This widget could not be loaded.',
+  'dashboards.widget_not_permitted':
+    'Not available to you: this widget uses data your role does not show.',
   'dashboards.widget_title': 'Title',
   'dashboards.widget_unavailable': 'The report behind this widget is not available to you.',
   'dashboards.your_home': 'Your home',
@@ -612,6 +614,8 @@ export const en = {
   'report_order.value_desc': 'Largest first',
   'report_schedule_result.attachment_too_large':
     'The file was larger than 10 MB. Narrow the report or choose the summary.',
+  'report_schedule_result.field_not_permitted':
+    'Paused: the report uses a field its owner may no longer see.',
   'report_schedule_result.mail_not_configured': 'Outgoing e-mail is not set up.',
   'report_schedule_result.mail_refused': 'The e-mail could not be sent.',
   'report_schedule_result.no_recipients': 'No active recipient with an e-mail address.',

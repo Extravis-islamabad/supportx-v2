@@ -311,7 +311,12 @@ export const ur: LabelResource = {
   'audit.action.person.erasure_expired': 'کسی فرد کا ڈیٹا مٹانے کی درخواست کی میعاد ختم ہوئی',
   'audit.action.person.erasure_failed': 'کسی فرد کا ڈیٹا مٹانا رک گیا',
   'audit.action.person.erasure_file_kept': 'مٹائے گئے فرد کی ایک فائل رکھی',
+  'audit.action.person.erasure_mention_redacted': 'مٹائے جانے والے فرد کا ایک ذکر ہٹایا',
+  'audit.action.person.erasure_mention_viewed':
+    'وہ عبارت دیکھی جس میں مٹائے جانے والے فرد کا ذکر ہے',
   'audit.action.person.erasure_rejected': 'کسی فرد کا ڈیٹا مٹانے کی درخواست مسترد کی',
+  'audit.action.person.erasure_report_reviewed':
+    'کسی فرد کا ڈیٹا مٹانے سے پہلے اس کے ذکر کی رپورٹ دیکھی',
   'audit.action.person.erasure_requested': 'کسی فرد کا ڈیٹا مٹانے کی درخواست کی',
   'audit.action.person.legal_hold_lifted': 'کسی فرد کی قانونی روک ہٹائی',
   'audit.action.person.legal_hold_set': 'کسی فرد پر قانونی روک لگائی',
