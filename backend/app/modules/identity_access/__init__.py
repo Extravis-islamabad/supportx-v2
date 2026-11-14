@@ -142,6 +142,7 @@ from app.modules.identity_access.service.person_data import (
     ERASE_BATCH,
     REQUIRED_PORTS,
     ErasureBatch,
+    ErasureStepFailed,
     PersonData,
     register_person_data,
 )
@@ -494,6 +495,7 @@ __all__ = [
     "AccessRule",
     "DutyLookup",
     "ErasureBatch",
+    "ErasureStepFailed",
     "FederationFailed",
     "FederationNotInstalled",
     "FieldRule",

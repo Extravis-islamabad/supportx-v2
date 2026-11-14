@@ -1,9 +1,9 @@
 """DELETE for the GDPR erasure ports of knowledge, analytics and ai (ADR-052 S2; lane C).
 
 The erasure is the one place a hard delete is allowed (CLAUDE.md §6, D-171): a person's votes
-(with their comments), dashboard preferences, report exports, private reports, folders and
-dashboards, and their AI prompts go for good. Everywhere else these tables stay soft-delete or
-append-only: `tests/test_erasure_deletes.py` fails if any code path other than the erasure ports
+(with their comments), dashboard preferences, report exports, private dashboards and their AI
+prompts go for good (reports and folders are shared at MVP: they move to the successor).
+Everywhere else these tables stay soft-delete or append-only: `tests/test_erasure_deletes.py` fails if any code path other than the erasure ports
 issues a DELETE on them (the coordinator's condition).
 
 Grants only, through migrations/helpers.py; no data step. The downgrade takes DELETE away again.
@@ -27,8 +27,6 @@ BEFORE: dict[str, tuple[str, ...]] = {
     "kb_votes": ("SELECT", "INSERT", "UPDATE"),
     "dashboard_preferences": ("SELECT", "INSERT", "UPDATE"),
     "report_exports": ("SELECT", "INSERT", "UPDATE"),
-    "reports": ("SELECT", "INSERT", "UPDATE"),
-    "report_folders": ("SELECT", "INSERT", "UPDATE"),
     "dashboards": ("SELECT", "INSERT", "UPDATE"),
     "ai_calls": ("SELECT", "INSERT", "UPDATE"),
 }
