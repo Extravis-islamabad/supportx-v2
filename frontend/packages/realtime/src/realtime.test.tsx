@@ -8,6 +8,7 @@ import { queryKeys } from '@supportx/api-client';
 import { fakeApi, problem } from '@supportx/api-client/testing';
 
 import {
+  ACCESS_REFETCH_SPREAD_MS,
   FALLBACK_AFTER_MS,
   POLL_INTERVAL_MS,
   RETRY_DELAYS_MS,
@@ -248,10 +249,19 @@ describe('RealtimeProvider and hooks', () => {
     const record = ['incidents', 'record', 'i-1'];
     queryClient.setQueryData(record, { stale: false });
     render(<div />, { wrapper });
-    act(() => {
-      client.publish(`t:${T}:user:${U}`, { type: 'access.changed', ids: [U] });
-    });
-    expect(queryClient.getQueryState(record)?.isInvalidated).toBe(true);
+    vi.useFakeTimers();
+    try {
+      act(() => {
+        client.publish(`t:${T}:user:${U}`, { type: 'access.changed', ids: [U] });
+      });
+      // Spread over a few seconds (every holder of a role hears it at once), then refetched.
+      act(() => {
+        vi.advanceTimersByTime(ACCESS_REFETCH_SPREAD_MS);
+      });
+      expect(queryClient.getQueryState(record)?.isInvalidated).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('BUG-13: leaving or reloading the page disconnects at once (no ghost viewer)', () => {

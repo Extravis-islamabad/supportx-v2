@@ -6,7 +6,8 @@ import { expectAccessible, signInAs } from './helpers';
 // tab, and a technician's open record says "Not shown to you" at once, with no refresh (rule c).
 // The rule is on the built-in technician role, so it is removed again however the test ends.
 
-const LIVE = { timeout: 5_000 };
+// Live: the refetch after an access change waits up to 3 s at random (RealtimeProvider).
+const LIVE = { timeout: 8_000 };
 const FIELD = 'impact_details';
 
 interface Me {
