@@ -43,8 +43,8 @@ async def _with_a_row(url: str) -> None:
             await conn.execute(
                 "INSERT INTO field_change_redactions (tenant_id, id, field_change_id, change_id,"
                 " record_type, record_id, field, mention_id, old_digest, new_digest, salted,"
-                " redacted_at) VALUES ($1, $2, $3, $4, 'work_item', $5, 'subject', $6, 'a', 'b',"
-                " true, now())",
+                " redacted_at) VALUES ($1, $2, $3, $4, 'work_item', $5, 'subject', $6,"
+                " repeat('a', 64), repeat('b', 64), true, now())",
                 tenant,
                 uuid.uuid4(),
                 uuid.uuid4(),

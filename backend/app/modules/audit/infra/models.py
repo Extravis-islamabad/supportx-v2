@@ -432,6 +432,10 @@ class FieldChangeRedaction(TenantKeyed, Base):
             name="fk_field_change_redactions_mention",
         ),
         UniqueConstraint("tenant_id", "field_change_id", name="uq_field_change_redactions_row"),
+        CheckConstraint(
+            "old_digest ~ '^[0-9a-f]{64}$' AND new_digest ~ '^[0-9a-f]{64}$'",
+            name="digest_form",
+        ),
         Index("ix_field_change_redactions_change", "tenant_id", "change_id", "field_change_id"),
     )
 

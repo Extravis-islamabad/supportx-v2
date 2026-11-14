@@ -144,6 +144,12 @@ def upgrade() -> None:
             [f"{MENTIONS}.tenant_id", f"{MENTIONS}.id"],
             name="fk_field_change_redactions_mention",
         ),
+        # A digest is the fingerprint's own form, 64 lowercase hex characters, and nothing else
+        # (no value can hide in it).
+        sa.CheckConstraint(
+            "old_digest ~ '^[0-9a-f]{64}$' AND new_digest ~ '^[0-9a-f]{64}$'",
+            name=op.f(f"ck_{TABLE}_digest_form"),
+        ),
         sa.PrimaryKeyConstraint("tenant_id", "id", name=op.f(f"pk_{TABLE}")),
         sa.UniqueConstraint("tenant_id", "field_change_id", name="uq_field_change_redactions_row"),
     )

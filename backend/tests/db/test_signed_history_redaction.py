@@ -253,6 +253,20 @@ async def test_the_function_is_bound_to_an_open_redacted_mention_and_its_own_row
     with pytest.raises(DBAPIError, match="not a signed history row"):
         await run(closed, [*ids, description[0]["id"]])
     assert all(r["new_value"] is not None for r in await _subject_rows(world, a, item["id"]))
+    # A digest is only ever the fingerprint's hex form: anything else is refused, nothing blanked.
+    with pytest.raises(DBAPIError, match="digest_form"):
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            await session.scalar(
+                call,
+                {
+                    "m": closed,
+                    "r": [str(ids[0])],
+                    "o": ["the old text"],
+                    "n": ["0" * 64],
+                    "s": [False],
+                },
+            )
+    assert all(r["new_value"] is not None for r in await _subject_rows(world, a, item["id"]))
     with pytest.raises(DBAPIError, match="one digest pair"):
         async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
             await session.scalar(call, {"m": closed, "r": [str(ids[0])], "o": [], "n": [], "s": []})
