@@ -1548,6 +1548,18 @@ it with no reload (rule c). Not built yet.
     texts; the root cause's own gate (view_root_cause) applies after the role rules.
   - Next: b2 (search fails closed, `restricted` on live channels and 409s, designer refusal,
     AI and notification variables), then slice c (the editor) and lane C's analytics slice.
+- **S7 slice b2, field access everywhere else (no migration; ADR-047; lane B blocks):**
+  - Search fails closed: a restricted custom field stays out of the search text; when a field's
+    rules change, its type is marked and rebuilt in the background, and meanwhile search
+    ignores custom text for everyone (a match must hold in the subject and description alone).
+  - Live signals and 409s name a restricted field only as "restricted" (shared channels cannot
+    differ per viewer; screens refetch and get what they may see).
+  - Business rules, triggers, workflows (shown on the step, publishing refused) and templates'
+    defaults cannot name a field their author does not see in clear (422 field_not_permitted).
+  - Tests: nothing restricted reaches the AI gateway; no notification or template variable
+    names a restrictable field (guard).
+  - Next: slice c (the editor, lane C reviews); lane C's analytics slice and its skipped-recipients
+    notice; lane C's open_custom and view-log seams when their signatures exist.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
