@@ -456,6 +456,9 @@ export const ur: LabelResource = {
   'permission.audit.view': 'آڈٹ لاگ پڑھیں',
   'permission.audit.view.description':
     'آڈٹ اندراجات تلاش کریں اور کھولیں، بشمول IP پتے، اور سالمیت کی حالت دیکھیں۔',
+  'permission.audit.view_personal_data_access': 'دیکھیں کس نے ذاتی ڈیٹا تک رسائی کی',
+  'permission.audit.view_personal_data_access.description':
+    'دیکھیں کس نے کسی شخص کا ذاتی ڈیٹا کب دیکھا یا ایکسپورٹ کیا۔ اس لاگ کو پڑھنا بھی خود درج ہوتا ہے۔',
   'permission.automation.manage': 'آٹومیشن کا انتظام',
   'permission.automation.manage.description':
     'کاروباری قاعدے، روٹنگ اور خودکار تفویض شامل کریں، بدلیں، ترتیب دیں اور چلائیں۔',

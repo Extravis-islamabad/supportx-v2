@@ -21,7 +21,7 @@ includes everything in the one below it (product-plan.md §9).
 | Edition | Adds these features | Default limits (technicians / assets / department desks / MSP customers / AI runs per month) |
 |---|---|---|
 | Essentials | incident, service_request, knowledge, sla, ai_assist | 10 / 1,000 / 1 / 0 / 500 |
-| Professional | problem, change, release, catalog, cmdb, assets, discovery, procurement, workflows, ai_agents, monetx_integration, field_access | 50 / 10,000 / 1 / 0 / 5,000 |
+| Professional | problem, change, release, catalog, cmdb, assets, discovery, procurement, workflows, ai_agents, monetx_integration, field_access, personal_data_log, field_encryption | 50 / 10,000 / 1 / 0 / 5,000 |
 | Enterprise | projects, esm, msp, advanced_reporting, sandbox, config_as_code, custom_functions, local_ai_runtime, compliance_packs | 250 / 50,000 / unlimited / 25 / 50,000 |
 
 The default limits are placeholders until there is commercial input; a subscription or licence

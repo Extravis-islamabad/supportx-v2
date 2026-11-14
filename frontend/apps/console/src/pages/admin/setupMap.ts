@@ -223,8 +223,9 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     group: 'audit',
     labelKey: 'nav.audit',
     permission: 'audit.view',
-    // The sign-in log's own right opens the page too, on its one tab (WP-057 S1a).
-    also: 'identity.view_sign_ins',
+    // The sign-in log's own right opens the page too, on its one tab (WP-057 S1a), and so does
+    // the personal data access log's (WP-057 S3b-1, REQ-AUD-017: a DPO may hold only that).
+    also: ['identity.view_sign_ins', 'audit.view_personal_data_access'],
   },
 ];
 

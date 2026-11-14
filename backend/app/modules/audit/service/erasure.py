@@ -12,7 +12,9 @@ Through the migrator-owned `audit_erase_subject()` (the app itself has no DELETE
    found through the entries' subject lists, and the function blanks only rows of those saves;
    which fields are personal comes from the lifecycle table (domain/lifecycle.py);
 3. the person's salt is destroyed (crypto-shredding), so the salted digests in the chain can
-   never be matched to a guess again.
+   never be matched to a guess again;
+4. the personal-data access entries (REQ-AUD-017) naming them as the subject are deleted, through
+   the migrator-owned `audit_erase_access()` (the app role may only append to that log).
 
 Entries keep the person's ID, which no longer resolves to a name once the people module has
 anonymised the user (REQ-ADM-101), so their entries still group together. The chain still
@@ -39,6 +41,11 @@ _ERASE = (
     text("SELECT audit_erase_subject(:subject, :rows) AS result")
     .bindparams(bindparam("subject", type_=Uuid()), bindparam("rows", type_=ARRAY(Uuid())))
     .columns(result=JSONB)
+)
+
+
+_ERASE_ACCESS = text("SELECT audit_erase_access(:subject)").bindparams(
+    bindparam("subject", type_=Uuid())
 )
 
 
@@ -78,6 +85,9 @@ async def erase_subject(session: AsyncSession, user_id: uuid.UUID) -> int:
     rows = await personal_history(session, user_id)
     result: dict[str, Any] = await session.scalar(_ERASE, {"subject": user_id, "rows": rows}) or {}
     removed = int(result.get("personal_rows", 0))
+    # Their personal-data access entries as the subject (REQ-AUD-017): the app may only append to
+    # that log, so through the function, which acts only for an erased person (lane B, #500).
+    access = int(await session.scalar(_ERASE_ACCESS, {"subject": user_id}) or 0)
     await record(
         session,
         action_code="audit.subject_erased",
@@ -89,6 +99,7 @@ async def erase_subject(session: AsyncSession, user_id: uuid.UUID) -> int:
             "history_values_erased": int(result.get("history_values", 0)),
             "history_reasons_erased": int(result.get("history_reasons", 0)),
             "salt_erased": int(result.get("salts", 0)),
+            "access_entries_erased": access,
         },
         actor=(AuditActorType.SYSTEM, None),
     )
