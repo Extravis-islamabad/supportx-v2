@@ -226,10 +226,10 @@ release defect, never a silent skip).
   erasure still in a redactable state (requested, approved; lane C's #506 review). Rows a fingerprinted audit entry
   commits to (ADR-046: work items, assets) are **kept**, since blanking them would read as
   tampering; the mention's `history_kept` counts them and the screen says so
-  (`people_erasure.history_kept_fingerprinted`). Blanking those needs the pre-blank field
-  digests kept and a `redacted_on_request` verifier status: a follow-up before the work-item
-  mention ports register (lane C agreed, 2026-11-14). D-171 keeps no redacted original, so
-  until then an erasure with a kept row is **refused** at approval and at job start
+  (`people_erasure.history_kept_fingerprinted`). Since 0167 those are blanked too, by audit's
+  `redact_signed_history`, with the field's digests kept: the verifier reports such a save as
+  `redacted_on_request`, never `verified` (ADR-046 addendum). D-171 keeps no redacted original,
+  so an erasure with a row still kept is **refused** at approval and at job start
   (`erasure_signed_history_kept`; the coordinator, 2026-11-14).
 
 ### 5. Export (REQ-ADM-100)

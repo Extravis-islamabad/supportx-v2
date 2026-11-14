@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, NotFound
+from app.modules.audit import redact_signed_history
 from app.modules.identity_access.domain import erasure as rules
 from app.modules.identity_access.domain.erasure import ErasureState
 from app.modules.identity_access.domain.field_access import unseen
@@ -441,7 +442,14 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
         mention.redacted_by, mention.redacted_at = actor_id, now
         mention.version += 1
         await session.flush()
-        mention.history_kept = await _redact_history(session, mention.id)
+        kept = await _redact_history(session, mention.id)
+        if kept and SIGNED_HISTORY_REDACTION:
+            # Signed rows: blanked with their digests kept (audit's public interface, 0167).
+            await redact_signed_history(
+                session, mention.id, mention.record_type, mention.record_id, mention.field
+            )
+            kept = await _redact_history(session, mention.id)  # what is still kept, if any
+        mention.history_kept = kept
         done.append((mention, changed))
     if done:
         row.version += 1
@@ -450,16 +458,14 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
     return Redacted(row, done)
 
 
-# Whether signed history rows can be redacted: False until the audit verifier has a
-# `redacted_on_request` status with the field digests kept before blanking (ADR-046 follow-up).
-# Until then an erasure that kept such a row is refused at approval and at job start.
-SIGNED_HISTORY_REDACTION = False
+# Signed history rows are redacted too (0167, ADR-046 addendum): their digests are kept and the
+# verifier reports such a save as `redacted_on_request`. The refusal at approval and job start
+# (`erasure_signed_history_kept`) stays for any row still kept.
+SIGNED_HISTORY_REDACTION = True
 
 
 async def signed_history_kept(session: AsyncSession, erasure_id: uuid.UUID) -> bool:
     """Whether a redacted mention of the erasure left text in signed history (D-171)."""
-    if SIGNED_HISTORY_REDACTION:
-        return False
     kept = await session.scalar(
         select(func.count())
         .select_from(PersonErasureMention)

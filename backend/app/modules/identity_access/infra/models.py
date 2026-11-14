@@ -1049,6 +1049,8 @@ class PersonErasureMention(TenantEntity):
             "match_kind",
             name="uq_person_erasure_mentions_place",
         ),
+        # The composite key signed history redactions point at (0167).
+        UniqueConstraint("tenant_id", "id", name="uq_person_erasure_mentions_tenant_id_id"),
         Index("ix_person_erasure_mentions_state", "tenant_id", "erasure_id", "state"),
     )
 

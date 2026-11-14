@@ -920,6 +920,7 @@ export const en = {
   'audit_export_format.jsonl': 'JSON lines',
   'audit_fingerprint_status.erased_on_request': 'Erased on request',
   'audit_fingerprint_status.mismatch': 'Does not match',
+  'audit_fingerprint_status.redacted_on_request': 'Redacted on request',
   'audit_fingerprint_status.verified': 'Verified',
   'audit_outcome.done': 'Done',
   'audit_outcome.failed': 'Failed',

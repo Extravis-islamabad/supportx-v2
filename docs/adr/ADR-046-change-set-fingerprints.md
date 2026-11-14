@@ -241,3 +241,47 @@ All in `backend/tests/db/test_audit_fingerprints.py` unless named otherwise:
 - Rewriting both the history and the entries still needs the database owner, the anchor key
   and every anchor copy (ADR-027 Consequences). The fingerprints add record history to what
   the anchors and the auditors' export copies protect.
+
+## Addendum (2026-11-14): signed history redaction (D-171, ADR-052; migration 0167)
+
+**Why.** An erasure's mentions report (ADR-052 S1b) lets an admin redact a passage that names
+the person in other people's text. D-171 keeps no redacted original, but some history rows of
+that field are committed to by a fingerprinted entry: blanking their values alone would make
+the save read as a mismatch.
+
+**Decision.**
+
+- **Kept digests.** Before blanking such a row, the field's digests are kept in
+  `field_change_redactions`: exactly the `digest(old)` and `digest(new)` the save's fingerprint
+  commits to for that field (`value_digest`, salted with the entry's data subjects' salts in
+  subject-ID order for a personal field; unsalted otherwise). They reveal nothing the
+  fingerprint does not already commit to. The byte layout of the fingerprint is unchanged: the
+  verifier puts a kept digest where it would have computed one from the value.
+- **Who writes them.** The migrator-owned `history_redact_signed(mention, rows, old, new,
+  salted)` only: the app role can read `field_change_redactions` and can neither write it nor
+  update `field_changes`. The function accepts only a *redacted* mention (with redactor and
+  time) of an erasure still in a redactable state (requested, approved), only history rows of
+  that mention's own record and field in the caller's tenant, and only rows a fingerprinted
+  entry commits to; it stores the digests, then blanks the values. The digests are computed by
+  audit's `redact_signed_history` in the app (salts only through `audit_subject_salts_of`), as
+  fingerprints are at save time.
+- **The status: `redacted_on_request`, never `verified`.** A save some of whose values were
+  checked through kept digests is `redacted_on_request` when its fingerprint then matches
+  **and** the redaction is logged in the chain after the entry (a
+  `person.erasure_mention_redacted` entry naming the mention); otherwise it is a `mismatch`.
+  An auditor therefore always sees which saves rest on kept digests. Verification runs count
+  them (`fingerprints_redacted`).
+- **Who writes the chain entry.** Only identity_access's erasure redaction
+  (`POST /erasures/{id}/mentions/redact`, `people.erase`, RecentAuth), in the same transaction
+  as the definer call, with the redacting admin as the entry's actor. No other API, and no
+  person outside that request, writes it.
+
+**Trust.** The kept digests come from the app, as the fingerprints themselves do at save time:
+an app able to forge them could equally have forged a fingerprint. What changes is visibility,
+not trust: a redacted save is never shown as fully verified, and its redaction is in the chain.
+
+**Tests.** `tests/db/test_signed_history_redaction.py` (a redaction verifies as
+`redacted_on_request` and is counted; a changed kept digest and an unlogged redaction are
+mismatches; the function's binding to an open redacted mention and its own rows; another
+tenant sees and changes nothing; the app role cannot write the table),
+`tests/db/test_signed_history_redaction_migration.py` (downgrade refused while a row exists).

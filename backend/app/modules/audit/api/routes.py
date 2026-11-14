@@ -184,6 +184,9 @@ class AuditRunOut(BaseModel):
     finished_at: datetime | None
     fingerprints_verified: int = Field(description="Saves whose record history still matches.")
     fingerprints_erased: int = Field(description="Saves with personal values erased on request.")
+    fingerprints_redacted: int = Field(
+        description="Saves with values redacted on request, checked through their kept digests."
+    )
     fingerprint_mismatches: int = Field(
         description="Saves whose record history no longer matches (the run fails)."
     )
