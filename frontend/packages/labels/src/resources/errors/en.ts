@@ -1057,6 +1057,8 @@ export const en = {
     'The workbook was not opened: it unpacks to far more than its size.',
   'errors.permission_denied': 'You do not have permission to do this.',
   'errors.person_already_erased': 'This person has been erased.',
+  'errors.person_erasure_in_progress':
+    'This person is being erased; they cannot be reactivated or changed.',
   'errors.person_on_legal_hold': 'This person is on legal hold and cannot be erased.',
   'errors.pick_list_not_found': 'That list does not exist.',
   'errors.pick_list_value_not_found': 'That value no longer exists.',

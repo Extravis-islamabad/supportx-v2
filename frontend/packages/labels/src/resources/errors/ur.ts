@@ -1065,6 +1065,8 @@ export const ur: LabelResource = {
     'ورک بُک نہیں کھولی گئی: یہ اپنے سائز سے کہیں بڑی ہو جاتی ہے۔',
   'errors.permission_denied': 'آپ کو یہ کرنے کی اجازت نہیں ہے۔',
   'errors.person_already_erased': 'اس فرد کا ڈیٹا مٹایا جا چکا ہے۔',
+  'errors.person_erasure_in_progress':
+    'اس فرد کو مٹایا جا رہا ہے؛ انہیں دوبارہ فعال یا تبدیل نہیں کیا جا سکتا۔',
   'errors.person_on_legal_hold': 'اس فرد پر قانونی روک ہے، اس کا ڈیٹا مٹایا نہیں جا سکتا۔',
   'errors.pick_list_not_found': 'یہ فہرست موجود نہیں۔',
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',

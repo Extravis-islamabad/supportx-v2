@@ -49,8 +49,9 @@ class ErasedPerson(Exception):
 
 
 async def _erased(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Erased, or being erased (frozen from step 1; lane C's #507 review): left alone."""
     erased_at = await session.scalar(select(User.erased_at).where(User.id == user_id))
-    return erased_at is not None
+    return erased_at is not None or await people.erasure_in_progress(session, user_id)
 
 
 @dataclass(frozen=True)

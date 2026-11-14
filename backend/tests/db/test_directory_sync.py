@@ -428,3 +428,51 @@ async def test_an_erased_person_is_never_written_revived_or_adopted_again(
         "carol@alpha.test",
     )
     assert adopted[0]["n"] == 0
+
+
+async def test_a_person_frozen_by_a_running_erasure_stays_disabled(
+    world: World, fake: FakeDirectory
+) -> None:
+    """Between step 1 (frozen) and step 5 (erased_at): no sync, no screen reactivates them."""
+    dora = fake.add_user(displayName="Dora Frozen", mail="dora@alpha.test")
+    directory_id = await _create(world, fake)
+    await _sync(world, directory_id)
+    person = await _person(world, directory_id, dora)
+    # What step 1 leaves: disabled, no sign-in; the erasure approved and running, erased_at unset.
+    await world.sql(
+        "UPDATE users SET status = 'disabled', can_sign_in = false"
+        " WHERE tenant_id = $1 AND id = $2",
+        world.a.tenant,
+        person["id"],
+    )
+    erasure_id = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO person_erasures (id, tenant_id, person_id, state, step, reason_code,"
+        " successor_id, keep_files, requested_by, requested_at, expires_at, approved_by,"
+        " approved_at) VALUES ($1, $2, $3, 'running', 2, 'subject_request', $4, '{}', $5,"
+        " now(), now() + interval '7 days', $6, now())",
+        erasure_id,
+        world.a.tenant,
+        person["id"],
+        world.a.tech_c,
+        world.a.admin,
+        world.a.lead,
+    )
+    before = await _person(world, directory_id, dora)
+    fake.change_user(dora, displayName="Dora Again", accountEnabled=True)
+    counts = await _sync(world, directory_id)
+    after = await _person(world, directory_id, dora)
+    assert after == before
+    assert (after["status"], after["can_sign_in"]) == ("disabled", False)
+    assert counts.skipped >= 1
+    # The people screens cannot reactivate them either (the same refusal in the service).
+    tried = await world.call(
+        "POST",
+        f"/users/{person['id']}/reactivate",
+        world.a,
+        world.a.admin,
+        json={"keep_role_ids": [], "keep_group_ids": []},
+        headers={"If-Match": f'"{after["version"]}"'},
+    )
+    assert (tried.status_code, tried.json()["code"]) == (409, "person_erasure_in_progress")
+    assert (await _person(world, directory_id, dora))["status"] == "disabled"
