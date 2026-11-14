@@ -1,4 +1,4 @@
-# 2026-11-14 — lane C: GDPR erasure ports (ADR-052 S2, migration 0165)
+### 2026-11-14 — lane C: GDPR erasure ports (ADR-052 S2, migration 0165)
 
 Plan approved by the coordinator 2026-11-14 (migration 0165, a guard test on the new hard
 deletes, lane B blocks).
