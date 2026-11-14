@@ -12,6 +12,7 @@ import { clearAllKeptDrafts, useKeptDraft } from './keptDraft';
 // same person in the same organisation only (lane A's review of #87).
 
 const EMPTY = { title: '', note: '' };
+const SAVE_AFTER = 400; // keptDraft.ts SAVE_AFTER_MS
 const ANNA = fakeSession({ id: 'u-anna', display_name: 'Anna' });
 const BILAL = fakeSession({ id: 'u-bilal', display_name: 'Bilal' });
 
@@ -28,6 +29,15 @@ function Form() {
     <form>
       {restored && <p data-testid="restored">restored</p>}
       <input data-testid="title" {...form.register('title')} />
+      <button
+        type="button"
+        data-testid="template"
+        onClick={() => {
+          form.setValue('title', 'From the template');
+        }}
+      >
+        template
+      </button>
       <button type="button" data-testid="saved" onClick={discard}>
         saved
       </button>
@@ -100,6 +110,15 @@ describe('useKeptDraft', () => {
     first.unmount();
     clearAllKeptDrafts();
     expect(kept()).toEqual([]);
+  });
+
+  it('values a template sets are not typing: nothing is kept until the person types (#495)', async () => {
+    signedIn(ANNA);
+    fireEvent.click(await screen.findByTestId('template'));
+    expect(screen.getByTestId<HTMLInputElement>('title').value).toBe('From the template');
+    await new Promise((done) => setTimeout(done, SAVE_AFTER + 300));
+    expect(kept()).toEqual([]);
+    await typeTitle('Typed by Anna');
   });
 
   it('an untouched form keeps nothing; "start empty" forgets the draft', async () => {

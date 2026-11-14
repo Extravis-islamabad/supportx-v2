@@ -438,6 +438,7 @@ export const ar: LabelResource = {
   'errors.field.fallback_fixed': 'السياسة الافتراضية تُطبَّق دائمًا وليس لها شروط.',
   'errors.field.field_always_required': 'الموضوع ومقدم الطلب ظاهران ومطلوبان دائمًا.',
   'errors.field.field_locked': 'تقفل قاعدة نموذج هذا الحقل، لذا لا يمكن تغييره هنا.',
+  'errors.field.field_not_ruleable': 'لا يمكن تقييد هذا الحقل.',
   'errors.field.field_not_settable': 'لا يمكن للقاعدة تعيين هذا الحقل.',
   'errors.field.field_retired': 'هذا الحقل موقوف ولا يقبل قيمًا جديدة.',
   'errors.field.field_set_twice': 'هذا الحقل معيّن بالفعل بإجراء آخر في القاعدة.',
@@ -748,8 +749,14 @@ export const ar: LabelResource = {
   'errors.field.workflow_not_published': 'انشر سير العمل هذا أولًا.',
   'errors.field.workflow_wrong_record_type': 'سير العمل هذا لنوع آخر من السجلات.',
   'errors.field.would_loop': 'لا يمكن أن يكون الإصدار جزءًا من نفسه، مباشرة أو عبر غيره.',
+  'errors.field_access_limit_reached':
+    'لدى مؤسستك بالفعل {{limit}} قاعدة للحقول، وهو الحد الأقصى. احذف قاعدة أولاً.',
+  'errors.field_access_rule_exists':
+    'لهذا الدور قاعدة لهذا الحقل بالفعل. عدّل تلك القاعدة بدلاً من ذلك.',
+  'errors.field_access_rule_not_found': 'قاعدة الحقل هذه لم تعد موجودة.',
   'errors.field_keys_unavailable':
     'لا يمكن قراءة المعلومات المحمية أو حفظها الآن: مفتاح التثبيت غير متاح. اطلب من المسؤول التحقق منه.',
+  'errors.field_not_ruleable': 'لا يمكن تقييد هذا الحقل.',
   'errors.file_link_expired': 'انتهت صلاحية الرابط. افتح الملف مجددًا.',
   'errors.file_not_an_image': 'هذا الملف ليس صورة.',
   'errors.file_not_found': 'هذا الملف غير موجود أو لا يمكنك رؤيته.',

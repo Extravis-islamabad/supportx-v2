@@ -98,6 +98,10 @@ async def test_opening_never_acts_and_one_use_decides(addressed: World) -> None:
     assert problem(again) == (404, "action_link_not_found")  # used: as unknown (lane B)
     wrong = await anonymous(world, a, "use", token="B" * 43, body={"decision": "approve"})
     assert problem(wrong) == (404, "action_link_not_found")
+    # A refused link's answer is as public as a success: never cached, no referrer (#501).
+    for refused in (again, wrong):
+        assert refused.headers["cache-control"] == "no-store"
+        assert refused.headers["referrer-policy"] == "no-referrer"
 
 
 async def test_a_rejection_needs_a_reason_and_a_link_lasts_72_hours(addressed: World) -> None:
@@ -365,7 +369,11 @@ async def test_one_client_spending_its_budget_never_blocks_another_tenants_links
     # One client sweeps tenant A, then unknown slugs, until refused.
     spent = [await peek("10.0.0.1", slug_a, "B" * 43) for _ in range(4)]
     assert spent[-1] == 429
-    assert await peek("10.0.0.1", "nobody-here", "B" * 43) == 429  # its own budget, any slug
+    refused = await peeked("10.0.0.1", "nobody-here", "B" * 43)
+    assert refused.status_code == 429  # its own budget, any slug
+    # The rate limit's answer is private too: private_answers wraps it (lane A, #501).
+    assert refused.headers["cache-control"] == "no-store"
+    assert refused.headers["referrer-policy"] == "no-referrer"
     # Other clients on other tenants are untouched, and so is a fresh client on tenant A.
     assert await peek("10.0.0.2", slug_b, token) == 200
     assert await peek("10.0.0.3", slug_a, "B" * 43) == 404

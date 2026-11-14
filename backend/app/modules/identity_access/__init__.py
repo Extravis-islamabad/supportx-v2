@@ -48,6 +48,7 @@ from app.modules.identity_access.api.api_keys import router as api_keys_router
 from app.modules.identity_access.api.cost_rates import router as cost_rates_router
 from app.modules.identity_access.api.erasure import erasures_router
 from app.modules.identity_access.api.erasure import people_router as privacy_router
+from app.modules.identity_access.api.field_access import router as field_access_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.invite_links import public_router as invite_links_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
@@ -135,6 +136,10 @@ from app.modules.identity_access.service.federation import (
     put_ldap_federation,
     remove_ldap_federation,
     sync_ldap_federation,
+)
+from app.modules.identity_access.service.field_access import (
+    RuleableField,
+    register_field_catalogue,
 )
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.legal_hold import person_held
@@ -440,6 +445,7 @@ expiry_notifications.register()  # admins hear before a sign-in certificate or s
 module = ModuleSpec(
     name="identity_access",
     routers=[
+        field_access_router,  # ADR-047: field access per role (WP-046a S7)
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
         people_router,
@@ -533,6 +539,7 @@ __all__ = [
     "RecordFacts",
     "ResourceType",
     "RoleName",
+    "RuleableField",
     "ServiceIdentityView",
     "ServiceRole",
     "ServiceRoleOut",
@@ -569,6 +576,7 @@ __all__ = [
     "put_ldap_federation",
     "redact_matches",
     "register_duties",
+    "register_field_catalogue",
     "register_mentions",
     "register_person_data",
     "release_from_directory",

@@ -177,6 +177,9 @@ async def test_every_link_that_does_not_work_gets_one_answer(world: World) -> No
     ):
         found = await world.client.post(f"{PUBLIC}/peek", json=body)
         assert (found.status_code, found.json()["code"]) == (404, "invite_link_invalid"), body
+        # An error answer is as public as a success: never cached, no referrer (lane B, #490).
+        assert found.headers["cache-control"] == "no-store"
+        assert found.headers["referrer-policy"] == "no-referrer"
         tried = await world.client.post(f"{PUBLIC}/accept", json={**body, "password": "short"})
         # Never a policy error before the token checked out (lane B).
         assert (tried.status_code, tried.json()["code"]) == (404, "invite_link_invalid"), body

@@ -28,6 +28,7 @@ export const ur: LabelResource = {
   'feature.directory_federation': 'ڈائریکٹری سائن اِن (AD/LDAP)',
   'feature.discovery': 'اثاثوں کی دریافت',
   'feature.esm': 'انٹرپرائز سروس مینجمنٹ',
+  'feature.field_access': 'کردار کے لحاظ سے فیلڈ تک رسائی',
   'feature.incident': 'واقعات کا انتظام',
   'feature.knowledge': 'علمی ذخیرہ',
   'feature.local_ai_runtime': 'آن پریمیسز AI رن ٹائم',

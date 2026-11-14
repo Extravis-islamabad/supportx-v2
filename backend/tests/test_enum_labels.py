@@ -18,6 +18,7 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "FieldMode": "field_mode",  # ADR-047: field access per role
     "ErasureState": "people_erasure.state",  # GDPR erasure (D-171, ADR-052)
     "ErasureReason": "people_erasure.reason",
     "MentionMatchKind": "people_erasure.match_kind",  # the mentions report (ADR-052 S1b)

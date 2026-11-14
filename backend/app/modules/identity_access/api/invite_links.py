@@ -31,14 +31,18 @@ from app.modules.identity_access.domain.password_policy import MAX_LENGTH
 from app.modules.identity_access.infra.keycloak_admin import IdentityAdmin
 from app.modules.identity_access.service import invitations
 from app.modules.organization import link_tenant
-from app.shared.api.public_links import PublicLinks
+from app.shared.api.public_links import PublicLinks, private_answers
 from app.shared.api.ratelimit import ip_rate_limit
 
 PER_ADDRESS = 20  # a minute, an outer cap before the guard's two budgets
 public_router = APIRouter(
     prefix="/public/invite-links",
     tags=["identity"],
-    dependencies=[Depends(ip_rate_limit("invite_links_public_address", PER_ADDRESS))],
+    # Errors carry no-store and no-referrer too (lane B's note on #490), rate limits included.
+    dependencies=[
+        Depends(private_answers),
+        Depends(ip_rate_limit("invite_links_public_address", PER_ADDRESS)),
+    ],
 )
 GUARD = PublicLinks(
     group="invite_links_public", scope_name="invite-links-address", resolver=link_tenant
