@@ -558,9 +558,8 @@ async def save_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     subject: Manage,
 ) -> WorkflowOut:
     """Saved whatever its problems; they come back for the canvas to mark (REQ-WF-019)."""
-    del subject
     saved, problems = await workflow_admin.save_draft(
-        session, workflow_id, expected_version=version, definition=body.definition
+        session, workflow_id, expected_version=version, definition=body.definition, author=subject
     )
     set_etag(response, saved.version)
     return _out(saved, problems)
@@ -571,7 +570,9 @@ async def publish(
     workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
 ) -> WorkflowOut:
     """Refused while the draft has problems (422 workflow_has_problems)."""
-    await workflow_admin.publish(session, workflow_id, expected_version=version, by=subject.user_id)
+    await workflow_admin.publish(
+        session, workflow_id, expected_version=version, by=subject.user_id, author=subject
+    )
     found = await session.get(Workflow, workflow_id)
     assert found is not None  # just published  # noqa: S101
     return _out(found)

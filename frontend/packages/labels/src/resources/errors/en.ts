@@ -490,6 +490,7 @@ export const en = {
   'errors.field.fallback_fixed': 'The default policy always applies and has no conditions.',
   'errors.field.field_always_required': 'Subject and requester are always shown and required.',
   'errors.field.field_locked': 'A form rule locks this field, so it cannot be changed here.',
+  'errors.field.field_not_permitted': "You can't use this field: your roles don't let you see it.",
   'errors.field.field_not_ruleable': 'This field cannot be restricted.',
   'errors.field.field_not_settable': 'A rule cannot set this field.',
   'errors.field.field_retired': 'This field is retired and takes no new values.',

@@ -491,6 +491,8 @@ export const ur: LabelResource = {
     'موضوع اور درخواست گزار ہمیشہ دکھائے جاتے ہیں اور لازمی ہیں۔',
   'errors.field.field_locked':
     'فارم کا ایک اصول اس فیلڈ کو مقفل کرتا ہے، اس لیے اسے یہاں نہیں بدلا جا سکتا۔',
+  'errors.field.field_not_permitted':
+    'آپ یہ فیلڈ استعمال نہیں کر سکتے: آپ کے کردار آپ کو اسے دیکھنے نہیں دیتے۔',
   'errors.field.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
   'errors.field.field_not_settable': 'قاعدہ یہ فیلڈ مقرر نہیں کر سکتا۔',
   'errors.field.field_retired': 'یہ خانہ ریٹائر ہو چکا ہے اور نئی قدریں نہیں لیتا۔',

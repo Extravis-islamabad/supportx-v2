@@ -54,6 +54,7 @@ from app.modules.identity_access import (
     display_names,
     people_matching,
     person_placement,
+    restricted_fields,
     role_names,
     scope_filter,
     user_contacts,
@@ -1839,8 +1840,14 @@ async def _custom_text(
 ) -> str | None:
     """Free text kept on the record for search (WP-026, WP-027).
 
-    Custom values, and a release's version and build reference (REQ-REL-005 AC1).
+    Custom values, and a release's version and build reference (REQ-REL-005 AC1). Not a custom
+    field any role restricts (ADR-047 §6): nobody finds a record by a value someone may not see.
     """
+    from app.modules.work_items.service.search_rebuild import withheld_keys  # noqa: PLC0415 - a cycle
+
+    if custom:
+        withheld = await withheld_keys(session, wtype.code.value)
+        custom = {k: v for k, v in custom.items() if k not in withheld}
     parts = [await metadata.text_for_search(session, wtype.code.value, custom) if custom else None]
     if record_id is not None and wtype.code is WorkItemTypeCode.RELEASE:
         details = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record_id))
@@ -1852,6 +1859,9 @@ async def _custom_text(
             )
     text = " ".join(p for p in parts if p)
     return text or None
+
+
+custom_text_for = _custom_text  # the search text rebuild (service/search_rebuild.py)
 
 
 def _is_uuid(value: Any) -> bool:  # noqa: ANN401 - a JSON value
@@ -1915,13 +1925,27 @@ def _audience(record: WorkItem) -> Audience:
 
 
 async def _conflict(session: AsyncSession, error: Conflict, record_id: uuid.UUID) -> Conflict:
-    return await explain_conflict(
+    """The 409 with what changed since, restricted fields named only "restricted".
+
+    ADR-047 §7: a field's name alone says a value changed that someone may not see.
+    """
+    explained = await explain_conflict(
         session,
         error,
         record_type=RECORD_TYPE,
         record_id=record_id,
         names=lambda ids: display_names(session, ids),
     )
+    named = str(explained.params.get("changed_fields") or "")
+    record_type = await session.scalar(select(WorkItem.type).where(WorkItem.id == record_id))
+    restricted = (
+        await restricted_fields(session, str(record_type)) if named and record_type else frozenset()
+    )
+    if not restricted:
+        return explained
+    fields = dict.fromkeys("restricted" if f in restricted else f for f in named.split(","))
+    params = {**explained.params, "changed_fields": ",".join(fields)}
+    return Conflict(code=explained.instance_code, params=params, headers=explained.headers)
 
 
 async def _update(

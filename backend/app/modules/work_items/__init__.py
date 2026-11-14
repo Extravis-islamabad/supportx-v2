@@ -95,6 +95,7 @@ from app.modules.work_items.service import (
     request_notifications,
     resolution,
     rule_step_notifications,
+    search_rebuild,
     staff_reply_notifications,
     task_notifications,
     task_reminders,
@@ -169,6 +170,7 @@ async def _startup(app: FastAPI) -> None:
     _register_parts()
     register_owner_access(FILE_ACCESS)
     field_catalogue.register()
+    search_rebuild.register()
     person_data.register()
     register_sources()  # again after a shutdown (tests start and stop the app)
     _register_ai()
@@ -225,6 +227,7 @@ register_ticket_requesters(asset_links.linked_requester_ids_select)
 register_owner_access(FILE_ACCESS)
 # Fields an admin may restrict per role (ADR-047, identity_access's port): at import, as above.
 field_catalogue.register()
+search_rebuild.register()  # ADR-047 §6: the search mark commits with the rule
 # Work items' slice of a person's erasure (ADR-052): at import, as above.
 person_data.register()
 
@@ -285,13 +288,20 @@ module = ModuleSpec(
     channels=CHANNELS,
     realtime=ROUTES,
     # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
-    consumers=[APPROVER_LEFT, KEPT_INFORMED, drafts.OWNER_LEFT],
+    consumers=[
+        APPROVER_LEFT,
+        KEPT_INFORMED,
+        drafts.OWNER_LEFT,
+        search_rebuild.FIELD_ACCESS_CHANGED,  # ADR-047 §6: search text rebuilt, closed meanwhile
+    ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     # REQ-INC-096: resolved records the requester was told about close after N business days.
     schedules=[
         # REQ-INC-019: kept drafts untouched for 30 days go (lane B).
         ScheduleSpec("work_items__drafts_purge", 86400, drafts.purge_schedule),
+        # ADR-047 §6: types marked by a custom field's rule change get their search text rebuilt.
+        ScheduleSpec("work_items__search_text_rebuild", 60, search_rebuild.rebuild_schedule),
         ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule),
         # REQ-SR-023 AC3: daily, no approval waits on someone no longer active.
         ScheduleSpec("work_items__inactive_approvers", 86400, inactive_approvers_schedule),
