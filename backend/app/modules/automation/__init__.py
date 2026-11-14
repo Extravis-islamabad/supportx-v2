@@ -35,7 +35,12 @@ from app.modules.automation.events import (
     WorkflowWebhookRequested,
 )
 from app.modules.automation.infra import models as _models  # noqa: F401 - registers the tables
-from app.modules.automation.service import workflow_events, workflow_jobs, workflow_scheduler
+from app.modules.automation.service import (
+    person_data,
+    workflow_events,
+    workflow_jobs,
+    workflow_scheduler,
+)
 from app.modules.automation.service.assignment import (
     AssignmentResult,
     Member,
@@ -107,6 +112,9 @@ PERMISSIONS = (
 )
 
 register_usage_checks()
+
+# Automation's slice of a person's erasure (ADR-052): at import.
+person_data.register()
 
 module = ModuleSpec(
     name="automation",

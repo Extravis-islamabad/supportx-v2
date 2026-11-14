@@ -55,6 +55,7 @@ REQUIRED_PORTS: frozenset[str] = frozenset(
         "work_items.references",
         "work_items.owned",
         "notifications",
+        "automation",
     }
 )
 
