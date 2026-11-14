@@ -203,6 +203,9 @@ class Mention:
     field: str
     match_kind: MentionMatchKind
     occurrences: int
+    # The report's row (set when the registry calls a port): a port whose definer function is
+    # bound to the redacted mention passes it on (lane C's knowledge port, 0168).
+    mention_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True)

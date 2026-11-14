@@ -87,6 +87,7 @@ def _mention(row: PersonErasureMention) -> Mention:
         field=row.field,
         match_kind=MentionMatchKind(row.match_kind),
         occurrences=row.occurrences,
+        mention_id=row.id,
     )
 
 
@@ -435,13 +436,16 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
             continue
         port = ports[mention.module_key]
         assert port is not None  # noqa: S101 - checked above; narrows the type
-        changed = await port.redact_mention(
-            session, _mention(mention), terms=terms, marker=ERASED_ON_REQUEST, now=now
-        )
+        # Marked first, so a port's definer function bound to a redacted mention (with its
+        # redactor and time) can act from inside the port; a port's refusal rolls it all back
+        # (lane C, 0168).
         mention.state = MentionState.REDACTED.value
         mention.redacted_by, mention.redacted_at = actor_id, now
         mention.version += 1
         await session.flush()
+        changed = await port.redact_mention(
+            session, _mention(mention), terms=terms, marker=ERASED_ON_REQUEST, now=now
+        )
         kept = await _redact_history(session, mention.id)
         if kept and SIGNED_HISTORY_REDACTION:
             # Signed rows: blanked with their digests kept (audit's public interface, 0167).
