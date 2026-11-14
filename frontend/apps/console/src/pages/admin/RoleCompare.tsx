@@ -1,4 +1,4 @@
-import { Checkbox, Drawer, Empty, Flex, Select, Table, Typography } from 'antd';
+import { Checkbox, Empty, Flex, Select, Table, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -8,7 +8,7 @@ import {
   type RoleDetail,
   type RoleSummary,
 } from '@supportx/api-client';
-import { ToneTag, useLabel } from '@supportx/ui';
+import { Drawer, ToneTag, useLabel } from '@supportx/ui';
 
 import { groupByModule, roleName } from './roleName';
 

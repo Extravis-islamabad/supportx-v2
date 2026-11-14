@@ -918,6 +918,16 @@ class PersonErasure(TenantEntity):
             ["users.tenant_id", "users.id"],
             name="fk_person_erasures_requested_by",
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "approved_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_approved_by",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "rejected_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_rejected_by",
+        ),
         Index(
             "uq_person_erasures_open",
             "tenant_id",

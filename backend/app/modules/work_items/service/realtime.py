@@ -675,7 +675,27 @@ async def _approval_changed(envelope: EventEnvelope, session: AsyncSession) -> R
     return RealtimeEffects(publications=publications)
 
 
+DRAFT_CHANGED = "work_items.draft_changed"
+
+
+async def _draft_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A person's kept draft changed: their own other tabs refresh (form key and version only)."""
+    del session
+    payload = envelope.payload
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, uuid.UUID(str(payload["owner_id"]))),
+                DRAFT_CHANGED,
+                ids=(str(payload["form_key"]),),
+                version=int(payload["version"]),
+            )
+        ]
+    )
+
+
 ROUTES = [
+    RealtimeRoute(("work_items.draft.changed",), _draft_changed),
     RealtimeRoute(
         (
             "work_items.work_item.created",

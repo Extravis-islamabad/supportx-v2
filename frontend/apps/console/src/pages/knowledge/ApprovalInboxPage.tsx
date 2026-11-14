@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Drawer, Empty, Flex, Grid, List, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Flex, Grid, List, Space, Tag, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
@@ -11,8 +11,9 @@ import {
   type KbLanguage,
 } from '@supportx/api-client';
 import {
-  PageHeader,
+  Drawer,
   NoAccess,
+  PageHeader,
   RichTextView,
   useAccess,
   useAppearance,

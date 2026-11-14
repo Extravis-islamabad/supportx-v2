@@ -1,10 +1,10 @@
 import { ClockCircleOutlined } from '@ant-design/icons';
-import { Badge, Button, Drawer, List, Tooltip, Typography } from 'antd';
+import { Badge, Button, List, Tooltip, Typography } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { useMyReminders, type MyReminder } from '@supportx/api-client';
-import { EmptyText, useLabel } from '@supportx/ui';
+import { Drawer, EmptyText, useLabel } from '@supportx/ui';
 
 import { ReminderRow } from './RecordReminders';
 import { useRemindersLive } from './remindersLive';

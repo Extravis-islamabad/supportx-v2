@@ -1,4 +1,4 @@
-import { App, Drawer, Flex, List, Typography } from 'antd';
+import { App, Flex, List, Typography } from 'antd';
 
 import {
   ApiError,
@@ -9,7 +9,7 @@ import {
   type WaitingMail,
 } from '@supportx/api-client';
 import { en, useListFormat } from '@supportx/labels';
-import { markHandled, reportError, useDateTime, useLabel, WriteButton } from '@supportx/ui';
+import { Drawer, markHandled, reportError, useDateTime, useLabel, WriteButton } from '@supportx/ui';
 
 // Reasons this module gives; any other is the record owner's refusal, an error code.
 const OWN_REASONS = new Set([
