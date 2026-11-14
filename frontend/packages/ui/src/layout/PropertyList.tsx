@@ -6,6 +6,8 @@ import { useLabel } from '../appearance';
 import { SPACE, TYPE } from '../density';
 
 import { PropertyRow } from './RecordPage';
+import { RestrictedValue } from './RestrictedValue';
+import type { RestrictionKind } from './restriction';
 
 export interface PropertyItem {
   key: string;
@@ -16,6 +18,11 @@ export interface PropertyItem {
   filled: boolean;
   /** Shown even when empty (a field everybody looks for). */
   always?: boolean;
+  /**
+   * The person's roles withhold the value (ADR-047): the row still shows, saying so, is never
+   * offered under "Add details" and never edits (`content` is not used).
+   */
+  restricted?: RestrictionKind;
   testId?: string;
 }
 
@@ -27,11 +34,12 @@ export interface PropertyItem {
 export function PropertyList({ items, testId }: { items: PropertyItem[]; testId?: string }) {
   const t = useLabel();
   const [showEmpty, setShowEmpty] = useState(false);
-  const shown = items.filter((i) => i.filled || i.always === true);
-  const empty = items.filter((i) => !i.filled && i.always !== true);
+  const held = (i: PropertyItem) => i.filled || i.always === true || i.restricted !== undefined;
+  const shown = items.filter(held);
+  const empty = items.filter((i) => !held(i));
   const row = (i: PropertyItem) => (
     <PropertyRow key={i.key} label={i.label} testId={i.testId}>
-      {i.content}
+      {i.restricted === undefined ? i.content : <RestrictedValue kind={i.restricted} />}
     </PropertyRow>
   );
   return (

@@ -559,6 +559,34 @@ export const SCREENS: Screen[] = [
     app: 'console',
     sideOnly: true,
   })),
+  // ADR-047 slice c: the role editor's Field access tab, and "Who sees this" in its modal.
+  {
+    key: 'admin-roles-field-access',
+    path: '/admin/roles',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'tab',
+      open: async (page) => {
+        await click('role-row-technician')(page);
+        await tab('field_access')(page);
+      },
+    },
+  },
+  {
+    key: 'admin-roles-field-access-who',
+    path: '/admin/roles',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'who',
+      open: async (page) => {
+        await click('role-row-technician')(page);
+        await tab('field_access')(page);
+        await click('field-access-who-impact_details')(page);
+      },
+    },
+  },
   // WP-046a S5b: the template drawer with the form designer and a form rule open (lane C).
   {
     key: 'admin-incidents-template-designer',

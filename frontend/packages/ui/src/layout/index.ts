@@ -46,3 +46,5 @@ export {
 } from './ResizableHeader';
 export { useColumnWidths } from './useColumnWidths';
 export { CellText } from './CellText';
+export { RestrictedValue } from './RestrictedValue';
+export { restrictionOf, type RestrictionKind } from './restriction';
