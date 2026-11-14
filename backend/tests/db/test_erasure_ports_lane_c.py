@@ -2,7 +2,8 @@
 
 Each port, run to the end for tech_b with tech_a as the successor:
 - deletes what is theirs (votes, favourites, preferences, exports, private dashboards, follows,
-  dismissals, AI calls), and their never-submitted drafts are blanked and soft-deleted;
+  dismissals), clears their AI call text (the rows stay: usage and cost), and blanks and
+  soft-deletes their never-submitted drafts;
 - moves what is shared to the successor (topics, articles, shared dashboards, reports, folders,
   announcements); scheduled reports move PAUSED (`owner_changed`), and tech_b leaves others'
   recipient lists;
@@ -142,7 +143,17 @@ async def _seed(session: AsyncSession, org: Org, person: uuid.UUID, tag: str) ->
     await _flush(session, org)
     session.add(AnnouncementFollow(announcement_id=note.id, user_id=person))
     session.add(AnnouncementDismissal(announcement_id=note.id, user_id=person))
-    session.add(AiCall(user_id=person, feature="summary", provider="fake", model="m", status="ok"))
+    session.add(
+        AiCall(
+            user_id=person,
+            feature="summary",
+            provider="fake",
+            model="m",
+            status="ok",
+            masked_input="their prompt",
+            output="an answer",
+        )
+    )
     await _flush(session, org)
 
 
@@ -184,7 +195,6 @@ async def _owned(world: World, org: Org, person: uuid.UUID) -> dict[str, int]:
         ("announcement_follows", "user_id"),
         ("announcement_dismissals", "user_id"),
         ("announcements", "owner_id"),
-        ("ai_calls", "user_id"),
     )
     found: dict[str, int] = {}
     for table, column in checks:
@@ -200,6 +210,13 @@ async def _owned(world: World, org: Org, person: uuid.UUID) -> dict[str, int]:
         person,
     )
     found["kb_articles"] = int(live[0]["n"])
+    texts = await world.sql(
+        "SELECT count(*) AS n FROM ai_calls WHERE tenant_id = $1 AND user_id = $2"
+        " AND (masked_input IS NOT NULL OR output IS NOT NULL)",
+        org.tenant,
+        person,
+    )
+    found["ai_call_texts"] = int(texts[0]["n"])
     schedules = await world.sql(
         "SELECT count(*) AS n FROM report_schedules WHERE tenant_id = $1"
         " AND (owner_id = $2 OR recipient_users @> jsonb_build_array($3::text))",
@@ -245,7 +262,7 @@ async def test_lane_c_ports_erase_move_and_touch_nobody_else(world: World) -> No
         "announcement_follows_deleted": 1,
         "announcement_dismissals_deleted": 1,
         "announcements_moved": 1,
-        "ai_calls_deleted": 1,
+        "ai_call_texts_cleared": 1,
     }
     assert set(counts.values()) == {1, 2}
     # Nothing of theirs is left; the successor holds what moved; the other tenant is untouched.
@@ -255,6 +272,13 @@ async def test_lane_c_ports_erase_move_and_touch_nobody_else(world: World) -> No
     moved |= {"report_folders": 1, "announcements": 1, "report_schedules": 1}
     assert after_a == {t: n + moved.get(t, 0) for t, n in before_a.items()}
     assert await _owned(world, other, other.tech_b) == before_other
+    kept = await world.sql(
+        "SELECT count(*) AS n FROM ai_calls WHERE tenant_id = $1 AND user_id = $2"
+        " AND text_purged_at IS NOT NULL",
+        org.tenant,
+        org.tech_b,
+    )
+    assert kept[0]["n"] == 1  # the row stays (usage and cost record), its text gone
 
     # The moved schedule is paused for its new owner; the unsent draft is blank and gone.
     paused = await world.sql(

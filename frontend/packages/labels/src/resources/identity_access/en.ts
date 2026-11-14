@@ -173,7 +173,7 @@ export const en = {
   'dev_sign_in.warning':
     'For the local dev stack only, as a Showcase Company persona. Never on a real installation.',
   'erasure_count.action_links_revoked': 'Action links revoked',
-  'erasure_count.ai_calls_deleted': 'AI requests deleted',
+  'erasure_count.ai_call_texts_cleared': 'AI request texts cleared',
   'erasure_count.announcement_dismissals_deleted': 'Dismissed announcements cleared',
   'erasure_count.announcement_follows_deleted': 'Announcement follows removed',
   'erasure_count.announcements_moved': 'Announcements handed to the successor',

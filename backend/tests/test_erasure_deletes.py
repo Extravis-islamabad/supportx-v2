@@ -1,6 +1,6 @@
 """Hard deletes on the erasure-only tables happen in the erasure ports alone (ADR-052; 0165).
 
-Migration 0165 gives the app role DELETE on five tables so the GDPR erasure can remove a
+Migration 0165 gives the app role DELETE on four tables so the GDPR erasure can remove a
 person's data for good (CLAUDE.md §6: a hard delete only through erasure). Everywhere else they
 stay soft-delete or append-only. This scans the application code for a DELETE on any of them
 (`delete(Model)` or `DELETE FROM table`) and fails if one appears outside the ports below
@@ -19,12 +19,10 @@ TABLES = {
     "dashboard_preferences": "DashboardPreference",
     "report_exports": "ReportExport",
     "dashboards": "Dashboard",
-    "ai_calls": "AiCall",
 }
 ALLOWED = {
     "app/modules/knowledge/service/person_data.py",
     "app/modules/analytics/service/person_data.py",
-    "app/modules/ai/service/person_data.py",
 }
 _SQL = re.compile(r"\bDELETE\s+FROM\s+(" + "|".join(TABLES) + r")\b", re.IGNORECASE)
 
@@ -72,7 +70,6 @@ def test_the_scan_sees_a_delete() -> None:
 
 def test_the_models_named_are_the_tables() -> None:
     """A renamed model or table would blind the scan."""
-    from app.modules.ai.infra.models import AiCall  # noqa: PLC0415
     from app.modules.analytics.infra.models import (  # noqa: PLC0415
         Dashboard,
         DashboardPreference,
@@ -84,5 +81,4 @@ def test_the_models_named_are_the_tables() -> None:
         model.__name__: model.__tablename__
         for model in (KbVote, DashboardPreference, ReportExport, Dashboard)
     }
-    by_name["AiCall"] = AiCall.__tablename__
     assert {table: name for name, table in by_name.items()} == TABLES

@@ -16,12 +16,13 @@ deletes, lane B blocks).
     deleted; shared or group dashboards, reports and folders move; schedules move and are paused
     (`owner_changed`), because a schedule mails with its owner's access (ADR-047 §5).
   - `announcements` (560): follows and dismissals deleted; owned announcements move.
-  - `ai` (950, derived band): their AI calls (prompts and answers) deleted.
+  - `ai` (950, derived band): the text of their AI calls cleared through `ai/service/erasure.py`
+    (audited, idempotent); the rows stay as the usage and cost record (D-131; lane B, #502).
 - Every moved or removed object writes its module's ordinary event (rule c); counts only.
-- **Migration 0165**: DELETE on kb_votes, dashboard_preferences, report_exports, dashboards,
-  ai_calls (grants only; the downgrade restores the earlier grants).
+- **Migration 0165**: DELETE on kb_votes, dashboard_preferences, report_exports, dashboards
+  (grants only; the downgrade restores the earlier grants).
 - **Guard**: `tests/test_erasure_deletes.py` scans the app for `delete(Model)` or
-  `DELETE FROM` on those tables outside the three ports.
+  `DELETE FROM` on those tables outside the two ports.
 - `ErasureStepFailed` exported from `app.modules.identity_access` (lane B's module).
 - Lane B's tests widened for phased ports (call order compares runs; the idempotency test
   covers `LANE_B_PORTS`; lane C's are in `tests/db/test_erasure_ports_lane_c.py`).
@@ -37,5 +38,4 @@ deletes, lane B blocks).
 
 ## Open
 
-- The `ai` port's summaries and embeddings wait for lane A's `work_items.records_requested_by`.
 - 0165 re-points onto the head at its turn in the migration queue.

@@ -1,11 +1,11 @@
 """The AI features' slice of a person's erasure (ADR-052 §4; lane C's S2 port; derived band).
 
-Their AI calls are deleted: the prompts and answers they asked for hold their own words (and the
-masked values of others'), and they are the person's own use of the assistant. Counts only.
+The text of their AI calls (prompts and answers) is cleared; the rows stay, because they are the
+tenant's AI usage and cost record (D-131). This is the same audited, idempotent clear that the
+erasure consumer and the retention purge use (`service/erasure.py`, #188). Counts only.
 
-In the derived band (900s): it runs after the modules whose text an AI answer could have come
-from have blanked it. Summaries and embeddings built from the records they requested follow in
-the next step, once work_items' `records_requested_by` exists (lane A's S2 port).
+In the derived band (900s): it runs after the modules whose text an answer could have come from.
+Conversation summaries keep restored names; the erasure consumer deletes them (D-131).
 """
 
 import uuid
@@ -13,19 +13,18 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import ClassVar
 
-from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.ai.infra.models import AiCall
-from app.modules.identity_access import ERASE_BATCH, ErasureBatch, register_person_data
+from app.modules.ai.service import erasure
+from app.modules.identity_access import ErasureBatch, register_person_data
 
 
 class AiData:
-    """ai: the person's AI calls deleted (band 900, after the text they came from)."""
+    """ai: the text of the person's AI calls cleared, the rows kept (band 900)."""
 
     module: ClassVar[str] = "ai"
     order: ClassVar[int] = 950
-    kinds: ClassVar[frozenset[str]] = frozenset({"ai_calls_deleted"})
+    kinds: ClassVar[frozenset[str]] = frozenset({"ai_call_texts_cleared"})
 
     async def erase_person(  # noqa: PLR0913 - the port contract (ADR-052 §4)
         self,
@@ -37,19 +36,10 @@ class AiData:
         now: datetime,
         cursor: str | None,
     ) -> ErasureBatch:
-        """One batch of their AI calls."""
+        """All their AI call texts in one statement (audited when any, D-131)."""
         del successor_id, keep_files, now, cursor
-        batch = (
-            select(AiCall.id)
-            .where(AiCall.user_id == person_id)
-            .limit(ERASE_BATCH)
-            .scalar_subquery()
-        )
-        result = await session.execute(delete(AiCall).where(AiCall.id.in_(batch)))
-        done = int(getattr(result, "rowcount", 0) or 0)
-        return ErasureBatch(
-            {"ai_calls_deleted": done}, cursor="calls" if done >= ERASE_BATCH else None
-        )
+        cleared = await erasure.erase_person(session, person_id)
+        return ErasureBatch({"ai_call_texts_cleared": cleared}, cursor=None)
 
 
 PORT = AiData()

@@ -177,7 +177,7 @@ export const ur: LabelResource = {
   'dev_sign_in.warning':
     'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
   'erasure_count.action_links_revoked': 'منسوخ شدہ ایکشن لنکس',
-  'erasure_count.ai_calls_deleted': 'AI کی درخواستیں حذف کی گئیں',
+  'erasure_count.ai_call_texts_cleared': 'AI کی درخواستوں کے متن صاف کیے گئے',
   'erasure_count.announcement_dismissals_deleted': 'چھپائے گئے اعلانات صاف کیے گئے',
   'erasure_count.announcement_follows_deleted': 'اعلانات کی پیروی ہٹائی گئی',
   'erasure_count.announcements_moved': 'اعلانات جانشین کے حوالے کیے گئے',
