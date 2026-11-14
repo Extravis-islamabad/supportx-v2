@@ -620,6 +620,8 @@ export const ur: LabelResource = {
   'report_schedule_result.mail_not_configured': 'آؤٹ گوئنگ ای میل سیٹ نہیں ہے۔',
   'report_schedule_result.mail_refused': 'ای میل نہیں بھیجی جا سکی۔',
   'report_schedule_result.no_recipients': 'ای میل پتے والا کوئی فعال وصول کنندہ نہیں۔',
+  'report_schedule_result.owner_changed':
+    'روکا گیا: اس کا مالک بدل گیا۔ نیا مالک دوبارہ چلنے سے پہلے اسے دیکھے گا۔',
   'report_schedule_result.owner_not_allowed': 'اس کا مالک اب رپورٹس شیڈول نہیں کر سکتا۔',
   'report_schedule_result.paused_by_owner': 'اس کے مالک نے روک دیا۔',
   'report_schedule_result.pdf_not_available': 'اس سرور پر PDF دستیاب نہیں۔',

@@ -15,7 +15,7 @@ from app.core.modules import ModuleSpec
 from app.modules.knowledge.api import links as _links  # noqa: F401 - mounts its routes
 from app.modules.knowledge.api.routes import router
 from app.modules.knowledge.events import EVENTS
-from app.modules.knowledge.service import notifications
+from app.modules.knowledge.service import notifications, person_data
 from app.modules.knowledge.service.access import (
     APPROVE,
     CREATE,
@@ -98,5 +98,7 @@ module = ModuleSpec(
 # shutdown (tests start and stop the app).
 notifications.register()
 register_owner_access(FILE_ACCESS)
+# GDPR erasure (ADR-052): the knowledge base's port; the job refuses to run without it.
+person_data.register()
 
 __all__ = ["module"]

@@ -14,7 +14,10 @@ service's access questions for records, replies and notes (`service/file_access.
 at startup.
 """
 
+import uuid
+
 from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
@@ -22,6 +25,7 @@ from app.modules.ai import (
     register_conversation_source,
     register_embedding_source,
     register_record_access,
+    register_requested_records,
     unregister_conversation_source,
     unregister_embedding_source,
     unregister_record_access,
@@ -141,11 +145,24 @@ def _register_parts() -> None:
 _register_parts()
 
 
+async def _requested_records(
+    session: AsyncSession, person_id: uuid.UUID, cursor: str | None
+) -> tuple[list[tuple[str, uuid.UUID]], str | None]:
+    return await records_requested_by(session, person_id, cursor=cursor)
+
+
+# At import too, not only at start: the erasure job runs in the consumers worker, which may never
+# run the API's startup hooks (lane A, #502).
+register_requested_records(_requested_records)
+
+
 def _register_ai() -> None:
     """What AI may read of an incident (WP-038): the record page's own rules, through here."""
     register_record_access(INCIDENT.code, ai_sources.may_view_incident)
     register_conversation_source(INCIDENT.code, ai_sources.conversation_for)
     register_embedding_source(INCIDENT.code, ai_sources.incident_texts, ai_sources.incident_ids)
+    # GDPR erasure (ADR-052, lane C's ai port): the records whose vectors go with the requester.
+    register_requested_records(_requested_records)
 
 
 async def _startup(app: FastAPI) -> None:
@@ -166,6 +183,8 @@ async def _shutdown(app: FastAPI) -> None:
     unregister_record_access(INCIDENT.code)
     unregister_conversation_source(INCIDENT.code)
     unregister_embedding_source(INCIDENT.code)
+    # The requested-records lister stays: it is registered at import, and a process that stops an
+    # app may still run the erasure job (lane B, #502).
 
 
 register_record_usage()
