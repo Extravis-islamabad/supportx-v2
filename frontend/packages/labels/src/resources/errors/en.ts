@@ -290,6 +290,10 @@ export const en = {
     'A break-glass account cannot be erased. Remove it from break-glass first.',
   'errors.erasure_identity_unavailable':
     'The sign-in service could not be reached. The erasure will try again.',
+  'errors.erasure_mention_not_found':
+    'That mention was not found in this erasure, or you cannot see the record it is in.',
+  'errors.erasure_mention_port_missing':
+    'That mention cannot be changed: the part of the product it is in is not available.',
   'errors.erasure_needs_another_admin': 'Another administrator must approve this erasure.',
   'errors.erasure_not_found': 'This erasure no longer exists.',
   'errors.erasure_not_pending': 'This erasure can no longer be changed.',
@@ -298,8 +302,10 @@ export const en = {
     'A part of the product reported something it did not declare. Contact support.',
   'errors.erasure_port_missing':
     'Part of the product cannot erase personal data yet. Contact support.',
+  'errors.erasure_report_not_reviewed':
+    'This erasure cannot be approved yet: an admin must first review the report of where the person is named.',
   'errors.erasure_report_unavailable':
-    'Erasures cannot be approved yet: the report of where the person is named is not available.',
+    'This erasure cannot be approved yet: the report of where the person is named is not complete.',
   'errors.erasure_request_expired':
     'This erasure request has expired. Ask again if it is still needed.',
   'errors.erasure_sessions_unavailable':

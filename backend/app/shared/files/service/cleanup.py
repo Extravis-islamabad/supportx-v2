@@ -10,7 +10,7 @@ written by the caller (shared code cannot reach the audit module); `Purged` says
 """
 
 import uuid
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from datetime import timedelta
 
@@ -24,6 +24,7 @@ from app.shared.files.events import FileChanged
 from app.shared.files.infra.models import FileLink, StoredFile
 from app.shared.files.ports import OwnerType
 from app.shared.files.service.core import FileServices, lock_usage, now
+from app.shared.history import Change, record_changes
 from app.shared.storage import StorageUnavailable
 
 log = get_logger(__name__)
@@ -177,3 +178,78 @@ async def forget_uploader(
             )
     await session.flush()
     return Forgotten(deleted=deleted, full=len(rows) >= limit)
+
+
+# --- GDPR mentions (ADR-052 S1b): file names only, never contents --------------------------------
+
+NAME_MAX = 255  # as the column
+
+
+async def live_names(
+    session: AsyncSession, *, after: uuid.UUID | None, limit: int = BATCH
+) -> list[tuple[uuid.UUID, str]]:
+    """Live files' IDs and names, by ID after `after` (the mentions report reads these)."""
+    query = select(StoredFile.id, StoredFile.name).where(StoredFile.deleted_at.is_(None))
+    if after is not None:
+        query = query.where(StoredFile.id > after)
+    rows = await session.execute(query.order_by(StoredFile.id).limit(limit))
+    return [(file_id, name) for file_id, name in rows.all()]
+
+
+async def file_name(session: AsyncSession, file_id: uuid.UUID) -> str | None:
+    """A live file's current name."""
+    return await session.scalar(
+        select(StoredFile.name).where(StoredFile.id == file_id, StoredFile.deleted_at.is_(None))
+    )
+
+
+async def rename_for_erasure(
+    session: AsyncSession, file_id: uuid.UUID, rename: Callable[[str], str], reason: str
+) -> bool:
+    """Give a live file the name `rename` makes of its current one (a GDPR redaction).
+
+    The version goes up; the history names the field only (old and new None: the old name is
+    what is being removed); the file's screens refresh (`system.file.changed`). False when the
+    name stays the same or the file is gone.
+    """
+    stored = await session.scalar(
+        select(StoredFile)
+        .where(StoredFile.id == file_id, StoredFile.deleted_at.is_(None))
+        .with_for_update()
+    )
+    if stored is None:
+        return False
+    new_name = rename(stored.name)[:NAME_MAX]
+    if new_name == stored.name:
+        return False
+    stored.name = new_name
+    stored.version += 1
+    await session.flush()
+    await record_changes(
+        session,
+        record_type="file",
+        record_id=stored.id,
+        version=stored.version,
+        kind="updated",
+        changes=[Change("name", None, None)],
+        source="system",
+        reason=reason,
+    )
+    link = await session.scalar(
+        select(FileLink).where(FileLink.file_id == stored.id).order_by(FileLink.created_at).limit(1)
+    )
+    if link is not None:
+        await record_event(
+            session,
+            FileChanged(
+                file_id=stored.id,
+                state=stored.state,
+                owner_type=link.owner_type,
+                owner_id=link.owner_id,
+                record_type=link.record_type,
+                record_id=link.record_id,
+            ),
+            aggregate_id=stored.id,
+            aggregate_version=stored.version,
+        )
+    return True

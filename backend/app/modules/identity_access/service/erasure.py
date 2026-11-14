@@ -9,9 +9,11 @@ after 7 days (the job's schedule marks it). The routes audit every step; this wr
 its event in one transaction (rule b) and checks If-Match on changes (rule g).
 
 **Approval needs the mentions report (D-171 a).** It is the approver's view of where the person
-is named in other people's text, and ships with S1b, which fills `report`. Until then every
-approval is refused with `erasure_report_unavailable`, and the job refuses to run an erasure
-without a report too: no erasure can run before S1b.
+is named in other people's text (S1b, service/erasure_mentions.py). Approval is refused with
+`erasure_report_unavailable` while the report is missing or incomplete (a required module's
+port has not run) and with `erasure_report_not_reviewed` until an admin reviewed it; the job
+refuses an incomplete report too. S1b's REQUIRED_MENTION_PORTS names S2's modules, so no report
+is complete and no erasure can run before S2.
 """
 
 import uuid
@@ -31,6 +33,7 @@ from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.people import clean_text
 from app.modules.identity_access.events import PersonErasureChanged
 from app.modules.identity_access.infra.models import PersonErasure, User
+from app.modules.identity_access.service.erasure_mentions import leave_found, report_complete
 from app.modules.identity_access.service.legal_hold import person_held
 from app.modules.identity_access.service.people import get_person
 from app.modules.identity_access.service.roles import guard_last_admin, holds_tenant_admin
@@ -237,7 +240,7 @@ async def approve(  # noqa: PLR0913 - the erasure, its version, who and the type
     confirm_name: str,
     now: datetime,
 ) -> PersonErasure:
-    """Admin B approves; the job then runs. Refused until the mentions report exists (S1b)."""
+    """Admin B approves; the job then runs. Needs a complete, reviewed mentions report."""
     row = await _locked(session, erasure_id, expected_version)
     if not rules.can("approve", ErasureState(row.state)).allowed:
         raise Conflict(code=rules.NOT_PENDING, params={"state": row.state})
@@ -249,14 +252,18 @@ async def approve(  # noqa: PLR0913 - the erasure, its version, who and the type
     if not rules.same_name(confirm_name, person.display_name):
         raise ValidationFailed(errors=[_field("confirm_name", "erasure_confirm_name_mismatch")])
     await _refuse_if_needed(session, person, actor_id)
-    if row.report is None:
-        # D-171 (a): the approver must see where the person is named in other people's text.
-        # S1b builds that report; until then nothing can be approved, so nothing can run.
+    if not report_complete(row.report):
+        # D-171 (a): the approver must see where the person is named in other people's text,
+        # in a report every required module took part in. Until S2's ports land, no report is
+        # complete (REQUIRED_MENTION_PORTS), so nothing can be approved, so nothing can run.
         raise Conflict(code=rules.REPORT_UNAVAILABLE)
+    if row.report_reviewed_at is None:
+        raise Conflict(code=rules.REPORT_NOT_REVIEWED)
     row.state = ErasureState.APPROVED.value
     row.approved_by, row.approved_at = actor_id, now
     row.version += 1
     await session.flush()
+    await leave_found(session, row.id)  # the approver saw these and left them in place
     await _changed(session, row)
     return row
 

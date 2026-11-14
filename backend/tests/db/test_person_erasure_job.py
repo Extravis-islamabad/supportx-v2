@@ -1,5 +1,6 @@
-"""The person erasure job (ADR-052 §3), driven directly: approval is refused in S1, so these tests
-put an approved erasure (with a stand-in mentions report) in the table themselves. That bypass
+"""The person erasure job (ADR-052 §3), driven directly: approval is refused until S2 (no complete
+mentions report exists before then), so these tests put an approved erasure (with a stand-in
+complete report) in the table themselves. That bypass
 lives here only; the API test proves no approval or run happens without the report.
 
 - The happy path: steps 0-7 in order; frozen (disabled, no sign-in, sessions ended, Keycloak
@@ -190,7 +191,7 @@ async def _approved(
         json.dumps(dict(keep or {})),
         org.admin,
         org.lead,
-        json.dumps({"mentions": []}) if report else None,
+        json.dumps({"complete": True, "building": None}) if report else None,
     )
     return erasure_id
 

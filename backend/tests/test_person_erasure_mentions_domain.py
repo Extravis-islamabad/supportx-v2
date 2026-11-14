@@ -1,0 +1,140 @@
+"""The mentions report, the pure parts (D-171 a, ADR-052 S1b): terms, matching, the registry."""
+
+import pytest
+
+from app.modules.identity_access.domain import erasure as rules
+from app.modules.identity_access.domain.mentions import (
+    MentionMatchKind,
+    MentionState,
+    MentionTerms,
+    build_terms,
+    count_matches,
+    redact,
+)
+from app.modules.identity_access.service import person_data
+from app.modules.identity_access.service.erasure_mentions import ATTACHMENT_NOTICE_LABEL
+from app.modules.identity_access.service.person_data import (
+    REQUIRED_MENTION_PORTS,
+    PersonMentions,
+    PortRegistrationError,
+    mention_ports,
+    missing_mention_ports,
+    register_mentions,
+)
+from app.modules.identity_access.service.person_mention_ports import LANE_B_MENTION_PORTS
+from app.shared.erasure import ERASED_ON_REQUEST
+from tests.test_error_labels import label_keys
+
+TERMS = build_terms(
+    display_name="  Ali   Khan ",
+    first_name="Ali",
+    last_name="Khan",
+    email="Ali.Khan@Example.com",
+    phone="+92 300 1234567",
+    mobile="12",
+)
+
+
+def test_terms_are_the_full_names_the_address_and_the_numbers() -> None:
+    assert TERMS.names == ("Ali Khan",)  # "first last" equals the display name: once
+    assert TERMS.emails == ("Ali.Khan@Example.com",)
+    assert TERMS.phones == ("923001234567",)  # a 2-digit "mobile" is not a number to search
+    custom = build_terms(
+        display_name="Dr Ali", first_name="Ali", last_name="Raza", email=None, phone=None,
+        mobile=None,
+    )  # fmt: skip
+    assert set(custom.names) == {"Dr Ali", "Ali Raza"}
+    assert build_terms(
+        display_name="Al", first_name="Al", last_name=None, email="", phone="", mobile=""
+    ).empty()
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Ask ali   KHAN about it", {MentionMatchKind.NAME: 1}),
+        ("Ali Khanum is someone else; so is Ali", {}),
+        ("mail ali.khan@example.com, or ALI.KHAN@EXAMPLE.COM.", {MentionMatchKind.EMAIL: 2}),
+        ("not x.ali.khan@example.com nor ali.khan@example.com.au", {}),
+        ("call 0300-1234567 or (300) 123 4567", {MentionMatchKind.PHONE: 2}),
+        ("call +92 300 1234567 today", {MentionMatchKind.PHONE: 1}),
+        ("order 1234567 shipped", {}),
+        (
+            '<p><span data-label="Ali Khan">@Ali Khan</span> 0300 1234567</p>',
+            {MentionMatchKind.NAME: 2, MentionMatchKind.PHONE: 1},
+        ),
+        (None, {}),
+    ],
+)
+def test_matching(text: str | None, expected: dict[MentionMatchKind, int]) -> None:
+    assert count_matches(text, TERMS) == expected
+
+
+def test_redaction_replaces_only_one_kind() -> None:
+    text = "Ali Khan (ali.khan@example.com, 0300-1234567) and ali khan again"
+    named, count = redact(text, TERMS, MentionMatchKind.NAME, ERASED_ON_REQUEST)
+    assert count == 2
+    assert named == (
+        "erased_on_request (ali.khan@example.com, 0300-1234567) and erased_on_request again"
+    )
+    mailed, _ = redact(named, TERMS, MentionMatchKind.EMAIL, ERASED_ON_REQUEST)
+    assert "example.com" not in mailed
+    assert "0300-1234567" in mailed
+    assert redact("nothing here", TERMS, MentionMatchKind.PHONE, ERASED_ON_REQUEST) == (
+        "nothing here",
+        0,
+    )
+    assert count_matches(mailed, MentionTerms()) == {}
+
+
+def test_s1b_required_ports_keep_every_report_incomplete() -> None:
+    """S2's modules are required but have no port yet: approval stays refused in practice."""
+    import app.modules.assets  # noqa: PLC0415 - registers the assets port
+    import app.modules.identity_access  # noqa: F401, PLC0415 - registers lane B's ports
+
+    registered = {port.module for port in mention_ports()}
+    assert {"identity_access", "files", "assets"} <= registered
+    assert {
+        "work_items.references",
+        "work_items.owned",
+        "integrations",
+        "knowledge",
+        "announcements",
+    } <= REQUIRED_MENTION_PORTS
+    assert missing_mention_ports(registered) != []
+    for port in LANE_B_MENTION_PORTS:
+        assert isinstance(port, PersonMentions)
+
+
+def test_a_second_mentions_port_for_a_key_is_refused() -> None:
+    class Bad:
+        module = "Not A Key"
+
+    with pytest.raises(PortRegistrationError):
+        register_mentions(Bad())  # type: ignore[arg-type]  # deliberately not a port
+    files = person_data.mention_port("files")
+    assert files is not None
+    register_mentions(files)  # the same object again: fine
+    with pytest.raises(PortRegistrationError):
+        register_mentions(type(files)())
+
+
+@pytest.mark.parametrize("locale", ["en", "ar", "ur"])
+def test_every_mentions_code_has_a_label(locale: str) -> None:
+    keys = label_keys(locale)
+    wanted = {f"people_erasure.match_kind.{kind.value}" for kind in MentionMatchKind}
+    wanted |= {f"people_erasure.mention_state.{state.value}" for state in MentionState}
+    wanted |= {ATTACHMENT_NOTICE_LABEL}
+    wanted |= {
+        f"errors.{code}"
+        for code in (rules.REPORT_NOT_REVIEWED, rules.MENTION_NOT_FOUND, rules.MENTION_PORT_MISSING)
+    }
+    wanted |= {
+        f"audit.action.person.{action}"
+        for action in (
+            "erasure_report_reviewed",
+            "erasure_mention_viewed",
+            "erasure_mention_redacted",
+        )
+    }
+    assert sorted(wanted - keys) == []

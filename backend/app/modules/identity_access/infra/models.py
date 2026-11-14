@@ -29,6 +29,7 @@ from app.modules.identity_access.domain.erasure import (
     ErasureReason,
     ErasureState,
 )
+from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionState
 from app.modules.identity_access.domain.network import IP_ALLOW_MAX
 from app.modules.identity_access.domain.sign_in import (
     SignInApp,
@@ -933,10 +934,13 @@ class PersonErasure(TenantEntity):
             "tenant_id",
             "person_id",
             unique=True,
+            # nosemgrep: sx.sql-format - _OPEN is the fixed list of open state codes above
             postgresql_where=text(f"state IN ({_OPEN})"),
         ),
         Index("ix_person_erasures_tenant_created", "tenant_id", "created_at", "id"),
         Index("ix_person_erasures_tenant_state", "tenant_id", "state"),
+        # The mentions' composite key points here (0164).
+        UniqueConstraint("tenant_id", "id", name="uq_person_erasures_tenant_id_id"),
     )
 
     person_id: Mapped[uuid.UUID]
@@ -965,6 +969,62 @@ class PersonErasure(TenantEntity):
     last_error_code: Mapped[str | None] = mapped_column(String(60))
     report: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     counts: Mapped[dict[str, int]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    # S1b (0164): an admin looked at the finished report; approval needs it (D-171 a).
+    report_reviewed_at: Mapped[datetime | None]
+    report_reviewed_by: Mapped[uuid.UUID | None]
+
+
+MENTION_KINDS = tuple(kind.value for kind in MentionMatchKind)
+MENTION_STATES = tuple(state.value for state in MentionState)
+
+
+class PersonErasureMention(TenantEntity):
+    """One place an erasure's person is named in other people's text (ADR-052 S1b; 0164).
+
+    Where (module, record, field), which kind and how often: never the text, never the terms.
+    Written by the report build; `state` moves to redacted (the admin replaced it with the
+    marker) or left (approved with it in place). No DELETE grant: the record of what the
+    approver saw stays with the erasure.
+    """
+
+    __tablename__ = "person_erasure_mentions"
+    __table_args__ = (
+        CheckConstraint(f"match_kind IN {MENTION_KINDS!r}", name="match_kind_code"),
+        CheckConstraint(f"state IN {MENTION_STATES!r}", name="state_code"),
+        CheckConstraint("occurrences > 0", name="occurrences_positive"),
+        ForeignKeyConstraint(
+            ["tenant_id", "erasure_id"],
+            ["person_erasures.tenant_id", "person_erasures.id"],
+            name="fk_person_erasure_mentions_erasure",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "redacted_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasure_mentions_redacted_by",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "erasure_id",
+            "module_key",
+            "record_type",
+            "record_id",
+            "field",
+            "match_kind",
+            name="uq_person_erasure_mentions_place",
+        ),
+        Index("ix_person_erasure_mentions_state", "tenant_id", "erasure_id", "state"),
+    )
+
+    erasure_id: Mapped[uuid.UUID]
+    module_key: Mapped[str] = mapped_column(String(60))
+    record_type: Mapped[str] = mapped_column(String(40))
+    record_id: Mapped[uuid.UUID]
+    field: Mapped[str] = mapped_column(String(80))
+    match_kind: Mapped[str] = mapped_column(String(10))
+    occurrences: Mapped[int] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String(10), server_default="found")
+    redacted_by: Mapped[uuid.UUID | None]
+    redacted_at: Mapped[datetime | None]
 
 
 EXPIRY_THRESHOLDS = (0, 1, 7, 30)  # domain/expiry.py: days before, 0 = run out

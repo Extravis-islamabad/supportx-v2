@@ -86,6 +86,11 @@ IDENTITY_UNAVAILABLE = "erasure_identity_unavailable"
 SESSIONS_UNAVAILABLE = "erasure_sessions_unavailable"
 STEP_FAILED = "erasure_step_failed"
 HOLD_NOT_SET = "legal_hold_not_set"
+# S1b (D-171 a): the mentions report.
+REPORT_NOT_REVIEWED = "erasure_report_not_reviewed"
+MENTION_NOT_FOUND = "erasure_mention_not_found"
+MENTION_PORT_MISSING = "erasure_mention_port_missing"
+REDACTION_HISTORY_REASON = "erasure_redaction"  # the history reason code of a redaction
 
 # Codes a run stops on for good (state failed), as opposed to a passing failure it retries.
 REFUSALS: frozenset[str] = frozenset(
@@ -114,6 +119,9 @@ PROBLEM_CODES: frozenset[str] = ERROR_CODES | {
     NOT_FOUND,
     ALREADY_ERASED,
     HOLD_NOT_SET,
+    REPORT_NOT_REVIEWED,
+    MENTION_NOT_FOUND,
+    MENTION_PORT_MISSING,
 }
 # Field problem codes of the request body (errors.field.<code> labels).
 FIELD_PROBLEMS = frozenset(
@@ -189,6 +197,9 @@ class Transition:
 
 _MOVES: dict[str, frozenset[ErasureState]] = {
     "approve": frozenset({ErasureState.REQUESTED}),
+    "review": frozenset({ErasureState.REQUESTED}),
+    # Redaction (S1b): before the job starts, while the approver still decides or has decided.
+    "redact": frozenset({ErasureState.REQUESTED, ErasureState.APPROVED}),
     "reject": frozenset({ErasureState.REQUESTED, ErasureState.APPROVED}),
     "expire": frozenset({ErasureState.REQUESTED}),
     "start": RUNNABLE_STATES,
@@ -196,7 +207,7 @@ _MOVES: dict[str, frozenset[ErasureState]] = {
 
 
 def can(move: str, state: ErasureState) -> Transition:
-    """Whether `move` (approve, reject, expire, start) may happen in `state`."""
+    """Whether `move` (approve, review, redact, reject, expire, start) may happen in `state`."""
     allowed = state in _MOVES[move]
     return Transition(allowed, None if allowed else NOT_PENDING)
 

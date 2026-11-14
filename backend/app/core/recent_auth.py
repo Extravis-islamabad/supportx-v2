@@ -55,6 +55,8 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/people/{user_id}/legal-hold/lift",
     "POST /api/v1/people/{user_id}/erasure",
     "POST /api/v1/erasures/{erasure_id}/approve",
+    "POST /api/v1/erasures/{erasure_id}/report/reviewed",
+    "POST /api/v1/erasures/{erasure_id}/mentions/redact",
     # Keys, exports and secret-bearing connections.
     "POST /api/v1/api-keys",
     "POST /api/v1/audit/exports",

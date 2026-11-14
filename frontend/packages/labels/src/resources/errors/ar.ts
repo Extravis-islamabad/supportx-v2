@@ -263,6 +263,10 @@ export const ar: LabelResource = {
   'errors.erasure_approval_invalid': 'لم يعد اعتماد هذا المحو صالحًا.',
   'errors.erasure_break_glass_account': 'لا يمكن محو حساب طوارئ. أزِله من حسابات الطوارئ أولًا.',
   'errors.erasure_identity_unavailable': 'تعذّر الوصول إلى خدمة تسجيل الدخول. ستُعاد المحاولة.',
+  'errors.erasure_mention_not_found':
+    'لم يُعثر على هذا الموضع في عملية المحو هذه، أو لا يمكنك رؤية السجل الذي يرد فيه.',
+  'errors.erasure_mention_port_missing':
+    'لا يمكن تغيير هذا الموضع: جزء المنتج الذي يرد فيه غير متاح.',
   'errors.erasure_needs_another_admin': 'يجب أن يعتمد هذا المحو مسؤولٌ آخر.',
   'errors.erasure_not_found': 'طلب المحو هذا غير موجود.',
   'errors.erasure_not_pending': 'لم يعد بالإمكان تغيير طلب المحو هذا.',
@@ -270,8 +274,10 @@ export const ar: LabelResource = {
   'errors.erasure_port_kind_undeclared': 'أبلغ جزء من المنتج عن شيء لم يعلن عنه. تواصل مع الدعم.',
   'errors.erasure_port_missing':
     'جزء من المنتج لا يستطيع محو البيانات الشخصية بعد. تواصل مع الدعم.',
+  'errors.erasure_report_not_reviewed':
+    'لا يمكن اعتماد هذا المحو بعد: يجب أن يراجع مسؤول أولًا تقرير المواضع التي يُذكر فيها الشخص.',
   'errors.erasure_report_unavailable':
-    'لا يمكن اعتماد المحو بعد: تقرير المواضع التي يُذكر فيها الشخص غير متاح.',
+    'لا يمكن اعتماد هذا المحو بعد: تقرير المواضع التي يُذكر فيها الشخص غير مكتمل.',
   'errors.erasure_request_expired':
     'انتهت صلاحية طلب المحو هذا. اطلبه مجددًا إن كان لا يزال مطلوبًا.',
   'errors.erasure_sessions_unavailable': 'تعذّر إنهاء الجلسات الآن. ستُعاد المحاولة.',

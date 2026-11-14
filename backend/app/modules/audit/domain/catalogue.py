@@ -187,6 +187,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("person.erasure_failed", AuditCategory.DATA, "identity_access"),
     # one per uploaded file the admin chose to keep (D-171 b), with the admin's reason
     ("person.erasure_file_kept", AuditCategory.DATA, "identity_access"),
+    # the mentions report (S1b, D-171 a): reviewed, each passage viewed, each mention redacted
+    ("person.erasure_report_reviewed", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_mention_viewed", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_mention_redacted", AuditCategory.DATA, "identity_access"),
     # organisation
     ("site.created", AuditCategory.ORGANISATION, "organization"),
     ("site.renamed", AuditCategory.ORGANISATION, "organization"),

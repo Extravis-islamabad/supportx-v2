@@ -20,6 +20,8 @@ from tests.test_error_labels import label_keys
 ENUM_PREFIXES: dict[str, str] = {
     "ErasureState": "people_erasure.state",  # GDPR erasure (D-171, ADR-052)
     "ErasureReason": "people_erasure.reason",
+    "MentionMatchKind": "people_erasure.match_kind",  # the mentions report (ADR-052 S1b)
+    "MentionState": "people_erasure.mention_state",
     "PlaceOut.kind": "sign_in_place_kind",  # WP-057 S2b-1 (D-170)
     "InviteLinkPeekOut.app": "sign_in_app",  # WP-057 S2b-2: console or portal (REQ-SEC-021)
     "TemplateKind": "text_template_kind",  # WP-046a S5a

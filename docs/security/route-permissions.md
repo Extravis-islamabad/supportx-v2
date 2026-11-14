@@ -464,7 +464,11 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/erasures` | `people.erase` | people.erase: all |
 | GET | `/api/v1/erasures/{erasure_id}` | `people.erase` | people.erase: all |
 | POST | `/api/v1/erasures/{erasure_id}/approve` | `people.erase` | people.erase: all |
+| GET | `/api/v1/erasures/{erasure_id}/mentions` | `people.erase` | people.erase: all |
+| POST | `/api/v1/erasures/{erasure_id}/mentions/redact` | `people.erase` | people.erase: all |
+| GET | `/api/v1/erasures/{erasure_id}/mentions/{mention_id}/passage` | `people.erase` | people.erase: all |
 | POST | `/api/v1/erasures/{erasure_id}/reject` | `people.erase` | people.erase: all |
+| POST | `/api/v1/erasures/{erasure_id}/report/reviewed` | `people.erase` | people.erase: all |
 | POST | `/api/v1/files` | signed_in | - |
 | POST | `/api/v1/files/attach` | signed_in | - |
 | GET | `/api/v1/files/content/{token}` | signed_in | - |
