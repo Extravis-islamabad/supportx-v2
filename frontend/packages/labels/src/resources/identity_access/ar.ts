@@ -176,6 +176,7 @@ export const ar: LabelResource = {
     'لبيئة التطوير المحلية فقط، بشخصية من Showcase Company. لا يُستخدم أبدًا على تثبيت حقيقي.',
   'erasure_count.action_links_revoked': 'روابط الإجراءات الملغاة',
   'erasure_count.ai_call_texts_cleared': 'نصوص طلبات الذكاء الاصطناعي الممسوحة',
+  'erasure_count.ai_embeddings_removed': 'متجهات بحث الذكاء الاصطناعي المُزالة',
   'erasure_count.announcement_dismissals_deleted': 'الإعلانات المُخفاة الممسوحة',
   'erasure_count.announcement_follows_deleted': 'متابعات الإعلانات المُزالة',
   'erasure_count.announcements_moved': 'الإعلانات المُسلَّمة إلى الخلف',

@@ -295,6 +295,8 @@ export const ur: LabelResource = {
     'پروڈکٹ کے ایک حصے نے ایسی چیز بتائی جس کا اس نے اعلان نہیں کیا تھا۔ سپورٹ سے رابطہ کریں۔',
   'errors.erasure_port_missing':
     'پروڈکٹ کا ایک حصہ ابھی ذاتی ڈیٹا نہیں مٹا سکتا۔ سپورٹ سے رابطہ کریں۔',
+  'errors.erasure_records_unavailable':
+    'اس شخص کی درخواست کردہ ریکارڈز ابھی فہرست نہیں ہو سکے۔ مٹانے کا عمل دوبارہ کوشش کرے گا۔',
   'errors.erasure_report_unavailable':
     'ابھی مٹانے کی منظوری نہیں دی جا سکتی: فرد کا ذکر کہاں کہاں ہے، اس کی رپورٹ دستیاب نہیں۔',
   'errors.erasure_request_expired':

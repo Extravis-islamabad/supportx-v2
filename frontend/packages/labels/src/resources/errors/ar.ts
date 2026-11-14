@@ -270,6 +270,8 @@ export const ar: LabelResource = {
   'errors.erasure_port_kind_undeclared': 'أبلغ جزء من المنتج عن شيء لم يعلن عنه. تواصل مع الدعم.',
   'errors.erasure_port_missing':
     'جزء من المنتج لا يستطيع محو البيانات الشخصية بعد. تواصل مع الدعم.',
+  'errors.erasure_records_unavailable':
+    'تعذّر سرد السجلات التي طلبها هذا الشخص الآن. سيُعاد محاولة المسح.',
   'errors.erasure_report_unavailable':
     'لا يمكن اعتماد المحو بعد: تقرير المواضع التي يُذكر فيها الشخص غير متاح.',
   'errors.erasure_request_expired':

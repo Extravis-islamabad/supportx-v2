@@ -2452,7 +2452,8 @@ it with no reload (rule c). Not built yet.
     lists), `analytics` (favourites, preferences, exports with their files, private dashboards
     deleted; shared dashboards, reports, folders moved; schedules moved and paused as
     `owner_changed`), `announcements` (follows, dismissals deleted; owned ones moved), `ai`
-    (band 900: their AI call text cleared, rows kept as the usage and cost record, D-131). Every moved object raises its ordinary event (rule c).
+    (band 900: their AI call text cleared, rows kept as the usage and cost record, D-131;
+    then the vectors of the records they requested, via lane A's `records_requested_by`). Every moved object raises its ordinary event (rule c).
     0165 grants DELETE on four tables; `tests/test_erasure_deletes.py` fails on any other hard
     delete of them. Labels en/ar/ur.
   - Summaries: the ai erasure consumer already deletes them (D-131).

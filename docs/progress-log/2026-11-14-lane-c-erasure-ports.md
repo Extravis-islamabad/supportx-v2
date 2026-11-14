@@ -18,6 +18,9 @@ deletes, lane B blocks).
   - `announcements` (560): follows and dismissals deleted; owned announcements move.
   - `ai` (950, derived band): the text of their AI calls cleared through `ai/service/erasure.py`
     (audited, idempotent); the rows stay as the usage and cost record (D-131; lane B, #502).
+    Then the vectors (`ai_embeddings`) of the records they requested: work_items registers
+    `records_requested_by` (lane A, #504) with ai at start (ai never imports work_items; layers).
+    Not registered = `erasure_records_unavailable`, retried, never skipped.
 - Every moved or removed object writes its module's ordinary event (rule c); counts only.
 - **Migration 0165**: DELETE on kb_votes, dashboard_preferences, report_exports, dashboards
   (grants only; the downgrade restores the earlier grants).

@@ -9,6 +9,7 @@ Each port, run to the end for tech_b with tech_a as the successor:
   recipient lists;
 - leaves tech_a's rows and the other tenant's rows alone;
 - a second run changes nothing (zero counts);
+- removes the AI vectors of the records they requested, not of anyone else's;
 - writes each moved object's ordinary event to the outbox (rule c).
 Rows are seeded as the app role in the tenant's session (RLS on), as the ports run.
 """
@@ -23,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
-from app.modules.ai.infra.models import AiCall
+from app.modules.ai.infra.models import EMBEDDING_DIMENSION, AiCall
 from app.modules.ai.service import person_data as ai_port
 from app.modules.analytics.infra.models import (
     Dashboard,
@@ -157,6 +158,25 @@ async def _seed(session: AsyncSession, org: Org, person: uuid.UUID, tag: str) ->
     await _flush(session, org)
 
 
+async def _vectors(world: World, org: Org, record_ids: list[str]) -> None:
+    """Two vector chunks for each record (the incident embedding source's rows)."""
+    literal = "[" + ",".join(["0.1"] * EMBEDDING_DIMENSION) + "]"
+    for record_id in record_ids:
+        for chunk in (0, 1):
+            await world.sql(
+                "INSERT INTO ai_embeddings (id, tenant_id, source_type, source_id, chunk, model,"
+                " dimension, content_hash, embedding) VALUES ($1, $2, 'incident', $3, $4, 'fake',"
+                " $5, $6, $7::vector)",
+                uuid.uuid4(),
+                org.tenant,
+                uuid.UUID(record_id),
+                chunk,
+                EMBEDDING_DIMENSION,
+                "0" * 64,
+                literal,
+            )
+
+
 async def _run(world: World, org: Org, person: uuid.UUID, successor: uuid.UUID) -> dict[str, int]:
     """Every port to the end, as the job runs them (one session a batch)."""
     counts: dict[str, int] = {}
@@ -236,6 +256,10 @@ async def test_lane_c_ports_erase_move_and_touch_nobody_else(world: World) -> No
         (other, other.tech_b, "o"),
     ):
         await _in_tenant(world, target, lambda s, t=target, w=who, g=tag: _seed(s, t, w, g))
+    # Their requested incident and someone else's, each with vectors (ai's embeddings phase).
+    theirs = await world.create(org, org.admin, requester_id=str(org.tech_b))
+    others = await world.create(org, org.admin, requester_id=str(org.tech_a))
+    await _vectors(world, org, [theirs["id"], others["id"]])
     before_a = await _owned(world, org, org.tech_a)
     before_other = await _owned(world, other, other.tech_b)
     outbox_before = await world.sql(
@@ -263,6 +287,7 @@ async def test_lane_c_ports_erase_move_and_touch_nobody_else(world: World) -> No
         "announcement_dismissals_deleted": 1,
         "announcements_moved": 1,
         "ai_call_texts_cleared": 1,
+        "ai_embeddings_removed": 2,
     }
     assert set(counts.values()) == {1, 2}
     # Nothing of theirs is left; the successor holds what moved; the other tenant is untouched.
@@ -279,6 +304,13 @@ async def test_lane_c_ports_erase_move_and_touch_nobody_else(world: World) -> No
         org.tech_b,
     )
     assert kept[0]["n"] == 1  # the row stays (usage and cost record), its text gone
+    vectors = await world.sql(
+        "SELECT source_id FROM ai_embeddings WHERE tenant_id = $1 AND source_type = 'incident'"
+        " AND source_id = ANY($2::uuid[])",
+        org.tenant,
+        [uuid.UUID(theirs["id"]), uuid.UUID(others["id"])],
+    )
+    assert [str(r["source_id"]) for r in vectors] == [others["id"]] * 2  # theirs gone, not others'
 
     # The moved schedule is paused for its new owner; the unsent draft is blank and gone.
     paused = await world.sql(

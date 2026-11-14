@@ -298,6 +298,8 @@ export const en = {
     'A part of the product reported something it did not declare. Contact support.',
   'errors.erasure_port_missing':
     'Part of the product cannot erase personal data yet. Contact support.',
+  'errors.erasure_records_unavailable':
+    'The records this person requested could not be listed just now. The erasure will try again.',
   'errors.erasure_report_unavailable':
     'Erasures cannot be approved yet: the report of where the person is named is not available.',
   'errors.erasure_request_expired':
