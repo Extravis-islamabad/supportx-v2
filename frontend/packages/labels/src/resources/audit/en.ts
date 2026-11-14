@@ -959,6 +959,7 @@ export const en = {
   'event_type.analytics.report_folder.saved': 'Report folder saved',
   'event_type.analytics.report_schedule.due': 'Scheduled report due',
   'event_type.analytics.report_schedule.ran': 'Scheduled report sent',
+  'event_type.analytics.report_schedule.recipients_skipped': 'Scheduled report left people out',
   'event_type.analytics.report_schedule.saved': 'Report schedule saved',
   'event_type.analytics.report_settings.changed': 'Report settings changed',
   'event_type.announcements.announcement.created': 'Announcement created',

@@ -1570,9 +1570,11 @@ it with no reload (rule c). Not built yet.
   - A schedule whose owner may no longer see a field it uses pauses as `field_not_permitted`
     before any file is made. A recipient who may not see one gets no file; the others do
     (counted in `last_failed`).
-  - [ ] Follow-up (coordinator, 2026-11-14): one notice per run to the owner naming who was
-    skipped and which fields (labels, no values). It is a notifications kind agreed with lane A,
-    and the run event carries the counts and field codes; no migration.
+  - [x] Follow-up (coordinator, 2026-11-14): one notice per run to the owner. Recipients left
+    out are skipped, not failed. `analytics.report_schedule.recipients_skipped` v1 carries IDs,
+    the entity, the run time and the field codes. `report_schedule.recipients_skipped` is a
+    STATUS notification, required, owner only, in-app and e-mail, with the fields named in the
+    owner's language. Shape from lane A; no migration.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

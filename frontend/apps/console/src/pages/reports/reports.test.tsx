@@ -217,6 +217,23 @@ describe('Reports', () => {
     expect(call?.headers.get('If-Match')).toBe('"4"');
   });
 
+  it('a notice link opens the schedules list (/reports?schedules=open), and closing it drops the query', async () => {
+    window.history.pushState({}, '', '/reports?schedules=open');
+    api({
+      me: fakeSession({ roles: ['tenant_admin', 'technician'] }),
+      routes: routes({
+        'GET /api/v1/reports/schedules': { body: { mail_configured: true, items: [] } },
+      }),
+    });
+    render(<App />);
+    const drawer = await screen.findByRole('dialog');
+    expect(drawer.textContent).toContain('Schedules');
+    fireEvent.click(within(drawer).getByRole('button', { name: /close/i }));
+    await waitFor(() => {
+      expect(window.location.search).toBe('');
+    });
+  });
+
   it('QA WP-036 sweep: a schedule someone else changed first meets the conflict dialog; Keep mine pauses it', async () => {
     window.history.pushState({}, '', '/reports');
     const schedule = {

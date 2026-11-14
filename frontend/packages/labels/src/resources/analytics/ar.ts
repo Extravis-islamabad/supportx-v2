@@ -604,6 +604,7 @@ export const ar: LabelResource = {
     'كان الملف أكبر من 10 ميغابايت. ضيّق التقرير أو اختر الملخص.',
   'report_schedule_result.field_not_permitted':
     'متوقف مؤقتًا: يستخدم التقرير حقلًا لم يعد بإمكان مالكه رؤيته.',
+  'report_schedule_result.fields_unknown': 'حقول هذا التقرير',
   'report_schedule_result.mail_not_configured': 'لم يتم إعداد البريد الصادر.',
   'report_schedule_result.mail_refused': 'تعذّر إرسال البريد الإلكتروني.',
   'report_schedule_result.no_recipients': 'لا يوجد مستلم نشط لديه بريد إلكتروني.',
