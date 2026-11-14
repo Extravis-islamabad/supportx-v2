@@ -175,3 +175,85 @@ async def test_approvers_are_asked_by_mail_and_the_technician_hears_of_a_rejecti
             uuid.UUID(item["id"]),
         )
     assert {r["user_id"] for r in told} == {a.tech_a}
+
+
+async def test_a_decision_link_is_bound_and_keeps_segregation(world: World) -> None:  # noqa: F811
+    """Lane B: the same D-132 link and handler as requests; a link names one approval and one
+    person (no one else, no other approval decides with it), and segregation of duties holds on
+    the link path as in the app."""
+    import pytest  # noqa: PLC0415 - one test
+
+    from app.core.errors import AppError  # noqa: PLC0415
+    from app.core.tenancy import TenantContext  # noqa: PLC0415
+    from app.modules.work_items.service import approvals  # noqa: PLC0415
+    from app.shared import action_links  # noqa: PLC0415
+
+    a = world.a
+    item = await world.create(
+        a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a), requester_id=str(a.tech_b)
+    )
+    assert (await _ask(world, a, item, [a.tech_b, a.admin])).status_code == 200
+    rows = {r["approver_id"]: r for r in await _rows(world, a, item)}
+    database = world.app.state.db
+
+    async def issued(person: uuid.UUID) -> str:
+        row = rows[str(person)]
+        (stored,) = await world.sql(
+            "SELECT version FROM work_item_approvals WHERE tenant_id = $1 AND id = $2",
+            a.tenant,
+            uuid.UUID(row["id"]),
+        )
+        async with database.tenant_session(TenantContext(a.tenant)) as session:
+            return await action_links.issue(
+                session,
+                recipient_id=person,
+                action=approvals.LINK_ACTION,
+                object_type=approvals.LINK_OBJECT,
+                object_id=uuid.UUID(row["id"]),
+                object_version=stored["version"],
+            )
+
+    async def used(secret: str, person: uuid.UUID) -> Any:  # noqa: ANN401 - the handler's answer
+        subject = await world.app.state.policy.subject(a.tenant, person)
+        async with database.tenant_session(TenantContext(a.tenant)) as session:
+            return await action_links.use(session, secret, subject, {"decision": "approve"})
+
+    own = await issued(a.tech_b)
+    # Segregation of duties on the link path: the engine refuses, and the shared link service
+    # answers as for requests ("no longer yours to decide"); nothing is decided.
+    with pytest.raises(AppError):
+        await used(own, a.tech_b)
+    still = {r["approver_id"]: r["state"] for r in await _rows(world, a, item)}
+    assert still[str(a.tech_b)] == "pending"
+    admins = await issued(a.admin)
+    with pytest.raises(AppError):  # bound to its recipient: nobody else uses it
+        await used(admins, a.tech_a)
+    await used(admins, a.admin)
+    states = {r["approver_id"]: r["state"] for r in await _rows(world, a, item)}
+    assert states == {str(a.admin): "approved", str(a.tech_b): "not_needed"}
+    after = (await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)).json()
+    assert after["approval_status"] == "approved"
+
+
+async def test_an_erased_approver_s_pending_approval_goes_to_the_administrators(
+    world: World,  # noqa: F811
+) -> None:
+    """Lane B: the 0166 reroute (`approver_erased`) covers incident approvals too; never granted."""
+    from app.modules.work_items.service.person_data import REFERENCES  # noqa: PLC0415
+    from tests.db.test_erasure_ports_lane_a import _erase  # noqa: PLC0415 - the shared runner
+
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    assert (await _ask(world, a, item, [a.tech_b])).status_code == 200
+    await _erase(world, a.tenant, a.tech_b, REFERENCES)
+    rows = await world.sql(
+        "SELECT approver_id, origin, state, route_reason FROM work_item_approvals"
+        " WHERE tenant_id = $1 AND work_item_id = $2",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    pending = [r for r in rows if r["state"] == "pending"]
+    assert len(pending) == 1
+    assert pending[0]["approver_id"] is None  # the approval administrators hold it
+    assert pending[0]["route_reason"] == "approver_erased"
+    assert all(r["state"] != "approved" for r in rows)
