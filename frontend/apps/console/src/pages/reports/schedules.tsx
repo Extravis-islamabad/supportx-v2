@@ -21,6 +21,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import {
   queryKeys,
@@ -359,13 +360,17 @@ const scheduleView = (item: ReportSchedule | undefined) =>
   );
 
 /** "Schedules": next run, last result, pause, resume, delete. Live (REQ-RPT-052 AC2, 056). */
+/** The query that opens the schedules list (a notice links to `/reports?schedules=open`). */
+export const SCHEDULES_QUERY = 'schedules';
+
 export function SchedulesButton() {
   const t = useLabels();
   const isolate = useIsolate();
   const { can } = useAccess();
   const dates = useDateTime();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [open, setOpen] = useState(params.get(SCHEDULES_QUERY) === 'open');
   const schedules = useReportSchedules(open);
   const change = useScheduleChange();
   usePersonalChannel((message) => {
@@ -408,6 +413,11 @@ export function SchedulesButton() {
         title={t('reports.schedules')}
         onClose={() => {
           setOpen(false);
+          if (params.has(SCHEDULES_QUERY)) {
+            const next = new URLSearchParams(params);
+            next.delete(SCHEDULES_QUERY);
+            setParams(next, { replace: true });
+          }
         }}
         width={520}
       >

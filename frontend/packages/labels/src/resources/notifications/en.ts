@@ -664,7 +664,7 @@ export const en = {
   'notification_template.report_schedule.recipients_skipped.body':
     'Hello {{ recipient.name }},\n\nThe last run of {{ record.title }} was not sent to some recipients, because their roles do not show a field the report uses.\n\nPeople left out: {{ skipped.count }}\nFields they may not see: {{ fields.labels }}\n\nThe others got it. To include everyone, take those fields out of the report, or ask an administrator to change the field access of their roles.',
   'notification_template.report_schedule.recipients_skipped.in_app':
-    '{{ record.title }} left people out (people left out: {{ skipped.count }}). Fields they may not see: {{ fields.labels }}',
+    '{{ record.title }}: the last run did not reach everyone (left out: {{ skipped.count }}). Fields they may not see: {{ fields.labels }}',
   'notification_template.report_schedule.recipients_skipped.subject':
     '{{ record.title }} did not reach everyone',
   'notification_template.rule_step.assignee_unavailable.body':

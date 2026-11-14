@@ -21,7 +21,7 @@ from app.modules.analytics.infra.models import ReportSchedule
 from app.modules.analytics.service.naming import field_label
 from app.modules.identity_access import subject_for
 from app.shared.events import EventEnvelope
-from app.shared.labels import LANGUAGES
+from app.shared.labels import LANGUAGES, plain_label
 from app.shared.notifications.ports import (
     EventDefault,
     Localised,
@@ -39,7 +39,9 @@ RECORD_TYPE = "report_schedule"
 OWNER = "schedule_owner"
 SKIPPED = "report_schedule.recipients_skipped"
 SCHEDULE_RIGHT = "reports.schedule"
-LINK = "/reports/schedules"
+# The reports home with the schedules list open (the console reads `schedules=open`).
+LINK = "/reports?schedules=open"
+FIELDS_UNKNOWN = "report_schedule_result.fields_unknown"
 # How each language separates the items of a short list in running text (mail and in-app).
 _SEPARATORS: Mapping[str, str] = {"en": ", ", "ar": "، ", "ur": "، "}
 
@@ -55,6 +57,10 @@ async def _field_labels(session: AsyncSession, entity: str, fields: Sequence[str
     resolver = names_resolver(f"{entity}.custom_field")
     texts: dict[str, str] = {}
     for language in LANGUAGES:
+        if not fields:
+            # No recipient's access could be read: say so plainly, never an empty line (lane A).
+            texts[language] = plain_label(FIELDS_UNKNOWN, language)
+            continue
         custom = await resolver(session, (), language, "") if resolver else {}
         names = [field_label(name, language, custom) for name in fields]
         texts[language] = _SEPARATORS.get(language, ", ").join(names)
