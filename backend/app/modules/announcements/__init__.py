@@ -52,3 +52,8 @@ module = ModuleSpec(
 )
 
 __all__ = ["module"]
+
+# GDPR erasure (ADR-052): this module's port; the job refuses to run without it.
+from app.modules.announcements.service import person_data as _person_data  # noqa: E402
+
+_person_data.register()
