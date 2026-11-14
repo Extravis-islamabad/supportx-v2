@@ -5935,6 +5935,39 @@
         "type": "object"
       }
     },
+    "work_items.conversation.redacted": {
+      "1": {
+        "description": "An entry's text had a person's name taken out by their erasure (ADR-052 S2).\n\nThe timeline refetches the entry; IDs only, never the text.",
+        "properties": {
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "entry_id",
+          "kind",
+          "visibility"
+        ],
+        "title": "WorkItemConversationRedacted",
+        "type": "object"
+      }
+    },
     "work_items.conversation.visibility_changed": {
       "1": {
         "description": "A note was made public or private (REQ-INC-061 AC3). `visibility` is the new one.",

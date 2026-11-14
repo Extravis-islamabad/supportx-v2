@@ -228,8 +228,10 @@ async def test_the_report_finds_the_person_and_is_never_complete_in_s1b(world: W
     assert shown["report_ready"] is False
     assert report["attachment_content_searched"] is False
     assert report["mail_bodies_searched"] is False
+    # S2: lane A's work_items and integrations ports are in; lane C's are still to come.
     assert report["ports_missing"] == sorted(
-        REQUIRED_MENTION_PORTS - {"identity_access", "files", "assets"}
+        REQUIRED_MENTION_PORTS
+        - {"identity_access", "files", "assets", "work_items", "integrations"}
     )
     assert report["by_module"]["identity_access"] == {"name": 2, "email": 1, "phone": 1}
     assert report["by_module"]["files"] == {"name": 1}

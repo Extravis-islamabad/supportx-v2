@@ -2506,6 +2506,22 @@ it with no reload (rule c). Not built yet.
   - 0166: DELETE on eight private tables, guarded so only the ports delete; `approver_erased`;
     two requester indexes built concurrently. `work_items.records_requested_by` (#504) for
     lane C's ai port.
+- **S2, lane A's mentions ports (no migration; lane B blocks; plan and six conditions agreed):**
+  - `work_items`: the record's own text (subject, impact details and free-text custom fields
+    as plain text; description, resolution and a problem's analysis and review texts as rich
+    text), its conversation, tasks and worklogs, in bounded phases (`phase|after`). On a record
+    the person requested, the fields their erasure blanks are skipped; its replies, tasks and
+    worklogs are still searched (D1a). Fields are named as the field catalogue names them.
+  - Redaction: `work_items.redact_fields` (version, history naming the field only, the search
+    text recomputed, the usual update event), and for entries and parts the new
+    `work_items.conversation.redacted` and the usual `part.changed`. The registry blanks the
+    older history itself.
+  - Passage: the record's own read (its scope, field rules and older gates); entries and parts
+    need the parent record's view.
+  - `integrations`: fetched mail's subject only (a row is named by a UUID made from its key),
+    mail they sent skipped (their erasure port clears it); the passage needs the email
+    connector right.
+  - A 100k-record timing test: each find batch p95 under 500 ms with no pre-filter.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
