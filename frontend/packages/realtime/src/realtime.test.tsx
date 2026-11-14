@@ -244,6 +244,16 @@ describe('RealtimeProvider and hooks', () => {
     expect(queryClient.getQueryState(queryKeys.entitlements)?.isInvalidated).toBe(true);
   });
 
+  it('ADR-047: an access change makes every open record ask again (a field just hidden)', () => {
+    const record = ['incidents', 'record', 'i-1'];
+    queryClient.setQueryData(record, { stale: false });
+    render(<div />, { wrapper });
+    act(() => {
+      client.publish(`t:${T}:user:${U}`, { type: 'access.changed', ids: [U] });
+    });
+    expect(queryClient.getQueryState(record)?.isInvalidated).toBe(true);
+  });
+
   it('BUG-13: leaving or reloading the page disconnects at once (no ghost viewer)', () => {
     render(<div />, { wrapper });
     expect(client.connected).toBe(true);

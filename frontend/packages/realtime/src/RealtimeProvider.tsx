@@ -44,6 +44,12 @@ export function RealtimeProvider({ tenantId, userId, children, factory }: Realti
     };
     const own = (message: RealtimeMessage) => {
       if (message.type === 'access.changed' || message.type === 'refresh') refreshAccess();
+      // What the person may see changed (a role, a group, a field rule, ADR-047): every screen
+      // open now asks again, so a field just hidden reads "Not shown to you" with no refresh.
+      // Rare, and only the active queries refetch.
+      if (message.type === 'access.changed') {
+        void queryClient.invalidateQueries({ refetchType: 'active' });
+      }
       // The user's own record changed elsewhere (another device): name, preferences, layout.
       if (message.type === 'users.changed' && message.ids.includes(value.userId)) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.session });
