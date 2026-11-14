@@ -54,6 +54,7 @@ from app.modules.identity_access import (
     display_names,
     people_matching,
     person_placement,
+    restricted_fields,
     role_names,
     scope_filter,
     user_contacts,
@@ -1895,13 +1896,27 @@ def _audience(record: WorkItem) -> Audience:
 
 
 async def _conflict(session: AsyncSession, error: Conflict, record_id: uuid.UUID) -> Conflict:
-    return await explain_conflict(
+    """The 409 with what changed since, restricted fields named only "restricted".
+
+    ADR-047 §7: a field's name alone says a value changed that someone may not see.
+    """
+    explained = await explain_conflict(
         session,
         error,
         record_type=RECORD_TYPE,
         record_id=record_id,
         names=lambda ids: display_names(session, ids),
     )
+    named = str(explained.params.get("changed_fields") or "")
+    record_type = await session.scalar(select(WorkItem.type).where(WorkItem.id == record_id))
+    restricted = (
+        await restricted_fields(session, str(record_type)) if named and record_type else frozenset()
+    )
+    if not restricted:
+        return explained
+    fields = dict.fromkeys("restricted" if f in restricted else f for f in named.split(","))
+    params = {**explained.params, "changed_fields": ",".join(fields)}
+    return Conflict(code=explained.instance_code, params=params, headers=explained.headers)
 
 
 async def _update(

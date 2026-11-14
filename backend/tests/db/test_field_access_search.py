@@ -97,3 +97,58 @@ async def test_a_restricted_value_is_never_found_during_or_after_the_rebuild(
     # A record saved after the rule keeps the value out of its search text from the start.
     later = await world.create(a, a.admin, group_id=str(a.ga), custom={key: "Okapi7"})
     assert later["id"] not in await _found(world, a, a.admin, "Okapi7")
+
+
+async def test_live_signals_and_conflicts_name_a_restricted_field_only_as_restricted(
+    world: World,  # noqa: F811
+) -> None:
+    """ADR-047 §7: shared channels and 409s say "restricted", never the field's name."""
+    from app.modules.work_items.service import realtime  # noqa: PLC0415 - one test
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Salary"}},
+        headers=CONSOLE,
+    )
+    key = made.json()["key"]
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={key: "B7"})
+    await _restrict(world, a, f"custom.{key}")
+    changed = await world.call(
+        "PATCH",
+        f"{BASE}/{item['id']}",
+        a,
+        a.admin,
+        json={"custom": {key: "C9"}},
+        headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
+    )
+    assert changed.status_code == 200, changed.text
+    stale = await world.call(
+        "PATCH",
+        f"{BASE}/{item['id']}",
+        a,
+        a.admin,
+        json={"subject": "Again"},
+        headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
+    )
+    assert stale.status_code == 409, stale.text
+    named = stale.json()["params"]["changed_fields"].split(",")
+    assert "restricted" in named
+    assert f"custom.{key}" not in named
+    (row,) = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1"
+        " AND event_type = 'work_items.work_item.updated' AND aggregate_id = $2"
+        " ORDER BY created_at DESC LIMIT 1",
+        a.tenant,
+        item["id"],
+    )
+    envelope = EventEnvelope.model_validate(json.loads(row["envelope"]))
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        effects = await realtime._work_item_changed(envelope, session)  # noqa: SLF001 - the route
+    staff = [p for p in effects.publications if "portal" not in str(p.channel)]
+    assert staff
+    for publication in staff:
+        assert f"custom.{key}" not in publication.fields
