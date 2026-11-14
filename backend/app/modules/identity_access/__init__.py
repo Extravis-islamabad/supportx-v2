@@ -123,6 +123,7 @@ from app.modules.identity_access.service.directory import (
     user_names,
 )
 from app.modules.identity_access.service.directory_people import (
+    ErasedPerson,
     LeaverOutcome,
     SyncedPerson,
     directory_leaver,
@@ -526,6 +527,7 @@ __all__ = [
     "TEAM_LEAD",
     "AccessRule",
     "DutyLookup",
+    "ErasedPerson",
     "ErasureBatch",
     "ErasureStepFailed",
     "FederationFailed",

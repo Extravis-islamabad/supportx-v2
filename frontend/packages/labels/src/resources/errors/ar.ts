@@ -985,6 +985,7 @@ export const ar: LabelResource = {
   'errors.people_import_file_unsafe': 'لم يُفتح المصنف: يتضخم إلى حجم يفوق حجمه بكثير.',
   'errors.permission_denied': 'ليست لديك صلاحية للقيام بذلك.',
   'errors.person_already_erased': 'تم محو بيانات هذا الشخص.',
+  'errors.person_erasure_in_progress': 'يجري محو هذا الشخص؛ لا يمكن إعادة تفعيله أو تغييره.',
   'errors.person_on_legal_hold': 'هذا الشخص تحت الحجز القانوني ولا يمكن محو بياناته.',
   'errors.pick_list_not_found': 'هذه القائمة غير موجودة.',
   'errors.pick_list_value_not_found': 'هذه القيمة لم تعد موجودة.',
