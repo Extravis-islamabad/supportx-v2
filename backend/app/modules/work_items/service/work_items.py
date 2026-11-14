@@ -1270,10 +1270,25 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     entries, cursor = await history_entries(
         session, RECORD_TYPE, record_id, before=before, limit=limit, actors=actors
     )
-    hidden = await hidden_fields(session, subject, wtype, record_id)
-    if hidden:  # the root cause stays out of the history too (D-140 Q7)
+    # Withheld fields stay out of the history too: hidden ones (role rules, ADR-047, and the root
+    # cause without view_root_cause, D-140 Q7) are left out; masked ones keep the line (that it
+    # changed, when, by whom) but never the values, as money does below.
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record_id),
+    )
+    if unseen.all:
         entries = [
-            replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+            replace(
+                e,
+                changes=[
+                    Change(c.field, MASKED, MASKED) if c.field in unseen.masked else c
+                    for c in e.changes
+                    if c.field not in unseen.hidden
+                ],
+            )
+            for e in entries
         ]
     # A task's extra cost is money (D-164): only with the type's cost right, as the task API
     # shows it (lane B's #442 review). Others keep the line (that it changed, when, by whom) but

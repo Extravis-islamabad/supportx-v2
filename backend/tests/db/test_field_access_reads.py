@@ -79,3 +79,46 @@ async def test_a_hidden_or_masked_field_never_comes_back(world: World) -> None: 
     assert full["custom"][salary] == "B7"
     assert full["impact_details"] == "Payroll stops for 200 people"
     assert (full["hidden_fields"], full["masked_fields"]) == ([], [])
+
+
+async def test_lists_leave_out_withheld_custom_values(world: World) -> None:  # noqa: F811
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={salary: "B7"})
+    await _rule(world, a, "technician", f"custom.{salary}", "masked")
+    page = await world.call("GET", BASE, a, a.tech_a)
+    assert page.status_code == 200, page.text
+    row = next(r for r in page.json()["items"] if r["id"] == item["id"])
+    assert salary not in row["custom"]
+    assert row["masked_fields"] == [f"custom.{salary}"]
+    assert "B7" not in page.text
+    mine = next(r for r in (await world.call("GET", BASE, a, a.admin)).json()["items"]
+                if r["id"] == item["id"])  # fmt: skip
+    assert mine["custom"][salary] == "B7"
+
+
+async def test_history_leaves_out_hidden_changes_and_masks_masked_ones(world: World) -> None:  # noqa: F811
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={salary: "B7"})
+    changed = await world.call(
+        "PATCH",
+        f"{BASE}/{item['id']}",
+        a,
+        a.admin,
+        json={"custom": {salary: "C9"}, "impact_details": "Whole floor down"},
+        headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
+    )
+    assert changed.status_code == 200, changed.text
+    await _rule(world, a, "technician", f"custom.{salary}", "hidden")
+    await _rule(world, a, "technician", "impact_details", "masked")
+    seen = await world.call("GET", f"{BASE}/{item['id']}/history", a, a.tech_a)
+    assert seen.status_code == 200, seen.text
+    fields = [c for e in seen.json()["items"] for c in e["changes"]]
+    assert not [c for c in fields if c["field"] == f"custom.{salary}"]
+    (impact,) = [c for c in fields if c["field"] == "impact_details"]
+    assert impact["hidden"] is True
+    for value in ("B7", "C9", "Whole floor"):
+        assert value not in seen.text
+    full = await world.call("GET", f"{BASE}/{item['id']}/history", a, a.admin)
+    assert "C9" in full.text
