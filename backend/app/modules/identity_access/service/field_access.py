@@ -280,6 +280,20 @@ async def remove_rule(
     return RuleChange(row, "deleted", old, None)
 
 
+async def restricted_fields(session: AsyncSession, record_type: str) -> frozenset[str]:
+    """Fields of a record type that any role restricts (one live rule is enough).
+
+    Search keeps these out of its index (ADR-047 §6): a value someone may not see must not be
+    findable by its words, whoever searches.
+    """
+    found = await session.scalars(
+        select(RoleFieldAccess.field)
+        .where(RoleFieldAccess.record_type == record_type, RoleFieldAccess.deleted_at.is_(None))
+        .distinct()
+    )
+    return frozenset(found.all())
+
+
 # --- who sees what --------------------------------------------------------------------------------
 
 
@@ -416,5 +430,6 @@ __all__ = [
     "record_types",
     "register_field_catalogue",
     "remove_rule",
+    "restricted_fields",
     "set_rule",
 ]
