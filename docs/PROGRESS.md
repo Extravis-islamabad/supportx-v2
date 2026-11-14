@@ -2489,6 +2489,17 @@ it with no reload (rule c). Not built yet.
 - [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
   ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
   retry action for a failed erasure; the erasure screens (report, passage, redaction).
+  - [x] Lane C's ports (migration 0165, 2026-11-14): `knowledge` (votes deleted; topics and
+    articles to the successor; never-submitted drafts blanked and soft-deleted, and articles
+    left empty with them), `analytics.recipients` (band 100: out of others' schedule recipient
+    lists), `analytics` (favourites, preferences, exports with their files, private dashboards
+    deleted; shared dashboards, reports, folders moved; schedules moved and paused as
+    `owner_changed`), `announcements` (follows, dismissals deleted; owned ones moved), `ai`
+    (band 900: their AI call text cleared, rows kept as the usage and cost record, D-131;
+    then the vectors of the records they requested, via lane A's `records_requested_by`). Every moved object raises its ordinary event (rule c).
+    0165 grants DELETE on four tables; `tests/test_erasure_deletes.py` fails on any other hard
+    delete of them. Labels en/ar/ur.
+  - Summaries: the ai erasure consumer already deletes them (D-131).
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
 - **S2, lane A's ports (0166; lane B blocked):**
   - `work_items.references` (150): follows, record roles and board seats removed; chairs to the

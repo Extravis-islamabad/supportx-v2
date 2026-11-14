@@ -304,6 +304,8 @@ export const en = {
     'A part of the product reported something it did not declare. Contact support.',
   'errors.erasure_port_missing':
     'Part of the product cannot erase personal data yet. Contact support.',
+  'errors.erasure_records_unavailable':
+    'The records this person requested could not be listed just now. The erasure will try again.',
   'errors.erasure_redaction_too_long':
     'This passage cannot be redacted here: the marker would make the text longer than the field allows. Shorten the text first.',
   'errors.erasure_report_not_reviewed':
@@ -317,6 +319,8 @@ export const en = {
   'errors.erasure_signed_history_kept':
     'This erasure cannot be approved or run yet: a redacted passage is still kept in signed record history, which cannot be redacted yet.',
   'errors.erasure_step_failed': 'A step of the erasure did not work. It will try again.',
+  'errors.erasure_storage_unavailable':
+    'The file store could not be reached to delete report exports. The erasure will try again.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
   'errors.field.address_not_allowed':
     "This server address can't be used. Use the mail server's public name.",
