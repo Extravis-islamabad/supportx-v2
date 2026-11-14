@@ -15,7 +15,7 @@ The downgrade puts the old grants back and drops the indexes (neither holds data
 while any tenant has an approval rerouted for an erased approver (rule 5h).
 
 Revision ID: 0166
-Revises: 0162 (main's head while building; re-pointed at its queue turn)
+Revises: 0163
 Created: 2026-11-14
 """
 
@@ -28,7 +28,7 @@ from alembic import op
 from migrations.helpers import grant_app
 
 revision: str = "0166"
-down_revision: str | None = "0162"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0163"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
