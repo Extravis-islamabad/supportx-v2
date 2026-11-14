@@ -285,6 +285,8 @@ export const ur: LabelResource = {
   'errors.erasure_approval_invalid': 'اس کی منظوری اب درست نہیں رہی۔',
   'errors.erasure_break_glass_account':
     'ہنگامی رسائی والا اکاؤنٹ مٹایا نہیں جا سکتا۔ پہلے اسے ہنگامی رسائی سے ہٹائیں۔',
+  'errors.erasure_directory_sync_unsafe':
+    'اس مٹانے کی ابھی منظوری نہیں دی جا سکتی: ڈائریکٹری سنک فرد کی تفصیلات دوبارہ لکھ سکتا ہے۔',
   'errors.erasure_identity_unavailable':
     'سائن اِن سروس تک رسائی نہیں ہو سکی۔ دوبارہ کوشش کی جائے گی۔',
   'errors.erasure_mention_not_found':
@@ -820,6 +822,7 @@ export const ur: LabelResource = {
   'errors.field_access_rule_not_found': 'فیلڈ کا یہ اصول اب موجود نہیں۔',
   'errors.field_keys_unavailable':
     'محفوظ معلومات ابھی پڑھی یا محفوظ نہیں کی جا سکتیں: انسٹالیشن کی کلید دستیاب نہیں۔ اپنے ایڈمنسٹریٹر سے اسے چیک کرنے کو کہیں۔',
+  'errors.field_not_permitted': 'یہ رپورٹ ایک ایسا فیلڈ استعمال کرتی ہے جو آپ کے لیے دستیاب نہیں۔',
   'errors.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
   'errors.field_read_only': 'آپ یہ فیلڈ صرف پڑھ سکتے ہیں، اس لیے اسے بدلا نہیں جا سکتا۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',

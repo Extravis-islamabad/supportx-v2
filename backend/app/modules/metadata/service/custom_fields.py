@@ -750,12 +750,14 @@ class FieldMarks:
     sensitive: bool
 
 
-async def field_marks(session: AsyncSession, entity: str) -> list[FieldMarks]:
-    """The entity's custom fields in use (not retired), with their names and marks."""
+async def field_marks(
+    session: AsyncSession, entity: str, *, retired: bool = False
+) -> list[FieldMarks]:
+    """The entity's custom fields in use, with their names and marks; `retired`: those too."""
     return [
         FieldMarks(row.key, dict(row.labels), row.personal_data, row.sensitive)
         for row in await list_fields(session, entity)
-        if row.retired_at is None
+        if retired or row.retired_at is None
     ]
 
 

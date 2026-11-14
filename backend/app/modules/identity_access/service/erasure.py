@@ -65,6 +65,11 @@ def _field(name: str, code: str, params: Mapping[str, ParamValue] | None = None)
     return FieldError(field=f"body.{name}", code=code, message_key=key, params=dict(params or {}))
 
 
+# Directory sync must never touch an erased person before one can be approved (D-171): #507
+# makes it so and turns this on (the coordinator, 2026-11-14).
+DIRECTORY_SYNC_SKIPS_ERASED = False
+
+
 async def refusal(session: AsyncSession, person: User, *, actor_id: uuid.UUID | None) -> str | None:
     """Why this person may not be erased now, as a code; None when nothing stands in the way.
 
@@ -265,6 +270,8 @@ async def approve(  # noqa: PLR0913 - the erasure, its version, who and the type
         # The approver must have looked at the report themselves (D-171 a: "the approver sees
         # the report"), not only someone else (lane B's review of S1b).
         raise Conflict(code=rules.REPORT_NOT_REVIEWED)
+    if not DIRECTORY_SYNC_SKIPS_ERASED:
+        raise Conflict(code=rules.DIRECTORY_SYNC_UNSAFE)
     if await signed_history_kept(session, row.id):
         # D-171: a redacted original is never kept; signed history cannot be redacted yet.
         raise Conflict(code=rules.SIGNED_HISTORY_KEPT)

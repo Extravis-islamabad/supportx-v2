@@ -738,6 +738,15 @@ class WorkItem(TenantEntity):
         Index(
             "ix_wi_tenant_type_requester", "tenant_id", "type", "requester_id", "created_at", "id"
         ),
+        # The erasure's "records this person requested" (ADR-052; 0166, built concurrently).
+        Index("ix_wi_tenant_requester_id", "tenant_id", "requester_id", "id"),
+        Index(
+            "ix_wi_tenant_on_behalf_id",
+            "tenant_id",
+            "on_behalf_of_id",
+            "id",
+            postgresql_where=text("on_behalf_of_id IS NOT NULL"),
+        ),
         Index("ix_wi_tenant_type_site", "tenant_id", "type", "site_id", "status_category", "id"),
         Index("ix_wi_tenant_type_priority", "tenant_id", "type", "priority", "id"),
         Index("ix_wi_tenant_type_display_number", "tenant_id", "type", "display_number"),

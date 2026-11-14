@@ -1548,6 +1548,19 @@ it with no reload (rule c). Not built yet.
     texts; the root cause's own gate (view_root_cause) applies after the role rules.
   - Next: b2 (search fails closed, `restricted` on live channels and 409s, designer refusal,
     AI and notification variables), then slice c (the editor) and lane C's analytics slice.
+- **Analytics slice, field access in reports (no migration; ADR-047 §5; lane C; lane B blocks):**
+  - The reporting source names the fields it withheld (`ReportingSource.withheld`, filled by the
+    work item source). A report that names one (filter, groupings, columns or sort) is refused
+    as `field_not_permitted` (403), never as an unknown field, never with values. This covers
+    runs, dashboards, exports and scheduled files.
+  - A dashboard widget refused this way (or by `measure_not_permitted`) shows "Not available to
+    you", not "could not be loaded".
+  - A schedule whose owner may no longer see a field it uses pauses as `field_not_permitted`
+    before any file is made. A recipient who may not see one gets no file; the others do
+    (counted in `last_failed`).
+  - [ ] Follow-up (coordinator, 2026-11-14): one notice per run to the owner naming who was
+    skipped and which fields (labels, no values). It is a notifications kind agreed with lane A,
+    and the run event carries the counts and field codes; no migration.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2477,6 +2490,22 @@ it with no reload (rule c). Not built yet.
   ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
   retry action for a failed erasure; the erasure screens (report, passage, redaction).
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- **S2, lane A's ports (0166; lane B blocked):**
+  - `work_items.references` (150): follows, record roles and board seats removed; chairs to the
+    successor; open tasks unassigned; pending approvals to the approval administrators
+    (`approver_erased`), never granted, with a required notice (the change fallback notice made
+    required too); their address off kept-informed lists and other messages' to/cc.
+  - `work_items.owned` (550): list settings, reminders, timers, drafts, private views and
+    personal reply templates deleted; shared ones to the successor; records they requested
+    lose the requester's text (subject the reserved marker, description, custom free text and
+    answers blanked); open records assigned to them back to the group's queue.
+  - `notifications` (560): deliveries, entries, rule mentions and preferences.
+    `integrations` (570): mail they sent cleared (ledger kept), block rules naming them removed.
+    `automation` (580): availability and round-robin rows; owned rules, triggers and workflows to
+    the successor. `sla` (190): nothing of theirs (IDs point at the anonymised row).
+  - 0166: DELETE on eight private tables, guarded so only the ports delete; `approver_erased`;
+    two requester indexes built concurrently. `work_items.records_requested_by` (#504) for
+    lane C's ai port.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 

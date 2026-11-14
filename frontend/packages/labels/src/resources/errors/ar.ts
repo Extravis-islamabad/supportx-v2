@@ -262,6 +262,8 @@ export const ar: LabelResource = {
   'errors.erasure_already_open': 'يوجد طلب مفتوح لمحو بيانات هذا الشخص.',
   'errors.erasure_approval_invalid': 'لم يعد اعتماد هذا المحو صالحًا.',
   'errors.erasure_break_glass_account': 'لا يمكن محو حساب طوارئ. أزِله من حسابات الطوارئ أولًا.',
+  'errors.erasure_directory_sync_unsafe':
+    'لا يمكن اعتماد هذا المحو بعد: قد تعيد مزامنة الدليل كتابة بيانات الشخص.',
   'errors.erasure_identity_unavailable': 'تعذّر الوصول إلى خدمة تسجيل الدخول. ستُعاد المحاولة.',
   'errors.erasure_mention_not_found':
     'لم يُعثر على هذا الموضع في عملية المحو هذه، أو لا يمكنك رؤية السجل الذي يرد فيه.',
@@ -760,6 +762,7 @@ export const ar: LabelResource = {
   'errors.field_access_rule_not_found': 'قاعدة الحقل هذه لم تعد موجودة.',
   'errors.field_keys_unavailable':
     'لا يمكن قراءة المعلومات المحمية أو حفظها الآن: مفتاح التثبيت غير متاح. اطلب من المسؤول التحقق منه.',
+  'errors.field_not_permitted': 'يستخدم هذا التقرير حقلًا غير متاح لك.',
   'errors.field_not_ruleable': 'لا يمكن تقييد هذا الحقل.',
   'errors.field_read_only': 'يمكنك قراءة هذا الحقل فقط، لذا لا يمكن تغييره.',
   'errors.file_link_expired': 'انتهت صلاحية الرابط. افتح الملف مجددًا.',

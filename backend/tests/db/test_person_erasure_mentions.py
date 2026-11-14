@@ -27,6 +27,7 @@ from sqlalchemy.exc import DBAPIError
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionTerms
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.service import erasure as erasure_service
 from app.modules.identity_access.service import erasure_job, erasure_mentions
 from app.modules.identity_access.service import person_mention_ports as lane_b
 from app.modules.identity_access.service.person_data import (
@@ -362,7 +363,9 @@ async def _complete(world: World, org: Org, erasure_id: uuid.UUID) -> None:
     )
 
 
-async def test_approval_needs_a_complete_then_reviewed_report(world: World) -> None:
+async def test_approval_needs_a_complete_then_reviewed_report(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
     a = world.a
     seeded = await _seed(world, a)
     approver = await _second_admin(world, a)
@@ -426,6 +429,9 @@ async def test_approval_needs_a_complete_then_reviewed_report(world: World) -> N
         headers={"If-Match": f'"{version + 1}"'},
     )
     assert own.status_code == 200, own.text
+    # Until directory sync skips erased people (#507), nothing is ever approved.
+    assert _code(await approve(version + 2)) == (409, "erasure_directory_sync_unsafe")
+    monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", True)
     approved = await approve(version + 2)
     assert approved.status_code == 200, approved.text
     states = await world.sql(
@@ -771,7 +777,9 @@ async def _values(world: World, org: Org, row_id: uuid.UUID) -> tuple[Any, Any]:
     return rows[0]["old_value"], rows[0]["new_value"]
 
 
-async def test_redaction_blanks_only_the_mentions_field_in_history(world: World) -> None:
+async def test_redaction_blanks_only_the_mentions_field_in_history(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """history_redact_field: the mention row's record and field only; tenant B untouched."""
     a, b = world.a, world.b
     seeded = await _seed(world, a)
@@ -819,6 +827,7 @@ async def test_redaction_blanks_only_the_mentions_field_in_history(world: World)
         headers={"If-Match": f'"{version}"'},
     )
     assert reviewed.status_code == 200, reviewed.text
+    monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", True)
     refused = await world.call(
         "POST",
         f"/erasures/{erasure_id}/approve",
