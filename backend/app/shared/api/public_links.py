@@ -118,7 +118,9 @@ async def private_answers() -> AsyncIterator[None]:
 
     Success answers set them on the response themselves; this covers the problem answers, which
     the error handler builds from the exception (its `headers`). List it first in the router's
-    dependencies so it wraps the rate limits as well.
+    dependencies so it wraps the rate limits as well. FastAPI's own 422 for a malformed body is
+    raised before any dependency and is not an AppError, so it goes without them; it holds
+    nothing but the field errors (lane B, #501).
     """
     try:
         yield
