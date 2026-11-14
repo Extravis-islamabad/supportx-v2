@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, NotFound, ValidationFailed
+from app.modules.automation.domain import field_refs
 from app.modules.automation.domain.rules import FieldKind
 from app.modules.automation.domain.workflows import (
     FORMAT,
@@ -146,6 +147,35 @@ async def problems_of(
     found = parsed.problems + validate(parsed.definition, await type_facts(session, record_type))
     found += await _sub_flow_problems(session, record_type, parsed.definition, workflow_id)
     return found + await _person_problems(session, parsed.definition)
+
+
+def _access_problems(
+    author: Subject | None, record_type: str, definition: Mapping[str, Any]
+) -> list[Problem]:
+    """Fields a step names that the workflow's author does not see in clear (ADR-047 §8).
+
+    A field update names its fields as the keys of `values`; conditions and copies name them
+    under `field` / `from_field`. Shown on the step like any problem; publishing waits for none.
+    """
+    if author is None:
+        return []
+    hidden = field_refs.withheld(author.field_access, record_type)
+    if not hidden:
+        return []
+    problems: list[Problem] = []
+    for node in definition.get("nodes") or []:
+        if not isinstance(node, Mapping):
+            continue
+        config = node.get("config") or {}
+        values = config.get("values") if isinstance(config, Mapping) else None
+        named = field_refs.named_fields(config) | (
+            set(values) if isinstance(values, Mapping) else set()
+        )
+        problems += [
+            (f"node:{node.get('id', '')}", "field_not_permitted", {"field": f})
+            for f in sorted(named & hidden)
+        ]
+    return problems
 
 
 async def _person_problems(session: AsyncSession, definition: Definition) -> list[Problem]:
@@ -283,6 +313,7 @@ async def save_draft(
     *,
     expected_version: int,
     definition: Mapping[str, Any],
+    author: Subject | None = None,
 ) -> tuple[Workflow, list[Problem]]:
     """The draft saves whatever its problems; they come back to be shown on the canvas."""
     workflow = await _get(session, workflow_id)
@@ -290,6 +321,7 @@ async def save_draft(
     # The designer only ever saw header values masked: the ones sent back masked stay as stored.
     definition = with_kept_secrets(definition, workflow.draft)
     problems = await problems_of(session, workflow.record_type, definition, workflow.id)
+    problems += _access_problems(author, workflow.record_type, definition)
     workflow.draft = dict(definition)
     workflow.draft_problems = len(problems)
     workflow.version += 1
@@ -304,11 +336,13 @@ async def publish(
     *,
     expected_version: int,
     by: uuid.UUID | None = None,
+    author: Subject | None = None,
 ) -> WorkflowVersion:
     """A clean draft becomes the next version; running instances keep theirs (REQ-WF-021)."""
     workflow = await _get(session, workflow_id)
     _stale(workflow, expected_version)
     problems = await problems_of(session, workflow.record_type, workflow.draft, workflow.id)
+    problems += _access_problems(author, workflow.record_type, workflow.draft)
     if problems:
         raise ValidationFailed(code="workflow_has_problems", params={"count": len(problems)})
     if workflow.service_identity_id is None:
