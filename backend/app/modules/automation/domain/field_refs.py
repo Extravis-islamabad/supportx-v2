@@ -9,12 +9,15 @@ so nobody wires a hidden value into a place they can see. Pure, no I/O.
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-REFERENCE_KEYS = frozenset({"field", "from_field"})
+# Every key a definition names one field under (conditions, set, set-variable, timer date) ...
+REFERENCE_KEYS = frozenset({"field", "from_field", "until_field"})
+# ... and the keys that list several (a webhook's fields go out with their values).
+LIST_KEYS = frozenset({"fields"})
 WITHHELD = frozenset({"hidden", "masked"})
 
 
 def named_fields(*trees: Any) -> set[str]:  # noqa: ANN401 - JSON definitions
-    """Every field name under a `field` or `from_field` key, anywhere in the definitions."""
+    """Every field name under a reference key, or in a list under a list key, anywhere."""
     found: set[str] = set()
 
     def walk(node: Any) -> None:  # noqa: ANN401 - JSON
@@ -22,6 +25,8 @@ def named_fields(*trees: Any) -> set[str]:  # noqa: ANN401 - JSON definitions
             for key, value in node.items():
                 if key in REFERENCE_KEYS and isinstance(value, str):
                     found.add(value)
+                elif key in LIST_KEYS and isinstance(value, list | tuple):
+                    found.update(v for v in value if isinstance(v, str))
                 else:
                     walk(value)
         elif isinstance(node, list | tuple):

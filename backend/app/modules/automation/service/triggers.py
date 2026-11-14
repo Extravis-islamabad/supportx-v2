@@ -210,7 +210,7 @@ def _author_problems(
 
 
 async def create_trigger(
-    session: AsyncSession, values: Mapping[str, Any], *, author: Subject | None = None
+    session: AsyncSession, values: Mapping[str, Any], *, author: Subject | None
 ) -> AutomationTrigger:
     """A new trigger, last in its type's order; a draft unless switched on deliberately."""
     cleaned, problems = await check(session, values)
@@ -238,7 +238,7 @@ async def update_trigger(
     values: Mapping[str, Any],
     *,
     expected_version: int,
-    author: Subject | None = None,
+    author: Subject | None,
 ) -> AutomationTrigger:
     """Change a trigger (If-Match). Its record type never changes."""
     current = await TriggerRepository(session).get(trigger_id)

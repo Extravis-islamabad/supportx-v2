@@ -131,6 +131,7 @@ from app.modules.identity_access.service.federation import (
 from app.modules.identity_access.service.field_access import (
     RuleableField,
     register_field_catalogue,
+    register_rule_listener,
     restricted_fields,
 )
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
@@ -551,6 +552,7 @@ __all__ = [
     "register_duties",
     "register_field_catalogue",
     "register_person_data",
+    "register_rule_listener",
     "release_from_directory",
     "remove_ldap_federation",
     "remove_service_identity_role",

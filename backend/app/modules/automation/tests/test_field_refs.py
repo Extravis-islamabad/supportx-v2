@@ -49,3 +49,11 @@ def test_a_workflow_step_setting_a_withheld_field_is_a_problem_on_that_step() ->
         ("node:if", "field_not_permitted", {"field": "impact_details"}),
     ]
     assert _access_problems(None, "incident", definition) == []  # no author: a system save
+
+
+def test_a_webhook_s_fields_and_a_timer_s_date_count_as_named() -> None:
+    """Lane B's #509 review: a webhook sends its fields' values out; a timer reads a date's."""
+    webhook = {"kind": "webhook", "config": {"url": "https://x.test", "fields": ["impact_details"]}}
+    timer = {"kind": "timer", "config": {"until_field": "custom.salary"}}
+    assert named_fields(webhook, timer) == {"impact_details", "custom.salary"}
+    assert refused(ACCESS, "incident", [webhook]) == ["impact_details"]

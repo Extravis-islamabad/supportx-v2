@@ -8,6 +8,8 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+import pytest
+
 from app.core.tenancy import TenantContext
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.service import search_rebuild
@@ -221,3 +223,121 @@ async def test_a_restricted_value_never_reaches_the_ai_gateway(world: World) -> 
     assert "Zebra42" not in repr(talk)
     assert "Zebra42" not in repr(texts)
     assert "Printer" in repr(texts)  # the record's own text is there
+
+
+async def test_search_finds_nothing_the_moment_the_rule_commits(world: World) -> None:  # noqa: F811
+    """Lane B's #509 review: the mark commits with the rule (an in-transaction listener), so no
+    consumer has to run first for search to fail closed."""
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Codename"}},
+        headers=CONSOLE,
+    )
+    key = made.json()["key"]
+    item = await world.create(
+        a, a.admin, group_id=str(a.ga), subject="Scanner offline", custom={key: "Quokka55"}
+    )
+    assert item["id"] in await _found(world, a, a.admin, "Quokka55")
+    (role,) = await world.sql(
+        "SELECT id FROM roles WHERE tenant_id = $1 AND key = 'technician'", a.tenant
+    )
+    added = await world.call(
+        "POST",
+        "/field-access/rules",
+        a,
+        a.admin,
+        json={
+            "role_id": str(role["id"]),
+            "record_type": "incident",
+            "field": f"custom.{key}",
+            "mode": "hidden",
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert added.status_code == 201, added.text
+    # No consumer and no rebuild have run: the rule's own transaction set the mark.
+    assert await _found(world, a, a.admin, "Quokka55") == []
+    assert item["id"] in await _found(world, a, a.admin, "Scanner")
+
+
+async def test_a_rebuild_with_a_time_budget_goes_on_where_it_stopped(
+    world: World,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lane B's #509 note: a big type is rebuilt over several ticks, search closed throughout."""
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Codename"}},
+        headers=CONSOLE,
+    )
+    key = made.json()["key"]
+    for word in ("Ibis1", "Ibis2", "Ibis3"):
+        await world.create(a, a.admin, group_id=str(a.ga), custom={key: word})
+    await _restrict(world, a, f"custom.{key}")
+    monkeypatch.setattr(search_rebuild, "PAGE", 1)
+    database = world.app.state.db
+    calls = 0
+    while not await search_rebuild.rebuild(database, a.tenant, INCIDENT, budget_seconds=0):
+        calls += 1
+        assert calls < 50, "the pass never finished"
+        assert await _found(world, a, a.admin, "Ibis1") == []  # closed between ticks too
+    assert calls >= 2
+    rows = await world.sql(
+        "SELECT custom_text FROM work_items WHERE tenant_id = $1 AND type = 'incident'", a.tenant
+    )
+    assert not any("Ibis" in json.dumps(r["custom_text"]) for r in rows)
+
+
+async def test_a_failing_listener_fails_the_rule_change(
+    world: World,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lane B's #509 review: the mark and the rule commit together or not at all."""
+    from app.modules.identity_access.domain.field_access import FieldMode  # noqa: PLC0415
+    from app.modules.identity_access.service import field_access  # noqa: PLC0415 - one test
+
+    async def boom(*_: object) -> None:
+        msg = "listener failed"
+        raise RuntimeError(msg)
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Codename"}},
+        headers=CONSOLE,
+    )
+    key = made.json()["key"]
+    (role,) = await world.sql(
+        "SELECT id FROM roles WHERE tenant_id = $1 AND key = 'technician'", a.tenant
+    )
+    monkeypatch.setattr(field_access, "_LISTENERS", [boom])
+    subject = await world.app.state.policy.subject(a.tenant, a.admin)
+    with pytest.raises(RuntimeError, match="listener failed"):
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            await field_access.set_rule(
+                session,
+                subject,
+                role_id=role["id"],
+                record_type="incident",
+                field_key=f"custom.{key}",
+                mode=FieldMode.HIDDEN,
+            )
+    assert (
+        await world.sql(
+            "SELECT 1 FROM role_field_access WHERE tenant_id = $1 AND field = $2",
+            a.tenant,
+            f"custom.{key}",
+        )
+        == []
+    )

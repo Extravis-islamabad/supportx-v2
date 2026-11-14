@@ -545,7 +545,7 @@ async def create_template(  # noqa: PLR0913 - the template, its source, a copy's
     *,
     source: Source,
     copied_from: WorkItemTemplate | None = None,
-    author: Subject | None = None,
+    author: Subject | None,
 ) -> WorkItemTemplate:
     """A new template (or a copy, marked as one: AC3). Never the default when created."""
     _author_may_set(author, wtype, values.get("defaults"))
@@ -654,6 +654,8 @@ async def copy_template(
         },
         source=source,
         copied_from=original,
+        # No author check: the copy carries names and description only, never field defaults.
+        author=None,
     )
 
 
@@ -688,7 +690,7 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
     expected_version: int,
     values: Mapping[str, Any],
     source: Source,
-    author: Subject | None = None,
+    author: Subject | None,
 ) -> WorkItemTemplate:
     """Change any part of a template; making it the default unsets the previous default."""
     _author_may_set(author, wtype, values.get("defaults"))

@@ -197,7 +197,7 @@ def _author_problems(
 
 
 async def create_rule(
-    session: AsyncSession, values: Mapping[str, Any], *, author: Subject | None = None
+    session: AsyncSession, values: Mapping[str, Any], *, author: Subject | None
 ) -> BusinessRule:
     """A new rule, last in its type's order; a draft unless switched on deliberately."""
     cleaned, problems = await check_rule(session, values)
@@ -232,7 +232,7 @@ async def update_rule(
     values: Mapping[str, Any],
     *,
     expected_version: int,
-    author: Subject | None = None,
+    author: Subject | None,
 ) -> BusinessRule:
     """Change a rule (If-Match). Its record type never changes."""
     current = await RuleRepository(session).get(rule_id)

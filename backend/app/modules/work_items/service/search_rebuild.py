@@ -5,14 +5,16 @@ whoever searches. When a custom field gains or loses rules, every record of that
 search text rebuilt, and until that is done search **fails closed**: it ignores custom text for
 that type, for everyone (fewer matches for a while, never a leak).
 
-- `on_field_access_changed` marks the type (`custom_text_rebuilding_since`, migration 0162) in
-  the event's transaction.
+- `mark` sets the type's mark (`custom_text_rebuilding_since`, migration 0162) inside the rule
+  change's own transaction (an identity_access rule listener); the `field_access.changed`
+  consumer sets it again as a backstop.
 - `rebuild_schedule` passes over the marked types' records in committed pages, writing only the
   rows whose search text changes (never the version or the time a person changed it), and
   clears the mark when a pass ends with no newer rule change since it started.
 - `rebuilding(session, wtype)` tells search to match the subject and description only.
 """
 
+import time
 import uuid
 from datetime import UTC, datetime
 
@@ -23,7 +25,7 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
-from app.modules.identity_access import restricted_fields
+from app.modules.identity_access import register_rule_listener, restricted_fields
 from app.modules.work_items.domain.field_access import CUSTOM
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemTypeSettings
@@ -52,21 +54,35 @@ async def rebuilding(session: AsyncSession, wtype: WorkItemType) -> bool:
     return since is not None
 
 
-async def on_field_access_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
-    """A custom field's rules changed: the type's search text is rebuilt, closed meanwhile."""
-    field = str(envelope.payload.get("field", ""))
-    record_type = str(envelope.payload.get("record_type", ""))
-    if (
-        session is None
-        or not field.startswith(CUSTOM)
-        or record_type not in {c.value for c in TYPES}
-    ):
+async def mark(session: AsyncSession, record_type: str, field: str) -> None:
+    """A custom field's rules changed: the type's search text is rebuilt, closed meanwhile.
+
+    Registered with identity_access as a rule listener, so the mark commits with the rule
+    itself: there is no moment where the rule holds and search still matches its words.
+    """
+    if not field.startswith(CUSTOM) or record_type not in {c.value for c in TYPES}:
         return
     await session.execute(
         update(WorkItemTypeSettings)
         .where(WorkItemTypeSettings.type == record_type)
         .values(custom_text_rebuilding_since=datetime.now(UTC))
     )
+
+
+async def on_field_access_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """The backstop: the same mark from the event (a rule changed some other way)."""
+    if session is None:
+        return
+    await mark(
+        session,
+        str(envelope.payload.get("record_type", "")),
+        str(envelope.payload.get("field", "")),
+    )
+
+
+def register() -> None:
+    """The in-transaction listener (at import, like the field catalogue)."""
+    register_rule_listener(mark)
 
 
 FIELD_ACCESS_CHANGED = ConsumerSpec(
@@ -105,9 +121,26 @@ async def _page(
     return changed, (rows[-1].id if len(rows) == PAGE else None)
 
 
-async def rebuild(database: Database, tenant: uuid.UUID, wtype: WorkItemType) -> bool:
-    """One full pass over a marked type; True when the mark could be cleared."""
+# Where an unfinished pass stopped, per tenant and type, with the mark it was started for. In
+# process only: after a restart a pass starts again from the first record (slower, never wrong).
+_PROGRESS: dict[tuple[uuid.UUID, str], tuple[datetime, uuid.UUID]] = {}
+BUDGET_SECONDS = 50.0  # inside the schedule's 60 s, so a big type never stacks up ticks
+
+
+async def rebuild(
+    database: Database,
+    tenant: uuid.UUID,
+    wtype: WorkItemType,
+    *,
+    budget_seconds: float | None = None,
+) -> bool:
+    """A pass over a marked type; True when the mark could be cleared.
+
+    With a budget the pass stops after it (between pages) and the next call goes on from there;
+    False then means "not finished yet". The mark stays the whole time, so search stays closed.
+    """
     context = TenantContext(tenant)
+    key = (tenant, wtype.code.value)
     async with database.tenant_session(context) as session:
         started = await session.scalar(
             select(WorkItemTypeSettings.custom_text_rebuilding_since).where(
@@ -115,13 +148,20 @@ async def rebuild(database: Database, tenant: uuid.UUID, wtype: WorkItemType) ->
             )
         )
     if started is None:
+        _PROGRESS.pop(key, None)
         return True
-    after: uuid.UUID | None = None
+    kept = _PROGRESS.pop(key, None)
+    # A newer rule change (a newer mark) starts the pass again: its rows may differ.
+    after: uuid.UUID | None = kept[1] if kept is not None and kept[0] == started else None
+    deadline = None if budget_seconds is None else time.monotonic() + budget_seconds
     while True:
         async with database.tenant_session(context) as session:
             _, after = await _page(session, wtype, after)
         if after is None:
             break
+        if deadline is not None and time.monotonic() >= deadline:
+            _PROGRESS[key] = (started, after)
+            return False
     async with database.tenant_session(context) as session:
         # Cleared only if no rule changed while the pass ran: a newer change asks for another.
         result = await session.execute(
@@ -155,14 +195,18 @@ async def rebuild_schedule(database: Database, settings: Settings) -> None:
             )
         for code in marked:
             wtype = TYPES.get(WorkItemTypeCode(code))
-            if wtype is not None and not await rebuild(database, tenant, wtype):
-                log.info("search_text_rebuild_again", tenant_id=str(tenant), type=code)
+            if wtype is not None and not await rebuild(
+                database, tenant, wtype, budget_seconds=BUDGET_SECONDS
+            ):
+                log.info("search_text_rebuild_continues", tenant_id=str(tenant), type=code)
 
 
 __all__ = [
     "FIELD_ACCESS_CHANGED",
+    "mark",
     "rebuild",
     "rebuild_schedule",
     "rebuilding",
+    "register",
     "withheld_keys",
 ]

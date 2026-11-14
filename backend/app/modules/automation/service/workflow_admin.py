@@ -313,7 +313,7 @@ async def save_draft(
     *,
     expected_version: int,
     definition: Mapping[str, Any],
-    author: Subject | None = None,
+    author: Subject | None,
 ) -> tuple[Workflow, list[Problem]]:
     """The draft saves whatever its problems; they come back to be shown on the canvas."""
     workflow = await _get(session, workflow_id)
@@ -336,7 +336,7 @@ async def publish(
     *,
     expected_version: int,
     by: uuid.UUID | None = None,
-    author: Subject | None = None,
+    author: Subject | None,
 ) -> WorkflowVersion:
     """A clean draft becomes the next version; running instances keep theirs (REQ-WF-021)."""
     workflow = await _get(session, workflow_id)
