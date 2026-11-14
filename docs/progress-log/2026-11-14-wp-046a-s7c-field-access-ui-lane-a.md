@@ -1,4 +1,4 @@
-# 2026-11-14 — WP-046a S7 slice c: the field access editor (lane A)
+### 2026-11-14 — WP-046a S7 slice c: the field access editor (lane A)
 
 ADR-047 slice c, plan approved by lane C with UI conditions (one save model per tab, a Modal for
 "Who sees this", `RestrictedValue` in packages/ui, "No rule" for the empty mode).
