@@ -9,9 +9,11 @@ after 7 days (the job's schedule marks it). The routes audit every step; this wr
 its event in one transaction (rule b) and checks If-Match on changes (rule g).
 
 **Approval needs the mentions report (D-171 a).** It is the approver's view of where the person
-is named in other people's text, and ships with S1b, which fills `report`. Until then every
-approval is refused with `erasure_report_unavailable`, and the job refuses to run an erasure
-without a report too: no erasure can run before S1b.
+is named in other people's text (S1b, service/erasure_mentions.py). Approval is refused with
+`erasure_report_unavailable` while the report is missing or incomplete (a required module's
+port has not run) and with `erasure_report_not_reviewed` until an admin reviewed it; the job
+refuses an incomplete report too. S1b's REQUIRED_MENTION_PORTS names S2's modules, so no report
+is complete and no erasure can run before S2.
 """
 
 import uuid
@@ -31,6 +33,11 @@ from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.people import clean_text
 from app.modules.identity_access.events import PersonErasureChanged
 from app.modules.identity_access.infra.models import PersonErasure, User
+from app.modules.identity_access.service.erasure_mentions import (
+    leave_found,
+    report_complete,
+    signed_history_kept,
+)
 from app.modules.identity_access.service.legal_hold import person_held
 from app.modules.identity_access.service.people import get_person
 from app.modules.identity_access.service.roles import guard_last_admin, holds_tenant_admin
@@ -56,6 +63,11 @@ class ErasureRequest:
 def _field(name: str, code: str, params: Mapping[str, ParamValue] | None = None) -> FieldError:
     key = "errors.field.value_too_long_max" if code == "value_too_long" else f"errors.field.{code}"
     return FieldError(field=f"body.{name}", code=code, message_key=key, params=dict(params or {}))
+
+
+# Directory sync must never touch an erased person before one can be approved (D-171): #507
+# makes it so and turns this on (the coordinator, 2026-11-14).
+DIRECTORY_SYNC_SKIPS_ERASED = False
 
 
 async def refusal(session: AsyncSession, person: User, *, actor_id: uuid.UUID | None) -> str | None:
@@ -237,7 +249,7 @@ async def approve(  # noqa: PLR0913 - the erasure, its version, who and the type
     confirm_name: str,
     now: datetime,
 ) -> PersonErasure:
-    """Admin B approves; the job then runs. Refused until the mentions report exists (S1b)."""
+    """Admin B approves; the job then runs. Needs a complete, reviewed mentions report."""
     row = await _locked(session, erasure_id, expected_version)
     if not rules.can("approve", ErasureState(row.state)).allowed:
         raise Conflict(code=rules.NOT_PENDING, params={"state": row.state})
@@ -249,14 +261,25 @@ async def approve(  # noqa: PLR0913 - the erasure, its version, who and the type
     if not rules.same_name(confirm_name, person.display_name):
         raise ValidationFailed(errors=[_field("confirm_name", "erasure_confirm_name_mismatch")])
     await _refuse_if_needed(session, person, actor_id)
-    if row.report is None:
-        # D-171 (a): the approver must see where the person is named in other people's text.
-        # S1b builds that report; until then nothing can be approved, so nothing can run.
+    if not report_complete(row.report):
+        # D-171 (a): the approver must see where the person is named in other people's text,
+        # in a report every required module took part in. Until S2's ports land, no report is
+        # complete (REQUIRED_MENTION_PORTS), so nothing can be approved, so nothing can run.
         raise Conflict(code=rules.REPORT_UNAVAILABLE)
+    if row.report_reviewed_at is None or row.report_reviewed_by != actor_id:
+        # The approver must have looked at the report themselves (D-171 a: "the approver sees
+        # the report"), not only someone else (lane B's review of S1b).
+        raise Conflict(code=rules.REPORT_NOT_REVIEWED)
+    if not DIRECTORY_SYNC_SKIPS_ERASED:
+        raise Conflict(code=rules.DIRECTORY_SYNC_UNSAFE)
+    if await signed_history_kept(session, row.id):
+        # D-171: a redacted original is never kept; signed history cannot be redacted yet.
+        raise Conflict(code=rules.SIGNED_HISTORY_KEPT)
     row.state = ErasureState.APPROVED.value
     row.approved_by, row.approved_at = actor_id, now
     row.version += 1
     await session.flush()
+    await leave_found(session, row.id)  # the approver saw these and left them in place
     await _changed(session, row)
     return row
 

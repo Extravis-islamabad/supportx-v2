@@ -14,7 +14,11 @@ snapshots; no permission check inside, the caller gates who sees money), and
 `get_policy` (FastAPI dependency giving the policy service, e.g. who holds a permission, for
 owner pickers); GDPR erasure (ADR-052): `PersonData`, `ErasureBatch`, `ERASE_BATCH` and
 `register_person_data` (each module that holds person data registers its port; `REQUIRED_PORTS`
-lists those the job will not run without), `ERASED_ON_REQUEST` (D2a: the one marker for blanked
+lists those the job will not run without), the mentions report (S1b): `PersonMentions`,
+`Mention`, `MentionBatch`, `MentionTerms`, `MentionMatchKind`, `MENTION_BATCH`,
+`register_mentions`, `REQUIRED_MENTION_PORTS`, and the matching helpers `count_matches` and
+`redact_matches` (plain text) and `count_matches_html` and `redact_html` (rich text: between tags
+only), `ERASED_ON_REQUEST` (D2a: the one marker for blanked
 requester text, from app.shared.erasure), and `legal_hold` / `person_held` (H1: a held person is
 never erased). Sessions reach the rest of the app only as the `TenantContext` resolved by
 app.core.tenancy; routes declare permissions with app.core.authorization.require_permission.
@@ -61,6 +65,14 @@ from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
 from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.mentions import (
+    MentionMatchKind,
+    MentionTerms,
+    count_matches,
+    count_matches_html,
+    redact_html,
+)
+from app.modules.identity_access.domain.mentions import redact as redact_matches
 from app.modules.identity_access.domain.permissions import (
     ASSET_MANAGER,
     CHANGE_MANAGER,
@@ -145,12 +157,21 @@ from app.modules.identity_access.service.people import (
 from app.modules.identity_access.service.people_import import run_people_imports
 from app.modules.identity_access.service.person_data import (
     ERASE_BATCH,
+    MENTION_BATCH,
+    REQUIRED_MENTION_PORTS,
     REQUIRED_PORTS,
     ErasureBatch,
+    Mention,
+    MentionBatch,
     PersonData,
+    PersonMentions,
+    register_mentions,
     register_person_data,
 )
 from app.modules.identity_access.service.person_data_ports import register_lane_b_ports
+from app.modules.identity_access.service.person_mention_ports import (
+    register_lane_b_mention_ports,
+)
 from app.modules.identity_access.service.policy import (
     FieldRule,
     PolicyService,
@@ -421,6 +442,7 @@ async def _shutdown(app: FastAPI) -> None:
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
 security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
+register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
 expiry_notifications.register()  # admins hear before a sign-in certificate or secret runs out
 
 module = ModuleSpec(
@@ -489,10 +511,12 @@ __all__ = [
     "ERASED_ON_REQUEST",
     "ERASE_BATCH",
     "KNOWLEDGE_MANAGER",
+    "MENTION_BATCH",
     "PROBLEM_MANAGER",
     "PURCHASE_MANAGER",
     "RELEASE_MANAGER",
     "REPORT_VIEWER",
+    "REQUIRED_MENTION_PORTS",
     "REQUIRED_PORTS",
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",
@@ -505,9 +529,14 @@ __all__ = [
     "FieldRule",
     "LeaverOutcome",
     "MailRecipient",
+    "Mention",
+    "MentionBatch",
+    "MentionMatchKind",
+    "MentionTerms",
     "NotifiablePerson",
     "OpenDuty",
     "PersonData",
+    "PersonMentions",
     "Placement",
     "PolicyService",
     "RecordFacts",
@@ -529,6 +558,8 @@ __all__ = [
     "authorize_stored",
     "check_group_grantable",
     "cost_rate",
+    "count_matches",
+    "count_matches_html",
     "create_requester_from_mail",
     "create_service_identity",
     "direct_reports",
@@ -547,8 +578,11 @@ __all__ = [
     "person_held",
     "person_placement",
     "put_ldap_federation",
+    "redact_html",
+    "redact_matches",
     "register_duties",
     "register_field_catalogue",
+    "register_mentions",
     "register_person_data",
     "release_from_directory",
     "remove_ldap_federation",
