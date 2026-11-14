@@ -3,8 +3,9 @@
 - Mail they sent: the ledger row stays (its counts and outcome), but the sender becomes the
   reserved marker and the subject too, and the raw message goes (it would otherwise wait for the
   quarantine's expiry). In bounded batches, by address.
-- A block rule naming their address as the sender comes off (soft-deleted, as an admin's
-  removal), so their address is held nowhere.
+- A block rule naming their address as the sender stays: lifting it would silently undo an
+  admin's block (lane B's #505 review), and a soft delete would keep the address anyway. The
+  rule is the organisation's record of whom it refuses mail from.
 
 The directory link (directory_people, WP-040's sync) is the directory module's, not here.
 Counts only.
@@ -24,16 +25,16 @@ from app.modules.identity_access import (
     register_person_data,
     user_contacts,
 )
-from app.modules.integrations.infra.models import MailBlockRule, MailFetched
+from app.modules.integrations.infra.models import MailFetched
 from app.shared.erasure import ERASED_ON_REQUEST
 
 
 class Integrations:
-    """`integrations`: the mail they sent and block rules naming them (band 500-599)."""
+    """`integrations`: the mail they sent (band 500-599)."""
 
     module: ClassVar[str] = "integrations"
     order: ClassVar[int] = 570
-    kinds: ClassVar[frozenset[str]] = frozenset({"mail_cleared", "block_rules_removed"})
+    kinds: ClassVar[frozenset[str]] = frozenset({"mail_cleared"})
 
     async def erase_person(  # noqa: PLR0913 - the port contract
         self,
@@ -45,8 +46,8 @@ class Integrations:
         now: datetime,
         cursor: str | None,
     ) -> ErasureBatch:
-        """One batch of their mail; the block rules with the first call."""
-        del successor_id, keep_files, cursor  # by address: cleared rows no longer match
+        """One batch of their mail."""
+        del successor_id, keep_files, now, cursor  # by address: cleared rows no longer match
         key = str(person_id)
         contact = (await user_contacts(session, [key])).get(key)
         email = contact[1] if contact else None
@@ -54,22 +55,6 @@ class Integrations:
             return ErasureBatch({})
         address = email.casefold()
         counts: dict[str, int] = {}
-        rules = list(
-            await session.scalars(
-                select(MailBlockRule)
-                .where(
-                    MailBlockRule.kind == "sender",
-                    func.lower(MailBlockRule.value) == address,
-                    MailBlockRule.deleted_at.is_(None),
-                )
-                .with_for_update()
-            )
-        )
-        for rule in rules:
-            rule.deleted_at = now
-            rule.version += 1
-        if rules:
-            counts["block_rules_removed"] = len(rules)
         mail = list(
             await session.scalars(
                 select(MailFetched)

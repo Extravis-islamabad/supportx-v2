@@ -39,6 +39,7 @@ from app.modules.identity_access import (
 from app.modules.metadata import FieldType
 from app.modules.work_items.domain import approvals as approval_rules
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES
+from app.modules.work_items.domain.parts import OPEN_TASK_STATUSES
 from app.modules.work_items.infra.models import (
     ChangeBoard,
     ChangeBoardMember,
@@ -161,10 +162,13 @@ async def _chairs(run: Run, after: uuid.UUID | None) -> tuple[dict[str, int], uu
 
 
 async def _tasks(run: Run, after: uuid.UUID | None) -> tuple[dict[str, int], uuid.UUID | None]:
-    """Open tasks they own become unassigned (done ones keep their name)."""
+    """Open and in-progress tasks they own become unassigned (done ones keep their name)."""
     query = (
         select(WorkItemTask)
-        .where(WorkItemTask.owner_id == run.person_id, WorkItemTask.status == "open")
+        .where(
+            WorkItemTask.owner_id == run.person_id,
+            WorkItemTask.status.in_(OPEN_TASK_STATUSES),  # open and in progress (lane B)
+        )
         .order_by(WorkItemTask.id)
         .limit(ERASE_BATCH)
         .with_for_update()
@@ -347,9 +351,16 @@ async def _drafts(run: Run, after: uuid.UUID | None) -> tuple[dict[str, int], uu
 
 
 async def _text_fields(session: AsyncSession, record_type: str) -> frozenset[str]:
-    """The record type's free-text custom fields (choices and the like are not their words)."""
+    """The custom fields blanked on a requested record: free text, and any marked personal data.
+
+    Any type when marked personal data (lane B's #505 review: a date of birth, a choice of
+    nationality); retired fields too, since old values keep their rules.
+    """
     found = await metadata.definitions(session, record_type)
-    return frozenset(k for k, d in found.items() if d.type in {FieldType.TEXT, FieldType.LONG_TEXT})
+    texts = {k for k, d in found.items() if d.type in {FieldType.TEXT, FieldType.LONG_TEXT}}
+    marked = {f.key for f in await metadata.field_marks(session, record_type, retired=True)
+              if f.personal_data}  # fmt: skip
+    return frozenset(texts | marked)
 
 
 async def _requested(run: Run, after: uuid.UUID | None) -> tuple[dict[str, int], uuid.UUID | None]:
@@ -379,6 +390,7 @@ async def _requested(run: Run, after: uuid.UUID | None) -> tuple[dict[str, int],
             blank: dict[str, Any] = {
                 "subject": ERASED_ON_REQUEST,
                 "description": None,
+                "impact_details": None,  # their account of the impact (lane B's note)
                 "custom_text": None,
                 "answers": {},
             }

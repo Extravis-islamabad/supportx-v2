@@ -137,3 +137,63 @@ async def test_another_tenant_is_untouched(world: World) -> None:  # noqa: F811
         uuid.UUID(mine["id"]),
     )
     assert "B" in row["description"]
+
+
+async def test_in_progress_tasks_are_unassigned_too(world: World) -> None:  # noqa: F811
+    """Lane B's #505 review: open and in progress, never only "open"."""
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga))
+    for title in ("Open", "Started"):
+        made = await world.call(
+            "POST",
+            f"{BASE}/{item['id']}/tasks",
+            a,
+            a.admin,
+            json={"title": title, "owner_id": str(a.tech_a)},
+            headers=CONSOLE,
+        )
+        assert made.status_code == 201, made.text
+    await world.sql(
+        "UPDATE work_item_tasks SET status = 'in_progress'"
+        " WHERE tenant_id = $1 AND work_item_id = $2 AND title = 'Started'",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    counts = await _erase(world, a.tenant, a.tech_a, REFERENCES)
+    assert counts["tasks_unassigned"] == 2
+    assert (
+        await world.sql(
+            "SELECT 1 FROM work_item_tasks WHERE tenant_id = $1 AND owner_id = $2",
+            a.tenant,
+            a.tech_a,
+        )
+        == []
+    )
+
+
+async def test_a_personal_data_field_of_any_type_is_blanked(world: World) -> None:  # noqa: F811
+    """Lane B's #505 review: a date marked personal data goes, not only free text."""
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "date", "labels": {"en": "Date of birth"}},
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    key = made.json()["key"]
+    await world.sql(
+        "UPDATE custom_fields SET personal_data = true WHERE tenant_id = $1 AND key = $2",
+        a.tenant,
+        key,
+    )
+    item = await world.create(a, a.admin, requester_id=str(a.requester), custom={key: "1990-04-01"})
+    await _erase(world, a.tenant, a.requester, OWNED)
+    (row,) = await world.sql(
+        "SELECT custom FROM work_items WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    assert "1990-04-01" not in str(row["custom"])
