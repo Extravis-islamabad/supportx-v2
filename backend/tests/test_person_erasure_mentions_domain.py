@@ -97,20 +97,23 @@ def test_redaction_replaces_only_one_kind() -> None:
     assert count_matches(mailed, MentionTerms()) == {}
 
 
-def test_s1b_required_ports_keep_every_report_incomplete() -> None:
-    """S2's modules are required but have no port yet: approval stays refused in practice."""
+def test_every_required_mentions_port_is_registered() -> None:
+    """Every module the report needs has its port since #516: an erasure can be approved."""
+    import app.modules.announcements  # noqa: PLC0415 - registers lane C's port
     import app.modules.assets  # noqa: PLC0415 - registers the assets port
-    import app.modules.identity_access  # noqa: F401, PLC0415 - registers lane B's ports
+    import app.modules.identity_access  # noqa: PLC0415 - registers lane B's ports
+    import app.modules.integrations  # noqa: PLC0415 - registers lane A's port
+    import app.modules.knowledge  # noqa: PLC0415 - registers lane C's port
+    import app.modules.work_items  # noqa: F401, PLC0415 - registers lane A's port
 
     registered = {port.module for port in mention_ports()}
-    assert {"identity_access", "files", "assets"} <= registered
     assert {
         "work_items",  # one key: a mention search has no band (lane A's #506 review)
         "integrations",
         "knowledge",
         "announcements",
     } <= REQUIRED_MENTION_PORTS
-    assert missing_mention_ports(registered) != []
+    assert missing_mention_ports(registered) == []
     for port in LANE_B_MENTION_PORTS:
         assert isinstance(port, PersonMentions)
 

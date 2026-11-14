@@ -2526,6 +2526,16 @@ it with no reload (rule c). Not built yet.
     0165 grants DELETE on four tables; `tests/test_erasure_deletes.py` fails on any other hard
     delete of them. Labels en/ar/ur.
   - Summaries: the ai erasure consumer already deletes them (D-131).
+  - [x] Lane C's mentions ports (migration 0168, 2026-11-14), both in `REQUIRED_MENTION_PORTS`:
+    - `knowledge`: every article version (title, body, keywords, change, internal and reject
+      notes), others' feedback comments, withdrawal reasons, topic names and descriptions.
+    - `announcements`: title and body.
+    - Published versions are frozen (0036). 0168's `kb_redact_version` changes their title,
+      body or keywords only for a redacted mention of an open erasure, only into the old text
+      with the marker in place (checked in SQL). The freeze lets it through only as the
+      function's owner with a one-row transaction flag that it clears at once.
+    - History names the field only (`erasure_redaction`); saved events raised; search follows
+      (a computed column); too long refused; passages follow the article screen's rights.
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
 - [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
   short one-word names flagged, never stored; task mentions say they reach the record's task
