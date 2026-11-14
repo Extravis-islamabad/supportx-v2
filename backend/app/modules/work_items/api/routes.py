@@ -753,6 +753,13 @@ class WorkItemOut(BaseModel):
         default_factory=list,
         description="Fields shown to you as masked (null here, shown as masked; ADR-047).",
     )
+    read_only_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Fields you may not change (ADR-047): every restricted field, hidden and masked"
+            " ones included; custom ones as custom.<key>."
+        ),
+    )
 
     @classmethod
     def of(cls, view: service.WorkItemView) -> "WorkItemOut":
@@ -769,6 +776,7 @@ class WorkItemOut(BaseModel):
             **values,
             hidden_fields=sorted(view.hidden),
             masked_fields=sorted(view.masked),
+            read_only_fields=sorted(view.read_only),
             root_cause=None if "root_cause" in withheld else r.root_cause,
             root_cause_hidden="root_cause" in view.hidden,
             review_required=view.review_required,

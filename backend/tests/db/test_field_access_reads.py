@@ -359,3 +359,42 @@ async def test_the_template_s_own_default_passes_on_create(world: World) -> None
     assert (await create("B7")).status_code == 201  # the template's own value
     other = await create("C9")
     assert (other.status_code, other.json()["code"]) == (403, "field_read_only"), other.text
+
+
+async def test_read_only_fields_are_listed_on_the_record(world: World) -> None:  # noqa: F811
+    """Slice c: the page disables a restricted field up front (every rule implies read-only)."""
+    a = world.a
+    grade = await _custom_field(world, a, "Grade")
+    salary = await _custom_field(world, a, "Salary band")
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={grade: "Senior"})
+    await _rule(world, a, "technician", f"custom.{grade}", "read_only")
+    await _rule(world, a, "technician", f"custom.{salary}", "hidden")
+    body = (await world.call("GET", f"{BASE}/{item['id']}", a, a.tech_a)).json()
+    assert body["read_only_fields"] == sorted([f"custom.{grade}", f"custom.{salary}"])
+    assert body["custom"][grade] == "Senior"  # read-only: shown
+    full = (await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)).json()
+    assert full["read_only_fields"] == []
+
+
+async def test_a_record_handed_out_of_reach_comes_back_redacted(world: World) -> None:  # noqa: F811
+    """D-053's response carries the record as saved: the writer's rules still apply to it."""
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    item = await world.create(
+        a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a), custom={salary: "B7"}
+    )
+    await _rule(world, a, "technician", f"custom.{salary}", "hidden")
+    current = (await world.get(a, a.tech_a, item)).json()
+    handed = await world.assign(
+        a,
+        a.tech_a,
+        current,
+        group=a.gb,
+        reason_code="wrong_group",
+        confirm_lose_access=True,
+        keep_following=False,
+    )
+    assert handed.status_code == 200, handed.text
+    assert handed.json()["visible"] is False
+    assert "B7" not in handed.text
+    assert handed.json()["hidden_fields"] == [f"custom.{salary}"]
