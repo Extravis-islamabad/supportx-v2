@@ -70,6 +70,7 @@ export const ar: LabelResource = {
   'approval_purpose.accept_without_fix': 'القبول دون إصلاح',
   'approval_purpose.record': 'موافقة',
   'approval_purpose.workflow': 'موافقة سير العمل',
+  'approval_route_reason.approver_erased': 'حُذفت بيانات المعتمِد بناءً على طلبه',
   'approval_route_reason.approver_inactive': 'الموافق لم يعد نشطًا، لذا أُحيلت إلى الموافق البديل.',
   'approval_route_reason.board_has_no_members': 'لا يضم المجلس الاستشاري أعضاء بعد',
   'approval_route_reason.no_holder': 'لا أحد يشغل دور الموافقة بعد',

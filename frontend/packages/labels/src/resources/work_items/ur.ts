@@ -64,6 +64,7 @@ export const ur: LabelResource = {
   'approval_purpose.accept_without_fix': 'حل کے بغیر قبول',
   'approval_purpose.record': 'منظوری',
   'approval_purpose.workflow': 'ورک فلو کی منظوری',
+  'approval_route_reason.approver_erased': 'منظوری دینے والے کا ڈیٹا ان کی درخواست پر مٹا دیا گیا',
   'approval_route_reason.approver_inactive':
     'منظوری دہندہ اب فعال نہیں، اس لیے یہ متبادل منظوری دہندہ کو گئی۔',
   'approval_route_reason.board_has_no_members': 'مشاورتی بورڈ میں ابھی کوئی رکن نہیں',

@@ -61,6 +61,7 @@ export const en = {
   'approval_purpose.accept_without_fix': 'Accept without a fix',
   'approval_purpose.record': 'Approval',
   'approval_purpose.workflow': 'Workflow approval',
+  'approval_route_reason.approver_erased': 'The approver’s data was erased at their request',
   'approval_route_reason.approver_inactive':
     'The approver is no longer active, so it went to the fallback approver.',
   'approval_route_reason.board_has_no_members': 'The advisory board has no members yet',
