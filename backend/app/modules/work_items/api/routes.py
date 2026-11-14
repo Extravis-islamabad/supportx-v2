@@ -35,7 +35,10 @@ from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
-from app.modules.work_items.api.problem_routes import add_problem_routes
+from app.modules.work_items.api.problem_routes import (
+    add_approval_request_route,
+    add_problem_routes,
+)
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import field_access as field_rules
@@ -2772,9 +2775,11 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         WorkItemTypeCode.RELEASE,
         WorkItemTypeCode.PROBLEM,
         WorkItemTypeCode.CHANGE,
+        WorkItemTypeCode.INCIDENT,
     }:
-        # Release and change stage approvals (WP-058a s5, WP-045a) and problem approvals asked
-        # ad hoc (WP-044b s4): none has a requester's withdrawal (a change is canceled instead).
+        # Release and change stage approvals (WP-058a s5, WP-045a) and problem and incident
+        # approvals asked ad hoc (WP-044b s4, WP-046b S1): none has a requester's withdrawal (a
+        # change is canceled instead).
         add_approval_routes(router, wtype, withdraw=False)
     if wtype.code is WorkItemTypeCode.CHANGE:
         # WP-045a D6 (REQ-CHG-002): before the /{record_id} routes.
@@ -2789,6 +2794,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
+    if wtype.code is WorkItemTypeCode.INCIDENT:  # WP-046b S1 (REQ-INC-083): asked ad hoc
+        add_approval_request_route(router, wtype, WorkItemOut)
     add_parts_collection_routes(router, wtype)
     add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)

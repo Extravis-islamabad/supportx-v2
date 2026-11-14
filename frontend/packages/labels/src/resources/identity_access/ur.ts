@@ -604,6 +604,9 @@ export const ur: LabelResource = {
   // WP-020b: conversation, notes, followers, editor
   'permission.incidents.add_note': 'نجی نوٹس شامل کریں',
   'permission.incidents.add_note.description': 'واقعات پر صرف عملے کے لیے نوٹس لکھیں۔',
+  'permission.incidents.approve': 'واقعات کی منظوری',
+  'permission.incidents.approve.description':
+    'جب آپ کو منظور کنندہ نامزد کیا جائے تو واقعے کی منظوری کا فیصلہ کریں۔',
   'permission.incidents.assign': 'واقعات تفویض کریں',
   'permission.incidents.assign.description': 'واقعات کا گروپ اور ٹیکنیشن چنیں۔',
   'permission.incidents.cancel': 'واقعات منسوخ کریں',
@@ -620,6 +623,9 @@ export const ur: LabelResource = {
   'permission.incidents.edit': 'واقعات پر کام کریں',
   'permission.incidents.edit.description':
     'تفصیلات بدلیں، کام شروع کریں، واقعات کو انتظار میں ڈالیں اور دوبارہ شروع کریں۔',
+  'permission.incidents.edit_closed': 'بند واقعات میں ترمیم',
+  'permission.incidents.edit_closed.description':
+    'وجہ بتا کر بند واقعے کے فیلڈ بدلیں۔ ہر تبدیلی آڈٹ لاگ میں درج ہوتی ہے۔',
   'permission.incidents.edit_due_dates': 'مقررہ تاریخیں ہاتھ سے طے کریں',
   'permission.incidents.edit_due_dates.description':
     'کسی واقعے کی جواب یا حل کی مقررہ تاریخ وجہ کے ساتھ ہاتھ سے طے کریں یا ہٹائیں۔ پھر یہ تاریخ ہٹائے جانے تک برقرار رہتی ہے۔',

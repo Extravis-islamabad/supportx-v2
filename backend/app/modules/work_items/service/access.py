@@ -540,6 +540,7 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
         + (PROBLEM_SPECS if wtype.code is WorkItemTypeCode.PROBLEM else ())
         + (RELEASE_APPROVE_SPECS if is_release else ())
         + (CHANGE_APPROVE_SPECS if wtype.code is WorkItemTypeCode.CHANGE else ())
+        + (INCIDENT_SPECS if wtype.code is WorkItemTypeCode.INCIDENT else ())
         + (_cost_spec(wtype) if wtype.code in COST_TYPES else ())
     )
 
@@ -658,6 +659,26 @@ CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     # permission, so they may override too, as with the emergency override (D-144).
     PermissionSpec("changes.manage_windows", "change", ("all",)),
     PermissionSpec("changes.override_freeze", "change", ("all", "site", "group")),
+)
+# WP-046b S1. Deciding an incident's approvals when named (REQ-INC-083): technicians and the
+# service desk managers, as for problems; a requester is never an incident's approver by default.
+# Editing a closed incident's fields (REQ-INC-101): only the service desk managers by default (the
+# coordinator, 2026-11-14; administrators hold every permission), grantable, each use audited,
+# with a reason; a tenant's full lock on closed incidents outranks it (lane B).
+EDIT_CLOSED = "edit_closed"
+INCIDENT_SPECS: tuple[PermissionSpec, ...] = (
+    PermissionSpec(
+        "incidents.approve",
+        "incident",
+        ("all",),
+        defaults=(("technician", "all"), (SERVICE_DESK_MANAGER, "all")),
+    ),
+    PermissionSpec(
+        f"incidents.{EDIT_CLOSED}",
+        "incident",
+        ("all", "site", "group"),
+        defaults=((SERVICE_DESK_MANAGER, "all"),),
+    ),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (

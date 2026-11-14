@@ -347,6 +347,7 @@ ACTIONS: dict[str, Action] = _actions(
     # ADR-040: an investigator reaches a problem outside their own scope.
     ("problem.investigator_added", AuditCategory.RECORDS, "work_items"),
     ("problem.approval_requested", AuditCategory.RECORDS, "work_items"),  # WP-044b s4
+    ("incident.approval_requested", AuditCategory.RECORDS, "work_items"),  # WP-046b S1
     ("problem.approval_decided", AuditCategory.RECORDS, "work_items"),
     ("problem.investigator_removed", AuditCategory.RECORDS, "work_items"),
     # WP-044c D16 (REQ-PRB-068): repeat incident rules and what was done with their sets.

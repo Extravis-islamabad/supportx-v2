@@ -601,6 +601,8 @@ export const ar: LabelResource = {
   // WP-020b: conversation, notes, followers, editor
   'permission.incidents.add_note': 'إضافة ملاحظات خاصة',
   'permission.incidents.add_note.description': 'كتابة ملاحظات للموظفين فقط على الحوادث.',
+  'permission.incidents.approve': 'الموافقة على الحوادث',
+  'permission.incidents.approve.description': 'البت في موافقة حادث عند تسميتك موافِقًا.',
   'permission.incidents.assign': 'إسناد الحوادث',
   'permission.incidents.assign.description': 'اختيار مجموعة الحوادث وفنيها.',
   'permission.incidents.cancel': 'إلغاء الحوادث',
@@ -617,6 +619,9 @@ export const ar: LabelResource = {
   'permission.incidents.edit': 'العمل على الحوادث',
   'permission.incidents.edit.description':
     'تعديل التفاصيل وبدء العمل ووضع الحوادث قيد الانتظار واستئنافها.',
+  'permission.incidents.edit_closed': 'تعديل الحوادث المغلقة',
+  'permission.incidents.edit_closed.description':
+    'تغيير حقول حادث مغلق مع ذكر السبب. يُسجَّل كل تغيير في سجل التدقيق.',
   'permission.incidents.edit_due_dates': 'تعيين مواعيد الاستحقاق يدويًا',
   'permission.incidents.edit_due_dates.description':
     'تعيين موعد استحقاق الاستجابة أو الحل لحادثة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',

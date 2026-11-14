@@ -602,6 +602,9 @@ export const en = {
   // WP-020b: conversation, notes, followers, editor
   'permission.incidents.add_note': 'Add private notes',
   'permission.incidents.add_note.description': 'Write staff-only notes on incidents.',
+  'permission.incidents.approve': 'Approve incidents',
+  'permission.incidents.approve.description':
+    "Decide an incident's approval when you are named as an approver.",
   'permission.incidents.assign': 'Assign incidents',
   'permission.incidents.assign.description': 'Choose the group and technician of incidents.',
   'permission.incidents.cancel': 'Cancel incidents',
@@ -619,6 +622,9 @@ export const en = {
   'permission.incidents.edit': 'Work on incidents',
   'permission.incidents.edit.description':
     'Edit details, start work, set incidents to waiting and resume them.',
+  'permission.incidents.edit_closed': 'Edit closed incidents',
+  'permission.incidents.edit_closed.description':
+    'Change the fields of a closed incident, giving a reason. Each change is recorded in the audit log.',
   'permission.incidents.edit_due_dates': 'Set due dates by hand',
   'permission.incidents.edit_due_dates.description':
     "Set or clear an incident's response or resolution due date by hand, with a reason. The date then stays until cleared.",

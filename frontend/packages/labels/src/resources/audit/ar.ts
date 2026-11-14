@@ -237,6 +237,7 @@ export const ar: LabelResource = {
   'audit.action.identity.sso_policy_changed': 'غيّر سياسة الدخول الموحد',
   'audit.action.incident.access_changed': 'غيّر صلاحيات الوصول إلى حادثة',
   'audit.action.incident.approval_decided': 'سجّل قرار موافقة على حادثة',
+  'audit.action.incident.approval_requested': 'طلب موافقة على حادث',
   'audit.action.incident.assigned': 'غيّر إسناد حادثة',
   'audit.action.incident.bulk_started': 'بدأ تغييرًا جماعيًا للحوادث',
   'audit.action.incident.canceled': 'ألغى حادثة',

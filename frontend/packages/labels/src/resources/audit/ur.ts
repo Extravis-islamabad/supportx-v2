@@ -237,6 +237,7 @@ export const ur: LabelResource = {
   'audit.action.identity.sso_policy_changed': 'سنگل سائن آن پالیسی بدلی',
   'audit.action.incident.access_changed': 'واقعے تک رسائی رکھنے والے بدلے',
   'audit.action.incident.approval_decided': 'واقعے پر منظوری کا فیصلہ درج کیا',
+  'audit.action.incident.approval_requested': 'واقعے پر منظوری مانگی',
   'audit.action.incident.assigned': 'واقعے کی تفویض بدلی',
   'audit.action.incident.bulk_started': 'واقعات کی اجتماعی تبدیلی شروع کی',
   'audit.action.incident.canceled': 'واقعے کو منسوخ کیا',

@@ -240,6 +240,7 @@ export const en = {
   'audit.action.identity.sso_policy_changed': 'Changed the single sign-on policy',
   'audit.action.incident.access_changed': 'Changed who can see or work on an incident',
   'audit.action.incident.approval_decided': 'Recorded an approval decision on an incident',
+  'audit.action.incident.approval_requested': 'Asked for approval on an incident',
   'audit.action.incident.assigned': 'Changed who an incident is assigned to',
   'audit.action.incident.bulk_started': 'Started a bulk change of incidents',
   'audit.action.incident.canceled': 'Cancelled an incident',

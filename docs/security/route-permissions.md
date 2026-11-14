@@ -525,6 +525,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/identity/sso/{provider_id}/tests/{test_id}` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/incidents` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents` | `incidents.create` | incidents.create: all |
+| POST | `/api/v1/incidents/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/incidents/assignees` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/bulk` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/bulk-jobs` | `incidents.view` | incidents.view: all/site/group/own |
@@ -542,6 +543,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/list-settings/{view_key}` | `incidents.view` | incidents.view: all/site/group/own |
 | PUT | `/api/v1/incidents/list-settings/{view_key}` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/lookup/{value}` | `incidents.view` | incidents.view: all/site/group/own |
+| GET | `/api/v1/incidents/my-approvals` | signed_in | - |
+| GET | `/api/v1/incidents/my-approvals/decided` | signed_in | - |
 | GET | `/api/v1/incidents/my-tasks` | signed_in | - |
 | POST | `/api/v1/incidents/possible-duplicates` | `incidents.create` | incidents.create: all |
 | GET | `/api/v1/incidents/reply-templates` | `incidents.view` | incidents.view: all/site/group/own |
@@ -587,6 +590,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/{record_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/{record_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/actions/{action}` | `incidents.view` | incidents.view: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/approvals` | signed_in | - |
+| POST | `/api/v1/incidents/{record_id}/approvals` | `incidents.edit` | incidents.edit: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
 | GET | `/api/v1/incidents/{record_id}/assets` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/assets` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/assets/{link_id}` | `incidents.view` | incidents.view: all/site/group/own |
@@ -1435,6 +1441,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `departments.view` | all | all |
 | service_desk_manager | `groups.view` | all | all |
 | service_desk_manager | `incidents.add_note` | all | all |
+| service_desk_manager | `incidents.approve` | all | all |
 | service_desk_manager | `incidents.assign` | all | all |
 | service_desk_manager | `incidents.cancel` | all | all |
 | service_desk_manager | `incidents.change_priority` | all | all |
@@ -1442,6 +1449,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `incidents.create` | all | all |
 | service_desk_manager | `incidents.delete` | all | all |
 | service_desk_manager | `incidents.edit` | all | all |
+| service_desk_manager | `incidents.edit_closed` | all | all |
 | service_desk_manager | `incidents.edit_due_dates` | all | all |
 | service_desk_manager | `incidents.manage_followers` | all | all |
 | service_desk_manager | `incidents.reopen` | all | all |
@@ -1608,6 +1616,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | team_lead | `groups.manage_own` | all | all |
 | team_lead | `groups.view` | all | all |
 | team_lead | `incidents.add_note` | group, own | group, own |
+| team_lead | `incidents.approve` | all | all |
 | team_lead | `incidents.assign` | group, own | group, own |
 | team_lead | `incidents.cancel` | group, own | group, own |
 | team_lead | `incidents.change_priority` | group, own | group, own |
@@ -1688,6 +1697,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | technician | `departments.view` | all | all |
 | technician | `groups.view` | all | all |
 | technician | `incidents.add_note` | group, own | all, own |
+| technician | `incidents.approve` | all | all |
 | technician | `incidents.assign` | group, own | all, own |
 | technician | `incidents.cancel` | group, own | all, own |
 | technician | `incidents.change_priority` | group, own | all, own |
@@ -1807,6 +1817,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `identity.manage` | all | all |
 | tenant_admin | `identity.view_sign_ins` | all | all |
 | tenant_admin | `incidents.add_note` | all | all |
+| tenant_admin | `incidents.approve` | all | all |
 | tenant_admin | `incidents.assign` | all | all |
 | tenant_admin | `incidents.cancel` | all | all |
 | tenant_admin | `incidents.change_priority` | all | all |
@@ -1814,6 +1825,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `incidents.create` | all | all |
 | tenant_admin | `incidents.delete` | all | all |
 | tenant_admin | `incidents.edit` | all | all |
+| tenant_admin | `incidents.edit_closed` | all | all |
 | tenant_admin | `incidents.edit_due_dates` | all | all |
 | tenant_admin | `incidents.manage_followers` | all | all |
 | tenant_admin | `incidents.reopen` | all | all |

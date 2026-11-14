@@ -314,6 +314,9 @@ async def _after_vote(  # noqa: PLR0913 - the vote and its context, explicit
     if row.record_stage is not None:  # a staged record: the level's rule decides (WP-058a s5)
         await stage_approvals.after_decision(session, wtype, record, row, source=source)
         return
+    if wtype.code is WorkItemTypeCode.INCIDENT:  # its own rule decides (WP-046b S1, REQ-INC-083)
+        await _incident_vote(session, record, row, source=source)
+        return
     await _close_others(
         session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
     )
@@ -391,6 +394,34 @@ async def _finish(
 
 
 ACCEPT_REVIEW_DAYS = 90  # REQ-PRB-050, Appendix A: accepted known errors are looked at again
+
+
+async def _incident_vote(
+    session: AsyncSession, record: WorkItem, row: WorkItemApproval, *, source: Source
+) -> None:
+    """An incident's approvers decide by its rule: any one, all, or a majority (REQ-INC-083).
+
+    Under "all" one rejection rejects (AC3). Once decided, the others are no longer needed and
+    the record's approval status says how it went; its status never moves (an incident's work
+    goes on, as a problem's does). The technician hears of a rejection through the approval's
+    "decided" event (the notifications engine).
+    """
+    level = [r for r in await _rows(session, record.id) if r.stage == row.stage]
+    outcome = rules.level_outcome(
+        rules.LevelRule(row.rule or rules.LevelRule.ANY),
+        [rules.ApprovalState(r.state) for r in level],
+    )
+    if outcome is rules.LevelOutcome.PENDING:
+        return
+    await _close_others(session, record, row.stage, keep=None, state=rules.ApprovalState.NOT_NEEDED)
+    approved = outcome is rules.LevelOutcome.APPROVED
+    fresh = await session.get(WorkItem, record.id, populate_existing=True)
+    assert fresh is not None  # noqa: S101 - locked by the decision above
+    status = ApprovalStatus.APPROVED if approved else ApprovalStatus.REJECTED
+    await items.set_fields(
+        session, fresh, {"approval_status": status.value}, expected_version=fresh.version,
+        source=source,
+    )  # fmt: skip
 
 
 async def _problem_decided(
