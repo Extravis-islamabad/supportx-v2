@@ -1,3 +1,4 @@
+import { TeamOutlined } from '@ant-design/icons';
 import {
   Alert,
   App,
@@ -36,6 +37,7 @@ import {
   useFormProblem,
   useLabel,
   useLicence,
+  useMinWidth,
 } from '@supportx/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -86,6 +88,7 @@ export function FieldAccessTab({ roleId }: { roleId: string }) {
     [rules.data, current],
   );
   const manage = can('roles.manage');
+  const wide = useMinWidth(768);
   // A lapsed plan keeps every rule applied; rules can only be viewed and removed (ADR-047 §13).
   // A reflection of the plan: the server refuses anything else anyway.
   const licensed = licence.has('field_access');
@@ -220,18 +223,21 @@ export function FieldAccessTab({ roleId }: { roleId: string }) {
           {
             key: 'who',
             title: <span className="sx-visually-hidden">{t('field_access.who')}</span>,
-            width: 130,
+            // Below md an icon (its name says which field), so the field's name keeps the room.
+            width: wide ? 130 : 44,
             render: (_, f) => (
               <Button
                 type="link"
                 size="small"
                 style={{ paddingInline: 0 }}
+                icon={wide ? undefined : <TeamOutlined aria-hidden />}
+                aria-label={wide ? undefined : t('field_access.who_for', { field: label(f) })}
                 onClick={() => {
                   setWhoSees(f);
                 }}
                 data-testid={`field-access-who-${f.key}`}
               >
-                {t('field_access.who')}
+                {wide ? t('field_access.who') : null}
               </Button>
             ),
           },
@@ -295,12 +301,17 @@ function WhoSees({
                   ) : (
                     <Typography.Text>
                       {/* Each name isolated in its own direction; the joiners follow the page. */}
-                      {listFormat([
-                        ...people.map((p) => `\u2068${p.name}\u2069`),
-                        ...(count > people.length
-                          ? [t('field_access.more', { n: count - people.length })]
-                          : []),
-                      ])}
+                      {listFormat(
+                        [
+                          ...people.map((p) => p.name),
+                          ...(count > people.length
+                            ? [t('field_access.more', { n: count - people.length })]
+                            : []),
+                        ],
+                        // "A, B and 3 more": the language's own "and" (ur's unit style mixes
+                        // in a Latin comma); formatList isolates each name itself.
+                        'conjunction',
+                      )}
                     </Typography.Text>
                   )}
                 </div>

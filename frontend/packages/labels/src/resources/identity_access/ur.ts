@@ -224,6 +224,7 @@ export const ur: LabelResource = {
   'field_access.unlicensed':
     'آپ کے پلان میں اب کردار کے مطابق فیلڈ تک رسائی شامل نہیں۔ قواعد لاگو رہتے ہیں اور ہٹائے جا سکتے ہیں، مگر نئے شامل یا تبدیل نہیں کیے جا سکتے۔',
   'field_access.who': 'یہ کون دیکھتا ہے',
+  'field_access.who_for': '{{field}} کون دیکھتا ہے',
   'field_access.who_title': '{{field}} کون دیکھتا ہے',
   'field_mode.clear': 'ظاہر',
   'field_mode.hidden': 'پوشیدہ',

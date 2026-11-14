@@ -221,6 +221,7 @@ export const en = {
   'field_access.unlicensed':
     'Your plan no longer includes field access by role. The rules still apply and can be removed, but not added or changed.',
   'field_access.who': 'Who sees this',
+  'field_access.who_for': 'Who sees {{field}}',
   'field_access.who_title': 'Who sees {{field}}',
   'field_mode.clear': 'Shown',
   'field_mode.hidden': 'Hidden',

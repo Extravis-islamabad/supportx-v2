@@ -222,6 +222,7 @@ export const ar: LabelResource = {
   'field_access.unlicensed':
     'لم تعد خطتك تشمل الوصول إلى الحقول حسب الدور. تبقى القواعد سارية ويمكن إزالتها، لكن لا يمكن إضافتها أو تغييرها.',
   'field_access.who': 'من يرى هذا',
+  'field_access.who_for': 'من يرى {{field}}',
   'field_access.who_title': 'من يرى {{field}}',
   'field_mode.clear': 'ظاهر',
   'field_mode.hidden': 'مخفي',
