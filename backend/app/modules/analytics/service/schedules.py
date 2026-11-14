@@ -43,10 +43,15 @@ from app.modules import organization
 from app.modules.analytics.domain.builtin import BUILTIN, BUILTIN_PREFIX
 from app.modules.analytics.domain.definition import ReportDefinition
 from app.modules.analytics.domain.schedule import FAILURES_BEFORE_PAUSE, Frequency, Recurrence
-from app.modules.analytics.events import ReportScheduleDue, ReportScheduleRan, ReportScheduleSaved
+from app.modules.analytics.events import (
+    ReportScheduleDue,
+    ReportScheduleRan,
+    ReportScheduleRecipientsSkipped,
+    ReportScheduleSaved,
+)
 from app.modules.analytics.infra.models import ReportSchedule
 from app.modules.analytics.service import library
-from app.modules.analytics.service.compiler import check_withheld
+from app.modules.analytics.service.compiler import check_withheld, named_fields
 from app.modules.analytics.service.exports import (
     CONTENT_TYPES,
     FIELD_NOT_PERMITTED,
@@ -55,7 +60,7 @@ from app.modules.analytics.service.exports import (
     render_file,
 )
 from app.modules.analytics.service.runner import resolve_provider
-from app.modules.identity_access import Subject, mail_recipients
+from app.modules.identity_access import MailRecipient, Subject, mail_recipients
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes, stale_version
@@ -440,6 +445,9 @@ class _Outcome:
     sent: int = 0
     failed: int = 0
     problems: list[str] = field(default_factory=list)
+    # Recipients who may not see a field the report uses (ADR-047 §5): left out, not failed;
+    # the owner is told who in one notice per run.
+    skipped: list[uuid.UUID] = field(default_factory=list)
 
 
 def _mail(  # noqa: PLR0913 - the message's parts, keyword-only
@@ -506,6 +514,68 @@ async def _report_problem(
     return None
 
 
+def _copy_for(
+    row: ReportSchedule,
+    definition: ReportDefinition,
+    title_key: str,
+    user_id: uuid.UUID,
+    language: str,
+) -> _Copy:
+    """One recipient's file, in their language, built with their rights."""
+    title = (
+        label(f"report.{title_key}", language)
+        if row.report_ref.startswith(BUILTIN_PREFIX)
+        else title_key
+    )
+    return _Copy(
+        tenant_id=row.tenant_id,
+        requested_by=user_id,
+        title=row.title or title,
+        definition=definition.model_dump(mode="json", by_alias=True),
+        format=row.format,
+        content=row.content,
+        language=language,
+        time_zone=row.time_zone,
+    )
+
+
+async def _deliver(  # noqa: PLR0913, PLR0917 - one recipient's mail and the run's tally
+    session: AsyncSession,
+    settings: Settings,
+    row: ReportSchedule,
+    copy: _Copy,
+    recipient: MailRecipient,
+    data: bytes,
+    brands: dict[str, Any],
+    outcome: _Outcome,
+) -> None:
+    """Mail one rendered file, counting it sent or failed."""
+    if len(data) > MAX_ATTACHMENT_BYTES:
+        outcome.failed += 1  # V1: a sign-in link instead (REQ-RPT-054)
+        outcome.problems.append("attachment_too_large")
+        return
+    language = recipient.language
+    if language not in brands:
+        brands[language] = await organization.email_branding(
+            session, settings, row.tenant_id, language
+        )
+    mail = _mail(
+        row,
+        title=copy.title,
+        language=language,
+        data=data,
+        brand=brands[language],
+        to=recipient.email,
+    )
+    try:
+        await queue_mail(session, settings, mail)
+    except (MailNotConfigured, MailRefused) as error:
+        outcome.failed += 1
+        outcome.problems.append(getattr(error, "code", "mail_refused"))
+        return
+    outcome.sent += 1
+
+
 async def run_schedule(  # noqa: C901 - one run, every outcome explicit
     session: AsyncSession, schedule_id: uuid.UUID, worker: Worker, settings: Settings
 ) -> ReportSchedule | None:
@@ -535,58 +605,76 @@ async def run_schedule(  # noqa: C901 - one run, every outcome explicit
         return await _ran(session, row, outcome, "no_recipients")
     brands: dict[str, Any] = {}
     for user_id, recipient in recipients.items():
-        language = recipient.language
-        title = (
-            label(f"report.{title_key}", language)
-            if row.report_ref.startswith(BUILTIN_PREFIX)
-            else title_key
-        )
-        copy = _Copy(
-            tenant_id=row.tenant_id,
-            requested_by=user_id,
-            title=row.title or title,
-            definition=definition.model_dump(mode="json", by_alias=True),
-            format=row.format,
-            content=row.content,
-            language=language,
-            time_zone=row.time_zone,
-        )
+        copy = _copy_for(row, definition, title_key, user_id, recipient.language)
         rendered = await render_file(session, copy, worker)
-        if isinstance(rendered, str):
+        if rendered == FIELD_NOT_PERMITTED:
+            outcome.skipped.append(user_id)
+        elif isinstance(rendered, str):
             outcome.failed += 1
             outcome.problems.append(rendered)
-            continue
-        path, _rows = rendered
-        try:
-            data = path.read_bytes()
-        finally:
-            path.unlink(missing_ok=True)
-        if len(data) > MAX_ATTACHMENT_BYTES:
-            outcome.failed += 1  # V1: a sign-in link instead (REQ-RPT-054)
-            outcome.problems.append("attachment_too_large")
-            continue
-        if language not in brands:
-            brands[language] = await organization.email_branding(
-                session, settings, row.tenant_id, language
-            )
-        mail = _mail(
-            row,
-            title=copy.title,
-            language=language,
-            data=data,
-            brand=brands[language],
-            to=recipient.email,
-        )
-        try:
-            await queue_mail(session, settings, mail)
-        except (MailNotConfigured, MailRefused) as error:
-            outcome.failed += 1
-            outcome.problems.append(getattr(error, "code", "mail_refused"))
-            continue
-        outcome.sent += 1
+        else:
+            path, _rows = rendered
+            try:
+                data = path.read_bytes()
+            finally:
+                path.unlink(missing_ok=True)
+            await _deliver(session, settings, row, copy, recipient, data, brands, outcome)
     if outcome.sent == 0:
-        problem = outcome.problems[0] if outcome.problems else "no_recipients"
-    return await _ran(session, row, outcome, problem)
+        fallback = FIELD_NOT_PERMITTED if outcome.skipped else "no_recipients"
+        problem = outcome.problems[0] if outcome.problems else fallback
+    ran = await _ran(session, row, outcome, problem)
+    if outcome.skipped:
+        await _tell_skipped(session, ran, worker, definition, outcome.skipped)
+    return ran
+
+
+async def _withheld_for(  # noqa: PLR0913 - the run's parts, explicit
+    session: AsyncSession,
+    worker: Worker,
+    row: ReportSchedule,
+    user_id: uuid.UUID,
+    *,
+    names: set[str],
+    entity: str,
+) -> set[str]:
+    """Which of the report's fields this recipient's roles withhold (codes, never values)."""
+    if worker.load_subject is None:
+        return set()
+    try:
+        subject = await worker.load_subject(session, row.tenant_id, user_id)
+        provider = resolve_provider(entity, subject)
+    except AppError:
+        return set()
+    source = await provider.source(session, subject)
+    return names & source.withheld
+
+
+async def _tell_skipped(
+    session: AsyncSession,
+    row: ReportSchedule,
+    worker: Worker,
+    definition: ReportDefinition,
+    skipped: list[uuid.UUID],
+) -> None:
+    """One event per run naming who was left out and which fields (the owner's notice)."""
+    names = set(named_fields(definition))
+    fields: set[str] = set()
+    for user_id in skipped:
+        fields |= await _withheld_for(
+            session, worker, row, user_id, names=names, entity=definition.entity
+        )
+    await record_event(
+        session,
+        ReportScheduleRecipientsSkipped(
+            schedule_id=row.id,
+            owner_id=row.owner_id,
+            ran_at=row.last_run_at or datetime.now(UTC),
+            entity=definition.entity,
+            skipped=skipped,
+            fields=sorted(fields),
+        ),
+        aggregate_id=row.id,
+    )
 
 
 async def _ran(

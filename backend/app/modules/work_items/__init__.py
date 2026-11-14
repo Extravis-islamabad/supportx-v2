@@ -14,7 +14,10 @@ service's access questions for records, replies and notes (`service/file_access.
 at startup.
 """
 
+import uuid
+
 from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
@@ -22,6 +25,7 @@ from app.modules.ai import (
     register_conversation_source,
     register_embedding_source,
     register_record_access,
+    register_requested_records,
     unregister_conversation_source,
     unregister_embedding_source,
     unregister_record_access,
@@ -91,6 +95,7 @@ from app.modules.work_items.service import (
     request_notifications,
     resolution,
     rule_step_notifications,
+    search_rebuild,
     staff_reply_notifications,
     task_notifications,
     task_reminders,
@@ -140,11 +145,24 @@ def _register_parts() -> None:
 _register_parts()
 
 
+async def _requested_records(
+    session: AsyncSession, person_id: uuid.UUID, cursor: str | None
+) -> tuple[list[tuple[str, uuid.UUID]], str | None]:
+    return await records_requested_by(session, person_id, cursor=cursor)
+
+
+# At import too, not only at start: the erasure job runs in the consumers worker, which may never
+# run the API's startup hooks (lane A, #502).
+register_requested_records(_requested_records)
+
+
 def _register_ai() -> None:
     """What AI may read of an incident (WP-038): the record page's own rules, through here."""
     register_record_access(INCIDENT.code, ai_sources.may_view_incident)
     register_conversation_source(INCIDENT.code, ai_sources.conversation_for)
     register_embedding_source(INCIDENT.code, ai_sources.incident_texts, ai_sources.incident_ids)
+    # GDPR erasure (ADR-052, lane C's ai port): the records whose vectors go with the requester.
+    register_requested_records(_requested_records)
 
 
 async def _startup(app: FastAPI) -> None:
@@ -152,6 +170,7 @@ async def _startup(app: FastAPI) -> None:
     _register_parts()
     register_owner_access(FILE_ACCESS)
     field_catalogue.register()
+    search_rebuild.register()
     person_data.register()
     register_sources()  # again after a shutdown (tests start and stop the app)
     _register_ai()
@@ -164,6 +183,8 @@ async def _shutdown(app: FastAPI) -> None:
     unregister_record_access(INCIDENT.code)
     unregister_conversation_source(INCIDENT.code)
     unregister_embedding_source(INCIDENT.code)
+    # The requested-records lister stays: it is registered at import, and a process that stops an
+    # app may still run the erasure job (lane B, #502).
 
 
 register_record_usage()
@@ -206,6 +227,7 @@ register_ticket_requesters(asset_links.linked_requester_ids_select)
 register_owner_access(FILE_ACCESS)
 # Fields an admin may restrict per role (ADR-047, identity_access's port): at import, as above.
 field_catalogue.register()
+search_rebuild.register()  # ADR-047 §6: the search mark commits with the rule
 # Work items' slice of a person's erasure (ADR-052): at import, as above.
 person_data.register()
 
@@ -266,13 +288,20 @@ module = ModuleSpec(
     channels=CHANNELS,
     realtime=ROUTES,
     # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
-    consumers=[APPROVER_LEFT, KEPT_INFORMED, drafts.OWNER_LEFT],
+    consumers=[
+        APPROVER_LEFT,
+        KEPT_INFORMED,
+        drafts.OWNER_LEFT,
+        search_rebuild.FIELD_ACCESS_CHANGED,  # ADR-047 §6: search text rebuilt, closed meanwhile
+    ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     # REQ-INC-096: resolved records the requester was told about close after N business days.
     schedules=[
         # REQ-INC-019: kept drafts untouched for 30 days go (lane B).
         ScheduleSpec("work_items__drafts_purge", 86400, drafts.purge_schedule),
+        # ADR-047 §6: types marked by a custom field's rule change get their search text rebuilt.
+        ScheduleSpec("work_items__search_text_rebuild", 60, search_rebuild.rebuild_schedule),
         ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule),
         # REQ-SR-023 AC3: daily, no approval waits on someone no longer active.
         ScheduleSpec("work_items__inactive_approvers", 86400, inactive_approvers_schedule),

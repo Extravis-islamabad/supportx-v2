@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import AppError, Conflict
+from app.modules.automation.domain import field_refs
 from app.modules.automation.domain.rules import (
     MAX_RULES,
     NAME_MAX,
@@ -61,6 +62,7 @@ from app.modules.automation.service.registry import (
     event_reader,
 )
 from app.modules.automation.service.registry import record_type as registered
+from app.modules.identity_access import Subject
 from app.shared.db.repository import Repository
 from app.shared.events import EventEnvelope, record_event
 from app.shared.ids import new_id
@@ -193,9 +195,26 @@ async def _changed(session: AsyncSession, trigger: AutomationTrigger, change: st
     )
 
 
-async def create_trigger(session: AsyncSession, values: Mapping[str, Any]) -> AutomationTrigger:
+def _author_problems(
+    author: Subject | None, values: Mapping[str, Any]
+) -> list[tuple[str, str, Mapping[str, Any]]]:
+    """Fields the trigger names that its author does not see in clear (ADR-047 §8)."""
+    if author is None:
+        return []
+    named = field_refs.refused(
+        author.field_access,
+        str(values.get("record_type", "")),
+        [values.get("conditions"), values.get("actions")],
+    )
+    return [("conditions", "field_not_permitted", {"field": f}) for f in named]
+
+
+async def create_trigger(
+    session: AsyncSession, values: Mapping[str, Any], *, author: Subject | None
+) -> AutomationTrigger:
     """A new trigger, last in its type's order; a draft unless switched on deliberately."""
     cleaned, problems = await check(session, values)
+    problems += _author_problems(author, values)
     if problems:
         raise _invalid(problems)
     existing = await list_triggers(session, cleaned["record_type"])
@@ -219,6 +238,7 @@ async def update_trigger(
     values: Mapping[str, Any],
     *,
     expected_version: int,
+    author: Subject | None,
 ) -> AutomationTrigger:
     """Change a trigger (If-Match). Its record type never changes."""
     current = await TriggerRepository(session).get(trigger_id)
@@ -235,6 +255,7 @@ async def update_trigger(
         **{k: v for k, v in values.items() if k != "record_type"},
     }
     cleaned, problems = await check(session, merged)
+    problems += _author_problems(author, merged)
     if problems:
         raise _invalid(problems)
     cleaned.pop("record_type")

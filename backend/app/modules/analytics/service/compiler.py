@@ -83,7 +83,7 @@ def _check_records(definition: ReportDefinition, source: ReportingSource) -> Non
             _invalid(f"sort[{index}].field", "unknown_column")
 
 
-def _named_fields(definition: ReportDefinition) -> list[str]:
+def named_fields(definition: ReportDefinition) -> list[str]:
     """Every field name a definition uses: filter, groupings, columns and sort."""
     names = _filter_fields(definition.filter_json()) if definition.filter is not None else []
     names += [group.field for group in definition.group_by]
@@ -98,7 +98,7 @@ def check_withheld(definition: ReportDefinition, source: ReportingSource) -> Non
     The source already leaves it out, so without this the definition would read as invalid;
     the viewer is told the field is not available to them, and nothing about its values.
     """
-    if source.withheld and any(name in source.withheld for name in _named_fields(definition)):
+    if source.withheld and any(name in source.withheld for name in named_fields(definition)):
         raise PermissionDenied(code="field_not_permitted")
 
 

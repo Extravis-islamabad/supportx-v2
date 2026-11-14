@@ -276,6 +276,8 @@ export const ar: LabelResource = {
   'errors.erasure_port_kind_undeclared': 'أبلغ جزء من المنتج عن شيء لم يعلن عنه. تواصل مع الدعم.',
   'errors.erasure_port_missing':
     'جزء من المنتج لا يستطيع محو البيانات الشخصية بعد. تواصل مع الدعم.',
+  'errors.erasure_records_unavailable':
+    'تعذّر سرد السجلات التي طلبها هذا الشخص الآن. سيُعاد محاولة المسح.',
   'errors.erasure_redaction_too_long':
     'لا يمكن تنقيح هذا المقطع هنا: ستجعل العلامة النص أطول مما يسمح به الحقل. اختصر النص أولًا.',
   'errors.erasure_report_not_reviewed':
@@ -288,6 +290,8 @@ export const ar: LabelResource = {
   'errors.erasure_signed_history_kept':
     'لا يمكن اعتماد هذا المحو أو تشغيله بعد: لا يزال مقطع منقّح محفوظًا في سجل موقّع لا يمكن تنقيحه بعد.',
   'errors.erasure_step_failed': 'لم تنجح إحدى خطوات المحو. ستُعاد المحاولة.',
+  'errors.erasure_storage_unavailable':
+    'تعذّر الوصول إلى مخزن الملفات لحذف تصديرات التقارير. سيُعاد محاولة المسح.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
   'errors.field.address_not_allowed':
     'لا يمكن استخدام عنوان الخادم هذا. استخدم الاسم العام لخادم البريد.',
@@ -444,6 +448,7 @@ export const ar: LabelResource = {
   'errors.field.fallback_fixed': 'السياسة الافتراضية تُطبَّق دائمًا وليس لها شروط.',
   'errors.field.field_always_required': 'الموضوع ومقدم الطلب ظاهران ومطلوبان دائمًا.',
   'errors.field.field_locked': 'تقفل قاعدة نموذج هذا الحقل، لذا لا يمكن تغييره هنا.',
+  'errors.field.field_not_permitted': 'لا يمكنك استخدام هذا الحقل: أدوارك لا تسمح لك برؤيته.',
   'errors.field.field_not_ruleable': 'لا يمكن تقييد هذا الحقل.',
   'errors.field.field_not_settable': 'لا يمكن للقاعدة تعيين هذا الحقل.',
   'errors.field.field_retired': 'هذا الحقل موقوف ولا يقبل قيمًا جديدة.',
@@ -980,6 +985,7 @@ export const ar: LabelResource = {
   'errors.people_import_file_unsafe': 'لم يُفتح المصنف: يتضخم إلى حجم يفوق حجمه بكثير.',
   'errors.permission_denied': 'ليست لديك صلاحية للقيام بذلك.',
   'errors.person_already_erased': 'تم محو بيانات هذا الشخص.',
+  'errors.person_erasure_in_progress': 'يجري محو هذا الشخص؛ لا يمكن إعادة تفعيله أو تغييره.',
   'errors.person_on_legal_hold': 'هذا الشخص تحت الحجز القانوني ولا يمكن محو بياناته.',
   'errors.pick_list_not_found': 'هذه القائمة غير موجودة.',
   'errors.pick_list_value_not_found': 'هذه القيمة لم تعد موجودة.',

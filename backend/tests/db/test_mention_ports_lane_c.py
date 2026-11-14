@@ -106,11 +106,12 @@ async def _seed(world: World, org: Org, name: str) -> dict[str, uuid.UUID]:
     return ids
 
 
-def _ours(page: dict[str, Any]) -> dict[tuple[str, str, str], dict[str, Any]]:
+def _ours(page: dict[str, Any], records: set[str]) -> dict[tuple[str, str, str], dict[str, Any]]:
+    """The name mentions of the seeded records (not the long title's: that one is refused)."""
     return {
         (m["module_key"], m["record_type"], m["field"]): m
         for m in page["items"]
-        if m["module_key"] in ("knowledge", "announcements") and m["match_kind"] == "name"
+        if m["record_id"] in records and m["match_kind"] == "name"
     }
 
 
@@ -136,7 +137,8 @@ async def test_knowledge_and_announcements_are_found_redacted_and_searched_no_mo
     assert asked.status_code == 201, asked.text
     erasure = dict(asked.json())
     await _build(world, a)
-    places = _ours(await _mentions(world, a, erasure))
+    seeded = {str(ids[k]) for k in ("version", "vote", "article", "topic", "note")}
+    places = _ours(await _mentions(world, a, erasure), seeded)
     expected = {
         ("knowledge", "kb_article_version", field)
         for field in ("title", "body_html", "keywords", "internal_note")
@@ -213,7 +215,11 @@ async def test_knowledge_and_announcements_are_found_redacted_and_searched_no_mo
         ids["article"],
     )
     assert {r["field"] for r in history} >= {"title", "body_html", "keywords", "withdrawn_reason"}
-    assert all(r["old_value"] is None and r["new_value"] is None for r in history)
+    # No value either way: JSON null as written, or SQL NULL where history_redact_field also
+    # blanked it (a mention whose record is the article itself).
+    assert all(
+        r["old_value"] in (None, "null") and r["new_value"] in (None, "null") for r in history
+    )
     after_events = await world.sql(
         "SELECT count(*) AS n FROM outbox_events WHERE tenant_id = $1"
         " AND event_type IN ('knowledge.article.saved', 'knowledge.topic.saved',"

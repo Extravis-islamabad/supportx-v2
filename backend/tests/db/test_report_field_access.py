@@ -7,17 +7,26 @@
   field is not sent the file; the others are.
 - A schedule whose owner may no longer see a field it uses pauses (`field_not_permitted`)
   before any file is made: a schedule mails with its owner's access.
+- Recipients left out are not failures: the owner gets one required notice per run naming how
+  many and which fields, even with the status category switched off, and only once.
 """
 
+import json
 import uuid
 from typing import Any
 
 import pytest
 
 from app.core.config import Settings
+from app.core.database import Database, create_engine
+from app.core.tenancy import TenantContext
+from app.modules.notifications.service.engine import dispatch
+from app.shared.events import EventEnvelope
+from app.shared.events.consumers import claim
 from tests.db import test_report_schedules, test_reports_api
 from tests.db.test_field_access_reads import _custom_field, _rule
 from tests.db.test_incidents_api import CONSOLE, Org, World
+from tests.db.test_notifications_api import NO_MAIL
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = pytest.mark.db
@@ -132,7 +141,18 @@ async def test_a_recipient_who_may_not_see_a_field_gets_no_file(
         for i in (await world.call("GET", "/reports/schedules", a, a.admin)).json()["items"]
         if i["title"] == "Pay bands"
     )
-    assert (item["last_sent"], item["last_failed"], item["status"]) == (1, 1, "active")
+    # Left out, not failed (lane B's #508 note): the owner hears who in one notice.
+    assert (item["last_sent"], item["last_failed"], item["status"]) == (1, 0, "active")
+    events = await world.sql(
+        "SELECT envelope->'payload' AS p FROM outbox_events WHERE tenant_id = $1"
+        " AND event_type = 'analytics.report_schedule.recipients_skipped'",
+        a.tenant,
+    )
+    (payload,) = [json.loads(e["p"]) for e in events]
+    assert payload["skipped"] == [str(a.tech_a)]
+    assert payload["fields"] == [f"custom.{band}"]
+    assert payload["entity"] == "incident"
+    assert "B7" not in json.dumps(payload)  # codes and IDs only
 
 
 async def test_a_schedule_pauses_when_its_owner_may_no_longer_see_a_field(
@@ -158,3 +178,66 @@ async def test_a_schedule_pauses_when_its_owner_may_no_longer_see_a_field(
         "field_not_permitted",
         "field_not_permitted",
     )
+
+
+async def test_the_owner_is_told_once_even_with_status_notices_off(
+    mailing: tuple[World, Settings], migrated_db: ThrowawayDatabase
+) -> None:
+    world, settings = mailing
+    a = world.a
+    band = await _custom_field(world, a, "Grade band")
+    made = await _scheduled(world, a, f"custom.{band}", "Grade bands")
+    await _rule(world, a, "technician", f"custom.{band}", "masked")
+    prefs = await world.call("GET", "/notifications/preferences", a, a.admin)
+    off = await world.call(
+        "PUT",
+        "/notifications/preferences",
+        a,
+        a.admin,
+        json={"off": [{"category": "status", "channel": c} for c in ("in_app", "email")]},
+        headers={"If-Match": prefs.headers["etag"]},
+    )
+    assert off.status_code == 200, off.text
+
+    await _run_due(world, migrated_db, a, settings)
+    (row,) = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1"
+        " AND event_type = 'analytics.report_schedule.recipients_skipped'"
+        " AND envelope->'payload'->>'schedule_id' = $2",
+        a.tenant,
+        made["id"],
+    )
+    await _deliver(world, a, row["envelope"])
+
+    async def told() -> list[Any]:
+        return await world.sql(
+            "SELECT title FROM notifications WHERE tenant_id = $1 AND user_id = $2"
+            " AND event_code = 'report_schedule.recipients_skipped' AND record_id = $3",
+            a.tenant,
+            a.admin,
+            uuid.UUID(made["id"]),
+        )
+
+    assert len(await told()) == 1  # required: the status switch does not mute it
+    nobody_else = await world.sql(
+        "SELECT count(*) AS n FROM notifications WHERE tenant_id = $1 AND user_id <> $2"
+        " AND event_code = 'report_schedule.recipients_skipped'",
+        a.tenant,
+        a.admin,
+    )
+    assert nobody_else[0]["n"] == 0
+    # The same event delivered again tells nobody twice (one event per schedule run, lane A).
+    await _deliver(world, a, row["envelope"])
+    assert len(await told()) == 1
+
+
+async def _deliver(world: World, org: Org, envelope: str) -> None:
+    """As the notifications consumer does: claim the event once, then notify."""
+    event = EventEnvelope.model_validate(json.loads(envelope))
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    try:
+        async with database.tenant_session(TenantContext(org.tenant)) as session:
+            if await claim(session, "notifications__engine", event):
+                await dispatch(session, NO_MAIL, event)
+    finally:
+        await database.dispose()

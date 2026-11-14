@@ -381,3 +381,98 @@ async def test_a_returner_without_a_seat_is_counted_and_the_run_goes_on(
         "SELECT failing FROM connector_health WHERE instance_id = $1", directory_id
     )
     assert health[0]["failing"] is False
+
+
+async def test_an_erased_person_is_never_written_revived_or_adopted_again(
+    world: World, fake: FakeDirectory
+) -> None:
+    """D-171: the directory's name and address never come back onto an erased row."""
+    carol = fake.add_user(
+        displayName="Carol Erased", givenName="Carol", surname="Erased", mail="carol@alpha.test"
+    )
+    directory_id = await _create(world, fake)
+    await _sync(world, directory_id)
+    person = await _person(world, directory_id, carol)
+    # What the erasure job's steps 1 and 5 leave (ADR-052): disabled, anonymised, erased_at set.
+    marker = {
+        "display_name": "Erased person 4F2A",
+        "first_name": "Erased person",
+        "last_name": "4F2A",
+        "email": f"erased-{person['id']}@invalid",
+    }
+    await world.sql(
+        "UPDATE users SET display_name = $3, first_name = $4, last_name = $5, email = $6,"
+        " status = 'disabled', can_sign_in = false, erased_at = now()"
+        " WHERE tenant_id = $1 AND id = $2",
+        world.a.tenant,
+        person["id"],
+        *marker.values(),
+    )
+    before = await _person(world, directory_id, carol)
+    # The directory still has them, enabled, and renames them: nothing comes back.
+    fake.change_user(carol, displayName="Carol Again", mail="carol@alpha.test", accountEnabled=True)
+    counts = await _sync(world, directory_id)
+    after = await _person(world, directory_id, carol)
+    assert after == before
+    assert {k: after[k] for k in marker} == marker
+    assert (after["status"], after["can_sign_in"]) == ("disabled", False)
+    assert counts.skipped >= 1
+    # Removed in the directory: nothing either (no deactivation of an erased person).
+    fake.delete_user(carol)
+    await _sync(world, directory_id)
+    assert await _person(world, directory_id, carol) == before
+    # No other person ever took their address back either (never adopted, never duplicated).
+    adopted = await world.sql(
+        "SELECT count(*) AS n FROM users WHERE tenant_id = $1 AND lower(email) = $2",
+        world.a.tenant,
+        "carol@alpha.test",
+    )
+    assert adopted[0]["n"] == 0
+
+
+async def test_a_person_frozen_by_a_running_erasure_stays_disabled(
+    world: World, fake: FakeDirectory
+) -> None:
+    """Between step 1 (frozen) and step 5 (erased_at): no sync, no screen reactivates them."""
+    dora = fake.add_user(displayName="Dora Frozen", mail="dora@alpha.test")
+    directory_id = await _create(world, fake)
+    await _sync(world, directory_id)
+    person = await _person(world, directory_id, dora)
+    # What step 1 leaves: disabled, no sign-in; the erasure approved and running, erased_at unset.
+    await world.sql(
+        "UPDATE users SET status = 'disabled', can_sign_in = false"
+        " WHERE tenant_id = $1 AND id = $2",
+        world.a.tenant,
+        person["id"],
+    )
+    erasure_id = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO person_erasures (id, tenant_id, person_id, state, step, reason_code,"
+        " successor_id, keep_files, requested_by, requested_at, expires_at, approved_by,"
+        " approved_at) VALUES ($1, $2, $3, 'running', 2, 'subject_request', $4, '{}', $5,"
+        " now(), now() + interval '7 days', $6, now())",
+        erasure_id,
+        world.a.tenant,
+        person["id"],
+        world.a.tech_c,
+        world.a.admin,
+        world.a.lead,
+    )
+    before = await _person(world, directory_id, dora)
+    fake.change_user(dora, displayName="Dora Again", accountEnabled=True)
+    counts = await _sync(world, directory_id)
+    after = await _person(world, directory_id, dora)
+    assert after == before
+    assert (after["status"], after["can_sign_in"]) == ("disabled", False)
+    assert counts.skipped >= 1
+    # The people screens cannot reactivate them either (the same refusal in the service).
+    tried = await world.call(
+        "POST",
+        f"/users/{person['id']}/reactivate",
+        world.a,
+        world.a.admin,
+        json={"keep_role_ids": [], "keep_group_ids": []},
+        headers={"If-Match": f'"{after["version"]}"'},
+    )
+    assert (tried.status_code, tried.json()["code"]) == (409, "person_erasure_in_progress")
+    assert (await _person(world, directory_id, dora))["status"] == "disabled"

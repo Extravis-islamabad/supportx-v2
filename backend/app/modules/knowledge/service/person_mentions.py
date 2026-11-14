@@ -319,9 +319,8 @@ class KnowledgeMentions:
         if new == before:
             return False
         if mention.field in FROZEN_FIELDS:
-            # The mention's row ID (lane B's #511 adds `Mention.mention_id`); read this way until
-            # that lands, then `mention.mention_id`.
-            mention_id: uuid.UUID | None = getattr(mention, "mention_id", None)
+            # The report's own row (identity_access marks it redacted first, #511).
+            mention_id = mention.mention_id
             if mention_id is None:
                 return False  # only the erasure's own redaction may reach a frozen field
             # The database checks the mention and that only the marker changed (0168).

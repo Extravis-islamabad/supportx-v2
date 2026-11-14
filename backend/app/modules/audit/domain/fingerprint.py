@@ -69,6 +69,9 @@ class FingerprintStatus(StrEnum):
     VERIFIED = "verified"  # record history still matches the entry's fingerprint
     MISMATCH = "mismatch"  # record history was changed, or a salt is gone without an erasure
     ERASED_ON_REQUEST = "erased_on_request"  # a subject's salt is gone and their erasure is logged
+    # Some values were blanked by a logged redaction and checked through their kept digests
+    # (ADR-046 addendum): never "verified", so an auditor sees the save rests on them.
+    REDACTED_ON_REQUEST = "redacted_on_request"
 
 
 def _number(value: float) -> str:
@@ -140,6 +143,15 @@ class FieldValues:
     personal: bool = False
     # The row's free-text reason (`field_changes.reason`; the same on every row of a save).
     reason: object = None
+    # A signed history redaction (ADR-046 addendum, 0167) blanked the values and kept their
+    # digests (salted for a personal field): the fingerprint uses these instead of the values.
+    old_digest: str | None = None
+    new_digest: str | None = None
+
+    @property
+    def redacted(self) -> bool:
+        """Whether its values were blanked by a redaction and stand in as kept digests."""
+        return self.old_digest is not None or self.new_digest is not None
 
 
 @dataclass(frozen=True)
@@ -152,21 +164,23 @@ class SaveValues:
     fields: tuple[FieldValues, ...]
 
 
+def _old(f: FieldValues, salts: Sequence[bytes]) -> str:
+    return f.old_digest if f.old_digest is not None else value_digest(f.old, salts)
+
+
+def _new(f: FieldValues, salts: Sequence[bytes]) -> str:
+    return f.new_digest if f.new_digest is not None else value_digest(f.new, salts)
+
+
 def _fields(
     save: SaveValues, part: str, salts: Sequence[bytes], ids: list[str]
 ) -> list[list[object]]:
     if part == ORDINARY:
         rows: list[list[object]] = [
-            [f.field, value_digest(f.old), value_digest(f.new)]
-            for f in save.fields
-            if not f.personal
+            [f.field, _old(f, ()), _new(f, ())] for f in save.fields if not f.personal
         ]
     else:
-        rows = [
-            [f.field, value_digest(f.old, salts), value_digest(f.new, salts), ids]
-            for f in save.fields
-            if f.personal
-        ]
+        rows = [[f.field, _old(f, salts), _new(f, salts), ids] for f in save.fields if f.personal]
     return sorted(rows, key=canonical_value)
 
 
@@ -283,6 +297,8 @@ def status_of(  # noqa: PLR0913 - the stored entry's parts and what the database
     salted: Sequence[uuid.UUID],
     erased_after: Mapping[uuid.UUID, datetime],
     occurred_at: datetime,
+    redacted: bool = False,
+    redaction_logged: bool = False,
 ) -> FingerprintStatus:
     """The verdict on one entry.
 
@@ -291,8 +307,12 @@ def status_of(  # noqa: PLR0913 - the stored entry's parts and what the database
     the entry `erased_on_request` when that subject's erasure was logged after the entry (an
     `audit.subject_erased` entry, itself in the chain); a missing salt without one is a
     mismatch. With every salt present, the personal half must match too (both absent counts).
+
+    A save some of whose values were blanked by a redaction (`redacted`: their kept digests stood
+    in) is `redacted_on_request` when it matches and the redaction is logged in the chain after
+    the entry (`redaction_logged`), and a mismatch otherwise: never `verified` (ADR-046 addendum).
     """
-    if not ordinary_matches:
+    if not ordinary_matches or (redacted and not redaction_logged):
         return FingerprintStatus.MISMATCH
     have = set(salted)
     missing = [s for s in subjects if s not in have]
@@ -300,5 +320,5 @@ def status_of(  # noqa: PLR0913 - the stored entry's parts and what the database
         logged = all(s in erased_after and erased_after[s] > occurred_at for s in missing)
         return FingerprintStatus.ERASED_ON_REQUEST if logged else FingerprintStatus.MISMATCH
     if personal_recomputed == personal_stored:
-        return FingerprintStatus.VERIFIED
+        return FingerprintStatus.REDACTED_ON_REQUEST if redacted else FingerprintStatus.VERIFIED
     return FingerprintStatus.MISMATCH

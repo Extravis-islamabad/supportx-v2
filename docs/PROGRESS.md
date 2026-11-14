@@ -1548,6 +1548,18 @@ it with no reload (rule c). Not built yet.
     texts; the root cause's own gate (view_root_cause) applies after the role rules.
   - Next: b2 (search fails closed, `restricted` on live channels and 409s, designer refusal,
     AI and notification variables), then slice c (the editor) and lane C's analytics slice.
+- **S7 slice b2, field access everywhere else (no migration; ADR-047; lane B blocks):**
+  - Search fails closed: a restricted custom field stays out of the search text; when a field's
+    rules change, its type is marked and rebuilt in the background, and meanwhile search
+    ignores custom text for everyone (a match must hold in the subject and description alone).
+  - Live signals and 409s name a restricted field only as "restricted" (shared channels cannot
+    differ per viewer; screens refetch and get what they may see).
+  - Business rules, triggers, workflows (shown on the step, publishing refused) and templates'
+    defaults cannot name a field their author does not see in clear (422 field_not_permitted).
+  - Tests: nothing restricted reaches the AI gateway; no notification or template variable
+    names a restrictable field (guard).
+  - Next: slice c (the editor, lane C reviews); lane C's analytics slice and its skipped-recipients
+    notice; lane C's open_custom and view-log seams when their signatures exist.
 - **Analytics slice, field access in reports (no migration; ADR-047 §5; lane C; lane B blocks):**
   - The reporting source names the fields it withheld (`ReportingSource.withheld`, filled by the
     work item source). A report that names one (filter, groupings, columns or sort) is refused
@@ -1558,9 +1570,11 @@ it with no reload (rule c). Not built yet.
   - A schedule whose owner may no longer see a field it uses pauses as `field_not_permitted`
     before any file is made. A recipient who may not see one gets no file; the others do
     (counted in `last_failed`).
-  - [ ] Follow-up (coordinator, 2026-11-14): one notice per run to the owner naming who was
-    skipped and which fields (labels, no values). It is a notifications kind agreed with lane A,
-    and the run event carries the counts and field codes; no migration.
+  - [x] Follow-up (coordinator, 2026-11-14): one notice per run to the owner. Recipients left
+    out are skipped, not failed. `analytics.report_schedule.recipients_skipped` v1 carries IDs,
+    the entity, the run time and the field codes. `report_schedule.recipients_skipped` is a
+    STATUS notification, required, owner only, in-app and e-mail, with the fields named in the
+    owner's language. Shape from lane A; no migration.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2482,14 +2496,37 @@ it with no reload (rule c). Not built yet.
 - [x] S1b: the definer functions `history_redact_field` (only a redacted mention's own field;
   fingerprinted rows kept and counted) and `audit_erase_profile_history` (after `erased_at`,
   step 6), in 0164 on #500's helper.
-- [ ] Follow-up before the work-item mention ports: blank fingerprinted history rows too, with
-  pre-blank field digests kept and a `redacted_on_request` verifier status (ADR-046). Until
-  then approval and job start refuse an erasure that kept such a row
-  (`erasure_signed_history_kept`; flip `SIGNED_HISTORY_REDACTION` with the verifier).
+- [x] Signed history redaction (0167, ADR-046 addendum): fingerprinted history rows blanked too,
+  their digests kept in `field_change_redactions`, the verifier's `redacted_on_request` status
+  (never `verified`; needs the logged redaction), `fingerprints_redacted` per run;
+  `SIGNED_HISTORY_REDACTION` on. The refusal stays for any row still kept.
 - [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
   ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
   retry action for a failed erasure; the erasure screens (report, passage, redaction).
+  - [x] Lane C's ports (migration 0165, 2026-11-14): `knowledge` (votes deleted; topics and
+    articles to the successor; never-submitted drafts blanked and soft-deleted, and articles
+    left empty with them), `analytics.recipients` (band 100: out of others' schedule recipient
+    lists), `analytics` (favourites, preferences, exports with their files, private dashboards
+    deleted; shared dashboards, reports, folders moved; schedules moved and paused as
+    `owner_changed`), `announcements` (follows, dismissals deleted; owned ones moved), `ai`
+    (band 900: their AI call text cleared, rows kept as the usage and cost record, D-131;
+    then the vectors of the records they requested, via lane A's `records_requested_by`). Every moved object raises its ordinary event (rule c).
+    0165 grants DELETE on four tables; `tests/test_erasure_deletes.py` fails on any other hard
+    delete of them. Labels en/ar/ur.
+  - Summaries: the ai erasure consumer already deletes them (D-131).
+  - [x] Lane C's mentions ports (migration 0168, 2026-11-14), both in `REQUIRED_MENTION_PORTS`:
+    - `knowledge`: every article version (title, body, keywords, change, internal and reject
+      notes), others' feedback comments, withdrawal reasons, topic names and descriptions.
+    - `announcements`: title and body.
+    - Published versions are frozen (0036). 0168's `kb_redact_version` changes their title,
+      body or keywords only for a redacted mention of an open erasure, only into the old text
+      with the marker in place (checked in SQL). The freeze lets it through only as the
+      function's owner with a one-row transaction flag that it clears at once.
+    - History names the field only (`erasure_redaction`); saved events raised; search follows
+      (a computed column); too long refused; passages follow the article screen's rights.
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
+  deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
 - **S2, lane A's ports (0166; lane B blocked):**
   - `work_items.references` (150): follows, record roles and board seats removed; chairs to the
     successor; open tasks unassigned; pending approvals to the approval administrators
