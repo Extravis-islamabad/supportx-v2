@@ -25,6 +25,9 @@ export const ar: LabelResource = {
   'delivery_state.retrying': 'تجري إعادة المحاولة',
   'delivery_state.sent': 'تم الإرسال',
   'delivery_state.waiting': 'بانتظار إعداد البريد',
+  'erasure_count.deliveries_deleted': 'حُذفت عمليات تسليم الإشعارات',
+  'erasure_count.notifications_deleted': 'حُذفت الإشعارات داخل التطبيق',
+  'erasure_count.preferences_deleted': 'حُذفت تفضيلات الإشعارات',
   'event_delivery.stalled.body':
     'الإشعارات والتحديثات المباشرة والتصديرات متأخرة. لن يضيع شيء: ستُرسل فور تعافي الخدمة.',
   'event_delivery.stalled.title': 'توقف تسليم الأحداث',

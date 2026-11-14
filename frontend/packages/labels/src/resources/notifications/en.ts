@@ -23,6 +23,9 @@ export const en = {
   'delivery_state.retrying': 'Trying again',
   'delivery_state.sent': 'Sent',
   'delivery_state.waiting': 'Waiting for mail to be set up',
+  'erasure_count.deliveries_deleted': 'Notification deliveries deleted',
+  'erasure_count.notifications_deleted': 'In-app notifications deleted',
+  'erasure_count.preferences_deleted': 'Notification preferences deleted',
   'event_delivery.stalled.body':
     'Notifications, live updates and exports are delayed. Nothing is lost: they go out as soon as the service recovers.',
   'event_delivery.stalled.title': 'Event delivery is stalled',
