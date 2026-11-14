@@ -18,7 +18,13 @@ from app.modules.integrations.api.ldap_directories import router as ldap_directo
 from app.modules.integrations.api.routes import oauth_router, router
 from app.modules.integrations.events import EVENTS
 from app.modules.integrations.infra import models  # noqa: F401 - tables known to Alembic
-from app.modules.integrations.service import catalogue, connector_notifications, notifications, runs
+from app.modules.integrations.service import (
+    catalogue,
+    connector_notifications,
+    notifications,
+    person_data,
+    runs,
+)
 from app.modules.integrations.service.directory_sync import sync_schedule
 from app.modules.integrations.service.fetching import fetch_schedule
 from app.modules.integrations.service.ldap_directories import LDAP_FEDERATION_APPLY
@@ -32,6 +38,9 @@ notifications.register()  # mail admins hear about failing mailboxes (WP-024 ses
 catalogue.register()  # mailboxes are the catalogue's first connectors (WP-040)
 catalogue.register_directories()  # directory sync (WP-040 session 2)
 connector_notifications.register()  # failing and recovered connectors (WP-040)
+
+# Integrations' slice of a person's erasure (ADR-052): at import.
+person_data.register()
 
 module = ModuleSpec(
     name="integrations",
