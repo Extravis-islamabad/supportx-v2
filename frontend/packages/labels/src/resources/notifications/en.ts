@@ -51,6 +51,7 @@ export const en = {
   'notification_area.problem_repeat': 'Problems',
   'notification_area.release': 'Releases',
   'notification_area.reminder': 'Reminders',
+  'notification_area.report_schedule': 'Scheduled reports',
   'notification_area.rule_step': 'Rules and escalations',
   'notification_area.security': 'Security notices',
   'notification_area.service_request': 'Service requests',
@@ -142,6 +143,7 @@ export const en = {
   'notification_event.problem_repeat.detected': 'Repeated incidents found',
   'notification_event.release.public_reply': 'Reply to the requester',
   'notification_event.reminder.due': 'Your reminder',
+  'notification_event.report_schedule.recipients_skipped': 'A scheduled report left people out',
   'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.security.locked_out': 'Your account was locked after failed sign-ins',
   'notification_event.security.mfa_added': 'A sign-in check (MFA) was added to your account',
@@ -207,6 +209,7 @@ export const en = {
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
   'notification_recipient.reviewer': 'Reviewer',
+  'notification_recipient.schedule_owner': "The schedule's owner",
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.stock_watchers': "The minimum's people",
   'notification_recipient.tenant_admins': 'The tenant administrators',
@@ -658,6 +661,12 @@ export const en = {
   'notification_template.reminder.due.in_app': 'Reminder at {{ reminder.at }}: {{ reminder.note }}',
   'notification_template.reminder.due.subject':
     'Reminder: {{ reminder.note }} ({{ record.display_id }})',
+  'notification_template.report_schedule.recipients_skipped.body':
+    'Hello {{ recipient.name }},\n\nThe last run of {{ record.title }} was not sent to some recipients, because their roles do not show a field the report uses.\n\nPeople left out: {{ skipped.count }}\nFields they may not see: {{ fields.labels }}\n\nThe others got it. To include everyone, take those fields out of the report, or ask an administrator to change the field access of their roles.',
+  'notification_template.report_schedule.recipients_skipped.in_app':
+    '{{ record.title }} left people out (people left out: {{ skipped.count }}). Fields they may not see: {{ fields.labels }}',
+  'notification_template.report_schedule.recipients_skipped.subject':
+    '{{ record.title }} did not reach everyone',
   'notification_template.rule_step.assignee_unavailable.body':
     'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -800,6 +809,9 @@ export const en = {
   'notification_variable.record.title': 'Record › Subject',
   'notification_variable.reminder.at': 'Reminder time',
   'notification_variable.reminder.note': 'Reminder note',
+  'notification_variable.report_schedule.fields': 'Schedule › Fields they may not see',
+  'notification_variable.report_schedule.name': 'Schedule › Name',
+  'notification_variable.report_schedule.skipped_count': 'Schedule › People left out',
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
   'notification_variable.security.device': 'Sign-in › Browser and device',

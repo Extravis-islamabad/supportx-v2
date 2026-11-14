@@ -955,6 +955,7 @@ export const ar: LabelResource = {
   'event_type.analytics.report_folder.saved': 'تم حفظ مجلد التقارير',
   'event_type.analytics.report_schedule.due': 'حان موعد التقرير المجدول',
   'event_type.analytics.report_schedule.ran': 'تم إرسال التقرير المجدول',
+  'event_type.analytics.report_schedule.recipients_skipped': 'تقرير مجدول استبعد أشخاصًا',
   'event_type.analytics.report_schedule.saved': 'تم حفظ جدولة التقرير',
   'event_type.analytics.report_settings.changed': 'تم تغيير إعدادات التقارير',
   'event_type.announcements.announcement.created': 'أُنشئ إعلان',

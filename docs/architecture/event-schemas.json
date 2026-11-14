@@ -573,6 +573,57 @@
         "type": "object"
       }
     },
+    "analytics.report_schedule.recipients_skipped": {
+      "1": {
+        "description": "A run left out recipients who may not see a field the report uses (ADR-047 §5).\n\nRaised only when someone was skipped, so the owner's notice never fires on an ordinary run.\nIDs and field codes only (rule c): the notice names people and labels fields for the owner,\nnever a value. One per run: `ran_at` is the run's time (schedules keep no run table).",
+        "properties": {
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "ran_at": {
+            "format": "date-time",
+            "title": "Ran At",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "owner_id",
+          "ran_at",
+          "entity",
+          "skipped",
+          "fields"
+        ],
+        "title": "ReportScheduleRecipientsSkipped",
+        "type": "object"
+      }
+    },
     "analytics.report_schedule.saved": {
       "1": {
         "description": "A schedule was created, changed, paused, resumed or deleted.",

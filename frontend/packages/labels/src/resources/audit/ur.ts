@@ -953,6 +953,7 @@ export const ur: LabelResource = {
   'event_type.analytics.report_folder.saved': 'رپورٹ فولڈر محفوظ ہو گیا',
   'event_type.analytics.report_schedule.due': 'شیڈول رپورٹ کا وقت آ گیا',
   'event_type.analytics.report_schedule.ran': 'شیڈول رپورٹ بھیج دی گئی',
+  'event_type.analytics.report_schedule.recipients_skipped': 'شیڈول شدہ رپورٹ نے لوگوں کو چھوڑ دیا',
   'event_type.analytics.report_schedule.saved': 'رپورٹ شیڈول محفوظ ہو گیا',
   'event_type.analytics.report_settings.changed': 'رپورٹ کی ترتیبات تبدیل ہو گئیں',
   'event_type.announcements.announcement.created': 'اعلان بنایا گیا',
