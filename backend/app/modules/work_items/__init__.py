@@ -150,6 +150,11 @@ async def _requested_records(
     return await records_requested_by(session, person_id, cursor=cursor)
 
 
+# At import too, not only at start: the erasure job runs in the consumers worker, which may never
+# run the API's startup hooks (lane A, #502).
+register_requested_records(_requested_records)
+
+
 def _register_ai() -> None:
     """What AI may read of an incident (WP-038): the record page's own rules, through here."""
     register_record_access(INCIDENT.code, ai_sources.may_view_incident)
