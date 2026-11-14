@@ -262,7 +262,13 @@ export const ar: LabelResource = {
   'errors.erasure_already_open': 'يوجد طلب مفتوح لمحو بيانات هذا الشخص.',
   'errors.erasure_approval_invalid': 'لم يعد اعتماد هذا المحو صالحًا.',
   'errors.erasure_break_glass_account': 'لا يمكن محو حساب طوارئ. أزِله من حسابات الطوارئ أولًا.',
+  'errors.erasure_directory_sync_unsafe':
+    'لا يمكن اعتماد هذا المحو بعد: قد تعيد مزامنة الدليل كتابة بيانات الشخص.',
   'errors.erasure_identity_unavailable': 'تعذّر الوصول إلى خدمة تسجيل الدخول. ستُعاد المحاولة.',
+  'errors.erasure_mention_not_found':
+    'لم يُعثر على هذا الموضع في عملية المحو هذه، أو لا يمكنك رؤية السجل الذي يرد فيه.',
+  'errors.erasure_mention_port_missing':
+    'لا يمكن تغيير هذا الموضع: جزء المنتج الذي يرد فيه غير متاح.',
   'errors.erasure_needs_another_admin': 'يجب أن يعتمد هذا المحو مسؤولٌ آخر.',
   'errors.erasure_not_found': 'طلب المحو هذا غير موجود.',
   'errors.erasure_not_pending': 'لم يعد بالإمكان تغيير طلب المحو هذا.',
@@ -270,11 +276,17 @@ export const ar: LabelResource = {
   'errors.erasure_port_kind_undeclared': 'أبلغ جزء من المنتج عن شيء لم يعلن عنه. تواصل مع الدعم.',
   'errors.erasure_port_missing':
     'جزء من المنتج لا يستطيع محو البيانات الشخصية بعد. تواصل مع الدعم.',
+  'errors.erasure_redaction_too_long':
+    'لا يمكن تنقيح هذا المقطع هنا: ستجعل العلامة النص أطول مما يسمح به الحقل. اختصر النص أولًا.',
+  'errors.erasure_report_not_reviewed':
+    'لا يمكن اعتماد هذا المحو بعد: يجب أن يراجع مسؤول أولًا تقرير المواضع التي يُذكر فيها الشخص.',
   'errors.erasure_report_unavailable':
-    'لا يمكن اعتماد المحو بعد: تقرير المواضع التي يُذكر فيها الشخص غير متاح.',
+    'لا يمكن اعتماد هذا المحو بعد: تقرير المواضع التي يُذكر فيها الشخص غير مكتمل.',
   'errors.erasure_request_expired':
     'انتهت صلاحية طلب المحو هذا. اطلبه مجددًا إن كان لا يزال مطلوبًا.',
   'errors.erasure_sessions_unavailable': 'تعذّر إنهاء الجلسات الآن. ستُعاد المحاولة.',
+  'errors.erasure_signed_history_kept':
+    'لا يمكن اعتماد هذا المحو أو تشغيله بعد: لا يزال مقطع منقّح محفوظًا في سجل موقّع لا يمكن تنقيحه بعد.',
   'errors.erasure_step_failed': 'لم تنجح إحدى خطوات المحو. ستُعاد المحاولة.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
   'errors.field.address_not_allowed':
@@ -751,6 +763,7 @@ export const ar: LabelResource = {
   'errors.field_access_rule_not_found': 'قاعدة الحقل هذه لم تعد موجودة.',
   'errors.field_keys_unavailable':
     'لا يمكن قراءة المعلومات المحمية أو حفظها الآن: مفتاح التثبيت غير متاح. اطلب من المسؤول التحقق منه.',
+  'errors.field_not_permitted': 'يستخدم هذا التقرير حقلًا غير متاح لك.',
   'errors.field_not_ruleable': 'لا يمكن تقييد هذا الحقل.',
   'errors.field_read_only': 'يمكنك قراءة هذا الحقل فقط، لذا لا يمكن تغييره.',
   'errors.file_link_expired': 'انتهت صلاحية الرابط. افتح الملف مجددًا.',

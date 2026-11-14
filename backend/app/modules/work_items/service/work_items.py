@@ -308,6 +308,9 @@ class WorkItemView:
     hidden: frozenset[str] = frozenset()
     # Fields shown as masked (ADR-047): null too, listed apart so the page says "masked".
     masked: frozenset[str] = frozenset()
+    # Fields this subject may not change (any rule; hidden and masked imply it, ADR-047 §1), so
+    # the page disables them up front rather than meeting a 403 field_read_only.
+    read_only: frozenset[str] = frozenset()
     # Problems: who last changed each analysis field, and when (REQ-PRB-030).
     analysis_changes: tuple["AnalysisChange", ...] = ()
     # Problems: closing needs the review summary (REQ-PRB-053, D-140 Q4).
@@ -658,8 +661,34 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         conversation_count=int(entries or 0),
         hidden=unseen.hidden,
         masked=unseen.masked,
+        read_only=field_rules.read_only(subject.field_access, wtype.code.value),
         analysis_changes=analysis,
         review_required=closing.review_required(cat, record),
+    )
+
+
+async def _handed_away(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
+) -> WorkItemView:
+    """The record its writer just handed out of their own reach (D-053), still redacted.
+
+    The response carries the record as saved, so the writer's field rules apply to it as to any
+    read (ADR-047 §4): a value hidden from them never comes back because they lost access.
+    """
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record.id),
+    )
+    return WorkItemView(
+        record=record,
+        actions=[],
+        operations=[],
+        history_count=0,
+        visible=False,
+        hidden=unseen.hidden,
+        masked=unseen.masked,
+        read_only=field_rules.read_only(subject.field_access, wtype.code.value),
     )
 
 
@@ -2789,9 +2818,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             )
     await _follow_after_handover(session, subject, record, reach, source)
     if handed_over:
-        return WorkItemView(
-            record=record, actions=[], operations=[], history_count=0, visible=False
-        )
+        return await _handed_away(session, subject, wtype, record)
     return await _view(session, subject, wtype, record)
 
 
@@ -2991,9 +3018,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     )
     await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
-        return WorkItemView(
-            record=updated, actions=[], operations=[], history_count=0, visible=False
-        )
+        return await _handed_away(session, subject, wtype, updated)
     return await _view(session, subject, wtype, updated)
 
 
@@ -5404,9 +5429,7 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
             )
     await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
-        return WorkItemView(
-            record=updated, actions=[], operations=[], history_count=0, visible=False
-        )
+        return await _handed_away(session, subject, wtype, updated)
     return await _view(session, subject, wtype, updated)
 
 

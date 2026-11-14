@@ -14,7 +14,8 @@ may be half-erased, so no new erasure can start, and nothing ever exposes them h
 (the freeze comes first).
 
 The schedule `identity_access__person_erasures` (every 30 s, every tenant) expires requests past
-7 days and runs what is approved or running, honouring the backoff. A schedule rather than an
+7 days, builds the mentions report of requested erasures (S1b, service/erasure_mentions.py) and
+runs what is approved or running, honouring the backoff. A schedule rather than an
 event consumer: it needs a database per step, and it also picks up a run a crashed worker left.
 """
 
@@ -52,6 +53,12 @@ from app.modules.identity_access.infra.keycloak_admin import (
 from app.modules.identity_access.infra.models import Invitation, PersonErasure, User
 from app.modules.identity_access.service.directory import USER_RECORD_TYPE
 from app.modules.identity_access.service.erasure import expire_due, refusal
+from app.modules.identity_access.service.erasure_mentions import (
+    build_report_batch,
+    report_complete,
+    reports_due,
+    signed_history_kept,
+)
 from app.modules.identity_access.service.people import save_marks
 from app.modules.identity_access.service.person_data import (
     ErasureStepFailed,
@@ -115,6 +122,7 @@ JOB_KINDS: frozenset[str] = frozenset(
         "keycloak_sessions_ending",
         "mail_messages_cleared",
         "person_fields_cleared",
+        "profile_history_rows_erased",
         "sessions_ended",
         "successor_replaced",
     }
@@ -162,8 +170,10 @@ async def _recheck(run: _Run) -> None:
     row, person = run.row, run.person
     if row.approved_by is None or row.approved_at is None or row.approved_by == row.requested_by:
         raise StepRefused(rules.APPROVAL_INVALID)
-    if row.report is None:
+    if not report_complete(row.report):  # D-171 (a): never run on an incomplete report
         raise StepRefused(rules.REPORT_UNAVAILABLE)
+    if await signed_history_kept(run.session, row.id):  # D-171: never keep a redacted original
+        raise StepRefused(rules.SIGNED_HISTORY_KEPT)
     if person.id in {row.requested_by, row.approved_by}:
         raise StepRefused(rules.ERASE_SELF)
     # The approver vouches for the run and is the fallback successor: still active, not erased,
@@ -407,9 +417,16 @@ async def _person_row(run: _Run) -> None:
     run.counts["person_fields_cleared"] = len(changed)
 
 
+_ERASE_PROFILE_HISTORY = text("SELECT audit_erase_profile_history(:person)")
+
+
 async def _audit(run: _Run) -> None:
     """Step 6: the audit log and record history keep no personal value of theirs (ADR-046)."""
     run.counts["audit_personal_rows_removed"] = await erase_subject(run.session, run.person.id)
+    # Their own profile history (record type `user`): the migrator-owned function (0164) acts
+    # only once step 5 set `erased_at`, so it can never blank a live person's history.
+    blanked = await run.session.scalar(_ERASE_PROFILE_HISTORY, {"person": run.person.id})
+    run.counts["profile_history_rows_erased"] = int(blanked or 0)
 
 
 async def _events(run: _Run) -> None:
@@ -629,8 +646,36 @@ async def expire_and_audit(session: AsyncSession, now: datetime) -> int:
     return len(expired)
 
 
+# One schedule run builds at most this many report batches per erasure; the next run goes on.
+REPORT_BATCHES_PER_RUN = 200
+
+
+async def build_reports(database: Database, tenant: uuid.UUID, now: datetime) -> int:
+    """The tenant's requested erasures' mentions reports, one port batch per transaction (S1b).
+
+    A failing port stops that erasure's build for this run (retried on the next, from the
+    stored port and cursor); its exception's type is logged, never its text.
+    """
+    async with database.tenant_session(TenantContext(tenant)) as session:
+        due = await reports_due(session, now)
+    batches = 0
+    for erasure_id in due:
+        try:
+            for _ in range(REPORT_BATCHES_PER_RUN):
+                async with database.tenant_session(TenantContext(tenant)) as session:
+                    more = await build_report_batch(session, erasure_id)
+                batches += 1
+                if not more:
+                    break
+        except Exception as exc:  # noqa: BLE001 - one erasure's port must not stop the others
+            log.warning(
+                "person_erasure_report_error", erasure_id=str(erasure_id), error=type(exc).__name__
+            )
+    return batches
+
+
 async def erasure_schedule(database: Database, settings: Settings) -> None:
-    """Every tenant: expire old requests, then run what is approved or running (backoff kept)."""
+    """Every tenant: expire old requests, build mentions reports, then run approved erasures."""
     async with database.platform_session() as platform:
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
     now = system_clock.now()
@@ -639,6 +684,7 @@ async def erasure_schedule(database: Database, settings: Settings) -> None:
         async with database.tenant_session(TenantContext(tenant)) as session:
             await expire_and_audit(session, now)
             work += [(tenant, erasure_id) for erasure_id in await _due(session, now)]
+        await build_reports(database, tenant, now)
     if not work:
         return
     admin = admin_factory(settings)

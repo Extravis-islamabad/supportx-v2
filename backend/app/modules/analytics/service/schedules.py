@@ -46,12 +46,15 @@ from app.modules.analytics.domain.schedule import FAILURES_BEFORE_PAUSE, Frequen
 from app.modules.analytics.events import ReportScheduleDue, ReportScheduleRan, ReportScheduleSaved
 from app.modules.analytics.infra.models import ReportSchedule
 from app.modules.analytics.service import library
+from app.modules.analytics.service.compiler import check_withheld
 from app.modules.analytics.service.exports import (
     CONTENT_TYPES,
+    FIELD_NOT_PERMITTED,
     Worker,
     fail_stalled_exports,
     render_file,
 )
+from app.modules.analytics.service.runner import resolve_provider
 from app.modules.identity_access import Subject, mail_recipients
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -481,6 +484,28 @@ async def _owner(session: AsyncSession, row: ReportSchedule, worker: Worker) -> 
     return owner if owner.holds(SCHEDULE) else "owner_not_allowed"
 
 
+async def _report_problem(
+    session: AsyncSession, owner: Subject, report: tuple[ReportDefinition, str] | None
+) -> str | None:
+    """Why the run stops and the schedule pauses before any file, or None.
+
+    The report is gone, or it names a field the owner's roles now hide or mask (ADR-047 §5): a
+    schedule mails with its owner's access, so the owner must still read every field it uses.
+    """
+    if report is None:
+        return "report_removed"
+    definition = report[0]
+    try:
+        provider = resolve_provider(definition.entity, owner)
+    except (NotFound, PermissionDenied):
+        return None  # the entity itself: each recipient's own run says so
+    try:
+        check_withheld(definition, await provider.source(session, owner))
+    except PermissionDenied:
+        return FIELD_NOT_PERMITTED
+    return None
+
+
 async def run_schedule(  # noqa: C901 - one run, every outcome explicit
     session: AsyncSession, schedule_id: uuid.UUID, worker: Worker, settings: Settings
 ) -> ReportSchedule | None:
@@ -496,8 +521,9 @@ async def run_schedule(  # noqa: C901 - one run, every outcome explicit
     if not mail_configured(settings):
         return await _ran(session, row, outcome, "mail_not_configured")
     report = await definition_of(session, owner, row.report_ref)
-    if report is None:
-        return await _ran(session, row, outcome, "report_removed", pause=True)
+    stop = await _report_problem(session, owner, report)
+    if stop is not None or report is None:
+        return await _ran(session, row, outcome, stop or "report_removed", pause=True)
     definition, title_key = report
     group_ids = frozenset(uuid.UUID(g) for g in row.recipient_groups)
     members = (

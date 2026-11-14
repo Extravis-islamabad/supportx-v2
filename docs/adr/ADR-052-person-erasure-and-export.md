@@ -29,8 +29,9 @@ half-erased person nor be skipped.
   `person.erasure_requested / approved / rejected / expired / completed / failed`.
 - **Refused** (a labelled 409/422 at request, approval and job start): yourself; the last active
   tenant admin; break-glass accounts; a person under legal hold; an erasure already open.
-- **The mentions report (D-171 a)** is shown to the approver. Until it ships (S1b), approval is
-  refused server-side with `erasure_report_unavailable`; a test proves no erasure can run.
+- **The mentions report (D-171 a)** is shown to the approver (S1b, §4a). Approval is refused
+  with `erasure_report_unavailable` while the report is missing or incomplete, and with
+  `erasure_report_not_reviewed` until the approving admin has reviewed it themselves.
 
 ### 2. Legal hold (H1)
 
@@ -65,9 +66,9 @@ skip: the person-level check is the whole hold, and it fails closed.
      null, phone, mobile, job title, employee ID, description, signature, manager cleared,
      preferences reset, `erased_at / erased_by` set. The row stays: IDs everywhere point at it.
   6. **Audit**: `audit.erase_subject(person)` (ADR-046: personal values blanked, salt destroyed →
-     "erased on request"). The person's own profile history (record type `user`) needs a
-     migrator-owned function to blank, through the definer helper WP-057 S3b adds; that lands in
-     S1b, before any approval is possible.
+     "erased on request"), then `audit_erase_profile_history(person)` (0164, a migrator-owned
+     definer function): values and reasons of their own profile history (record type `user`)
+     blanked, only once step 5 set `users.erased_at`, so it can never blank a live person's.
   7. **Event**: `user.status_changed {status: disabled, reason: erasure}` for the consumers that
      already react to it, then `person.erasure_completed`.
 
@@ -154,6 +155,9 @@ lands):
 - **Files they uploaded are deleted** (D-171 b) unless their ID is in `keep_files` (kept with the
   admin's reason, audited per file by the job). Shared files service: `files.forget_uploader`.
 - **Costs** (D3a): rates deleted, worklog amounts kept.
+- **Mail block rules** naming their address as sender **stay unchanged**: the tenant's own
+  security control (legitimate interest); an erasure never lifts a block (the coordinator,
+  2026-11-14).
 - **No data in counts, logs or errors.** Counts by kind only; failures raise a coded error.
 - **No events that name the person**; ordinary change events (IDs, changed fields) as for any
   change, so screens follow live.
@@ -163,6 +167,70 @@ settings: lane B. work_items, notifications (#492 done), integrations, automatio
 knowledge, analytics, announcements, ai (consumer done): lane C. The registry refuses to start
 the job while a module listed in `REQUIRED_PORTS` has not registered (a missing port is a
 release defect, never a silent skip).
+
+### 4a. The mentions report and redaction (S1b, D-171 a)
+
+- **Port contract.** A module whose text other people write may name the person implements
+  `PersonMentions` (person_data.py) under its registry key, beside or on its erasure port:
+  `find_mentions(session, person_id, *, terms, cursor) -> MentionBatch` (at most
+  `MENTION_BATCH` = 500 rows per call; mentions are `(record_type, record_id, field,
+  match_kind name|email|phone, occurrences)`, **never a snippet or any text**);
+  `redact_mention(session, mention, *, terms, marker, now) -> bool` (only the matched
+  occurrences of that kind in that one field become the reserved code `erased_on_request`, the
+  record's version goes up, history names the field only with old/new null and reason
+  `erasure_redaction`, the record's ordinary change event); `passage(session, subject, mention)
+  -> str | None` (the field's current text when the caller's own rights let them read the
+  record **and that field**: its own field rules and ADR-047 field access; the registry also
+  refuses a field the caller's role rules hide or mask, by record type and field name). A port
+  may narrow its scan by an index (full-text, trigram) if it never misses an exact match; rich
+  text (sanitised HTML) is matched and redacted between tags only (`count_matches_html`,
+  `redact_html`); a redaction that would overflow the field is refused
+  (`erasure_redaction_too_long`), never cut (lane A's #506 review). Terms (`MentionTerms`: display name and first + last, the e-mail, phone and mobile as
+  digits) are rebuilt from the person's row when needed and never stored.
+- **Required ports.** `REQUIRED_MENTION_PORTS` (one place) names identity_access, files and assets
+  (built in S1b) and S2's work_items (one key: a search has no band), integrations (inbound mail
+  subjects), knowledge and announcements. A report is `complete` only when every required key ran, so until S2 no report
+  is complete and approval stays refused in practice.
+- **Build.** While an erasure is requested, the 30 s erasure schedule runs every registered
+  mentions port in key order, one batch per transaction, progress (port and cursor) in
+  `report.building`. Rows go to `person_erasure_mentions` (migration 0164; one per place and
+  kind; states found, redacted, left). The finished `report` is `{complete, by_module: {key:
+  {kind: count}}, ports_done, ports_missing, attachment_content_searched: false,
+  mail_bodies_searched: false, building: null}`. A port registered later runs on the next
+  tick, and the review then lapses.
+- **Review.** `POST /erasures/{id}/report/reviewed` (`people.erase`, RecentAuth, If-Match,
+  audited `person.erasure_report_reviewed`) sets `report_reviewed_at/by`; approval needs the
+  approver's own review (a review by anyone else does not count), and
+  approval leaves the mentions still found as `left`. The job's step 0 still refuses an
+  incomplete report.
+- **Reading.** `GET /erasures/{id}/mentions` lists places and counts (cursor pages, never
+  text); `GET /erasures/{id}/mentions/{mention_id}/passage` returns the current text through
+  the owning port (404 when the caller may not read the record), each view audited
+  `person.erasure_mention_viewed` with IDs only.
+- **Redaction** needs the same read rights as the passage: a mention of a record the admin may
+  not read refuses the whole request (404). `POST /erasures/{id}/mentions/redact`
+  (`people.erase`, RecentAuth, If-Match on
+  the erasure, at most 200 mention IDs; requested or approved, never once the job runs): each
+  through its port, the row marked redacted, an audit entry `person.erasure_mention_redacted`
+  per mention (IDs only). A mention of another erasure refuses the whole request (404).
+- **Attachment contents are not searched,** only file names and details: the report and the
+  mentions list carry `attachment_content_searched: false`, shown with the label
+  `people_erasure.attachment_content_not_searched`. **Inbound mail is searched by subject
+  only**, never its body (raw MIME, gone at quarantine expiry): `mail_bodies_searched: false`,
+  shown with `people_erasure.mail_bodies_not_searched` (the coordinator, 2026-11-14).
+- **History of a redacted field** (0164, `history_redact_field(mention)`, a migrator-owned
+  definer function; the app role has no UPDATE on `field_changes`): it takes only a mention ID
+  and blanks old/new values of the record and field that *redacted* mention row names, in the
+  caller's tenant, so no caller can point it at another field. As the app role may write
+  mention rows, the function also requires the row's `redacted_at` and `redacted_by` and an
+  erasure still in a redactable state (requested, approved; lane C's #506 review). Rows a fingerprinted audit entry
+  commits to (ADR-046: work items, assets) are **kept**, since blanking them would read as
+  tampering; the mention's `history_kept` counts them and the screen says so
+  (`people_erasure.history_kept_fingerprinted`). Blanking those needs the pre-blank field
+  digests kept and a `redacted_on_request` verifier status: a follow-up before the work-item
+  mention ports register (lane C agreed, 2026-11-14). D-171 keeps no redacted original, so
+  until then an erasure with a kept row is **refused** at approval and at job start
+  (`erasure_signed_history_kept`; the coordinator, 2026-11-14).
 
 ### 5. Export (REQ-ADM-100)
 
@@ -190,6 +258,6 @@ staff. **Open, for Haider:** whether other people's *private notes about* the pe
   seeds its tables).
 - Erasure is not undoable: the job writes nothing that could restore the person, and the audit
   shows "erased on request".
-- Mentions in other people's text (D-171 a) are handled by the report and redaction (S1b), not by
-  the ports; until S1b ships, approval is refused.
+- Mentions in other people's text (D-171 a) are handled by the report and redaction (S1b, §4a),
+  not by the erasure ports; until S2's mentions ports land, approval is refused.
 - Keycloak accounts shared with other tenants survive (D5); only this tenant's membership goes.
