@@ -36,6 +36,8 @@ from app.modules.identity_access.service.person_data import (
     REQUIRED_MENTION_PORTS,
     Mention,
     MentionBatch,
+    PersonMentions,
+    mention_port,
     register_mentions,
     unregister_mentions,
 )
@@ -45,6 +47,21 @@ from tests.db.test_incidents_api import Org, World, role
 from tests.db.test_person_erasure_api import _audit, _code, _request, _second_admin
 
 pytestmark = [pytest.mark.db, MODULE_LOOP]
+
+
+def _stand_in(port: PersonMentions) -> PersonMentions | None:
+    """Put a test port in the real one's place (lane C's knowledge port exists since 0168)."""
+    real = mention_port(port.module)
+    unregister_mentions(port.module)
+    register_mentions(port)
+    return real
+
+
+def _restore(module: str, real: PersonMentions | None) -> None:
+    unregister_mentions(module)
+    if real is not None:
+        register_mentions(real)
+
 
 __all__ = ["module_world", "shared_world"]  # the fixtures, re-used
 
@@ -231,7 +248,8 @@ async def test_the_report_finds_the_person_and_is_never_complete_in_s1b(world: W
     assert report["attachment_content_searched"] is False
     assert report["mail_bodies_searched"] is False
     assert report["ports_missing"] == sorted(
-        REQUIRED_MENTION_PORTS - {"identity_access", "files", "assets"}
+        REQUIRED_MENTION_PORTS
+        - {"identity_access", "files", "assets", "knowledge", "announcements"}
     )
     assert report["by_module"]["identity_access"] == {"name": 2, "email": 1, "phone": 1}
     assert report["by_module"]["files"] == {"name": 1}
@@ -327,7 +345,8 @@ async def test_the_build_resumes_in_batches_and_runs_a_later_port(
     assert reviewed.json()["report"]["reviewed_by"] == str(a.admin)
 
     class Later:
-        module: ClassVar[str] = "knowledge"
+        # A key no real port takes: every module has its own port now (lane C, 0168).
+        module: ClassVar[str] = "later_probe"
 
         async def find_mentions(self, *_a: object, **_k: object) -> MentionBatch:
             return MentionBatch(
@@ -344,10 +363,9 @@ async def test_the_build_resumes_in_batches_and_runs_a_later_port(
     try:
         assert await _build(world, a) == 1
     finally:
-        unregister_mentions("knowledge")
+        unregister_mentions("later_probe")
     shown = await _get(world, a, erasure)
-    assert shown["report"]["by_module"]["knowledge"] == {"name": 1}
-    assert "knowledge" not in shown["report"]["ports_missing"]
+    assert shown["report"]["by_module"]["later_probe"] == {"name": 1}
     assert shown["report"]["complete"] is False
     assert shown["report"]["reviewed_at"] is None  # the report changed: review again
 
@@ -1045,11 +1063,11 @@ async def test_a_port_sees_its_mention_redacted_while_it_redacts(world: World) -
         erasure_id,
         uuid.uuid4(),
     )
-    register_mentions(Probe())
+    real = _stand_in(Probe())
     try:
         version = (await _get(world, a, erasure))["version"]
         done = await _redact(world, a, erasure["id"], [str(mention_id)], version)
     finally:
-        unregister_mentions("knowledge")
+        _restore("knowledge", real)
     assert done.status_code == 200, done.text
     assert seen == [(mention_id, "redacted", True)]
