@@ -117,6 +117,7 @@ export const en = {
   'directory_skip.last_admin_kept': 'Last administrator kept active',
   'directory_skip.no_address': 'No usable email address',
   'directory_skip.not_an_email': 'Not an email address',
+  'directory_skip.person_erased': 'Erased on request: left untouched',
   'directory_skip.refused': 'Refused by a person rule',
   'directory_skip.too_long': 'A value too long to keep',
   'directory_skip.unknown_department': 'Department not in SupportX',

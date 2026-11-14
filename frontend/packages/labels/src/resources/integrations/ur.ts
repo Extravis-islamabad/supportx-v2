@@ -120,6 +120,7 @@ export const ur: LabelResource = {
   'directory_skip.last_admin_kept': 'آخری ایڈمنسٹریٹر فعال رکھا گیا',
   'directory_skip.no_address': 'کوئی قابلِ استعمال ای میل ایڈریس نہیں',
   'directory_skip.not_an_email': 'ای میل ایڈریس نہیں',
+  'directory_skip.person_erased': 'درخواست پر مٹایا گیا: بغیر تبدیلی چھوڑا گیا',
   'directory_skip.refused': 'فرد کے اصول نے مسترد کیا',
   'directory_skip.too_long': 'محفوظ کرنے کے لیے بہت لمبی قدر',
   'directory_skip.unknown_department': 'شعبہ SupportX میں نہیں',

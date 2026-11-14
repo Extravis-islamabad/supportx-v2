@@ -62,6 +62,7 @@ class SkipReason(StrEnum):
     DISABLED = "disabled_in_directory"  # never made: a disabled account is not a new person
     REFUSED = "refused"  # a person rule refused it (a taken employee ID, a manager loop, ...)
     LAST_ADMIN = "last_admin_kept"  # the last active administrator is never deactivated
+    ERASED = "person_erased"  # erased on request (D-171): never written, revived or adopted
 
 
 @dataclass(frozen=True)

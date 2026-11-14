@@ -193,3 +193,8 @@ staff. **Open, for Haider:** whether other people's *private notes about* the pe
 - Mentions in other people's text (D-171 a) are handled by the report and redaction (S1b), not by
   the ports; until S1b ships, approval is refused.
 - Keycloak accounts shared with other tenants survive (D5); only this tenant's membership goes.
+- **Directory sync never touches an erased person** (LDAP and Entra, WP-040): their
+  `directory_people` link stays as the key that keeps the directory from making them anew, but
+  no sync writes the directory's values back, reactivates or deactivates them, or adopts the row
+  by address; the run counts them skipped (`directory_skip.person_erased`). An admin who removes
+  the link lets the next sync make a fresh person (the coordinator, 2026-11-14).

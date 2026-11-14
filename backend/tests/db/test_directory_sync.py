@@ -381,3 +381,50 @@ async def test_a_returner_without_a_seat_is_counted_and_the_run_goes_on(
         "SELECT failing FROM connector_health WHERE instance_id = $1", directory_id
     )
     assert health[0]["failing"] is False
+
+
+async def test_an_erased_person_is_never_written_revived_or_adopted_again(
+    world: World, fake: FakeDirectory
+) -> None:
+    """D-171: the directory's name and address never come back onto an erased row."""
+    carol = fake.add_user(
+        displayName="Carol Erased", givenName="Carol", surname="Erased", mail="carol@alpha.test"
+    )
+    directory_id = await _create(world, fake)
+    await _sync(world, directory_id)
+    person = await _person(world, directory_id, carol)
+    # What the erasure job's steps 1 and 5 leave (ADR-052): disabled, anonymised, erased_at set.
+    marker = {
+        "display_name": "Erased person 4F2A",
+        "first_name": "Erased person",
+        "last_name": "4F2A",
+        "email": f"erased-{person['id']}@invalid",
+    }
+    await world.sql(
+        "UPDATE users SET display_name = $3, first_name = $4, last_name = $5, email = $6,"
+        " status = 'disabled', can_sign_in = false, erased_at = now()"
+        " WHERE tenant_id = $1 AND id = $2",
+        world.a.tenant,
+        person["id"],
+        *marker.values(),
+    )
+    before = await _person(world, directory_id, carol)
+    # The directory still has them, enabled, and renames them: nothing comes back.
+    fake.change_user(carol, displayName="Carol Again", mail="carol@alpha.test", accountEnabled=True)
+    counts = await _sync(world, directory_id)
+    after = await _person(world, directory_id, carol)
+    assert after == before
+    assert {k: after[k] for k in marker} == marker
+    assert (after["status"], after["can_sign_in"]) == ("disabled", False)
+    assert counts.skipped >= 1
+    # Removed in the directory: nothing either (no deactivation of an erased person).
+    fake.delete_user(carol)
+    await _sync(world, directory_id)
+    assert await _person(world, directory_id, carol) == before
+    # No other person ever took their address back either (never adopted, never duplicated).
+    adopted = await world.sql(
+        "SELECT count(*) AS n FROM users WHERE tenant_id = $1 AND lower(email) = $2",
+        world.a.tenant,
+        "carol@alpha.test",
+    )
+    assert adopted[0]["n"] == 0

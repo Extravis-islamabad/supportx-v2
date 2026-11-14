@@ -2462,6 +2462,8 @@ it with no reload (rule c). Not built yet.
 - [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`); a retry action
   for a failed erasure.
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
+  deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
 - [ ] Open: the person's own profile history (`field_changes` of record type `user`) is not
   blanked yet. It needs a migrator-owned definer function, and D-168 option (b) allows that
   SQL only through a code-owned helper in migrations/helpers.py (lane B's security review).

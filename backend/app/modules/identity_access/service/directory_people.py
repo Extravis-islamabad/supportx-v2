@@ -11,6 +11,11 @@ a loop): a value they refuse is the sync's to count, never written half.
 - Leavers are deactivated, never deleted (their sessions end; their records keep them); a person
   the directory enables again is reactivated with what they held. The last active administrator
   is never deactivated by a sync: the run reports it instead.
+- **An erased person is never touched again** (D-171, ADR-052): their link stays as the key that
+  keeps the directory from making them anew, but no sync writes to their row, reactivates or
+  deactivates them, or adopts it by address (`ErasedPerson`; the run counts them skipped).
+  Were it otherwise, the next sync would write the directory's name and address back onto the
+  erased row. An admin who removes the link lets the next sync make a fresh person.
 """
 
 import uuid
@@ -36,6 +41,16 @@ class LeaverOutcome(StrEnum):
     LEFT = "left"
     ALREADY_DISABLED = "already_disabled"
     LAST_ADMIN_KEPT = "last_admin_kept"  # never the last active administrator (counted, shown)
+    ERASED = "erased"  # an erased person: nothing done (D-171)
+
+
+class ErasedPerson(Exception):
+    """The linked person was erased (D-171): the sync skips them and writes nothing."""
+
+
+async def _erased(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    erased_at = await session.scalar(select(User.erased_at).where(User.id == user_id))
+    return erased_at is not None
 
 
 @dataclass(frozen=True)
@@ -54,6 +69,7 @@ async def _adoptable(session: AsyncSession, email: str) -> uuid.UUID | None:
             func.lower(User.email) == email.strip().lower(),
             User.user_type != UserType.SERVICE.value,
             User.deleted_at.is_(None),
+            User.erased_at.is_(None),  # never adopted back (D-171)
         )
     )
     return found
@@ -66,7 +82,12 @@ async def sync_directory_person(
     *,
     directory: Directory,
 ) -> SyncedPerson:
-    """Create, adopt or update a synced person; 422 (as the people screens) on a refused value."""
+    """Create, adopt or update a synced person; 422 (as the people screens) on a refused value.
+
+    Raises `ErasedPerson` (nothing written) when the linked person was erased.
+    """
+    if user_id is not None and await _erased(session, user_id):
+        raise ErasedPerson
     created = False
     changes: dict[str, Any] = {}
     if user_id is None:
@@ -101,6 +122,8 @@ async def directory_leaver(
     end_sessions: Callable[[uuid.UUID], Awaitable[None]] | None,
 ) -> LeaverOutcome:
     """Deactivate a person the directory removed or disabled (REQ-INT-064); never deletes."""
+    if await _erased(session, user_id):
+        return LeaverOutcome.ERASED
     current = await people.get_person(session, user_id)
     if current.status == "disabled":
         return LeaverOutcome.ALREADY_DISABLED
@@ -123,7 +146,12 @@ async def directory_leaver(
 async def directory_returner(
     session: AsyncSession, user_id: uuid.UUID, *, directory: Directory
 ) -> bool:
-    """Reactivate a person the directory enabled again, keeping what they held; True if so."""
+    """Reactivate a person the directory enabled again, keeping what they held; True if so.
+
+    Never an erased person (D-171): False, nothing done.
+    """
+    if await _erased(session, user_id):
+        return False
     current = await people.get_person(session, user_id)
     if current.status == "active":
         return False
