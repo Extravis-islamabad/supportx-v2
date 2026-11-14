@@ -1520,6 +1520,20 @@ it with no reload (rule c). Not built yet.
   - It goes when the incident is saved (the sender's own), when discarded, when its owner is
     deactivated or erased, and after 30 days. No audit (personal and unsent).
   - Migration 0160: `work_item_drafts`; the downgrade refuses while any tenant holds a draft.
+- **S7 slice a, field access per role (0162; ADR-047; REQ-WI-016, REQ-ADM-026; lane B blocks):**
+  - Rules: one per role, record type and field (read_only, masked or hidden), versioned, soft
+    removed, at most 2,000 per tenant; `/field-access` (catalogue, rules, effective view) with
+    `roles.view` / `roles.manage`; every change audited with the mode before and after.
+  - Compiled into the cached subject (`Subject.field_access`): the clearest mode of the person's
+    roles wins (own, through active groups, or their type's default); a change reaches the next
+    request (after-commit bump plus the authz consumer); holders' screens refetch (realtime).
+  - Licence: `field_access` (Professional) for adding and changing; viewing, removing and
+    applying never depend on it (lane C owns licensing, lane B reviewed).
+  - Custom fields gain `personal_data` and `sensitive` marks (no rule of their own; erasure,
+    export, view log and encryption use them: D-171, WP-057 S3b); the per-type
+    `custom_text_rebuilding_since` marker for slice b's search.
+  - Not yet enforced on reads or writes: slice b (redaction, write checks, search, live
+    renaming, built-in fields), then slice c (the editor), and lane C's analytics slice.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

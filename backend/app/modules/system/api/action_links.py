@@ -38,7 +38,7 @@ from app.modules.identity_access import Subject, subject_for
 from app.modules.organization import link_tenant
 from app.shared import action_links
 from app.shared.action_links.domain import TOKEN_LENGTH
-from app.shared.api.public_links import NO_TENANT, PublicLinks
+from app.shared.api.public_links import NO_TENANT, PublicLinks, private_answers
 from app.shared.api.ratelimit import ip_rate_limit, rate_limit
 
 router = APIRouter(
@@ -123,7 +123,11 @@ PUBLIC_LINKS_PER_ADDRESS = 120  # a minute
 public_router = APIRouter(
     prefix="/public/action-links",
     tags=["action-links"],
-    dependencies=[Depends(ip_rate_limit("action_links_public_address", PUBLIC_LINKS_PER_ADDRESS))],
+    # Errors carry no-store and no-referrer too (lane B's note on #490), rate limits included.
+    dependencies=[
+        Depends(private_answers),
+        Depends(ip_rate_limit("action_links_public_address", PUBLIC_LINKS_PER_ADDRESS)),
+    ],
 )
 DatabaseDep = Annotated[Database, Depends(get_database)]
 PUBLIC_GROUP = "action_links_public"

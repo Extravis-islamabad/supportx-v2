@@ -9,7 +9,8 @@
     with a future date (lane B, #500).
   - `audit_erase_access(subject)`: a person's erasure (ADR-052 step 6). It deletes only when that
     person is already erased (`users.erased_at`, set by step 5; #498's 0161), so the app can
-    never use it to empty someone's entries early (lane B, #500). Hence 0163 follows 0161.
+    never use it to empty someone's entries early (lane B, #500). Hence 0163 follows 0161
+    (re-pointed onto 0162 at its turn).
   A view is written once per accessor, record and 15 minutes (`dedupe_key`, unique per tenant):
   live refetches never flood it.
 - `audit_settings.personal_data_log`: the tenant's switch (off by default).
@@ -24,7 +25,7 @@ search_path, closed to PUBLIC, EXECUTE for supportx_app only. The downgrade refu
 tenant has an access entry (rule 5h).
 
 Revision ID: 0163
-Revises: 0161
+Revises: 0162
 Created: 2026-11-14
 """
 
@@ -42,7 +43,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0163"
-down_revision: str | None = "0161"
+down_revision: str | None = "0162"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

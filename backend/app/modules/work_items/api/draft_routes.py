@@ -37,8 +37,8 @@ router = APIRouter(
     },
 )
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
-# The request itself, before it is read as JSON: twice the values' cap leaves room for escaping.
-REQUEST_MAX = rules.BODY_MAX * 2
+# The body itself is capped as it arrives by the app-wide limit (app/core/body_limit.py, #496);
+# the service then checks the values' own 64 KB.
 
 
 def _settings(request: Request) -> Settings:
@@ -111,7 +111,6 @@ async def get_draft(
 async def put_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     form_key: str,
     body: KeptDraftIn,
-    request: Request,
     session: TenantSession,
     subject: SignedIn,
     settings: AppSettings,
@@ -120,16 +119,6 @@ async def put_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 ) -> KeptDraftOut:
     """If-Match: the version you have ("0" for a new draft). 64 KB of values at most."""
     _may_create(subject, form_key)
-    if int(request.headers.get("content-length") or 0) > REQUEST_MAX:
-        raise ValidationFailed(
-            errors=[
-                FieldError(
-                    field="body.values",
-                    code=rules.TOO_LARGE,
-                    message_key=f"errors.field.{rules.TOO_LARGE}",
-                )
-            ]
-        )
     kept = await service.put(
         session,
         settings,

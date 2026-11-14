@@ -10,6 +10,7 @@ call `definitions`, `clean`, `mark_used` and `filter_fields` from the module's p
 
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -737,6 +738,25 @@ _FILTER_TYPES: Mapping[FieldType, FilterType] = {
     FieldType.YES_NO: FilterType.BOOLEAN,
     FieldType.PERSON: FilterType.UUID,
 }
+
+
+@dataclass(frozen=True)
+class FieldMarks:
+    """A custom field as field access sees it: its names and an admin's marks (ADR-047 §14)."""
+
+    key: str
+    labels: dict[str, str]
+    personal_data: bool
+    sensitive: bool
+
+
+async def field_marks(session: AsyncSession, entity: str) -> list[FieldMarks]:
+    """The entity's custom fields in use (not retired), with their names and marks."""
+    return [
+        FieldMarks(row.key, dict(row.labels), row.personal_data, row.sensitive)
+        for row in await list_fields(session, entity)
+        if row.retired_at is None
+    ]
 
 
 async def filter_fields(session: AsyncSession, entity: str, table: str) -> dict[str, FilterField]:

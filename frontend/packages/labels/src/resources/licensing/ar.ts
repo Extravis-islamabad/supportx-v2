@@ -28,6 +28,7 @@ export const ar: LabelResource = {
   'feature.directory_federation': 'تسجيل الدخول عبر الدليل (AD/LDAP)',
   'feature.discovery': 'اكتشاف الأصول',
   'feature.esm': 'إدارة خدمات المؤسسة',
+  'feature.field_access': 'صلاحيات الحقول حسب الدور',
   'feature.field_encryption': 'تشفير الحقول',
   'feature.incident': 'إدارة الحوادث',
   'feature.knowledge': 'قاعدة المعرفة',

@@ -137,7 +137,12 @@ async def test_the_stop_link_asks_first_stops_once_and_tells_nothing_else(world:
     assert after["version"] == before + 1
     used = await _post(world, "stop", token, slug)
     assert (used.status_code, used.json()["code"]) == (404, "notify_link_not_found")
-    assert (await _post(world, "peek", token, slug)).status_code == 404
+    peeked = await _post(world, "peek", token, slug)
+    assert peeked.status_code == 404
+    # A used link's answer is as public as a success: never cached, no referrer (lane A, #501).
+    for answer in (used, peeked, unknown, wrong_tenant):
+        assert answer.headers["cache-control"] == "no-store"
+        assert answer.headers["referrer-policy"] == "no-referrer"
 
     history = await world.sql(
         "SELECT source, new_value FROM field_changes WHERE tenant_id = $1 AND record_id = $2"

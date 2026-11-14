@@ -43,6 +43,9 @@ class Feature(StrEnum):
     WORKFLOWS = "workflows"
     AI_AGENTS = "ai_agents"
     MONETX_INTEGRATION = "monetx_integration"
+    # Field access per role (ADR-047, REQ-WI-016): adding or changing a rule. Existing rules
+    # always apply and may be viewed and removed without it, so a lapse never shows hidden data.
+    FIELD_ACCESS = "field_access"
     PROJECTS = "projects"
     ESM = "esm"
     MSP = "msp"
@@ -92,6 +95,7 @@ _PROFESSIONAL = _ESSENTIALS | {
     Feature.WORKFLOWS,
     Feature.AI_AGENTS,
     Feature.MONETX_INTEGRATION,
+    Feature.FIELD_ACCESS,
     Feature.PERSONAL_DATA_LOG,
     Feature.FIELD_ENCRYPTION,
 }

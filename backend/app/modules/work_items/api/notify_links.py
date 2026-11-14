@@ -25,14 +25,18 @@ from app.modules.organization import link_tenant
 from app.modules.work_items.domain.kept_informed import masked
 from app.modules.work_items.service import kept_informed
 from app.shared.action_links.domain import TOKEN_LENGTH
-from app.shared.api.public_links import PublicLinks
+from app.shared.api.public_links import PublicLinks, private_answers
 from app.shared.api.ratelimit import ip_rate_limit
 
 PER_ADDRESS = 60  # a minute, an outer cap before the guard's two budgets
 public_router = APIRouter(
     prefix="/public/notify-links",
     tags=["work-items"],
-    dependencies=[Depends(ip_rate_limit("notify_links_public_address", PER_ADDRESS))],
+    # Errors carry no-store and no-referrer too (lane B's note on #490), rate limits included.
+    dependencies=[
+        Depends(private_answers),
+        Depends(ip_rate_limit("notify_links_public_address", PER_ADDRESS)),
+    ],
 )
 GUARD = PublicLinks(
     group="notify_links_public", scope_name="notify-links-address", resolver=link_tenant

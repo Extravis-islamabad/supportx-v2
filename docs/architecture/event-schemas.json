@@ -2714,6 +2714,50 @@
         "type": "object"
       }
     },
+    "identity_access.field_access.changed": {
+      "1": {
+        "description": "A role's field access rule was set, changed or removed (ADR-047, REQ-ADM-026).\n\nCompiled subjects go stale (authz consumer), so the person's next request has it. Names the\nrule only; `mode` is None once removed.",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "read_only",
+                  "masked",
+                  "hidden"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "record_type",
+          "field",
+          "mode"
+        ],
+        "title": "FieldAccessChanged",
+        "type": "object"
+      }
+    },
     "identity_access.group_role.changed": {
       "1": {
         "description": "A support group gained or lost a role: its members' access changes (WP-042).",

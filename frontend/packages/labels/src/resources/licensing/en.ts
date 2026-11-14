@@ -26,6 +26,7 @@ export const en = {
   'feature.directory_federation': 'Directory Sign-in (AD/LDAP)',
   'feature.discovery': 'Asset Discovery',
   'feature.esm': 'Enterprise Service Management',
+  'feature.field_access': 'Field Access by Role',
   'feature.field_encryption': 'Field Encryption',
   'feature.incident': 'Incident Management',
   'feature.knowledge': 'Knowledge Base',
