@@ -410,10 +410,15 @@ export const ur: LabelResource = {
   'people_erasure.mention_state.found': 'ملا',
   'people_erasure.mention_state.left': 'جوں کا توں چھوڑ دیا گیا',
   'people_erasure.mention_state.redacted': 'ہٹا دیا گیا',
+  'people_erasure.reaches_record_history': 'اس کے ریکارڈ کی ٹاسک تاریخ سے بھی ہٹایا گیا',
   'people_erasure.reason.consent_withdrawn': 'رضامندی واپس لے لی گئی',
   'people_erasure.reason.legal_obligation': 'قانونی ذمہ داری',
   'people_erasure.reason.no_longer_needed': 'اب ضرورت نہیں',
   'people_erasure.reason.subject_request': 'فرد نے درخواست کی',
+  'people_erasure.short_name_not_searched':
+    'مختصر نام {{name}} اکیلا تلاش نہیں کیا گیا؛ پورے نام تلاش کیے گئے۔',
+  'people_erasure.short_name_not_searched_erased':
+    'ایک مختصر نام اکیلا تلاش نہیں کیا گیا؛ پورے نام تلاش کیے گئے۔',
   'people_erasure.state.approved': 'منظور شدہ',
   'people_erasure.state.done': 'مٹا دیا گیا',
   'people_erasure.state.expired': 'میعاد ختم',

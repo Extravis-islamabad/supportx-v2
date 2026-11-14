@@ -36,6 +36,7 @@ from app.modules.identity_access.service.person_data import (
     REQUIRED_MENTION_PORTS,
     Mention,
     MentionBatch,
+    PersonMentions,
     register_mentions,
     unregister_mentions,
 )
@@ -1053,3 +1054,112 @@ async def test_a_port_sees_its_mention_redacted_while_it_redacts(world: World) -
         unregister_mentions("knowledge")
     assert done.status_code == 200, done.text
     assert seen == [(mention_id, "redacted", True)]
+
+
+async def test_trashed_rows_are_read_and_redacted_by_erasers_only(world: World) -> None:
+    """A trashed profile, file or note still names the person (the #514 rule, lane B's ports).
+
+    Found by the report; its passage only for a subject holding `people.erase`; redacted.
+    """
+    from app.modules.assets.service.erasure_mentions import PORT as NOTES  # noqa: PLC0415
+    from app.modules.identity_access import subject_for  # noqa: PLC0415
+
+    a = world.a
+    seeded = await _seed(world, a)
+    erasure = await _requested(world, a)  # before trashing: tech_b is its successor
+    for table, row_id in (
+        ("users", a.tech_b),
+        ("files", seeded["file"]),
+        ("asset_notes", seeded["note"]),
+    ):
+        await world.sql(
+            f"UPDATE {table} SET deleted_at = now() WHERE tenant_id = $1 AND id = $2",  # noqa: S608 - fixed names
+            a.tenant,
+            row_id,
+        )
+    try:
+        await _build(world, a)
+        page = await _mentions(world, a, erasure)
+        found = {
+            "identity_access": _find(page, "identity_access", "description", "name"),
+            "files": _find(page, "files", "name", "name"),
+            "assets": _find(page, "assets", "body", "name"),
+        }
+        ports: dict[str, PersonMentions] = {
+            "identity_access": lane_b.LANE_B_MENTION_PORTS[0],
+            "files": lane_b.LANE_B_MENTION_PORTS[1],
+            "assets": NOTES,
+        }
+        db = world.app.state.db
+        async with db.tenant_session(TenantContext(a.tenant)) as session:
+            admin = await subject_for(session, a.tenant, a.admin)
+            tech = await subject_for(session, a.tenant, a.tech_c)
+            for key, mention in found.items():
+                row = erasure_mentions._mention(  # noqa: SLF001 - the port's own input
+                    await erasure_mentions._mention_row(  # noqa: SLF001
+                        session, uuid.UUID(erasure["id"]), uuid.UUID(mention["id"])
+                    )
+                )
+                assert await ports[key].passage(session, tech, row) is None, key
+                assert await ports[key].passage(session, admin, row), key
+        version = (await _get(world, a, erasure))["version"]
+        done = await _redact(world, a, erasure["id"], [m["id"] for m in found.values()], version)
+        assert done.status_code == 200, done.text
+        assert {m["state"] for m in done.json()["redacted"]} == {"redacted"}
+        name = seeded["name"]
+        texts = await world.sql(
+            "SELECT (SELECT description FROM users WHERE tenant_id = $1 AND id = $2),"
+            " (SELECT name FROM files WHERE tenant_id = $1 AND id = $3),"
+            " (SELECT body FROM asset_notes WHERE tenant_id = $1 AND id = $4)",
+            a.tenant,
+            a.tech_b,
+            seeded["file"],
+            seeded["note"],
+        )
+        assert all(name not in (value or "") for value in texts[0])
+    finally:  # the shared world's rows come back for the other tests
+        for table, row_id in (
+            ("users", a.tech_b),
+            ("files", seeded["file"]),
+            ("asset_notes", seeded["note"]),
+        ):
+            await world.sql(
+                f"UPDATE {table} SET deleted_at = NULL WHERE tenant_id = $1 AND id = $2",  # noqa: S608 - fixed names
+                a.tenant,
+                row_id,
+            )
+
+
+async def test_the_report_says_a_short_name_was_not_searched_on_its_own(world: World) -> None:
+    """A flag only: the report stores no name (the screen names it from the person row)."""
+    a = world.a
+    person = (
+        await world.sql(
+            "SELECT display_name, first_name, last_name FROM users WHERE id = $1", a.tech_a
+        )
+    )[0]
+    await world.sql(
+        "UPDATE users SET display_name = 'Ali', first_name = 'Ali', last_name = 'Raza'"
+        " WHERE id = $1",
+        a.tech_a,
+    )
+    try:
+        erasure = await _requested(world, a)
+        await _build(world, a)
+        report = (await _get(world, a, erasure))["report"]
+        assert report["short_name_not_searched"] is True
+        stored = await _one(
+            world,
+            "SELECT report::text FROM person_erasures WHERE tenant_id = $1 AND id = $2",
+            a.tenant,
+            uuid.UUID(erasure["id"]),
+        )
+        assert "Ali" not in stored
+    finally:
+        await world.sql(
+            "UPDATE users SET display_name = $2, first_name = $3, last_name = $4 WHERE id = $1",
+            a.tech_a,
+            person["display_name"],
+            person["first_name"],
+            person["last_name"],
+        )

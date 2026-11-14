@@ -405,10 +405,15 @@ export const en = {
   'people_erasure.mention_state.found': 'Found',
   'people_erasure.mention_state.left': 'Left in place',
   'people_erasure.mention_state.redacted': 'Removed',
+  'people_erasure.reaches_record_history': "Also removed from its record's task history",
   'people_erasure.reason.consent_withdrawn': 'Consent withdrawn',
   'people_erasure.reason.legal_obligation': 'Legal obligation',
   'people_erasure.reason.no_longer_needed': 'No longer needed',
   'people_erasure.reason.subject_request': 'The person asked',
+  'people_erasure.short_name_not_searched':
+    'The short name {{name}} was not searched on its own; full names were.',
+  'people_erasure.short_name_not_searched_erased':
+    'A short name was not searched on its own; full names were.',
   'people_erasure.state.approved': 'Approved',
   'people_erasure.state.done': 'Erased',
   'people_erasure.state.expired': 'Expired',

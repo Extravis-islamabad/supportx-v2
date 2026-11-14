@@ -55,6 +55,20 @@ def _cursor(cursor: str | None) -> uuid.UUID | None:
     return uuid.UUID(cursor) if cursor else None
 
 
+async def _trashed_user(session: AsyncSession, subject: Subject, user_id: uuid.UUID) -> User | None:
+    """A soft-deleted person, for a subject who may erase (its text still names someone).
+
+    The same rule as lane A's ports (#514): trashed rows are read and redacted by
+    `people.erase` holders only; live rows keep the users API's own rights.
+    """
+    if not subject.holds(rules.ERASE_RIGHT):
+        return None
+    found: User | None = await session.scalar(
+        select(User).where(User.id == user_id, User.deleted_at.is_not(None))
+    )
+    return found
+
+
 class IdentityAccessMentions:
     """Other people's profiles that name the person."""
 
@@ -140,8 +154,10 @@ class IdentityAccessMentions:
         if rule is not None and not subject.holds(rule.permission):
             return None
         try:
-            user = await directory.get_user(session, subject, mention.record_id)
+            user: User | None = await directory.get_user(session, subject, mention.record_id)
         except (NotFound, PermissionDenied):
+            user = await _trashed_user(session, subject, mention.record_id)
+        if user is None:
             return None
         text: str | None = getattr(user, mention.field)
         return text
@@ -162,7 +178,9 @@ class FilesMentions:
     ) -> MentionBatch:
         """One batch of live files' names, by ID (the person's own uploads too)."""
         del person_id
-        rows = await live_names(session, after=_cursor(cursor), limit=MENTION_BATCH)
+        rows = await live_names(
+            session, after=_cursor(cursor), limit=MENTION_BATCH, include_deleted=True
+        )
         found: list[Mention] = []
         for file_id, name in rows:
             found += _found(FILE_RECORD_TYPE, file_id, "name", name, terms)
@@ -187,19 +205,25 @@ class FilesMentions:
             mention.record_id,
             lambda name: redact(name, terms, mention.match_kind, marker)[0],
             rules.REDACTION_HISTORY_REASON,
+            include_deleted=True,  # a trashed file's name still names them (#514's rule)
         )
 
     async def passage(
         self, session: AsyncSession, subject: Subject, mention: Mention
     ) -> str | None:
-        """The file's name, when the subject may see the file."""
+        """The file's name, when the subject may see the file (a trashed one: `people.erase`)."""
         if mention.record_type != FILE_RECORD_TYPE or mention.field != "name":
             return None
+        live = await file_name(session, mention.record_id)
+        if live is None:
+            if not subject.holds(rules.ERASE_RIGHT):
+                return None
+            return await file_name(session, mention.record_id, include_deleted=True)
         try:
             await file_access.authorize(session, subject, mention.record_id, Action.VIEW)
         except (NotFound, PermissionDenied):
             return None
-        return await file_name(session, mention.record_id)
+        return live
 
 
 LANE_B_MENTION_PORTS = (IdentityAccessMentions(), FilesMentions())
