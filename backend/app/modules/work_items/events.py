@@ -581,7 +581,23 @@ class WorkItemAssigneeUnavailable(_WorkItemEvent):
     owner_id: uuid.UUID | None = None
 
 
+class WorkItemDraftChanged(DomainEvent):
+    """A person's kept draft was saved or discarded (REQ-INC-019): their other tabs refresh.
+
+    The person and the form only, never what the draft holds (lane B's condition 7).
+    """
+
+    event_type: ClassVar[str] = "work_items.draft.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    owner_id: uuid.UUID
+    form_key: str
+    version: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
+    WorkItemDraftChanged,
     ServiceRequestReadyToFulfil,
     WorkItemAssetLinkChanged,
     WorkItemAssigneeUnavailable,

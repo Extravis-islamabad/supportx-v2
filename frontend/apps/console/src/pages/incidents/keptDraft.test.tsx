@@ -60,3 +60,69 @@ describe('New incident: kept input', () => {
     });
   });
 });
+
+// WP-046a S5c (REQ-INC-019): the server's sealed copy, for a crash or another tab (lane C's
+// conditions: a quiet note above the first field; nothing replaced without asking).
+describe('New incident: the kept draft on the server', () => {
+  const DRAFT = 'GET /api/v1/drafts/incident-new';
+  const kept = (overrides: Record<string, unknown> = {}) => ({
+    form_key: 'incident-new',
+    version: 3,
+    updated_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+    unreadable: false,
+    values: { subject: 'Printer on fire' },
+    ...overrides,
+  });
+
+  it('offers it back; Restore fills the form; nothing is shown when there is none', async () => {
+    const fake = consoleApi({ me: ADMIN, routes: { ...ROUTES, [DRAFT]: { body: kept() } } });
+    restore = fake.restore;
+    render(<App />);
+    const note = await screen.findByTestId('kept-draft');
+    expect(note.getAttribute('role')).toBe('status');
+    expect(note.textContent).toContain('A draft of this form was kept');
+    expect(note.querySelector('time')?.getAttribute('title')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('kept-draft-restore'));
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLInputElement>('inc-subject').value).toBe('Printer on fire');
+    });
+    expect(screen.queryByTestId('kept-draft')).toBeNull();
+  });
+
+  it('asks before replacing what was already typed', async () => {
+    const fake = consoleApi({ me: ADMIN, routes: { ...ROUTES, [DRAFT]: { body: kept() } } });
+    restore = fake.restore;
+    render(<App />);
+    await screen.findByTestId('kept-draft');
+    fireEvent.change(screen.getByTestId('inc-subject'), { target: { value: 'Typed first' } });
+    fireEvent.click(screen.getByTestId('kept-draft-restore'));
+    // The confirmation opens in its own layer (a portal), asking before anything is replaced.
+    await waitFor(() => {
+      expect(document.querySelector('.ant-modal-confirm-title')?.textContent).toBe(
+        "Replace what you've typed with the draft?",
+      );
+    });
+    expect(screen.getByTestId<HTMLInputElement>('inc-subject').value).toBe('Typed first');
+  });
+
+  it('an unreadable one offers Discard only, and Discard forgets it on the server', async () => {
+    const fake = consoleApi({
+      me: ADMIN,
+      routes: {
+        ...ROUTES,
+        [DRAFT]: { body: kept({ unreadable: true, values: null }) },
+        'DELETE /api/v1/drafts/incident-new': { status: 204, body: null },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const note = await screen.findByTestId('kept-draft-unreadable');
+    expect(note.textContent).toBe('A kept draft of this form could not be read.Discard');
+    expect(screen.queryByTestId('kept-draft-restore')).toBeNull();
+    fireEvent.click(screen.getByTestId('kept-draft-discard'));
+    await waitFor(() => {
+      expect(fake.find('DELETE', '/api/v1/drafts/incident-new')).toHaveLength(1);
+    });
+    expect(screen.queryByTestId('kept-draft-unreadable')).toBeNull();
+  });
+});

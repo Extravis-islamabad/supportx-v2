@@ -9,6 +9,7 @@ export {
   type WeekStart,
 } from './appearance';
 export { useAccess, type Access } from './access';
+export { Drawer, type DrawerProps } from './Drawer';
 export * from './announcements';
 export * from './board';
 export * from './brand';

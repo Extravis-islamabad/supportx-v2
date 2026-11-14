@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { PORTAL_URL, passwordOf, SEEDED, USERS } from '../stack';
 import { signIn } from './helpers';
@@ -61,6 +61,41 @@ type Records = Partial<
     string
   >
 >;
+
+/** The new-incident form with a kept draft on the server (readable or not). */
+function keptDraft(unreadable: boolean): (page: Page) => Promise<void> {
+  return async (page) => {
+    const url = '**/api/v1/drafts/incident-new';
+    const answer = (route: Route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({
+            json: {
+              form_key: 'incident-new',
+              version: 2,
+              updated_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+              unreadable,
+              values: unreadable ? null : { subject: 'Printer jams on floor 2' },
+            },
+          })
+        : route.continue();
+    await page.route(url, answer);
+    // Every shot shares one tab: an earlier shot's own copy of this form (sessionStorage) would
+    // count as restored and hide the server's note (lane C, matrix 43474443928).
+    await page.evaluate(() => {
+      for (const name of Object.keys(window.sessionStorage)) {
+        if (name.startsWith('supportx.draft.')) window.sessionStorage.removeItem(name);
+      }
+    });
+    await page.reload();
+    try {
+      await page.getByTestId(unreadable ? 'kept-draft-unreadable' : 'kept-draft').waitFor();
+    } finally {
+      // Read once and kept (staleTime Infinity): the note stays, and later shots on this tab get
+      // the real answer again.
+      await page.unroute(url, answer);
+    }
+  };
+}
 
 const STOP_TOKEN = 'S'.repeat(43);
 
@@ -160,6 +195,20 @@ export const SCREENS: Screen[] = [
   { key: 'home', path: '/', app: 'console' },
   { key: 'incidents', path: '/incidents', app: 'console' },
   { key: 'incident-new', path: '/incidents/new', app: 'console' },
+  // WP-046a S5c (REQ-INC-019): a kept draft offered back, and one that could not be read
+  // (lane C). The draft is answered in the browser: the matrix keeps none of its own.
+  {
+    key: 'incident-new',
+    path: '/incidents/new',
+    app: 'console',
+    state: { name: 'kept-draft', open: keptDraft(false) },
+  },
+  {
+    key: 'incident-new',
+    path: '/incidents/new',
+    app: 'console',
+    state: { name: 'kept-draft-unreadable', open: keptDraft(true) },
+  },
   {
     key: 'incident-new',
     path: '/incidents/new',

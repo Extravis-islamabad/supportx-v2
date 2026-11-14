@@ -1,9 +1,9 @@
-import { Button, Drawer, Flex, List, Typography } from 'antd';
+import { Button, Flex, List, Typography } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { useAssetLinkedPage, type AssetLinkedSummary } from '@supportx/api-client';
-import { EmptyText, ToneTag, useDateTime, useLabel } from '@supportx/ui';
+import { Drawer, EmptyText, ToneTag, useDateTime, useLabel } from '@supportx/ui';
 
 /** Where each kind of work item opens in the console. */
 const PATHS: Record<string, string> = {

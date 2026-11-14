@@ -278,6 +278,7 @@ export const en = {
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
   'errors.downtime_not_found': 'This downtime window does not exist.',
+  'errors.draft_not_found': 'There is no kept draft.',
   'errors.duplicate_move': 'The same move is listed twice from one status. Keep one.',
   'errors.entitlement_required': 'Your plan does not include this feature.',
   'errors.entitlement_required.detail': '{{feature}} is not part of your organisation’s plan.',
@@ -436,6 +437,8 @@ export const en = {
   'errors.field.domain_invalid': 'Enter a domain name such as help.example.com.',
   'errors.field.domain_reserved':
     "Addresses under this installation's own domain are given automatically.",
+  'errors.field.draft_not_values': 'A draft keeps form values only.',
+  'errors.field.draft_too_large': 'This draft is too large to keep.',
   'errors.field.due_in_past': 'Choose a moment in the future.',
   'errors.field.duplicate': 'This is already used.',
   'errors.field.duplicate_column': 'Each column can be listed once.',

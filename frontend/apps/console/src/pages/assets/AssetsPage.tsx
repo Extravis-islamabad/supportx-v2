@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { ApartmentOutlined } from '@ant-design/icons';
-import { App, Button, Drawer, Flex, Grid, Input, Select, Table, Typography } from 'antd';
+import { App, Button, Flex, Grid, Input, Select, Table, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
@@ -31,6 +31,7 @@ import {
 } from '@supportx/realtime';
 import {
   CellText,
+  Drawer,
   EmptyText,
   FilterBar,
   HeaderActions,
