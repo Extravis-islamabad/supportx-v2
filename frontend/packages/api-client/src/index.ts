@@ -139,6 +139,19 @@ export {
   type UserAccess,
 } from './access';
 export {
+  FIELD_RULE_MODES,
+  fieldAccessKeys,
+  useEffectiveFieldAccess,
+  useFieldCatalogue,
+  useFieldRules,
+  useSetFieldRule,
+  type EffectiveFieldAccess,
+  type FieldCatalogue,
+  type FieldAccessRule,
+  type FieldMode,
+  type RuleableField,
+} from './fieldAccess';
+export {
   useAssignIncident,
   useCreateIncident,
   useDeleteIncident,

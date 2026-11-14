@@ -45,6 +45,7 @@ from app.shared.richtext import (
 )
 
 NOTE_RECORD_TYPE = "asset_note"
+ERASE_RIGHT = "people.erase"  # identity_access's (ADR-052); a code, not an import
 BODY_MAX = 100_000  # as the migration's check
 NOTES_MAX = 500  # per page: the newest; an asset with more shows the newest 500
 
@@ -341,11 +342,20 @@ async def redact_note(
 async def readable_note_body(
     session: AsyncSession, subject: Subject, note_id: uuid.UUID
 ) -> str | None:
-    """A live note's text, when the subject may see its asset (as the notes list)."""
-    note = await session.scalar(
-        select(AssetNote).where(AssetNote.id == note_id, AssetNote.deleted_at.is_(None))
+    """A live note's text, when the subject may see its asset (as the notes list).
+
+    A trashed note (or a note of a trashed asset) still names people: for a subject who may
+    erase (`people.erase`) only, the same rule as lane A's ports (#514).
+    """
+    note = await session.scalar(select(AssetNote).where(AssetNote.id == note_id))
+    if note is None:
+        return None
+    asset_gone = await session.scalar(
+        select(Asset.deleted_at.is_not(None)).where(Asset.id == note.asset_id)
     )
-    if note is None or not subject.holds(VIEW):
+    if note.deleted_at is not None or asset_gone:
+        return note.body if subject.holds(ERASE_RIGHT) else None
+    if not subject.holds(VIEW):
         return None
     try:
         await _visible(session, subject, note.asset_id)

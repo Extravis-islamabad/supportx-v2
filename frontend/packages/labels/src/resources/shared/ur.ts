@@ -173,6 +173,8 @@ export const ur: LabelResource = {
   'layout.properties_fewer': 'خالی فیلڈز چھپائیں',
   'layout.reset_widths': 'چوڑائی دوبارہ طے کریں',
   'layout.resize_column': '{{column}} کی چوڑائی: تیر والی کلیدیں استعمال کریں',
+  'layout.restricted_hidden': 'آپ کو نہیں دکھایا جاتا',
+  'layout.restricted_masked': 'جزوی طور پر چھپایا گیا',
   'layout.star': 'پسندیدہ میں شامل کریں',
   'layout.tabs_earlier': 'پچھلے ٹیب',
   'layout.tabs_later': 'اگلے ٹیب',

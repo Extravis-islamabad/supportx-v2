@@ -9,7 +9,13 @@ import type {
   ListColumn,
   ReportField,
 } from '@supportx/api-client';
-import { CellText, ChannelIcon, type useDateTime } from '@supportx/ui';
+import {
+  CellText,
+  ChannelIcon,
+  RestrictedValue,
+  restrictionOf,
+  type useDateTime,
+} from '@supportx/ui';
 
 import type { ReportWords } from '../../reports/names';
 import { closureCodeLabel, personName } from '../labels';
@@ -212,7 +218,17 @@ export function columnCatalogue(fields: IncidentListField[]): Map<string, Column
       sortField: spec.sortable ? name : undefined,
       width: spec.type === 'datetime' ? 170 : 160,
       title: field(name),
-      render: (row, c) => fieldCell(spec, rowValue(row, name), c),
+      render: (row, c) => {
+        // A value the person's roles withhold says so, in the cell's own direction (ADR-047).
+        const restricted = restrictionOf(row, name);
+        return restricted === undefined ? (
+          fieldCell(spec, rowValue(row, name), c)
+        ) : (
+          <CellText title={c.t(`layout.restricted_${restricted}`)}>
+            <RestrictedValue kind={restricted} />
+          </CellText>
+        );
+      },
     });
   }
   return new Map(specs.map((s) => [s.key, s]));

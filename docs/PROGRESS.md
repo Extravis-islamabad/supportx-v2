@@ -1546,8 +1546,7 @@ it with no reload (rule c). Not built yet.
     writes (workflows, connectors) are system writes (`Subject.person`).
   - Built-in fields an admin may restrict: impact details, and the problem's analysis and review
     texts; the root cause's own gate (view_root_cause) applies after the role rules.
-  - Next: b2 (search fails closed, `restricted` on live channels and 409s, designer refusal,
-    AI and notification variables), then slice c (the editor) and lane C's analytics slice.
+  - b2 (#509) and slice c follow below.
 - **S7 slice b2, field access everywhere else (no migration; ADR-047; lane B blocks):**
   - Search fails closed: a restricted custom field stays out of the search text; when a field's
     rules change, its type is marked and rebuilt in the background, and meanwhile search
@@ -1558,8 +1557,7 @@ it with no reload (rule c). Not built yet.
     defaults cannot name a field their author does not see in clear (422 field_not_permitted).
   - Tests: nothing restricted reaches the AI gateway; no notification or template variable
     names a restrictable field (guard).
-  - Next: slice c (the editor, lane C reviews); lane C's analytics slice and its skipped-recipients
-    notice; lane C's open_custom and view-log seams when their signatures exist.
+  - Next: lane C's open_custom and view-log seams when their signatures exist.
 - **Analytics slice, field access in reports (no migration; ADR-047 §5; lane C; lane B blocks):**
   - The reporting source names the fields it withheld (`ReportingSource.withheld`, filled by the
     work item source). A report that names one (filter, groupings, columns or sort) is refused
@@ -1575,6 +1573,20 @@ it with no reload (rule c). Not built yet.
     the entity, the run time and the field codes. `report_schedule.recipients_skipped` is a
     STATUS notification, required, owner only, in-app and e-mail, with the fields named in the
     owner's language. Shape from lane A; no migration.
+- **S7 slice c, the field access editor and what records show (no migration; ADR-047; lane C
+  reviews the UI):**
+  - Admin › Roles: a saved role has a Field access tab beside its permissions. Per record type,
+    each rule-able field has a mode (No rule, Read only, Masked, Hidden) that saves at once (no
+    Save on that tab); a stale row reloads with a notice; a lapsed plan keeps the rules and only
+    allows removing them. "Who sees this" opens a modal with people per mode.
+  - Records and lists say when a field is withheld: "Not shown to you" or "Masked"
+    (`RestrictedValue` in packages/ui; a restricted row is never under Add details and never
+    edits). Read-only fields (`read_only_fields`, #510) have no editor.
+  - Live: an `access.changed` message refetches every active query, so an open record shows a
+    field just hidden with no refresh (e2e `field-access.spec.ts`). The Visual matrix gains the
+    tab and the modal. Admin guide: `docs/guides/field-access.md`.
+  - Also #510: a record handed out of reach (D-053) came back unredacted; fixed, with a guard
+    that a record view is built only where it is redacted.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2525,6 +2537,9 @@ it with no reload (rule c). Not built yet.
     - History names the field only (`erasure_redaction`); saved events raised; search follows
       (a computed column); too long refused; passages follow the article screen's rights.
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
+  short one-word names flagged, never stored; task mentions say they reach the record's task
+  history; task-history phone match per digit run.
 - [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
   deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
 - **S2, lane A's ports (0166; lane B blocked):**
@@ -2543,6 +2558,22 @@ it with no reload (rule c). Not built yet.
   - 0166: DELETE on eight private tables, guarded so only the ports delete; `approver_erased`;
     two requester indexes built concurrently. `work_items.records_requested_by` (#504) for
     lane C's ai port.
+- **S2, lane A's mentions ports (no migration; lane B blocks; plan and six conditions agreed):**
+  - `work_items`: the record's own text (subject, impact details and free-text custom fields
+    as plain text; description, resolution and a problem's analysis and review texts as rich
+    text), its conversation, tasks and worklogs, in bounded phases (`phase|after`). On a record
+    the person requested, the fields their erasure blanks are skipped; its replies, tasks and
+    worklogs are still searched (D1a). Fields are named as the field catalogue names them.
+  - Redaction: `work_items.redact_fields` (version, history naming the field only, the search
+    text recomputed, the usual update event), and for entries and parts the new
+    `work_items.conversation.redacted` and the usual `part.changed`. The registry blanks the
+    older history itself.
+  - Passage: the record's own read (its scope, field rules and older gates); entries and parts
+    need the parent record's view.
+  - `integrations`: fetched mail's subject only (a row is named by a UUID made from its key),
+    mail they sent skipped (their erasure port clears it); the passage needs the email
+    connector right.
+  - A 100k-record timing test: each find batch p95 under 500 ms with no pre-filter.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 

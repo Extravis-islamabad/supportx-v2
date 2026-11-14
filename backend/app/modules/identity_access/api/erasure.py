@@ -268,6 +268,13 @@ class ReportOut(BaseModel):
         description="Always false: inbound mail is searched by subject only (the screen says so"
         " with `people_erasure.mail_bodies_not_searched`)."
     )
+    short_name_not_searched: bool = Field(
+        default=False,
+        description="A one-word display name too short to search on its own was left out (full"
+        " names were searched). The screen says so with `people_erasure.short_name_not_searched`"
+        " (the name filled in from the person) or, once erased,"
+        " `people_erasure.short_name_not_searched_erased`; the report never stores the name.",
+    )
     reviewed_at: datetime | None
     reviewed_by: uuid.UUID | None
 
@@ -434,6 +441,11 @@ class MentionOut(BaseModel):
     state: MentionState
     redacted_by: uuid.UUID | None
     redacted_at: datetime | None
+    reaches_record_history: bool = Field(
+        default=False,
+        description="Redacting it also blanks its parent record's history naming the person"
+        " (a task's history lives on its work item; `people_erasure.reaches_record_history`).",
+    )
     history_kept: int = Field(
         description="Earlier history rows of the field kept at redaction because a fingerprinted"
         " audit entry commits to them (`people_erasure.history_kept_fingerprinted`)."
@@ -454,6 +466,7 @@ class MentionOut(BaseModel):
             redacted_by=row.redacted_by,
             redacted_at=row.redacted_at,
             history_kept=row.history_kept,
+            reaches_record_history=row.record_type in erasure_mentions.REACHES_RECORD_HISTORY,
         )
 
 

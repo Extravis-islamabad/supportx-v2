@@ -62,6 +62,10 @@ ATTACHMENT_NOTICE_LABEL = "people_erasure.attachment_content_not_searched"
 # Inbound mail: subjects only, never bodies (raw MIME leaves at quarantine expiry); said to the
 # approver as for attachments (the coordinator, 2026-11-14).
 MAIL_BODIES_SEARCHED = False
+# Mentions whose redaction also reaches their parent record's history (0167/0170's
+# `history_redact_child`: a task's title and fields are recorded on its work item); the screen
+# says so, so the approver knows more than the one field goes (lane C's #511 review).
+REACHES_RECORD_HISTORY = frozenset({"work_item_task"})
 MAIL_NOTICE_LABEL = "people_erasure.mail_bodies_not_searched"
 LIST_LIMIT = 200
 REDACT_MAX = 200
@@ -224,6 +228,9 @@ async def build_report_batch(session: AsyncSession, erasure_id: uuid.UUID) -> bo
         return False
     person = await session.get(User, row.person_id)
     terms = person_terms(person) if person is not None else MentionTerms()
+    # A flag only, never the name (the report stores no terms); the screen names it from the
+    # person row while they are not yet erased.
+    report["short_name_not_searched"] = terms.short_name_skipped
     if terms.empty():
         batch_cursor: str | None = None
     else:
@@ -517,6 +524,7 @@ def report_summary(row: PersonErasure) -> dict[str, Any] | None:
         ),
         "attachment_content_searched": ATTACHMENT_CONTENT_SEARCHED,
         "mail_bodies_searched": MAIL_BODIES_SEARCHED,
+        "short_name_not_searched": bool(report.get("short_name_not_searched", False)),
         "reviewed_at": row.report_reviewed_at,
         "reviewed_by": row.report_reviewed_by,
     }

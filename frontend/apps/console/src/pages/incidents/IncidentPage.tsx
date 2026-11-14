@@ -56,6 +56,7 @@ import {
   PresenceAvatars,
   PropertiesPanel,
   PropertyList,
+  restrictionOf,
   PropertyRow,
   type RecordAction,
   RecordHeader,
@@ -1109,11 +1110,22 @@ function Details({
       <PropertyList
         testId="inc-properties"
         items={rows
-          .filter((row) => row.filled || (row.edit !== undefined && canEdit))
+          // A field the person's roles make read only has no editor (ADR-047: no 403 to meet).
+          .map((row) => ({
+            ...row,
+            restricted: restrictionOf(item, row.key),
+            edit: (item.read_only_fields ?? []).includes(row.key) ? undefined : row.edit,
+          }))
+          // A withheld field still shows its row, saying so (ADR-047 §4; never editable).
+          .filter(
+            (row) =>
+              row.filled || row.restricted !== undefined || (row.edit !== undefined && canEdit),
+          )
           .map((row) => ({
             key: row.key,
             label: row.label,
             filled: row.filled,
+            restricted: row.restricted,
             content:
               row.edit !== undefined && canEdit ? (
                 <InlineEdit

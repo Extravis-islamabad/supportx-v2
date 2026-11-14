@@ -15,8 +15,10 @@ made the second admin; tech A is the person; org B for isolation).
   event, an audit entry per mention, idempotent; another erasure's mention refused (404).
 """
 
+import contextlib
 import json
 import uuid
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any, ClassVar
 
@@ -38,6 +40,7 @@ from app.modules.identity_access.service.person_data import (
     MentionBatch,
     PersonMentions,
     mention_port,
+    mention_ports,
     register_mentions,
     unregister_mentions,
 )
@@ -47,6 +50,20 @@ from tests.db.test_incidents_api import Org, World, role
 from tests.db.test_person_erasure_api import _audit, _code, _request, _second_admin
 
 pytestmark = [pytest.mark.db, MODULE_LOOP]
+
+
+@contextlib.contextmanager
+def _missing(module: str) -> Iterator[None]:
+    """One required port missing for a test (so a report stays incomplete), then the very same
+    port object put back, whatever happens inside (lane B's #516 condition)."""
+    real = mention_port(module)
+    unregister_mentions(module)
+    try:
+        yield
+    finally:
+        unregister_mentions(module)
+        if real is not None:
+            register_mentions(real)
 
 
 def _stand_in(port: PersonMentions) -> PersonMentions | None:
@@ -228,146 +245,146 @@ async def test_tenant_b_neither_sees_nor_changes_tenant_as_mentions(world: World
 
 
 async def test_the_report_finds_the_person_and_is_never_complete_in_s1b(world: World) -> None:
-    a, b = world.a, world.b
-    seeded = await _seed(world, a)
-    # Tenant B names A's person too: A's report never sees it.
-    await world.sql(
-        "UPDATE users SET description = $3 WHERE tenant_id = $1 AND id = $2",
-        b.tenant,
-        b.tech_b,
-        f"Ask {seeded['name']}",
-    )
-    erasure = await _requested(world, a)
-    assert (await _get(world, a, erasure))["report"] is None
-    assert await _build(world, a) >= 3  # one batch per port at least
-    shown = await _get(world, a, erasure)
-    report = shown["report"]
-    assert report["complete"] is False
-    assert report["building"] is False
-    assert shown["report_ready"] is False
-    assert report["attachment_content_searched"] is False
-    assert report["mail_bodies_searched"] is False
-    assert report["ports_missing"] == sorted(
-        REQUIRED_MENTION_PORTS
-        - {"identity_access", "files", "assets", "knowledge", "announcements"}
-    )
-    assert report["by_module"]["identity_access"] == {"name": 2, "email": 1, "phone": 1}
-    assert report["by_module"]["files"] == {"name": 1}
-    assert report["by_module"]["assets"] == {"name": 1}
-    page = await _mentions(world, a, erasure)
-    assert page["attachment_content_searched"] is False
-    assert page["mail_bodies_searched"] is False
-    assert _places(page) == {
-        ("identity_access", "user", "description", "name", 2),
-        ("identity_access", "user", "description", "email", 1),
-        ("identity_access", "user", "description", "phone", 1),
-        ("identity_access", "user", "job_title", "name", 1),
-        ("files", "file", "name", "name", 1),
-        ("assets", "asset_note", "body", "name", 1),
-    }
-    ids = {m["record_id"] for m in page["items"]}
-    assert str(a.tech_a) not in ids  # the person's own signature is not a mention
-    assert str(b.tech_b) not in ids  # another tenant is never searched
-    assert {m["state"] for m in page["items"]} == {"found"}
-    # Places and counts only: the person's name, address and number appear nowhere.
-    raw = json.dumps(page) + json.dumps(shown)
-    for secret in (seeded["name"], seeded["email"], "1234567"):
-        assert secret not in raw
-    # Built once: the next run adds nothing and keeps the version.
-    assert await _build(world, a) == 0
-    assert (await _get(world, a, erasure))["version"] == shown["version"]
-    # The person can still not be approved (S2's ports missing), even after a review.
-    reviewed = await world.call(
-        "POST",
-        f"/erasures/{erasure['id']}/report/reviewed",
-        a,
-        a.admin,
-        headers={"If-Match": f'"{shown["version"]}"'},
-    )
-    assert reviewed.status_code == 200, reviewed.text
-    approver = await _second_admin(world, a)
-    approved = await world.call(
-        "POST",
-        f"/erasures/{erasure['id']}/approve",
-        a,
-        approver,
-        json={"confirm_name": seeded["name"]},
-        headers={"If-Match": f'"{reviewed.json()["version"]}"'},
-    )
-    assert _code(approved) == (409, "erasure_report_unavailable")
+    with _missing("announcements"):  # incomplete: one required port missing (#516)
+        a, b = world.a, world.b
+        seeded = await _seed(world, a)
+        # Tenant B names A's person too: A's report never sees it.
+        await world.sql(
+            "UPDATE users SET description = $3 WHERE tenant_id = $1 AND id = $2",
+            b.tenant,
+            b.tech_b,
+            f"Ask {seeded['name']}",
+        )
+        erasure = await _requested(world, a)
+        assert (await _get(world, a, erasure))["report"] is None
+        assert await _build(world, a) >= 3  # one batch per port at least
+        shown = await _get(world, a, erasure)
+        report = shown["report"]
+        assert report["complete"] is False
+        assert report["building"] is False
+        assert shown["report_ready"] is False
+        assert report["attachment_content_searched"] is False
+        assert report["mail_bodies_searched"] is False
+        # Every required port is real since #516; this test holds announcements out.
+        assert report["ports_missing"] == ["announcements"]
+        assert report["by_module"]["identity_access"] == {"name": 2, "email": 1, "phone": 1}
+        assert report["by_module"]["files"] == {"name": 1}
+        assert report["by_module"]["assets"] == {"name": 1}
+        page = await _mentions(world, a, erasure)
+        assert page["attachment_content_searched"] is False
+        assert page["mail_bodies_searched"] is False
+        assert _places(page) == {
+            ("identity_access", "user", "description", "name", 2),
+            ("identity_access", "user", "description", "email", 1),
+            ("identity_access", "user", "description", "phone", 1),
+            ("identity_access", "user", "job_title", "name", 1),
+            ("files", "file", "name", "name", 1),
+            ("assets", "asset_note", "body", "name", 1),
+        }
+        ids = {m["record_id"] for m in page["items"]}
+        assert str(a.tech_a) not in ids  # the person's own signature is not a mention
+        assert str(b.tech_b) not in ids  # another tenant is never searched
+        assert {m["state"] for m in page["items"]} == {"found"}
+        # Places and counts only: the person's name, address and number appear nowhere.
+        raw = json.dumps(page) + json.dumps(shown)
+        for secret in (seeded["name"], seeded["email"], "1234567"):
+            assert secret not in raw
+        # Built once: the next run adds nothing and keeps the version.
+        assert await _build(world, a) == 0
+        assert (await _get(world, a, erasure))["version"] == shown["version"]
+        # The person can still not be approved (S2's ports missing), even after a review.
+        reviewed = await world.call(
+            "POST",
+            f"/erasures/{erasure['id']}/report/reviewed",
+            a,
+            a.admin,
+            headers={"If-Match": f'"{shown["version"]}"'},
+        )
+        assert reviewed.status_code == 200, reviewed.text
+        approver = await _second_admin(world, a)
+        approved = await world.call(
+            "POST",
+            f"/erasures/{erasure['id']}/approve",
+            a,
+            approver,
+            json={"confirm_name": seeded["name"]},
+            headers={"If-Match": f'"{reviewed.json()["version"]}"'},
+        )
+        assert _code(approved) == (409, "erasure_report_unavailable")
 
 
 async def test_the_build_resumes_in_batches_and_runs_a_later_port(
     world: World, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    a = world.a
-    await _seed(world, a)
-    for user in (a.tech_c, a.lead):  # more profiles naming the person, one batch each
-        name = (await _person(world, a, a.tech_a))["display_name"]
-        await world.sql(
-            "UPDATE users SET description = $3 WHERE tenant_id = $1 AND id = $2",
-            a.tenant,
-            user,
-            f"Shadowing {name}",
-        )
-    monkeypatch.setattr(lane_b, "MENTION_BATCH", 1)
-    erasure = await _requested(world, a)
-    erasure_id = uuid.UUID(erasure["id"])
-    db = world.app.state.db
-    seen: list[dict[str, Any] | None] = []
-    for _ in range(200):
-        async with db.tenant_session(TenantContext(a.tenant)) as session:
-            more = await erasure_mentions.build_report_batch(session, erasure_id)
-        rows = await world.sql(
-            "SELECT report FROM person_erasures WHERE tenant_id = $1 AND id = $2",
-            a.tenant,
-            erasure_id,
-        )
-        seen.append(json.loads(rows[0]["report"]) if rows[0]["report"] else None)
-        if not more:
-            break
-    # Progress was stored between batches: the port and its cursor.
-    building = [r["building"] for r in seen if r and r.get("building")]
-    assert any(b["port"] == "identity_access" and b["cursor"] for b in building)
-    final = seen[-1]
-    assert final is not None
-    assert final["building"] is None
-    assert final["by_module"]["identity_access"]["name"] == 4  # tech B twice, tech C, the lead
-    # Reviewed; then a port registers (a new release): the next pass runs it, the review lapses.
-    version = (await _get(world, a, erasure))["version"]
-    reviewed = await world.call(
-        "POST",
-        f"/erasures/{erasure_id}/report/reviewed",
-        a,
-        a.admin,
-        headers={"If-Match": f'"{version}"'},
-    )
-    assert reviewed.json()["report"]["reviewed_by"] == str(a.admin)
-
-    class Later:
-        # A key no real port takes: every module has its own port now (lane C, 0168).
-        module: ClassVar[str] = "later_probe"
-
-        async def find_mentions(self, *_a: object, **_k: object) -> MentionBatch:
-            return MentionBatch(
-                (Mention("kb_article", uuid.uuid4(), "body", MentionMatchKind.NAME, 3),)
+    with _missing("announcements"):  # incomplete: one required port missing (#516)
+        a = world.a
+        await _seed(world, a)
+        for user in (a.tech_c, a.lead):  # more profiles naming the person, one batch each
+            name = (await _person(world, a, a.tech_a))["display_name"]
+            await world.sql(
+                "UPDATE users SET description = $3 WHERE tenant_id = $1 AND id = $2",
+                a.tenant,
+                user,
+                f"Shadowing {name}",
             )
+        monkeypatch.setattr(lane_b, "MENTION_BATCH", 1)
+        erasure = await _requested(world, a)
+        erasure_id = uuid.UUID(erasure["id"])
+        db = world.app.state.db
+        seen: list[dict[str, Any] | None] = []
+        for _ in range(200):
+            async with db.tenant_session(TenantContext(a.tenant)) as session:
+                more = await erasure_mentions.build_report_batch(session, erasure_id)
+            rows = await world.sql(
+                "SELECT report FROM person_erasures WHERE tenant_id = $1 AND id = $2",
+                a.tenant,
+                erasure_id,
+            )
+            seen.append(json.loads(rows[0]["report"]) if rows[0]["report"] else None)
+            if not more:
+                break
+        # Progress was stored between batches: the port and its cursor.
+        building = [r["building"] for r in seen if r and r.get("building")]
+        assert any(b["port"] == "identity_access" and b["cursor"] for b in building)
+        final = seen[-1]
+        assert final is not None
+        assert final["building"] is None
+        assert final["by_module"]["identity_access"]["name"] == 4  # tech B twice, tech C, the lead
+        # Reviewed; then a port registers (a new release): the next pass runs it, the review lapses.
+        version = (await _get(world, a, erasure))["version"]
+        reviewed = await world.call(
+            "POST",
+            f"/erasures/{erasure_id}/report/reviewed",
+            a,
+            a.admin,
+            headers={"If-Match": f'"{version}"'},
+        )
+        assert reviewed.json()["report"]["reviewed_by"] == str(a.admin)
 
-        async def redact_mention(self, *_a: object, **_k: object) -> bool:
-            return False
+        class Later:
+            # A key no real port takes: every module has its own port now (lane C, 0168).
+            module: ClassVar[str] = "later_probe"
 
-        async def passage(self, *_a: object, **_k: object) -> str | None:
-            return None
+            async def find_mentions(self, *_a: object, **_k: object) -> MentionBatch:
+                return MentionBatch(
+                    (Mention("kb_article", uuid.uuid4(), "body", MentionMatchKind.NAME, 3),)
+                )
 
-    register_mentions(Later())  # a stand-in with the protocol's shape
-    try:
-        assert await _build(world, a) == 1
-    finally:
-        unregister_mentions("later_probe")
-    shown = await _get(world, a, erasure)
-    assert shown["report"]["by_module"]["later_probe"] == {"name": 1}
-    assert shown["report"]["complete"] is False
-    assert shown["report"]["reviewed_at"] is None  # the report changed: review again
+            async def redact_mention(self, *_a: object, **_k: object) -> bool:
+                return False
+
+            async def passage(self, *_a: object, **_k: object) -> str | None:
+                return None
+
+        register_mentions(Later())  # a stand-in with the protocol's shape
+        try:
+            assert await _build(world, a) == 1
+        finally:
+            unregister_mentions("later_probe")
+        shown = await _get(world, a, erasure)
+        assert shown["report"]["by_module"]["later_probe"] == {"name": 1}
+        assert shown["report"]["complete"] is False
+        assert shown["report"]["reviewed_at"] is None  # the report changed: review again
 
 
 # --- approval -------------------------------------------------------------------------------------
@@ -386,107 +403,150 @@ async def _complete(world: World, org: Org, erasure_id: uuid.UUID) -> None:
 async def test_approval_needs_a_complete_then_reviewed_report(
     world: World, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    with _missing("announcements"):  # incomplete: one required port missing (#516)
+        a = world.a
+        seeded = await _seed(world, a)
+        approver = await _second_admin(world, a)
+        erasure = await _requested(world, a)
+        erasure_id = uuid.UUID(erasure["id"])
+
+        async def approve(version: int) -> Any:  # noqa: ANN401 - httpx response
+            return await world.call(
+                "POST",
+                f"/erasures/{erasure_id}/approve",
+                a,
+                approver,
+                json={"confirm_name": seeded["name"]},
+                headers={"If-Match": f'"{version}"'},
+            )
+
+        # Before the review: building or not, a review is refused while there is no report.
+        early = await world.call(
+            "POST",
+            f"/erasures/{erasure_id}/report/reviewed",
+            a,
+            a.admin,
+            headers={"If-Match": '"1"'},
+        )
+        assert _code(early) == (409, "erasure_report_unavailable")
+        assert _code(await approve(1)) == (409, "erasure_report_unavailable")
+        await _build(world, a)
+        version = (await _get(world, a, erasure))["version"]
+        assert _code(await approve(version)) == (409, "erasure_report_unavailable")  # incomplete
+        await _complete(world, a, erasure_id)
+        assert (await _get(world, a, erasure))["report_ready"] is True
+        assert _code(await approve(version)) == (409, "erasure_report_not_reviewed")
+        stale = await world.call(
+            "POST",
+            f"/erasures/{erasure_id}/report/reviewed",
+            a,
+            a.admin,
+            headers={"If-Match": '"1"'},
+        )
+        assert stale.status_code == 409
+        reviewed = await world.call(
+            "POST",
+            f"/erasures/{erasure_id}/report/reviewed",
+            a,
+            a.admin,
+            headers={"If-Match": f'"{version}"'},
+        )
+        assert reviewed.status_code == 200, reviewed.text
+        assert reviewed.headers["ETag"] == f'"{version + 1}"'
+        logged = await _audit(world, a, "person.erasure_report_reviewed")
+        assert [(e["outcome"], e["object_id"]) for e in logged if e["outcome"] == "done"] == [
+            ("done", str(erasure_id))
+        ]
+        # Reviewed by someone else is not enough: the approver must have looked themselves.
+        assert _code(await approve(version + 1)) == (409, "erasure_report_not_reviewed")
+        own = await world.call(
+            "POST",
+            f"/erasures/{erasure_id}/report/reviewed",
+            a,
+            approver,
+            headers={"If-Match": f'"{version + 1}"'},
+        )
+        assert own.status_code == 200, own.text
+        # The gate still refuses whenever directory sync could write a person back (it no longer
+        # can: #507); with the real setting the approval goes through.
+        monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", False)
+        assert _code(await approve(version + 2)) == (409, "erasure_directory_sync_unsafe")
+        monkeypatch.undo()
+        assert erasure_service.DIRECTORY_SYNC_SKIPS_ERASED is True
+        approved = await approve(version + 2)
+        assert approved.status_code == 200, approved.text
+        states = await world.sql(
+            "SELECT DISTINCT state FROM person_erasure_mentions WHERE tenant_id = $1"
+            " AND erasure_id = $2",
+            a.tenant,
+            erasure_id,
+        )
+        assert [row["state"] for row in states] == ["left"]  # the approver left them in place
+
+
+async def test_the_job_refuses_an_incomplete_report(world: World) -> None:
+    with _missing("announcements"):  # incomplete: one required port missing (#516)
+        a = world.a
+        approver = await _second_admin(world, a)
+        erasure = await _requested(world, a)
+        erasure_id = uuid.UUID(erasure["id"])
+        await _build(world, a)
+        await world.sql(
+            "UPDATE person_erasures SET state = 'approved', approved_by = $3, approved_at = now(),"
+            " report_reviewed_at = now() WHERE tenant_id = $1 AND id = $2",
+            a.tenant,
+            erasure_id,
+            approver,
+        )
+        outcome = await erasure_job.run_erasure(
+            world.app.state.db, a.tenant, erasure_id, erasure_job.JobEffects()
+        )
+        assert (outcome.state, outcome.error_code) == ("failed", "erasure_report_unavailable")
+        status = await _one(
+            world, "SELECT status FROM users WHERE tenant_id = $1 AND id = $2", a.tenant, a.tech_a
+        )
+        assert status == "active"
+
+
+async def test_with_every_real_port_the_report_completes_and_approval_goes_through(
+    world: World,
+) -> None:
+    """The end-to-end proof for erasure readiness (lane B's #516 condition): every required
+    mentions port is a real one, no stand-ins. A report on made-up data builds to complete with
+    nothing missing; the approver reviews it themselves and approves. The job is not run."""
     a = world.a
     seeded = await _seed(world, a)
     approver = await _second_admin(world, a)
+    assert {p.module for p in mention_ports()} >= REQUIRED_MENTION_PORTS
+    assert erasure_service.DIRECTORY_SYNC_SKIPS_ERASED is True
     erasure = await _requested(world, a)
     erasure_id = uuid.UUID(erasure["id"])
-
-    async def approve(version: int) -> Any:  # noqa: ANN401 - httpx response
-        return await world.call(
-            "POST",
-            f"/erasures/{erasure_id}/approve",
-            a,
-            approver,
-            json={"confirm_name": seeded["name"]},
-            headers={"If-Match": f'"{version}"'},
-        )
-
-    # Before the review: building or not, a review is refused while there is no report.
-    early = await world.call(
-        "POST",
-        f"/erasures/{erasure_id}/report/reviewed",
-        a,
-        a.admin,
-        headers={"If-Match": '"1"'},
-    )
-    assert _code(early) == (409, "erasure_report_unavailable")
-    assert _code(await approve(1)) == (409, "erasure_report_unavailable")
-    await _build(world, a)
-    version = (await _get(world, a, erasure))["version"]
-    assert _code(await approve(version)) == (409, "erasure_report_unavailable")  # incomplete
-    await _complete(world, a, erasure_id)
-    assert (await _get(world, a, erasure))["report_ready"] is True
-    assert _code(await approve(version)) == (409, "erasure_report_not_reviewed")
-    stale = await world.call(
-        "POST",
-        f"/erasures/{erasure_id}/report/reviewed",
-        a,
-        a.admin,
-        headers={"If-Match": '"1"'},
-    )
-    assert stale.status_code == 409
+    for _ in range(20):  # a pass per batch until the report is built
+        await _build(world, a)
+        if not (await _get(world, a, erasure))["report"]["building"]:
+            break
+    shown = await _get(world, a, erasure)
+    assert shown["report"]["complete"] is True
+    assert shown["report"]["ports_missing"] == []
+    assert shown["report_ready"] is True
     reviewed = await world.call(
         "POST",
         f"/erasures/{erasure_id}/report/reviewed",
         a,
-        a.admin,
-        headers={"If-Match": f'"{version}"'},
+        approver,
+        headers={"If-Match": f'"{shown["version"]}"'},
     )
     assert reviewed.status_code == 200, reviewed.text
-    assert reviewed.headers["ETag"] == f'"{version + 1}"'
-    logged = await _audit(world, a, "person.erasure_report_reviewed")
-    assert [(e["outcome"], e["object_id"]) for e in logged if e["outcome"] == "done"] == [
-        ("done", str(erasure_id))
-    ]
-    # Reviewed by someone else is not enough: the approver must have looked themselves.
-    assert _code(await approve(version + 1)) == (409, "erasure_report_not_reviewed")
-    own = await world.call(
+    approved = await world.call(
         "POST",
-        f"/erasures/{erasure_id}/report/reviewed",
+        f"/erasures/{erasure_id}/approve",
         a,
         approver,
-        headers={"If-Match": f'"{version + 1}"'},
+        json={"confirm_name": seeded["name"]},
+        headers={"If-Match": reviewed.headers["ETag"]},
     )
-    assert own.status_code == 200, own.text
-    # The gate still refuses whenever directory sync could write a person back (it no longer
-    # can: #507); with the real setting the approval goes through.
-    monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", False)
-    assert _code(await approve(version + 2)) == (409, "erasure_directory_sync_unsafe")
-    monkeypatch.undo()
-    assert erasure_service.DIRECTORY_SYNC_SKIPS_ERASED is True
-    approved = await approve(version + 2)
     assert approved.status_code == 200, approved.text
-    states = await world.sql(
-        "SELECT DISTINCT state FROM person_erasure_mentions WHERE tenant_id = $1"
-        " AND erasure_id = $2",
-        a.tenant,
-        erasure_id,
-    )
-    assert [row["state"] for row in states] == ["left"]  # the approver left them in place
-
-
-async def test_the_job_refuses_an_incomplete_report(world: World) -> None:
-    a = world.a
-    approver = await _second_admin(world, a)
-    erasure = await _requested(world, a)
-    erasure_id = uuid.UUID(erasure["id"])
-    await _build(world, a)
-    await world.sql(
-        "UPDATE person_erasures SET state = 'approved', approved_by = $3, approved_at = now(),"
-        " report_reviewed_at = now() WHERE tenant_id = $1 AND id = $2",
-        a.tenant,
-        erasure_id,
-        approver,
-    )
-    outcome = await erasure_job.run_erasure(
-        world.app.state.db, a.tenant, erasure_id, erasure_job.JobEffects()
-    )
-    assert (outcome.state, outcome.error_code) == ("failed", "erasure_report_unavailable")
-    status = await _one(
-        world, "SELECT status FROM users WHERE tenant_id = $1 AND id = $2", a.tenant, a.tech_a
-    )
-    assert status == "active"
+    assert (await _get(world, a, erasure))["state"] == "approved"
 
 
 # --- passage --------------------------------------------------------------------------------------
@@ -1071,3 +1131,112 @@ async def test_a_port_sees_its_mention_redacted_while_it_redacts(world: World) -
         _restore("knowledge", real)
     assert done.status_code == 200, done.text
     assert seen == [(mention_id, "redacted", True)]
+
+
+async def test_trashed_rows_are_read_and_redacted_by_erasers_only(world: World) -> None:
+    """A trashed profile, file or note still names the person (the #514 rule, lane B's ports).
+
+    Found by the report; its passage only for a subject holding `people.erase`; redacted.
+    """
+    from app.modules.assets.service.erasure_mentions import PORT as NOTES  # noqa: PLC0415
+    from app.modules.identity_access import subject_for  # noqa: PLC0415
+
+    a = world.a
+    seeded = await _seed(world, a)
+    erasure = await _requested(world, a)  # before trashing: tech_b is its successor
+    for table, row_id in (
+        ("users", a.tech_b),
+        ("files", seeded["file"]),
+        ("asset_notes", seeded["note"]),
+    ):
+        await world.sql(
+            f"UPDATE {table} SET deleted_at = now() WHERE tenant_id = $1 AND id = $2",  # noqa: S608 - fixed names
+            a.tenant,
+            row_id,
+        )
+    try:
+        await _build(world, a)
+        page = await _mentions(world, a, erasure)
+        found = {
+            "identity_access": _find(page, "identity_access", "description", "name"),
+            "files": _find(page, "files", "name", "name"),
+            "assets": _find(page, "assets", "body", "name"),
+        }
+        ports: dict[str, PersonMentions] = {
+            "identity_access": lane_b.LANE_B_MENTION_PORTS[0],
+            "files": lane_b.LANE_B_MENTION_PORTS[1],
+            "assets": NOTES,
+        }
+        db = world.app.state.db
+        async with db.tenant_session(TenantContext(a.tenant)) as session:
+            admin = await subject_for(session, a.tenant, a.admin)
+            tech = await subject_for(session, a.tenant, a.tech_c)
+            for key, mention in found.items():
+                row = erasure_mentions._mention(  # noqa: SLF001 - the port's own input
+                    await erasure_mentions._mention_row(  # noqa: SLF001
+                        session, uuid.UUID(erasure["id"]), uuid.UUID(mention["id"])
+                    )
+                )
+                assert await ports[key].passage(session, tech, row) is None, key
+                assert await ports[key].passage(session, admin, row), key
+        version = (await _get(world, a, erasure))["version"]
+        done = await _redact(world, a, erasure["id"], [m["id"] for m in found.values()], version)
+        assert done.status_code == 200, done.text
+        assert {m["state"] for m in done.json()["redacted"]} == {"redacted"}
+        name = seeded["name"]
+        texts = await world.sql(
+            "SELECT (SELECT description FROM users WHERE tenant_id = $1 AND id = $2),"
+            " (SELECT name FROM files WHERE tenant_id = $1 AND id = $3),"
+            " (SELECT body FROM asset_notes WHERE tenant_id = $1 AND id = $4)",
+            a.tenant,
+            a.tech_b,
+            seeded["file"],
+            seeded["note"],
+        )
+        assert all(name not in (value or "") for value in texts[0])
+    finally:  # the shared world's rows come back for the other tests
+        for table, row_id in (
+            ("users", a.tech_b),
+            ("files", seeded["file"]),
+            ("asset_notes", seeded["note"]),
+        ):
+            await world.sql(
+                f"UPDATE {table} SET deleted_at = NULL WHERE tenant_id = $1 AND id = $2",  # noqa: S608 - fixed names
+                a.tenant,
+                row_id,
+            )
+
+
+async def test_the_report_says_a_short_name_was_not_searched_on_its_own(world: World) -> None:
+    """A flag only: the report stores no name (the screen names it from the person row)."""
+    a = world.a
+    person = (
+        await world.sql(
+            "SELECT display_name, first_name, last_name FROM users WHERE id = $1", a.tech_a
+        )
+    )[0]
+    await world.sql(
+        "UPDATE users SET display_name = 'Ali', first_name = 'Ali', last_name = 'Raza'"
+        " WHERE id = $1",
+        a.tech_a,
+    )
+    try:
+        erasure = await _requested(world, a)
+        await _build(world, a)
+        report = (await _get(world, a, erasure))["report"]
+        assert report["short_name_not_searched"] is True
+        stored = await _one(
+            world,
+            "SELECT report::text FROM person_erasures WHERE tenant_id = $1 AND id = $2",
+            a.tenant,
+            uuid.UUID(erasure["id"]),
+        )
+        assert "Ali" not in stored
+    finally:
+        await world.sql(
+            "UPDATE users SET display_name = $2, first_name = $3, last_name = $4 WHERE id = $1",
+            a.tech_a,
+            person["display_name"],
+            person["first_name"],
+            person["last_name"],
+        )

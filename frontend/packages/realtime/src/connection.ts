@@ -12,6 +12,8 @@ import type { ConnectionStatus, PresenceMember, RealtimeMessage } from './types'
 /** Disconnect code the server uses after an access change (backend app/shared/realtime). */
 export const ACCESS_CHANGED = 4000;
 /** Without a connection for this long, screens fall back to timed refreshes. */
+/** How far the refetch after an access change is spread, at random (ms; lane C's #513 note). */
+export const ACCESS_REFETCH_SPREAD_MS = 3000;
 export const FALLBACK_AFTER_MS = 10_000;
 export const POLL_INTERVAL_MS = 15_000;
 /** A followed channel that was refused or ended is tried again after these delays (then every last one). */

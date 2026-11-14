@@ -216,3 +216,36 @@ def test_0164s_redactable_states_are_the_domain_rule() -> None:
     fixed = set(re.findall(r"'([a-z_]+)'", migration._REDACTABLE))  # noqa: SLF001 - the constant
     allowed = {s.value for s in ErasureState if rules.can("redact", s).allowed}
     assert fixed == allowed
+
+
+def test_a_short_one_word_display_name_is_skipped_but_the_full_name_is_searched() -> None:
+    """The coordinator's rule (2026-11-14): full first + last always; one word from 4 letters."""
+    short = build_terms(
+        display_name="Ali",
+        first_name="Ali",
+        last_name="Raza",
+        email=None,
+        phone=None,
+        mobile=None,
+    )
+    assert short.names == ("Ali Raza",)
+    assert short.short_name_skipped is True
+    arabic = build_terms(
+        display_name="علي",
+        first_name="علي",
+        last_name="رضا",
+        email=None,
+        phone=None,
+        mobile=None,
+    )  # three letters (six bytes): counted by letter
+    assert arabic.names == ("علي رضا",)
+    assert arabic.short_name_skipped is True
+    long_enough = build_terms(
+        display_name="Sara", first_name=None, last_name=None, email=None, phone=None, mobile=None
+    )
+    assert long_enough.names == ("Sara",)
+    assert long_enough.short_name_skipped is False
+    several = build_terms(
+        display_name="Al Bo", first_name=None, last_name=None, email=None, phone=None, mobile=None
+    )
+    assert several.names == ("Al Bo",)  # several words: always searched

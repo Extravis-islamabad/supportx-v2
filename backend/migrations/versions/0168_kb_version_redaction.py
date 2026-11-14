@@ -29,7 +29,7 @@ version and raises the ordinary saved event in the same transaction. Search foll
 (`search_vector` is a computed column). The downgrade restores 0036's freeze exactly.
 
 Revision ID: 0168
-Revises: 0167
+Revises: 0170
 Created: 2026-11-14
 """
 
@@ -40,7 +40,7 @@ from alembic import op
 from migrations.helpers import create_definer_function, drop_definer_function
 
 revision: str = "0168"
-down_revision: str | None = "0167"
+down_revision: str | None = "0170"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
