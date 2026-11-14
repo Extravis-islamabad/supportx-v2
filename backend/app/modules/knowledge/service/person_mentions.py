@@ -17,7 +17,9 @@ Every redaction writes history naming the field only (reason `erasure_redaction`
 version on and raises the ordinary saved event, so screens and search follow (search reads a
 computed column). A value that would no longer fit is refused, never cut. The passage is the
 field's current text for someone whose own rights show it on the article screen: internal and
-reject notes, superseded versions and feedback only for those who may edit the article.
+reject notes, superseded versions and feedback only for those who may edit the article. Trashed
+rows (and live rows of a trashed article) are found too; only a holder of `people.erase` reads or
+redacts them (#514's rule).
 """
 
 import uuid
@@ -75,6 +77,7 @@ _LIMITS: Mapping[str, int] = {  # the tables' checks
     "description": 1000,
 }
 PHASES = ("versions", "votes", "articles", "topics")
+ERASE_RIGHT = "people.erase"  # the erasure's own right (identity_access)
 
 _REDACT_VERSION = text(
     "SELECT kb_redact_version(:mention, :value, :keywords) AS changed"
@@ -390,17 +393,34 @@ class KnowledgeMentions:
             return None  # not theirs to read (404 / 403): no passage
 
 
+async def _article_trashed(session: AsyncSession, article_id: uuid.UUID) -> bool:
+    deleted = await session.scalar(select(KbArticle.deleted_at).where(KbArticle.id == article_id))
+    return deleted is not None
+
+
+def _erase_holder(subject: Subject) -> bool:
+    """Whether the subject may read or redact a trashed row's text (lane B's #516 review).
+
+    Trashed rows, and live rows of a trashed article: only someone who may erase people, as the
+    other ports do (#514's rule).
+    """
+    return subject.holds(ERASE_RIGHT)
+
+
 async def _topic_passage(session: AsyncSession, subject: Subject, mention: Mention) -> str | None:
-    if not is_staff(subject):
-        return None
     topic = await session.scalar(select(KbTopic).where(KbTopic.id == mention.record_id))
-    return None if topic is None else _text(getattr(topic, mention.field))
+    if topic is None:
+        return None
+    allowed = _erase_holder(subject) if topic.deleted_at is not None else is_staff(subject)
+    return _text(getattr(topic, mention.field)) if allowed else None
 
 
 async def _vote_passage(session: AsyncSession, subject: Subject, mention: Mention) -> str | None:
     vote = await session.scalar(select(KbVote).where(KbVote.id == mention.record_id))
     if vote is None:
         return None
+    if vote.deleted_at is not None or await _article_trashed(session, vote.article_id):
+        return vote.comment if _erase_holder(subject) else None
     view = await get_article(session, subject, vote.article_id)
     return vote.comment if view.can_edit else None  # feedback: the article's editors only
 
@@ -408,6 +428,12 @@ async def _vote_passage(session: AsyncSession, subject: Subject, mention: Mentio
 async def _withdrawal_passage(
     session: AsyncSession, subject: Subject, mention: Mention
 ) -> str | None:
+    if await _article_trashed(session, mention.record_id):
+        if not _erase_holder(subject):
+            return None
+        return await session.scalar(
+            select(KbArticle.withdrawn_reason).where(KbArticle.id == mention.record_id)
+        )
     view = await get_article(session, subject, mention.record_id)
     editor = view.can_edit or view.can_withdraw
     return view.article.withdrawn_reason if editor else None
@@ -419,6 +445,8 @@ async def _version_passage(session: AsyncSession, subject: Subject, mention: Men
     )
     if version is None:
         return None
+    if version.deleted_at is not None or await _article_trashed(session, version.article_id):
+        return _text(getattr(version, mention.field)) if _erase_holder(subject) else None
     view = await get_article(session, subject, version.article_id)
     shown = {v.id: True for v in view.drafts.values()} | {
         v.id: view.can_edit for v in view.published.values()

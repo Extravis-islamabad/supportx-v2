@@ -7,7 +7,8 @@ would survive in the article and its history. This adds the one way to do that:
 
 - `kb_redaction_kept(old, new)`: true when `new` is `old` with one or more non-empty stretches
   replaced by the marker `erased_on_request`, and nothing else changed (lane B's #511 review,
-  condition 2). Pure, so harmless to anyone who calls it.
+  condition 2). It checks the text's shape only, not HTML: which stretches are words between
+  tags is the app's `redact_html`'s to choose. Pure, so harmless to anyone who calls it.
 - `kb_redact_version(mention, value, keywords)`: migrator-owned (`create_definer_function`),
   bound like 0164's `history_redact_field`. It takes the mention only, never a field or record:
   - a redacted mention with redactor and time, of an erasure that may still redact, record type

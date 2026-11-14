@@ -8,7 +8,8 @@ redaction turns the words into the marker:
 - history names the field only (reason `erasure_redaction`) and the saved events are raised;
 - search no longer finds the article by the name;
 - a value that would no longer fit is refused and nothing changes.
-The passage follows the article screen's rights: an internal note never for a reader.
+The passage follows the article screen's rights: an internal note never for a reader; a trashed
+article's version only for someone who may erase people.
 """
 
 import json
@@ -34,7 +35,17 @@ async def _seed(world: World, org: Org, name: str) -> dict[str, uuid.UUID]:
     code = f"t{uuid.uuid4().hex[:8]}"
     ids = {
         k: uuid.uuid4()
-        for k in ("topic", "article", "version", "long", "long_article", "vote", "note")
+        for k in (
+            "topic",
+            "article",
+            "version",
+            "long",
+            "long_article",
+            "vote",
+            "note",
+            "trashed_article",
+            "trashed",
+        )
     }
     await world.sql(
         "INSERT INTO kb_types (tenant_id, code, review_months) VALUES ($1, $2, 12)",
@@ -83,6 +94,26 @@ async def _seed(world: World, org: Org, name: str) -> dict[str, uuid.UUID]:
         ids["long_article"],
         "x" * (250 - len(name) - 1) + " " + name,
     )
+    # A trashed article whose published version names them (#514's trashed-row rule).
+    await world.sql(
+        "INSERT INTO kb_articles (id, tenant_id, display_id, topic_id, type_code, owner_id,"
+        " deleted_at) VALUES ($1, $2, $3, $4, $5, $6, now())",
+        ids["trashed_article"],
+        org.tenant,
+        f"KB-{code}-t",
+        ids["topic"],
+        code,
+        org.admin,
+    )
+    await world.sql(
+        "INSERT INTO kb_article_versions (id, tenant_id, article_id, language, number, title,"
+        " body_html, status, published_at) VALUES ($1, $2, $3, 'en', 1, $4, '<p>x</p>',"
+        " 'published', now())",
+        ids["trashed"],
+        org.tenant,
+        ids["trashed_article"],
+        f"Old notes by {name}",
+    )
     await world.sql(
         "INSERT INTO kb_votes (id, tenant_id, article_id, version_id, person_id, helpful, comment)"
         " VALUES ($1, $2, $3, $4, $5, false, $6)",
@@ -125,6 +156,33 @@ async def _redact(world: World, org: Org, erasure: dict[str, Any], ids: list[str
         json={"mention_ids": ids},
         headers={"If-Match": f'"{current["version"]}"'},
     )
+
+
+async def _trashed_version(
+    world: World, a: Org, erasure: dict[str, Any], version: uuid.UUID, name: str
+) -> None:
+    """A trashed article's version: found, read and redacted by someone who may erase people
+    (the admin), never shown to a technician without that right (lane B's #516 review)."""
+    base = f"/erasures/{erasure['id']}/mentions"
+    trashed = next(
+        m
+        for m in (await _mentions(world, a, erasure))["items"]
+        if m["record_id"] == str(version) and m["field"] == "title"
+    )
+    by_admin = await world.call("GET", f"{base}/{trashed['id']}/passage", a, a.admin)
+    assert by_admin.status_code == 200, by_admin.text
+    assert name in by_admin.text
+    by_tech = await world.call("GET", f"{base}/{trashed['id']}/passage", a, a.tech_c)
+    assert by_tech.status_code in (403, 404), by_tech.text
+    assert name not in by_tech.text
+    trashed_done = await _redact(world, a, erasure, [trashed["id"]])
+    assert trashed_done.status_code == 200, trashed_done.text
+    (gone,) = await world.sql(
+        "SELECT title FROM kb_article_versions WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        version,
+    )
+    assert gone["title"] == f"Old notes by {MARKER}"
 
 
 async def test_knowledge_and_announcements_are_found_redacted_and_searched_no_more(
@@ -172,6 +230,8 @@ async def test_knowledge_and_announcements_are_found_redacted_and_searched_no_mo
         refused = await _redact(world, a, erasure, [long_title["id"]])
         assert refused.status_code == 409, refused.text
         assert refused.json()["code"] == "erasure_redaction_too_long"
+
+    await _trashed_version(world, a, erasure, ids["trashed"], name)
 
     before_events = await world.sql(
         "SELECT count(*) AS n FROM outbox_events WHERE tenant_id = $1"

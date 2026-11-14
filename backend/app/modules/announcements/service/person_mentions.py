@@ -35,6 +35,7 @@ from app.shared.history import Change, record_changes
 REDACTION_REASON = "erasure_redaction"  # the history reason code (identity_access's)
 REDACTION_TOO_LONG = "erasure_redaction_too_long"  # identity_access's refusal code
 FIELDS = ("title", "body")
+ERASE_RIGHT = "people.erase"  # the erasure's own right (identity_access)
 _LIMITS = {"title": 200, "body": 20000}  # the table's checks (announcements_title/body_length)
 
 
@@ -119,6 +120,12 @@ class AnnouncementMentions:
         """The field's current text, when the subject may see the announcement now."""
         if mention.record_type != RECORD_TYPE or mention.field not in FIELDS:
             return None
+        row = await session.scalar(select(Announcement).where(Announcement.id == mention.record_id))
+        if row is None:
+            return None
+        if row.deleted_at is not None:
+            # A trashed one: only someone who may erase people reads or redacts it (#514's rule).
+            return str(getattr(row, mention.field)) if subject.holds(ERASE_RIGHT) else None
         try:
             view = await get_announcement(session, subject, mention.record_id)
         except Exception:  # noqa: BLE001 - not visible to them (404) or gone: no passage

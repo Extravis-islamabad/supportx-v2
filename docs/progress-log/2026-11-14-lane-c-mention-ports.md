@@ -28,7 +28,9 @@ blocks.
     version and raises KbArticleSaved or KbTopicSaved;
   - a value too long is refused (`erasure_redaction_too_long`);
   - passages follow `get_article`: internal and reject notes only for editors, superseded
-    versions only for editors, feedback for the article's editors, topics for staff.
+    versions only for editors, feedback for the article's editors, topics for staff;
+  - trashed rows, and live rows of a trashed article, are found too; only a holder of
+    `people.erase` reads or redacts them (#514's rule; lane B's #516 review).
 - **`announcements/service/person_mentions.py`:** title and body (plain text), with the same
   history, event and too-long rules; passage through `get_announcement`.
 - **Labels en/ar/ur:** `audit.object.kb_article_version`, `kb_vote`, `kb_topic`, `announcement`.
