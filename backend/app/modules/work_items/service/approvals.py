@@ -471,11 +471,18 @@ __all__ = [
 ]
 
 
-async def reroute_from(session: AsyncSession, leaver: uuid.UUID) -> int:
+async def reroute_from(
+    session: AsyncSession,
+    leaver: uuid.UUID,
+    *,
+    reason: rules.RouteReason = rules.RouteReason.APPROVER_INACTIVE,
+) -> int:
     """Move `leaver`'s pending approvals to the approval administrators (REQ-SR-023).
 
-    "Approver inactive" becomes each one's reason; the leaver's inbox and the administrators'
-    screens hear about it. Idempotent: a second run finds nothing pending for that person.
+    Never decided on the way: the administrators decide. `reason` ("approver inactive", or
+    "approver erased" from the erasure, ADR-052) becomes each one's reason; the leaver's inbox
+    and the administrators' screens hear about it. Idempotent: a second run finds nothing
+    pending for that person.
     """
     rows = list(
         await session.scalars(
@@ -495,7 +502,7 @@ async def reroute_from(session: AsyncSession, leaver: uuid.UUID) -> int:
         await approval_event(session, record, row, "closed")  # the leaver's inbox drops it
         row.approver_id = None
         row.origin = rules.ApproverOrigin.ADMINISTRATORS.value
-        row.route_reason = rules.RouteReason.APPROVER_INACTIVE.value
+        row.route_reason = reason.value
         row.version += 1
         await session.flush()
         await approval_event(session, record, row, "opened")  # the administrators' inboxes

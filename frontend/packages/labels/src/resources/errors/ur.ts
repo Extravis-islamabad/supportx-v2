@@ -285,8 +285,14 @@ export const ur: LabelResource = {
   'errors.erasure_approval_invalid': 'اس کی منظوری اب درست نہیں رہی۔',
   'errors.erasure_break_glass_account':
     'ہنگامی رسائی والا اکاؤنٹ مٹایا نہیں جا سکتا۔ پہلے اسے ہنگامی رسائی سے ہٹائیں۔',
+  'errors.erasure_directory_sync_unsafe':
+    'اس مٹانے کی ابھی منظوری نہیں دی جا سکتی: ڈائریکٹری سنک فرد کی تفصیلات دوبارہ لکھ سکتا ہے۔',
   'errors.erasure_identity_unavailable':
     'سائن اِن سروس تک رسائی نہیں ہو سکی۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_mention_not_found':
+    'یہ ذکر اس مٹانے میں نہیں ملا، یا آپ وہ ریکارڈ نہیں دیکھ سکتے جس میں یہ ہے۔',
+  'errors.erasure_mention_port_missing':
+    'یہ ذکر بدلا نہیں جا سکتا: پروڈکٹ کا وہ حصہ دستیاب نہیں جس میں یہ ہے۔',
   'errors.erasure_needs_another_admin': 'اس کی منظوری کسی دوسرے منتظم کو دینی ہوگی۔',
   'errors.erasure_not_found': 'یہ درخواست موجود نہیں۔',
   'errors.erasure_not_pending': 'اس درخواست میں اب تبدیلی نہیں ہو سکتی۔',
@@ -295,11 +301,17 @@ export const ur: LabelResource = {
     'پروڈکٹ کے ایک حصے نے ایسی چیز بتائی جس کا اس نے اعلان نہیں کیا تھا۔ سپورٹ سے رابطہ کریں۔',
   'errors.erasure_port_missing':
     'پروڈکٹ کا ایک حصہ ابھی ذاتی ڈیٹا نہیں مٹا سکتا۔ سپورٹ سے رابطہ کریں۔',
+  'errors.erasure_redaction_too_long':
+    'اس عبارت کی یہاں ترمیم نہیں ہو سکتی: نشان متن کو فیلڈ کی اجازت سے لمبا کر دے گا۔ پہلے متن مختصر کریں۔',
+  'errors.erasure_report_not_reviewed':
+    'اس مٹانے کی ابھی منظوری نہیں دی جا سکتی: پہلے کسی منتظم کو وہ رپورٹ دیکھنی ہوگی کہ فرد کا ذکر کہاں کہاں ہے۔',
   'errors.erasure_report_unavailable':
-    'ابھی مٹانے کی منظوری نہیں دی جا سکتی: فرد کا ذکر کہاں کہاں ہے، اس کی رپورٹ دستیاب نہیں۔',
+    'ابھی اس مٹانے کی منظوری نہیں دی جا سکتی: فرد کا ذکر کہاں کہاں ہے، اس کی رپورٹ مکمل نہیں۔',
   'errors.erasure_request_expired':
     'اس درخواست کی میعاد ختم ہو گئی ہے۔ اگر اب بھی ضرورت ہو تو دوبارہ درخواست کریں۔',
   'errors.erasure_sessions_unavailable': 'ابھی سیشن ختم نہیں ہو سکے۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_signed_history_kept':
+    'اس مٹانے کی ابھی منظوری یا عمل نہیں ہو سکتا: ایک ترمیم شدہ عبارت اب بھی دستخط شدہ ریکارڈ کی تاریخ میں محفوظ ہے، جس کی ابھی ترمیم نہیں ہو سکتی۔',
   'errors.erasure_step_failed': 'مٹانے کا ایک مرحلہ کامیاب نہیں ہوا۔ دوبارہ کوشش کی جائے گی۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
   'errors.field.address_not_allowed':
@@ -810,6 +822,7 @@ export const ur: LabelResource = {
   'errors.field_access_rule_not_found': 'فیلڈ کا یہ اصول اب موجود نہیں۔',
   'errors.field_keys_unavailable':
     'محفوظ معلومات ابھی پڑھی یا محفوظ نہیں کی جا سکتیں: انسٹالیشن کی کلید دستیاب نہیں۔ اپنے ایڈمنسٹریٹر سے اسے چیک کرنے کو کہیں۔',
+  'errors.field_not_permitted': 'یہ رپورٹ ایک ایسا فیلڈ استعمال کرتی ہے جو آپ کے لیے دستیاب نہیں۔',
   'errors.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
   'errors.field_read_only': 'آپ یہ فیلڈ صرف پڑھ سکتے ہیں، اس لیے اسے بدلا نہیں جا سکتا۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',

@@ -29,6 +29,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 
 import {
+  isApiError,
   queryKeys,
   useReportRun,
   type ChartType,
@@ -78,6 +79,13 @@ export interface WidgetProps {
 }
 
 /** One widget: a KPI tile or a chart, live, in the viewer's scope (REQ-DSH-007..016, 024). */
+// A field or figure the viewer's roles withhold (ADR-047 §5): said as such, never blank or zero.
+const NOT_PERMITTED = new Set(['field_not_permitted', 'measure_not_permitted']);
+
+function notPermitted(error: unknown): boolean {
+  return isApiError(error) && NOT_PERMITTED.has(error.code);
+}
+
 export function Widget({
   widget,
   definition,
@@ -117,7 +125,13 @@ export function Widget({
       <Typography.Text type="secondary">{t('dashboards.widget_unavailable')}</Typography.Text>
     ) : result === undefined ? (
       run.isError ? (
-        <Typography.Text type="secondary">{t('dashboards.widget_failed')}</Typography.Text>
+        <Typography.Text type="secondary">
+          {t(
+            notPermitted(run.error)
+              ? 'dashboards.widget_not_permitted'
+              : 'dashboards.widget_failed',
+          )}
+        </Typography.Text>
       ) : (
         <Spin />
       )

@@ -160,6 +160,7 @@ export const ar: LabelResource = {
   'domains.verified': 'يشير النطاق إلى هنا ويفتح مؤسستك الآن.',
   'email_from.mail': 'عنوان البريد (وإلا اسم تسجيل الدخول)',
   'email_from.user_principal_name': 'اسم تسجيل الدخول (اسم المستخدم الأساسي)',
+  'erasure_count.mail_cleared': 'مُسحت رسائل البريد الواردة',
   'federation_state.applied': 'مرتبط',
   'federation_state.failed': 'غير مرتبط',
   'federation_state.pending': 'جارٍ الربط',

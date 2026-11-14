@@ -6,9 +6,15 @@
 - `POST /people/{user_id}/erasure`: admin A asks (`people.erase`, a recent confirmation,
   Idempotency-Key; the person's name typed).
 - `POST /erasures/{erasure_id}/approve`: admin B (a different one) approves, with the name typed
-  again and a recent confirmation. Refused with `erasure_report_unavailable` until the mentions
-  report ships (S1b).
+  again and a recent confirmation. Refused with `erasure_report_unavailable` while the mentions
+  report is missing or incomplete, and `erasure_report_not_reviewed` until it was reviewed.
 - `POST /erasures/{erasure_id}/reject`, `GET /erasures`, `GET /erasures/{erasure_id}`.
+- The mentions report (S1b, D-171 a): `POST /erasures/{erasure_id}/report/reviewed`,
+  `GET /erasures/{erasure_id}/mentions` (places and counts, never text),
+  `GET /erasures/{erasure_id}/mentions/{mention_id}/passage` (the current text, when the
+  caller's own rights let them read the record; each view audited) and
+  `POST /erasures/{erasure_id}/mentions/redact` (the matched words become the marker; each
+  mention audited).
 
 Every step is audited (refusals by the error observer). Bodies are validated by the service.
 """
@@ -17,19 +23,20 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.core.recent_auth import RecentAuth
-from app.modules.audit import MANAGE_HOLDS, AuditNote, audited
+from app.modules.audit import MANAGE_HOLDS, AuditNote, RequestFacts, audited, record
 from app.modules.identity_access.domain import erasure as rules
 from app.modules.identity_access.domain.erasure import ErasureReason, ErasureState
+from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionState
 from app.modules.identity_access.domain.policy import Subject
-from app.modules.identity_access.infra.models import PersonErasure, User
-from app.modules.identity_access.service import erasure, legal_hold
+from app.modules.identity_access.infra.models import PersonErasure, PersonErasureMention, User
+from app.modules.identity_access.service import erasure, erasure_mentions, legal_hold
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -210,7 +217,8 @@ class ErasureOut(BaseModel):
     started_at: datetime | None
     finished_at: datetime | None
     last_error_code: str | None
-    report_ready: bool
+    report_ready: bool = Field(description="The mentions report is complete (approval needs it).")
+    report: "ReportOut | None" = Field(description="The mentions report; null until built.")
     counts: dict[str, int]
     version: int
 
@@ -238,10 +246,39 @@ class ErasureOut(BaseModel):
             started_at=row.started_at,
             finished_at=row.finished_at,
             last_error_code=row.last_error_code,
-            report_ready=row.report is not None,
+            report_ready=erasure_mentions.report_complete(row.report),
+            report=ReportOut.of(row),
             counts={str(k): int(v) for k, v in row.counts.items()},
             version=row.version,
         )
+
+
+class ReportOut(BaseModel):
+    """The mentions report's summary (D-171 a): counts by module and kind, never text."""
+
+    complete: bool = Field(description="Every required module's search ran.")
+    building: bool = Field(description="The search is still running.")
+    by_module: dict[str, dict[str, int]] = Field(description="Module key → match kind → places.")
+    ports_missing: list[str] = Field(description="Required modules not searched yet.")
+    attachment_content_searched: bool = Field(
+        description="Always false: only file names and details are searched (the screen says so"
+        " with `people_erasure.attachment_content_not_searched`)."
+    )
+    mail_bodies_searched: bool = Field(
+        description="Always false: inbound mail is searched by subject only (the screen says so"
+        " with `people_erasure.mail_bodies_not_searched`)."
+    )
+    reviewed_at: datetime | None
+    reviewed_by: uuid.UUID | None
+
+    @classmethod
+    def of(cls, row: PersonErasure) -> "ReportOut | None":
+        """From the erasure's row."""
+        summary = erasure_mentions.report_summary(row)
+        return None if summary is None else cls(**summary)
+
+
+ErasureOut.model_rebuild()  # ReportOut is defined after it
 
 
 class ErasuresOut(BaseModel):
@@ -344,7 +381,7 @@ async def approve_erasure(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         audited("person.erasure_approved", object_type="person_erasure", object_param="erasure_id"),
     ],
 ) -> ErasureOut:
-    """Not by the requester. 409 `erasure_report_unavailable` until the mentions report ships."""
+    """Not by the requester. 409 `erasure_report_unavailable` / `erasure_report_not_reviewed`."""
     row = await erasure.approve(
         session,
         subject.user_id,
@@ -379,3 +416,216 @@ async def reject_erasure(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     note.details = {"person_id": str(row.person_id)}
     set_etag(response, row.version)
     return ErasureOut.of(row)
+
+
+# --- the mentions report (S1b, D-171 a) ---------------------------------------------------------
+
+
+class MentionOut(BaseModel):
+    """One place the person is named in other people's text. Codes and IDs, never the text."""
+
+    id: uuid.UUID
+    module_key: str
+    record_type: str
+    record_id: uuid.UUID
+    field: str
+    match_kind: MentionMatchKind
+    occurrences: int
+    state: MentionState
+    redacted_by: uuid.UUID | None
+    redacted_at: datetime | None
+    history_kept: int = Field(
+        description="Earlier history rows of the field kept at redaction because a fingerprinted"
+        " audit entry commits to them (`people_erasure.history_kept_fingerprinted`)."
+    )
+
+    @classmethod
+    def of(cls, row: PersonErasureMention) -> "MentionOut":
+        """From the row."""
+        return cls(
+            id=row.id,
+            module_key=row.module_key,
+            record_type=row.record_type,
+            record_id=row.record_id,
+            field=row.field,
+            match_kind=MentionMatchKind(row.match_kind),
+            occurrences=row.occurrences,
+            state=MentionState(row.state),
+            redacted_by=row.redacted_by,
+            redacted_at=row.redacted_at,
+            history_kept=row.history_kept,
+        )
+
+
+class MentionsOut(BaseModel):
+    """One page of an erasure's mentions, oldest first."""
+
+    items: list[MentionOut]
+    next_cursor: str | None
+    report: ReportOut | None
+    attachment_content_searched: bool = Field(
+        default=erasure_mentions.ATTACHMENT_CONTENT_SEARCHED,
+        description="Always false: attachment contents are not searched, only file names.",
+    )
+    mail_bodies_searched: bool = Field(
+        default=erasure_mentions.MAIL_BODIES_SEARCHED,
+        description="Always false: inbound mail is searched by subject only, never its body.",
+    )
+
+
+class PassageOut(BaseModel):
+    """The mentioned field's current text (shown to the approver; never stored or logged)."""
+
+    mention_id: uuid.UUID
+    text: str
+
+
+class RedactIn(BaseModel):
+    """The mentions to redact (at most 200 per request)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mention_ids: list[uuid.UUID] = Field(min_length=1, max_length=erasure_mentions.REDACT_MAX)
+
+
+class RedactedOut(BaseModel):
+    """The erasure after the redaction, and the mentions newly redacted."""
+
+    erasure: ErasureOut
+    redacted: list[MentionOut]
+
+
+def _mention_details(row: PersonErasureMention) -> dict[str, str]:
+    return {
+        "erasure_id": str(row.erasure_id),
+        "module_key": row.module_key,
+        "record_type": row.record_type,
+        "record_id": str(row.record_id),
+        "field": row.field,
+        "match_kind": row.match_kind,
+    }
+
+
+@erasures_router.post(
+    "/{erasure_id}/report/reviewed",
+    summary="Mark an erasure's mentions report reviewed",
+    dependencies=[RecentAuth],
+)
+async def review_report(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    erasure_id: uuid.UUID,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Erase,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "person.erasure_report_reviewed",
+            object_type="person_erasure",
+            object_param="erasure_id",
+        ),
+    ],
+) -> ErasureOut:
+    """Approval needs a reviewed report. 409 `erasure_report_unavailable` while it is building."""
+    row = await erasure_mentions.mark_reviewed(
+        session, subject.user_id, erasure_id, expected_version=version, now=system_clock.now()
+    )
+    note.details = {"person_id": str(row.person_id)}
+    set_etag(response, row.version)
+    return ErasureOut.of(row)
+
+
+@erasures_router.get("/{erasure_id}/mentions", summary="Where the person is named")
+async def list_mentions(
+    erasure_id: uuid.UUID,
+    session: TenantSession,
+    subject: Erase,
+    cursor: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=erasure_mentions.LIST_LIMIT)] = 50,
+) -> MentionsOut:
+    """Places in other people's text (module, record, field, kind, count), never the text."""
+    del subject
+    row, page = await erasure_mentions.list_mentions(
+        session, erasure_id, cursor=cursor, limit=limit
+    )
+    return MentionsOut(
+        items=[MentionOut.of(item) for item in page.items],
+        next_cursor=page.next_cursor,
+        report=ReportOut.of(row),
+    )
+
+
+@erasures_router.get(
+    "/{erasure_id}/mentions/{mention_id}/passage", summary="The text a mention is in"
+)
+async def mention_passage(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    erasure_id: uuid.UUID,
+    mention_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Erase,
+) -> PassageOut:
+    """The field's current text, if your own rights let you read that record (else 404).
+
+    Every view is audited (IDs only, never the text).
+    """
+    row, text = await erasure_mentions.passage(session, subject, erasure_id, mention_id)
+    await record(
+        session,
+        action_code="person.erasure_mention_viewed",
+        facts=RequestFacts.of(request),
+        object_type="person_erasure",
+        object_id=erasure_id,
+        details={"mention_id": str(row.id), **_mention_details(row)},
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return PassageOut(mention_id=row.id, text=text)
+
+
+@erasures_router.post(
+    "/{erasure_id}/mentions/redact",
+    summary="Redact mentions of the person",
+    dependencies=[RecentAuth],
+)
+async def redact_mentions(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    erasure_id: uuid.UUID,
+    body: RedactIn,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Erase,
+) -> RedactedOut:
+    """The matched words become the marker shown as "Removed at the person's request".
+
+    Before the job starts only (requested or approved). 404 `erasure_mention_not_found` when a
+    mention belongs to another erasure: nothing is changed then. Each mention is audited.
+    """
+    done = await erasure_mentions.redact(
+        session,
+        subject,
+        erasure_id,
+        body.mention_ids,
+        expected_version=version,
+        now=system_clock.now(),
+    )
+    facts = RequestFacts.of(request)
+    for mention, changed in done.mentions:
+        await record(
+            session,
+            action_code="person.erasure_mention_redacted",
+            facts=facts,
+            object_type="person_erasure",
+            object_id=erasure_id,
+            details={
+                "mention_id": str(mention.id),
+                "text_changed": changed,
+                **_mention_details(mention),
+            },
+        )
+    set_etag(response, done.erasure.version)
+    return RedactedOut(
+        erasure=ErasureOut.of(done.erasure),
+        redacted=[MentionOut.of(mention) for mention, _ in done.mentions],
+    )
