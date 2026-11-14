@@ -52,3 +52,8 @@ module = ModuleSpec(
 )
 
 __all__ = ["module"]
+
+# GDPR erasure (ADR-052 S2): the mentions report searches announcements too (required).
+from app.modules.announcements.service import person_mentions as _person_mentions  # noqa: E402
+
+_person_mentions.register()
