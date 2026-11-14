@@ -83,6 +83,7 @@ from app.modules.work_items.service import (
     notifications,
     parts,
     person_data,
+    person_mentions,
     portal,
     problem_notifications,
     record_facts,
@@ -172,6 +173,7 @@ async def _startup(app: FastAPI) -> None:
     field_catalogue.register()
     search_rebuild.register()
     person_data.register()
+    person_mentions.register()
     register_sources()  # again after a shutdown (tests start and stop the app)
     _register_ai()
 
@@ -230,6 +232,7 @@ field_catalogue.register()
 search_rebuild.register()  # ADR-047 §6: the search mark commits with the rule
 # Work items' slice of a person's erasure (ADR-052): at import, as above.
 person_data.register()
+person_mentions.register()
 
 module = ModuleSpec(
     name="work_items",

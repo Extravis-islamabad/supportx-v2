@@ -731,6 +731,7 @@ ROUTES = [
             "work_items.conversation.added",
             "work_items.conversation.visibility_changed",
             "work_items.conversation.delivery_changed",
+            "work_items.conversation.redacted",
         ),
         _conversation_changed,
     ),

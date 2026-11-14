@@ -21,11 +21,14 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
+    ForeignKeyConstraint,
     Index,
     Integer,
     LargeBinary,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
     func,
@@ -289,6 +292,8 @@ class AuditVerificationRun(UuidPrimaryKey, TenantScoped, Base):
     fingerprints_verified: Mapped[int] = mapped_column(Integer, server_default="0")
     fingerprints_erased: Mapped[int] = mapped_column(Integer, server_default="0")
     fingerprint_mismatches: Mapped[int] = mapped_column(Integer, server_default="0")
+    # Saves verified through digests kept at a signed history redaction (0167).
+    fingerprints_redacted: Mapped[int] = mapped_column(Integer, server_default="0")
 
 
 class AuditSubjectSalt(TenantKeyed, Base):
@@ -408,3 +413,43 @@ class AuditRestored(TenantKeyed, Base):
     prev_hash: Mapped[bytes] = mapped_column(LargeBinary)
     chain_hash: Mapped[bytes] = mapped_column(LargeBinary)
     expires_at: Mapped[datetime]
+
+
+class FieldChangeRedaction(TenantKeyed, Base):
+    """A signed history row blanked by a redaction, with its pre-blank digests (0167).
+
+    ADR-046 addendum: the digests are exactly what the save's fingerprint commits to for that
+    field (salted for a personal field), so the verifier can still recompute the fingerprint and
+    reports the save as `redacted_on_request`. Read-only for the app role; written only by the
+    migrator-owned `history_redact_signed()`.
+    """
+
+    __tablename__ = "field_change_redactions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "mention_id"],
+            ["person_erasure_mentions.tenant_id", "person_erasure_mentions.id"],
+            name="fk_field_change_redactions_mention",
+        ),
+        UniqueConstraint("tenant_id", "field_change_id", name="uq_field_change_redactions_row"),
+        CheckConstraint(
+            "old_digest ~ '^[0-9a-f]{64}$' AND new_digest ~ '^[0-9a-f]{64}$'",
+            name="digest_form",
+        ),
+        Index("ix_field_change_redactions_change", "tenant_id", "change_id", "field_change_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    field_change_id: Mapped[uuid.UUID]
+    change_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(40))
+    record_id: Mapped[uuid.UUID]
+    field: Mapped[str] = mapped_column(String(80))
+    mention_id: Mapped[uuid.UUID]
+    old_digest: Mapped[str] = mapped_column(Text)
+    new_digest: Mapped[str] = mapped_column(Text)
+    # For auditors reading the table: whether the digests were salted (a personal field). The
+    # verifier never trusts it: it takes the field's half from the record type's own spec.
+    salted: Mapped[bool] = mapped_column(Boolean)
+    redacted_at: Mapped[datetime]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

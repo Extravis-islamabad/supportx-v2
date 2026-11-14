@@ -23,9 +23,11 @@ from typing import Any, ClassVar
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionTerms
+from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import erasure as erasure_service
 from app.modules.identity_access.service import erasure_job, erasure_mentions
@@ -228,8 +230,10 @@ async def test_the_report_finds_the_person_and_is_never_complete_in_s1b(world: W
     assert shown["report_ready"] is False
     assert report["attachment_content_searched"] is False
     assert report["mail_bodies_searched"] is False
+    # S2: lane A's work_items and integrations ports are in; lane C's are still to come.
     assert report["ports_missing"] == sorted(
-        REQUIRED_MENTION_PORTS - {"identity_access", "files", "assets"}
+        REQUIRED_MENTION_PORTS
+        - {"identity_access", "files", "assets", "work_items", "integrations"}
     )
     assert report["by_module"]["identity_access"] == {"name": 2, "email": 1, "phone": 1}
     assert report["by_module"]["files"] == {"name": 1}
@@ -977,3 +981,77 @@ async def test_a_redaction_that_would_overflow_the_field_is_refused(world: World
         uuid.UUID(phone["id"]),
     )
     assert states[0]["state"] == "found"
+
+
+async def test_a_port_sees_its_mention_redacted_while_it_redacts(world: World) -> None:
+    """The registry marks the mention first and hands its ID on (lane C, 0168).
+
+    So a port whose definer function is bound to a redacted mention (with its redactor and
+    time, as 0164's) can act from inside `redact_mention`.
+    """
+    a = world.a
+    await _seed(world, a)
+    erasure = await _requested(world, a)
+    erasure_id = uuid.UUID(erasure["id"])
+    seen: list[tuple[uuid.UUID | None, str, bool]] = []
+
+    class Probe:
+        module: ClassVar[str] = "knowledge"
+
+        async def find_mentions(
+            self,
+            session: AsyncSession,
+            person_id: uuid.UUID,
+            *,
+            terms: MentionTerms,
+            cursor: str | None,
+        ) -> MentionBatch:
+            del session, person_id, terms, cursor
+            return MentionBatch((), None)
+
+        async def redact_mention(
+            self,
+            session: AsyncSession,
+            mention: Mention,
+            *,
+            terms: MentionTerms,
+            marker: str,
+            now: datetime,
+        ) -> bool:
+            del terms, marker, now
+            state = (
+                await session.execute(
+                    text(
+                        "SELECT state, redacted_by IS NOT NULL AND redacted_at IS NOT NULL"
+                        " FROM person_erasure_mentions WHERE id = :id"
+                    ),
+                    {"id": mention.mention_id},
+                )
+            ).one()
+            seen.append((mention.mention_id, state[0], bool(state[1])))
+            return True
+
+        async def passage(
+            self, session: AsyncSession, subject: Subject, mention: Mention
+        ) -> str | None:
+            del session, subject, mention
+            return "the text"
+
+    mention_id = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO person_erasure_mentions (tenant_id, id, erasure_id, module_key, record_type,"
+        " record_id, field, match_kind, occurrences) VALUES ($1, $2, $3, 'knowledge',"
+        " 'kb_article_version', $4, 'title', 'name', 1)",
+        a.tenant,
+        mention_id,
+        erasure_id,
+        uuid.uuid4(),
+    )
+    register_mentions(Probe())
+    try:
+        version = (await _get(world, a, erasure))["version"]
+        done = await _redact(world, a, erasure["id"], [str(mention_id)], version)
+    finally:
+        unregister_mentions("knowledge")
+    assert done.status_code == 200, done.text
+    assert seen == [(mention_id, "redacted", True)]
