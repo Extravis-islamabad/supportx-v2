@@ -285,6 +285,8 @@ export const ur: LabelResource = {
   'errors.erasure_approval_invalid': 'اس کی منظوری اب درست نہیں رہی۔',
   'errors.erasure_break_glass_account':
     'ہنگامی رسائی والا اکاؤنٹ مٹایا نہیں جا سکتا۔ پہلے اسے ہنگامی رسائی سے ہٹائیں۔',
+  'errors.erasure_directory_sync_unsafe':
+    'اس مٹانے کی ابھی منظوری نہیں دی جا سکتی: ڈائریکٹری سنک فرد کی تفصیلات دوبارہ لکھ سکتا ہے۔',
   'errors.erasure_identity_unavailable':
     'سائن اِن سروس تک رسائی نہیں ہو سکی۔ دوبارہ کوشش کی جائے گی۔',
   'errors.erasure_mention_not_found':

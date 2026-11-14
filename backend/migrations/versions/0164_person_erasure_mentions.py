@@ -23,7 +23,7 @@ role has no UPDATE on `field_changes`; record history stays append-only for it):
   wipe a live person's history. Called in step 6.
 
 Revision ID: 0164
-Revises: 0163
+Revises: 0166
 Created: 2026-11-14
 """
 
@@ -41,7 +41,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0164"
-down_revision: str | None = "0163"
+down_revision: str | None = "0166"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -288,6 +288,8 @@ export const en = {
   'errors.erasure_approval_invalid': 'The approval of this erasure is no longer valid.',
   'errors.erasure_break_glass_account':
     'A break-glass account cannot be erased. Remove it from break-glass first.',
+  'errors.erasure_directory_sync_unsafe':
+    "This erasure cannot be approved yet: directory sync could still write the person's details back.",
   'errors.erasure_identity_unavailable':
     'The sign-in service could not be reached. The erasure will try again.',
   'errors.erasure_mention_not_found':
