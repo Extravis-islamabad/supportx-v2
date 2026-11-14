@@ -1546,8 +1546,7 @@ it with no reload (rule c). Not built yet.
     writes (workflows, connectors) are system writes (`Subject.person`).
   - Built-in fields an admin may restrict: impact details, and the problem's analysis and review
     texts; the root cause's own gate (view_root_cause) applies after the role rules.
-  - Next: b2 (search fails closed, `restricted` on live channels and 409s, designer refusal,
-    AI and notification variables), then slice c (the editor) and lane C's analytics slice.
+  - b2 (#509) and slice c follow below.
 - **Analytics slice, field access in reports (no migration; ADR-047 §5; lane C; lane B blocks):**
   - The reporting source names the fields it withheld (`ReportingSource.withheld`, filled by the
     work item source). A report that names one (filter, groupings, columns or sort) is refused
@@ -1561,6 +1560,20 @@ it with no reload (rule c). Not built yet.
   - [ ] Follow-up (coordinator, 2026-11-14): one notice per run to the owner naming who was
     skipped and which fields (labels, no values). It is a notifications kind agreed with lane A,
     and the run event carries the counts and field codes; no migration.
+- **S7 slice c, the field access editor and what records show (no migration; ADR-047; lane C
+  reviews the UI):**
+  - Admin › Roles: a saved role has a Field access tab beside its permissions. Per record type,
+    each rule-able field has a mode (No rule, Read only, Masked, Hidden) that saves at once (no
+    Save on that tab); a stale row reloads with a notice; a lapsed plan keeps the rules and only
+    allows removing them. "Who sees this" opens a modal with people per mode.
+  - Records and lists say when a field is withheld: "Not shown to you" or "Masked"
+    (`RestrictedValue` in packages/ui; a restricted row is never under Add details and never
+    edits). Read-only fields (`read_only_fields`, #510) have no editor.
+  - Live: an `access.changed` message refetches every active query, so an open record shows a
+    field just hidden with no refresh (e2e `field-access.spec.ts`). The Visual matrix gains the
+    tab and the modal. Admin guide: `docs/guides/field-access.md`.
+  - Also #510: a record handed out of reach (D-053) came back unredacted; fixed, with a guard
+    that a record view is built only where it is redacted.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
