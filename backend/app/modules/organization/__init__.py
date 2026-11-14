@@ -17,7 +17,8 @@ Public interface for other modules: `get_current_tenant`, `TenantView`, `TenantS
 `email_branding`, `EmailBranding`, `header_html` (e-mails), `register_calendar_check`,
 `calendar_users`, `CalendarUsers`, `unit_calendars` (WP-025: which calendar a site or group
 names); `leads_group`, `led_groups`, `may_manage_group`, `require_group_manager`, `GroupActor`
-(D-152: a team lead manages only the groups they lead).
+(D-152: a team lead manages only the groups they lead); `erase_person_units` (the
+organisation's part of a GDPR erasure, ADR-052: memberships go, leadership to the successor).
 """
 
 from fastapi import FastAPI
@@ -46,6 +47,7 @@ from app.modules.organization.service.email_branding import (
     email_branding,
     header_html,
 )
+from app.modules.organization.service.erasure import erase_person_units
 from app.modules.organization.service.file_access import FILE_ACCESS
 from app.modules.organization.service.hosts import (
     HostTenant,
@@ -182,6 +184,7 @@ __all__ = [
     "default_site",
     "department_site",
     "email_branding",
+    "erase_person_units",
     "existing_departments",
     "existing_unit_ids",
     "find_department",

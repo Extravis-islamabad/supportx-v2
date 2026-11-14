@@ -2403,6 +2403,27 @@ it with no reload (rule c). Not built yet.
   built here, since lane A's port (default None) is not on main yet.
 - [ ] No people admin guide exists yet: the cost rate line goes in when one is written.
 
+### [~] GDPR person erasure and export (lane B; D-171; ADR-052; audit gap #12; S1 built 2026-11-14)
+
+- [x] S1 (migration 0161): `person_erasures` (RLS forced, one open erasure per person, four-eyes
+  check), legal hold and erased columns on `users`, DELETE on `user_cost_rates` and
+  `list_settings` for the erasure; rights `people.erase`, `people.export` (declared; export is
+  S3), `audit.manage_holds` (tenant admins only); legal hold routes; request, approve, reject,
+  list and get; **approval always refused with `erasure_report_unavailable` until S1b**, and the
+  job refuses an erasure without a report too; the job (steps 0-7, one transaction per step and
+  per port batch, resumable, codes only, the schedule `identity_access__person_erasures` with
+  backoff and expiry); the `PersonData` registry (`REQUIRED_PORTS`, bands, `ErasureBatch`) and
+  lane B's ports (identity_access, organization, audit, files, action links, list settings);
+  the shared D2a marker `erased_on_request`; labels en/ar/ur; tests.
+- [ ] S1b: the mentions report (D-171 a) shown to the approver; then approval opens.
+- [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`); a retry action
+  for a failed erasure.
+- [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- [ ] Open: the person's own profile history (`field_changes` of record type `user`) is not
+  blanked yet. It needs a migrator-owned definer function, and D-168 option (b) allows that
+  SQL only through a code-owned helper in migrations/helpers.py (lane B's security review).
+  Step 5 writes no old values to history meanwhile.
+
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.

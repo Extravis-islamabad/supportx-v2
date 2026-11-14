@@ -12,6 +12,8 @@ Public interface for other modules:
   transaction (sign-in); `record(session, action_code=..., facts=WORKER, ...)` inside a worker's
   transaction (the files service's scan and purge jobs);
 * `erase_subject(session, user_id)`: personal-data erasure that keeps the chain verifiable;
+  `erase_saved_searches(session, user_id)`: their saved audit searches go (ADR-052, the audit
+  module's part of a person's erasure);
 * `entries_for_changes(session, change_ids)`: which field-history saves have an audit entry
   (record history shows the link only to holders of `audit.view`, REQ-AUD-006).
 """
@@ -29,7 +31,7 @@ from app.modules.audit.domain.catalogue import (
     ReadCategory,
 )
 from app.modules.audit.events import EVENTS
-from app.modules.audit.service.erasure import erase_subject
+from app.modules.audit.service.erasure import erase_saved_searches, erase_subject
 from app.modules.audit.service.jobs import (
     anchor_all,
     ensure_partitions,
@@ -61,6 +63,7 @@ from app.shared.history import register_audit_sink
 from app.shared.schedules import ScheduleSpec
 
 AUDITOR = "auditor"
+MANAGE_HOLDS = "audit.manage_holds"
 
 # Every save of a lifecycle record type gets its audit entry (WP-064). Set on import, like the
 # identity module's people names, so the API and every worker that loads the modules have it.
@@ -73,6 +76,9 @@ PERMISSIONS = (
     PermissionSpec(EXPORT, defaults=((AUDITOR, "all"),)),
     PermissionSpec(VERIFY, defaults=((AUDITOR, "all"),)),
     PermissionSpec(MANAGE),
+    # Legal hold on a person (H1, D-171): setting and lifting it, each audited with the reason.
+    # Tenant admins only (no defaults): a hold stops a GDPR erasure.
+    PermissionSpec(MANAGE_HOLDS),
 )
 
 
@@ -133,6 +139,7 @@ module = ModuleSpec(
 
 __all__ = [
     "AUDITOR",
+    "MANAGE_HOLDS",
     "WORKER",
     "AuditActorType",
     "AuditCategory",
@@ -143,6 +150,7 @@ __all__ = [
     "audit_read",
     "audited",
     "entries_for_changes",
+    "erase_saved_searches",
     "erase_subject",
     "module",
     "record",

@@ -281,6 +281,26 @@ export const ur: LabelResource = {
   'errors.entitlement_required.detail': '{{feature}} آپ کے ادارے کے پلان کا حصہ نہیں۔',
   'errors.entitlements_unavailable':
     'لائسنس کی معلومات عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.erasure_already_open': 'اس فرد کا ڈیٹا مٹانے کی ایک درخواست پہلے سے کھلی ہے۔',
+  'errors.erasure_approval_invalid': 'اس کی منظوری اب درست نہیں رہی۔',
+  'errors.erasure_break_glass_account':
+    'ہنگامی رسائی والا اکاؤنٹ مٹایا نہیں جا سکتا۔ پہلے اسے ہنگامی رسائی سے ہٹائیں۔',
+  'errors.erasure_identity_unavailable':
+    'سائن اِن سروس تک رسائی نہیں ہو سکی۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_needs_another_admin': 'اس کی منظوری کسی دوسرے منتظم کو دینی ہوگی۔',
+  'errors.erasure_not_found': 'یہ درخواست موجود نہیں۔',
+  'errors.erasure_not_pending': 'اس درخواست میں اب تبدیلی نہیں ہو سکتی۔',
+  'errors.erasure_of_self': 'آپ اپنا ڈیٹا خود نہیں مٹا سکتے۔',
+  'errors.erasure_port_kind_undeclared':
+    'پروڈکٹ کے ایک حصے نے ایسی چیز بتائی جس کا اس نے اعلان نہیں کیا تھا۔ سپورٹ سے رابطہ کریں۔',
+  'errors.erasure_port_missing':
+    'پروڈکٹ کا ایک حصہ ابھی ذاتی ڈیٹا نہیں مٹا سکتا۔ سپورٹ سے رابطہ کریں۔',
+  'errors.erasure_report_unavailable':
+    'ابھی مٹانے کی منظوری نہیں دی جا سکتی: فرد کا ذکر کہاں کہاں ہے، اس کی رپورٹ دستیاب نہیں۔',
+  'errors.erasure_request_expired':
+    'اس درخواست کی میعاد ختم ہو گئی ہے۔ اگر اب بھی ضرورت ہو تو دوبارہ درخواست کریں۔',
+  'errors.erasure_sessions_unavailable': 'ابھی سیشن ختم نہیں ہو سکے۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_step_failed': 'مٹانے کا ایک مرحلہ کامیاب نہیں ہوا۔ دوبارہ کوشش کی جائے گی۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
   'errors.field.address_not_allowed':
     'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
@@ -436,6 +456,14 @@ export const ur: LabelResource = {
   'errors.field.english_label_required': 'انگریزی نام ضروری ہے۔',
   'errors.field.english_text_required':
     'انگریزی متن شامل کریں: جہاں ترجمہ نہ ہو وہاں یہی دکھایا جاتا ہے۔',
+  'errors.field.erasure_confirm_name_mismatch':
+    'فرد کا نام بالکل ویسا ہی لکھیں جیسا دکھایا گیا ہے۔',
+  'errors.field.erasure_keep_file_unknown': 'یہ فائل اس فرد نے اپ لوڈ نہیں کی۔',
+  'errors.field.erasure_keep_files_too_many': 'زیادہ سے زیادہ {{max}} فائلیں رکھیں۔',
+  'errors.field.erasure_keep_reason_required': 'یہ فائل رکھنے کی وجہ بتائیں۔',
+  'errors.field.erasure_successor_is_person':
+    'جس فرد کا ڈیٹا مٹایا جا رہا ہے اس کے علاوہ کسی اور کو منتخب کریں۔',
+  'errors.field.erasure_successor_not_active': 'ذمہ داری سنبھالنے کے لیے کوئی فعال فرد منتخب کریں۔',
   'errors.field.exception_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
   'errors.field.exception_range_too_long':
     'مخصوص اوقات زیادہ سے زیادہ ایک سال پر محیط ہو سکتے ہیں۔',
@@ -905,6 +933,7 @@ export const ur: LabelResource = {
   'errors.ldap_host_invalid': 'ڈائریکٹری سرور کا نام یا IP پتہ درج کریں، ldap:// یا راستے کے بغیر۔',
   'errors.ldap_single_tenant_only':
     'AD/LDAP ڈائریکٹریز صرف اس تنصیب پر جوڑی جا سکتی ہیں جو ایک ادارے کے لیے ہو۔',
+  'errors.legal_hold_not_set': 'اس فرد پر قانونی روک نہیں ہے۔',
   'errors.lifecycle_draft_exists':
     'اس لائف سائیکل کا مسودہ پہلے سے موجود ہے۔ اسے کھولیں یا پہلے ختم کریں۔',
   'errors.lifecycle_draft_not_found':
@@ -1014,6 +1043,8 @@ export const ur: LabelResource = {
   'errors.people_import_file_unsafe':
     'ورک بُک نہیں کھولی گئی: یہ اپنے سائز سے کہیں بڑی ہو جاتی ہے۔',
   'errors.permission_denied': 'آپ کو یہ کرنے کی اجازت نہیں ہے۔',
+  'errors.person_already_erased': 'اس فرد کا ڈیٹا مٹایا جا چکا ہے۔',
+  'errors.person_on_legal_hold': 'اس فرد پر قانونی روک ہے، اس کا ڈیٹا مٹایا نہیں جا سکتا۔',
   'errors.pick_list_not_found': 'یہ فہرست موجود نہیں۔',
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
   'errors.plain_connection_refused':
