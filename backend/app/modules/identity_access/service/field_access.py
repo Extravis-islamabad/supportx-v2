@@ -95,6 +95,21 @@ async def catalogue(session: AsyncSession, record_type: str) -> list[RuleableFie
     return sorted(await provider(session), key=lambda f: (f.custom, f.key))
 
 
+RuleListener = Callable[[AsyncSession, str, str], Awaitable[None]]
+_LISTENERS: list[RuleListener] = []
+
+
+def register_rule_listener(listener: RuleListener) -> None:
+    """A module reacts to a rule change inside the change's own transaction (at import).
+
+    Called with (session, record_type, field) for every created, changed or removed rule. For
+    what must hold the moment the rule commits (search failing closed, ADR-047 §6); the
+    `field_access.changed` event still follows for everything that can wait.
+    """
+    if listener not in _LISTENERS:
+        _LISTENERS.append(listener)
+
+
 # --- rules ----------------------------------------------------------------------------------------
 
 
@@ -157,6 +172,8 @@ async def _announce(session: AsyncSession, row: RoleFieldAccess, mode: str | Non
     # Compiled subjects go stale right after this commits (this process) and when the event
     # reaches the authz consumer (every other process): the person's next request has it.
     access_changed(session)
+    for listener in _LISTENERS:
+        await listener(session, row.record_type, row.field)
     await record_event(
         session,
         FieldAccessChanged(
@@ -278,6 +295,20 @@ async def remove_rule(
     await session.flush()
     await _announce(session, row, None)
     return RuleChange(row, "deleted", old, None)
+
+
+async def restricted_fields(session: AsyncSession, record_type: str) -> frozenset[str]:
+    """Fields of a record type that any role restricts (one live rule is enough).
+
+    Search keeps these out of its index (ADR-047 §6): a value someone may not see must not be
+    findable by its words, whoever searches.
+    """
+    found = await session.scalars(
+        select(RoleFieldAccess.field)
+        .where(RoleFieldAccess.record_type == record_type, RoleFieldAccess.deleted_at.is_(None))
+        .distinct()
+    )
+    return frozenset(found.all())
 
 
 # --- who sees what --------------------------------------------------------------------------------
@@ -415,6 +446,8 @@ __all__ = [
     "list_rules",
     "record_types",
     "register_field_catalogue",
+    "register_rule_listener",
     "remove_rule",
+    "restricted_fields",
     "set_rule",
 ]

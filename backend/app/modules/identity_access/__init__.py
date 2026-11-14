@@ -143,6 +143,8 @@ from app.modules.identity_access.service.federation import (
 from app.modules.identity_access.service.field_access import (
     RuleableField,
     register_field_catalogue,
+    register_rule_listener,
+    restricted_fields,
 )
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.legal_hold import person_held
@@ -161,6 +163,7 @@ from app.modules.identity_access.service.person_data import (
     REQUIRED_MENTION_PORTS,
     REQUIRED_PORTS,
     ErasureBatch,
+    ErasureStepFailed,
     Mention,
     MentionBatch,
     PersonData,
@@ -524,6 +527,7 @@ __all__ = [
     "AccessRule",
     "DutyLookup",
     "ErasureBatch",
+    "ErasureStepFailed",
     "FederationFailed",
     "FederationNotInstalled",
     "FieldRule",
@@ -584,10 +588,12 @@ __all__ = [
     "register_field_catalogue",
     "register_mentions",
     "register_person_data",
+    "register_rule_listener",
     "release_from_directory",
     "remove_ldap_federation",
     "remove_service_identity_role",
     "require",
+    "restricted_fields",
     "role_names",
     "roles_for_service",
     "scope_filter",

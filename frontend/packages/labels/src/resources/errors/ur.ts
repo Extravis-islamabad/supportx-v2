@@ -301,6 +301,8 @@ export const ur: LabelResource = {
     'پروڈکٹ کے ایک حصے نے ایسی چیز بتائی جس کا اس نے اعلان نہیں کیا تھا۔ سپورٹ سے رابطہ کریں۔',
   'errors.erasure_port_missing':
     'پروڈکٹ کا ایک حصہ ابھی ذاتی ڈیٹا نہیں مٹا سکتا۔ سپورٹ سے رابطہ کریں۔',
+  'errors.erasure_records_unavailable':
+    'اس شخص کی درخواست کردہ ریکارڈز ابھی فہرست نہیں ہو سکے۔ مٹانے کا عمل دوبارہ کوشش کرے گا۔',
   'errors.erasure_redaction_too_long':
     'اس عبارت کی یہاں ترمیم نہیں ہو سکتی: نشان متن کو فیلڈ کی اجازت سے لمبا کر دے گا۔ پہلے متن مختصر کریں۔',
   'errors.erasure_report_not_reviewed':
@@ -313,6 +315,8 @@ export const ur: LabelResource = {
   'errors.erasure_signed_history_kept':
     'اس مٹانے کی ابھی منظوری یا عمل نہیں ہو سکتا: ایک ترمیم شدہ عبارت اب بھی دستخط شدہ ریکارڈ کی تاریخ میں محفوظ ہے، جس کی ابھی ترمیم نہیں ہو سکتی۔',
   'errors.erasure_step_failed': 'مٹانے کا ایک مرحلہ کامیاب نہیں ہوا۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_storage_unavailable':
+    'رپورٹ ایکسپورٹس حذف کرنے کے لیے فائل اسٹور تک رسائی نہیں ہو سکی۔ مٹانے کا عمل دوبارہ کوشش کرے گا۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
   'errors.field.address_not_allowed':
     'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
@@ -487,6 +491,8 @@ export const ur: LabelResource = {
     'موضوع اور درخواست گزار ہمیشہ دکھائے جاتے ہیں اور لازمی ہیں۔',
   'errors.field.field_locked':
     'فارم کا ایک اصول اس فیلڈ کو مقفل کرتا ہے، اس لیے اسے یہاں نہیں بدلا جا سکتا۔',
+  'errors.field.field_not_permitted':
+    'آپ یہ فیلڈ استعمال نہیں کر سکتے: آپ کے کردار آپ کو اسے دیکھنے نہیں دیتے۔',
   'errors.field.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
   'errors.field.field_not_settable': 'قاعدہ یہ فیلڈ مقرر نہیں کر سکتا۔',
   'errors.field.field_retired': 'یہ خانہ ریٹائر ہو چکا ہے اور نئی قدریں نہیں لیتا۔',

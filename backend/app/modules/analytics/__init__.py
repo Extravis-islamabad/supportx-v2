@@ -21,7 +21,12 @@ from app.core.modules import ModuleSpec
 from app.modules.analytics.api.dashboards import router as dashboards_router
 from app.modules.analytics.api.routes import REPORTING_DB_STATE, SLOTS_STATE, router
 from app.modules.analytics.events import EVENTS
-from app.modules.analytics.service import capabilities, dashboards, schedule_notifications
+from app.modules.analytics.service import (
+    capabilities,
+    dashboards,
+    person_data,
+    schedule_notifications,
+)
 from app.modules.analytics.service.exports import EXPORT
 from app.modules.analytics.service.jobs import (
     on_export_requested,
@@ -130,3 +135,6 @@ module = ModuleSpec(
 schedule_notifications.register()
 
 __all__ = ["module"]
+
+# GDPR erasure (ADR-052): analytics' two ports; the job refuses to run without them.
+person_data.register()

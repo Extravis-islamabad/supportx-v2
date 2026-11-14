@@ -608,6 +608,8 @@ export const ar: LabelResource = {
   'report_schedule_result.mail_not_configured': 'لم يتم إعداد البريد الصادر.',
   'report_schedule_result.mail_refused': 'تعذّر إرسال البريد الإلكتروني.',
   'report_schedule_result.no_recipients': 'لا يوجد مستلم نشط لديه بريد إلكتروني.',
+  'report_schedule_result.owner_changed':
+    'متوقف مؤقتًا: تغيّر مالكه. يراجعه المالك الجديد قبل أن يعمل مجددًا.',
   'report_schedule_result.owner_not_allowed': 'لم يعد بإمكان مالكه جدولة التقارير.',
   'report_schedule_result.paused_by_owner': 'أوقفه مالكه مؤقتًا.',
   'report_schedule_result.pdf_not_available': 'PDF غير متاح على هذا الخادم.',
