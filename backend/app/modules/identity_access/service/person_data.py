@@ -57,6 +57,7 @@ REQUIRED_PORTS: frozenset[str] = frozenset(
         "notifications",
         "automation",
         "integrations",
+        "sla",
     }
 )
 
