@@ -55,6 +55,9 @@ class Feature(StrEnum):
     CUSTOM_FUNCTIONS = "custom_functions"
     LOCAL_AI_RUNTIME = "local_ai_runtime"
     COMPLIANCE_PACKS = "compliance_packs"
+    # WP-057 S3b (REQ-AUD-017, REQ-SEC-040; both Professional in file 11's edition tags).
+    PERSONAL_DATA_LOG = "personal_data_log"
+    FIELD_ENCRYPTION = "field_encryption"
     # On-prem AD/LDAP sign-in through Keycloak federation (WP-040, D-118). In no edition: an
     # add-on of on-prem licences only (product owner 2026-11-03: never on SaaS), so the gate is
     # the entitlement interface, never the deployment mode (CLAUDE.md rule 5f).
@@ -93,6 +96,8 @@ _PROFESSIONAL = _ESSENTIALS | {
     Feature.AI_AGENTS,
     Feature.MONETX_INTEGRATION,
     Feature.FIELD_ACCESS,
+    Feature.PERSONAL_DATA_LOG,
+    Feature.FIELD_ENCRYPTION,
 }
 _ENTERPRISE = _PROFESSIONAL | {
     Feature.PROJECTS,

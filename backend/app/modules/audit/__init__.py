@@ -23,7 +23,14 @@ from fastapi import FastAPI
 from app.core.authorization import PermissionSpec
 from app.core.errors import register_error_observer, unregister_error_observer
 from app.core.modules import ModuleSpec
-from app.modules.audit.api.routes import EXPORT, MANAGE, VERIFY, VIEW, router
+from app.modules.audit.api.routes import (
+    EXPORT,
+    MANAGE,
+    VERIFY,
+    VIEW,
+    VIEW_PERSONAL_ACCESS,
+    router,
+)
 from app.modules.audit.domain.catalogue import (
     AuditActorType,
     AuditCategory,
@@ -31,6 +38,8 @@ from app.modules.audit.domain.catalogue import (
     ReadCategory,
 )
 from app.modules.audit.events import EVENTS
+from app.modules.audit.service.access_log import Accessor as AccessAccessor
+from app.modules.audit.service.access_log import record_access
 from app.modules.audit.service.erasure import erase_saved_searches, erase_subject
 from app.modules.audit.service.jobs import (
     anchor_all,
@@ -76,6 +85,8 @@ PERMISSIONS = (
     PermissionSpec(EXPORT, defaults=((AUDITOR, "all"),)),
     PermissionSpec(VERIFY, defaults=((AUDITOR, "all"),)),
     PermissionSpec(MANAGE),
+    # REQ-AUD-017 (WP-057 S3b-1): tenant administrators by default; a DPO role may hold only it.
+    PermissionSpec(VIEW_PERSONAL_ACCESS),
     # Legal hold on a person (H1, D-171): setting and lifting it, each audited with the reason.
     # Tenant admins only (no defaults): a hold stops a GDPR erasure.
     PermissionSpec(MANAGE_HOLDS),
@@ -141,6 +152,7 @@ __all__ = [
     "AUDITOR",
     "MANAGE_HOLDS",
     "WORKER",
+    "AccessAccessor",
     "AuditActorType",
     "AuditCategory",
     "AuditNote",
@@ -154,5 +166,6 @@ __all__ = [
     "erase_subject",
     "module",
     "record",
+    "record_access",
     "record_alone",
 ]

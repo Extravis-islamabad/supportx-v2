@@ -1939,6 +1939,27 @@
         "type": "object"
       }
     },
+    "audit.personal_data_access.recorded": {
+      "1": {
+        "description": "A personal data access entry was written (REQ-AUD-017; WP-057 S3b-1).\n\nThe kind only: never whose data, who looked or which fields. Open access logs refetch.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "view",
+              "export",
+              "ai_masking"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "PersonalDataAccessRecorded",
+        "type": "object"
+      }
+    },
     "audit.settings.changed": {
       "1": {
         "description": "The tenant's audit settings changed (field names only).",

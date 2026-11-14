@@ -470,6 +470,9 @@ export const en = {
   'permission.audit.view': 'Read the audit log',
   'permission.audit.view.description':
     'Search and open audit entries, including IP addresses, and see the integrity status.',
+  'permission.audit.view_personal_data_access': 'View who accessed personal data',
+  'permission.audit.view_personal_data_access.description':
+    "See who viewed or exported a person's personal data, and when. Reading this log is itself recorded.",
   'permission.automation.manage': 'Manage automation',
   'permission.automation.manage.description':
     'Add, change, order and switch on business rules, routing and auto-assignment.',

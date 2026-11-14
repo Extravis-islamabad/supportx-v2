@@ -43,6 +43,7 @@ export {
   useAuditSavedSearches,
   useAuditSavedSearchMutations,
   useAuditSettings,
+  usePersonalDataAccess,
   useAuditStatus,
   useRestoreAuditArchive,
   useRestoredAuditEntries,
@@ -65,6 +66,7 @@ export {
   type AuditRun,
   type AuditSavedSearch,
   type AuditSettings,
+  type PersonalDataAccessEntry,
   type AuditSettingsInput,
   type AuditStatus,
 } from './audit';

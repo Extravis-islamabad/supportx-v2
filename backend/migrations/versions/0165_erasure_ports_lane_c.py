@@ -9,7 +9,7 @@ the usage and cost record, so the ai port only clears their text (lane B, #502).
 Grants only, through migrations/helpers.py; no data step. The downgrade takes DELETE away again.
 
 Revision ID: 0165
-Revises: 0162
+Revises: 0163
 Created: 2026-11-14
 """
 
@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from migrations.helpers import grant_app
 
 revision: str = "0165"
-down_revision: str | None = "0162"
+down_revision: str | None = "0163"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
