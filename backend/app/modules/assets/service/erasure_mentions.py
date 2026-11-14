@@ -25,8 +25,8 @@ from app.modules.identity_access import (
     MentionBatch,
     MentionTerms,
     Subject,
-    count_matches,
-    redact_matches,
+    count_matches_html,
+    redact_html,
     register_mentions,
 )
 
@@ -55,7 +55,7 @@ class AssetNoteMentions:
         found = [
             Mention(NOTE_RECORD_TYPE, note_id, "body", kind, count)
             for note_id, body in rows
-            for kind, count in sorted(count_matches(body, terms).items())
+            for kind, count in sorted(count_matches_html(body, terms).items())
         ]
         more = len(rows) >= MENTION_BATCH
         return MentionBatch(tuple(found), str(rows[-1][0]) if more else None)
@@ -76,7 +76,7 @@ class AssetNoteMentions:
         return await redact_note(
             session,
             mention.record_id,
-            lambda body: redact_matches(body, terms, mention.match_kind, marker)[0],
+            lambda body: redact_html(body, terms, mention.match_kind, marker)[0],
             REDACTION_REASON,
         )
 

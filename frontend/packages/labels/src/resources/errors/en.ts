@@ -302,6 +302,8 @@ export const en = {
     'A part of the product reported something it did not declare. Contact support.',
   'errors.erasure_port_missing':
     'Part of the product cannot erase personal data yet. Contact support.',
+  'errors.erasure_redaction_too_long':
+    'This passage cannot be redacted here: the marker would make the text longer than the field allows. Shorten the text first.',
   'errors.erasure_report_not_reviewed':
     'This erasure cannot be approved yet: an admin must first review the report of where the person is named.',
   'errors.erasure_report_unavailable':

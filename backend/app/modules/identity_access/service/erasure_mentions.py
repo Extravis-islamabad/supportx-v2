@@ -33,6 +33,7 @@ from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, NotFound
 from app.modules.identity_access.domain import erasure as rules
 from app.modules.identity_access.domain.erasure import ErasureState
+from app.modules.identity_access.domain.field_access import unseen
 from app.modules.identity_access.domain.mentions import (
     MentionMatchKind,
     MentionState,
@@ -44,6 +45,7 @@ from app.modules.identity_access.events import PersonErasureChanged
 from app.modules.identity_access.infra.models import PersonErasure, PersonErasureMention, User
 from app.modules.identity_access.service.person_data import (
     Mention,
+    PersonMentions,
     mention_port,
     mention_ports,
     missing_mention_ports,
@@ -56,6 +58,10 @@ from app.shared.ids import new_id
 
 ATTACHMENT_CONTENT_SEARCHED = False  # only file names and details are searched, never contents
 ATTACHMENT_NOTICE_LABEL = "people_erasure.attachment_content_not_searched"
+# Inbound mail: subjects only, never bodies (raw MIME leaves at quarantine expiry); said to the
+# approver as for attachments (the coordinator, 2026-11-14).
+MAIL_BODIES_SEARCHED = False
+MAIL_NOTICE_LABEL = "people_erasure.mail_bodies_not_searched"
 LIST_LIMIT = 200
 REDACT_MAX = 200
 CURSOR_MAX = 2000  # a port's cursor, as the erasure ports'
@@ -181,6 +187,7 @@ async def _finish(
         ports_missing=missing_mention_ports(set(done)),
         complete=not missing_mention_ports(set(done)),
         attachment_content_searched=ATTACHMENT_CONTENT_SEARCHED,
+        mail_bodies_searched=MAIL_BODIES_SEARCHED,
     )
     row.report = report
     if changed:  # what the reviewer saw is no longer the whole report
@@ -202,6 +209,7 @@ async def build_report_batch(session: AsyncSession, erasure_id: uuid.UUID) -> bo
     report.setdefault("ports_done", [])
     report["complete"] = False
     report["attachment_content_searched"] = ATTACHMENT_CONTENT_SEARCHED
+    report["mail_bodies_searched"] = MAIL_BODIES_SEARCHED
     building = report.get("building")
     done = _done(report)
     port = mention_port(str(building["port"])) if building else None
@@ -334,6 +342,19 @@ async def _mention_row(
     return row
 
 
+async def _readable(
+    session: AsyncSession, subject: Subject, port: PersonMentions, mention: Mention
+) -> str | None:
+    """The port's passage, never for a field the subject's field access hides or masks.
+
+    ADR-047 backstop for every port (lane A's #506 review): the port checks the record and its
+    own field rules, this checks the role rules by the mention's record type and field name.
+    """
+    if mention.field in unseen(subject.field_access, mention.record_type):
+        return None
+    return await port.passage(session, subject, mention)
+
+
 async def passage(
     session: AsyncSession, subject: Subject, erasure_id: uuid.UUID, mention_id: uuid.UUID
 ) -> tuple[PersonErasureMention, str]:
@@ -349,7 +370,7 @@ async def passage(
         raise Conflict(code=rules.NOT_PENDING, params={"state": erasure.state})
     row = await _mention_row(session, erasure_id, mention_id)
     port = mention_port(row.module_key)
-    text = None if port is None else await port.passage(session, subject, _mention(row))
+    text = None if port is None else await _readable(session, subject, port, _mention(row))
     if text is None:
         raise NotFound(code=rules.MENTION_NOT_FOUND)
     return row, text
@@ -402,7 +423,7 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
     for mention in found.values():
         port = ports[mention.module_key]
         assert port is not None  # noqa: S101 - checked above; narrows the type
-        if await port.passage(session, subject, _mention(mention)) is None:
+        if await _readable(session, subject, port, _mention(mention)) is None:
             raise NotFound(code=rules.MENTION_NOT_FOUND)
     person = await session.get(User, row.person_id)
     terms = person_terms(person) if person is not None else MentionTerms()
@@ -479,6 +500,7 @@ def report_summary(row: PersonErasure) -> dict[str, Any] | None:
             report.get("ports_missing") or missing_mention_ports(set(_done(report)))
         ),
         "attachment_content_searched": ATTACHMENT_CONTENT_SEARCHED,
+        "mail_bodies_searched": MAIL_BODIES_SEARCHED,
         "reviewed_at": row.report_reviewed_at,
         "reviewed_by": row.report_reviewed_by,
     }

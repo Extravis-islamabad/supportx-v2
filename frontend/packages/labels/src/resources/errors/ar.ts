@@ -274,6 +274,8 @@ export const ar: LabelResource = {
   'errors.erasure_port_kind_undeclared': 'أبلغ جزء من المنتج عن شيء لم يعلن عنه. تواصل مع الدعم.',
   'errors.erasure_port_missing':
     'جزء من المنتج لا يستطيع محو البيانات الشخصية بعد. تواصل مع الدعم.',
+  'errors.erasure_redaction_too_long':
+    'لا يمكن تنقيح هذا المقطع هنا: ستجعل العلامة النص أطول مما يسمح به الحقل. اختصر النص أولًا.',
   'errors.erasure_report_not_reviewed':
     'لا يمكن اعتماد هذا المحو بعد: يجب أن يراجع مسؤول أولًا تقرير المواضع التي يُذكر فيها الشخص.',
   'errors.erasure_report_unavailable':

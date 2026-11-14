@@ -386,6 +386,8 @@ export const ar: LabelResource = {
   'people_erasure.erased_on_request': 'أُزيل بطلب من الشخص',
   'people_erasure.history_kept_fingerprinted':
     'تم الاحتفاظ بالسجل السابق لهذا الحقل: يغطيه إدخال تدقيق موقّع، فيبقى إلى أن يصبح تنقيح السجل الموقّع ممكنًا',
+  'people_erasure.mail_bodies_not_searched':
+    'لم يُبحث في نصوص الرسائل الواردة؛ بُحث في عناوينها فقط.',
   'people_erasure.match_kind.email': 'البريد الإلكتروني',
   'people_erasure.match_kind.name': 'الاسم',
   'people_erasure.match_kind.phone': 'رقم الهاتف',

@@ -180,18 +180,24 @@ release defect, never a silent skip).
   record's version goes up, history names the field only with old/new null and reason
   `erasure_redaction`, the record's ordinary change event); `passage(session, subject, mention)
   -> str | None` (the field's current text when the caller's own rights let them read the
-  record). Terms (`MentionTerms`: display name and first + last, the e-mail, phone and mobile as
+  record **and that field**: its own field rules and ADR-047 field access; the registry also
+  refuses a field the caller's role rules hide or mask, by record type and field name). A port
+  may narrow its scan by an index (full-text, trigram) if it never misses an exact match; rich
+  text (sanitised HTML) is matched and redacted between tags only (`count_matches_html`,
+  `redact_html`); a redaction that would overflow the field is refused
+  (`erasure_redaction_too_long`), never cut (lane A's #506 review). Terms (`MentionTerms`: display name and first + last, the e-mail, phone and mobile as
   digits) are rebuilt from the person's row when needed and never stored.
 - **Required ports.** `REQUIRED_MENTION_PORTS` (one place) names identity_access, files and assets
-  (built in S1b) and S2's work_items.references, work_items.owned, integrations, knowledge and
-  announcements. A report is `complete` only when every required key ran, so until S2 no report
+  (built in S1b) and S2's work_items (one key: a search has no band), integrations (inbound mail
+  subjects), knowledge and announcements. A report is `complete` only when every required key ran, so until S2 no report
   is complete and approval stays refused in practice.
 - **Build.** While an erasure is requested, the 30 s erasure schedule runs every registered
   mentions port in key order, one batch per transaction, progress (port and cursor) in
   `report.building`. Rows go to `person_erasure_mentions` (migration 0164; one per place and
   kind; states found, redacted, left). The finished `report` is `{complete, by_module: {key:
-  {kind: count}}, ports_done, ports_missing, attachment_content_searched: false, building:
-  null}`. A port registered later runs on the next tick, and the review then lapses.
+  {kind: count}}, ports_done, ports_missing, attachment_content_searched: false,
+  mail_bodies_searched: false, building: null}`. A port registered later runs on the next
+  tick, and the review then lapses.
 - **Review.** `POST /erasures/{id}/report/reviewed` (`people.erase`, RecentAuth, If-Match,
   audited `person.erasure_report_reviewed`) sets `report_reviewed_at/by`; approval needs the
   approver's own review (a review by anyone else does not count), and
@@ -202,17 +208,22 @@ release defect, never a silent skip).
   the owning port (404 when the caller may not read the record), each view audited
   `person.erasure_mention_viewed` with IDs only.
 - **Redaction** needs the same read rights as the passage: a mention of a record the admin may
-  not read refuses the whole request (404). `POST /erasures/{id}/mentions/redact` (`people.erase`, RecentAuth, If-Match on
+  not read refuses the whole request (404). `POST /erasures/{id}/mentions/redact`
+  (`people.erase`, RecentAuth, If-Match on
   the erasure, at most 200 mention IDs; requested or approved, never once the job runs): each
   through its port, the row marked redacted, an audit entry `person.erasure_mention_redacted`
   per mention (IDs only). A mention of another erasure refuses the whole request (404).
 - **Attachment contents are not searched,** only file names and details: the report and the
   mentions list carry `attachment_content_searched: false`, shown with the label
-  `people_erasure.attachment_content_not_searched`.
+  `people_erasure.attachment_content_not_searched`. **Inbound mail is searched by subject
+  only**, never its body (raw MIME, gone at quarantine expiry): `mail_bodies_searched: false`,
+  shown with `people_erasure.mail_bodies_not_searched` (the coordinator, 2026-11-14).
 - **History of a redacted field** (0164, `history_redact_field(mention)`, a migrator-owned
   definer function; the app role has no UPDATE on `field_changes`): it takes only a mention ID
   and blanks old/new values of the record and field that *redacted* mention row names, in the
-  caller's tenant, so no caller can point it at another field. Rows a fingerprinted audit entry
+  caller's tenant, so no caller can point it at another field. As the app role may write
+  mention rows, the function also requires the row's `redacted_at` and `redacted_by` and an
+  erasure still in a redactable state (requested, approved; lane C's #506 review). Rows a fingerprinted audit entry
   commits to (ADR-046: work items, assets) are **kept**, since blanking them would read as
   tampering; the mention's `history_kept` counts them and the screen says so
   (`people_erasure.history_kept_fingerprinted`). Blanking those needs the pre-blank field

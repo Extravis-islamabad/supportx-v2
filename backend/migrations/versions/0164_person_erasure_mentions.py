@@ -51,14 +51,23 @@ REVIEW_COLUMNS = ("report_reviewed_at", "report_reviewed_by")
 
 # The tenant, from the transaction's setting: no parameter can name another one.
 _TENANT = "NULLIF(current_setting('app.tenant_id', true), '')::uuid"
+# The erasure states in which a mention may be redacted (domain/erasure.py, "redact"); fixed
+# here, as a merged migration never changes with the code.
+_REDACTABLE = "'requested', 'approved'"
 _REDACT = f"""
     WITH m AS (
-        SELECT record_type, record_id, field FROM {TABLE}
-        WHERE tenant_id = {_TENANT} AND id = p_mention AND state = 'redacted'
+        SELECT x.record_type, x.record_id, x.field FROM {TABLE} x
+        JOIN {ERASURES} e ON e.tenant_id = x.tenant_id AND e.id = x.erasure_id
+        WHERE x.tenant_id = {_TENANT} AND x.id = p_mention AND x.state = 'redacted'
+          AND x.redacted_at IS NOT NULL AND x.redacted_by IS NOT NULL
+          -- Only while redaction is allowed (rules.can("redact")): a row the app wrote for a
+          -- closed or finished erasure blanks nothing (lane C's #506 review).
+          AND e.state IN ({_REDACTABLE})
     ), rows AS (
         SELECT f.id, EXISTS (
                    SELECT 1 FROM audit_entries e
-                   WHERE e.tenant_id = {_TENANT} AND e.fingerprint_saves @> ARRAY[f.change_id]
+                   WHERE e.tenant_id = {_TENANT} AND e.object_id = f.record_id::text
+                     AND e.fingerprint_saves @> ARRAY[f.change_id]
                ) AS fingerprinted
         FROM field_changes f JOIN m
           ON f.record_type = m.record_type AND f.record_id = m.record_id AND f.field = m.field

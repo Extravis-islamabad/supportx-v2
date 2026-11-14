@@ -5,8 +5,8 @@
 - **Built:**
   - `PersonMentions` port in person_data.py (`find_mentions`, `redact_mention`, `passage`),
     `Mention`, `MentionBatch`, `MENTION_BATCH` (500), `register_mentions`, and
-    `REQUIRED_MENTION_PORTS` (identity_access, assets, files, work_items.references,
-    work_items.owned, integrations, knowledge, announcements). Terms (`MentionTerms`) come from
+    `REQUIRED_MENTION_PORTS` (identity_access, assets, files, work_items
+    (one key, lane A's review), integrations, knowledge, announcements). Terms (`MentionTerms`) come from
     the person's row when needed (display name, first + last, e-mail, phone and mobile as
     digits) and are never stored. Matching and redaction are pure (domain/mentions.py).
   - Migration 0164: `person_erasure_mentions` (RLS forced; SELECT, INSERT, UPDATE only; one row
@@ -54,3 +54,14 @@
 - **Not done:** asset descriptions and loan/audit comments are not searched (they describe the
   asset, not people); S2 may add them. A phone number written next to other digits (a date
   run into it) is not matched.
+- **Reviews on #506 (lane C, lane A, coordinator):**
+  - `history_redact_field` now requires the mention's `redacted_at` and `redacted_by` and an
+    erasure in a redactable state, and narrows the signed-row check by `object_id` (lane C).
+  - `passage` honours field access: a registry backstop by record type and field, plus the
+    users resource's own field rules in the users port (lane A).
+  - One `work_items` mention key; an index pre-filter is allowed if it never misses an exact
+    match; rich text is matched and redacted between tags only (`count_matches_html`,
+    `redact_html`, used for asset notes); a redaction that would overflow its field is refused
+    (`erasure_redaction_too_long`), never cut (lane A).
+  - The report says inbound mail bodies were not searched (`mail_bodies_searched: false`,
+    `people_erasure.mail_bodies_not_searched`), as for attachment contents (coordinator).

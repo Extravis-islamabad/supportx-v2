@@ -172,8 +172,7 @@ REQUIRED_MENTION_PORTS: frozenset[str] = frozenset(
         "identity_access",
         "assets",
         "files",
-        "work_items.references",
-        "work_items.owned",
+        "work_items",
         "integrations",
         "knowledge",
         "announcements",
@@ -211,7 +210,15 @@ class PersonMentions(Protocol):
     (the reserved code, labelled by the UI), bumps the record's version, writes history naming
     the field only (old and new None, reason `erasure_redaction`) and the record's ordinary
     change event; it returns False when nothing matched any more (idempotent). `passage` returns
-    the field's current text when `subject`'s own rights let them read the record, else None.
+    the field's current text when `subject`'s own rights let them read the record **and that
+    field** (its own field rules, and ADR-047 field access: a field a role hides or masks from
+    them is None; the registry also checks field access by the mention's record type and field
+    name, so a port names fields as its field catalogue does), else None.
+
+    Scale (lane A's #506 review): `find_mentions` may narrow its scan with an index (full-text,
+    trigram) as long as it never misses an exact match; it confirms each candidate with
+    `count_matches`. Rich text (sanitised HTML) uses `count_matches_html` / `redact_html`: text
+    between tags only, never a tag or an attribute.
     """
 
     module: ClassVar[str]  # the registry key, as the erasure port's

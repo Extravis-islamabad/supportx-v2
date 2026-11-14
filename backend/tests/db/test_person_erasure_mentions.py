@@ -226,6 +226,7 @@ async def test_the_report_finds_the_person_and_is_never_complete_in_s1b(world: W
     assert report["building"] is False
     assert shown["report_ready"] is False
     assert report["attachment_content_searched"] is False
+    assert report["mail_bodies_searched"] is False
     assert report["ports_missing"] == sorted(
         REQUIRED_MENTION_PORTS - {"identity_access", "files", "assets"}
     )
@@ -234,6 +235,7 @@ async def test_the_report_finds_the_person_and_is_never_complete_in_s1b(world: W
     assert report["by_module"]["assets"] == {"name": 1}
     page = await _mentions(world, a, erasure)
     assert page["attachment_content_searched"] is False
+    assert page["mail_bodies_searched"] is False
     assert _places(page) == {
         ("identity_access", "user", "description", "name", 2),
         ("identity_access", "user", "description", "email", 1),
@@ -770,7 +772,7 @@ async def _values(world: World, org: Org, row_id: uuid.UUID) -> tuple[Any, Any]:
 
 
 async def test_redaction_blanks_only_the_mentions_field_in_history(world: World) -> None:
-    """history_redact_field: the mention row's record and field only; fingerprinted rows kept."""
+    """history_redact_field: the mention row's record and field only; tenant B untouched."""
     a, b = world.a, world.b
     seeded = await _seed(world, a)
     name = seeded["name"]
@@ -780,15 +782,6 @@ async def test_redaction_blanks_only_the_mentions_field_in_history(world: World)
     other_field = await _history_row(
         world, a, a.tech_b, "job_title", f"Deputy to {name}", uuid.uuid4()
     )
-    # A row a fingerprinted audit entry commits to (ADR-046): blanking it would read as tampering.
-    signed_change = await _one(
-        world,
-        "SELECT fingerprint_saves[1] FROM audit_entries WHERE tenant_id = $1"
-        " AND fingerprint_saves IS NOT NULL ORDER BY occurred_at LIMIT 1",
-        a.tenant,
-    )
-    assert signed_change is not None
-    signed = await _history_row(world, a, a.tech_b, "description", f"Signed {name}", signed_change)
     # The same record and field in tenant B is never touched.
     elsewhere = await _history_row(
         world, b, a.tech_b, "description", f"Covers for {name}", uuid.uuid4()
@@ -802,22 +795,18 @@ async def test_redaction_blanks_only_the_mentions_field_in_history(world: World)
 
     done = await _redact(world, a, erasure["id"], [profile["id"]], version)
     assert done.status_code == 200, done.text
-    assert [m["history_kept"] for m in done.json()["redacted"]] == [1]
+    assert [m["history_kept"] for m in done.json()["redacted"]] == [0]
     assert await _values(world, a, earlier) == (None, None)
     assert await _values(world, a, other_field) != (None, None)
-    assert await _values(world, a, signed) != (None, None)
     assert await _values(world, b, elsewhere) != (None, None)
-    assert (
-        await _one(
-            world,
-            "SELECT history_kept FROM person_erasure_mentions WHERE tenant_id = $1 AND id = $2",
-            a.tenant,
-            uuid.UUID(profile["id"]),
-        )
-        == 1
+
+    # D-171: a redacted original is never kept, so an erasure that kept signed history is never
+    # approved (the coordinator, 2026-11-14) until signed history can be redacted too.
+    await world.sql(
+        "UPDATE person_erasure_mentions SET history_kept = 1 WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(profile["id"]),
     )
-    # D-171: a redacted original is never kept, so this erasure is never approved (the
-    # coordinator, 2026-11-14) until signed history can be redacted too.
     erasure_id = uuid.UUID(erasure["id"])
     approver = await _second_admin(world, a)
     await _complete(world, a, erasure_id)
@@ -843,24 +832,83 @@ async def test_redaction_blanks_only_the_mentions_field_in_history(world: World)
         assert await erasure_mentions.signed_history_kept(session, erasure_id) is True
 
 
-async def test_history_redaction_needs_a_redacted_mention(world: World) -> None:
-    """The function takes a mention ID only, and acts only once that mention is redacted."""
-    a = world.a
-    seeded = await _seed(world, a)
-    earlier = await _history_row(
-        world, a, a.tech_b, "description", f"Covers for {seeded['name']}", uuid.uuid4()
+async def _mention_on(
+    world: World,
+    org: Org,
+    erasure_id: uuid.UUID,
+    record_id: uuid.UUID,
+    *,
+    redacted_by: uuid.UUID | None,
+) -> uuid.UUID:
+    """A mention row as the app role could write it (it has INSERT and UPDATE)."""
+    mention_id = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO person_erasure_mentions (tenant_id, id, erasure_id, module_key,"
+        " record_type, record_id, field, match_kind, occurrences, state, redacted_by,"
+        " redacted_at) VALUES ($1, $2, $3, 'identity_access', 'user', $4, 'description',"
+        " 'name', 1, 'redacted', $5, CASE WHEN $5::uuid IS NULL THEN NULL ELSE now() END)",
+        org.tenant,
+        mention_id,
+        erasure_id,
+        record_id,
+        redacted_by,
     )
-    erasure = await _requested(world, a)
-    await _build(world, a)
-    profile = _find(await _mentions(world, a, erasure), "identity_access", "description", "name")
-    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
-        found = await session.scalar(
-            text("SELECT history_redact_field(:m)"), {"m": uuid.UUID(profile["id"])}
+    return mention_id
+
+
+async def test_history_redaction_is_bound_to_an_open_redacted_mention(world: World) -> None:
+    """The function trusts no mention row by itself (lane C's #506 review).
+
+    It acts only on a mention that is redacted, with who and when, of an erasure that may still
+    redact; it keeps rows a fingerprinted audit entry commits to, and takes a mention ID only.
+    """
+    a = world.a
+    await _seed(world, a)  # an asset: a fingerprinted audit entry to borrow
+    erasure_id = uuid.UUID((await _requested(world, a))["id"])
+    call = text("SELECT history_redact_field(:m)")
+    zero = {"blanked": 0, "kept_fingerprinted": 0}
+
+    async def run(mention_id: uuid.UUID) -> Any:  # noqa: ANN401 - the function's jsonb
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            return await session.scalar(call, {"m": mention_id})
+
+    record = uuid.uuid4()
+    row = await _history_row(world, a, record, "description", "Some words", uuid.uuid4())
+    # No redactor: nothing.
+    unsigned = await _mention_on(world, a, erasure_id, uuid.uuid4(), redacted_by=None)
+    assert await run(unsigned) == zero
+    assert await run(uuid.uuid4()) == zero  # an unknown mention
+    # A closed erasure: nothing, even for a fully redacted row.
+    closed = await _mention_on(world, a, erasure_id, record, redacted_by=a.admin)
+    await world.sql(
+        "UPDATE person_erasures SET state = 'rejected' WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        erasure_id,
+    )
+    assert await run(closed) == zero
+    assert await _values(world, a, row) != (None, None)
+    # Open again: it blanks; a row a fingerprinted entry commits to is kept and counted.
+    await world.sql(
+        "UPDATE person_erasures SET state = 'requested' WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        erasure_id,
+    )
+    signed_entry = (
+        await world.sql(
+            "SELECT object_id, fingerprint_saves[1] AS change FROM audit_entries"
+            " WHERE tenant_id = $1 AND fingerprint_saves IS NOT NULL ORDER BY occurred_at LIMIT 1",
+            a.tenant,
         )
-        unknown = await session.scalar(text("SELECT history_redact_field(:m)"), {"m": uuid.uuid4()})
-    assert found == {"blanked": 0, "kept_fingerprinted": 0}
-    assert unknown == {"blanked": 0, "kept_fingerprinted": 0}
-    assert await _values(world, a, earlier) != (None, None)
+    )[0]
+    signed_record = uuid.UUID(signed_entry["object_id"])
+    signed = await _history_row(
+        world, a, signed_record, "description", "Signed words", signed_entry["change"]
+    )
+    on_signed = await _mention_on(world, a, erasure_id, signed_record, redacted_by=a.admin)
+    assert await run(on_signed) == {"blanked": 0, "kept_fingerprinted": 1}
+    assert await _values(world, a, signed) != (None, None)
+    assert await run(closed) == {"blanked": 1, "kept_fingerprinted": 0}
+    assert await _values(world, a, row) == (None, None)
 
 
 async def test_profile_history_is_erased_only_once_the_person_is_erased(world: World) -> None:
@@ -892,3 +940,31 @@ async def test_profile_history_is_erased_only_once_the_person_is_erased(world: W
             a.tenant,
             a.tech_a,
         )
+
+
+async def test_a_redaction_that_would_overflow_the_field_is_refused(world: World) -> None:
+    """Never cut silently (lane A's #506 review): 409, nothing changed."""
+    a = world.a
+    await _seed(world, a)
+    # 52 numbers in 987 characters; each marker is 5 characters longer than the number.
+    long_text = ("call 0300-1234567. " * 52).strip()
+    await world.sql(
+        "UPDATE users SET description = $3 WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        a.tech_b,
+        long_text,
+    )
+    erasure = await _requested(world, a)
+    await _build(world, a)
+    phone = _find(await _mentions(world, a, erasure), "identity_access", "description", "phone")
+    version = (await _get(world, a, erasure))["version"]
+    refused = await _redact(world, a, erasure["id"], [phone["id"]], version)
+    assert refused.status_code == 409, refused.text
+    assert _code(refused) == (409, "erasure_redaction_too_long")
+    assert (await _person(world, a, a.tech_b))["description"] == long_text
+    states = await world.sql(
+        "SELECT state FROM person_erasure_mentions WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(phone["id"]),
+    )
+    assert states[0]["state"] == "found"

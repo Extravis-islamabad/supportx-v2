@@ -1,5 +1,7 @@
 """The mentions report, the pure parts (D-171 a, ADR-052 S1b): terms, matching, the registry."""
 
+from typing import TYPE_CHECKING, cast
+
 import pytest
 
 from app.modules.identity_access.domain import erasure as rules
@@ -9,10 +11,15 @@ from app.modules.identity_access.domain.mentions import (
     MentionTerms,
     build_terms,
     count_matches,
+    count_matches_html,
     redact,
+    redact_html,
 )
 from app.modules.identity_access.service import person_data
-from app.modules.identity_access.service.erasure_mentions import ATTACHMENT_NOTICE_LABEL
+from app.modules.identity_access.service.erasure_mentions import (
+    ATTACHMENT_NOTICE_LABEL,
+    MAIL_NOTICE_LABEL,
+)
 from app.modules.identity_access.service.person_data import (
     REQUIRED_MENTION_PORTS,
     PersonMentions,
@@ -24,6 +31,9 @@ from app.modules.identity_access.service.person_data import (
 from app.modules.identity_access.service.person_mention_ports import LANE_B_MENTION_PORTS
 from app.shared.erasure import ERASED_ON_REQUEST
 from tests.test_error_labels import label_keys
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 TERMS = build_terms(
     display_name="  Ali   Khan ",
@@ -95,8 +105,7 @@ def test_s1b_required_ports_keep_every_report_incomplete() -> None:
     registered = {port.module for port in mention_ports()}
     assert {"identity_access", "files", "assets"} <= registered
     assert {
-        "work_items.references",
-        "work_items.owned",
+        "work_items",  # one key: a mention search has no band (lane A's #506 review)
         "integrations",
         "knowledge",
         "announcements",
@@ -124,7 +133,7 @@ def test_every_mentions_code_has_a_label(locale: str) -> None:
     keys = label_keys(locale)
     wanted = {f"people_erasure.match_kind.{kind.value}" for kind in MentionMatchKind}
     wanted |= {f"people_erasure.mention_state.{state.value}" for state in MentionState}
-    wanted |= {ATTACHMENT_NOTICE_LABEL}
+    wanted |= {ATTACHMENT_NOTICE_LABEL, MAIL_NOTICE_LABEL}
     wanted |= {
         f"errors.{code}"
         for code in (rules.REPORT_NOT_REVIEWED, rules.MENTION_NOT_FOUND, rules.MENTION_PORT_MISSING)
@@ -138,3 +147,72 @@ def test_every_mentions_code_has_a_label(locale: str) -> None:
         )
     }
     assert sorted(wanted - keys) == []
+
+
+def test_rich_text_matches_between_tags_only() -> None:
+    """A name in an attribute is neither counted nor rewritten (lane A's #506 review)."""
+    terms = MentionTerms(names=("Ada Lovelace",), emails=("ada@example.com",))
+    html = (
+        '<p>Ask <a href="mailto:ada@example.com" title="Ada Lovelace">Ada Lovelace</a>'
+        ' or ada@example.com</p><img alt="Ada Lovelace > ok">'
+    )
+    assert count_matches_html(html, terms) == {
+        MentionMatchKind.NAME: 1,
+        MentionMatchKind.EMAIL: 1,
+    }
+    redacted, replaced = redact_html(html, terms, MentionMatchKind.NAME, "erased_on_request")
+    assert replaced == 1
+    assert redacted == html.replace(">Ada Lovelace</a>", ">erased_on_request</a>")
+    assert count_matches_html(None, terms) == {}
+
+
+async def test_a_field_role_rules_withhold_is_never_shown_or_redacted() -> None:
+    """The registry's ADR-047 backstop: hidden or masked → no passage, whatever the port says."""
+    import uuid  # noqa: PLC0415 - this test only
+    from types import MappingProxyType  # noqa: PLC0415 - this test only
+
+    from app.modules.identity_access.domain.field_access import compile_access  # noqa: PLC0415
+    from app.modules.identity_access.domain.policy import Subject  # noqa: PLC0415
+    from app.modules.identity_access.service import erasure_mentions  # noqa: PLC0415
+
+    class Open:
+        module = "probe"
+
+        async def passage(self, session: object, subject: object, mention: object) -> str:
+            del session, subject, mention
+            return "the text"
+
+    def subject(mode: str | None) -> Subject:
+        rules = [] if mode is None else [("incident", "custom.salary", mode)]
+        return Subject(
+            tenant_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            role_keys=frozenset({"technician"}),
+            is_tenant_admin=False,
+            grants=MappingProxyType({}),
+            field_access=compile_access(1, rules),
+        )
+
+    mention = person_data.Mention(
+        "incident", uuid.uuid4(), "custom.salary", MentionMatchKind.NAME, 1
+    )
+    readable = erasure_mentions._readable  # noqa: SLF001 - the one check under test
+    port = cast("person_data.PersonMentions", Open())
+    session = cast("AsyncSession", None)  # the probe port needs none
+    assert await readable(session, subject(None), port, mention) == "the text"
+    for mode in ("hidden", "masked"):
+        assert await readable(session, subject(mode), port, mention) is None
+    assert await readable(session, subject("read_only"), port, mention) == "the text"
+
+
+def test_0164s_redactable_states_are_the_domain_rule() -> None:
+    """history_redact_field's fixed state list matches rules.can("redact") (lane C, #506)."""
+    import importlib  # noqa: PLC0415 - this test only
+    import re  # noqa: PLC0415 - this test only
+
+    from app.modules.identity_access.domain.erasure import ErasureState  # noqa: PLC0415
+
+    migration = importlib.import_module("migrations.versions.0164_person_erasure_mentions")
+    fixed = set(re.findall(r"'([a-z_]+)'", migration._REDACTABLE))  # noqa: SLF001 - the constant
+    allowed = {s.value for s in ErasureState if rules.can("redact", s).allowed}
+    assert fixed == allowed

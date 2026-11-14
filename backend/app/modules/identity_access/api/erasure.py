@@ -264,6 +264,10 @@ class ReportOut(BaseModel):
         description="Always false: only file names and details are searched (the screen says so"
         " with `people_erasure.attachment_content_not_searched`)."
     )
+    mail_bodies_searched: bool = Field(
+        description="Always false: inbound mail is searched by subject only (the screen says so"
+        " with `people_erasure.mail_bodies_not_searched`)."
+    )
     reviewed_at: datetime | None
     reviewed_by: uuid.UUID | None
 
@@ -462,6 +466,10 @@ class MentionsOut(BaseModel):
     attachment_content_searched: bool = Field(
         default=erasure_mentions.ATTACHMENT_CONTENT_SEARCHED,
         description="Always false: attachment contents are not searched, only file names.",
+    )
+    mail_bodies_searched: bool = Field(
+        default=erasure_mentions.MAIL_BODIES_SEARCHED,
+        description="Always false: inbound mail is searched by subject only, never its body.",
     )
 
 

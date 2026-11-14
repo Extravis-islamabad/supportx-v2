@@ -383,6 +383,8 @@ export const ur: LabelResource = {
   'people_erasure.erased_on_request': 'فرد کی درخواست پر ہٹا دیا گیا',
   'people_erasure.history_kept_fingerprinted':
     'اس فیلڈ کی پچھلی تاریخ رکھی گئی ہے: ایک دستخط شدہ آڈٹ اندراج اس کا احاطہ کرتا ہے، اس لیے یہ دستخط شدہ تاریخ کی ترمیم ممکن ہونے تک رہے گی',
+  'people_erasure.mail_bodies_not_searched':
+    'آنے والی ای میلز کے متن میں تلاش نہیں کی گئی؛ صرف ان کے موضوعات دیکھے گئے۔',
   'people_erasure.match_kind.email': 'ای میل پتا',
   'people_erasure.match_kind.name': 'نام',
   'people_erasure.match_kind.phone': 'فون نمبر',

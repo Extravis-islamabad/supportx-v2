@@ -17,7 +17,8 @@ owner pickers); GDPR erasure (ADR-052): `PersonData`, `ErasureBatch`, `ERASE_BAT
 lists those the job will not run without), the mentions report (S1b): `PersonMentions`,
 `Mention`, `MentionBatch`, `MentionTerms`, `MentionMatchKind`, `MENTION_BATCH`,
 `register_mentions`, `REQUIRED_MENTION_PORTS`, and the matching helpers `count_matches` and
-`redact_matches`, `ERASED_ON_REQUEST` (D2a: the one marker for blanked
+`redact_matches` (plain text) and `count_matches_html` and `redact_html` (rich text: between tags
+only), `ERASED_ON_REQUEST` (D2a: the one marker for blanked
 requester text, from app.shared.erasure), and `legal_hold` / `person_held` (H1: a held person is
 never erased). Sessions reach the rest of the app only as the `TenantContext` resolved by
 app.core.tenancy; routes declare permissions with app.core.authorization.require_permission.
@@ -68,6 +69,8 @@ from app.modules.identity_access.domain.mentions import (
     MentionMatchKind,
     MentionTerms,
     count_matches,
+    count_matches_html,
+    redact_html,
 )
 from app.modules.identity_access.domain.mentions import redact as redact_matches
 from app.modules.identity_access.domain.permissions import (
@@ -556,6 +559,7 @@ __all__ = [
     "check_group_grantable",
     "cost_rate",
     "count_matches",
+    "count_matches_html",
     "create_requester_from_mail",
     "create_service_identity",
     "direct_reports",
@@ -574,6 +578,7 @@ __all__ = [
     "person_held",
     "person_placement",
     "put_ldap_federation",
+    "redact_html",
     "redact_matches",
     "register_duties",
     "register_field_catalogue",

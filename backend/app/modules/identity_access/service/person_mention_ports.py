@@ -17,7 +17,7 @@ from typing import ClassVar
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound, PermissionDenied
+from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access.domain import erasure as rules
 from app.modules.identity_access.domain.mentions import MentionTerms, count_matches, redact
 from app.modules.identity_access.domain.policy import Subject
@@ -106,7 +106,10 @@ class IdentityAccessMentions:
         new, replaced = redact(text, terms, mention.match_kind, marker)
         if not replaced:
             return False
-        setattr(user, mention.field, new[: _LIMITS[mention.field]])
+        if len(new) > _LIMITS[mention.field]:
+            # Never cut the text silently (lane A's #506 review): the admin edits it instead.
+            raise Conflict(code=rules.REDACTION_TOO_LONG)
+        setattr(user, mention.field, new)
         user.version += 1
         await session.flush()
         await record_changes(
@@ -133,7 +136,8 @@ class IdentityAccessMentions:
         """The field's current text, when the subject may read that person's profile."""
         if mention.record_type != USER_RECORD_TYPE or mention.field not in PROFILE_FIELDS:
             return None
-        if mention.field == "description" and not subject.holds("users.manage"):
+        rule = directory.USERS.field_rules.get(mention.field)  # the users API's own field rules
+        if rule is not None and not subject.holds(rule.permission):
             return None
         try:
             user = await directory.get_user(session, subject, mention.record_id)

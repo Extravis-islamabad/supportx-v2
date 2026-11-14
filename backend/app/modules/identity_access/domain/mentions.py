@@ -15,6 +15,10 @@ redaction) and are never stored. Matching:
   have at least 9, their last 9 digits are (so "+92 300 1234567" and "0300-1234567" match).
 
 Redaction replaces each matched occurrence of one kind with the marker, nothing else.
+
+Rich text (sanitised HTML: descriptions, notes, conversation bodies) goes through the `_html`
+variants: only text between tags is matched and redacted, never a tag or an attribute (a name in
+an `href` or `alt` is not counted, and markup is never rewritten; lane A's #506 review).
 """
 
 import re
@@ -165,3 +169,46 @@ def redact(text: str, terms: MentionTerms, kind: MentionMatchKind, marker: str) 
         last = end
     parts.append(text[last:])
     return "".join(parts), len(spans)
+
+
+# A tag, with quoted attribute values (which may hold `>`), as sanitised HTML writes it.
+_TAG = re.compile(r"<(?:[^>\"']|\"[^\"]*\"|'[^']*')*>")
+
+
+def _segments(html: str) -> list[tuple[bool, str]]:
+    """(is_text, part) in order: text between tags, and the tags themselves."""
+    parts: list[tuple[bool, str]] = []
+    last = 0
+    for match in _TAG.finditer(html):
+        if match.start() > last:
+            parts.append((True, html[last : match.start()]))
+        parts.append((False, match.group()))
+        last = match.end()
+    if last < len(html):
+        parts.append((True, html[last:]))
+    return parts
+
+
+def count_matches_html(html: str | None, terms: MentionTerms) -> dict[MentionMatchKind, int]:
+    """As `count_matches`, over the text between tags only."""
+    if not html or terms.empty():
+        return {}
+    total: dict[MentionMatchKind, int] = {}
+    for is_text, part in _segments(html):
+        if is_text:
+            for kind, count in count_matches(part, terms).items():
+                total[kind] = total.get(kind, 0) + count
+    return total
+
+
+def redact_html(
+    html: str, terms: MentionTerms, kind: MentionMatchKind, marker: str
+) -> tuple[str, int]:
+    """As `redact`, in the text between tags only; tags and attributes are left as they are."""
+    out: list[str] = []
+    replaced = 0
+    for is_text, part in _segments(html):
+        done, count = redact(part, terms, kind, marker) if is_text else (part, 0)
+        replaced += count
+        out.append(done)
+    return "".join(out), replaced
