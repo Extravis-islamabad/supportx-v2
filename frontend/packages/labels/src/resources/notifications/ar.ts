@@ -105,6 +105,8 @@ export const ar: LabelResource = {
   'notification_event.change.window_reminder': 'نافذة التغيير تبدأ قريبًا',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
+  'notification_event.incident.approval_rejected': 'رُفضت الموافقة',
+  'notification_event.incident.approval_requested': 'طُلبت الموافقة',
   'notification_event.incident.assigned': 'أُسند حادث',
   'notification_event.incident.canceled': 'أُلغي الحادث',
   'notification_event.incident.closed': 'أُغلق الحادث',
@@ -432,6 +434,18 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nعاد {{ record.title }} إلى العمل. لا حاجة إلى أي إجراء آخر.',
   'notification_template.connector.recovered.in_app': 'عاد {{ record.title }} إلى العمل',
   'notification_template.connector.recovered.subject': 'عاد {{ record.title }} إلى العمل',
+  'notification_template.incident.approval_rejected.body':
+    'مرحبًا {{ recipient.name }}،\n\nرُفضت الموافقة المطلوبة على الحادث {{ record.display_id }} «{{ record.title }}». افتح الحادث لترى من قرّر ولماذا: {{ record.link }}',
+  'notification_template.incident.approval_rejected.in_app':
+    'رُفضت موافقة {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.approval_rejected.subject':
+    'رُفضت الموافقة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.approval_requested.body':
+    'مرحبًا {{ recipient.name }}،\n\nالحادث {{ record.display_id }} «{{ record.title }}» بانتظار موافقتك.\n\nوافق أو ارفض: {{ approval_link }}\n\nيعمل الرابط مرة واحدة ولك وحدك.',
+  'notification_template.incident.approval_requested.in_app':
+    '{{ record.display_id }} بانتظار موافقتك: {{ record.title }}',
+  'notification_template.incident.approval_requested.subject':
+    'موافقتك: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.assigned.body':
     'مرحبًا {{ recipient.name }}،\n\nأصبح {{ record.display_id }} «{{ record.title }}» مُسندًا إلى {{ assignee.name }}.\n\nالأولوية: {{ record.priority }}\nالحالة: {{ record.status }}\nمقدّم الطلب: {{ requester.name }}',
   'notification_template.incident.assigned.in_app':

@@ -103,6 +103,8 @@ export const en = {
   'notification_event.change.window_reminder': 'Change window starts soon',
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
+  'notification_event.incident.approval_rejected': 'Approval rejected',
+  'notification_event.incident.approval_requested': 'Approval requested',
   'notification_event.incident.assigned': 'Incident assigned',
   'notification_event.incident.canceled': 'Incident cancelled',
   'notification_event.incident.closed': 'Incident closed',
@@ -431,6 +433,18 @@ export const en = {
     'Hello {{ recipient.name }},\n\n{{ record.title }} works again. Nothing else is needed.',
   'notification_template.connector.recovered.in_app': '{{ record.title }} works again',
   'notification_template.connector.recovered.subject': '{{ record.title }} works again',
+  'notification_template.incident.approval_rejected.body':
+    'Hello {{ recipient.name }},\n\nThe approval asked for incident {{ record.display_id }} "{{ record.title }}" was rejected. Open the incident to see who decided and why: {{ record.link }}',
+  'notification_template.incident.approval_rejected.in_app':
+    'The approval of {{ record.display_id }} was rejected: {{ record.title }}',
+  'notification_template.incident.approval_rejected.subject':
+    'Approval rejected: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.approval_requested.body':
+    'Hello {{ recipient.name }},\n\nIncident {{ record.display_id }} "{{ record.title }}" waits for your approval.\n\nApprove or reject: {{ approval_link }}\n\nThe link works once, for you only.',
+  'notification_template.incident.approval_requested.in_app':
+    '{{ record.display_id }} waits for your approval: {{ record.title }}',
+  'notification_template.incident.approval_requested.subject':
+    'Your approval: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.assigned.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now assigned to {{ assignee.name }}.\n\nPriority: {{ record.priority }}\nStatus: {{ record.status }}\nRequester: {{ requester.name }}',
   'notification_template.incident.assigned.in_app':

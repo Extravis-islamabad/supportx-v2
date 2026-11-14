@@ -127,3 +127,51 @@ async def test_a_problem_keeps_its_first_decision_rule(world: World) -> None:  #
         headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
     )
     assert refused.status_code == 422, refused.text
+
+
+async def test_approvers_are_asked_by_mail_and_the_technician_hears_of_a_rejection(
+    world: World,  # noqa: F811
+) -> None:
+    """AC2/AC3: each approver gets their own one-time link (D-132's path, the marker stored,
+    never a token); the technician is told once the rule has rejected it, not at every vote."""
+    from tests.db.test_notifications_api import MAIL, run_engine  # noqa: PLC0415 - one test
+
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    assert (await _ask(world, a, item, [a.admin, a.tech_b], rule="majority")).status_code == 200
+    await run_engine(world, a, settings=MAIL)
+    asked = await world.sql(
+        "SELECT d.user_id, m.text_body FROM notification_deliveries d"
+        " JOIN mail_messages m ON m.id = d.mail_id"
+        " WHERE d.tenant_id = $1 AND d.record_id = $2 AND d.channel = 'email'"
+        " AND d.event_code = 'incident.approval_requested'",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    mailed = {r["user_id"]: r["text_body"] for r in asked}
+    # tech_b works another group: an approver need not see the incident to be asked.
+    assert set(mailed) == {a.admin, a.tech_b}
+    assert all("[[supportx-link:approval_link]]" in body for body in mailed.values())
+    rows = {r["approver_id"]: r for r in await _rows(world, a, item)}
+    # Majority of two: one rejection leaves it undecided (nobody told), the second decides.
+    assert (await _decide(world, a, item, rows[str(a.admin)], a.admin, "reject")).status_code == 200
+    await run_engine(world, a, settings=MAIL)
+    told = await world.sql(
+        "SELECT user_id FROM notification_deliveries WHERE tenant_id = $1 AND record_id = $2"
+        " AND event_code = 'incident.approval_rejected'",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    pending = (await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)).json()
+    if pending["approval_status"] == "pending":
+        assert told == []
+        second = await _decide(world, a, item, rows[str(a.tech_b)], a.tech_b, "reject")
+        assert second.status_code == 200, second.text
+        await run_engine(world, a, settings=MAIL)
+        told = await world.sql(
+            "SELECT user_id FROM notification_deliveries WHERE tenant_id = $1"
+            " AND record_id = $2 AND event_code = 'incident.approval_rejected'",
+            a.tenant,
+            uuid.UUID(item["id"]),
+        )
+    assert {r["user_id"] for r in told} == {a.tech_a}

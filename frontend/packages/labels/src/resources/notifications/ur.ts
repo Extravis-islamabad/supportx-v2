@@ -105,6 +105,8 @@ export const ur: LabelResource = {
   'notification_event.change.window_reminder': 'تبدیلی کا وقت جلد شروع',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
+  'notification_event.incident.approval_rejected': 'منظوری مسترد ہوئی',
+  'notification_event.incident.approval_requested': 'منظوری مانگی گئی',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
   'notification_event.incident.canceled': 'واقعہ منسوخ ہوا',
   'notification_event.incident.closed': 'واقعہ بند ہوا',
@@ -435,6 +437,18 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} دوبارہ کام کر رہا ہے۔ مزید کچھ کرنے کی ضرورت نہیں۔',
   'notification_template.connector.recovered.in_app': '{{ record.title }} دوبارہ کام کر رہا ہے',
   'notification_template.connector.recovered.subject': '{{ record.title }} دوبارہ کام کر رہا ہے',
+  'notification_template.incident.approval_rejected.body':
+    'السلام علیکم {{ recipient.name }}،\n\nواقعہ {{ record.display_id }} «{{ record.title }}» کے لیے مانگی گئی منظوری مسترد ہو گئی۔ کس نے اور کیوں فیصلہ کیا، دیکھنے کے لیے واقعہ کھولیں: {{ record.link }}',
+  'notification_template.incident.approval_rejected.in_app':
+    '{{ record.display_id }} کی منظوری مسترد ہوئی: {{ record.title }}',
+  'notification_template.incident.approval_rejected.subject':
+    'منظوری مسترد: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.approval_requested.body':
+    'السلام علیکم {{ recipient.name }}،\n\nواقعہ {{ record.display_id }} «{{ record.title }}» آپ کی منظوری کا منتظر ہے۔\n\nمنظور یا مسترد کریں: {{ approval_link }}\n\nیہ لنک صرف ایک بار اور صرف آپ کے لیے کام کرتا ہے۔',
+  'notification_template.incident.approval_requested.in_app':
+    '{{ record.display_id }} آپ کی منظوری کا منتظر ہے: {{ record.title }}',
+  'notification_template.incident.approval_requested.subject':
+    'آپ کی منظوری: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.assigned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب {{ assignee.name }} کو تفویض ہے۔\n\nترجیح: {{ record.priority }}\nحالت: {{ record.status }}\nدرخواست گزار: {{ requester.name }}',
   'notification_template.incident.assigned.in_app':
