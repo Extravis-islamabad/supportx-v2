@@ -135,10 +135,16 @@ class _Port:
 
 
 def test_lane_b_ports_are_registered_in_their_bands_and_required() -> None:
+    # Lane C's ports register when their modules load (as at app start; ADR-052 S2).
+    import app.modules.ai  # noqa: PLC0415
+    import app.modules.analytics  # noqa: PLC0415
+    import app.modules.announcements  # noqa: PLC0415
+    import app.modules.knowledge  # noqa: F401, PLC0415
+
     names = [port.module for port in registered_ports()]
     lane_b = [port.module for port in LANE_B_PORTS]
     assert set(lane_b) <= set(names)
-    assert frozenset(lane_b) == REQUIRED_PORTS
+    assert frozenset(lane_b) <= REQUIRED_PORTS  # lane C's ports are required too (ADR-052 S2)
     assert missing_ports() == []
     # References first (links, memberships), then owned rows, files last of lane B's.
     ordered = [name for name in names if name in lane_b]
@@ -177,7 +183,7 @@ def test_batches_are_bounded() -> None:
 
 
 def test_a_missing_required_port_is_reported() -> None:
-    assert missing_ports(REQUIRED_PORTS | {"knowledge"}) == ["knowledge"]
+    assert missing_ports(frozenset({"files", "not_a_module"})) == ["not_a_module"]
 
 
 # --- labels (rule d) ------------------------------------------------------------------------------

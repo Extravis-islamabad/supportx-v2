@@ -44,7 +44,20 @@ BANDS = (REFERENCES, OWNED, DERIVED)
 # lane A's (work_items, notifications, integrations, automation, sla) and lane C's (knowledge,
 # analytics, announcements, ai) as each lands; keep this the one place that lists them.
 REQUIRED_PORTS: frozenset[str] = frozenset(
-    {"action_links", "audit", "files", "identity_access", "list_settings", "organization"}
+    {
+        "action_links",
+        "audit",
+        "files",
+        "identity_access",
+        "list_settings",
+        "organization",
+        # Lane C's S2 ports (knowledge, analytics, announcements, ai).
+        "knowledge",
+        "analytics.recipients",
+        "analytics",
+        "announcements",
+        "ai",
+    }
 )
 
 

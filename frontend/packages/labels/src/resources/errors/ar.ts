@@ -276,6 +276,8 @@ export const ar: LabelResource = {
     'انتهت صلاحية طلب المحو هذا. اطلبه مجددًا إن كان لا يزال مطلوبًا.',
   'errors.erasure_sessions_unavailable': 'تعذّر إنهاء الجلسات الآن. ستُعاد المحاولة.',
   'errors.erasure_step_failed': 'لم تنجح إحدى خطوات المحو. ستُعاد المحاولة.',
+  'errors.erasure_storage_unavailable':
+    'تعذّر الوصول إلى مخزن الملفات لحذف تصديرات التقارير. سيُعاد محاولة المسح.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
   'errors.field.address_not_allowed':
     'لا يمكن استخدام عنوان الخادم هذا. استخدم الاسم العام لخادم البريد.',

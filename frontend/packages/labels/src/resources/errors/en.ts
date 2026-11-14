@@ -305,6 +305,8 @@ export const en = {
   'errors.erasure_sessions_unavailable':
     'Sessions could not be ended just now. The erasure will try again.',
   'errors.erasure_step_failed': 'A step of the erasure did not work. It will try again.',
+  'errors.erasure_storage_unavailable':
+    'The file store could not be reached to delete report exports. The erasure will try again.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
   'errors.field.address_not_allowed':
     "This server address can't be used. Use the mail server's public name.",

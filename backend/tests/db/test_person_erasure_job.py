@@ -35,6 +35,7 @@ from app.modules.identity_access.service.person_data import (
     registered_ports,
     unregister_person_data,
 )
+from app.modules.identity_access.service.person_data_ports import LANE_B_PORTS
 from conftest import assign_system_role
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_incidents_api import Org, World
@@ -284,10 +285,13 @@ async def test_the_whole_erasure_in_order(  # noqa: PLR0915 - one run, every pro
     row = await _row(world, a, erasure_id)
     assert row["effective_successor_id"] == a.tech_c
     assert (row["port_module"], row["port_cursor"], row["last_error_code"]) == (None, None, None)
-    # Ports ran once each, in registry order (references before owned rows, files last).
-    assert spy.calls == [p.module for p in registered_ports()]
+    # Ports ran in registry order (references before owned rows, files last of the owned band,
+    # derived data after). A phased port (lane C's) is called once a phase, back to back.
+    runs = [m for i, m in enumerate(spy.calls) if i == 0 or spy.calls[i - 1] != m]
+    assert runs == [p.module for p in registered_ports()]  # each port's calls back to back
     assert spy.calls.index("organization") < spy.calls.index("identity_access")
-    assert spy.calls[-1] == "files"
+    owned = [p.module for p in registered_ports() if p.order < 900]
+    assert owned[-1] == "files"
     # Frozen, sessions ended, Keycloak sessions queued through ADR-051's path.
     assert effects.ended == [(a.tenant, a.tech_a)]
     pending = await _events(world, a, "identity_access.keycloak_session.end_pending")
@@ -385,7 +389,7 @@ async def test_ports_are_idempotent_on_their_own(world: World) -> None:
     now = datetime.now(UTC)
     for round_ in (1, 2):
         async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
-            for port in registered_ports():
+            for port in LANE_B_PORTS:  # lane C's ports: tests/db/test_erasure_ports_lane_c.py
                 batch = await port.erase_person(
                     session, a.tech_a, successor_id=a.tech_c, keep_files={}, now=now, cursor=None
                 )

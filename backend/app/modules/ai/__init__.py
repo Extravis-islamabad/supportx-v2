@@ -128,3 +128,8 @@ __all__ = [
     "unregister_embedding_source",
     "unregister_record_access",
 ]
+
+# GDPR erasure (ADR-052): this module's port; the job refuses to run without it.
+from app.modules.ai.service import person_data as _person_data  # noqa: E402
+
+_person_data.register()

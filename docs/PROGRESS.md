@@ -2418,6 +2418,17 @@ it with no reload (rule c). Not built yet.
 - [ ] S1b: the mentions report (D-171 a) shown to the approver; then approval opens.
 - [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`); a retry action
   for a failed erasure.
+  - [x] Lane C's ports (migration 0165, 2026-11-14): `knowledge` (votes deleted; topics and
+    articles to the successor; never-submitted drafts blanked and soft-deleted, and articles
+    left empty with them), `analytics.recipients` (band 100: out of others' schedule recipient
+    lists), `analytics` (favourites, preferences, exports with their files, private dashboards
+    deleted; shared dashboards, reports, folders moved; schedules moved and paused as
+    `owner_changed`), `announcements` (follows, dismissals deleted; owned ones moved), `ai`
+    (band 900: their AI calls deleted). Every moved object raises its ordinary event (rule c).
+    0165 grants DELETE on five tables; `tests/test_erasure_deletes.py` fails on any other hard
+    delete of them. Labels en/ar/ur.
+  - [ ] Lane C, after lane A's `work_items.records_requested_by`: the `ai` port also clears AI
+    summaries and embeddings built from records the person requested.
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
 - [ ] Open: the person's own profile history (`field_changes` of record type `user`) is not
   blanked yet. It needs a migrator-owned definer function, and D-168 option (b) allows that

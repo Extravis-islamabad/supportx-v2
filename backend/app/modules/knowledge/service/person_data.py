@@ -8,11 +8,12 @@
   draft soft-deleted. An article left with nothing but such drafts is soft-deleted too.
 
 Batched (ERASE_BATCH rows a call), resumable through the cursor (the phase reached), idempotent:
-a second run finds nothing and returns zero counts. Counts only, never data.
+a second run finds nothing and returns zero counts. Counts only, never data. Each moved or
+removed topic or article raises the module's ordinary saved event (rule c).
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import ClassVar
 
@@ -21,8 +22,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import ScalarSelect
 
 from app.modules.identity_access import ERASE_BATCH, ErasureBatch, register_person_data
+from app.modules.knowledge.events import KbArticleSaved, KbTopicSaved
 from app.modules.knowledge.infra.models import KbArticle, KbArticleVersion, KbTopic, KbVote
+from app.shared.events import record_event
 
+# A version's title must not be blank (a check); a removed draft is never shown, so a dash.
+ERASED_TITLE = "-"
 PHASES = ("votes", "topics", "articles", "drafts", "empty_articles")
 KINDS = frozenset(
     {
@@ -40,6 +45,29 @@ def _ids(statement: Select[uuid.UUID]) -> ScalarSelect[uuid.UUID]:
     return statement.limit(ERASE_BATCH).scalar_subquery()
 
 
+async def _saved(
+    session: AsyncSession,
+    rows: Sequence[tuple[uuid.UUID, uuid.UUID, int]],
+    owner: uuid.UUID,
+    changed: list[str],
+) -> None:
+    """Each changed article's ordinary saved event, so open screens follow (rule c)."""
+    for article_id, topic_id, version in rows:
+        await record_event(
+            session,
+            KbArticleSaved(
+                article_id=article_id,
+                topic_id=topic_id,
+                owner_id=owner,
+                language=None,
+                created=False,
+                changed_fields=changed,
+            ),
+            aggregate_id=article_id,
+            aggregate_version=version,
+        )
+
+
 async def _votes(session: AsyncSession, person: uuid.UUID) -> int:
     batch = _ids(select(KbVote.id).where(KbVote.person_id == person))
     result = await session.execute(delete(KbVote).where(KbVote.id.in_(batch)))
@@ -50,26 +78,40 @@ async def _topics(
     session: AsyncSession, person: uuid.UUID, successor: uuid.UUID, now: datetime
 ) -> int:
     batch = _ids(select(KbTopic.id).where(KbTopic.owner_id == person))
-    result = await session.execute(
-        update(KbTopic)
-        .where(KbTopic.id.in_(batch))
-        .values(owner_id=successor, version=KbTopic.version + 1, updated_at=now)
-        .execution_options(synchronize_session=False)
-    )
-    return int(getattr(result, "rowcount", 0) or 0)
+    rows = (
+        await session.execute(
+            update(KbTopic)
+            .where(KbTopic.id.in_(batch))
+            .values(owner_id=successor, version=KbTopic.version + 1, updated_at=now)
+            .returning(KbTopic.id, KbTopic.version)
+            .execution_options(synchronize_session=False)
+        )
+    ).all()
+    for topic_id, version in rows:
+        await record_event(
+            session,
+            KbTopicSaved(topic_id=topic_id, created=False, changed_fields=["owner_id"]),
+            aggregate_id=topic_id,
+            aggregate_version=version,
+        )
+    return len(rows)
 
 
 async def _articles(
     session: AsyncSession, person: uuid.UUID, successor: uuid.UUID, now: datetime
 ) -> int:
     batch = _ids(select(KbArticle.id).where(KbArticle.owner_id == person))
-    result = await session.execute(
-        update(KbArticle)
-        .where(KbArticle.id.in_(batch))
-        .values(owner_id=successor, version=KbArticle.version + 1, updated_at=now)
-        .execution_options(synchronize_session=False)
-    )
-    return int(getattr(result, "rowcount", 0) or 0)
+    rows = (
+        await session.execute(
+            update(KbArticle)
+            .where(KbArticle.id.in_(batch))
+            .values(owner_id=successor, version=KbArticle.version + 1, updated_at=now)
+            .returning(KbArticle.id, KbArticle.topic_id, KbArticle.version)
+            .execution_options(synchronize_session=False)
+        )
+    ).all()
+    await _saved(session, rows, successor, ["owner_id"])
+    return len(rows)
 
 
 async def _drafts(session: AsyncSession, person: uuid.UUID, now: datetime) -> int:
@@ -86,7 +128,7 @@ async def _drafts(session: AsyncSession, person: uuid.UUID, now: datetime) -> in
         update(KbArticleVersion)
         .where(KbArticleVersion.id.in_(batch))
         .values(
-            title="",
+            title=ERASED_TITLE,
             body_html="",
             keywords=[],
             change_note=None,
@@ -110,13 +152,18 @@ async def _empty_articles(session: AsyncSession, person: uuid.UUID, now: datetim
             KbArticle.created_by == person, KbArticle.deleted_at.is_(None), ~live
         )
     )
-    result = await session.execute(
-        update(KbArticle)
-        .where(KbArticle.id.in_(batch))
-        .values(deleted_at=now, updated_at=now, version=KbArticle.version + 1)
-        .execution_options(synchronize_session=False)
-    )
-    return int(getattr(result, "rowcount", 0) or 0)
+    rows = (
+        await session.execute(
+            update(KbArticle)
+            .where(KbArticle.id.in_(batch))
+            .values(deleted_at=now, updated_at=now, version=KbArticle.version + 1)
+            .returning(KbArticle.id, KbArticle.topic_id, KbArticle.version, KbArticle.owner_id)
+            .execution_options(synchronize_session=False)
+        )
+    ).all()
+    for article_id, topic_id, version, owner_id in rows:
+        await _saved(session, [(article_id, topic_id, version)], owner_id, ["deleted_at"])
+    return len(rows)
 
 
 class KnowledgeData:

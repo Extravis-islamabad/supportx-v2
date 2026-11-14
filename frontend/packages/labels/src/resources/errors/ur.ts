@@ -301,6 +301,8 @@ export const ur: LabelResource = {
     'اس درخواست کی میعاد ختم ہو گئی ہے۔ اگر اب بھی ضرورت ہو تو دوبارہ درخواست کریں۔',
   'errors.erasure_sessions_unavailable': 'ابھی سیشن ختم نہیں ہو سکے۔ دوبارہ کوشش کی جائے گی۔',
   'errors.erasure_step_failed': 'مٹانے کا ایک مرحلہ کامیاب نہیں ہوا۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_storage_unavailable':
+    'رپورٹ ایکسپورٹس حذف کرنے کے لیے فائل اسٹور تک رسائی نہیں ہو سکی۔ مٹانے کا عمل دوبارہ کوشش کرے گا۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
   'errors.field.address_not_allowed':
     'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
