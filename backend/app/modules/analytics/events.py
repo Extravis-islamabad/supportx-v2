@@ -132,6 +132,26 @@ class ReportScheduleRan(DomainEvent):
     paused: bool
 
 
+class ReportScheduleRecipientsSkipped(DomainEvent):
+    """A run left out recipients who may not see a field the report uses (ADR-047 §5).
+
+    Raised only when someone was skipped, so the owner's notice never fires on an ordinary run.
+    IDs and field codes only (rule c): the notice names people and labels fields for the owner,
+    never a value. One per run: `ran_at` is the run's time (schedules keep no run table).
+    """
+
+    event_type: ClassVar[str] = "analytics.report_schedule.recipients_skipped"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "report_schedule"
+
+    schedule_id: uuid.UUID
+    owner_id: uuid.UUID
+    ran_at: datetime
+    entity: str  # the report's entity, e.g. "incident" (names its fields for the owner)
+    skipped: list[uuid.UUID]
+    fields: list[str]  # the withheld fields' codes, e.g. "custom.<key>"
+
+
 class DashboardSaved(DomainEvent):
     """A dashboard was created or changed (`changed_fields` empty on create).
 
@@ -188,6 +208,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     ReportScheduleSaved,
     ReportScheduleDue,
     ReportScheduleRan,
+    ReportScheduleRecipientsSkipped,
     DashboardSaved,
     DashboardDeleted,
     DashboardHomeChanged,

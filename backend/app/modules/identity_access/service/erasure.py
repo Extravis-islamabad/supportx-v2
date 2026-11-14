@@ -65,9 +65,9 @@ def _field(name: str, code: str, params: Mapping[str, ParamValue] | None = None)
     return FieldError(field=f"body.{name}", code=code, message_key=key, params=dict(params or {}))
 
 
-# Directory sync must never touch an erased person before one can be approved (D-171): #507
-# makes it so and turns this on (the coordinator, 2026-11-14).
-DIRECTORY_SYNC_SKIPS_ERASED = False
+# Directory sync never touches an erased person (#507: sync skips them, never revives or
+# adopts them), so approval may go ahead; kept as a flag so the gate's test stays meaningful.
+DIRECTORY_SYNC_SKIPS_ERASED = True
 
 
 async def refusal(session: AsyncSession, person: User, *, actor_id: uuid.UUID | None) -> str | None:

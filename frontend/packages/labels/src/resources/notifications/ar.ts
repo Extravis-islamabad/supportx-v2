@@ -53,6 +53,7 @@ export const ar: LabelResource = {
   'notification_area.problem_repeat': 'المشكلات',
   'notification_area.release': 'الإصدارات',
   'notification_area.reminder': 'التذكيرات',
+  'notification_area.report_schedule': 'التقارير المجدولة',
   'notification_area.rule_step': 'القواعد والتصعيدات',
   'notification_area.security': 'الإشعارات الأمنية',
   'notification_area.service_request': 'طلبات الخدمة',
@@ -145,6 +146,7 @@ export const ar: LabelResource = {
   'notification_event.problem_repeat.detected': 'وُجدت حوادث متكررة',
   'notification_event.release.public_reply': 'رد على مقدم الطلب',
   'notification_event.reminder.due': 'تذكيرك',
+  'notification_event.report_schedule.recipients_skipped': 'تقرير مجدول استبعد أشخاصًا',
   'notification_event.rule_step.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
   'notification_event.security.locked_out': 'قُفل حسابك بعد محاولات دخول فاشلة',
   'notification_event.security.mfa_added': 'أُضيف تحقق دخول (MFA) إلى حسابك',
@@ -209,6 +211,7 @@ export const ar: LabelResource = {
   'notification_recipient.previous_assignee': 'الفني السابق',
   'notification_recipient.requester': 'مقدّم الطلب',
   'notification_recipient.reviewer': 'المراجِع',
+  'notification_recipient.schedule_owner': 'مالك الجدول',
   'notification_recipient.step_owner': 'مالك القاعدة (وإلا فمسؤولوها)',
   'notification_recipient.stock_watchers': 'الأشخاص المحددون للحد الأدنى',
   'notification_recipient.tenant_admins': 'مسؤولو المؤسسة',
@@ -659,6 +662,12 @@ export const ar: LabelResource = {
   'notification_template.reminder.due.in_app': 'تذكير في {{ reminder.at }}: {{ reminder.note }}',
   'notification_template.reminder.due.subject':
     'تذكير: {{ reminder.note }} ({{ record.display_id }})',
+  'notification_template.report_schedule.recipients_skipped.body':
+    'مرحبًا {{ recipient.name }}،\n\nلم يُرسَل آخر تشغيل لـ {{ record.title }} إلى بعض المستلمين، لأن أدوارهم لا تعرض حقلًا يستخدمه التقرير.\n\nعدد المستبعدين: {{ skipped.count }}\nالحقول التي لا يمكنهم رؤيتها: {{ fields.labels }}\n\nوصل التقرير إلى الآخرين. لإشراك الجميع، أزل تلك الحقول من التقرير، أو اطلب من المسؤول تغيير صلاحيات الحقول لأدوارهم.',
+  'notification_template.report_schedule.recipients_skipped.in_app':
+    'استبعد {{ record.title }} أشخاصًا (عدد المستبعدين: {{ skipped.count }}). الحقول التي لا يمكنهم رؤيتها: {{ fields.labels }}',
+  'notification_template.report_schedule.recipients_skipped.subject':
+    'لم يصل {{ record.title }} إلى الجميع',
   'notification_template.rule_step.assignee_unavailable.body':
     'مرحبًا {{ recipient.name }}،\n\nكان على قاعدة أو تصعيد إسناد {{ record.display_id }} "{{ record.title }}" إلى {{ unavailable.person }}، الذي {{ unavailable.reason }}. انتقل إلى المجموعة دون أن يُسند إلى أحد. يُرجى إسناده إلى شخص ما أو تعديل القاعدة.',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -797,6 +806,9 @@ export const ar: LabelResource = {
   'notification_variable.record.title': 'السجل › الموضوع',
   'notification_variable.reminder.at': 'وقت التذكير',
   'notification_variable.reminder.note': 'ملاحظة التذكير',
+  'notification_variable.report_schedule.fields': 'الجدول › الحقول التي لا يمكنهم رؤيتها',
+  'notification_variable.report_schedule.name': 'الجدول › الاسم',
+  'notification_variable.report_schedule.skipped_count': 'الجدول › الأشخاص المستبعدون',
   'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
   'notification_variable.rule.name': 'القاعدة',
   'notification_variable.security.device': 'تسجيل الدخول › المتصفح والجهاز',

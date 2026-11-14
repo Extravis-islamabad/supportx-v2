@@ -23,9 +23,11 @@ from typing import Any, ClassVar
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionTerms
+from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import erasure as erasure_service
 from app.modules.identity_access.service import erasure_job, erasure_mentions
@@ -228,8 +230,10 @@ async def test_the_report_finds_the_person_and_is_never_complete_in_s1b(world: W
     assert shown["report_ready"] is False
     assert report["attachment_content_searched"] is False
     assert report["mail_bodies_searched"] is False
+    # S2: lane A's work_items and integrations ports are in; lane C's are still to come.
     assert report["ports_missing"] == sorted(
-        REQUIRED_MENTION_PORTS - {"identity_access", "files", "assets"}
+        REQUIRED_MENTION_PORTS
+        - {"identity_access", "files", "assets", "work_items", "integrations"}
     )
     assert report["by_module"]["identity_access"] == {"name": 2, "email": 1, "phone": 1}
     assert report["by_module"]["files"] == {"name": 1}
@@ -429,9 +433,12 @@ async def test_approval_needs_a_complete_then_reviewed_report(
         headers={"If-Match": f'"{version + 1}"'},
     )
     assert own.status_code == 200, own.text
-    # Until directory sync skips erased people (#507), nothing is ever approved.
+    # The gate still refuses whenever directory sync could write a person back (it no longer
+    # can: #507); with the real setting the approval goes through.
+    monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", False)
     assert _code(await approve(version + 2)) == (409, "erasure_directory_sync_unsafe")
-    monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", True)
+    monkeypatch.undo()
+    assert erasure_service.DIRECTORY_SYNC_SKIPS_ERASED is True
     approved = await approve(version + 2)
     assert approved.status_code == 200, approved.text
     states = await world.sql(
@@ -777,9 +784,7 @@ async def _values(world: World, org: Org, row_id: uuid.UUID) -> tuple[Any, Any]:
     return rows[0]["old_value"], rows[0]["new_value"]
 
 
-async def test_redaction_blanks_only_the_mentions_field_in_history(
-    world: World, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_redaction_blanks_only_the_mentions_field_in_history(world: World) -> None:
     """history_redact_field: the mention row's record and field only; tenant B untouched."""
     a, b = world.a, world.b
     seeded = await _seed(world, a)
@@ -827,7 +832,6 @@ async def test_redaction_blanks_only_the_mentions_field_in_history(
         headers={"If-Match": f'"{version}"'},
     )
     assert reviewed.status_code == 200, reviewed.text
-    monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", True)
     refused = await world.call(
         "POST",
         f"/erasures/{erasure_id}/approve",
@@ -977,3 +981,77 @@ async def test_a_redaction_that_would_overflow_the_field_is_refused(world: World
         uuid.UUID(phone["id"]),
     )
     assert states[0]["state"] == "found"
+
+
+async def test_a_port_sees_its_mention_redacted_while_it_redacts(world: World) -> None:
+    """The registry marks the mention first and hands its ID on (lane C, 0168).
+
+    So a port whose definer function is bound to a redacted mention (with its redactor and
+    time, as 0164's) can act from inside `redact_mention`.
+    """
+    a = world.a
+    await _seed(world, a)
+    erasure = await _requested(world, a)
+    erasure_id = uuid.UUID(erasure["id"])
+    seen: list[tuple[uuid.UUID | None, str, bool]] = []
+
+    class Probe:
+        module: ClassVar[str] = "knowledge"
+
+        async def find_mentions(
+            self,
+            session: AsyncSession,
+            person_id: uuid.UUID,
+            *,
+            terms: MentionTerms,
+            cursor: str | None,
+        ) -> MentionBatch:
+            del session, person_id, terms, cursor
+            return MentionBatch((), None)
+
+        async def redact_mention(
+            self,
+            session: AsyncSession,
+            mention: Mention,
+            *,
+            terms: MentionTerms,
+            marker: str,
+            now: datetime,
+        ) -> bool:
+            del terms, marker, now
+            state = (
+                await session.execute(
+                    text(
+                        "SELECT state, redacted_by IS NOT NULL AND redacted_at IS NOT NULL"
+                        " FROM person_erasure_mentions WHERE id = :id"
+                    ),
+                    {"id": mention.mention_id},
+                )
+            ).one()
+            seen.append((mention.mention_id, state[0], bool(state[1])))
+            return True
+
+        async def passage(
+            self, session: AsyncSession, subject: Subject, mention: Mention
+        ) -> str | None:
+            del session, subject, mention
+            return "the text"
+
+    mention_id = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO person_erasure_mentions (tenant_id, id, erasure_id, module_key, record_type,"
+        " record_id, field, match_kind, occurrences) VALUES ($1, $2, $3, 'knowledge',"
+        " 'kb_article_version', $4, 'title', 'name', 1)",
+        a.tenant,
+        mention_id,
+        erasure_id,
+        uuid.uuid4(),
+    )
+    register_mentions(Probe())
+    try:
+        version = (await _get(world, a, erasure))["version"]
+        done = await _redact(world, a, erasure["id"], [str(mention_id)], version)
+    finally:
+        unregister_mentions("knowledge")
+    assert done.status_code == 200, done.text
+    assert seen == [(mention_id, "redacted", True)]

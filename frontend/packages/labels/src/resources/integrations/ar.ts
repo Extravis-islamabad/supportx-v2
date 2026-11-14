@@ -115,6 +115,7 @@ export const ar: LabelResource = {
   'directory_skip.last_admin_kept': 'أُبقي آخر مسؤول نشطًا',
   'directory_skip.no_address': 'لا يوجد عنوان بريد صالح',
   'directory_skip.not_an_email': 'ليس عنوان بريد',
+  'directory_skip.person_erased': 'مُحي بناءً على طلب: تُرك دون تغيير',
   'directory_skip.refused': 'رفضته قاعدة الأشخاص',
   'directory_skip.too_long': 'قيمة أطول من أن تُحفظ',
   'directory_skip.unknown_department': 'القسم غير موجود في SupportX',

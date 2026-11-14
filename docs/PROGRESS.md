@@ -1568,9 +1568,11 @@ it with no reload (rule c). Not built yet.
   - A schedule whose owner may no longer see a field it uses pauses as `field_not_permitted`
     before any file is made. A recipient who may not see one gets no file; the others do
     (counted in `last_failed`).
-  - [ ] Follow-up (coordinator, 2026-11-14): one notice per run to the owner naming who was
-    skipped and which fields (labels, no values). It is a notifications kind agreed with lane A,
-    and the run event carries the counts and field codes; no migration.
+  - [x] Follow-up (coordinator, 2026-11-14): one notice per run to the owner. Recipients left
+    out are skipped, not failed. `analytics.report_schedule.recipients_skipped` v1 carries IDs,
+    the entity, the run time and the field codes. `report_schedule.recipients_skipped` is a
+    STATUS notification, required, owner only, in-app and e-mail, with the fields named in the
+    owner's language. Shape from lane A; no migration.
 - **S7 slice c, the field access editor and what records show (no migration; ADR-047; lane C
   reviews the UI):**
   - Admin › Roles: a saved role has a Field access tab beside its permissions. Per record type,
@@ -2506,10 +2508,10 @@ it with no reload (rule c). Not built yet.
 - [x] S1b: the definer functions `history_redact_field` (only a redacted mention's own field;
   fingerprinted rows kept and counted) and `audit_erase_profile_history` (after `erased_at`,
   step 6), in 0164 on #500's helper.
-- [ ] Follow-up before the work-item mention ports: blank fingerprinted history rows too, with
-  pre-blank field digests kept and a `redacted_on_request` verifier status (ADR-046). Until
-  then approval and job start refuse an erasure that kept such a row
-  (`erasure_signed_history_kept`; flip `SIGNED_HISTORY_REDACTION` with the verifier).
+- [x] Signed history redaction (0167, ADR-046 addendum): fingerprinted history rows blanked too,
+  their digests kept in `field_change_redactions`, the verifier's `redacted_on_request` status
+  (never `verified`; needs the logged redaction), `fingerprints_redacted` per run;
+  `SIGNED_HISTORY_REDACTION` on. The refusal stays for any row still kept.
 - [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
   ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
   retry action for a failed erasure; the erasure screens (report, passage, redaction).
@@ -2525,6 +2527,8 @@ it with no reload (rule c). Not built yet.
     delete of them. Labels en/ar/ur.
   - Summaries: the ai erasure consumer already deletes them (D-131).
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
+  deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
 - **S2, lane A's ports (0166; lane B blocked):**
   - `work_items.references` (150): follows, record roles and board seats removed; chairs to the
     successor; open tasks unassigned; pending approvals to the approval administrators
@@ -2541,6 +2545,22 @@ it with no reload (rule c). Not built yet.
   - 0166: DELETE on eight private tables, guarded so only the ports delete; `approver_erased`;
     two requester indexes built concurrently. `work_items.records_requested_by` (#504) for
     lane C's ai port.
+- **S2, lane A's mentions ports (no migration; lane B blocks; plan and six conditions agreed):**
+  - `work_items`: the record's own text (subject, impact details and free-text custom fields
+    as plain text; description, resolution and a problem's analysis and review texts as rich
+    text), its conversation, tasks and worklogs, in bounded phases (`phase|after`). On a record
+    the person requested, the fields their erasure blanks are skipped; its replies, tasks and
+    worklogs are still searched (D1a). Fields are named as the field catalogue names them.
+  - Redaction: `work_items.redact_fields` (version, history naming the field only, the search
+    text recomputed, the usual update event), and for entries and parts the new
+    `work_items.conversation.redacted` and the usual `part.changed`. The registry blanks the
+    older history itself.
+  - Passage: the record's own read (its scope, field rules and older gates); entries and parts
+    need the parent record's view.
+  - `integrations`: fetched mail's subject only (a row is named by a UUID made from its key),
+    mail they sent skipped (their erasure port clears it); the passage needs the email
+    connector right.
+  - A 100k-record timing test: each find batch p95 under 500 ms with no pre-filter.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 

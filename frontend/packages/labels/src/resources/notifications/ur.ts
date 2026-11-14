@@ -53,6 +53,7 @@ export const ur: LabelResource = {
   'notification_area.problem_repeat': 'مسائل',
   'notification_area.release': 'ریلیزز',
   'notification_area.reminder': 'یاد دہانیاں',
+  'notification_area.report_schedule': 'شیڈول شدہ رپورٹس',
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.security': 'سیکیورٹی اطلاعات',
   'notification_area.service_request': 'سروس کی درخواستیں',
@@ -145,6 +146,8 @@ export const ur: LabelResource = {
   'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
   'notification_event.release.public_reply': 'درخواست گزار کو جواب',
   'notification_event.reminder.due': 'آپ کی یاد دہانی',
+  'notification_event.report_schedule.recipients_skipped':
+    'ایک شیڈول شدہ رپورٹ نے کچھ لوگوں کو چھوڑ دیا',
   'notification_event.rule_step.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
   'notification_event.security.locked_out': 'ناکام سائن اِن کے بعد آپ کا اکاؤنٹ مقفل ہو گیا',
   'notification_event.security.mfa_added': 'آپ کے اکاؤنٹ میں سائن اِن جانچ (MFA) شامل کی گئی',
@@ -211,6 +214,7 @@ export const ur: LabelResource = {
   'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
   'notification_recipient.requester': 'درخواست گزار',
   'notification_recipient.reviewer': 'جائزہ کار',
+  'notification_recipient.schedule_owner': 'شیڈول کا مالک',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.stock_watchers': 'کم از کم حد کے نامزد لوگ',
   'notification_recipient.tenant_admins': 'ادارے کے ایڈمنسٹریٹرز',
@@ -662,6 +666,12 @@ export const ur: LabelResource = {
     '{{ reminder.at }} پر یاد دہانی: {{ reminder.note }}',
   'notification_template.reminder.due.subject':
     'یاد دہانی: {{ reminder.note }} ({{ record.display_id }})',
+  'notification_template.report_schedule.recipients_skipped.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} کا پچھلا رن کچھ وصول کنندگان کو نہیں بھیجا گیا، کیونکہ ان کے کردار رپورٹ میں استعمال ہونے والا ایک فیلڈ نہیں دکھاتے۔\n\nچھوڑے گئے لوگ: {{ skipped.count }}\nوہ فیلڈ جو وہ نہیں دیکھ سکتے: {{ fields.labels }}\n\nباقی سب کو رپورٹ مل گئی۔ سب کو شامل کرنے کے لیے یہ فیلڈ رپورٹ سے نکال دیں، یا کسی ایڈمنسٹریٹر سے ان کے کرداروں کی فیلڈ رسائی بدلنے کو کہیں۔',
+  'notification_template.report_schedule.recipients_skipped.in_app':
+    '{{ record.title }} نے کچھ لوگوں کو چھوڑ دیا (چھوڑے گئے لوگ: {{ skipped.count }})۔ وہ فیلڈ جو وہ نہیں دیکھ سکتے: {{ fields.labels }}',
+  'notification_template.report_schedule.recipients_skipped.subject':
+    '{{ record.title }} سب تک نہیں پہنچی',
   'notification_template.rule_step.assignee_unavailable.body':
     'السلام علیکم {{ recipient.name }}،\n\nایک قاعدے یا ایسکلیشن کو {{ record.display_id }} "{{ record.title }}" کو {{ unavailable.person }} کے سپرد کرنا تھا، جو {{ unavailable.reason }}۔ یہ کسی کو تفویض کیے بغیر گروپ میں چلا گیا۔ براہ کرم کسی کو تفویض کریں یا قاعدہ بدلیں۔',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -803,6 +813,9 @@ export const ur: LabelResource = {
   'notification_variable.record.title': 'ریکارڈ › موضوع',
   'notification_variable.reminder.at': 'یاد دہانی کا وقت',
   'notification_variable.reminder.note': 'یاد دہانی کا نوٹ',
+  'notification_variable.report_schedule.fields': 'شیڈول › وہ فیلڈ جو وہ نہیں دیکھ سکتے',
+  'notification_variable.report_schedule.name': 'شیڈول › نام',
+  'notification_variable.report_schedule.skipped_count': 'شیڈول › چھوڑے گئے لوگ',
   'notification_variable.requester.name': 'درخواست گزار › نام',
   'notification_variable.rule.name': 'اصول',
   'notification_variable.security.device': 'سائن اِن › براؤزر اور آلہ',

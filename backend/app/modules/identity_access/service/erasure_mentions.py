@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, NotFound
+from app.modules.audit import redact_signed_history
 from app.modules.identity_access.domain import erasure as rules
 from app.modules.identity_access.domain.erasure import ErasureState
 from app.modules.identity_access.domain.field_access import unseen
@@ -86,6 +87,7 @@ def _mention(row: PersonErasureMention) -> Mention:
         field=row.field,
         match_kind=MentionMatchKind(row.match_kind),
         occurrences=row.occurrences,
+        mention_id=row.id,
     )
 
 
@@ -434,14 +436,24 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
             continue
         port = ports[mention.module_key]
         assert port is not None  # noqa: S101 - checked above; narrows the type
-        changed = await port.redact_mention(
-            session, _mention(mention), terms=terms, marker=ERASED_ON_REQUEST, now=now
-        )
+        # Marked first, so a port's definer function bound to a redacted mention (with its
+        # redactor and time) can act from inside the port; a port's refusal rolls it all back
+        # (lane C, 0168).
         mention.state = MentionState.REDACTED.value
         mention.redacted_by, mention.redacted_at = actor_id, now
         mention.version += 1
         await session.flush()
-        mention.history_kept = await _redact_history(session, mention.id)
+        changed = await port.redact_mention(
+            session, _mention(mention), terms=terms, marker=ERASED_ON_REQUEST, now=now
+        )
+        kept = await _redact_history(session, mention.id)
+        if kept and SIGNED_HISTORY_REDACTION:
+            # Signed rows: blanked with their digests kept (audit's public interface, 0167).
+            await redact_signed_history(
+                session, mention.id, mention.record_type, mention.record_id, mention.field
+            )
+            kept = await _redact_history(session, mention.id)  # what is still kept, if any
+        mention.history_kept = kept
         done.append((mention, changed))
     if done:
         row.version += 1
@@ -450,16 +462,14 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
     return Redacted(row, done)
 
 
-# Whether signed history rows can be redacted: False until the audit verifier has a
-# `redacted_on_request` status with the field digests kept before blanking (ADR-046 follow-up).
-# Until then an erasure that kept such a row is refused at approval and at job start.
-SIGNED_HISTORY_REDACTION = False
+# Signed history rows are redacted too (0167, ADR-046 addendum): their digests are kept and the
+# verifier reports such a save as `redacted_on_request`. The refusal at approval and job start
+# (`erasure_signed_history_kept`) stays for any row still kept.
+SIGNED_HISTORY_REDACTION = True
 
 
 async def signed_history_kept(session: AsyncSession, erasure_id: uuid.UUID) -> bool:
     """Whether a redacted mention of the erasure left text in signed history (D-171)."""
-    if SIGNED_HISTORY_REDACTION:
-        return False
     kept = await session.scalar(
         select(func.count())
         .select_from(PersonErasureMention)
@@ -472,6 +482,7 @@ async def signed_history_kept(session: AsyncSession, erasure_id: uuid.UUID) -> b
 
 
 _REDACT_HISTORY = text("SELECT history_redact_field(:mention) AS result")
+_REDACT_CHILD_HISTORY = text("SELECT history_redact_child(:mention) AS result")
 
 
 async def _redact_history(session: AsyncSession, mention_id: uuid.UUID) -> int:
@@ -481,7 +492,12 @@ async def _redact_history(session: AsyncSession, mention_id: uuid.UUID) -> int:
     from the redacted mention row itself, so no caller can point it at another field.
     """
     result = await session.scalar(_REDACT_HISTORY, {"mention": mention_id})
-    return int((result or {}).get("kept_fingerprinted", 0))
+    # A task's text lives in its parent record's history (`task*` rows): 0167's
+    # `history_redact_child()` finds those naming the person itself (nothing for other mentions).
+    child = await session.scalar(_REDACT_CHILD_HISTORY, {"mention": mention_id})
+    return int((result or {}).get("kept_fingerprinted", 0)) + int(
+        (child or {}).get("kept_fingerprinted", 0)
+    )
 
 
 def report_summary(row: PersonErasure) -> dict[str, Any] | None:

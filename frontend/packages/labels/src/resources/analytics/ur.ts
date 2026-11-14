@@ -617,6 +617,7 @@ export const ur: LabelResource = {
     'فائل 10 MB سے بڑی تھی۔ رپورٹ محدود کریں یا خلاصہ منتخب کریں۔',
   'report_schedule_result.field_not_permitted':
     'روکا گیا: رپورٹ ایک ایسا فیلڈ استعمال کرتی ہے جسے اس کا مالک اب نہیں دیکھ سکتا۔',
+  'report_schedule_result.fields_unknown': 'اس رپورٹ کے فیلڈ',
   'report_schedule_result.mail_not_configured': 'آؤٹ گوئنگ ای میل سیٹ نہیں ہے۔',
   'report_schedule_result.mail_refused': 'ای میل نہیں بھیجی جا سکی۔',
   'report_schedule_result.no_recipients': 'ای میل پتے والا کوئی فعال وصول کنندہ نہیں۔',

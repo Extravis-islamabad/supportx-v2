@@ -21,7 +21,12 @@ from app.core.modules import ModuleSpec
 from app.modules.analytics.api.dashboards import router as dashboards_router
 from app.modules.analytics.api.routes import REPORTING_DB_STATE, SLOTS_STATE, router
 from app.modules.analytics.events import EVENTS
-from app.modules.analytics.service import capabilities, dashboards, person_data
+from app.modules.analytics.service import (
+    capabilities,
+    dashboards,
+    person_data,
+    schedule_notifications,
+)
 from app.modules.analytics.service.exports import EXPORT
 from app.modules.analytics.service.jobs import (
     on_export_requested,
@@ -124,6 +129,10 @@ module = ModuleSpec(
     on_startup=[_startup],
     on_shutdown=[_shutdown],
 )
+
+# A schedule's owner hears when a run left recipients out (ADR-047 §5): at import, so the
+# consumers worker has it without the API's startup hooks.
+schedule_notifications.register()
 
 __all__ = ["module"]
 

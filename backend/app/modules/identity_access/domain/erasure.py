@@ -31,6 +31,10 @@ class ErasureState(StrEnum):
 OPEN_STATES: frozenset[ErasureState] = frozenset(
     {ErasureState.REQUESTED, ErasureState.APPROVED, ErasureState.RUNNING, ErasureState.FAILED}
 )
+# States in which the person is frozen or may be half-erased (step 1 onwards): nobody, the
+# people screens or a directory sync, may reactivate or write them (lane C's #507 review).
+FROZEN_STATES: frozenset[ErasureState] = OPEN_STATES - {ErasureState.REQUESTED}
+IN_PROGRESS = "person_erasure_in_progress"
 # States the job runs (or resumes) in.
 RUNNABLE_STATES: frozenset[ErasureState] = frozenset({ErasureState.APPROVED, ErasureState.RUNNING})
 
@@ -134,6 +138,7 @@ PROBLEM_CODES: frozenset[str] = ERROR_CODES | {
     MENTION_PORT_MISSING,
     REDACTION_TOO_LONG,
     DIRECTORY_SYNC_UNSAFE,
+    IN_PROGRESS,
 }
 # Field problem codes of the request body (errors.field.<code> labels).
 FIELD_PROBLEMS = frozenset(

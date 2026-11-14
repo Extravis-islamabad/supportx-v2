@@ -616,6 +616,7 @@ export const en = {
     'The file was larger than 10 MB. Narrow the report or choose the summary.',
   'report_schedule_result.field_not_permitted':
     'Paused: the report uses a field its owner may no longer see.',
+  'report_schedule_result.fields_unknown': 'the fields of this report',
   'report_schedule_result.mail_not_configured': 'Outgoing e-mail is not set up.',
   'report_schedule_result.mail_refused': 'The e-mail could not be sent.',
   'report_schedule_result.no_recipients': 'No active recipient with an e-mail address.',
