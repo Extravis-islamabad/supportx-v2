@@ -265,3 +265,97 @@ async def test_an_api_key_gets_the_same_redaction_as_its_owner(world: World) -> 
     assert salary not in seen.json()["custom"]
     assert seen.json()["hidden_fields"] == [f"custom.{salary}"]
     assert "B7" not in seen.text
+
+
+async def test_a_service_identity_s_key_is_a_person_s_write_but_its_own_job_is_not(
+    world: World,  # noqa: F811
+) -> None:
+    """Lane B's #503 review: a request (a service identity's API key too) is held to the field
+    rules; only an in-process job under the identity's own subject is a system write."""
+    from fastapi import Request  # noqa: PLC0415 - one test
+
+    from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext  # noqa: PLC0415
+    from app.modules.work_items.domain.types import INCIDENT  # noqa: PLC0415
+    from app.modules.work_items.service.work_items import require_writable  # noqa: PLC0415
+    from tests.db.test_access_api import fake_session  # noqa: PLC0415
+
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={salary: "B7"})
+    service_id = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO users (id, tenant_id, email, display_name, first_name, last_name, user_type,"
+        " roles_mapped_at, can_sign_in)"
+        " VALUES ($1, $2, NULL, 'Connector', 'Connector', NULL, 'service', now(), false)",
+        service_id,
+        a.tenant,
+    )
+    await world.sql(
+        "INSERT INTO user_roles (tenant_id, user_id, role_id) VALUES ($1, $2, $3)",
+        a.tenant,
+        service_id,
+        await _role(world, a, "tenant_admin"),
+    )
+    await _rule(world, a, "tenant_admin", f"custom.{salary}", "read_only")
+
+    async def key_session(request: Request) -> TenantContext | None:
+        tenant = request.headers.get("x-test-tenant")
+        return TenantContext(
+            uuid.UUID(str(tenant)),
+            service_id,
+            api_scopes=frozenset({"incidents:read", "incidents:write"}),
+        )
+
+    setattr(world.app.state, SESSION_RESOLVER_STATE, key_session)
+    try:
+        refused = await world.call(
+            "PATCH",
+            f"{BASE}/{item['id']}",
+            a,
+            service_id,
+            json={"custom": {salary: "C9"}},
+            headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
+        )
+    finally:
+        setattr(world.app.state, SESSION_RESOLVER_STATE, fake_session)
+    assert (refused.status_code, refused.json()["code"]) == (403, "field_read_only"), refused.text
+    # The same identity's own in-process job (a workflow run): a system write.
+    own = await world.app.state.policy.subject(a.tenant, service_id)
+    assert own.person is False
+    require_writable(own, INCIDENT, [f"custom.{salary}"])  # no refusal
+
+
+async def test_the_template_s_own_default_passes_on_create(world: World) -> None:  # noqa: F811
+    """Lane B's #503 review: the form sends the template's values back as shown; only a value
+    the person chose themselves for a read-only field is refused."""
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    await world.create(a, a.admin, group_id=str(a.ga))  # the default template exists from here
+    updated = await world.sql(
+        "UPDATE work_item_templates SET defaults = jsonb_build_object($2::text, 'B7')"
+        " WHERE tenant_id = $1 AND type = 'incident' AND is_default AND deleted_at IS NULL"
+        " RETURNING id",
+        a.tenant,
+        f"custom.{salary}",
+    )
+    assert len(updated) == 1
+    await _rule(world, a, "technician", f"custom.{salary}", "read_only")
+
+    async def create(value: str) -> Any:  # noqa: ANN401 - the response
+        return await world.call(
+            "POST",
+            BASE,
+            a,
+            a.tech_a,
+            json={
+                "subject": "New starter",
+                "requester_id": str(a.requester),
+                "group_id": str(a.ga),
+                "custom": {salary: value},
+            },
+            headers={**CONSOLE, "Idempotency-Key": uuid.uuid4().hex},
+        )
+
+    assert (await create("B7")).status_code == 201  # the template's own value
+    other = await create("C9")
+    assert (other.status_code, other.json()["code"]) == (403, "field_read_only"), other.text

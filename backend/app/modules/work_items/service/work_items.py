@@ -1676,14 +1676,19 @@ async def _analysis_changes(
     )
 
 
-def _given(values: Mapping[str, Any]) -> list[str]:
-    """The fields a create's input fills in (`custom.<key>` for custom ones), empty ones not."""
+def _given(values: Mapping[str, Any], defaults: Mapping[str, Any]) -> list[str]:
+    """The fields a create's input fills in (`custom.<key>` for custom ones).
 
-    def filled(value: Any) -> bool:  # noqa: ANN401 - any JSON value
-        return value not in (None, "", [], {})
+    Not an empty one, and not one holding the chosen template's own default: the form sends the
+    template's values back as it shows them, and that is the template's choice, not the
+    person's (lane B's #503 review; the same rule as a locked field's).
+    """
 
-    return [n for n, v in values.items() if n != "custom" and filled(v)] + [
-        f"custom.{k}" for k, v in (values.get("custom") or {}).items() if filled(v)
+    def filled(name: str, value: Any) -> bool:  # noqa: ANN401 - any JSON value
+        return value not in (None, "", [], {}) and _json(value) != _json(defaults.get(name))
+
+    return [n for n, v in values.items() if n != "custom" and filled(n, v)] + [
+        f"custom.{k}" for k, v in (values.get("custom") or {}).items() if filled(f"custom.{k}", v)
     ]
 
 
@@ -2496,7 +2501,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     # like any other input, and what they refuse is reported with the other field errors.
     # What the person filled in themselves (before the form rules): a read-only field they may
     # not set (ADR-047 §8); values a rule sets are the server's, not theirs.
-    require_writable(subject, wtype, _given(values))
+    require_writable(subject, wtype, _given(values, template.defaults or {}))
     ruled = await templates.apply_form_rules(session, wtype, template, values, before=None)
     values = ruled.values
     cleaned, problems = _check_fields(values, creating=True)
