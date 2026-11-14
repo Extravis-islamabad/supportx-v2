@@ -14,14 +14,14 @@ link (WP-046a S6: stopping mails to an address kept informed) has the same prote
 """
 
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 
 import valkey.exceptions
 from fastapi import Request, Response
 
 from app.core.database import Database
-from app.core.errors import RateLimited
+from app.core.errors import AppError, RateLimited
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter
 
 # Where the address and the slug name no tenant, the token is looked up here: no tenant has this
@@ -106,3 +106,24 @@ class PublicLinks:
             )
         if headers:
             response.headers.update(decision.headers())
+
+
+# Every answer of a public link route stays out of caches and sends no referrer, errors included
+# (lane B's note on #490): a 404 or 429 answer is as public as a 200.
+PRIVATE_HEADERS = {"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"}
+
+
+async def private_answers() -> AsyncIterator[None]:
+    """A router dependency: an error a public link route raises carries PRIVATE_HEADERS too.
+
+    Success answers set them on the response themselves; this covers the problem answers, which
+    the error handler builds from the exception (its `headers`). List it first in the router's
+    dependencies so it wraps the rate limits as well. FastAPI's own 422 for a malformed body is
+    raised before any dependency and is not an AppError, so it goes without them; it holds
+    nothing but the field errors (lane B, #501).
+    """
+    try:
+        yield
+    except AppError as exc:
+        exc.headers.update(PRIVATE_HEADERS)
+        raise

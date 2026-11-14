@@ -1520,6 +1520,34 @@ it with no reload (rule c). Not built yet.
   - It goes when the incident is saved (the sender's own), when discarded, when its owner is
     deactivated or erased, and after 30 days. No audit (personal and unsent).
   - Migration 0160: `work_item_drafts`; the downgrade refuses while any tenant holds a draft.
+- **S7 slice a, field access per role (0162; ADR-047; REQ-WI-016, REQ-ADM-026; lane B blocks):**
+  - Rules: one per role, record type and field (read_only, masked or hidden), versioned, soft
+    removed, at most 2,000 per tenant; `/field-access` (catalogue, rules, effective view) with
+    `roles.view` / `roles.manage`; every change audited with the mode before and after.
+  - Compiled into the cached subject (`Subject.field_access`): the clearest mode of the person's
+    roles wins (own, through active groups, or their type's default); a change reaches the next
+    request (after-commit bump plus the authz consumer); holders' screens refetch (realtime).
+  - Licence: `field_access` (Professional) for adding and changing; viewing, removing and
+    applying never depend on it (lane C owns licensing, lane B reviewed).
+  - Custom fields gain `personal_data` and `sensitive` marks (no rule of their own; erasure,
+    export, view log and encryption use them: D-171, WP-057 S3b); the per-type
+    `custom_text_rebuilding_since` marker for slice b's search.
+  - Not yet enforced on reads or writes: slice b (redaction, write checks, search, live
+    renaming, built-in fields), then slice c (the editor), and lane C's analytics slice.
+- **S7 slice b1, field access enforced on reads and writes (no migration; ADR-047; lane B blocks):**
+  - A record, a list page, search and duplicates: a hidden or masked field comes back null and is
+    named in `hidden_fields` / `masked_fields`; custom values are left out (REQ-WI-016 AC1).
+  - History: hidden changes left out, masked ones keep the line without values.
+  - A withheld field cannot be filtered or sorted on (AC2; the shared list dependency gains an
+    opt-in `exclude_for`) and is not offered in list-fields; reports, dashboards and exports
+    (the work item report source) cannot name one.
+  - A person's change of a read-only field is refused (403 `field_read_only`, AC3) on edit, on
+    create and per item in bulk; a value sent back unchanged passes; a service identity's
+    writes (workflows, connectors) are system writes (`Subject.person`).
+  - Built-in fields an admin may restrict: impact details, and the problem's analysis and review
+    texts; the root cause's own gate (view_root_cause) applies after the role rules.
+  - Next: b2 (search fails closed, `restricted` on live channels and 409s, designer refusal,
+    AI and notification variables), then slice c (the editor) and lane C's analytics slice.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

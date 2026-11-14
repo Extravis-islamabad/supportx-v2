@@ -74,6 +74,7 @@ from app.modules.work_items.service import (
     change_reminders,
     checklists,
     drafts,
+    field_catalogue,
     inbound_mail,
     notifications,
     parts,
@@ -109,6 +110,7 @@ from app.modules.work_items.service.closing import (
 from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.kept_informed import KEPT_INFORMED
+from app.modules.work_items.service.person_records import records_requested_by
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
 from app.modules.work_items.service.reporting import register_sources, unregister_sources
 from app.modules.work_items.service.sla import register_sla
@@ -148,6 +150,7 @@ async def _startup(app: FastAPI) -> None:
     del app
     _register_parts()
     register_owner_access(FILE_ACCESS)
+    field_catalogue.register()
     register_sources()  # again after a shutdown (tests start and stop the app)
     _register_ai()
 
@@ -199,6 +202,8 @@ inbound_mail.register()
 register_ticket_requesters(asset_links.linked_requester_ids_select)
 # Who may reach work item files: at import too, since mail attachments upload in the worker.
 register_owner_access(FILE_ACCESS)
+# Fields an admin may restrict per role (ADR-047, identity_access's port): at import, as above.
+field_catalogue.register()
 
 module = ModuleSpec(
     name="work_items",
@@ -300,6 +305,7 @@ __all__ = [
     # WP-049b S4a; the workflow overview).
     "labels_of",
     "module",
+    "records_requested_by",
     "register_open_work",
     "register_requester_channel",
     "resolution_notified",

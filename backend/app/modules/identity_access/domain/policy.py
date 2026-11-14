@@ -21,6 +21,7 @@ from types import MappingProxyType
 from typing import Any
 
 from app.core.authorization import Scope
+from app.modules.identity_access.domain import field_access as field_rules
 from app.modules.identity_access.domain.permissions import Catalogue, broadest, covers
 
 # JSON filter DSL tree (shared/api/filters.py), as stored in role_permissions.condition.
@@ -93,6 +94,13 @@ class Subject:
     site_ids: frozenset[uuid.UUID] = frozenset()
     group_ids: frozenset[uuid.UUID] = frozenset()
     not_entitled: frozenset[str] = frozenset()
+    # Restricted fields, {record type: {field: mode}} (ADR-047). Cached with the subject, unlike
+    # `extra`, so a rule change reaches the person's next request through the generation bump.
+    field_access: field_rules.Compiled = field_rules.EMPTY
+    # A person (not a service identity: a workflow's or a connector's own identity). Field rules
+    # refuse a person's change of a read-only field; a service identity's writes are system
+    # writes (ADR-047 §8). Reads are restricted for both. A subject cached before this: a person.
+    person: bool = True
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def holds(self, permission: str) -> bool:
@@ -128,6 +136,8 @@ class Subject:
             "site_ids": sorted(str(i) for i in self.site_ids),
             "group_ids": sorted(str(i) for i in self.group_ids),
             "not_entitled": sorted(self.not_entitled),
+            "field_access": field_rules.to_json(self.field_access),
+            "person": self.person,
         }
 
     @classmethod
@@ -147,6 +157,8 @@ class Subject:
             site_ids=frozenset(uuid.UUID(i) for i in data["site_ids"]),
             group_ids=frozenset(uuid.UUID(i) for i in data["group_ids"]),
             not_entitled=frozenset(data["not_entitled"]),
+            field_access=field_rules.from_json(data.get("field_access")),
+            person=bool(data.get("person", True)),
         )
 
 
@@ -161,6 +173,8 @@ def compile_subject(  # noqa: PLR0913 - keyword-only inputs of the compilation
     site_ids: frozenset[uuid.UUID] = frozenset(),
     group_ids: frozenset[uuid.UUID] = frozenset(),
     is_tenant_admin: bool = False,
+    fields: field_rules.Compiled = field_rules.EMPTY,
+    person: bool = True,
 ) -> Subject:
     """Merge the grants of all roles into one subject.
 
@@ -188,6 +202,8 @@ def compile_subject(  # noqa: PLR0913 - keyword-only inputs of the compilation
         site_ids=site_ids,
         group_ids=group_ids,
         not_entitled=frozenset(not_entitled - set(simplified)),
+        field_access=fields,
+        person=person,
     )
 
 

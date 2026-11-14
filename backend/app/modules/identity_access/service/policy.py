@@ -33,6 +33,7 @@ from app.core.logging import get_logger
 from app.core.scopes import scope_of
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import api_keys
+from app.modules.identity_access.domain import field_access as field_rules
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     DEPARTMENT_VIEWER,
@@ -55,6 +56,7 @@ from app.modules.identity_access.domain.policy import (
 from app.modules.identity_access.infra.models import (
     GroupRole,
     Role,
+    RoleFieldAccess,
     RolePermission,
     User,
     UserRole,
@@ -382,6 +384,26 @@ class ValkeySubjectCache:
 UNMAPPED_DEFAULT = MappingProxyType({"technician": TECHNICIAN, "requester": REQUESTER})
 
 
+async def field_access_of(
+    session: AsyncSession, role_ids: Sequence[uuid.UUID]
+) -> field_rules.Compiled:
+    """The restricted fields of someone holding exactly these roles (ADR-047 §2, §3).
+
+    Clearest wins: a field is restricted only when every one of the roles has a live rule for
+    it. Applied whatever the licence says, so a lapse never shows what a rule hides (§13).
+    """
+    if not role_ids:
+        return field_rules.EMPTY
+    rows = await session.execute(
+        select(RoleFieldAccess.record_type, RoleFieldAccess.field, RoleFieldAccess.mode).where(
+            RoleFieldAccess.role_id.in_(role_ids), RoleFieldAccess.deleted_at.is_(None)
+        )
+    )
+    return field_rules.compile_access(
+        len(set(role_ids)), [(r.record_type, r.field, r.mode) for r in rows]
+    )
+
+
 class PolicyService:
     """Compiles, caches and evaluates subjects; also the app's core Authorizer."""
 
@@ -453,10 +475,18 @@ class PolicyService:
             )
         ).all()
         role_keys = {r.key for r in roles}
+        role_ids = [r.id for r in roles]
         if not roles and user.roles_mapped_at is None:
             # A service identity has only the roles given to it (none: it may do nothing).
             default = UNMAPPED_DEFAULT.get(user.user_type)
             role_keys = {default} if default is not None else set()
+            role_ids = list(
+                (
+                    await session.scalars(
+                        select(Role.id).where(Role.key.in_(role_keys), Role.deleted_at.is_(None))
+                    )
+                ).all()
+            )
         grants: list[tuple[str, Grant]] = []
         technician_scope = await tenant_technician_scope(session)
         for key in role_keys & set(SYSTEM_ROLES):
@@ -492,6 +522,8 @@ class PolicyService:
             site_ids=site_ids,
             group_ids=group_ids,
             is_tenant_admin=TENANT_ADMIN in role_keys,
+            fields=await field_access_of(session, role_ids),
+            person=user.user_type != UserType.SERVICE.value,
         )
 
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
@@ -601,6 +633,10 @@ class PolicyService:
             # An API key: its owner's live grants, narrowed to what the key's scopes cover. Every
             # check (routes and services) then sees both rules at once (REQ-INT-021, D-128).
             subject = for_key(subject, context.api_scopes)
+        # A request is always a person's write as field rules see it (ADR-047 §8), a service
+        # identity's API key included: only in-process jobs under their own identity are system
+        # writes (lane B's #503 review).
+        subject = replace(subject, person=True)
         setattr(request.state, SUBJECT_STATE, subject)
         return subject
 

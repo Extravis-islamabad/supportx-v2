@@ -38,6 +38,7 @@ from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain import reapproval as reapproval_rules
 from app.modules.work_items.domain.approvals import RouteReason
 from app.modules.work_items.domain.change_risk import RiskLevel
@@ -744,14 +745,31 @@ class WorkItemOut(BaseModel):
     )
     following: bool = Field(description="You follow this record.")
     conversation_count: int = Field(description="Replies and notes.")
+    hidden_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields not shown to you (null here); custom ones as custom.<key> (ADR-047).",
+    )
+    masked_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields shown to you as masked (null here, shown as masked; ADR-047).",
+    )
 
     @classmethod
     def of(cls, view: service.WorkItemView) -> "WorkItemOut":
-        """From the service view."""
+        """From the service view: withheld fields null, their custom values left out (ADR-047)."""
         r = view.record
+        withheld = view.hidden | view.masked
+        values: dict[str, Any] = {
+            name: None if name in withheld else getattr(r, name) for name in _RECORD_FIELDS
+        }
+        values["custom"] = field_rules.without(
+            r.custom, field_rules.Unseen(view.hidden, view.masked).custom_keys()
+        )
         return cls(
-            **{name: getattr(r, name) for name in _RECORD_FIELDS},
-            root_cause=None if "root_cause" in view.hidden else r.root_cause,
+            **values,
+            hidden_fields=sorted(view.hidden),
+            masked_fields=sorted(view.masked),
+            root_cause=None if "root_cause" in withheld else r.root_cause,
             root_cause_hidden="root_cause" in view.hidden,
             review_required=view.review_required,
             analysis_changes=[
@@ -923,6 +941,12 @@ class WorkItemListItem(BaseModel):
     resolved_at: datetime | None
     closed_at: datetime | None
     custom: dict[str, Any] = Field(default_factory=dict, description="Custom values by key.")
+    hidden_fields: list[str] = Field(
+        default_factory=list, description="Fields not shown to you (ADR-047): custom.<key>."
+    )
+    masked_fields: list[str] = Field(
+        default_factory=list, description="Fields shown to you as masked (ADR-047)."
+    )
 
 
 class ListChangeFactsOut(BaseModel):
@@ -1602,8 +1626,26 @@ class WorkItemHistoryOut(BaseModel):
     )
 
 
-def _item(row: WorkItem) -> WorkItemListItem:
-    return WorkItemListItem.model_validate(row, from_attributes=True)
+def _item(row: WorkItem, unseen: field_rules.Unseen) -> WorkItemListItem:
+    """A list row without the custom values the person's roles withhold (ADR-047 §4)."""
+    item = WorkItemListItem.model_validate(row, from_attributes=True)
+    if not unseen.all:
+        return item
+    return item.model_copy(
+        update={
+            "custom": field_rules.without(item.custom, unseen.custom_keys()),
+            "hidden_fields": sorted(unseen.hidden),
+            "masked_fields": sorted(unseen.masked),
+        }
+    )
+
+
+def _unseen(subject: Subject, wtype: WorkItemType) -> field_rules.Unseen:
+    """What the person may not read on any record of the type (role rules only).
+
+    List rows carry no field behind a per-record permission gate, so the type's rules suffice.
+    """
+    return field_rules.unseen(subject.field_access, wtype.code.value)
 
 
 def _cursor(value: str | None) -> tuple[datetime, uuid.UUID] | None:
@@ -2379,6 +2421,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
 
     async def _page(
         session: Any,  # noqa: ANN401 - TenantSession (an AsyncSession) from the route
+        subject: Subject,
         page: PageResult[WorkItem],
     ) -> WorkItemPage:
         ids = [r.id for r in page.rows]
@@ -2395,7 +2438,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             | named
         )
         return WorkItemPage(
-            items=[_item(r) for r in page.rows],
+            items=[_item(r, _unseen(subject, wtype)) for r in page.rows],
             next_cursor=page.next_cursor,
             has_more=page.has_more,
             estimated_total=page.estimated_total,
@@ -2417,7 +2460,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         page = await service.list_page(
             session, subject, wtype, query, view=view, zone=request_zone(request), tag=tag
         )
-        return await _page(session, page)
+        return await _page(session, subject, page)
 
     @router.get("/views", summary=f"Built-in {name} views with counts")
     async def views(
@@ -2435,7 +2478,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         page = await service.list_page(
             session, subject, wtype, query, view=None, zone=request_zone(request), trash=True
         )
-        return await _page(session, page)
+        return await _page(session, subject, page)
 
     @router.get("/assignees", summary="People who can be assigned")
     async def assignees(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query options
@@ -2499,7 +2542,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         )
         people = sorted({str(u) for r in rows for u in (r.requester_id, r.technician_id) if u})
         return WorkItemSearchOut(
-            items=[_item(r) for r in rows],
+            items=[_item(r, _unseen(subject, wtype)) for r in rows],
             people=_people(await user_contacts(session, people)),
         )
 
@@ -2553,7 +2596,11 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             )
             return DuplicatesOut(
                 items=[
-                    DuplicateOut(item=_item(c.record), score=c.score, reasons=list(c.reasons))
+                    DuplicateOut(
+                        item=_item(c.record, _unseen(subject, wtype)),
+                        score=c.score,
+                        reasons=list(c.reasons),
+                    )
                     for c in found
                 ],
                 method=method,

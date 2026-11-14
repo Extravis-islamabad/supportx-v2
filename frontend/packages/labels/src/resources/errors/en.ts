@@ -476,6 +476,7 @@ export const en = {
   'errors.field.fallback_fixed': 'The default policy always applies and has no conditions.',
   'errors.field.field_always_required': 'Subject and requester are always shown and required.',
   'errors.field.field_locked': 'A form rule locks this field, so it cannot be changed here.',
+  'errors.field.field_not_ruleable': 'This field cannot be restricted.',
   'errors.field.field_not_settable': 'A rule cannot set this field.',
   'errors.field.field_retired': 'This field is retired and takes no new values.',
   'errors.field.field_set_twice': 'This field is already set by another action of the rule.',
@@ -801,8 +802,15 @@ export const en = {
   'errors.field.workflow_not_published': 'Publish this workflow first.',
   'errors.field.workflow_wrong_record_type': 'This workflow is for another kind of record.',
   'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
+  'errors.field_access_limit_reached':
+    'Your organisation already has {{limit}} field rules, the most allowed. Remove one first.',
+  'errors.field_access_rule_exists':
+    'This role already has a rule for this field. Change that rule instead.',
+  'errors.field_access_rule_not_found': 'This field rule no longer exists.',
   'errors.field_keys_unavailable':
     'Protected information cannot be read or saved right now: the installation key is not available. Ask your administrator to check it.',
+  'errors.field_not_ruleable': 'This field cannot be restricted.',
+  'errors.field_read_only': "You may only read this field, so it can't be changed.",
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',

@@ -295,6 +295,43 @@ class RolePermission(TenantKeyed, Base):
     condition: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
+class RoleFieldAccess(TenantEntity):
+    """One role's rule for one field of one record type (ADR-047; REQ-WI-016, REQ-ADM-026).
+
+    `mode` is read_only, masked or hidden; a field with no live rule is clear for the role. A
+    person's mode is the clearest any of their roles gives, compiled into their subject. Removing
+    a rule soft-deletes it; a new rule for the same field is a new row.
+    """
+
+    __tablename__ = "role_field_access"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"],
+            ["roles.tenant_id", "roles.id"],
+            ondelete="CASCADE",
+            name="fk_role_field_access_role",
+        ),
+        Index(
+            "uq_rfa_tenant_role_type_field",
+            "tenant_id",
+            "role_id",
+            "record_type",
+            "field",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_rfa_tenant_type_field", "tenant_id", "record_type", "field"),
+        CheckConstraint("mode IN ('read_only', 'masked', 'hidden')", name="mode_code"),
+        CheckConstraint("record_type ~ '^[a-z][a-z_]{0,39}$'", name="record_type_format"),
+        CheckConstraint("char_length(field) BETWEEN 1 AND 80", name="field_length"),
+    )
+
+    role_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(40))
+    field: Mapped[str] = mapped_column(String(80))
+    mode: Mapped[str] = mapped_column(String(10))
+
+
 class GroupRole(TenantKeyed, Base):
     """A role a support group carries (WP-042, REQ-ADM-015 AC2).
 
@@ -933,6 +970,7 @@ class PersonErasure(TenantEntity):
             "tenant_id",
             "person_id",
             unique=True,
+            # nosemgrep: sx.sql-format - a fixed list of erasure state codes
             postgresql_where=text(f"state IN ({_OPEN})"),
         ),
         Index("ix_person_erasures_tenant_created", "tenant_id", "created_at", "id"),
