@@ -284,8 +284,9 @@ async def test_the_whole_erasure_in_order(  # noqa: PLR0915 - one run, every pro
     row = await _row(world, a, erasure_id)
     assert row["effective_successor_id"] == a.tech_c
     assert (row["port_module"], row["port_cursor"], row["last_error_code"]) == (None, None, None)
-    # Ports ran once each, in registry order (references before owned rows, files last).
-    assert spy.calls == [p.module for p in registered_ports()]
+    # Ports ran in registry order (references before owned rows, files last); a batched port
+    # (ADR-052 §4's cursor) may be called more than once in a row.
+    assert list(dict.fromkeys(spy.calls)) == [p.module for p in registered_ports()]
     assert spy.calls.index("organization") < spy.calls.index("identity_access")
     assert spy.calls[-1] == "files"
     # Frozen, sessions ended, Keycloak sessions queued through ADR-051's path.

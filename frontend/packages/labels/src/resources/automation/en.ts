@@ -197,6 +197,11 @@ export const en = {
   'automation_outcome.own_change': 'Not run on its own change',
   'automation_outcome.partial': 'Partly done',
   'automation_outcome.per_minute': 'Stopped: too many changes a minute',
+  'erasure_count.assignment_turns_deleted': 'Round-robin positions deleted',
+  'erasure_count.availability_deleted': 'Availability state deleted',
+  'erasure_count.rules_handed_over': 'Business rules handed to the successor',
+  'erasure_count.triggers_handed_over': 'Triggers handed to the successor',
+  'erasure_count.workflows_handed_over': 'Workflows handed to the successor',
   'errors.command_not_pending': 'That step is not waiting for an answer.',
   'errors.fast_forward_range': 'Move the clock on by between 1 second and {{max}} seconds.',
   'errors.live_call_needs_record':

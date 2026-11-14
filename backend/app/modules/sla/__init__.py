@@ -31,6 +31,7 @@ from app.modules.sla.domain.calendar import Calendar, CalendarError
 from app.modules.sla.domain.escalation import Action, ActionKind, Level, Recipient, RecipientKind
 from app.modules.sla.domain.setup import SystemCalendar
 from app.modules.sla.events import EVENTS, SlaBreached, SlaEscalated, SlaWarning
+from app.modules.sla.service import person_data
 from app.modules.sla.service.access import MANAGE, VIEW
 from app.modules.sla.service.calendars import (
     calendar_exists,
@@ -75,6 +76,9 @@ PERMISSIONS = (
 
 # Sites and groups name a calendar; organization asks here whether the ID is one (D-115 D3).
 organization.register_calendar_check(calendar_exists)
+
+# SLA's slice of a person's erasure (ADR-052; nothing of theirs to change): at import.
+person_data.register()
 
 module = ModuleSpec(
     name="sla",
