@@ -162,6 +162,7 @@ export const en = {
   'domains.verified': 'The domain points here and now opens your organisation.',
   'email_from.mail': 'Mail address (else sign-in name)',
   'email_from.user_principal_name': 'Sign-in name (user principal name)',
+  'erasure_count.mail_cleared': 'Received e-mails cleared',
   'federation_state.applied': 'Connected',
   'federation_state.failed': 'Not connected',
   'federation_state.pending': 'Connecting',

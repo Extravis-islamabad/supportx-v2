@@ -165,6 +165,7 @@ export const ur: LabelResource = {
   'domains.verified': 'ڈومین یہاں کی طرف اشارہ کرتا ہے اور اب آپ کا ادارہ کھولتا ہے۔',
   'email_from.mail': 'میل ایڈریس (ورنہ سائن اِن نام)',
   'email_from.user_principal_name': 'سائن اِن نام (یوزر پرنسپل نیم)',
+  'erasure_count.mail_cleared': 'موصول ای میلیں صاف کی گئیں',
   'federation_state.applied': 'جڑی ہوئی',
   'federation_state.failed': 'نہیں جڑی',
   'federation_state.pending': 'جوڑا جا رہا ہے',

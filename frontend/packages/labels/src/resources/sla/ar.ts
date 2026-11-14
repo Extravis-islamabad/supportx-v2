@@ -2,6 +2,7 @@ import type { LabelResource } from '../en';
 
 // sla labels (see ../README.md).
 export const ar: LabelResource = {
+  'erasure_count.nothing_held': 'لا يحتفظ بشيء خاص بالشخص',
   'sla.calendar.field.holiday_list_ids': 'قوائم العطلات',
   'sla.calendar.field.labels': 'الاسم بلغات أخرى',
   'sla.calendar.field.name': 'الاسم',

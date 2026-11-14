@@ -51,6 +51,13 @@ REQUIRED_PORTS: frozenset[str] = frozenset(
         "identity_access",
         "list_settings",
         "organization",
+        # Lane A's (0166): references before owned rows.
+        "work_items.references",
+        "work_items.owned",
+        "notifications",
+        "automation",
+        "integrations",
+        "sla",
         # Lane C's S2 ports (knowledge, analytics, announcements, ai).
         "knowledge",
         "analytics.recipients",
