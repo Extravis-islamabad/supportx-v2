@@ -30,6 +30,8 @@ import {
   ConflictDialog,
   FormProblem,
   inlineImageIds,
+  restrictionOf,
+  RestrictedValue,
   reportError,
   RichTextField,
   RichTextView,
@@ -72,6 +74,8 @@ function AnalysisField({
   const [html, setHtml] = useState(value ?? '');
   const [conflict, setConflict] = useState<unknown>(null);
   const hidden = name === 'root_cause' && item.root_cause_hidden;
+  // A role rule withholds it (ADR-047): said so, never edited.
+  const restricted = hidden ? undefined : restrictionOf(item, name);
   const testId = `prb-${name.replace('_', '-')}`;
   const save = (version: number) => {
     problem.clear();
@@ -103,6 +107,13 @@ function AnalysisField({
           message={t('problems.analysis.root_cause_hidden')}
           data-testid="prb-root-cause-hidden"
         />
+      </Card>
+    );
+  }
+  if (restricted !== undefined) {
+    return (
+      <Card size="small" title={title} data-testid={testId}>
+        <RestrictedValue kind={restricted} testId={`${testId}-restricted`} />
       </Card>
     );
   }

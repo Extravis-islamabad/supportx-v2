@@ -56,6 +56,7 @@ import {
   PresenceAvatars,
   PropertiesPanel,
   PropertyList,
+  restrictionOf,
   PropertyRow,
   type RecordAction,
   RecordHeader,
@@ -1109,11 +1110,17 @@ function Details({
       <PropertyList
         testId="inc-properties"
         items={rows
-          .filter((row) => row.filled || (row.edit !== undefined && canEdit))
+          .map((row) => ({ ...row, restricted: restrictionOf(item, row.key) }))
+          // A withheld field still shows its row, saying so (ADR-047 §4; never editable).
+          .filter(
+            (row) =>
+              row.filled || row.restricted !== undefined || (row.edit !== undefined && canEdit),
+          )
           .map((row) => ({
             key: row.key,
             label: row.label,
             filled: row.filled,
+            restricted: row.restricted,
             content:
               row.edit !== undefined && canEdit ? (
                 <InlineEdit
