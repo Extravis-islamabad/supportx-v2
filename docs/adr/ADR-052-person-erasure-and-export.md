@@ -29,8 +29,9 @@ half-erased person nor be skipped.
   `person.erasure_requested / approved / rejected / expired / completed / failed`.
 - **Refused** (a labelled 409/422 at request, approval and job start): yourself; the last active
   tenant admin; break-glass accounts; a person under legal hold; an erasure already open.
-- **The mentions report (D-171 a)** is shown to the approver. Until it ships (S1b), approval is
-  refused server-side with `erasure_report_unavailable`; a test proves no erasure can run.
+- **The mentions report (D-171 a)** is shown to the approver (S1b, §4a). Approval is refused
+  with `erasure_report_unavailable` while the report is missing or incomplete, and with
+  `erasure_report_not_reviewed` until an admin has reviewed it.
 
 ### 2. Legal hold (H1)
 
@@ -164,6 +165,50 @@ knowledge, analytics, announcements, ai (consumer done): lane C. The registry re
 the job while a module listed in `REQUIRED_PORTS` has not registered (a missing port is a
 release defect, never a silent skip).
 
+### 4a. The mentions report and redaction (S1b, D-171 a)
+
+- **Port contract.** A module whose text other people write may name the person implements
+  `PersonMentions` (person_data.py) under its registry key, beside or on its erasure port:
+  `find_mentions(session, person_id, *, terms, cursor) -> MentionBatch` (at most
+  `MENTION_BATCH` = 500 rows per call; mentions are `(record_type, record_id, field,
+  match_kind name|email|phone, occurrences)`, **never a snippet or any text**);
+  `redact_mention(session, mention, *, terms, marker, now) -> bool` (only the matched
+  occurrences of that kind in that one field become the reserved code `erased_on_request`, the
+  record's version goes up, history names the field only with old/new null and reason
+  `erasure_redaction`, the record's ordinary change event); `passage(session, subject, mention)
+  -> str | None` (the field's current text when the caller's own rights let them read the
+  record). Terms (`MentionTerms`: display name and first + last, the e-mail, phone and mobile as
+  digits) are rebuilt from the person's row when needed and never stored.
+- **Required ports.** `REQUIRED_MENTION_PORTS` (one place) names identity_access, files and assets
+  (built in S1b) and S2's work_items.references, work_items.owned, integrations, knowledge and
+  announcements. A report is `complete` only when every required key ran, so until S2 no report
+  is complete and approval stays refused in practice.
+- **Build.** While an erasure is requested, the 30 s erasure schedule runs every registered
+  mentions port in key order, one batch per transaction, progress (port and cursor) in
+  `report.building`. Rows go to `person_erasure_mentions` (migration 0164; one per place and
+  kind; states found, redacted, left). The finished `report` is `{complete, by_module: {key:
+  {kind: count}}, ports_done, ports_missing, attachment_content_searched: false, building:
+  null}`. A port registered later runs on the next tick, and the review then lapses.
+- **Review.** `POST /erasures/{id}/report/reviewed` (`people.erase`, RecentAuth, If-Match,
+  audited `person.erasure_report_reviewed`) sets `report_reviewed_at/by`; approval needs it, and
+  approval leaves the mentions still found as `left`. The job's step 0 still refuses an
+  incomplete report.
+- **Reading.** `GET /erasures/{id}/mentions` lists places and counts (cursor pages, never
+  text); `GET /erasures/{id}/mentions/{mention_id}/passage` returns the current text through
+  the owning port (404 when the caller may not read the record), each view audited
+  `person.erasure_mention_viewed` with IDs only.
+- **Redaction.** `POST /erasures/{id}/mentions/redact` (`people.erase`, RecentAuth, If-Match on
+  the erasure, at most 200 mention IDs; requested or approved, never once the job runs): each
+  through its port, the row marked redacted, an audit entry `person.erasure_mention_redacted`
+  per mention (IDs only). A mention of another erasure refuses the whole request (404).
+- **Attachment contents are not searched,** only file names and details: the report and the
+  mentions list carry `attachment_content_searched: false`, shown with the label
+  `people_erasure.attachment_content_not_searched`.
+- **Pending (definer functions).** Earlier history rows still hold a redacted passage's old text
+  and the erased person's own profile history is not yet blanked: two migrator-owned SECURITY
+  DEFINER functions, `history_redact_field` and `audit_erase_profile_history`, follow once the
+  code-owned definer helper lands in migrations/helpers.py (marked TODO in migration 0164).
+
 ### 5. Export (REQ-ADM-100)
 
 `people.export`, RecentAuth, audited; the existing export-job pattern (queued job, file in object
@@ -190,6 +235,6 @@ staff. **Open, for Haider:** whether other people's *private notes about* the pe
   seeds its tables).
 - Erasure is not undoable: the job writes nothing that could restore the person, and the audit
   shows "erased on request".
-- Mentions in other people's text (D-171 a) are handled by the report and redaction (S1b), not by
-  the ports; until S1b ships, approval is refused.
+- Mentions in other people's text (D-171 a) are handled by the report and redaction (S1b, §4a),
+  not by the erasure ports; until S2's mentions ports land, approval is refused.
 - Keycloak accounts shared with other tenants survive (D5); only this tenant's membership goes.

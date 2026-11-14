@@ -2403,7 +2403,7 @@ it with no reload (rule c). Not built yet.
   built here, since lane A's port (default None) is not on main yet.
 - [ ] No people admin guide exists yet: the cost rate line goes in when one is written.
 
-### [~] GDPR person erasure and export (lane B; D-171; ADR-052; audit gap #12; S1 built 2026-11-14)
+### [~] GDPR person erasure and export (lane B; D-171; ADR-052; audit gap #12; S1, S1b built 2026-11-14)
 
 - [x] S1 (migration 0161): `person_erasures` (RLS forced, one open erasure per person, four-eyes
   check), legal hold and erased columns on `users`, DELETE on `user_cost_rates` and
@@ -2415,9 +2415,19 @@ it with no reload (rule c). Not built yet.
   backoff and expiry); the `PersonData` registry (`REQUIRED_PORTS`, bands, `ErasureBatch`) and
   lane B's ports (identity_access, organization, audit, files, action links, list settings);
   the shared D2a marker `erased_on_request`; labels en/ar/ur; tests.
-- [ ] S1b: the mentions report (D-171 a) shown to the approver; then approval opens.
-- [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`); a retry action
-  for a failed erasure.
+- [x] S1b (migration 0164, 2026-11-14): the mentions report (D-171 a): the `PersonMentions` port
+  and `REQUIRED_MENTION_PORTS`; `person_erasure_mentions` (RLS forced, found/redacted/left) and
+  the report review columns; the report built by the erasure schedule in batches; approval
+  refused while the report is incomplete (`erasure_report_unavailable`) or not reviewed
+  (`erasure_report_not_reviewed`); review, mentions list, passage (own rights, audited) and
+  redaction (marker, version, history without text, audited per mention) routes; lane B's ports
+  (other people's profiles, file names, asset notes); labels en/ar/ur. Approval stays refused in
+  practice until S2: the required list names S2's modules.
+- [ ] S1b follow-up: the definer functions `history_redact_field` and
+  `audit_erase_profile_history` once the code-owned definer helper is on main (TODOs in 0164).
+- [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
+  ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
+  retry action for a failed erasure; the erasure screens (report, passage, redaction).
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
 - [ ] Open: the person's own profile history (`field_changes` of record type `user`) is not
   blanked yet. It needs a migrator-owned definer function, and D-168 option (b) allows that
