@@ -122,7 +122,8 @@ class MailMentions:
                 MailFetched.mailbox_id == row.mailbox_id,
                 MailFetched.message_id == row.message_id,
             )
-            .values(subject=text)
+            # The kept message holds the original Subject header too (lane B's #514 review).
+            .values(subject=text, raw=None)
         )
         return True
 

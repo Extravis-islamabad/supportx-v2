@@ -275,12 +275,13 @@ async def test_mail_subjects_from_others_are_found_and_their_own_mail_is_skipped
     ):
         await world.sql(
             "INSERT INTO mail_fetched (tenant_id, mailbox_id, message_id, sender, subject,"
-            " outcome) VALUES ($1, $2, $3, $4, $5, 'created')",
+            " outcome, raw) VALUES ($1, $2, $3, $4, $5, 'held', $6)",
             a.tenant,
             mailbox,
             message,
             sender,
             subject,
+            f"Subject: {subject}\r\n\r\nHello".encode(),
         )
     found = await _found(world, a.tenant, mail_mentions.PORT, a.requester)
     assert [m.record_id for m in found] == [mail_mentions.row_ref(mailbox, "<m1@acme.test>")]
@@ -290,10 +291,40 @@ async def test_mail_subjects_from_others_are_found_and_their_own_mail_is_skipped
     assert await _redact(world, a.tenant, mail_mentions.PORT, mention) is True
     assert await _redact(world, a.tenant, mail_mentions.PORT, mention) is False
     (row,) = await world.sql(
-        "SELECT subject FROM mail_fetched WHERE tenant_id = $1 AND message_id = '<m1@acme.test>'",
+        "SELECT subject, raw FROM mail_fetched"
+        " WHERE tenant_id = $1 AND message_id = '<m1@acme.test>'",
         a.tenant,
     )
     assert NAME not in row["subject"]
+    assert row["raw"] is None  # the kept message held the original Subject header too
+
+
+async def test_a_trashed_record_is_found_and_only_the_erasure_right_reads_or_redacts_it(
+    world: World,  # noqa: F811
+) -> None:
+    """Lane B's #514 review: deleted rows are found; their text is for `people.erase` only."""
+    a = world.a
+    item = await world.create(
+        a, a.admin, group_id=str(a.ga), description=f"<p>Spoke to {NAME}.</p>"
+    )
+    trashed = await world.call(
+        "DELETE", f"{BASE}/{item['id']}", a, a.admin, headers={"If-Match": f'"{item["version"]}"'}
+    )
+    assert trashed.status_code in {200, 204}, trashed.text
+    found = await _found(world, a.tenant, person_mentions.PORT, uuid.uuid4())
+    described = _at(found, "incident", item["id"], "description")
+    admin = await world.app.state.policy.subject(a.tenant, a.admin)
+    assert admin.holds(person_mentions.ERASE_RIGHT)
+    assert NAME in (await _passage(world, a.tenant, person_mentions.PORT, a.admin, described) or "")
+    assert await _passage(world, a.tenant, person_mentions.PORT, a.tech_a, described) is None
+    assert await _redact(world, a.tenant, person_mentions.PORT, described) is True
+    (row,) = await world.sql(
+        "SELECT description, deleted_at FROM work_items WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    assert NAME not in row["description"]
+    assert row["deleted_at"] is not None  # still in the trash
 
 
 @pytest.mark.timing

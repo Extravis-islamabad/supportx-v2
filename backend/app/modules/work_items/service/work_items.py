@@ -23,7 +23,18 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol, cast
 
-from sqlalchemy import ColumnElement, Select, and_, delete, exists, false, func, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    Select,
+    and_,
+    delete,
+    exists,
+    false,
+    func,
+    or_,
+    select,
+)
+from sqlalchemy import update as sql_update
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -5069,7 +5080,18 @@ async def redact_fields(
         wtype = TYPES[WorkItemTypeCode(record.type)]
         changes["custom_text"] = await _custom_text(session, wtype, changes["custom"], record.id)
     audience_before = _audience(record)
-    updated = await _update(session, record, record.version, changes)
+    # Its own versioned save, not `_update`: a trashed record's text is redacted too (lane B's
+    # #514 review), and text alone moves no SLA clock.
+    version = record.version
+    saved = await session.execute(
+        sql_update(WorkItem)
+        .where(WorkItem.id == record.id, WorkItem.version == version)
+        .values(**changes, version=version + 1, updated_at=_now())
+    )
+    if not getattr(saved, "rowcount", 0):
+        raise await stale_record(session, record, version)
+    await session.refresh(record)
+    updated = record
     await record_changes(
         session,
         record_type=RECORD_TYPE,

@@ -64,6 +64,9 @@ CONVERSATION = "work_item_conversation"
 TASK = "work_item_task"
 WORKLOG = "work_item_worklog"
 PHASES = ("records", "conversation", "tasks", "worklogs")
+# Trashed rows are found too; only someone who may erase people reads or redacts their text (the
+# rule lane B applies to every port, #514 review): the trash is no one's day-to-day screen.
+ERASE_RIGHT = "people.erase"
 
 # The record's own text, by field: plain text, or sanitised HTML.
 PLAIN = ("subject", "impact_details")
@@ -246,23 +249,45 @@ class WorkItemMentions:
     ) -> str | None:
         """The field's current text, when the subject may read the record and that field."""
         if mention.record_type == CONVERSATION:
-            entry = await session.get(WorkItemConversation, mention.record_id)
-            if entry is None or entry.deleted_at is not None or mention.field != "body":
-                return None
-            return entry.body if await _may_view(session, subject, entry.work_item_id) else None
+            return await _entry_passage(session, subject, mention)
         if mention.record_type in {TASK, WORKLOG}:
-            part: WorkItemTask | WorkItemWorklog | None = (
-                await session.get(WorkItemTask, mention.record_id)
-                if mention.record_type == TASK
-                else await session.get(WorkItemWorklog, mention.record_id)
-            )
-            if part is None or part.deleted_at is not None:
-                return None
-            if not await _may_view(session, subject, part.work_item_id):
-                return None
-            value = getattr(part, mention.field, None)
-            return value if isinstance(value, str) else None
+            return await _part_passage(session, subject, mention)
         return await _record_passage(session, subject, mention)
+
+
+async def _readable_child(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID, *, deleted: bool
+) -> bool:
+    """A child row's text: a trashed row for the erasure right, else the parent's view."""
+    if deleted:
+        return subject.holds(ERASE_RIGHT)
+    return await _may_view(session, subject, record_id)
+
+
+async def _entry_passage(session: AsyncSession, subject: Subject, mention: Mention) -> str | None:
+    entry = await session.get(WorkItemConversation, mention.record_id)
+    if entry is None or mention.field != "body":
+        return None
+    readable = await _readable_child(
+        session, subject, entry.work_item_id, deleted=entry.deleted_at is not None
+    )
+    return entry.body if readable else None
+
+
+async def _part_passage(session: AsyncSession, subject: Subject, mention: Mention) -> str | None:
+    part: WorkItemTask | WorkItemWorklog | None = (
+        await session.get(WorkItemTask, mention.record_id)
+        if mention.record_type == TASK
+        else await session.get(WorkItemWorklog, mention.record_id)
+    )
+    if part is None:
+        return None
+    if not await _readable_child(
+        session, subject, part.work_item_id, deleted=part.deleted_at is not None
+    ):
+        return None
+    value = getattr(part, mention.field, None)
+    return value if isinstance(value, str) else None
 
 
 async def _may_view(session: AsyncSession, subject: Subject, record_id: uuid.UUID) -> bool:
@@ -270,6 +295,8 @@ async def _may_view(session: AsyncSession, subject: Subject, record_id: uuid.UUI
     record = await session.get(WorkItem, record_id)
     if record is None:
         return False
+    if record.deleted_at is not None:  # a trashed record's parts: the erasure right only
+        return subject.holds(ERASE_RIGHT)
     wtype = TYPES.get(WorkItemTypeCode(record.type))
     if wtype is None:
         return False
@@ -285,22 +312,33 @@ async def _record_passage(session: AsyncSession, subject: Subject, mention: Ment
     record = await session.get(WorkItem, mention.record_id)
     if record is None or record.type != mention.record_type:
         return None
-    wtype = TYPES.get(WorkItemTypeCode(record.type))
-    if wtype is None:
-        return None
-    try:
-        view = await items.get(session, subject, wtype, record.id)
-    except NotFound:
-        return None
-    if mention.field in view.hidden | view.masked:
+    if not await _may_read_field(session, subject, record, mention.field):
         return None
     if mention.field.startswith(field_rules.CUSTOM):
         value = (record.custom or {}).get(mention.field[len(field_rules.CUSTOM) :])
-    elif mention.field in PLAIN + HTML:
-        value = getattr(record, mention.field)
     else:
-        return None
+        value = getattr(record, mention.field) if mention.field in PLAIN + HTML else None
     return value if isinstance(value, str) else None
+
+
+async def _may_read_field(
+    session: AsyncSession, subject: Subject, record: WorkItem, field: str
+) -> bool:
+    """Whether the subject may read that field of the record.
+
+    Trashed: the erasure right (the registry still applies the role field rules). Live: the
+    record's own read, and the field neither hidden nor masked for the subject.
+    """
+    if record.deleted_at is not None:
+        return subject.holds(ERASE_RIGHT)
+    wtype = TYPES.get(WorkItemTypeCode(record.type))
+    if wtype is None:
+        return False
+    try:
+        view = await items.get(session, subject, wtype, record.id)
+    except NotFound:
+        return False
+    return field not in view.hidden | view.masked
 
 
 async def _redact_record(
