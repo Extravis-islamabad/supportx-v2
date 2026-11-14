@@ -23,6 +23,7 @@ from app.modules.integrations.service import (
     connector_notifications,
     notifications,
     person_data,
+    person_mentions,
     runs,
 )
 from app.modules.integrations.service.directory_sync import sync_schedule
@@ -41,6 +42,7 @@ connector_notifications.register()  # failing and recovered connectors (WP-040)
 
 # Integrations' slice of a person's erasure (ADR-052): at import.
 person_data.register()
+person_mentions.register()
 
 module = ModuleSpec(
     name="integrations",
