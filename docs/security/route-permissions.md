@@ -188,6 +188,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/audit/exports` | `audit.export` | audit.export: all |
 | POST | `/api/v1/audit/exports` | `audit.export` | audit.export: all |
 | GET | `/api/v1/audit/exports/{export_id}/download` | `audit.export` | audit.export: all |
+| GET | `/api/v1/audit/personal-data-access` | `audit.view_personal_data_access` | audit.view_personal_data_access: all |
 | GET | `/api/v1/audit/saved-searches` | `audit.view` | audit.view: all |
 | POST | `/api/v1/audit/saved-searches` | `audit.view` | audit.view: all |
 | DELETE | `/api/v1/audit/saved-searches/{search_id}` | `audit.view` | audit.view: all |
@@ -1761,6 +1762,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `audit.manage_holds` | all | all |
 | tenant_admin | `audit.verify` | all | all |
 | tenant_admin | `audit.view` | all | all |
+| tenant_admin | `audit.view_personal_data_access` | all | all |
 | tenant_admin | `automation.manage` | all | all |
 | tenant_admin | `automation.view` | all | all |
 | tenant_admin | `branding.manage` | all | all |
