@@ -206,6 +206,16 @@ class WorkItemConversationVisibilityChanged(_ConversationEvent):
     from_visibility: str
 
 
+class WorkItemConversationRedacted(_ConversationEvent):
+    """An entry's text had a person's name taken out by their erasure (ADR-052 S2).
+
+    The timeline refetches the entry; IDs only, never the text.
+    """
+
+    event_type: ClassVar[str] = "work_items.conversation.redacted"
+    schema_version: ClassVar[int] = 1
+
+
 class WorkItemConversationDeliveryChanged(_ConversationEvent):
     """A reply's e-mail moved: waiting, queued, retrying, sent or failed (REQ-INC-059).
 
@@ -614,6 +624,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPortalSettingsChanged,
     WorkItemApprovalSettingsChanged,
     WorkItemConversationAdded,
+    WorkItemConversationRedacted,
     WorkItemConversationVisibilityChanged,
     WorkItemConversationDeliveryChanged,
     WorkItemFollowerAdded,

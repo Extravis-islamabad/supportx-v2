@@ -23,7 +23,18 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol, cast
 
-from sqlalchemy import ColumnElement, Select, and_, delete, exists, false, func, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    Select,
+    and_,
+    delete,
+    exists,
+    false,
+    func,
+    or_,
+    select,
+)
+from sqlalchemy import update as sql_update
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -116,6 +127,7 @@ from app.modules.work_items.domain.templates import PickList, clean_impact_detai
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
     STANDARD_LIFECYCLE,
+    TYPES,
     Channel,
     WorkItemType,
     WorkItemTypeCode,
@@ -5064,6 +5076,65 @@ async def set_fields(  # noqa: PLR0913 - the record, its version, the change and
             status=updated.status,
             status_category=updated.status_category,
             changed_fields=sorted(columns),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
+async def redact_fields(
+    session: AsyncSession,
+    record: WorkItem,
+    columns: Mapping[str, Any],
+    *,
+    fields: Sequence[str],
+    reason: str,
+) -> WorkItem:
+    """Text a person's erasure redacts (ADR-052 S2): new values, never the old ones in history.
+
+    The history row names the fields only (old and new None): the old text is what is being
+    removed, and the registry blanks the older history itself. Custom values recompute the
+    record's search text (the search vector is generated), and the usual update event follows,
+    so lists, search and the AI re-embedding all see the redacted text.
+    """
+    changes = dict(columns)
+    if "custom" in changes:
+        wtype = TYPES[WorkItemTypeCode(record.type)]
+        changes["custom_text"] = await _custom_text(session, wtype, changes["custom"], record.id)
+    audience_before = _audience(record)
+    # Its own versioned save, not `_update`: a trashed record's text is redacted too (lane B's
+    # #514 review), and text alone moves no SLA clock.
+    version = record.version
+    saved = await session.execute(
+        sql_update(WorkItem)
+        .where(WorkItem.id == record.id, WorkItem.version == version)
+        .values(**changes, version=version + 1, updated_at=_now())
+    )
+    if not getattr(saved, "rowcount", 0):
+        raise await stale_record(session, record, version)
+    await session.refresh(record)
+    updated = record
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=[Change(name, None, None) for name in fields],
+        source="system",
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(fields),
             audience_before=audience_before,
         ),
         aggregate_id=updated.id,

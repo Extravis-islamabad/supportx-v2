@@ -1124,6 +1124,7 @@ export const en = {
   'event_type.work_items.change_window.changed': 'Change window changed',
   'event_type.work_items.conversation.added': 'Reply or note added',
   'event_type.work_items.conversation.delivery_changed': 'Reply delivery changed',
+  'event_type.work_items.conversation.redacted': 'Name removed from a reply or note',
   'event_type.work_items.conversation.visibility_changed': 'Note made public or private',
   'event_type.work_items.draft.changed': 'Kept draft changed',
   'event_type.work_items.follower.added': 'Follower added',
