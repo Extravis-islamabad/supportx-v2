@@ -152,3 +152,42 @@ async def test_live_signals_and_conflicts_name_a_restricted_field_only_as_restri
     assert staff
     for publication in staff:
         assert f"custom.{key}" not in publication.fields
+
+
+async def test_a_rule_cannot_name_a_field_its_author_may_not_see(world: World) -> None:  # noqa: F811
+    """ADR-047 §8: checked on the server when the rule is saved (422 field_not_permitted)."""
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Salary"}},
+        headers=CONSOLE,
+    )
+    key = made.json()["key"]
+    (role,) = await world.sql(
+        "SELECT id FROM roles WHERE tenant_id = $1 AND key = 'tenant_admin'", a.tenant
+    )
+    await world.sql(
+        "INSERT INTO role_field_access (id, tenant_id, role_id, record_type, field, mode)"
+        " VALUES (gen_random_uuid(), $1, $2, 'incident', $3, 'masked')",
+        a.tenant,
+        role["id"],
+        f"custom.{key}",
+    )
+    await world.app.state.policy.invalidate(a.tenant)
+    body = {
+        "record_type": "incident",
+        "name": "Copies the salary",
+        "events": ["create"],
+        "conditions": {"field": f"custom.{key}", "op": "eq", "value": "B7"},
+        "actions": [{"kind": "set", "field": "urgency", "value": "high", "mode": "fill_empty"}],
+    }
+    refused = await world.call("POST", "/automation/rules", a, a.admin, json=body)
+    assert refused.status_code == 422, refused.text
+    assert [e["code"] for e in refused.json()["errors"]] == ["field_not_permitted"]
+    # The same rule on a field the author sees in clear is fine.
+    body["conditions"] = {"field": "urgency", "op": "eq", "value": "high"}
+    body["name"] = "Fine"
+    assert (await world.call("POST", "/automation/rules", a, a.admin, json=body)).status_code == 201

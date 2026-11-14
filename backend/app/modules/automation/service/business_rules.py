@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
+from app.modules.automation.domain import field_refs
 from app.modules.automation.domain.rules import (
     LANGUAGES,
     MAX_RULES,
@@ -38,6 +39,7 @@ from app.modules.automation.domain.rules import (
 from app.modules.automation.events import AutomationChanged
 from app.modules.automation.infra.models import AutomationRun, BusinessRule
 from app.modules.automation.service.registry import record_type as registered
+from app.modules.identity_access import Subject
 from app.modules.organization import memberships
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -180,9 +182,26 @@ async def _event(session: AsyncSession, rule: BusinessRule, change: str) -> None
     )
 
 
-async def create_rule(session: AsyncSession, values: Mapping[str, Any]) -> BusinessRule:
+def _author_problems(
+    author: Subject | None, values: Mapping[str, Any]
+) -> list[tuple[str, str, Mapping[str, Any]]]:
+    """Fields the rule names that its author does not see in clear (ADR-047 §8)."""
+    if author is None:
+        return []
+    named = field_refs.refused(
+        author.field_access,
+        str(values.get("record_type", "")),
+        [values.get("conditions"), values.get("actions")],
+    )
+    return [("conditions", "field_not_permitted", {"field": f}) for f in named]
+
+
+async def create_rule(
+    session: AsyncSession, values: Mapping[str, Any], *, author: Subject | None = None
+) -> BusinessRule:
     """A new rule, last in its type's order; a draft unless switched on deliberately."""
     cleaned, problems = await check_rule(session, values)
+    problems += _author_problems(author, values)
     if problems:
         raise _invalid(problems)
     count = await session.scalar(
@@ -208,7 +227,12 @@ async def create_rule(session: AsyncSession, values: Mapping[str, Any]) -> Busin
 
 
 async def update_rule(
-    session: AsyncSession, rule_id: uuid.UUID, values: Mapping[str, Any], *, expected_version: int
+    session: AsyncSession,
+    rule_id: uuid.UUID,
+    values: Mapping[str, Any],
+    *,
+    expected_version: int,
+    author: Subject | None = None,
 ) -> BusinessRule:
     """Change a rule (If-Match). Its record type never changes."""
     current = await RuleRepository(session).get(rule_id)
@@ -225,6 +249,7 @@ async def update_rule(
         **{k: v for k, v in values.items() if k != "record_type"},
     }
     cleaned, problems = await check_rule(session, merged)
+    problems += _author_problems(author, merged)
     if problems:
         raise _invalid(problems)
     cleaned.pop("record_type")
