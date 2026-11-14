@@ -71,6 +71,12 @@ REQUIRED_PORTS: frozenset[str] = frozenset(
         "automation",
         "integrations",
         "sla",
+        # Lane C's S2 ports (knowledge, analytics, announcements, ai).
+        "knowledge",
+        "analytics.recipients",
+        "analytics",
+        "announcements",
+        "ai",
     }
 )
 
