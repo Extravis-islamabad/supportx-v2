@@ -191,3 +191,33 @@ async def test_a_rule_cannot_name_a_field_its_author_may_not_see(world: World) -
     body["conditions"] = {"field": "urgency", "op": "eq", "value": "high"}
     body["name"] = "Fine"
     assert (await world.call("POST", "/automation/rules", a, a.admin, json=body)).status_code == 201
+
+
+async def test_a_restricted_value_never_reaches_the_ai_gateway(world: World) -> None:  # noqa: F811
+    """ADR-047 §10: what AI reads of a record (its conversation and its embedding texts)
+    carries no restricted field's value."""
+    from app.modules.work_items.service import ai_sources  # noqa: PLC0415 - one test
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Codename"}},
+        headers=CONSOLE,
+    )
+    key = made.json()["key"]
+    item = await world.create(
+        a, a.admin, group_id=str(a.ga), subject="Printer jam", custom={key: "Zebra42"}
+    )
+    await _restrict(world, a, f"custom.{key}")
+    subject = await world.app.state.policy.subject(a.tenant, a.admin)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        talk = await ai_sources.conversation_for(
+            session, subject, uuid.UUID(item["id"]), {"replies", "public_notes", "private_notes"}
+        )
+        texts = await ai_sources.incident_texts(session, [uuid.UUID(item["id"])])
+    assert "Zebra42" not in repr(talk)
+    assert "Zebra42" not in repr(texts)
+    assert "Printer" in repr(texts)  # the record's own text is there
