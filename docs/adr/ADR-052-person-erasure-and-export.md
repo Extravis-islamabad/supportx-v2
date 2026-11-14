@@ -66,9 +66,9 @@ skip: the person-level check is the whole hold, and it fails closed.
      null, phone, mobile, job title, employee ID, description, signature, manager cleared,
      preferences reset, `erased_at / erased_by` set. The row stays: IDs everywhere point at it.
   6. **Audit**: `audit.erase_subject(person)` (ADR-046: personal values blanked, salt destroyed →
-     "erased on request"). The person's own profile history (record type `user`) needs a
-     migrator-owned function to blank, through the definer helper WP-057 S3b adds; that lands in
-     S1b, before any approval is possible.
+     "erased on request"), then `audit_erase_profile_history(person)` (0164, a migrator-owned
+     definer function): values and reasons of their own profile history (record type `user`)
+     blanked, only once step 5 set `users.erased_at`, so it can never blank a live person's.
   7. **Event**: `user.status_changed {status: disabled, reason: erasure}` for the consumers that
      already react to it, then `person.erasure_completed`.
 
@@ -206,10 +206,15 @@ release defect, never a silent skip).
 - **Attachment contents are not searched,** only file names and details: the report and the
   mentions list carry `attachment_content_searched: false`, shown with the label
   `people_erasure.attachment_content_not_searched`.
-- **Pending (definer functions).** Earlier history rows still hold a redacted passage's old text
-  and the erased person's own profile history is not yet blanked: two migrator-owned SECURITY
-  DEFINER functions, `history_redact_field` and `audit_erase_profile_history`, follow once the
-  code-owned definer helper lands in migrations/helpers.py (marked TODO in migration 0164).
+- **History of a redacted field** (0164, `history_redact_field(mention)`, a migrator-owned
+  definer function; the app role has no UPDATE on `field_changes`): it takes only a mention ID
+  and blanks old/new values of the record and field that *redacted* mention row names, in the
+  caller's tenant, so no caller can point it at another field. Rows a fingerprinted audit entry
+  commits to (ADR-046: work items, assets) are **kept**, since blanking them would read as
+  tampering; the mention's `history_kept` counts them and the screen says so
+  (`people_erasure.history_kept_fingerprinted`). Blanking those needs the pre-blank field
+  digests kept and a `redacted_on_request` verifier status: a follow-up before the work-item
+  mention ports register (lane C agreed, 2026-11-14).
 
 ### 5. Export (REQ-ADM-100)
 

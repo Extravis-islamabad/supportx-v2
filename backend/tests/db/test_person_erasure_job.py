@@ -278,10 +278,35 @@ async def test_the_whole_erasure_in_order(  # noqa: PLR0915 - one run, every pro
     spy = Spy(monkeypatch)
     effects = Effects()
     erasure_id = await _approved(world, a, a.tech_a, keep={str(files["kept"]): "Signed contract"})
+    # Their own profile history, and someone else's (step 6, 0164's definer function).
+    profile_rows = {who: uuid.uuid4() for who in (a.tech_a, a.tech_b)}
+    for who, row_id in profile_rows.items():
+        await world.sql(
+            "INSERT INTO field_changes (id, tenant_id, record_type, record_id, record_version,"
+            " change_id, kind, field, old_value, new_value, actor_type, source, reason,"
+            " occurred_at) VALUES ($1, $2, 'user', $3, 1, $4, 'updated', 'job_title',"
+            " to_jsonb('Old title'::text), to_jsonb('New title'::text), 'user', 'ui',"
+            " 'Promoted', now())",
+            row_id,
+            a.tenant,
+            who,
+            uuid.uuid4(),
+        )
 
     outcome = await _run(world, a, erasure_id, effects)
 
     assert (outcome.state, outcome.step, outcome.error_code) == ("done", 8, None)
+    history = {
+        r["record_id"]: (r["old_value"], r["new_value"], r["reason"])
+        for r in await world.sql(
+            "SELECT record_id, old_value, new_value, reason FROM field_changes"
+            " WHERE tenant_id = $1 AND id = ANY($2::uuid[])",
+            a.tenant,
+            list(profile_rows.values()),
+        )
+    }
+    assert history[a.tech_a] == (None, None, None)
+    assert history[a.tech_b] != (None, None, None)
     row = await _row(world, a, erasure_id)
     assert row["effective_successor_id"] == a.tech_c
     assert (row["port_module"], row["port_cursor"], row["last_error_code"]) == (None, None, None)
@@ -349,6 +374,7 @@ async def test_the_whole_erasure_in_order(  # noqa: PLR0915 - one run, every pro
     assert completed["details"]["erasure_id"] == str(erasure_id)
     assert completed["details"]["files_deleted"] == 1
     assert completed["details"]["files_kept"] == 1
+    assert completed["details"]["profile_history_rows_erased"] >= 1
     # Events: status_changed with reason erasure, then the completion.
     statuses = await _events(world, a, "identity_access.user.status_changed")
     assert {

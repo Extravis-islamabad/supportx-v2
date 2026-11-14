@@ -739,3 +739,131 @@ async def test_nobody_redacts_a_mention_they_cannot_read(
     assert _code(refused) == (404, "erasure_mention_not_found")
     assert await _person(world, a, a.tech_b) == before  # nothing changed
     assert (await _get(world, a, erasure))["version"] == version
+
+
+async def _history_row(
+    world: World, org: Org, record_id: uuid.UUID, field: str, value: str, change_id: uuid.UUID
+) -> uuid.UUID:
+    row_id = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO field_changes (id, tenant_id, record_type, record_id, record_version,"
+        " change_id, kind, field, old_value, new_value, actor_type, source, occurred_at)"
+        " VALUES ($1, $2, 'user', $3, 1, $4, 'updated', $5, to_jsonb($6::text),"
+        " to_jsonb($6::text), 'user', 'ui', now())",
+        row_id,
+        org.tenant,
+        record_id,
+        change_id,
+        field,
+        value,
+    )
+    return row_id
+
+
+async def _values(world: World, org: Org, row_id: uuid.UUID) -> tuple[Any, Any]:
+    rows = await world.sql(
+        "SELECT old_value, new_value FROM field_changes WHERE tenant_id = $1 AND id = $2",
+        org.tenant,
+        row_id,
+    )
+    return rows[0]["old_value"], rows[0]["new_value"]
+
+
+async def test_redaction_blanks_only_the_mentions_field_in_history(world: World) -> None:
+    """history_redact_field: the mention row's record and field only; fingerprinted rows kept."""
+    a, b = world.a, world.b
+    seeded = await _seed(world, a)
+    name = seeded["name"]
+    earlier = await _history_row(
+        world, a, a.tech_b, "description", f"Covers for {name}", uuid.uuid4()
+    )
+    other_field = await _history_row(
+        world, a, a.tech_b, "job_title", f"Deputy to {name}", uuid.uuid4()
+    )
+    # A row a fingerprinted audit entry commits to (ADR-046): blanking it would read as tampering.
+    signed_change = await _one(
+        world,
+        "SELECT fingerprint_saves[1] FROM audit_entries WHERE tenant_id = $1"
+        " AND fingerprint_saves IS NOT NULL ORDER BY occurred_at LIMIT 1",
+        a.tenant,
+    )
+    assert signed_change is not None
+    signed = await _history_row(world, a, a.tech_b, "description", f"Signed {name}", signed_change)
+    # The same record and field in tenant B is never touched.
+    elsewhere = await _history_row(
+        world, b, a.tech_b, "description", f"Covers for {name}", uuid.uuid4()
+    )
+    erasure = await _requested(world, a)
+    await _build(world, a)
+    page = await _mentions(world, a, erasure)
+    profile = _find(page, "identity_access", "description", "name")
+    assert profile["history_kept"] == 0
+    version = (await _get(world, a, erasure))["version"]
+
+    done = await _redact(world, a, erasure["id"], [profile["id"]], version)
+    assert done.status_code == 200, done.text
+    assert [m["history_kept"] for m in done.json()["redacted"]] == [1]
+    assert await _values(world, a, earlier) == (None, None)
+    assert await _values(world, a, other_field) != (None, None)
+    assert await _values(world, a, signed) != (None, None)
+    assert await _values(world, b, elsewhere) != (None, None)
+    assert (
+        await _one(
+            world,
+            "SELECT history_kept FROM person_erasure_mentions WHERE tenant_id = $1 AND id = $2",
+            a.tenant,
+            uuid.UUID(profile["id"]),
+        )
+        == 1
+    )
+
+
+async def test_history_redaction_needs_a_redacted_mention(world: World) -> None:
+    """The function takes a mention ID only, and acts only once that mention is redacted."""
+    a = world.a
+    seeded = await _seed(world, a)
+    earlier = await _history_row(
+        world, a, a.tech_b, "description", f"Covers for {seeded['name']}", uuid.uuid4()
+    )
+    erasure = await _requested(world, a)
+    await _build(world, a)
+    profile = _find(await _mentions(world, a, erasure), "identity_access", "description", "name")
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        found = await session.scalar(
+            text("SELECT history_redact_field(:m)"), {"m": uuid.UUID(profile["id"])}
+        )
+        unknown = await session.scalar(text("SELECT history_redact_field(:m)"), {"m": uuid.uuid4()})
+    assert found == {"blanked": 0, "kept_fingerprinted": 0}
+    assert unknown == {"blanked": 0, "kept_fingerprinted": 0}
+    assert await _values(world, a, earlier) != (None, None)
+
+
+async def test_profile_history_is_erased_only_once_the_person_is_erased(world: World) -> None:
+    """audit_erase_profile_history: guarded by users.erased_at; other people untouched."""
+    a = world.a
+    own = await _history_row(world, a, a.tech_a, "description", "My own words", uuid.uuid4())
+    other = await _history_row(world, a, a.tech_b, "description", "Theirs", uuid.uuid4())
+    call = text("SELECT audit_erase_profile_history(:p)")
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await session.scalar(call, {"p": a.tech_a}) == 0
+    assert await _values(world, a, own) != (None, None)
+    await world.sql(
+        "UPDATE users SET erased_at = now() WHERE tenant_id = $1 AND id = $2", a.tenant, a.tech_a
+    )
+    try:
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            assert await session.scalar(call, {"p": a.tech_a}) >= 1
+            assert await session.scalar(call, {"p": a.tech_a}) == 0  # idempotent
+        assert await _values(world, a, own) == (None, None)
+        assert await _values(world, a, other) != (None, None)
+        # Tenant B's session cannot reach tenant A's history, even for an erased person.
+        late = await _history_row(world, a, a.tech_a, "job_title", "Later words", uuid.uuid4())
+        async with world.app.state.db.tenant_session(TenantContext(world.b.tenant)) as session:
+            assert await session.scalar(call, {"p": a.tech_a}) == 0
+        assert await _values(world, a, late) != (None, None)
+    finally:  # the shared world's person stays usable for the other tests
+        await world.sql(
+            "UPDATE users SET erased_at = NULL WHERE tenant_id = $1 AND id = $2",
+            a.tenant,
+            a.tech_a,
+        )

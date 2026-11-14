@@ -2452,16 +2452,15 @@ it with no reload (rule c). Not built yet.
   redaction (marker, version, history without text, audited per mention) routes; lane B's ports
   (other people's profiles, file names, asset notes); labels en/ar/ur. Approval stays refused in
   practice until S2: the required list names S2's modules.
-- [ ] S1b follow-up: the definer functions `history_redact_field` and
-  `audit_erase_profile_history` once the code-owned definer helper is on main (TODOs in 0164).
+- [x] S1b: the definer functions `history_redact_field` (only a redacted mention's own field;
+  fingerprinted rows kept and counted) and `audit_erase_profile_history` (after `erased_at`,
+  step 6), in 0164 on #500's helper.
+- [ ] Follow-up before the work-item mention ports: blank fingerprinted history rows too, with
+  pre-blank field digests kept and a `redacted_on_request` verifier status (ADR-046).
 - [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
   ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
   retry action for a failed erasure; the erasure screens (report, passage, redaction).
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
-- [ ] Open: the person's own profile history (`field_changes` of record type `user`) is not
-  blanked yet. It needs a migrator-owned definer function, and D-168 option (b) allows that
-  SQL only through a code-owned helper in migrations/helpers.py (lane B's security review).
-  Step 5 writes no old values to history meanwhile.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 

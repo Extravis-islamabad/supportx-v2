@@ -1062,6 +1062,9 @@ class PersonErasureMention(TenantEntity):
     state: Mapped[str] = mapped_column(String(10), server_default="found")
     redacted_by: Mapped[uuid.UUID | None]
     redacted_at: Mapped[datetime | None]
+    # History rows of the field left at redaction: a fingerprinted audit entry commits to them
+    # (ADR-046), so blanking them would read as tampering. Shown to the admin, never hidden.
+    history_kept: Mapped[int] = mapped_column(Integer, server_default="0")
 
 
 EXPIRY_THRESHOLDS = (0, 1, 7, 30)  # domain/expiry.py: days before, 0 = run out

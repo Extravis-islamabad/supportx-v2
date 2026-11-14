@@ -196,6 +196,7 @@ export const ur: LabelResource = {
   'erasure_count.list_settings_deleted': 'حذف شدہ محفوظ فہرست منظر',
   'erasure_count.mail_messages_cleared': 'صاف کی گئی ای میلز',
   'erasure_count.person_fields_cleared': 'صاف کی گئی پروفائل تفصیلات',
+  'erasure_count.profile_history_rows_erased': 'مٹائی گئی پروفائل تاریخ کی تفصیلات',
   'erasure_count.roles_removed': 'ہٹائے گئے کردار',
   'erasure_count.sessions_ended': 'ختم شدہ سیشن',
   'erasure_count.sign_ins_cleared': 'صاف کیے گئے سائن ان لاگ اندراجات',
@@ -380,6 +381,8 @@ export const ur: LabelResource = {
   'people_erasure.attachment_content_not_searched':
     'منسلکات کے مواد میں تلاش نہیں کی گئی؛ صرف فائلوں کے نام اور تفصیلات دیکھی گئیں۔',
   'people_erasure.erased_on_request': 'فرد کی درخواست پر ہٹا دیا گیا',
+  'people_erasure.history_kept_fingerprinted':
+    'اس فیلڈ کی پچھلی تاریخ رکھی گئی ہے: ایک دستخط شدہ آڈٹ اندراج اس کا احاطہ کرتا ہے، اس لیے یہ دستخط شدہ تاریخ کی ترمیم ممکن ہونے تک رہے گی',
   'people_erasure.match_kind.email': 'ای میل پتا',
   'people_erasure.match_kind.name': 'نام',
   'people_erasure.match_kind.phone': 'فون نمبر',

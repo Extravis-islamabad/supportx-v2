@@ -121,6 +121,7 @@ JOB_KINDS: frozenset[str] = frozenset(
         "keycloak_sessions_ending",
         "mail_messages_cleared",
         "person_fields_cleared",
+        "profile_history_rows_erased",
         "sessions_ended",
         "successor_replaced",
     }
@@ -413,9 +414,16 @@ async def _person_row(run: _Run) -> None:
     run.counts["person_fields_cleared"] = len(changed)
 
 
+_ERASE_PROFILE_HISTORY = text("SELECT audit_erase_profile_history(:person)")
+
+
 async def _audit(run: _Run) -> None:
     """Step 6: the audit log and record history keep no personal value of theirs (ADR-046)."""
     run.counts["audit_personal_rows_removed"] = await erase_subject(run.session, run.person.id)
+    # Their own profile history (record type `user`): the migrator-owned function (0164) acts
+    # only once step 5 set `erased_at`, so it can never blank a live person's history.
+    blanked = await run.session.scalar(_ERASE_PROFILE_HISTORY, {"person": run.person.id})
+    run.counts["profile_history_rows_erased"] = int(blanked or 0)
 
 
 async def _events(run: _Run) -> None:

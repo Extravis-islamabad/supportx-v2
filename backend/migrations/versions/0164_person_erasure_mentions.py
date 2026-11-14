@@ -11,18 +11,19 @@ Expand only, no data step:
 Tenant table, RLS forced, through migrations/helpers.py only. The downgrade refuses while any
 tenant has a mention or a reviewed report, per tenant with app.tenant_id set (rule 5h).
 
-TODO(S1b follow-up, after the code-owned definer helper lands in migrations/helpers.py with its
-own PR): `history_redact_field(record_type, record_id, field)` - a migrator-owned SECURITY
-DEFINER function that blanks old/new values of one field in `field_changes`, so a redacted
-passage does not survive in the record's earlier history. Not added here: the repo's guard
-refuses definer functions outside that helper.
-
-TODO(S1b follow-up, same helper): `audit_erase_profile_history(person_id)` - the definer
-function that blanks the erased person's own profile history (`field_changes` of record type
-`user`) and the audit entries' copies of it (ADR-052 "Open").
+Two migrator-owned SECURITY DEFINER functions, through `create_definer_function` only (the app
+role has no UPDATE on `field_changes`; record history stays append-only for it):
+- `history_redact_field(p_mention)`: blanks old/new values of exactly the record and field named
+  by one *redacted* mention row of this tenant, so the redacted passage does not survive in the
+  record's earlier history. It takes no record or field name: what it may touch is what the
+  approver's report recorded. Rows a fingerprinted audit entry commits to (ADR-046) are left:
+  blanking them would read as tampering. Their redaction waits for a verifier status of its own.
+- `audit_erase_profile_history(p_person)`: blanks values and reasons of the person's own profile
+  history (record type `user`), only once `users.erased_at` is set (step 5 ran), so it can never
+  wipe a live person's history. Called in step 6.
 
 Revision ID: 0164
-Revises: 0161
+Revises: 0163
 Created: 2026-11-14
 """
 
@@ -31,16 +32,62 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
+from migrations.helpers import (
+    create_definer_function,
+    drop_definer_function,
+    enable_actor_audit,
+    enable_tenant_rls,
+    grant_app,
+)
 
 revision: str = "0164"
-down_revision: str | None = "0161"
+down_revision: str | None = "0163"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 TABLE = "person_erasure_mentions"
 ERASURES = "person_erasures"
 REVIEW_COLUMNS = ("report_reviewed_at", "report_reviewed_by")
+
+# The tenant, from the transaction's setting: no parameter can name another one.
+_TENANT = "NULLIF(current_setting('app.tenant_id', true), '')::uuid"
+_REDACT = f"""
+    WITH m AS (
+        SELECT record_type, record_id, field FROM {TABLE}
+        WHERE tenant_id = {_TENANT} AND id = p_mention AND state = 'redacted'
+    ), rows AS (
+        SELECT f.id, EXISTS (
+                   SELECT 1 FROM audit_entries e
+                   WHERE e.tenant_id = {_TENANT} AND e.fingerprint_saves @> ARRAY[f.change_id]
+               ) AS fingerprinted
+        FROM field_changes f JOIN m
+          ON f.record_type = m.record_type AND f.record_id = m.record_id AND f.field = m.field
+        WHERE f.tenant_id = {_TENANT}
+          AND (f.old_value IS NOT NULL OR f.new_value IS NOT NULL)
+    ), gone AS (
+        UPDATE field_changes f SET old_value = NULL, new_value = NULL
+        FROM rows r
+        WHERE f.tenant_id = {_TENANT} AND f.id = r.id AND NOT r.fingerprinted
+        RETURNING 1
+    )
+    SELECT jsonb_build_object(
+        'blanked', (SELECT count(*) FROM gone),
+        'kept_fingerprinted', (SELECT count(*) FROM rows WHERE fingerprinted))
+"""  # noqa: S608 - fixed names, no input
+_PROFILE = f"""
+    WITH gone AS (
+        UPDATE field_changes f SET old_value = NULL, new_value = NULL, reason = NULL
+        WHERE f.tenant_id = {_TENANT}
+          AND f.record_type = 'user' AND f.record_id = p_person
+          AND (f.old_value IS NOT NULL OR f.new_value IS NOT NULL OR f.reason IS NOT NULL)
+          AND EXISTS (
+              SELECT 1 FROM users u
+              WHERE u.tenant_id = {_TENANT} AND u.id = p_person AND u.erased_at IS NOT NULL
+          )
+        RETURNING 1
+    )
+    SELECT count(*)::integer FROM gone
+"""  # noqa: S608 - fixed names, no input
 
 
 def upgrade() -> None:
@@ -64,6 +111,8 @@ def upgrade() -> None:
         sa.Column("state", sa.String(length=10), server_default="found", nullable=False),
         sa.Column("redacted_by", sa.Uuid(), nullable=True),
         sa.Column("redacted_at", sa.DateTime(timezone=True), nullable=True),
+        # History rows of the field kept at redaction: a fingerprinted entry commits to them.
+        sa.Column("history_kept", sa.Integer(), server_default="0", nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -119,6 +168,12 @@ def upgrade() -> None:
     enable_tenant_rls(TABLE)
     grant_app(TABLE, ("SELECT", "INSERT", "UPDATE"))  # what the approver saw stays
     enable_actor_audit(TABLE)
+    create_definer_function(
+        "history_redact_field", "p_mention uuid", "jsonb", _REDACT, volatility="VOLATILE"
+    )
+    create_definer_function(
+        "audit_erase_profile_history", "p_person uuid", "integer", _PROFILE, volatility="VOLATILE"
+    )
 
 
 # Each tenant's rows are visible only with its app.tenant_id set (RLS FORCE).
@@ -144,6 +199,8 @@ END $$;
 def downgrade() -> None:
     """Drops it all only while no tenant has a mention or a reviewed report."""
     op.execute(_REFUSE_IF_ANY)
+    drop_definer_function("audit_erase_profile_history(uuid)")
+    drop_definer_function("history_redact_field(uuid)")
     op.drop_table(TABLE)  # its indexes and policies go with it
     for column in reversed(REVIEW_COLUMNS):
         op.drop_column(ERASURES, column)

@@ -430,6 +430,10 @@ class MentionOut(BaseModel):
     state: MentionState
     redacted_by: uuid.UUID | None
     redacted_at: datetime | None
+    history_kept: int = Field(
+        description="Earlier history rows of the field kept at redaction because a fingerprinted"
+        " audit entry commits to them (`people_erasure.history_kept_fingerprinted`)."
+    )
 
     @classmethod
     def of(cls, row: PersonErasureMention) -> "MentionOut":
@@ -445,6 +449,7 @@ class MentionOut(BaseModel):
             state=MentionState(row.state),
             redacted_by=row.redacted_by,
             redacted_at=row.redacted_at,
+            history_kept=row.history_kept,
         )
 
 

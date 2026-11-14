@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -419,12 +419,27 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
         mention.state = MentionState.REDACTED.value
         mention.redacted_by, mention.redacted_at = actor_id, now
         mention.version += 1
+        await session.flush()
+        mention.history_kept = await _redact_history(session, mention.id)
         done.append((mention, changed))
     if done:
         row.version += 1
         await session.flush()
         await _changed(session, row)
     return Redacted(row, done)
+
+
+_REDACT_HISTORY = text("SELECT history_redact_field(:mention) AS result")
+
+
+async def _redact_history(session: AsyncSession, mention_id: uuid.UUID) -> int:
+    """Blank the redacted field's earlier values in record history; the rows kept, by count.
+
+    Through the migrator-owned `history_redact_field()` (0164): it reads the record and field
+    from the redacted mention row itself, so no caller can point it at another field.
+    """
+    result = await session.scalar(_REDACT_HISTORY, {"mention": mention_id})
+    return int((result or {}).get("kept_fingerprinted", 0))
 
 
 def report_summary(row: PersonErasure) -> dict[str, Any] | None:

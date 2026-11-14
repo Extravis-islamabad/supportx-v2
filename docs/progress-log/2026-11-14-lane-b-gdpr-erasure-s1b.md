@@ -35,16 +35,19 @@
 - **Changes to the brief:** `redact_mention` also takes `terms` (it must know what to replace,
   and terms are never stored). Mention ports run in key order (they have no bands). The review
   is allowed on an incomplete but finished report (it records what the admin saw).
-- **Design note, pending definer functions (not built; the guard refuses them outside the
-  code-owned helper that lands with another PR):**
-  - `history_redact_field(record_type, record_id, field)`: migrator-owned SECURITY DEFINER, sets
-    `old_value` and `new_value` to NULL on every earlier `field_changes` row of that one field,
-    so a redacted passage does not survive in history; called by each port's `redact_mention`
-    after its own history row; the app role gets EXECUTE only.
-  - `audit_erase_profile_history(person_id)`: the same for the erased person's own profile
-    history (`field_changes` of record type `user`) and its copies in audit entries, called
-    from step 6.
-  Both are marked TODO in migration 0164.
+- **Definer functions (after #500's `create_definer_function` landed):**
+  - `history_redact_field(mention)`: blanks the values of the one record and field a redacted
+    mention row names, in the caller's tenant; called by `redact` right after each port's own
+    redaction. Rows a fingerprinted audit entry commits to are kept and counted in the mention's
+    `history_kept` (shown with `people_erasure.history_kept_fingerprinted`): blanking them would
+    read as tampering until the verifier gets a `redacted_on_request` status (follow-up).
+  - `audit_erase_profile_history(person)`: blanks values and reasons of the person's own profile
+    history, guarded by `users.erased_at`; called in step 6 (count
+    `profile_history_rows_erased`).
+  - Tests: only the mention's field blanked (another field on the same record, a fingerprinted
+    row and tenant B untouched); an unredacted or unknown mention changes nothing; profile
+    history untouched before `erased_at`, blanked after, idempotent, unreachable from tenant B;
+    the whole-job test checks step 6.
 - **Not done:** asset descriptions and loan/audit comments are not searched (they describe the
   asset, not people); S2 may add them. A phone number written next to other digits (a date
   run into it) is not matched.

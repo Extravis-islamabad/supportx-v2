@@ -192,6 +192,7 @@ export const en = {
   'erasure_count.list_settings_deleted': 'Saved list views deleted',
   'erasure_count.mail_messages_cleared': 'E-mails cleared',
   'erasure_count.person_fields_cleared': 'Profile details cleared',
+  'erasure_count.profile_history_rows_erased': 'Profile history entries erased',
   'erasure_count.roles_removed': 'Roles removed',
   'erasure_count.sessions_ended': 'Sessions ended',
   'erasure_count.sign_ins_cleared': 'Sign-in log entries cleared',
@@ -375,6 +376,8 @@ export const en = {
   'people_erasure.attachment_content_not_searched':
     'Attachment contents were not searched; only file names and details were.',
   'people_erasure.erased_on_request': "Removed at the person's request",
+  'people_erasure.history_kept_fingerprinted':
+    'Earlier history of this field was kept: a signed audit entry covers it, so it stays until signed history can be redacted',
   'people_erasure.match_kind.email': 'Email address',
   'people_erasure.match_kind.name': 'Name',
   'people_erasure.match_kind.phone': 'Phone number',
