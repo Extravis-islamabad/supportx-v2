@@ -78,6 +78,7 @@ from app.modules.work_items.service import (
     inbound_mail,
     notifications,
     parts,
+    person_data,
     portal,
     problem_notifications,
     record_facts,
@@ -150,6 +151,7 @@ async def _startup(app: FastAPI) -> None:
     _register_parts()
     register_owner_access(FILE_ACCESS)
     field_catalogue.register()
+    person_data.register()
     register_sources()  # again after a shutdown (tests start and stop the app)
     _register_ai()
 
@@ -203,6 +205,8 @@ register_ticket_requesters(asset_links.linked_requester_ids_select)
 register_owner_access(FILE_ACCESS)
 # Fields an admin may restrict per role (ADR-047, identity_access's port): at import, as above.
 field_catalogue.register()
+# Work items' slice of a person's erasure (ADR-052): at import, as above.
+person_data.register()
 
 module = ModuleSpec(
     name="work_items",
