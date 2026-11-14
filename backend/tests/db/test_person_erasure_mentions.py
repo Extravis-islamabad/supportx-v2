@@ -429,9 +429,12 @@ async def test_approval_needs_a_complete_then_reviewed_report(
         headers={"If-Match": f'"{version + 1}"'},
     )
     assert own.status_code == 200, own.text
-    # Until directory sync skips erased people (#507), nothing is ever approved.
+    # The gate still refuses whenever directory sync could write a person back (it no longer
+    # can: #507); with the real setting the approval goes through.
+    monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", False)
     assert _code(await approve(version + 2)) == (409, "erasure_directory_sync_unsafe")
-    monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", True)
+    monkeypatch.undo()
+    assert erasure_service.DIRECTORY_SYNC_SKIPS_ERASED is True
     approved = await approve(version + 2)
     assert approved.status_code == 200, approved.text
     states = await world.sql(
@@ -777,9 +780,7 @@ async def _values(world: World, org: Org, row_id: uuid.UUID) -> tuple[Any, Any]:
     return rows[0]["old_value"], rows[0]["new_value"]
 
 
-async def test_redaction_blanks_only_the_mentions_field_in_history(
-    world: World, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_redaction_blanks_only_the_mentions_field_in_history(world: World) -> None:
     """history_redact_field: the mention row's record and field only; tenant B untouched."""
     a, b = world.a, world.b
     seeded = await _seed(world, a)
@@ -827,7 +828,6 @@ async def test_redaction_blanks_only_the_mentions_field_in_history(
         headers={"If-Match": f'"{version}"'},
     )
     assert reviewed.status_code == 200, reviewed.text
-    monkeypatch.setattr(erasure_service, "DIRECTORY_SYNC_SKIPS_ERASED", True)
     refused = await world.call(
         "POST",
         f"/erasures/{erasure_id}/approve",
