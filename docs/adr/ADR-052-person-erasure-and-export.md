@@ -213,6 +213,12 @@ release defect, never a silent skip).
   the erasure, at most 200 mention IDs; requested or approved, never once the job runs): each
   through its port, the row marked redacted, an audit entry `person.erasure_mention_redacted`
   per mention (IDs only). A mention of another erasure refuses the whole request (404).
+- **Child text in a parent's history** (0167): a task's title and fields are recorded in its
+  parent work item's history (`task`, `task.<field>`), not under the task. For a redacted task
+  mention, `history_redact_child(mention)` blanks the parent's `task*` rows that name the person
+  (read inside the function from the mention's erasure, never passed in); signed ones keep their
+  digests (`history_redact_signed`). The registry marks a mention redacted before its port runs
+  and passes `mention_id`, so a port's own definer can be bound to the redacted mention.
 - **Attachment contents are not searched,** only file names and details: the report and the
   mentions list carry `attachment_content_searched: false`, shown with the label
   `people_erasure.attachment_content_not_searched`. **Inbound mail is searched by subject
@@ -226,10 +232,10 @@ release defect, never a silent skip).
   erasure still in a redactable state (requested, approved; lane C's #506 review). Rows a fingerprinted audit entry
   commits to (ADR-046: work items, assets) are **kept**, since blanking them would read as
   tampering; the mention's `history_kept` counts them and the screen says so
-  (`people_erasure.history_kept_fingerprinted`). Blanking those needs the pre-blank field
-  digests kept and a `redacted_on_request` verifier status: a follow-up before the work-item
-  mention ports register (lane C agreed, 2026-11-14). D-171 keeps no redacted original, so
-  until then an erasure with a kept row is **refused** at approval and at job start
+  (`people_erasure.history_kept_fingerprinted`). Since 0167 those are blanked too, by audit's
+  `redact_signed_history`, with the field's digests kept: the verifier reports such a save as
+  `redacted_on_request`, never `verified` (ADR-046 addendum). D-171 keeps no redacted original,
+  so an erasure with a row still kept is **refused** at approval and at job start
   (`erasure_signed_history_kept`; the coordinator, 2026-11-14).
 
 ### 5. Export (REQ-ADM-100)

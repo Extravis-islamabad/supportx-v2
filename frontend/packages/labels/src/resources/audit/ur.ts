@@ -919,6 +919,7 @@ export const ur: LabelResource = {
   'audit_export_format.jsonl': 'JSON سطریں',
   'audit_fingerprint_status.erased_on_request': 'درخواست پر مٹا دیا گیا',
   'audit_fingerprint_status.mismatch': 'مطابقت نہیں',
+  'audit_fingerprint_status.redacted_on_request': 'درخواست پر ترمیم شدہ',
   'audit_fingerprint_status.verified': 'تصدیق شدہ',
   'audit_outcome.done': 'مکمل',
   'audit_outcome.failed': 'ناکام',

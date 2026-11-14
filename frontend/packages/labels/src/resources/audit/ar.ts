@@ -919,6 +919,7 @@ export const ar: LabelResource = {
   'audit_export_format.jsonl': 'أسطر JSON',
   'audit_fingerprint_status.erased_on_request': 'تم المسح بناءً على الطلب',
   'audit_fingerprint_status.mismatch': 'غير مطابق',
+  'audit_fingerprint_status.redacted_on_request': 'نُقّح بناءً على الطلب',
   'audit_fingerprint_status.verified': 'تم التحقق',
   'audit_outcome.done': 'تم',
   'audit_outcome.failed': 'فشل',

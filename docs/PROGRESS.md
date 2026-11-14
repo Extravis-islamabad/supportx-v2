@@ -2496,10 +2496,10 @@ it with no reload (rule c). Not built yet.
 - [x] S1b: the definer functions `history_redact_field` (only a redacted mention's own field;
   fingerprinted rows kept and counted) and `audit_erase_profile_history` (after `erased_at`,
   step 6), in 0164 on #500's helper.
-- [ ] Follow-up before the work-item mention ports: blank fingerprinted history rows too, with
-  pre-blank field digests kept and a `redacted_on_request` verifier status (ADR-046). Until
-  then approval and job start refuse an erasure that kept such a row
-  (`erasure_signed_history_kept`; flip `SIGNED_HISTORY_REDACTION` with the verifier).
+- [x] Signed history redaction (0167, ADR-046 addendum): fingerprinted history rows blanked too,
+  their digests kept in `field_change_redactions`, the verifier's `redacted_on_request` status
+  (never `verified`; needs the logged redaction), `fingerprints_redacted` per run;
+  `SIGNED_HISTORY_REDACTION` on. The refusal stays for any row still kept.
 - [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
   ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
   retry action for a failed erasure; the erasure screens (report, passage, redaction).
