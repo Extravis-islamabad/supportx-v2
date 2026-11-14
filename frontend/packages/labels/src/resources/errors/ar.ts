@@ -751,6 +751,7 @@ export const ar: LabelResource = {
   'errors.field_keys_unavailable':
     'لا يمكن قراءة المعلومات المحمية أو حفظها الآن: مفتاح التثبيت غير متاح. اطلب من المسؤول التحقق منه.',
   'errors.field_not_ruleable': 'لا يمكن تقييد هذا الحقل.',
+  'errors.field_read_only': 'يمكنك قراءة هذا الحقل فقط، لذا لا يمكن تغييره.',
   'errors.file_link_expired': 'انتهت صلاحية الرابط. افتح الملف مجددًا.',
   'errors.file_not_an_image': 'هذا الملف ليس صورة.',
   'errors.file_not_found': 'هذا الملف غير موجود أو لا يمكنك رؤيته.',
