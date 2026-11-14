@@ -271,10 +271,12 @@ the save read as a mismatch.
   `person.erasure_mention_redacted` entry naming the mention); otherwise it is a `mismatch`.
   An auditor therefore always sees which saves rest on kept digests. Verification runs count
   them (`fingerprints_redacted`).
-- **Who writes the chain entry.** Only identity_access's erasure redaction
-  (`POST /erasures/{id}/mentions/redact`, `people.erase`, RecentAuth), in the same transaction
-  as the definer call, with the redacting admin as the entry's actor. No other API, and no
-  person outside that request, writes it.
+- **Who writes the chain entry** (the coordinator, 2026-11-14): service-written, never via API.
+  identity_access's erasure redaction service writes it, behind
+  `POST /erasures/{id}/mentions/redact` (`people.erase`, RecentAuth), in the same transaction as
+  the definer call. The actor is the admin who selected the redaction: a person chose to remove
+  that text, so their name is on it. The approver is shown on the erasure record. No API writes
+  an audit entry directly.
 
 **Trust.** The kept digests come from the app, as the fingerprints themselves do at save time:
 an app able to forge them could equally have forged a fingerprint. What changes is visibility,
