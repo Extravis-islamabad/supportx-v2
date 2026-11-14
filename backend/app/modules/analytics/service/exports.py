@@ -53,6 +53,8 @@ from app.shared.reporting import DimensionKind, ReportingSource
 from app.shared.storage import ObjectStorage, StorageNotConfigured, StorageUnavailable
 
 log = get_logger(__name__)
+
+FIELD_NOT_PERMITTED = "field_not_permitted"  # ADR-047 §5: the compiler's refusal code
 EXPORT = "reports.export"
 FORMATS = ("csv", "xlsx", "pdf")
 CONTENTS = ("summary", "records")
@@ -467,10 +469,15 @@ async def _job(session: AsyncSession, row: FileSpec, worker: Worker) -> "_Job | 
         compiled = compile_report(
             definition, source, now=now, zone=zone.key, week_start=worker.week_start
         )
-    except (PermissionDenied, ValidationFailed):
+    except (PermissionDenied, ValidationFailed) as error:
         # Built with this person's rights: a report they may not run (assets' money without
-        # view_financials) is theirs alone to miss; a schedule's other recipients still get it.
-        return "report_not_allowed"
+        # view_financials, a field their roles hide or mask) is theirs alone to miss; a
+        # schedule's other recipients still get it.
+        return (
+            FIELD_NOT_PERMITTED
+            if error.instance_code == FIELD_NOT_PERMITTED
+            else "report_not_allowed"
+        )
     namer = Namer(session, source.entity, row.language, zone)
     header = _header_lines(row, now, zone)
     # The reporting transaction is opened by build_export; rs is set there.
