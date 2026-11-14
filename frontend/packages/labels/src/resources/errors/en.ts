@@ -814,6 +814,7 @@ export const en = {
   'errors.field_keys_unavailable':
     'Protected information cannot be read or saved right now: the installation key is not available. Ask your administrator to check it.',
   'errors.field_not_ruleable': 'This field cannot be restricted.',
+  'errors.field_read_only': "You may only read this field, so it can't be changed.",
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',

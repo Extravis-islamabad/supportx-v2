@@ -817,6 +817,7 @@ export const ur: LabelResource = {
   'errors.field_keys_unavailable':
     'محفوظ معلومات ابھی پڑھی یا محفوظ نہیں کی جا سکتیں: انسٹالیشن کی کلید دستیاب نہیں۔ اپنے ایڈمنسٹریٹر سے اسے چیک کرنے کو کہیں۔',
   'errors.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
+  'errors.field_read_only': 'آپ یہ فیلڈ صرف پڑھ سکتے ہیں، اس لیے اسے بدلا نہیں جا سکتا۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',
   'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
