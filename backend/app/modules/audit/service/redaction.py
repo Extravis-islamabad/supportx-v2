@@ -28,6 +28,7 @@ from app.modules.audit.infra.models import AuditEntry
 from app.modules.audit.service.fingerprints import salts_of
 from app.shared.history import FieldChange
 
+_CHILD_ROWS = text("SELECT history_child_rows(:mention)")
 _REDACT = text(
     "SELECT history_redact_signed(:mention, :rows, :old, :new, :salted) AS result"
 ).bindparams(
@@ -78,10 +79,12 @@ async def redact_signed_history(
 ) -> int:
     """Blank the signed history rows of one redacted mention's field, keeping their digests.
 
-    Returns how many rows were blanked. Rows already blank, or not signed, are left (the
-    unsigned ones are `history_redact_field`'s). Idempotent: a second call blanks nothing.
+    Also a task mention's rows in its parent record's history (`task*` rows naming the person,
+    found by 0167's `history_child_rows()`). Returns how many rows were blanked. Rows already
+    blank, or not signed, are left (the unsigned ones are `history_redact_field`'s and
+    `history_redact_child`'s). Idempotent: a second call blanks nothing.
     """
-    rows = list(
+    own = list(
         await session.scalars(
             select(FieldChange).where(
                 FieldChange.record_type == record_type,
@@ -90,7 +93,22 @@ async def redact_signed_history(
             )
         )
     )
-    signers = await _signers(session, record_id)
+    child_ids = list(await session.scalars(_CHILD_ROWS, {"mention": mention_id}))
+    child = (
+        list(await session.scalars(select(FieldChange).where(FieldChange.id.in_(child_ids))))
+        if child_ids
+        else []
+    )
+    return await _redact_rows(session, mention_id, [*own, *child])
+
+
+async def _redact_rows(
+    session: AsyncSession, mention_id: uuid.UUID, rows: Sequence[FieldChange]
+) -> int:
+    """The digests of the signed rows among `rows`, kept; then the values blanked."""
+    signers: dict[uuid.UUID, tuple[str, tuple[uuid.UUID, ...]]] = {}
+    for record in {row.record_id for row in rows}:
+        signers |= await _signers(session, record)
     cache: dict[tuple[uuid.UUID, ...], list[bytes]] = {}
     ids: list[uuid.UUID] = []
     old: list[str] = []
@@ -106,7 +124,7 @@ async def redact_signed_history(
             continue
         object_type, subjects = signer
         spec = RECORD_TYPES.get(object_type)
-        personal = spec is not None and spec.is_personal(field)
+        personal = spec is not None and spec.is_personal(row.field)
         salts = await _salts(session, subjects, cache) if personal else []
         ids.append(row.id)
         old.append(value_digest(row.old_value, salts))

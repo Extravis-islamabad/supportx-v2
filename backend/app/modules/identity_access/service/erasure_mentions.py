@@ -482,6 +482,7 @@ async def signed_history_kept(session: AsyncSession, erasure_id: uuid.UUID) -> b
 
 
 _REDACT_HISTORY = text("SELECT history_redact_field(:mention) AS result")
+_REDACT_CHILD_HISTORY = text("SELECT history_redact_child(:mention) AS result")
 
 
 async def _redact_history(session: AsyncSession, mention_id: uuid.UUID) -> int:
@@ -491,7 +492,12 @@ async def _redact_history(session: AsyncSession, mention_id: uuid.UUID) -> int:
     from the redacted mention row itself, so no caller can point it at another field.
     """
     result = await session.scalar(_REDACT_HISTORY, {"mention": mention_id})
-    return int((result or {}).get("kept_fingerprinted", 0))
+    # A task's text lives in its parent record's history (`task*` rows): 0167's
+    # `history_redact_child()` finds those naming the person itself (nothing for other mentions).
+    child = await session.scalar(_REDACT_CHILD_HISTORY, {"mention": mention_id})
+    return int((result or {}).get("kept_fingerprinted", 0)) + int(
+        (child or {}).get("kept_fingerprinted", 0)
+    )
 
 
 def report_summary(row: PersonErasure) -> dict[str, Any] | None:

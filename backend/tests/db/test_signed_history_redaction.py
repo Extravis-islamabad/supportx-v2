@@ -316,3 +316,100 @@ async def test_tenant_b_sees_none_and_the_app_role_writes_none(world: World) -> 
         with pytest.raises(DBAPIError, match="permission denied"):
             async with db.tenant_session(TenantContext(a.tenant)) as session:
                 await session.execute(text(statement))
+
+
+async def _task_mention(
+    world: World,
+    org: Org,
+    erasure_id: uuid.UUID,
+    task_id: uuid.UUID,
+    *,
+    field: str = "title",
+    record_type: str = "work_item_task",
+    redacted_by: uuid.UUID | None,
+) -> uuid.UUID:
+    mention_id = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO person_erasure_mentions (tenant_id, id, erasure_id, module_key,"
+        " record_type, record_id, field, match_kind, occurrences, state, redacted_by,"
+        " redacted_at) VALUES ($1, $2, $3, $4, $5, $6, $7, 'name', 1, 'redacted', $8,"
+        " CASE WHEN $8::uuid IS NULL THEN NULL ELSE now() END)",
+        org.tenant,
+        mention_id,
+        erasure_id,
+        f"probe-{mention_id.hex[:6]}",
+        record_type,
+        task_id,
+        field,
+        redacted_by,
+    )
+    return mention_id
+
+
+async def _task_rows(world: World, org: Org, item_id: str) -> dict[uuid.UUID, tuple[Any, Any]]:
+    rows = await world.sql(
+        "SELECT id, old_value, new_value FROM field_changes WHERE tenant_id = $1"
+        " AND record_type = 'work_item' AND record_id = $2 AND field LIKE 'task%'",
+        org.tenant,
+        uuid.UUID(item_id),
+    )
+    return {r["id"]: (r["old_value"], r["new_value"]) for r in rows}
+
+
+async def test_a_task_mention_blanks_its_parent_s_task_history_naming_the_person(
+    world: World,
+) -> None:
+    """Task text lives in the parent record's history; only rows naming the person go (0167).
+
+    The person is read by the functions from the mention's own erasure: no caller passes terms.
+    Unsigned rows are blanked by `history_redact_child`; signed ones are kept by it and blanked
+    with their digests by `redact_signed_history`.
+    """
+    a = world.a
+    name = (await world.sql("SELECT display_name FROM users WHERE id = $1", a.tech_a))[0][0]
+    erasure_id = uuid.UUID((await _requested(world, a))["id"])
+    item = await world.create(a, a.admin, group_id=str(a.ga))
+    base = f"/incidents/{item['id']}/tasks"
+    named = await world.call("POST", base, a, a.admin, json={"title": f"Call {name} back"})
+    assert named.status_code == 201, named.text
+    other = await world.call("POST", base, a, a.admin, json={"title": "Order a cable"})
+    assert other.status_code == 201, other.text
+    before = await _task_rows(world, a, item["id"])
+    naming = {i for i, (o, n) in before.items() if name in f"{o} {n}"}
+    assert naming
+    assert len(naming) < len(before)
+    task_id = uuid.UUID(named.json()["id"])
+    call = text("SELECT history_redact_child(:m)")
+
+    async def run(mention_id: uuid.UUID) -> Any:  # noqa: ANN401 - the function's jsonb
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            return await session.scalar(call, {"m": mention_id})
+
+    zero = {"blanked": 0, "kept_fingerprinted": 0}
+    # Not redacted by anyone, or not a task mention: nothing.
+    assert await run(await _task_mention(world, a, erasure_id, task_id, redacted_by=None)) == zero
+    not_task = await _task_mention(
+        world, a, erasure_id, uuid.UUID(item["id"]), record_type="work_item", redacted_by=a.admin
+    )
+    assert await run(not_task) == zero
+    assert await _task_rows(world, a, item["id"]) == before
+    # The real one: every row naming the person is blanked or (signed) kept, nothing else.
+    mention = await _task_mention(world, a, erasure_id, task_id, redacted_by=a.admin)
+    first = await run(mention)
+    assert first["blanked"] + first["kept_fingerprinted"] == len(naming)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await redact_signed_history(session, mention, "work_item_task", task_id, "title")
+    after = await _task_rows(world, a, item["id"])
+    for row_id, values in after.items():
+        if row_id in naming:
+            assert values == (None, None)
+        else:
+            assert values == before[row_id]  # the other task's history is untouched
+    assert await run(mention) == zero  # idempotent: nothing named is left
+    # A closed erasure blanks nothing (the other task's rows stay as they are).
+    await world.sql(
+        "UPDATE person_erasures SET state = 'rejected' WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        erasure_id,
+    )
+    assert await run(mention) == zero

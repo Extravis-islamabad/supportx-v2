@@ -19,3 +19,16 @@ Plan A of the erasure follow-ups, approved by the coordinator (migration 0167). 
   `erasure_signed_history_kept` stays for any row still kept.
 - **Tests:** tests/db/test_signed_history_redaction.py (4) and
   tests/db/test_signed_history_redaction_migration.py (1); fingerprint golden vectors unchanged.
+
+- **Task history (found in #514's review):** a task's text lives in its parent work item's
+  history (`task` = the title, `task.<field>` = old/new values; no task ID in the rows), which
+  `history_redact_field` (by the mention's own record type) never reached. 0167 adds
+  `history_child_rows(mention)` and `history_redact_child(mention)`: for a redacted
+  `work_item_task` mention, the parent's `task` / `task.*` rows whose values contain the person's
+  name, address or phone (last 9 digits). The person is read inside the function from the
+  mention's own erasure, never passed in (the coordinator, 2026-11-14), so no caller can widen
+  what is blanked. Signed ones go through `history_redact_signed`, which accepts those rows too.
+  Test: rows naming the person blanked (signed ones with kept digests), the other task's history
+  untouched, idempotent, nothing for an unredacted or non-task mention or a closed erasure.
+- The registry marks a mention redacted before calling its port and passes `mention_id`, so a
+  port's definer bound to the redacted mention (lane C's 0168) can act from inside the port.
