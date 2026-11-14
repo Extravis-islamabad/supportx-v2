@@ -21,7 +21,7 @@ The downgrade refuses while any tenant has a redaction row (rule 5h), per tenant
 app.tenant_id set.
 
 Revision ID: 0167
-Revises: 0164
+Revises: 0165
 Created: 2026-11-14
 """
 
@@ -38,7 +38,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0167"
-down_revision: str | None = "0164"
+down_revision: str | None = "0165"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
