@@ -12,6 +12,7 @@ export type AuditEntryPage = components['schemas']['AuditEntryPage'];
 export type AuditStatus = components['schemas']['AuditStatusOut'];
 export type AuditRun = components['schemas']['AuditRunOut'];
 export type AuditSettings = components['schemas']['AuditSettingsOut'];
+export type PersonalDataAccessEntry = components['schemas']['PersonalDataAccessOut'];
 export type AuditSettingsInput = components['schemas']['AuditSettingsIn'];
 export type AuditExport = components['schemas']['AuditExportOut'];
 export type AuditExportInput = components['schemas']['AuditExportIn'];
@@ -241,5 +242,24 @@ export function useRestoredAuditEntries(id: string | undefined) {
     initialPageParam: null as string | null,
     getNextPageParam: (page) => (page.has_more ? page.next_cursor : null),
     enabled: id !== undefined,
+  });
+}
+
+/**
+ * Who accessed one person's personal data (REQ-AUD-017; WP-057 S3b-1), newest first, a page at a
+ * time (`before`). Needs audit.view_personal_data_access; the query is itself audited.
+ */
+export function usePersonalDataAccess(person: string | undefined, since?: string, until?: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.audit.personalDataAccess(person ?? '', since, until),
+    enabled: person !== undefined && person !== '',
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      call(
+        api.GET('/api/v1/audit/personal-data-access', {
+          params: { query: { person: person ?? '', since, until, before: pageParam } },
+        }),
+      ),
+    getNextPageParam: (page) => page.next_before ?? undefined,
   });
 }

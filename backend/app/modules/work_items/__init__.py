@@ -111,6 +111,7 @@ from app.modules.work_items.service.closing import (
 from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.kept_informed import KEPT_INFORMED
+from app.modules.work_items.service.person_records import records_requested_by
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
 from app.modules.work_items.service.reporting import register_sources, unregister_sources
 from app.modules.work_items.service.sla import register_sla
@@ -308,6 +309,7 @@ __all__ = [
     # WP-049b S4a; the workflow overview).
     "labels_of",
     "module",
+    "records_requested_by",
     "register_open_work",
     "register_requester_channel",
     "resolution_notified",
