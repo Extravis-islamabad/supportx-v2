@@ -970,6 +970,7 @@ class PersonErasure(TenantEntity):
             "tenant_id",
             "person_id",
             unique=True,
+            # nosemgrep: sx.sql-format - a fixed list of erasure state codes
             postgresql_where=text(f"state IN ({_OPEN})"),
         ),
         Index("ix_person_erasures_tenant_created", "tenant_id", "created_at", "id"),
