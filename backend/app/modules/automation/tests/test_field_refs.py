@@ -13,15 +13,13 @@ ACCESS = {
 
 
 def _author() -> Subject:
-    from app.modules.identity_access.domain.field_access import from_json  # noqa: PLC0415
-
     return Subject(
         tenant_id=uuid.uuid4(),
         user_id=uuid.uuid4(),
         role_keys=frozenset({"tenant_admin"}),
         is_tenant_admin=True,
         grants=MappingProxyType({}),
-        field_access=from_json(ACCESS),
+        field_access=ACCESS,  # the compiled form is a plain mapping
     )
 
 
