@@ -15,7 +15,7 @@ from app.core.modules import ModuleSpec
 from app.modules.knowledge.api import links as _links  # noqa: F401 - mounts its routes
 from app.modules.knowledge.api.routes import router
 from app.modules.knowledge.events import EVENTS
-from app.modules.knowledge.service import notifications
+from app.modules.knowledge.service import notifications, person_mentions
 from app.modules.knowledge.service.access import (
     APPROVE,
     CREATE,
@@ -98,5 +98,8 @@ module = ModuleSpec(
 # shutdown (tests start and stop the app).
 notifications.register()
 register_owner_access(FILE_ACCESS)
+
+# GDPR erasure (ADR-052 S2): the mentions report searches the knowledge base too (required).
+person_mentions.register()
 
 __all__ = ["module"]
