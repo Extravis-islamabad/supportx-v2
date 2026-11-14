@@ -559,6 +559,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/search` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/settings` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| PUT | `/api/v1/incidents/settings/closed-edit-lock` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/incidents/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | DELETE | `/api/v1/incidents/settings/lifecycles/{lifecycle}/draft` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/incidents/settings/lifecycles/{lifecycle}/draft/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |

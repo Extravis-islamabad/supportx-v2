@@ -246,6 +246,7 @@ export const ar: LabelResource = {
   'audit.action.incident.checklist_library_changed': 'غيّر قائمة تحقق في المكتبة',
   'audit.action.incident.checklist_library_created': 'أضاف قائمة تحقق إلى المكتبة',
   'audit.action.incident.closed': 'أغلق حادثة',
+  'audit.action.incident.closed_edited': 'عدّل حادثًا مغلقًا',
   'audit.action.incident.closed_record_edited': 'عدّل حادثة مغلقة',
   'audit.action.incident.created': 'أنشأ حادثة',
   'audit.action.incident.deleted': 'نقل حادثة إلى سلة المحذوفات',

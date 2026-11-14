@@ -249,6 +249,7 @@ export const en = {
   'audit.action.incident.checklist_library_changed': 'Changed a library checklist',
   'audit.action.incident.checklist_library_created': 'Added a library checklist',
   'audit.action.incident.closed': 'Closed an incident',
+  'audit.action.incident.closed_edited': 'Edited a closed incident',
   'audit.action.incident.closed_record_edited': 'Edited a closed incident',
   'audit.action.incident.created': 'Created an incident',
   'audit.action.incident.deleted': 'Moved an incident to the trash',

@@ -246,6 +246,7 @@ export const ur: LabelResource = {
   'audit.action.incident.checklist_library_changed': 'لائبریری کی چیک لسٹ تبدیل کی',
   'audit.action.incident.checklist_library_created': 'لائبریری میں چیک لسٹ شامل کی',
   'audit.action.incident.closed': 'واقعے کو بند کیا',
+  'audit.action.incident.closed_edited': 'بند واقعے میں ترمیم کی',
   'audit.action.incident.closed_record_edited': 'بند واقعہ میں ترمیم کی',
   'audit.action.incident.created': 'واقعے کو بنایا',
   'audit.action.incident.deleted': 'واقعہ ردی کی ٹوکری میں ڈالا',
