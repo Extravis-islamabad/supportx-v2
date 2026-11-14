@@ -2374,6 +2374,7 @@ export const ur: LabelResource = {
   'work_item.field.deployment_ended': 'تعیناتی ختم ہوئی',
   'work_item.field.description': 'تفصیل',
   'work_item.field.emergency_override': 'ہنگامی استثنا',
+  'work_item.field.first_contact_resolution': 'پہلے رابطے پر حل ہوا',
   'work_item.field.first_responded_at': 'پہلا جواب',
   'work_item.field.first_response_breached': 'جواب میں تاخیر',
   'work_item.field.first_response_due_at': 'جواب کی آخری حد',

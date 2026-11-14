@@ -86,6 +86,7 @@ from app.modules.organization import (
 from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
+from app.modules.work_items.domain import closure as closure_rules
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain import kept_informed
 from app.modules.work_items.domain import releases as release_rules
@@ -1523,6 +1524,11 @@ def _check_fields(  # noqa: C901, PLR0912, PLR0915 - one rule per field, flat
             if value is not None and value not in set(enum):
                 problems.append((name, "invalid_choice"))
             cleaned[name] = value
+    if "first_contact_resolution" in values:  # REQ-INC-102: the technician's word on it
+        flag = values["first_contact_resolution"]
+        if flag is not None and not isinstance(flag, bool):
+            problems.append(("first_contact_resolution", "invalid_choice"))
+        cleaned["first_contact_resolution"] = flag
     if "impact_details" in values:
         details, codes = clean_impact_details(values["impact_details"])
         problems += [("impact_details", c) for c in codes]
@@ -1827,6 +1833,7 @@ SNAPSHOT_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "first_contact_resolution",  # WP-046b S1 (REQ-INC-102 AC3)
     "notify_emails",
     "urgency",
     "priority",
@@ -2053,8 +2060,12 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
     target: str,
     reason_code: str | None,
     reason_text: str | None,
+    actor: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    """Column changes of a status move: category, reason, pause clock and time stamps."""
+    """Column changes of a status move: category, reason, pause clock and time stamps.
+
+    `actor` (a person's move) is who resolves, for the first-contact suggestion (REQ-INC-102).
+    """
     cat = await config.load(session, wtype)
     old = StatusCategory(record.status_category)
     new = cat.lifecycle.category(target)
@@ -2092,7 +2103,21 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
             "last_reopened_at": now,
             "resolved_at": None,
             "closed_at": None,
+            "first_contact_resolution": None,  # the next resolution decides it again
         }
+    elif (
+        wtype.code is WorkItemTypeCode.INCIDENT
+        and "resolved_at" in changes
+        and record.first_contact_resolution is None
+    ):  # REQ-INC-102: suggested at the first resolution; the technician confirms or changes it
+        changes["first_contact_resolution"] = closure_rules.first_contact(
+            created_by=record.created_by,
+            created_at=record.created_at,
+            reassignments=record.reassignment_count,
+            resolved_by=actor,
+            resolved_at=now,
+            minutes=cat.closure.first_contact_minutes,
+        )
     return changes
 
 
@@ -2106,6 +2131,7 @@ STAMP_FIELDS = (
     # WP-020f: the fix and the closure code; history keeps them after a reopen (REQ-INC-097).
     "resolution",
     "closure_code",
+    "first_contact_resolution",  # WP-046b S1 (REQ-INC-102 AC3): the suggestion, recorded
 )
 
 
@@ -3185,7 +3211,14 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     )
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
-        session, wtype, record, action, target=target, reason_code=reason_code, reason_text=text
+        session,
+        wtype,
+        record,
+        action,
+        target=target,
+        reason_code=reason_code,
+        reason_text=text,
+        actor=subject.user_id,
     )
     changes.update(closing_step.changes)
     # Rules see a status move as an edit ("status changed to Resolved", REQ-RUL-001); they

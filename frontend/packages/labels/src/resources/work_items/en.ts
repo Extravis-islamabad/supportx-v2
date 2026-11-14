@@ -2370,6 +2370,7 @@ export const en = {
   'work_item.field.deployment_ended': 'Deployment ended',
   'work_item.field.description': 'Description',
   'work_item.field.emergency_override': 'Emergency override',
+  'work_item.field.first_contact_resolution': 'Resolved at first contact',
   'work_item.field.first_responded_at': 'First response',
   'work_item.field.first_response_breached': 'Response overdue',
   'work_item.field.first_response_due_at': 'Respond by',

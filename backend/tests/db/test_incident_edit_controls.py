@@ -130,3 +130,31 @@ async def test_the_api_key_path_is_refused_too(world: World) -> None:  # noqa: F
         headers={"If-Match": f'"{item["version"]}"'},  # no console header: the public API
     )
     assert by_api.status_code == 403, by_api.text
+
+
+async def test_first_contact_resolution_is_suggested_then_the_technician_decides(
+    world: World,  # noqa: F811
+) -> None:
+    """REQ-INC-102 AC1-AC3: its creator resolving it at once is suggested, a reassigned one never
+    is, and the technician's change is recorded."""
+    a = world.a
+    quick = await world.create(a, a.admin, group_id=str(a.ga))
+    resolved = await world.act(a, a.admin, quick, "resolve")
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["first_contact_resolution"] is True  # AC1
+    moved = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    handed = await world.assign(
+        a, a.admin, moved, group=a.gb, technician=a.tech_b, reason_code="wrong_group"
+    )
+    assert handed.status_code == 200, handed.text
+    again = await world.act(a, a.admin, handed.json(), "resolve")
+    assert again.json()["first_contact_resolution"] is False  # AC2: reassigned, never suggested
+    changed = await _edit(world, a, a.admin, resolved.json(), first_contact_resolution=False)
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["first_contact_resolution"] is False
+    entries = await world.history(a, quick)
+    assert any(
+        c["field"] == "first_contact_resolution" and c["new"] is False
+        for e in entries
+        for c in e["changes"]
+    )  # AC3: the change is recorded

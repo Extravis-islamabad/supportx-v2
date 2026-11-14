@@ -338,6 +338,9 @@ class WorkItemPatch(BaseModel):
         description="A value sets it by hand (with a reason); null: back to the matrix.",
     )
     priority_reason: str | None = Field(default=None, max_length=PRIORITY_REASON_MAX)
+    first_contact_resolution: StrictBool | None = Field(
+        default=None, description="Resolved at first contact (REQ-INC-102); suggested at resolve."
+    )
     edit_reason: str | None = Field(
         default=None,
         max_length=1000,
@@ -716,6 +719,11 @@ class WorkItemOut(BaseModel):
     last_reopened_at: datetime | None
     reopen_count: int
     resolution: str | None = Field(description="The fix, sanitised rich text (REQ-INC-090).")
+    first_contact_resolution: bool | None = Field(
+        default=None,
+        description="Resolved at first contact (REQ-INC-102): suggested at resolve, confirmed or"
+        " changed by the technician; null until resolved.",
+    )
     closure_code: str | None = Field(description="A closure_code pick-list code (REQ-INC-093).")
     resolution_notified_at: datetime | None = Field(
         description="When the requester was told of the resolution; auto-close counts from it."
@@ -812,6 +820,7 @@ class WorkItemOut(BaseModel):
 
 
 _RECORD_FIELDS = (
+    "first_contact_resolution",
     "catalog_item_id",
     "answers",
     "approval_status",

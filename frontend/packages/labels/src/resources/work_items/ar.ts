@@ -2666,6 +2666,7 @@ export const ar: LabelResource = {
   'work_item.field.deployment_ended': 'انتهى النشر',
   'work_item.field.description': 'الوصف',
   'work_item.field.emergency_override': 'تجاوز طارئ',
+  'work_item.field.first_contact_resolution': 'حُلّ من أول تواصل',
   'work_item.field.first_responded_at': 'أول استجابة',
   'work_item.field.first_response_breached': 'تأخر الاستجابة',
   'work_item.field.first_response_due_at': 'الاستجابة قبل',
