@@ -523,6 +523,7 @@ class PolicyService:
             group_ids=group_ids,
             is_tenant_admin=TENANT_ADMIN in role_keys,
             fields=await field_access_of(session, role_ids),
+            person=user.user_type != UserType.SERVICE.value,
         )
 
     async def invalidate(self, tenant_id: uuid.UUID) -> None:

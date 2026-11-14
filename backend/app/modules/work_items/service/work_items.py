@@ -1676,6 +1676,33 @@ async def _analysis_changes(
     )
 
 
+def _given(values: Mapping[str, Any]) -> list[str]:
+    """The fields a create's input fills in (`custom.<key>` for custom ones), empty ones not."""
+
+    def filled(value: Any) -> bool:  # noqa: ANN401 - any JSON value
+        return value not in (None, "", [], {})
+
+    return [n for n, v in values.items() if n != "custom" and filled(v)] + [
+        f"custom.{k}" for k, v in (values.get("custom") or {}).items() if filled(v)
+    ]
+
+
+def require_writable(subject: Subject, wtype: WorkItemType, changed: Sequence[str]) -> None:
+    """403 `field_read_only` when a person changes a field their roles may only read (ADR-047 §8).
+
+    `changed` names really changed fields (`custom.<key>` for custom ones), so a form sending a
+    read-only value back unchanged passes. A service identity's writes (a workflow's, a
+    connector's) are system writes and pass; what they read is still restricted.
+    """
+    if not subject.person:
+        return
+    locked = field_rules.refused(
+        changed, field_rules.read_only(subject.field_access, wtype.code.value)
+    )
+    if locked:
+        raise PermissionDenied(code="field_read_only", params={"field": locked[0]})
+
+
 async def hidden_fields(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> frozenset[str]:
@@ -2467,6 +2494,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     template = await templates.for_create(session, wtype, values.get("template_id"), subject)
     # The template's form rules first (REQ-INC-037): what they set or clear is then checked
     # like any other input, and what they refuse is reported with the other field errors.
+    # What the person filled in themselves (before the form rules): a read-only field they may
+    # not set (ADR-047 §8); values a rule sets are the server's, not theirs.
+    require_writable(subject, wtype, _given(values))
     ruled = await templates.apply_form_rules(session, wtype, template, values, before=None)
     values = ruled.values
     cleaned, problems = _check_fields(values, creating=True)
@@ -2789,6 +2819,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         for n, v in values.items()
         if n != "custom" and _json(getattr(record, n, None)) != _json(v)
     ] + [f"custom.{k}" for k, v in (values.get("custom") or {}).items() if custom_now.get(k) != v]
+    require_writable(subject, wtype, sent)
     problems += await _read_only_problems(session, record, sent)
     if problems:
         raise _errors(problems)

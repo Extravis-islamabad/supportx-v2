@@ -122,3 +122,146 @@ async def test_history_leaves_out_hidden_changes_and_masks_masked_ones(world: Wo
         assert value not in seen.text
     full = await world.call("GET", f"{BASE}/{item['id']}/history", a, a.admin)
     assert "C9" in full.text
+
+
+async def test_a_read_only_field_cannot_be_changed_by_that_person(world: World) -> None:  # noqa: F811
+    """AC3: 403 `field_read_only`; sending the value back unchanged is fine; others may change."""
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={salary: "B7"})
+    await _rule(world, a, "technician", f"custom.{salary}", "read_only")
+
+    async def patch(user: uuid.UUID, version: int, **body: Any) -> Any:  # noqa: ANN401 - JSON
+        return await world.call(
+            "PATCH",
+            f"{BASE}/{item['id']}",
+            a,
+            user,
+            json=body,
+            headers={"If-Match": f'"{version}"', **CONSOLE},
+        )
+
+    seen = (await world.call("GET", f"{BASE}/{item['id']}", a, a.tech_a)).json()
+    assert seen["custom"][salary] == "B7"  # read-only: shown
+    refused = await patch(a.tech_a, seen["version"], custom={salary: "C9"})
+    assert (refused.status_code, refused.json()["code"]) == (403, "field_read_only"), refused.text
+    assert refused.json()["params"] == {"field": f"custom.{salary}"}
+    same = await patch(a.tech_a, seen["version"], custom={salary: "B7"}, subject="Printer down")
+    assert same.status_code == 200, same.text  # the read-only value sent back unchanged
+    done = await patch(a.admin, same.json()["version"], custom={salary: "C9"})
+    assert done.status_code == 200, done.text
+
+
+async def test_a_read_only_field_cannot_be_filled_in_on_create(world: World) -> None:  # noqa: F811
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    await _rule(world, a, "technician", f"custom.{salary}", "read_only")
+    refused = await world.call(
+        "POST",
+        BASE,
+        a,
+        a.tech_a,
+        json={
+            "subject": "New starter",
+            "requester_id": str(a.requester),
+            "group_id": str(a.ga),
+            "custom": {salary: "B7"},
+        },
+        headers={**CONSOLE, "Idempotency-Key": uuid.uuid4().hex},
+    )
+    assert (refused.status_code, refused.json()["code"]) == (403, "field_read_only"), refused.text
+    empty = await world.call(
+        "POST",
+        BASE,
+        a,
+        a.tech_a,
+        json={
+            "subject": "New starter",
+            "requester_id": str(a.requester),
+            "group_id": str(a.ga),
+            "custom": {salary: None},
+        },
+        headers={**CONSOLE, "Idempotency-Key": uuid.uuid4().hex},
+    )
+    assert empty.status_code == 201, empty.text  # left empty: fine
+
+
+async def test_a_withheld_field_cannot_be_filtered_or_sorted(world: World) -> None:  # noqa: F811
+    """AC2: a masked field is neither searchable nor sortable for that person."""
+    import json  # noqa: PLC0415 - one test
+
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={salary: "B7"})
+    await _rule(world, a, "technician", f"custom.{salary}", "masked")
+    probe = json.dumps({"field": f"custom.{salary}", "op": "eq", "value": "B7"})
+    filtered = await world.call("GET", BASE, a, a.tech_a, params={"filter": probe})
+    assert filtered.status_code == 422, filtered.text
+    sorted_ = await world.call("GET", BASE, a, a.tech_a, params={"sort": f"custom.{salary}"})
+    assert sorted_.status_code == 422, sorted_.text
+    fields = (await world.call("GET", f"{BASE}/list-fields", a, a.tech_a)).json()
+    assert f"custom.{salary}" not in {f["name"] for f in fields}
+    # Without the rule (the admin): the filter finds the record.
+    found = await world.call("GET", BASE, a, a.admin, params={"filter": probe})
+    assert found.status_code == 200, found.text
+    assert [r["id"] for r in found.json()["items"]] == [item["id"]]
+
+
+async def test_a_report_cannot_name_a_withheld_field(world: World) -> None:  # noqa: F811
+    """ADR-047 §5: a report, dashboard or export filtering on a masked field is refused."""
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    await world.create(a, a.admin, group_id=str(a.ga), custom={salary: "B7"})
+    await _rule(world, a, "technician", f"custom.{salary}", "masked")
+    definition = {
+        "entity": "incident",
+        "filter": {"field": f"custom.{salary}", "op": "eq", "value": "B7"},
+        "measures": ["count"],
+    }
+
+    async def run(user: uuid.UUID) -> Any:  # noqa: ANN401 - the response
+        return await world.call(
+            "POST",
+            "/reports/run",
+            a,
+            user,
+            json={"definition": definition, "language": "en"},
+            headers=CONSOLE,
+        )
+
+    refused = await run(a.tech_a)
+    assert refused.status_code in {403, 422}, refused.text
+    assert "B7" not in refused.text
+    ran = await run(a.admin)
+    assert ran.status_code == 200, ran.text
+
+
+async def test_an_api_key_gets_the_same_redaction_as_its_owner(world: World) -> None:  # noqa: F811
+    """Lane B's condition: a key acts as its owner narrowed to its scopes, so what the owner's
+    roles withhold, the key never reads (the real compile, through subject_for and for_key)."""
+    from fastapi import Request  # noqa: PLC0415 - one test
+
+    from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext  # noqa: PLC0415
+    from tests.db.test_access_api import fake_session  # noqa: PLC0415
+
+    async def key_session(request: Request) -> TenantContext | None:
+        tenant, user = request.headers.get("x-test-tenant"), request.headers.get("x-test-user")
+        if tenant is None or user is None:
+            return None
+        return TenantContext(
+            uuid.UUID(tenant), uuid.UUID(user), api_scopes=frozenset({"incidents:read"})
+        )
+
+    a = world.a
+    salary = await _custom_field(world, a, "Salary band")
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={salary: "B7"})
+    await _rule(world, a, "technician", f"custom.{salary}", "hidden")
+    setattr(world.app.state, SESSION_RESOLVER_STATE, key_session)
+    try:
+        seen = await world.call("GET", f"{BASE}/{item['id']}", a, a.tech_a)
+    finally:
+        setattr(world.app.state, SESSION_RESOLVER_STATE, fake_session)
+    assert seen.status_code == 200, seen.text
+    assert salary not in seen.json()["custom"]
+    assert seen.json()["hidden_fields"] == [f"custom.{salary}"]
+    assert "B7" not in seen.text

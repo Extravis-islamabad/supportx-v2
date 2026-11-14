@@ -14,9 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
+from app.core.tenancy import TenantContext
 from app.modules import metadata
 from app.modules.audit import audited
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, get_policy
+from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.lists import (
     MAX_BULK,
     MAX_COLUMNS,
@@ -239,13 +241,23 @@ async def _own_and_custom(session: AsyncSession, wtype: WorkItemType) -> Mapping
 
 
 def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dependency
-    """The list's ListQuery dependency: built-in fields plus custom fields (WP-026)."""
+    """The list's ListQuery dependency: built-in fields plus custom fields (WP-026).
+
+    Minus the fields the caller's roles hide or mask (ADR-047 AC2): filtering or sorting on one
+    is refused like any unknown field, so a filter never probes a value the list leaves out.
+    """
+
+    async def withheld(request: Request, tenant: TenantContext) -> frozenset[str]:
+        subject = await get_policy(request).subject_for(request, tenant)
+        return field_rules.unseen(subject.field_access, wtype.code.value).all
+
     return list_query(
         FIELDS,
         extra_parameters=frozenset({"view", "tag"}),
         # Custom fields filter as `custom.<key>` (WP-026), typed per tenant.
         # A type's own fields too (a change's risk, a problem's type): drill-down (REQ-CHG-116).
         fields_for=lambda session: _own_and_custom(session, wtype),
+        exclude_for=withheld,
     )
 
 
