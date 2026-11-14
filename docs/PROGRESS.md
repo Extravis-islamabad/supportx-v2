@@ -2527,6 +2527,9 @@ it with no reload (rule c). Not built yet.
     delete of them. Labels en/ar/ur.
   - Summaries: the ai erasure consumer already deletes them (D-131).
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
+  short one-word names flagged, never stored; task mentions say they reach the record's task
+  history; task-history phone match per digit run.
 - [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
   deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
 - **S2, lane A's ports (0166; lane B blocked):**

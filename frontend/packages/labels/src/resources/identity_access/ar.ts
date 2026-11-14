@@ -437,10 +437,15 @@ export const ar: LabelResource = {
   'people_erasure.mention_state.found': 'موجود',
   'people_erasure.mention_state.left': 'تُرك كما هو',
   'people_erasure.mention_state.redacted': 'أُزيل',
+  'people_erasure.reaches_record_history': 'يُزال أيضًا من سجل مهام السجل',
   'people_erasure.reason.consent_withdrawn': 'سُحبت الموافقة',
   'people_erasure.reason.legal_obligation': 'التزام قانوني',
   'people_erasure.reason.no_longer_needed': 'لم تعد مطلوبة',
   'people_erasure.reason.subject_request': 'بطلب من الشخص',
+  'people_erasure.short_name_not_searched':
+    'لم يُبحث عن الاسم القصير {{name}} وحده؛ بُحث عن الأسماء الكاملة.',
+  'people_erasure.short_name_not_searched_erased':
+    'لم يُبحث عن اسم قصير وحده؛ بُحث عن الأسماء الكاملة.',
   'people_erasure.state.approved': 'معتمد',
   'people_erasure.state.done': 'تم المحو',
   'people_erasure.state.expired': 'منتهي الصلاحية',

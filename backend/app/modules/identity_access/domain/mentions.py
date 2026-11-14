@@ -26,7 +26,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 
-NAME_MIN = 3  # shorter names are not searched (too many false matches)
+NAME_MIN = 3  # a name of several words shorter than this in all is not searched
+# A one-word display name searched on its own needs this many characters (str length, so
+# Arabic and Urdu count by letter): shorter ones ("Ali") match too many other people. The full
+# first + last name is always searched, and the report says a short name was skipped (the
+# coordinator, 2026-11-14).
+SINGLE_NAME_MIN = 4
 PHONE_MIN = 7  # phone numbers with fewer digits are not searched
 PHONE_TAIL = 9  # numbers this long or longer compare by their last 9 digits
 TERMS_MAX = 8  # names + addresses + numbers per person; a person has at most a handful
@@ -59,6 +64,8 @@ class MentionTerms:
     names: tuple[str, ...] = ()
     emails: tuple[str, ...] = ()
     phones: tuple[str, ...] = ()  # digits only
+    # A one-word display name too short to search on its own was left out (said in the report).
+    short_name_skipped: bool = False
 
     def empty(self) -> bool:
         """Nothing to search for."""
@@ -83,10 +90,22 @@ def build_terms(  # noqa: PLR0913 - the person's identifying fields, explicit
     phone: str | None,
     mobile: str | None,
 ) -> MentionTerms:
-    """The person's terms: display name, first + last, e-mail, phone and mobile as digits."""
+    """The person's terms: display name, first + last, e-mail, phone and mobile as digits.
+
+    The full first + last name is always searched; a one-word display name only when it has at
+    least SINGLE_NAME_MIN characters (`short_name_skipped` otherwise).
+    """
     names: list[str] = []
-    for name in (_spaced(display_name), _spaced(f"{first_name or ''} {last_name or ''}")):
-        if len(name) >= NAME_MIN and name.casefold() not in {n.casefold() for n in names}:
+    skipped = False
+    full = _spaced(f"{first_name or ''} {last_name or ''}")
+    shown = _spaced(display_name)
+    for name, single in ((full, False), (shown, True)):
+        if not name or name.casefold() in {n.casefold() for n in names}:
+            continue
+        if single and " " not in name and len(name) < SINGLE_NAME_MIN:
+            skipped = True
+            continue
+        if " " in name or len(name) >= NAME_MIN:
             names.append(name)
     emails = [address] if (address := (email or "").strip()) and "@" in address else []
     phones: list[str] = []
@@ -98,6 +117,7 @@ def build_terms(  # noqa: PLR0913 - the person's identifying fields, explicit
         names=tuple(sorted(names, key=len, reverse=True))[:TERMS_MAX],
         emails=tuple(emails),
         phones=tuple(phones),
+        short_name_skipped=skipped,
     )
 
 
