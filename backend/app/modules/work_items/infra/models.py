@@ -2538,6 +2538,41 @@ class ProblemRepeatHitIncident(TenantKeyed, Base):
     added_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
+class WorkItemDraft(UuidPrimaryKey, TenantKeyed, Base):
+    """One person's unsent create form, sealed (REQ-INC-019; migration 0160).
+
+    `body` is the form's values as JSON, sealed with the tenant's field key under
+    `field.work_items.draft` and bound to this row's ID, so it opens nowhere else. Only its
+    owner ever reads it; it goes when the record is saved, the draft discarded, its owner
+    deactivated or erased, or after 30 days.
+    """
+
+    __tablename__ = "work_item_drafts"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"], ["users.tenant_id", "users.id"], name="fk_wid_owner"
+        ),
+        Index(
+            "uq_wid_tenant_owner_type_form",
+            "tenant_id",
+            "owner_id",
+            "type",
+            "form_key",
+            unique=True,
+        ),
+        Index("ix_wid_tenant_updated", "tenant_id", "updated_at"),
+        CheckConstraint("octet_length(body) <= 131072", name="body_size"),
+    )
+
+    owner_id: Mapped[uuid.UUID]
+    type: Mapped[str] = mapped_column(String(20))
+    form_key: Mapped[str] = mapped_column(String(40))
+    body: Mapped[str] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(BigInteger, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+
+
 class WorkItemNotifyLink(UuidPrimaryKey, TenantKeyed, Base):
     """A stop-these-mails link in one mail to an address kept informed (REQ-INC-066; 0159).
 

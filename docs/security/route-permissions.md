@@ -457,6 +457,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
 | GET | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
 | PATCH | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
+| DELETE | `/api/v1/drafts/{form_key}` | signed_in | - |
+| GET | `/api/v1/drafts/{form_key}` | signed_in | - |
+| PUT | `/api/v1/drafts/{form_key}` | signed_in | - |
 | GET | `/api/v1/entitlements` | signed_in | - |
 | GET | `/api/v1/field-access/catalogue` | `roles.view` | roles.view: all |
 | GET | `/api/v1/field-access/effective` | `roles.view` | roles.view: all |

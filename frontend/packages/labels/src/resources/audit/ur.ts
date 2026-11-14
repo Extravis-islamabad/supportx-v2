@@ -1071,6 +1071,7 @@ export const ur: LabelResource = {
   'event_type.work_items.conversation.added': 'جواب یا نوٹ شامل کیا گیا',
   'event_type.work_items.conversation.delivery_changed': 'جواب کی ترسیل کی حالت بدلی',
   'event_type.work_items.conversation.visibility_changed': 'نوٹ کو عوامی یا نجی بنایا گیا',
+  'event_type.work_items.draft.changed': 'محفوظ مسودہ بدلا',
   'event_type.work_items.follower.added': 'فالوور شامل کیا گیا',
   'event_type.work_items.follower.removed': 'فالوور ہٹایا گیا',
   'event_type.work_items.list_settings.changed': 'فہرست کی ترتیبات تبدیل ہوئیں',

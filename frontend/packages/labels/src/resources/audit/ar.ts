@@ -1074,6 +1074,7 @@ export const ar: LabelResource = {
   'event_type.work_items.conversation.added': 'تمت إضافة رد أو ملاحظة',
   'event_type.work_items.conversation.delivery_changed': 'تغيّرت حالة تسليم الرد',
   'event_type.work_items.conversation.visibility_changed': 'تم جعل الملاحظة عامة أو خاصة',
+  'event_type.work_items.draft.changed': 'تغيّرت مسودة محفوظة',
   'event_type.work_items.follower.added': 'تمت إضافة متابع',
   'event_type.work_items.follower.removed': 'تمت إزالة متابع',
   'event_type.work_items.list_settings.changed': 'تم تغيير إعدادات القائمة',

@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0158"  # 0162's down revision while building (re-pointed at its queue turn)
+BEFORE = "0160"  # 0162's down revision while building (re-pointed at its queue turn)
 
 
 async def _has_table(url: str) -> bool:
