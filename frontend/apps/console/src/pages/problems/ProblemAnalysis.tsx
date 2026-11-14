@@ -123,7 +123,7 @@ function AnalysisField({
       title={title}
       data-testid={testId}
       extra={
-        canEdit && !editing ? (
+        canEdit && !editing && !(item.read_only_fields ?? []).includes(name) ? (
           <WriteButton
             size="small"
             icon={<EditOutlined />}
