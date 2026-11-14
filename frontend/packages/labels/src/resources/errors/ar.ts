@@ -750,6 +750,7 @@ export const ar: LabelResource = {
   'errors.field_access_rule_not_found': 'قاعدة الحقل هذه لم تعد موجودة.',
   'errors.field_keys_unavailable':
     'لا يمكن قراءة المعلومات المحمية أو حفظها الآن: مفتاح التثبيت غير متاح. اطلب من المسؤول التحقق منه.',
+  'errors.field_not_permitted': 'يستخدم هذا التقرير حقلًا غير متاح لك.',
   'errors.field_not_ruleable': 'لا يمكن تقييد هذا الحقل.',
   'errors.field_read_only': 'يمكنك قراءة هذا الحقل فقط، لذا لا يمكن تغييره.',
   'errors.file_link_expired': 'انتهت صلاحية الرابط. افتح الملف مجددًا.',

@@ -807,6 +807,7 @@ export const en = {
   'errors.field_access_rule_not_found': 'This field rule no longer exists.',
   'errors.field_keys_unavailable':
     'Protected information cannot be read or saved right now: the installation key is not available. Ask your administrator to check it.',
+  'errors.field_not_permitted': 'This report uses a field that is not available to you.',
   'errors.field_not_ruleable': 'This field cannot be restricted.',
   'errors.field_read_only': "You may only read this field, so it can't be changed.",
   'errors.file_link_expired': 'The link expired. Open the file again.',

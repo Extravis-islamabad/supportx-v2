@@ -810,6 +810,7 @@ export const ur: LabelResource = {
   'errors.field_access_rule_not_found': 'فیلڈ کا یہ اصول اب موجود نہیں۔',
   'errors.field_keys_unavailable':
     'محفوظ معلومات ابھی پڑھی یا محفوظ نہیں کی جا سکتیں: انسٹالیشن کی کلید دستیاب نہیں۔ اپنے ایڈمنسٹریٹر سے اسے چیک کرنے کو کہیں۔',
+  'errors.field_not_permitted': 'یہ رپورٹ ایک ایسا فیلڈ استعمال کرتی ہے جو آپ کے لیے دستیاب نہیں۔',
   'errors.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
   'errors.field_read_only': 'آپ یہ فیلڈ صرف پڑھ سکتے ہیں، اس لیے اسے بدلا نہیں جا سکتا۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',

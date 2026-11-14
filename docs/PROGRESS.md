@@ -1548,6 +1548,19 @@ it with no reload (rule c). Not built yet.
     texts; the root cause's own gate (view_root_cause) applies after the role rules.
   - Next: b2 (search fails closed, `restricted` on live channels and 409s, designer refusal,
     AI and notification variables), then slice c (the editor) and lane C's analytics slice.
+- **Analytics slice, field access in reports (no migration; ADR-047 §5; lane C; lane B blocks):**
+  - The reporting source names the fields it withheld (`ReportingSource.withheld`, filled by the
+    work item source). A report that names one (filter, groupings, columns or sort) is refused
+    as `field_not_permitted` (403), never as an unknown field, never with values. This covers
+    runs, dashboards, exports and scheduled files.
+  - A dashboard widget refused this way (or by `measure_not_permitted`) shows "Not available to
+    you", not "could not be loaded".
+  - A schedule whose owner may no longer see a field it uses pauses as `field_not_permitted`
+    before any file is made. A recipient who may not see one gets no file; the others do
+    (counted in `last_failed`).
+  - [ ] Follow-up (coordinator, 2026-11-14): one notice per run to the owner naming who was
+    skipped and which fields (labels, no values). It is a notifications kind agreed with lane A,
+    and the run event carries the counts and field codes; no migration.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
