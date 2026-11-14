@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Index, Integer, String, text
+from sqlalchemy import Boolean, CheckConstraint, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -72,3 +72,7 @@ class CustomField(TenantEntity):
     index_state: Mapped[str] = mapped_column(String(10), server_default="none")
     index_error: Mapped[str | None] = mapped_column(String(20))
     index_requested_by: Mapped[uuid.UUID | None]
+    # An admin's marks (REQ-ADM-026 AC2, D-171; migration 0162). Marking creates no field access
+    # rule; personal data erasure and export read them (lane B).
+    personal_data: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    sensitive: Mapped[bool] = mapped_column(Boolean, server_default="false")

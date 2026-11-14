@@ -49,6 +49,10 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "PATCH /api/v1/roles/{role_id}",
     "PUT /api/v1/users/{user_id}/roles/{role_id}",
     "PUT /api/v1/roles/{role_id}/groups/{group_id}",
+    # Who sees which fields (ADR-047, lane B's #499 review): as sensitive as role changes.
+    "POST /api/v1/field-access/rules",
+    "PATCH /api/v1/field-access/rules/{rule_id}",
+    "DELETE /api/v1/field-access/rules/{rule_id}",
     "PUT /api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}",
     # GDPR (D-171, ADR-052): legal hold, and both people of a person's erasure.
     "PUT /api/v1/people/{user_id}/legal-hold",
