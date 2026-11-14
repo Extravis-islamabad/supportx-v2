@@ -29,7 +29,6 @@ from app.modules.ai import (
     unregister_conversation_source,
     unregister_embedding_source,
     unregister_record_access,
-    unregister_requested_records,
 )
 from app.modules.assets import register_linked_records, register_ticket_requesters
 from app.modules.identity_access import SERVICE_DESK_MANAGER
@@ -180,7 +179,8 @@ async def _shutdown(app: FastAPI) -> None:
     unregister_record_access(INCIDENT.code)
     unregister_conversation_source(INCIDENT.code)
     unregister_embedding_source(INCIDENT.code)
-    unregister_requested_records()
+    # The requested-records lister stays: it is registered at import, and a process that stops an
+    # app may still run the erasure job (lane B, #502).
 
 
 register_record_usage()
