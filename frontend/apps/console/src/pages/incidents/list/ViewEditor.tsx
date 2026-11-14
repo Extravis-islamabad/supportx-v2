@@ -2,7 +2,6 @@ import {
   App,
   Alert,
   Button,
-  Drawer,
   Flex,
   Input,
   Popconfirm,
@@ -23,7 +22,7 @@ import {
   type SavedView,
 } from '@supportx/api-client';
 import { FilterBuilder, rowProblems, toDsl } from '@supportx/forms';
-import { lengthLimit, reportError, useLabel, WriteButton } from '@supportx/ui';
+import { Drawer, lengthLimit, reportError, useLabel, WriteButton } from '@supportx/ui';
 
 import type { ReportWords } from '../../reports/names';
 import { builderFields, type ViewDraft } from './model';

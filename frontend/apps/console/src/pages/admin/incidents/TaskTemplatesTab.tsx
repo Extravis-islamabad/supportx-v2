@@ -2,7 +2,6 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   Button,
   Card,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -22,7 +21,7 @@ import {
   type TaskPriority,
   type TaskTemplate,
 } from '@supportx/api-client';
-import { EmptyText, lengthLimit, reportError, useLabel, WriteButton } from '@supportx/ui';
+import { Drawer, EmptyText, lengthLimit, reportError, useLabel, WriteButton } from '@supportx/ui';
 
 const PRIORITIES: readonly TaskPriority[] = ['low', 'normal', 'high'];
 const MAX_TASKS = 20;

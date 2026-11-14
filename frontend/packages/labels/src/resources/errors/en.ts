@@ -284,6 +284,27 @@ export const en = {
   'errors.entitlement_required.detail': '{{feature}} is not part of your organisation’s plan.',
   'errors.entitlements_unavailable':
     'Licence information is temporarily unavailable. Please try again shortly.',
+  'errors.erasure_already_open': 'An erasure of this person is already open.',
+  'errors.erasure_approval_invalid': 'The approval of this erasure is no longer valid.',
+  'errors.erasure_break_glass_account':
+    'A break-glass account cannot be erased. Remove it from break-glass first.',
+  'errors.erasure_identity_unavailable':
+    'The sign-in service could not be reached. The erasure will try again.',
+  'errors.erasure_needs_another_admin': 'Another administrator must approve this erasure.',
+  'errors.erasure_not_found': 'This erasure no longer exists.',
+  'errors.erasure_not_pending': 'This erasure can no longer be changed.',
+  'errors.erasure_of_self': 'You cannot erase yourself.',
+  'errors.erasure_port_kind_undeclared':
+    'A part of the product reported something it did not declare. Contact support.',
+  'errors.erasure_port_missing':
+    'Part of the product cannot erase personal data yet. Contact support.',
+  'errors.erasure_report_unavailable':
+    'Erasures cannot be approved yet: the report of where the person is named is not available.',
+  'errors.erasure_request_expired':
+    'This erasure request has expired. Ask again if it is still needed.',
+  'errors.erasure_sessions_unavailable':
+    'Sessions could not be ended just now. The erasure will try again.',
+  'errors.erasure_step_failed': 'A step of the erasure did not work. It will try again.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
   'errors.field.address_not_allowed':
     "This server address can't be used. Use the mail server's public name.",
@@ -439,6 +460,12 @@ export const en = {
   'errors.field.english_label_required': 'An English name is required.',
   'errors.field.english_text_required':
     'Add the English text: it is shown wherever no translation exists.',
+  'errors.field.erasure_confirm_name_mismatch': "Type the person's name exactly as shown.",
+  'errors.field.erasure_keep_file_unknown': 'This file was not uploaded by this person.',
+  'errors.field.erasure_keep_files_too_many': 'Keep at most {{max}} files.',
+  'errors.field.erasure_keep_reason_required': 'Give a reason for keeping this file.',
+  'errors.field.erasure_successor_is_person': 'Choose someone other than the person being erased.',
+  'errors.field.erasure_successor_not_active': 'Choose an active person to take over.',
   'errors.field.exception_range_order': 'The last day must be on or after the first day.',
   'errors.field.exception_range_too_long': 'Special hours can cover at most one year.',
   'errors.field.exception_ranges_overlap':
@@ -911,6 +938,7 @@ export const en = {
     "Enter the directory server's host name or IP address, without ldap:// or a path.",
   'errors.ldap_single_tenant_only':
     'AD/LDAP directories can only be connected on an installation that serves one organisation.',
+  'errors.legal_hold_not_set': 'This person is not on legal hold.',
   'errors.lifecycle_draft_exists':
     'This life cycle already has a draft. Open it, or throw it away first.',
   'errors.lifecycle_draft_not_found': 'This life cycle has no draft. Start one to make changes.',
@@ -1014,6 +1042,8 @@ export const en = {
   'errors.people_import_file_unsafe':
     'The workbook was not opened: it unpacks to far more than its size.',
   'errors.permission_denied': 'You do not have permission to do this.',
+  'errors.person_already_erased': 'This person has been erased.',
+  'errors.person_on_legal_hold': 'This person is on legal hold and cannot be erased.',
   'errors.pick_list_not_found': 'That list does not exist.',
   'errors.pick_list_value_not_found': 'That value no longer exists.',
   'errors.plain_connection_refused':

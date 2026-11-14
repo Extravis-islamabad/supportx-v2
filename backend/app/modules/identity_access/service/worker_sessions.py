@@ -25,6 +25,7 @@ log = get_logger(__name__)
 
 TenantSessionEnder = Callable[[uuid.UUID, uuid.UUID], Awaitable[None]]
 KeycloakSessionInUse = Callable[[uuid.UUID, uuid.UUID, str], Awaitable[bool]]
+KeycloakSessionIds = Callable[[uuid.UUID, uuid.UUID], Awaitable[list[str]]]
 
 
 class SessionsUnavailable(Exception):
@@ -80,3 +81,25 @@ def worker_keycloak_session_in_use(settings: Settings) -> KeycloakSessionInUse |
             await kv.aclose()
 
     return in_use
+
+
+def worker_keycloak_sessions(settings: Settings) -> KeycloakSessionIds | None:
+    """`ids(tenant_id, user_id)`: the Keycloak sessions a person's live sessions hold (ADR-052).
+
+    None where sessions are not set up. Raises SessionsUnavailable when Valkey does not answer.
+    """
+    cipher = SessionCipher.from_settings(settings)
+    if settings.valkey_url is None or cipher is None:
+        return None
+
+    async def ids(tenant_id: uuid.UUID, user_id: uuid.UUID) -> list[str]:
+        kv = valkey_client(settings)
+        try:
+            store = SessionStore(ValkeyKeyValue(kv), cipher)
+            return await store.keycloak_session_ids(user_key(str(tenant_id), str(user_id)))
+        except (valkey.exceptions.ValkeyError, OSError) as exc:
+            raise SessionsUnavailable from exc
+        finally:
+            await kv.aclose()
+
+    return ids

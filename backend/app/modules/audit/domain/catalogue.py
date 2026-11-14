@@ -177,6 +177,17 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.reactivated", AuditCategory.ACCESS, "identity_access"),
     ("people.import_started", AuditCategory.ACCESS, "identity_access"),
     ("access.settings_changed", AuditCategory.ACCESS, "identity_access"),
+    # GDPR person erasure and legal hold (D-171, ADR-052): every step, with the reason
+    ("person.legal_hold_set", AuditCategory.DATA, "identity_access"),
+    ("person.legal_hold_lifted", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_requested", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_approved", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_rejected", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_expired", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_completed", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_failed", AuditCategory.DATA, "identity_access"),
+    # one per uploaded file the admin chose to keep (D-171 b), with the admin's reason
+    ("person.erasure_file_kept", AuditCategory.DATA, "identity_access"),
     # organisation
     ("site.created", AuditCategory.ORGANISATION, "organization"),
     ("site.renamed", AuditCategory.ORGANISATION, "organization"),

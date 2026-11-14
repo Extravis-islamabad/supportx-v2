@@ -61,6 +61,8 @@ COST_RATES_LIST = LiveList("user_cost_rates", "users.view_cost_rates")
 FIELD_ACCESS_LIST = LiveList("field_access", "roles.view")
 # The sign-in log (REQ-AUD-015): only for those who may read it; the message names nothing.
 SIGN_INS_LIST = LiveList("sign_ins", "identity.view_sign_ins")
+# GDPR erasures (ADR-052): for those who may erase; the message names the erasure only.
+ERASURES_LIST = LiveList("person_erasures", "people.erase")
 KEY_SETTINGS = frozenset({"people_may_create_keys", "allow_non_expiring_keys"})
 
 # Changes to these user fields change what the user may do: their connections are cut.
@@ -106,6 +108,7 @@ CHANNELS = [
     COST_RATES_LIST.spec(),
     FIELD_ACCESS_LIST.spec(),
     SIGN_INS_LIST.spec(),
+    ERASURES_LIST.spec(),
 ]
 
 
@@ -394,6 +397,19 @@ async def _sign_in_recorded(envelope: EventEnvelope, session: AsyncSession) -> R
     )
 
 
+async def _erasure_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An erasure was requested, decided or moved on: open erasure screens refetch (rule 5c)."""
+    del session
+    return RealtimeEffects(
+        publications=ERASURES_LIST.publications(
+            envelope.tenant_id,
+            "person_erasures.changed",
+            uuid.UUID(str(envelope.aggregate_id)),
+            actor_id=_actor(envelope),
+        )
+    )
+
+
 async def _plan_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """The tenant's plan changed: permissions depend on features, so everyone rejoins.
 
@@ -440,4 +456,5 @@ ROUTES = [
     RealtimeRoute(("identity_access.api_key.changed",), _api_key_changed),
     RealtimeRoute(("identity_access.user_cost_rate.changed",), _cost_rate_changed),
     RealtimeRoute(("identity_access.sign_in.recorded",), _sign_in_recorded),
+    RealtimeRoute(("identity_access.person_erasure.changed",), _erasure_changed),
 ]

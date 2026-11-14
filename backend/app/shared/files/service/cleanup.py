@@ -10,6 +10,7 @@ written by the caller (shared code cannot reach the audit module); `Purged` says
 """
 
 import uuid
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import timedelta
 
@@ -17,7 +18,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.shared.events import record_event
 from app.shared.files.domain.states import FileState
+from app.shared.files.events import FileChanged
 from app.shared.files.infra.models import FileLink, StoredFile
 from app.shared.files.ports import OwnerType
 from app.shared.files.service.core import FileServices, lock_usage, now
@@ -104,3 +107,73 @@ async def purge_record(
         )
     )
     return await _purge(session, services, rows)
+
+
+@dataclass(frozen=True)
+class Forgotten:
+    """What `forget_uploader` did: files deleted, and whether the batch was full (call again)."""
+
+    deleted: int
+    full: bool
+
+
+async def forget_uploader(
+    session: AsyncSession,
+    uploader_id: uuid.UUID,
+    *,
+    keep: Collection[uuid.UUID] = (),
+    limit: int = BATCH,
+) -> "Forgotten":
+    """A person's GDPR erasure (D-171 b, ADR-052 §4): the files they uploaded go.
+
+    Every live file they uploaded (`created_by`), except those in `keep` (the admin kept them,
+    each with a reason the erasure job audits), is deleted now and purged at the next purge
+    run: no undo window, the person asked for it to go. Each deleted file's screens refresh
+    (`system.file.changed`). Files already deleted wait no longer either. Idempotent: a second
+    call deletes nothing and returns 0. At most `limit` files per call (the erasure job calls
+    again while `full`, a call that used its whole limit). Returns how many it deleted.
+    """
+    moment = now()
+    query = (
+        select(StoredFile)
+        .where(StoredFile.created_by == uploader_id)
+        .where((StoredFile.deleted_at.is_(None)) | (StoredFile.purge_after > moment))
+        .order_by(StoredFile.id)
+        .limit(limit)
+        .with_for_update()
+    )
+    if keep:
+        query = query.where(StoredFile.id.not_in(list(keep)))
+    rows = list(await session.scalars(query))
+    deleted = 0
+    for stored in rows:
+        live = stored.deleted_at is None
+        if live:
+            stored.state = FileState.DELETED.value
+            stored.deleted_at = moment
+            stored.version += 1
+            deleted += 1
+        stored.purge_after = moment
+        if not live:
+            continue
+        link = await session.scalar(
+            select(FileLink)
+            .where(FileLink.file_id == stored.id)
+            .order_by(FileLink.created_at)
+            .limit(1)
+        )
+        if link is not None:
+            await record_event(
+                session,
+                FileChanged(
+                    file_id=stored.id,
+                    state=stored.state,
+                    owner_type=link.owner_type,
+                    owner_id=link.owner_id,
+                    record_type=link.record_type,
+                    record_id=link.record_id,
+                ),
+                aggregate_id=stored.id,
+            )
+    await session.flush()
+    return Forgotten(deleted=deleted, full=len(rows) >= limit)

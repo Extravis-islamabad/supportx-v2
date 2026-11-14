@@ -2995,6 +2995,67 @@
         "type": "object"
       }
     },
+    "identity_access.person_erasure.changed": {
+      "1": {
+        "description": "A GDPR erasure was requested, approved, rejected, expired, or its job moved on (ADR-052).\n\nIDs, the state code and the next step only (never a name or a reason): the erasure screens\nof people who may erase refetch, and the person's own record follows the step's changes\nthrough its ordinary events.",
+        "properties": {
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "requested",
+              "approved",
+              "running",
+              "done",
+              "rejected",
+              "expired",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "maximum": 8,
+            "minimum": 0,
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "person_id",
+          "state",
+          "step"
+        ],
+        "title": "PersonErasureChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.person_erasure.completed": {
+      "1": {
+        "description": "A person was erased (ADR-052 step 7), after `user.status_changed` with reason `erasure`.\n\nFor consumers that act once the whole erasure is done (exports, caches). The person's ID only.",
+        "properties": {
+          "erasure_id": {
+            "format": "uuid",
+            "title": "Erasure Id",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "erasure_id"
+        ],
+        "title": "PersonErasureCompleted",
+        "type": "object"
+      }
+    },
     "identity_access.role.changed": {
       "1": {
         "description": "A role was created, edited (name, description, permissions) or deleted (WP-016).",

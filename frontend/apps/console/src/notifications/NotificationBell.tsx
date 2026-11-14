@@ -4,7 +4,6 @@ import {
   App as AntApp,
   Badge,
   Button,
-  Drawer,
   Empty,
   List,
   Space,
@@ -24,7 +23,7 @@ import {
   type NotificationEntry,
 } from '@supportx/api-client';
 import { usePersonalChannel } from '@supportx/realtime';
-import { reportError, useDateTime, useLabel } from '@supportx/ui';
+import { Drawer, reportError, useDateTime, useLabel } from '@supportx/ui';
 
 const LIVE_TOAST = 'notification-live';
 

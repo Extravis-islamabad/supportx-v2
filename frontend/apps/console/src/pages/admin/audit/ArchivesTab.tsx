@@ -1,4 +1,4 @@
-import { Alert, Button, Drawer, Flex, Space, Table, Typography } from 'antd';
+import { Alert, Button, Flex, Space, Table, Typography } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -11,7 +11,7 @@ import {
   type AuditEntry,
 } from '@supportx/api-client';
 import { refreshList, useListChannel } from '@supportx/realtime';
-import { useAccess, useDateTime, useLabel } from '@supportx/ui';
+import { Drawer, useAccess, useDateTime, useLabel } from '@supportx/ui';
 
 import { ProblemAlert } from './ProblemAlert';
 import { actionLabel, actorLabel, OUTCOME_COLOURS } from './present';
