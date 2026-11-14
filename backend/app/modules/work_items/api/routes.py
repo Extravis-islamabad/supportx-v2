@@ -38,6 +38,7 @@ from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain import reapproval as reapproval_rules
 from app.modules.work_items.domain.approvals import RouteReason
 from app.modules.work_items.domain.change_risk import RiskLevel
@@ -744,14 +745,31 @@ class WorkItemOut(BaseModel):
     )
     following: bool = Field(description="You follow this record.")
     conversation_count: int = Field(description="Replies and notes.")
+    hidden_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields not shown to you (null here); custom ones as custom.<key> (ADR-047).",
+    )
+    masked_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields shown to you as masked (null here, shown as masked; ADR-047).",
+    )
 
     @classmethod
     def of(cls, view: service.WorkItemView) -> "WorkItemOut":
-        """From the service view."""
+        """From the service view: withheld fields null, their custom values left out (ADR-047)."""
         r = view.record
+        withheld = view.hidden | view.masked
+        values: dict[str, Any] = {
+            name: None if name in withheld else getattr(r, name) for name in _RECORD_FIELDS
+        }
+        values["custom"] = field_rules.without(
+            r.custom, field_rules.Unseen(view.hidden, view.masked).custom_keys()
+        )
         return cls(
-            **{name: getattr(r, name) for name in _RECORD_FIELDS},
-            root_cause=None if "root_cause" in view.hidden else r.root_cause,
+            **values,
+            hidden_fields=sorted(view.hidden),
+            masked_fields=sorted(view.masked),
+            root_cause=None if "root_cause" in withheld else r.root_cause,
             root_cause_hidden="root_cause" in view.hidden,
             review_required=view.review_required,
             analysis_changes=[
