@@ -54,6 +54,7 @@ REQUIRED_PORTS: frozenset[str] = frozenset(
         # Lane A's (0166): references before owned rows.
         "work_items.references",
         "work_items.owned",
+        "notifications",
     }
 )
 
