@@ -257,7 +257,9 @@ async def approve(  # noqa: PLR0913 - the erasure, its version, who and the type
         # in a report every required module took part in. Until S2's ports land, no report is
         # complete (REQUIRED_MENTION_PORTS), so nothing can be approved, so nothing can run.
         raise Conflict(code=rules.REPORT_UNAVAILABLE)
-    if row.report_reviewed_at is None:
+    if row.report_reviewed_at is None or row.report_reviewed_by != actor_id:
+        # The approver must have looked at the report themselves (D-171 a: "the approver sees
+        # the report"), not only someone else (lane B's review of S1b).
         raise Conflict(code=rules.REPORT_NOT_REVIEWED)
     row.state = ErasureState.APPROVED.value
     row.approved_by, row.approved_at = actor_id, now

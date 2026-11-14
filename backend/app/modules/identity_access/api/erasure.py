@@ -591,7 +591,7 @@ async def redact_mentions(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     """
     done = await erasure_mentions.redact(
         session,
-        subject.user_id,
+        subject,
         erasure_id,
         body.mention_ids,
         expected_version=version,

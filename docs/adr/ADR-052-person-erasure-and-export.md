@@ -31,7 +31,7 @@ half-erased person nor be skipped.
   tenant admin; break-glass accounts; a person under legal hold; an erasure already open.
 - **The mentions report (D-171 a)** is shown to the approver (S1b, §4a). Approval is refused
   with `erasure_report_unavailable` while the report is missing or incomplete, and with
-  `erasure_report_not_reviewed` until an admin has reviewed it.
+  `erasure_report_not_reviewed` until the approving admin has reviewed it themselves.
 
 ### 2. Legal hold (H1)
 
@@ -190,14 +190,16 @@ release defect, never a silent skip).
   {kind: count}}, ports_done, ports_missing, attachment_content_searched: false, building:
   null}`. A port registered later runs on the next tick, and the review then lapses.
 - **Review.** `POST /erasures/{id}/report/reviewed` (`people.erase`, RecentAuth, If-Match,
-  audited `person.erasure_report_reviewed`) sets `report_reviewed_at/by`; approval needs it, and
+  audited `person.erasure_report_reviewed`) sets `report_reviewed_at/by`; approval needs the
+  approver's own review (a review by anyone else does not count), and
   approval leaves the mentions still found as `left`. The job's step 0 still refuses an
   incomplete report.
 - **Reading.** `GET /erasures/{id}/mentions` lists places and counts (cursor pages, never
   text); `GET /erasures/{id}/mentions/{mention_id}/passage` returns the current text through
   the owning port (404 when the caller may not read the record), each view audited
   `person.erasure_mention_viewed` with IDs only.
-- **Redaction.** `POST /erasures/{id}/mentions/redact` (`people.erase`, RecentAuth, If-Match on
+- **Redaction** needs the same read rights as the passage: a mention of a record the admin may
+  not read refuses the whole request (404). `POST /erasures/{id}/mentions/redact` (`people.erase`, RecentAuth, If-Match on
   the erasure, at most 200 mention IDs; requested or approved, never once the job runs): each
   through its port, the row marked redacted, an audit entry `person.erasure_mention_redacted`
   per mention (IDs only). A mention of another erasure refuses the whole request (404).

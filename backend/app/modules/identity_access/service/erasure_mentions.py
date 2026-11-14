@@ -365,7 +365,7 @@ class Redacted:
 
 async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentions, when
     session: AsyncSession,
-    actor_id: uuid.UUID,
+    subject: Subject,
     erasure_id: uuid.UUID,
     mention_ids: Sequence[uuid.UUID],
     *,
@@ -374,9 +374,11 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
 ) -> Redacted:
     """Replace the chosen mentions' matched text with the D2a marker (before the job starts).
 
-    All or nothing: a mention of another erasure refuses the whole request (404). A mention
-    already redacted is skipped (idempotent).
+    All or nothing: a mention of another erasure, or of a record the subject's own rights do
+    not let them read, refuses the whole request (404): nobody redacts what they cannot see
+    (lane B's review of S1b). A mention already redacted is skipped (idempotent).
     """
+    actor_id = subject.user_id
     row = await _locked(session, erasure_id, expected_version)
     if not rules.can("redact", ErasureState(row.state)).allowed:
         raise Conflict(code=rules.NOT_PENDING, params={"state": row.state})
@@ -397,6 +399,11 @@ async def redact(  # noqa: PLR0913 - the erasure, its version, who, which mentio
     ports = {m.module_key: mention_port(m.module_key) for m in found.values()}
     if any(port is None for port in ports.values()):
         raise Conflict(code=rules.MENTION_PORT_MISSING)
+    for mention in found.values():
+        port = ports[mention.module_key]
+        assert port is not None  # noqa: S101 - checked above; narrows the type
+        if await port.passage(session, subject, _mention(mention)) is None:
+            raise NotFound(code=rules.MENTION_NOT_FOUND)
     person = await session.get(User, row.person_id)
     terms = person_terms(person) if person is not None else MentionTerms()
     done: list[tuple[PersonErasureMention, bool]] = []

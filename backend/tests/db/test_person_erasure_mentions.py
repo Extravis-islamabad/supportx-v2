@@ -414,7 +414,17 @@ async def test_approval_needs_a_complete_then_reviewed_report(world: World) -> N
     assert [(e["outcome"], e["object_id"]) for e in logged if e["outcome"] == "done"] == [
         ("done", str(erasure_id))
     ]
-    approved = await approve(version + 1)
+    # Reviewed by someone else is not enough: the approver must have looked themselves.
+    assert _code(await approve(version + 1)) == (409, "erasure_report_not_reviewed")
+    own = await world.call(
+        "POST",
+        f"/erasures/{erasure_id}/report/reviewed",
+        a,
+        approver,
+        headers={"If-Match": f'"{version + 1}"'},
+    )
+    assert own.status_code == 200, own.text
+    approved = await approve(version + 2)
     assert approved.status_code == 200, approved.text
     states = await world.sql(
         "SELECT DISTINCT state FROM person_erasure_mentions WHERE tenant_id = $1"
@@ -707,3 +717,25 @@ async def test_lane_b_ports_find_redact_and_stay_in_their_tenant(world: World) -
         )
     assert [m.record_id for m in files.mentions] == [seeded["file"]]
     assert none.mentions == ()
+
+
+async def test_nobody_redacts_a_mention_they_cannot_read(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane B's review of S1b: redaction needs the same read rights as viewing the passage."""
+    a = world.a
+    await _seed(world, a)
+    erasure = await _requested(world, a)
+    await _build(world, a)
+    profile = _find(await _mentions(world, a, erasure), "identity_access", "description", "name")
+    before = await _person(world, a, a.tech_b)
+
+    async def unreadable(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(lane_b.IdentityAccessMentions, "passage", unreadable)
+    version = (await _get(world, a, erasure))["version"]
+    refused = await _redact(world, a, erasure["id"], [profile["id"]], version)
+    assert _code(refused) == (404, "erasure_mention_not_found")
+    assert await _person(world, a, a.tech_b) == before  # nothing changed
+    assert (await _get(world, a, erasure))["version"] == version
