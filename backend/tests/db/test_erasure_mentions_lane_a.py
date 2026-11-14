@@ -327,6 +327,43 @@ async def test_a_trashed_record_is_found_and_only_the_erasure_right_reads_or_red
     assert row["deleted_at"] is not None  # still in the trash
 
 
+async def test_the_ports_refuse_what_is_not_theirs_or_is_gone(world: World) -> None:  # noqa: F811
+    """No text and no change for a mention that names nothing a port owns, or no longer matches."""
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga), subject="Printer jam")
+    missing = uuid.uuid4()
+    work, mail = person_mentions.PORT, mail_mentions.PORT
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        unknown = await work.find_mentions(session, missing, terms=TERMS, cursor="nowhere|")
+    assert unknown.mentions == ()
+    assert unknown.cursor is None
+    kind = MentionMatchKind.NAME
+    refused = [
+        Mention("incident", missing, "description", kind, 1),  # no such record
+        Mention("problem", uuid.UUID(item["id"]), "description", kind, 1),  # not its type
+        Mention("incident", uuid.UUID(item["id"]), "status", kind, 1),  # not a text field
+        Mention("incident", uuid.UUID(item["id"]), "custom.nothing", kind, 1),  # no value
+        Mention("incident", uuid.UUID(item["id"]), "subject", kind, 1),  # nothing matches now
+        Mention(person_mentions.CONVERSATION, missing, "body", kind, 1),
+        Mention(person_mentions.CONVERSATION, missing, "title", kind, 1),
+        Mention(person_mentions.TASK, missing, "title", kind, 1),
+        Mention(person_mentions.TASK, missing, "owner_id", kind, 1),
+        Mention(person_mentions.WORKLOG, missing, "description", kind, 1),
+    ]
+    for mention in refused:
+        assert await _redact(world, a.tenant, work, mention) is False, mention
+        assert await _passage(world, a.tenant, work, a.admin, mention) in {None, "Printer jam"}
+    assert await _passage(world, a.tenant, work, a.admin, refused[0]) is None
+    assert await _passage(world, a.tenant, work, a.admin, refused[2]) is None
+    for mention in (
+        Mention(mail_mentions.RECORD_TYPE, missing, "subject", kind, 1),
+        Mention(mail_mentions.RECORD_TYPE, missing, "sender", kind, 1),
+        Mention("incident", missing, "subject", kind, 1),
+    ):
+        assert await _redact(world, a.tenant, mail, mention) is False
+        assert await _passage(world, a.tenant, mail, a.admin, mention) is None
+
+
 @pytest.mark.timing
 async def test_the_records_scan_keeps_each_batch_fast_on_100k_records(world: World) -> None:  # noqa: F811
     """Lane B's #506 condition: no pre-filter yet, so each batch of the ordered scan is timed.
