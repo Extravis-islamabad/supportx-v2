@@ -2607,3 +2607,35 @@ class WorkItemNotifyLink(UuidPrimaryKey, TenantKeyed, Base):
     expires_at: Mapped[datetime]
     used_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class WorkItemFieldIndex(TenantKeyed, Base):
+    """A keyed digest of one sensitive custom value, for exact-match filters (WP-057 S3b-2; 0171).
+
+    Never the value: the data key the digest was made under and HMAC-SHA256 under an HKDF key of
+    it (app.shared.crypto.blind_digest). Derived data the app writes and rebuilds. Equal values
+    give equal digests (the ADR-050 addendum's stated limit).
+    """
+
+    __tablename__ = "work_item_field_index"
+    __table_args__ = (
+        CheckConstraint("digest ~ '^[0-9a-f]{64}$'", name="digest_form"),
+        ForeignKeyConstraint(
+            ["tenant_id", "work_item_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_work_item_field_index_record",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "tenant_id", "work_item_id", "field_key", name="uq_work_item_field_index_place"
+        ),
+        Index("ix_work_item_field_index_lookup", "tenant_id", "field_key", "digest"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    work_item_id: Mapped[uuid.UUID]
+    field_key: Mapped[str] = mapped_column(String(64))
+    key_id: Mapped[uuid.UUID]
+    digest: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())

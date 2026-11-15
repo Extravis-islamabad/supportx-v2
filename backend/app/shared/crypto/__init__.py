@@ -9,6 +9,7 @@ First user: the BFF session cipher (identity_access). WP-057's field encryption 
 
 from app.shared.crypto.codec import (
     KeyMaterial,
+    blind_digest,
     check_key_id,
     from_text,
     key_id_of,
@@ -31,6 +32,7 @@ __all__ = [
     "KeyRing",
     "KeyStillInUseError",
     "KeyUserCount",
+    "blind_digest",
     "check_key_id",
     "from_text",
     "key_id_of",

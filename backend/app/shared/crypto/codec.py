@@ -10,8 +10,10 @@ never opens for another purpose, under another key ID or for another record.
 
 import base64
 import binascii
+import hmac
 import os
 import re
+import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -94,6 +96,33 @@ def _derived(secret: bytes, purpose: bytes) -> AESGCM:
         info=b"supportx/" + purpose + b"/v2",
     ).derive(secret)
     return AESGCM(key)
+
+
+@lru_cache(maxsize=128)
+def _blind_key(secret: bytes, purpose: bytes) -> bytes:
+    # Its own HKDF label: a blind-index key is never an encryption key of the same secret.
+    return HKDF(
+        algorithm=hashes.SHA256(),
+        length=KEY_BYTES,
+        salt=None,
+        info=b"supportx/blind/" + purpose + b"/v1",
+    ).derive(secret)
+
+
+def normalise_blind(value: str) -> str:
+    """The form a blind index compares: NFKC, case-folded, outer space trimmed (WP-057 S3b-2)."""
+    return unicodedata.normalize("NFKC", value).casefold().strip()
+
+
+def blind_digest(secret: bytes, purpose: str, value: str) -> str:
+    """A keyed digest for exact-match lookup of a sealed value (hex, never the value).
+
+    HMAC-SHA256 under an HKDF key of the data key and the purpose, over the normalised value.
+    Equal values give equal digests: someone who can read the index sees which records share a
+    value, never the value (the ADR-050 addendum states this limit).
+    """
+    key = _blind_key(secret, _check_purpose(purpose))
+    return hmac.new(key, normalise_blind(value).encode("utf-8"), "sha256").hexdigest()
 
 
 def _aad(purpose: bytes, key_id: bytes, bound_to: Sequence[str]) -> bytes:
