@@ -1240,3 +1240,44 @@ async def test_the_report_says_a_short_name_was_not_searched_on_its_own(world: W
             person["first_name"],
             person["last_name"],
         )
+
+
+async def test_approval_refuses_while_a_required_erasure_port_is_missing(world: World) -> None:
+    """A module holding person data without its port: never approved (the readiness check)."""
+    from app.modules.identity_access.service import person_data  # noqa: PLC0415
+
+    a = world.a
+    seeded = await _seed(world, a)
+    approver = await _second_admin(world, a)
+    erasure = await _requested(world, a)
+    erasure_id = uuid.UUID(erasure["id"])
+    for _ in range(20):
+        await _build(world, a)
+        if not (await _get(world, a, erasure))["report"]["building"]:
+            break
+    shown = await _get(world, a, erasure)
+    assert shown["report"]["complete"] is True
+    reviewed = await world.call(
+        "POST",
+        f"/erasures/{erasure_id}/report/reviewed",
+        a,
+        approver,
+        headers={"If-Match": f'"{shown["version"]}"'},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    held = next(p for p in person_data.registered_ports() if p.module == "assets")
+    person_data.unregister_person_data("assets")
+    try:
+        refused = await world.call(
+            "POST",
+            f"/erasures/{erasure_id}/approve",
+            a,
+            approver,
+            json={"confirm_name": seeded["name"]},
+            headers={"If-Match": reviewed.headers["ETag"]},
+        )
+    finally:
+        person_data.register_person_data(held)
+    assert _code(refused) == (409, "erasure_port_missing")
+    assert refused.json()["params"]["missing_ports"] == "assets"
+    assert (await _get(world, a, erasure))["state"] == "requested"
