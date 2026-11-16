@@ -27,8 +27,8 @@ PENDING: tuple[str, ...] = ("assets", "service_catalog")
 def _stand_in(key: str) -> PersonData:
     class StandIn:
         module: ClassVar[str] = key
-        order: ClassVar[int] = 590
-        kinds: ClassVar[frozenset[str]] = frozenset()
+        order: ClassVar[int] = 585  # before files (590): files go last of the owned band
+        kinds: ClassVar[frozenset[str]] = frozenset({"nothing_held"})  # never returned (as sla)
 
         async def erase_person(
             self,
