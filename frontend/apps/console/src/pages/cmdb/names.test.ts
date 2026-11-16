@@ -14,8 +14,6 @@ function type(id: string, parent: string | null, extra: Partial<CiType> = {}): C
     built_in: true,
     names: {},
     icon: null,
-    attributes: [],
-    inherited_attributes: [],
     ci_count: 1,
     child_count: 0,
     version: 1,

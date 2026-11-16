@@ -212,7 +212,7 @@ export function CmdbPage() {
               ? [
                   {
                     key: 'restore',
-                    title: '',
+                    title: t('cmdb.field.restore'),
                     render: (_: unknown, row: CiListItem) => <RestoreButton row={row} />,
                   },
                 ]
@@ -243,7 +243,7 @@ function RestoreButton({ row }: { row: CiListItem }) {
         restore.mutate(
           { id: row.id, version: row.version },
           {
-            onSuccess: () => void message.success(t('cmdb.action.restore')),
+            onSuccess: () => void message.success(t('cmdb.restored', { id: row.display_id })),
             onError: reportError,
           },
         );

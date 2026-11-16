@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { App, Button, Flex, List, Modal, Result, TreeSelect, Typography } from 'antd';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import {
@@ -12,7 +12,6 @@ import {
   useCiTypes,
   useCopyCi,
   useDeleteCi,
-  usePreviewCiTypeChange,
   useUpdateCi,
   type Ci,
 } from '@supportx/api-client';
@@ -20,6 +19,7 @@ import { applyServerErrors, useForm, zodResolver } from '@supportx/forms';
 import { useListFormat } from '@supportx/labels';
 import { useRecordChannel } from '@supportx/realtime';
 import {
+  ConflictDialog,
   HeaderActions,
   NoAccess,
   NotInPlan,
@@ -32,6 +32,7 @@ import {
   useAccess,
   useLicence,
   useAppearance,
+  useConflict,
   useLabel,
 } from '@supportx/ui';
 
@@ -56,23 +57,32 @@ export function CiPage() {
   if (!can('cmdb.view')) return <NoAccess titleKey="nav.cmdb" />;
   if (found.isPending) return null;
   if (found.isError) return <Result status="404" title={t('errors.cmdb_ci_not_found')} />;
-  return <CiRecord ci={found.data} key={found.data.version} />;
+  // Never keyed by version: someone else's save must not throw away an open edit (lane C's
+  // #524 review); the edit resolves through the ConflictDialog instead.
+  return <CiRecord ci={found.data} />;
 }
 
 function CiRecord({ ci }: { ci: Ci }) {
   const t = useLabel();
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { locale, intlLocale } = useAppearance();
   const may = useCmdbRight();
   const types = useCiTypes();
   const states = useCiStates();
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState(false);
+  // The CI as it read when the edit began: its version is the one the save sends (If-Match).
+  const [opened, setOpened] = useState<Ci>(ci);
+  const conflict = useConflict();
   const update = useUpdateCi(ci.id);
   const copy = useCopyCi(ci.id);
   const remove = useDeleteCi(ci.id);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: valuesOf(ci) });
+  // Live changes show at once while nobody edits; an open edit keeps what the person typed.
+  useEffect(() => {
+    if (!editing) form.reset(valuesOf(ci));
+  }, [ci, editing, form]);
   const typeOf = types.data?.items.find((x) => x.id === ci.type_id);
   const stateOf = states.data?.items.find((x) => x.id === ci.state_id);
   const dateFormat = new Intl.DateTimeFormat(intlLocale, {
@@ -80,28 +90,22 @@ function CiRecord({ ci }: { ci: Ci }) {
     timeStyle: 'short',
   });
 
-  const save = form.handleSubmit((values) => {
-    const changes = patchOf(values);
-    update.mutate(
-      { changes, version: ci.version },
-      {
-        onSuccess: () => {
-          setEditing(false);
+  const save = (version: number) =>
+    form.handleSubmit((values) => {
+      update.mutate(
+        { changes: patchOf(values), version },
+        {
+          onSuccess: () => {
+            setEditing(false);
+            void message.success(t('cmdb.saved'));
+          },
+          onError: (error) => {
+            if (conflict.take(error)) return;
+            if (!applyServerErrors(error, form.setError, FIELDS)) reportError(error);
+          },
         },
-        onError: (error) => {
-          if (!applyServerErrors(error, form.setError, FIELDS)) reportError(error);
-        },
-      },
-    );
-  });
-
-  const attributeValue = (key: string) => {
-    const value = ci.custom[key];
-    if (value === undefined || value === null) return '';
-    if (typeof value === 'boolean') return t(value ? 'cmdb.yes' : 'cmdb.no');
-    if (typeof value === 'string' || typeof value === 'number') return String(value);
-    return JSON.stringify(value);
-  };
+      );
+    })();
 
   return (
     <RecordPage
@@ -121,6 +125,7 @@ function CiRecord({ ci }: { ci: Ci }) {
               <WriteButton
                 type="primary"
                 onClick={() => {
+                  setOpened(ci);
                   setEditing(true);
                 }}
                 data-testid="ci-edit"
@@ -138,7 +143,10 @@ function CiRecord({ ci }: { ci: Ci }) {
                     testId: 'ci-copy',
                     onClick: () => {
                       copy.mutate(crypto.randomUUID(), {
-                        onSuccess: (made) => void navigate(`/cmdb/${made.id}`),
+                        onSuccess: (made) => {
+                          void message.success(t('cmdb.copied', { id: made.display_id }));
+                          void navigate(`/cmdb/${made.id}`);
+                        },
                         onError: reportError,
                       });
                     },
@@ -165,12 +173,17 @@ function CiRecord({ ci }: { ci: Ci }) {
                     danger: true,
                     testId: 'ci-delete',
                     onClick: () => {
-                      remove.mutate(ci.version, {
-                        onSuccess: () => {
-                          void message.success(t('cmdb.action.delete'));
-                          void navigate('/cmdb');
-                        },
-                        onError: reportError,
+                      modal.confirm({
+                        title: t('cmdb.delete_confirm', { name: ci.name }),
+                        content: t('cmdb.delete_confirm_detail'),
+                        okText: t('cmdb.action.delete'),
+                        okButtonProps: { danger: true, 'data-testid': 'ci-delete-ok' },
+                        cancelText: t('actions.cancel'),
+                        onOk: () =>
+                          remove.mutateAsync(ci.version).then(() => {
+                            void message.success(t('cmdb.deleted', { id: ci.display_id }));
+                            void navigate('/cmdb');
+                          }, reportError),
                       });
                     },
                   },
@@ -185,7 +198,7 @@ function CiRecord({ ci }: { ci: Ci }) {
           sections={[
             {
               key: 'properties',
-              title: t('cmdb.field.attributes'),
+              title: t('cmdb.section.properties'),
               children: (
                 <PropertyList
                   items={[
@@ -209,12 +222,6 @@ function CiRecord({ ci }: { ci: Ci }) {
                       content: ci.criticality === null ? '' : t(`cmdb_impact.${ci.criticality}`),
                       filled: ci.criticality !== null,
                     },
-                    ...ci.attributes.map((a) => ({
-                      key: `custom.${a.key}`,
-                      label: a.names[locale] ?? a.names.en,
-                      content: <bdi>{attributeValue(a.key)}</bdi>,
-                      filled: attributeValue(a.key) !== '',
-                    })),
                     {
                       key: 'updated',
                       label: t('cmdb.field.updated_at'),
@@ -244,7 +251,9 @@ function CiRecord({ ci }: { ci: Ci }) {
             <WriteButton
               type="primary"
               loading={update.isPending}
-              onClick={() => void save()}
+              onClick={() => {
+                void save(opened.version);
+              }}
               data-testid="ci-save"
             >
               {t('actions.save')}
@@ -261,6 +270,25 @@ function CiRecord({ ci }: { ci: Ci }) {
           <CiHistory id={ci.id} />
         </Flex>
       )}
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        opened={opened}
+        latest={ci}
+        fieldLabel={(field) => t(`cmdb.field.${field}`)}
+        onReload={() => {
+          conflict.clear();
+          setOpened(ci);
+          setEditing(false);
+          form.reset(valuesOf(ci));
+        }}
+        onKeepMine={() => {
+          const version = conflict.latestVersion ?? ci.version;
+          conflict.clear();
+          setOpened(ci);
+          void save(version);
+        }}
+      />
       {moving && (
         <ChangeType
           ci={ci}
@@ -273,65 +301,50 @@ function CiRecord({ ci }: { ci: Ci }) {
   );
 }
 
-/** Move the CI to another type, showing first the values it would lose (REQ-CMDB-003). */
+/** Move the CI to another type (REQ-CMDB-003). */
 function ChangeType({ ci, onClose }: { ci: Ci; onClose: () => void }) {
   const t = useLabel();
-  const list = useListFormat();
+  const { message } = App.useApp();
   const { locale } = useAppearance();
   const types = useCiTypes();
-  const preview = usePreviewCiTypeChange(ci.id);
   const change = useChangeCiType(ci.id);
   const [typeId, setTypeId] = useState<string>();
   const tree = useMemo(
     () => typeTree(types.data?.items ?? [], (x) => nameOf(t, locale, x, 'cmdb_ci_type')),
     [types.data, t, locale],
   );
-  const lost = preview.data?.lost ?? [];
   return (
     <Modal
       open
       title={t('cmdb.action.change_type')}
       onCancel={onClose}
       okText={t('cmdb.action.change_type')}
-      okButtonProps={{
-        disabled: typeId === undefined || preview.isPending,
-        loading: change.isPending,
-      }}
+      okButtonProps={{ disabled: typeId === undefined, loading: change.isPending }}
       onOk={() => {
         if (typeId === undefined) return;
         change.mutate(
           { typeId, version: ci.version },
-          { onSuccess: onClose, onError: reportError },
+          {
+            onSuccess: () => {
+              void message.success(t('cmdb.type_changed'));
+              onClose();
+            },
+            onError: reportError,
+          },
         );
       }}
     >
-      <Flex vertical gap={12}>
-        <TreeSelect
-          aria-label={t('cmdb.field.type_id')}
-          treeDefaultExpandAll
-          value={typeId}
-          onChange={(next: string) => {
-            setTypeId(next);
-            preview.mutate(next);
-          }}
-          treeData={tree}
-          data-testid="ci-new-type"
-        />
-        {preview.data !== undefined && (
-          <Typography.Text type={lost.length > 0 ? 'warning' : 'secondary'} data-testid="ci-lost">
-            {lost.length > 0
-              ? t('cmdb.change_type.lost', {
-                  keys: list(
-                    lost.map((key) => {
-                      const a = ci.attributes.find((x) => x.key === key);
-                      return a === undefined ? key : (a.names[locale] ?? a.names.en ?? key);
-                    }),
-                  ),
-                })
-              : t('cmdb.change_type.nothing_lost')}
-          </Typography.Text>
-        )}
-      </Flex>
+      <TreeSelect
+        aria-label={t('cmdb.field.type_id')}
+        treeDefaultExpandAll
+        value={typeId}
+        onChange={(next: string) => {
+          setTypeId(next);
+        }}
+        treeData={tree}
+        style={{ width: '100%' }}
+        data-testid="ci-new-type"
+      />
     </Modal>
   );
 }
@@ -355,13 +368,7 @@ function CiHistory({ id }: { id: string }) {
             {entry.actor_name ?? t(`actor_type.${entry.actor_type}`)} ·{' '}
             {when.format(new Date(entry.occurred_at))}
             {entry.changes.length > 0 &&
-              ` · ${list(
-                entry.changes.map((c) =>
-                  c.field.startsWith('custom')
-                    ? t('cmdb.field.attributes')
-                    : t(`cmdb.field.${c.field}`),
-                ),
-              )}`}
+              ` · ${list(entry.changes.map((c) => t(`cmdb.field.${c.field}`)))}`}
           </Typography.Text>
         </List.Item>
       )}

@@ -21,8 +21,6 @@ export const schema = z.object({
   managed_by_group_id: z.string().nullable(),
   business_impact: impact,
   criticality: impact,
-  // Attribute values by key; the server checks them against the type's attributes.
-  custom: z.record(z.string(), z.unknown()),
 });
 export type Values = z.infer<typeof schema>;
 export const FIELDS = [
@@ -47,19 +45,14 @@ export const EMPTY: Values = {
   managed_by_group_id: null,
   business_impact: null,
   criticality: null,
-  custom: {},
 };
 
-/** The form's values as the API takes them (empty text and empty values left out). */
+/** The form's values as the API takes them (empty text left out). */
 export function bodyOf(values: Values): CiInput {
-  const custom = Object.fromEntries(
-    Object.entries(values.custom).filter(([, v]) => v !== undefined && v !== null && v !== ''),
-  );
   return {
     ...values,
     name: values.name.trim(),
     description: values.description.trim() === '' ? null : values.description,
-    custom,
   };
 }
 
@@ -75,11 +68,10 @@ export function valuesOf(ci: Ci): Values {
     managed_by_group_id: ci.managed_by_group_id,
     business_impact: ci.business_impact,
     criticality: ci.criticality,
-    custom: { ...ci.custom },
   };
 }
 
-/** An edit's fields (the type changes through its own action, with a preview). */
+/** An edit's fields (the type changes through its own action). */
 export function patchOf(values: Values): CiPatch {
   const body = bodyOf(values);
   return {
@@ -91,6 +83,5 @@ export function patchOf(values: Values): CiPatch {
     managed_by_group_id: body.managed_by_group_id,
     business_impact: body.business_impact,
     criticality: body.criticality,
-    custom: body.custom,
   };
 }

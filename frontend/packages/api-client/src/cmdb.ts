@@ -9,8 +9,6 @@ import type { FilterExpression } from './users';
 export type CiType = components['schemas']['CiTypeOut'];
 export type CiTypeInput = components['schemas']['CiTypeIn'];
 export type CiTypePatch = components['schemas']['CiTypePatch'];
-export type CiAttribute = components['schemas']['CiAttributeDef'];
-export type CiInheritedAttribute = components['schemas']['CiInheritedAttribute'];
 export type CiState = components['schemas']['CiStateOut'];
 export type CiStateInput = components['schemas']['CiStateIn'];
 export type CiStatePatch = components['schemas']['CiStatePatch'];
@@ -174,19 +172,6 @@ export function useCopyCi(id: string) {
         }),
       ),
     onSuccess: saved,
-  });
-}
-
-export function usePreviewCiTypeChange(id: string) {
-  return useMutation({
-    meta: { silent: true },
-    mutationFn: (typeId: string) =>
-      call(
-        api.POST('/api/v1/cmdb/cis/{ci_id}/change-type/preview', {
-          params: { path: { ci_id: id } },
-          body: { type_id: typeId },
-        }),
-      ),
   });
 }
 

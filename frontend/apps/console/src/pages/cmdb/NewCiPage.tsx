@@ -39,7 +39,7 @@ export function NewCiPage() {
       { body: bodyOf(values), key },
       {
         onSuccess: (saved) => {
-          void message.success(saved.display_id);
+          void message.success(t('cmdb.added', { id: saved.display_id }));
           void navigate(`/cmdb/${saved.id}`, { replace: true });
         },
         onError: (error) => {

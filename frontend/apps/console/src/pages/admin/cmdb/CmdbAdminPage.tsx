@@ -25,7 +25,6 @@ import {
   useDeleteCiType,
   useUpdateCiType,
   useUpdateCmdbSettings,
-  type CiAttribute,
   type CiState,
   type CiType,
 } from '@supportx/api-client';
@@ -41,11 +40,7 @@ import {
   useLabel,
 } from '@supportx/ui';
 
-import { useListFormat } from '@supportx/labels';
-
 import { nameOf, typeTree } from '../../cmdb/names';
-
-const KINDS = ['text', 'long_text', 'number', 'date', 'boolean', 'choice'] as const;
 
 interface TypeDraft {
   api_name: string;
@@ -53,7 +48,6 @@ interface TypeDraft {
   name_ar?: string;
   name_ur?: string;
   parent_id?: string;
-  attributes: { key: string; type: (typeof KINDS)[number]; name: string; choices?: string }[];
 }
 
 function names(draft: Pick<TypeDraft, 'name_en' | 'name_ar' | 'name_ur'>): Record<string, string> {
@@ -63,27 +57,9 @@ function names(draft: Pick<TypeDraft, 'name_en' | 'name_ar' | 'name_ur'>): Recor
   return out;
 }
 
-function attributesOf(draft: TypeDraft): CiAttribute[] {
-  return draft.attributes.map((a) => ({
-    key: a.key.trim(),
-    type: a.type,
-    names: { en: a.name.trim() },
-    required: false,
-    // Never sensitive: the CMDB has no seal port yet (the server refuses it too).
-    sensitive: false,
-    choices:
-      a.type === 'choice'
-        ? (a.choices ?? '')
-            .split(',')
-            .map((c) => c.trim())
-            .filter((c) => c !== '')
-        : null,
-  }));
-}
-
 /**
- * CMDB setup (template E, D-147): the settings, the CI type tree with each type's attributes,
- * and the CI states. Every change is audited and reaches open screens live.
+ * CMDB setup (template E, D-147): the settings, the CI type tree and the CI states. Custom
+ * fields come through the metadata module in a follow-up (§6.6). Every change is audited and reaches open screens live.
  */
 export function CmdbAdminPage() {
   const t = useLabel();
@@ -111,6 +87,7 @@ export function CmdbAdminPage() {
 
 function SettingsBlock() {
   const t = useLabel();
+  const { message } = App.useApp();
   const settings = useCmdbSettings();
   const save = useUpdateCmdbSettings();
   return (
@@ -124,7 +101,14 @@ function SettingsBlock() {
             if (settings.data === undefined) return;
             save.mutate(
               { excludeEol: on, version: settings.data.version },
-              { onError: reportError },
+              {
+                onSuccess: () => {
+                  void message.success(
+                    t(on ? 'cmdb.settings.eol_hidden' : 'cmdb.settings.eol_shown'),
+                  );
+                },
+                onError: reportError,
+              },
             );
           }}
           data-testid="cmdb-exclude-eol"
@@ -137,8 +121,8 @@ function SettingsBlock() {
 
 function TypesBlock() {
   const t = useLabel();
-  const list = useListFormat();
   const { locale } = useAppearance();
+  const { message, modal } = App.useApp();
   const types = useCiTypes();
   const remove = useDeleteCiType();
   const [editing, setEditing] = useState<CiType | 'new' | null>(null);
@@ -189,16 +173,10 @@ function TypesBlock() {
                 title: t('cmdb.field.parent_id'),
                 render: (_, row) => parentName(row.parent_id),
               },
-              {
-                key: 'attributes',
-                title: t('cmdb.field.attributes'),
-                render: (_, row) =>
-                  list(row.inherited_attributes.map((a) => a.names[locale] ?? a.names.en ?? a.key)),
-              },
               { key: 'count', title: t('cmdb.count'), render: (_, row) => row.ci_count },
               {
                 key: 'actions',
-                title: '',
+                title: t('cmdb.field.actions'),
                 render: (_, row) => (
                   <Space>
                     <Button
@@ -216,10 +194,16 @@ function TypesBlock() {
                         danger
                         loading={remove.isPending}
                         onClick={() => {
-                          remove.mutate(
-                            { id: row.id, version: row.version },
-                            { onError: reportError },
-                          );
+                          modal.confirm({
+                            title: t('cmdb.type_delete_confirm', { name: name(row) }),
+                            okText: t('cmdb.action.remove'),
+                            okButtonProps: { danger: true },
+                            cancelText: t('actions.cancel'),
+                            onOk: () =>
+                              remove.mutateAsync({ id: row.id, version: row.version }).then(() => {
+                                void message.success(t('cmdb.type_removed', { name: name(row) }));
+                              }, reportError),
+                          });
                         }}
                         data-testid={`cmdb-type-delete-${row.api_name}`}
                       >
@@ -272,22 +256,16 @@ function TypeDialog({
   );
   const initial: TypeDraft =
     type === null
-      ? { api_name: '', name_en: '', attributes: [] }
+      ? { api_name: '', name_en: '' }
       : {
           api_name: type.api_name,
           name_en: type.names.en ?? '',
           name_ar: type.names.ar,
           name_ur: type.names.ur,
           parent_id: type.parent_id ?? undefined,
-          attributes: type.attributes.map((a) => ({
-            key: a.key,
-            type: a.type,
-            name: a.names.en ?? '',
-            choices: (a.choices ?? []).join(','), // the editable text: codes split on commas
-          })),
         };
   const done = () => {
-    void message.success(t('actions.save'));
+    void message.success(t(type === null ? 'cmdb.type_added' : 'cmdb.type_saved'));
     onClose();
   };
   const submit = (draft: TypeDraft) => {
@@ -298,7 +276,6 @@ function TypeDialog({
             api_name: draft.api_name.trim(),
             names: names(draft),
             parent_id: draft.parent_id ?? null,
-            attributes: attributesOf(draft),
           },
           key,
         },
@@ -314,7 +291,6 @@ function TypeDialog({
         changes: {
           ...(type.built_in && own.en === '' ? {} : { names: own }),
           ...(type.built_in ? {} : { parent_id: draft.parent_id ?? null }),
-          attributes: attributesOf(draft),
         },
       },
       { onSuccess: done, onError: reportError },
@@ -323,7 +299,6 @@ function TypeDialog({
   return (
     <Modal
       open
-      width={720}
       title={type === null ? t('cmdb.action.new_type') : t('actions.edit')}
       onCancel={onClose}
       okText={t('actions.save')}
@@ -356,71 +331,6 @@ function TypeDialog({
             <TreeSelect allowClear treeDefaultExpandAll treeData={tree} />
           </Form.Item>
         )}
-        <Form.List name="attributes">
-          {(fields, { add, remove }) => (
-            <Flex vertical gap={8}>
-              {fields.map((field) => (
-                <Flex key={field.key} gap={8} align="start" wrap>
-                  <Form.Item
-                    name={[field.name, 'key']}
-                    rules={[{ required: true }]}
-                    style={{ marginBottom: 0 }}
-                  >
-                    <Input
-                      placeholder={t('cmdb.field.api_name')}
-                      aria-label={t('cmdb.field.api_name')}
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    name={[field.name, 'name']}
-                    rules={[{ required: true }]}
-                    style={{ marginBottom: 0 }}
-                  >
-                    <Input
-                      placeholder={t('cmdb.field.names_en')}
-                      aria-label={t('cmdb.field.names_en')}
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    name={[field.name, 'type']}
-                    initialValue="text"
-                    style={{ marginBottom: 0 }}
-                  >
-                    <Select
-                      aria-label={t('cmdb.field.attribute_type')}
-                      style={{ minWidth: 140 }}
-                      options={KINDS.map((k) => ({
-                        value: k,
-                        label: t(`cmdb_attribute_type.${k}`),
-                      }))}
-                    />
-                  </Form.Item>
-                  <Form.Item name={[field.name, 'choices']} style={{ marginBottom: 0 }}>
-                    <Input
-                      placeholder={t('cmdb.field.choices')}
-                      aria-label={t('cmdb.field.choices')}
-                    />
-                  </Form.Item>
-                  <Button
-                    onClick={() => {
-                      remove(field.name);
-                    }}
-                  >
-                    {t('cmdb.action.remove')}
-                  </Button>
-                </Flex>
-              ))}
-              <Button
-                onClick={() => {
-                  add({ type: 'text' });
-                }}
-                data-testid="cmdb-attr-add"
-              >
-                {t('cmdb.action.add_attribute')}
-              </Button>
-            </Flex>
-          )}
-        </Form.List>
       </Form>
     </Modal>
   );
@@ -430,6 +340,7 @@ function StatesBlock() {
   const t = useLabel();
   const { locale } = useAppearance();
   const states = useCiStates();
+  const { message, modal } = App.useApp();
   const create = useCreateCiState();
   const remove = useDeleteCiState();
   const [adding, setAdding] = useState(false);
@@ -471,14 +382,24 @@ function StatesBlock() {
             },
             {
               key: 'actions',
-              title: '',
+              title: t('cmdb.field.actions'),
               render: (_, row) =>
                 !row.built_in && (
                   <Button
                     size="small"
                     danger
                     onClick={() => {
-                      remove.mutate({ id: row.id, version: row.version }, { onError: reportError });
+                      const shown = nameOf(t, locale, row, 'cmdb_ci_state');
+                      modal.confirm({
+                        title: t('cmdb.state_delete_confirm', { name: shown }),
+                        okText: t('cmdb.action.remove'),
+                        okButtonProps: { danger: true },
+                        cancelText: t('actions.cancel'),
+                        onOk: () =>
+                          remove.mutateAsync({ id: row.id, version: row.version }).then(() => {
+                            void message.success(t('cmdb.state_removed', { name: shown }));
+                          }, reportError),
+                      });
                     }}
                   >
                     {t('cmdb.action.remove')}
