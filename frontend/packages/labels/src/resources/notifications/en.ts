@@ -73,6 +73,7 @@ export const en = {
   'notification_event.announcement.updated': 'An announcement you follow was updated',
   'notification_event.asset.ack_disputed': 'Asset disputed by its holder',
   'notification_event.asset.ack_requested': 'Asset given to you: please acknowledge',
+  'notification_event.asset.erased_holder_items': 'A person being erased still holds assets',
   'notification_event.asset.loan_due': 'Loan due tomorrow',
   'notification_event.asset.loan_overdue': 'Loan overdue',
   'notification_event.asset.mentioned': 'Mentioned in an asset note',
@@ -260,6 +261,12 @@ export const en = {
     'Please acknowledge {{ record.display_id }}: {{ record.title }}',
   'notification_template.asset.ack_requested.subject':
     'Please acknowledge {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.erased_holder_items.body':
+    'Hello {{ recipient.name }},\nA person whose data is being erased on request still holds or has on loan these assets: {{ holdings.assets }}. Their assignments and loans stay open: please recover the assets and close them as usual. {{ record.link }}',
+  'notification_template.asset.erased_holder_items.in_app':
+    'A person being erased still holds: {{ holdings.assets }}',
+  'notification_template.asset.erased_holder_items.subject':
+    'Recover {{ holdings.count }} assets from a person being erased',
   'notification_template.asset.loan_due.body':
     'Hello {{ recipient.name }},\n\nThe assets loaned to {{ holder.name }} are due back tomorrow.',
   'notification_template.asset.loan_due.in_app': 'Loan to {{ holder.name }} is due tomorrow',
@@ -793,6 +800,8 @@ export const en = {
   'notification_variable.conversation.author': 'Reply or note › Author',
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
   'notification_variable.holder.name': 'Holder › Name',
+  'notification_variable.holdings.assets': 'Holdings › Assets',
+  'notification_variable.holdings.count': 'Holdings › Count',
   'notification_variable.incident.count': 'Number of incidents',
   'notification_variable.mail.count': 'Mail › E-mails not sent',
   'notification_variable.mail.oldest_at': 'Mail › Oldest',

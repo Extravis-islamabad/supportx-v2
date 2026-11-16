@@ -1247,6 +1247,42 @@
         "type": "object"
       }
     },
+    "assets.erased_holder.items": {
+      "1": {
+        "description": "A person being erased still holds assets (ADR-052; the coordinator, 2026-11-16).\n\nTheir open assignments and loans stay open (ending them would invent a fact); the asset team\nhears once which assets to recover. IDs and counts only: never the person's old name.",
+        "properties": {
+          "asset_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Asset Ids",
+            "type": "array"
+          },
+          "assets_held": {
+            "title": "Assets Held",
+            "type": "integer"
+          },
+          "loans_open": {
+            "title": "Loans Open",
+            "type": "integer"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "asset_ids",
+          "assets_held",
+          "loans_open"
+        ],
+        "title": "ErasedHolderItems",
+        "type": "object"
+      }
+    },
     "assets.group.changed": {
       "1": {
         "description": "A group was added, changed, removed, or gained or lost members (REQ-AST-028).",

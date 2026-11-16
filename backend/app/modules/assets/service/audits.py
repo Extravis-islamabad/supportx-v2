@@ -75,6 +75,7 @@ from app.modules.identity_access import Subject, active_user_ids
 from app.modules.organization import existing_unit_ids
 from app.shared.clock import system_clock
 from app.shared.db.display_ids import next_display_id
+from app.shared.erasure import ERASED_ON_REQUEST
 from app.shared.events import record_event
 from app.shared.history import Change, Source, automated, record_changes
 from app.shared.history.conflicts import stale_version
@@ -394,6 +395,38 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, whic
             audit_id=audit.id,
             action=action,
             changed_fields=sorted({c.field for c in changes}),
+            auditors=await _auditors(session, audit.id),
+        ),
+        aggregate_id=audit.id,
+        aggregate_version=audit.version,
+    )
+
+
+async def audit_seat_removed(session: AsyncSession, audit: AssetAudit) -> None:
+    """A person's auditor seat was removed by their erasure (ADR-052): history and the event.
+
+    The erasure's assets port deletes the seat; the audit's version, history (the field named
+    only, source system, reason erased_on_request) and `AuditChanged` follow here, so its screens
+    update live (rule c) and its history shows the change (lane C's #519 review).
+    """
+    audit.version += 1
+    await session.flush()
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=audit.id,
+        version=audit.version,
+        kind="updated",
+        changes=[Change("auditor_ids", None, None)],
+        source="system",
+        reason=ERASED_ON_REQUEST,
+    )
+    await record_event(
+        session,
+        AuditChanged(
+            audit_id=audit.id,
+            action="updated",
+            changed_fields=["auditor_ids"],
             auditors=await _auditors(session, audit.id),
         ),
         aggregate_id=audit.id,

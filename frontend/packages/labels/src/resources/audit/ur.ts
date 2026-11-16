@@ -982,6 +982,7 @@ export const ur: LabelResource = {
   'event_type.assets.catalogue.changed': 'اثاثوں کا سیٹ اپ تبدیل ہوا',
   'event_type.assets.consumable.changed': 'قابلِ صرف شے بدلی',
   'event_type.assets.cost.changed': 'اثاثے کی لاگت بدلی',
+  'event_type.assets.erased_holder.items': 'مٹائے جانے والے فرد کے پاس ابھی اثاثے ہیں',
   'event_type.assets.group.changed': 'اثاثوں کا گروپ بدلا',
   'event_type.assets.holder.changed': 'اثاثہ کسی اور کے پاس گیا',
   'event_type.assets.import.progressed': 'اثاثوں کی درآمد آگے بڑھی',

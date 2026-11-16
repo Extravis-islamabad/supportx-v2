@@ -983,6 +983,7 @@ export const en = {
   'event_type.assets.catalogue.changed': 'Asset set-up changed',
   'event_type.assets.consumable.changed': 'Consumable changed',
   'event_type.assets.cost.changed': 'Asset cost changed',
+  'event_type.assets.erased_holder.items': 'A person being erased still holds assets',
   'event_type.assets.group.changed': 'Asset group changed',
   'event_type.assets.holder.changed': 'Asset changed hands',
   'event_type.assets.import.progressed': 'Asset import moved on',

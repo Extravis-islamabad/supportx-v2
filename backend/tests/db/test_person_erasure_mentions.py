@@ -1265,8 +1265,8 @@ async def test_approval_refuses_while_a_required_erasure_port_is_missing(world: 
         headers={"If-Match": f'"{shown["version"]}"'},
     )
     assert reviewed.status_code == 200, reviewed.text
-    held = next(p for p in person_data.registered_ports() if p.module == "assets")
-    person_data.unregister_person_data("assets")
+    held = next(p for p in person_data.registered_ports() if p.module == "assets.owned")
+    person_data.unregister_person_data("assets.owned")
     try:
         refused = await world.call(
             "POST",
@@ -1279,5 +1279,5 @@ async def test_approval_refuses_while_a_required_erasure_port_is_missing(world: 
     finally:
         person_data.register_person_data(held)
     assert _code(refused) == (409, "erasure_port_missing")
-    assert refused.json()["params"]["missing_ports"] == "assets"
+    assert refused.json()["params"]["missing_ports"] == "assets.owned"
     assert (await _get(world, a, erasure))["state"] == "requested"

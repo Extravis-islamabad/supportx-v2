@@ -2563,6 +2563,9 @@ it with no reload (rule c). Not built yet.
 - [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
   short one-word names flagged, never stored; task mentions say they reach the record's task
   history; task-history phone match per digit run.
+- [x] Assets erasure ports (lane B): off open audits, future bookings cancelled; open
+  assignments and loans stay open, the approver sees `holdings` and the asset team is told once;
+  a guard test requires a port or a stated exemption for every module naming people.
 - [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
   deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
 - **S2, lane A's ports (0166; lane B blocked):**
