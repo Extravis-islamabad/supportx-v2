@@ -30,6 +30,7 @@ from app.modules.identity_access.service.person_data import (
 )
 from app.modules.identity_access.service.person_mention_ports import LANE_B_MENTION_PORTS
 from app.shared.erasure import ERASED_ON_REQUEST
+from tests.erasure_pending import PENDING_MENTIONS
 from tests.test_error_labels import label_keys
 
 if TYPE_CHECKING:
@@ -113,7 +114,8 @@ def test_every_required_mentions_port_is_registered() -> None:
         "knowledge",
         "announcements",
     } <= REQUIRED_MENTION_PORTS
-    assert missing_mention_ports(registered) == []
+    # Only the keys whose real ports are still to come (tests/erasure_pending.py) are missing.
+    assert missing_mention_ports(registered) == sorted(PENDING_MENTIONS)
     for port in LANE_B_MENTION_PORTS:
         assert isinstance(port, PersonMentions)
 

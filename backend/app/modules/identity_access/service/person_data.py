@@ -239,6 +239,9 @@ REQUIRED_MENTION_PORTS: frozenset[str] = frozenset(
         "integrations",
         "knowledge",
         "announcements",
+        # CI descriptions and their snapshots can name people (WP-053 S1, the coordinator
+        # 2026-11-16): approval waits (erasure_report_unavailable) until cmdb's port exists.
+        "cmdb",
     }
 )
 
