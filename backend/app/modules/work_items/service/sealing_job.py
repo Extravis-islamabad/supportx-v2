@@ -163,7 +163,13 @@ async def _unreadable(session: AsyncSession, field: metadata.Moving) -> int:
 
 
 async def run_batch(session: AsyncSession, field: metadata.Moving, settings: Settings) -> Batch:
-    """One batch of one field, in the caller's transaction (it commits the batch and cursor)."""
+    """One batch of one field, in the caller's transaction (it commits the batch and cursor).
+
+    Nothing is written when the field moved since it was read (a reversal): the caller reads
+    it again and follows the new state (lane B, #526).
+    """
+    if not await metadata.hold_seal(session, field):
+        return Batch(0, finished=False)
     rows = await _rows(session, field)
     moved = 0
     for record_id, value in rows:
@@ -176,8 +182,14 @@ async def run_batch(session: AsyncSession, field: metadata.Moving, settings: Set
         return Batch(moved, finished=False)
     if field.state == metadata.OPENING:
         # Fully plain: no index row of the field may stay behind (lane B).
+        # Only this type's rows: another type may have a field with the same key (lane B).
         await session.execute(
-            delete(WorkItemFieldIndex).where(WorkItemFieldIndex.field_key == field.key)
+            delete(WorkItemFieldIndex).where(
+                WorkItemFieldIndex.field_key == field.key,
+                WorkItemFieldIndex.work_item_id.in_(
+                    select(WorkItem.id).where(WorkItem.type == field.entity)
+                ),
+            )
         )
     records = await PORT.holding(session, field.entity, field.key)
     unreadable = await _unreadable(session, field) if field.state == metadata.OPENING else 0

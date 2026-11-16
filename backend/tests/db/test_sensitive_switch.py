@@ -41,9 +41,12 @@ def _with_keys(w: World) -> None:
     w.app.state.db.settings = settings
 
 
-async def _field_id(w: World, org: Org, key: str) -> str:
+async def _field_id(w: World, org: Org, key: str, entity: str = "incident") -> str:
     (row,) = await w.sql(
-        "SELECT id FROM custom_fields WHERE tenant_id = $1 AND key = $2", org.tenant, key
+        "SELECT id FROM custom_fields WHERE tenant_id = $1 AND key = $2 AND entity = $3",
+        org.tenant,
+        key,
+        entity,
     )
     return str(row["id"])
 
@@ -64,7 +67,8 @@ async def _switch(w: World, org: Org, key: str, **body: Any) -> Any:  # noqa: AN
 
 async def _state(w: World, org: Org, key: str) -> tuple[str, bool]:
     (row,) = await w.sql(
-        "SELECT seal_state, sensitive FROM custom_fields WHERE tenant_id = $1 AND key = $2",
+        "SELECT seal_state, sensitive FROM custom_fields WHERE tenant_id = $1 AND key = $2"
+        " AND entity = 'incident'",
         org.tenant,
         key,
     )
@@ -227,7 +231,7 @@ async def test_an_asset_field_cannot_be_sensitive(world: World) -> None:  # noqa
         headers=CONSOLE,
     )
     assert made.status_code == 201, made.text
-    field_id = await _field_id(world, a, made.json()["key"])
+    field_id = await _field_id(world, a, made.json()["key"], "asset")
     refused = await world.call("GET", f"{FIELDS}/{field_id}/sensitivity", a, a.admin)
     assert refused.status_code == 409, refused.text
     assert refused.json()["code"] == "custom_field_sensitive_unsupported"
@@ -378,3 +382,86 @@ async def test_sealed_values_survive_a_kek_rotation_and_history_stays_verifiable
     # Tenants outlive this test: their data keys go back under the test's original ring.
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         await rewrap_data_keys(session, KeyRing.parse(f"{old}, {only_new}"))
+
+
+async def test_a_batch_begun_before_a_reversal_writes_nothing(
+    world: World,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lane B (#526): the job holds the field row and re-checks its state and cursor."""
+    _with_keys(world)
+    monkeypatch.setattr(sealing_job, "BATCH", 2)
+    a = world.a
+    key = await _custom_field(world, a, "Pager")
+    for n in range(3):
+        await world.create(a, a.admin, group_id=str(a.ga), custom={key: f"P{n}"})
+    assert (await _switch(world, a, key, sensitive=True)).status_code == 200
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        (stale,) = await metadata.fields_being_sealed(session, sealing_job.ENTITIES)
+    off = await _switch(world, a, key, sensitive=False, reason="Not needed", confirm_name="Pager")
+    assert off.status_code == 200, off.text
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        batch = await sealing_job.run_batch(session, stale, world.app.state.settings)
+    assert (batch.moved, batch.finished) == (0, False)
+    assert not any(v.startswith("sx2:") for v in await _stored(world, a, key))
+
+
+async def test_opening_one_types_field_leaves_another_types_index(world: World) -> None:  # noqa: F811
+    """Lane B (#526): keys are unique per type, so the last delete is filtered by type.
+
+    An incident field and a problem field share a key. The problem field finishing its
+    opening must leave the incident field's blind index alone.
+    """
+    _with_keys(world)
+    a = world.a
+    key = await _custom_field(world, a, "Badge")
+    made = await world.call(
+        "POST",
+        FIELDS,
+        a,
+        a.admin,
+        json={"entity": "problem", "field_type": "text", "labels": {"en": "Badge"}},
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    assert made.json()["key"] == key
+    await world.create(a, a.admin, group_id=str(a.ga), custom={key: "K1"})
+    assert (await _switch(world, a, key, sensitive=True)).status_code == 200
+    await _run(world, a)
+    before = await world.sql(
+        "SELECT count(*) AS n FROM work_item_field_index WHERE tenant_id = $1 AND field_key = $2",
+        a.tenant,
+        key,
+    )
+    assert before[0]["n"] == 1
+    await world.sql(
+        "UPDATE custom_fields SET sensitive = false, seal_state = 'opening'"
+        " WHERE tenant_id = $1 AND entity = 'problem' AND key = $2",
+        a.tenant,
+        key,
+    )
+    await _run(world, a)
+    after = await world.sql(
+        "SELECT count(*) AS n FROM work_item_field_index WHERE tenant_id = $1 AND field_key = $2",
+        a.tenant,
+        key,
+    )
+    assert after[0]["n"] == 1  # the incident field's row is still there
+
+
+async def test_the_off_reason_stays_out_of_history(world: World) -> None:  # noqa: F811
+    """Lane B (#526): personal data, kept only where erasure reaches it."""
+    _with_keys(world)
+    a = world.a
+    key = await _custom_field(world, a, "Shift")
+    assert (await _switch(world, a, key, sensitive=True)).status_code == 200
+    await _run(world, a)
+    reason = "Agreed with HR on the 12th"
+    off = await _switch(world, a, key, sensitive=False, reason=reason, confirm_name="Shift")
+    assert off.status_code == 200, off.text
+    rows = await world.sql(
+        "SELECT reason, old_value, new_value FROM field_changes WHERE tenant_id = $1"
+        " AND record_type = 'custom_field'",
+        a.tenant,
+    )
+    assert reason not in json.dumps([dict(r) for r in rows], default=str)

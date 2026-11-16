@@ -44,6 +44,7 @@ from app.modules.metadata.service.sensitivity import (
 )
 from app.modules.metadata.service.sensitivity import advance as advance_seal
 from app.modules.metadata.service.sensitivity import finish as finish_seal
+from app.modules.metadata.service.sensitivity import hold as hold_seal
 from app.modules.metadata.service.sensitivity import moving as fields_being_sealed
 from app.modules.metadata.service.sensitivity import paused as seal_paused
 
@@ -79,6 +80,7 @@ __all__ = [
     "fields_being_sealed",
     "filter_fields",
     "finish_seal",
+    "hold_seal",
     "mark_used",
     "module",
     "problem_params",

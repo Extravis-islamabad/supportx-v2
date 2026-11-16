@@ -27,7 +27,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import Conflict, EntitlementRequired
+from app.core.errors import Conflict, EntitlementRequired, NotFound
 from app.modules.audit import WORKER, AuditActorType, record
 from app.modules.licensing import Feature, has_feature
 from app.modules.metadata.events import CustomFieldSealChanged, CustomFieldSealPaused
@@ -133,7 +133,14 @@ async def set_sensitive(  # noqa: PLR0913 - the choice, its confirmation and con
 
     The caller (the route) has confirmed a recent sign-in and records the audit entry.
     """
-    row = await _get(session, field_id)
+    # Locked before the version check: two switches at once never both pass it (lane B, #526).
+    row = await session.scalar(
+        select(CustomField)
+        .where(CustomField.id == field_id, CustomField.deleted_at.is_(None))
+        .with_for_update()
+    )
+    if row is None:
+        raise NotFound(code="custom_field_not_found")
     await _same_version(session, row, expected_version)
     port = _port(row.entity)
     before, after = row.seal_state, _target(row, sensitive=sensitive)
@@ -164,8 +171,9 @@ async def set_sensitive(  # noqa: PLR0913 - the choice, its confirmation and con
             Change("sensitive", was_sensitive, sensitive),
             Change("seal_state", before, after),
         ],
+        # The reason is personal data: only the audit entry's personal part keeps it, where
+        # erasure reaches it; history never does (lane B, #526).
         source=source,
-        reason=None if sensitive else (reason or "").strip(),
     )
     await _event(session, row, records=records)
     return Switched(row, before, after, records)
@@ -212,6 +220,24 @@ async def moving(session: AsyncSession, entities: Iterable[str]) -> list[Moving]
         .order_by(CustomField.updated_at, CustomField.id)
     )
     return [Moving(r.id, r.entity, r.key, r.seal_state, r.seal_cursor) for r in rows]
+
+
+async def hold(session: AsyncSession, field: Moving) -> bool:
+    """At a batch's start: the field still stands where the job read it, held while it runs.
+
+    `FOR SHARE` on the field row: a switch (`FOR UPDATE`) waits for the batch, and a batch
+    begun after a reversal sees the new state and writes nothing (lane B, #526).
+    """
+    found = await session.scalar(
+        select(CustomField.id)
+        .where(
+            CustomField.id == field.id,
+            CustomField.seal_state == field.state,
+            CustomField.seal_cursor.is_not_distinct_from(field.cursor),
+        )
+        .with_for_update(read=True)
+    )
+    return found is not None
 
 
 async def advance(session: AsyncSession, field: Moving, cursor: uuid.UUID) -> bool:
@@ -325,6 +351,7 @@ __all__ = [
     "Switched",
     "advance",
     "finish",
+    "hold",
     "impact",
     "moving",
     "paused",
