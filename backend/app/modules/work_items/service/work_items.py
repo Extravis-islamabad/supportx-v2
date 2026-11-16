@@ -104,6 +104,7 @@ from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     DONE_CATEGORIES,
     FINAL_CATEGORIES,
+    DefaultStatus,
     PauseClock,
     ReasonList,
     ReasonMode,
@@ -2875,6 +2876,18 @@ CLOSED_EDITED = "incident.closed_edited"
 EDIT_REASON_MAX = 500  # as every other reason in history
 
 
+def _closed_not_merged(record: WorkItem) -> bool:
+    """Whether REQ-INC-101's closed-edit may open this record.
+
+    A closed incident only: never a canceled one (REQ-INC-100 AC2), nor one the system closed by
+    a merge (its own move, undo, is the way back).
+    """
+    return (
+        StatusCategory(record.status_category) is StatusCategory.CLOSED
+        and record.status != DefaultStatus.MERGED.value
+    )
+
+
 async def _may_edit_closed(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem, cat: Catalogue
 ) -> None:
@@ -2883,7 +2896,11 @@ async def _may_edit_closed(
     The tenant's full lock outranks the right, tenant administrators included (lane B); other
     types stay read-only once closed. Reopening is a move of its own, never this.
     """
-    if wtype.code is not WorkItemTypeCode.INCIDENT or cat.closure.closed_edit_locked:
+    if (
+        wtype.code is not WorkItemTypeCode.INCIDENT
+        or not _closed_not_merged(record)
+        or cat.closure.closed_edit_locked
+    ):
         raise Conflict(
             code=RECORD_CLOSED,
             params={"status": record.status, "locked": cat.closure.closed_edit_locked},
@@ -2897,7 +2914,7 @@ async def _closed_edit_open(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> bool:
     """Whether the subject may edit this closed record's fields now (what the page offers)."""
-    if wtype.code is not WorkItemTypeCode.INCIDENT:
+    if wtype.code is not WorkItemTypeCode.INCIDENT or not _closed_not_merged(record):
         return False
     cat = await config.load(session, wtype)
     if cat.closure.closed_edit_locked:
