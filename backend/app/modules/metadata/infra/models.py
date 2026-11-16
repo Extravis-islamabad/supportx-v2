@@ -40,6 +40,9 @@ class CustomField(TenantEntity):
             "index_error IS NULL OR " + _codes("index_error", IndexFailure), name="index_error_code"
         ),
         CheckConstraint("key ~ '^[a-z][a-z0-9_]{1,39}$'", name="key_format"),
+        CheckConstraint(
+            "seal_state IN ('plain', 'sealing', 'sealed', 'opening')", name="seal_state_code"
+        ),
         CheckConstraint("currency IS NULL OR currency ~ '^[A-Z]{3}$'", name="currency_format"),
         Index(
             "uq_custom_fields_tenant_entity_key",
@@ -76,3 +79,7 @@ class CustomField(TenantEntity):
     # rule; personal data erasure and export read them (lane B).
     personal_data: Mapped[bool] = mapped_column(Boolean, server_default="false")
     sensitive: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Where the stored values stand while the re-seal job follows `sensitive` (WP-057 S3b-2;
+    # 0171): plain, sealing, sealed or opening. Filters on a field in between are refused.
+    seal_state: Mapped[str] = mapped_column(String(10), server_default="plain")
+    seal_cursor: Mapped[uuid.UUID | None]

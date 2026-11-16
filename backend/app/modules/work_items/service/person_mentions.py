@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
 from app.modules import metadata
+from app.modules.audit import record_access
 from app.modules.identity_access import (
     MENTION_BATCH,
     Mention,
@@ -55,6 +56,7 @@ from app.modules.work_items.infra.models import (
     WorkItemTask,
     WorkItemWorklog,
 )
+from app.modules.work_items.service import custom_values
 from app.modules.work_items.service import work_items as items
 from app.shared.events import record_event
 from app.shared.history import Change, record_changes
@@ -141,7 +143,9 @@ async def _records(
             )
         if not theirs:  # their own records' custom text is blanked with them
             texts = await _text_keys(session, record.type, known)
-            for key, value in sorted((record.custom or {}).items()):
+            # Sealed values opened in memory to count (lane B, S3b-2): never returned or logged.
+            plain = await custom_values.opened(session, record.id, record.custom)
+            for key, value in sorted(plain.items()):
                 if key in texts and isinstance(value, str):
                     found += _counted(
                         record.type,
@@ -318,7 +322,18 @@ async def _record_passage(session: AsyncSession, subject: Subject, mention: Ment
     if not await _may_read_field(session, subject, record, mention.field):
         return None
     if mention.field.startswith(field_rules.CUSTOM):
-        value = (record.custom or {}).get(mention.field[len(field_rules.CUSTOM) :])
+        key = mention.field[len(field_rules.CUSTOM) :]
+        stored = (record.custom or {}).get(key)
+        value = (await custom_values.opened(session, record.id, {key: stored})).get(key)
+        if custom_values.is_sealed(stored) and isinstance(value, str):
+            # A sealed field's text shown to an admin: a personal-data view (AUD-017, lane B).
+            await record_access(
+                session,
+                kind="view",
+                purpose="erasure_passage",
+                record=(record.type, record.id),
+                fields=[mention.field],
+            )
     else:
         value = getattr(record, mention.field) if mention.field in PLAIN + HTML else None
     return value if isinstance(value, str) else None
@@ -352,7 +367,9 @@ async def _redact_record(
         return False
     if mention.field.startswith(field_rules.CUSTOM):
         key = mention.field[len(field_rules.CUSTOM) :]
-        value = (record.custom or {}).get(key)
+        # Opened in memory to redact; `redact_fields` seals the result again and rebuilds its
+        # blind index (_custom_columns), other sealed values staying as stored (lane B, S3b-2).
+        value = (await custom_values.opened(session, record.id, record.custom)).get(key)
         if not isinstance(value, str):
             return False
         text, replaced = redact_matches(value, terms, mention.match_kind, marker)

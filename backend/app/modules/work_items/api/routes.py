@@ -7,6 +7,7 @@ technician only through `/assign` and `/take`.
 """
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, cast
 
@@ -91,6 +92,7 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, Work
 from app.modules.work_items.service import (
     asset_links,
     change_links,
+    custom_values,
     drafts,
     record_copies,
     release_links,
@@ -780,6 +782,13 @@ class WorkItemOut(BaseModel):
             " ones included; custom ones as custom.<key>."
         ),
     )
+    unreadable_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Custom fields whose value is sealed at rest and did not open (WP-057, ADR-050):"
+            " shown as unreadable, never as empty; as custom.<key>."
+        ),
+    )
 
     @classmethod
     def of(cls, view: service.WorkItemView) -> "WorkItemOut":
@@ -789,14 +798,15 @@ class WorkItemOut(BaseModel):
         values: dict[str, Any] = {
             name: None if name in withheld else getattr(r, name) for name in _RECORD_FIELDS
         }
-        values["custom"] = field_rules.without(
-            r.custom, field_rules.Unseen(view.hidden, view.masked).custom_keys()
-        )
+        # Opened and stripped by the service (custom_values.visible_custom, WP-057 S3b-2); a view
+        # built without it shows no custom values rather than raw stored ones.
+        values["custom"] = view.custom if view.custom is not None else {}
         return cls(
             **values,
             hidden_fields=sorted(view.hidden),
             masked_fields=sorted(view.masked),
             read_only_fields=sorted(view.read_only),
+            unreadable_fields=sorted(f"custom.{k}" for k in view.unreadable),
             root_cause=None if "root_cause" in withheld else r.root_cause,
             root_cause_hidden="root_cause" in view.hidden,
             review_required=view.review_required,
@@ -975,6 +985,10 @@ class WorkItemListItem(BaseModel):
     )
     masked_fields: list[str] = Field(
         default_factory=list, description="Fields shown to you as masked (ADR-047)."
+    )
+    unreadable_fields: list[str] = Field(
+        default_factory=list,
+        description="Sealed custom values that did not open (WP-057, ADR-050): custom.<key>.",
     )
 
 
@@ -1610,6 +1624,8 @@ class WorkItemFieldChangeOut(BaseModel):
         """One change, masked values as `hidden` with no old or new."""
         if change.old == service.MASKED and change.new == service.MASKED:
             return cls(field=change.field, hidden=True)
+        if custom_values.is_sealed(change.old) or custom_values.is_sealed(change.new):
+            return cls(field=change.field, hidden=True)  # never sx2: text (rule 5d; S3b-2)
         return cls(field=change.field, old=change.old, new=change.new)
 
 
@@ -1672,18 +1688,34 @@ class WorkItemHistoryOut(BaseModel):
     )
 
 
-def _item(row: WorkItem, unseen: field_rules.Unseen) -> WorkItemListItem:
-    """A list row without the custom values the person's roles withhold (ADR-047 §4)."""
+def _item(
+    row: WorkItem, unseen: field_rules.Unseen, shown: custom_values.Visible
+) -> WorkItemListItem:
+    """A list row with only the custom values this person may read, sealed ones opened.
+
+    `shown` comes from `custom_values.visible_custom_many` (ADR-047 §4, WP-057 S3b-2): the raw
+    stored values never leave in a row.
+    """
     item = WorkItemListItem.model_validate(row, from_attributes=True)
-    if not unseen.all:
-        return item
     return item.model_copy(
         update={
-            "custom": field_rules.without(item.custom, unseen.custom_keys()),
+            "custom": shown.values,
             "hidden_fields": sorted(unseen.hidden),
             "masked_fields": sorted(unseen.masked),
+            "unreadable_fields": sorted(f"custom.{k}" for k in shown.unreadable),
         }
     )
+
+
+async def _items(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, rows: Sequence[WorkItem]
+) -> list[WorkItemListItem]:
+    """A page of rows, their custom values opened once for the page."""
+    unseen = _unseen(subject, wtype)
+    shown = await custom_values.visible_custom_many(
+        session, [(r.id, r.custom) for r in rows], unseen=unseen
+    )
+    return [_item(r, unseen, shown[r.id]) for r in rows]
 
 
 def _unseen(subject: Subject, wtype: WorkItemType) -> field_rules.Unseen:
@@ -2484,7 +2516,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             | named
         )
         return WorkItemPage(
-            items=[_item(r, _unseen(subject, wtype)) for r in page.rows],
+            items=await _items(session, subject, wtype, page.rows),
             next_cursor=page.next_cursor,
             has_more=page.has_more,
             estimated_total=page.estimated_total,
@@ -2588,7 +2620,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         )
         people = sorted({str(u) for r in rows for u in (r.requester_id, r.technician_id) if u})
         return WorkItemSearchOut(
-            items=[_item(r, _unseen(subject, wtype)) for r in rows],
+            items=await _items(session, subject, wtype, rows),
             people=_people(await user_contacts(session, people)),
         )
 
@@ -2640,14 +2672,15 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
                     if u
                 }
             )
+            shown = await _items(session, subject, wtype, [c.record for c in found])
             return DuplicatesOut(
                 items=[
                     DuplicateOut(
-                        item=_item(c.record, _unseen(subject, wtype)),
+                        item=item,
                         score=c.score,
                         reasons=list(c.reasons),
                     )
-                    for c in found
+                    for c, item in zip(found, shown, strict=True)
                 ],
                 method=method,
                 people=_people(await user_contacts(session, people)),

@@ -748,6 +748,9 @@ class FieldMarks:
     labels: dict[str, str]
     personal_data: bool
     sensitive: bool
+    # Where its stored values stand (WP-057 S3b-2): plain, sealing, sealed or opening. Values are
+    # written sealed while sealing or sealed; filters work only when plain or sealed.
+    seal_state: str = "plain"
 
 
 async def field_marks(
@@ -755,7 +758,7 @@ async def field_marks(
 ) -> list[FieldMarks]:
     """The entity's custom fields in use, with their names and marks; `retired`: those too."""
     return [
-        FieldMarks(row.key, dict(row.labels), row.personal_data, row.sensitive)
+        FieldMarks(row.key, dict(row.labels), row.personal_data, row.sensitive, row.seal_state)
         for row in await list_fields(session, entity)
         if retired or row.retired_at is None
     ]
