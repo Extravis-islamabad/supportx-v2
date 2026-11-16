@@ -13,7 +13,7 @@ starts with tenant_id. The downgrade refuses while any tenant has a CMDB row (ru
 tenant with app.tenant_id set.
 
 Revision ID: 0173
-Revises: 0168 (main's head while building; re-pointed at its queue turn)
+Revises: 0169 (main's head at the draft; re-pointed again at its queue turn)
 Created: 2026-11-16
 """
 
@@ -27,7 +27,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0173"
-down_revision: str | None = "0168"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0169"  # main's head at the draft (re-pointed again at its queue turn)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
