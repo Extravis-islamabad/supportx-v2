@@ -22,14 +22,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, EntitlementRequired
 from app.modules.audit import WORKER, AuditActorType, record
 from app.modules.licensing import Feature, has_feature
-from app.modules.metadata.events import CustomFieldSealChanged
+from app.modules.metadata.events import CustomFieldSealChanged, CustomFieldSealPaused
 from app.modules.metadata.infra.models import CustomField
 from app.modules.metadata.service.custom_fields import (
     RECORD_TYPE,
@@ -39,6 +40,7 @@ from app.modules.metadata.service.custom_fields import (
     _same_version,
 )
 from app.shared.events import record_event
+from app.shared.events.outbox import ProcessedEvent
 from app.shared.history import Change, Source, record_changes
 
 SealState = Literal["plain", "sealing", "sealed", "opening"]  # checked by the table
@@ -276,6 +278,46 @@ async def finish(session: AsyncSession, field: Moving, *, records: int, unreadab
     return True
 
 
+# The pause notice goes once per outage: its claim, keyed by the field, is made when the job
+# pauses and dropped by the next batch that runs (the consumers' own idempotency table).
+PAUSE_CLAIM = "metadata__seal_paused"
+
+
+async def paused(session: AsyncSession, field: Moving) -> bool:
+    """The keys are unavailable: tell the admins, the first time of this outage only."""
+    claimed = await session.execute(
+        insert(ProcessedEvent)
+        .values(
+            tenant_id=session.info[SESSION_TENANT_KEY].tenant_id,
+            consumer=PAUSE_CLAIM,
+            event_id=field.id,
+        )
+        .on_conflict_do_nothing()
+    )
+    if not getattr(claimed, "rowcount", 0):
+        return False
+    await record_event(
+        session,
+        CustomFieldSealPaused(
+            custom_field_id=field.id,
+            entity=field.entity,
+            key=field.key,
+            seal_state=cast("Literal['sealing', 'opening']", field.state),
+        ),
+        aggregate_id=field.id,
+    )
+    return True
+
+
+async def resumed(session: AsyncSession, field: Moving) -> None:
+    """A batch ran: the outage (if any) is over, so a later one is told again."""
+    await session.execute(
+        delete(ProcessedEvent).where(
+            ProcessedEvent.consumer == PAUSE_CLAIM, ProcessedEvent.event_id == field.id
+        )
+    )
+
+
 __all__ = [
     "MOVING",
     "OPENING",
@@ -289,7 +331,9 @@ __all__ = [
     "finish",
     "impact",
     "moving",
+    "paused",
     "register_seal_port",
+    "resumed",
     "sealable",
     "set_sensitive",
 ]

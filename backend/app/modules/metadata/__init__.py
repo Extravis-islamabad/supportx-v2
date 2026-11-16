@@ -20,7 +20,7 @@ from app.modules.metadata.domain.fields import (
     FieldType,
 )
 from app.modules.metadata.events import EVENTS
-from app.modules.metadata.service import report_names
+from app.modules.metadata.service import report_names, seal_notifications
 from app.modules.metadata.service.custom_fields import (
     FieldMarks,
     clean,
@@ -45,6 +45,8 @@ from app.modules.metadata.service.sensitivity import (
 from app.modules.metadata.service.sensitivity import advance as advance_seal
 from app.modules.metadata.service.sensitivity import finish as finish_seal
 from app.modules.metadata.service.sensitivity import moving as fields_being_sealed
+from app.modules.metadata.service.sensitivity import paused as seal_paused
+from app.modules.metadata.service.sensitivity import resumed as seal_resumed
 
 FEATURE = "incident"
 
@@ -83,5 +85,9 @@ __all__ = [
     "problem_params",
     "register_field_usage",
     "register_seal_port",
+    "seal_paused",
+    "seal_resumed",
     "text_for_search",
 ]
+
+seal_notifications.register()

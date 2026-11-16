@@ -41,4 +41,24 @@ class CustomFieldSealChanged(DomainEvent):
     unreadable: int = 0  # values the job could not open (when opening): left sealed
 
 
-EVENTS: tuple[type[DomainEvent], ...] = (CustomFieldChanged, CustomFieldSealChanged)
+class CustomFieldSealPaused(DomainEvent):
+    """Sealing or opening a field's values paused: the keys are unavailable (WP-057 S3b-2b).
+
+    Once per outage (lane B): the admins are told, and the job tries again by itself.
+    """
+
+    event_type: ClassVar[str] = "metadata.custom_field.seal_paused"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "custom_field"
+
+    custom_field_id: uuid.UUID
+    entity: str
+    key: str
+    seal_state: Literal["sealing", "opening"]
+
+
+EVENTS: tuple[type[DomainEvent], ...] = (
+    CustomFieldChanged,
+    CustomFieldSealChanged,
+    CustomFieldSealPaused,
+)
