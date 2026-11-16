@@ -39,7 +39,7 @@ from app.modules.assets.infra.models import (
     AssetLoan,
     AssetLoanItem,
 )
-from app.modules.assets.service.bookings import _event as booking_event
+from app.modules.assets.service.bookings import record_booking_change as booking_event
 from app.modules.identity_access import (
     ERASE_BATCH,
     ErasureBatch,
