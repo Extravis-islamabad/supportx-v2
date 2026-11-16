@@ -111,6 +111,24 @@ export const ar: LabelResource = {
   'api_keys.new': 'مفتاح جديد',
   'api_keys.no_expiry': 'بلا انتهاء',
   'api_keys.not_used': 'لم يُستخدم بعد',
+  'api_keys.policy.days_help': 'من {{min}} إلى {{max}} يومًا.',
+  'api_keys.policy.help':
+    'تنطبق على المفاتيح الجديدة. المفاتيح المنشأة قبل سياسة أشد تظهر أدناه مع ما تخالفه، ولا تُلغى تلقائيًا أبدًا.',
+  'api_keys.policy.impact_few':
+    'ستُعلَّم {{count}} مفاتيح موجودة بأنها خارج السياسة. تظل تعمل حتى تلغيها.',
+  'api_keys.policy.impact_many':
+    'سيُعلَّم {{count}} مفتاحًا موجودًا بأنها خارج السياسة. تظل تعمل حتى تلغيها.',
+  'api_keys.policy.impact_none': 'لن يكون أي مفتاح موجود خارج السياسة.',
+  'api_keys.policy.impact_one': 'سيُعلَّم مفتاح موجود واحد بأنه خارج السياسة. يظل يعمل حتى تلغيه.',
+  'api_keys.policy.impact_other':
+    'سيُعلَّم {{count}} مفتاح موجود بأنها خارج السياسة. تظل تعمل حتى تلغيها.',
+  'api_keys.policy.impact_two':
+    'سيُعلَّم مفتاحان موجودان بأنهما خارج السياسة. يظلان يعملان حتى تلغيهما.',
+  'api_keys.policy.impact_zero': 'لن يكون أي مفتاح موجود خارج السياسة.',
+  'api_keys.policy.max_lifetime': 'أطول مدة لمفتاح جديد (بالأيام)',
+  'api_keys.policy.require_ip': 'يجب أن تحدد المفاتيح الجديدة العناوين التي يمكن استخدامها منها',
+  'api_keys.policy.title': 'سياسة المفاتيح',
+  'api_keys.policy.unused_after': 'إدراج المفاتيح غير المستخدمة منذ (أيام)',
   'api_keys.revoke': 'إبطال',
   'api_keys.revoke_confirm': 'إبطال المفتاح «{{name}}»؟ يتوقف كل ما يستخدمه عن العمل فورًا.',
   'api_keys.revoked': 'تم إبطال المفتاح.',
@@ -130,6 +148,7 @@ export const ar: LabelResource = {
     'أُنشئ هذا المفتاح في محاولة سابقة، لذا لا يمكن عرض نصه مرة أخرى. أبطله وأنشئ مفتاحًا جديدًا.',
   'api_keys.shown.title': 'انسخ مفتاحك الآن',
   'api_keys.title': 'مفاتيح API',
+  'api_keys.unused': 'غير مستخدم',
   'api_keys.used_from': '{{when}} من {{address}}',
   'auth.checking_session': 'جارٍ التحقق من جلستك…',
   'auth.redirecting_to_login': 'جارٍ التحويل إلى صفحة تسجيل الدخول…',

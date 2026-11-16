@@ -108,6 +108,18 @@ export const en = {
   'api_keys.new': 'New key',
   'api_keys.no_expiry': 'No expiry',
   'api_keys.not_used': 'Not used yet',
+  'api_keys.policy.days_help': 'From {{min}} to {{max}} days.',
+  'api_keys.policy.help':
+    'Applies to new keys. Keys made before a stricter policy are listed below with what they break; they are never revoked automatically.',
+  'api_keys.policy.impact_none': 'No existing key would be out of policy.',
+  'api_keys.policy.impact_one':
+    '{{count}} existing key would be flagged as out of policy. It keeps working until you revoke it.',
+  'api_keys.policy.impact_other':
+    '{{count}} existing keys would be flagged as out of policy. They keep working until you revoke them.',
+  'api_keys.policy.max_lifetime': 'Longest a new key may last (days)',
+  'api_keys.policy.require_ip': 'New keys must name the addresses they may be used from',
+  'api_keys.policy.title': 'Key policy',
+  'api_keys.policy.unused_after': 'List keys unused for (days)',
   'api_keys.revoke': 'Revoke',
   'api_keys.revoke_confirm': 'Revoke the key “{{name}}”? Anything using it stops working at once.',
   'api_keys.revoked': 'Key revoked.',
@@ -127,6 +139,7 @@ export const en = {
     'This key was made by an earlier attempt, so its text cannot be shown again. Revoke it and make a new one.',
   'api_keys.shown.title': 'Copy your key now',
   'api_keys.title': 'API keys',
+  'api_keys.unused': 'Unused',
   'api_keys.used_from': '{{when}} from {{address}}',
   'auth.checking_session': 'Checking your session…',
   'auth.redirecting_to_login': 'Redirecting to sign in…',

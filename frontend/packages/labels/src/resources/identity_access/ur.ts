@@ -111,6 +111,19 @@ export const ur: LabelResource = {
   'api_keys.new': 'نئی کلید',
   'api_keys.no_expiry': 'کوئی میعاد نہیں',
   'api_keys.not_used': 'ابھی استعمال نہیں ہوئی',
+  'api_keys.policy.days_help': '{{min}} سے {{max}} دن تک۔',
+  'api_keys.policy.help':
+    'نئی کلیدوں پر لاگو ہوتی ہے۔ سخت پالیسی سے پہلے بنی کلیدیں نیچے اس کے ساتھ دکھائی جاتی ہیں جس کی وہ خلاف ورزی کرتی ہیں؛ انہیں کبھی خودبخود منسوخ نہیں کیا جاتا۔',
+  'api_keys.policy.impact_none': 'کوئی موجودہ کلید پالیسی سے باہر نہیں ہو گی۔',
+  'api_keys.policy.impact_one':
+    '{{count}} موجودہ کلید پالیسی سے باہر نشان زد ہو گی۔ آپ کے منسوخ کرنے تک یہ کام کرتی رہے گی۔',
+  'api_keys.policy.impact_other':
+    '{{count}} موجودہ کلیدیں پالیسی سے باہر نشان زد ہوں گی۔ آپ کے منسوخ کرنے تک یہ کام کرتی رہیں گی۔',
+  'api_keys.policy.max_lifetime': 'نئی کلید کی زیادہ سے زیادہ مدت (دن)',
+  'api_keys.policy.require_ip':
+    'نئی کلیدوں کو وہ پتے درج کرنے ہوں گے جہاں سے انہیں استعمال کیا جا سکے',
+  'api_keys.policy.title': 'کلیدوں کی پالیسی',
+  'api_keys.policy.unused_after': 'اتنے دن غیر استعمال شدہ کلیدیں دکھائیں',
   'api_keys.revoke': 'منسوخ کریں',
   'api_keys.revoke_confirm':
     'کلید “{{name}}” منسوخ کریں؟ اسے استعمال کرنے والی ہر چیز فوراً کام کرنا بند کر دے گی۔',
@@ -131,6 +144,7 @@ export const ur: LabelResource = {
     'یہ کلید پچھلی کوشش میں بن چکی ہے، اس لیے اس کا متن دوبارہ نہیں دکھایا جا سکتا۔ اسے منسوخ کر کے نئی بنائیں۔',
   'api_keys.shown.title': 'اپنی کلید ابھی کاپی کریں',
   'api_keys.title': 'API کلیدیں',
+  'api_keys.unused': 'غیر استعمال شدہ',
   'api_keys.used_from': '{{when}}، {{address}} سے',
   'auth.checking_session': 'آپ کا سیشن چیک کیا جا رہا ہے…',
   'auth.redirecting_to_login': 'سائن اِن کی طرف بھیجا جا رہا ہے…',
