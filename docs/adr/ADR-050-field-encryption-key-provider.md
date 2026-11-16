@@ -231,6 +231,40 @@ How `sensitive` custom fields on work items are sealed (migration 0171):
   mentions, then sealed again with the index rebuilt. An admin is shown a sealed field's passage
   only if the field reads clear for them, and each view is logged in the access log (AUD-017,
   purpose `erasure_passage`).
-- **Turning the flag on or off** (re-auth, the settings right, an audit entry, and wording that says
-  turning it off opens values to plain text) ships with the re-seal job in S3b-2b. Until then no API
-  changes `sensitive` or `seal_state`.
+- **Turning the flag on or off** ships with the re-seal job in S3b-2b (addendum 3).
+
+## Addendum 3 (2026-11-16, WP-057 S3b-2b; coordinator and lane B conditions, lane B blocking)
+
+The switch and the re-seal job. No migration: 0171's `seal_state` and `seal_cursor`.
+
+- **The switch** is its own route, `PUT /custom-fields/{id}/sensitivity` (If-Match, a recent
+  sign-in, the custom-field settings right), never the field's edit form.
+  - **On** needs the `field_encryption` feature: `plain`/`opening` → `sealing`.
+  - **Off** is always allowed (removing protection never needs a licence, ADR-047 §13), but it is
+    the riskier way, so it needs a typed reason and the field's English name typed back. The
+    screen says how many records' values become readable at rest, that history written while
+    sensitive stays sealed, and that existing exports and backups are not changed.
+    `sealed`/`sealing` → `opening`.
+  - Only work-item fields can be sensitive (their module registers a seal port); others get
+    `custom_field_sensitive_unsupported`.
+  - Both ways are in the field's history and the audit log: codes and counts in the details, the
+    reason in the entry's personal part (`audit_personal`).
+- **Search fails closed at the switch's commit:** turning it on marks the type's search text
+  for rebuilding in the same transaction, so the field's words stop matching at once. Turning it
+  off brings them back only when the field is `plain` again.
+- **The job** (schedule `work_items__custom_field_seal`, every 30 s, every tenant):
+  - batches of 500 records past the field's cursor, rows locked `FOR UPDATE`, each update
+    compare-and-set on the value read, so a person's change is never overwritten;
+  - no version bump and no history row (the stored form changes, never the value), and history
+    is never touched;
+  - resumable from the cursor; a reversal mid-run starts again from the first record;
+  - at the end: `sealed` (or `plain`, with every index row of the field deleted), an audit entry
+    with the counts, and `metadata.custom_field.seal_changed`. Events carry the state and counts,
+    never a value. A value that could not be opened stays sealed and is counted as unreadable.
+- **Keys missing:** a batch that cannot reach its keys rolls back, the state stays as it was and
+  the next tick tries again. Those who manage custom fields get one urgent notice per stuck place
+  (`metadata.custom_field.seal_paused`).
+- **The licence never stops a job:** a lapsed `field_encryption` finishes a field half-sealed.
+- **KEK rotation** only rewraps data keys: sealed values, the blind index and history open
+  unchanged under the new key (tested), and history stays byte-for-byte what it was, so ADR-046's
+  fingerprints still match.
