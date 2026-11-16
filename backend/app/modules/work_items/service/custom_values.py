@@ -192,7 +192,12 @@ async def open_sealed_changes(  # noqa: PLR0913 - one save's parts, explicit
             return True, value
         binding = history_binding(record_type, record_id, change.field, version, name)
         opened = await cipher.open(CUSTOM, binding, str(value))
-        return (False, None) if opened is None else (True, json.loads(opened))
+        if opened is None:
+            return False, None
+        try:
+            return True, json.loads(opened)
+        except ValueError:  # not what seal_history wrote: the hidden line, never a failed page
+            return False, None
 
     shown: list[Change] = []
     for change in changes:
