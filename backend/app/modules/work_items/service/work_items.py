@@ -2325,14 +2325,24 @@ async def _record_automation(
     session: AsyncSession, record: WorkItem, automated: automation.Automated
 ) -> None:
     """One history entry per rule, routing and assignment step, and the run log (REQ-WI-004)."""
+    sealed = await custom_values.sealing_keys(session, record.type) if automated.entries else None
     for ref, changes in automated.entries:
+        # A rule that set a sensitive field: its values reach history sealed (WP-057 S3b-2).
+        entry = await custom_values.seal_history(
+            session,
+            RECORD_TYPE,
+            record.id,
+            record.version,
+            [Change(name, old, new) for name, old, new in changes],
+            sealed_keys=sealed or frozenset(),
+        )
         await record_changes(
             session,
             record_type=RECORD_TYPE,
             record_id=record.id,
             version=record.version,
             kind="updated",
-            changes=[Change(name, old, new) for name, old, new in changes],
+            changes=entry,
             source="rule",
             automation_ref=ref,
         )
@@ -3018,6 +3028,15 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         for n, v in after.items()
         if before[n] != v and n not in automatic and n not in by_rules
     ]
+    # Sealed custom values reach history sealed for their own cell (WP-057 S3b-2).
+    people = await custom_values.seal_history(
+        session,
+        RECORD_TYPE,
+        updated.id,
+        updated.version,
+        people,
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
     if people:
         await record_changes(
             session,

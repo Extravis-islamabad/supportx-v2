@@ -27,6 +27,7 @@ from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.infra.models import WorkItemFieldIndex
 from app.shared.crypto.codec import TEXT_PREFIX
 from app.shared.fields import Binding, field_cipher_for, purpose
+from app.shared.history import Change
 from app.shared.ids import new_id
 
 CUSTOM = purpose(module="work_items", what="custom")
@@ -119,6 +120,74 @@ async def unchanged_sealed(
     for key, value in sealed.items():
         if key not in opened.unreadable and opened.values.get(key) == out[key]:
             out[key] = value
+    return out
+
+
+def history_binding(
+    record_type: str, record_id: uuid.UUID, field_name: str, version: int, side: str
+) -> Binding:
+    """Where a sealed history value lives: one cell of one save (lane B, 2026-11-16).
+
+    The history row's own ID exists only inside `record_changes`; one save per record type,
+    record and version makes this unique per cell, so a value never opens in another row,
+    version, field or side.
+    """
+    return Binding("field_changes", record_id, f"{record_type}:{field_name}@v{version}:{side}")
+
+
+async def seal_history(  # noqa: PLR0913 - one save's parts, explicit
+    session: AsyncSession,
+    record_type: str,
+    record_id: uuid.UUID,
+    version: int,
+    changes: list[Change],
+    *,
+    sealed_keys: frozenset[str] = frozenset(),
+    settings: Settings | None = None,
+) -> list[Change]:
+    """History changes with sensitive custom values sealed for their history cell.
+
+    A value stored sealed is opened from the record's binding and sealed again under the history
+    one: the record's ciphertext is never copied into history (lane B's option b: history
+    ciphertext is never rewritten after). A plain value of a key in `sealed_keys` (a rule's
+    action) is sealed too. A value that does not open is written as None, never as text.
+    """
+
+    def touches(change: Change) -> bool:
+        key = change.field.removeprefix("custom.")
+        return change.field.startswith("custom.") and (
+            key in sealed_keys or is_sealed(change.old) or is_sealed(change.new)
+        )
+
+    if not any(touches(c) for c in changes):
+        return changes
+    cipher = field_cipher_for(session, settings or get_settings())
+    out: list[Change] = []
+    for change in changes:
+        if not touches(change):
+            out.append(change)
+            continue
+        key = change.field.removeprefix("custom.")
+        values: list[Any] = []
+        for side, value in (("old", change.old), ("new", change.new)):
+            if value is None:
+                values.append(None)
+                continue
+            plain = (
+                await cipher.open(CUSTOM, _binding(record_id, key), value)
+                if is_sealed(value)
+                else json.dumps(value, ensure_ascii=False, sort_keys=True)
+            )
+            values.append(
+                None
+                if plain is None
+                else await cipher.seal(
+                    CUSTOM,
+                    history_binding(record_type, record_id, change.field, version, side),
+                    plain,
+                )
+            )
+        out.append(Change(change.field, values[0], values[1]))
     return out
 
 
