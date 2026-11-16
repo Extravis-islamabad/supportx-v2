@@ -67,7 +67,7 @@ def upgrade() -> None:
         sa.Column("first_contact_minutes", sa.Integer(), server_default="30", nullable=False),
     )
     op.create_check_constraint(
-        "ck_work_item_type_settings_first_contact_minutes",
+        op.f("ck_work_item_type_settings_first_contact_minutes"),
         SETTINGS,
         "first_contact_minutes BETWEEN 0 AND 1440",
     )
@@ -78,7 +78,9 @@ def downgrade() -> None:
     """Back to before (stops while any tenant uses them)."""
     op.execute(GUARD)
     op.drop_column(ITEMS, "first_contact_resolution")
-    op.drop_constraint("ck_work_item_type_settings_first_contact_minutes", SETTINGS)
+    op.drop_constraint(
+        op.f("ck_work_item_type_settings_first_contact_minutes"), SETTINGS, type_="check"
+    )
     op.drop_column(SETTINGS, "first_contact_minutes")
     op.drop_column(SETTINGS, "edit_reason_fields")
     op.drop_column(SETTINGS, "closed_edit_locked")

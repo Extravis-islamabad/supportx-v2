@@ -51,7 +51,8 @@ async def test_a_closed_incident_needs_the_right_and_a_reason(world: World) -> N
     theirs = (await world.call("GET", f"{BASE}/{item['id']}", a, a.tech_a)).json()
     assert next(o for o in theirs["operations"] if o["action"] == "edit")["allowed"] is False
     refused = await _edit(world, a, a.tech_a, item, impact_details="More people affected")
-    assert refused.status_code == 403, refused.text  # technicians do not hold it by default
+    # Technicians do not hold it by default: to them the record is simply closed.
+    assert (refused.status_code, refused.json()["code"]) == (409, "record_closed"), refused.text
     no_reason = await _edit(world, a, a.admin, item, impact_details="More people affected")
     assert no_reason.status_code == 422, no_reason.text
     assert [e["field"] for e in no_reason.json()["errors"]] == ["body.reason"]
@@ -135,7 +136,7 @@ async def test_the_api_key_path_is_refused_too(world: World) -> None:  # noqa: F
         json={"impact_details": "Changed", "edit_reason": "Through the API"},
         headers={"If-Match": f'"{item["version"]}"'},  # no console header: the public API
     )
-    assert by_api.status_code == 403, by_api.text
+    assert (by_api.status_code, by_api.json()["code"]) == (409, "record_closed"), by_api.text
 
 
 async def test_first_contact_resolution_is_suggested_then_the_technician_decides(

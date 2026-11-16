@@ -2889,7 +2889,8 @@ async def _may_edit_closed(
             params={"status": record.status, "locked": cat.closure.closed_edit_locked},
         )
     if not await _may(session, subject, wtype, EDIT_CLOSED, record.id):
-        raise PermissionDenied(params={"permission": wtype.permission(EDIT_CLOSED)})
+        # Without the right the record is simply closed to them (the answer it always gave).
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status, "locked": False})
 
 
 async def _closed_edit_open(
@@ -2910,7 +2911,7 @@ def _edit_reason(
     """The edit's reason, checked: required on a closed record and for the tenant's fields."""
     why = (reason or "").strip() or None
     if why is not None and len(why) > EDIT_REASON_MAX:
-        raise _errors([("reason", "too_long")], reason={"max": str(EDIT_REASON_MAX)})
+        raise _errors([("reason", "value_too_long")], reason={"max": str(EDIT_REASON_MAX)})
     named = {n for n in columns if n != "custom"} | {
         f"custom.{key}" for key in (columns.get("custom") or {})
     }
