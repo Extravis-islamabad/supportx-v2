@@ -22,6 +22,7 @@ from app.modules import metadata
 from app.modules.work_items.service import custom_values, sealing_job
 from app.shared.fields import FieldKeysUnavailable
 from app.shared.files.keyring import KeyRing
+from app.shared.files.service.core import rewrap_data_keys
 from tests.db.test_access_api import fake_session
 from tests.db.test_field_access_reads import _custom_field
 from tests.db.test_field_access_search import _found
@@ -318,3 +319,62 @@ async def test_one_tenants_job_never_touches_another(world: World) -> None:  # n
     assert await _state(world, a, key_a) == ("sealed", True)
     assert await _state(world, b, key_b) == ("sealing", True)
     assert await _stored(world, b, key_b) == ["B1"]
+
+
+async def test_sealed_values_survive_a_kek_rotation_and_history_stays_verifiable(
+    world: World,  # noqa: F811
+) -> None:
+    """Lane B (7): re-seal, then a new installation key; values and history still open.
+
+    The re-seal job never writes history, so every `field_changes` row is byte-for-byte what it
+    was: the change-set fingerprints (ADR-046) still match. The KEK only rewraps data keys.
+    """
+    _with_keys(world)
+    a = world.a
+    key = await _custom_field(world, a, "Vault")
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={key: "V1"})
+    current = (await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)).json()
+    await world.call(
+        "PATCH",
+        f"{BASE}/{item['id']}",
+        a,
+        a.admin,
+        json={"custom": {key: "V2"}},
+        headers={"If-Match": f'"{current["version"]}"'},
+    )
+    history_query = (
+        "SELECT id, old_value, new_value FROM field_changes WHERE tenant_id = $1"
+        " AND record_id = $2 ORDER BY id"
+    )
+    record = uuid.UUID(item["id"])
+    before = [dict(r) for r in await world.sql(history_query, a.tenant, record)]
+    assert (await _switch(world, a, key, sensitive=True)).status_code == 200
+    await _run(world, a)
+    assert await _state(world, a, key) == ("sealed", True)
+    assert [dict(r) for r in await world.sql(history_query, a.tenant, record)] == before
+    # A new installation key: data keys rewrapped, then the old key removed from the ring.
+    old = world.app.state.settings.files_keys.get_secret_value()
+    both = f"{KeyRing.generate('k2')}, {old}"
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await rewrap_data_keys(session, KeyRing.parse(both)) >= 1
+    only_new = both.split(",", maxsplit=1)[0].strip()
+    settings = world.app.state.settings.model_copy(update={"files_keys": SecretStr(only_new)})
+    world.app.state.settings = settings
+    world.app.state.db.settings = settings
+    shown = await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)
+    assert shown.json()["custom"][key] == "V2"
+    assert shown.json()["unreadable_fields"] == []
+    found = await world.call(
+        "GET",
+        BASE,
+        a,
+        a.admin,
+        params={"filter": json.dumps({"field": f"custom.{key}", "op": "eq", "value": "v2"})},
+    )
+    assert [r["id"] for r in found.json()["items"]] == [item["id"]]
+    page = await world.call("GET", f"{BASE}/{item['id']}/history", a, a.admin)
+    assert "V1" in page.text
+    assert "sx2:" not in page.text
+    # Tenants outlive this test: their data keys go back under the test's original ring.
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await rewrap_data_keys(session, KeyRing.parse(f"{old}, {only_new}"))
