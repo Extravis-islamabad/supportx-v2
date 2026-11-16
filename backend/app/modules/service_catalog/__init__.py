@@ -18,6 +18,7 @@ from app.core.modules import ModuleSpec
 from app.modules.service_catalog.api.routes import router
 from app.modules.service_catalog.events import EVENTS
 from app.modules.service_catalog.infra import models  # noqa: F401 - registers the tables
+from app.modules.service_catalog.service import person_data
 from app.modules.service_catalog.service.catalog import (
     MANAGE,
     PlanStep,
@@ -42,6 +43,9 @@ FEATURE = "service_request"
 
 # Admins hold it (every permission); a catalog manager role can be made from it.
 PERMISSIONS = (PermissionSpec(MANAGE, FEATURE),)
+
+# ADR-052 (lane B's readiness check): the items' set-up no longer names an erased person.
+person_data.register()
 
 module = ModuleSpec(
     name="service_catalog",
