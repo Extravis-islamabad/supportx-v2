@@ -33,6 +33,18 @@ from app.modules.metadata.service.custom_fields import (
     text_for_search,
 )
 from app.modules.metadata.service.realtime import ROUTES
+from app.modules.metadata.service.sensitivity import (
+    OPENING,
+    PLAIN,
+    SEALED,
+    SEALING,
+    Moving,
+    SealPort,
+    register_seal_port,
+)
+from app.modules.metadata.service.sensitivity import advance as advance_seal
+from app.modules.metadata.service.sensitivity import finish as finish_seal
+from app.modules.metadata.service.sensitivity import moving as fields_being_sealed
 
 FEATURE = "incident"
 
@@ -49,17 +61,27 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "OPENING",
+    "PLAIN",
+    "SEALED",
+    "SEALING",
     "CustomFieldEntity",
     "Definition",
     "FieldMarks",
     "FieldType",
+    "Moving",
+    "SealPort",
+    "advance_seal",
     "clean",
     "definitions",
     "field_marks",
+    "fields_being_sealed",
     "filter_fields",
+    "finish_seal",
     "mark_used",
     "module",
     "problem_params",
     "register_field_usage",
+    "register_seal_port",
     "text_for_search",
 ]
