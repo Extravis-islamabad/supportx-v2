@@ -26,7 +26,7 @@ from app.modules.identity_access import Subject
 from app.modules.organization import offered_languages
 from app.modules.work_items.domain.types import SUBJECT_MAX, WorkItemType
 from app.modules.work_items.infra.models import WorkItem, WorkItemTypeSettings
-from app.modules.work_items.service import parts
+from app.modules.work_items.service import custom_values, parts
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.work_items import PermissionHolders
 from app.shared.files.ports import OwnerType
@@ -117,7 +117,8 @@ async def copy_record(  # noqa: C901, PLR0913 - one step per part chosen; the co
     if original.group_id is not None and subject.holds(wtype.permission("assign")):
         base["group_id"] = original.group_id
     if original.custom:
-        base["custom"] = dict(original.custom)
+        # Sealed values are bound to the original: opened here, sealed again under each copy.
+        base["custom"] = await custom_values.opened(session, original.id, original.custom)
     tasks = (
         await parts.tasks(session, subject, wtype, original.id)
         if RecordCopyPart.TASKS in parts_chosen

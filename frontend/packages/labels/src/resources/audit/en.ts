@@ -11,6 +11,7 @@ export const en = {
   'access_kind.view': 'Viewed',
   'access_purpose.ai_summary': 'AI summary',
   'access_purpose.audit_entry': 'Audit entry',
+  'access_purpose.erasure_passage': 'Erasure: a passage naming the person',
   'access_purpose.people_export': 'People export',
   'access_purpose.person_profile': 'Person profile',
   'actor_type.system': 'The system',

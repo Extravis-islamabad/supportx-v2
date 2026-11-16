@@ -22,7 +22,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ServiceUnavailable
 from app.core.logging import get_logger
-from app.shared.crypto import KeyMaterial, from_text, key_id_of, open_sealed, seal, to_text
+from app.shared.crypto import (
+    KeyMaterial,
+    blind_digest,
+    from_text,
+    key_id_of,
+    open_sealed,
+    seal,
+    to_text,
+)
 from app.shared.fields.cache import DataKeyCache
 from app.shared.fields.purposes import is_declared
 from app.shared.files.keyring import KeyRing, KeyRingError
@@ -135,6 +143,43 @@ class FieldCipher:
             self._unreadable(checked, key_ref, "bad_tag")
             return None
         return found.decode("utf-8")
+
+    async def blind(self, purpose: str, value: str, *, field: str) -> tuple[uuid.UUID, str]:
+        """(data key ID, digest) for a value about to be stored: the index row (WP-057 S3b-2)."""
+        try:
+            key_id, secret = await current_data_key(self.session, self._ring())
+        except (KeyRingError, FilesNotConfiguredError) as exc:
+            raise FieldKeysUnavailable from exc
+        return key_id, blind_digest(secret, _checked(purpose), value, field=field)
+
+    async def blind_under(
+        self, purpose: str, value: str, key_ids: Sequence[uuid.UUID], *, field: str
+    ) -> dict[uuid.UUID, str]:
+        """The digest a value has under each of these data keys (a lookup: rows keep their key).
+
+        A key this tenant does not have is left out (nothing can match under it).
+        """
+        checked = _checked(purpose)
+        tenant = tenant_of(self.session)
+        ring = self._ring()
+        found: dict[uuid.UUID, str] = {}
+        for key_id in key_ids:
+
+            async def load(key_id: uuid.UUID = key_id) -> bytes:
+                return await data_key(self.session, ring, key_id)
+
+            try:
+                secret = (
+                    await self.cache.data_key(tenant, key_id, load)
+                    if self.cache is not None
+                    else await load()
+                )
+            except FilesNotConfiguredError:
+                continue
+            except KeyRingError as exc:
+                raise FieldKeysUnavailable from exc
+            found[key_id] = blind_digest(secret, checked, value, field=field)
+        return found
 
     def _unreadable(self, purpose: str, key_ref: str | None, reason: str) -> None:
         # A security event: someone changed stored data, or it was copied where it does not

@@ -36,12 +36,18 @@ PAGE = 500
 
 
 async def withheld_keys(session: AsyncSession, record_type: str) -> frozenset[str]:
-    """The record type's custom keys any role restricts: never in its search text."""
-    return frozenset(
+    """The record type's custom keys any role restricts, or sealed: never in its search text.
+
+    Nobody finds a record by a value they may not see, or one sealed at rest (WP-057 S3b-2).
+    """
+    from app.modules.work_items.service.custom_values import not_plain_keys  # noqa: PLC0415 - a cycle
+
+    restricted = frozenset(
         f[len(CUSTOM) :]
         for f in await restricted_fields(session, record_type)
         if f.startswith(CUSTOM)
     )
+    return restricted | await not_plain_keys(session, record_type)
 
 
 async def rebuilding(session: AsyncSession, wtype: WorkItemType) -> bool:

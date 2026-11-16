@@ -182,3 +182,55 @@ still wraps. `make keys-check` answers the same question before the key is remov
 - **Exact match** uses a blind index: an HMAC under its own purpose key. There is no partial
   search, sort or range.
 - **Turning the flag on or off** re-seals the field's values in a resumable per-tenant job.
+
+## Addendum 2 (2026-11-16, WP-057 S3b-2a; lane B blocking, lane A on call sites)
+
+How `sensitive` custom fields on work items are sealed (migration 0171):
+
+- **Where a field stands:** `custom_fields.seal_state` is `plain`, `sealing`, `sealed` or
+  `opening`. New values are written sealed while it is `sealing` or `sealed`.
+  - Lists filter a field only when it is `plain` or `sealed`. In between, a filter or sort on it is
+    refused, so a list is never half right.
+  - Reports, dashboards and exports leave out any field that is not `plain`, the same way ADR-047
+    leaves out fields a role withholds.
+- **The value** is sealed under the purpose `work_items/custom`, bound to (tenant, `work_items`,
+  record, `custom.<key>`). The search text never holds it.
+- **Reading goes through one place:** `custom_values.visible_custom*`. It strips ADR-047's hidden
+  and masked fields first, then opens what is left. A value that cannot be opened reads as empty
+  and is listed in `unreadable_fields`, never shown as ciphertext. A guard test
+  (`tests/test_custom_values_guard.py`) fails if API code reads `.custom` any other way, or if a new
+  service file starts reading it.
+- **The blind index:** `work_item_field_index` holds one row per (record, field):
+  - the row stores the data key's `key_id` and the digest: HMAC-SHA256 under a key derived
+    (HKDF) for `supportx/blind/<purpose>/v1`, taken over the field key and the value after NFKC,
+    case folding and trimming. With the field in the input, equal values in two fields give
+    different digests, so the index cannot link records across fields (lane B's #520 review);
+  - an `eq` or `in` filter becomes an EXISTS over (key_id, digest) pairs, one per key in use;
+  - any other operator is refused (`field_not_filterable_sealed`), and so is sorting;
+  - a field the reader's roles withhold is never rewritten to the index, so it keeps ADR-047's
+    refusal and the index cannot be used to guess values;
+  - **the limit, stated plainly:** within one field and one data key, equal values give equal
+    digests. So a database reader can see that two records share a value in that field, and how
+    often each value appears (its frequency), without seeing the value. A field with a few
+    common values (yes/no, a handful of bands) gives away more than one with many; admins should
+    mark sensitive the fields whose values vary.
+- **History (lane B's option b):** a changed sealed value goes into `field_changes` sealed for its
+  own cell. The binding is (`field_changes`, record, `<type>:<field>@v<version>:<old|new>`). The
+  value is opened from the record and sealed again; ciphertext is never copied.
+  - Moved to another version, field or side, a history value does not open.
+  - **On read**, the History page opens sealed values for their own cell, after ADR-047's strip
+    (hidden lines dropped, masked lines never opened). A value that does not open shows as the
+    hidden line, and the route turns any `sx2:` text it still sees into the hidden line, so
+    ciphertext never reaches a reader. The audit chain holds digests of history values, never
+    the values, so the audit viewer shows none.
+  - History ciphertext is never rewritten. Rotating the KEK only rewraps the data keys, and the
+    re-seal job never touches history.
+  - So turning `sensitive` on leaves older history as it was written, and turning it off leaves
+    sealed history sealed.
+- **Erasure (ADR-052 mention ports):** sealed values are opened in memory to count and redact
+  mentions, then sealed again with the index rebuilt. An admin is shown a sealed field's passage
+  only if the field reads clear for them, and each view is logged in the access log (AUD-017,
+  purpose `erasure_passage`).
+- **Turning the flag on or off** (re-auth, the settings right, an audit entry, and wording that says
+  turning it off opens values to plain text) ships with the re-seal job in S3b-2b. Until then no API
+  changes `sensitive` or `seal_state`.
