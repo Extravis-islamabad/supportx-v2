@@ -21,7 +21,7 @@ from app.modules.identity_access.service.person_data import (
     unregister_person_data,
 )
 
-PENDING: tuple[str, ...] = ("assets", "service_catalog")
+PENDING: tuple[str, ...] = ("assets",)  # service_catalog: lane A's port (#518)
 
 
 def _stand_in(key: str) -> PersonData:
