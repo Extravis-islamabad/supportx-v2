@@ -55,6 +55,7 @@ from app.modules.identity_access.api.invite_links import public_router as invite
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
+from app.modules.identity_access.api.service_accounts import router as service_accounts_router
 from app.modules.identity_access.api.service_roles import (
     ServiceRoleOut,
     ServiceRolesOut,
@@ -465,6 +466,7 @@ module = ModuleSpec(
         invite_links_router,  # WP-057 S2b-2: a copied invite link's set-password (REQ-SEC-021)
         account_router,
         api_keys_router,
+        service_accounts_router,
         realtime_router,
         privacy_router,  # legal hold and GDPR erasure (D-171, ADR-052)
         erasures_router,
