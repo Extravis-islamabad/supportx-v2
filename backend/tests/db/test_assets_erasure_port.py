@@ -95,8 +95,9 @@ async def test_assets_erasure_keeps_what_they_hold_and_clears_what_points_ahead(
     assert asked.status_code == 201, asked.text
     shown = await world.call("GET", f"/erasures/{asked.json()['id']}", a, a.admin)
     assert shown.status_code == 200, shown.text
-    # A loan hands the asset over too (loans.set_holder): two held, one of them on loan.
-    assert shown.json()["holdings"] == {"asset_assignments_open": 2, "asset_loans_open": 1}
+    # A loan hands the asset over too (loans.set_holder): two assets held, one of them on loan,
+    # each counted once (lane C's #519 review).
+    assert shown.json()["holdings"] == {"assets_held": 2, "asset_loans_open": 1}
     assert held["name"] not in shown.text  # never which assets
 
     references = await _run(world, a, REFERENCES, person)
@@ -131,6 +132,24 @@ async def test_assets_erasure_keeps_what_they_hold_and_clears_what_points_ahead(
     }
     assert uuid.UUID(open_audit["id"]) not in seats
     assert uuid.UUID(closed_audit["id"]) in seats
+    # The open audit's screens and history follow (lane C's #519 review).
+    audit_events = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1"
+        " AND event_type = 'assets.audit.changed' AND aggregate_id = $2",
+        a.tenant,
+        open_audit["id"],
+    )
+    changed = [json.loads(e["envelope"])["payload"] for e in audit_events]
+    assert any(
+        p["changed_fields"] == ["auditor_ids"] and str(person) not in p["auditors"] for p in changed
+    )
+    history = await world.sql(
+        "SELECT reason FROM field_changes WHERE tenant_id = $1 AND record_id = $2"
+        " AND field = 'auditor_ids' AND source = 'system'",
+        a.tenant,
+        uuid.UUID(open_audit["id"]),
+    )
+    assert [h["reason"] for h in history] == ["erased_on_request"]
     # The asset team's notice: once, with the assets' IDs (never a name).
     notices = await world.sql(
         "SELECT envelope FROM outbox_events WHERE tenant_id = $1"
@@ -141,7 +160,7 @@ async def test_assets_erasure_keeps_what_they_hold_and_clears_what_points_ahead(
     assert len(notices) == 1
     payload = json.loads(notices[0]["envelope"])["payload"]
     assert set(payload["asset_ids"]) == {held["id"], lent["id"]}
-    assert (payload["assignments_open"], payload["loans_open"]) == (2, 1)
+    assert (payload["assets_held"], payload["loans_open"]) == (2, 1)
 
     # Again: nothing to do, nothing counted, no second notice.
     assert await _run(world, a, REFERENCES, person) == {}

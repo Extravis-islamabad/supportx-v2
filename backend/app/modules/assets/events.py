@@ -140,7 +140,7 @@ class ErasedHolderItems(DomainEvent):
 
     person_id: uuid.UUID
     asset_ids: list[uuid.UUID]  # held now (assignments) and on loan, at most HELD_LIST
-    assignments_open: int
+    assets_held: int  # distinct assets they still hold (assigned or on loan)
     loans_open: int
 
 

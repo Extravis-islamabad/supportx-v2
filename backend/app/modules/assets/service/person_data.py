@@ -39,6 +39,7 @@ from app.modules.assets.infra.models import (
     AssetLoan,
     AssetLoanItem,
 )
+from app.modules.assets.service.audits import audit_seat_removed
 from app.modules.assets.service.bookings import record_booking_change as booking_event
 from app.modules.identity_access import (
     ERASE_BATCH,
@@ -103,8 +104,11 @@ async def holdings(session: AsyncSession, person_id: uuid.UUID) -> Mapping[str, 
             AssetLoan.deleted_at.is_(None),
         )
     )
+    held = {*await _open_assignment_assets(session, person_id)}
+    held |= set(await _open_loan_assets(session, person_id))
     counts = {
-        "asset_assignments_open": len(await _open_assignment_assets(session, person_id)),
+        # Distinct assets they still hold (a loan sets the holder too: counted once, lane C).
+        "assets_held": len(held),
         "asset_loans_open": int(loans or 0),
     }
     return {kind: count for kind, count in counts.items() if count}
@@ -130,15 +134,28 @@ class References:
         """Their auditor seats on audits not closed, then a batch of their future bookings."""
         del successor_id, keep_files, cursor  # cancelled bookings no longer match: no cursor
         counts: dict[str, int] = {}
-        open_audits = select(AssetAudit.id).where(AssetAudit.state != AuditState.CLOSED.value)
-        seats = await session.execute(
-            delete(AssetAuditAuditor).where(
-                AssetAuditAuditor.user_id == person_id,
-                AssetAuditAuditor.audit_id.in_(open_audits),
+        audits = list(
+            await session.scalars(
+                select(AssetAudit)
+                .join(AssetAuditAuditor, AssetAuditAuditor.audit_id == AssetAudit.id)
+                .where(
+                    AssetAuditAuditor.user_id == person_id,
+                    AssetAudit.state != AuditState.CLOSED.value,
+                )
+                .order_by(AssetAudit.id)
+                .with_for_update(of=AssetAudit)
             )
         )
-        if removed := int(getattr(seats, "rowcount", 0) or 0):
-            counts["audit_seats_removed"] = removed
+        if audits:
+            await session.execute(
+                delete(AssetAuditAuditor).where(
+                    AssetAuditAuditor.user_id == person_id,
+                    AssetAuditAuditor.audit_id.in_([a.id for a in audits]),
+                )
+            )
+            for audit in audits:  # each audit's screens and history follow (lane C, #519)
+                await audit_seat_removed(session, audit)
+            counts["audit_seats_removed"] = len(audits)
         bookings = list(
             await session.scalars(
                 select(AssetBooking)
@@ -196,12 +213,13 @@ class Owned:
         if not getattr(claimed, "rowcount", 0):
             return ErasureBatch({})  # told already (a resumed or repeated run)
         loans = await holdings(session, person_id)
+        held = list(dict.fromkeys([*assigned, *loaned]))
         await record_event(
             session,
             ErasedHolderItems(
                 person_id=person_id,
-                asset_ids=list(dict.fromkeys([*assigned, *loaned]))[:HELD_LIST],
-                assignments_open=len(assigned),
+                asset_ids=held[:HELD_LIST],
+                assets_held=len(held),
                 loans_open=int(loans.get("asset_loans_open", 0)),
             ),
             aggregate_id=person_id,

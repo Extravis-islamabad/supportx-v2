@@ -224,8 +224,8 @@ export const ur: LabelResource = {
   'erasure_count.sign_ins_cleared': 'صاف کیے گئے سائن ان لاگ اندراجات',
   'erasure_count.site_memberships': 'ہٹائی گئی سائٹ رکنیتیں',
   'erasure_count.successor_replaced': 'منظوری دینے والے سے بدلا گیا جانشین',
-  'erasure_holding.asset_assignments_open': 'اثاثے جو ابھی ان کے پاس ہیں',
   'erasure_holding.asset_loans_open': 'کھلی اثاثہ عاریتیں',
+  'erasure_holding.assets_held': 'اثاثے جو ابھی ان کے پاس ہیں',
   'field_access.clearest_wins':
     'کوئی شخص فیلڈ کو اتنا ہی واضح دیکھتا ہے جتنا اس کا سب سے واضح کردار اجازت دے: بغیر قاعدے کا ایک کردار فیلڈ دکھا دیتا ہے۔',
   'field_access.column.field': 'فیلڈ',

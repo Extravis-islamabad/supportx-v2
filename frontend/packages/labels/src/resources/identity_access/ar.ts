@@ -222,8 +222,8 @@ export const ar: LabelResource = {
   'erasure_count.sign_ins_cleared': 'إدخالات سجل الدخول الممسوحة',
   'erasure_count.site_memberships': 'عضويات المواقع المحذوفة',
   'erasure_count.successor_replaced': 'الخلف المستبدَل بالمعتمِد',
-  'erasure_holding.asset_assignments_open': 'الأصول التي لا تزال في عهدته',
   'erasure_holding.asset_loans_open': 'إعارات الأصول المفتوحة',
+  'erasure_holding.assets_held': 'الأصول التي لا تزال في عهدته',
   'field_access.clearest_wins':
     'يرى الشخص الحقل بأوضح ما يسمح به أوضح أدواره: دور واحد بلا قاعدة يُظهر الحقل.',
   'field_access.column.field': 'الحقل',

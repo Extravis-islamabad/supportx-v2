@@ -137,6 +137,11 @@ VARIABLES = (
 )
 
 
+def _neutral(asset: Asset) -> str:
+    """An asset as the erased-holder notice names it: its tag or serial, else a short ID."""
+    return asset.tag or asset.serial_number or str(asset.id)[:8]
+
+
 class AssetNotifications:
     """`RecordSource` for assets."""
 
@@ -369,21 +374,20 @@ class AssetNotifications:
             return None  # all gone meanwhile: nothing to recover
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
         managers = await worker_policy().holders(session, tenant, MANAGE, limit=MANAGERS_LIMIT)
-        listed = ", ".join(a.tag or a.name for a in assets)
-        count = int(str(payload.get("assignments_open") or 0)) + int(
-            str(payload.get("loans_open") or 0)
-        )
+        # By tag or serial, never the name: a tag-less asset's name may be the person's (lane C).
+        listed = ", ".join(_neutral(a) for a in assets)
+        count = int(str(payload.get("assets_held") or len(assets)))
         link = f"/assets?owner_user_id={payload.get('person_id')}"
         shown: dict[str, VariableValue] = {
-            "record.display_id": assets[0].tag or assets[0].name,
-            "record.title": assets[0].name,
+            "record.display_id": _neutral(assets[0]),
+            "record.title": _neutral(assets[0]),
             "record.link": link,
             "holdings.assets": listed,
             "holdings.count": count,
         }
         return RecordContext(
             record_id=assets[0].id,
-            display_id=assets[0].tag or assets[0].name,
+            display_id=_neutral(assets[0]),
             link=link,
             variables=shown,
             public_variables={},

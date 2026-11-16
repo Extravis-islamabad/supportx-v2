@@ -220,8 +220,8 @@ export const en = {
   'erasure_count.sign_ins_cleared': 'Sign-in log entries cleared',
   'erasure_count.site_memberships': 'Site memberships removed',
   'erasure_count.successor_replaced': 'Successor replaced by the approver',
-  'erasure_holding.asset_assignments_open': 'Assets they still hold',
   'erasure_holding.asset_loans_open': 'Open asset loans',
+  'erasure_holding.assets_held': 'Assets they still hold',
   'field_access.clearest_wins':
     'A person sees a field as clearly as their clearest role allows: one role without a rule shows the field.',
   'field_access.column.field': 'Field',
