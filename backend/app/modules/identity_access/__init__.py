@@ -105,6 +105,7 @@ from app.modules.identity_access.service import (
     legal_hold,
     mfa,
     security_notices,
+    service_account_handover,
     sign_in_import,
     sign_in_log,
 )
@@ -449,6 +450,7 @@ security_notices.register()  # a person hears of a sign-in from a new device (WP
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
 expiry_notifications.register()  # admins hear before a sign-in certificate or secret runs out
+service_account_handover.register()  # admins hear when a service account needs a new owner
 
 module = ModuleSpec(
     name="identity_access",
@@ -480,6 +482,7 @@ module = ModuleSpec(
         mfa.MFA_ROLES,
         sign_in_log.PERSON_ERASED,
         KEYCLOAK_SESSION_END,
+        service_account_handover.OWNER_LEFT,
     ],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,

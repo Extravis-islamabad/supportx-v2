@@ -228,6 +228,20 @@ class UserCreatedV5(DomainEvent):
     source: Literal["admin", "import", "email", "integration", "workflow", "service_account"]
 
 
+class ServiceAccountNeedsOwner(DomainEvent):
+    """A service account's owner was deactivated: it needs a new one (WP-057 S4a, REQ-ADM-011).
+
+    IDs only. The account keeps working (its keys are its own) until an admin acts.
+    """
+
+    event_type: ClassVar[str] = "identity_access.service_account.needs_owner"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    service_account_id: uuid.UUID
+    previous_owner_id: uuid.UUID
+
+
 class UserStatusChanged(DomainEvent):
     """A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in.
 
@@ -498,6 +512,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     UserCreatedV3,
     UserCreatedV4,
     UserCreatedV5,
+    ServiceAccountNeedsOwner,
     UserStatusChanged,
     PeopleImportProgressed,
     AccessSettingsChanged,
