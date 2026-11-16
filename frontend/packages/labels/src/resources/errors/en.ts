@@ -239,6 +239,8 @@ export const en = {
   'errors.custom_field_limit_reached':
     'This kind of record already has {{limit}} custom fields, the most allowed. Remove or reuse one first.',
   'errors.custom_field_not_found': 'This custom field does not exist (any more).',
+  'errors.custom_field_sensitive_unsupported':
+    'Fields of this kind of record cannot be marked sensitive.',
   'errors.custom_field_used_by_rule':
     'Automation rules use this field ({{rules}}). Change or remove those rules first.',
   'errors.dashboard_not_editable':
@@ -425,6 +427,7 @@ export const en = {
   'errors.field.code_taken': 'Another one already uses this code.',
   'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.condition_not_supported': 'Rules are not available for this permission yet.',
+  'errors.field.confirm_name_mismatch': "Type the field's name exactly as it is shown.",
   'errors.field.conflict_blocks':
     'A blocking conflict cannot be acknowledged. Choose another time, or someone allowed to may let it go ahead with a reason.',
   'errors.field.conflict_not_found':

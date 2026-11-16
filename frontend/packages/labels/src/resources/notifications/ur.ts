@@ -33,6 +33,8 @@ export const ur: LabelResource = {
   'event_delivery.stalled.title': 'واقعات کی ترسیل رکی ہوئی ہے',
   'event_delivery_state.ok': 'ترسیل جاری',
   'event_delivery_state.stalled': 'رکی ہوئی',
+  'notice.custom_field.seal_opening': 'قدروں کو کھولنا',
+  'notice.custom_field.seal_sealing': 'قدروں کی مہر بندی',
   'notice.sign_in_secret.days_1': 'ایک دن کے اندر ختم ہو جائے گی',
   'notice.sign_in_secret.days_30': '30 دن میں ختم ہو جائے گی',
   'notice.sign_in_secret.days_7': '7 دن میں ختم ہو جائے گی',
@@ -45,6 +47,7 @@ export const ur: LabelResource = {
   'notification_area.break_glass': 'ہنگامی سائن اِن',
   'notification_area.change': 'تبدیلیاں',
   'notification_area.connector': 'کنیکٹرز',
+  'notification_area.custom_field': 'اپنی مرضی کے خانے',
   'notification_area.incident': 'واقعات',
   'notification_area.kb_article': 'علمی ذخیرہ',
   'notification_area.mailbox': 'میل',
@@ -105,6 +108,7 @@ export const ur: LabelResource = {
   'notification_event.change.window_reminder': 'تبدیلی کا وقت جلد شروع',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
+  'notification_event.custom_field.seal_paused': 'حساس فیلڈ کی قدروں کی مہر بندی رک گئی ہے',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
   'notification_event.incident.canceled': 'واقعہ منسوخ ہوا',
   'notification_event.incident.closed': 'واقعہ بند ہوا',
@@ -195,6 +199,7 @@ export const ur: LabelResource = {
   'notification_recipient.change_manager': 'تبدیلی مینیجر',
   'notification_recipient.change_owner': 'تبدیلی کا مالک',
   'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
+  'notification_recipient.custom_field_admins': 'جو اپنی مرضی کے خانوں کا انتظام کرتے ہیں',
   'notification_recipient.escalation_recipients': 'ایسکلیشن درجے کے وصول کنندگان',
   'notification_recipient.followers': 'فالوورز',
   'notification_recipient.group': 'گروپ کے اراکین',
@@ -435,6 +440,12 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} دوبارہ کام کر رہا ہے۔ مزید کچھ کرنے کی ضرورت نہیں۔',
   'notification_template.connector.recovered.in_app': '{{ record.title }} دوبارہ کام کر رہا ہے',
   'notification_template.connector.recovered.subject': '{{ record.title }} دوبارہ کام کر رہا ہے',
+  'notification_template.custom_field.seal_paused.body':
+    'سلام {{ recipient.name }}،\nاپنی مرضی کا خانہ {{ record.title }} کے لیے {{ notice.direction }} رک گیا ہے: خفیہ کاری کی کلیدیں دستیاب نہیں ہیں۔ فیلڈ کی قدریں جیسی ہیں ویسی رہیں گی، اور کلیدیں واپس آنے پر کام خود جاری ہو جائے گا۔ براہِ کرم کلیدوں کی ترتیب چیک کریں۔ {{ record.link }}',
+  'notification_template.custom_field.seal_paused.in_app':
+    'کلیدیں نہ ہونے کی وجہ سے رکا ہوا: {{ record.title }} کے لیے {{ notice.direction }}',
+  'notification_template.custom_field.seal_paused.subject':
+    'رکا ہوا: {{ record.title }} کے لیے {{ notice.direction }}',
   'notification_template.incident.assigned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب {{ assignee.name }} کو تفویض ہے۔\n\nترجیح: {{ record.priority }}\nحالت: {{ record.status }}\nدرخواست گزار: {{ requester.name }}',
   'notification_template.incident.assigned.in_app':
@@ -796,6 +807,8 @@ export const ur: LabelResource = {
   'notification_variable.connector.reason': 'کنیکٹر › وجہ',
   'notification_variable.conversation.author': 'جواب یا نوٹ › مصنف',
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
+  'notification_variable.custom_field.direction': 'اپنی مرضی کا خانہ › کیا چل رہا تھا',
+  'notification_variable.custom_field.name': 'اپنی مرضی کا خانہ › نام',
   'notification_variable.holder.name': 'حامل › نام',
   'notification_variable.incident.count': 'واقعات کی تعداد',
   'notification_variable.mail.count': 'میل › نہ بھیجی گئی ای میلز',

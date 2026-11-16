@@ -110,10 +110,8 @@ def _target(row: CustomField, *, sensitive: bool) -> str:
 
 def _off_problems(row: CustomField, reason: str | None, confirm: str | None) -> None:
     problems: list[tuple[str, str]] = []
-    if not (reason or "").strip():
+    if not (reason or "").strip():  # its length is capped by the request model
         problems.append(("reason", "required"))
-    elif len(reason or "") > REASON_MAX:
-        problems.append(("reason", "too_long"))
     english = (row.labels or {}).get("en", "")
     if (confirm or "").strip().casefold() != english.strip().casefold():
         problems.append(("confirm_name", "confirm_name_mismatch"))

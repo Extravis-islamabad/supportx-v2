@@ -33,6 +33,8 @@ export const ar: LabelResource = {
   'event_delivery.stalled.title': 'توقف تسليم الأحداث',
   'event_delivery_state.ok': 'يجري التسليم',
   'event_delivery_state.stalled': 'متوقف',
+  'notice.custom_field.seal_opening': 'فتح القيم',
+  'notice.custom_field.seal_sealing': 'ختم القيم',
   'notice.sign_in_secret.days_1': 'تنتهي خلال يوم',
   'notice.sign_in_secret.days_30': 'تنتهي خلال 30 يومًا',
   'notice.sign_in_secret.days_7': 'تنتهي خلال 7 أيام',
@@ -45,6 +47,7 @@ export const ar: LabelResource = {
   'notification_area.break_glass': 'تسجيلات دخول الطوارئ',
   'notification_area.change': 'التغييرات',
   'notification_area.connector': 'الموصلات',
+  'notification_area.custom_field': 'الحقول المخصصة',
   'notification_area.incident': 'الحوادث',
   'notification_area.kb_article': 'المعرفة',
   'notification_area.mailbox': 'البريد',
@@ -105,6 +108,7 @@ export const ar: LabelResource = {
   'notification_event.change.window_reminder': 'نافذة التغيير تبدأ قريبًا',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
+  'notification_event.custom_field.seal_paused': 'توقف ختم قيم حقل حساس',
   'notification_event.incident.assigned': 'أُسند حادث',
   'notification_event.incident.canceled': 'أُلغي الحادث',
   'notification_event.incident.closed': 'أُغلق الحادث',
@@ -192,6 +196,7 @@ export const ar: LabelResource = {
   'notification_recipient.change_manager': 'مدير التغيير',
   'notification_recipient.change_owner': 'مالك التغيير',
   'notification_recipient.connector_admins': 'الأشخاص الذين يُعدّون هذا الموصل',
+  'notification_recipient.custom_field_admins': 'من يديرون الحقول المخصصة',
   'notification_recipient.escalation_recipients': 'مستلمو مستوى التصعيد',
   'notification_recipient.followers': 'المتابعون',
   'notification_recipient.group': 'أعضاء المجموعة',
@@ -432,6 +437,12 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nعاد {{ record.title }} إلى العمل. لا حاجة إلى أي إجراء آخر.',
   'notification_template.connector.recovered.in_app': 'عاد {{ record.title }} إلى العمل',
   'notification_template.connector.recovered.subject': 'عاد {{ record.title }} إلى العمل',
+  'notification_template.custom_field.seal_paused.body':
+    'مرحبًا {{ recipient.name }}،\nتوقف {{ notice.direction }} للحقل المخصص {{ record.title }}: مفاتيح التشفير غير متاحة. تبقى قيم الحقل كما هي، وتستأنف المهمة من تلقاء نفسها عند عودة المفاتيح. يرجى التحقق من إعداد المفاتيح. {{ record.link }}',
+  'notification_template.custom_field.seal_paused.in_app':
+    'متوقف لعدم توفر المفاتيح: {{ notice.direction }} للحقل {{ record.title }}',
+  'notification_template.custom_field.seal_paused.subject':
+    'متوقف: {{ notice.direction }} للحقل {{ record.title }}',
   'notification_template.incident.assigned.body':
     'مرحبًا {{ recipient.name }}،\n\nأصبح {{ record.display_id }} «{{ record.title }}» مُسندًا إلى {{ assignee.name }}.\n\nالأولوية: {{ record.priority }}\nالحالة: {{ record.status }}\nمقدّم الطلب: {{ requester.name }}',
   'notification_template.incident.assigned.in_app':
@@ -789,6 +800,8 @@ export const ar: LabelResource = {
   'notification_variable.connector.reason': 'الموصل › السبب',
   'notification_variable.conversation.author': 'الرد أو الملاحظة › الكاتب',
   'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
+  'notification_variable.custom_field.direction': 'الحقل المخصص › ما كان قيد التشغيل',
+  'notification_variable.custom_field.name': 'الحقل المخصص › الاسم',
   'notification_variable.holder.name': 'الحامل › الاسم',
   'notification_variable.incident.count': 'عدد الحوادث',
   'notification_variable.mail.count': 'البريد › رسائل لم تُرسل',

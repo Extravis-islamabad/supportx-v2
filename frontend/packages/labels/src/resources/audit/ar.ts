@@ -302,6 +302,9 @@ export const ar: LabelResource = {
   'audit.action.metadata.custom_field_changed': 'غيّر حقلًا مخصصًا',
   'audit.action.metadata.custom_field_created': 'أضاف حقلًا مخصصًا',
   'audit.action.metadata.custom_field_deleted': 'حذف حقلًا مخصصًا',
+  'audit.action.metadata.custom_field_opened': 'أنهى فتح قيم حقل إلى نص مقروء',
+  'audit.action.metadata.custom_field_sealed': 'أنهى ختم قيم حقل حساس',
+  'audit.action.metadata.custom_field_sensitivity_changed': 'غيّر ما إذا كان الحقل المخصص حساسًا',
   'audit.action.notification.rule_changed': 'غيّر قاعدة إشعار',
   'audit.action.notification.rule_reset': 'أعاد قاعدة إشعار إلى الافتراضي',
   'audit.action.notify_link.used': 'أوقف الرسائل إلى شخص على اطلاع',
@@ -1075,6 +1078,8 @@ export const ar: LabelResource = {
   'event_type.knowledge.vote.saved': 'حُفظ تقييم مقالة معرفة',
   'event_type.licensing.entitlement.changed': 'تم تغيير الخطة أو الترخيص',
   'event_type.metadata.custom_field.changed': 'تغيّر حقل مخصص',
+  'event_type.metadata.custom_field.seal_changed': 'بدأ ختم حقل مخصص أو انتهى',
+  'event_type.metadata.custom_field.seal_paused': 'توقف ختم حقل مخصص',
   'event_type.notifications.delivery.recorded': 'سُجّل إرسال إشعار',
   'event_type.notifications.mail.not_sent_summary': 'رسائل بريد تُخلي عنها: البريد غير مُعدّ',
   // WP-023 notifications
