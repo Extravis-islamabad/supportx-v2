@@ -909,6 +909,11 @@ export const en = {
   'incidents.cancel_title': 'Cancel this incident?',
   'incidents.causing_problem.target': 'To be solved by {{date}}',
   'incidents.causing_problem.title': 'Caused by a problem',
+  'incidents.children.resolve': 'Resolve the chosen children',
+  'incidents.children.resolve_help':
+    'This incident is resolved. Its resolution can resolve the open children you may edit; each one follows its own rules and names this incident in its history.',
+  'incidents.children.resolve_started': 'Resolving the children. Follow it in your jobs.',
+  'incidents.children.resolve_title': 'Resolve the children too',
   'incidents.chips.is': '{{field}} is {{value}}',
   'incidents.closing.auto_close_on':
     'Closes automatically on {{date}} unless the requester answers.',
@@ -1026,6 +1031,8 @@ export const en = {
   'incidents.kept_informed.label': 'People kept informed',
   'incidents.level_placeholder': 'Choose a level',
   'incidents.links.add': 'Link',
+  'incidents.links.as_child': 'Child of this incident',
+  'incidents.links.as_related': 'Related',
   'incidents.links.comment': 'Comment (optional)',
   'incidents.links.delete': 'Remove link',
   'incidents.links.delete_confirm': 'Remove this link from both records?',

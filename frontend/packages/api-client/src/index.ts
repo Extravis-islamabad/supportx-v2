@@ -1502,3 +1502,22 @@ export {
   type KeptDraftForm,
 } from './keptDrafts';
 export { useClosedEditLock } from './incidentSettings';
+export {
+  followAlias,
+  useChildChange,
+  useConvertPreview,
+  useConvertRecord,
+  useMergeIncident,
+  useMergePreview,
+  useResolvableChildren,
+  useResolveChildren,
+  useUndoMerge,
+  type ConvertInput,
+  type ConvertPreview,
+  type ConvertibleKind,
+  type Converted,
+  type IncidentMergePreview,
+  type IncidentMerged,
+  type RecordAlias,
+  type ResolvableChild,
+} from './incidentMerge';

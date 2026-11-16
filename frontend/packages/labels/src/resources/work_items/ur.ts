@@ -911,6 +911,11 @@ export const ur: LabelResource = {
   'incidents.cancel_title': 'یہ واقعہ منسوخ کریں؟',
   'incidents.causing_problem.target': '{{date}} تک حل ہونا ہے',
   'incidents.causing_problem.title': 'ایک مسئلے کی وجہ سے',
+  'incidents.children.resolve': 'منتخب ذیلی واقعات حل کریں',
+  'incidents.children.resolve_help':
+    'یہ واقعہ حل ہو چکا ہے۔ اس کا حل وہ کھلے ذیلی واقعات حل کر سکتا ہے جن میں آپ ترمیم کر سکتے ہیں؛ ہر ایک اپنے اصولوں پر چلتا ہے اور اپنی تاریخ میں اس واقعے کا نام لیتا ہے۔',
+  'incidents.children.resolve_started': 'ذیلی واقعات حل ہو رہے ہیں۔ اپنے کاموں میں دیکھیں۔',
+  'incidents.children.resolve_title': 'ذیلی واقعات بھی حل کریں',
   'incidents.chips.is': '{{field}}: {{value}}',
   'incidents.closing.auto_close_on':
     'اگر درخواست گزار جواب نہ دے تو {{date}} کو خودکار طور پر بند ہو جائے گا۔',
@@ -1032,6 +1037,8 @@ export const ur: LabelResource = {
   'incidents.kept_informed.label': 'باخبر رکھے گئے لوگ',
   'incidents.level_placeholder': 'سطح منتخب کریں',
   'incidents.links.add': 'منسلک کریں',
+  'incidents.links.as_child': 'اس واقعے کا ذیلی',
+  'incidents.links.as_related': 'متعلقہ',
   'incidents.links.comment': 'تبصرہ (اختیاری)',
   'incidents.links.delete': 'ربط ہٹائیں',
   'incidents.links.delete_confirm': 'یہ ربط دونوں ریکارڈز سے ہٹائیں؟',
