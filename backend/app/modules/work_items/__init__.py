@@ -115,6 +115,8 @@ from app.modules.work_items.service.closing import (
     unregister_requester_channel,
 )
 from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
+from app.modules.work_items.service.custom_values import HIDDEN_LINE as SEALED_HIDDEN_LINE
+from app.modules.work_items.service.custom_values import open_sealed_changes
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.kept_informed import KEPT_INFORMED
 from app.modules.work_items.service.person_records import records_requested_by
@@ -333,6 +335,7 @@ module = ModuleSpec(
 
 # Ports for other modules (WP-020f): open work on a record, and channels that tell requesters.
 __all__ = [
+    "SEALED_HIDDEN_LINE",
     "OpenItem",
     "OpenWorkKind",
     "RequesterReply",
@@ -341,6 +344,7 @@ __all__ = [
     # WP-049b S4a; the workflow overview).
     "labels_of",
     "module",
+    "open_sealed_changes",
     "records_requested_by",
     "register_open_work",
     "register_requester_channel",

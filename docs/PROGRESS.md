@@ -2476,6 +2476,15 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       helper `create_definer_function` (D-168), plus `make keys-check`.
   - [ ] **S3b-2 (after ADR-047 slice b):** `sensitive` custom fields sealed at rest, a blind
     index for exact match, `open_custom()` at lane A's redact choke point, re-seal job.
+    - [x] **S3b-2a (migration 0171; draft PR; lane B blocks, lane A reviews the call sites):**
+      the write path (sealed while `sealing`/`sealed`, never in search text), `visible_custom*`
+      as the one reader with its guard test, the blind index (`work_item_field_index`; `eq`/`in`
+      only, no sort, withheld fields never rewritten), history sealed per cell (lane B's option
+      b), reports withhold non-plain fields, the mentions port opens/redacts/re-seals and logs
+      passages (AUD-017 `erasure_passage`). ADR-050 addendum 2.
+    - [ ] **S3b-2b:** the re-seal job and the `sensitive` switch (re-auth, settings right,
+      audit, plain-text wording on turning it off). Notifications, AI sources and mail commands
+      read no stored custom values today (checked 2026-11-16); the guard test keeps it so.
 - [ ] Session 4: service accounts, key policy, non-person actors, security overview.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
