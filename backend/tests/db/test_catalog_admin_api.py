@@ -515,7 +515,7 @@ async def test_the_starter_catalog_is_seeded_once_per_tenant(world: World) -> No
     for _ in range(2):  # the event delivered twice
         async with db.tenant_session(TenantContext(a.tenant)) as session:
             await on_tenant_provisioned(Envelope(), session)  # type: ignore[arg-type]  # only tenant_id is read
-    assert await _counts(world, a) == (len(CATEGORIES), len(ITEMS)) == (6, 14)
+    assert await _counts(world, a) == (len(CATEGORIES), len(ITEMS)) == (6, 15)
     assert await _counts(world, b) == (0, 0)  # RLS: nothing leaked into b
     statuses = await world.sql(
         "SELECT DISTINCT status, starter FROM catalog_items WHERE tenant_id = $1", a.tenant
@@ -545,7 +545,7 @@ async def test_the_explicit_run_seeds_only_an_empty_catalog(world: World) -> Non
     )
     async with db.tenant_session(TenantContext(a.tenant)) as session:
         assert (await seed_new_tenant(session)).items == 0  # the consumer respects the marker
-        assert (await seed_empty_catalog(session)).items == 14  # the deliberate run does not
+        assert (await seed_empty_catalog(session)).items == 15  # the deliberate run does not
 
 
 async def test_choosing_a_group_publishes_the_starter_items(world: World) -> None:
@@ -553,7 +553,7 @@ async def test_choosing_a_group_publishes_the_starter_items(world: World) -> Non
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         await seed_new_tenant(session)
     banner = (await world.call("GET", "/catalog/starter", a, a.admin)).json()
-    assert banner == {"drafts": 14}
+    assert banner == {"drafts": 15}
     assert (await world.call("GET", "/catalog/starter", a, a.requester)).json() == {"drafts": 0}
     assert not await seen_by(world, a, a.requester)
     refused = await world.call(
@@ -582,8 +582,8 @@ async def test_choosing_a_group_publishes_the_starter_items(world: World) -> Non
         json={"group_id": str(a.ga)},
         headers=CONSOLE,
     )
-    assert done.json() == {"published": 14, "skipped": []}
-    assert len(await seen_by(world, a, a.requester)) == 14
+    assert done.json() == {"published": 15, "skipped": []}
+    assert len(await seen_by(world, a, a.requester)) == 15
     assert (await world.call("GET", "/catalog/starter", a, a.admin)).json() == {"drafts": 0}
     audit = await world.sql(
         "SELECT details FROM audit_entries WHERE tenant_id = $1"
@@ -608,7 +608,7 @@ async def test_the_tooling_command_finds_the_tenant_by_slug(world: World) -> Non
     [row] = await world.sql("SELECT slug FROM tenants WHERE id = $1", a.tenant)
     first = await seed(world.db.migrator_url, row["slug"])
     assert first is not None
-    assert (first.categories, first.items) == (6, 14)
+    assert (first.categories, first.items) == (6, 15)
     again = await seed(world.db.migrator_url, row["slug"])
     assert again is not None
     assert again.items == 0  # never into a catalog that has content

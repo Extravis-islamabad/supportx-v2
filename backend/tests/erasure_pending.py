@@ -1,8 +1,8 @@
 """Required erasure ports whose modules have none yet (the readiness check, 2026-11-14).
 
-`assets` (lane B) and `service_catalog` (lane A) hold person data, so REQUIRED_PORTS lists them
-and, until they register, approval and the job refuse (`erasure_port_missing`). Tests that run
-the job or approve stand in no-op ports for them; each real port's PR removes its key here.
+`service_catalog` (lane A) holds person data, so REQUIRED_PORTS lists it and, until it
+registers, approval and the job refuse (`erasure_port_missing`). Tests that run the job or
+approve stand in no-op ports for it; its real port's PR removes its key here (assets' did).
 """
 
 import uuid
@@ -21,7 +21,7 @@ from app.modules.identity_access.service.person_data import (
     unregister_person_data,
 )
 
-PENDING: tuple[str, ...] = ("assets", "service_catalog")
+PENDING: tuple[str, ...] = ()  # every required port is real: assets (#519), service_catalog (#518)
 
 
 def _stand_in(key: str) -> PersonData:

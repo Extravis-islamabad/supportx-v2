@@ -37,6 +37,7 @@ from app.modules.identity_access.domain.mentions import MentionMatchKind, Mentio
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import PersonErasure, PersonErasureMention, User
 from app.modules.identity_access.service import erasure, erasure_mentions, legal_hold
+from app.modules.identity_access.service.person_data import person_holdings
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -220,6 +221,12 @@ class ErasureOut(BaseModel):
     report_ready: bool = Field(description="The mentions report is complete (approval needs it).")
     report: "ReportOut | None" = Field(description="The mentions report; null until built.")
     counts: dict[str, int]
+    holdings: dict[str, int] = Field(
+        default_factory=dict,
+        description="What the person still holds, by kind (`erasure_holding.<kind>`), counted"
+        " now for a requested or approved erasure: those stay with the anonymised person (e.g."
+        " open asset assignments and loans). Counts only, never what or which.",
+    )
     version: int
 
     @classmethod
@@ -368,7 +375,11 @@ async def get_erasure(
     del subject
     row = await erasure.get_erasure(session, erasure_id)
     set_etag(response, row.version)
-    return ErasureOut.of(row)
+    shown = ErasureOut.of(row)
+    if row.state in {ErasureState.REQUESTED.value, ErasureState.APPROVED.value}:
+        # Before the approver decides: what stays with the anonymised person (counts only).
+        shown.holdings = await person_holdings(session, row.person_id)
+    return shown
 
 
 @erasures_router.post(

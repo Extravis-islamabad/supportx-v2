@@ -17,7 +17,7 @@ Expand only, no data step. The downgrade refuses while any tenant has an index r
 that is not plain (rule 5h): undoing it would leave sealed values nobody can filter.
 
 Revision ID: 0171
-Revises: 0168
+Revises: 0169
 Created: 2026-11-15
 """
 
@@ -29,7 +29,7 @@ from alembic import op
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0171"
-down_revision: str | None = "0168"
+down_revision: str | None = "0169"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

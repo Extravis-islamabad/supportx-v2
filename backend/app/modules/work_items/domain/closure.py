@@ -11,6 +11,7 @@
   follows the old one.
 """
 
+import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -207,3 +208,25 @@ def auto_close_due(
 def within_reopen_window(done_at: datetime | None, now: datetime, days: int) -> bool:
     """Whether a reply at `now` is within `days` after resolution or closure."""
     return done_at is not None and now <= done_at + timedelta(days=days)
+
+
+def first_contact(  # noqa: PLR0913 - the record's facts and the tenant's window, explicit
+    *,
+    created_by: uuid.UUID | None,
+    created_at: datetime,
+    reassignments: int,
+    resolved_by: uuid.UUID | None,
+    resolved_at: datetime,
+    minutes: int,
+) -> bool:
+    """Whether a resolution is suggested as first-contact resolution (REQ-INC-102 AC1-AC2).
+
+    Its creator resolved it, it was never handed to someone else, and within the tenant's
+    window; the technician confirms or changes the suggestion, and reports use their value.
+    """
+    return (
+        resolved_by is not None
+        and resolved_by == created_by
+        and reassignments == 0
+        and resolved_at - created_at <= timedelta(minutes=minutes)
+    )

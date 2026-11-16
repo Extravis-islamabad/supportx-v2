@@ -78,6 +78,7 @@ export const ar: LabelResource = {
   'notification_event.announcement.updated': 'تحديث إعلان تتابعه',
   'notification_event.asset.ack_disputed': 'اعترض حامل الأصل عليه',
   'notification_event.asset.ack_requested': 'أصل سُلّم إليك: يرجى الإقرار به',
+  'notification_event.asset.erased_holder_items': 'شخص يجري محوه لا تزال لديه أصول',
   'notification_event.asset.loan_due': 'موعد إرجاع الإعارة غدًا',
   'notification_event.asset.loan_overdue': 'الإعارة متأخرة',
   'notification_event.asset.mentioned': 'إشارة في ملاحظة أصل',
@@ -109,6 +110,8 @@ export const ar: LabelResource = {
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.custom_field.seal_paused': 'توقف ختم قيم حقل حساس',
+  'notification_event.incident.approval_rejected': 'رُفضت الموافقة',
+  'notification_event.incident.approval_requested': 'طُلبت الموافقة',
   'notification_event.incident.assigned': 'أُسند حادث',
   'notification_event.incident.canceled': 'أُلغي الحادث',
   'notification_event.incident.closed': 'أُغلق الحادث',
@@ -267,6 +270,12 @@ export const ar: LabelResource = {
     'يرجى الإقرار بـ {{ record.display_id }}: {{ record.title }}',
   'notification_template.asset.ack_requested.subject':
     'يرجى الإقرار بـ {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.erased_holder_items.body':
+    'مرحبًا {{ recipient.name }}،\nشخص تُمحى بياناته بناءً على طلبه لا تزال في عهدته أو معارة له هذه الأصول: {{ holdings.assets }}. تبقى عهده وإعاراته مفتوحة: يُرجى استرداد الأصول وإغلاقها كالمعتاد. {{ record.link }}',
+  'notification_template.asset.erased_holder_items.in_app':
+    'شخص يجري محوه لا تزال لديه: {{ holdings.assets }}',
+  'notification_template.asset.erased_holder_items.subject':
+    'استرد {{ holdings.count }} من الأصول من شخص يجري محوه',
   'notification_template.asset.loan_due.body':
     'مرحبًا {{ recipient.name }}،\n\nموعد إرجاع الأصول المعارة إلى {{ holder.name }} غدًا.',
   'notification_template.asset.loan_due.in_app': 'موعد إرجاع إعارة {{ holder.name }} غدًا',
@@ -443,6 +452,18 @@ export const ar: LabelResource = {
     'متوقف لعدم توفر المفاتيح: {{ notice.direction }} للحقل {{ record.title }}',
   'notification_template.custom_field.seal_paused.subject':
     'متوقف: {{ notice.direction }} للحقل {{ record.title }}',
+  'notification_template.incident.approval_rejected.body':
+    'مرحبًا {{ recipient.name }}،\n\nرُفضت الموافقة المطلوبة على الحادث {{ record.display_id }} «{{ record.title }}». افتح الحادث لترى من قرّر ولماذا: {{ record.link }}',
+  'notification_template.incident.approval_rejected.in_app':
+    'رُفضت موافقة {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.approval_rejected.subject':
+    'رُفضت الموافقة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.approval_requested.body':
+    'مرحبًا {{ recipient.name }}،\n\nالحادث {{ record.display_id }} «{{ record.title }}» بانتظار موافقتك.\n\nوافق أو ارفض: {{ approval_link }}\n\nيعمل الرابط مرة واحدة ولك وحدك.',
+  'notification_template.incident.approval_requested.in_app':
+    '{{ record.display_id }} بانتظار موافقتك: {{ record.title }}',
+  'notification_template.incident.approval_requested.subject':
+    'موافقتك: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.assigned.body':
     'مرحبًا {{ recipient.name }}،\n\nأصبح {{ record.display_id }} «{{ record.title }}» مُسندًا إلى {{ assignee.name }}.\n\nالأولوية: {{ record.priority }}\nالحالة: {{ record.status }}\nمقدّم الطلب: {{ requester.name }}',
   'notification_template.incident.assigned.in_app':
@@ -803,6 +824,8 @@ export const ar: LabelResource = {
   'notification_variable.custom_field.direction': 'الحقل المخصص › ما كان قيد التشغيل',
   'notification_variable.custom_field.name': 'الحقل المخصص › الاسم',
   'notification_variable.holder.name': 'الحامل › الاسم',
+  'notification_variable.holdings.assets': 'العهدة › الأصول',
+  'notification_variable.holdings.count': 'العهدة › العدد',
   'notification_variable.incident.count': 'عدد الحوادث',
   'notification_variable.mail.count': 'البريد › رسائل لم تُرسل',
   'notification_variable.mail.oldest_at': 'البريد › الأقدم',

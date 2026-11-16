@@ -1,13 +1,22 @@
 import { Alert, Button, Flex, Form, InputNumber, Select, Switch, Typography } from 'antd';
 
 import {
+  useClosedEditLock,
   useCustomFields,
   type ClosurePatch,
   type CustomFieldEntity,
   type IncidentCatalogue,
   type SettingsBase,
 } from '@supportx/api-client';
-import { ConflictDialog, SettingsCard, StickySaveBar, useAppearance, useLabel } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  SettingsCard,
+  StickySaveBar,
+  useAppearance,
+  useFormProblem,
+  useLabel,
+} from '@supportx/ui';
 
 import { numberProblem } from '../../../numbers';
 import { fieldName } from '../../customFields/values';
@@ -81,6 +90,7 @@ const DAYS = { min: 1, max: 30 };
 const ITEMS = { min: 1, max: 1000 };
 // Copies one request may make (WP-046a S5c, REQ-INC-033 AC3): the server's own range.
 const COPIES = { min: 1, max: 100 };
+const FIRST_CONTACT = { min: 0, max: 1440 }; // WP-046b S1 (REQ-INC-102): minutes
 const AUTO_CLOSE_DEFAULT = 3; // Appendix A (D3)
 // Settings whose problems show at their own field.
 const PLACED = new Set([
@@ -90,6 +100,8 @@ const PLACED = new Set([
   'reopen_window_days',
   'checklist_item_max',
   'copy_limit',
+  'edit_reason_fields',
+  'first_contact_minutes',
 ]);
 
 /** WP-046a S3: the worklog rules' switches, in the order shown (each with its help text). */
@@ -116,6 +128,8 @@ interface Draft {
   reopenDays: number | null;
   itemMax: number | null;
   copyLimit: number | null;
+  reasonFields: string[]; // WP-046b S1 (REQ-INC-124)
+  firstContactMinutes: number | null; // WP-046b S1 (REQ-INC-102)
 }
 
 /**
@@ -153,6 +167,8 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     reopenDays: closure.reopen_window_days,
     itemMax: closure.checklist_item_max,
     copyLimit: closure.copy_limit,
+    reasonFields: closure.edit_reason_fields ?? [],
+    firstContactMinutes: closure.first_contact_minutes,
   };
   const draftState = useDraft(source, catalogue.version);
   const { draft, edit, stale } = draftState;
@@ -186,7 +202,15 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     : draft.copyLimit === null
       ? t('errors.field.required')
       : numberProblem(t, draft.copyLimit, { ...COPIES, whole: true });
+  const firstContactProblem = !copies
+    ? null
+    : draft.firstContactMinutes === null
+      ? t('errors.field.required')
+      : numberProblem(t, draft.firstContactMinutes, { ...FIRST_CONTACT, whole: true });
   const problemAt = (field: string) => {
+    if (field === 'first_contact_minutes' && firstContactProblem !== null) {
+      return firstContactProblem;
+    }
     if (field === 'auto_close_days' && autoCloseProblem !== null) return autoCloseProblem;
     if (field === 'reopen_window_days' && reopenProblem !== null) return reopenProblem;
     if (field === 'checklist_item_max' && itemMaxProblem !== null) return itemMaxProblem;
@@ -198,7 +222,8 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       autoCloseProblem !== null ||
       reopenProblem !== null ||
       itemMaxProblem !== null ||
-      copyLimitProblem !== null
+      copyLimitProblem !== null ||
+      firstContactProblem !== null
     )
       return;
     const body: ClosurePatch = {
@@ -213,7 +238,13 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       timer_auto_start: draft.timerAutoStart,
       reopen_window_days: draft.reopenDays,
       checklist_item_max: draft.itemMax,
-      ...(copies ? { copy_limit: draft.copyLimit } : {}),
+      ...(copies
+        ? {
+            copy_limit: draft.copyLimit,
+            edit_reason_fields: draft.reasonFields,
+            first_contact_minutes: draft.firstContactMinutes,
+          }
+        : {}),
     };
     // Only sent when it changes: the server refuses switching it on without a channel.
     const autoCloseDays = draft.autoClose ? draft.autoCloseDays : null;
@@ -267,6 +298,30 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
         <Form layout="vertical" component="div">
           {fieldsSelect('resolve', 'resolve_requires', 'settings-resolve-requires')}
           {fieldsSelect('close', 'close_requires', 'settings-close-requires')}
+          {copies && (
+            // WP-046b S1 (REQ-INC-124): the fields whose change needs a reason, on any incident.
+            <Form.Item
+              label={t('settings.closing.edit_reason_fields')}
+              htmlFor="settings-edit-reason-fields"
+              help={
+                problemAt('edit_reason_fields') ?? t('settings.closing.edit_reason_fields_help')
+              }
+              validateStatus={problemAt('edit_reason_fields') === undefined ? undefined : 'error'}
+            >
+              <Select
+                id="settings-edit-reason-fields"
+                mode="multiple"
+                value={draft.reasonFields}
+                options={fieldOptions}
+                optionFilterProp="label"
+                style={{ width: '100%' }}
+                onChange={(values: string[]) => {
+                  edit({ ...draft, reasonFields: values });
+                }}
+                data-testid="settings-edit-reason-fields"
+              />
+            </Form.Item>
+          )}
           <fieldset style={{ border: 0, padding: 0, margin: '0 0 16px' }}>
             <legend>
               <Typography.Text strong>{t('settings.closing.open_work')}</Typography.Text>
@@ -493,6 +548,32 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                 />
               </Form.Item>
             )}
+            {copies && (
+              <Form.Item
+                label={t('settings.closing.first_contact_minutes')}
+                htmlFor="settings-first-contact"
+                validateStatus={
+                  problemAt('first_contact_minutes') === undefined ? undefined : 'error'
+                }
+                help={
+                  problemAt('first_contact_minutes') ??
+                  t('settings.closing.first_contact_minutes_help', FIRST_CONTACT)
+                }
+              >
+                <InputNumber
+                  id="settings-first-contact"
+                  value={draft.firstContactMinutes}
+                  style={{ width: 160 }}
+                  onChange={(value) => {
+                    edit({
+                      ...draft,
+                      firstContactMinutes: typeof value === 'number' ? value : null,
+                    });
+                  }}
+                  data-testid="settings-first-contact"
+                />
+              </Form.Item>
+            )}
           </Flex>
           {/* A refusal with no field to point at (QA WP-029 BUG-02); field ones show in place. */}
           {(Object.keys(byField).length === 0 ||
@@ -501,6 +582,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
           )}
         </Form>
       </SettingsCard>
+      {copies && <ClosedEditLock catalogue={catalogue} />}
       {/* One save bar for the page (template E, D-147), below the card as on every page. */}
       <StickySaveBar
         changes={changes}
@@ -511,5 +593,45 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       />
       <ConflictDialog {...conflictDialog} />
     </Flex>
+  );
+}
+
+/**
+ * Lock closed incidents fully (WP-046b S1, REQ-INC-101): no one edits a closed incident's fields
+ * while on, holders of "Edit closed incidents" and administrators included. It saves at once
+ * through its own route (which may ask you to confirm your sign-in), not through the save bar.
+ */
+function ClosedEditLock({ catalogue }: { catalogue: IncidentCatalogue }) {
+  const t = useLabel();
+  const lock = useClosedEditLock();
+  const problem = useFormProblem();
+  const locked = catalogue.closure.closed_edit_locked;
+  return (
+    <SettingsCard title={t('settings.closing.closed_edit_lock')} testId="settings-closed-edit-lock">
+      <Flex vertical gap={8}>
+        <Typography.Text type="secondary">
+          {t('settings.closing.closed_edit_lock_help')}
+        </Typography.Text>
+        <Flex gap={8} align="center">
+          <Switch
+            checked={locked}
+            loading={lock.isPending}
+            aria-labelledby="settings-closed-edit-lock-label"
+            onChange={(next) => {
+              problem.clear();
+              lock.mutate(
+                { locked: next, version: catalogue.version },
+                { onError: (error) => problem.show(error) },
+              );
+            }}
+            data-testid="settings-closed-edit-lock-switch"
+          />
+          <Typography.Text id="settings-closed-edit-lock-label">
+            {t('settings.closing.closed_edit_lock_switch')}
+          </Typography.Text>
+        </Flex>
+        <FormProblem problem={problem} />
+      </Flex>
+    </SettingsCard>
   );
 }
