@@ -13,6 +13,7 @@ export const ar: LabelResource = {
   'access_kind.view': 'عُرضت',
   'access_purpose.ai_summary': 'ملخص بالذكاء الاصطناعي',
   'access_purpose.audit_entry': 'سجل تدقيق',
+  'access_purpose.erasure_passage': 'المسح: مقطع يذكر الشخص',
   'access_purpose.people_export': 'تصدير الأشخاص',
   'access_purpose.person_profile': 'ملف الشخص',
   'actor_type.system': 'النظام',

@@ -13,6 +13,7 @@ export const ur: LabelResource = {
   'access_kind.view': 'دیکھا گیا',
   'access_purpose.ai_summary': 'AI خلاصہ',
   'access_purpose.audit_entry': 'آڈٹ اندراج',
+  'access_purpose.erasure_passage': 'مٹانا: وہ عبارت جس میں شخص کا نام ہے',
   'access_purpose.people_export': 'لوگوں کا ایکسپورٹ',
   'access_purpose.person_profile': 'شخص کی پروفائل',
   'actor_type.system': 'سسٹم',
