@@ -127,6 +127,23 @@ class WarrantyEnding(DomainEvent):
     asset_id: uuid.UUID
 
 
+class ErasedHolderItems(DomainEvent):
+    """A person being erased still holds assets (ADR-052; the coordinator, 2026-11-16).
+
+    Their open assignments and loans stay open (ending them would invent a fact); the asset team
+    hears once which assets to recover. IDs and counts only: never the person's old name.
+    """
+
+    event_type: ClassVar[str] = "assets.erased_holder.items"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    person_id: uuid.UUID
+    asset_ids: list[uuid.UUID]  # held now (assignments) and on loan, at most HELD_LIST
+    assets_held: int  # distinct assets they still hold (assigned or on loan)
+    loans_open: int
+
+
 ConsumableAction = Literal["created", "updated", "deleted"]
 
 
@@ -378,6 +395,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AssetGroupChanged,
     AssetLoanChanged,
     WarrantyEnding,
+    ErasedHolderItems,
     ConsumableChanged,
     StockMoved,
     StockLow,

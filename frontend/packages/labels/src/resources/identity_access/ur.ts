@@ -202,6 +202,8 @@ export const ur: LabelResource = {
   'erasure_count.api_keys_revoked': 'منسوخ شدہ API کلیدیں',
   'erasure_count.audit_personal_rows_removed': 'ہٹائی گئی ذاتی آڈٹ تفصیلات',
   'erasure_count.audit_searches_deleted': 'حذف شدہ محفوظ آڈٹ تلاشیں',
+  'erasure_count.audit_seats_removed': 'کھلے اثاثہ آڈٹس سے ہٹائی گئی نشستیں',
+  'erasure_count.bookings_cancelled': 'منسوخ کی گئی آئندہ اثاثہ بکنگز',
   'erasure_count.cost_rates_deleted': 'حذف شدہ لاگت کی شرحیں',
   'erasure_count.dashboard_preferences_deleted': 'ڈیش بورڈ کی ترجیحات حذف کی گئیں',
   'erasure_count.dashboards_deleted': 'نجی ڈیش بورڈ حذف کیے گئے',
@@ -211,6 +213,7 @@ export const ur: LabelResource = {
   'erasure_count.files_kept': 'رکھی گئی فائلیں',
   'erasure_count.group_memberships': 'ہٹائی گئی گروپ رکنیتیں',
   'erasure_count.groups_led': 'جانشین کو سونپے گئے گروپ',
+  'erasure_count.holder_notices_sent': 'اثاثہ ٹیم کو بتایا گیا کہ ان کے پاس ابھی کیا ہے',
   'erasure_count.invitation_addresses_cleared': 'صاف کیے گئے دعوتی پتے',
   'erasure_count.invitations_revoked': 'منسوخ شدہ دعوتیں',
   'erasure_count.kb_articles_moved': 'علمی مضامین جانشین کے حوالے کیے گئے',
@@ -237,6 +240,8 @@ export const ur: LabelResource = {
   'erasure_count.sign_ins_cleared': 'صاف کیے گئے سائن ان لاگ اندراجات',
   'erasure_count.site_memberships': 'ہٹائی گئی سائٹ رکنیتیں',
   'erasure_count.successor_replaced': 'منظوری دینے والے سے بدلا گیا جانشین',
+  'erasure_holding.asset_loans_open': 'کھلی اثاثہ عاریتیں',
+  'erasure_holding.assets_held': 'اثاثے جو ابھی ان کے پاس ہیں',
   'field_access.clearest_wins':
     'کوئی شخص فیلڈ کو اتنا ہی واضح دیکھتا ہے جتنا اس کا سب سے واضح کردار اجازت دے: بغیر قاعدے کا ایک کردار فیلڈ دکھا دیتا ہے۔',
   'field_access.column.field': 'فیلڈ',
@@ -649,6 +654,9 @@ export const ur: LabelResource = {
   // WP-020b: conversation, notes, followers, editor
   'permission.incidents.add_note': 'نجی نوٹس شامل کریں',
   'permission.incidents.add_note.description': 'واقعات پر صرف عملے کے لیے نوٹس لکھیں۔',
+  'permission.incidents.approve': 'واقعات کی منظوری',
+  'permission.incidents.approve.description':
+    'جب آپ کو منظور کنندہ نامزد کیا جائے تو واقعے کی منظوری کا فیصلہ کریں۔',
   'permission.incidents.assign': 'واقعات تفویض کریں',
   'permission.incidents.assign.description': 'واقعات کا گروپ اور ٹیکنیشن چنیں۔',
   'permission.incidents.cancel': 'واقعات منسوخ کریں',
@@ -665,6 +673,9 @@ export const ur: LabelResource = {
   'permission.incidents.edit': 'واقعات پر کام کریں',
   'permission.incidents.edit.description':
     'تفصیلات بدلیں، کام شروع کریں، واقعات کو انتظار میں ڈالیں اور دوبارہ شروع کریں۔',
+  'permission.incidents.edit_closed': 'بند واقعات میں ترمیم',
+  'permission.incidents.edit_closed.description':
+    'وجہ بتا کر بند واقعے کے فیلڈ بدلیں۔ ہر تبدیلی آڈٹ لاگ میں درج ہوتی ہے۔',
   'permission.incidents.edit_due_dates': 'مقررہ تاریخیں ہاتھ سے طے کریں',
   'permission.incidents.edit_due_dates.description':
     'کسی واقعے کی جواب یا حل کی مقررہ تاریخ وجہ کے ساتھ ہاتھ سے طے کریں یا ہٹائیں۔ پھر یہ تاریخ ہٹائے جانے تک برقرار رہتی ہے۔',

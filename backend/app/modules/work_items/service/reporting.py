@@ -13,6 +13,7 @@ from app.modules import metadata
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
+from app.modules.work_items.service import custom_values
 from app.modules.work_items.service.access import FIELDS, type_fields
 from app.modules.work_items.service.work_items import staff_rows
 from app.shared.api.filters import FieldType, ResourceFields
@@ -139,6 +140,10 @@ class WorkItemSource:
         # Not the fields the viewer's roles hide or mask (ADR-047 §5): a report, a dashboard or an
         # export naming one is refused by the compiler, never shown blank.
         withheld = field_rules.unseen(subject.field_access, self._wtype.code.value).all
+        # Nor a field sealed at rest (WP-057 S3b-2): its stored values are ciphertext, so SQL can
+        # neither filter, group nor sort them; a report naming one is refused the same way.
+        sealed = await custom_values.not_plain_keys(session, self.entity)
+        withheld = withheld | {f"custom.{key}" for key in sealed}
         fields = {n: f for n, f in {**FIELDS.fields, **own, **custom}.items() if n not in withheld}
         return ReportingSource(
             entity=self.entity,

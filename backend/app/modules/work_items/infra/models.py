@@ -93,6 +93,7 @@ class WorkItemTypeSettings(TenantKeyed, Base):
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
         CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
         CheckConstraint("copy_limit BETWEEN 1 AND 100", name="copy_limit_range"),
+        CheckConstraint("first_contact_minutes BETWEEN 0 AND 1440", name="first_contact_minutes"),
         CheckConstraint(
             "task_dependency_mode IN ('block', 'warn')", name="task_dependency_mode_code"
         ),
@@ -202,6 +203,12 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     # Set while this type's search text is rebuilt after a field gains its first access rule or
     # loses its last one: search ignores custom text meanwhile (ADR-047 §6; migration 0162).
     custom_text_rebuilding_since: Mapped[datetime | None]
+    # WP-046b S1 (0169). The tenant locks closed records fully (REQ-INC-101; no right opens
+    # them); the fields whose change needs a reason (REQ-INC-124); how soon a creator's own
+    # resolution counts as first contact (REQ-INC-102).
+    closed_edit_locked: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    edit_reason_fields: Mapped[list[str]] = mapped_column(ARRAY(String(80)), server_default="{}")
+    first_contact_minutes: Mapped[int] = mapped_column(Integer, server_default="30")
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
@@ -818,6 +825,9 @@ class WorkItem(TenantEntity):
     # Problems' analysis (WP-044b, REQ-PRB-030): sanitised rich text. The root cause is shown
     # only to holders of problems.view_root_cause (D-140 Q7) and never indexed for search.
     root_cause: Mapped[str | None] = mapped_column(Text)
+    # REQ-INC-102 (0169): resolved at first contact, as suggested at resolution and confirmed or
+    # changed by the technician; null until resolved.
+    first_contact_resolution: Mapped[bool | None] = mapped_column(Boolean)
     symptoms: Mapped[str | None] = mapped_column(Text)
     # Known errors (WP-044b s3, REQ-PRB-034..042): the workaround incident technicians see,
     # when it was marked a known error, and when that was retired by a permanent fix.
@@ -2607,3 +2617,35 @@ class WorkItemNotifyLink(UuidPrimaryKey, TenantKeyed, Base):
     expires_at: Mapped[datetime]
     used_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class WorkItemFieldIndex(TenantKeyed, Base):
+    """A keyed digest of one sensitive custom value, for exact-match filters (WP-057 S3b-2; 0171).
+
+    Never the value: the data key the digest was made under and HMAC-SHA256 under an HKDF key of
+    it (app.shared.crypto.blind_digest). Derived data the app writes and rebuilds. Equal values
+    give equal digests (the ADR-050 addendum's stated limit).
+    """
+
+    __tablename__ = "work_item_field_index"
+    __table_args__ = (
+        CheckConstraint("digest ~ '^[0-9a-f]{64}$'", name="digest_form"),
+        ForeignKeyConstraint(
+            ["tenant_id", "work_item_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_work_item_field_index_record",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "tenant_id", "work_item_id", "field_key", name="uq_work_item_field_index_place"
+        ),
+        Index("ix_work_item_field_index_lookup", "tenant_id", "field_key", "digest"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    work_item_id: Mapped[uuid.UUID]
+    field_key: Mapped[str] = mapped_column(String(64))
+    key_id: Mapped[uuid.UUID]
+    digest: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)

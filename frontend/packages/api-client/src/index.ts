@@ -154,6 +154,10 @@ export {
 export {
   useAssignIncident,
   useCreateIncident,
+  useDecideIncidentApproval,
+  useIncidentApprovals,
+  useRequestIncidentApproval,
+  type IncidentApprovalRule,
   useDeleteIncident,
   useIncident,
   useIncidentAction,
@@ -1512,3 +1516,4 @@ export {
   type KeptDraft,
   type KeptDraftForm,
 } from './keptDrafts';
+export { useClosedEditLock } from './incidentSettings';

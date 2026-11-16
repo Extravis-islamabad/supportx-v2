@@ -20,7 +20,7 @@ The downgrade drops the columns. It refuses per tenant while a service account n
 since that link would be lost silently.
 
 Revision ID: 0174
-Revises: 0168 (main's head while building; re-pointed at its queue turn)
+Revises: 0171 (main's head while building; re-pointed at its queue turn)
 Created: 2026-11-16
 """
 
@@ -30,7 +30,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0174"
-down_revision: str | None = "0168"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0171"  # main's head while building; re-pointed at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -34,6 +34,7 @@ from app.modules.work_items.infra.models import (
     WorkItemView,
 )
 from app.modules.work_items.service import bulk as bulk_service
+from app.modules.work_items.service import custom_values
 from app.modules.work_items.service import lists as service
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import FIELDS, type_fields
@@ -237,6 +238,10 @@ class BulkJobOut(BaseModel):
 
 async def _own_and_custom(session: AsyncSession, wtype: WorkItemType) -> Mapping[str, FilterField]:
     custom = await metadata.filter_fields(session, wtype.code.value, "work_items")
+    # A sealed field never sorts and never compares as stored text: its `eq` / `in` filters are
+    # rewritten to its blind index before this allowlist is used (WP-057 S3b-2).
+    sealed = await custom_values.not_plain_keys(session, wtype.code.value)
+    custom = {n: f for n, f in custom.items() if n.removeprefix("custom.") not in sealed}
     return {**type_fields(wtype), **custom}
 
 
@@ -251,6 +256,16 @@ def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dep
         subject = await get_policy(request).subject_for(request, tenant)
         return field_rules.unseen(subject.field_access, wtype.code.value).all
 
+    async def sealed(
+        session: AsyncSession,
+        tree: Any,  # noqa: ANN401 - the filter DSL's parsed JSON tree
+        simple: dict[str, list[str]],
+        withheld: frozenset[str],
+    ) -> tuple[Any, dict[str, list[str]], Mapping[str, FilterField]]:
+        return await custom_values.rewrite_sealed_filters(
+            session, wtype.code.value, tree, simple, withheld
+        )
+
     return list_query(
         FIELDS,
         extra_parameters=frozenset({"view", "tag"}),
@@ -258,6 +273,7 @@ def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dep
         # A type's own fields too (a change's risk, a problem's type): drill-down (REQ-CHG-116).
         fields_for=lambda session: _own_and_custom(session, wtype),
         exclude_for=withheld,
+        rewrite_for=sealed,
     )
 
 

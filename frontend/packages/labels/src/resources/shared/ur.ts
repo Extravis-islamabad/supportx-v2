@@ -517,6 +517,10 @@ export const ur: LabelResource = {
     'ریکارڈ کی تمام چیک لسٹس ملا کر، {{min}} سے {{max}} تک۔ لمبی فہرست رد کی جاتی ہے، کاٹی نہیں جاتی۔',
   'settings.closing.close_requires': 'بندش سے پہلے درکار',
   'settings.closing.close_requires_help': 'وہ فیلڈز جو واقعہ بند کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.closed_edit_lock': 'بند واقعات کو مقفل کریں',
+  'settings.closing.closed_edit_lock_help':
+    'جب تک یہ آن ہے کوئی بند واقعے کے فیلڈ نہیں بدلتا، «بند واقعات میں ترمیم» والے اور ایڈمنسٹریٹر بھی نہیں۔ نوٹس اور جوابات جاری رہتے ہیں۔ یہ فوراً محفوظ ہوتا ہے اور سائن اِن کی تصدیق مانگ سکتا ہے۔',
+  'settings.closing.closed_edit_lock_switch': 'بند واقعات کو مکمل مقفل کریں',
   'settings.closing.complete_open_work': 'بندش پر کھلا کام مکمل کریں',
   'settings.closing.complete_open_work_help':
     'واقعہ بند کرنے سے اس کا کھلا کام مکمل نشان زد ہو جاتا ہے۔',
@@ -525,6 +529,12 @@ export const ur: LabelResource = {
   'settings.closing.copy_limit_help':
     'ایک درخواست میں واقعے کی کتنی کاپیاں بن سکتی ہیں، {{min}} سے {{max}} تک۔',
   'settings.closing.days_range': '{{min}} سے {{max}} کاروباری دن۔',
+  'settings.closing.edit_reason_fields': 'وہ فیلڈ جن کی تبدیلی کے لیے وجہ درکار ہے',
+  'settings.closing.edit_reason_fields_help':
+    'جو ان میں سے کوئی فیلڈ بدلے وہ وجہ بتائے؛ وجہ ریکارڈ کی تاریخ میں محفوظ رہتی ہے۔',
+  'settings.closing.first_contact_minutes': 'پہلے رابطے کی مدت (منٹ)',
+  'settings.closing.first_contact_minutes_help':
+    'جو واقعہ اس کا بنانے والا اس وقت کے اندر حل کرے اور جو دوبارہ تفویض نہ ہوا ہو، اسے پہلے رابطے پر حل شدہ تجویز کیا جاتا ہے ({{min}} سے {{max}})۔',
   'settings.closing.help':
     'واقعہ حل اور بند کرنے کے لیے کیا درکار ہے، کھلے کام کا کیا ہوتا ہے، اور درخواست گزار جواب دے کر کتنی دیر تک اسے دوبارہ کھول سکتا ہے۔',
   'settings.closing.open_work': 'کھلا کام',

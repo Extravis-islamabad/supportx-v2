@@ -7,6 +7,7 @@ technician only through `/assign` and `/take`.
 """
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, cast
 
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.ai import GATEWAY_STATE, Gateway
 from app.modules.audit import AuditNote, RequestFacts, audited, entries_for_changes
 from app.modules.audit import record as record_audit
@@ -35,7 +37,10 @@ from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
-from app.modules.work_items.api.problem_routes import add_problem_routes
+from app.modules.work_items.api.problem_routes import (
+    add_approval_request_route,
+    add_problem_routes,
+)
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import field_access as field_rules
@@ -87,6 +92,7 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, Work
 from app.modules.work_items.service import (
     asset_links,
     change_links,
+    custom_values,
     drafts,
     record_copies,
     release_links,
@@ -334,6 +340,17 @@ class WorkItemPatch(BaseModel):
         description="A value sets it by hand (with a reason); null: back to the matrix.",
     )
     priority_reason: str | None = Field(default=None, max_length=PRIORITY_REASON_MAX)
+    first_contact_resolution: StrictBool | None = Field(
+        default=None, description="Resolved at first contact (REQ-INC-102); suggested at resolve."
+    )
+    edit_reason: str | None = Field(
+        default=None,
+        max_length=1000,
+        description=(
+            "Why (REQ-INC-124), kept in history. Required to edit a closed incident (with"
+            " incidents.edit_closed) and for the fields the tenant names."
+        ),
+    )
     tags: list[str] | None = Field(default=None, max_length=TAGS_MAX * 2)
     confirm_lose_access: bool = False
     keep_following: bool | None = Field(
@@ -704,6 +721,11 @@ class WorkItemOut(BaseModel):
     last_reopened_at: datetime | None
     reopen_count: int
     resolution: str | None = Field(description="The fix, sanitised rich text (REQ-INC-090).")
+    first_contact_resolution: bool | None = Field(
+        default=None,
+        description="Resolved at first contact (REQ-INC-102): suggested at resolve, confirmed or"
+        " changed by the technician; null until resolved.",
+    )
     closure_code: str | None = Field(description="A closure_code pick-list code (REQ-INC-093).")
     resolution_notified_at: datetime | None = Field(
         description="When the requester was told of the resolution; auto-close counts from it."
@@ -760,6 +782,13 @@ class WorkItemOut(BaseModel):
             " ones included; custom ones as custom.<key>."
         ),
     )
+    unreadable_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Custom fields whose value is sealed at rest and did not open (WP-057, ADR-050):"
+            " shown as unreadable, never as empty; as custom.<key>."
+        ),
+    )
 
     @classmethod
     def of(cls, view: service.WorkItemView) -> "WorkItemOut":
@@ -769,14 +798,15 @@ class WorkItemOut(BaseModel):
         values: dict[str, Any] = {
             name: None if name in withheld else getattr(r, name) for name in _RECORD_FIELDS
         }
-        values["custom"] = field_rules.without(
-            r.custom, field_rules.Unseen(view.hidden, view.masked).custom_keys()
-        )
+        # Opened and stripped by the service (custom_values.visible_custom, WP-057 S3b-2); a view
+        # built without it shows no custom values rather than raw stored ones.
+        values["custom"] = view.custom if view.custom is not None else {}
         return cls(
             **values,
             hidden_fields=sorted(view.hidden),
             masked_fields=sorted(view.masked),
             read_only_fields=sorted(view.read_only),
+            unreadable_fields=sorted(f"custom.{k}" for k in view.unreadable),
             root_cause=None if "root_cause" in withheld else r.root_cause,
             root_cause_hidden="root_cause" in view.hidden,
             review_required=view.review_required,
@@ -800,6 +830,7 @@ class WorkItemOut(BaseModel):
 
 
 _RECORD_FIELDS = (
+    "first_contact_resolution",
     "catalog_item_id",
     "answers",
     "approval_status",
@@ -954,6 +985,10 @@ class WorkItemListItem(BaseModel):
     )
     masked_fields: list[str] = Field(
         default_factory=list, description="Fields shown to you as masked (ADR-047)."
+    )
+    unreadable_fields: list[str] = Field(
+        default_factory=list,
+        description="Sealed custom values that did not open (WP-057, ADR-050): custom.<key>.",
     )
 
 
@@ -1122,6 +1157,18 @@ class WorkItemClosureOut(BaseModel):
     )
     copy_limit: int = Field(
         default=20, description="How many copies one request may make (1 to 100)."
+    )
+    # WP-046b S1 (0169): REQ-INC-101, -124, -102.
+    closed_edit_locked: bool = Field(
+        default=False,
+        description="Closed records locked fully: no one edits their fields (PUT .../lock).",
+    )
+    edit_reason_fields: list[str] = Field(
+        default_factory=list, description="Fields whose change needs a reason (REQ-INC-124)."
+    )
+    first_contact_minutes: int = Field(
+        default=30,
+        description="Resolved by its creator this soon, never reassigned: first contact (0-1440).",
     )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
@@ -1428,6 +1475,9 @@ class WorkItemCatalogueOut(BaseModel):
                 ),
                 checklist_item_max=cat.closure.checklist_item_max,
                 copy_limit=cat.closure.copy_limit,
+                closed_edit_locked=cat.closure.closed_edit_locked,
+                edit_reason_fields=sorted(cat.closure.edit_reason_fields),
+                first_contact_minutes=cat.closure.first_contact_minutes,
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1458,6 +1508,8 @@ class WorkItemClosurePatch(BaseModel):
     task_dependency_mode: Literal["block", "warn"] | None = None
     checklist_item_max: int | None = Field(default=None, description="1 to 1000.")
     copy_limit: int | None = Field(default=None, description="1 to 100.")
+    edit_reason_fields: list[str] | None = Field(default=None, max_length=50)
+    first_contact_minutes: int | None = Field(default=None, description="0 to 1440.")
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -1572,6 +1624,8 @@ class WorkItemFieldChangeOut(BaseModel):
         """One change, masked values as `hidden` with no old or new."""
         if change.old == service.MASKED and change.new == service.MASKED:
             return cls(field=change.field, hidden=True)
+        if custom_values.is_sealed(change.old) or custom_values.is_sealed(change.new):
+            return cls(field=change.field, hidden=True)  # never sx2: text (rule 5d; S3b-2)
         return cls(field=change.field, old=change.old, new=change.new)
 
 
@@ -1634,18 +1688,34 @@ class WorkItemHistoryOut(BaseModel):
     )
 
 
-def _item(row: WorkItem, unseen: field_rules.Unseen) -> WorkItemListItem:
-    """A list row without the custom values the person's roles withhold (ADR-047 §4)."""
+def _item(
+    row: WorkItem, unseen: field_rules.Unseen, shown: custom_values.Visible
+) -> WorkItemListItem:
+    """A list row with only the custom values this person may read, sealed ones opened.
+
+    `shown` comes from `custom_values.visible_custom_many` (ADR-047 §4, WP-057 S3b-2): the raw
+    stored values never leave in a row.
+    """
     item = WorkItemListItem.model_validate(row, from_attributes=True)
-    if not unseen.all:
-        return item
     return item.model_copy(
         update={
-            "custom": field_rules.without(item.custom, unseen.custom_keys()),
+            "custom": shown.values,
             "hidden_fields": sorted(unseen.hidden),
             "masked_fields": sorted(unseen.masked),
+            "unreadable_fields": sorted(f"custom.{k}" for k in shown.unreadable),
         }
     )
+
+
+async def _items(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, rows: Sequence[WorkItem]
+) -> list[WorkItemListItem]:
+    """A page of rows, their custom values opened once for the page."""
+    unseen = _unseen(subject, wtype)
+    shown = await custom_values.visible_custom_many(
+        session, [(r.id, r.custom) for r in rows], unseen=unseen
+    )
+    return [_item(r, unseen, shown[r.id]) for r in rows]
 
 
 def _unseen(subject: Subject, wtype: WorkItemType) -> field_rules.Unseen:
@@ -2446,7 +2516,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             | named
         )
         return WorkItemPage(
-            items=[_item(r, _unseen(subject, wtype)) for r in page.rows],
+            items=await _items(session, subject, wtype, page.rows),
             next_cursor=page.next_cursor,
             has_more=page.has_more,
             estimated_total=page.estimated_total,
@@ -2550,7 +2620,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         )
         people = sorted({str(u) for r in rows for u in (r.requester_id, r.technician_id) if u})
         return WorkItemSearchOut(
-            items=[_item(r, _unseen(subject, wtype)) for r in rows],
+            items=await _items(session, subject, wtype, rows),
             people=_people(await user_contacts(session, people)),
         )
 
@@ -2602,14 +2672,15 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
                     if u
                 }
             )
+            shown = await _items(session, subject, wtype, [c.record for c in found])
             return DuplicatesOut(
                 items=[
                     DuplicateOut(
-                        item=_item(c.record, _unseen(subject, wtype)),
+                        item=item,
                         score=c.score,
                         reasons=list(c.reasons),
                     )
-                    for c in found
+                    for c, item in zip(found, shown, strict=True)
                 ],
                 method=method,
                 people=_people(await user_contacts(session, people)),
@@ -2690,6 +2761,47 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         )
         set_etag(response, cat.settings_version)
         return await WorkItemCatalogueOut.of(session, cat)
+
+    if wtype.code is WorkItemTypeCode.INCIDENT:
+
+        class ClosedEditLockIn(BaseModel):
+            """Lock closed incidents fully, or not (REQ-INC-101)."""
+
+            model_config = ConfigDict(extra="forbid")
+
+            locked: StrictBool
+
+        @router.put(
+            "/settings/closed-edit-lock",
+            summary="Lock closed incidents fully",
+            responses=CONFLICT,
+            # Outranks a right, administrators' included: as sensitive as role changes (lane B).
+            dependencies=[RecentAuth],
+        )
+        async def put_closed_edit_lock(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            body: ClosedEditLockIn,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Annotated[
+                AuditNote,
+                audited("incident.closed_edit_lock_changed", object_type="incident_settings"),
+            ],
+        ) -> WorkItemCatalogueOut:
+            """While on, no one edits a closed incident's fields; notes and replies go on."""
+            note.details = {"locked": body.locked}
+            cat = await settings_service.update_closure_settings(
+                session,
+                wtype,
+                expected_version=version,
+                values={"closed_edit_locked": body.locked},
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            set_etag(response, cat.settings_version)
+            return await WorkItemCatalogueOut.of(session, cat)
 
     @router.get("/categories", summary="Category tree")
     async def categories(session: TenantSession, subject: View) -> list[WorkItemCategoryOut]:
@@ -2772,9 +2884,11 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         WorkItemTypeCode.RELEASE,
         WorkItemTypeCode.PROBLEM,
         WorkItemTypeCode.CHANGE,
+        WorkItemTypeCode.INCIDENT,
     }:
-        # Release and change stage approvals (WP-058a s5, WP-045a) and problem approvals asked
-        # ad hoc (WP-044b s4): none has a requester's withdrawal (a change is canceled instead).
+        # Release and change stage approvals (WP-058a s5, WP-045a) and problem and incident
+        # approvals asked ad hoc (WP-044b s4, WP-046b S1): none has a requester's withdrawal (a
+        # change is canceled instead).
         add_approval_routes(router, wtype, withdraw=False)
     if wtype.code is WorkItemTypeCode.CHANGE:
         # WP-045a D6 (REQ-CHG-002): before the /{record_id} routes.
@@ -2789,6 +2903,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
+    if wtype.code is WorkItemTypeCode.INCIDENT:  # WP-046b S1 (REQ-INC-083): asked ad hoc
+        add_approval_request_route(router, wtype, WorkItemOut)
     add_parts_collection_routes(router, wtype)
     add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)
@@ -2869,14 +2985,18 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         request: Request,
     ) -> WorkItemOut:
         """Change the fields you send. Needs If-Match. Priority by hand needs a reason."""
+        values = body.model_dump(include=body.model_fields_set)
+        reason = values.pop("edit_reason", None)
         view = await service.update(
             session,
             subject,
             wtype,
             record_id,
             expected_version=version,
-            values=body.model_dump(include=body.model_fields_set),
+            values=values,
             source=source_of(request),
+            reason=reason,
+            facts=RequestFacts.of(request),
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)

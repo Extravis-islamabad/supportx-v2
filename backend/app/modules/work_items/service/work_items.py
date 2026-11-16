@@ -40,6 +40,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import metadata, service_catalog, sla
+from app.modules.audit import WORKER as AUDIT_WORKER
+from app.modules.audit import AuditActorType, RequestFacts
+from app.modules.audit import record as record_audit
 from app.modules.automation import (
     TRANSITION_NOT_FOR_YOU as NOT_FOR_YOU,
 )
@@ -83,6 +86,7 @@ from app.modules.organization import (
 from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
+from app.modules.work_items.domain import closure as closure_rules
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain import kept_informed
 from app.modules.work_items.domain import releases as release_rules
@@ -100,6 +104,7 @@ from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     DONE_CATEGORIES,
     FINAL_CATEGORIES,
+    DefaultStatus,
     PauseClock,
     ReasonList,
     ReasonMode,
@@ -171,6 +176,7 @@ from app.modules.work_items.service import (
     change_conflicts,
     change_types,
     closing,
+    custom_values,
     followers,
     record_roles,
     templates,
@@ -178,7 +184,7 @@ from app.modules.work_items.service import (
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service import stages as stage_service
-from app.modules.work_items.service.access import COST_TYPES, RESOURCE, VIEW_COSTS
+from app.modules.work_items.service.access import COST_TYPES, EDIT_CLOSED, RESOURCE, VIEW_COSTS
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.display_ids import next_display_number
@@ -327,6 +333,11 @@ class WorkItemView:
     analysis_changes: tuple["AnalysisChange", ...] = ()
     # Problems: closing needs the review summary (REQ-PRB-053, D-140 Q4).
     review_required: bool = False
+    # The custom values this subject may read, sealed ones opened (WP-057 S3b-2): the only custom
+    # values a route returns. None before `visible_custom` ran (a view that shows no values).
+    custom: dict[str, Any] | None = None
+    # Custom keys whose sealed value did not open (shown "unreadable", ADR-050), never empty.
+    unreadable: frozenset[str] = frozenset()
 
 
 def _now() -> datetime:
@@ -543,7 +554,7 @@ class _Transitions:
         )
 
 
-async def _view(  # noqa: C901 - one state per action and operation, flat
+async def _view(  # noqa: C901, PLR0912 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
     cat = await config.load(session, wtype)
@@ -611,8 +622,13 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             )
         )
     operations: list[ActionState] = []
+    closed_edit = final and await _closed_edit_open(session, subject, wtype, record)
     for op in OPERATIONS:
         refused = await reason(op)
+        if refused is None and op == "edit" and closed_edit:
+            # WP-046b S1 (REQ-INC-101): a closed incident's fields, with the right and a reason.
+            operations.append(ActionState(op, allowed=True, reason_mode=ReasonMode.REQUIRED))
+            continue
         if refused is None and final and op != "delete":
             refused = RECORD_CLOSED
         if refused is None and op == "take":
@@ -633,6 +649,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         also_hidden=await hidden_fields(session, subject, wtype, record.id),
     )
     hidden = unseen.all  # the analysis trail names no withheld field either
+    # The one place a record's custom values are read for this subject (WP-057 S3b-2).
+    shown = await custom_values.visible_custom(session, record.id, record.custom, unseen=unseen)
     analysis = (
         await _analysis_changes(session, record.id, hidden)
         if wtype.code is WorkItemTypeCode.PROBLEM
@@ -676,6 +694,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         read_only=field_rules.read_only(subject.field_access, wtype.code.value),
         analysis_changes=analysis,
         review_required=closing.review_required(cat, record),
+        custom=shown.values,
+        unreadable=shown.unreadable,
     )
 
 
@@ -692,6 +712,7 @@ async def _handed_away(
         wtype.code.value,
         also_hidden=await hidden_fields(session, subject, wtype, record.id),
     )
+    shown = await custom_values.visible_custom(session, record.id, record.custom, unseen=unseen)
     return WorkItemView(
         record=record,
         actions=[],
@@ -701,6 +722,8 @@ async def _handed_away(
         hidden=unseen.hidden,
         masked=unseen.masked,
         read_only=field_rules.read_only(subject.field_access, wtype.code.value),
+        custom=shown.values,
+        unreadable=shown.unreadable,
     )
 
 
@@ -1332,6 +1355,9 @@ async def history(  # noqa: PLR0913 - paging options, explicit
             )
             for e in entries
         ]
+    # Sealed custom values open for their own cell, only those the strip above left (WP-057
+    # S3b-2, lane B's #520 review); a value that does not open becomes the hidden line.
+    entries = await custom_values.open_history(session, RECORD_TYPE, record_id, entries)
     # A task's extra cost is money (D-164): only with the type's cost right, as the task API
     # shows it (lane B's #442 review). Others keep the line (that it changed, when, by whom) but
     # never the amounts. A type without the right keeps S1's rule, those who may edit.
@@ -1520,6 +1546,11 @@ def _check_fields(  # noqa: C901, PLR0912, PLR0915 - one rule per field, flat
             if value is not None and value not in set(enum):
                 problems.append((name, "invalid_choice"))
             cleaned[name] = value
+    if "first_contact_resolution" in values:  # REQ-INC-102: the technician's word on it
+        flag = values["first_contact_resolution"]
+        if flag is not None and not isinstance(flag, bool):
+            problems.append(("first_contact_resolution", "invalid_choice"))
+        cleaned["first_contact_resolution"] = flag
     if "impact_details" in values:
         details, codes = clean_impact_details(values["impact_details"])
         problems += [("impact_details", c) for c in codes]
@@ -1824,6 +1855,7 @@ SNAPSHOT_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "first_contact_resolution",  # WP-046b S1 (REQ-INC-102 AC3)
     "notify_emails",
     "urgency",
     "priority",
@@ -1874,6 +1906,26 @@ async def _custom_text(
 
 
 custom_text_for = _custom_text  # the search text rebuild (service/search_rebuild.py)
+
+
+async def _custom_columns(
+    session: AsyncSession, wtype: WorkItemType, custom: Mapping[str, Any], record_id: uuid.UUID
+) -> dict[str, Any]:
+    """A saved record's `custom` (sensitive values sealed) and `custom_text`, index kept in step.
+
+    Every writer of an existing record's custom values goes through it (WP-057 S3b-2).
+    """
+    sealed = await custom_values.seal_custom(
+        session,
+        record_id,
+        custom,
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
+    await custom_values.write_index(session, record_id, sealed.index)
+    return {
+        "custom": sealed.stored,
+        "custom_text": await _custom_text(session, wtype, sealed.stored, record_id),
+    }
 
 
 def _is_uuid(value: Any) -> bool:  # noqa: ANN401 - a JSON value
@@ -2050,8 +2102,12 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
     target: str,
     reason_code: str | None,
     reason_text: str | None,
+    actor: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    """Column changes of a status move: category, reason, pause clock and time stamps."""
+    """Column changes of a status move: category, reason, pause clock and time stamps.
+
+    `actor` (a person's move) is who resolves, for the first-contact suggestion (REQ-INC-102).
+    """
     cat = await config.load(session, wtype)
     old = StatusCategory(record.status_category)
     new = cat.lifecycle.category(target)
@@ -2089,7 +2145,21 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
             "last_reopened_at": now,
             "resolved_at": None,
             "closed_at": None,
+            "first_contact_resolution": None,  # the next resolution decides it again
         }
+    elif (
+        wtype.code is WorkItemTypeCode.INCIDENT
+        and "resolved_at" in changes
+        and record.first_contact_resolution is None
+    ):  # REQ-INC-102: suggested at the first resolution; the technician confirms or changes it
+        changes["first_contact_resolution"] = closure_rules.first_contact(
+            created_by=record.created_by,
+            created_at=record.created_at,
+            reassignments=record.reassignment_count,
+            resolved_by=actor,
+            resolved_at=now,
+            minutes=cat.closure.first_contact_minutes,
+        )
     return changes
 
 
@@ -2103,6 +2173,7 @@ STAMP_FIELDS = (
     # WP-020f: the fix and the closure code; history keeps them after a reopen (REQ-INC-097).
     "resolution",
     "closure_code",
+    "first_contact_resolution",  # WP-046b S1 (REQ-INC-102 AC3): the suggestion, recorded
 )
 
 
@@ -2242,16 +2313,28 @@ async def _rules_on_edit(
     that group afterwards (REQ-ASG-001 "on move"), never outside it.
     """
     facts = await automation.requester_facts(session, record.requester_id)
-    before = {**_snapshot(record), **automation.flat_custom(record.custom), **facts}
+    # Rules read values, never ciphertext: sealed ones opened for the system (lane A, S3b-2).
+    plain_custom = (
+        await custom_values.visible_custom(
+            session, record.id, record.custom, unseen=field_rules.Unseen()
+        )
+    ).values
+    before = {**_snapshot(record), **automation.flat_custom(plain_custom), **facts}
     edited = {
         name: _json(value)
         for name, value in columns.items()
         if name not in {"custom", "custom_text"}
     }
     if "custom" in columns:
-        current_custom = automation.flat_custom(record.custom)
+        current_custom = automation.flat_custom(plain_custom)
         edited |= dict.fromkeys(current_custom)
-        edited |= automation.flat_custom(columns["custom"])
+        edited |= automation.flat_custom(
+            (
+                await custom_values.visible_custom(
+                    session, record.id, columns["custom"], unseen=field_rules.Unseen()
+                )
+            ).values
+        )
     automated = await automation.automate(
         session,
         wtype,
@@ -2275,8 +2358,8 @@ async def _rules_on_edit(
         columns["priority_source"] = PrioritySource.RULE
     if custom_changes:
         merged = {**(columns.get("custom", record.custom) or {}), **custom_changes}
-        columns["custom"] = {k: v for k, v in merged.items() if v is not None}
-        columns["custom_text"] = await _custom_text(session, wtype, columns["custom"], record.id)
+        kept = {k: v for k, v in merged.items() if v is not None}
+        columns.update(await _custom_columns(session, wtype, kept, record.id))
     return automated
 
 
@@ -2292,14 +2375,24 @@ async def _record_automation(
     session: AsyncSession, record: WorkItem, automated: automation.Automated
 ) -> None:
     """One history entry per rule, routing and assignment step, and the run log (REQ-WI-004)."""
+    sealed = await custom_values.sealing_keys(session, record.type) if automated.entries else None
     for ref, changes in automated.entries:
+        # A rule that set a sensitive field: its values reach history sealed (WP-057 S3b-2).
+        entry = await custom_values.seal_history(
+            session,
+            RECORD_TYPE,
+            record.id,
+            record.version,
+            [Change(name, old, new) for name, old, new in changes],
+            sealed_keys=sealed or frozenset(),
+        )
         await record_changes(
             session,
             record_type=RECORD_TYPE,
             record_id=record.id,
             version=record.version,
             kind="updated",
-            changes=[Change(name, old, new) for name, old, new in changes],
+            changes=entry,
             source="rule",
             automation_ref=ref,
         )
@@ -2675,6 +2768,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     )
     now = _now()
     number = await next_display_number(session, wtype.counter_key)
+    # Sensitive values sealed under the new record's ID before it is written (WP-057 S3b-2).
+    new_custom = await custom_values.seal_custom(
+        session,
+        record_id,
+        custom or {},
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
     record = WorkItem(
         id=record_id,
         type=wtype.code,
@@ -2710,8 +2810,8 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
         ),
         **_item_columns(item, values),
-        custom=custom or {},
-        custom_text=await _custom_text(session, wtype, custom or {}),
+        custom=new_custom.stored,
+        custom_text=await _custom_text(session, wtype, new_custom.stored),
         status=initial,
         status_category=cat.lifecycle.category(initial),
         status_changed_at=now,
@@ -2727,6 +2827,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     for name, value in stamped.items():  # the same insert: the record is still at version 1
         setattr(record, name, value)
     await session.flush()
+    await custom_values.write_index(session, record_id, new_custom.index)
     await stage_service.start(session, record, now=now)
     if custom:
         await metadata.mark_used(session, wtype.code.value, list(custom))
@@ -2750,13 +2851,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     }
     own = await change_types.store(session, record, new_change)  # a change's type and reason
     roles_filled = await change_types.fill_line_manager(session, record)
-    await record_changes(
+    # Sealed custom values reach history sealed for their own cell (WP-057 S3b-2).
+    created = await custom_values.seal_history(
         session,
-        record_type=RECORD_TYPE,
-        record_id=record.id,
-        version=record.version,
-        kind="created",
-        changes=[
+        RECORD_TYPE,
+        record.id,
+        record.version,
+        [
             *(
                 Change(name, None, value)
                 for name, value in {**by_person, **own}.items()
@@ -2764,6 +2865,15 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             ),
             *roles_filled,
         ],
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="created",
+        changes=created,
         source=source,
         reason=priority_reason,
     )
@@ -2837,6 +2947,71 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
 # --- edit -----------------------------------------------------------------------------------------
 
 
+CLOSED_EDITED = "incident.closed_edited"
+EDIT_REASON_MAX = 500  # as every other reason in history
+
+
+def _closed_not_merged(record: WorkItem) -> bool:
+    """Whether REQ-INC-101's closed-edit may open this record.
+
+    A closed incident only: never a canceled one (REQ-INC-100 AC2), nor one the system closed by
+    a merge (its own move, undo, is the way back).
+    """
+    return (
+        StatusCategory(record.status_category) is StatusCategory.CLOSED
+        and record.status != DefaultStatus.MERGED.value
+    )
+
+
+async def _may_edit_closed(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem, cat: Catalogue
+) -> None:
+    """A closed record's fields: an incident's, with `incidents.edit_closed`, unless locked.
+
+    The tenant's full lock outranks the right, tenant administrators included (lane B); other
+    types stay read-only once closed. Reopening is a move of its own, never this.
+    """
+    if (
+        wtype.code is not WorkItemTypeCode.INCIDENT
+        or not _closed_not_merged(record)
+        or cat.closure.closed_edit_locked
+    ):
+        raise Conflict(
+            code=RECORD_CLOSED,
+            params={"status": record.status, "locked": cat.closure.closed_edit_locked},
+        )
+    if not await _may(session, subject, wtype, EDIT_CLOSED, record.id):
+        # Without the right the record is simply closed to them (the answer it always gave).
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status, "locked": False})
+
+
+async def _closed_edit_open(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
+) -> bool:
+    """Whether the subject may edit this closed record's fields now (what the page offers)."""
+    if wtype.code is not WorkItemTypeCode.INCIDENT or not _closed_not_merged(record):
+        return False
+    cat = await config.load(session, wtype)
+    if cat.closure.closed_edit_locked:
+        return False
+    return await _may(session, subject, wtype, EDIT_CLOSED, record.id)
+
+
+def _edit_reason(
+    cat: Catalogue, columns: Mapping[str, Any], reason: str | None, *, closed: bool
+) -> str | None:
+    """The edit's reason, checked: required on a closed record and for the tenant's fields."""
+    why = (reason or "").strip() or None
+    if why is not None and len(why) > EDIT_REASON_MAX:
+        raise _errors([("reason", "value_too_long")], reason={"max": str(EDIT_REASON_MAX)})
+    named = {n for n in columns if n != "custom"} | {
+        f"custom.{key}" for key in (columns.get("custom") or {})
+    }
+    if why is None and (closed or named & cat.closure.edit_reason_fields):
+        raise _errors([("reason", "required")])
+    return why
+
+
 async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one version, one change set
     session: AsyncSession,
     subject: Subject,
@@ -2846,14 +3021,29 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     expected_version: int,
     values: Mapping[str, Any],
     source: Source,
+    reason: str | None = None,
+    facts: RequestFacts | None = None,
 ) -> WorkItemView:
-    """Edit fields (never status or assignment). Unchanged input: no new version, no event."""
+    """Edit fields (never status or assignment). Unchanged input: no new version, no event.
+
+    `reason` (REQ-INC-124) goes into history; it is required to edit a closed incident (with
+    `incidents.edit_closed`, REQ-INC-101) and for the fields the tenant names. `facts` are the
+    request's, for the audit entry of a closed incident's edit (a worker's without them).
+    """
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
-    if _closed(record):
-        raise Conflict(code="record_closed", params={"status": record.status})
     cat = await config.load(session, wtype)
+    closed = _closed(record)
+    if closed:
+        await _may_edit_closed(session, subject, wtype, record, cat)
+    # The record's custom values as they read, sealed ones opened for the system (WP-057 S3b-2):
+    # form rules, validation and change detection compare values, never ciphertext.
+    plain_custom = (
+        await custom_values.visible_custom(
+            session, record.id, record.custom, unseen=field_rules.Unseen()
+        )
+    ).values
     # The record's template's form rules (REQ-INC-037), on the record as this edit leaves it.
     ruled = await templates.apply_form_rules(
         session,
@@ -2861,7 +3051,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         await templates.of_record(session, record.template_id),
         values,
         before={name: getattr(record, name) for name in templates.FORM_FIELDS},
-        before_custom=record.custom or {},
+        before_custom=plain_custom,
     )
     values = ruled.values
     cleaned, problems = _check_fields(values, creating=False)
@@ -2881,7 +3071,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         session, subject, wtype, record, [n for n in ANALYSIS_FIELDS if n in cleaned]
     )
     # Only a changed value counts: a form may send back a read-only field unchanged.
-    custom_now = record.custom or {}
+    custom_now = plain_custom
     sent = [
         n
         for n, v in values.items()
@@ -2904,27 +3094,27 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         problems += _check_level(cat, cleaned["level"], current=record.level)
     problems += _check_problem_fields(wtype, cat, cleaned, record)
     custom, custom_problems = await _custom_in(
-        session, wtype, values, current=record.custom or {}, creating=False
+        session, wtype, values, current=plain_custom, creating=False
     )
     problems += custom_problems
-    emptied = {
-        f"custom.{k}": None for k in (record.custom or {}) if custom is not None and k not in custom
-    }
+    emptied = {f"custom.{k}": None for k in plain_custom if custom is not None and k not in custom}
     problems += await templates.emptied_required(
         session,
         record.template_id,
         {
             **{name: getattr(record, name) for name in cleaned},
-            **_flat(record.custom or {}),
+            **_flat(plain_custom),
         },
         {**cleaned, **(_flat(custom) if custom is not None else {}), **emptied},
     )
     if problems:
         raise await _value_errors(session, wtype, problems)
     columns = {name: value for name, value in cleaned.items() if getattr(record, name) != value}
+    if custom is not None:
+        # A sealed value sent back unchanged stays the stored ciphertext (no change, no history).
+        custom = await custom_values.unchanged_sealed(session, record.id, record.custom, custom)
     if custom is not None and custom != (record.custom or {}):
-        columns["custom"] = custom
-        columns["custom_text"] = await _custom_text(session, wtype, custom, record.id)
+        columns.update(await _custom_columns(session, wtype, custom, record.id))
     automated = automation.Automated()
     if columns:
         # Business rules on the edit (REQ-RUL-001, 006), before the priority matrix.
@@ -2948,6 +3138,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         if record.version != expected_version:
             raise await _conflict(session, _stale(record, expected_version), record.id)
         return await _view(session, subject, wtype, record)
+    why = _edit_reason(cat, columns, reason, closed=closed)
     before = _snapshot(record)
     audience_before = _audience(record)
     updated = await _update(session, record, expected_version, columns)
@@ -2975,6 +3166,15 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         for n, v in after.items()
         if before[n] != v and n not in automatic and n not in by_rules
     ]
+    # Sealed custom values reach history sealed for their own cell (WP-057 S3b-2).
+    people = await custom_values.seal_history(
+        session,
+        RECORD_TYPE,
+        updated.id,
+        updated.version,
+        people,
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
     if people:
         await record_changes(
             session,
@@ -2984,7 +3184,19 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
             kind="updated",
             changes=people,
             source=source,
-            reason=priority_reason,
+            reason=why or priority_reason,
+        )
+    if closed and people:  # REQ-INC-101 AC2: each edit of a closed incident is audited
+        await record_audit(
+            session,
+            action_code=CLOSED_EDITED,
+            facts=facts or AUDIT_WORKER,
+            actor=(AuditActorType.PERSON, subject.user_id),
+            object_type=wtype.code.value,
+            object_id=str(updated.id),
+            # The field names, never their values (lane B; the record's history has those).
+            details={"fields": sorted(c.field for c in people)},
+            reason=why,
         )
     if recomputed:
         await record_changes(
@@ -3125,7 +3337,14 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     )
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
-        session, wtype, record, action, target=target, reason_code=reason_code, reason_text=text
+        session,
+        wtype,
+        record,
+        action,
+        target=target,
+        reason_code=reason_code,
+        reason_text=text,
+        actor=subject.user_id,
     )
     changes.update(closing_step.changes)
     # Rules see a status move as an edit ("status changed to Resolved", REQ-RUL-001); they
@@ -3826,7 +4045,12 @@ async def copy_release(  # noqa: PLR0913 - the copy and its context, explicit
     _release_only(wtype)
     original = await _visible(session, subject, wtype, record_id)
     values: dict[str, Any] = {n: getattr(original, n) for n in COPIED_FIELDS}
-    values["custom"] = dict(original.custom or {})
+    # Sealed values are bound to the original: opened here, sealed again under the copy's ID.
+    values["custom"] = (
+        await custom_values.visible_custom(
+            session, original.id, original.custom, unseen=field_rules.Unseen()
+        )
+    ).values
     made = await create(session, subject, wtype, values, source=source, holders=holders)
     row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), original.id))
     copied = (
@@ -5102,7 +5326,7 @@ async def redact_fields(
     changes = dict(columns)
     if "custom" in changes:
         wtype = TYPES[WorkItemTypeCode(record.type)]
-        changes["custom_text"] = await _custom_text(session, wtype, changes["custom"], record.id)
+        changes.update(await _custom_columns(session, wtype, changes["custom"], record.id))
     audience_before = _audience(record)
     # Its own versioned save, not `_update`: a trashed record's text is redacted too (lane B's
     # #514 review), and text alone moves no SLA clock.
@@ -6138,8 +6362,7 @@ async def _automated_columns(
     columns = {n: v for n, v in columns.items() if getattr(record, n) != v}
     cleaned_custom = {k: v for k, v in custom.items() if v is not None}
     if cleaned_custom != (record.custom or {}):
-        columns["custom"] = cleaned_custom
-        columns["custom_text"] = await _custom_text(session, wtype, cleaned_custom, record.id)
+        columns.update(await _custom_columns(session, wtype, cleaned_custom, record.id))
     return columns
 
 

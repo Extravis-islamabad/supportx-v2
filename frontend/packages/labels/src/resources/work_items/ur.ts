@@ -833,6 +833,7 @@ export const ur: LabelResource = {
   'impact.organisation': 'پوری تنظیم',
   'impact.team': 'ایک ٹیم',
   'incident_template.standard': 'معیاری واقعہ',
+  'incidents.approvals.rule': 'وہ کیسے فیصلہ کریں',
   'incidents.assign_outside_group':
     '{{person}} {{group}} میں شامل نہیں۔ انہیں تفویض کرنے سے ریکارڈ ان کے گروپ میں منتقل ہو جائے گا۔',
   'incidents.assigned': 'تفویض محفوظ ہو گئی۔',
@@ -982,6 +983,7 @@ export const ur: LabelResource = {
   'incidents.done.wait_third_party': 'اب تیسرے فریق کا انتظار ہے۔',
   'incidents.duplicates.title': 'ممکنہ ڈپلیکیٹس',
   'incidents.edit_field': '{{field}} میں ترمیم',
+  'incidents.edit_reason': 'وجہ (تاریخ میں محفوظ رہتی ہے)',
   'incidents.empty': 'اس منظر میں کوئی واقعہ نہیں۔',
   'incidents.export.button': 'ایکسپورٹ',
   'incidents.export.cancel': 'منسوخ کریں',
@@ -2378,6 +2380,7 @@ export const ur: LabelResource = {
   'work_item.field.deployment_ended': 'تعیناتی ختم ہوئی',
   'work_item.field.description': 'تفصیل',
   'work_item.field.emergency_override': 'ہنگامی استثنا',
+  'work_item.field.first_contact_resolution': 'پہلے رابطے پر حل ہوا',
   'work_item.field.first_responded_at': 'پہلا جواب',
   'work_item.field.first_response_breached': 'جواب میں تاخیر',
   'work_item.field.first_response_due_at': 'جواب کی آخری حد',

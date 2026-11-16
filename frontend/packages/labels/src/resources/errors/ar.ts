@@ -451,6 +451,8 @@ export const ar: LabelResource = {
   'errors.field.fallback_fixed': 'السياسة الافتراضية تُطبَّق دائمًا وليس لها شروط.',
   'errors.field.field_always_required': 'الموضوع ومقدم الطلب ظاهران ومطلوبان دائمًا.',
   'errors.field.field_locked': 'تقفل قاعدة نموذج هذا الحقل، لذا لا يمكن تغييره هنا.',
+  'errors.field.field_not_filterable_sealed':
+    'هذا الحقل مشفّر عند التخزين: يمكن التصفية به بقيمة مطابقة فقط (يساوي، أحد)، وليس أثناء تشفيره أو فكّ تشفيره.',
   'errors.field.field_not_permitted': 'لا يمكنك استخدام هذا الحقل: أدوارك لا تسمح لك برؤيته.',
   'errors.field.field_not_ruleable': 'لا يمكن تقييد هذا الحقل.',
   'errors.field.field_not_settable': 'لا يمكن للقاعدة تعيين هذا الحقل.',

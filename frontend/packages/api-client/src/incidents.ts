@@ -552,3 +552,80 @@ export function usePossibleDuplicates(query: PossibleDuplicatesQuery, enabled = 
     placeholderData: (previous) => previous,
   });
 }
+
+// --- approvals (WP-046b S1, REQ-INC-083) ---------------------------------------------------------
+
+/** How an incident's approvers decide: any one, all, or a majority. */
+export type IncidentApprovalRule = 'any' | 'all' | 'majority';
+
+const approvalsKey = (id: string) => [...queryKeys.incidents.detail(id), 'approvals'] as const;
+
+/** GET /incidents/{id}/approvals: its approvers and their decisions. */
+export function useIncidentApprovals(id: string) {
+  return useQuery({
+    queryKey: approvalsKey(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/incidents/{record_id}/approvals', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Ask named people to approve, with the rule they decide by (If-Match on the incident). */
+export function useRequestIncidentApproval(id: string) {
+  const saved = useSaved();
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      approverIds,
+      rule,
+      version,
+    }: {
+      approverIds: string[];
+      rule: IncidentApprovalRule;
+      version: number;
+    }) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/approvals', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { approver_ids: approverIds, purpose: 'record', rule },
+        }),
+      ),
+    onSuccess: (record) => {
+      saved(record);
+      void queryClient.invalidateQueries({ queryKey: approvalsKey(id) });
+    },
+  });
+}
+
+/** Approve or reject one of the incident's approvals (If-Match on the approval). */
+export function useDecideIncidentApproval(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      approvalId,
+      version,
+      decision,
+      comment,
+      isPrivate,
+    }: {
+      approvalId: string;
+      version: number;
+      decision: 'approve' | 'reject';
+      comment: string;
+      isPrivate: boolean;
+    }) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/approvals/{approval_id}/decision', {
+          params: { path: { record_id: id, approval_id: approvalId }, header: ifMatch(version) },
+          body: { decision, comment: comment.trim() === '' ? null : comment, private: isPrivate },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.detail(id) });
+    },
+  });
+}

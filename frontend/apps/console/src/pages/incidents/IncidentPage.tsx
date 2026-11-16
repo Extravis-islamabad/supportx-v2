@@ -88,6 +88,7 @@ import { useIncidentFieldName } from './conflict';
 import { IncidentConversation, type Typing } from './IncidentConversation';
 import { IncidentFiles } from './IncidentFiles';
 import { rememberIncident } from './recent';
+import { AskApprovalDialog, IncidentApprovals } from './IncidentApprovals';
 import { DEFAULT_TAB, lastTab, RECORD_TABS, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
@@ -181,6 +182,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [asking, setAsking] = useState(false); // WP-046b S1 (REQ-INC-083)
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
@@ -262,6 +264,15 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     void queryClient.invalidateQueries({
       queryKey: [...queryKeys.incidents.all, 'history', item.id],
     });
+    // An approver was asked or decided (WP-046b S1): the Approvals tab refetches; the record
+    // too, as its approval status may have changed.
+    if (event.type === 'work_items.approvals_changed') {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.incidents.detail(item.id), 'approvals'],
+      });
+      if (editing.current === 0) void reload();
+      return;
+    }
     // A reply or note was added or changed visibility: refetch the timeline (and the record's
     // counts), never interrupting someone editing a field.
     if (event.type === 'work_items.conversation_changed') {
@@ -431,6 +442,19 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           onClick: () => void navigate(`/problems/new?incident=${item.id}`),
         }
       : null,
+    // WP-046b S1 (REQ-INC-083): ask named people to approve, with the rule they decide by.
+    {
+      key: 'ask_approval',
+      label: t('problems.approvals.ask'),
+      allowed:
+        item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+        item.status_category !== 'closed' &&
+        item.approval_status !== 'pending',
+      testId: 'inc-op-ask-approval',
+      onClick: () => {
+        setAsking(true);
+      },
+    },
     // WP-046a S5c (REQ-INC-033): copy it one or more times.
     can('incidents.create')
       ? {
@@ -713,6 +737,13 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         }
       >
         <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
+        <AskApprovalDialog
+          item={item}
+          open={asking}
+          onClose={() => {
+            setAsking(false);
+          }}
+        />
         <CopyDialog
           open={copying}
           recordId={item.id}
@@ -812,6 +843,12 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   },
                 ]
               : []),
+            // WP-046b S1 (REQ-INC-083): its approvers and their decisions, live.
+            {
+              key: 'approvals',
+              label: t('problems.approvals.title'),
+              children: <IncidentApprovals item={item} />,
+            },
             // WP-046a S3 (REQ-INC-071): where the time went.
             {
               key: 'time',
@@ -1085,6 +1122,25 @@ function Details({
             filled: true,
           },
         ]),
+    // WP-046b S1 (REQ-INC-102): suggested at resolve; the technician confirms or changes it.
+    ...(item.first_contact_resolution == null
+      ? []
+      : [
+          {
+            key: 'first_contact_resolution',
+            label: t('work_item.field.first_contact_resolution'),
+            view: t(item.first_contact_resolution ? 'filter.yes' : 'filter.no'),
+            edit: {
+              kind: 'choice',
+              value: item.first_contact_resolution ? 'yes' : 'no',
+              options: [
+                { value: 'yes', label: t('filter.yes') },
+                { value: 'no', label: t('filter.no') },
+              ],
+            } satisfies EditorSpec,
+            filled: true,
+          },
+        ]),
     {
       key: 'reopen_count',
       label: t('work_item.field.reopen_count'),
@@ -1241,6 +1297,12 @@ function InlineEdit({
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState<unknown>(spec.value);
   const [reason, setReason] = useState('');
+  // WP-046b S1: why (kept in history); asked on a closed incident (REQ-INC-101) and for the
+  // fields the tenant names (REQ-INC-124). The server checks both; this only asks.
+  const [why, setWhy] = useState('');
+  const needsWhy =
+    item.operations.find((o) => o.action === 'edit')?.reason_mode === 'required' ||
+    (catalogue.data?.closure.edit_reason_fields ?? []).includes(field);
   const [error, setError] = useState<string | null>(null);
   // A refusal with no field to point at (a rule, a limit), shown here (QA WP-029 BUG-02).
   const problem = useFormProblem();
@@ -1259,7 +1321,10 @@ function InlineEdit({
           : { priority: value, priority_reason: reason }
         : spec.kind === 'custom'
           ? { custom: { [spec.field.key]: value } }
-          : { [field]: value };
+          : field === 'first_contact_resolution'
+            ? { first_contact_resolution: value === 'yes' } // a yes/no choice on screen
+            : { [field]: value };
+    if (needsWhy) changes.edit_reason = why;
     problem.clear();
     update.mutate(
       { changes: changes, version },
@@ -1297,6 +1362,7 @@ function InlineEdit({
         onEdit={() => {
           setValue(spec.value);
           setReason('');
+          setWhy('');
           setOpen(true);
           onEditing(1);
         }}
@@ -1464,6 +1530,22 @@ function InlineEdit({
       }}
     >
       {control}
+      {needsWhy && (
+        <label htmlFor={`inc-why-input-${field}`}>
+          <Typography.Text type="secondary">{t('incidents.edit_reason')}</Typography.Text>
+        </label>
+      )}
+      {needsWhy && (
+        <Input
+          id={`inc-why-input-${field}`}
+          value={why}
+          count={lengthLimit(500)}
+          onChange={(event) => {
+            setWhy(event.target.value);
+          }}
+          data-testid={`inc-why-${field}`}
+        />
+      )}
       {error !== null && (
         <Typography.Text type="danger" role="alert" data-testid={`inc-error-${field}`}>
           {error}

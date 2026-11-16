@@ -53,6 +53,8 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/field-access/rules",
     "PATCH /api/v1/field-access/rules/{rule_id}",
     "DELETE /api/v1/field-access/rules/{rule_id}",
+    # Closed incidents locked fully, administrators included (WP-046b S1; lane B).
+    "PUT /api/v1/incidents/settings/closed-edit-lock",
     "PUT /api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}",
     # A service account's roles, as a run-as identity's (WP-057 S4a, REQ-SEC-036).
     "PUT /api/v1/service-accounts/{account_id}/roles/{role_id}",
