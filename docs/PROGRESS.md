@@ -2574,6 +2574,12 @@ it with no reload (rule c). Not built yet.
     mail they sent skipped (their erasure port clears it); the passage needs the email
     connector right.
   - A 100k-record timing test: each find batch p95 under 500 ms with no pre-filter.
+- **`service_catalog` erasure port (no migration; lane B blocks; their readiness check):**
+  catalog items' owner, named approvers and backup approver pass to the successor; the default
+  technician and a planned task's owner are cleared (the group takes them). Band 500 (520), a
+  bounded batch per call, history with reason `erased_on_request` and the usual item event.
+- **D-171 starter item** "Personal data request (export or erasure)": a draft in People and HR,
+  handled by an administrator in Admin › People › Personal data (internal tasks); en/ar/ur.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 

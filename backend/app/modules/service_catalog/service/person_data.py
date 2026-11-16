@@ -9,7 +9,8 @@ own data; it is the organisation's configuration, so it must keep working once t
 - the default technician and a planned task's owner are cleared: the item's group (and the
   task's group) takes them, as when nobody is named.
 
-Band 100-199 (references). Each call does one bounded batch (at most `ERASE_BATCH` items) and says
+Band 500-599 (lane B: owned objects, with the other configuration handed to the successor).
+Each call does one bounded batch (at most `ERASE_BATCH` items) and says
 where to go on; a second full run finds nothing and counts zero. Each changed item gets its field
 history (source system, reason `erased_on_request`) and the usual change event, so screens and
 search follow. Counts by kind only, never data.
@@ -138,10 +139,10 @@ async def _batch(
 
 
 class ServiceCatalog:
-    """`service_catalog`: the items' set-up no longer names them (band 100-199)."""
+    """`service_catalog`: the items' set-up no longer names them (band 500-599)."""
 
     module: ClassVar[str] = "service_catalog"
-    order: ClassVar[int] = 160
+    order: ClassVar[int] = 520
     kinds: ClassVar[frozenset[str]] = frozenset(
         {"owners_handed_over", "technicians_cleared", "approvers_handed_over",
          "task_owners_cleared"}
