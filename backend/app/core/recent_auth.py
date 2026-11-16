@@ -56,6 +56,7 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "PUT /api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}",
     # A service account's roles, as a run-as identity's (WP-057 S4a, REQ-SEC-036).
     "PUT /api/v1/service-accounts/{account_id}/roles/{role_id}",
+    "DELETE /api/v1/service-accounts/{account_id}/roles/{role_id}",
     # GDPR (D-171, ADR-052): legal hold, and both people of a person's erasure.
     "PUT /api/v1/people/{user_id}/legal-hold",
     "POST /api/v1/people/{user_id}/legal-hold/lift",
@@ -83,6 +84,8 @@ CONDITIONAL_RECENT_AUTH: dict[str, str] = {
     # A person's sign-in address is also where password resets go: changing it in a hijacked
     # admin session would hand over the account (lane B, #479). Other person fields stay open.
     "PATCH /api/v1/users/{user_id}/person": "a different sign-in e-mail",
+    # Who answers for a service account, and whether its keys work (lane B, WP-057 S4a).
+    "PATCH /api/v1/service-accounts/{account_id}": "a new owner, or turning it on or off",
 }
 
 

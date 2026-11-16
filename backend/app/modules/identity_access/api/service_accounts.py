@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.recent_auth import RecentAuth
+from app.core.recent_auth import RecentAuth, require_recent_auth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.api.access import Policy
 from app.modules.identity_access.api.service_roles import (
@@ -174,6 +174,9 @@ async def change_account(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 ) -> ServiceAccountOut:
     """Name, description, owner, active (If-Match); only accounts made here."""
     values = body.model_dump(exclude_unset=True)
+    if {"owner_id", "active"} & values.keys():
+        # Who answers for it and whether its keys work: as sensitive as its roles (lane B).
+        await require_recent_auth(request)
     note.details = {"changed_fields": sorted(values)}
     view = await service.update_service_account(
         session,
@@ -228,12 +231,13 @@ async def add_role(
     summary="Take a role from a service account",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[
+        RecentAuth,  # taking a role changes what it can do, as giving one does (lane B)
         audited(
             "identity_access.service_account_role_removed",
             object_type="user",
             object_param="account_id",
             detail_params=("role_id",),
-        )
+        ),
     ],
 )
 async def remove_role(
