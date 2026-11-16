@@ -544,9 +544,9 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     allow_non_expiring_keys: Mapped[bool] = mapped_column(server_default="false")
     # WP-057 S4a (REQ-SEC-037; 0174): the key policy for new and renewed keys. Keys made before
     # a stricter policy are flagged and listed, never revoked (the coordinator, 2026-11-16).
-    key_max_lifetime_days: Mapped[int] = mapped_column(server_default="366")
+    key_max_lifetime_days: Mapped[int] = mapped_column(Integer, server_default="366")
     keys_require_ip_range: Mapped[bool] = mapped_column(server_default="false")
-    key_unused_days: Mapped[int] = mapped_column(server_default="90")
+    key_unused_days: Mapped[int] = mapped_column(Integer, server_default="90")
     # REQ-SEC-034 (WP-057 S1a, 0151): who may sign in or call, by address, per app. Empty = no
     # restriction; at most IP_ALLOW_MAX entries each. The API's list applies to API keys.
     console_ip_allow: Mapped[list[str]] = mapped_column(

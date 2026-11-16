@@ -8,10 +8,10 @@ allows people to make them (the settings live with the other sign-in settings, A
 
 import json
 import uuid
-from datetime import datetime
-from typing import Annotated, Literal
+from datetime import datetime, timedelta
+from typing import Annotated, Literal, cast
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -38,6 +38,7 @@ router = APIRouter(
 )
 
 KeyStatus = Literal["active", "expired", "revoked"]
+PolicyGap = Literal["lifetime_over_policy", "no_ip_range"]
 
 
 class ApiKeyOut(BaseModel):
@@ -56,10 +57,23 @@ class ApiKeyOut(BaseModel):
     revoked_at: datetime | None
     created_at: datetime
     status: KeyStatus
+    out_of_policy: list[PolicyGap] = Field(
+        default_factory=list,
+        description="Why this key breaks today's key policy: listed to admins, never revoked.",
+    )
+    unused: bool = Field(
+        default=False, description="Not used for the tenant's set number of days (REQ-SEC-037)."
+    )
 
     @classmethod
-    def of(cls, row: ApiKey, owner_name: str | None, now: datetime) -> "ApiKeyOut":
-        """From the row."""
+    def of(
+        cls,
+        row: ApiKey,
+        owner_name: str | None,
+        now: datetime,
+        policy: rules.KeyPolicy | None = None,
+    ) -> "ApiKeyOut":
+        """From the row; with the policy, its gaps and whether it is unused (active keys only)."""
         state: KeyStatus = (
             "revoked"
             if row.revoked_at is not None
@@ -81,6 +95,25 @@ class ApiKeyOut(BaseModel):
             revoked_at=row.revoked_at,
             created_at=row.created_at,
             status=state,
+            out_of_policy=cast(
+                "list[PolicyGap]",
+                rules.out_of_policy(
+                    created_at=row.created_at,
+                    expires_at=row.expires_at,
+                    ip_allowlist=row.ip_allowlist,
+                    policy=policy,
+                ),
+            )
+            if policy is not None and state == "active"
+            else [],
+            unused=policy is not None
+            and state == "active"
+            and rules.unused(
+                created_at=row.created_at,
+                last_used_at=row.last_used_at,
+                now=now,
+                after=policy.unused_after,
+            ),
         )
 
 
@@ -185,7 +218,36 @@ async def key_owners(session: TenantSession, subject: SignedIn) -> list[KeyOwner
 
 async def _out(session: TenantSession, rows: list[ApiKey], now: datetime) -> list[ApiKeyOut]:
     names = await user_names(session, sorted({str(r.owner_id) for r in rows}))
-    return [ApiKeyOut.of(r, names.get(str(r.owner_id)), now) for r in rows]
+    policy = api_keys.policy_of(await api_keys.key_rules(session))
+    return [ApiKeyOut.of(r, names.get(str(r.owner_id)), now, policy) for r in rows]
+
+
+class PolicyImpactOut(BaseModel):
+    """How many active keys the proposed key policy would flag (never revoke)."""
+
+    keys: int = Field(description="Keys with at least one gap.")
+    lifetime_over_policy: int
+    no_ip_range: int
+
+
+@router.get("/policy-impact", summary="Keys a proposed key policy would flag")
+async def policy_impact(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query parameters
+    session: TenantSession,
+    subject: SignedIn,
+    key_max_lifetime_days: Annotated[int, Query(ge=1, le=366)],
+    keys_require_ip_range: Annotated[bool, Query()] = False,  # noqa: FBT002 - a query flag (FastAPI)
+    allow_non_expiring_keys: Annotated[bool, Query()] = False,  # noqa: FBT002 - a query flag (FastAPI)
+    key_unused_days: Annotated[int, Query(ge=7, le=365)] = 90,
+) -> PolicyImpactOut:
+    """api_keys.manage: shown on the policy screen before saving (REQ-SEC-037)."""
+    policy = rules.KeyPolicy(
+        max_lifetime=timedelta(days=key_max_lifetime_days),
+        allow_non_expiring=allow_non_expiring_keys,
+        require_ip_range=keys_require_ip_range,
+        unused_after=timedelta(days=key_unused_days),
+    )
+    counts = await api_keys.policy_impact(session, subject, policy, system_clock.now())
+    return PolicyImpactOut(**counts)
 
 
 @router.get("", summary="API keys")

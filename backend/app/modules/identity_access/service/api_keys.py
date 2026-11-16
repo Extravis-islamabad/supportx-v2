@@ -17,7 +17,7 @@ import hmac
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import select, update
@@ -101,9 +101,28 @@ async def key_rules(session: AsyncSession) -> IdentitySettingsView:
     return await get_identity_settings(session)
 
 
-def _problem(*, field: str, code: str) -> ValidationFailed:
+def _problem(
+    *, field: str, code: str, params: dict[str, str | int | float | bool | None] | None = None
+) -> ValidationFailed:
     return ValidationFailed(
-        errors=[FieldError(field=f"body.{field}", code=code, message_key=f"errors.field.{code}")]
+        errors=[
+            FieldError(
+                field=f"body.{field}",
+                code=code,
+                message_key=f"errors.field.{code}",
+                params=params or {},
+            )
+        ]
+    )
+
+
+def policy_of(allowed: IdentitySettingsView) -> rules.KeyPolicy:
+    """The tenant's key policy (REQ-SEC-037)."""
+    return rules.KeyPolicy(
+        max_lifetime=timedelta(days=allowed.key_max_lifetime_days),
+        allow_non_expiring=allowed.allow_non_expiring_keys,
+        require_ip_range=allowed.keys_require_ip_range,
+        unused_after=timedelta(days=allowed.key_unused_days),
     )
 
 
@@ -169,12 +188,24 @@ async def create_key(  # noqa: PLR0913 - the key's parts, explicit
     if not chosen or any(s not in known_scopes for s in chosen):
         raise _problem(field="scopes", code="api_key_scope_unknown")
     expiry = None if never_expires else (expires_at or now + rules.DEFAULT_LIFETIME)
-    wrong = rules.expiry_problem(expiry, now, allow_non_expiring=allowed.allow_non_expiring_keys)
+    policy = policy_of(allowed)
+    wrong = rules.expiry_problem(
+        expiry,
+        now,
+        allow_non_expiring=allowed.allow_non_expiring_keys,
+        max_lifetime=policy.max_lifetime,
+    )
     if wrong is not None:
-        raise _problem(field="expires_at", code=wrong)
+        # The limit is shown with the refusal (REQ-SEC-037 AC1).
+        raise _problem(
+            field="expires_at", code=wrong, params={"max_days": allowed.key_max_lifetime_days}
+        )
     networks = rules.parse_allowlist(ip_allowlist)
     if networks is None or len(networks) > rules.ALLOWLIST_MAX:
         raise _problem(field="ip_allowlist", code="api_key_allowlist_invalid")
+    missing = rules.ip_range_problem(networks, required=policy.require_ip_range)
+    if missing is not None:
+        raise _problem(field="ip_allowlist", code=missing)
     key_id = new_id()
     made = rules.make_key(subject.tenant_id, key_id)
     parsed = rules.parse_key(made.text)
@@ -202,6 +233,37 @@ async def create_key(  # noqa: PLR0913 - the key's parts, explicit
     )
     await _changed(session, row, "created")
     return MadeKey(row=row, text=made.text)
+
+
+async def policy_impact(
+    session: AsyncSession, subject: Subject, policy: rules.KeyPolicy, now: datetime
+) -> dict[str, int]:
+    """How many active keys a proposed policy would flag, by reason (shown before saving).
+
+    The coordinator (2026-11-16): keys made before a stricter policy are flagged and listed,
+    never revoked; the admin sees how many first.
+    """
+    if not subject.holds(MANAGE):
+        raise PermissionDenied(params={"permission": MANAGE, "reason": "no_permission"})
+    rows = await session.scalars(
+        select(ApiKey).where(
+            ApiKey.deleted_at.is_(None),
+            ApiKey.revoked_at.is_(None),
+            (ApiKey.expires_at.is_(None)) | (ApiKey.expires_at > now),
+        )
+    )
+    counts = {"lifetime_over_policy": 0, "no_ip_range": 0, "keys": 0}
+    for row in rows:
+        gaps = rules.out_of_policy(
+            created_at=row.created_at,
+            expires_at=row.expires_at,
+            ip_allowlist=row.ip_allowlist,
+            policy=policy,
+        )
+        for gap in gaps:
+            counts[gap] += 1
+        counts["keys"] += bool(gaps)
+    return counts
 
 
 async def list_keys(session: AsyncSession, subject: Subject) -> list[ApiKey]:
