@@ -982,6 +982,7 @@ export const ar: LabelResource = {
   'event_type.assets.catalogue.changed': 'تغيّر إعداد الأصول',
   'event_type.assets.consumable.changed': 'تغيّر مستهلك',
   'event_type.assets.cost.changed': 'تغيّرت تكلفة أصل',
+  'event_type.assets.erased_holder.items': 'شخص يجري محوه لا تزال لديه أصول',
   'event_type.assets.group.changed': 'تغيّرت مجموعة أصول',
   'event_type.assets.holder.changed': 'انتقل أصل إلى حامل آخر',
   'event_type.assets.import.progressed': 'تقدّم استيراد أصول',
