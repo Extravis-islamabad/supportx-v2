@@ -73,7 +73,7 @@ def _audit_columns() -> list[sa.Column[Any]]:
         ),
         sa.Column("created_by", sa.Uuid(), nullable=True),
         sa.Column("updated_by", sa.Uuid(), nullable=True),
-        sa.Column("version", sa.Integer(), server_default="1", nullable=False),
+        sa.Column("version", sa.BigInteger(), server_default="1", nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     ]
 
@@ -228,7 +228,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("ci_id", sa.Uuid(), nullable=False),
-        sa.Column("version", sa.Integer(), nullable=False),
+        sa.Column("version", sa.BigInteger(), nullable=False),
         sa.Column("snapshot", postgresql.JSONB(), nullable=False),
         sa.Column(
             "saved_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
@@ -246,7 +246,7 @@ def upgrade() -> None:
         SETTINGS,
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
         sa.Column("exclude_eol_from_pickers", sa.Boolean(), server_default="true", nullable=False),
-        sa.Column("version", sa.Integer(), server_default="1", nullable=False),
+        sa.Column("version", sa.BigInteger(), server_default="1", nullable=False),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
