@@ -89,7 +89,9 @@ export function IncidentApprovals({ item }: { item: Incident }) {
           >
             <Flex gap={8} wrap align="center">
               <bdi dir="auto">
-                {a.approver_id == null ? '' : (people[a.approver_id]?.display_name ?? '')}
+                {/* A person no longer listed (left, erased) still shows something (lane C). */}
+                {(a.approver_id == null ? undefined : people[a.approver_id]?.display_name) ??
+                  t('live.someone')}
               </bdi>
               <ToneTag tone={TONE[a.state] ?? 'info'}>{t(`approval_state.${a.state}`)}</ToneTag>
               {a.decided_at != null && (
@@ -161,7 +163,8 @@ export function AskApprovalDialog({
       okButtonProps={{ disabled: people.length === 0, loading: ask.isPending }}
       onOk={() => {
         ask.mutate(
-          { approverIds: people, rule, version: item.version },
+          // One approver decides alone: the rule only goes with two or more (lane C).
+          { approverIds: people, rule: people.length > 1 ? rule : 'any', version: item.version },
           { onSuccess: close, onError: (error) => problem.show(error) },
         );
       }}

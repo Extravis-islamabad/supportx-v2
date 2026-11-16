@@ -264,6 +264,15 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     void queryClient.invalidateQueries({
       queryKey: [...queryKeys.incidents.all, 'history', item.id],
     });
+    // An approver was asked or decided (WP-046b S1): the Approvals tab refetches; the record
+    // too, as its approval status may have changed.
+    if (event.type === 'work_items.approvals_changed') {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.incidents.detail(item.id), 'approvals'],
+      });
+      if (editing.current === 0) void reload();
+      return;
+    }
     // A reply or note was added or changed visibility: refetch the timeline (and the record's
     // counts), never interrupting someone editing a field.
     if (event.type === 'work_items.conversation_changed') {
@@ -1522,9 +1531,13 @@ function InlineEdit({
     >
       {control}
       {needsWhy && (
+        <label htmlFor={`inc-why-input-${field}`}>
+          <Typography.Text type="secondary">{t('incidents.edit_reason')}</Typography.Text>
+        </label>
+      )}
+      {needsWhy && (
         <Input
-          aria-label={t('incidents.edit_reason')}
-          placeholder={t('incidents.edit_reason')}
+          id={`inc-why-input-${field}`}
           value={why}
           count={lengthLimit(500)}
           onChange={(event) => {

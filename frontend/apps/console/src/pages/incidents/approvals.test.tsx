@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -6,6 +6,8 @@ import {
   fakeIncidentCatalogue,
   fakeIncidentTemplate,
 } from '@supportx/api-client/testing';
+import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
+import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../../App';
 import { clickAction } from '../../test/actions';
@@ -46,6 +48,7 @@ describe('Incident approvals and edit controls', () => {
   });
   afterEach(() => {
     restore();
+    setDefaultClientFactory(inertClientFactory);
   });
 
   it('the Approvals tab says when none were asked for', async () => {
@@ -100,6 +103,26 @@ describe('Incident approvals and edit controls', () => {
     expect(fake.find('PATCH', PATH)[0]?.body).toMatchObject({
       impact_details: 'New count',
       edit_reason: 'The final count came after closing.',
+    });
+  });
+
+  it("another approver's decision reaches the open Approvals tab live", async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    const fake = consoleApi({ routes: { ...COMMON, [`GET ${PATH}`]: { body: ITEM } } });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Approvals' }));
+    await screen.findByText('No approvals asked for.');
+    await waitFor(() => {
+      expect(realtime.channels().some((name) => name.endsWith(`:wi:${ITEM.id}`))).toBe(true);
+    });
+    const before = fake.find('GET', `${PATH}/approvals`).length;
+    act(() => {
+      realtime.publish(`:wi:${ITEM.id}`, { type: 'work_items.approvals_changed', ids: ['a1'] });
+    });
+    await waitFor(() => {
+      expect(fake.find('GET', `${PATH}/approvals`).length).toBeGreaterThan(before);
     });
   });
 });
