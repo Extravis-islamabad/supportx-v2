@@ -26,7 +26,6 @@ from app.modules.cmdb.service.catalogue import (
     EDIT,
     MANAGE,
     VIEW,
-    attributes_of,
     default_state,
     ensure_defaults,
     get_settings,
@@ -63,7 +62,8 @@ RECORD_TYPE = "ci"
 DISPLAY_PREFIX = "CI"
 FROM_ASSETS_MAX = 100
 PICKER_MAX = 50
-# Fields a person edits (the type changes through its own action, with a preview).
+# Fields a person edits (the type changes through its own action). Custom fields come through
+# metadata in a follow-up (§6.6): `cmdb_cis.custom` is kept for them, never written here yet.
 EDITABLE = (
     "name",
     "description",
@@ -74,7 +74,6 @@ EDITABLE = (
     "managed_by_group_id",
     "business_impact",
     "criticality",
-    "custom",
 )
 SNAPSHOT = ("type_id", *EDITABLE, "asset_id", "source")
 
@@ -154,7 +153,6 @@ class CiView:
     """Everything staff see about one CI."""
 
     record: Ci
-    attributes: list[dict[str, Any]]
     history_count: int
     can_edit: bool
     can_delete: bool
@@ -174,7 +172,6 @@ async def _may(session: AsyncSession, subject: Subject, permission: str, ci_id: 
 async def _view(session: AsyncSession, subject: Subject, record: Ci) -> CiView:
     return CiView(
         record=record,
-        attributes=await attributes_of(session, record.type_id),
         history_count=await count_saves(session, RECORD_TYPE, record.id),
         can_edit=await _may(session, subject, EDIT, record.id),
         can_delete=await _may(session, subject, DELETE, record.id),
@@ -374,10 +371,6 @@ async def _add(  # noqa: PLR0913 - every part of a new CI, explicit
     if problems:
         raise invalid(problems)
     ci_type = await get_type(session, values["type_id"])
-    custom = dict(values.get("custom") or {})
-    attributes = await attributes_of(session, ci_type.id)
-    if found := domain.custom_problems(custom, attributes, creating=True):
-        raise invalid(found)
     await _check_references(session, values)
     state_id = values.get("state_id") or (await default_state(session)).id
     record = Ci(
@@ -394,7 +387,6 @@ async def _add(  # noqa: PLR0913 - every part of a new CI, explicit
         criticality=values.get("criticality"),
         asset_id=asset_id,
         source=origin.value,
-        custom=custom,
     )
     await CiRepository(session).add(record)
     await _within_scope(session, subject, ADD, record.id)
@@ -504,14 +496,6 @@ async def update(  # noqa: PLR0913 - the record, the version and the change, exp
     draft = {k: v for k, v in values.items() if k in EDITABLE}
     if problems := _check_codes(draft):
         raise invalid(problems)
-    if "custom" in draft:
-        # Values sent merge into the CI's; a None removes one.
-        merged = {**record.custom, **(draft["custom"] or {})}
-        merged = {k: v for k, v in merged.items() if v is not None}
-        attributes = await attributes_of(session, record.type_id)
-        if found := domain.custom_problems(merged, attributes, creating=False):
-            raise invalid(found)
-        draft["custom"] = merged
     await _check_references(session, {k: v for k, v in draft.items() if v != getattr(record, k)})
     if "name" in draft:
         draft["name"] = str(draft["name"]).strip()
@@ -520,24 +504,6 @@ async def update(  # noqa: PLR0913 - the record, the version and the change, exp
         session, subject, record, expected_version=expected_version, columns=columns, source=source
     )
     return await _view(session, subject, saved)
-
-
-@dataclass(frozen=True)
-class TypeChangePreview:
-    """What changing a CI's type would do: the values it would lose (by key)."""
-
-    lost: list[str]
-    attributes: list[dict[str, Any]]
-
-
-async def preview_type_change(
-    session: AsyncSession, subject: Subject, ci_id: uuid.UUID, type_id: uuid.UUID
-) -> TypeChangePreview:
-    """The attribute values lost by moving the CI to another type (REQ-CMDB-003)."""
-    record = await _writable(session, subject, EDIT, ci_id)
-    new_type = await get_type(session, type_id)
-    attributes = await attributes_of(session, new_type.id)
-    return TypeChangePreview(domain.lost_on_change(record.custom, attributes), attributes)
 
 
 async def change_type(  # noqa: PLR0913 - the record, the version and the change, explicit
@@ -549,16 +515,10 @@ async def change_type(  # noqa: PLR0913 - the record, the version and the change
     expected_version: int,
     source: Source,
 ) -> CiView:
-    """Move the CI to another type; values its new type does not hold are dropped."""
-    preview = await preview_type_change(session, subject, ci_id, type_id)
-    record = await _visible(session, subject, ci_id)
-    columns: dict[str, Any] = {}
-    if record.type_id != type_id:
-        keep = {a["key"] for a in preview.attributes}
-        columns = {
-            "type_id": type_id,
-            "custom": {k: v for k, v in record.custom.items() if k in keep},
-        }
+    """Move the CI to another live type (REQ-CMDB-003)."""
+    record = await _writable(session, subject, EDIT, ci_id)
+    await get_type(session, type_id)
+    columns: dict[str, Any] = {} if record.type_id == type_id else {"type_id": type_id}
     saved = await _save(
         session, subject, record, expected_version=expected_version, columns=columns, source=source
     )
@@ -566,7 +526,7 @@ async def change_type(  # noqa: PLR0913 - the record, the version and the change
 
 
 async def copy(session: AsyncSession, subject: Subject, ci_id: uuid.UUID, source: Source) -> CiView:
-    """A new CI with the same type, fields and values (never the asset link)."""
+    """A new CI with the same type and fields (never the asset link)."""
     if writer(subject, ADD) is None:
         raise _denied(ADD)
     original = await _visible(session, subject, ci_id)

@@ -1,11 +1,11 @@
 """CMDB tables (WP-053 S1, migration 0173). All tenant-scoped with RLS forced.
 
 - `cmdb_ci_types`: the CI type tree. Built-in types carry a code (labelled `cmdb_ci_type.<code>`);
-  a tenant's own types carry their names per language (`names`). Each type defines attributes
-  (`attributes`, a list of definitions) that its CIs and every type below it hold in `custom`.
+  a tenant's own types carry their names per language (`names`).
 - `cmdb_ci_states`: CI states, each `active` or `end_of_life` (REQ-CMDB-004).
 - `cmdb_cis`: the configuration items. One CI per asset at most (`asset_id` unique); `source`
-  says where the CI came from. Custom attribute values in typed JSONB (§6.6).
+  says where the CI came from. `custom` (typed JSONB, GIN) is kept for the metadata module's
+  custom fields, a follow-up (§6.6, the coordinator 2026-11-16); nothing writes it yet.
 - `cmdb_ci_versions`: an append-only snapshot of a CI after every save (REQ-CMDB-024's write
   side), so later sessions can show a CI "as of" a date and build baselines on it.
 - `cmdb_settings`: one row per tenant (pickers leave end-of-life CIs out by default).
@@ -69,8 +69,6 @@ class CiType(TenantEntity):
     # A tenant's own type: its name per language ({"en": ..., "ar": ..., "ur": ...}).
     names: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
     icon: Mapped[str | None] = mapped_column(String(40))
-    # Attribute definitions held by this type's CIs and inherited below (cmdb/domain/types.py).
-    attributes: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     # Relationship type codes this type may take part in (S2 fills the catalogue).
     relationship_types: Mapped[list[str]] = mapped_column(JSONB, server_default="[]")
 

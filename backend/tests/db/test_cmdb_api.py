@@ -23,7 +23,7 @@ from app.shared.events import EventEnvelope
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_assets_api import _add as add_asset
 from tests.db.test_assets_api import _product
-from tests.db.test_incidents_api import Org, World, field_codes, problem, role
+from tests.db.test_incidents_api import Org, World, problem, role
 from tests.db.test_knowledge_api import _match, _new
 from tooling import timing
 
@@ -62,21 +62,14 @@ async def _ci(
     )
 
 
-async def _type(
-    world: World, org: Org, api_name: str, parent: str | None, attributes: list[dict[str, Any]]
-) -> httpx.Response:
+async def _type(world: World, org: Org, api_name: str, parent: str | None) -> httpx.Response:
     types = await _types(world, org)
     body = {
         "api_name": api_name,
         "names": {"en": api_name.title(), "ar": "نوع", "ur": "قسم"},
         "parent_id": types[parent]["id"] if parent else None,
-        "attributes": attributes,
     }
     return await world.call("POST", f"{BASE}/ci-types", org, org.admin, json=body, headers=_new())
-
-
-def _attr(key: str, kind: str = "text", **extra: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON
-    return {"key": key, "type": kind, "names": {"en": key.title()}, **extra}
 
 
 # --- tenant isolation (rule a) --------------------------------------------------------------------
@@ -138,7 +131,7 @@ async def test_versions_are_insert_only_for_the_app(world: World) -> None:
                 await session.execute(text(statement))
 
 
-# --- types and attributes (REQ-CMDB-001) ----------------------------------------------------------
+# --- types (REQ-CMDB-001) -----------------------------------------------------------------------
 
 
 async def test_built_in_types_and_states_are_made_once(world: World) -> None:
@@ -153,52 +146,9 @@ async def test_built_in_types_and_states_are_made_once(world: World) -> None:
     assert len(again) == len(types)
 
 
-async def test_attributes_are_inherited_down_the_tree(world: World) -> None:
-    a = world.a
-    hw = (await _types(world, a))["hardware"]
-    on_hw = await world.call(
-        "PATCH",
-        f"{BASE}/ci-types/{hw['id']}",
-        a,
-        a.admin,
-        json={"attributes": [_attr("rack_unit", "number")]},
-        headers=_match(hw["version"]),
-    )
-    assert on_hw.status_code == 200, on_hw.text
-    blade = await _type(world, a, "blade_server", "server", [_attr("chassis")])
-    assert blade.status_code == 201, blade.text
-    keys = [x["key"] for x in blade.json()["inherited_attributes"]]
-    assert keys == ["rack_unit", "chassis"]  # the root's first, its own last
-    made = await _ci(world, a, "Blade 7", "blade_server", custom={"rack_unit": 12, "chassis": "C1"})
-    assert made.status_code == 201, made.text
-    assert made.json()["custom"] == {"rack_unit": 12, "chassis": "C1"}
-    wrong = await _ci(world, a, "Blade 8", "blade_server", custom={"rack_unit": "twelve"})
-    assert field_codes(wrong) == {"custom.rack_unit": "invalid_value"}
-    unknown = await _ci(world, a, "Blade 9", "blade_server", custom={"colour": "red"})
-    assert field_codes(unknown) == {"custom.colour": "unknown_attribute"}
-
-
-async def test_a_ci_attribute_can_never_be_sensitive(world: World) -> None:
-    """No seal port exists for the CMDB yet (the coordinator, 2026-11-16): refused, not stored."""
-    a = world.a
-    refused = await _type(world, a, "vault", None, [_attr("secret_ref", sensitive=True)])
-    assert field_codes(refused) == {"attributes[0].sensitive": "custom_field_sensitive_unsupported"}
-    server = (await _types(world, a))["server"]
-    patched = await world.call(
-        "PATCH",
-        f"{BASE}/ci-types/{server['id']}",
-        a,
-        a.admin,
-        json={"attributes": [_attr("pin", sensitive=True)]},
-        headers=_match(server["version"]),
-    )
-    assert field_codes(patched) == {"attributes[0].sensitive": "custom_field_sensitive_unsupported"}
-    assert (await _types(world, a))["server"]["attributes"] == []
-
-
 async def test_a_type_in_use_cannot_be_deleted(world: World) -> None:
     a = world.a
-    made = await _type(world, a, "kiosk", "hardware", [])
+    made = await _type(world, a, "kiosk", "hardware")
     assert made.status_code == 201, made.text
     ci = await _ci(world, a, "Lobby kiosk", "kiosk")
     assert ci.status_code == 201, ci.text
@@ -233,12 +183,12 @@ async def test_a_type_in_use_cannot_be_deleted(world: World) -> None:
 
 async def test_configuration_changes_are_audited(world: World) -> None:
     a = world.a
-    assert (await _type(world, a, "audited_type", None, [])).status_code == 201
+    assert (await _type(world, a, "audited_type", None)).status_code == 201
     rows = await world.sql(
         "SELECT action FROM audit_entries WHERE tenant_id = $1 AND action LIKE 'cmdb.%'", a.tenant
     )
     assert "cmdb.ci_type_created" in {r["action"] for r in rows}
-    tech = await _type(world, a, "not_mine", None, [])
+    tech = await _type(world, a, "not_mine", None)
     assert tech.status_code == 201
     denied = await world.call(
         "POST",
@@ -317,22 +267,14 @@ async def test_create_is_idempotent(world: World) -> None:
 
 async def test_copy_change_type_delete_and_restore(world: World) -> None:
     a = world.a
-    made = await _type(world, a, "appliance", "hardware", [_attr("firmware")])
+    made = await _type(world, a, "appliance", "hardware")
     assert made.status_code == 201, made.text
-    ci = (await _ci(world, a, "Firewall", "appliance", custom={"firmware": "7.2"})).json()
+    ci = (await _ci(world, a, "Firewall", "appliance", description="Edge firewall")).json()
     copy = await world.call("POST", f"{BASE}/cis/{ci['id']}/copy", a, a.admin, headers=_new())
     assert copy.status_code == 201, copy.text
     assert copy.json()["id"] != ci["id"]
-    assert copy.json()["custom"] == {"firmware": "7.2"}
+    assert copy.json()["description"] == "Edge firewall"
     server = (await _types(world, a))["server"]
-    preview = await world.call(
-        "POST",
-        f"{BASE}/cis/{ci['id']}/change-type/preview",
-        a,
-        a.admin,
-        json={"type_id": server["id"]},
-    )
-    assert preview.json()["lost"] == ["firmware"]
     moved = await world.call(
         "POST",
         f"{BASE}/cis/{ci['id']}/change-type",
@@ -343,7 +285,6 @@ async def test_copy_change_type_delete_and_restore(world: World) -> None:
     )
     assert moved.status_code == 200, moved.text
     assert moved.json()["type_id"] == server["id"]
-    assert moved.json()["custom"] == {}
     gone = await world.call(
         "DELETE", f"{BASE}/cis/{ci['id']}", a, a.admin, headers=_match(moved.json()["version"])
     )
@@ -480,6 +421,65 @@ async def test_the_picker_leaves_end_of_life_out(world: World) -> None:
     assert {c["id"] for c in found.json()["items"]} == {live["id"], old["id"]}
     wild = await world.call("GET", f"{BASE}/cis/picker", a, a.admin, params={"search": "%"})
     assert wild.json()["items"] == []  # a wildcard is a character, never "everything"
+
+
+async def _eol_in_pickers(world: World, org: Org, *, left_out: bool) -> None:
+    settings = (await world.call("GET", f"{BASE}/settings", org, org.admin)).json()
+    put = await world.call(
+        "PUT",
+        f"{BASE}/settings",
+        org,
+        org.admin,
+        json={"exclude_eol_from_pickers": left_out},
+        headers=_match(settings["version"]),
+    )
+    assert put.status_code == 200, put.text
+
+
+async def test_links_follow_the_picker_and_refs_never_name_what_is_hidden(world: World) -> None:
+    """Lane A's #524 review: `can_link` refuses what the picker hides; `ci_refs` is a dict."""
+    from app.modules.cmdb import can_link, can_see, ci_refs  # noqa: PLC0415 - the public interface under test
+    from app.modules.identity_access import subject_for  # noqa: PLC0415 - as other modules call it
+
+    a = world.a
+    states = await _states(world, a)
+    assert (await _type(world, a, "link_kiosk", "hardware")).status_code == 201
+    live = (await _ci(world, a, "Link live box")).json()
+    old = (await _ci(world, a, "Link old box", state_id=states["retired"]["id"])).json()
+    own = (await _ci(world, a, "Link kiosk", "link_kiosk")).json()
+    trashed = (await _ci(world, a, "Link trashed box")).json()
+    gone = await world.call(
+        "DELETE", f"{BASE}/cis/{trashed['id']}", a, a.admin, headers=_match(trashed["version"])
+    )
+    assert gone.status_code == 204, gone.text
+    ids = [uuid.UUID(x["id"]) for x in (live, old, own, trashed)]
+    await _eol_in_pickers(world, a, left_out=True)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        admin = await subject_for(session, a.tenant, a.admin)
+        requester = await subject_for(session, a.tenant, a.requester)
+        assert await can_link(session, admin, ids[0])
+        assert await can_see(session, admin, ids[1])
+        assert not await can_link(session, admin, ids[1])  # end of life, left out of pickers
+        assert not await can_link(session, admin, ids[3])  # in the trash
+        refs = await ci_refs(session, admin, [*ids, ids[0]])
+        assert list(refs) == ids  # one per ID, in the order asked
+        assert (refs[ids[0]].state_category, refs[ids[0]].type_label_key) == (
+            "active",
+            "cmdb_ci_type.server",
+        )
+        assert refs[ids[1]].state_category == "end_of_life"
+        assert (refs[ids[2]].type_label_key, refs[ids[2]].type_names["en"]) == (
+            None,
+            "Link_Kiosk",
+        )
+        assert (refs[ids[3]].gone, refs[ids[3]].name) == (True, None)
+        seen = await ci_refs(session, requester, ids[:3])
+        assert all(r.hidden and r.name is None and r.type_names == {} for r in seen.values())
+        assert not await can_link(session, requester, ids[0])
+    await _eol_in_pickers(world, a, left_out=False)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        admin = await subject_for(session, a.tenant, a.admin)
+        assert await can_link(session, admin, ids[1])  # shown in pickers again: linkable
 
 
 # --- realtime (rule c) ----------------------------------------------------------------------------

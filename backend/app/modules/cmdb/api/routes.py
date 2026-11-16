@@ -55,8 +55,7 @@ CisTreeQuery = Annotated[
     ListQuery, Depends(list_query(cis.CI_FIELDS, extra_parameters=frozenset({"type_tree"})))
 ]
 
-# Codes as named schemas (labelled `cmdb_attribute_type.<code>` and so on).
-AttributeKind = domain.CiAttributeType
+# Codes as named schemas (labelled `cmdb_state_category.<code>` and so on).
 StateCategory = domain.CiStateCategory
 ImpactCode = domain.CiImpact
 SourceCode = domain.CiSource
@@ -66,27 +65,6 @@ Names = dict[str, str]
 # --- schemas: types, states, settings -------------------------------------------------------------
 
 
-class CiAttributeDef(BaseModel):
-    """One attribute a type's CIs hold (and the types below inherit)."""
-
-    key: str = Field(description="Stable lowercase key, e.g. `rack_unit`.")
-    type: AttributeKind
-    names: Names = Field(description="The attribute's name per language (en required).")
-    required: bool = False
-    choices: list[str] | None = Field(default=None, description="Codes, for `choice` only.")
-    sensitive: bool = Field(
-        default=False,
-        description="Not supported for CI attributes yet: true is refused "
-        "(custom_field_sensitive_unsupported).",
-    )
-
-
-class CiInheritedAttribute(CiAttributeDef):
-    """An attribute as a CI of the type holds it, with the type that defines it."""
-
-    defined_on: uuid.UUID
-
-
 class CiTypeIn(BaseModel):
     """A tenant's own CI type."""
 
@@ -94,7 +72,6 @@ class CiTypeIn(BaseModel):
     names: Names
     parent_id: uuid.UUID | None = None
     icon: str | None = Field(default=None, max_length=40)
-    attributes: list[CiAttributeDef] = Field(default_factory=list)
 
 
 class CiTypePatch(BaseModel):
@@ -103,7 +80,6 @@ class CiTypePatch(BaseModel):
     names: Names | None = None
     parent_id: uuid.UUID | None = None
     icon: str | None = Field(default=None, max_length=40)
-    attributes: list[CiAttributeDef] | None = None
 
 
 class CiTypeOut(BaseModel):
@@ -115,8 +91,6 @@ class CiTypeOut(BaseModel):
     built_in: bool
     names: Names
     icon: str | None
-    attributes: list[CiAttributeDef]
-    inherited_attributes: list[CiInheritedAttribute]
     ci_count: int
     child_count: int
     version: int
@@ -132,8 +106,6 @@ class CiTypeOut(BaseModel):
             built_in=row.built_in,
             names=row.names,
             icon=row.icon,
-            attributes=[CiAttributeDef.model_validate(a) for a in row.attributes],
-            inherited_attributes=[CiInheritedAttribute.model_validate(a) for a in view.inherited],
             ci_count=view.ci_count,
             child_count=view.child_count,
             version=row.version,
@@ -222,13 +194,10 @@ class CiIn(BaseModel):
     managed_by_group_id: uuid.UUID | None = None
     business_impact: ImpactCode | None = None
     criticality: ImpactCode | None = None
-    custom: dict[str, Any] = Field(
-        default_factory=dict, description="Attribute values by key (the type's and inherited)."
-    )
 
 
 class CiPatch(BaseModel):
-    """Fields to change; `custom` merges (a null value removes one). The type: …/change-type."""
+    """Fields to change. The type changes through …/change-type."""
 
     name: str | None = Field(default=None, min_length=1, max_length=domain.NAME_MAX)
     description: str | None = Field(default=None, max_length=domain.DESCRIPTION_MAX)
@@ -239,7 +208,6 @@ class CiPatch(BaseModel):
     managed_by_group_id: uuid.UUID | None = None
     business_impact: ImpactCode | None = None
     criticality: ImpactCode | None = None
-    custom: dict[str, Any] | None = None
 
 
 class CiListItem(BaseModel):
@@ -271,8 +239,6 @@ class CiOut(CiListItem):
     """One CI with everything staff see."""
 
     description: str | None
-    custom: dict[str, Any]
-    attributes: list[CiInheritedAttribute]
     created_at: datetime
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
@@ -289,8 +255,6 @@ class CiOut(CiListItem):
         return cls(
             **base,
             description=row.description,
-            custom=row.custom,
-            attributes=[CiInheritedAttribute.model_validate(a) for a in view.attributes],
             created_at=row.created_at,
             created_by=row.created_by,
             updated_by=row.updated_by,
@@ -309,13 +273,6 @@ class CiTypeChangeIn(BaseModel):
     """The type to move the CI to."""
 
     type_id: uuid.UUID
-
-
-class CiTypeChangePreviewOut(BaseModel):
-    """What the move would do: the attribute values lost (keys), and what the CI will hold."""
-
-    lost: list[str]
-    attributes: list[CiInheritedAttribute]
 
 
 class CiFromAssetsIn(BaseModel):
@@ -408,7 +365,7 @@ def _page(page: PageResult[Ci]) -> CiPage:
 
 @router.get("/ci-types", summary="CI types")
 async def list_types(session: TenantSession, subject: View) -> CiTypeList:
-    """Every CI type with its attributes, inherited attributes and counts."""
+    """Every CI type with its counts."""
     del subject
     return CiTypeList(items=[CiTypeOut.of(v) for v in await catalogue.list_types(session)])
 
@@ -737,18 +694,6 @@ async def copy_ci(
         )
 
     return await idempotency.run({"copy_of": str(ci_id)}, run, status_code=status.HTTP_201_CREATED)
-
-
-@router.post("/cis/{ci_id}/change-type/preview", summary="Preview a type change")
-async def preview_type_change(
-    ci_id: uuid.UUID, body: CiTypeChangeIn, session: TenantSession, subject: Edit
-) -> CiTypeChangePreviewOut:
-    """The attribute values the CI would lose by moving to that type."""
-    preview = await cis.preview_type_change(session, subject, ci_id, body.type_id)
-    return CiTypeChangePreviewOut(
-        lost=preview.lost,
-        attributes=[CiInheritedAttribute.model_validate(a) for a in preview.attributes],
-    )
 
 
 @router.post("/cis/{ci_id}/change-type", summary="Change a CI's type", responses=CONFLICT)

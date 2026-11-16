@@ -87,7 +87,6 @@ async def ensure_defaults(session: AsyncSession) -> None:
                 built_in=True,
                 names={},
                 icon=icon,
-                attributes=[],
                 relationship_types=[],
             )
         )
@@ -123,10 +122,9 @@ async def _config_event(
 
 @dataclass(frozen=True)
 class TypeView:
-    """One CI type with what its CIs hold and how many there are."""
+    """One CI type and how many CIs and child types it has."""
 
     record: CiType
-    inherited: list[dict[str, Any]]
     ci_count: int
     child_count: int
 
@@ -136,18 +134,6 @@ async def _parents(session: AsyncSession) -> dict[str, str | None]:
         select(CiType.id, CiType.parent_id).where(CiType.deleted_at.is_(None))
     )
     return {str(i): (str(p) if p else None) for i, p in rows}
-
-
-async def _attribute_map(session: AsyncSession) -> dict[str, list[dict[str, Any]]]:
-    rows = await session.execute(
-        select(CiType.id, CiType.attributes).where(CiType.deleted_at.is_(None))
-    )
-    return {str(i): list(a or []) for i, a in rows}
-
-
-async def attributes_of(session: AsyncSession, type_id: uuid.UUID) -> list[dict[str, Any]]:
-    """Every attribute a CI of this type holds, inherited ones first."""
-    return domain.inherited(str(type_id), await _parents(session), await _attribute_map(session))
 
 
 async def list_types(session: AsyncSession) -> list[TypeView]:
@@ -165,8 +151,6 @@ async def list_types(session: AsyncSession) -> list[TypeView]:
             )
         ).all()  # a Result has keys(): dict() would read it as a mapping
     )
-    parents = {str(r.id): (str(r.parent_id) if r.parent_id else None) for r in rows}
-    attributes = {str(r.id): list(r.attributes or []) for r in rows}
     children: dict[uuid.UUID, int] = {}
     for r in rows:
         if r.parent_id:
@@ -174,7 +158,6 @@ async def list_types(session: AsyncSession) -> list[TypeView]:
     return [
         TypeView(
             record=r,
-            inherited=domain.inherited(str(r.id), parents, attributes),
             ci_count=int(counts.get(r.id, 0)),
             child_count=children.get(r.id, 0),
         )
@@ -205,8 +188,6 @@ def _check_type(values: Mapping[str, Any], *, built_in: bool, creating: bool) ->
             problems.append(domain.Problem("api_name", "invalid_key"))
     if "names" in values or creating:
         problems += domain.names_problems(values.get("names"), required=not built_in)
-    if "attributes" in values:
-        problems += domain.attribute_problems(values["attributes"])
     if problems:
         raise invalid(problems)
 
@@ -247,7 +228,6 @@ async def create_type(
         built_in=False,
         names=dict(values["names"]),
         icon=values.get("icon"),
-        attributes=list(values.get("attributes") or []),
         relationship_types=[],
     )
     await _check_parent(session, row.id, row.parent_id)
@@ -276,9 +256,9 @@ async def update_type(
     expected_version: int,
     values: Mapping[str, Any],
 ) -> TypeView:
-    """Rename, move, re-icon or change the attributes of a type (If-Match).
+    """Rename, move or re-icon a type (If-Match).
 
-    A built-in type keeps its code and place; its names may be overridden and attributes added.
+    A built-in type keeps its code and place; its names may be overridden.
     """
     require_configure(subject)
     row = await get_type(session, type_id)
@@ -290,7 +270,7 @@ async def update_type(
     changes = {
         k: v
         for k, v in values.items()
-        if k in {"parent_id", "names", "icon", "attributes"} and getattr(row, k) != v
+        if k in {"parent_id", "names", "icon"} and getattr(row, k) != v
     }
     if not changes:
         if row.version != expected_version:

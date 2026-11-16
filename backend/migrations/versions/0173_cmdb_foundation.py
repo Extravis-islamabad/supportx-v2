@@ -2,9 +2,10 @@
 
 Expand only, no data step (each tenant's built-in CI types and states are made the first time
 its CMDB is used, by the service):
-- `cmdb_ci_types`: the CI type tree, with the attributes each type's CIs hold (inherited below).
+- `cmdb_ci_types`: the CI type tree.
 - `cmdb_ci_states`: CI states, each active or end of life.
-- `cmdb_cis`: configuration items, one per asset at most, with typed custom values and search.
+- `cmdb_cis`: configuration items, one per asset at most; `custom` (JSONB, GIN) is kept for the
+  metadata module's custom fields (a follow-up, §6.6).
 - `cmdb_ci_versions`: a snapshot after every save; append-only for the app (SELECT, INSERT).
 - `cmdb_settings`: one row per tenant.
 
@@ -97,7 +98,6 @@ def upgrade() -> None:
         sa.Column("built_in", sa.Boolean(), server_default="false", nullable=False),
         sa.Column("names", postgresql.JSONB(), server_default="{}", nullable=False),
         sa.Column("icon", sa.String(length=40), nullable=True),
-        sa.Column("attributes", postgresql.JSONB(), server_default="[]", nullable=False),
         sa.Column("relationship_types", postgresql.JSONB(), server_default="[]", nullable=False),
         *_audit_columns(),
         sa.CheckConstraint(

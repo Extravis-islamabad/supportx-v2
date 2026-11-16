@@ -1,9 +1,9 @@
 """CMDB module (WP-053; architecture.md §2.12, §6.1): configuration items.
 
-Session 1, the foundation (REQ-CMDB-001..005, 031, 024's write side): CI types in a tree whose
-attributes are inherited below, CI states (active or end of life), CIs with typed custom values,
-copy, type change with a preview of what is lost, the trash, CIs made from assets, a picker that
-leaves end-of-life CIs out, and a snapshot after every save (`cmdb_ci_versions`).
+Session 1, the foundation (REQ-CMDB-001..005, 031, 024's write side): CI types in a tree, CI
+states (active or end of life), CIs, copy, type change, the trash, CIs made from assets, a picker
+that leaves end-of-life CIs out, and a snapshot after every save (`cmdb_ci_versions`). Custom
+fields come through the metadata module in a follow-up (§6.6), never a second system here.
 
 Licensed with the `cmdb` feature. Public interface for other modules: `can_see`, `ci_refs`
 (`CiRef`) and the picker route. The erasure port moves owned CIs to the successor.
@@ -16,7 +16,7 @@ from app.modules.cmdb.events import EVENTS
 from app.modules.cmdb.service import person_data as _person_data
 from app.modules.cmdb.service.catalogue import ADD, CONFIGURE, DELETE, EDIT, MANAGE, VIEW
 from app.modules.cmdb.service.realtime import CHANNELS, ROUTES
-from app.modules.cmdb.service.refs import CiRef, can_see, ci_refs
+from app.modules.cmdb.service.refs import CiRef, can_link, can_see, ci_refs
 
 FEATURE = "cmdb"
 _ASSET_MANAGER: tuple[tuple[str, Scope], ...] = (("asset_manager", "all"),)
@@ -52,4 +52,4 @@ module = ModuleSpec(
 # GDPR erasure (ADR-052): owned CIs move to the successor; at import, for the workers too.
 _person_data.register()
 
-__all__ = ["CiRef", "can_see", "ci_refs", "module"]
+__all__ = ["CiRef", "can_link", "can_see", "ci_refs", "module"]
