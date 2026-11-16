@@ -27,7 +27,7 @@ import time
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import cast, delete, func, select, text, update
+from sqlalchemy import delete, func, literal, select, text, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -103,11 +103,9 @@ async def _swap(
     # The key goes in as a bound parameter, never as SQL text.
     done = await session.execute(
         update(WorkItem)
-        .where(WorkItem.id == record_id, WorkItem.custom[key] == cast(json.dumps(read), JSONB))
+        .where(WorkItem.id == record_id, WorkItem.custom[key] == literal(read, JSONB))
         .values(
-            custom=WorkItem.custom.op("||")(
-                func.jsonb_build_object(key, cast(json.dumps(stored), JSONB))
-            )
+            custom=WorkItem.custom.op("||")(func.jsonb_build_object(key, literal(stored, JSONB)))
         )
         .execution_options(synchronize_session=False)
     )
@@ -167,7 +165,6 @@ async def _unreadable(session: AsyncSession, field: metadata.Moving) -> int:
 async def run_batch(session: AsyncSession, field: metadata.Moving, settings: Settings) -> Batch:
     """One batch of one field, in the caller's transaction (it commits the batch and cursor)."""
     rows = await _rows(session, field)
-    await metadata.seal_resumed(session, field)  # commits with the batch: the outage is over
     moved = 0
     for record_id, value in rows:
         if field.state == metadata.SEALING:

@@ -46,7 +46,6 @@ from app.modules.metadata.service.sensitivity import advance as advance_seal
 from app.modules.metadata.service.sensitivity import finish as finish_seal
 from app.modules.metadata.service.sensitivity import moving as fields_being_sealed
 from app.modules.metadata.service.sensitivity import paused as seal_paused
-from app.modules.metadata.service.sensitivity import resumed as seal_resumed
 
 FEATURE = "incident"
 
@@ -86,7 +85,6 @@ __all__ = [
     "register_field_usage",
     "register_seal_port",
     "seal_paused",
-    "seal_resumed",
     "text_for_search",
 ]
 

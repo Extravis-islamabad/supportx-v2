@@ -22,7 +22,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -276,19 +276,26 @@ async def finish(session: AsyncSession, field: Moving, *, records: int, unreadab
     return True
 
 
-# The pause notice goes once per outage: its claim, keyed by the field, is made when the job
-# pauses and dropped by the next batch that runs (the consumers' own idempotency table).
+# The pause notice goes once per outage: a claim in `processed_events` (the consumers' own
+# idempotency table, insert-only for the app) keyed by the field, its direction and the job's
+# place. A job stuck at one place is told once however many ticks fail; once it moves on, an
+# outage further along is told again. A reversal starts again too.
 PAUSE_CLAIM = "metadata__seal_paused"
+_PAUSE_SPACE = uuid.UUID("6f1d3c52-5b8e-4c71-9a0e-2f4f1c9e7a10")
+
+
+def _pause_key(field: Moving) -> uuid.UUID:
+    return uuid.uuid5(_PAUSE_SPACE, f"{field.id}:{field.state}:{field.cursor or 'start'}")
 
 
 async def paused(session: AsyncSession, field: Moving) -> bool:
-    """The keys are unavailable: tell the admins, the first time of this outage only."""
+    """The keys are unavailable: tell the admins, the first time at this place only."""
     claimed = await session.execute(
         insert(ProcessedEvent)
         .values(
             tenant_id=session.info[SESSION_TENANT_KEY].tenant_id,
             consumer=PAUSE_CLAIM,
-            event_id=field.id,
+            event_id=_pause_key(field),
         )
         .on_conflict_do_nothing()
     )
@@ -307,15 +314,6 @@ async def paused(session: AsyncSession, field: Moving) -> bool:
     return True
 
 
-async def resumed(session: AsyncSession, field: Moving) -> None:
-    """A batch ran: the outage (if any) is over, so a later one is told again."""
-    await session.execute(
-        delete(ProcessedEvent).where(
-            ProcessedEvent.consumer == PAUSE_CLAIM, ProcessedEvent.event_id == field.id
-        )
-    )
-
-
 __all__ = [
     "MOVING",
     "OPENING",
@@ -331,7 +329,6 @@ __all__ = [
     "moving",
     "paused",
     "register_seal_port",
-    "resumed",
     "sealable",
     "set_sensitive",
 ]
