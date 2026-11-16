@@ -665,7 +665,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     database, keycloak = seeded_copy
     first, bystander, before, imported = seeded.first, seeded.bystander, seeded.before, IMPORTED
     assert first.tenant == ["tenant", "subscription", "starter_catalog"]
-    assert first.catalog_published == 14  # the starter catalog (D-138), with its group
+    assert first.catalog_published == 15  # the starter catalog (D-138; D-171 added one)
     assert first.incidents == len(seed.STATES) == 60
     # QA6-DATA-01: service requests in every state, problems with known errors.
     # And three in Arabic and Urdu, with two problems (right-to-left records to show).
