@@ -13,7 +13,7 @@ index (`work_item_field_index`) of each in step, for exact-match list filters.
 
 import json
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -167,6 +167,44 @@ def history_binding(
 HIDDEN_LINE: dict[str, bool] = {"masked": True}  # the history page's "hidden" line (as MASKED)
 
 
+async def open_sealed_changes(  # noqa: PLR0913 - one save's parts, explicit
+    session: AsyncSession,
+    record_type: str,
+    record_id: uuid.UUID,
+    version: int,
+    changes: Sequence[Change],
+    *,
+    settings: Settings | None = None,
+) -> list[Change]:
+    """One save's changes with sealed values opened for their own cell (lane B's #520 review).
+
+    Call it after the reader's own field rules have been applied, so only what they may see is
+    opened. A line whose value does not open (moved, tampered with, or its key gone) becomes
+    the hidden line (`HIDDEN_LINE` both sides): no `sx2:` text ever reaches a reader. Public as
+    `work_items.open_sealed_changes` for other modules' history readers (the audit viewer).
+    """
+    if not any(is_sealed(c.old) or is_sealed(c.new) for c in changes):
+        return list(changes)
+    cipher = field_cipher_for(session, _settings(session, settings))
+
+    async def side(change: Change, name: str, value: object) -> tuple[bool, object]:
+        if not is_sealed(value):
+            return True, value
+        binding = history_binding(record_type, record_id, change.field, version, name)
+        opened = await cipher.open(CUSTOM, binding, str(value))
+        return (False, None) if opened is None else (True, json.loads(opened))
+
+    shown: list[Change] = []
+    for change in changes:
+        old_ok, old = await side(change, "old", change.old)
+        new_ok, new = await side(change, "new", change.new)
+        if old_ok and new_ok:
+            shown.append(Change(change.field, old, new))
+        else:
+            shown.append(Change(change.field, HIDDEN_LINE, HIDDEN_LINE))
+    return shown
+
+
 async def open_history(
     session: AsyncSession,
     record_type: str,
@@ -175,35 +213,16 @@ async def open_history(
     *,
     settings: Settings | None = None,
 ) -> list[HistoryEntry]:
-    """History entries with sealed values opened for their own cell (lane B's #520 review).
-
-    Called after ADR-047's strip, so only fields the reader may see are opened. A line whose
-    value does not open (moved, tampered with, or its key gone) becomes the hidden line: no
-    `sx2:` text ever reaches a reader.
-    """
-    if not any(is_sealed(c.old) or is_sealed(c.new) for e in entries for c in e.changes):
-        return entries
-    cipher = field_cipher_for(session, _settings(session, settings))
-
-    async def side(change: Change, version: int, name: str, value: object) -> tuple[bool, object]:
-        if not is_sealed(value):
-            return True, value
-        binding = history_binding(record_type, record_id, change.field, version, name)
-        opened = await cipher.open(CUSTOM, binding, str(value))
-        return (False, None) if opened is None else (True, json.loads(opened))
-
-    shown: list[HistoryEntry] = []
-    for entry in entries:
-        changes: list[Change] = []
-        for change in entry.changes:
-            old_ok, old = await side(change, entry.version, "old", change.old)
-            new_ok, new = await side(change, entry.version, "new", change.new)
-            if old_ok and new_ok:
-                changes.append(Change(change.field, old, new))
-            else:
-                changes.append(Change(change.field, HIDDEN_LINE, HIDDEN_LINE))
-        shown.append(replace(entry, changes=changes))
-    return shown
+    """History entries with sealed values opened per save (`open_sealed_changes`)."""
+    return [
+        replace(
+            entry,
+            changes=await open_sealed_changes(
+                session, record_type, record_id, entry.version, entry.changes, settings=settings
+            ),
+        )
+        for entry in entries
+    ]
 
 
 async def seal_history(  # noqa: PLR0913 - one save's parts, explicit
