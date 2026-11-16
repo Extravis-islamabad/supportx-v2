@@ -2641,6 +2641,158 @@
         "type": "object"
       }
     },
+    "cmdb.ci.created": {
+      "1": {
+        "description": "A CI was saved for the first time (by hand, copied, or from an asset).",
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Asset Id"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "type_id",
+          "source"
+        ],
+        "title": "CiCreated",
+        "type": "object"
+      }
+    },
+    "cmdb.ci.deleted": {
+      "1": {
+        "description": "A CI moved to the trash (soft delete).",
+        "properties": {
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "type_id"
+        ],
+        "title": "CiDeleted",
+        "type": "object"
+      }
+    },
+    "cmdb.ci.restored": {
+      "1": {
+        "description": "A CI came back from the trash.",
+        "properties": {
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "type_id"
+        ],
+        "title": "CiRestored",
+        "type": "object"
+      }
+    },
+    "cmdb.ci.updated": {
+      "1": {
+        "description": "Fields of a CI changed (names only; a type change lists `type_id`).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "type_id",
+          "changed_fields"
+        ],
+        "title": "CiUpdated",
+        "type": "object"
+      }
+    },
+    "cmdb.config.changed": {
+      "1": {
+        "description": "A CI type, a CI state or the CMDB settings changed (`what`: type, state or settings).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Item Id"
+          },
+          "what": {
+            "title": "What",
+            "type": "string"
+          }
+        },
+        "required": [
+          "what",
+          "action"
+        ],
+        "title": "CmdbConfigChanged",
+        "type": "object"
+      }
+    },
     "identity_access.access_settings.changed": {
       "1": {
         "description": "The tenant's access defaults changed (WP-021, D-073): compiled permissions refresh.",

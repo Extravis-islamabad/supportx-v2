@@ -16,11 +16,13 @@ import {
   FilterBar,
   ListPage,
   NoAccess,
+  NotInPlan,
   PageHeader,
   WriteButton,
   loadedEmpty,
   reportError,
   useAccess,
+  useLicence,
   useAppearance,
   useLabel,
 } from '@supportx/ui';
@@ -39,6 +41,7 @@ export function CmdbPage() {
   const { locale, intlLocale } = useAppearance();
   const { can } = useAccess();
   const may = useCmdbRight();
+  const { has, isAdmin } = useLicence();
   const allowed = can('cmdb.view');
   const [view, setView] = useState<'current' | 'trash'>('current');
   const [search, setSearch] = useState('');
@@ -84,6 +87,7 @@ export function CmdbPage() {
     () => typeTree(types.data?.items ?? [], (x) => nameOf(t, locale, x, 'cmdb_ci_type')),
     [types.data, t, locale],
   );
+  if (!has('cmdb')) return <NotInPlan titleKey="nav.cmdb" isAdmin={isAdmin} />;
   if (!allowed) return <NoAccess titleKey="nav.cmdb" />;
   const dateFormat = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' });
 

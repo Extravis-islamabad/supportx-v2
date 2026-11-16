@@ -8,6 +8,8 @@ import {
   FormPage,
   FormProblem,
   NoAccess,
+  NotInPlan,
+  useLicence,
   WriteButton,
   useFormProblem,
   useLabel,
@@ -23,11 +25,13 @@ export function NewCiPage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const may = useCmdbRight();
+  const { has, isAdmin } = useLicence();
   const create = useCreateCi();
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: EMPTY });
   // One key per form: a retried save creates one CI, not two.
   const [key, setKey] = useState(() => crypto.randomUUID());
   const problem = useFormProblem();
+  if (!has('cmdb')) return <NotInPlan titleKey="nav.cmdb" isAdmin={isAdmin} />;
   if (!may('add')) return <NoAccess titleKey="nav.cmdb" />;
   const save = form.handleSubmit((values) => {
     problem.clear();

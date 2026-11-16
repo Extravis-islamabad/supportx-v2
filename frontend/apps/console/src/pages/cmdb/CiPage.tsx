@@ -22,6 +22,7 @@ import { useRecordChannel } from '@supportx/realtime';
 import {
   HeaderActions,
   NoAccess,
+  NotInPlan,
   PropertiesPanel,
   PropertyList,
   RecordHeader,
@@ -29,6 +30,7 @@ import {
   WriteButton,
   reportError,
   useAccess,
+  useLicence,
   useAppearance,
   useLabel,
 } from '@supportx/ui';
@@ -43,12 +45,14 @@ export function CiPage() {
   const { id = '' } = useParams();
   const t = useLabel();
   const { can } = useAccess();
+  const { has, isAdmin } = useLicence();
   const found = useCi(id);
   const queryClient = useQueryClient();
   useRecordChannel('ci', id, () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.detail(id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.history(id) });
   });
+  if (!has('cmdb')) return <NotInPlan titleKey="nav.cmdb" isAdmin={isAdmin} />;
   if (!can('cmdb.view')) return <NoAccess titleKey="nav.cmdb" />;
   if (found.isPending) return null;
   if (found.isError) return <Result status="404" title={t('errors.cmdb_ci_not_found')} />;
