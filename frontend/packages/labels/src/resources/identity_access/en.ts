@@ -182,6 +182,8 @@ export const en = {
   'erasure_count.api_keys_revoked': 'API keys revoked',
   'erasure_count.audit_personal_rows_removed': 'Personal audit details removed',
   'erasure_count.audit_searches_deleted': 'Saved audit searches deleted',
+  'erasure_count.audit_seats_removed': 'Seats on open asset audits removed',
+  'erasure_count.bookings_cancelled': 'Future asset bookings cancelled',
   'erasure_count.cost_rates_deleted': 'Cost rates deleted',
   'erasure_count.dashboard_preferences_deleted': 'Dashboard preferences deleted',
   'erasure_count.dashboards_deleted': 'Private dashboards deleted',
@@ -191,6 +193,7 @@ export const en = {
   'erasure_count.files_kept': 'Files kept',
   'erasure_count.group_memberships': 'Group memberships removed',
   'erasure_count.groups_led': 'Groups handed to the successor',
+  'erasure_count.holder_notices_sent': 'Asset team told what they still hold',
   'erasure_count.invitation_addresses_cleared': 'Invitation addresses cleared',
   'erasure_count.invitations_revoked': 'Invitations revoked',
   'erasure_count.kb_articles_moved': 'Knowledge articles handed to the successor',
@@ -217,6 +220,8 @@ export const en = {
   'erasure_count.sign_ins_cleared': 'Sign-in log entries cleared',
   'erasure_count.site_memberships': 'Site memberships removed',
   'erasure_count.successor_replaced': 'Successor replaced by the approver',
+  'erasure_holding.asset_loans_open': 'Open asset loans',
+  'erasure_holding.assets_held': 'Assets they still hold',
   'field_access.clearest_wins':
     'A person sees a field as clearly as their clearest role allows: one role without a rule shows the field.',
   'field_access.column.field': 'Field',
@@ -632,6 +637,9 @@ export const en = {
   // WP-020b: conversation, notes, followers, editor
   'permission.incidents.add_note': 'Add private notes',
   'permission.incidents.add_note.description': 'Write staff-only notes on incidents.',
+  'permission.incidents.approve': 'Approve incidents',
+  'permission.incidents.approve.description':
+    "Decide an incident's approval when you are named as an approver.",
   'permission.incidents.assign': 'Assign incidents',
   'permission.incidents.assign.description': 'Choose the group and technician of incidents.',
   'permission.incidents.cancel': 'Cancel incidents',
@@ -649,6 +657,9 @@ export const en = {
   'permission.incidents.edit': 'Work on incidents',
   'permission.incidents.edit.description':
     'Edit details, start work, set incidents to waiting and resume them.',
+  'permission.incidents.edit_closed': 'Edit closed incidents',
+  'permission.incidents.edit_closed.description':
+    'Change the fields of a closed incident, giving a reason. Each change is recorded in the audit log.',
   'permission.incidents.edit_due_dates': 'Set due dates by hand',
   'permission.incidents.edit_due_dates.description':
     "Set or clear an incident's response or resolution due date by hand, with a reason. The date then stays until cleared.",

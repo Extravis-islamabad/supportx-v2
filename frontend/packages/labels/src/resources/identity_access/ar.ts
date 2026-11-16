@@ -184,6 +184,8 @@ export const ar: LabelResource = {
   'erasure_count.api_keys_revoked': 'مفاتيح API الملغاة',
   'erasure_count.audit_personal_rows_removed': 'تفاصيل التدقيق الشخصية المحذوفة',
   'erasure_count.audit_searches_deleted': 'عمليات بحث التدقيق المحفوظة المحذوفة',
+  'erasure_count.audit_seats_removed': 'المقاعد المزالة من عمليات جرد الأصول المفتوحة',
+  'erasure_count.bookings_cancelled': 'حجوزات الأصول المستقبلية الملغاة',
   'erasure_count.cost_rates_deleted': 'أسعار التكلفة المحذوفة',
   'erasure_count.dashboard_preferences_deleted': 'تفضيلات لوحات المعلومات المحذوفة',
   'erasure_count.dashboards_deleted': 'لوحات المعلومات الخاصة المحذوفة',
@@ -193,6 +195,7 @@ export const ar: LabelResource = {
   'erasure_count.files_kept': 'الملفات المحتفَظ بها',
   'erasure_count.group_memberships': 'عضويات المجموعات المحذوفة',
   'erasure_count.groups_led': 'المجموعات المسلّمة إلى الخلف',
+  'erasure_count.holder_notices_sent': 'إبلاغ فريق الأصول بما لا يزال لديه',
   'erasure_count.invitation_addresses_cleared': 'عناوين الدعوات الممسوحة',
   'erasure_count.invitations_revoked': 'الدعوات الملغاة',
   'erasure_count.kb_articles_moved': 'مقالات المعرفة المُسلَّمة إلى الخلف',
@@ -219,6 +222,8 @@ export const ar: LabelResource = {
   'erasure_count.sign_ins_cleared': 'إدخالات سجل الدخول الممسوحة',
   'erasure_count.site_memberships': 'عضويات المواقع المحذوفة',
   'erasure_count.successor_replaced': 'الخلف المستبدَل بالمعتمِد',
+  'erasure_holding.asset_loans_open': 'إعارات الأصول المفتوحة',
+  'erasure_holding.assets_held': 'الأصول التي لا تزال في عهدته',
   'field_access.clearest_wins':
     'يرى الشخص الحقل بأوضح ما يسمح به أوضح أدواره: دور واحد بلا قاعدة يُظهر الحقل.',
   'field_access.column.field': 'الحقل',
@@ -630,6 +635,8 @@ export const ar: LabelResource = {
   // WP-020b: conversation, notes, followers, editor
   'permission.incidents.add_note': 'إضافة ملاحظات خاصة',
   'permission.incidents.add_note.description': 'كتابة ملاحظات للموظفين فقط على الحوادث.',
+  'permission.incidents.approve': 'الموافقة على الحوادث',
+  'permission.incidents.approve.description': 'البت في موافقة حادث عند تسميتك موافِقًا.',
   'permission.incidents.assign': 'إسناد الحوادث',
   'permission.incidents.assign.description': 'اختيار مجموعة الحوادث وفنيها.',
   'permission.incidents.cancel': 'إلغاء الحوادث',
@@ -646,6 +653,9 @@ export const ar: LabelResource = {
   'permission.incidents.edit': 'العمل على الحوادث',
   'permission.incidents.edit.description':
     'تعديل التفاصيل وبدء العمل ووضع الحوادث قيد الانتظار واستئنافها.',
+  'permission.incidents.edit_closed': 'تعديل الحوادث المغلقة',
+  'permission.incidents.edit_closed.description':
+    'تغيير حقول حادث مغلق مع ذكر السبب. يُسجَّل كل تغيير في سجل التدقيق.',
   'permission.incidents.edit_due_dates': 'تعيين مواعيد الاستحقاق يدويًا',
   'permission.incidents.edit_due_dates.description':
     'تعيين موعد استحقاق الاستجابة أو الحل لحادثة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',

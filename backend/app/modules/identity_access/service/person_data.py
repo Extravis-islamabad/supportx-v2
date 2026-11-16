@@ -32,7 +32,7 @@ key in `REQUIRED_MENTION_PORTS` has run, and approval waits for a complete, revi
 
 import re
 import uuid
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
@@ -77,10 +77,12 @@ REQUIRED_PORTS: frozenset[str] = frozenset(
         "analytics",
         "announcements",
         "ai",
-        # Required before their ports exist (the readiness check, 2026-11-14): assets holds
-        # ownership, assignments, loans and bookings (lane B), the catalog its items' owner and
-        # default technician (lane A). Until both register, approval and the job refuse.
-        "assets",
+        # Assets (ADR-052 §4, lane B): off audits and future bookings, then the asset team told
+        # what the person still holds (the readiness check, 2026-11-14).
+        "assets.references",
+        "assets.owned",
+        # The catalog (lane A): required before its port exists; until it registers, approval
+        # and the job refuse.
         "service_catalog",
         # Lane B's CMDB (WP-053 S1): owned CIs move to the successor.
         "cmdb",
@@ -173,6 +175,40 @@ def register_person_data(port: PersonData) -> None:
 def unregister_person_data(module: str) -> None:
     """Take a port out (tests only: a missing required port must stop the job)."""
     _PORTS.pop(module, None)
+
+
+# What a person still holds when their erasure is requested (counts by kind, never names):
+# the approver sees it before approving, as things a person holds are not erased away (the
+# coordinator, 2026-11-16: open asset assignments and loans stay open). Each kind is labelled
+# `erasure_holding.<kind>`.
+Holdings = Callable[[AsyncSession, uuid.UUID], Awaitable[Mapping[str, int]]]
+_HOLDINGS: dict[str, Holdings] = {}
+
+
+def register_holdings(key: str, holdings: Holdings) -> None:
+    """A module's count of what a person holds (at module import; the same again is fine)."""
+    if not _KEY.fullmatch(key):
+        msg = f"holdings need a key like 'module', got {key!r}"
+        raise PortRegistrationError(msg)
+    _HOLDINGS[key] = holdings
+
+
+def unregister_holdings(key: str) -> None:
+    """Take a holdings count out (tests only)."""
+    _HOLDINGS.pop(key, None)
+
+
+async def person_holdings(session: AsyncSession, person_id: uuid.UUID) -> dict[str, int]:
+    """Every module's counts of what the person holds, by kind; kinds with none left out."""
+    found: dict[str, int] = {}
+    for key in sorted(_HOLDINGS):
+        for kind, count in (await _HOLDINGS[key](session, person_id)).items():
+            if not _KIND.fullmatch(kind):
+                msg = f"holdings {key!r} gave a kind that is not a code: {kind!r}"
+                raise PortRegistrationError(msg)
+            if count:
+                found[kind] = found.get(kind, 0) + int(count)
+    return found
 
 
 def registered_ports() -> list[PersonData]:

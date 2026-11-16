@@ -832,6 +832,7 @@ export const en = {
   'impact.organisation': 'The whole organisation',
   'impact.team': 'A team',
   'incident_template.standard': 'Standard incident',
+  'incidents.approvals.rule': 'How they decide',
   'incidents.assign_outside_group':
     "{{person}} isn't in {{group}}. Assigning them moves the record to their group.",
   'incidents.assigned': 'Assignment saved.',
@@ -979,6 +980,7 @@ export const en = {
   'incidents.done.wait_third_party': 'Now waiting for a third party.',
   'incidents.duplicates.title': 'Possible duplicates',
   'incidents.edit_field': 'Edit {{field}}',
+  'incidents.edit_reason': 'Why (kept in history)',
   'incidents.empty': 'No incidents in this view.',
   'incidents.export.button': 'Export',
   'incidents.export.cancel': 'Cancel',
@@ -2374,6 +2376,7 @@ export const en = {
   'work_item.field.deployment_ended': 'Deployment ended',
   'work_item.field.description': 'Description',
   'work_item.field.emergency_override': 'Emergency override',
+  'work_item.field.first_contact_resolution': 'Resolved at first contact',
   'work_item.field.first_responded_at': 'First response',
   'work_item.field.first_response_breached': 'Response overdue',
   'work_item.field.first_response_due_at': 'Respond by',

@@ -150,6 +150,10 @@ async def _event(session: AsyncSession, row: AssetBooking, change: BookingChange
     )  # fmt: skip
 
 
+# The booking's ordinary change event, for another part of the module (the erasure port).
+record_booking_change = _event
+
+
 async def create_booking(  # noqa: PLR0913 - which asset, for whom, when, why, from where
     session: AsyncSession,
     subject: Subject,

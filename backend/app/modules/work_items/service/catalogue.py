@@ -139,6 +139,11 @@ class ClosureSettings:
     task_dependency_mode: str = "block"  # WP-046a S1 (REQ-INC-075): block or warn
     checklist_item_max: int = 100  # WP-046a S2: items per record, all its checklists
     copy_limit: int = 20  # WP-046a S5c (REQ-INC-033 AC3): copies one request may make
+    # WP-046b S1 (0169): closed records locked fully (REQ-INC-101), the fields whose change needs
+    # a reason (REQ-INC-124), and the first-contact window in minutes (REQ-INC-102).
+    closed_edit_locked: bool = False
+    edit_reason_fields: frozenset[str] = frozenset()
+    first_contact_minutes: int = 30
 
 
 @dataclass(frozen=True)
@@ -962,6 +967,9 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             task_dependency_mode=settings.task_dependency_mode,
             checklist_item_max=settings.checklist_item_max,
             copy_limit=settings.copy_limit,
+            closed_edit_locked=settings.closed_edit_locked,
+            edit_reason_fields=frozenset(settings.edit_reason_fields or ()),
+            first_contact_minutes=settings.first_contact_minutes,
         ),
         last_number=await last_number(session, wtype.counter_key),
     )

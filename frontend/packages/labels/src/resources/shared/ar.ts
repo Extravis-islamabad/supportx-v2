@@ -530,6 +530,10 @@ export const ar: LabelResource = {
     'كل قوائم التحقق في السجل معًا، من {{min}} إلى {{max}}. تُرفض القائمة الأطول ولا تُقتطع.',
   'settings.closing.close_requires': 'مطلوب قبل الإغلاق',
   'settings.closing.close_requires_help': 'الحقول التي يجب ملؤها قبل إغلاق الحادثة.',
+  'settings.closing.closed_edit_lock': 'قفل الحوادث المغلقة',
+  'settings.closing.closed_edit_lock_help':
+    'أثناء التشغيل لا يغيّر أحد حقول حادث مغلق، بمن فيهم حاملو صلاحية «تعديل الحوادث المغلقة» والمسؤولون. تستمر الملاحظات والردود. يُحفظ فورًا وقد يطلب تأكيد تسجيل دخولك.',
+  'settings.closing.closed_edit_lock_switch': 'قفل الحوادث المغلقة كليًا',
   'settings.closing.complete_open_work': 'إكمال العمل المفتوح عند الإغلاق',
   'settings.closing.complete_open_work_help': 'يؤدي إغلاق الحادثة إلى تعليم عملها المفتوح كمكتمل.',
   'settings.closing.condition.review_completed': 'اكتمال المراجعة',
@@ -537,6 +541,12 @@ export const ar: LabelResource = {
   'settings.closing.copy_limit_help':
     'عدد نسخ الحادثة التي يمكن إنشاؤها في طلب واحد، من {{min}} إلى {{max}}.',
   'settings.closing.days_range': 'من {{min}} إلى {{max}} يوم عمل.',
+  'settings.closing.edit_reason_fields': 'حقول يتطلب تغييرها سببًا',
+  'settings.closing.edit_reason_fields_help':
+    'من يغيّر أحد هذه الحقول يذكر السبب، ويُحفظ السبب في سجل السجل.',
+  'settings.closing.first_contact_minutes': 'نافذة الحل من أول تواصل (بالدقائق)',
+  'settings.closing.first_contact_minutes_help':
+    'الحادث الذي يحلّه منشئه خلال هذا الوقت دون إعادة إسناد يُقترح أنه حُلّ من أول تواصل ({{min}} إلى {{max}}).',
   'settings.closing.help':
     'ما يلزم لحل الحادثة وإغلاقها، وما يحدث للعمل المفتوح، والمدة التي يمكن خلالها لمقدّم الطلب إعادة فتحها بالرد.',
   'settings.closing.open_work': 'العمل المفتوح',
