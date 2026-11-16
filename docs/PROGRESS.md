@@ -1576,6 +1576,31 @@ it with no reload (rule c). Not built yet.
     STATUS notification, required, owner only, in-app and e-mail, with the fields named in the
     owner's language. Shape from lane A; no migration.
 
+### [~] WP-046b — Incidents V1, file 01 §13-23 (lane A, 2026-11-14; 5 sessions, one migration each; 31 REQs)
+
+Plan approved by the coordinator 2026-11-14 (order S1, S2, S4, S3, S5). REQ-INC-132 goes to
+WP-056, -099 and -135 to WP-059b (lane C builds the AI; lane A adds hooks), -103 with WP-062b,
+-149 to its own mobile WP; projects relations (087) later. New rights (edit closed, undo merge,
+declare major) default to the tenant admin and service desk manager, grantable, each use audited.
+
+- [~] **S1, approvals and edit controls (0169; lane B blocks; lane C reads the UI):**
+  - REQ-INC-083: incidents get the approval engine's routes and an ad-hoc "Ask for approval"
+    with a rule (any one, all, a majority); one rejection under "all" rejects; the approval
+    status records the outcome, the status never moves; segregation of duties is the engine's;
+    approvers are asked in the app and by e-mail with their own one-time link (D-132's path),
+    and a named approver gets the incident's public side for it; the technician hears of a
+    rejection once the rule has rejected it. `incidents.approve` (technicians, service desk
+    managers).
+  - REQ-INC-101: `incidents.edit_closed` (service desk managers) opens a closed incident's fields
+    in the service (every path), a reason required, each edit audited (field names only); the
+    tenant's full lock outranks it, administrators included, and changes only through its own
+    route (RecentAuth, audited). Notes and replies are not field edits; reopening is its own move.
+  - REQ-INC-124: a reason on any edit, kept in history; the fields the tenant names need one.
+  - REQ-INC-102: first-contact resolution suggested at the first resolution (creator, never
+    reassigned, within the tenant's minutes), confirmed or changed by the technician.
+  - Console: Approvals tab and the ask dialog, the "Why" box on closed or named fields, the
+    closure settings (reason fields, first-contact minutes, the lock), the first-contact flag.
+
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
   (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).
