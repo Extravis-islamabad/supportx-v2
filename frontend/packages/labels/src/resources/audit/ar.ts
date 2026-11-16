@@ -235,6 +235,10 @@ export const ar: LabelResource = {
   'audit.action.identity.sign_ins_viewed': 'عرض سجل تسجيل الدخول',
   'audit.action.identity.site_networks_changed': 'غيّر نطاقات العناوين المرتبطة بالمواقع',
   'audit.action.identity.sso_policy_changed': 'غيّر سياسة الدخول الموحد',
+  'audit.action.identity_access.service_account_changed': 'غيّر حساب خدمة',
+  'audit.action.identity_access.service_account_created': 'أنشأ حساب خدمة',
+  'audit.action.identity_access.service_account_role_added': 'منح حساب خدمة دورًا',
+  'audit.action.identity_access.service_account_role_removed': 'سحب دورًا من حساب خدمة',
   'audit.action.incident.access_changed': 'غيّر صلاحيات الوصول إلى حادثة',
   'audit.action.incident.approval_decided': 'سجّل قرار موافقة على حادثة',
   'audit.action.incident.assigned': 'غيّر إسناد حادثة',
@@ -1040,6 +1044,7 @@ export const ar: LabelResource = {
   'event_type.identity_access.person_erasure.changed': 'تغيّر محو بيانات شخص',
   'event_type.identity_access.person_erasure.completed': 'تم محو بيانات شخص',
   'event_type.identity_access.role.changed': 'تم تغيير دور',
+  'event_type.identity_access.service_account.needs_owner': 'حساب خدمة يحتاج إلى مالك جديد',
   'event_type.identity_access.session.tenant_switched': 'تم تبديل المؤسسة',
   'event_type.identity_access.sign_in.recorded': 'سُجّل تسجيل دخول',
   'event_type.identity_access.sign_in_secret.expiring':

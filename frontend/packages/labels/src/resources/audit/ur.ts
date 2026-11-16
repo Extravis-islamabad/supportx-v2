@@ -235,6 +235,10 @@ export const ur: LabelResource = {
   'audit.action.identity.sign_ins_viewed': 'سائن اِن لاگ دیکھا',
   'audit.action.identity.site_networks_changed': 'سائٹس سے منسلک ایڈریس رینجز بدلیں',
   'audit.action.identity.sso_policy_changed': 'سنگل سائن آن پالیسی بدلی',
+  'audit.action.identity_access.service_account_changed': 'سروس اکاؤنٹ تبدیل کیا',
+  'audit.action.identity_access.service_account_created': 'سروس اکاؤنٹ بنایا',
+  'audit.action.identity_access.service_account_role_added': 'سروس اکاؤنٹ کو کردار دیا',
+  'audit.action.identity_access.service_account_role_removed': 'سروس اکاؤنٹ سے کردار واپس لیا',
   'audit.action.incident.access_changed': 'واقعے تک رسائی رکھنے والے بدلے',
   'audit.action.incident.approval_decided': 'واقعے پر منظوری کا فیصلہ درج کیا',
   'audit.action.incident.assigned': 'واقعے کی تفویض بدلی',
@@ -1040,6 +1044,7 @@ export const ur: LabelResource = {
   'event_type.identity_access.person_erasure.changed': 'فرد کا ڈیٹا مٹانا تبدیل ہوا',
   'event_type.identity_access.person_erasure.completed': 'فرد کا ڈیٹا مٹا دیا گیا',
   'event_type.identity_access.role.changed': 'کردار تبدیل ہوا',
+  'event_type.identity_access.service_account.needs_owner': 'سروس اکاؤنٹ کو نئے مالک کی ضرورت ہے',
   'event_type.identity_access.session.tenant_switched': 'ادارہ تبدیل کیا',
   'event_type.identity_access.sign_in.recorded': 'سائن اِن درج ہوا',
   'event_type.identity_access.sign_in_secret.expiring':

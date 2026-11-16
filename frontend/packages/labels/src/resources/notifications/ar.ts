@@ -56,6 +56,7 @@ export const ar: LabelResource = {
   'notification_area.report_schedule': 'التقارير المجدولة',
   'notification_area.rule_step': 'القواعد والتصعيدات',
   'notification_area.security': 'الإشعارات الأمنية',
+  'notification_area.service_account': 'حسابات الخدمة',
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_area.sign_in_secret': 'شهادات وأسرار تسجيل الدخول',
   'notification_area.task': 'المهام',
@@ -153,6 +154,7 @@ export const ar: LabelResource = {
   'notification_event.security.mfa_removed': 'أُزيل تحقق دخول (MFA) من حسابك',
   'notification_event.security.new_device': 'تسجيل دخول من متصفح أو جهاز جديد',
   'notification_event.security.password_changed': 'تغيّرت كلمة مرورك',
+  'notification_event.service_account.needs_owner': 'حساب خدمة يحتاج إلى مالك جديد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
@@ -699,6 +701,12 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nتغيّرت كلمة مرور حسابك في {{ notice.when }} ({{ notice.place }}).\n\nإن كان هذا أنت فلا شيء عليك. وإن لم يكن، فأعد تعيين كلمة المرور من صفحة تسجيل الدخول فورًا وأبلغ المسؤول. حسابك: {{ record.link }}',
   'notification_template.security.password_changed.in_app': 'تغيّرت كلمة مرورك ({{ notice.when }})',
   'notification_template.security.password_changed.subject': 'تغيّرت كلمة مرورك',
+  'notification_template.service_account.needs_owner.body':
+    'مرحبًا {{ recipient.name }}،\nتم إلغاء تنشيط الشخص المسؤول عن حساب الخدمة {{ record.title }}. يستمر الحساب في العمل؛ يرجى اختيار مالك جديد. {{ record.link }}',
+  'notification_template.service_account.needs_owner.in_app':
+    '{{ record.title }} يحتاج إلى مالك جديد',
+  'notification_template.service_account.needs_owner.subject':
+    '{{ record.title }} يحتاج إلى مالك جديد',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -815,6 +823,7 @@ export const ar: LabelResource = {
   'notification_variable.security.opens_at': 'القفل › أقرب وقت لإعادة المحاولة',
   'notification_variable.security.place': 'تسجيل الدخول › المكان التقريبي',
   'notification_variable.security.when': 'تسجيل الدخول › الوقت',
+  'notification_variable.service_account.name': 'حساب الخدمة › الاسم',
   'notification_variable.sign_in_secret.expires': 'تسجيل الدخول الموحّد › ينتهي في',
   'notification_variable.sign_in_secret.item': 'تسجيل الدخول الموحّد › ما سينتهي',
   'notification_variable.sign_in_secret.left': 'تسجيل الدخول الموحّد › الوقت المتبقي',

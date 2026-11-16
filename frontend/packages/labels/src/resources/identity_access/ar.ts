@@ -72,6 +72,8 @@ export const ar: LabelResource = {
   'account.sessions.where': '{{device}} · من {{ip}}',
   'account.sso_only': 'تسجّل الدخول عبر تسجيل الدخول الموحّد لمؤسستك، لذا لا توجد كلمة مرور هنا.',
   'account.title': 'تسجيل الدخول والأمان',
+  'api_key_policy_gap.lifetime_over_policy': 'مدته أطول مما تسمح به السياسة',
+  'api_key_policy_gap.no_ip_range': 'بلا نطاق عناوين IP',
   'api_key_status.active': 'نشط',
   'api_key_status.expired': 'منتهٍ',
   'api_key_status.revoked': 'مُبطَل',

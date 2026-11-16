@@ -72,6 +72,8 @@ export const ur: LabelResource = {
   'account.sso_only':
     'آپ اپنی تنظیم کے سنگل سائن آن سے سائن اِن کرتے ہیں، اس لیے یہاں کوئی پاس ورڈ نہیں۔',
   'account.title': 'سائن اِن اور سکیورٹی',
+  'api_key_policy_gap.lifetime_over_policy': 'پالیسی کی اجازت سے زیادہ مدت',
+  'api_key_policy_gap.no_ip_range': 'کوئی IP رینج نہیں',
   'api_key_status.active': 'فعال',
   'api_key_status.expired': 'میعاد ختم',
   'api_key_status.revoked': 'منسوخ',

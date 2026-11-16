@@ -69,6 +69,8 @@ export const en = {
   'account.sso_only':
     "You sign in through your organisation's single sign-on, so there is no password here.",
   'account.title': 'Sign-in and security',
+  'api_key_policy_gap.lifetime_over_policy': 'Lasts longer than the policy allows',
+  'api_key_policy_gap.no_ip_range': 'No IP range',
   'api_key_status.active': 'Active',
   'api_key_status.expired': 'Expired',
   'api_key_status.revoked': 'Revoked',
