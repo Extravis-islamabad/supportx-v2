@@ -344,6 +344,7 @@ SERVICE_REQUEST_STATUSES: tuple[StatusDef, ...] = (
     StatusDef(SR.REJECTED, StatusCategory.CLOSED, "#cf1322", system=True),
     StatusDef(S.CANCELED, StatusCategory.CANCELED, "#bfbfbf"),
     StatusDef(S.MERGED, StatusCategory.CLOSED, "#bfbfbf", system=True),
+    StatusDef(S.CONVERTED, StatusCategory.CLOSED, "#bfbfbf", system=True),  # WP-046b S2
 )
 
 
