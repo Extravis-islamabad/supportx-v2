@@ -40,6 +40,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import metadata, service_catalog, sla
+from app.modules.audit import WORKER as AUDIT_WORKER
+from app.modules.audit import AuditActorType, RequestFacts
+from app.modules.audit import record as record_audit
 from app.modules.automation import (
     TRANSITION_NOT_FOR_YOU as NOT_FOR_YOU,
 )
@@ -83,6 +86,7 @@ from app.modules.organization import (
 from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
+from app.modules.work_items.domain import closure as closure_rules
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain import kept_informed
 from app.modules.work_items.domain import releases as release_rules
@@ -100,6 +104,7 @@ from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     DONE_CATEGORIES,
     FINAL_CATEGORIES,
+    DefaultStatus,
     PauseClock,
     ReasonList,
     ReasonMode,
@@ -178,7 +183,7 @@ from app.modules.work_items.service import (
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service import stages as stage_service
-from app.modules.work_items.service.access import COST_TYPES, RESOURCE, VIEW_COSTS
+from app.modules.work_items.service.access import COST_TYPES, EDIT_CLOSED, RESOURCE, VIEW_COSTS
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.display_ids import next_display_number
@@ -543,7 +548,7 @@ class _Transitions:
         )
 
 
-async def _view(  # noqa: C901 - one state per action and operation, flat
+async def _view(  # noqa: C901, PLR0912 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
     cat = await config.load(session, wtype)
@@ -611,8 +616,13 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             )
         )
     operations: list[ActionState] = []
+    closed_edit = final and await _closed_edit_open(session, subject, wtype, record)
     for op in OPERATIONS:
         refused = await reason(op)
+        if refused is None and op == "edit" and closed_edit:
+            # WP-046b S1 (REQ-INC-101): a closed incident's fields, with the right and a reason.
+            operations.append(ActionState(op, allowed=True, reason_mode=ReasonMode.REQUIRED))
+            continue
         if refused is None and final and op != "delete":
             refused = RECORD_CLOSED
         if refused is None and op == "take":
@@ -1520,6 +1530,11 @@ def _check_fields(  # noqa: C901, PLR0912, PLR0915 - one rule per field, flat
             if value is not None and value not in set(enum):
                 problems.append((name, "invalid_choice"))
             cleaned[name] = value
+    if "first_contact_resolution" in values:  # REQ-INC-102: the technician's word on it
+        flag = values["first_contact_resolution"]
+        if flag is not None and not isinstance(flag, bool):
+            problems.append(("first_contact_resolution", "invalid_choice"))
+        cleaned["first_contact_resolution"] = flag
     if "impact_details" in values:
         details, codes = clean_impact_details(values["impact_details"])
         problems += [("impact_details", c) for c in codes]
@@ -1824,6 +1839,7 @@ SNAPSHOT_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "first_contact_resolution",  # WP-046b S1 (REQ-INC-102 AC3)
     "notify_emails",
     "urgency",
     "priority",
@@ -2050,8 +2066,12 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
     target: str,
     reason_code: str | None,
     reason_text: str | None,
+    actor: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    """Column changes of a status move: category, reason, pause clock and time stamps."""
+    """Column changes of a status move: category, reason, pause clock and time stamps.
+
+    `actor` (a person's move) is who resolves, for the first-contact suggestion (REQ-INC-102).
+    """
     cat = await config.load(session, wtype)
     old = StatusCategory(record.status_category)
     new = cat.lifecycle.category(target)
@@ -2089,7 +2109,21 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
             "last_reopened_at": now,
             "resolved_at": None,
             "closed_at": None,
+            "first_contact_resolution": None,  # the next resolution decides it again
         }
+    elif (
+        wtype.code is WorkItemTypeCode.INCIDENT
+        and "resolved_at" in changes
+        and record.first_contact_resolution is None
+    ):  # REQ-INC-102: suggested at the first resolution; the technician confirms or changes it
+        changes["first_contact_resolution"] = closure_rules.first_contact(
+            created_by=record.created_by,
+            created_at=record.created_at,
+            reassignments=record.reassignment_count,
+            resolved_by=actor,
+            resolved_at=now,
+            minutes=cat.closure.first_contact_minutes,
+        )
     return changes
 
 
@@ -2103,6 +2137,7 @@ STAMP_FIELDS = (
     # WP-020f: the fix and the closure code; history keeps them after a reopen (REQ-INC-097).
     "resolution",
     "closure_code",
+    "first_contact_resolution",  # WP-046b S1 (REQ-INC-102 AC3): the suggestion, recorded
 )
 
 
@@ -2837,6 +2872,71 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
 # --- edit -----------------------------------------------------------------------------------------
 
 
+CLOSED_EDITED = "incident.closed_edited"
+EDIT_REASON_MAX = 500  # as every other reason in history
+
+
+def _closed_not_merged(record: WorkItem) -> bool:
+    """Whether REQ-INC-101's closed-edit may open this record.
+
+    A closed incident only: never a canceled one (REQ-INC-100 AC2), nor one the system closed by
+    a merge (its own move, undo, is the way back).
+    """
+    return (
+        StatusCategory(record.status_category) is StatusCategory.CLOSED
+        and record.status != DefaultStatus.MERGED.value
+    )
+
+
+async def _may_edit_closed(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem, cat: Catalogue
+) -> None:
+    """A closed record's fields: an incident's, with `incidents.edit_closed`, unless locked.
+
+    The tenant's full lock outranks the right, tenant administrators included (lane B); other
+    types stay read-only once closed. Reopening is a move of its own, never this.
+    """
+    if (
+        wtype.code is not WorkItemTypeCode.INCIDENT
+        or not _closed_not_merged(record)
+        or cat.closure.closed_edit_locked
+    ):
+        raise Conflict(
+            code=RECORD_CLOSED,
+            params={"status": record.status, "locked": cat.closure.closed_edit_locked},
+        )
+    if not await _may(session, subject, wtype, EDIT_CLOSED, record.id):
+        # Without the right the record is simply closed to them (the answer it always gave).
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status, "locked": False})
+
+
+async def _closed_edit_open(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
+) -> bool:
+    """Whether the subject may edit this closed record's fields now (what the page offers)."""
+    if wtype.code is not WorkItemTypeCode.INCIDENT or not _closed_not_merged(record):
+        return False
+    cat = await config.load(session, wtype)
+    if cat.closure.closed_edit_locked:
+        return False
+    return await _may(session, subject, wtype, EDIT_CLOSED, record.id)
+
+
+def _edit_reason(
+    cat: Catalogue, columns: Mapping[str, Any], reason: str | None, *, closed: bool
+) -> str | None:
+    """The edit's reason, checked: required on a closed record and for the tenant's fields."""
+    why = (reason or "").strip() or None
+    if why is not None and len(why) > EDIT_REASON_MAX:
+        raise _errors([("reason", "value_too_long")], reason={"max": str(EDIT_REASON_MAX)})
+    named = {n for n in columns if n != "custom"} | {
+        f"custom.{key}" for key in (columns.get("custom") or {})
+    }
+    if why is None and (closed or named & cat.closure.edit_reason_fields):
+        raise _errors([("reason", "required")])
+    return why
+
+
 async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one version, one change set
     session: AsyncSession,
     subject: Subject,
@@ -2846,14 +2946,22 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     expected_version: int,
     values: Mapping[str, Any],
     source: Source,
+    reason: str | None = None,
+    facts: RequestFacts | None = None,
 ) -> WorkItemView:
-    """Edit fields (never status or assignment). Unchanged input: no new version, no event."""
+    """Edit fields (never status or assignment). Unchanged input: no new version, no event.
+
+    `reason` (REQ-INC-124) goes into history; it is required to edit a closed incident (with
+    `incidents.edit_closed`, REQ-INC-101) and for the fields the tenant names. `facts` are the
+    request's, for the audit entry of a closed incident's edit (a worker's without them).
+    """
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
-    if _closed(record):
-        raise Conflict(code="record_closed", params={"status": record.status})
     cat = await config.load(session, wtype)
+    closed = _closed(record)
+    if closed:
+        await _may_edit_closed(session, subject, wtype, record, cat)
     # The record's template's form rules (REQ-INC-037), on the record as this edit leaves it.
     ruled = await templates.apply_form_rules(
         session,
@@ -2948,6 +3056,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         if record.version != expected_version:
             raise await _conflict(session, _stale(record, expected_version), record.id)
         return await _view(session, subject, wtype, record)
+    why = _edit_reason(cat, columns, reason, closed=closed)
     before = _snapshot(record)
     audience_before = _audience(record)
     updated = await _update(session, record, expected_version, columns)
@@ -2984,7 +3093,19 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
             kind="updated",
             changes=people,
             source=source,
-            reason=priority_reason,
+            reason=why or priority_reason,
+        )
+    if closed and people:  # REQ-INC-101 AC2: each edit of a closed incident is audited
+        await record_audit(
+            session,
+            action_code=CLOSED_EDITED,
+            facts=facts or AUDIT_WORKER,
+            actor=(AuditActorType.PERSON, subject.user_id),
+            object_type=wtype.code.value,
+            object_id=str(updated.id),
+            # The field names, never their values (lane B; the record's history has those).
+            details={"fields": sorted(c.field for c in people)},
+            reason=why,
         )
     if recomputed:
         await record_changes(
@@ -3125,7 +3246,14 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     )
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
-        session, wtype, record, action, target=target, reason_code=reason_code, reason_text=text
+        session,
+        wtype,
+        record,
+        action,
+        target=target,
+        reason_code=reason_code,
+        reason_text=text,
+        actor=subject.user_id,
     )
     changes.update(closing_step.changes)
     # Rules see a status move as an edit ("status changed to Resolved", REQ-RUL-001); they

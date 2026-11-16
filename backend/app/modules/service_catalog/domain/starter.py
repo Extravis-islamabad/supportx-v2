@@ -1,10 +1,11 @@
 # ruff: noqa: RUF001 - Urdu text ends sentences with the Urdu full stop (U+06D4), as it should.
 """The starter catalog (WP-031, D-138; REQ-CAT-007). Data only, no I/O.
 
-What a new tenant starts with: 6 categories and 14 items, in English, Arabic and Urdu, in
-SupportX's own words (approved by the product owner on 2026-11-04; Arabic and Urdu flagged for
-native-speaker review in docs/guides/urdu-review.md). Every item is seeded as a draft: the admin
-chooses the fulfilment group and publishes (plan D9). All of it can be changed or deleted.
+What a new tenant starts with: 6 categories and 15 items (D-171 added the personal data
+request), in English, Arabic and Urdu, in SupportX's own words (approved by the product owner
+on 2026-11-04; Arabic and Urdu flagged for native-speaker review in docs/guides/urdu-review.md).
+Every item is seeded as a draft: the admin chooses the fulfilment group and publishes (plan D9).
+All of it can be changed or deleted.
 
 "Manager approval" is the manager of the person the request is for. Internal tasks show
 requesters only "step n of m".
@@ -661,6 +662,67 @@ ITEMS: tuple[StarterItem, ...] = (
             ),
         ),
         manager_approval=True,
+    ),
+    # --- D-171: a person's own data (export or erasure), handled by an administrator ----------
+    StarterItem(
+        key="personal_data_request",
+        category="people",
+        icon="document",
+        names=t(
+            "Personal data request (export or erasure)",
+            "طلب بيانات شخصية (تصدير أو محو)",
+            "ذاتی ڈیٹا کی درخواست (برآمد یا حذف)",
+        ),
+        summaries=t(
+            "Ask for a copy of your personal data, or for it to be erased.",
+            "اطلب نسخة من بياناتك الشخصية أو محوها.",
+            "اپنے ذاتی ڈیٹا کی نقل یا اسے حذف کرنے کی درخواست کریں۔",
+        ),
+        descriptions=t(
+            "An administrator checks who is asking, then handles it in Admin › People › Personal"
+            " data. Erasure keeps the records the organisation needs, with your name taken out.",
+            "يتحقق مسؤول من هوية مقدم الطلب، ثم يعالجه في الإدارة › الأشخاص › البيانات الشخصية."
+            " يحتفظ المحو بالسجلات التي تحتاجها المؤسسة مع إزالة اسمك منها.",
+            "ایک ایڈمنسٹریٹر درخواست کنندہ کی تصدیق کرتا ہے، پھر اسے ایڈمن › افراد › ذاتی ڈیٹا"
+            " میں نمٹاتا ہے۔ حذف کرنے پر ادارے کے ضروری ریکارڈ رہتے ہیں، آپ کا نام ان سے"
+            " نکال دیا جاتا ہے۔",
+        ),
+        questions=(
+            StarterQuestion(
+                "request_type",
+                t("What you are asking for", "ما تطلبه", "آپ کیا چاہتے ہیں"),
+                "choice",
+                required=True,
+                options=(
+                    ("export", t("A copy of my data", "نسخة من بياناتي", "میرے ڈیٹا کی نقل")),
+                    ("erasure", t("Erase my data", "محو بياناتي", "میرا ڈیٹا حذف کریں")),
+                ),
+            ),
+            StarterQuestion(
+                "details",
+                t("Anything we should know", "ما ينبغي أن نعرفه", "کوئی بات جو ہمیں معلوم ہو"),
+                "long_text",
+            ),
+        ),
+        tasks=(
+            StarterTask(
+                t(
+                    "Confirm who is asking",
+                    "التحقق من هوية مقدم الطلب",
+                    "درخواست کنندہ کی تصدیق کریں",
+                ),
+                internal=True,
+            ),
+            StarterTask(
+                t(
+                    "Handle it in Admin › People › Personal data",
+                    "معالجته في الإدارة › الأشخاص › البيانات الشخصية",
+                    "ایڈمن › افراد › ذاتی ڈیٹا میں نمٹائیں",
+                ),
+                internal=True,
+            ),
+        ),
+        manager_approval=False,
     ),
 )
 

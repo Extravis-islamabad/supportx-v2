@@ -162,6 +162,20 @@ lands):
 - **No events that name the person**; ordinary change events (IDs, changed fields) as for any
   change, so screens follow live.
 
+**Assets** (lane B; the coordinator, 2026-11-16). What a person holds is a fact about things, so
+it is not erased away. Open assignments and open loans **stay open**, pointing at the anonymised
+person (`owner_user_id` is the asset's current holder, the same fact as its open assignment, so
+it does not pass to the successor: that would invent a hand-over). The approver sees how many
+before approving (`holdings` on the erasure, counts only, `erasure_holding.<kind>`), and the
+asset managers get one required notice listing the assets to recover
+(`asset.erased_holder_items`, sent once per person). Future bookings are cancelled and the
+person comes off open audits' auditor lists; pending acknowledgements, past bookings, finished
+loans and the `*_by` columns keep the ID (pointing at the anonymised row).
+
+**No module is skipped by accident:** a guard test
+(`tests/test_erasure_ports_cover_person_columns.py`) fails when a module's tables name a person
+and it neither registers an erasure port nor appears in `ERASURE_EXEMPT` with a reason.
+
 Owners (S2): identity_access, organization, audit, files, mail, assets, action links, list
 settings: lane B. work_items, notifications (#492 done), integrations, automation, sla: lane A.
 knowledge, analytics, announcements, ai (consumer done): lane C. The registry refuses to start

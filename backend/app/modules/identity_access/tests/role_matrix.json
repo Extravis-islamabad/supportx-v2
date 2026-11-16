@@ -809,6 +809,9 @@
   "incidents.add_note": [
    "all"
   ],
+  "incidents.approve": [
+   "all"
+  ],
   "incidents.assign": [
    "all"
   ],
@@ -828,6 +831,9 @@
    "all"
   ],
   "incidents.edit": [
+   "all"
+  ],
+  "incidents.edit_closed": [
    "all"
   ],
   "incidents.edit_due_dates": [
@@ -1144,6 +1150,9 @@
   "incidents.add_note": [
    "all"
   ],
+  "incidents.approve": [
+   "all"
+  ],
   "incidents.assign": [
    "all"
   ],
@@ -1163,6 +1172,9 @@
    "all"
   ],
   "incidents.edit": [
+   "all"
+  ],
+  "incidents.edit_closed": [
    "all"
   ],
   "incidents.edit_due_dates": [
@@ -1877,6 +1889,9 @@
    "group",
    "own"
   ],
+  "incidents.approve": [
+   "all"
+  ],
   "incidents.assign": [
    "group",
    "own"
@@ -2140,6 +2155,9 @@
    "group",
    "own"
   ],
+  "incidents.approve": [
+   "all"
+  ],
   "incidents.assign": [
    "group",
    "own"
@@ -2400,6 +2418,9 @@
    "all",
    "own"
   ],
+  "incidents.approve": [
+   "all"
+  ],
   "incidents.assign": [
    "all",
    "own"
@@ -2659,6 +2680,9 @@
   "incidents.add_note": [
    "group",
    "own"
+  ],
+  "incidents.approve": [
+   "all"
   ],
   "incidents.assign": [
    "group",

@@ -5,6 +5,7 @@ status moves on assignment, and the category tree (add, rename / translate, disa
 and transitions keep their Appendix A shape until the life-cycle designer (REQ-INC-049).
 """
 
+import re
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -296,6 +297,8 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
 # Items per record across its checklists (the column's check, migration 0144).
 CHECKLIST_MIN, CHECKLIST_MAX = 1, 1000
 COPY_MIN, COPY_MAX = 1, 100  # WP-046a S5c: the column's own range (0156)
+FIRST_CONTACT_MAX = 1440  # WP-046b S1 (0169): a day, in minutes
+_FIELD_NAME = re.compile(r"^[a-z][a-z0-9_]{0,59}(\.[a-z][a-z0-9_]{0,59})?$")
 
 # WP-046a S3 (REQ-INC-070): the worklog rules, on every type with worklogs.
 WORKLOG_RULES = ("worklog_block_closed", "worklog_count_nonworking", "timer_auto_start")
@@ -309,6 +312,9 @@ CLOSURE_FIELDS = (
     "reopen_window_days",
     "checklist_item_max",
     "copy_limit",
+    "edit_reason_fields",
+    "first_contact_minutes",
+    "closed_edit_locked",  # only through its own route (RecentAuth, audited: lane B)
 )
 
 
@@ -328,6 +334,9 @@ def _closure_before(current: Catalogue) -> dict[str, Any]:
         "task_dependency_mode": c.task_dependency_mode,
         "checklist_item_max": c.checklist_item_max,
         "copy_limit": c.copy_limit,
+        "edit_reason_fields": sorted(c.edit_reason_fields),
+        "first_contact_minutes": c.first_contact_minutes,
+        "closed_edit_locked": c.closed_edit_locked,
     }
 
 
@@ -404,6 +413,22 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - on
         if _days(values["copy_limit"], COPY_MIN, COPY_MAX) is None:
             problem("copy_limit", "out_of_range", min=COPY_MIN, max=COPY_MAX)
         changes["copy_limit"] = values["copy_limit"]
+    if "edit_reason_fields" in values:  # WP-046b S1 (REQ-INC-124): field names, as history's
+        names = values["edit_reason_fields"]
+        if not isinstance(names, list) or not all(
+            isinstance(n, str) and _FIELD_NAME.fullmatch(n) for n in names
+        ):
+            problem("edit_reason_fields", "invalid_choice")
+        else:
+            changes["edit_reason_fields"] = sorted(set(names))
+    if "closed_edit_locked" in values:  # WP-046b S1 (REQ-INC-101): beats incidents.edit_closed
+        if not isinstance(values["closed_edit_locked"], bool):
+            problem("closed_edit_locked", "invalid_choice")
+        changes["closed_edit_locked"] = values["closed_edit_locked"]
+    if "first_contact_minutes" in values:  # WP-046b S1 (REQ-INC-102): the column's own range
+        if _days(values["first_contact_minutes"], 0, FIRST_CONTACT_MAX) is None:
+            problem("first_contact_minutes", "out_of_range", min=0, max=FIRST_CONTACT_MAX)
+        changes["first_contact_minutes"] = values["first_contact_minutes"]
     if "auto_close_days" in values:
         days = values["auto_close_days"]
         if days is not None and _days(days, AUTO_CLOSE_MIN, AUTO_CLOSE_MAX) is None:
