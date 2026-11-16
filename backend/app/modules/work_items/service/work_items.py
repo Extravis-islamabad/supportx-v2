@@ -328,6 +328,11 @@ class WorkItemView:
     analysis_changes: tuple["AnalysisChange", ...] = ()
     # Problems: closing needs the review summary (REQ-PRB-053, D-140 Q4).
     review_required: bool = False
+    # The custom values this subject may read, sealed ones opened (WP-057 S3b-2): the only custom
+    # values a route returns. None before `visible_custom` ran (a view that shows no values).
+    custom: dict[str, Any] | None = None
+    # Custom keys whose sealed value did not open (shown "unreadable", ADR-050), never empty.
+    unreadable: frozenset[str] = frozenset()
 
 
 def _now() -> datetime:
@@ -634,6 +639,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         also_hidden=await hidden_fields(session, subject, wtype, record.id),
     )
     hidden = unseen.all  # the analysis trail names no withheld field either
+    # The one place a record's custom values are read for this subject (WP-057 S3b-2).
+    shown = await custom_values.visible_custom(session, record.id, record.custom, unseen=unseen)
     analysis = (
         await _analysis_changes(session, record.id, hidden)
         if wtype.code is WorkItemTypeCode.PROBLEM
@@ -677,6 +684,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         read_only=field_rules.read_only(subject.field_access, wtype.code.value),
         analysis_changes=analysis,
         review_required=closing.review_required(cat, record),
+        custom=shown.values,
+        unreadable=shown.unreadable,
     )
 
 
@@ -693,6 +702,7 @@ async def _handed_away(
         wtype.code.value,
         also_hidden=await hidden_fields(session, subject, wtype, record.id),
     )
+    shown = await custom_values.visible_custom(session, record.id, record.custom, unseen=unseen)
     return WorkItemView(
         record=record,
         actions=[],
@@ -702,6 +712,8 @@ async def _handed_away(
         hidden=unseen.hidden,
         masked=unseen.masked,
         read_only=field_rules.read_only(subject.field_access, wtype.code.value),
+        custom=shown.values,
+        unreadable=shown.unreadable,
     )
 
 
