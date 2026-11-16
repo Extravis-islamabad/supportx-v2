@@ -20,7 +20,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0169"
-down_revision: str | None = "0167"
+down_revision: str | None = "0168"  # main's head (0167 → 0170 → 0168)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
