@@ -8,6 +8,9 @@
   comment (AC3). Staff only.
 - `asset.mentioned` (WP-049b s2, REQ-AST-050 after REQ-INC-063): a person mentioned in a note
   on an asset they may see; with the author's name, a link to the asset's notes. Staff only.
+- `asset.erased_holder_items` (ADR-052; the coordinator, 2026-11-16): a person being erased
+  still holds assets (open assignments and loans stay open); the asset managers are told once
+  which ones, to recover them. Required: nobody switches it off. Never the person's old name.
 """
 
 import uuid
@@ -22,6 +25,7 @@ from app.modules.assets.events import (
     AcknowledgementChanged,
     AssetLoanChanged,
     AssetNoteChanged,
+    ErasedHolderItems,
     StockLow,
     WarrantyEnding,
 )
@@ -88,6 +92,17 @@ EVENTS: tuple[NotificationEvent, ...] = (
         variables=(Variable("conversation.author", "notification_variable.conversation.author"),),
     ),
     NotificationEvent(
+        "asset.erased_holder_items",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("asset_managers",)),
+        required=True,
+        public=False,
+        variables=(
+            Variable("holdings.assets", "notification_variable.holdings.assets"),
+            Variable("holdings.count", "notification_variable.holdings.count"),
+        ),
+    ),
+    NotificationEvent(
         "asset.ack_requested",
         NotificationCategory.ASSIGNMENT,
         EventDefault(enabled=True, recipients=("holder",)),
@@ -137,6 +152,7 @@ class AssetNotifications:
         WarrantyEnding.event_type,
         StockLow.event_type,
         AssetNoteChanged.event_type,
+        ErasedHolderItems.event_type,
     )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
@@ -144,6 +160,7 @@ class AssetNotifications:
         fixed = {
             WarrantyEnding.event_type: ("asset.warranty_expiring",),
             StockLow.event_type: ("asset.stock_low",),
+            ErasedHolderItems.event_type: ("asset.erased_holder_items",),
         }
         if envelope.event_type in fixed:
             return fixed[envelope.event_type]
@@ -166,14 +183,15 @@ class AssetNotifications:
     ) -> RecordContext | None:
         """The asset (and its acknowledgement), or the loan, as it is now."""
         payload = envelope.payload
-        if envelope.event_type == AssetLoanChanged.event_type:
-            return await self._loan_context(session, event_code, payload)
-        if envelope.event_type == WarrantyEnding.event_type:
-            return await self._warranty_context(session, event_code, payload)
-        if envelope.event_type == StockLow.event_type:
-            return await self._stock_context(session, event_code, payload)
-        if envelope.event_type == AssetNoteChanged.event_type:
-            return await self._note_context(session, event_code, payload)
+        other = {
+            AssetLoanChanged.event_type: self._loan_context,
+            WarrantyEnding.event_type: self._warranty_context,
+            StockLow.event_type: self._stock_context,
+            AssetNoteChanged.event_type: self._note_context,
+            ErasedHolderItems.event_type: self._held_context,
+        }.get(envelope.event_type)
+        if other is not None:
+            return await other(session, event_code, payload)
         ack = await session.get(AssetAcknowledgement, uuid.UUID(str(payload["acknowledgement_id"])))
         asset = await session.scalar(
             select(Asset).where(
@@ -330,6 +348,46 @@ class AssetNotifications:
             variables=shown,
             public_variables={},
             relatives={"mentioned": frozenset(uuid.UUID(str(p)) for p in people)},
+            conditions={},
+            event_code=event_code,
+        )
+
+    async def _held_context(
+        self, session: AsyncSession, event_code: str, payload: Mapping[str, object]
+    ) -> RecordContext | None:
+        """The assets an erased person still holds, by tag or name, for the asset managers."""
+        raw = payload.get("asset_ids")
+        ids = [uuid.UUID(str(a)) for a in raw] if isinstance(raw, list) else []
+        assets = list(
+            await session.scalars(
+                select(Asset)
+                .where(Asset.id.in_(ids), Asset.deleted_at.is_(None))
+                .order_by(Asset.tag)
+            )
+        )
+        if not assets:
+            return None  # all gone meanwhile: nothing to recover
+        tenant = session.info[SESSION_TENANT_KEY].tenant_id
+        managers = await worker_policy().holders(session, tenant, MANAGE, limit=MANAGERS_LIMIT)
+        listed = ", ".join(a.tag or a.name for a in assets)
+        count = int(str(payload.get("assignments_open") or 0)) + int(
+            str(payload.get("loans_open") or 0)
+        )
+        link = f"/assets?owner_user_id={payload.get('person_id')}"
+        shown: dict[str, VariableValue] = {
+            "record.display_id": assets[0].tag or assets[0].name,
+            "record.title": assets[0].name,
+            "record.link": link,
+            "holdings.assets": listed,
+            "holdings.count": count,
+        }
+        return RecordContext(
+            record_id=assets[0].id,
+            display_id=assets[0].tag or assets[0].name,
+            link=link,
+            variables=shown,
+            public_variables={},
+            relatives={"asset_managers": frozenset(user_id for user_id, _ in managers)},
             conditions={},
             event_code=event_code,
         )

@@ -75,6 +75,8 @@ export const ur: LabelResource = {
   'notification_event.announcement.updated': 'آپ کا فالو کردہ اعلان اپ ڈیٹ ہوا',
   'notification_event.asset.ack_disputed': 'اثاثے کے حامل نے اعتراض کیا',
   'notification_event.asset.ack_requested': 'آپ کو اثاثہ دیا گیا: براہ کرم تصدیق کریں',
+  'notification_event.asset.erased_holder_items':
+    'جس فرد کو مٹایا جا رہا ہے اس کے پاس ابھی اثاثے ہیں',
   'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
   'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
   'notification_event.asset.mentioned': 'اثاثے کے نوٹ میں ذکر',
@@ -265,6 +267,12 @@ export const ur: LabelResource = {
     'براہ کرم تصدیق کریں {{ record.display_id }}: {{ record.title }}',
   'notification_template.asset.ack_requested.subject':
     'براہ کرم {{ record.display_id }} {{ record.title }} کی تصدیق کریں',
+  'notification_template.asset.erased_holder_items.body':
+    'السلام علیکم {{ recipient.name }}،\nجس فرد کا ڈیٹا درخواست پر مٹایا جا رہا ہے اس کے پاس یہ اثاثے ابھی ہیں یا عاریتاً ہیں: {{ holdings.assets }}۔ ان کی تفویض اور عاریتیں کھلی رہیں گی: براہِ کرم اثاثے واپس لیں اور معمول کے مطابق بند کریں۔ {{ record.link }}',
+  'notification_template.asset.erased_holder_items.in_app':
+    'مٹائے جانے والے فرد کے پاس ابھی: {{ holdings.assets }}',
+  'notification_template.asset.erased_holder_items.subject':
+    'مٹائے جانے والے فرد سے {{ holdings.count }} اثاثے واپس لیں',
   'notification_template.asset.loan_due.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} کو ادھار دیے گئے اثاثے کل واپس کرنے ہیں۔',
   'notification_template.asset.loan_due.in_app': '{{ holder.name }} کا ادھار کل واپس کرنا ہے',
@@ -797,6 +805,8 @@ export const ur: LabelResource = {
   'notification_variable.conversation.author': 'جواب یا نوٹ › مصنف',
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
   'notification_variable.holder.name': 'حامل › نام',
+  'notification_variable.holdings.assets': 'ہولڈنگز › اثاثے',
+  'notification_variable.holdings.count': 'ہولڈنگز › تعداد',
   'notification_variable.incident.count': 'واقعات کی تعداد',
   'notification_variable.mail.count': 'میل › نہ بھیجی گئی ای میلز',
   'notification_variable.mail.oldest_at': 'میل › سب سے پرانی',
