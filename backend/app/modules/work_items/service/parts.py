@@ -1367,6 +1367,8 @@ _LISTED = (
     LinkKind.FOLLOWS.value,
     LinkKind.CAUSED_BY.value,
     LinkKind.MERGED_INTO.value,
+    LinkKind.CHILD_OF.value,  # WP-046b S2
+    LinkKind.CONVERTED_TO.value,
 )
 # A record to the release that caused it or that it started (lane C's WP-058b), listed only on
 # the record's side.
@@ -1383,27 +1385,34 @@ Relation = Literal[
     "merged_from",
     "caused_by_release",
     "started_release",
+    "child_of",  # WP-046b S2: this record's parent
+    "parent_of",
+    "converted_to",
+    "converted_from",
 ]
+
+
+# How each listed kind reads from its source's side and from its target's (None: not listed there).
+_SIDES: dict[LinkKind, tuple[Relation, Relation | None]] = {
+    LinkKind.RELATED: ("related", "related"),
+    LinkKind.FOLLOWS: ("follows", "followed_by"),
+    LinkKind.CAUSED_BY: ("caused_by", "causes"),
+    LinkKind.MERGED_INTO: ("merged_into", "merged_from"),
+    LinkKind.CAUSED_BY_RELEASE: ("caused_by_release", None),
+    LinkKind.STARTED_RELEASE: ("started_release", None),
+    LinkKind.CHILD_OF: ("child_of", "parent_of"),  # WP-046b S2
+    LinkKind.CONVERTED_TO: ("converted_to", "converted_from"),
+}
 
 
 def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
     """How the link reads from this record's side."""
-    match kind:
-        case LinkKind.RELATED:
-            return "related"
-        case LinkKind.FOLLOWS:
-            return "follows" if mine_is_source else "followed_by"
-        case LinkKind.CAUSED_BY:
-            return "caused_by" if mine_is_source else "causes"
-        case LinkKind.MERGED_INTO:
-            return "merged_into" if mine_is_source else "merged_from"
-        case LinkKind.CAUSED_BY_RELEASE if mine_is_source:
-            return "caused_by_release"
-        case LinkKind.STARTED_RELEASE if mine_is_source:
-            return "started_release"
-        case _:  # never listed (_LISTED, _TO_RELEASE from the record's side)
-            msg = f"link kind {kind} is not listed here"
-            raise ValueError(msg)
+    source, target = _SIDES.get(kind, (None, None))
+    found = source if mine_is_source else target
+    if found is None:  # never listed (_LISTED, _TO_RELEASE from the record's side)
+        msg = f"link kind {kind} is not listed here"
+        raise ValueError(msg)
+    return found
 
 
 def _pair(record_id: uuid.UUID, other_id: uuid.UUID) -> tuple[uuid.UUID, uuid.UUID]:

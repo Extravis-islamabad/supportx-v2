@@ -1626,12 +1626,49 @@ class WorkItemLink(TenantEntity):
             "target_id",
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        # WP-046b S2 (0172): an incident has at most one parent (REQ-INC-086).
+        Index(
+            "uq_wil_tenant_one_parent",
+            "tenant_id",
+            "source_id",
+            unique=True,
+            postgresql_where=text("kind = 'child_of' AND deleted_at IS NULL"),
+        ),
     )
 
     source_id: Mapped[uuid.UUID]
     target_id: Mapped[uuid.UUID]
     kind: Mapped[str] = mapped_column(String(20))
     comment: Mapped[str | None] = mapped_column(String(500))
+
+
+class WorkItemAlias(TenantEntity):
+    """An old display ID that now resolves to another record (WP-046b S2, REQ-INC-089; 0172).
+
+    A converted incident's or request's number keeps working: links and e-mails that name it
+    reach the record it became, but only for a reader who may read that record (else 404,
+    never a hint it exists: lane B, coordinator).
+    """
+
+    __tablename__ = "work_item_aliases"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "work_item_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_work_item_aliases_work_item",
+        ),
+        Index(
+            "uq_work_item_aliases_display",
+            "tenant_id",
+            "display_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_work_item_aliases_record", "tenant_id", "work_item_id"),
+    )
+
+    display_id: Mapped[str] = mapped_column(String(40))
+    work_item_id: Mapped[uuid.UUID]
 
 
 class WorkItemApproval(TenantEntity):
