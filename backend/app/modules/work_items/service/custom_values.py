@@ -96,6 +96,32 @@ async def visible_custom_many(
     return found
 
 
+async def unchanged_sealed(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    stored: Mapping[str, Any] | None,
+    incoming: Mapping[str, Any],
+    *,
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    """`incoming` with every sealed value it did not change put back as stored ciphertext.
+
+    A reader sends back the opened value of a field they did not touch: it must not count as a
+    change, be sealed again, nor reach history (lane B's option b: ciphertext never rewritten).
+    """
+    out = dict(incoming)
+    sealed = {k: v for k, v in (stored or {}).items() if is_sealed(v) and k in out}
+    if not sealed:
+        return out
+    opened = await visible_custom(
+        session, record_id, sealed, unseen=field_rules.Unseen(), settings=settings
+    )
+    for key, value in sealed.items():
+        if key not in opened.unreadable and opened.values.get(key) == out[key]:
+            out[key] = value
+    return out
+
+
 async def sealing_keys(session: AsyncSession, entity: str) -> frozenset[str]:
     """The entity's custom fields whose values are written sealed now."""
     return frozenset(
@@ -174,6 +200,15 @@ async def write_index(
 def _blind_text(value: object) -> str:
     """What an exact-match filter compares: a text as itself, anything else as its JSON."""
     return value if isinstance(value, str) else json.dumps(value, sort_keys=True)
+
+
+async def not_plain_keys(session: AsyncSession, entity: str) -> frozenset[str]:
+    """Fields that are sensitive or whose values are not all plain yet: never in search text."""
+    return frozenset(
+        mark.key
+        for mark in await metadata.field_marks(session, entity, retired=True)
+        if mark.sensitive or mark.seal_state != "plain"
+    )
 
 
 async def matching_records(

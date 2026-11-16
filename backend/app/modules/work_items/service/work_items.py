@@ -171,6 +171,7 @@ from app.modules.work_items.service import (
     change_conflicts,
     change_types,
     closing,
+    custom_values,
     followers,
     record_roles,
     templates,
@@ -1876,6 +1877,26 @@ async def _custom_text(
 custom_text_for = _custom_text  # the search text rebuild (service/search_rebuild.py)
 
 
+async def _custom_columns(
+    session: AsyncSession, wtype: WorkItemType, custom: Mapping[str, Any], record_id: uuid.UUID
+) -> dict[str, Any]:
+    """A saved record's `custom` (sensitive values sealed) and `custom_text`, index kept in step.
+
+    Every writer of an existing record's custom values goes through it (WP-057 S3b-2).
+    """
+    sealed = await custom_values.seal_custom(
+        session,
+        record_id,
+        custom,
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
+    await custom_values.write_index(session, record_id, sealed.index)
+    return {
+        "custom": sealed.stored,
+        "custom_text": await _custom_text(session, wtype, sealed.stored, record_id),
+    }
+
+
 def _is_uuid(value: Any) -> bool:  # noqa: ANN401 - a JSON value
     """A custom value naming a person (only person fields hold UUIDs)."""
     if not isinstance(value, str):
@@ -2275,8 +2296,8 @@ async def _rules_on_edit(
         columns["priority_source"] = PrioritySource.RULE
     if custom_changes:
         merged = {**(columns.get("custom", record.custom) or {}), **custom_changes}
-        columns["custom"] = {k: v for k, v in merged.items() if v is not None}
-        columns["custom_text"] = await _custom_text(session, wtype, columns["custom"], record.id)
+        kept = {k: v for k, v in merged.items() if v is not None}
+        columns.update(await _custom_columns(session, wtype, kept, record.id))
     return automated
 
 
@@ -2675,6 +2696,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     )
     now = _now()
     number = await next_display_number(session, wtype.counter_key)
+    # Sensitive values sealed under the new record's ID before it is written (WP-057 S3b-2).
+    new_custom = await custom_values.seal_custom(
+        session,
+        record_id,
+        custom or {},
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
     record = WorkItem(
         id=record_id,
         type=wtype.code,
@@ -2710,8 +2738,8 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
         ),
         **_item_columns(item, values),
-        custom=custom or {},
-        custom_text=await _custom_text(session, wtype, custom or {}),
+        custom=new_custom.stored,
+        custom_text=await _custom_text(session, wtype, new_custom.stored),
         status=initial,
         status_category=cat.lifecycle.category(initial),
         status_changed_at=now,
@@ -2727,6 +2755,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     for name, value in stamped.items():  # the same insert: the record is still at version 1
         setattr(record, name, value)
     await session.flush()
+    await custom_values.write_index(session, record_id, new_custom.index)
     await stage_service.start(session, record, now=now)
     if custom:
         await metadata.mark_used(session, wtype.code.value, list(custom))
@@ -2922,9 +2951,11 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     if problems:
         raise await _value_errors(session, wtype, problems)
     columns = {name: value for name, value in cleaned.items() if getattr(record, name) != value}
+    if custom is not None:
+        # A sealed value sent back unchanged stays the stored ciphertext (no change, no history).
+        custom = await custom_values.unchanged_sealed(session, record.id, record.custom, custom)
     if custom is not None and custom != (record.custom or {}):
-        columns["custom"] = custom
-        columns["custom_text"] = await _custom_text(session, wtype, custom, record.id)
+        columns.update(await _custom_columns(session, wtype, custom, record.id))
     automated = automation.Automated()
     if columns:
         # Business rules on the edit (REQ-RUL-001, 006), before the priority matrix.
@@ -3826,7 +3857,12 @@ async def copy_release(  # noqa: PLR0913 - the copy and its context, explicit
     _release_only(wtype)
     original = await _visible(session, subject, wtype, record_id)
     values: dict[str, Any] = {n: getattr(original, n) for n in COPIED_FIELDS}
-    values["custom"] = dict(original.custom or {})
+    # Sealed values are bound to the original: opened here, sealed again under the copy's ID.
+    values["custom"] = (
+        await custom_values.visible_custom(
+            session, original.id, original.custom, unseen=field_rules.Unseen()
+        )
+    ).values
     made = await create(session, subject, wtype, values, source=source, holders=holders)
     row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), original.id))
     copied = (
@@ -5102,7 +5138,7 @@ async def redact_fields(
     changes = dict(columns)
     if "custom" in changes:
         wtype = TYPES[WorkItemTypeCode(record.type)]
-        changes["custom_text"] = await _custom_text(session, wtype, changes["custom"], record.id)
+        changes.update(await _custom_columns(session, wtype, changes["custom"], record.id))
     audience_before = _audience(record)
     # Its own versioned save, not `_update`: a trashed record's text is redacted too (lane B's
     # #514 review), and text alone moves no SLA clock.
@@ -6138,8 +6174,7 @@ async def _automated_columns(
     columns = {n: v for n, v in columns.items() if getattr(record, n) != v}
     cleaned_custom = {k: v for k, v in custom.items() if v is not None}
     if cleaned_custom != (record.custom or {}):
-        columns["custom"] = cleaned_custom
-        columns["custom_text"] = await _custom_text(session, wtype, cleaned_custom, record.id)
+        columns.update(await _custom_columns(session, wtype, cleaned_custom, record.id))
     return columns
 
 
