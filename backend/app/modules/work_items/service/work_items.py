@@ -2813,13 +2813,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     }
     own = await change_types.store(session, record, new_change)  # a change's type and reason
     roles_filled = await change_types.fill_line_manager(session, record)
-    await record_changes(
+    # Sealed custom values reach history sealed for their own cell (WP-057 S3b-2).
+    created = await custom_values.seal_history(
         session,
-        record_type=RECORD_TYPE,
-        record_id=record.id,
-        version=record.version,
-        kind="created",
-        changes=[
+        RECORD_TYPE,
+        record.id,
+        record.version,
+        [
             *(
                 Change(name, None, value)
                 for name, value in {**by_person, **own}.items()
@@ -2827,6 +2827,15 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             ),
             *roles_filled,
         ],
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="created",
+        changes=created,
         source=source,
         reason=priority_reason,
     )

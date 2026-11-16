@@ -139,7 +139,8 @@ async def test_history_keeps_sealed_values_per_cell_and_unchanged_is_no_change(
     assert changed.status_code == 200, changed.text
     (row,) = await world.sql(
         "SELECT old_value #>> '{}' AS old, new_value #>> '{}' AS new, record_version"
-        " FROM field_changes WHERE tenant_id = $1 AND record_id = $2 AND field = $3",
+        " FROM field_changes WHERE tenant_id = $1 AND record_id = $2 AND field = $3"
+        " AND kind = 'updated'",
         a.tenant,
         uuid.UUID(item["id"]),
         f"custom.{key}",
@@ -159,6 +160,20 @@ async def test_history_keeps_sealed_values_per_cell_and_unchanged_is_no_change(
         # Moved to another version or side, it does not open (lane B).
         assert await cipher.open(custom_values.CUSTOM, cell(version + 1, "new"), row["new"]) is None
         assert await cipher.open(custom_values.CUSTOM, cell(version, "old"), row["new"]) is None
+    # The created row too: sealed for its own cell, not the record's ciphertext copied.
+    (made,) = await world.sql(
+        "SELECT new_value #>> '{}' AS new, record_version FROM field_changes WHERE tenant_id = $1"
+        " AND record_id = $2 AND field = $3 AND kind = 'created'",
+        a.tenant,
+        uuid.UUID(item["id"]),
+        f"custom.{key}",
+    )
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        cipher = field_cipher_for(session, world.app.state.settings)
+        binding = custom_values.history_binding(
+            "work_item", uuid.UUID(item["id"]), f"custom.{key}", made["record_version"], "new"
+        )
+        assert await cipher.open(custom_values.CUSTOM, binding, made["new"]) == '"B7"'
     # The opened value sent back unchanged is no change: no new history row.
     again = (await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)).json()
     same = await world.call(
@@ -172,7 +187,7 @@ async def test_history_keeps_sealed_values_per_cell_and_unchanged_is_no_change(
     assert same.status_code == 200, same.text
     rows = await world.sql(
         "SELECT count(*) AS n FROM field_changes WHERE tenant_id = $1 AND record_id = $2"
-        " AND field = $3",
+        " AND field = $3 AND kind = 'updated'",
         a.tenant,
         uuid.UUID(item["id"]),
         f"custom.{key}",

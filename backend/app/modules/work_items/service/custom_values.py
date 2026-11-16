@@ -22,7 +22,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
-from app.core.database import SESSION_SETTINGS_KEY
+from app.core.database import SESSION_SETTINGS_KEY, SESSION_TENANT_KEY
 from app.core.errors import FieldError, ValidationFailed
 from app.modules import metadata
 from app.modules.work_items.domain import field_access as field_rules
@@ -285,7 +285,12 @@ async def write_index(
         await session.execute(
             insert(WorkItemFieldIndex)
             .values(
-                id=new_id(), work_item_id=record_id, field_key=key, key_id=key_id, digest=digest
+                tenant_id=session.info[SESSION_TENANT_KEY].tenant_id,
+                id=new_id(),
+                work_item_id=record_id,
+                field_key=key,
+                key_id=key_id,
+                digest=digest,
             )
             .on_conflict_do_update(
                 constraint="uq_work_item_field_index_place",
