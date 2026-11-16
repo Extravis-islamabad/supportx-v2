@@ -142,3 +142,48 @@ async def test_an_old_number_is_not_found_by_someone_who_may_not_read_the_new_re
     assert found.json()["record_id"] == done.json()["new_id"]
     hidden = await world.call("GET", f"{SR}/alias/{request['display_id']}", a, a.tech_a)
     assert _problem(hidden) == (404, "alias_not_found")
+
+
+async def test_a_sealed_value_carries_sealed_again_for_the_new_record(
+    world: World,  # noqa: F811
+) -> None:
+    """Lane B: a sealed field is opened and sealed again under the new record's binding."""
+    from tests.db.test_sealed_custom_fields import _stored, _with_keys  # noqa: PLC0415
+
+    _with_keys(world)
+    a = world.a
+    keys = []
+    for entity in ("incident", "service_request"):
+        made = await world.call(
+            "POST",
+            "/custom-fields",
+            a,
+            a.admin,
+            json={"entity": entity, "field_type": "text", "labels": {"en": "Pay band"}},
+            headers=CONSOLE,
+        )
+        assert made.status_code == 201, made.text
+        keys.append(str(made.json()["key"]))
+        await world.sql(
+            "UPDATE custom_fields SET sensitive = true, seal_state = 'sealed'"
+            " WHERE tenant_id = $1 AND entity = $2 AND key = $3",
+            a.tenant,
+            entity,
+            keys[-1],
+        )
+    key = keys[0]
+    assert keys[1] == key  # the same field on both types
+    incident = await world.create(a, a.admin, group_id=str(a.ga), custom={key: "B7"})
+    before, _ = await _stored(world, a, incident["id"], key)
+    assert before.startswith("sx2:")
+    item = await an_item(world, a)
+    done = await _convert(
+        world, a, BASE, incident, catalog_item_id=item["id"], answers={"model": "air"}
+    )
+    assert done.status_code == 200, done.text
+    assert done.json()["not_carried"] == []
+    after, _ = await _stored(world, a, done.json()["new_id"], key)
+    assert after.startswith("sx2:")
+    assert after != before  # sealed for the new record, never the old ciphertext
+    shown = (await world.call("GET", f"{SR}/{done.json()['new_id']}", a, a.admin)).json()
+    assert shown["custom"][key] == "B7"

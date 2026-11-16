@@ -43,7 +43,7 @@ from app.modules.work_items.domain.types import (
     WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemAlias, WorkItemLink
-from app.modules.work_items.service import approvals, parts
+from app.modules.work_items.service import approvals, custom_values, parts
 from app.modules.work_items.service import work_items as items
 from app.shared.history import Change, Source
 
@@ -137,7 +137,15 @@ async def convert(  # noqa: PLR0913 - the record, the target's own inputs and th
         name: getattr(record, name) for name in CARRIED if getattr(record, name) is not None
     }
     values = {k: str(v) if isinstance(v, uuid.UUID) else v for k, v in values.items()}
-    values["custom"] = {key: record.custom[key] for key in shown.carried_custom}
+    # Sealed values are bound to the old record: opened here, so the create path seals them
+    # again under the new record's own binding (never ciphertext copied; lane B). A value that
+    # does not open is not carried, and is named with the rest left behind.
+    plain = await custom_values.opened(session, record.id, record.custom)
+    carried = [key for key in shown.carried_custom if plain.get(key) is not None]
+    not_carried = sorted(
+        {*shown.not_carried, *(f"custom.{k}" for k in shown.carried_custom if k not in carried)}
+    )
+    values["custom"] = {key: plain[key] for key in carried}
     values.update(target_values)
     made = await items.create(
         session, subject, shown.target, values, source=source, holders=holders
@@ -164,7 +172,7 @@ async def convert(  # noqa: PLR0913 - the record, the target's own inputs and th
         "to": str(new.id),
         "to_display_id": new.display_id,
         "to_type": shown.target.code.value,
-        "not_carried": shown.not_carried,
+        "not_carried": not_carried,
     }
     old = await items.set_status(
         session,
@@ -176,7 +184,7 @@ async def convert(  # noqa: PLR0913 - the record, the target's own inputs and th
         source=source,
         extra=[Change(CONVERT_FIELD, None, what)],
     )
-    return Converted(old, made, shown.not_carried)
+    return Converted(old, made, not_carried)
 
 
 @dataclass(frozen=True)
