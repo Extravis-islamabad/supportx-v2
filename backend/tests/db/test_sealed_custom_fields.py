@@ -10,9 +10,12 @@
 """
 
 import json
+import statistics
+import time
 import uuid
 from typing import Any
 
+import asyncpg
 import httpx
 import pytest
 from pydantic import SecretStr
@@ -22,8 +25,17 @@ from app.modules.work_items.service import custom_values
 from app.shared.fields import Binding, field_cipher_for
 from app.shared.files.keyring import KeyRing
 from tests.db.test_field_access_reads import _custom_field, _rule
-from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, world  # noqa: F401 - fixture
+from tests.db.test_incidents_api import (  # noqa: F401 - fixture
+    BASE,
+    CONSOLE,
+    SEED,
+    Org,
+    World,
+    make_org,
+    world,
+)
 from tests.db.test_reports_api import reports  # noqa: F401 - fixture
+from tooling import timing
 
 pytestmark = pytest.mark.db
 
@@ -295,3 +307,67 @@ async def test_reports_refuse_a_sealed_field(reports: World) -> None:  # noqa: F
         assert refused.status_code == 403, (use, refused.text)
         assert refused.json()["code"] == "field_not_permitted", use
         assert "sx2:" not in refused.text
+
+
+# --- performance (lane B's #520 note: a sealed filter on a large list) ---------------------------
+
+SEALED_ROWS = timing.volume(10_000, 1_000)  # all nightly, a smoke run in PRs
+SEALED_RUNS = 20
+INDEX_SEED = """
+INSERT INTO work_item_field_index (tenant_id, id, work_item_id, field_key, key_id, digest)
+SELECT $1, gen_random_uuid(), w.id, $2, $3,
+       CASE WHEN w.display_number % 10 = 0 THEN $4
+            ELSE encode(sha256(w.id::text::bytea), 'hex') END
+FROM work_items w
+WHERE w.tenant_id = $1 AND w.type = 'incident' AND w.display_number > 1000
+"""
+
+
+@pytest.mark.timing
+async def test_a_sealed_filter_p95_on_a_large_list(world: World) -> None:  # noqa: F811
+    """A sealed `eq` filter stays an index lookup: p95 < 300 ms on 10,000 incidents nightly."""
+    _with_keys(world)
+    org = await make_org(world, "SealedPerf")
+    key = await _sensitive(world, org, "Perf band")
+    real = await world.create(org, org.admin, custom={key: "B7"})  # the real key and digest
+    (made,) = await world.sql(
+        "SELECT key_id, digest FROM work_item_field_index WHERE tenant_id = $1"
+        " AND work_item_id = $2",
+        org.tenant,
+        uuid.UUID(real["id"]),
+    )
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute(
+            SEED, org.tenant, org.requester, org.s1, org.ga, org.gb, org.tech_a, SEALED_ROWS
+        )
+        await conn.execute(INDEX_SEED, org.tenant, key, made["key_id"], made["digest"])
+        await conn.execute("ANALYZE work_items")
+        await conn.execute("ANALYZE work_item_field_index")
+    finally:
+        await conn.close()
+    sealed = json.dumps({"field": f"custom.{key}", "op": "eq", "value": "b7"})
+    queries = {
+        "plain_list": "?limit=50",
+        "sealed_eq": "?" + str(httpx.QueryParams({"filter": sealed, "limit": "50"})),
+    }
+    report: dict[str, dict[str, float]] = {}
+    for name, suffix in queries.items():
+        timings = []
+        response = None
+        for _ in range(SEALED_RUNS):
+            started = time.perf_counter()
+            response = await world.call("GET", f"{BASE}{suffix}", org, org.admin)
+            timings.append((time.perf_counter() - started) * 1000)
+            assert response.status_code == 200, response.text
+        assert response is not None
+        timings.sort()
+        report[name] = {
+            "p50_ms": round(statistics.median(timings), 1),
+            "p95_ms": round(timings[int(len(timings) * 0.95) - 1], 1),
+            "items": len(response.json()["items"]),
+        }
+        print(f"\n[perf] sealed_filter {name}: rows={SEALED_ROWS}, {report[name]}")  # noqa: T201
+    assert report["sealed_eq"]["items"] == 50  # one in ten of the rows matches
+    timing.record("sealed_filter_10k", report)
+    assert all(r["p95_ms"] < timing.limit(300) for r in report.values()), report
