@@ -187,3 +187,50 @@ async def test_a_sealed_value_carries_sealed_again_for_the_new_record(
     assert after != before  # sealed for the new record, never the old ciphertext
     shown = (await world.call("GET", f"{SR}/{done.json()['new_id']}", a, a.admin)).json()
     assert shown["custom"][key] == "B7"
+
+
+async def test_protection_is_never_dropped_by_converting(world: World) -> None:  # noqa: F811
+    """Lane C: sealed on the source and plain on the target stays behind; the reverse seals."""
+    from tests.db.test_sealed_custom_fields import _stored, _with_keys  # noqa: PLC0415
+
+    _with_keys(world)
+    a = world.a
+    keys: dict[tuple[str, str], str] = {}
+    for label, sealed_on in (("Badge", "incident"), ("Desk", "service_request")):
+        for entity in ("incident", "service_request"):
+            made = await world.call(
+                "POST",
+                "/custom-fields",
+                a,
+                a.admin,
+                json={"entity": entity, "field_type": "text", "labels": {"en": label}},
+                headers=CONSOLE,
+            )
+            assert made.status_code == 201, made.text
+            keys[(label, entity)] = str(made.json()["key"])
+            if entity == sealed_on:
+                await world.sql(
+                    "UPDATE custom_fields SET sensitive = true, seal_state = 'sealed'"
+                    " WHERE tenant_id = $1 AND entity = $2 AND key = $3",
+                    a.tenant,
+                    entity,
+                    keys[(label, entity)],
+                )
+    badge, desk = keys[("Badge", "incident")], keys[("Desk", "incident")]
+    incident = await world.create(
+        a, a.admin, group_id=str(a.ga), custom={badge: "B-17", desk: "4F-12"}
+    )
+    item = await an_item(world, a)
+    done = await _convert(
+        world, a, BASE, incident, catalog_item_id=item["id"], answers={"model": "air"}
+    )
+    assert done.status_code == 200, done.text
+    # Sealed on the incident, plain on the request: not carried, named, kept on the old one.
+    assert done.json()["not_carried"] == [f"custom.{badge}"]
+    new_badge: str | None = (await _stored(world, a, done.json()["new_id"], badge))[0]
+    assert new_badge is None
+    # Plain on the incident, sealed on the request: carried, and sealed on create.
+    new_desk, _ = await _stored(world, a, done.json()["new_id"], desk)
+    assert new_desk.startswith("sx2:")
+    shown = (await world.call("GET", f"{SR}/{done.json()['new_id']}", a, a.admin)).json()
+    assert shown["custom"][desk] == "4F-12"

@@ -100,12 +100,18 @@ async def preview(
     mine = await _field_types(session, wtype)
     theirs = await _field_types(session, target)
     ruled = await identity_access.restricted_fields(session, wtype.code.value)
+    # Protection is never dropped by converting (lane C): a field sensitive or sealed on the
+    # source carries only to a field the target seals too; else it stays on the old record.
+    guarded = await custom_values.not_plain_keys(session, wtype.code.value)
+    sealing = await custom_values.sealing_keys(session, target.code.value)
     carried: list[str] = []
     left: list[str] = []
     for key, value in sorted((record.custom or {}).items()):
         if value is None:
             continue
-        if key in theirs and theirs[key] == mine.get(key) and f"custom.{key}" not in ruled:
+        same = key in theirs and theirs[key] == mine.get(key)
+        protected = key not in guarded or key in sealing
+        if same and protected and f"custom.{key}" not in ruled:
             carried.append(key)
         else:
             left.append(f"custom.{key}")
