@@ -469,8 +469,13 @@ async def conversation(
             )
         )
     ).all()
-    nameless = {u for _, *people in merged for u in people if u is not None}
-    nameless -= {found.record.requester_id, found.record.on_behalf_of_id}
+    own = {found.record.requester_id, found.record.on_behalf_of_id}
+    nameless = {u for _, *people in merged for u in people if u is not None} - own
+    if merged and subject.user_id not in own:
+        # A follower brought in by the merge (the duplicate's requester) sees the survivor's
+        # public side, never its requesters by name either (lane B, #525).
+        nameless |= {u for u in own if u is not None}
+    nameless.discard(subject.user_id)  # your own entries always show your name
     rows = list(
         await session.scalars(
             select(WorkItemConversation)

@@ -6,8 +6,9 @@ stays readable, its history, audit and SLA records stay with it (coordinator). W
 - its conversation, by reference: the survivor's timeline lists it, each entry under its own
   visibility, re-checked against the duplicate (lane B; never copied, so nothing is re-sealed);
 - its children, which become the survivor's (one level: refused when the survivor is a child);
-- its requester and the people it was raised for, as followers with portal access only when both
-  records are in the same department; anyone else is listed as not added (coordinator).
+- its requester and the people it was raised for, as followers (the survivor's public replies and
+  notes by e-mail) only when both records are in the same department; anyone else is listed as
+  not added (coordinator). Counted in the audience the person confirms (lane B).
 
 Merging can widen who sees the duplicate: the preview counts the people who can see the
 survivor and not the duplicate (staff, by their own access; and the survivor's requesters, who
@@ -62,7 +63,7 @@ class MergePreview:
     @property
     def widens(self) -> bool:
         """Whether anyone would see the duplicate who cannot now."""
-        return bool(self.staff_newly_seeing or self.requesters_newly_seeing)
+        return bool(self.staff_newly_seeing or self.requesters_newly_seeing or self.followers_added)
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,18 @@ class MergeOutcome:
     moved: list[uuid.UUID] = field(default_factory=list)
     into_id: uuid.UUID | None = None  # the survivor
     stayed: list[uuid.UUID] = field(default_factory=list)
+
+
+async def lock(session: AsyncSession, *record_ids: uuid.UUID) -> None:
+    """Hold the records' rows for this transaction, in ID order (no deadlock between two runs).
+
+    A second merge, undo or conversion of the same record waits here, then finds the version
+    it was given stale (409), never a half-done record (lane B).
+    """
+    for record_id in sorted(set(record_ids), key=str):
+        await session.execute(select(WorkItem.id).where(WorkItem.id == record_id).with_for_update())
+        found = await session.get(WorkItem, record_id, populate_existing=True)
+        del found  # the row is fresh in the session for the checks that follow
 
 
 def _open(record: WorkItem) -> bool:
@@ -200,6 +213,7 @@ async def merge(  # noqa: PLR0913 - both incidents, the version, the confirmatio
 
     409 when either is closed, or when the audience widens and the person has not confirmed it.
     """
+    await lock(session, duplicate_id, survivor_id)
     shown = await preview(session, subject, duplicate_id, survivor_id, holders=holders)
     duplicate, survivor = shown.duplicate, shown.survivor
     if duplicate.version != expected_version:
@@ -210,6 +224,8 @@ async def merge(  # noqa: PLR0913 - both incidents, the version, the confirmatio
             params={
                 "staff": str(shown.staff_newly_seeing),
                 "requesters": str(shown.requesters_newly_seeing),
+                # The duplicate's requesters made followers: they gain the survivor's portal side.
+                "followers": str(len(shown.followers_added)),
                 "complete": str(shown.audience_complete).lower(),
             },
         )
@@ -231,7 +247,10 @@ async def merge(  # noqa: PLR0913 - both incidents, the version, the confirmatio
             survivor,
             user_id,
             reason=FollowReason.ADDED,
-            grants_access=True,
+            # A requester's follow grants no portal reach (the portal reaches by requester,
+            # report, department or site); it brings the survivor's public replies and notes by
+            # e-mail, which the preview counts and the person confirms (lane B, #525).
+            grants_access=False,
             source=source,
         )
         if changed:
@@ -255,7 +274,7 @@ async def merge(  # noqa: PLR0913 - both incidents, the version, the confirmatio
         fresh,
         WorkItemAction.MERGE,
         target=MERGED,
-        expected_version=fresh.version,
+        expected_version=expected_version,  # the caller's, held by the lock (lane B)
         source=source,
         extra=[Change(MERGE_FIELD, None, what)],
     )
@@ -318,6 +337,7 @@ async def undo_merge(
     child that moved has since been linked elsewhere: a partial undo would leave records where
     nobody put them.
     """
+    await lock(session, duplicate_id)
     duplicate = await items.record_for_action(session, subject, INCIDENT, "view", duplicate_id)
     if not await items.may(session, subject, INCIDENT, UNDO_MERGE, duplicate.id):
         raise PermissionDenied(params={"permission": INCIDENT.permission(UNDO_MERGE)})
@@ -335,6 +355,7 @@ async def undo_merge(
     )
     if what is None or link is None:  # pragma: no cover - a merge always writes both
         raise Conflict(code="not_merged", params={"display_id": duplicate.display_id})
+    await lock(session, link.target_id)
     survivor = await items.record_for_action(session, subject, INCIDENT, "edit", link.target_id)
     if not _open(survivor):
         raise _not_exact(duplicate, "survivor_closed")
@@ -359,7 +380,7 @@ async def undo_merge(
         fresh,
         WorkItemAction.UNDO_MERGE,
         target=str(what.get("status") or DefaultStatus.NEW.value),
-        expected_version=fresh.version,
+        expected_version=expected_version,
         source=source,
         extra=[Change(MERGE_FIELD, what, None)],
     )

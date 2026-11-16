@@ -43,7 +43,7 @@ from app.modules.work_items.domain.types import (
     WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemAlias, WorkItemLink
-from app.modules.work_items.service import approvals, custom_values, parts
+from app.modules.work_items.service import approvals, custom_values, incident_merge, parts
 from app.modules.work_items.service import work_items as items
 from app.shared.history import Change, Source
 
@@ -135,6 +135,7 @@ async def convert(  # noqa: PLR0913 - the record, the target's own inputs and th
     `target_values` are the new type's own inputs: a service request's `catalog_item_id` and
     `answers`, an incident's `template_id` (the create path checks them).
     """
+    await incident_merge.lock(session, record_id)  # a second conversion waits, then 409s
     shown = await preview(session, subject, wtype, record_id)
     record = shown.record
     if record.version != expected_version:
@@ -186,7 +187,7 @@ async def convert(  # noqa: PLR0913 - the record, the target's own inputs and th
         fresh,
         WorkItemAction.CONVERT,
         target=CONVERTED,
-        expected_version=fresh.version,
+        expected_version=expected_version,  # the caller's, held by the lock (lane B)
         source=source,
         extra=[Change(CONVERT_FIELD, None, what)],
     )

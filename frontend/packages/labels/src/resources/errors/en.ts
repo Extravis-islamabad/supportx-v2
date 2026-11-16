@@ -1018,7 +1018,7 @@ export const en = {
   'errors.merge_undo_not_exact':
     'This merge cannot be undone exactly any more, because the incidents have changed since.',
   'errors.merge_widens_audience':
-    'Merging lets more people see this incident: {{staff}} staff and {{requesters}} requesters. Confirm to go ahead.',
+    'Merging lets more people see these incidents: {{staff}} staff, {{requesters}} requesters of the incident you keep and {{followers}} requesters of the duplicate. Confirm to go ahead.',
   'errors.message_refused': 'The mail server refused the message.',
   'errors.method_not_allowed': 'This action is not supported here.',
   'errors.mfa_enrolment_unavailable':

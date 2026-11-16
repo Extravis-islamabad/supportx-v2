@@ -945,7 +945,7 @@ export const ar: LabelResource = {
   'errors.merge_undo_not_exact':
     'لم يعد ممكنًا التراجع عن هذا الدمج بدقة، لأن الحوادث تغيّرت منذ ذلك الحين.',
   'errors.merge_widens_audience':
-    'الدمج يسمح لعدد أكبر برؤية هذا الحادث: {{staff}} من الموظفين و{{requesters}} من مقدمي الطلبات. أكّد للمتابعة.',
+    'الدمج يسمح لعدد أكبر برؤية هذه الحوادث: {{staff}} من الموظفين و{{requesters}} من مقدمي طلب الحادث المُبقى و{{followers}} من مقدمي طلب الحادث المكرر. أكّد للمتابعة.',
   'errors.message_refused': 'رفض خادم البريد الرسالة.',
   'errors.method_not_allowed': 'هذا الإجراء غير مدعوم هنا.',
   'errors.mfa_enrolment_unavailable':

@@ -45,6 +45,11 @@ class IncidentMergePreviewOut(BaseModel):
     requesters_newly_seeing: int = Field(
         description="The survivor's requesters, who would see the duplicate's public entries."
     )
+    followers_newly_seeing: int = Field(
+        description=(
+            "The duplicate's requesters added as followers, who see the survivor's public side."
+        )
+    )
     audience_complete: bool = Field(
         description="False: more staff than were checked, so the count is a lower bound."
     )
@@ -99,6 +104,7 @@ def add_incident_merge_routes(router: APIRouter, wtype: WorkItemType) -> None:
             followers_not_added=shown.followers_not_added,
             staff_newly_seeing=shown.staff_newly_seeing,
             requesters_newly_seeing=shown.requesters_newly_seeing,
+            followers_newly_seeing=len(shown.followers_added),
             audience_complete=shown.audience_complete,
             needs_confirmation=shown.widens,
         )

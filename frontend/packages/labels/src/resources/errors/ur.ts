@@ -1024,7 +1024,7 @@ export const ur: LabelResource = {
   'errors.merge_undo_not_exact':
     'یہ انضمام اب ٹھیک ویسا واپس نہیں ہو سکتا، کیونکہ اس کے بعد واقعات بدل گئے ہیں۔',
   'errors.merge_widens_audience':
-    'ضم کرنے سے زیادہ لوگ یہ واقعہ دیکھ سکیں گے: {{staff}} عملہ اور {{requesters}} درخواست گزار۔ جاری رکھنے کے لیے تصدیق کریں۔',
+    'ضم کرنے سے زیادہ لوگ یہ واقعات دیکھ سکیں گے: {{staff}} عملہ، رکھے گئے واقعے کے {{requesters}} درخواست گزار اور دوہرے واقعے کے {{followers}} درخواست گزار۔ جاری رکھنے کے لیے تصدیق کریں۔',
   'errors.message_refused': 'میل سرور نے پیغام رد کر دیا۔',
   'errors.method_not_allowed': 'یہ کارروائی یہاں دستیاب نہیں۔',
   'errors.mfa_enrolment_unavailable':

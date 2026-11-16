@@ -183,3 +183,94 @@ async def test_staff_audience_counted_and_undo_needs_right_and_exactness(
         headers={"If-Match": f'"{merged["version"]}"', **CONSOLE},
     )
     assert _problem(late) == (409, "merge_undo_not_exact")
+
+
+async def test_two_runs_at_once_one_wins_and_the_other_is_refused(world: World) -> None:  # noqa: F811
+    """Lane B: the record is locked; a second merge or conversion with the same version 409s."""
+    import asyncio  # noqa: PLC0415
+
+    from tests.db.test_service_requests_api import an_item  # noqa: PLC0415
+
+    a = world.a
+    keep_a = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    keep_b = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    duplicate = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    duplicate = await _fresh(world, a, duplicate)
+    both = await asyncio.gather(
+        _merge(world, a, a.admin, duplicate, keep_a, confirm=True),
+        _merge(world, a, a.admin, duplicate, keep_b, confirm=True),
+    )
+    assert sorted(r.status_code for r in both) == [200, 409], [r.text for r in both]
+    # Conversions too: one new record, never two.
+    other = await world.create(a, a.admin, group_id=str(a.ga))
+    other = await _fresh(world, a, other)
+    item = await an_item(world, a)
+    body = {"catalog_item_id": item["id"], "answers": {"model": "air"}}
+    headers = {"If-Match": f'"{other["version"]}"', **CONSOLE}
+    runs = await asyncio.gather(
+        *(
+            world.call(
+                "POST", f"{BASE}/{other['id']}/convert", a, a.admin, json=body, headers=headers
+            )
+            for _ in range(2)
+        )
+    )
+    assert sorted(r.status_code for r in runs) == [200, 409], [r.text for r in runs]
+
+
+async def test_a_follower_brought_by_a_merge_is_counted_and_confirmed(
+    world: World,  # noqa: F811
+) -> None:
+    """Lane B: the duplicate's requester as follower widens the audience, so it is confirmed."""
+    a = world.a
+    survivor = await world.create(a, a.admin, group_id=str(a.ga))  # requester: a.requester
+    duplicate = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    department = await world.sql(
+        "SELECT id FROM departments WHERE tenant_id = $1 LIMIT 1", a.tenant
+    )
+    if not department:
+        department = await world.sql(
+            "INSERT INTO departments (tenant_id, id, name) VALUES ($1, gen_random_uuid(), 'Ops')"
+            " RETURNING id",
+            a.tenant,
+        )
+    await world.sql(
+        "UPDATE work_items SET department_id = $1 WHERE tenant_id = $2 AND id = ANY($3::uuid[])",
+        department[0]["id"],
+        a.tenant,
+        [survivor["id"], duplicate["id"]],
+    )
+    reply = await world.call(
+        "POST",
+        f"{PORTAL}/{survivor['id']}/replies",
+        a,
+        a.requester,
+        json={"body": "<p>Still broken here.</p>"},
+        headers=CONSOLE,
+    )
+    assert reply.status_code == 201, reply.text
+    shown = await world.call(
+        "GET", f"{BASE}/{duplicate['id']}/merge-preview?into_id={survivor['id']}", a, a.admin
+    )
+    preview = shown.json()
+    assert preview["followers_added"] == [str(a.requester2)]
+    assert preview["followers_newly_seeing"] == 1
+    assert preview["needs_confirmation"] is True
+    duplicate = await _fresh(world, a, duplicate)
+    waiting = await _merge(world, a, a.admin, duplicate, survivor, confirm=False)
+    assert _problem(waiting) == (409, "merge_widens_audience")
+    assert waiting.json()["params"]["followers"] == "1"
+    done = await _merge(world, a, a.admin, duplicate, survivor, confirm=True)
+    assert done.status_code == 200, done.text
+    # A requester's follow grants no portal reach: the survivor stays out of their portal; what
+    # they gain is the survivor's public replies and notes by e-mail (counted above).
+    seen = await world.call("GET", f"{PORTAL}/{survivor['id']}/conversation", a, a.requester2)
+    assert seen.status_code == 404, seen.text
+    follows = await world.sql(
+        "SELECT grants_access FROM work_item_followers WHERE tenant_id = $1"
+        " AND work_item_id = $2 AND user_id = $3 AND deleted_at IS NULL",
+        a.tenant,
+        survivor["id"],
+        a.requester2,
+    )
+    assert [r["grants_access"] for r in follows] == [False]
