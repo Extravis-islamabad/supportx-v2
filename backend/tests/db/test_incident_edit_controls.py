@@ -113,6 +113,13 @@ async def test_a_named_field_needs_a_reason_on_any_incident(world: World) -> Non
     )
     assert named.status_code == 200, named.text
     assert named.json()["closure"]["edit_reason_fields"] == ["urgency"]
+    # Naming the fields is a settings change, audited with the names it changed (lane B, #523).
+    changed = await world.sql(
+        "SELECT details FROM audit_entries WHERE tenant_id = $1"
+        " AND action = 'incident.settings_changed'",
+        a.tenant,
+    )
+    assert any("edit_reason_fields" in str(row["details"]) for row in changed)
     item = await world.create(a, a.admin, group_id=str(a.ga))
     refused = await _edit(world, a, a.admin, item, urgency="low")
     assert refused.status_code == 422, refused.text

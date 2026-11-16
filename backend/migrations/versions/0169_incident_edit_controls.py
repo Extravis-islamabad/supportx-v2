@@ -43,6 +43,7 @@ BEGIN
             RAISE EXCEPTION 'downgrade refused: tenant % uses incident edit controls (rule 5h)', t;
         END IF;
     END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
 END $$;
 """  # noqa: S608 - fixed table names, no input
 
