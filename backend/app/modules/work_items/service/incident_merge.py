@@ -23,7 +23,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Conflict
+from app.core.errors import Conflict, PermissionDenied
 from app.modules import identity_access
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.conversation import FollowReason
@@ -38,7 +38,7 @@ from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.infra.models import WorkItem, WorkItemLink
 from app.modules.work_items.service import followers, parts
 from app.modules.work_items.service import work_items as items
-from app.shared.history import Change, Source
+from app.shared.history import Change, FieldChange, Source
 
 MERGED = DefaultStatus.MERGED.value
 MERGE_FIELD = "merge"  # the history change that records what moved
@@ -258,3 +258,110 @@ async def merge(  # noqa: PLR0913 - both incidents, the version, the confirmatio
         extra=[Change(MERGE_FIELD, None, what)],
     )
     return MergeOutcome(updated, moved=list(shown.children))
+
+
+UNDO_MERGE = "undo_merge"  # incidents.undo_merge: tenant admin and SDM (coordinator, 11-14)
+
+
+async def _last_merge(session: AsyncSession, record_id: uuid.UUID) -> dict[str, Any] | None:
+    found = await session.scalar(
+        select(FieldChange.new_value)
+        .where(
+            FieldChange.record_type == items.RECORD_TYPE,
+            FieldChange.record_id == record_id,
+            FieldChange.field == MERGE_FIELD,
+            FieldChange.new_value.is_not(None),
+        )
+        .order_by(FieldChange.occurred_at.desc())
+        .limit(1)
+    )
+    return found if isinstance(found, dict) else None
+
+
+async def _child_back(
+    session: AsyncSession,
+    link: WorkItemLink,
+    survivor: WorkItem,
+    duplicate: WorkItem,
+    source: Source,
+) -> None:
+    """A child the merge moved goes back under the duplicate, with history on all three."""
+    child = await session.get(WorkItem, link.source_id)
+    if child is None:  # pragma: no cover - a link always has its records (FK)
+        return
+    links = parts.LinkRepository(session)
+    gone = await links.soft_delete(link.id, expected_version=link.version)
+    await parts.link_recorded(session, child, survivor, gone, "child_removed", source)
+    back = await links.add(
+        WorkItemLink(source_id=child.id, target_id=duplicate.id, kind=LinkKind.CHILD_OF.value)
+    )
+    await parts.link_recorded(session, child, duplicate, back, "child_added", source)
+
+
+def _not_exact(duplicate: WorkItem, why: str) -> Conflict:
+    return Conflict(
+        code="merge_undo_not_exact", params={"display_id": duplicate.display_id, "why": why}
+    )
+
+
+async def undo_merge(
+    session: AsyncSession,
+    subject: Subject,
+    duplicate_id: uuid.UUID,
+    *,
+    expected_version: int,
+    source: Source,
+) -> MergeOutcome:
+    """Put a merged incident back exactly as it was, or refuse (lane B).
+
+    Needs `incidents.undo_merge` (the route also asks for a recent sign-in). Refused with
+    `merge_undo_not_exact` when the survivor has since closed, merged or been converted, or a
+    child that moved has since been linked elsewhere: a partial undo would leave records where
+    nobody put them.
+    """
+    duplicate = await items.record_for_action(session, subject, INCIDENT, "view", duplicate_id)
+    if not await items.may(session, subject, INCIDENT, UNDO_MERGE, duplicate.id):
+        raise PermissionDenied(params={"permission": INCIDENT.permission(UNDO_MERGE)})
+    if duplicate.status != MERGED:
+        raise Conflict(code="not_merged", params={"display_id": duplicate.display_id})
+    if duplicate.version != expected_version:
+        raise await items.stale_record(session, duplicate, expected_version)
+    what = await _last_merge(session, duplicate.id)
+    link = await session.scalar(
+        select(WorkItemLink).where(
+            WorkItemLink.source_id == duplicate.id,
+            WorkItemLink.kind == LinkKind.MERGED_INTO.value,
+            WorkItemLink.deleted_at.is_(None),
+        )
+    )
+    if what is None or link is None:  # pragma: no cover - a merge always writes both
+        raise Conflict(code="not_merged", params={"display_id": duplicate.display_id})
+    survivor = await items.record_for_action(session, subject, INCIDENT, "edit", link.target_id)
+    if not _open(survivor):
+        raise _not_exact(duplicate, "survivor_closed")
+    wanted = {uuid.UUID(i) for i in what.get("children", [])}
+    now_under = {c.source_id: c for c in await _children(session, survivor.id)}
+    if not wanted <= set(now_under):
+        raise _not_exact(duplicate, "children_moved")
+    links = parts.LinkRepository(session)
+    removed = await links.soft_delete(link.id, expected_version=link.version)
+    await parts.link_recorded(session, duplicate, survivor, removed, "child_removed", source)
+    for child_id in sorted(wanted, key=str):
+        await _child_back(session, now_under[child_id], survivor, duplicate, source)
+    for user in what.get("followers", []):
+        row = await followers.current(session, survivor.id, uuid.UUID(user))
+        if row is not None:  # since removed by someone: nothing to take back
+            await followers.unfollow(session, survivor, row, source=source)
+    fresh = await session.get(WorkItem, duplicate.id, populate_existing=True)
+    assert fresh is not None  # noqa: S101 - just read above
+    updated = await items.set_status(
+        session,
+        INCIDENT,
+        fresh,
+        WorkItemAction.UNDO_MERGE,
+        target=str(what.get("status") or DefaultStatus.NEW.value),
+        expected_version=fresh.version,
+        source=source,
+        extra=[Change(MERGE_FIELD, what, None)],
+    )
+    return MergeOutcome(updated, moved=sorted(wanted, key=str))

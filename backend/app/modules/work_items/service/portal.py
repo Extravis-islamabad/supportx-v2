@@ -456,11 +456,26 @@ async def conversation(
     found = await get_record(session, subject, record_id, wtype)
     if found.reach is PortalReach.APPROVER:
         return []  # an approver sees what is asked, not the requester's talk with the desk
+    # WP-046b S2: incidents merged into this one bring their public entries (never private
+    # notes); their requesters stay nameless here, so neither requester learns about the other.
+    merged = (
+        await session.execute(
+            select(WorkItem.id, WorkItem.requester_id, WorkItem.on_behalf_of_id)
+            .join(WorkItemLink, WorkItemLink.source_id == WorkItem.id)
+            .where(
+                WorkItemLink.target_id == found.record.id,
+                WorkItemLink.kind == LinkKind.MERGED_INTO.value,
+                WorkItemLink.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    nameless = {u for _, *people in merged for u in people if u is not None}
+    nameless -= {found.record.requester_id, found.record.on_behalf_of_id}
     rows = list(
         await session.scalars(
             select(WorkItemConversation)
             .where(
-                WorkItemConversation.work_item_id == found.record.id,
+                WorkItemConversation.work_item_id.in_([found.record.id, *(m[0] for m in merged)]),
                 WorkItemConversation.visibility == Visibility.PUBLIC,
                 WorkItemConversation.deleted_at.is_(None),
             )
@@ -477,7 +492,9 @@ async def conversation(
             e.kind,
             e.body,
             e.created_at,
-            names[str(e.created_by)][0] if str(e.created_by) in names else None,
+            names[str(e.created_by)][0]
+            if str(e.created_by) in names and e.created_by not in nameless
+            else None,
             e.created_by == subject.user_id,
         )
         for e in rows

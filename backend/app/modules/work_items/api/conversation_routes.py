@@ -6,6 +6,7 @@ routes after it.
 """
 
 import uuid
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Literal
 
@@ -92,11 +93,21 @@ class ConversationEntryOut(BaseModel):
     created_at: datetime
     created_by: uuid.UUID | None
     version: int
+    from_record: str | None = Field(
+        default=None,
+        description=(
+            "WP-046b S2: the display ID of the merged incident this entry belongs to, when it is"
+            " not this record's own (read only here; open that record to change it)."
+        ),
+    )
 
     @classmethod
-    def of(cls, row: WorkItemConversation) -> "ConversationEntryOut":
-        """From the stored row."""
+    def of(
+        cls, row: WorkItemConversation, origins: Mapping[uuid.UUID, str] | None = None
+    ) -> "ConversationEntryOut":
+        """From the stored row (`origins`: the merged records' display IDs, by record ID)."""
         return cls(
+            from_record=(origins or {}).get(row.work_item_id),
             id=row.id,
             kind=EntryKind(row.kind),
             visibility=Visibility(row.visibility),
@@ -480,7 +491,7 @@ def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: 
         """Replies and notes, oldest first; private notes are marked (staff only)."""
         found = await service.timeline(session, subject, wtype, record_id, kind=kind)
         return ConversationOut(
-            items=[ConversationEntryOut.of(e) for e in found.entries],
+            items=[ConversationEntryOut.of(e, found.merged_from) for e in found.entries],
             truncated=found.truncated,
             people=_people(found.names),
         )
