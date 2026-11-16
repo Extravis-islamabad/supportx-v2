@@ -1611,6 +1611,31 @@ it with no reload (rule c). Not built yet.
   - Also #510: a record handed out of reach (D-053) came back unredacted; fixed, with a guard
     that a record view is built only where it is redacted.
 
+### [~] WP-046b — Incidents V1, file 01 §13-23 (lane A, 2026-11-14; 5 sessions, one migration each; 31 REQs)
+
+Plan approved by the coordinator 2026-11-14 (order S1, S2, S4, S3, S5). REQ-INC-132 goes to
+WP-056, -099 and -135 to WP-059b (lane C builds the AI; lane A adds hooks), -103 with WP-062b,
+-149 to its own mobile WP; projects relations (087) later. New rights (edit closed, undo merge,
+declare major) default to the tenant admin and service desk manager, grantable, each use audited.
+
+- [~] **S1, approvals and edit controls (0169; lane B blocks; lane C reads the UI):**
+  - REQ-INC-083: incidents get the approval engine's routes and an ad-hoc "Ask for approval"
+    with a rule (any one, all, a majority); one rejection under "all" rejects; the approval
+    status records the outcome, the status never moves; segregation of duties is the engine's;
+    approvers are asked in the app and by e-mail with their own one-time link (D-132's path),
+    and a named approver gets the incident's public side for it; the technician hears of a
+    rejection once the rule has rejected it. `incidents.approve` (technicians, service desk
+    managers).
+  - REQ-INC-101: `incidents.edit_closed` (service desk managers) opens a closed incident's fields
+    in the service (every path), a reason required, each edit audited (field names only); the
+    tenant's full lock outranks it, administrators included, and changes only through its own
+    route (RecentAuth, audited). Notes and replies are not field edits; reopening is its own move.
+  - REQ-INC-124: a reason on any edit, kept in history; the fields the tenant names need one.
+  - REQ-INC-102: first-contact resolution suggested at the first resolution (creator, never
+    reassigned, within the tenant's minutes), confirmed or changed by the technician.
+  - Console: Approvals tab and the ask dialog, the "Why" box on closed or named fields, the
+    closure settings (reason fields, first-contact minutes, the lock), the first-contact flag.
+
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
   (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).
@@ -2572,6 +2597,9 @@ it with no reload (rule c). Not built yet.
 - [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
   short one-word names flagged, never stored; task mentions say they reach the record's task
   history; task-history phone match per digit run.
+- [x] Assets erasure ports (lane B): off open audits, future bookings cancelled; open
+  assignments and loans stay open, the approver sees `holdings` and the asset team is told once;
+  a guard test requires a port or a stated exemption for every module naming people.
 - [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
   deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
 - **S2, lane A's ports (0166; lane B blocked):**
@@ -2606,6 +2634,12 @@ it with no reload (rule c). Not built yet.
     mail they sent skipped (their erasure port clears it); the passage needs the email
     connector right.
   - A 100k-record timing test: each find batch p95 under 500 ms with no pre-filter.
+- **`service_catalog` erasure port (no migration; lane B blocks; their readiness check):**
+  catalog items' owner, named approvers and backup approver pass to the successor; the default
+  technician and a planned task's owner are cleared (the group takes them). Band 500 (520), a
+  bounded batch per call, history with reason `erased_on_request` and the usual item event.
+- **D-171 starter item** "Personal data request (export or erasure)": a draft in People and HR,
+  handled by an administrator in Admin › People › Personal data (internal tasks); en/ar/ur.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 

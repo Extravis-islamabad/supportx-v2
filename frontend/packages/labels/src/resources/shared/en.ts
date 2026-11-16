@@ -520,6 +520,10 @@ export const en = {
   'settings.closing.close_requires': 'Needed before closing',
   'settings.closing.close_requires_help':
     'Fields that must be filled before an incident can be closed.',
+  'settings.closing.closed_edit_lock': 'Lock closed incidents',
+  'settings.closing.closed_edit_lock_help':
+    'While on, no one changes a closed incident\'s fields, holders of "Edit closed incidents" and administrators included. Notes and replies go on. It saves at once and may ask you to confirm your sign-in.',
+  'settings.closing.closed_edit_lock_switch': 'Lock closed incidents fully',
   'settings.closing.complete_open_work': 'Complete open work on close',
   'settings.closing.complete_open_work_help': 'Closing an incident marks its open work as done.',
   'settings.closing.condition.review_completed': 'Review completed',
@@ -527,6 +531,12 @@ export const en = {
   'settings.closing.copy_limit_help':
     'How many copies of an incident one request may make, {{min}} to {{max}}.',
   'settings.closing.days_range': 'From {{min}} to {{max}} business days.',
+  'settings.closing.edit_reason_fields': 'Fields that need a reason to change',
+  'settings.closing.edit_reason_fields_help':
+    "Whoever changes one of these says why; the reason is kept in the record's history.",
+  'settings.closing.first_contact_minutes': 'First-contact window (minutes)',
+  'settings.closing.first_contact_minutes_help':
+    'An incident its creator resolves within this time, never reassigned, is suggested as resolved at first contact ({{min}} to {{max}}).',
   'settings.closing.help':
     'What resolving and closing an incident need, what happens to open work, and how long a requester can reopen it with a reply.',
   'settings.closing.open_work': 'Open work',
