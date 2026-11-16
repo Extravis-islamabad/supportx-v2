@@ -77,6 +77,11 @@ REQUIRED_PORTS: frozenset[str] = frozenset(
         "analytics",
         "announcements",
         "ai",
+        # Required before their ports exist (the readiness check, 2026-11-14): assets holds
+        # ownership, assignments, loans and bookings (lane B), the catalog its items' owner and
+        # default technician (lane A). Until both register, approval and the job refuse.
+        "assets",
+        "service_catalog",
     }
 )
 

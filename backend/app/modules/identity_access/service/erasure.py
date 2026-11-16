@@ -40,6 +40,7 @@ from app.modules.identity_access.service.erasure_mentions import (
 )
 from app.modules.identity_access.service.legal_hold import person_held
 from app.modules.identity_access.service.people import get_person
+from app.modules.identity_access.service.person_data import missing_ports
 from app.modules.identity_access.service.roles import guard_last_admin, holds_tenant_admin
 from app.shared.events import record_event
 from app.shared.files.infra.models import StoredFile
@@ -272,6 +273,10 @@ async def approve(  # noqa: PLR0913 - the erasure, its version, who and the type
         raise Conflict(code=rules.REPORT_NOT_REVIEWED)
     if not DIRECTORY_SYNC_SKIPS_ERASED:
         raise Conflict(code=rules.DIRECTORY_SYNC_UNSAFE)
+    if missing := missing_ports():
+        # A module that holds person data has no erasure port yet: never approved, so the job
+        # can never run and skip it (the readiness check, 2026-11-14).
+        raise Conflict(code=rules.PORT_MISSING, params={"missing_ports": ",".join(sorted(missing))})
     if await signed_history_kept(session, row.id):
         # D-171: a redacted original is never kept; signed history cannot be redacted yet.
         raise Conflict(code=rules.SIGNED_HISTORY_KEPT)
