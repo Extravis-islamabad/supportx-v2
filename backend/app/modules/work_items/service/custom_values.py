@@ -29,6 +29,7 @@ from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.infra.models import WorkItem, WorkItemFieldIndex
 from app.shared.api.filters import FieldType, FilterField
 from app.shared.crypto.codec import TEXT_PREFIX
+from app.shared.db.models import utc_now
 from app.shared.fields import Binding, field_cipher_for, purpose
 from app.shared.history import Change
 from app.shared.ids import new_id
@@ -294,7 +295,7 @@ async def write_index(
             )
             .on_conflict_do_update(
                 constraint="uq_work_item_field_index_place",
-                set_={"key_id": key_id, "digest": digest},
+                set_={"key_id": key_id, "digest": digest, "updated_at": utc_now()},
             )
         )
 

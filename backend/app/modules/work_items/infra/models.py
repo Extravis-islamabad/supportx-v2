@@ -2638,4 +2638,4 @@ class WorkItemFieldIndex(TenantKeyed, Base):
     key_id: Mapped[uuid.UUID]
     digest: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
