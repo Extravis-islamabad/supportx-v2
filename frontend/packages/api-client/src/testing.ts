@@ -773,6 +773,8 @@ export function fakeCustomField(overrides: Partial<CustomField> = {}): CustomFie
     in_use: false,
     index_state: 'none',
     index_error: null,
+    sensitive: false,
+    seal_state: 'plain',
     version: 1,
     ...overrides,
   };

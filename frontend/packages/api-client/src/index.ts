@@ -243,6 +243,13 @@ export {
   type CustomFieldValidation,
 } from './customFields';
 export {
+  useFieldSensitivity,
+  useSetFieldSensitivity,
+  type FieldSealState,
+  type FieldSensitivity,
+  type SensitivityChange,
+} from './fieldSensitivity';
+export {
   fetchMentionable,
   sendTyping,
   useAddConversationEntry,

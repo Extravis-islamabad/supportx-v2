@@ -104,6 +104,23 @@ export const en = {
   'custom_fields.retired': 'Retired',
   'custom_fields.retired_fields': 'Retired fields',
   'custom_fields.retired_value': '{{name}} (retired)',
+  'custom_fields.sensitive': 'Sensitive: store values sealed',
+  'custom_fields.sensitive_help':
+    "Its values are stored encrypted and found by their exact value only: they can't be searched for, sorted or reported on, and who may read them follows the field's access rules.",
+  'custom_fields.sensitive_off_confirm': 'Type {{name}} to confirm',
+  'custom_fields.sensitive_off_impact_one':
+    "{{count}} record's value will be stored readable again.",
+  'custom_fields.sensitive_off_impact_other':
+    "{{count}} records' values will be stored readable again.",
+  'custom_fields.sensitive_off_kept':
+    'History written while it was sensitive stays sealed. Existing exports and backups are not changed.',
+  'custom_fields.sensitive_off_ok': 'Store readable',
+  'custom_fields.sensitive_off_reason': 'Why (kept in the audit log)',
+  'custom_fields.sensitive_off_title': 'Store {{name}} readable again?',
+  'custom_fields.sensitive_opening_help':
+    'Opening the stored values back to readable text now. Until it finishes, lists cannot be filtered by this field.',
+  'custom_fields.sensitive_sealing_help':
+    'Sealing the stored values now. Until it finishes, lists cannot be filtered by this field.',
   'custom_fields.someone': 'Someone',
   'custom_fields.title': 'Custom fields',
   'custom_fields.type': 'Type',
