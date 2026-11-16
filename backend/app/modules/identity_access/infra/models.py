@@ -77,6 +77,22 @@ class User(TenantEntity):
             " AND NOT can_sign_in)",
             name="service_no_sign_in",
         ),
+        # A service account's owner and purpose (WP-057 S4a, REQ-SEC-036; 0174): service only.
+        CheckConstraint(
+            "user_type = 'service' OR (service_owner_id IS NULL AND service_description IS NULL)",
+            name="service_fields",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "service_owner_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_users_service_owner",
+        ),
+        Index(
+            "ix_users_tenant_service_owner",
+            "tenant_id",
+            "service_owner_id",
+            postgresql_where=text("service_owner_id IS NOT NULL"),
+        ),
         # Synced from a directory (WP-040 session 2): its fields are the directory's to change.
         CheckConstraint(
             "directory_source IS NULL OR directory_source IN ('entra', 'ldap')",
@@ -219,6 +235,10 @@ class User(TenantEntity):
     manager_id: Mapped[uuid.UUID | None]
     # May sign in (REQ-ADM-004); without it the person is a contact (requester by email).
     can_sign_in: Mapped[bool] = mapped_column(server_default="true")
+    # WP-057 S4a (REQ-SEC-036): who answers for a service account and what it is for. When the
+    # owner is deactivated the account is flagged for hand-over (REQ-ADM-011).
+    service_owner_id: Mapped[uuid.UUID | None]
+    service_description: Mapped[str | None] = mapped_column(String(500))
     invited_at: Mapped[datetime | None]
     # Per-person override of what a manager sees in the portal (REQ-ADM-035, used by WP-028):
     # NULL = the tenant's rule; "site" = all requests of their site.
@@ -447,6 +467,8 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
 
     __tablename__ = "identity_settings"
     __table_args__ = (
+        CheckConstraint("key_max_lifetime_days BETWEEN 1 AND 366", name="key_max_lifetime_days"),
+        CheckConstraint("key_unused_days BETWEEN 7 AND 365", name="key_unused_days"),
         CheckConstraint(
             f"console_idle_seconds BETWEEN {MIN_IDLE_SECONDS} AND {MAX_IDLE_SECONDS}"
             " AND portal_idle_seconds BETWEEN "
@@ -520,6 +542,11 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     # without an expiry date are allowed (off: 90 days by default, at most a year).
     people_may_create_keys: Mapped[bool] = mapped_column(server_default="false")
     allow_non_expiring_keys: Mapped[bool] = mapped_column(server_default="false")
+    # WP-057 S4a (REQ-SEC-037; 0174): the key policy for new and renewed keys. Keys made before
+    # a stricter policy are flagged and listed, never revoked (the coordinator, 2026-11-16).
+    key_max_lifetime_days: Mapped[int] = mapped_column(server_default="366")
+    keys_require_ip_range: Mapped[bool] = mapped_column(server_default="false")
+    key_unused_days: Mapped[int] = mapped_column(server_default="90")
     # REQ-SEC-034 (WP-057 S1a, 0151): who may sign in or call, by address, per app. Empty = no
     # restriction; at most IP_ALLOW_MAX entries each. The API's list applies to API keys.
     console_ip_allow: Mapped[list[str]] = mapped_column(
