@@ -17,7 +17,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, exists, false, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,8 @@ from app.core.config import Settings, get_settings
 from app.core.errors import FieldError, ValidationFailed
 from app.modules import metadata
 from app.modules.work_items.domain import field_access as field_rules
-from app.modules.work_items.infra.models import WorkItemFieldIndex
+from app.modules.work_items.infra.models import WorkItem, WorkItemFieldIndex
+from app.shared.api.filters import FieldType, FilterField
 from app.shared.crypto.codec import TEXT_PREFIX
 from app.shared.fields import Binding, field_cipher_for, purpose
 from app.shared.history import Change
@@ -298,50 +299,8 @@ async def not_plain_keys(session: AsyncSession, entity: str) -> frozenset[str]:
     )
 
 
-async def matching_records(
-    session: AsyncSession,
-    key: str,
-    values: Iterable[object],
-    *,
-    settings: Settings | None = None,
-) -> frozenset[uuid.UUID]:
-    """Records whose sealed `key` equals any of `values` (an `eq` / `in` filter, WP-057 S3b-2).
-
-    Each index row keeps the data key its digest was made under, so the values are digested once
-    per data key in use for that field: a data-key rotation needs no immediate rebuild.
-    """
-    key_ids = list(
-        await session.scalars(
-            select(WorkItemFieldIndex.key_id).where(WorkItemFieldIndex.field_key == key).distinct()
-        )
-    )
-    if not key_ids:
-        return frozenset()
-    cipher = field_cipher_for(session, settings or get_settings())
-    pairs: list[tuple[uuid.UUID, str]] = []
-    for value in values:
-        for key_id, digest in (
-            await cipher.blind_under(CUSTOM, _blind_text(value), key_ids)
-        ).items():
-            pairs.append((key_id, digest))
-    if not pairs:
-        return frozenset()
-    found: set[uuid.UUID] = set()
-    for key_id, digest in pairs:
-        found.update(
-            await session.scalars(
-                select(WorkItemFieldIndex.work_item_id).where(
-                    WorkItemFieldIndex.field_key == key,
-                    WorkItemFieldIndex.key_id == key_id,
-                    WorkItemFieldIndex.digest == digest,
-                )
-            )
-        )
-    return frozenset(found)
-
-
 NOT_FILTERABLE = "field_not_filterable_sealed"
-NOTHING = "00000000-0000-0000-0000-000000000000"  # an ID no record has: "no match"
+SEALED_PREFIX = "sealed."  # the rewritten filter's own field: one per sealed key matched
 
 
 def _refused(name: str) -> ValidationFailed:
@@ -368,17 +327,50 @@ async def _seal_states(session: AsyncSession, entity: str) -> dict[str, str]:
 
 
 class _SealedFilters:
-    """Rewrites one list filter's sealed fields to their blind index (WP-057 S3b-2)."""
+    """Rewrites one list filter's sealed fields to their blind index (WP-057 S3b-2).
+
+    Each match becomes a field of its own, `sealed.<n>`: EXISTS a row of the index for this record,
+    this key and one of the (data key, digest) pairs the values digest to. A subquery, never a list
+    of IDs, so a common value costs no more than a rare one (lane A).
+    """
 
     def __init__(self, session: AsyncSession, states: Mapping[str, str]) -> None:
         self.session = session
         self.states = states
+        self.added: dict[str, FilterField] = {}
 
-    async def ids(self, name: str, values: list[object]) -> list[str]:
+    async def field(self, name: str, values: list[object]) -> str:
         if self.states[name] != "sealed":
             raise _refused(name)
-        found = await matching_records(self.session, name.removeprefix("custom."), values)
-        return sorted(str(i) for i in found) or [NOTHING]
+        key = name.removeprefix("custom.")
+        key_ids = list(
+            await self.session.scalars(
+                select(WorkItemFieldIndex.key_id)
+                .where(WorkItemFieldIndex.field_key == key)
+                .distinct()
+            )
+        )
+        cipher = field_cipher_for(self.session, get_settings())
+        pairs = [
+            (key_id, digest)
+            for value in values
+            for key_id, digest in (
+                await cipher.blind_under(CUSTOM, _blind_text(value), key_ids)
+            ).items()
+        ]
+        index = WorkItemFieldIndex.__table__.alias()
+        matches = (
+            exists().where(
+                index.c.work_item_id == WorkItem.id,
+                index.c.field_key == key,
+                tuple_(index.c.key_id, index.c.digest).in_(pairs),
+            )
+            if pairs
+            else false()
+        )
+        added = f"{SEALED_PREFIX}{len(self.added)}"
+        self.added[added] = FilterField(matches, FieldType.BOOLEAN)
+        return added
 
     async def node(self, node: Any) -> Any:  # noqa: ANN401 - one node of the DSL's JSON tree
         if not isinstance(node, dict):
@@ -391,22 +383,18 @@ class _SealedFilters:
             return node
         op, value = node.get("op"), node.get("value")
         if op == "eq":
-            return {"field": "id", "op": "in", "value": await self.ids(name, [value])}
+            return {"field": await self.field(name, [value]), "op": "eq", "value": True}
         if op == "in" and isinstance(value, list):
-            return {"field": "id", "op": "in", "value": await self.ids(name, list(value))}
+            return {"field": await self.field(name, list(value)), "op": "eq", "value": True}
         raise _refused(name)
 
     async def params(self, simple: dict[str, list[str]]) -> dict[str, list[str]]:
         kept: dict[str, list[str]] = {}
-        matched: list[str] | None = None
         for name, values in simple.items():
             if name not in self.states:
                 kept[name] = values
                 continue
-            found = await self.ids(name, list(values))
-            matched = found if matched is None else sorted(set(matched) & set(found)) or [NOTHING]
-        if matched is not None:
-            kept["id"] = matched
+            kept[await self.field(name, list(values))] = ["true"]
         return kept
 
 
@@ -415,16 +403,23 @@ async def rewrite_sealed_filters(
     entity: str,
     tree: Any,  # noqa: ANN401 - the filter DSL's parsed JSON tree
     simple: dict[str, list[str]],
-) -> tuple[Any, dict[str, list[str]]]:
+    withheld: frozenset[str],
+) -> tuple[Any, dict[str, list[str]], Mapping[str, FilterField]]:
     """A list filter with every sealed field matched by its blind index (WP-057 S3b-2).
 
-    `eq` and `in` on a sealed field become `id in [the records whose digest matches]`; any other
-    operator on it, or any filter on a field still sealing or opening, is refused
-    (`field_not_filterable_sealed`): a sealed value is never compared as stored text.
+    `eq` and `in` on a sealed field become an EXISTS on the index; any other operator on it, or
+    any filter on a field still sealing or opening, is refused (`field_not_filterable_sealed`).
+    A field the caller's roles withhold is left as it is, so it stays refused as any withheld
+    field is: the index is never an oracle for a value they may not read (lane A).
     """
-    states = await _seal_states(session, entity)
+    states = {
+        name: state
+        for name, state in (await _seal_states(session, entity)).items()
+        if name not in withheld
+    }
     if not states:
-        return tree, simple
+        return tree, simple, {}
     rewrite = _SealedFilters(session, states)
     rewritten = await rewrite.node(tree) if tree is not None else None
-    return rewritten, await rewrite.params(simple)
+    kept = await rewrite.params(simple)
+    return rewritten, kept, rewrite.added

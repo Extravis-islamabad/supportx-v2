@@ -260,8 +260,11 @@ def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dep
         session: AsyncSession,
         tree: Any,  # noqa: ANN401 - the filter DSL's parsed JSON tree
         simple: dict[str, list[str]],
-    ) -> tuple[Any, dict[str, list[str]]]:
-        return await custom_values.rewrite_sealed_filters(session, wtype.code.value, tree, simple)
+        withheld: frozenset[str],
+    ) -> tuple[Any, dict[str, list[str]], Mapping[str, FilterField]]:
+        return await custom_values.rewrite_sealed_filters(
+            session, wtype.code.value, tree, simple, withheld
+        )
 
     return list_query(
         FIELDS,
