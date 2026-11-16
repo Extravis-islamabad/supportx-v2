@@ -21,7 +21,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.modules import metadata
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.infra.models import WorkItemFieldIndex
@@ -53,18 +53,18 @@ def _binding(record_id: uuid.UUID, key: str) -> Binding:
 
 async def visible_custom(
     session: AsyncSession,
-    settings: Settings,
     record_id: uuid.UUID,
     custom: Mapping[str, Any] | None,
     *,
     unseen: field_rules.Unseen,
+    settings: Settings | None = None,
 ) -> Visible:
     """The custom values this reader may see, sealed ones opened; withheld ones never opened."""
     shown = field_rules.without(custom, unseen.custom_keys())
     sealed = {key: value for key, value in shown.items() if is_sealed(value)}
     if not sealed:
         return Visible(shown)
-    cipher = field_cipher_for(session, settings)
+    cipher = field_cipher_for(session, settings or get_settings())
     unreadable: set[str] = set()
     for key, value in sealed.items():
         opened = await cipher.open(CUSTOM, _binding(record_id, key), value)
@@ -82,15 +82,17 @@ async def visible_custom(
 
 async def visible_custom_many(
     session: AsyncSession,
-    settings: Settings,
     rows: Iterable[tuple[uuid.UUID, Mapping[str, Any] | None]],
     *,
     unseen: field_rules.Unseen,
+    settings: Settings | None = None,
 ) -> dict[uuid.UUID, Visible]:
-    """`visible_custom` for a page of records (one cipher; keys cached for the page)."""
+    """`visible_custom` for a page of records (the data keys cached for the page)."""
     found: dict[uuid.UUID, Visible] = {}
     for record_id, custom in rows:
-        found[record_id] = await visible_custom(session, settings, record_id, custom, unseen=unseen)
+        found[record_id] = await visible_custom(
+            session, record_id, custom, unseen=unseen, settings=settings
+        )
     return found
 
 
@@ -103,25 +105,52 @@ async def sealing_keys(session: AsyncSession, entity: str) -> frozenset[str]:
     )
 
 
+@dataclass(frozen=True)
+class Sealed:
+    """Custom values as they are stored, and the blind-index changes to write after the save."""
+
+    stored: dict[str, Any]
+    # key -> (data key ID, digest) to write; key -> None to drop (the value was cleared).
+    index: dict[str, tuple[uuid.UUID, str] | None] = field(default_factory=dict)
+
+
 async def seal_custom(
     session: AsyncSession,
-    settings: Settings,
     record_id: uuid.UUID,
     custom: Mapping[str, Any] | None,
     *,
     sealed_keys: frozenset[str],
-) -> dict[str, Any]:
-    """The values as stored: sealed for the keys in `sealed_keys`, the blind index kept in step.
+    settings: Settings | None = None,
+) -> Sealed:
+    """The values as stored: sealed for the keys in `sealed_keys`, with their index changes.
 
-    A value already sealed is kept as it is (a save that did not change it). None removes the
-    key's index row.
+    A value already sealed is kept as it is (a save that did not change it): never re-sealed, so
+    its index row stays too. A cleared value drops its row.
     """
     stored = dict(custom or {})
     if not sealed_keys:
-        return stored
-    cipher = field_cipher_for(session, settings)
+        return Sealed(stored)
+    cipher = field_cipher_for(session, settings or get_settings())
+    index: dict[str, tuple[uuid.UUID, str] | None] = {}
     for key in sealed_keys:
-        if key not in stored or stored[key] is None:
+        value = stored.get(key)
+        if value is None:
+            index[key] = None
+            continue
+        if is_sealed(value):
+            continue
+        plain = json.dumps(value, ensure_ascii=False, sort_keys=True)
+        stored[key] = await cipher.seal(CUSTOM, _binding(record_id, key), plain)
+        index[key] = await cipher.blind(CUSTOM, _blind_text(value))
+    return Sealed(stored, index)
+
+
+async def write_index(
+    session: AsyncSession, record_id: uuid.UUID, index: Mapping[str, tuple[uuid.UUID, str] | None]
+) -> None:
+    """Apply a save's blind-index changes (after the record row exists)."""
+    for key, entry in index.items():
+        if entry is None:
             await session.execute(
                 delete(WorkItemFieldIndex).where(
                     WorkItemFieldIndex.work_item_id == record_id,
@@ -129,27 +158,17 @@ async def seal_custom(
                 )
             )
             continue
-        value = stored[key]
-        if is_sealed(value):
-            continue
-        plain = json.dumps(value, ensure_ascii=False, sort_keys=True)
-        stored[key] = await cipher.seal(CUSTOM, _binding(record_id, key), plain)
-        key_id, digest = await cipher.blind(CUSTOM, _blind_text(value))
+        key_id, digest = entry
         await session.execute(
             insert(WorkItemFieldIndex)
             .values(
-                id=new_id(),
-                work_item_id=record_id,
-                field_key=key,
-                key_id=key_id,
-                digest=digest,
+                id=new_id(), work_item_id=record_id, field_key=key, key_id=key_id, digest=digest
             )
             .on_conflict_do_update(
                 constraint="uq_work_item_field_index_place",
                 set_={"key_id": key_id, "digest": digest},
             )
         )
-    return stored
 
 
 def _blind_text(value: object) -> str:
@@ -159,9 +178,10 @@ def _blind_text(value: object) -> str:
 
 async def matching_records(
     session: AsyncSession,
-    settings: Settings,
     key: str,
     values: Iterable[object],
+    *,
+    settings: Settings | None = None,
 ) -> frozenset[uuid.UUID]:
     """Records whose sealed `key` equals any of `values` (an `eq` / `in` filter, WP-057 S3b-2).
 
@@ -175,7 +195,7 @@ async def matching_records(
     )
     if not key_ids:
         return frozenset()
-    cipher = field_cipher_for(session, settings)
+    cipher = field_cipher_for(session, settings or get_settings())
     pairs: list[tuple[uuid.UUID, str]] = []
     for value in values:
         for key_id, digest in (

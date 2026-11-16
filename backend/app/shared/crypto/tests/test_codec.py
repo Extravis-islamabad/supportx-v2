@@ -176,3 +176,27 @@ def test_keys_for_one_purpose_never_open_another() -> None:
     blob = ring.seal("bff-session", ["x"], b"v")
     assert ring.open("bff-session", ["x"], blob) == b"v"
     assert ring.open("field/x", ["x"], blob) is None
+
+
+# --- the blind index (WP-057 S3b-2) ---------------------------------------------------------------
+
+
+def test_a_blind_digest_matches_the_same_value_written_differently() -> None:
+    from app.shared.crypto import blind_digest  # noqa: PLC0415
+
+    secret = b"s" * 32
+    full_width = "  \uff33\uff41\uff4d Lee "  # "Sam" in full-width letters, outer spaces
+    one = blind_digest(secret, "field.work_items.custom", full_width)
+    assert one == blind_digest(secret, "field.work_items.custom", "sam lee")  # NFKC, case, space
+    assert len(one) == 64
+    assert all(c in "0123456789abcdef" for c in one)
+    assert "sam" not in one
+
+
+def test_a_blind_digest_depends_on_the_key_and_the_purpose() -> None:
+    from app.shared.crypto import blind_digest  # noqa: PLC0415
+
+    base = blind_digest(b"s" * 32, "field.work_items.custom", "x")
+    assert base != blind_digest(b"t" * 32, "field.work_items.custom", "x")  # another data key
+    assert base != blind_digest(b"s" * 32, "field.work_items.other", "x")  # another purpose
+    assert base != blind_digest(b"s" * 32, "field.work_items.custom", "y")
