@@ -25,13 +25,13 @@ CONFLICT_409: dict[int | str, dict[str, object]] = {
 }
 
 
-class ChildIn(BaseModel):
+class IncidentChildIn(BaseModel):
     """The incident to make a child of this one."""
 
     child_id: uuid.UUID
 
 
-class ChildOut(BaseModel):
+class IncidentChildOut(BaseModel):
     """The new parent link (child -> parent)."""
 
     link_id: uuid.UUID
@@ -48,11 +48,11 @@ def add_children_routes(router: APIRouter, wtype: WorkItemType) -> None:
         "/{record_id}/children",
         summary="Add a child incident",
         status_code=status.HTTP_201_CREATED,
-        response_model=ChildOut,
+        response_model=IncidentChildOut,
     )
     async def add_child(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,
-        body: ChildIn,
+        body: IncidentChildIn,
         session: TenantSession,
         subject: edit,
         idempotency: Idempotency,
@@ -65,7 +65,7 @@ def add_children_routes(router: APIRouter, wtype: WorkItemType) -> None:
                 session, subject, wtype, record_id, body.child_id, source=source_of(request)
             )
             return Created(
-                body=ChildOut(
+                body=IncidentChildOut(
                     link_id=link.id,
                     child_id=link.source_id,
                     parent_id=link.target_id,

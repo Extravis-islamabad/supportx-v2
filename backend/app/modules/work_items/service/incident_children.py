@@ -25,6 +25,10 @@ from app.modules.work_items.service import work_items as items
 from app.shared.history import Source
 
 CHILD_OF = LinkKind.CHILD_OF.value
+# Field problem codes of adding a child (the label check reads them from here).
+CHILD_PROBLEMS = frozenset(
+    {"already_has_parent", "parent_is_a_child", "child_has_children", "record_closed"}
+)
 
 
 async def _count(session: AsyncSession, *conditions: ColumnElement[bool]) -> int:

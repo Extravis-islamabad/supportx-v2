@@ -13,7 +13,7 @@ down (as 0104, 0115 and 0138 do), so lanes adding codes in either order keep eac
 downgrade stops while a row uses them (rule 5h).
 
 Revision ID: 0172
-Revises: 0168
+Revises: 0169
 Created: 2026-11-16
 """
 
@@ -31,7 +31,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0172"
-down_revision: str | None = "0168"  # re-pointed onto 0171 at its queue turn (coordinator)
+down_revision: str | None = "0169"  # main's head; onto 0171 at its queue turn (coordinator)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

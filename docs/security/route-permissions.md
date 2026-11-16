@@ -605,6 +605,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/incidents/{record_id}/checklists` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/checklists/{checklist_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/checklists/{checklist_id}/items` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/children` | `incidents.edit` | incidents.edit: all/site/group/own |
+| DELETE | `/api/v1/incidents/{record_id}/children/{link_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/{record_id}/conversation/{entry_id}` | `incidents.view` | incidents.view: all/site/group/own |
@@ -618,6 +620,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/incidents/{record_id}/links` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/links/{link_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/mentionable` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/merge` | `incidents.edit` | incidents.edit: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/merge-preview` | `incidents.edit` | incidents.edit: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill` | `incidents.view` | incidents.view: all/site/group/own |
@@ -640,6 +644,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/incidents/{record_id}/timer/auto` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/timer/stop` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/typing` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/undo-merge` | `incidents.edit` | incidents.edit: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/worklogs` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/worklogs` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/worklogs/{worklog_id}` | `incidents.view` | incidents.view: all/site/group/own |
@@ -1457,6 +1462,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `incidents.reply` | all | all |
 | service_desk_manager | `incidents.resolve` | all | all |
 | service_desk_manager | `incidents.take` | all | all |
+| service_desk_manager | `incidents.undo_merge` | all | all |
 | service_desk_manager | `incidents.view` | all | all |
 | service_desk_manager | `incidents.view_costs` | all | all |
 | service_desk_manager | `integrations.view` | all | all |
@@ -1833,6 +1839,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `incidents.reply` | all | all |
 | tenant_admin | `incidents.resolve` | all | all |
 | tenant_admin | `incidents.take` | all | all |
+| tenant_admin | `incidents.undo_merge` | all | all |
 | tenant_admin | `incidents.view` | all | all |
 | tenant_admin | `incidents.view_costs` | all | all |
 | tenant_admin | `integrations.manage_email` | all | all |

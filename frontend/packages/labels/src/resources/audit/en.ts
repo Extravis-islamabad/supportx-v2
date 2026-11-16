@@ -256,6 +256,7 @@ export const en = {
   'audit.action.incident.deleted': 'Moved an incident to the trash',
   'audit.action.incident.due_date_changed': "Changed an incident's due date",
   'audit.action.incident.linked': 'Linked an incident to another record',
+  'audit.action.incident.merge_undone': 'Undid an incident merge',
   'audit.action.incident.merged': 'Merged an incident into another record',
   'audit.action.incident.note_visibility_changed': 'Made an incident note public or private',
   'audit.action.incident.part_added': 'Added an item to an incident',

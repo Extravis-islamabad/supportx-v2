@@ -55,6 +55,8 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "DELETE /api/v1/field-access/rules/{rule_id}",
     # Closed incidents locked fully, administrators included (WP-046b S1; lane B).
     "PUT /api/v1/incidents/settings/closed-edit-lock",
+    # Undoing an incident merge puts records back across two incidents (WP-046b S2; lane B).
+    "POST /api/v1/incidents/{record_id}/undo-merge",
     "PUT /api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}",
     # GDPR (D-171, ADR-052): legal hold, and both people of a person's erasure.
     "PUT /api/v1/people/{user_id}/legal-hold",

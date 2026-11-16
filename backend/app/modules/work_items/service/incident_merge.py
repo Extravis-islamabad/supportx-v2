@@ -38,6 +38,7 @@ from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.infra.models import WorkItem, WorkItemLink
 from app.modules.work_items.service import followers, parts
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.access import UNDO_MERGE
 from app.shared.history import Change, FieldChange, Source
 
 MERGED = DefaultStatus.MERGED.value
@@ -70,6 +71,7 @@ class MergeOutcome:
 
     record: WorkItem
     moved: list[uuid.UUID] = field(default_factory=list)
+    into_id: uuid.UUID | None = None  # the survivor
     stayed: list[uuid.UUID] = field(default_factory=list)
 
 
@@ -257,10 +259,7 @@ async def merge(  # noqa: PLR0913 - both incidents, the version, the confirmatio
         source=source,
         extra=[Change(MERGE_FIELD, None, what)],
     )
-    return MergeOutcome(updated, moved=list(shown.children))
-
-
-UNDO_MERGE = "undo_merge"  # incidents.undo_merge: tenant admin and SDM (coordinator, 11-14)
+    return MergeOutcome(updated, moved=list(shown.children), into_id=survivor.id)
 
 
 async def _last_merge(session: AsyncSession, record_id: uuid.UUID) -> dict[str, Any] | None:
@@ -364,4 +363,4 @@ async def undo_merge(
         source=source,
         extra=[Change(MERGE_FIELD, what, None)],
     )
-    return MergeOutcome(updated, moved=sorted(wanted, key=str))
+    return MergeOutcome(updated, moved=sorted(wanted, key=str), into_id=survivor.id)

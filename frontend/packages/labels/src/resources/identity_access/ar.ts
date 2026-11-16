@@ -671,6 +671,9 @@ export const ar: LabelResource = {
   'permission.incidents.resolve.description': 'تعليم الحوادث كمحلولة.',
   'permission.incidents.take': 'تولي الحوادث',
   'permission.incidents.take.description': 'تولي حادثة لم يتولّها أحد بعد.',
+  'permission.incidents.undo_merge': 'التراجع عن دمج الحوادث',
+  'permission.incidents.undo_merge.description':
+    'إعادة حادث مدمج كما كان. يطلب تأكيد تسجيل دخولك، ويُسجَّل كل استخدام في سجل التدقيق.',
   'permission.incidents.view': 'عرض الحوادث',
   'permission.incidents.view.description':
     'رؤية الحوادث وسجلها. نطاق المجموعة يعرض أيضًا حوادث مواقعك التي لم يتولّها أحد بعد.',

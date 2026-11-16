@@ -253,6 +253,7 @@ export const ar: LabelResource = {
   'audit.action.incident.deleted': 'نقل حادثة إلى سلة المحذوفات',
   'audit.action.incident.due_date_changed': 'غيّر موعد استحقاق حادثة',
   'audit.action.incident.linked': 'ربط حادثة بسجل آخر',
+  'audit.action.incident.merge_undone': 'تراجع عن دمج حادث',
   'audit.action.incident.merged': 'دمج حادثة في سجل آخر',
   'audit.action.incident.note_visibility_changed': 'جعل ملاحظة حادثة عامة أو خاصة',
   'audit.action.incident.part_added': 'أضاف عنصرًا إلى حادثة',

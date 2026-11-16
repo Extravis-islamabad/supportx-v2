@@ -854,6 +854,9 @@
   "incidents.take": [
    "all"
   ],
+  "incidents.undo_merge": [
+   "all"
+  ],
   "incidents.view": [
    "all"
   ],
@@ -1193,6 +1196,9 @@
    "all"
   ],
   "incidents.take": [
+   "all"
+  ],
+  "incidents.undo_merge": [
    "all"
   ],
   "incidents.view": [

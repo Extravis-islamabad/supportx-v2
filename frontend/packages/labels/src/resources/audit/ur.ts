@@ -253,6 +253,7 @@ export const ur: LabelResource = {
   'audit.action.incident.deleted': 'واقعہ ردی کی ٹوکری میں ڈالا',
   'audit.action.incident.due_date_changed': 'واقعہ کی مقررہ تاریخ تبدیل کی',
   'audit.action.incident.linked': 'واقعے کو دوسرے ریکارڈ سے جوڑا',
+  'audit.action.incident.merge_undone': 'واقعے کا انضمام واپس کیا',
   'audit.action.incident.merged': 'واقعے کو دوسرے ریکارڈ میں ضم کیا',
   'audit.action.incident.note_visibility_changed': 'واقعے کے نوٹ کو عوامی یا نجی بنایا',
   'audit.action.incident.part_added': 'واقعے میں ایک جز شامل کیا',

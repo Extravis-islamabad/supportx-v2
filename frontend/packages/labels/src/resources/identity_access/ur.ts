@@ -675,6 +675,9 @@ export const ur: LabelResource = {
   'permission.incidents.resolve.description': 'واقعات کو حل شدہ نشان زد کریں۔',
   'permission.incidents.take': 'واقعات خود لیں',
   'permission.incidents.take.description': 'ایسا واقعہ خود لیں جو ابھی کسی نے نہیں لیا۔',
+  'permission.incidents.undo_merge': 'واقعات کا انضمام واپس کریں',
+  'permission.incidents.undo_merge.description':
+    'ضم شدہ واقعے کو پہلے جیسا کریں۔ سائن اِن کی تصدیق مانگتا ہے؛ ہر استعمال آڈٹ ہوتا ہے۔',
   'permission.incidents.view': 'واقعات دیکھیں',
   'permission.incidents.view.description':
     'واقعات اور ان کی تاریخ دیکھیں۔ گروپ دائرہ آپ کے مقامات کے وہ واقعات بھی دکھاتا ہے جو ابھی کسی نے نہیں لیے۔',

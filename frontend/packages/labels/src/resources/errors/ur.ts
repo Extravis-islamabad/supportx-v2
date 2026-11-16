@@ -320,6 +320,8 @@ export const ur: LabelResource = {
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
   'errors.field.address_not_allowed':
     'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
+  'errors.field.already_has_parent':
+    'اس واقعے کا پہلے سے ایک مرکزی واقعہ ہے؛ پہلے اسے وہاں سے ہٹائیں۔',
   'errors.field.already_linked': 'یہ ریکارڈ پہلے سے منسلک ہیں۔',
   'errors.field.announcement_message_required': 'وہ پیغام لکھیں جو لوگ دیکھیں گے۔',
   'errors.field.api_key_allowlist_invalid':
@@ -417,6 +419,8 @@ export const ur: LabelResource = {
     'کوئی تبدیلی براہ راست یا دوسروں کے ذریعے اپنا ہی حصہ نہیں ہو سکتی۔',
   'errors.field.channel_reserved':
     'صرف فون یا بالمشافہ چنا جا سکتا ہے؛ دوسرے ذرائع خود بخود طے ہوتے ہیں۔',
+  'errors.field.child_has_children':
+    'اس واقعے کے اپنے ذیلی واقعات ہیں، اس لیے یہ ذیلی نہیں بن سکتا۔',
   'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
   'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
@@ -622,6 +626,7 @@ export const ur: LabelResource = {
   'errors.field.out_of_range': 'یہ عدد اجازت یافتہ حد سے باہر ہے۔',
   'errors.field.owner_not_allowed':
     'یہ شخص اعلانات کا انتظام نہیں کر سکتا، اس لیے مالک نہیں بن سکتا۔',
+  'errors.field.parent_is_a_child': 'یہ واقعہ خود ذیلی ہے، اس لیے اس کے ذیلی واقعات نہیں ہو سکتے۔',
   'errors.field.parent_loop': 'اس سے یہ اپنا ہی والد بن جائے گا۔',
   'errors.field.password_breached': 'یہ پاس ورڈ ڈیٹا لیکس سے معلوم ہے۔ کوئی اور منتخب کریں۔',
   'errors.field.password_is_email': 'یہ آپ کا ای میل پتا نہیں ہونا چاہیے۔',
@@ -660,6 +665,7 @@ export const ur: LabelResource = {
     'یہ فرد کئی گروپوں میں ہیں: وہ گروپ چنیں جس میں ریکارڈ جائے گا۔',
   'errors.field.recipient_shape': 'اس وصول کنندہ کے لیے شخص یا گروپ منتخب کریں۔',
   'errors.field.recipients_required': 'کم از کم ایک شخص یا گروپ منتخب کریں۔',
+  'errors.field.record_closed': 'بند واقعات کو مرکزی یا ذیلی کے طور پر نہیں جوڑا جا سکتا۔',
   'errors.field.record_not_found': 'آپ کے دیکھنے کے قابل کسی ریکارڈ کی یہ شناخت نہیں۔',
   'errors.field.replies_are_public':
     'جوابات ٹیم سے باہر کے لوگوں کو جاتے ہیں، اس لیے وہ ہمیشہ عوامی ہوتے ہیں۔',
@@ -1012,6 +1018,10 @@ export const ur: LabelResource = {
   'errors.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
   'errors.measure_not_permitted':
     'آپ یہ عدد نہیں دیکھ سکتے: اس کے لیے اس کے ڈیٹا تک رسائی چاہیے (اثاثوں کی رقم کے لیے، مالیات دیکھنے کا حق)۔',
+  'errors.merge_undo_not_exact':
+    'یہ انضمام اب ٹھیک ویسا واپس نہیں ہو سکتا، کیونکہ اس کے بعد واقعات بدل گئے ہیں۔',
+  'errors.merge_widens_audience':
+    'ضم کرنے سے زیادہ لوگ یہ واقعہ دیکھ سکیں گے: {{staff}} عملہ اور {{requesters}} درخواست گزار۔ جاری رکھنے کے لیے تصدیق کریں۔',
   'errors.message_refused': 'میل سرور نے پیغام رد کر دیا۔',
   'errors.method_not_allowed': 'یہ کارروائی یہاں دستیاب نہیں۔',
   'errors.mfa_enrolment_unavailable':
@@ -1199,6 +1209,8 @@ export const ur: LabelResource = {
     'آپ کی تنظیم کا فائل اسٹوریج بھر گیا ہے ({{used_gb}} از {{limit_gb}} GB)۔',
   'errors.storage_unavailable':
     'فائل اسٹوریج تک رسائی نہیں ہو سکی۔ بعد میں کوشش کریں یا منتظم سے رابطہ کریں۔',
+  'errors.survivor_is_a_child':
+    '{{display_id}} کسی اور واقعے کا ذیلی ہے، اس لیے یہ ذیلی واقعات نہیں لے سکتا۔',
   'errors.system_calendar_required':
     'ہر ادارہ یہ کیلنڈر رکھتا ہے، اس لیے اسے حذف نہیں کیا جا سکتا۔',
   'errors.system_role_immutable': 'پہلے سے موجود کردار تبدیل یا حذف نہیں کیے جا سکتے۔',
