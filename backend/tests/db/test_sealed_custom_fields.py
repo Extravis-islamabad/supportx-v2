@@ -371,3 +371,44 @@ async def test_a_sealed_filter_p95_on_a_large_list(world: World) -> None:  # noq
     assert report["sealed_eq"]["items"] == 50  # one in ten of the rows matches
     timing.record("sealed_filter_10k", report)
     assert all(r["p95_ms"] < timing.limit(300) for r in report.values()), report
+
+
+async def test_a_closed_incident_still_refuses_a_sealed_field_edit(world: World) -> None:  # noqa: F811
+    """The coordinator, after the 0169 merge: lane A's closed check runs before the opening.
+
+    A technician without `incidents.edit_closed` is refused (`record_closed`) and the sealed
+    value is untouched; the admin, with a reason, may edit it, and it is sealed again.
+    """
+    _with_keys(world)
+    a = world.a
+    key = await _sensitive(world, a, "Closed band")
+    item = await world.create(
+        a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a), custom={key: "B7"}
+    )
+    resolved = await world.act(a, a.admin, item, "resolve")
+    closed = (await world.act(a, a.admin, resolved.json(), "close")).json()
+    assert closed["status_category"] == "closed"
+    before, _ = await _stored(world, a, item["id"], key)
+    refused = await world.call(
+        "PATCH",
+        f"{BASE}/{item['id']}",
+        a,
+        a.tech_a,
+        json={"custom": {key: "C9"}},
+        headers={"If-Match": f'"{closed["version"]}"', **CONSOLE},
+    )
+    assert (refused.status_code, refused.json()["code"]) == (409, "record_closed"), refused.text
+    assert (await _stored(world, a, item["id"], key))[0] == before
+    edited = await world.call(
+        "PATCH",
+        f"{BASE}/{item['id']}",
+        a,
+        a.admin,
+        json={"custom": {key: "C9"}, "edit_reason": "Corrected after closing."},
+        headers={"If-Match": f'"{closed["version"]}"', **CONSOLE},
+    )
+    assert edited.status_code == 200, edited.text
+    after, _ = await _stored(world, a, item["id"], key)
+    assert after.startswith("sx2:")
+    assert after != before
+    assert edited.json()["custom"][key] == "C9"
