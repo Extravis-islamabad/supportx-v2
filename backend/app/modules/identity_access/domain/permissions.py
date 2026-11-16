@@ -111,9 +111,7 @@ RESERVED_PERMISSIONS: tuple[PermissionSpec, ...] = (
     # (WP-045a: the same key names, so saved grants need no mapping) moved to work_items'
     # ModuleSpec (lane B reviews; 0077 and 0091 map saved manage grants to the engine's
     # actions), and assets.* to the assets module (WP-049a); the system-role grants below still
-    # name them, unchanged.
-    PermissionSpec("cmdb.view", "cmdb", NOT_OWN),
-    PermissionSpec("cmdb.manage", "cmdb"),
+    # name them, unchanged. cmdb.view and cmdb.manage moved to the cmdb module (WP-053 S1).
 )
 
 # The technician and requester system roles, as (permission, scope), for the permissions of this

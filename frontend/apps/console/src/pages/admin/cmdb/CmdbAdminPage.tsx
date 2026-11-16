@@ -1,0 +1,556 @@
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  App,
+  Button,
+  Flex,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Switch,
+  Table,
+  TreeSelect,
+} from 'antd';
+import { useMemo, useState } from 'react';
+
+import {
+  queryKeys,
+  useCiStates,
+  useCiTypes,
+  useCmdbSettings,
+  useCreateCiState,
+  useCreateCiType,
+  useDeleteCiState,
+  useDeleteCiType,
+  useUpdateCiType,
+  useUpdateCmdbSettings,
+  type CiAttribute,
+  type CiState,
+  type CiType,
+} from '@supportx/api-client';
+import { useTenantChannel } from '@supportx/realtime';
+import {
+  NoAccess,
+  SettingsCard,
+  SettingsPageHeader,
+  WriteButton,
+  reportError,
+  useAccess,
+  useAppearance,
+  useLabel,
+} from '@supportx/ui';
+
+import { useListFormat } from '@supportx/labels';
+
+import { nameOf, typeTree } from '../../cmdb/names';
+
+const KINDS = ['text', 'long_text', 'number', 'date', 'boolean', 'choice'] as const;
+
+interface TypeDraft {
+  api_name: string;
+  name_en: string;
+  name_ar?: string;
+  name_ur?: string;
+  parent_id?: string;
+  attributes: { key: string; type: (typeof KINDS)[number]; name: string; choices?: string }[];
+}
+
+function names(draft: Pick<TypeDraft, 'name_en' | 'name_ar' | 'name_ur'>): Record<string, string> {
+  const out: Record<string, string> = { en: draft.name_en.trim() };
+  if (draft.name_ar?.trim()) out.ar = draft.name_ar.trim();
+  if (draft.name_ur?.trim()) out.ur = draft.name_ur.trim();
+  return out;
+}
+
+function attributesOf(draft: TypeDraft): CiAttribute[] {
+  return draft.attributes.map((a) => ({
+    key: a.key.trim(),
+    type: a.type,
+    names: { en: a.name.trim() },
+    required: false,
+    // Never sensitive: the CMDB has no seal port yet (the server refuses it too).
+    sensitive: false,
+    choices:
+      a.type === 'choice'
+        ? (a.choices ?? '')
+            .split(',')
+            .map((c) => c.trim())
+            .filter((c) => c !== '')
+        : null,
+  }));
+}
+
+/**
+ * CMDB setup (template E, D-147): the settings, the CI type tree with each type's attributes,
+ * and the CI states. Every change is audited and reaches open screens live.
+ */
+export function CmdbAdminPage() {
+  const t = useLabel();
+  const { can } = useAccess();
+  const allowed = can('cmdb.configure');
+  const queryClient = useQueryClient();
+  useTenantChannel((message) => {
+    if (message.type === 'cmdb.config_changed' || message.type === 'refresh') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
+    }
+  });
+  if (!allowed) return <NoAccess titleKey="nav.admin_cmdb" />;
+  return (
+    <Flex vertical gap={16} data-testid="cmdb-admin">
+      <SettingsPageHeader
+        title={t('nav.admin_cmdb')}
+        description={t('setup.page.cmdb.description')}
+      />
+      <SettingsBlock />
+      <TypesBlock />
+      <StatesBlock />
+    </Flex>
+  );
+}
+
+function SettingsBlock() {
+  const t = useLabel();
+  const settings = useCmdbSettings();
+  const save = useUpdateCmdbSettings();
+  return (
+    <SettingsCard title={t('cmdb.title')} testId="cmdb-settings">
+      <Space>
+        <Switch
+          aria-label={t('cmdb.settings.exclude_eol')}
+          checked={settings.data?.exclude_eol_from_pickers ?? true}
+          loading={save.isPending || settings.isPending}
+          onChange={(on) => {
+            if (settings.data === undefined) return;
+            save.mutate(
+              { excludeEol: on, version: settings.data.version },
+              { onError: reportError },
+            );
+          }}
+          data-testid="cmdb-exclude-eol"
+        />
+        {t('cmdb.settings.exclude_eol')}
+      </Space>
+    </SettingsCard>
+  );
+}
+
+function TypesBlock() {
+  const t = useLabel();
+  const list = useListFormat();
+  const { locale } = useAppearance();
+  const types = useCiTypes();
+  const remove = useDeleteCiType();
+  const [editing, setEditing] = useState<CiType | 'new' | null>(null);
+  const items = types.data?.items ?? [];
+  const name = (x: CiType) => nameOf(t, locale, x, 'cmdb_ci_type');
+  const parentName = (id: string | null) => {
+    const parent = items.find((x) => x.id === id);
+    return parent === undefined ? '' : name(parent);
+  };
+  return (
+    <SettingsCard title={t('cmdb.title.types')} testId="cmdb-types">
+      <Flex vertical gap={12}>
+        <Flex justify="end">
+          <WriteButton
+            onClick={() => {
+              setEditing('new');
+            }}
+            data-testid="cmdb-type-new"
+          >
+            {t('cmdb.action.new_type')}
+          </WriteButton>
+        </Flex>
+        <div
+          role="region"
+          aria-label={t('cmdb.title.types')}
+          tabIndex={0}
+          style={{ overflowX: 'auto' }}
+        >
+          <Table<CiType>
+            rowKey="id"
+            size="small"
+            pagination={false}
+            loading={types.isPending}
+            dataSource={items}
+            columns={[
+              {
+                key: 'name',
+                title: t('cmdb.field.name'),
+                render: (_, row) => <bdi>{name(row)}</bdi>,
+              },
+              {
+                key: 'code',
+                title: t('cmdb.field.api_name'),
+                render: (_, row) => <bdi>{row.api_name}</bdi>,
+              },
+              {
+                key: 'parent',
+                title: t('cmdb.field.parent_id'),
+                render: (_, row) => parentName(row.parent_id),
+              },
+              {
+                key: 'attributes',
+                title: t('cmdb.field.attributes'),
+                render: (_, row) =>
+                  list(row.inherited_attributes.map((a) => a.names[locale] ?? a.names.en ?? a.key)),
+              },
+              { key: 'count', title: t('cmdb.count'), render: (_, row) => row.ci_count },
+              {
+                key: 'actions',
+                title: '',
+                render: (_, row) => (
+                  <Space>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setEditing(row);
+                      }}
+                      data-testid={`cmdb-type-edit-${row.api_name}`}
+                    >
+                      {t('actions.edit')}
+                    </Button>
+                    {!row.built_in && (
+                      <Button
+                        size="small"
+                        danger
+                        loading={remove.isPending}
+                        onClick={() => {
+                          remove.mutate(
+                            { id: row.id, version: row.version },
+                            { onError: reportError },
+                          );
+                        }}
+                        data-testid={`cmdb-type-delete-${row.api_name}`}
+                      >
+                        {t('cmdb.action.remove')}
+                      </Button>
+                    )}
+                  </Space>
+                ),
+              },
+            ]}
+          />
+        </div>
+      </Flex>
+      {editing !== null && (
+        <TypeDialog
+          type={editing === 'new' ? null : editing}
+          types={items}
+          onClose={() => {
+            setEditing(null);
+          }}
+        />
+      )}
+    </SettingsCard>
+  );
+}
+
+function TypeDialog({
+  type,
+  types,
+  onClose,
+}: {
+  type: CiType | null;
+  types: CiType[];
+  onClose: () => void;
+}) {
+  const t = useLabel();
+  const { locale } = useAppearance();
+  const { message } = App.useApp();
+  const create = useCreateCiType();
+  const update = useUpdateCiType();
+  const [form] = Form.useForm<TypeDraft>();
+  const [key] = useState(() => crypto.randomUUID());
+  const tree = useMemo(
+    () =>
+      typeTree(
+        types.filter((x) => x.id !== type?.id),
+        (x) => nameOf(t, locale, x, 'cmdb_ci_type'),
+      ),
+    [types, type, t, locale],
+  );
+  const initial: TypeDraft =
+    type === null
+      ? { api_name: '', name_en: '', attributes: [] }
+      : {
+          api_name: type.api_name,
+          name_en: type.names.en ?? '',
+          name_ar: type.names.ar,
+          name_ur: type.names.ur,
+          parent_id: type.parent_id ?? undefined,
+          attributes: type.attributes.map((a) => ({
+            key: a.key,
+            type: a.type,
+            name: a.names.en ?? '',
+            choices: (a.choices ?? []).join(','), // the editable text: codes split on commas
+          })),
+        };
+  const done = () => {
+    void message.success(t('actions.save'));
+    onClose();
+  };
+  const submit = (draft: TypeDraft) => {
+    if (type === null) {
+      create.mutate(
+        {
+          body: {
+            api_name: draft.api_name.trim(),
+            names: names(draft),
+            parent_id: draft.parent_id ?? null,
+            attributes: attributesOf(draft),
+          },
+          key,
+        },
+        { onSuccess: done, onError: reportError },
+      );
+      return;
+    }
+    const own = names(draft);
+    update.mutate(
+      {
+        id: type.id,
+        version: type.version,
+        changes: {
+          ...(type.built_in && own.en === '' ? {} : { names: own }),
+          ...(type.built_in ? {} : { parent_id: draft.parent_id ?? null }),
+          attributes: attributesOf(draft),
+        },
+      },
+      { onSuccess: done, onError: reportError },
+    );
+  };
+  return (
+    <Modal
+      open
+      width={720}
+      title={type === null ? t('cmdb.action.new_type') : t('actions.edit')}
+      onCancel={onClose}
+      okText={t('actions.save')}
+      okButtonProps={{ loading: create.isPending || update.isPending }}
+      onOk={() => {
+        form.submit();
+      }}
+    >
+      <Form<TypeDraft> form={form} layout="vertical" initialValues={initial} onFinish={submit}>
+        <Form.Item name="api_name" label={t('cmdb.field.api_name')} rules={[{ required: true }]}>
+          <Input disabled={type !== null} data-testid="cmdb-type-code" />
+        </Form.Item>
+        <Form.Item
+          name="name_en"
+          label={t('cmdb.field.names_en')}
+          rules={[{ required: !type?.built_in }]}
+        >
+          <Input data-testid="cmdb-type-name" />
+        </Form.Item>
+        <Flex gap={12}>
+          <Form.Item name="name_ar" label={t('cmdb.field.names_ar')} style={{ flex: 1 }}>
+            <Input dir="rtl" />
+          </Form.Item>
+          <Form.Item name="name_ur" label={t('cmdb.field.names_ur')} style={{ flex: 1 }}>
+            <Input dir="rtl" />
+          </Form.Item>
+        </Flex>
+        {!type?.built_in && (
+          <Form.Item name="parent_id" label={t('cmdb.field.parent_id')}>
+            <TreeSelect allowClear treeDefaultExpandAll treeData={tree} />
+          </Form.Item>
+        )}
+        <Form.List name="attributes">
+          {(fields, { add, remove }) => (
+            <Flex vertical gap={8}>
+              {fields.map((field) => (
+                <Flex key={field.key} gap={8} align="start" wrap>
+                  <Form.Item
+                    name={[field.name, 'key']}
+                    rules={[{ required: true }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Input
+                      placeholder={t('cmdb.field.api_name')}
+                      aria-label={t('cmdb.field.api_name')}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name={[field.name, 'name']}
+                    rules={[{ required: true }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Input
+                      placeholder={t('cmdb.field.names_en')}
+                      aria-label={t('cmdb.field.names_en')}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name={[field.name, 'type']}
+                    initialValue="text"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select
+                      aria-label={t('cmdb.field.attribute_type')}
+                      style={{ minWidth: 140 }}
+                      options={KINDS.map((k) => ({
+                        value: k,
+                        label: t(`cmdb_attribute_type.${k}`),
+                      }))}
+                    />
+                  </Form.Item>
+                  <Form.Item name={[field.name, 'choices']} style={{ marginBottom: 0 }}>
+                    <Input
+                      placeholder={t('cmdb.field.choices')}
+                      aria-label={t('cmdb.field.choices')}
+                    />
+                  </Form.Item>
+                  <Button
+                    onClick={() => {
+                      remove(field.name);
+                    }}
+                  >
+                    {t('cmdb.action.remove')}
+                  </Button>
+                </Flex>
+              ))}
+              <Button
+                onClick={() => {
+                  add({ type: 'text' });
+                }}
+                data-testid="cmdb-attr-add"
+              >
+                {t('cmdb.action.add_attribute')}
+              </Button>
+            </Flex>
+          )}
+        </Form.List>
+      </Form>
+    </Modal>
+  );
+}
+
+function StatesBlock() {
+  const t = useLabel();
+  const { locale } = useAppearance();
+  const states = useCiStates();
+  const create = useCreateCiState();
+  const remove = useDeleteCiState();
+  const [adding, setAdding] = useState(false);
+  const [form] = Form.useForm<{
+    api_name: string;
+    name_en: string;
+    category: 'active' | 'end_of_life';
+  }>();
+  const [key, setKey] = useState(() => crypto.randomUUID());
+  return (
+    <SettingsCard title={t('cmdb.title.states')} testId="cmdb-states">
+      <Flex vertical gap={12}>
+        <Flex justify="end">
+          <WriteButton
+            onClick={() => {
+              setAdding(true);
+            }}
+            data-testid="cmdb-state-new"
+          >
+            {t('cmdb.action.new_state')}
+          </WriteButton>
+        </Flex>
+        <Table<CiState>
+          rowKey="id"
+          size="small"
+          pagination={false}
+          loading={states.isPending}
+          dataSource={states.data?.items ?? []}
+          columns={[
+            {
+              key: 'name',
+              title: t('cmdb.field.name'),
+              render: (_, row) => <bdi>{nameOf(t, locale, row, 'cmdb_ci_state')}</bdi>,
+            },
+            {
+              key: 'category',
+              title: t('cmdb.field.category'),
+              render: (_, row) => t(`cmdb_state_category.${row.category}`),
+            },
+            {
+              key: 'actions',
+              title: '',
+              render: (_, row) =>
+                !row.built_in && (
+                  <Button
+                    size="small"
+                    danger
+                    onClick={() => {
+                      remove.mutate({ id: row.id, version: row.version }, { onError: reportError });
+                    }}
+                  >
+                    {t('cmdb.action.remove')}
+                  </Button>
+                ),
+            },
+          ]}
+        />
+      </Flex>
+      {adding && (
+        <Modal
+          open
+          title={t('cmdb.action.new_state')}
+          onCancel={() => {
+            setAdding(false);
+          }}
+          okText={t('actions.save')}
+          okButtonProps={{ loading: create.isPending }}
+          onOk={() => {
+            form.submit();
+          }}
+        >
+          <Form
+            form={form}
+            layout="vertical"
+            initialValues={{ category: 'active' }}
+            onFinish={(draft) => {
+              create.mutate(
+                {
+                  body: {
+                    api_name: draft.api_name.trim(),
+                    names: { en: draft.name_en.trim() },
+                    category: draft.category,
+                    position: 100,
+                  },
+                  key,
+                },
+                {
+                  onSuccess: () => {
+                    setAdding(false);
+                    setKey(crypto.randomUUID());
+                    form.resetFields();
+                  },
+                  onError: (error) => {
+                    setKey(crypto.randomUUID());
+                    reportError(error);
+                  },
+                },
+              );
+            }}
+          >
+            <Form.Item
+              name="api_name"
+              label={t('cmdb.field.api_name')}
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item name="name_en" label={t('cmdb.field.names_en')} rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="category" label={t('cmdb.field.category')}>
+              <Select
+                options={(['active', 'end_of_life'] as const).map((c) => ({
+                  value: c,
+                  label: t(`cmdb_state_category.${c}`),
+                }))}
+              />
+            </Form.Item>
+          </Form>
+        </Modal>
+      )}
+    </SettingsCard>
+  );
+}

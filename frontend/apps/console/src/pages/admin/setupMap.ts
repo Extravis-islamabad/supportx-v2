@@ -163,6 +163,13 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'config.assets',
     also: 'settings.manage',
   },
+  // The CMDB's types, states and settings (WP-053 S1).
+  {
+    key: 'cmdb',
+    group: 'assets',
+    labelKey: 'nav.admin_cmdb',
+    permission: 'cmdb.configure',
+  },
   {
     key: 'automation',
     group: 'automation_sla',

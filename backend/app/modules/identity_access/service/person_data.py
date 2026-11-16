@@ -82,6 +82,8 @@ REQUIRED_PORTS: frozenset[str] = frozenset(
         # default technician (lane A). Until both register, approval and the job refuse.
         "assets",
         "service_catalog",
+        # Lane B's CMDB (WP-053 S1): owned CIs move to the successor.
+        "cmdb",
     }
 )
 
