@@ -22,6 +22,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.core.errors import FieldError, ValidationFailed
 from app.modules import metadata
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.infra.models import WorkItemFieldIndex
@@ -337,3 +338,93 @@ async def matching_records(
             )
         )
     return frozenset(found)
+
+
+NOT_FILTERABLE = "field_not_filterable_sealed"
+NOTHING = "00000000-0000-0000-0000-000000000000"  # an ID no record has: "no match"
+
+
+def _refused(name: str) -> ValidationFailed:
+    return ValidationFailed(
+        code="invalid_filter",
+        errors=[
+            FieldError(
+                field="filter",
+                code=NOT_FILTERABLE,
+                message_key=f"errors.field.{NOT_FILTERABLE}",
+                params={"field": name},
+            )
+        ],
+    )
+
+
+async def _seal_states(session: AsyncSession, entity: str) -> dict[str, str]:
+    """`custom.<key>` -> seal state, for the entity's fields that are not plain."""
+    return {
+        f"custom.{mark.key}": mark.seal_state
+        for mark in await metadata.field_marks(session, entity, retired=True)
+        if mark.seal_state != "plain"
+    }
+
+
+class _SealedFilters:
+    """Rewrites one list filter's sealed fields to their blind index (WP-057 S3b-2)."""
+
+    def __init__(self, session: AsyncSession, states: Mapping[str, str]) -> None:
+        self.session = session
+        self.states = states
+
+    async def ids(self, name: str, values: list[object]) -> list[str]:
+        if self.states[name] != "sealed":
+            raise _refused(name)
+        found = await matching_records(self.session, name.removeprefix("custom."), values)
+        return sorted(str(i) for i in found) or [NOTHING]
+
+    async def node(self, node: Any) -> Any:  # noqa: ANN401 - one node of the DSL's JSON tree
+        if not isinstance(node, dict):
+            return node
+        for group in ("and", "or"):
+            if group in node:
+                return {**node, group: [await self.node(child) for child in node[group]]}
+        name = str(node.get("field"))
+        if name not in self.states:
+            return node
+        op, value = node.get("op"), node.get("value")
+        if op == "eq":
+            return {"field": "id", "op": "in", "value": await self.ids(name, [value])}
+        if op == "in" and isinstance(value, list):
+            return {"field": "id", "op": "in", "value": await self.ids(name, list(value))}
+        raise _refused(name)
+
+    async def params(self, simple: dict[str, list[str]]) -> dict[str, list[str]]:
+        kept: dict[str, list[str]] = {}
+        matched: list[str] | None = None
+        for name, values in simple.items():
+            if name not in self.states:
+                kept[name] = values
+                continue
+            found = await self.ids(name, list(values))
+            matched = found if matched is None else sorted(set(matched) & set(found)) or [NOTHING]
+        if matched is not None:
+            kept["id"] = matched
+        return kept
+
+
+async def rewrite_sealed_filters(
+    session: AsyncSession,
+    entity: str,
+    tree: Any,  # noqa: ANN401 - the filter DSL's parsed JSON tree
+    simple: dict[str, list[str]],
+) -> tuple[Any, dict[str, list[str]]]:
+    """A list filter with every sealed field matched by its blind index (WP-057 S3b-2).
+
+    `eq` and `in` on a sealed field become `id in [the records whose digest matches]`; any other
+    operator on it, or any filter on a field still sealing or opening, is refused
+    (`field_not_filterable_sealed`): a sealed value is never compared as stored text.
+    """
+    states = await _seal_states(session, entity)
+    if not states:
+        return tree, simple
+    rewrite = _SealedFilters(session, states)
+    rewritten = await rewrite.node(tree) if tree is not None else None
+    return rewritten, await rewrite.params(simple)

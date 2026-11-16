@@ -357,6 +357,12 @@ FieldsFor = Callable[[AsyncSession], Awaitable[Mapping[str, FilterField]]]
 # caller cannot be probed through a filter): dropped from the allowlist, so they are refused as
 # any unknown field is.
 ExcludeFor = Callable[[Request, TenantContext], Awaitable[frozenset[str]]]
+# A filter rewritten before it is compiled (WP-057 S3b-2): the parsed JSON tree and the simple
+# `?name=value` parameters in, the same out. A field whose values are sealed at rest matches by
+# its blind index there, which needs the session and a key; the compiler stays pure.
+RewriteFor = Callable[
+    [AsyncSession, Any, dict[str, list[str]]], Awaitable[tuple[Any, dict[str, list[str]]]]
+]
 
 
 def list_query(
@@ -365,6 +371,7 @@ def list_query(
     extra_parameters: frozenset[str] = frozenset(),
     fields_for: FieldsFor | None = None,
     exclude_for: ExcludeFor | None = None,
+    rewrite_for: RewriteFor | None = None,
 ) -> Any:  # noqa: ANN401 - returns a FastAPI dependency
     """FastAPI dependency: `query: Annotated[ListQuery, Depends(list_query(RESOURCE))]`.
 
@@ -373,6 +380,7 @@ def list_query(
     cannot be replayed on another. `fields_for` adds the tenant's own fields to the allowlist
     for this request (WP-026: custom fields as `custom.<key>`), read in the request's session.
     `exclude_for` names fields the caller may not filter or sort on (ADR-047): taken out.
+    `rewrite_for` may rewrite the parsed filter before it compiles (WP-057 S3b-2).
     """
 
     async def dependency(  # noqa: PLR0913, PLR0917 - FastAPI reads parameters from the signature
@@ -429,6 +437,11 @@ def list_query(
         # Calendar filters ("today", "this week") use the requester's time zone (WP-012).
         now = datetime.now(request_zone(request))
         tree = parse_filter_json(filter_) if filter_ is not None else None
+        # The cursor's fingerprint is the filter as asked, not as rewritten: a rewrite may name
+        # records (a blind-index match) that change between pages.
+        asked_tree, asked_simple = tree, dict(simple)
+        if rewrite_for is not None:
+            tree, simple = await rewrite_for(session, tree, simple)
         where = and_(
             compile_simple(simple, allowed),
             compile_filter(tree, allowed, now=now) if tree is not None else true(),
@@ -436,9 +449,9 @@ def list_query(
         keys = parse_sort(sort, allowed)
         fingerprint = hashlib.sha256(
             json.dumps(
-                [tree, sorted(simple.items()), sorted(own.items())]
+                [asked_tree, sorted(asked_simple.items()), sorted(own.items())]
                 if own
-                else [tree, sorted(simple.items())],
+                else [asked_tree, sorted(asked_simple.items())],
                 sort_keys=True,
                 default=str,
             ).encode()
