@@ -88,3 +88,22 @@ async def test_another_tenant_and_other_people_are_untouched(world: World) -> No
     await _erase(world, a.tenant, a.tech_b, PORT)  # nobody named a.tech_b in tenant A
     assert (await _row(world, b, theirs))["owner_id"] == b.tech_b
     assert (await _row(world, a, someone_else))["owner_id"] == a.tech_a
+
+
+async def test_a_successor_already_an_approver_is_listed_once(world: World) -> None:  # noqa: F811
+    """Lane B's #518 note: no double entry, which would skew an "all must approve" rule."""
+    a = world.a
+    item = await _item(world, a, a.tech_b)
+    await world.sql(
+        "UPDATE catalog_items SET approval = jsonb_set(approval, '{approvers}',"
+        " approval->'approvers' || jsonb_build_array(jsonb_build_object("
+        "'kind', 'person', 'person_id', $3::text))) WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        item,
+        str(a.admin),
+    )
+    await _erase(world, a.tenant, a.tech_b, PORT)
+    row = await _row(world, a, item)
+    approval = json.loads(row["approval"]) if isinstance(row["approval"], str) else row["approval"]
+    people = [x.get("person_id") for x in approval["approvers"] if x.get("person_id")]
+    assert people == [str(a.admin)]  # once, though both entries named the successor now

@@ -40,11 +40,17 @@ def _approval(
     if not approval:
         return (dict(approval) if approval is not None else None), 0
     replaced = 0
-    approvers = []
+    approvers: list[Any] = []
+    named: set[str] = set()  # each person once: a double entry would skew "all must approve"
     for approver in approval.get("approvers") or []:
-        if isinstance(approver, Mapping) and str(approver.get("person_id")) == person:
-            approvers.append({**approver, "person_id": successor})
-            replaced += 1
+        if isinstance(approver, Mapping) and approver.get("person_id") is not None:
+            replaced_here = str(approver.get("person_id")) == person
+            who = successor if replaced_here else str(approver.get("person_id"))
+            replaced += int(replaced_here)
+            if who in named:
+                continue  # the successor was already an approver: keep the first (lane B)
+            named.add(who)
+            approvers.append({**approver, "person_id": who} if replaced_here else approver)
         else:
             approvers.append(approver)
     out = {**approval, "approvers": approvers}
