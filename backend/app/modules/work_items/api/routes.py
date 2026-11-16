@@ -27,6 +27,7 @@ from app.modules.work_items.api.checklist_routes import (
     add_checklist_collection_routes,
     add_checklist_routes,
 )
+from app.modules.work_items.api.children_routes import add_children_routes
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
@@ -3930,6 +3931,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
     add_checklist_routes(router, wtype)  # WP-046a S2: checklists and personal reminders
+    if wtype.code is WorkItemTypeCode.INCIDENT:
+        add_children_routes(router, wtype)  # WP-046b S2: parent and child incidents
     # REQ-AST-025: assets on incidents and requests (the forms and the e-mail ask for them).
     if wtype.code in _WITH_ASSETS:
         add_asset_routes(router, wtype)

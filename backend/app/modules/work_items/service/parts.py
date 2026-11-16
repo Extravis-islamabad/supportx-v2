@@ -1481,7 +1481,14 @@ async def add_link(  # noqa: PLR0913 - both records, the comment and the source,
     return link
 
 
-_OWN_ROUTE = frozenset({LinkKind.CAUSED_BY.value, LinkKind.MERGED_INTO.value})
+_OWN_ROUTE = frozenset(
+    {
+        LinkKind.CAUSED_BY.value,
+        LinkKind.MERGED_INTO.value,
+        LinkKind.CHILD_OF.value,  # WP-046b S2: edit on both records (incident_children)
+        LinkKind.CONVERTED_TO.value,  # never removed: the conversion's record
+    }
+)
 
 
 async def remove_link(  # noqa: PLR0913 - the record, the link, its version and the source
