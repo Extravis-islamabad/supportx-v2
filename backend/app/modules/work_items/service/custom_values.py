@@ -14,7 +14,7 @@ index (`work_item_field_index`) of each in step, for exact-match list filters.
 import json
 import uuid
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from sqlalchemy import delete, exists, false, select, tuple_
@@ -31,7 +31,7 @@ from app.shared.api.filters import FieldType, FilterField
 from app.shared.crypto.codec import TEXT_PREFIX
 from app.shared.db.models import utc_now
 from app.shared.fields import Binding, field_cipher_for, purpose
-from app.shared.history import Change
+from app.shared.history import Change, HistoryEntry
 from app.shared.ids import new_id
 
 CUSTOM = purpose(module="work_items", what="custom")
@@ -164,6 +164,48 @@ def history_binding(
     return Binding("field_changes", record_id, f"{record_type}:{field_name}@v{version}:{side}")
 
 
+HIDDEN_LINE: dict[str, bool] = {"masked": True}  # the history page's "hidden" line (as MASKED)
+
+
+async def open_history(
+    session: AsyncSession,
+    record_type: str,
+    record_id: uuid.UUID,
+    entries: list[HistoryEntry],
+    *,
+    settings: Settings | None = None,
+) -> list[HistoryEntry]:
+    """History entries with sealed values opened for their own cell (lane B's #520 review).
+
+    Called after ADR-047's strip, so only fields the reader may see are opened. A line whose
+    value does not open (moved, tampered with, or its key gone) becomes the hidden line: no
+    `sx2:` text ever reaches a reader.
+    """
+    if not any(is_sealed(c.old) or is_sealed(c.new) for e in entries for c in e.changes):
+        return entries
+    cipher = field_cipher_for(session, _settings(session, settings))
+
+    async def side(change: Change, version: int, name: str, value: object) -> tuple[bool, object]:
+        if not is_sealed(value):
+            return True, value
+        binding = history_binding(record_type, record_id, change.field, version, name)
+        opened = await cipher.open(CUSTOM, binding, str(value))
+        return (False, None) if opened is None else (True, json.loads(opened))
+
+    shown: list[HistoryEntry] = []
+    for entry in entries:
+        changes: list[Change] = []
+        for change in entry.changes:
+            old_ok, old = await side(change, entry.version, "old", change.old)
+            new_ok, new = await side(change, entry.version, "new", change.new)
+            if old_ok and new_ok:
+                changes.append(Change(change.field, old, new))
+            else:
+                changes.append(Change(change.field, HIDDEN_LINE, HIDDEN_LINE))
+        shown.append(replace(entry, changes=changes))
+    return shown
+
+
 async def seal_history(  # noqa: PLR0913 - one save's parts, explicit
     session: AsyncSession,
     record_type: str,
@@ -265,7 +307,7 @@ async def seal_custom(
             continue
         plain = json.dumps(value, ensure_ascii=False, sort_keys=True)
         stored[key] = await cipher.seal(CUSTOM, _binding(record_id, key), plain)
-        index[key] = await cipher.blind(CUSTOM, _blind_text(value))
+        index[key] = await cipher.blind(CUSTOM, _blind_text(value), field=f"custom.{key}")
     return Sealed(stored, index)
 
 
@@ -370,7 +412,7 @@ class _SealedFilters:
             (key_id, digest)
             for value in values
             for key_id, digest in (
-                await cipher.blind_under(CUSTOM, _blind_text(value), key_ids)
+                await cipher.blind_under(CUSTOM, _blind_text(value), key_ids, field=name)
             ).items()
         ]
         index = WorkItemFieldIndex.__table__.alias()

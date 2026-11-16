@@ -1586,6 +1586,8 @@ class WorkItemFieldChangeOut(BaseModel):
         """One change, masked values as `hidden` with no old or new."""
         if change.old == service.MASKED and change.new == service.MASKED:
             return cls(field=change.field, hidden=True)
+        if custom_values.is_sealed(change.old) or custom_values.is_sealed(change.new):
+            return cls(field=change.field, hidden=True)  # never sx2: text (rule 5d; S3b-2)
         return cls(field=change.field, old=change.old, new=change.new)
 
 

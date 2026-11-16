@@ -144,16 +144,16 @@ class FieldCipher:
             return None
         return found.decode("utf-8")
 
-    async def blind(self, purpose: str, value: str) -> tuple[uuid.UUID, str]:
+    async def blind(self, purpose: str, value: str, *, field: str) -> tuple[uuid.UUID, str]:
         """(data key ID, digest) for a value about to be stored: the index row (WP-057 S3b-2)."""
         try:
             key_id, secret = await current_data_key(self.session, self._ring())
         except (KeyRingError, FilesNotConfiguredError) as exc:
             raise FieldKeysUnavailable from exc
-        return key_id, blind_digest(secret, _checked(purpose), value)
+        return key_id, blind_digest(secret, _checked(purpose), value, field=field)
 
     async def blind_under(
-        self, purpose: str, value: str, key_ids: Sequence[uuid.UUID]
+        self, purpose: str, value: str, key_ids: Sequence[uuid.UUID], *, field: str
     ) -> dict[uuid.UUID, str]:
         """The digest a value has under each of these data keys (a lookup: rows keep their key).
 
@@ -178,7 +178,7 @@ class FieldCipher:
                 continue
             except KeyRingError as exc:
                 raise FieldKeysUnavailable from exc
-            found[key_id] = blind_digest(secret, checked, value)
+            found[key_id] = blind_digest(secret, checked, value, field=field)
         return found
 
     def _unreadable(self, purpose: str, key_ref: str | None, reason: str) -> None:

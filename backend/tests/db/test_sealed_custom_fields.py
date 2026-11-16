@@ -11,6 +11,7 @@
 
 import json
 import uuid
+from typing import Any
 
 import httpx
 import pytest
@@ -21,7 +22,8 @@ from app.modules.work_items.service import custom_values
 from app.shared.fields import Binding, field_cipher_for
 from app.shared.files.keyring import KeyRing
 from tests.db.test_field_access_reads import _custom_field, _rule
-from tests.db.test_incidents_api import BASE, Org, World, world  # noqa: F401 - fixture
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, world  # noqa: F401 - fixture
+from tests.db.test_reports_api import reports  # noqa: F401 - fixture
 
 pytestmark = pytest.mark.db
 
@@ -193,3 +195,103 @@ async def test_history_keeps_sealed_values_per_cell_and_unchanged_is_no_change(
         f"custom.{key}",
     )
     assert rows[0]["n"] == 1
+
+
+async def _changed(w: World, org: Org, key: str, first: str, second: str) -> dict[str, Any]:
+    item = await w.create(org, org.admin, group_id=str(org.ga), custom={key: first})
+    current = (await w.call("GET", f"{BASE}/{item['id']}", org, org.admin)).json()
+    changed = await w.call(
+        "PATCH",
+        f"{BASE}/{item['id']}",
+        org,
+        org.admin,
+        json={"custom": {key: second}},
+        headers={"If-Match": f'"{current["version"]}"'},
+    )
+    assert changed.status_code == 200, changed.text
+    return item
+
+
+async def test_history_opens_sealed_values_and_never_shows_sealed_text(world: World) -> None:  # noqa: F811
+    """Lane B's #520 review: no `sx2:` reaches a reader; masked stays masked; tampered hides."""
+    _with_keys(world)
+    a = world.a
+    key = await _sensitive(world, a, "Shift band")
+    item = await _changed(world, a, key, "B7", "C9")
+    page = f"{BASE}/{item['id']}/history"
+    shown = await world.call("GET", page, a, a.admin)
+    assert shown.status_code == 200, shown.text
+    assert "sx2:" not in shown.text
+    lines = [
+        c for e in shown.json()["items"] for c in e["changes"] if c["field"] == f"custom.{key}"
+    ]
+    assert {"old": "B7", "new": "C9"} in [{"old": c.get("old"), "new": c.get("new")} for c in lines]
+    # Masked for the technician: the hidden line, never opened.
+    await _rule(world, a, "technician", f"custom.{key}", "masked")
+    masked = await world.call("GET", page, a, a.tech_a)
+    assert masked.status_code == 200, masked.text
+    assert "sx2:" not in masked.text
+    assert "C9" not in masked.text
+    # A value moved into another row (tampering) does not open: the hidden line, no ciphertext.
+    record = uuid.UUID(item["id"])
+    await world.sql(
+        "UPDATE field_changes SET new_value = (SELECT new_value FROM field_changes"
+        " WHERE tenant_id = $1 AND record_id = $2 AND field = $3 AND kind = 'created')"
+        " WHERE tenant_id = $1 AND record_id = $2 AND field = $3 AND kind = 'updated'",
+        a.tenant,
+        record,
+        f"custom.{key}",
+    )
+    moved = await world.call("GET", page, a, a.admin)
+    assert moved.status_code == 200, moved.text
+    assert "sx2:" not in moved.text
+    updated = [
+        c
+        for e in moved.json()["items"]
+        if e["kind"] == "updated"
+        for c in e["changes"]
+        if c["field"] == f"custom.{key}"
+    ]
+    assert [(c["hidden"], c.get("old"), c.get("new")) for c in updated] == [(True, None, None)]
+
+
+async def test_equal_values_in_two_sealed_fields_never_link(world: World) -> None:  # noqa: F811
+    """Lane B's #520 review: the field is in the digest's input."""
+    _with_keys(world)
+    a = world.a
+    one = await _sensitive(world, a, "Badge code")
+    two = await _sensitive(world, a, "Locker code")
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={one: "K1", two: "K1"})
+    rows = await world.sql(
+        "SELECT field_key, digest FROM work_item_field_index WHERE tenant_id = $1"
+        " AND work_item_id = $2",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    digests = {r["field_key"]: r["digest"] for r in rows}
+    assert set(digests) == {one, two}
+    assert digests[one] != digests[two]
+
+
+async def test_reports_refuse_a_sealed_field(reports: World) -> None:  # noqa: F811
+    """Its stored values are ciphertext: a report naming it is refused, never run blank."""
+    w, a = reports, reports.a
+    _with_keys(w)
+    key = await _sensitive(w, a, "Grade code")
+    await w.create(a, a.admin, group_id=str(a.ga), custom={key: "G4"})
+    name = f"custom.{key}"
+    for use in (
+        {"filter": {"field": name, "op": "eq", "value": "G4"}, "measures": ["count"]},
+        {"columns": ["display_id", name], "measures": ["count"]},
+    ):
+        refused = await w.call(
+            "POST",
+            "/reports/run",
+            a,
+            a.admin,
+            json={"definition": {"entity": "incident", **use}, "language": "en"},
+            headers=CONSOLE,
+        )
+        assert refused.status_code == 403, (use, refused.text)
+        assert refused.json()["code"] == "field_not_permitted", use
+        assert "sx2:" not in refused.text

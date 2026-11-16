@@ -202,19 +202,27 @@ How `sensitive` custom fields on work items are sealed (migration 0171):
   service file starts reading it.
 - **The blind index:** `work_item_field_index` holds one row per (record, field):
   - the row stores the data key's `key_id` and the digest: HMAC-SHA256 under a key derived
-    (HKDF) for `supportx/blind/<purpose>/v1`, taken over the value after NFKC, case folding and
-    trimming;
+    (HKDF) for `supportx/blind/<purpose>/v1`, taken over the field key and the value after NFKC,
+    case folding and trimming. With the field in the input, equal values in two fields give
+    different digests, so the index cannot link records across fields (lane B's #520 review);
   - an `eq` or `in` filter becomes an EXISTS over (key_id, digest) pairs, one per key in use;
   - any other operator is refused (`field_not_filterable_sealed`), and so is sorting;
   - a field the reader's roles withhold is never rewritten to the index, so it keeps ADR-047's
     refusal and the index cannot be used to guess values;
-  - **the limit, stated plainly:** equal values give equal digests under one key, so a database
-    reader can see that two records share a value, and how often a value appears, without seeing
-    the value.
+  - **the limit, stated plainly:** within one field and one data key, equal values give equal
+    digests. So a database reader can see that two records share a value in that field, and how
+    often each value appears (its frequency), without seeing the value. A field with a few
+    common values (yes/no, a handful of bands) gives away more than one with many; admins should
+    mark sensitive the fields whose values vary.
 - **History (lane B's option b):** a changed sealed value goes into `field_changes` sealed for its
   own cell. The binding is (`field_changes`, record, `<type>:<field>@v<version>:<old|new>`). The
   value is opened from the record and sealed again; ciphertext is never copied.
   - Moved to another version, field or side, a history value does not open.
+  - **On read**, the History page opens sealed values for their own cell, after ADR-047's strip
+    (hidden lines dropped, masked lines never opened). A value that does not open shows as the
+    hidden line, and the route turns any `sx2:` text it still sees into the hidden line, so
+    ciphertext never reaches a reader. The audit chain holds digests of history values, never
+    the values, so the audit viewer shows none.
   - History ciphertext is never rewritten. Rotating the KEK only rewraps the data keys, and the
     re-seal job never touches history.
   - So turning `sensitive` on leaves older history as it was written, and turning it off leaves

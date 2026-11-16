@@ -1345,6 +1345,9 @@ async def history(  # noqa: PLR0913 - paging options, explicit
             )
             for e in entries
         ]
+    # Sealed custom values open for their own cell, only those the strip above left (WP-057
+    # S3b-2, lane B's #520 review); a value that does not open becomes the hidden line.
+    entries = await custom_values.open_history(session, RECORD_TYPE, record_id, entries)
     # A task's extra cost is money (D-164): only with the type's cost right, as the task API
     # shows it (lane B's #442 review). Others keep the line (that it changed, when, by whom) but
     # never the amounts. A type without the right keeps S1's rule, those who may edit.
