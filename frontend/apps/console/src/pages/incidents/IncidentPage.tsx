@@ -1257,6 +1257,12 @@ function InlineEdit({
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState<unknown>(spec.value);
   const [reason, setReason] = useState('');
+  // WP-046b S1: why (kept in history); asked on a closed incident (REQ-INC-101) and for the
+  // fields the tenant names (REQ-INC-124). The server checks both; this only asks.
+  const [why, setWhy] = useState('');
+  const needsWhy =
+    item.operations.find((o) => o.action === 'edit')?.reason_mode === 'required' ||
+    (catalogue.data?.closure.edit_reason_fields ?? []).includes(field);
   const [error, setError] = useState<string | null>(null);
   // A refusal with no field to point at (a rule, a limit), shown here (QA WP-029 BUG-02).
   const problem = useFormProblem();
@@ -1276,6 +1282,7 @@ function InlineEdit({
         : spec.kind === 'custom'
           ? { custom: { [spec.field.key]: value } }
           : { [field]: value };
+    if (needsWhy) changes.edit_reason = why;
     problem.clear();
     update.mutate(
       { changes: changes, version },
@@ -1313,6 +1320,7 @@ function InlineEdit({
         onEdit={() => {
           setValue(spec.value);
           setReason('');
+          setWhy('');
           setOpen(true);
           onEditing(1);
         }}
@@ -1480,6 +1488,18 @@ function InlineEdit({
       }}
     >
       {control}
+      {needsWhy && (
+        <Input
+          aria-label={t('incidents.edit_reason')}
+          placeholder={t('incidents.edit_reason')}
+          value={why}
+          count={lengthLimit(500)}
+          onChange={(event) => {
+            setWhy(event.target.value);
+          }}
+          data-testid={`inc-why-${field}`}
+        />
+      )}
       {error !== null && (
         <Typography.Text type="danger" role="alert" data-testid={`inc-error-${field}`}>
           {error}

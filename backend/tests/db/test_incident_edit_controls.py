@@ -44,6 +44,12 @@ async def test_a_closed_incident_needs_the_right_and_a_reason(world: World) -> N
     """AC1: without the right, refused; AC2: with it, a reason is required and it is audited."""
     a = world.a
     item = await _closed(world, a)
+    # What the page offers: the holder may edit, giving a reason; the technician may not.
+    shown = (await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)).json()
+    edit = next(o for o in shown["operations"] if o["action"] == "edit")
+    assert (edit["allowed"], edit["reason_mode"]) == (True, "required")
+    theirs = (await world.call("GET", f"{BASE}/{item['id']}", a, a.tech_a)).json()
+    assert next(o for o in theirs["operations"] if o["action"] == "edit")["allowed"] is False
     refused = await _edit(world, a, a.tech_a, item, impact_details="More people affected")
     assert refused.status_code == 403, refused.text  # technicians do not hold it by default
     no_reason = await _edit(world, a, a.admin, item, impact_details="More people affected")

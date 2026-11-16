@@ -976,6 +976,7 @@ export const en = {
   'incidents.done.wait_third_party': 'Now waiting for a third party.',
   'incidents.duplicates.title': 'Possible duplicates',
   'incidents.edit_field': 'Edit {{field}}',
+  'incidents.edit_reason': 'Why (kept in history)',
   'incidents.empty': 'No incidents in this view.',
   'incidents.export.button': 'Export',
   'incidents.export.cancel': 'Cancel',

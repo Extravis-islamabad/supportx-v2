@@ -547,7 +547,7 @@ class _Transitions:
         )
 
 
-async def _view(  # noqa: C901 - one state per action and operation, flat
+async def _view(  # noqa: C901, PLR0912 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
     cat = await config.load(session, wtype)
@@ -615,8 +615,13 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             )
         )
     operations: list[ActionState] = []
+    closed_edit = final and await _closed_edit_open(session, subject, wtype, record)
     for op in OPERATIONS:
         refused = await reason(op)
+        if refused is None and op == "edit" and closed_edit:
+            # WP-046b S1 (REQ-INC-101): a closed incident's fields, with the right and a reason.
+            operations.append(ActionState(op, allowed=True, reason_mode=ReasonMode.REQUIRED))
+            continue
         if refused is None and final and op != "delete":
             refused = RECORD_CLOSED
         if refused is None and op == "take":
@@ -2885,6 +2890,18 @@ async def _may_edit_closed(
         )
     if not await _may(session, subject, wtype, EDIT_CLOSED, record.id):
         raise PermissionDenied(params={"permission": wtype.permission(EDIT_CLOSED)})
+
+
+async def _closed_edit_open(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
+) -> bool:
+    """Whether the subject may edit this closed record's fields now (what the page offers)."""
+    if wtype.code is not WorkItemTypeCode.INCIDENT:
+        return False
+    cat = await config.load(session, wtype)
+    if cat.closure.closed_edit_locked:
+        return False
+    return await _may(session, subject, wtype, EDIT_CLOSED, record.id)
 
 
 def _edit_reason(

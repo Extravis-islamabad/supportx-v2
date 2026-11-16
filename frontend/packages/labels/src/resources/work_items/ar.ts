@@ -1111,6 +1111,7 @@ export const ar: LabelResource = {
   'incidents.done.wait_third_party': 'بانتظار طرف ثالث الآن.',
   'incidents.duplicates.title': 'تكرارات محتملة',
   'incidents.edit_field': 'تعديل {{field}}',
+  'incidents.edit_reason': 'السبب (يُحفظ في السجل)',
   'incidents.empty': 'لا توجد حوادث في هذا العرض.',
   'incidents.export.button': 'تصدير',
   'incidents.export.cancel': 'إلغاء',

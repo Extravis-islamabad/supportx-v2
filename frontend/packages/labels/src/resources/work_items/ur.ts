@@ -979,6 +979,7 @@ export const ur: LabelResource = {
   'incidents.done.wait_third_party': 'اب تیسرے فریق کا انتظار ہے۔',
   'incidents.duplicates.title': 'ممکنہ ڈپلیکیٹس',
   'incidents.edit_field': '{{field}} میں ترمیم',
+  'incidents.edit_reason': 'وجہ (تاریخ میں محفوظ رہتی ہے)',
   'incidents.empty': 'اس منظر میں کوئی واقعہ نہیں۔',
   'incidents.export.button': 'ایکسپورٹ',
   'incidents.export.cancel': 'منسوخ کریں',
