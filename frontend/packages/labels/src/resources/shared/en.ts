@@ -171,6 +171,8 @@ export const en = {
   'layout.properties_fewer': 'Hide empty fields',
   'layout.reset_widths': 'Reset widths',
   'layout.resize_column': 'Width of {{column}}: use the arrow keys',
+  'layout.restricted_hidden': 'Not shown to you',
+  'layout.restricted_masked': 'Masked',
   'layout.star': 'Add to favourites',
   'layout.tabs_earlier': 'Earlier tabs',
   'layout.tabs_later': 'Later tabs',

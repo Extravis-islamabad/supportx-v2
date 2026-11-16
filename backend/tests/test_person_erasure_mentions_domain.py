@@ -97,20 +97,23 @@ def test_redaction_replaces_only_one_kind() -> None:
     assert count_matches(mailed, MentionTerms()) == {}
 
 
-def test_s1b_required_ports_keep_every_report_incomplete() -> None:
-    """S2's modules are required but have no port yet: approval stays refused in practice."""
+def test_every_required_mentions_port_is_registered() -> None:
+    """Every module the report needs has its port since #516: an erasure can be approved."""
+    import app.modules.announcements  # noqa: PLC0415 - registers lane C's port
     import app.modules.assets  # noqa: PLC0415 - registers the assets port
-    import app.modules.identity_access  # noqa: F401, PLC0415 - registers lane B's ports
+    import app.modules.identity_access  # noqa: PLC0415 - registers lane B's ports
+    import app.modules.integrations  # noqa: PLC0415 - registers lane A's port
+    import app.modules.knowledge  # noqa: PLC0415 - registers lane C's port
+    import app.modules.work_items  # noqa: F401, PLC0415 - registers lane A's port
 
     registered = {port.module for port in mention_ports()}
-    assert {"identity_access", "files", "assets"} <= registered
     assert {
         "work_items",  # one key: a mention search has no band (lane A's #506 review)
         "integrations",
         "knowledge",
         "announcements",
     } <= REQUIRED_MENTION_PORTS
-    assert missing_mention_ports(registered) != []
+    assert missing_mention_ports(registered) == []
     for port in LANE_B_MENTION_PORTS:
         assert isinstance(port, PersonMentions)
 
@@ -216,3 +219,36 @@ def test_0164s_redactable_states_are_the_domain_rule() -> None:
     fixed = set(re.findall(r"'([a-z_]+)'", migration._REDACTABLE))  # noqa: SLF001 - the constant
     allowed = {s.value for s in ErasureState if rules.can("redact", s).allowed}
     assert fixed == allowed
+
+
+def test_a_short_one_word_display_name_is_skipped_but_the_full_name_is_searched() -> None:
+    """The coordinator's rule (2026-11-14): full first + last always; one word from 4 letters."""
+    short = build_terms(
+        display_name="Ali",
+        first_name="Ali",
+        last_name="Raza",
+        email=None,
+        phone=None,
+        mobile=None,
+    )
+    assert short.names == ("Ali Raza",)
+    assert short.short_name_skipped is True
+    arabic = build_terms(
+        display_name="علي",
+        first_name="علي",
+        last_name="رضا",
+        email=None,
+        phone=None,
+        mobile=None,
+    )  # three letters (six bytes): counted by letter
+    assert arabic.names == ("علي رضا",)
+    assert arabic.short_name_skipped is True
+    long_enough = build_terms(
+        display_name="Sara", first_name=None, last_name=None, email=None, phone=None, mobile=None
+    )
+    assert long_enough.names == ("Sara",)
+    assert long_enough.short_name_skipped is False
+    several = build_terms(
+        display_name="Al Bo", first_name=None, last_name=None, email=None, phone=None, mobile=None
+    )
+    assert several.names == ("Al Bo",)  # several words: always searched

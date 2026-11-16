@@ -186,25 +186,43 @@ NAME_MAX = 255  # as the column
 
 
 async def live_names(
-    session: AsyncSession, *, after: uuid.UUID | None, limit: int = BATCH
+    session: AsyncSession,
+    *,
+    after: uuid.UUID | None,
+    limit: int = BATCH,
+    include_deleted: bool = False,
 ) -> list[tuple[uuid.UUID, str]]:
-    """Live files' IDs and names, by ID after `after` (the mentions report reads these)."""
-    query = select(StoredFile.id, StoredFile.name).where(StoredFile.deleted_at.is_(None))
+    """Files' IDs and names, by ID after `after` (the mentions report reads these).
+
+    `include_deleted`: soft-deleted files too (their names still name people; ADR-052).
+    """
+    query = select(StoredFile.id, StoredFile.name)
+    if not include_deleted:
+        query = query.where(StoredFile.deleted_at.is_(None))
     if after is not None:
         query = query.where(StoredFile.id > after)
     rows = await session.execute(query.order_by(StoredFile.id).limit(limit))
     return [(file_id, name) for file_id, name in rows.all()]
 
 
-async def file_name(session: AsyncSession, file_id: uuid.UUID) -> str | None:
-    """A live file's current name."""
-    return await session.scalar(
-        select(StoredFile.name).where(StoredFile.id == file_id, StoredFile.deleted_at.is_(None))
-    )
+async def file_name(
+    session: AsyncSession, file_id: uuid.UUID, *, include_deleted: bool = False
+) -> str | None:
+    """A live file's current name (`include_deleted`: a soft-deleted one's too)."""
+    query = select(StoredFile.name).where(StoredFile.id == file_id)
+    if not include_deleted:
+        query = query.where(StoredFile.deleted_at.is_(None))
+    found: str | None = await session.scalar(query)
+    return found
 
 
 async def rename_for_erasure(
-    session: AsyncSession, file_id: uuid.UUID, rename: Callable[[str], str], reason: str
+    session: AsyncSession,
+    file_id: uuid.UUID,
+    rename: Callable[[str], str],
+    reason: str,
+    *,
+    include_deleted: bool = False,
 ) -> bool:
     """Give a live file the name `rename` makes of its current one (a GDPR redaction).
 
@@ -212,11 +230,10 @@ async def rename_for_erasure(
     what is being removed); the file's screens refresh (`system.file.changed`). False when the
     name stays the same or the file is gone.
     """
-    stored = await session.scalar(
-        select(StoredFile)
-        .where(StoredFile.id == file_id, StoredFile.deleted_at.is_(None))
-        .with_for_update()
-    )
+    query = select(StoredFile).where(StoredFile.id == file_id)
+    if not include_deleted:  # a trashed file's name too, for an erasure (ADR-052)
+        query = query.where(StoredFile.deleted_at.is_(None))
+    stored = await session.scalar(query.with_for_update())
     if stored is None:
         return False
     new_name = rename(stored.name)[:NAME_MAX]

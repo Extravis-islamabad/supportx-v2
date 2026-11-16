@@ -57,3 +57,8 @@ __all__ = ["module"]
 from app.modules.announcements.service import person_data as _person_data  # noqa: E402
 
 _person_data.register()
+
+# GDPR erasure (ADR-052 S2): the mentions report searches announcements too (required).
+from app.modules.announcements.service import person_mentions as _person_mentions  # noqa: E402
+
+_person_mentions.register()

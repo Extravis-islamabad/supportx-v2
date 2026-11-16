@@ -25,6 +25,7 @@ from app.modules.identity_access.service.person_data import (
 )
 from app.modules.identity_access.service.person_data_ports import LANE_B_PORTS
 from app.shared.erasure import ERASED_ON_REQUEST, ERASED_ON_REQUEST_LABEL, is_erased_marker
+from tests.erasure_pending import PENDING
 from tests.test_error_labels import label_keys
 
 # Every module registers its port at import, as at start-up: the required list names other lanes'
@@ -150,7 +151,8 @@ def test_lane_b_ports_are_registered_in_their_bands_and_required() -> None:
     lane_b = [port.module for port in LANE_B_PORTS]
     assert set(lane_b) <= set(names)
     assert frozenset(lane_b) <= REQUIRED_PORTS  # other lanes add their own keys (ADR-052)
-    assert missing_ports() == []
+    # Required, not built yet (the readiness check, 2026-11-14): approval and the job refuse.
+    assert missing_ports() == sorted(PENDING)
     # References first (links, memberships), then owned rows, files last of lane B's.
     ordered = [name for name in names if name in lane_b]
     assert ordered == [

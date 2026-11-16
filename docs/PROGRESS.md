@@ -428,6 +428,29 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 
 Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 1 starts.
 
+### [ ] WP-M1..M7 — Mobile app for technicians, admins and requesters (D-157, D-158, D-065)
+Plan: docs/architecture/mobile.md. Expo SDK 58 / React Native 0.88.1 / React 19.3 (mobile only),
+local builds only. One role-based app built from the prototype (D-158). One session each.
+- [x] WP-M1 Scaffold (2026-11-04): Expo app in `mobile/`, Expo Router, Metro links to shared
+  packages (one React), tokens, labels en/ar/ur + RTL, lint/typecheck/Jest, server-address
+  screen, `make check` and a CI job. Ran on an iPhone in Expo Go against the local API.
+- [x] WP-M2 Sign-in (built 2026-11-05; not yet tried on a device): ADR-044. BFF hand-off code
+  bound to an S256 challenge, `POST /auth/mobile/exchange`, session in `X-SupportX-Session`,
+  requesters to portal sessions. App: sign-in, Home by side, Me (organisation switch, language,
+  server status, sign-out). #236 review (2026-11-10): the return is the verified link
+  `https://<host>/mobile/auth` (ADR-044 item 3; `SUPPORTX_APP_LINK_HOSTS` at build time), the
+  session list names the phone (platform, app version), and the sign-in screen says when the
+  server ended a session. A device sign-in needs an https dev host serving the `.well-known`
+  files (the dev build's IDs go to lane B for the dev values). Split into three PRs: backend
+  sign-in + api-client, shared packages, the app.
+- [x] WP-M3 Technician, see the work (built 2026-11-05): Home KPIs, MonetX card, needs attention; queue filters with
+  SLA chips; incident detail and conversation; live updates.
+- [x] WP-M4 Technician, act (built 2026-11-05; photo and offline replies still open): take, start, resolve (resolution required); reply vs private note,
+  photo; approvals (reject needs a reason); alerts; Available/Away; If-Match; offline replies.
+- [x] WP-M5 Requester (built 2026-11-05; the full article page still open): report a problem with knowledge suggestions and a photo; catalog; my
+  requests with a timeline; fixed / still broken; announcements.
+- [ ] WP-M6 Push: device registration, notifications channel adapter, deep links.
+- [ ] WP-M7 Release: signing, CI builds, Maestro e2e (en, ar).
 ### [x] WP-020 — Work item engine and incident record (ADR-026; D-051..D-056, D-069; done 2026-10-24)
 Contract: docs/specs/parity/01-work-items-incidents.md. Two sessions.
 - [x] Session 1 (backend): module `work_items` (shared `work_items` table, type registry,
@@ -1546,8 +1569,7 @@ it with no reload (rule c). Not built yet.
     writes (workflows, connectors) are system writes (`Subject.person`).
   - Built-in fields an admin may restrict: impact details, and the problem's analysis and review
     texts; the root cause's own gate (view_root_cause) applies after the role rules.
-  - Next: b2 (search fails closed, `restricted` on live channels and 409s, designer refusal,
-    AI and notification variables), then slice c (the editor) and lane C's analytics slice.
+  - b2 (#509) and slice c follow below.
 - **S7 slice b2, field access everywhere else (no migration; ADR-047; lane B blocks):**
   - Search fails closed: a restricted custom field stays out of the search text; when a field's
     rules change, its type is marked and rebuilt in the background, and meanwhile search
@@ -1558,8 +1580,7 @@ it with no reload (rule c). Not built yet.
     defaults cannot name a field their author does not see in clear (422 field_not_permitted).
   - Tests: nothing restricted reaches the AI gateway; no notification or template variable
     names a restrictable field (guard).
-  - Next: slice c (the editor, lane C reviews); lane C's analytics slice and its skipped-recipients
-    notice; lane C's open_custom and view-log seams when their signatures exist.
+  - Next: lane C's open_custom and view-log seams when their signatures exist.
 - **Analytics slice, field access in reports (no migration; ADR-047 §5; lane C; lane B blocks):**
   - The reporting source names the fields it withheld (`ReportingSource.withheld`, filled by the
     work item source). A report that names one (filter, groupings, columns or sort) is refused
@@ -1575,6 +1596,20 @@ it with no reload (rule c). Not built yet.
     the entity, the run time and the field codes. `report_schedule.recipients_skipped` is a
     STATUS notification, required, owner only, in-app and e-mail, with the fields named in the
     owner's language. Shape from lane A; no migration.
+- **S7 slice c, the field access editor and what records show (no migration; ADR-047; lane C
+  reviews the UI):**
+  - Admin › Roles: a saved role has a Field access tab beside its permissions. Per record type,
+    each rule-able field has a mode (No rule, Read only, Masked, Hidden) that saves at once (no
+    Save on that tab); a stale row reloads with a notice; a lapsed plan keeps the rules and only
+    allows removing them. "Who sees this" opens a modal with people per mode.
+  - Records and lists say when a field is withheld: "Not shown to you" or "Masked"
+    (`RestrictedValue` in packages/ui; a restricted row is never under Add details and never
+    edits). Read-only fields (`read_only_fields`, #510) have no editor.
+  - Live: an `access.changed` message refetches every active query, so an open record shows a
+    field just hidden with no refresh (e2e `field-access.spec.ts`). The Visual matrix gains the
+    tab and the modal. Admin guide: `docs/guides/field-access.md`.
+  - Also #510: a record handed out of reach (D-053) came back unredacted; fixed, with a guard
+    that a record view is built only where it is redacted.
 
 ### [~] WP-046b — Incidents V1, file 01 §13-23 (lane A, 2026-11-14; 5 sessions, one migration each; 31 REQs)
 
@@ -2539,7 +2574,20 @@ declare major) default to the tenant admin and service desk manager, grantable, 
     0165 grants DELETE on four tables; `tests/test_erasure_deletes.py` fails on any other hard
     delete of them. Labels en/ar/ur.
   - Summaries: the ai erasure consumer already deletes them (D-131).
+  - [x] Lane C's mentions ports (migration 0168, 2026-11-14), both in `REQUIRED_MENTION_PORTS`:
+    - `knowledge`: every article version (title, body, keywords, change, internal and reject
+      notes), others' feedback comments, withdrawal reasons, topic names and descriptions.
+    - `announcements`: title and body.
+    - Published versions are frozen (0036). 0168's `kb_redact_version` changes their title,
+      body or keywords only for a redacted mention of an open erasure, only into the old text
+      with the marker in place (checked in SQL). The freeze lets it through only as the
+      function's owner with a one-row transaction flag that it clears at once.
+    - History names the field only (`erasure_redaction`); saved events raised; search follows
+      (a computed column); too long refused; passages follow the article screen's rights.
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
+  short one-word names flagged, never stored; task mentions say they reach the record's task
+  history; task-history phone match per digit run.
 - [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
   deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
 - **S2, lane A's ports (0166; lane B blocked):**

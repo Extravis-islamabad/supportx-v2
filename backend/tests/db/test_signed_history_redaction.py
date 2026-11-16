@@ -413,3 +413,57 @@ async def test_a_task_mention_blanks_its_parent_s_task_history_naming_the_person
         erasure_id,
     )
     assert await run(mention) == zero
+
+
+async def test_task_history_matches_a_phone_per_run_and_skips_a_short_one_word_name(
+    world: World,
+) -> None:
+    """0170: two numbers side by side are no phone; a short one-word display name is not
+    searched on its own, while the full first + last name always is (lane C's #511 notes)."""
+    a = world.a
+    person = (
+        await world.sql(
+            "SELECT display_name, first_name, last_name, phone FROM users WHERE id = $1",
+            a.tech_a,
+        )
+    )[0]
+    await world.sql(
+        "UPDATE users SET display_name = 'Ali', first_name = 'Ali', last_name = 'Raza',"
+        " phone = '+92 300 1234567' WHERE id = $1",
+        a.tech_a,
+    )
+    try:
+        erasure_id = uuid.UUID((await _requested(world, a))["id"])
+        item = await world.create(a, a.admin, group_id=str(a.ga))
+        base = f"/incidents/{item['id']}/tasks"
+        full = "Ali Raza"
+        titles = {
+            "phone": "Ring 0300-1234567 later",
+            "joined": "IDs 0300 and 1234567",
+            "short": "Ali to check the rack",
+            "full": f"Thanks {full}",
+        }
+        made = {}
+        for key, title in titles.items():
+            created = await world.call("POST", base, a, a.admin, json={"title": title})
+            assert created.status_code == 201, created.text
+            made[key] = uuid.UUID(created.json()["id"])
+        mention = await _task_mention(world, a, erasure_id, made["phone"], redacted_by=a.admin)
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            ids = list(await session.scalars(text("SELECT history_child_rows(:m)"), {"m": mention}))
+        rows = await _task_rows(world, a, item["id"])
+        matched = " ".join(f"{rows[i][0]} {rows[i][1]}" for i in ids)
+        assert titles["phone"] in matched
+        assert titles["full"] in matched
+        assert titles["joined"] not in matched
+        assert titles["short"] not in matched
+    finally:  # the shared world's person stays as it was
+        await world.sql(
+            "UPDATE users SET display_name = $2, first_name = $3, last_name = $4, phone = $5"
+            " WHERE id = $1",
+            a.tech_a,
+            person["display_name"],
+            person["first_name"],
+            person["last_name"],
+            person["phone"],
+        )

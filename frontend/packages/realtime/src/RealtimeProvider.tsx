@@ -3,7 +3,12 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 
 import { queryKeys } from '@supportx/api-client';
 
-import { ACCESS_CHANGED, RealtimeConnection, type ClientFactory } from './connection';
+import {
+  ACCESS_CHANGED,
+  ACCESS_REFETCH_SPREAD_MS,
+  RealtimeConnection,
+  type ClientFactory,
+} from './connection';
 import { RealtimeContext, type RealtimeContextValue } from './context';
 import { REALTIME_KEY } from './keys';
 import type { RealtimeMessage } from './types';
@@ -44,6 +49,15 @@ export function RealtimeProvider({ tenantId, userId, children, factory }: Realti
     };
     const own = (message: RealtimeMessage) => {
       if (message.type === 'access.changed' || message.type === 'refresh') refreshAccess();
+      // What the person may see changed (a role, a group, a field rule, ADR-047): every screen
+      // open now asks again, so a field just hidden reads "Not shown to you" with no refresh.
+      // Rare, and only the active queries refetch, after a random 0-3 s: a rule reaches every
+      // holder of a role at once, so their screens never ask the server all together (lane C).
+      if (message.type === 'access.changed') {
+        setTimeout(() => {
+          void queryClient.invalidateQueries({ refetchType: 'active' });
+        }, Math.random() * ACCESS_REFETCH_SPREAD_MS);
+      }
       // The user's own record changed elsewhere (another device): name, preferences, layout.
       if (message.type === 'users.changed' && message.ids.includes(value.userId)) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.session });

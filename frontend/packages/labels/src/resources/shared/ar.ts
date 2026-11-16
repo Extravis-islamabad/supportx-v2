@@ -183,6 +183,8 @@ export const ar: LabelResource = {
   'layout.properties_fewer': 'إخفاء الحقول الفارغة',
   'layout.reset_widths': 'إعادة ضبط العرض',
   'layout.resize_column': 'عرض {{column}}: استخدم مفاتيح الأسهم',
+  'layout.restricted_hidden': 'غير معروض لك',
+  'layout.restricted_masked': 'مُخفى جزئيًا',
   'layout.star': 'إضافة إلى المفضلة',
   'layout.tabs_earlier': 'علامات التبويب السابقة',
   'layout.tabs_later': 'علامات التبويب التالية',
