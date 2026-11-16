@@ -428,6 +428,29 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 
 Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 1 starts.
 
+### [ ] WP-M1..M7 — Mobile app for technicians, admins and requesters (D-157, D-158, D-065)
+Plan: docs/architecture/mobile.md. Expo SDK 58 / React Native 0.88.1 / React 19.3 (mobile only),
+local builds only. One role-based app built from the prototype (D-158). One session each.
+- [x] WP-M1 Scaffold (2026-11-04): Expo app in `mobile/`, Expo Router, Metro links to shared
+  packages (one React), tokens, labels en/ar/ur + RTL, lint/typecheck/Jest, server-address
+  screen, `make check` and a CI job. Ran on an iPhone in Expo Go against the local API.
+- [x] WP-M2 Sign-in (built 2026-11-05; not yet tried on a device): ADR-044. BFF hand-off code
+  bound to an S256 challenge, `POST /auth/mobile/exchange`, session in `X-SupportX-Session`,
+  requesters to portal sessions. App: sign-in, Home by side, Me (organisation switch, language,
+  server status, sign-out). #236 review (2026-11-10): the return is the verified link
+  `https://<host>/mobile/auth` (ADR-044 item 3; `SUPPORTX_APP_LINK_HOSTS` at build time), the
+  session list names the phone (platform, app version), and the sign-in screen says when the
+  server ended a session. A device sign-in needs an https dev host serving the `.well-known`
+  files (the dev build's IDs go to lane B for the dev values). Split into three PRs: backend
+  sign-in + api-client, shared packages, the app.
+- [x] WP-M3 Technician, see the work (built 2026-11-05): Home KPIs, MonetX card, needs attention; queue filters with
+  SLA chips; incident detail and conversation; live updates.
+- [x] WP-M4 Technician, act (built 2026-11-05; photo and offline replies still open): take, start, resolve (resolution required); reply vs private note,
+  photo; approvals (reject needs a reason); alerts; Available/Away; If-Match; offline replies.
+- [x] WP-M5 Requester (built 2026-11-05; the full article page still open): report a problem with knowledge suggestions and a photo; catalog; my
+  requests with a timeline; fixed / still broken; announcements.
+- [ ] WP-M6 Push: device registration, notifications channel adapter, deep links.
+- [ ] WP-M7 Release: signing, CI builds, Maestro e2e (en, ar).
 ### [x] WP-020 — Work item engine and incident record (ADR-026; D-051..D-056, D-069; done 2026-10-24)
 Contract: docs/specs/parity/01-work-items-incidents.md. Two sessions.
 - [x] Session 1 (backend): module `work_items` (shared `work_items` table, type registry,
