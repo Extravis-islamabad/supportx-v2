@@ -295,6 +295,19 @@ describe('console shell', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it('says sign-in is unavailable while the sign-in service is down (ADR-051)', async () => {
+    api({ me: null });
+    const navigate = vi.fn();
+    at('/?auth_error=sign_in_unavailable');
+    render(<App navigate={navigate} />);
+    expect(
+      await screen.findByText(
+        'Sign-in is temporarily unavailable. If you’re already signed in, you can keep working.',
+      ),
+    ).toBeDefined();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('shows a not-found page for unknown addresses', async () => {
     at('/nowhere');
     api();

@@ -11,6 +11,7 @@ export const RECORD_TABS = [
   'files',
   'worklogs',
   'links',
+  'time',
   'history',
   'automation',
 ] as const;

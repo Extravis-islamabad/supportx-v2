@@ -2,6 +2,7 @@ import type { LabelResource } from '../en';
 
 // sla labels (see ../README.md).
 export const ur: LabelResource = {
+  'erasure_count.nothing_held': 'فرد کا اپنا کچھ محفوظ نہیں',
   'sla.calendar.field.holiday_list_ids': 'تعطیلات کی فہرستیں',
   'sla.calendar.field.labels': 'دوسری زبانوں میں نام',
   'sla.calendar.field.name': 'نام',

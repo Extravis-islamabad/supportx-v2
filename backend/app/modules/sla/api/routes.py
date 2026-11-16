@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
+from app.core.body_limit import body_limit
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail, ValidationFailed
 from app.modules.audit import AuditNote, audited
@@ -740,6 +741,8 @@ async def delete_holiday(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 @router.post(
     "/holiday-lists/{list_id}/import",
     summary="Import holidays from an iCalendar file",
+    # Room past its own 1 MB check, so an oversized file gets its own 422, not the cap's 413.
+    dependencies=[Depends(body_limit(2 * 1024 * 1024))],
     status_code=status.HTTP_201_CREATED,
     response_model=SlaHolidayImportOut,
 )

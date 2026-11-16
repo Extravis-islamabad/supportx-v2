@@ -21,6 +21,17 @@ class MailboxChanged(DomainEvent):
     change: Literal["added", "changed", "removed", "fetched"]
 
 
+class MailBlockRuleChanged(DomainEvent):
+    """A block rule for unwanted mail was added, changed or removed (WP-046a S6; REQ-INC-026)."""
+
+    event_type: ClassVar[str] = "integrations.mail_block_rule.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "mail_block_rule"
+
+    rule_id: uuid.UUID
+    change: Literal["added", "changed", "removed"]
+
+
 class MailboxFailing(DomainEvent):
     """A mailbox stopped working, or fails for a new reason: its admins are told (never silent)."""
 
@@ -115,4 +126,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     ConnectorRecovered,
     DirectoryChanged,
     ConnectorSettingsChanged,
+    MailBlockRuleChanged,
 )

@@ -9,7 +9,9 @@ changed role default changes this file, so it needs the security review.
 ## Routes
 
 Access is what the route declares: one of the listed permissions (any scope),
-`signed_in` (the caller's own data, browser session only) or `public` (no session).
+`signed_in` (the caller's own data, browser session only), `session (BFF)` (the
+sign-in layer's own routes: a valid session cookie, CSRF-checked on changes, or 401)
+or `public` (no session).
 Routes carry no machine-readable scope rule of their own: which records a caller
 reaches is filtered in the module's service by the scope the caller holds the
 permission at. The Scopes column lists the scopes each permission can be granted
@@ -186,6 +188,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/audit/exports` | `audit.export` | audit.export: all |
 | POST | `/api/v1/audit/exports` | `audit.export` | audit.export: all |
 | GET | `/api/v1/audit/exports/{export_id}/download` | `audit.export` | audit.export: all |
+| GET | `/api/v1/audit/personal-data-access` | `audit.view_personal_data_access` | audit.view_personal_data_access: all |
 | GET | `/api/v1/audit/saved-searches` | `audit.view` | audit.view: all |
 | POST | `/api/v1/audit/saved-searches` | `audit.view` | audit.view: all |
 | DELETE | `/api/v1/audit/saved-searches/{search_id}` | `audit.view` | audit.view: all |
@@ -194,20 +197,20 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/audit/status` | `audit.view` | audit.view: all |
 | GET | `/api/v1/audit/verification-runs` | `audit.view` | audit.view: all |
 | POST | `/api/v1/audit/verification-runs` | `audit.verify` | audit.verify: all |
-| GET | `/api/v1/auth/account-action` | public | - |
+| GET | `/api/v1/auth/account-action` | session (BFF) | - |
 | GET | `/api/v1/auth/callback` | public | - |
-| GET | `/api/v1/auth/confirm` | public | - |
+| GET | `/api/v1/auth/confirm` | session (BFF) | - |
 | GET | `/api/v1/auth/dev/personas` | public | - |
 | POST | `/api/v1/auth/dev/sign-in` | public | - |
 | GET | `/api/v1/auth/login` | public | - |
-| POST | `/api/v1/auth/logout` | public | - |
-| GET | `/api/v1/auth/me` | public | - |
+| POST | `/api/v1/auth/logout` | session (BFF) | - |
+| GET | `/api/v1/auth/me` | session (BFF) | - |
 | POST | `/api/v1/auth/mobile/exchange` | public | - |
 | POST | `/api/v1/auth/password-reset` | public | - |
-| GET | `/api/v1/auth/sessions` | public | - |
-| POST | `/api/v1/auth/sessions/end-others` | public | - |
-| DELETE | `/api/v1/auth/sessions/{listed_id}` | public | - |
-| POST | `/api/v1/auth/switch-tenant` | public | - |
+| GET | `/api/v1/auth/sessions` | session (BFF) | - |
+| POST | `/api/v1/auth/sessions/end-others` | session (BFF) | - |
+| DELETE | `/api/v1/auth/sessions/{listed_id}` | session (BFF) | - |
+| POST | `/api/v1/auth/switch-tenant` | session (BFF) | - |
 | GET | `/api/v1/automation/availability` | signed_in | - |
 | PUT | `/api/v1/automation/availability/{user_id}` | signed_in | - |
 | GET | `/api/v1/automation/availability/{user_id}/history` | signed_in | - |
@@ -426,6 +429,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/changes/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/changes/{record_id}/tasks/{task_id}/dependencies` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/tasks/{task_id}/move` | `changes.view` | changes.view: all/site/group/own |
+| GET | `/api/v1/changes/{record_id}/time-analysis` | `changes.view` | changes.view: all/site/group/own |
 | DELETE | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own |
@@ -454,7 +458,24 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
 | GET | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
 | PATCH | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
+| DELETE | `/api/v1/drafts/{form_key}` | signed_in | - |
+| GET | `/api/v1/drafts/{form_key}` | signed_in | - |
+| PUT | `/api/v1/drafts/{form_key}` | signed_in | - |
 | GET | `/api/v1/entitlements` | signed_in | - |
+| GET | `/api/v1/erasures` | `people.erase` | people.erase: all |
+| GET | `/api/v1/erasures/{erasure_id}` | `people.erase` | people.erase: all |
+| POST | `/api/v1/erasures/{erasure_id}/approve` | `people.erase` | people.erase: all |
+| GET | `/api/v1/erasures/{erasure_id}/mentions` | `people.erase` | people.erase: all |
+| POST | `/api/v1/erasures/{erasure_id}/mentions/redact` | `people.erase` | people.erase: all |
+| GET | `/api/v1/erasures/{erasure_id}/mentions/{mention_id}/passage` | `people.erase` | people.erase: all |
+| POST | `/api/v1/erasures/{erasure_id}/reject` | `people.erase` | people.erase: all |
+| POST | `/api/v1/erasures/{erasure_id}/report/reviewed` | `people.erase` | people.erase: all |
+| GET | `/api/v1/field-access/catalogue` | `roles.view` | roles.view: all |
+| GET | `/api/v1/field-access/effective` | `roles.view` | roles.view: all |
+| GET | `/api/v1/field-access/rules` | `roles.view` | roles.view: all |
+| POST | `/api/v1/field-access/rules` | `roles.manage` | roles.manage: all |
+| DELETE | `/api/v1/field-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
+| PATCH | `/api/v1/field-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
 | POST | `/api/v1/files` | signed_in | - |
 | POST | `/api/v1/files/attach` | signed_in | - |
 | GET | `/api/v1/files/content/{token}` | signed_in | - |
@@ -474,6 +495,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/identity/break-glass/{user_id}` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
+| POST | `/api/v1/identity/invitations/{invitation_id}/link` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations/{invitation_id}/resend` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations/{invitation_id}/revoke` | `users.manage` | users.manage: all |
 | GET | `/api/v1/identity/mfa` | `identity.manage` | identity.manage: all |
@@ -488,6 +510,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/settings/password-policy/apply` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sign-ins` | `identity.view_sign_ins` | identity.view_sign_ins: all |
+| GET | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all |
+| PUT | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sso-policy` | `identity.manage` | identity.manage: all |
@@ -577,6 +601,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/{record_id}/conversation/{entry_id}` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/copies` | `incidents.create` | incidents.create: all |
 | PUT | `/api/v1/incidents/{record_id}/due-dates/{kind}` | `incidents.edit_due_dates` | incidents.edit_due_dates: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/followers` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/followers/{user_id}` | `incidents.view` | incidents.view: all/site/group/own |
@@ -601,6 +626,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/incidents/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/incidents/{record_id}/tasks/{task_id}/dependencies` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/tasks/{task_id}/move` | `incidents.view` | incidents.view: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/time-analysis` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own |
@@ -626,6 +652,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
 | GET | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
 | PUT | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
+| GET | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
+| POST | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
+| DELETE | `/api/v1/integrations/mail-block-rules/{rule_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
+| PATCH | `/api/v1/integrations/mail-block-rules/{rule_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
 | GET | `/api/v1/integrations/mailboxes` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
 | POST | `/api/v1/integrations/mailboxes` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
 | DELETE | `/api/v1/integrations/mailboxes/{mailbox_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
@@ -728,6 +758,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/people-imports` | `users.manage` | users.manage: all |
 | POST | `/api/v1/people-imports` | `users.manage` | users.manage: all |
 | GET | `/api/v1/people-imports/{import_id}` | `users.manage` | users.manage: all |
+| POST | `/api/v1/people/{user_id}/erasure` | `people.erase` | people.erase: all |
+| PUT | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` | audit.manage_holds: all |
+| POST | `/api/v1/people/{user_id}/legal-hold/lift` | `audit.manage_holds` | audit.manage_holds: all |
 | GET | `/api/v1/permissions` | `roles.view` | roles.view: all |
 | GET | `/api/v1/portal/changes` | signed_in | - |
 | POST | `/api/v1/portal/changes` | signed_in | - |
@@ -884,6 +917,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/problems/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/problems/{record_id}/tasks/{task_id}/dependencies` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/tasks/{task_id}/move` | `problems.view` | problems.view: all/site/group/own |
+| GET | `/api/v1/problems/{record_id}/time-analysis` | `problems.view` | problems.view: all/site/group/own |
 | DELETE | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own |
@@ -906,6 +940,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/public/branding/{tenant_ref}/login.css` | public | - |
 | GET | `/api/v1/public/branding/{tenant_ref}/{name}` | public | - |
 | GET | `/api/v1/public/domain-check/{token}` | public | - |
+| POST | `/api/v1/public/invite-links/accept` | public | - |
+| POST | `/api/v1/public/invite-links/peek` | public | - |
+| POST | `/api/v1/public/notify-links/peek` | public | - |
+| POST | `/api/v1/public/notify-links/stop` | public | - |
 | GET | `/api/v1/ready` | public | - |
 | POST | `/api/v1/realtime/connection-token` | signed_in | - |
 | GET | `/api/v1/realtime/lists/{name}` | signed_in | - |
@@ -1039,6 +1077,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/releases/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/releases/{record_id}/tasks/{task_id}/dependencies` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/tasks/{task_id}/move` | `releases.view` | releases.view: all/site/group/own |
+| GET | `/api/v1/releases/{record_id}/time-analysis` | `releases.view` | releases.view: all/site/group/own |
 | DELETE | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own |
@@ -1185,6 +1224,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/service-requests/{record_id}/tasks/{task_id}` | signed_in | - |
 | PUT | `/api/v1/service-requests/{record_id}/tasks/{task_id}/dependencies` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/tasks/{task_id}/move` | `requests.view` | requests.view: all/site/group/own |
+| GET | `/api/v1/service-requests/{record_id}/time-analysis` | `requests.view` | requests.view: all/site/group/own |
 | DELETE | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own |
@@ -1719,8 +1759,10 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `assets.view_financials` | all | all |
 | tenant_admin | `audit.export` | all | all |
 | tenant_admin | `audit.manage` | all | all |
+| tenant_admin | `audit.manage_holds` | all | all |
 | tenant_admin | `audit.verify` | all | all |
 | tenant_admin | `audit.view` | all | all |
+| tenant_admin | `audit.view_personal_data_access` | all | all |
 | tenant_admin | `automation.manage` | all | all |
 | tenant_admin | `automation.view` | all | all |
 | tenant_admin | `branding.manage` | all | all |
@@ -1797,6 +1839,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `licence.manage` | all | all |
 | tenant_admin | `mailboxes.manage` | all | all |
 | tenant_admin | `notifications.manage` | all | all |
+| tenant_admin | `people.erase` | all | all |
+| tenant_admin | `people.export` | all | all |
 | tenant_admin | `problems.add_note` | all | all |
 | tenant_admin | `problems.approve` | all | all |
 | tenant_admin | `problems.assign` | all | all |

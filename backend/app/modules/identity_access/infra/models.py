@@ -23,6 +23,13 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, CIDR, INET, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
+from app.modules.identity_access.domain.erasure import (
+    LAST_STEP,
+    OPEN_STATES,
+    ErasureReason,
+    ErasureState,
+)
+from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionState
 from app.modules.identity_access.domain.network import IP_ALLOW_MAX
 from app.modules.identity_access.domain.sign_in import (
     SignInApp,
@@ -134,6 +141,10 @@ class User(TenantEntity):
             unique=True,
             postgresql_where=text("employee_id IS NOT NULL"),
         ),
+        CheckConstraint("char_length(legal_hold_reason) <= 1000", name="legal_hold_reason_length"),
+        CheckConstraint(
+            "(legal_hold_at IS NULL) = (legal_hold_reason IS NULL)", name="legal_hold_complete"
+        ),
         Index("ix_users_tenant_manager", "tenant_id", "manager_id"),
         # Keyset pagination for the sortable columns of GET /users (tenant first, ID last).
         Index("ix_users_tenant_created", "tenant_id", "created_at", "id"),
@@ -220,6 +231,14 @@ class User(TenantEntity):
     search_name: Unmapped[str] = unmapped_column(
         Text, Computed("sx_search_normalize(display_name)", persisted=True)
     )
+    # Legal hold (H1, D-171; migration 0161): a held person is never erased. Set and lifted by
+    # holders of `audit.manage_holds`, each audited with the reason.
+    legal_hold_at: Mapped[datetime | None]
+    legal_hold_by: Mapped[uuid.UUID | None]
+    legal_hold_reason: Mapped[str | None] = mapped_column(Text)
+    # GDPR erasure done (ADR-052 step 5): the row stays, anonymised, so IDs everywhere resolve.
+    erased_at: Mapped[datetime | None]
+    erased_by: Mapped[uuid.UUID | None]
 
 
 SCOPE_CODES = ("all", "site", "group", "own")
@@ -275,6 +294,43 @@ class RolePermission(TenantKeyed, Base):
     scope: Mapped[str]
     # Attribute rule in the filter DSL (shared/api/filters.py); NULL = every record in scope.
     condition: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class RoleFieldAccess(TenantEntity):
+    """One role's rule for one field of one record type (ADR-047; REQ-WI-016, REQ-ADM-026).
+
+    `mode` is read_only, masked or hidden; a field with no live rule is clear for the role. A
+    person's mode is the clearest any of their roles gives, compiled into their subject. Removing
+    a rule soft-deletes it; a new rule for the same field is a new row.
+    """
+
+    __tablename__ = "role_field_access"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"],
+            ["roles.tenant_id", "roles.id"],
+            ondelete="CASCADE",
+            name="fk_role_field_access_role",
+        ),
+        Index(
+            "uq_rfa_tenant_role_type_field",
+            "tenant_id",
+            "role_id",
+            "record_type",
+            "field",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_rfa_tenant_type_field", "tenant_id", "record_type", "field"),
+        CheckConstraint("mode IN ('read_only', 'masked', 'hidden')", name="mode_code"),
+        CheckConstraint("record_type ~ '^[a-z][a-z_]{0,39}$'", name="record_type_format"),
+        CheckConstraint("char_length(field) BETWEEN 1 AND 80", name="field_length"),
+    )
+
+    role_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(40))
+    field: Mapped[str] = mapped_column(String(80))
+    mode: Mapped[str] = mapped_column(String(10))
 
 
 class GroupRole(TenantKeyed, Base):
@@ -552,6 +608,8 @@ class SsoProvider(TenantEntity):
         ),
         CheckConstraint("state IN ('draft', 'tested', 'on', 'off')", name="state_code"),
         UniqueConstraint("tenant_id", "alias", name="uq_sso_providers_tenant_alias"),
+        # Lets the expiry marks point at a provider of their own tenant only (0158).
+        UniqueConstraint("tenant_id", "id", name="uq_sso_providers_tenant_id_id"),
         Index("ix_sso_providers_tenant_state", "tenant_id", "state"),
     )
 
@@ -570,10 +628,13 @@ class SsoProvider(TenantEntity):
     tested_at: Mapped[datetime | None]
     tested_by: Mapped[uuid.UUID | None]
     switched_on_at: Mapped[datetime | None]
+    # When the OIDC client secret runs out (REQ-SEC-011, WP-057 S2b-2; 0158): entered by an admin
+    # from the identity provider's own console. SupportX never reads the secret itself.
+    client_secret_expires_at: Mapped[datetime | None]
 
 
 INVITATION_STATES = ("pending", "accepted", "revoked")
-INVITATION_DELIVERY = ("email", "existing_account")
+INVITATION_DELIVERY = ("email", "existing_account", "link")
 
 
 class Invitation(TenantEntity):
@@ -586,11 +647,22 @@ class Invitation(TenantEntity):
     __tablename__ = "invitations"
     __table_args__ = (
         CheckConstraint("status IN ('pending', 'accepted', 'revoked')", name="status_code"),
-        CheckConstraint("delivery IN ('email', 'existing_account')", name="delivery_code"),
+        CheckConstraint("delivery IN ('email', 'existing_account', 'link')", name="delivery_code"),
         ForeignKeyConstraint(
             ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_invitations_user"
         ),
         Index("ix_invitations_tenant_user", "tenant_id", "user_id", "status"),
+        CheckConstraint(
+            "link_token_hash IS NULL OR octet_length(link_token_hash) = 32",
+            name="link_token_hash_length",
+        ),
+        Index(
+            "uq_invitations_link_token",
+            "tenant_id",
+            "link_token_hash",
+            unique=True,
+            postgresql_where=text("link_token_hash IS NOT NULL"),
+        ),
         Index("ix_invitations_tenant_created", "tenant_id", "created_at", "id"),
     )
 
@@ -606,6 +678,10 @@ class Invitation(TenantEntity):
     accepted_at: Mapped[datetime | None]
     revoked_at: Mapped[datetime | None]
     sends: Mapped[int] = mapped_column(server_default="1")
+    # The copied invite link (REQ-SEC-021, WP-057 S2b-2; 0158): only the SHA-256 of its token,
+    # single use, valid until `expires_at`; copying again replaces it. Offered without mail only.
+    link_token_hash: Mapped[bytes | None] = mapped_column(LargeBinary)
+    link_copied_at: Mapped[datetime | None]
 
 
 class UserCostRate(TenantEntity):
@@ -789,3 +865,271 @@ class SignInImportCursor(Base):
     # Events of last_time_ms already read, when one millisecond held more than a run (0153).
     last_offset: Mapped[int] = mapped_column(Integer, server_default="0")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class SiteNetwork(TenantKeyed, Timestamps, Actors, Base):
+    """An admin's address range → site, for the sign-in place (WP-057 S2b, D-170; 0157).
+
+    Edited as one list with the tenant's identity settings (their `version` is the If-Match), so
+    rows have no version of their own. The most specific prefix wins (domain/place.py). At most
+    MAX_SITE_NETWORKS per tenant, checked by the service; one row per range.
+    """
+
+    __tablename__ = "site_networks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "site_id"], ["sites.tenant_id", "sites.id"], name="fk_site_networks_site"
+        ),
+        UniqueConstraint("tenant_id", "network", name="uq_site_networks_network"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    network: Mapped[str] = mapped_column(CIDR)
+    site_id: Mapped[uuid.UUID]
+
+
+class KnownDevice(TenantKeyed, Timestamps, Base):
+    """A browser or device a person has signed in from before (REQ-SEC-033; WP-057 S2b; 0157).
+
+    Only a keyed fingerprint: HMAC(the "known-device" key of the ADR-048 ring, user, device code,
+    the address's /24 or /48). Never the address or the browser string, so the table reveals
+    nothing on its own. A sign-in whose fingerprint is new sends the person a notice. Erasure
+    deletes the person's rows.
+    """
+
+    __tablename__ = "known_devices"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_known_devices_user"
+        ),
+        UniqueConstraint("tenant_id", "user_id", "fingerprint", name="uq_known_devices_print"),
+        CheckConstraint("octet_length(fingerprint) = 32", name="fingerprint_length"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID]
+    fingerprint: Mapped[bytes] = mapped_column(LargeBinary)
+    last_seen_at: Mapped[datetime]
+
+
+ERASURE_STATES = tuple(state.value for state in ErasureState)
+ERASURE_REASONS = tuple(reason.value for reason in ErasureReason)
+# As migration 0161 wrote the index (same order, so the model matches the migration).
+_OPEN_ORDER = ("requested", "approved", "running", "failed")
+assert set(_OPEN_ORDER) == {state.value for state in OPEN_STATES}  # noqa: S101 - import-time check
+_OPEN = ", ".join(f"'{state}'" for state in _OPEN_ORDER)
+
+
+class PersonErasure(TenantEntity):
+    """One GDPR erasure of a person (D-171, ADR-052 §3; migration 0161).
+
+    Requested by one admin, approved by another, then run by the erasure job step by step:
+    `step` is the next step to run (domain/erasure.Step), so a stopped run resumes there.
+    `last_error_code` is a code, never a message. `keep_files` maps a file ID to the admin's
+    reason for keeping it. `report` is the mentions report shown to the approver (S1b); approval
+    and the job refuse without it. `counts` holds what each step removed, by kind (never data).
+    """
+
+    __tablename__ = "person_erasures"
+    __table_args__ = (
+        CheckConstraint(f"state IN {ERASURE_STATES!r}", name="state_code"),
+        CheckConstraint(f"reason_code IN {ERASURE_REASONS!r}", name="reason_code"),
+        CheckConstraint(f"step BETWEEN 0 AND {LAST_STEP}", name="step_range"),
+        CheckConstraint("attempts >= 0", name="attempts_not_negative"),
+        CheckConstraint("char_length(port_cursor) <= 2000", name="port_cursor_length"),
+        CheckConstraint("char_length(reason_text) <= 1000", name="reason_text_length"),
+        CheckConstraint("jsonb_typeof(keep_files) = 'object'", name="keep_files_object"),
+        CheckConstraint("approved_by IS NULL OR approved_by <> requested_by", name="four_eyes"),
+        CheckConstraint("successor_id <> person_id", name="successor_other"),
+        ForeignKeyConstraint(
+            ["tenant_id", "person_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_person",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "successor_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_successor",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "requested_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_requested_by",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "approved_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_approved_by",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "rejected_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_rejected_by",
+        ),
+        Index(
+            "uq_person_erasures_open",
+            "tenant_id",
+            "person_id",
+            unique=True,
+            # nosemgrep: sx.sql-format - a fixed list of erasure state codes
+            postgresql_where=text(f"state IN ({_OPEN})"),
+        ),
+        Index("ix_person_erasures_tenant_created", "tenant_id", "created_at", "id"),
+        Index("ix_person_erasures_tenant_state", "tenant_id", "state"),
+        # The mentions' composite key points here (0164).
+        UniqueConstraint("tenant_id", "id", name="uq_person_erasures_tenant_id_id"),
+    )
+
+    person_id: Mapped[uuid.UUID]
+    state: Mapped[str] = mapped_column(String(12), server_default="requested")
+    step: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    # Inside step 4 (ADR-052 §4, batches): the module being erased and its cursor.
+    port_module: Mapped[str | None] = mapped_column(String(60))
+    port_cursor: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(Integer, server_default="0")
+    reason_code: Mapped[str] = mapped_column(String(40))
+    reason_text: Mapped[str | None] = mapped_column(Text)
+    successor_id: Mapped[uuid.UUID]
+    # The successor the job used: the requested one, or the approver when the requested one was
+    # no longer active at job start (lane C's review of ADR-052 §4).
+    effective_successor_id: Mapped[uuid.UUID | None]
+    keep_files: Mapped[dict[str, str]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    requested_by: Mapped[uuid.UUID]
+    requested_at: Mapped[datetime]
+    expires_at: Mapped[datetime]
+    approved_by: Mapped[uuid.UUID | None]
+    approved_at: Mapped[datetime | None]
+    rejected_by: Mapped[uuid.UUID | None]
+    rejected_at: Mapped[datetime | None]
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+    last_error_code: Mapped[str | None] = mapped_column(String(60))
+    report: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    counts: Mapped[dict[str, int]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    # S1b (0164): an admin looked at the finished report; approval needs it (D-171 a).
+    report_reviewed_at: Mapped[datetime | None]
+    report_reviewed_by: Mapped[uuid.UUID | None]
+
+
+MENTION_KINDS = tuple(kind.value for kind in MentionMatchKind)
+MENTION_STATES = tuple(state.value for state in MentionState)
+
+
+class PersonErasureMention(TenantEntity):
+    """One place an erasure's person is named in other people's text (ADR-052 S1b; 0164).
+
+    Where (module, record, field), which kind and how often: never the text, never the terms.
+    Written by the report build; `state` moves to redacted (the admin replaced it with the
+    marker) or left (approved with it in place). No DELETE grant: the record of what the
+    approver saw stays with the erasure.
+    """
+
+    __tablename__ = "person_erasure_mentions"
+    __table_args__ = (
+        CheckConstraint(f"match_kind IN {MENTION_KINDS!r}", name="match_kind_code"),
+        CheckConstraint(f"state IN {MENTION_STATES!r}", name="state_code"),
+        CheckConstraint("occurrences > 0", name="occurrences_positive"),
+        ForeignKeyConstraint(
+            ["tenant_id", "erasure_id"],
+            ["person_erasures.tenant_id", "person_erasures.id"],
+            name="fk_person_erasure_mentions_erasure",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "redacted_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasure_mentions_redacted_by",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "erasure_id",
+            "module_key",
+            "record_type",
+            "record_id",
+            "field",
+            "match_kind",
+            name="uq_person_erasure_mentions_place",
+        ),
+        # The composite key signed history redactions point at (0167).
+        UniqueConstraint("tenant_id", "id", name="uq_person_erasure_mentions_tenant_id_id"),
+        Index("ix_person_erasure_mentions_state", "tenant_id", "erasure_id", "state"),
+    )
+
+    erasure_id: Mapped[uuid.UUID]
+    module_key: Mapped[str] = mapped_column(String(60))
+    record_type: Mapped[str] = mapped_column(String(40))
+    record_id: Mapped[uuid.UUID]
+    field: Mapped[str] = mapped_column(String(80))
+    match_kind: Mapped[str] = mapped_column(String(10))
+    occurrences: Mapped[int] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String(10), server_default="found")
+    redacted_by: Mapped[uuid.UUID | None]
+    redacted_at: Mapped[datetime | None]
+    # History rows of the field left at redaction: a fingerprinted audit entry commits to them
+    # (ADR-046), so blanking them would read as tampering. Shown to the admin, never hidden.
+    history_kept: Mapped[int] = mapped_column(Integer, server_default="0")
+
+
+EXPIRY_THRESHOLDS = (0, 1, 7, 30)  # domain/expiry.py: days before, 0 = run out
+NOTICE_KINDS = ("locked_out", "password_changed", "password_set", "mfa_added", "mfa_removed")
+
+
+class SecurityNoticeMark(TenantKeyed, Base):
+    """A Keycloak user event already turned into a notice, or kept quiet (REQ-SEC-033; 0158).
+
+    Once per Keycloak event ID. Only what that check and the lock-out count need (lane B): no
+    address, browser or client. `told` False: kept quiet (one lock-out notice an hour; a first
+    password). Purged after 30 days; erasure deletes the person's rows.
+    """
+
+    __tablename__ = "security_notice_marks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_security_notice_marks_user",
+        ),
+        UniqueConstraint("tenant_id", "keycloak_event_id", name="uq_security_notice_marks_once"),
+        CheckConstraint(
+            "kind IN (" + ", ".join(f"'{k}'" for k in NOTICE_KINDS) + ")", name="kind_code"
+        ),
+        Index("ix_security_notice_marks_person", "tenant_id", "user_id", "kind", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    keycloak_event_id: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(32))
+    occurred_at: Mapped[datetime]
+    told: Mapped[bool]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SecurityExpiryMark(TenantKeyed, Base):
+    """An expiry alert already sent (REQ-SEC-011; WP-057 S2b-2; 0158), so each goes once.
+
+    `item` names what runs out: a SAML signing certificate by its SHA-256 fingerprint, or
+    `client_secret`. Append-only; the daily schedule writes one row per alert (and per threshold
+    a late run passes over).
+    """
+
+    __tablename__ = "security_expiry_marks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "provider_id"],
+            ["sso_providers.tenant_id", "sso_providers.id"],
+            name="fk_security_expiry_marks_provider",
+        ),
+        UniqueConstraint(
+            "tenant_id", "provider_id", "item", "threshold", name="uq_security_expiry_marks_once"
+        ),
+        CheckConstraint(
+            "threshold IN (" + ", ".join(str(t) for t in EXPIRY_THRESHOLDS) + ")",
+            name="threshold_code",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    provider_id: Mapped[uuid.UUID]
+    item: Mapped[str] = mapped_column(String(64))
+    threshold: Mapped[int] = mapped_column(SmallInteger)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

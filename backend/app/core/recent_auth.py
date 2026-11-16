@@ -43,12 +43,24 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/identity/sso/{provider_id}/switch-on",
     "POST /api/v1/identity/sso/{provider_id}/switch-off",
     "POST /api/v1/identity/people/{user_id}/reset-mfa",
+    "POST /api/v1/identity/invitations/{invitation_id}/link",  # hands over a password (SEC-021)
     # Who may do what: roles, their permissions and who holds them.
     "POST /api/v1/roles",
     "PATCH /api/v1/roles/{role_id}",
     "PUT /api/v1/users/{user_id}/roles/{role_id}",
     "PUT /api/v1/roles/{role_id}/groups/{group_id}",
+    # Who sees which fields (ADR-047, lane B's #499 review): as sensitive as role changes.
+    "POST /api/v1/field-access/rules",
+    "PATCH /api/v1/field-access/rules/{rule_id}",
+    "DELETE /api/v1/field-access/rules/{rule_id}",
     "PUT /api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}",
+    # GDPR (D-171, ADR-052): legal hold, and both people of a person's erasure.
+    "PUT /api/v1/people/{user_id}/legal-hold",
+    "POST /api/v1/people/{user_id}/legal-hold/lift",
+    "POST /api/v1/people/{user_id}/erasure",
+    "POST /api/v1/erasures/{erasure_id}/approve",
+    "POST /api/v1/erasures/{erasure_id}/report/reviewed",
+    "POST /api/v1/erasures/{erasure_id}/mentions/redact",
     # Keys, exports and secret-bearing connections.
     "POST /api/v1/api-keys",
     "POST /api/v1/audit/exports",

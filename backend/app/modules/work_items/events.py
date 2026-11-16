@@ -206,6 +206,16 @@ class WorkItemConversationVisibilityChanged(_ConversationEvent):
     from_visibility: str
 
 
+class WorkItemConversationRedacted(_ConversationEvent):
+    """An entry's text had a person's name taken out by their erasure (ADR-052 S2).
+
+    The timeline refetches the entry; IDs only, never the text.
+    """
+
+    event_type: ClassVar[str] = "work_items.conversation.redacted"
+    schema_version: ClassVar[int] = 1
+
+
 class WorkItemConversationDeliveryChanged(_ConversationEvent):
     """A reply's e-mail moved: waiting, queued, retrying, sent or failed (REQ-INC-059).
 
@@ -581,7 +591,23 @@ class WorkItemAssigneeUnavailable(_WorkItemEvent):
     owner_id: uuid.UUID | None = None
 
 
+class WorkItemDraftChanged(DomainEvent):
+    """A person's kept draft was saved or discarded (REQ-INC-019): their other tabs refresh.
+
+    The person and the form only, never what the draft holds (lane B's condition 7).
+    """
+
+    event_type: ClassVar[str] = "work_items.draft.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    owner_id: uuid.UUID
+    form_key: str
+    version: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
+    WorkItemDraftChanged,
     ServiceRequestReadyToFulfil,
     WorkItemAssetLinkChanged,
     WorkItemAssigneeUnavailable,
@@ -598,6 +624,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPortalSettingsChanged,
     WorkItemApprovalSettingsChanged,
     WorkItemConversationAdded,
+    WorkItemConversationRedacted,
     WorkItemConversationVisibilityChanged,
     WorkItemConversationDeliveryChanged,
     WorkItemFollowerAdded,

@@ -301,6 +301,26 @@ export function useCreateIncident() {
   });
 }
 
+export type RecordCopyPart = components['schemas']['RecordCopyPart'];
+
+/** Copy an incident one or more times (REQ-INC-033); one Idempotency-Key per request. */
+export function useCopyIncident(id: string) {
+  const saved = useSaved();
+  return useMutation({
+    meta: { silent: true }, // the dialog shows the limit at its field
+    mutationFn: ({ count, parts, key }: { count: number; parts: RecordCopyPart[]; key: string }) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/copies', {
+          params: { path: { record_id: id }, header: { 'Idempotency-Key': key } },
+          body: { count, parts },
+        }),
+      ),
+    onSuccess: (made) => {
+      for (const copy of made.items) saved(copy);
+    },
+  });
+}
+
 export function useUpdateIncident(id: string) {
   const saved = useSaved();
   const once = useSingleFlight(

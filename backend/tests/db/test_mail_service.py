@@ -229,3 +229,63 @@ async def test_bodies_and_attachments_are_cleared_after_the_retention(
     finally:
         await conn.close()
     assert content is None
+
+
+async def test_erasure_leaves_no_trace_of_the_person_in_mail(
+    world: tuple[Database, uuid.UUID, uuid.UUID], migrated_db: ThrowawayDatabase
+) -> None:
+    """GDPR erasure (lane A's #492 question): run before the address is anonymised."""
+    database, tenant, other_tenant = world
+    sent_to_pat = await _queue(database, tenant)
+    await _deliver(database, tenant, sent_to_pat, FakeSender())
+    queued_for_pat = await _queue(database, tenant)
+    shared = await _queue(
+        database, tenant, OutgoingMail(kind="report", to=("Pat@acme.test", "sam@acme.test"),
+                                       subject="Both", text="For both")
+    )  # fmt: skip
+    near_miss = await _queue(
+        database, tenant, OutgoingMail(kind="report", to=("xpat@acme.test",), subject="Not Pat",
+                                       text="Keep")
+    )  # fmt: skip
+    elsewhere = await _queue(database, other_tenant)
+    on_behalf = await _queue(
+        database, tenant, OutgoingMail(kind="report", to=("sam@acme.test",), subject="From Pat",
+                                       text="Hi", reply_to="pat@acme.test", sender_name="Pat Doe")
+    )  # fmt: skip
+    wildcard = await _queue(
+        database, tenant, OutgoingMail(kind="report", to=("p_t@acme.test",), subject="Wild",
+                                       text="Keep")
+    )  # fmt: skip
+    async with database.tenant_session(TenantContext(tenant)) as session:
+        assert await outgoing.forget_recipient(session, "PAT@acme.test") == 4
+        # `_` and `%` are matched as themselves, never as LIKE wildcards
+        assert await outgoing.forget_recipient(session, "p%t@acme.test") == 0
+    row = await _row(migrated_db, sent_to_pat)
+    assert row["recipients"] == [outgoing.ERASED_RECIPIENT]
+    assert (row["subject"], row["text_body"], row["html_body"]) == ("", None, None)
+    conn = await asyncpg.connect(migrated_db.admin_url)
+    try:
+        content = await conn.fetchval(
+            "SELECT bool_or(content IS NOT NULL) FROM mail_attachments WHERE message_id = $1",
+            sent_to_pat,
+        )
+    finally:
+        await conn.close()
+    assert content is False
+    row = await _row(migrated_db, queued_for_pat)
+    assert (row["state"], row["failure"]) == ("failed", outgoing.RECIPIENT_ERASED)
+    assert row["recipients"] == [outgoing.ERASED_RECIPIENT]
+    assert row["text_body"] is None
+    row = await _row(migrated_db, shared)  # still goes to Sam, without Pat
+    assert (row["state"], row["recipients"], row["text_body"]) == (
+        "queued", ["sam@acme.test"], "For both"
+    )  # fmt: skip
+    assert (await _row(migrated_db, near_miss))["recipients"] == ["xpat@acme.test"]
+    row = await _row(migrated_db, on_behalf)  # still goes to Sam, no longer names Pat
+    assert (row["state"], row["recipients"], row["reply_to"], row["sender_name"]) == (
+        "queued", ["sam@acme.test"], None, None
+    )  # fmt: skip
+    assert (await _row(migrated_db, wildcard))["recipients"] == ["p_t@acme.test"]
+    assert (await _row(migrated_db, elsewhere))["recipients"] == ["pat@acme.test"]  # RLS
+    async with database.tenant_session(TenantContext(tenant)) as session:
+        assert await outgoing.forget_recipient(session, "pat@acme.test") == 0  # idempotent

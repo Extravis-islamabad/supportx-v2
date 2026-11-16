@@ -38,6 +38,7 @@ from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain import reapproval as reapproval_rules
 from app.modules.work_items.domain.approvals import RouteReason
 from app.modules.work_items.domain.change_risk import RiskLevel
@@ -59,6 +60,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.mail_commands import CommandField
 from app.modules.work_items.domain.reapproval import OnChange, Watched
 from app.modules.work_items.domain.releases import (
     BUILD_REF_MAX,
@@ -85,6 +87,8 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, Work
 from app.modules.work_items.service import (
     asset_links,
     change_links,
+    drafts,
+    record_copies,
     release_links,
     resolution,
     stage_approvals,
@@ -99,10 +103,12 @@ from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
 from app.modules.work_items.service.closing import MoveInput, requester_channel_states
+from app.modules.work_items.service.record_copies import RecordCopyPart
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
 from app.shared.api.ratelimit import rate_limit
+from app.shared.files.service.core import FileServices
 from app.shared.history import Actors, ChangeKind, HistoryEntry, Source, source_of
 from app.shared.labels import strip_isolates
 
@@ -157,6 +163,11 @@ class WorkItemIn(BaseModel):
     impact: Impact | None = None
     impact_details: str | None = Field(
         default=None, max_length=IMPACT_DETAILS_MAX * 2, description="Plain text."
+    )
+    notify_emails: list[str] | None = Field(
+        default=None,
+        max_length=40,
+        description="Incidents: addresses that get public replies, never notes (20 kept at most).",
     )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40, description="A `level` list code.")
@@ -246,6 +257,11 @@ class WorkItemIn(BaseModel):
         default=None,
         description="With confirm_lose_access: keep following it (null: tenant default, D-068).",
     )
+    draft_form_key: str | None = Field(
+        default=None,
+        max_length=40,
+        description="The form whose kept draft goes with this save (yours only; REQ-INC-019).",
+    )
 
 
 class WorkItemPatch(BaseModel):
@@ -263,6 +279,11 @@ class WorkItemPatch(BaseModel):
     category_id: uuid.UUID | None = None
     impact: Impact | None = None
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
+    notify_emails: list[str] | None = Field(
+        default=None,
+        max_length=40,
+        description="Incidents: addresses that get public replies, never notes (20 kept at most).",
+    )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40)
     # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
@@ -604,6 +625,9 @@ class WorkItemOut(BaseModel):
     category_id: uuid.UUID | None
     impact: Impact | None
     impact_details: str | None
+    notify_emails: list[str] = Field(
+        default_factory=list, description="People kept informed by e-mail (REQ-INC-066)."
+    )
     urgency: Urgency | None
     priority: Priority
     priority_source: PrioritySource
@@ -721,14 +745,39 @@ class WorkItemOut(BaseModel):
     )
     following: bool = Field(description="You follow this record.")
     conversation_count: int = Field(description="Replies and notes.")
+    hidden_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields not shown to you (null here); custom ones as custom.<key> (ADR-047).",
+    )
+    masked_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields shown to you as masked (null here, shown as masked; ADR-047).",
+    )
+    read_only_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Fields you may not change (ADR-047): every restricted field, hidden and masked"
+            " ones included; custom ones as custom.<key>."
+        ),
+    )
 
     @classmethod
     def of(cls, view: service.WorkItemView) -> "WorkItemOut":
-        """From the service view."""
+        """From the service view: withheld fields null, their custom values left out (ADR-047)."""
         r = view.record
+        withheld = view.hidden | view.masked
+        values: dict[str, Any] = {
+            name: None if name in withheld else getattr(r, name) for name in _RECORD_FIELDS
+        }
+        values["custom"] = field_rules.without(
+            r.custom, field_rules.Unseen(view.hidden, view.masked).custom_keys()
+        )
         return cls(
-            **{name: getattr(r, name) for name in _RECORD_FIELDS},
-            root_cause=None if "root_cause" in view.hidden else r.root_cause,
+            **values,
+            hidden_fields=sorted(view.hidden),
+            masked_fields=sorted(view.masked),
+            read_only_fields=sorted(view.read_only),
+            root_cause=None if "root_cause" in withheld else r.root_cause,
             root_cause_hidden="root_cause" in view.hidden,
             review_required=view.review_required,
             analysis_changes=[
@@ -770,6 +819,7 @@ _RECORD_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "notify_emails",
     "urgency",
     "priority",
     "priority_source",
@@ -899,6 +949,12 @@ class WorkItemListItem(BaseModel):
     resolved_at: datetime | None
     closed_at: datetime | None
     custom: dict[str, Any] = Field(default_factory=dict, description="Custom values by key.")
+    hidden_fields: list[str] = Field(
+        default_factory=list, description="Fields not shown to you (ADR-047): custom.<key>."
+    )
+    masked_fields: list[str] = Field(
+        default_factory=list, description="Fields shown to you as masked (ADR-047)."
+    )
 
 
 class ListChangeFactsOut(BaseModel):
@@ -1064,6 +1120,9 @@ class WorkItemClosureOut(BaseModel):
     checklist_item_max: int = Field(
         default=100, description="Checklist items per record, all its checklists (1 to 1000)."
     )
+    copy_limit: int = Field(
+        default=20, description="How many copies one request may make (1 to 100)."
+    )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
     )
@@ -1195,6 +1254,18 @@ class WorkItemCatalogueOut(BaseModel):
         description="Requests: ticking the first fulfilment task moves a New or Assigned request "
         "to In progress, when ticked by its technician or group (D-154c).",
     )
+    mail_commands: bool = Field(
+        default=False,
+        description="Incidents: commands at the top of a mail (priority = p1) are applied, as the"
+        " sender, when the mailbox's trusted server vouched for them (REQ-INC-025). Off.",
+    )
+    mail_command_fields: list[CommandField] = Field(
+        default_factory=list, description="Incidents: the fields a mail may set."
+    )
+    cc_from_first_mail: bool = Field(
+        default=True,
+        description="Incidents: the first mail's Cc join the people kept informed (REQ-INC-066).",
+    )
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
@@ -1260,6 +1331,9 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
             first_task_starts_work=cat.first_task_starts_work,
+            mail_commands=cat.mail_commands,
+            mail_command_fields=[CommandField(f) for f in cat.mail_command_fields],
+            cc_from_first_mail=cat.cc_from_first_mail,
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
             outside_maintenance_blocks=cat.outside_maintenance_blocks,
@@ -1353,6 +1427,7 @@ class WorkItemCatalogueOut(BaseModel):
                     'Literal["block", "warn"]', cat.closure.task_dependency_mode
                 ),
                 checklist_item_max=cat.closure.checklist_item_max,
+                copy_limit=cat.closure.copy_limit,
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1382,6 +1457,7 @@ class WorkItemClosurePatch(BaseModel):
     timer_auto_start: StrictBool | None = None
     task_dependency_mode: Literal["block", "warn"] | None = None
     checklist_item_max: int | None = Field(default=None, description="1 to 1000.")
+    copy_limit: int | None = Field(default=None, description="1 to 100.")
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -1407,6 +1483,11 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
     first_task_starts_work: bool | None = None
+    mail_commands: bool | None = Field(default=None, description="Incidents only.")
+    mail_command_fields: list[CommandField] | None = Field(
+        default=None, max_length=5, description="Incidents only."
+    )
+    cc_from_first_mail: bool | None = Field(default=None, description="Incidents only.")
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
     outside_maintenance_blocks: bool | None = Field(default=None, description="Changes only.")
@@ -1553,8 +1634,26 @@ class WorkItemHistoryOut(BaseModel):
     )
 
 
-def _item(row: WorkItem) -> WorkItemListItem:
-    return WorkItemListItem.model_validate(row, from_attributes=True)
+def _item(row: WorkItem, unseen: field_rules.Unseen) -> WorkItemListItem:
+    """A list row without the custom values the person's roles withhold (ADR-047 §4)."""
+    item = WorkItemListItem.model_validate(row, from_attributes=True)
+    if not unseen.all:
+        return item
+    return item.model_copy(
+        update={
+            "custom": field_rules.without(item.custom, unseen.custom_keys()),
+            "hidden_fields": sorted(unseen.hidden),
+            "masked_fields": sorted(unseen.masked),
+        }
+    )
+
+
+def _unseen(subject: Subject, wtype: WorkItemType) -> field_rules.Unseen:
+    """What the person may not read on any record of the type (role rules only).
+
+    List rows carry no field behind a per-record permission gate, so the type's rules suffice.
+    """
+    return field_rules.unseen(subject.field_access, wtype.code.value)
 
 
 def _cursor(value: str | None) -> tuple[datetime, uuid.UUID] | None:
@@ -1652,6 +1751,31 @@ class ChangeCopyIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     parts: list[Literal["plans", "roles"]] = Field(default_factory=list, max_length=2)
+
+
+class RecordCopiesIn(BaseModel):
+    """How many copies, and what comes with their fields (REQ-INC-033)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    count: int = Field(default=1, ge=1, le=100, description="The type's limit applies (AC3).")
+    parts: list[RecordCopyPart] = Field(default_factory=list, max_length=len(RecordCopyPart))
+
+
+class FileLeftOutOut(BaseModel):
+    """One of the original's files that did not come with the copies, and why (lane B)."""
+
+    file_id: uuid.UUID
+    reason: str = Field(
+        description="The file's state (e.g. scanning, infected), too_large or blocked."
+    )
+
+
+class RecordCopiesOut(BaseModel):
+    """The copies made, in order, and the original's files that did not come."""
+
+    items: list[WorkItemOut]
+    files_not_copied: list[FileLeftOutOut]
 
 
 class ChangePrefillOut(BaseModel):
@@ -2261,6 +2385,21 @@ async def _release_facts(
     }
 
 
+FILES_STATE = "files"  # the system module keeps the API's FileServices on app.state
+
+
+def _copy_files(request: Request) -> FileServices:
+    """The API's file services, for copying a record's files (as knowledge's links do)."""
+    found: FileServices | None = getattr(request.app.state, FILES_STATE, None)
+    if found is None:
+        found = FileServices.from_settings(request.app.state.settings)
+        setattr(request.app.state, FILES_STATE, found)
+    return found
+
+
+CopyFiles = Annotated[FileServices, Depends(_copy_files)]
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -2290,6 +2429,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
 
     async def _page(
         session: Any,  # noqa: ANN401 - TenantSession (an AsyncSession) from the route
+        subject: Subject,
         page: PageResult[WorkItem],
     ) -> WorkItemPage:
         ids = [r.id for r in page.rows]
@@ -2306,7 +2446,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             | named
         )
         return WorkItemPage(
-            items=[_item(r) for r in page.rows],
+            items=[_item(r, _unseen(subject, wtype)) for r in page.rows],
             next_cursor=page.next_cursor,
             has_more=page.has_more,
             estimated_total=page.estimated_total,
@@ -2328,7 +2468,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         page = await service.list_page(
             session, subject, wtype, query, view=view, zone=request_zone(request), tag=tag
         )
-        return await _page(session, page)
+        return await _page(session, subject, page)
 
     @router.get("/views", summary=f"Built-in {name} views with counts")
     async def views(
@@ -2346,7 +2486,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         page = await service.list_page(
             session, subject, wtype, query, view=None, zone=request_zone(request), trash=True
         )
-        return await _page(session, page)
+        return await _page(session, subject, page)
 
     @router.get("/assignees", summary="People who can be assigned")
     async def assignees(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query options
@@ -2410,7 +2550,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         )
         people = sorted({str(u) for r in rows for u in (r.requester_id, r.technician_id) if u})
         return WorkItemSearchOut(
-            items=[_item(r) for r in rows],
+            items=[_item(r, _unseen(subject, wtype)) for r in rows],
             people=_people(await user_contacts(session, people)),
         )
 
@@ -2464,7 +2604,11 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             )
             return DuplicatesOut(
                 items=[
-                    DuplicateOut(item=_item(c.record), score=c.score, reasons=list(c.reasons))
+                    DuplicateOut(
+                        item=_item(c.record, _unseen(subject, wtype)),
+                        score=c.score,
+                        reasons=list(c.reasons),
+                    )
                     for c in found
                 ],
                 method=method,
@@ -2676,6 +2820,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             from_record = values.pop("from_record_id", None)
             if from_record is not None and wtype.code is not WorkItemTypeCode.CHANGE:
                 raise service.field_errors([("from_record_id", "not_allowed")])
+            draft_form_key = values.pop("draft_form_key", None)
             asset_ids = values.pop("asset_ids", None) or []
             if asset_ids and wtype.code not in _WITH_ASSETS:
                 raise service.field_errors([("asset_ids", "not_allowed")])
@@ -2695,6 +2840,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
                 await asset_links.link_new(
                     session, subject, view.record, asset_ids, source=source_of(request)
                 )
+            # REQ-INC-019: the sender's own kept draft of the form goes with the save (lane B 8).
+            await drafts.saved(session, subject.user_id, draft_form_key)
             out = WorkItemOut.of(view)
             return Created(
                 body=out, headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'}
@@ -3729,6 +3876,56 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             next_cursor=None if next_cursor is None else _cursor_text(*next_cursor),
             people=_people(people),
         )
+
+    if wtype.code is WorkItemTypeCode.INCIDENT:  # WP-046a S5c: copy N times (REQ-INC-033)
+
+        @router.post(
+            "/{record_id}/copies",
+            summary=f"Copy the {name} one or more times",
+            status_code=status.HTTP_201_CREATED,
+            response_model=RecordCopiesOut,
+        )
+        async def copy_records(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: RecordCopiesIn,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+            files: CopyFiles,
+        ) -> Response:
+            """New records from this one's fields, each naming it in its history.
+
+            Never its conversation, worklogs, history or assignment to a person. Send an
+            Idempotency-Key: a retry returns the same 201.
+            """
+
+            async def run() -> Created:
+                made = await record_copies.copy_record(
+                    session,
+                    subject,
+                    wtype,
+                    record_id,
+                    count=body.count,
+                    parts_chosen=frozenset(body.parts),
+                    source=source_of(request),
+                    holders=policy,
+                    files=files,
+                    facts=RequestFacts.of(request),
+                )
+                views = [await service.get(session, subject, wtype, r.id) for r in made.records]
+                return Created(
+                    body=RecordCopiesOut(
+                        items=[WorkItemOut.of(v) for v in views],
+                        files_not_copied=[
+                            FileLeftOutOut(file_id=n.file_id, reason=n.reason)
+                            for n in made.not_copied
+                        ],
+                    )
+                )
+
+            return await idempotency.run({"copy_of": str(record_id), **body.model_dump()}, run)
 
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)

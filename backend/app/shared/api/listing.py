@@ -353,6 +353,10 @@ class PageResult[RowT]:
 
 
 FieldsFor = Callable[[AsyncSession], Awaitable[Mapping[str, FilterField]]]
+# Fields this request may not filter or sort on (ADR-047 AC2: a field hidden or masked for the
+# caller cannot be probed through a filter): dropped from the allowlist, so they are refused as
+# any unknown field is.
+ExcludeFor = Callable[[Request, TenantContext], Awaitable[frozenset[str]]]
 
 
 def list_query(
@@ -360,6 +364,7 @@ def list_query(
     *,
     extra_parameters: frozenset[str] = frozenset(),
     fields_for: FieldsFor | None = None,
+    exclude_for: ExcludeFor | None = None,
 ) -> Any:  # noqa: ANN401 - returns a FastAPI dependency
     """FastAPI dependency: `query: Annotated[ListQuery, Depends(list_query(RESOURCE))]`.
 
@@ -367,6 +372,7 @@ def list_query(
     not simple filters, but they are part of the cursor's fingerprint, so a cursor of one view
     cannot be replayed on another. `fields_for` adds the tenant's own fields to the allowlist
     for this request (WP-026: custom fields as `custom.<key>`), read in the request's session.
+    `exclude_for` names fields the caller may not filter or sort on (ADR-047): taken out.
     """
 
     async def dependency(  # noqa: PLR0913, PLR0917 - FastAPI reads parameters from the signature
@@ -397,6 +403,10 @@ def list_query(
         allowed = resource
         if fields_for is not None:
             allowed = replace(resource, fields={**resource.fields, **await fields_for(session)})
+        if exclude_for is not None and (withheld := await exclude_for(request, tenant)):
+            allowed = replace(
+                allowed, fields={n: f for n, f in allowed.fields.items() if n not in withheld}
+            )
         size = settings.page_size_default if limit is None else limit
         if size > settings.page_size_max:
             # Too large is reduced to the maximum and said so, never refused (REQ-INT-024 AC3).

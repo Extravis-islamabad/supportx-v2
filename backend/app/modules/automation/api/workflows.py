@@ -17,6 +17,7 @@ from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import func, select
 
 from app.core.authorization import require_permission
+from app.core.body_limit import body_limit
 from app.core.database import TenantSession
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.core.recent_auth import RecentAuth
@@ -373,7 +374,11 @@ async def _workflow_file(request: Request) -> WorkflowFileIn:
     summary="Import a workflow file as a new draft",
     status_code=status.HTTP_201_CREATED,
     response_model=WorkflowOut,
-    dependencies=[audited("automation.workflow_imported", object_type="workflow")],
+    # Room past its own 1 MB check, so an oversized file gets its own 422, not the cap's 413.
+    dependencies=[
+        Depends(body_limit(2 * 1024 * 1024)),
+        audited("automation.workflow_imported", object_type="workflow"),
+    ],
     # The body is read by `_workflow_file` (capped before parsing); its schema stays documented.
     openapi_extra={
         "requestBody": {
@@ -553,9 +558,8 @@ async def save_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     subject: Manage,
 ) -> WorkflowOut:
     """Saved whatever its problems; they come back for the canvas to mark (REQ-WF-019)."""
-    del subject
     saved, problems = await workflow_admin.save_draft(
-        session, workflow_id, expected_version=version, definition=body.definition
+        session, workflow_id, expected_version=version, definition=body.definition, author=subject
     )
     set_etag(response, saved.version)
     return _out(saved, problems)
@@ -566,7 +570,9 @@ async def publish(
     workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
 ) -> WorkflowOut:
     """Refused while the draft has problems (422 workflow_has_problems)."""
-    await workflow_admin.publish(session, workflow_id, expected_version=version, by=subject.user_id)
+    await workflow_admin.publish(
+        session, workflow_id, expected_version=version, by=subject.user_id, author=subject
+    )
     found = await session.get(Workflow, workflow_id)
     assert found is not None  # just published  # noqa: S101
     return _out(found)

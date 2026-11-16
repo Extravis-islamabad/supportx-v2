@@ -92,6 +92,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("session.ended", AuditCategory.SESSION, "identity_access"),  # one session ended from a list
     ("session.ended_others", AuditCategory.SESSION, "identity_access"),  # sign out everywhere else
     ("session.confirmed", AuditCategory.SESSION, "identity_access"),  # confirmed it's them again
+    # Keycloak's own session, ended in the background after a sign-out it missed (ADR-051)
+    ("session.keycloak_ended", AuditCategory.SESSION, "identity_access"),
     # roles and access
     ("role.created", AuditCategory.ACCESS, "identity_access"),
     ("role.updated", AuditCategory.ACCESS, "identity_access"),
@@ -100,6 +102,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.role_removed", AuditCategory.ACCESS, "identity_access"),
     ("role.group_added", AuditCategory.ACCESS, "identity_access"),
     ("role.group_removed", AuditCategory.ACCESS, "identity_access"),
+    ("role.field_access_changed", AuditCategory.ACCESS, "identity_access"),  # ADR-047
     ("organization.settings_changed", AuditCategory.CONFIGURATION, "organization"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.contact_changed", AuditCategory.ACCESS, "identity_access"),  # WP-028, REQ-PRT-013
@@ -174,6 +177,21 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.reactivated", AuditCategory.ACCESS, "identity_access"),
     ("people.import_started", AuditCategory.ACCESS, "identity_access"),
     ("access.settings_changed", AuditCategory.ACCESS, "identity_access"),
+    # GDPR person erasure and legal hold (D-171, ADR-052): every step, with the reason
+    ("person.legal_hold_set", AuditCategory.DATA, "identity_access"),
+    ("person.legal_hold_lifted", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_requested", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_approved", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_rejected", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_expired", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_completed", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_failed", AuditCategory.DATA, "identity_access"),
+    # one per uploaded file the admin chose to keep (D-171 b), with the admin's reason
+    ("person.erasure_file_kept", AuditCategory.DATA, "identity_access"),
+    # the mentions report (S1b, D-171 a): reviewed, each passage viewed, each mention redacted
+    ("person.erasure_report_reviewed", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_mention_viewed", AuditCategory.DATA, "identity_access"),
+    ("person.erasure_mention_redacted", AuditCategory.DATA, "identity_access"),
     # organisation
     ("site.created", AuditCategory.ORGANISATION, "organization"),
     ("site.renamed", AuditCategory.ORGANISATION, "organization"),
@@ -196,6 +214,7 @@ ACTIONS: dict[str, Action] = _actions(
     # branding and addresses (WP-017)
     ("identity.settings_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.network_rules_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.site_networks_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.sign_ins_viewed", AuditCategory.SECURITY, "identity_access"),
     ("identity.sso_policy_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.break_glass_changed", AuditCategory.SECURITY, "identity_access"),
@@ -221,6 +240,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("sso.removed", AuditCategory.SECURITY, "identity_access"),
     ("invitation.sent", AuditCategory.ACCESS, "identity_access"),
     ("invitation.resent", AuditCategory.ACCESS, "identity_access"),
+    ("invitation.accepted", AuditCategory.ACCESS, "identity_access"),  # a copied link's password
+    ("invitation.link_copied", AuditCategory.ACCESS, "identity_access"),
     ("invitation.revoked", AuditCategory.ACCESS, "identity_access"),
     ("user.password_reset_forced", AuditCategory.SECURITY, "identity_access"),
     ("branding.updated", AuditCategory.CONFIGURATION, "organization"),
@@ -254,6 +275,12 @@ ACTIONS: dict[str, Action] = _actions(
     ("mailbox.consent_started", AuditCategory.CONFIGURATION, "integrations"),
     ("mailbox.connected", AuditCategory.CONFIGURATION, "integrations"),
     ("mailbox.mail_discarded", AuditCategory.CONFIGURATION, "integrations"),
+    # WP-046a S6 (REQ-INC-026): block rules for unwanted mail.
+    ("mail_block_rule.created", AuditCategory.CONFIGURATION, "integrations"),
+    ("mail_block_rule.changed", AuditCategory.CONFIGURATION, "integrations"),
+    ("mail_block_rule.removed", AuditCategory.CONFIGURATION, "integrations"),
+    # WP-046a S6 (REQ-INC-066): an address kept informed stopped its mails, by its link.
+    ("notify_link.used", AuditCategory.RECORDS, "work_items"),
     ("directory.created", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.changed", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.removed", AuditCategory.CONFIGURATION, "integrations"),
@@ -382,6 +409,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("file.deleted", AuditCategory.RECORDS, "system"),
     ("file.downloaded", AuditCategory.DATA, "system"),
     ("file.archive_downloaded", AuditCategory.DATA, "system"),  # WP-046a S2: a bulk export
+    ("file.copied", AuditCategory.RECORDS, "system"),  # WP-046a S5c: onto a copied record
     ("file.blocked", AuditCategory.SECURITY, "system"),
     ("file.rescan_requested", AuditCategory.SECURITY, "system"),
     ("file.purged", AuditCategory.DATA, "system"),
@@ -397,6 +425,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("work_item.settings_topped_up", AuditCategory.CONFIGURATION, "work_items"),
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
+    ("audit.personal_data_access_viewed", AuditCategory.DATA, "audit"),  # REQ-AUD-017 report
     ("audit.entries_archived", AuditCategory.DATA, "audit"),
     ("audit.archive_failed", AuditCategory.SECURITY, "audit"),
     ("audit.archive_restore_requested", AuditCategory.DATA, "audit"),

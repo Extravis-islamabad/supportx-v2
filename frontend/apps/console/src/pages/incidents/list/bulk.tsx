@@ -2,7 +2,6 @@ import {
   Alert,
   Button,
   Checkbox,
-  Drawer,
   Flex,
   Input,
   List,
@@ -28,13 +27,14 @@ import {
   type BulkRequest,
 } from '@supportx/api-client';
 import {
+  Drawer,
+  EmptyText,
   lengthLimit,
   reportError,
   useAppearance,
   useDateTime,
   useLabel,
   WriteButton,
-  EmptyText,
 } from '@supportx/ui';
 
 import { BULK_ACTIONS, BULK_MAX, skipReason, useBulkLive, type Selection } from './model';

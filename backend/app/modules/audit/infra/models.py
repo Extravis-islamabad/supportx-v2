@@ -21,11 +21,14 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
+    ForeignKeyConstraint,
     Index,
     Integer,
     LargeBinary,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
     func,
@@ -176,6 +179,52 @@ class AuditPersonal(TenantKeyed, Base):
     occurred_at: Mapped[datetime]
 
 
+ACCESS_KINDS = ("view", "export", "ai_masking")
+
+
+class PersonalDataAccess(TenantKeyed, Base):
+    """Who viewed or exported whose personal data (REQ-AUD-017; WP-057 S3b-1; 0163).
+
+    Never a value: field codes, and per-type counts for AI masking (REQ-AI-019). Append-only for
+    the app role; rows leave only through `audit_erase_access` and `audit_purge_access`. A view is
+    written once per accessor, record and 15 minutes (`dedupe_key`).
+    """
+
+    __tablename__ = "personal_data_access"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN (" + ", ".join(f"'{k}'" for k in ACCESS_KINDS) + ")", name="kind_code"
+        ),
+        CheckConstraint(
+            "subject_person_id IS NOT NULL OR record_id IS NOT NULL", name="names_whose"
+        ),
+        Index(
+            "uq_personal_data_access_once",
+            "tenant_id",
+            "dedupe_key",
+            unique=True,
+            postgresql_where=text("dedupe_key IS NOT NULL"),
+        ),
+        Index("ix_personal_data_access_subject", "tenant_id", "subject_person_id", "occurred_at"),
+        Index("ix_personal_data_access_time", "tenant_id", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    occurred_at: Mapped[datetime]
+    accessor_type: Mapped[str] = mapped_column(String(20))
+    accessor_id: Mapped[uuid.UUID | None]
+    subject_person_id: Mapped[uuid.UUID | None]
+    record_type: Mapped[str | None] = mapped_column(String(40))
+    record_id: Mapped[uuid.UUID | None]
+    kind: Mapped[str] = mapped_column(String(20))
+    purpose: Mapped[str] = mapped_column(String(60))
+    fields: Mapped[list[str]] = mapped_column(ARRAY(String(80)))
+    counts: Mapped[dict[str, int] | None] = mapped_column(JSONB)
+    client: Mapped[str | None] = mapped_column(String(20))
+    dedupe_key: Mapped[str | None] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
 class AuditAnchor(TenantKeyed, Base):
     """A signed checkpoint of the chain (REQ-AUD-001: detects removal of the newest entries)."""
 
@@ -210,6 +259,8 @@ class AuditSettings(TenantKeyed, Base):
     refusal_threshold: Mapped[int] = mapped_column(Integer)
     refusal_window_minutes: Mapped[int] = mapped_column(Integer)
     read_categories: Mapped[list[str]] = mapped_column(JSONB)
+    # REQ-AUD-017 (WP-057 S3b-1; 0163): the personal data access log is on.
+    personal_data_log: Mapped[bool] = mapped_column(default=False, server_default="false")
     version: Mapped[int] = mapped_column(default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
@@ -241,6 +292,8 @@ class AuditVerificationRun(UuidPrimaryKey, TenantScoped, Base):
     fingerprints_verified: Mapped[int] = mapped_column(Integer, server_default="0")
     fingerprints_erased: Mapped[int] = mapped_column(Integer, server_default="0")
     fingerprint_mismatches: Mapped[int] = mapped_column(Integer, server_default="0")
+    # Saves verified through digests kept at a signed history redaction (0167).
+    fingerprints_redacted: Mapped[int] = mapped_column(Integer, server_default="0")
 
 
 class AuditSubjectSalt(TenantKeyed, Base):
@@ -360,3 +413,43 @@ class AuditRestored(TenantKeyed, Base):
     prev_hash: Mapped[bytes] = mapped_column(LargeBinary)
     chain_hash: Mapped[bytes] = mapped_column(LargeBinary)
     expires_at: Mapped[datetime]
+
+
+class FieldChangeRedaction(TenantKeyed, Base):
+    """A signed history row blanked by a redaction, with its pre-blank digests (0167).
+
+    ADR-046 addendum: the digests are exactly what the save's fingerprint commits to for that
+    field (salted for a personal field), so the verifier can still recompute the fingerprint and
+    reports the save as `redacted_on_request`. Read-only for the app role; written only by the
+    migrator-owned `history_redact_signed()`.
+    """
+
+    __tablename__ = "field_change_redactions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "mention_id"],
+            ["person_erasure_mentions.tenant_id", "person_erasure_mentions.id"],
+            name="fk_field_change_redactions_mention",
+        ),
+        UniqueConstraint("tenant_id", "field_change_id", name="uq_field_change_redactions_row"),
+        CheckConstraint(
+            "old_digest ~ '^[0-9a-f]{64}$' AND new_digest ~ '^[0-9a-f]{64}$'",
+            name="digest_form",
+        ),
+        Index("ix_field_change_redactions_change", "tenant_id", "change_id", "field_change_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    field_change_id: Mapped[uuid.UUID]
+    change_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(40))
+    record_id: Mapped[uuid.UUID]
+    field: Mapped[str] = mapped_column(String(80))
+    mention_id: Mapped[uuid.UUID]
+    old_digest: Mapped[str] = mapped_column(Text)
+    new_digest: Mapped[str] = mapped_column(Text)
+    # For auditors reading the table: whether the digests were salted (a personal field). The
+    # verifier never trusts it: it takes the field's half from the record type's own spec.
+    salted: Mapped[bool] = mapped_column(Boolean)
+    redacted_at: Mapped[datetime]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

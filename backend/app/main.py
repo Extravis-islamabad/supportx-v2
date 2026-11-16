@@ -15,6 +15,7 @@ from fastapi import APIRouter, FastAPI
 from opentelemetry.sdk.metrics import MeterProvider
 
 from app import __version__
+from app.core.body_limit import BodyLimitMiddleware
 from app.core.config import Settings, get_settings
 from app.core.database import Database
 from app.core.errors import ProblemDetail, install_error_handlers
@@ -28,6 +29,7 @@ from app.shared.api.listing import CursorCodec
 from app.shared.api.openapi import add_filter_schema, add_security, route_access
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
 from app.shared.events import EventRegistry, install_registry
+from app.shared.fields.keycheck import check_key_wraps
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
     REALTIME_STATE,
@@ -58,7 +60,7 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Created here, not at import, so the pool belongs to the server's event loop.
-        app.state.db = Database.from_settings(settings)
+        await _start_database(app, settings)
         limiter_valkey = _start_rate_limiter(app, settings)
         centrifugo = CentrifugoClient.from_settings(settings)
         setattr(app.state, CENTRIFUGO_STATE, centrifugo)
@@ -106,6 +108,9 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     install_error_handlers(app)
     # Last added runs first: security headers wrap everything, including the 500 responses that
     # RequestContextMiddleware produces for unhandled exceptions.
+    # Innermost of the three: a body over its cap stops at the bytes received (body_limit.py),
+    # and its 413 still gets the request ID and the security headers from the two outside it.
+    app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         SecurityHeadersMiddleware,
@@ -124,6 +129,14 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     tracer_provider, meter_provider = setup_tracing(app, settings)
     _publish_shared_schemas(app)
     return app
+
+
+async def _start_database(app: FastAPI, settings: Settings) -> None:
+    """The database, then the key check that must pass before anything reads encrypted data."""
+    app.state.db = Database.from_settings(settings)
+    # A key-encryption key removed while it still wraps data keys would leave tenants' files
+    # and encrypted fields unreadable: refuse to start, naming only key IDs (ADR-050).
+    await check_key_wraps(app.state.db, settings)
 
 
 async def _start_ops(settings: Settings, meter_provider: MeterProvider | None) -> OpsServer | None:

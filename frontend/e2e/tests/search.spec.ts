@@ -89,9 +89,11 @@ test('search: Arabic word forms, typos and recent incidents in Ctrl+K, accessibl
     await page.locator('.ant-select-item-option[title="العربية"]').click();
     await closeAppearance(page);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-    await palette(page, `${tag} الطابعة`);
-    await expect(page.getByTestId(`palette-incident-${arabic.display_id}`)).toBeVisible();
-    await expect(page.getByText('الحوادث', { exact: true }).last()).toBeVisible();
+    dialog = await palette(page, `${tag} الطابعة`);
+    await expect(dialog.getByTestId(`palette-incident-${arabic.display_id}`)).toBeVisible();
+    // The incidents group, by its heading as the group's accessible name, inside the palette:
+    // the bare text also matches the menu and hidden tooltips (13 elements; the nightly flake).
+    await expect(dialog.getByRole('group', { name: 'الحوادث', exact: true })).toBeVisible();
     await expectAccessible(page, 'command palette with results (Arabic, RTL)');
     await page.keyboard.press('Escape');
   } finally {

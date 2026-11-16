@@ -1,4 +1,5 @@
-import { Drawer, List, Space, Typography } from 'antd';
+import { List, Space, Typography } from 'antd';
+import { Drawer } from '@supportx/ui';
 import { Link } from 'react-router';
 
 import {

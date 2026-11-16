@@ -45,7 +45,7 @@ from app.modules.assets.api.routes import router
 from app.modules.assets.api.stock import router as stock_router
 from app.modules.assets.domain.scans import ScanFailure, ScanResult, ScanSource, ScanType
 from app.modules.assets.events import EVENTS
-from app.modules.assets.service import notifications, reporting
+from app.modules.assets.service import erasure_mentions, notifications, reporting
 from app.modules.assets.service.assets import (
     EDIT_DISPOSED,
     VIEW_FINANCIALS,
@@ -188,6 +188,8 @@ module = ModuleSpec(
     on_shutdown=[_shutdown],
 )
 
+# GDPR erasure (ADR-052 S1b): asset notes in the mentions report, at import, for the workers too.
+erasure_mentions.register()
 # Disposal certificates (REQ-AST-017): at import, for the workers too; startup registers again
 # after a shutdown (tests start and stop the app), as knowledge does.
 register_owner_access(FILE_ACCESS)

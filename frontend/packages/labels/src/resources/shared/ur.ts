@@ -3,6 +3,9 @@ import type { LabelResource } from '../en';
 // shared labels (see ../README.md).
 export const ur: LabelResource = {
   'about.close': 'بند کریں',
+  'about.geoip_attribution':
+    'سائن اِن کے تقریبی مقامات IP to City Lite ڈیٹا (CC BY 4.0) استعمال کرتے ہیں، فراہم کنندہ:',
+  'about.geoip_provider': 'DB-IP.com',
   'about.made_by': 'Extravis کی تیار کردہ',
   'about.open': 'SupportX کے بارے میں',
   'about.version': 'ورژن {{version}}',
@@ -137,6 +140,13 @@ export const ur: LabelResource = {
   'home.subtitle': '{{tenant}} میں آپ کی ورک اسپیس',
   'home.technician_seats': 'ٹیکنیشن نشستیں',
   'home.title': 'خوش آمدید، {{name}}',
+  'kept_draft.discard': 'رد کریں',
+  'kept_draft.found': 'اس فارم کا ایک مسودہ {{when}} محفوظ کیا گیا',
+  'kept_draft.replace_body':
+    'مسودہ فارم میں موجود ہر چیز کی جگہ لے لے گا۔ اسے واپس نہیں کیا جا سکتا۔',
+  'kept_draft.replace_title': 'جو آپ نے لکھا اسے مسودے سے بدل دیں؟',
+  'kept_draft.restore': 'بحال کریں',
+  'kept_draft.unreadable': 'اس فارم کا محفوظ مسودہ پڑھا نہیں جا سکا۔',
   'layout.add_value': 'شامل کریں',
   'layout.alerts_count_one': '{{count}} انتباہ',
   'layout.alerts_count_other': '{{count}} انتباہات',
@@ -163,6 +173,8 @@ export const ur: LabelResource = {
   'layout.properties_fewer': 'خالی فیلڈز چھپائیں',
   'layout.reset_widths': 'چوڑائی دوبارہ طے کریں',
   'layout.resize_column': '{{column}} کی چوڑائی: تیر والی کلیدیں استعمال کریں',
+  'layout.restricted_hidden': 'آپ کو نہیں دکھایا جاتا',
+  'layout.restricted_masked': 'جزوی طور پر چھپایا گیا',
   'layout.star': 'پسندیدہ میں شامل کریں',
   'layout.tabs_earlier': 'پچھلے ٹیب',
   'layout.tabs_later': 'اگلے ٹیب',
@@ -176,6 +188,11 @@ export const ur: LabelResource = {
   'locale.ar': 'العربية',
   'locale.en': 'English',
   'locale.ur': 'اردو',
+  'mail_command_field.category': 'زمرہ',
+  'mail_command_field.group': 'گروپ',
+  'mail_command_field.priority': 'ترجیح',
+  'mail_command_field.technician': 'تکنیکی ماہر',
+  'mail_command_field.template': 'سانچہ',
   'mobile.about.app_version': 'ایپ کا ورژن',
   'mobile.about.server': 'سرور',
   'mobile.about.server_status': 'سرور کی حالت',
@@ -466,6 +483,9 @@ export const ur: LabelResource = {
   'settings.categories': 'زمرے',
   'settings.categories_help':
     'زمرہ، ذیلی زمرہ اور آئٹم۔ ریٹائرڈ اندراجات نئے واقعات پر پیش نہیں ہوتے لیکن انہیں استعمال کرنے والے واقعات پر نظر آتے رہتے ہیں۔',
+  'settings.cc_from_first_mail': 'پہلی ای میل کے Cc کو باخبر رکھیں',
+  'settings.cc_from_first_mail_help':
+    'واقعہ کھولنے والی میل کے Cc میں موجود پتوں کو اس کے عوامی جوابات ملتے ہیں (زیادہ سے زیادہ 20)۔ ہر میل میں انہیں روکنے کا لنک ہوتا ہے۔',
   'settings.changed_elsewhere':
     'کسی اور نے ابھی یہ ترتیبات بدلی ہیں۔ تازہ ترین ورژن دکھایا گیا ہے؛ براہِ کرم اپنی تبدیلی دوبارہ کریں۔',
   'settings.checklists.add': 'نئی لائبریری چیک لسٹ',
@@ -500,6 +520,9 @@ export const ur: LabelResource = {
   'settings.closing.complete_open_work_help':
     'واقعہ بند کرنے سے اس کا کھلا کام مکمل نشان زد ہو جاتا ہے۔',
   'settings.closing.condition.review_completed': 'جائزہ مکمل',
+  'settings.closing.copy_limit': 'ایک وقت میں کاپیاں',
+  'settings.closing.copy_limit_help':
+    'ایک درخواست میں واقعے کی کتنی کاپیاں بن سکتی ہیں، {{min}} سے {{max}} تک۔',
   'settings.closing.days_range': '{{min}} سے {{max}} کاروباری دن۔',
   'settings.closing.help':
     'واقعہ حل اور بند کرنے کے لیے کیا درکار ہے، کھلے کام کا کیا ہوتا ہے، اور درخواست گزار جواب دے کر کتنی دیر تک اسے دوبارہ کھول سکتا ہے۔',
@@ -614,6 +637,11 @@ export const ur: LabelResource = {
     'ہر ورژن حالت کی منتقلیوں کا ایک مجموعہ ہے۔ نئے ریکارڈ نیچے نشان زدہ ورژن پر شروع ہوتے ہیں اور اسی پر رہتے ہیں؛ شائع شدہ ورژن کبھی نہیں بدلتا۔ کون منتقلی چلا سکتا ہے اور یہ کب پیش کی جاتی ہے، یہ آٹومیشن میں طے ہوتا ہے اور تمام ورژنز پر ایک ساتھ لاگو ہوتا ہے۔',
   'settings.load_failed':
     'واقعات کی ترتیبات لوڈ نہیں ہو سکیں۔ دوبارہ کوشش کے لیے صفحہ ری لوڈ کریں۔',
+  'settings.mail': 'ای میل',
+  'settings.mail_command_fields': 'وہ فیلڈ جو میل سیٹ کر سکتی ہے',
+  'settings.mail_commands': 'ای میل میں لکھے احکام لاگو کریں',
+  'settings.mail_commands_help':
+    'میل priority = p1 جیسی سطروں سے شروع ہو سکتی ہے۔ یہ بھیجنے والے کے طور پر صرف تب لاگو ہوتی ہیں جب میل باکس کا قابلِ اعتماد سرور بھیجنے والے کی تصدیق کرے، اور صرف وہ تبدیلیاں جو بھیجنے والا SupportX میں کر سکتا ہو۔',
   'settings.matrix': 'ترجیحی میٹرکس',
   'settings.matrix_cell': 'اثر "{{impact}}" اور فوریت "{{urgency}}" کے لیے ترجیح',
   'settings.matrix_help':

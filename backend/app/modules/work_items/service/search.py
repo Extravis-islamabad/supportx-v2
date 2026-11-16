@@ -13,18 +13,30 @@ not. On top of it, a record matches when any of these does:
 import uuid
 from collections.abc import Collection, Sequence
 
-from sqlalchemy import ColumnElement, and_, case, false, literal, or_, true
+from sqlalchemy import ColumnElement, and_, case, false, func, literal, or_, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import Subject, people_matching
 from app.modules.work_items.domain.types import WorkItemType, parse_display_id
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service import search_rebuild
 from app.modules.work_items.service.work_items import staff_rows
-from app.shared.search import ENGINE, SearchDocument, normalize
+from app.shared.search import ENGINE, Match, SearchDocument, normalize
 
 _COLUMNS = WorkItem.__table__.c
 TEXT = SearchDocument(vector=_COLUMNS.search_vector, short_text=_COLUMNS.search_subject)
+# The same vector without the custom text (as models.SEARCH_VECTOR builds it): while a type's
+# search text is rebuilt, a word match must also be found here (ADR-047 §6, search fails closed).
+PLAIN = SearchDocument(
+    vector=func.sx_search_vector(
+        WorkItem.subject,
+        func.regexp_replace(
+            func.coalesce(WorkItem.description, ""), "<[^>]*>|&[a-zA-Z0-9#]+;", " ", "g"
+        ),
+    ),
+    short_text=_COLUMNS.search_subject,
+)
 # An exact display ID outranks any text match; a requester match outranks weak text matches.
 ID_RANK = 100.0
 PERSON_RANK = 0.3
@@ -76,6 +88,14 @@ async def search(  # noqa: PLR0913 - the query and its narrowing options, explic
         return list(rows)
     by_id = await _id_match(session, wtype, text)
     words = await ENGINE.match(session, TEXT, text)
+    if words is not None and await search_rebuild.rebuilding(session, wtype):
+        plain = await ENGINE.match(session, PLAIN, text)
+        # Narrowed by the index, then checked without the custom text: no stale value matches.
+        words = (
+            None
+            if plain is None
+            else Match(predicate=and_(words.predicate, plain.predicate), rank=words.rank)
+        )
     people = await people_matching(session, text)
     by_person = (
         or_(WorkItem.requester_id.in_(people), WorkItem.on_behalf_of_id.in_(people))

@@ -278,11 +278,49 @@ export const en = {
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
   'errors.downtime_not_found': 'This downtime window does not exist.',
+  'errors.draft_not_found': 'There is no kept draft.',
   'errors.duplicate_move': 'The same move is listed twice from one status. Keep one.',
   'errors.entitlement_required': 'Your plan does not include this feature.',
   'errors.entitlement_required.detail': '{{feature}} is not part of your organisation’s plan.',
   'errors.entitlements_unavailable':
     'Licence information is temporarily unavailable. Please try again shortly.',
+  'errors.erasure_already_open': 'An erasure of this person is already open.',
+  'errors.erasure_approval_invalid': 'The approval of this erasure is no longer valid.',
+  'errors.erasure_break_glass_account':
+    'A break-glass account cannot be erased. Remove it from break-glass first.',
+  'errors.erasure_directory_sync_unsafe':
+    "This erasure cannot be approved yet: directory sync could still write the person's details back.",
+  'errors.erasure_identity_unavailable':
+    'The sign-in service could not be reached. The erasure will try again.',
+  'errors.erasure_mention_not_found':
+    'That mention was not found in this erasure, or you cannot see the record it is in.',
+  'errors.erasure_mention_port_missing':
+    'That mention cannot be changed: the part of the product it is in is not available.',
+  'errors.erasure_needs_another_admin': 'Another administrator must approve this erasure.',
+  'errors.erasure_not_found': 'This erasure no longer exists.',
+  'errors.erasure_not_pending': 'This erasure can no longer be changed.',
+  'errors.erasure_of_self': 'You cannot erase yourself.',
+  'errors.erasure_port_kind_undeclared':
+    'A part of the product reported something it did not declare. Contact support.',
+  'errors.erasure_port_missing':
+    'Part of the product cannot erase personal data yet. Contact support.',
+  'errors.erasure_records_unavailable':
+    'The records this person requested could not be listed just now. The erasure will try again.',
+  'errors.erasure_redaction_too_long':
+    'This passage cannot be redacted here: the marker would make the text longer than the field allows. Shorten the text first.',
+  'errors.erasure_report_not_reviewed':
+    'This erasure cannot be approved yet: an admin must first review the report of where the person is named.',
+  'errors.erasure_report_unavailable':
+    'This erasure cannot be approved yet: the report of where the person is named is not complete.',
+  'errors.erasure_request_expired':
+    'This erasure request has expired. Ask again if it is still needed.',
+  'errors.erasure_sessions_unavailable':
+    'Sessions could not be ended just now. The erasure will try again.',
+  'errors.erasure_signed_history_kept':
+    'This erasure cannot be approved or run yet: a redacted passage is still kept in signed record history, which cannot be redacted yet.',
+  'errors.erasure_step_failed': 'A step of the erasure did not work. It will try again.',
+  'errors.erasure_storage_unavailable':
+    'The file store could not be reached to delete report exports. The erasure will try again.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
   'errors.field.address_not_allowed':
     "This server address can't be used. Use the mail server's public name.",
@@ -415,6 +453,8 @@ export const en = {
   'errors.field.domain_invalid': 'Enter a domain name such as help.example.com.',
   'errors.field.domain_reserved':
     "Addresses under this installation's own domain are given automatically.",
+  'errors.field.draft_not_values': 'A draft keeps form values only.',
+  'errors.field.draft_too_large': 'This draft is too large to keep.',
   'errors.field.due_in_past': 'Choose a moment in the future.',
   'errors.field.duplicate': 'This is already used.',
   'errors.field.duplicate_column': 'Each column can be listed once.',
@@ -436,6 +476,12 @@ export const en = {
   'errors.field.english_label_required': 'An English name is required.',
   'errors.field.english_text_required':
     'Add the English text: it is shown wherever no translation exists.',
+  'errors.field.erasure_confirm_name_mismatch': "Type the person's name exactly as shown.",
+  'errors.field.erasure_keep_file_unknown': 'This file was not uploaded by this person.',
+  'errors.field.erasure_keep_files_too_many': 'Keep at most {{max}} files.',
+  'errors.field.erasure_keep_reason_required': 'Give a reason for keeping this file.',
+  'errors.field.erasure_successor_is_person': 'Choose someone other than the person being erased.',
+  'errors.field.erasure_successor_not_active': 'Choose an active person to take over.',
   'errors.field.exception_range_order': 'The last day must be on or after the first day.',
   'errors.field.exception_range_too_long': 'Special hours can cover at most one year.',
   'errors.field.exception_ranges_overlap':
@@ -444,6 +490,8 @@ export const en = {
   'errors.field.fallback_fixed': 'The default policy always applies and has no conditions.',
   'errors.field.field_always_required': 'Subject and requester are always shown and required.',
   'errors.field.field_locked': 'A form rule locks this field, so it cannot be changed here.',
+  'errors.field.field_not_permitted': "You can't use this field: your roles don't let you see it.",
+  'errors.field.field_not_ruleable': 'This field cannot be restricted.',
   'errors.field.field_not_settable': 'A rule cannot set this field.',
   'errors.field.field_retired': 'This field is retired and takes no new values.',
   'errors.field.field_set_twice': 'This field is already set by another action of the rule.',
@@ -471,6 +519,7 @@ export const en = {
   'errors.field.holiday_list_not_found': 'Choose holiday lists from the list.',
   'errors.field.holiday_range_order': 'The last day must be on or after the first day.',
   'errors.field.holiday_range_too_long': 'A holiday can be at most one year long.',
+  'errors.field.host_name_invalid': 'Enter server names only, such as mx.google.com.',
   'errors.field.ical_invalid': 'This is not an iCalendar (.ics) file.',
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
@@ -524,6 +573,8 @@ export const en = {
   'errors.field.longer_than_a_week': 'A weekly window can last a week at most.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
+  'errors.field.mailbox_provider_results_graph_only':
+    "Only a Microsoft 365 mailbox can trust Microsoft's own result.",
   'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
   'errors.field.manager_loop':
     'This person already manages that manager (directly or through others).',
@@ -568,7 +619,18 @@ export const en = {
   'errors.field.out_of_range': 'This number is outside the allowed range.',
   'errors.field.owner_not_allowed': 'This person may not manage announcements, so cannot own one.',
   'errors.field.parent_loop': 'This would make it its own parent.',
+  'errors.field.password_breached': 'This password is known from data breaches. Choose another.',
+  'errors.field.password_is_email': 'It must not be your e-mail address.',
+  'errors.field.password_is_username': 'It must not be your user name.',
+  'errors.field.password_needs_digit': 'Add a digit.',
+  'errors.field.password_needs_lower': 'Add a lower-case letter.',
+  'errors.field.password_needs_special': 'Add a symbol, such as ! or #.',
+  'errors.field.password_needs_upper': 'Add a capital letter.',
   'errors.field.password_policy_out_of_range': 'Use between {{min}} and {{max}}.',
+  'errors.field.password_rejected': 'This password was not accepted. Choose another.',
+  'errors.field.password_too_long': 'Too long: use at most 128 characters.',
+  'errors.field.password_too_short': 'Too short: use more characters.',
+  'errors.field.password_used_before': 'You have used this password before. Choose a new one.',
   'errors.field.pattern_mismatch': 'This value does not have the expected format.',
   'errors.field.pattern_too_complex':
     'This pattern repeats a group that itself repeats, which could make saving very slow. Simplify it, for example [A-Z]+ instead of ([A-Z]+)+.',
@@ -624,6 +686,9 @@ export const en = {
     'Use at least the idle timeout and at most {{max}} hours.',
   'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
   'errors.field.site_inactive': 'This site is inactive. Choose an active site.',
+  'errors.field.site_network_invalid':
+    'Enter a range such as 10.1.0.0/16 (with the host part zero), or one address.',
+  'errors.field.site_network_too_many': 'At most {{max}} ranges can be mapped.',
   'errors.field.site_not_found': 'This site does not exist.',
   'errors.field.sso_certificate_expired':
     'The certificate has expired. Ask the identity provider for a current one.',
@@ -677,10 +742,12 @@ export const en = {
   'errors.field.too_deep': 'Categories have at most three levels.',
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.too_many_actions': 'A rule can have at most {{max}} actions.',
+  'errors.field.too_many_addresses': 'Keep at most 20 addresses informed.',
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
   'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
+  'errors.field.too_many_copies': 'Make 1 to {{max}} copies at a time.',
   'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
   'errors.field.too_many_items': 'There are too many entries.',
   'errors.field.too_many_keywords': 'Use at most 20 keywords per language.',
@@ -693,6 +760,7 @@ export const en = {
   'errors.field.too_many_values': 'Choose at most {{max}}.',
   'errors.field.topic_too_deep': 'Topics can be at most {{max}} levels deep.',
   'errors.field.topic_under_itself': 'A topic cannot go under itself or one of its subtopics.',
+  'errors.field.trusted_servers_too_many': 'Name 5 servers at most.',
   'errors.field.type_cannot_change':
     "A field's type cannot change. Add a new field and retire this one.",
   'errors.field.unknown_article_type': 'This article type does not exist or is retired.',
@@ -749,6 +817,16 @@ export const en = {
   'errors.field.workflow_not_published': 'Publish this workflow first.',
   'errors.field.workflow_wrong_record_type': 'This workflow is for another kind of record.',
   'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
+  'errors.field_access_limit_reached':
+    'Your organisation already has {{limit}} field rules, the most allowed. Remove one first.',
+  'errors.field_access_rule_exists':
+    'This role already has a rule for this field. Change that rule instead.',
+  'errors.field_access_rule_not_found': 'This field rule no longer exists.',
+  'errors.field_keys_unavailable':
+    'Protected information cannot be read or saved right now: the installation key is not available. Ask your administrator to check it.',
+  'errors.field_not_permitted': 'This report uses a field that is not available to you.',
+  'errors.field_not_ruleable': 'This field cannot be restricted.',
+  'errors.field_read_only': "You may only read this field, so it can't be changed.",
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',
@@ -821,6 +899,12 @@ export const en = {
   'errors.invitation_pending': 'This person has an invitation waiting. Send it again instead.',
   'errors.invitation_person_cannot_sign_in':
     'This person is deactivated or not allowed to sign in.',
+  'errors.invite_link_has_account':
+    'This person already has a password: they sign in as usual, so there is no link to copy.',
+  'errors.invite_link_invalid':
+    'This invitation link does not work. It may have been used, replaced by a newer one, or run out. Ask whoever invited you for a new link.',
+  'errors.invite_link_mail_configured':
+    'Outgoing mail is set up, so the invitation goes by e-mail. Send it again instead of copying a link.',
   'errors.ip_not_allowed':
     'Your organisation does not allow sign-in from this network. Connect from an allowed network, or ask your administrator.',
   'errors.job_kind_not_available': 'This kind of job is not available yet.',
@@ -873,6 +957,7 @@ export const en = {
     "Enter the directory server's host name or IP address, without ldap:// or a path.",
   'errors.ldap_single_tenant_only':
     'AD/LDAP directories can only be connected on an installation that serves one organisation.',
+  'errors.legal_hold_not_set': 'This person is not on legal hold.',
   'errors.lifecycle_draft_exists':
     'This life cycle already has a draft. Open it, or throw it away first.',
   'errors.lifecycle_draft_not_found': 'This life cycle has no draft. Start one to make changes.',
@@ -898,6 +983,9 @@ export const en = {
   'errors.mail_attachment_name': 'An attachment name is not valid.',
   'errors.mail_attachment_type': 'This type of file cannot be sent by email.',
   'errors.mail_attachments_too_large': 'The attachments are larger than 10 MB together.',
+  'errors.mail_block_rule_exists': 'A rule for this already exists.',
+  'errors.mail_block_rule_not_found': 'This block rule does not exist.',
+  'errors.mail_block_rules_full': 'There can be {{max}} block rules at most. Remove one first.',
   'errors.mail_content_gone': "This e-mail's text is no longer kept. Write the reply again.",
   'errors.mail_kind_invalid': 'This kind of email is not known.',
   'errors.mail_language_invalid': 'This language is not available for email.',
@@ -952,6 +1040,8 @@ export const en = {
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
   'errors.notification_rule_locked':
     'This is a security notice: no one can switch it off, change who gets it or reset it.',
+  'errors.notify_link_not_found':
+    'This link no longer works. It may have been used already, or it has expired.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',
@@ -965,12 +1055,16 @@ export const en = {
   'errors.password_policy_platform': 'The platform sets the password policy on this installation.',
   'errors.password_reset_not_signed_in':
     'This person has not signed in yet. Send them an invitation instead.',
-  'errors.payload_too_large': 'The upload is too large.',
+  'errors.payload_too_large': 'What was sent is too large to accept. Send less, or a smaller file.',
   'errors.people_import_file_not_readable': 'Use a CSV file or an Excel workbook ({{xlsx}}).',
   'errors.people_import_file_too_large': 'The file is larger than 5 MB.',
   'errors.people_import_file_unsafe':
     'The workbook was not opened: it unpacks to far more than its size.',
   'errors.permission_denied': 'You do not have permission to do this.',
+  'errors.person_already_erased': 'This person has been erased.',
+  'errors.person_erasure_in_progress':
+    'This person is being erased; they cannot be reactivated or changed.',
+  'errors.person_on_legal_hold': 'This person is on legal hold and cannot be erased.',
   'errors.pick_list_not_found': 'That list does not exist.',
   'errors.pick_list_value_not_found': 'That value no longer exists.',
   'errors.plain_connection_refused':
@@ -1053,7 +1147,7 @@ export const en = {
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unavailable':
-    'Signing in is not available right now. Please wait a minute and try again.',
+    'Sign-in is temporarily unavailable. If you’re already signed in, you can keep working.',
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
   'errors.site_not_found': 'The site was not found.',

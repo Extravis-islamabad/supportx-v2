@@ -2595,8 +2595,12 @@ spec:
           args: ["start", "--import-realm"]
           env:
             - {name: KC_DB, value: postgres}
+            # PostgreSQL JDBC driver options (ADR-051): after a database failover, a connection to
+            # the old primary that never sees a reset (its node is gone) is dropped within
+            # socketTimeout instead of hanging; connects give up after connectTimeout; TCP
+            # keepalives on. Seconds. 60 s is far above any query Keycloak makes in service.
             - name: KC_DB_URL
-              value: "jdbc:postgresql://supportx-pg-rw:5432/keycloak"
+              value: "jdbc:postgresql://supportx-pg-rw:5432/keycloak?connectTimeout=10&socketTimeout=60&tcpKeepAlive=true"
             - name: KC_DB_USERNAME
               valueFrom: {secretKeyRef: {name: supportx-db-keycloak, key: username}}
             - name: KC_DB_PASSWORD

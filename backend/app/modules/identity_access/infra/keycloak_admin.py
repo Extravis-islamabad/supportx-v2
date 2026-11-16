@@ -14,7 +14,7 @@ it may touch: callers pass the tenant, and organization lookups check the organi
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
 
@@ -119,7 +119,13 @@ class IdentityAdmin(Protocol):
     async def find_user(self, email: str) -> KeycloakUser | None: ...  # noqa: D102
 
     async def create_user(  # noqa: D102
-        self, *, email: str, first_name: str, last_name: str, locale: str
+        self,
+        *,
+        email: str,
+        first_name: str,
+        last_name: str,
+        locale: str,
+        email_verified: bool = True,
     ) -> str: ...
 
     async def delete_user(self, user_id: str) -> None: ...  # noqa: D102
@@ -135,6 +141,10 @@ class IdentityAdmin(Protocol):
     ) -> None: ...
 
     async def require_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
+
+    async def clear_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
+
+    async def set_password(self, user_id: str, password: str) -> None: ...  # noqa: D102
 
     async def member_tenants(self, user_id: str) -> list[str]: ...  # noqa: D102
 
@@ -415,8 +425,11 @@ class KeycloakAdmin:
             raise IdentityAdminUnavailable
         if response.status_code >= httpx.codes.BAD_REQUEST:
             try:
-                message = str(response.json().get("errorMessage", ""))
-            except ValueError:
+                body = response.json()
+                # Most refusals say `errorMessage`; a password policy's says `error` (checked on
+                # 26.8.1: {"error": "invalidPasswordMinLengthMessage", "error_description": ...}).
+                message = str(body.get("errorMessage") or body.get("error") or "")
+            except (ValueError, AttributeError):
                 message = ""
             raise IdentityAdminRefused(response.status_code, message)
         return response
@@ -502,6 +515,17 @@ class KeycloakAdmin:
         """End every Keycloak session of a person (REQ-SEC-031); unknown is fine."""
         await self._call("POST", f"/users/{user_id}/logout", missing_ok=True)
 
+    async def end_session(self, session_id: str) -> bool:
+        """End one Keycloak session by its ID (ADR-051); False if it was already gone.
+
+        Keycloak's `DELETE /admin/realms/{realm}/sessions/{id}` (manage-users, which the
+        identity service account holds): a back-channel logout of that session only, the
+        person's other devices keep theirs.
+        """
+        path = f"/sessions/{quote(session_id, safe='')}"
+        found = await self._call("DELETE", path, missing_ok=True)
+        return found is not None
+
     async def user_attributes(self, user_id: str) -> dict[str, list[str]]:
         """A person's Keycloak attributes (set by identity provider mappers); unknown: none."""
         found = await self._json("GET", f"/users/{user_id}", missing_ok=True) or {}
@@ -526,8 +550,20 @@ class KeycloakAdmin:
                 )
         return None
 
-    async def create_user(self, *, email: str, first_name: str, last_name: str, locale: str) -> str:
-        """A new realm user without a password (they set one from the e-mail); its ID."""
+    async def create_user(
+        self,
+        *,
+        email: str,
+        first_name: str,
+        last_name: str,
+        locale: str,
+        email_verified: bool = True,
+    ) -> str:
+        """A new realm user without a password (they set one from the e-mail); its ID.
+
+        `email_verified` False for a copied invite link (REQ-SEC-021, lane B): nothing has
+        reached that mailbox, so the address is not proven.
+        """
         response = await self._call(
             "POST",
             "/users",
@@ -538,7 +574,7 @@ class KeycloakAdmin:
                 "lastName": last_name,
                 "enabled": True,
                 # Reached through an e-mail SupportX asked for: the address is the person's.
-                "emailVerified": True,
+                "emailVerified": email_verified,
                 "attributes": {"locale": [locale]},
             },
         )
@@ -593,6 +629,34 @@ class KeycloakAdmin:
         wanted = sorted({*(current.get("requiredActions") or []), *actions})
         await self._call("PUT", f"/users/{user_id}", json={**current, "requiredActions": wanted})
 
+    async def clear_actions(self, user_id: str, actions: list[str]) -> None:
+        """Take these required actions off the user (a copied invite link set the password).
+
+        Only these: any other required action (MFA enrolment, terms) stays. Nothing else of the
+        user changes; `emailVerified` is never touched (lane B, REQ-SEC-021).
+        """
+        current = await self._json("GET", f"/users/{user_id}")
+        if current is None:
+            return
+        held = list(current.get("requiredActions") or [])
+        kept = [action for action in held if action not in actions]
+        if kept != held:
+            # Only the field changed (lane B): a full representation would put back whatever
+            # another change made to the user in between.
+            await self._call("PUT", f"/users/{user_id}", json={"requiredActions": kept})
+
+    async def set_password(self, user_id: str, password: str) -> None:
+        """Set the user's password, not temporary; the realm's policy applies.
+
+        A policy refusal raises `IdentityAdminRefused` with Keycloak's message key (e.g.
+        `invalidPasswordMinLengthMessage`), never the password. Signs nobody in.
+        """
+        await self._call(
+            "PUT",
+            f"/users/{user_id}/reset-password",
+            json={"type": "password", "value": password, "temporary": False},
+        )
+
     async def credentials(self, user_id: str) -> list[Credential]:
         """The user's credentials (types and IDs only; never their secrets)."""
         found = await self._json("GET", f"/users/{user_id}/credentials", missing_ok=True) or []
@@ -607,7 +671,13 @@ class KeycloakAdmin:
 
     async def member_tenants(self, user_id: str) -> list[str]:
         """The tenant IDs of the organizations the user is a member of."""
-        found = await self._json("GET", f"/organizations/members/{user_id}/organizations") or []
+        # A user already deleted (an erasure resumed after its delete) is in no organization.
+        found = (
+            await self._json(
+                "GET", f"/organizations/members/{user_id}/organizations", missing_ok=True
+            )
+            or []
+        )
         tenants: list[str] = []
         for brief in found:
             item = await self._json("GET", f"/organizations/{brief['id']}", missing_ok=True) or {}
@@ -663,6 +733,7 @@ class KeycloakAdmin:
                     ip=item.get("ipAddress"),
                     identity_provider=details.get("identity_provider"),
                     redirect_uri=details.get("redirect_uri"),
+                    credential_type=details.get("credential_type"),
                 )
             )
         return found

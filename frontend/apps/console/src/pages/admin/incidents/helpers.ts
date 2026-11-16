@@ -80,6 +80,9 @@ const SETTING_NAMES: Record<string, string> = {
   keep_following_on_handover: 'settings.keep_following',
   portal_show_due_time: 'settings.portal_show_due_time',
   first_response_on: 'settings.first_response_on',
+  mail_commands: 'settings.mail_commands',
+  mail_command_fields: 'settings.mail_command_fields',
+  cc_from_first_mail: 'settings.cc_from_first_mail',
   // Whole parts, when the dialog compares two versions itself.
   statuses: 'settings.statuses',
   transitions: 'settings.reason_prompts',

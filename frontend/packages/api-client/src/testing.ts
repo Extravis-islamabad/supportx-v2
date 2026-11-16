@@ -598,6 +598,9 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     approvals_require_sign_in: false,
     first_task_starts_work: true,
     portal_show_due_time: false,
+    mail_commands: false,
+    mail_command_fields: [],
+    cc_from_first_mail: true,
     segregation_strict: false,
     outside_maintenance_blocks: false,
     open_stage_tasks_block: true,
@@ -673,6 +676,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       complete_open_work: false,
       auto_close_days: null,
       checklist_item_max: 100, // WP-046a S2
+      copy_limit: 20, // WP-046a S5c
       reopen_window_days: 7,
       task_owner_access: false, // WP-020e (D-112): off by default
       task_dependency_mode: 'block', // WP-046a S1 (REQ-INC-075)
@@ -948,6 +952,9 @@ export function fakeMailbox(
     unknown_senders: 'create_allowed_domains',
     allowed_domains: ['acme.test'],
     enabled: true,
+    trusted_servers: [],
+    trust_provider_results: false,
+    quarantine_days: 14,
     state: 'working',
     state_reason: null,
     last_fetch_at: '2026-10-28T09:00:00Z',

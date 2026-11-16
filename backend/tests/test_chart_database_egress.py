@@ -1,8 +1,9 @@
 """An external backup target is open to the database's pods only (D-166, least privilege).
 
 With the egress allow-list on, `networkPolicies.egress.database` adds one NetworkPolicy that
-selects CloudNativePG's pods (cnpg.io/cluster, which every instance and a restore cluster carry)
-and nothing else: the backup address never reaches the API, the workers or anyone else.
+selects this release's CloudNativePG pods (cnpg.io/cluster = <release>-pg, or the restore
+runbook's <release>-pg-restore) and nothing else: the backup address never reaches the API, the
+workers, another release's database or anyone else.
 """
 
 import shutil
@@ -49,7 +50,10 @@ def test_the_backup_target_is_open_to_the_database_pods_only() -> None:
     assert len(holding) == 1, "exactly one policy names the backup target"
     (policy,) = holding
     assert "name: supportx-database-egress" in policy
-    assert "key: cnpg.io/cluster, operator: Exists" in policy
+    assert (
+        "key: cnpg.io/cluster, operator: In, values: [supportx-pg, supportx-pg-restore]" in policy
+    )
+    assert "operator: Exists" not in policy  # not every CloudNativePG cluster in the namespace
     assert "podSelector: {}" not in policy  # never every pod in the namespace
 
 

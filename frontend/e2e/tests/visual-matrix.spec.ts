@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { PORTAL_URL, passwordOf, SEEDED, USERS } from '../stack';
 import { signIn } from './helpers';
@@ -61,6 +61,63 @@ type Records = Partial<
     string
   >
 >;
+
+/** The new-incident form with a kept draft on the server (readable or not). */
+function keptDraft(unreadable: boolean): (page: Page) => Promise<void> {
+  return async (page) => {
+    const url = '**/api/v1/drafts/incident-new';
+    const answer = (route: Route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({
+            json: {
+              form_key: 'incident-new',
+              version: 2,
+              updated_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+              unreadable,
+              values: unreadable ? null : { subject: 'Printer jams on floor 2' },
+            },
+          })
+        : route.continue();
+    await page.route(url, answer);
+    // Every shot shares one tab: an earlier shot's own copy of this form (sessionStorage) would
+    // count as restored and hide the server's note (lane C, matrix 43474443928).
+    await page.evaluate(() => {
+      for (const name of Object.keys(window.sessionStorage)) {
+        if (name.startsWith('supportx.draft.')) window.sessionStorage.removeItem(name);
+      }
+    });
+    await page.reload();
+    try {
+      await page.getByTestId(unreadable ? 'kept-draft-unreadable' : 'kept-draft').waitFor();
+    } finally {
+      // Read once and kept (staleTime Infinity): the note stays, and later shots on this tab get
+      // the real answer again.
+      await page.unroute(url, answer);
+    }
+  };
+}
+
+const STOP_TOKEN = 'S'.repeat(43);
+
+/** The stop-mails page with its public calls answered in the browser; `press`: also stop. */
+function stopMails(press: boolean): (page: Page) => Promise<void> {
+  return async (page) => {
+    await page.route('**/api/v1/public/notify-links/peek', (route) =>
+      route.fulfill({ json: { display_id: 'INC-12', address: 'b***@acme.test' } }),
+    );
+    await page.route('**/api/v1/public/notify-links/stop', (route) =>
+      route.fulfill({ status: 204, body: '' }),
+    );
+    const url = new URL(page.url());
+    url.hash = STOP_TOKEN;
+    await page.goto(url.href);
+    await page.getByTestId('stop-mails-ask').waitFor();
+    if (press) {
+      await page.getByTestId('stop-mails-button').click();
+      await page.getByTestId('stop-mails-done').waitFor();
+    }
+  };
+}
 
 interface Screen {
   key: string;
@@ -138,6 +195,20 @@ export const SCREENS: Screen[] = [
   { key: 'home', path: '/', app: 'console' },
   { key: 'incidents', path: '/incidents', app: 'console' },
   { key: 'incident-new', path: '/incidents/new', app: 'console' },
+  // WP-046a S5c (REQ-INC-019): a kept draft offered back, and one that could not be read
+  // (lane C). The draft is answered in the browser: the matrix keeps none of its own.
+  {
+    key: 'incident-new',
+    path: '/incidents/new',
+    app: 'console',
+    state: { name: 'kept-draft', open: keptDraft(false) },
+  },
+  {
+    key: 'incident-new',
+    path: '/incidents/new',
+    app: 'console',
+    state: { name: 'kept-draft-unreadable', open: keptDraft(true) },
+  },
   {
     key: 'incident-new',
     path: '/incidents/new',
@@ -279,6 +350,9 @@ export const SCREENS: Screen[] = [
     state: {
       name: 'node-chosen',
       open: async (page) => {
+        // On a phone the tree waits behind its button (QA 2026-11-12 V-03): open it first.
+        const toggle = page.getByTestId('asset-tree-toggle');
+        if (await toggle.isVisible()) await toggle.click({ timeout: STATE_TIMEOUT });
         // The first type after "All types": its branch listed, its row chosen.
         await page
           .getByRole('treeitem')
@@ -485,6 +559,34 @@ export const SCREENS: Screen[] = [
     app: 'console',
     sideOnly: true,
   })),
+  // ADR-047 slice c: the role editor's Field access tab, and "Who sees this" in its modal.
+  {
+    key: 'admin-roles-field-access',
+    path: '/admin/roles',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'tab',
+      open: async (page) => {
+        await click('role-row-technician')(page);
+        await tab('field_access')(page);
+      },
+    },
+  },
+  {
+    key: 'admin-roles-field-access-who',
+    path: '/admin/roles',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'who',
+      open: async (page) => {
+        await click('role-row-technician')(page);
+        await tab('field_access')(page);
+        await click('field-access-who-impact_details')(page);
+      },
+    },
+  },
   // WP-046a S5b: the template drawer with the form designer and a form rule open (lane C).
   {
     key: 'admin-incidents-template-designer',
@@ -520,6 +622,22 @@ export const SCREENS: Screen[] = [
   { key: 'portal-service-requests', path: '/service-requests', app: 'portal' },
   { key: 'portal-approvals', path: '/approvals', app: 'portal' },
   { key: 'portal-approval-link', path: '/requests/approval-link', app: 'portal' },
+  // WP-046a S6 (REQ-INC-066): stopping mails to someone kept informed, no sign-in. A made-up
+  // token shows the dead link; the ask and done states answer the two public calls in the
+  // browser (the matrix has no mail to take a real link from), lane C's #485 review.
+  { key: 'portal-stop-mails', path: `/stop-mails#${STOP_TOKEN}`, app: 'portal' },
+  {
+    key: 'portal-stop-mails',
+    path: `/stop-mails#${STOP_TOKEN}`,
+    app: 'portal',
+    state: { name: 'ask', open: stopMails(false) },
+  },
+  {
+    key: 'portal-stop-mails',
+    path: `/stop-mails#${STOP_TOKEN}`,
+    app: 'portal',
+    state: { name: 'done', open: stopMails(true) },
+  },
   { key: 'portal-account', path: '/account', app: 'portal' },
   { key: 'portal-search', path: '/search?q=password', app: 'portal' },
   { key: 'portal-not-found', path: '/no/such/page', app: 'portal' },

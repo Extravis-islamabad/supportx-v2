@@ -13,9 +13,10 @@ from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.notifications.api.routes import router
 from app.modules.notifications.events import EVENTS
-from app.modules.notifications.service import mail_summary
+from app.modules.notifications.service import mail_summary, person_data
 from app.modules.notifications.service.admin import MANAGE
 from app.modules.notifications.service.engine import DISPATCH, waiting_schedule
+from app.modules.notifications.service.erasure import ERASED
 from app.modules.notifications.service.realtime import ROUTES
 from app.modules.notifications.service.resend import resend_entry
 from app.modules.notifications.service.threads import records_for_mail
@@ -24,6 +25,8 @@ from app.shared.schedules import ScheduleSpec
 # D-157: the "e-mails given up" summary for the people who set mail up; at import, for the
 # workers too (the waiting schedule and the dispatch consumer run there).
 mail_summary.register()
+# Notifications' slice of a person's erasure (ADR-052): at import.
+person_data.register()
 
 module = ModuleSpec(
     name="notifications",
@@ -32,7 +35,7 @@ module = ModuleSpec(
     # Tenant admins hold every permission; the rules screen is theirs (and custom roles').
     permissions=(PermissionSpec(MANAGE),),
     realtime=ROUTES,
-    consumers=[DISPATCH],
+    consumers=[DISPATCH, ERASED],
     schedules=[ScheduleSpec("notifications__mail_waiting", 60, waiting_schedule)],
 )
 

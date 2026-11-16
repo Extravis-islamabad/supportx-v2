@@ -80,6 +80,8 @@ from typing import Any
 import httpx
 
 from app.modules.identity_access.domain.password_policy import PasswordPolicy, to_keycloak
+from app.modules.identity_access.domain.security_notice_import import LOCKOUT as LOCKOUT_POLICY
+from app.modules.identity_access.domain.security_notice_import import NOTICE_TYPES
 from app.modules.identity_access.domain.sso import POST_BROKER_FLOW
 from tooling.keycloak_theme import KeycloakUnavailableError, admin_token
 
@@ -95,16 +97,11 @@ FEDERATION_CLIENT_ID = "supportx-federation"
 FEDERATION_ROLES = ("manage-realm",)  # the LDAP user-federation component (D-118); nothing else
 EVENTS_CLIENT_ID = "supportx-events"
 EVENTS_ROLES = ("view-events",)  # the sign-in log import (WP-057 S1b); nothing else (lane B)
-# Lock-out (REQ-SEC-005 AC2, D-104), and what the realm import shipped before WP-039 session 3.
-LOCKOUT = {
-    "bruteForceProtected": True,
-    "bruteForceStrategy": "LINEAR",
-    "failureFactor": 5,
-    "waitIncrementSeconds": 900,
-    "maxFailureWaitSeconds": 3600,
-    "maxDeltaTimeSeconds": 43200,
-}
+# Lock-out (REQ-SEC-005 AC2, D-104): one copy in the domain, which the lock-out notice's earliest
+# reopening time also reads (REQ-SEC-033 part 2).
+LOCKOUT = LOCKOUT_POLICY.realm()
 RECOVERY_CODE_STEP = "auth-recovery-authn-code-form"
+# What the realm import shipped before WP-039 session 3.
 OLD_LOCKOUT = {"waitIncrementSeconds": 60, "maxFailureWaitSeconds": 900, "failureFactor": 5}
 # What the realm import shipped before WP-039 session 2 (Keycloak stores it this way).
 OLD_DEFAULT_POLICY = (
@@ -120,6 +117,7 @@ EVENT_TYPES = (
     "IDENTITY_PROVIDER_FIRST_LOGIN_ERROR",
     "IDENTITY_PROVIDER_POST_LOGIN",
     "IDENTITY_PROVIDER_POST_LOGIN_ERROR",
+    *NOTICE_TYPES,  # a lock-out, a password or MFA change: the person is told (REQ-SEC-033)
 )
 EVENTS_EXPIRATION_SECONDS = 7 * 86400
 # The longest SupportX sessions (Appendix A caps: portal 30 days absolute; 24 hours idle at most).

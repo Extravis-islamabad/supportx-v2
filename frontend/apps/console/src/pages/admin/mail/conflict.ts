@@ -23,6 +23,9 @@ const NAMES = {
   unknown_senders: 'mail.field.unknown_senders',
   allowed_domains: 'mail.field.allowed_domains',
   enabled: 'mail.field.enabled',
+  trusted_servers: 'mail.field.trusted_servers',
+  trust_provider_results: 'mail.field.trust_provider_results',
+  quarantine_days: 'mail.field.quarantine_days',
 } as const;
 type Field = keyof typeof NAMES;
 

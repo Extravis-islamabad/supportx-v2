@@ -272,6 +272,28 @@ describe('console: assets', () => {
     expect(await screen.findByText('Today')).toBeTruthy();
   });
 
+  it('while the age basis loads, a placeholder shows, never "Unknown" first (QA 2026-11-12 F-14)', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    let answer: (reply: { body: unknown }) => void = () => undefined;
+    const fake = assetsApi({
+      'GET /api/v1/assets/settings': () =>
+        new Promise((done) => {
+          answer = done;
+        }),
+      [`GET /api/v1/assets/${asset.id}`]: {
+        body: { ...asset, created_at: new Date().toISOString() },
+        headers: { ETag: '"3"' },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByTestId('asset-age-loading')).toBeTruthy();
+    expect(screen.queryByText('Unknown')).toBeNull();
+    answer({ body: { age_basis: 'created_date', copy_limit: 50 } });
+    expect((await screen.findByTestId('asset-age')).textContent).toBe('Today');
+    expect(screen.queryByTestId('asset-age-loading')).toBeNull();
+  });
+
   it('shows one asset with price, tax and total, and saves an edit with If-Match', async () => {
     window.history.pushState({}, '', `/assets/${asset.id}`);
     const fake = assetsApi({

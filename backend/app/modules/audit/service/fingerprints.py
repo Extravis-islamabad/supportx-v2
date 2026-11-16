@@ -38,10 +38,13 @@ from app.modules.audit.domain.fingerprint import (
 )
 from app.modules.audit.domain.integrity import SALT_SIZE
 from app.modules.audit.domain.lifecycle import RECORD_TYPES, RecordAudit
-from app.modules.audit.infra.models import AuditEntry
+from app.modules.audit.infra.models import AuditEntry, FieldChangeRedaction
 from app.shared.history import Change, FieldChange, SavedRecord, record_subjects
 
 ERASED_ACTION = "audit.subject_erased"
+# The chain entry of a mention's redaction (identity_access, ADR-052 S1b): a save checked through
+# kept digests is `redacted_on_request` only with this logged after it (ADR-046 addendum).
+REDACTED_ACTION = "person.erasure_mention_redacted"
 CHUNK = 500  # entries per verification query
 
 _ENSURE = text(
@@ -165,6 +168,7 @@ class FingerprintTally:
 
     verified: int = 0
     erased: int = 0
+    redacted: int = 0
     mismatches: int = 0
     first_mismatch: tuple[int, uuid.UUID] | None = None
 
@@ -174,6 +178,8 @@ class FingerprintTally:
             self.verified += 1
         elif status is FingerprintStatus.ERASED_ON_REQUEST:
             self.erased += 1
+        elif status is FingerprintStatus.REDACTED_ON_REQUEST:
+            self.redacted += 1
         else:
             self.mismatches += 1
             if self.first_mismatch is None or seq < self.first_mismatch[0]:
@@ -231,10 +237,50 @@ async def _erasures(session: AsyncSession, subjects: Iterable[uuid.UUID]) -> dic
     return {uuid.UUID(object_id): at for object_id, at in rows}
 
 
+async def _redactions(
+    session: AsyncSession, history: Mapping[uuid.UUID, list[FieldChange]]
+) -> dict[uuid.UUID, FieldChangeRedaction]:
+    """The kept digests of history rows a signed redaction blanked, by field_changes row."""
+    ids = sorted({row.id for rows in history.values() for row in rows}, key=str)
+    if not ids:
+        return {}
+    found: dict[uuid.UUID, FieldChangeRedaction] = {}
+    for start in range(0, len(ids), CHUNK):
+        rows = await session.scalars(
+            select(FieldChangeRedaction).where(
+                FieldChangeRedaction.field_change_id.in_(ids[start : start + CHUNK])
+            )
+        )
+        found.update({row.field_change_id: row for row in rows})
+    return found
+
+
+async def _redaction_logs(
+    session: AsyncSession, mentions: Iterable[uuid.UUID]
+) -> dict[uuid.UUID, datetime]:
+    """The newest logged redaction of each mention (a `person.erasure_mention_redacted` entry)."""
+    ids = sorted({str(m) for m in mentions})
+    if not ids:
+        return {}
+    mention = AuditEntry.details["mention_id"].astext
+    rows = await session.execute(
+        select(mention, func.max(AuditEntry.occurred_at))
+        .where(AuditEntry.action == REDACTED_ACTION, mention.in_(ids))
+        .group_by(mention)
+    )
+    return {uuid.UUID(m): at for m, at in rows}
+
+
 def _saves_of(
-    entry: Mapping[str, Any], history: Mapping[uuid.UUID, list[FieldChange]]
+    entry: Mapping[str, Any],
+    history: Mapping[uuid.UUID, list[FieldChange]],
+    redactions: Mapping[uuid.UUID, FieldChangeRedaction] | None = None,
 ) -> tuple[RecordAudit, uuid.UUID, list[SaveValues]] | None:
-    """The entry's saves read back from history, or None when they cannot belong to it."""
+    """The entry's saves read back from history, or None when they cannot belong to it.
+
+    A row a signed redaction blanked stands in with its kept digests (ADR-046 addendum).
+    """
+    kept = redactions or {}
     spec = RECORD_TYPES.get(entry["object_type"] or "")
     record_id = _uuid(entry["object_id"])
     if spec is None or record_id is None:
@@ -252,7 +298,13 @@ def _saves_of(
                 first.kind if first else "",
                 tuple(
                     FieldValues(
-                        r.field, r.old_value, r.new_value, spec.is_personal(r.field), r.reason
+                        r.field,
+                        r.old_value,
+                        r.new_value,
+                        spec.is_personal(r.field),
+                        r.reason,
+                        old_digest=kept[r.id].old_digest if r.id in kept else None,
+                        new_digest=kept[r.id].new_digest if r.id in kept else None,
                     )
                     for r in rows
                 ),
@@ -261,13 +313,17 @@ def _saves_of(
     return spec, record_id, saves
 
 
-def _verdict(
+def _verdict(  # noqa: PLR0913 - the entry and everything the database still has about it
     entry: Mapping[str, Any],
     history: Mapping[uuid.UUID, list[FieldChange]],
     salts: Mapping[uuid.UUID, bytes],
     erased: Mapping[uuid.UUID, datetime],
+    *,
+    redactions: Mapping[uuid.UUID, FieldChangeRedaction] | None = None,
+    redaction_logs: Mapping[uuid.UUID, datetime] | None = None,
 ) -> FingerprintStatus:
-    found = _saves_of(entry, history)
+    kept = redactions or {}
+    found = _saves_of(entry, history, kept)
     if found is None:
         return FingerprintStatus.MISMATCH
     spec, record_id, saves = found
@@ -285,6 +341,15 @@ def _verdict(
         if len(have) == len(needed)
         else None
     )
+    # Kept digests stood in for blanked values: the redaction must be logged after the entry.
+    used = {
+        kept[r.id].mention_id
+        for change_id in entry["fingerprint_saves"] or ()
+        for r in history.get(change_id, [])
+        if r.id in kept
+    }
+    logs = redaction_logs or {}
+    logged = all(m in logs and logs[m] >= entry["occurred_at"] for m in used)
     return status_of(
         ordinary_matches=ordinary,
         personal_stored=entry.get("personal_fingerprint"),
@@ -293,6 +358,8 @@ def _verdict(
         salted=have,
         erased_after=erased,
         occurred_at=entry["occurred_at"],
+        redacted=bool(used),
+        redaction_logged=logged,
     )
 
 
@@ -308,8 +375,12 @@ async def statuses(
         subjects = {s for e in chunk for s in e["personal_subjects"] or ()}
         salts = await salts_of(session, subjects)
         erased = await _erasures(session, subjects - salts.keys())
+        redactions = await _redactions(session, history)
+        logs = await _redaction_logs(session, {r.mention_id for r in redactions.values()})
         for entry in chunk:
-            out[entry["id"]] = _verdict(entry, history, salts, erased)
+            out[entry["id"]] = _verdict(
+                entry, history, salts, erased, redactions=redactions, redaction_logs=logs
+            )
     return out
 
 

@@ -1,7 +1,6 @@
 import {
   App,
   Button,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -36,13 +35,14 @@ import {
 import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
+  Drawer,
+  lengthLimit,
   reportError,
   RichTextField,
   useAppearance,
   useConflict,
   useLabel,
   WriteButton,
-  lengthLimit,
 } from '@supportx/ui';
 
 import { CustomFieldControl } from '../../customFields/fields';

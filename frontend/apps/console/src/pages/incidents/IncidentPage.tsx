@@ -56,6 +56,7 @@ import {
   PresenceAvatars,
   PropertiesPanel,
   PropertyList,
+  restrictionOf,
   PropertyRow,
   type RecordAction,
   RecordHeader,
@@ -76,6 +77,7 @@ import {
   Tabs,
 } from '@supportx/ui';
 
+import { CopyDialog } from './CopyDialog';
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
@@ -95,7 +97,7 @@ import { KnowledgePicker } from '../knowledge/KnowledgePicker';
 import { KnownErrorTool } from '../problems/KnownErrorTool';
 import { KnowledgeSlotContext, type KnowledgeSlot } from './knowledgeSlot';
 import { IncidentSla } from './IncidentSla';
-import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
+import { IncidentLinks, IncidentTasks, IncidentTime, IncidentWorklogs } from './IncidentParts';
 import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
 import { IncidentHistory } from './IncidentHistory';
@@ -178,6 +180,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [changedBy, setChangedBy] = useState<string | null>(null);
   const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
@@ -426,6 +429,18 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           allowed: true,
           testId: 'inc-op-create-problem',
           onClick: () => void navigate(`/problems/new?incident=${item.id}`),
+        }
+      : null,
+    // WP-046a S5c (REQ-INC-033): copy it one or more times.
+    can('incidents.create')
+      ? {
+          key: 'copy',
+          label: t('incidents.copy.open'),
+          allowed: true,
+          testId: 'inc-op-copy',
+          onClick: () => {
+            setCopying(true);
+          },
         }
       : null,
     deleteOp !== undefined && deleteOp.reason !== 'no_permission'
@@ -698,6 +713,14 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         }
       >
         <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
+        <CopyDialog
+          open={copying}
+          recordId={item.id}
+          displayId={item.display_id}
+          onClose={() => {
+            setCopying(false);
+          }}
+        />
         <AssignDialog
           item={item}
           open={assigning}
@@ -789,6 +812,12 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   },
                 ]
               : []),
+            // WP-046a S3 (REQ-INC-071): where the time went.
+            {
+              key: 'time',
+              label: t('incidents.tab.time'),
+              children: <IncidentTime item={item} />,
+            },
             {
               key: 'history',
               label: t('incidents.tab.history', { count: item.history_count }),
@@ -994,6 +1023,15 @@ function Details({
       edit: { kind: 'tags', value: item.tags },
       filled: item.tags.length > 0,
     },
+    {
+      // WP-046a S6 (REQ-INC-066): addresses that get public replies by e-mail, never notes.
+      key: 'notify_emails',
+      label: t('work_item.field.notify_emails'),
+      // Each address isolated left to right; the list's joiners follow the page (lane C).
+      view: listFormat((item.notify_emails ?? []).map((address) => `\u2066${address}\u2069`)),
+      edit: { kind: 'tags', value: item.notify_emails ?? [] },
+      filled: (item.notify_emails ?? []).length > 0,
+    },
     // Custom fields (WP-026): the ones the template shows, and any other holding a value
     // (retired ones read-only, marked).
     ...(customFields.data ?? [])
@@ -1072,11 +1110,22 @@ function Details({
       <PropertyList
         testId="inc-properties"
         items={rows
-          .filter((row) => row.filled || (row.edit !== undefined && canEdit))
+          // A field the person's roles make read only has no editor (ADR-047: no 403 to meet).
+          .map((row) => ({
+            ...row,
+            restricted: restrictionOf(item, row.key),
+            edit: (item.read_only_fields ?? []).includes(row.key) ? undefined : row.edit,
+          }))
+          // A withheld field still shows its row, saying so (ADR-047 §4; never editable).
+          .filter(
+            (row) =>
+              row.filled || row.restricted !== undefined || (row.edit !== undefined && canEdit),
+          )
           .map((row) => ({
             key: row.key,
             label: row.label,
             filled: row.filled,
+            restricted: row.restricted,
             content:
               row.edit !== undefined && canEdit ? (
                 <InlineEdit

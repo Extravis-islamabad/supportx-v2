@@ -9,9 +9,18 @@ import { AuditLogTab } from './AuditLogTab';
 import { AuditSettingsTab } from './AuditSettingsTab';
 import { ExportsTab } from './ExportsTab';
 import { IntegrityTab } from './IntegrityTab';
+import { PersonalDataAccessTab } from './PersonalDataAccessTab';
 import { SignInsTab } from './SignInsTab';
 
-const TABS = ['log', 'sign_ins', 'integrity', 'exports', 'archives', 'settings'] as const;
+const TABS = [
+  'log',
+  'sign_ins',
+  'personal_access',
+  'integrity',
+  'exports',
+  'archives',
+  'settings',
+] as const;
 type Tab = (typeof TABS)[number];
 
 /**
@@ -25,10 +34,16 @@ export function AuditPage() {
   const [params, setParams] = useSearchParams();
   // The sign-in log has its own right (WP-057 S1a): someone may hold it without audit.view.
   const signIns = can('identity.view_sign_ins');
-  if (!can('audit.view') && !signIns) return <NoAccess titleKey="nav.audit" />;
-  const visible = TABS.filter((tab) =>
-    tab === 'sign_ins' ? signIns : can('audit.view') && (tab !== 'exports' || can('audit.export')),
-  );
+  // Who accessed personal data (REQ-AUD-017) has its own right too: a DPO may hold only it.
+  const personalAccess = can('audit.view_personal_data_access');
+  if (!can('audit.view') && !signIns && !personalAccess) {
+    return <NoAccess titleKey="nav.audit" />;
+  }
+  const visible = TABS.filter((tab) => {
+    if (tab === 'sign_ins') return signIns;
+    if (tab === 'personal_access') return personalAccess;
+    return can('audit.view') && (tab !== 'exports' || can('audit.export'));
+  });
   const requested = params.get('tab') as Tab | null;
   const fallback: Tab = visible[0] ?? 'log';
   const active: Tab = requested !== null && visible.includes(requested) ? requested : fallback;
@@ -48,6 +63,7 @@ export function AuditPage() {
       />
       {active === 'log' && <AuditLogTab />}
       {active === 'sign_ins' && <SignInsTab />}
+      {active === 'personal_access' && <PersonalDataAccessTab />}
       {active === 'integrity' && <IntegrityTab />}
       {active === 'exports' && <ExportsTab />}
       {active === 'archives' && <ArchivesTab />}

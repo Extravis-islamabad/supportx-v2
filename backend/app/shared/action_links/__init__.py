@@ -1,7 +1,7 @@
 """Signed one-time action links (WP-030 s3; REQ-NTF-024): see domain.py and service.py.
 
-Public interface: `issue`, `peek`, `use`, `revoke_for`, `register_handler`, `ActionHandler`,
-`Opened`, `LinkRefused`, `Refusal`.
+Public interface: `issue`, `peek`, `use`, `revoke_for`, `revoke_for_recipient`,
+`register_handler`, `ActionHandler`, `Opened`, `LinkRefused`, `Refusal`.
 """
 
 from app.shared.action_links.domain import LinkRequest, Refusal, marker, public_page
@@ -16,6 +16,7 @@ from app.shared.action_links.service import (
     recipient_of,
     register_handler,
     revoke_for,
+    revoke_for_recipient,
     use,
 )
 
@@ -34,5 +35,6 @@ __all__ = [
     "recipient_of",
     "register_handler",
     "revoke_for",
+    "revoke_for_recipient",
     "use",
 ]

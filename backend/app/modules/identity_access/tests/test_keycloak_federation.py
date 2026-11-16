@@ -143,3 +143,12 @@ async def test_federated_users_are_read_page_by_page_and_only_the_components() -
     assert [u["id"] for u in found] == ["u1", "u4", "u5"]
     assert sum(c.endswith("/users") for c in realm.calls) == 3  # 2 + 2 + 1
     await admin.close()
+
+
+async def test_member_tenants_of_a_deleted_user_is_empty_not_an_error() -> None:
+    """An erasure resumed after its delete_user (ADR-052 step 3) asks again: no tenant, no 404."""
+    admin = _admin(FakeRealm())
+    try:
+        assert await admin.member_tenants("gone-user-id") == []
+    finally:
+        await admin.close()

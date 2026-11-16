@@ -5,7 +5,6 @@ import {
   Button,
   Checkbox,
   Descriptions,
-  Drawer,
   Flex,
   Form,
   Modal,
@@ -40,6 +39,7 @@ import {
 import { useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   DateField,
+  Drawer,
   FilterBar,
   ListPage,
   PageHeader,
@@ -47,8 +47,8 @@ import {
   useAccess,
   useAppearance,
   useDateTime,
-  useMinWidth,
   useLabel,
+  useMinWidth,
   usePageCrumbs,
   useTimeZone,
 } from '@supportx/ui';

@@ -5,6 +5,9 @@ Real PostgreSQL and the real incident registration:
 - a clean draft publishes as version 1 and makes the run-as identity once;
 - a second publish is version 2, and version 1 stays as it was (REQ-WF-021);
 - enabling needs a published version; disabling deactivates the run-as identity (AC3).
+
+The service is driven as a system caller (`author=None`): the designer refusal (ADR-047 §8) has
+its own tests in test_field_access_search.py.
 """
 
 import copy
@@ -56,13 +59,13 @@ async def test_req_wf_019_a_draft_with_problems_saves_but_does_not_publish(world
     )
     async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
         saved, problems = await workflow_admin.save_draft(
-            session, workflow_id, expected_version=1, definition=broken
+            session, workflow_id, expected_version=1, definition=broken, author=None
         )
         assert ("node:lost", "node_unreachable") in {(w, c) for w, c, _ in problems}
         assert saved.draft_problems == len(problems)
     with pytest.raises(ValidationFailed) as refused:
         async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
-            await workflow_admin.publish(session, workflow_id, expected_version=2)
+            await workflow_admin.publish(session, workflow_id, expected_version=2, author=None)
     assert refused.value.instance_code == "workflow_has_problems"
 
 
@@ -71,7 +74,7 @@ async def test_req_wf_021_publishing_makes_versions_and_the_run_as_identity_once
 ) -> None:
     workflow_id = await _create(world)
     async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
-        first = await workflow_admin.publish(session, workflow_id, expected_version=1)
+        first = await workflow_admin.publish(session, workflow_id, expected_version=1, author=None)
         assert first.number == 1
     identity = (await _workflow(world, workflow_id)).service_identity_id
     assert identity is not None
@@ -81,7 +84,7 @@ async def test_req_wf_021_publishing_makes_versions_and_the_run_as_identity_once
         "service",
     )
     async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
-        second = await workflow_admin.publish(session, workflow_id, expected_version=2)
+        second = await workflow_admin.publish(session, workflow_id, expected_version=2, author=None)
         assert second.number == 2
     again = await _workflow(world, workflow_id)
     assert again.service_identity_id == identity  # made once
@@ -100,7 +103,7 @@ async def test_req_wf_010_ac3_enable_needs_a_version_and_disable_deactivates_the
             await workflow_admin.set_enabled(session, workflow_id, expected_version=1, enabled=True)
     assert refused.value.instance_code == "workflow_not_published"
     async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
-        await workflow_admin.publish(session, workflow_id, expected_version=1)
+        await workflow_admin.publish(session, workflow_id, expected_version=1, author=None)
         await workflow_admin.set_enabled(session, workflow_id, expected_version=2, enabled=True)
         await workflow_admin.set_enabled(session, workflow_id, expected_version=3, enabled=False)
     identity = (await _workflow(world, workflow_id)).service_identity_id

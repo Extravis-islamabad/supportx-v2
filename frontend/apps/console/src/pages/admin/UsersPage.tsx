@@ -12,7 +12,7 @@ import {
   type UserDetail,
 } from '@supportx/api-client';
 import { refreshList, refreshRecord, useListChannel } from '@supportx/realtime';
-import { NoAccess, PageHeader, ToneTag, useAccess, useAppearance, useLabel } from '@supportx/ui';
+import { NoAccess, PageHeader, ToneTag, useAccess, useDateTime, useLabel } from '@supportx/ui';
 
 import { UserAccessDrawer } from './UserAccessDrawer';
 import { ImportDrawer } from './people/ImportDrawer';
@@ -54,7 +54,8 @@ function equals(field: string, value: string | undefined): FilterExpression | un
  */
 export function UsersPage() {
   const t = useLabel();
-  const { intlLocale } = useAppearance();
+  // The app's one date format ("12 Nov 2026, 11:01", QA 2026-11-12 V-10), not the browser's.
+  const dates = useDateTime();
   const { can } = useAccess();
   const allowed = can('users.view');
   const manage = can('users.manage');
@@ -113,10 +114,6 @@ export function UsersPage() {
 
   if (!allowed) return <NoAccess titleKey="nav.admin_users" />;
 
-  const dateFormat = new Intl.DateTimeFormat(intlLocale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
   const anyOption = { value: '', label: t('users.any') };
 
   return (
@@ -278,19 +275,25 @@ export function UsersPage() {
               key: 'status',
               title: t('users.col.status'),
               render: (_, user) => (
+                // The dot stays on the line of its word (QA 2026-11-12 V-10: it sat above it).
                 <Badge
                   status={user.status === 'active' ? 'success' : 'default'}
                   text={t(`user_status.${user.status}`)}
+                  style={{ whiteSpace: 'nowrap' }}
+                  data-testid={`user-status-${user.id}`}
                 />
               ),
             },
             {
               key: 'last_login',
               title: t('users.col.last_login'),
-              render: (_, user) =>
-                user.last_login_at === null
-                  ? t('users.never')
-                  : dateFormat.format(new Date(user.last_login_at)),
+              render: (_, user) => (
+                <span style={{ whiteSpace: 'nowrap' }} data-testid={`user-last-login-${user.id}`}>
+                  {user.last_login_at === null
+                    ? t('users.never')
+                    : dates.format(user.last_login_at)}
+                </span>
+              ),
             },
           ]}
         />

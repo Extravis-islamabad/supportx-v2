@@ -91,6 +91,8 @@ class Mailbox(TenantEntity):
         ),
         CheckConstraint("state IN ('not_set_up', 'working', 'failing')", name="state_code"),
         CheckConstraint("port BETWEEN 1 AND 65535", name="port_range"),
+        CheckConstraint("cardinality(trusted_servers) <= 5", name="trusted_servers_max"),
+        CheckConstraint("quarantine_days BETWEEN 1 AND 90", name="quarantine_days_range"),
     )
 
     address: Mapped[str] = mapped_column(String(320))
@@ -143,6 +145,12 @@ class Mailbox(TenantEntity):
     # The store's copy could not be read and the old column was used: shown as degraded until a
     # read from the store works again (never silent).
     secret_fallback_at: Mapped[datetime | None]
+    # Whose Authentication-Results vouch for a sender (WP-046a S6, lane B's conditions): the mail
+    # server's authserv-ids, and Microsoft 365's id-less header (Graph only). Nothing by default.
+    trusted_servers: Mapped[list[str]] = mapped_column(ARRAY(String(253)), server_default="{}")
+    trust_provider_results: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Blocked mail waits in the review queue this long, then its copy goes (REQ-INC-026).
+    quarantine_days: Mapped[int] = mapped_column(Integer, server_default="14")
 
 
 class MailFetched(TenantKeyed, Timestamps, Base):
@@ -162,11 +170,11 @@ class MailFetched(TenantKeyed, Timestamps, Base):
             "tenant_id",
             "mailbox_id",
             "created_at",
-            postgresql_where=text("outcome IN ('held', 'too_large')"),
+            postgresql_where=text("outcome IN ('held', 'too_large', 'blocked')"),
         ),
         CheckConstraint(
             "outcome IN ('created', 'replied', 'automatic', 'own_address', 'held', 'rejected',"
-            " 'too_large', 'discarded')",
+            " 'too_large', 'discarded', 'blocked')",
             name="outcome_code",
         ),
     )
@@ -184,6 +192,32 @@ class MailFetched(TenantKeyed, Timestamps, Base):
     # cleared). Not kept for mail over the size limit.
     raw: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     handled_by: Mapped[uuid.UUID | None]  # the admin who released or discarded it
+
+
+class MailBlockRule(TenantEntity):
+    """Unwanted mail: a sender, a domain, or text in the subject or body (REQ-INC-026; 0159).
+
+    Matching mail creates nothing and waits in the review queue as blocked, for the mailbox's
+    quarantine days; an admin may release it. Plain text matching only, never a pattern.
+    """
+
+    __tablename__ = "mail_block_rules"
+    __table_args__ = (
+        Index(
+            "uq_mail_block_rules_tenant_kind_value",
+            "tenant_id",
+            "kind",
+            text("lower(value)"),
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        CheckConstraint("kind IN ('sender', 'domain', 'subject', 'body')", name="kind_code"),
+        CheckConstraint("length(btrim(value)) BETWEEN 1 AND 320", name="value_length"),
+    )
+
+    kind: Mapped[str] = mapped_column(String(10))
+    value: Mapped[str] = mapped_column(String(320))
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
 
 
 class ConnectorSecret(TenantEntity):

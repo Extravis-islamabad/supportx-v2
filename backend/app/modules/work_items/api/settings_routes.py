@@ -1055,7 +1055,6 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         idempotency: Idempotency,
     ) -> Response:
         """A new template (never the default until made so)."""
-        del subject
 
         async def run() -> Created:
             row = await template_service.create_template(
@@ -1064,6 +1063,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
                 # exclude_unset: a field rule changes only the flags sent (the rest keep theirs).
                 body.model_dump(exclude_unset=True, exclude_none=True, mode="json"),
                 source=source_of(request),
+                author=subject,
             )
             note.object_id = str(row.id)
             return Created(body=TemplateOut.of(row))
@@ -1119,7 +1119,6 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         ],
     ) -> TemplateOut:
         """Name, rules, starting values, requester flags, default, enabled."""
-        del subject
         note.details = {"changed_fields": sorted(body.model_fields_set)}
         row = await template_service.update_template(
             session,
@@ -1128,6 +1127,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             expected_version=version,
             values=body.model_dump(exclude_unset=True, mode="json"),
             source=source_of(request),
+            author=subject,
         )
         set_etag(response, row.version)
         return TemplateOut.of(row)

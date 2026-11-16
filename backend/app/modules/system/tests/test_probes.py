@@ -96,7 +96,37 @@ def test_keycloak_is_probed_where_this_process_reaches_it(
             oidc_internal_url="http://keycloak:8080/auth/realms/supportx",
         )
     )
-    keycloak = next(p for p in service._probes if p.name == "keycloak")  # noqa: SLF001
+    keycloak = next(p for p in service._informational if p.name == "keycloak")  # noqa: SLF001
     assert keycloak._url == (  # type: ignore[attr-defined]  # noqa: SLF001 - KeycloakProbe internals
         "http://keycloak:8080/auth/realms/supportx/.well-known/openid-configuration"
     )
+
+
+class _AnswersProbe:
+    """A critical dependency that answers (stands in for PostgreSQL in the next test)."""
+
+    name = "postgres"
+
+    async def check(self, timeout_s: float) -> None:
+        del timeout_s
+
+
+async def test_unreachable_keycloak_is_degraded_not_unready(
+    settings_factory: Callable[..., Settings],
+) -> None:
+    """ADR-051: a Keycloak outage stops new sign-ins only; the pods stay in service."""
+    service = build_readiness_service(
+        settings_factory(oidc_issuer=f"http://127.0.0.1:{closed_port()}/auth/realms/supportx")
+    )
+    assert "keycloak" not in [p.name for p in service._probes]  # noqa: SLF001 - wiring under test
+    keycloak = [p for p in service._informational if p.name == "keycloak"]  # noqa: SLF001
+    assert len(keycloak) == 1
+
+    report = await ReadinessService([_AnswersProbe()], informational=keycloak, timeout=1.0).check()
+
+    assert report.ready is True
+    assert report.failed == []
+    assert report.degraded == ["keycloak"]
+    assert report.checks["keycloak"].status is CheckStatus.FAILED
+    assert report.checks["keycloak"].reason is FailureReason.UNREACHABLE
+    assert report.checks["keycloak"].critical is False

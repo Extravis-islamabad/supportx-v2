@@ -22,8 +22,10 @@ from app.modules.metadata.domain.fields import (
 from app.modules.metadata.events import EVENTS
 from app.modules.metadata.service import report_names
 from app.modules.metadata.service.custom_fields import (
+    FieldMarks,
     clean,
     definitions,
+    field_marks,
     filter_fields,
     mark_used,
     problem_params,
@@ -49,9 +51,11 @@ module = ModuleSpec(
 __all__ = [
     "CustomFieldEntity",
     "Definition",
+    "FieldMarks",
     "FieldType",
     "clean",
     "definitions",
+    "field_marks",
     "filter_fields",
     "mark_used",
     "module",

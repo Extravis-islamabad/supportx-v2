@@ -1,10 +1,14 @@
 """Event contracts published by identity_access (WP-007; docs/architecture/events.md).
 
 Payloads carry IDs and codes only (architecture.md §8.2): no email address, name, token or
-session ID ever goes into an event. Consumers that need more ask identity_access.
+session ID ever goes into an event. Consumers that need more ask identity_access. One stated
+exception (ADR-051): `keycloak_session.end_pending` names Keycloak's own session ID, an identifier
+that authorises nothing (ending it takes the identity service account); a SupportX session ID or
+any token never.
 """
 
 import uuid
+from datetime import datetime
 from typing import ClassVar, Literal
 
 from pydantic import Field
@@ -66,6 +70,22 @@ class UserLoggedOut(DomainEvent):
     client: ClientApp
 
 
+class KeycloakSessionEndPending(DomainEvent):
+    """A sign-out ended the SupportX session while Keycloak was unreachable (ADR-051).
+
+    The person is signed out of SupportX already; this asks the consumers worker to end their
+    Keycloak session too, through the admin API, once Keycloak answers again. No token: the
+    session ID is enough for the admin API and authorises nothing on its own.
+    """
+
+    event_type: ClassVar[str] = "identity_access.keycloak_session.end_pending"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    keycloak_session_id: str = Field(min_length=1, max_length=128)
+
+
 class SessionTenantSwitched(DomainEvent):
     """A signed-in user moved their session into this tenant.
 
@@ -91,6 +111,23 @@ class RoleChanged(DomainEvent):
     role_id: uuid.UUID
     change: Literal["created", "updated", "deleted"]
     changed_fields: list[str]
+
+
+class FieldAccessChanged(DomainEvent):
+    """A role's field access rule was set, changed or removed (ADR-047, REQ-ADM-026).
+
+    Compiled subjects go stale (authz consumer), so the person's next request has it. Names the
+    rule only; `mode` is None once removed.
+    """
+
+    event_type: ClassVar[str] = "identity_access.field_access.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "role"
+
+    role_id: uuid.UUID
+    record_type: str
+    field: str
+    mode: Literal["read_only", "masked", "hidden"] | None
 
 
 class UserRoleChanged(DomainEvent):
@@ -330,13 +367,115 @@ class BreakGlassSignedIn(DomainEvent):
     user_id: uuid.UUID
 
 
+class NewDeviceSignedIn(DomainEvent):
+    """A person signed in from a browser or device they have not used before (REQ-SEC-033).
+
+    WP-057 S2b-1: they are told (a locked security notice), never on their first sign-in ever.
+    Carries the device code (domain/sign_in.device, never the User-Agent) and the approximate
+    place (domain/place.py's stored form), never the address: the known_devices table keeps only
+    a keyed fingerprint, so the notice can only say this from the event. Internal (the outbox and
+    the notification consumer), never sent to a browser.
+    """
+
+    event_type: ClassVar[str] = "identity_access.new_device.signed_in"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    device: str | None
+    place: dict[str, str] | None
+    signed_in_at: datetime
+
+
+class PersonErasureChanged(DomainEvent):
+    """A GDPR erasure was requested, approved, rejected, expired, or its job moved on (ADR-052).
+
+    IDs, the state code and the next step only (never a name or a reason): the erasure screens
+    of people who may erase refetch, and the person's own record follows the step's changes
+    through its ordinary events.
+    """
+
+    event_type: ClassVar[str] = "identity_access.person_erasure.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "person_erasure"
+
+    person_id: uuid.UUID
+    state: Literal["requested", "approved", "running", "done", "rejected", "expired", "failed"]
+    step: int = Field(ge=0, le=8)
+
+
+class PersonErasureCompleted(DomainEvent):
+    """A person was erased (ADR-052 step 7), after `user.status_changed` with reason `erasure`.
+
+    For consumers that act once the whole erasure is done (exports, caches). The person's ID only.
+    """
+
+    event_type: ClassVar[str] = "identity_access.person_erasure.completed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    person_id: uuid.UUID
+    erasure_id: uuid.UUID
+
+
+class AccountSecurityChanged(DomainEvent):
+    """The person's account was locked out, or its password or MFA changed (REQ-SEC-033 part 2).
+
+    WP-057 S2b-2: read from Keycloak's user events by the events import, once per Keycloak event
+    (security_notice_marks), and told to the person (a locked security notice). `opens_at` is a
+    lock-out's earliest end, a lower bound (lane B). No address: the place only, as the new-device
+    notice. Internal (the outbox and the notification consumer), never sent to a browser.
+    """
+
+    event_type: ClassVar[str] = "identity_access.account_security.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    kind: Literal["locked_out", "password_changed", "mfa_added", "mfa_removed"]
+    occurred_at: datetime
+    opens_at: datetime | None
+    place: dict[str, str] | None
+
+
+class SignInSecretExpiring(DomainEvent):
+    """A sign-in certificate or client secret is about to run out, or has (REQ-SEC-011).
+
+    WP-057 S2b-2: the tenant's admins are told, once per threshold (30, 7, 1 days; 0 = run out).
+    IDs and codes only: the provider, which kind of item, the threshold and the date.
+    """
+
+    event_type: ClassVar[str] = "identity_access.sign_in_secret.expiring"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sso_provider"
+
+    provider_id: uuid.UUID
+    item: Literal["certificate", "client_secret"]
+    days_left: int
+    expires_at: datetime
+
+
+class InvitationLinkCopied(DomainEvent):
+    """An admin copied a single-use invite link for a pending invitation (REQ-SEC-021).
+
+    WP-057 S2b-2. Its own event (not a new `change` of the v1 InvitationChanged contract). IDs
+    only; never the link or its token.
+    """
+
+    event_type: ClassVar[str] = "identity_access.invitation.link_copied"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "invitation"
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
     UserLoggedIn,
     UserLoggedOut,
+    KeycloakSessionEndPending,
     SessionTenantSwitched,
     RoleChanged,
+    FieldAccessChanged,
     UserRoleChanged,
     GroupRoleChanged,
     UserCreated,
@@ -355,4 +494,10 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     UserCostRateChanged,
     SignInRecorded,
     BreakGlassSignedIn,
+    NewDeviceSignedIn,
+    PersonErasureChanged,
+    PersonErasureCompleted,
+    AccountSecurityChanged,
+    SignInSecretExpiring,
+    InvitationLinkCopied,
 )

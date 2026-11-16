@@ -573,6 +573,57 @@
         "type": "object"
       }
     },
+    "analytics.report_schedule.recipients_skipped": {
+      "1": {
+        "description": "A run left out recipients who may not see a field the report uses (ADR-047 §5).\n\nRaised only when someone was skipped, so the owner's notice never fires on an ordinary run.\nIDs and field codes only (rule c): the notice names people and labels fields for the owner,\nnever a value. One per run: `ran_at` is the run's time (schedules keep no run table).",
+        "properties": {
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "ran_at": {
+            "format": "date-time",
+            "title": "Ran At",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "owner_id",
+          "ran_at",
+          "entity",
+          "skipped",
+          "fields"
+        ],
+        "title": "ReportScheduleRecipientsSkipped",
+        "type": "object"
+      }
+    },
     "analytics.report_schedule.saved": {
       "1": {
         "description": "A schedule was created, changed, paused, resumed or deleted.",
@@ -1939,6 +1990,27 @@
         "type": "object"
       }
     },
+    "audit.personal_data_access.recorded": {
+      "1": {
+        "description": "A personal data access entry was written (REQ-AUD-017; WP-057 S3b-1).\n\nThe kind only: never whose data, who looked or which fields. Open access logs refetch.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "view",
+              "export",
+              "ai_masking"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "PersonalDataAccessRecorded",
+        "type": "object"
+      }
+    },
     "audit.settings.changed": {
       "1": {
         "description": "The tenant's audit settings changed (field names only).",
@@ -2588,6 +2660,68 @@
         "type": "object"
       }
     },
+    "identity_access.account_security.changed": {
+      "1": {
+        "description": "The person's account was locked out, or its password or MFA changed (REQ-SEC-033 part 2).\n\nWP-057 S2b-2: read from Keycloak's user events by the events import, once per Keycloak event\n(security_notice_marks), and told to the person (a locked security notice). `opens_at` is a\nlock-out's earliest end, a lower bound (lane B). No address: the place only, as the new-device\nnotice. Internal (the outbox and the notification consumer), never sent to a browser.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "locked_out",
+              "password_changed",
+              "mfa_added",
+              "mfa_removed"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "kind",
+          "occurred_at",
+          "opens_at",
+          "place"
+        ],
+        "title": "AccountSecurityChanged",
+        "type": "object"
+      }
+    },
     "identity_access.api_key.changed": {
       "1": {
         "description": "An API key was made or revoked (WP-041, D-128): key screens refetch. Never the key text.",
@@ -2628,6 +2762,50 @@
           "user_id"
         ],
         "title": "BreakGlassSignedIn",
+        "type": "object"
+      }
+    },
+    "identity_access.field_access.changed": {
+      "1": {
+        "description": "A role's field access rule was set, changed or removed (ADR-047, REQ-ADM-026).\n\nCompiled subjects go stale (authz consumer), so the person's next request has it. Names the\nrule only; `mode` is None once removed.",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "read_only",
+                  "masked",
+                  "hidden"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "record_type",
+          "field",
+          "mode"
+        ],
+        "title": "FieldAccessChanged",
         "type": "object"
       }
     },
@@ -2714,6 +2892,38 @@
         "type": "object"
       }
     },
+    "identity_access.invitation.link_copied": {
+      "1": {
+        "description": "An admin copied a single-use invite link for a pending invitation (REQ-SEC-021).\n\nWP-057 S2b-2. Its own event (not a new `change` of the v1 InvitationChanged contract). IDs\nonly; never the link or its token.",
+        "properties": {},
+        "title": "InvitationLinkCopied",
+        "type": "object"
+      }
+    },
+    "identity_access.keycloak_session.end_pending": {
+      "1": {
+        "description": "A sign-out ended the SupportX session while Keycloak was unreachable (ADR-051).\n\nThe person is signed out of SupportX already; this asks the consumers worker to end their\nKeycloak session too, through the admin API, once Keycloak answers again. No token: the\nsession ID is enough for the admin API and authorises nothing on its own.",
+        "properties": {
+          "keycloak_session_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Keycloak Session Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "keycloak_session_id"
+        ],
+        "title": "KeycloakSessionEndPending",
+        "type": "object"
+      }
+    },
     "identity_access.mfa.changed": {
       "1": {
         "description": "An MFA policy, a person's enrolment or an admin reset changed (WP-039 session 3).",
@@ -2761,6 +2971,56 @@
         "type": "object"
       }
     },
+    "identity_access.new_device.signed_in": {
+      "1": {
+        "description": "A person signed in from a browser or device they have not used before (REQ-SEC-033).\n\nWP-057 S2b-1: they are told (a locked security notice), never on their first sign-in ever.\nCarries the device code (domain/sign_in.device, never the User-Agent) and the approximate\nplace (domain/place.py's stored form), never the address: the known_devices table keeps only\na keyed fingerprint, so the notice can only say this from the event. Internal (the outbox and\nthe notification consumer), never sent to a browser.",
+        "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "signed_in_at": {
+            "format": "date-time",
+            "title": "Signed In At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "device",
+          "place",
+          "signed_in_at"
+        ],
+        "title": "NewDeviceSignedIn",
+        "type": "object"
+      }
+    },
     "identity_access.password_policy.changed": {
       "1": {
         "description": "An admin saved the password policy, or asked to apply it again.\n\nThe worker writes it into the realm, reading it from the settings when applied, so only the\nnewest policy is ever written.",
@@ -2804,6 +3064,67 @@
           "total"
         ],
         "title": "PeopleImportProgressed",
+        "type": "object"
+      }
+    },
+    "identity_access.person_erasure.changed": {
+      "1": {
+        "description": "A GDPR erasure was requested, approved, rejected, expired, or its job moved on (ADR-052).\n\nIDs, the state code and the next step only (never a name or a reason): the erasure screens\nof people who may erase refetch, and the person's own record follows the step's changes\nthrough its ordinary events.",
+        "properties": {
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "requested",
+              "approved",
+              "running",
+              "done",
+              "rejected",
+              "expired",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "maximum": 8,
+            "minimum": 0,
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "person_id",
+          "state",
+          "step"
+        ],
+        "title": "PersonErasureChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.person_erasure.completed": {
+      "1": {
+        "description": "A person was erased (ADR-052 step 7), after `user.status_changed` with reason `erasure`.\n\nFor consumers that act once the whole erasure is done (exports, caches). The person's ID only.",
+        "properties": {
+          "erasure_id": {
+            "format": "uuid",
+            "title": "Erasure Id",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "erasure_id"
+        ],
+        "title": "PersonErasureCompleted",
         "type": "object"
       }
     },
@@ -2888,6 +3209,43 @@
           "outcome"
         ],
         "title": "SignInRecorded",
+        "type": "object"
+      }
+    },
+    "identity_access.sign_in_secret.expiring": {
+      "1": {
+        "description": "A sign-in certificate or client secret is about to run out, or has (REQ-SEC-011).\n\nWP-057 S2b-2: the tenant's admins are told, once per threshold (30, 7, 1 days; 0 = run out).\nIDs and codes only: the provider, which kind of item, the threshold and the date.",
+        "properties": {
+          "days_left": {
+            "title": "Days Left",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "item": {
+            "enum": [
+              "certificate",
+              "client_secret"
+            ],
+            "title": "Item",
+            "type": "string"
+          },
+          "provider_id": {
+            "format": "uuid",
+            "title": "Provider Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_id",
+          "item",
+          "days_left",
+          "expires_at"
+        ],
+        "title": "SignInSecretExpiring",
         "type": "object"
       }
     },
@@ -3388,6 +3746,33 @@
           "change"
         ],
         "title": "DirectoryChanged",
+        "type": "object"
+      }
+    },
+    "integrations.mail_block_rule.changed": {
+      "1": {
+        "description": "A block rule for unwanted mail was added, changed or removed (WP-046a S6; REQ-INC-026).",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "change"
+        ],
+        "title": "MailBlockRuleChanged",
         "type": "object"
       }
     },
@@ -5601,6 +5986,39 @@
         "type": "object"
       }
     },
+    "work_items.conversation.redacted": {
+      "1": {
+        "description": "An entry's text had a person's name taken out by their erasure (ADR-052 S2).\n\nThe timeline refetches the entry; IDs only, never the text.",
+        "properties": {
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "entry_id",
+          "kind",
+          "visibility"
+        ],
+        "title": "WorkItemConversationRedacted",
+        "type": "object"
+      }
+    },
     "work_items.conversation.visibility_changed": {
       "1": {
         "description": "A note was made public or private (REQ-INC-061 AC3). `visibility` is the new one.",
@@ -5636,6 +6054,33 @@
           "from_visibility"
         ],
         "title": "WorkItemConversationVisibilityChanged",
+        "type": "object"
+      }
+    },
+    "work_items.draft.changed": {
+      "1": {
+        "description": "A person's kept draft was saved or discarded (REQ-INC-019): their other tabs refresh.\n\nThe person and the form only, never what the draft holds (lane B's condition 7).",
+        "properties": {
+          "form_key": {
+            "title": "Form Key",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner_id",
+          "form_key",
+          "version"
+        ],
+        "title": "WorkItemDraftChanged",
         "type": "object"
       }
     },

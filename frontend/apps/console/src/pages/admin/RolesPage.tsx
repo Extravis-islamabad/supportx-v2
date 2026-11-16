@@ -97,9 +97,13 @@ export function RolesPage() {
             key: 'type',
             title: t('roles.col.type'),
             render: (_, role) => (
+              // One line: "Built-in" broke as "Built- / in" in the narrow column (QA 2026-11-12
+              // V-11), the dot above its word.
               <Badge
                 status={role.is_system ? 'default' : 'processing'}
                 text={t(role.is_system ? 'roles.type.system' : 'roles.type.custom')}
+                style={{ whiteSpace: 'nowrap' }}
+                data-testid={`role-type-${role.key}`}
               />
             ),
           },

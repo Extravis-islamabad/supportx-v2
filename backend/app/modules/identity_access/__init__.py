@@ -12,7 +12,15 @@ Public interface for other modules: `UserType`, `Subject`, `ResourceType`, `auth
 the role editor's preview), `cost_rate` (a person's cost per hour at a moment, for worklog cost
 snapshots; no permission check inside, the caller gates who sees money), and
 `get_policy` (FastAPI dependency giving the policy service, e.g. who holds a permission, for
-owner pickers). Sessions reach the rest of the app only as the `TenantContext` resolved by
+owner pickers); GDPR erasure (ADR-052): `PersonData`, `ErasureBatch`, `ERASE_BATCH` and
+`register_person_data` (each module that holds person data registers its port; `REQUIRED_PORTS`
+lists those the job will not run without), the mentions report (S1b): `PersonMentions`,
+`Mention`, `MentionBatch`, `MentionTerms`, `MentionMatchKind`, `MENTION_BATCH`,
+`register_mentions`, `REQUIRED_MENTION_PORTS`, and the matching helpers `count_matches` and
+`redact_matches` (plain text) and `count_matches_html` and `redact_html` (rich text: between tags
+only), `ERASED_ON_REQUEST` (D2a: the one marker for blanked
+requester text, from app.shared.erasure), and `legal_hold` / `person_held` (H1: a held person is
+never erased). Sessions reach the rest of the app only as the `TenantContext` resolved by
 app.core.tenancy; routes declare permissions with app.core.authorization.require_permission.
 """
 
@@ -39,7 +47,11 @@ from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.account import router as account_router
 from app.modules.identity_access.api.api_keys import router as api_keys_router
 from app.modules.identity_access.api.cost_rates import router as cost_rates_router
+from app.modules.identity_access.api.erasure import erasures_router
+from app.modules.identity_access.api.erasure import people_router as privacy_router
+from app.modules.identity_access.api.field_access import router as field_access_router
 from app.modules.identity_access.api.identity import router as identity_router
+from app.modules.identity_access.api.invite_links import public_router as invite_links_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
@@ -53,6 +65,14 @@ from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
 from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.mentions import (
+    MentionMatchKind,
+    MentionTerms,
+    count_matches,
+    count_matches_html,
+    redact_html,
+)
+from app.modules.identity_access.domain.mentions import redact as redact_matches
 from app.modules.identity_access.domain.permissions import (
     ASSET_MANAGER,
     CHANGE_MANAGER,
@@ -78,7 +98,12 @@ from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import (
     break_glass_notifications,
     directory,
+    erasure_job,
+    expiry_alerts,
+    expiry_notifications,
+    legal_hold,
     mfa,
+    security_notices,
     sign_in_import,
     sign_in_log,
 )
@@ -98,6 +123,7 @@ from app.modules.identity_access.service.directory import (
     user_names,
 )
 from app.modules.identity_access.service.directory_people import (
+    ErasedPerson,
     LeaverOutcome,
     SyncedPerson,
     directory_leaver,
@@ -115,6 +141,14 @@ from app.modules.identity_access.service.federation import (
     remove_ldap_federation,
     sync_ldap_federation,
 )
+from app.modules.identity_access.service.field_access import (
+    RuleableField,
+    register_field_catalogue,
+    register_rule_listener,
+    restricted_fields,
+)
+from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
+from app.modules.identity_access.service.legal_hold import person_held
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
@@ -124,6 +158,24 @@ from app.modules.identity_access.service.people import (
     register_people_usage,
 )
 from app.modules.identity_access.service.people_import import run_people_imports
+from app.modules.identity_access.service.person_data import (
+    ERASE_BATCH,
+    MENTION_BATCH,
+    REQUIRED_MENTION_PORTS,
+    REQUIRED_PORTS,
+    ErasureBatch,
+    ErasureStepFailed,
+    Mention,
+    MentionBatch,
+    PersonData,
+    PersonMentions,
+    register_mentions,
+    register_person_data,
+)
+from app.modules.identity_access.service.person_data_ports import register_lane_b_ports
+from app.modules.identity_access.service.person_mention_ports import (
+    register_lane_b_mention_ports,
+)
 from app.modules.identity_access.service.policy import (
     FieldRule,
     PolicyService,
@@ -176,6 +228,7 @@ from app.modules.organization import (
     unregister_site_people_counter,
 )
 from app.shared.clock import system_clock
+from app.shared.erasure import ERASED_ON_REQUEST
 from app.shared.labels import missing_labels
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
@@ -391,10 +444,15 @@ async def _shutdown(app: FastAPI) -> None:
 
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
+security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
+register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
+register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
+expiry_notifications.register()  # admins hear before a sign-in certificate or secret runs out
 
 module = ModuleSpec(
     name="identity_access",
     routers=[
+        field_access_router,  # ADR-047: field access per role (WP-046a S7)
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
         people_router,
@@ -404,14 +462,23 @@ module = ModuleSpec(
         access_router,
         access_settings_router,
         identity_router,
+        invite_links_router,  # WP-057 S2b-2: a copied invite link's set-password (REQ-SEC-021)
         account_router,
         api_keys_router,
         realtime_router,
+        privacy_router,  # legal hold and GDPR erasure (D-171, ADR-052)
+        erasures_router,
     ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
-    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY, mfa.MFA_ROLES, sign_in_log.PERSON_ERASED],
+    consumers=[
+        AUTHZ_INVALIDATION,
+        PASSWORD_POLICY_APPLY,
+        mfa.MFA_ROLES,
+        sign_in_log.PERSON_ERASED,
+        KEYCLOAK_SESSION_END,
+    ],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
     realtime=ROUTES,
@@ -426,8 +493,12 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__sign_in_import", 60, sign_in_import.import_schedule),
         # Past the MFA grace period: Keycloak's enrol actions (WP-039 session 3, REQ-SEC-024).
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
+        # Sign-in certificates and client secrets about to run out (WP-057 S2b-2, REQ-SEC-011).
+        ScheduleSpec("identity_access__expiry_alerts", 86400, expiry_alerts.expiry_schedule),
         # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
         ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
+        # GDPR erasures (ADR-052): expire unapproved requests, run approved ones step by step.
+        ScheduleSpec("identity_access__person_erasures", 30, erasure_job.erasure_schedule),
     ],
 )
 
@@ -441,28 +512,43 @@ __all__ = [
     "ASSET_MANAGER",
     "CHANGE_MANAGER",
     "DEPARTMENT_VIEWER",
+    "ERASED_ON_REQUEST",
+    "ERASE_BATCH",
     "KNOWLEDGE_MANAGER",
+    "MENTION_BATCH",
     "PROBLEM_MANAGER",
     "PURCHASE_MANAGER",
     "RELEASE_MANAGER",
     "REPORT_VIEWER",
+    "REQUIRED_MENTION_PORTS",
+    "REQUIRED_PORTS",
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",
     "TEAM_LEAD",
     "AccessRule",
     "DutyLookup",
+    "ErasedPerson",
+    "ErasureBatch",
+    "ErasureStepFailed",
     "FederationFailed",
     "FederationNotInstalled",
     "FieldRule",
     "LeaverOutcome",
     "MailRecipient",
+    "Mention",
+    "MentionBatch",
+    "MentionMatchKind",
+    "MentionTerms",
     "NotifiablePerson",
     "OpenDuty",
+    "PersonData",
+    "PersonMentions",
     "Placement",
     "PolicyService",
     "RecordFacts",
     "ResourceType",
     "RoleName",
+    "RuleableField",
     "ServiceIdentityView",
     "ServiceRole",
     "ServiceRoleOut",
@@ -478,6 +564,8 @@ __all__ = [
     "authorize_stored",
     "check_group_grantable",
     "cost_rate",
+    "count_matches",
+    "count_matches_html",
     "create_requester_from_mail",
     "create_service_identity",
     "direct_reports",
@@ -487,18 +575,27 @@ __all__ = [
     "federated_users",
     "federation_installed",
     "get_policy",
+    "legal_hold",
     "mail_recipients",
     "module",
     "notifiable_people",
     "people_matching",
     "person_by_email",
+    "person_held",
     "person_placement",
     "put_ldap_federation",
+    "redact_html",
+    "redact_matches",
     "register_duties",
+    "register_field_catalogue",
+    "register_mentions",
+    "register_person_data",
+    "register_rule_listener",
     "release_from_directory",
     "remove_ldap_federation",
     "remove_service_identity_role",
     "require",
+    "restricted_fields",
     "role_names",
     "roles_for_service",
     "scope_filter",

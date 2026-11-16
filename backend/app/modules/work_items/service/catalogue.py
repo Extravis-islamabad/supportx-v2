@@ -138,6 +138,7 @@ class ClosureSettings:
     timer_auto_start: bool = False
     task_dependency_mode: str = "block"  # WP-046a S1 (REQ-INC-075): block or warn
     checklist_item_max: int = 100  # WP-046a S2: items per record, all its checklists
+    copy_limit: int = 20  # WP-046a S5c (REQ-INC-033 AC3): copies one request may make
 
 
 @dataclass(frozen=True)
@@ -180,6 +181,11 @@ class Catalogue:
     approvals_hidden_from_requesters: bool  # WP-030 s2, REQ-SR-024 AC3
     approvals_require_sign_in: bool  # D-132: e-mailed approval links need a signed-in approver
     first_task_starts_work: bool  # D-154c: the first ticked task moves a request on
+    # WP-046a S6: commands written in a mail (off), the fields they may set, and whether the
+    # first mail's Cc joins the people kept informed (REQ-INC-025, REQ-INC-066).
+    mail_commands: bool
+    mail_command_fields: tuple[str, ...]
+    cc_from_first_mail: bool
     portal_show_due_time: bool  # WP-028 D5: requesters see the expected resolution time
     review_required_priorities: tuple[str, ...]  # WP-044b s4: problems needing a review
     segregation_strict: bool  # WP-045b S3: changes, implementing groups barred too
@@ -898,6 +904,9 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         approvals_hidden_from_requesters=settings.approvals_hidden_from_requesters,
         approvals_require_sign_in=settings.approvals_require_sign_in,
         first_task_starts_work=settings.first_task_starts_work,
+        mail_commands=settings.mail_commands,
+        mail_command_fields=tuple(settings.mail_command_fields),
+        cc_from_first_mail=settings.cc_from_first_mail,
         portal_show_due_time=settings.portal_show_due_time,
         review_required_priorities=tuple(settings.review_required_priorities),
         segregation_strict=settings.segregation_strict,
@@ -952,6 +961,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             timer_auto_start=settings.timer_auto_start,
             task_dependency_mode=settings.task_dependency_mode,
             checklist_item_max=settings.checklist_item_max,
+            copy_limit=settings.copy_limit,
         ),
         last_number=await last_number(session, wtype.counter_key),
     )

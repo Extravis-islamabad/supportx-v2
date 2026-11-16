@@ -3,6 +3,10 @@
 Only the BFF talks to Keycloak's token, logout and JWKS endpoints (back channel); the browser only
 ever visits the authorization endpoint. ID tokens are verified with Keycloak's published keys
 (RS256) before any claim is trusted.
+
+Every back-channel call goes through one circuit breaker (ADR-051): once Keycloak could not be
+reached, the next calls fail at once with IdentityProviderUnavailable for 15 seconds instead of
+each waiting out its timeout, then one call tries again.
 """
 
 import base64
@@ -10,6 +14,7 @@ import hashlib
 import json
 import secrets
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
@@ -20,11 +25,15 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from app.core.errors import ServiceUnavailable
+from app.modules.identity_access.infra.breaker import CircuitBreaker
 
 DISCOVERY_PATH = "/.well-known/openid-configuration"
 BASE_SCOPES = "openid profile email"
 SCOPES = f"{BASE_SCOPES} organization:*"
 _METADATA_TTL_SECONDS = 300
+# Keycloak's own answers that mean "not able to serve" (it or the proxy in front of it): they open
+# the breaker like a connection error. A 4xx is an answer and never does.
+_UNAVAILABLE_STATUS = 500
 
 
 class IdentityProviderUnavailable(ServiceUnavailable):
@@ -135,14 +144,47 @@ class OidcClient:
     """
 
     def __init__(
-        self, issuer: str, http: httpx.AsyncClient, internal_url: str | None = None
+        self,
+        issuer: str,
+        http: httpx.AsyncClient,
+        internal_url: str | None = None,
+        *,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self.issuer = issuer.rstrip("/")
         self.discovery_base = (internal_url or issuer).rstrip("/")
         self._http = http
+        self._monotonic = monotonic
         self._metadata: dict[str, Any] | None = None
         self._jwks: dict[str, Any] | None = None
         self._fetched_at = 0.0
+        self.breaker = CircuitBreaker(monotonic=monotonic)
+
+    @property
+    def reachable(self) -> bool:
+        """False while the breaker is open: a back-channel call just found Keycloak gone."""
+        return not self.breaker.is_open
+
+    async def _send(
+        self, method: str, url: str, data: dict[str, str] | None = None
+    ) -> httpx.Response:
+        """One back-channel request through the breaker (ADR-051).
+
+        IdentityProviderUnavailable without touching the network while the breaker is open;
+        a connection error, a timeout or a 5xx opens it; any other answer closes it.
+        """
+        if not self.breaker.allow():
+            raise IdentityProviderUnavailable
+        try:
+            response = await self._http.request(method, url, data=data)
+        except httpx.HTTPError as exc:
+            self.breaker.failed()
+            raise IdentityProviderUnavailable from exc
+        if response.status_code >= _UNAVAILABLE_STATUS:
+            self.breaker.failed()
+            raise IdentityProviderUnavailable
+        self.breaker.succeeded()
+        return response
 
     def _backchannel(self, url: str) -> str:
         """An endpoint this process calls itself, moved to the internal base when there is one.
@@ -155,8 +197,8 @@ class OidcClient:
         return url
 
     async def _get_json(self, url: str) -> dict[str, Any]:
+        response = await self._send("GET", url)
         try:
-            response = await self._http.get(url)
             response.raise_for_status()
             data = response.json()
         except (httpx.HTTPError, ValueError) as exc:
@@ -167,10 +209,10 @@ class OidcClient:
 
     async def metadata(self) -> dict[str, Any]:
         """OIDC discovery document (cached for five minutes)."""
-        if self._metadata is None or time.monotonic() - self._fetched_at > _METADATA_TTL_SECONDS:
+        if self._metadata is None or self._monotonic() - self._fetched_at > _METADATA_TTL_SECONDS:
             self._metadata = await self._get_json(self.discovery_base + DISCOVERY_PATH)
             self._jwks = None
-            self._fetched_at = time.monotonic()
+            self._fetched_at = self._monotonic()
         return self._metadata
 
     async def jwks(self, *, refresh: bool = False) -> dict[str, Any]:
@@ -197,6 +239,9 @@ class OidcClient:
     ) -> str:
         """Where to send the browser to log in.
 
+        IdentityProviderUnavailable while the breaker is open (ADR-051): the browser would only
+        meet a dead Keycloak, so the sign-in says so at once instead.
+
         `organization` (a tenant's address, WP-017) asks for that organization only: Keycloak
         brands its pages with it, and the scope cannot be combined with `organization:*`.
         """
@@ -222,17 +267,17 @@ class OidcClient:
             params["kc_idp_hint"] = idp_hint
         if action:  # one of Keycloak's account pages, from My account (WP-039 session 3)
             params["kc_action"] = action
+        if not self.reachable:
+            raise IdentityProviderUnavailable
         return f"{(await self.metadata())['authorization_endpoint']}?{urlencode(params)}"
 
     async def _token_request(self, client: ClientCredentials, form: dict[str, str]) -> TokenSet:
         endpoint = self._backchannel((await self.metadata())["token_endpoint"])
-        try:
-            response = await self._http.post(
-                endpoint,
-                data={**form, "client_id": client.client_id, "client_secret": client.client_secret},
-            )
-        except httpx.HTTPError as exc:
-            raise IdentityProviderUnavailable from exc
+        response = await self._send(
+            "POST",
+            endpoint,
+            {**form, "client_id": client.client_id, "client_secret": client.client_secret},
+        )
         if response.status_code in {400, 401}:
             body = response.json()
             raise TokenRejectedError(
@@ -292,15 +337,13 @@ class OidcClient:
     async def end_session(self, client: ClientCredentials, refresh_token: str) -> bool:
         """End the Keycloak SSO session from the back channel. False if Keycloak refused."""
         endpoint = self._backchannel((await self.metadata())["end_session_endpoint"])
-        try:
-            response = await self._http.post(
-                endpoint,
-                data={
-                    "client_id": client.client_id,
-                    "client_secret": client.client_secret,
-                    "refresh_token": refresh_token,
-                },
-            )
-        except httpx.HTTPError as exc:
-            raise IdentityProviderUnavailable from exc
+        response = await self._send(
+            "POST",
+            endpoint,
+            {
+                "client_id": client.client_id,
+                "client_secret": client.client_secret,
+                "refresh_token": refresh_token,
+            },
+        )
         return response.status_code in {200, 204}

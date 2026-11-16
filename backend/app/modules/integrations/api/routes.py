@@ -98,6 +98,22 @@ class MailboxFields(BaseModel):
     unknown_senders: UnknownSenders | None = None
     allowed_domains: list[str] | None = Field(default=None, max_length=50)
     enabled: bool | None = None
+    trusted_servers: list[str] | None = Field(
+        default=None,
+        max_length=5,
+        description=(
+            "Host names of the mail servers whose Authentication-Results vouch for a sender, so"
+            " commands written in a mail are honoured. The server must stamp its own result and"
+            " remove incoming headers that claim its name. Empty: commands are never honoured."
+        ),
+    )
+    trust_provider_results: bool | None = Field(
+        default=None,
+        description="Microsoft 365 (Graph) only: believe Microsoft's own unnamed result header.",
+    )
+    quarantine_days: int | None = Field(
+        default=None, ge=1, le=90, description="How long blocked mail waits for review (days)."
+    )
 
 
 SECRET_MAX = 20_000  # a PEM certificate with its private key
@@ -170,6 +186,9 @@ class MailboxOut(BaseModel):
     unknown_senders: UnknownSenders
     allowed_domains: list[str]
     enabled: bool
+    trusted_servers: list[str]
+    trust_provider_results: bool
+    quarantine_days: int
     state: MailboxState
     state_reason: str | None = Field(description="Code; the UI shows its label.")
     last_fetch_at: datetime | None
@@ -227,6 +246,9 @@ class MailboxOut(BaseModel):
             unknown_senders=UnknownSenders(row.unknown_senders),
             allowed_domains=list(row.allowed_domains),
             enabled=row.enabled,
+            trusted_servers=list(row.trusted_servers),
+            trust_provider_results=row.trust_provider_results,
+            quarantine_days=row.quarantine_days,
             state=MailboxState(row.state),
             state_reason=row.state_reason,
             last_fetch_at=row.last_fetch_at,
@@ -293,10 +315,7 @@ async def create_mailbox(
     "/{mailbox_id}",
     summary="Change a mailbox",
     responses=CONFLICT,
-    dependencies=[
-        RecentAuth,
-        audited("mailbox.changed", object_type="mailbox", object_param="mailbox_id"),
-    ],
+    dependencies=[RecentAuth],
 )
 async def update_mailbox(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     mailbox_id: uuid.UUID,
@@ -306,8 +325,15 @@ async def update_mailbox(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     version: ExpectedVersion,
     response: Response,
     settings: AppSettings,
+    note: Annotated[
+        AuditNote,
+        audited("mailbox.changed", object_type="mailbox", object_param="mailbox_id"),
+    ],
 ) -> MailboxOut:
-    """If-Match: the version you read. A connection change is tested again at the next fetch."""
+    """If-Match: the version you read. A connection change is tested again at the next fetch.
+
+    A change to the trusted servers or the provider switch is audited with its before and after.
+    """
     del subject
     view = await service.update_mailbox(
         session,
@@ -316,6 +342,7 @@ async def update_mailbox(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         _values(body),
         password=_secret(body),
         expected_version=version,
+        audit_details=note.details,
     )
     set_etag(response, view.row.version)
     return MailboxOut.of(view)
@@ -464,7 +491,9 @@ class WaitingOut(BaseModel):
     message_id: str
     sender: str
     subject: str
-    outcome: Literal["held", "too_large"]
+    outcome: Literal["held", "too_large", "blocked"] = Field(
+        description="blocked: a block rule matched (REQ-INC-026); it may be released."
+    )
     reason: str | None = Field(description="Code; the UI shows its label.")
     reason_params: dict[str, str]
     received_at: datetime
@@ -478,7 +507,9 @@ class WaitingOut(BaseModel):
             message_id=row.message_id,
             sender=row.sender,
             subject=row.subject,
-            outcome="too_large" if row.outcome == "too_large" else "held",
+            outcome=(
+                row.outcome if row.outcome in ("too_large", "blocked") else "held"  # type: ignore[arg-type]  # narrowed by the test
+            ),
             reason=row.reason,
             reason_params=dict(row.reason_params),
             received_at=row.created_at,

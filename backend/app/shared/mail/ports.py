@@ -45,12 +45,26 @@ class FoundRecord:
 
 
 @dataclass(frozen=True)
+class CommandLine:
+    """A command written in the mail that was not applied (WP-046a S6; REQ-INC-025)."""
+
+    line: int
+    text: str  # as the sender wrote it
+    problem: str  # a code; labels: mail_command_problem.<code>
+
+
+@dataclass(frozen=True)
 class CreatedRecord:
     """A record made from mail (or the follow-up a late reply started)."""
 
     record_type: str
     record_id: uuid.UUID
     display_id: str
+    # Commands written in the mail (REQ-INC-025): how many were applied, which were not, and
+    # whether they were all set aside because the sender was not verified.
+    commands_applied: int = 0
+    commands_not_applied: tuple[CommandLine, ...] = ()
+    commands_not_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -84,8 +98,16 @@ class InboundTarget(Protocol):
         body_html: str,
         group_id: uuid.UUID | None,
         message_id: str,
+        text: str = "",
+        sender_verified: bool = False,
+        cc: Sequence[str] = (),
     ) -> CreatedRecord:
-        """A new record; InboundRefused when the module's rules refuse it."""
+        """A new record; InboundRefused when the module's rules refuse it.
+
+        `text`: the mail's plain text, for commands written at its top; `sender_verified`: the
+        mailbox's trusted server vouched for the sender (only then may commands apply); `cc`: the
+        mail's Cc without our own addresses, who may be kept informed (REQ-INC-066).
+        """
         ...
 
     async def reply_from_mail(  # noqa: PLR0913 - the reply's fields, explicit

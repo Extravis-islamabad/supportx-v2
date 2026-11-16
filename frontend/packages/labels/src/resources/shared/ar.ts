@@ -3,6 +3,9 @@ import type { LabelResource } from '../en';
 // shared labels (see ../README.md).
 export const ar: LabelResource = {
   'about.close': 'إغلاق',
+  'about.geoip_attribution':
+    'تستخدم الأماكن التقريبية لتسجيل الدخول بيانات IP to City Lite (بترخيص CC BY 4.0) من',
+  'about.geoip_provider': 'DB-IP.com',
   'about.made_by': 'من إنتاج Extravis',
   'about.open': 'حول SupportX',
   'about.version': 'الإصدار {{version}}',
@@ -136,6 +139,12 @@ export const ar: LabelResource = {
   'home.subtitle': 'مساحة عملك في {{tenant}}',
   'home.technician_seats': 'مقاعد الفنيين',
   'home.title': 'مرحبًا، {{name}}',
+  'kept_draft.discard': 'تجاهل',
+  'kept_draft.found': 'حُفظت مسودة من هذا النموذج {{when}}',
+  'kept_draft.replace_body': 'تحل المسودة محل كل ما في النموذج. لا يمكن التراجع عن ذلك.',
+  'kept_draft.replace_title': 'استبدال ما كتبته بالمسودة؟',
+  'kept_draft.restore': 'استعادة',
+  'kept_draft.unreadable': 'تعذّرت قراءة مسودة محفوظة من هذا النموذج.',
   'layout.add_value': 'إضافة',
   'layout.alerts_count_few': '{{count}} تنبيهات',
   'layout.alerts_count_many': '{{count}} تنبيهًا',
@@ -174,6 +183,8 @@ export const ar: LabelResource = {
   'layout.properties_fewer': 'إخفاء الحقول الفارغة',
   'layout.reset_widths': 'إعادة ضبط العرض',
   'layout.resize_column': 'عرض {{column}}: استخدم مفاتيح الأسهم',
+  'layout.restricted_hidden': 'غير معروض لك',
+  'layout.restricted_masked': 'مُخفى جزئيًا',
   'layout.star': 'إضافة إلى المفضلة',
   'layout.tabs_earlier': 'علامات التبويب السابقة',
   'layout.tabs_later': 'علامات التبويب التالية',
@@ -186,6 +197,11 @@ export const ar: LabelResource = {
   'locale.ar': 'العربية',
   'locale.en': 'English',
   'locale.ur': 'اردو',
+  'mail_command_field.category': 'الفئة',
+  'mail_command_field.group': 'المجموعة',
+  'mail_command_field.priority': 'الأولوية',
+  'mail_command_field.technician': 'الفني',
+  'mail_command_field.template': 'القالب',
   'mobile.about.app_version': 'إصدار التطبيق',
   'mobile.about.server': 'الخادم',
   'mobile.about.server_status': 'حالة الخادم',
@@ -477,6 +493,9 @@ export const ar: LabelResource = {
   'settings.categories': 'الفئات',
   'settings.categories_help':
     'فئة وفئة فرعية وعنصر. لا تُعرض الإدخالات المتوقفة في الحوادث الجديدة لكنها تبقى ظاهرة في الحوادث التي تستخدمها.',
+  'settings.cc_from_first_mail': 'إبقاء نسخة أول رسالة على اطلاع',
+  'settings.cc_from_first_mail_help':
+    'تتلقى العناوين الموجودة في النسخة على الرسالة التي تفتح البلاغ ردوده العامة (20 على الأكثر). في كل رسالة رابط لإيقافها.',
   'settings.changed_elsewhere':
     'غيّر شخص آخر هذه الإعدادات للتو. يُعرض أحدث إصدار؛ يرجى إجراء تغييرك مرة أخرى.',
   'settings.checklists.add': 'قائمة تحقق جديدة في المكتبة',
@@ -514,6 +533,9 @@ export const ar: LabelResource = {
   'settings.closing.complete_open_work': 'إكمال العمل المفتوح عند الإغلاق',
   'settings.closing.complete_open_work_help': 'يؤدي إغلاق الحادثة إلى تعليم عملها المفتوح كمكتمل.',
   'settings.closing.condition.review_completed': 'اكتمال المراجعة',
+  'settings.closing.copy_limit': 'النسخ في المرة الواحدة',
+  'settings.closing.copy_limit_help':
+    'عدد نسخ الحادثة التي يمكن إنشاؤها في طلب واحد، من {{min}} إلى {{max}}.',
   'settings.closing.days_range': 'من {{min}} إلى {{max}} يوم عمل.',
   'settings.closing.help':
     'ما يلزم لحل الحادثة وإغلاقها، وما يحدث للعمل المفتوح، والمدة التي يمكن خلالها لمقدّم الطلب إعادة فتحها بالرد.',
@@ -630,6 +652,11 @@ export const ar: LabelResource = {
   'settings.lifecycle.versions_help':
     'كل إصدار مجموعة من انتقالات الحالة. تبدأ السجلات الجديدة بالإصدار المحدد أدناه وتحتفظ به، ولا يتغير الإصدار المنشور أبدًا. من يمكنه تنفيذ الانتقال ومتى يُعرض يُضبطان في الأتمتة ويسريان على كل الإصدارات معًا.',
   'settings.load_failed': 'تعذّر تحميل إعدادات الحوادث. أعد تحميل الصفحة للمحاولة مرة أخرى.',
+  'settings.mail': 'البريد الإلكتروني',
+  'settings.mail_command_fields': 'الحقول التي يمكن للبريد تعيينها',
+  'settings.mail_commands': 'تطبيق الأوامر المكتوبة في البريد',
+  'settings.mail_commands_help':
+    'قد تبدأ الرسالة بأسطر مثل priority = p1. تُطبَّق باسم المُرسل فقط عندما يؤكد الخادم الموثوق لصندوق البريد هويته، وفقط للتغييرات التي يمكن للمُرسل إجراؤها في SupportX.',
   'settings.matrix': 'مصفوفة الأولوية',
   'settings.matrix_cell': 'الأولوية للتأثير "{{impact}}" والإلحاح "{{urgency}}"',
   'settings.matrix_help':

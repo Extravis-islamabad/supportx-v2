@@ -1,5 +1,5 @@
 import { EditOutlined } from '@ant-design/icons';
-import { Alert, Button, Drawer, Flex, Input, Segmented, Select, Space, Typography } from 'antd';
+import { Alert, Button, Flex, Input, Segmented, Select, Space, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -9,7 +9,7 @@ import {
   type WritingAnswer,
   type WritingRequest,
 } from '@supportx/api-client';
-import { describeError, lengthLimit, useLabel } from '@supportx/ui';
+import { describeError, Drawer, lengthLimit, useLabel } from '@supportx/ui';
 
 import { asParagraphs, plainText } from './writingText';
 

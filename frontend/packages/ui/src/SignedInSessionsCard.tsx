@@ -15,6 +15,7 @@ import { usePersonalChannel } from '@supportx/realtime';
 import { useLabel } from './appearance';
 import { useDateTime } from './dates';
 import { deviceText } from './deviceText';
+import { usePlaceText } from './placeText';
 import { EmptyText } from './EmptyText';
 import { reportError } from './errors';
 import { ToneTag } from './ToneTag';
@@ -35,6 +36,7 @@ function SessionList({
 }) {
   const t = useLabel();
   const dates = useDateTime();
+  const placeText = usePlaceText();
   return (
     <List
       size="small"
@@ -81,12 +83,21 @@ function SessionList({
               {row.current && <ToneTag tone="success">{t('account.sessions.this_device')}</ToneTag>}
             </Space>
             {(row.device != null || row.ip != null) && (
-              // Shown to the session's owner and tenant admins only: the API leaves both out
-              // for anyone else (REQ-SEC-030, lane B). The address is where it signed in from.
+              // Shown to the session's owner and tenant admins only: the API leaves them out
+              // for anyone else (REQ-SEC-030, lane B). The address is where it signed in from,
+              // and the place where that is, approximately (D-170).
               <Typography.Text type="secondary" data-testid={`session-where-${row.id}`}>
-                {row.ip == null
-                  ? deviceText(t, row.device)
-                  : t('account.sessions.where', { device: deviceText(t, row.device), ip: row.ip })}
+                {[
+                  row.ip == null
+                    ? deviceText(t, row.device)
+                    : t('account.sessions.where', {
+                        device: deviceText(t, row.device),
+                        ip: row.ip,
+                      }),
+                  placeText(row.place),
+                ]
+                  .filter((part) => part != null)
+                  .join(' · ')}
               </Typography.Text>
             )}
             <Typography.Text type="secondary">

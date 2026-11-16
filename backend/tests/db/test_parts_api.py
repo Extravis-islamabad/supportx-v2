@@ -5,6 +5,7 @@ Real PostgreSQL, the incidents test world. Each test names the requirement and c
 
 import json
 import uuid
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -382,6 +383,84 @@ async def test_part_changed_carries_the_tasks_status_for_waiting_workflows(world
         for r in rows
     ]
     assert statuses[-2:] == ["open", "done"]
+
+
+# --- time analysis (WP-046a S3, REQ-INC-071) ---------------------------------------------------
+
+
+async def _line(
+    world: World, org: Org, item: dict[str, Any], move: tuple[str, str], at: str
+) -> None:
+    """Put the history line of one status move at `at` (the test's clock), tenant explicit."""
+    await world.sql(
+        "UPDATE field_changes SET occurred_at = $5::timestamptz"
+        " WHERE tenant_id = $1 AND record_id = $2 AND field = 'status'"
+        " AND old_value = to_jsonb($3::text) AND new_value = to_jsonb($4::text)",
+        org.tenant,
+        uuid.UUID(item["id"]),
+        *move,
+        datetime.fromisoformat(at),
+    )
+
+
+async def test_req_inc_071_time_per_status_paused_and_reopen_keeps_time(world: World) -> None:
+    """AC1 two hours in progress and one paused; AC2 says which hours; AC3 reopen adds time."""
+    a = world.a
+    item = await world.create(a, a.admin, technician_id=str(a.tech_a), group_id=str(a.ga))
+    started = await world.act(a, a.tech_a, item, "start_work")
+    assert started.status_code == 200, started.text
+    item = started.json()
+    item = (await world.act(a, a.tech_a, item, "wait_requester", "more_information")).json()
+    item = (await world.act(a, a.tech_a, item, "resume")).json()
+    item = (await world.act(a, a.tech_a, item, "resolve")).json()
+    reopened = await world.act(a, a.tech_a, item, "reopen", "not_fixed")
+    assert reopened.status_code == 200, reopened.text
+    # A Wednesday, as the test's clock: created 09:00, working 09-11, paused 11-12, working
+    # 12-13, resolved 13-14, reopened at 14:00 and working since.
+    await world.sql(
+        "UPDATE work_items SET created_at = '2026-11-11T09:00:00Z'"
+        " WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    for move, at in (
+        (("assigned", "in_progress"), "2026-11-11T09:00:00Z"),
+        (("in_progress", "awaiting_requester"), "2026-11-11T11:00:00Z"),
+        (("awaiting_requester", "in_progress"), "2026-11-11T12:00:00Z"),
+        (("in_progress", "resolved"), "2026-11-11T13:00:00Z"),
+        (("resolved", "in_progress"), "2026-11-11T14:00:00Z"),
+    ):
+        await _line(world, a, item, move, at)
+    # The creation's own lines (none -> new -> assigned) go to the start too: left at the real
+    # time they would sort last and put the record back in "assigned" until now, which counts as
+    # open but not in progress, inside business hours only (a CI flake at 17:42 UTC, #432).
+    await world.sql(
+        "UPDATE field_changes SET occurred_at = '2026-11-11T09:00:00Z'"
+        " WHERE tenant_id = $1 AND record_id = $2 AND occurred_at > '2026-11-12T00:00:00Z'",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    found = await world.call("GET", f"{BASE}/{item['id']}/time-analysis", a, a.tech_a)
+    assert found.status_code == 200, found.text
+    body = found.json()
+    by_status = {row["key"]: row["seconds"] for row in body["by_status"]}
+    assert isinstance(body["business_hours"], bool)  # AC2: the screen says which
+    assert by_status["awaiting_requester"] == 3600
+    assert by_status["resolved"] == 3600
+    assert body["paused_seconds"] == 3600
+    # AC3: the three in-progress spells add up (09-11, 12-13, and 14:00 until now), never reset.
+    assert by_status["in_progress"] >= 3 * 3600
+    assert body["open_seconds"] == by_status["in_progress"] + 3600
+    # Someone who cannot see the record gets nothing.
+    hidden = await world.call("GET", f"{BASE}/{item['id']}/time-analysis", a, a.tech_b)
+    assert hidden.status_code == 404, hidden.text
+    # Requesters see none of it, not even on their own incident (the coordinator, #432).
+    mine = await world.create(a, a.admin, requester_id=str(a.requester))
+    refused = await world.call("GET", f"{BASE}/{mine['id']}/time-analysis", a, a.requester)
+    assert refused.status_code in {403, 404}, refused.text
+    assert "seconds" not in refused.text
+    paths = world.app.openapi()["paths"]
+    assert not [p for p in paths if p.startswith("/api/v1/portal") and "time" in p]
 
 
 async def test_release_links_show_on_the_record_s_side_only(world: World) -> None:

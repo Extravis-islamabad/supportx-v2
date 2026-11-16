@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Form, InputNumber, Space, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Form, InputNumber, Space, Switch, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -47,6 +47,7 @@ const settingsView = (settings: AuditSettings) => ({
   refusal_threshold: settings.refusal_threshold,
   refusal_window_minutes: settings.refusal_window_minutes,
   read_categories: settings.read_categories,
+  personal_data_log: settings.personal_data_log,
 });
 
 function SettingsForm({ latest }: { latest: AuditSettings }) {
@@ -79,6 +80,7 @@ function SettingsForm({ latest }: { latest: AuditSettings }) {
           refusal_threshold: draft.refusal_threshold,
           refusal_window_minutes: draft.refusal_window_minutes,
           read_categories: draft.read_categories,
+          personal_data_log: draft.personal_data_log,
         },
       },
       {
@@ -158,6 +160,23 @@ function SettingsForm({ latest }: { latest: AuditSettings }) {
             ))}
             <Typography.Text type="secondary">
               {t('audit.setting.read_categories.help')}
+            </Typography.Text>
+          </Space>
+        </Form.Item>
+        <Form.Item label={t('audit.setting.personal_data_log')}>
+          <Space direction="vertical">
+            {/* REQ-AUD-017 (WP-057 S3b-1): off until a tenant admin turns it on (Professional). */}
+            <Switch
+              checked={draft.personal_data_log}
+              disabled={!editable}
+              aria-label={t('audit.setting.personal_data_log')}
+              onChange={(personal_data_log) => {
+                setDraft({ ...draft, personal_data_log });
+              }}
+              data-testid="audit-personal-data-log"
+            />
+            <Typography.Text type="secondary">
+              {t('audit.setting.personal_data_log.help')}
             </Typography.Text>
           </Space>
         </Form.Item>

@@ -4,9 +4,9 @@
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e e2e-smoke \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
-	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
+	dev-init dev-up dev-up-full dev-up-scan dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check labels-sort mobile-install-check mobile-lint mobile-typecheck mobile-test keycloak-realm keycloak-theme keycloak-identity keycloak-dev-sync brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
+	frontend-install-check keys-check labels-sort mobile-install-check mobile-lint mobile-typecheck mobile-test keycloak-realm keycloak-theme keycloak-identity keycloak-dev-sync brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
 	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
@@ -196,6 +196,9 @@ progress-log: ## Render docs/progress-log/ newest first into docs/_build/PROGRES
 route-permissions: generated-backend ## Write the code-owned route-permission map and role matrix to docs/security/route-permissions.md (D-168)
 	$(BACKEND) uv run python -m tooling.route_permissions
 
+keys-check: ## Before removing a key from SUPPORTX_FILES_KEYS: every data key opens with the ring as configured (ADR-050; the API refuses to start otherwise)
+	$(BACKEND) uv run python -m tooling.files_keys check
+
 api-errors: generated-backend ## The API's error codes with their English text, into docs/_build/api/errors.md (WP-041)
 	$(BACKEND) uv run python -m tooling.api_errors
 
@@ -327,6 +330,12 @@ dev-up: $(DEV_ENV) ## Start the core dev services and wait until healthy
 dev-up-full: $(DEV_ENV) ## Start core + full (Temporal, OpenSearch, ClickHouse, ClamAV)
 	$(COMPOSE) --profile full up -d --wait --wait-timeout 900
 	$(COMPOSE) run --rm minio-init
+
+# Only the scanner from the "full" profile, beside a running core stack (no Temporal, OpenSearch
+# or ClickHouse): uploads stop waiting as "scanning". About 1-1.5 GB of RAM; the first start
+# downloads the signatures (a few minutes). No --wait: run `make backend-env` once clamd answers.
+dev-up-scan: $(DEV_ENV) ## Start only ClamAV (full profile) on top of a running dev stack
+	$(COMPOSE) --profile full up -d --no-deps clamav
 
 dev-down: $(DEV_ENV) ## Stop all dev services; data volumes are KEPT
 	$(COMPOSE) --profile full --profile setup down --remove-orphans

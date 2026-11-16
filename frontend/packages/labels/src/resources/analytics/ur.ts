@@ -236,6 +236,8 @@ export const ur: LabelResource = {
   'dashboards.wider': 'چوڑا',
   'dashboards.wider_named': 'چوڑا: {{name}}',
   'dashboards.widget_failed': 'یہ وجیٹ لوڈ نہیں ہو سکا۔',
+  'dashboards.widget_not_permitted':
+    'آپ کے لیے دستیاب نہیں: یہ ویجٹ ایسا ڈیٹا استعمال کرتا ہے جو آپ کا کردار نہیں دکھاتا۔',
   'dashboards.widget_title': 'عنوان',
   'dashboards.widget_unavailable': 'اس وجیٹ کے پیچھے کی رپورٹ آپ کے لیے دستیاب نہیں۔',
   'dashboards.your_home': 'آپ کا ہوم',
@@ -613,9 +615,14 @@ export const ur: LabelResource = {
   'report_order.value_desc': 'سب سے بڑا پہلے',
   'report_schedule_result.attachment_too_large':
     'فائل 10 MB سے بڑی تھی۔ رپورٹ محدود کریں یا خلاصہ منتخب کریں۔',
+  'report_schedule_result.field_not_permitted':
+    'روکا گیا: رپورٹ ایک ایسا فیلڈ استعمال کرتی ہے جسے اس کا مالک اب نہیں دیکھ سکتا۔',
+  'report_schedule_result.fields_unknown': 'اس رپورٹ کے فیلڈ',
   'report_schedule_result.mail_not_configured': 'آؤٹ گوئنگ ای میل سیٹ نہیں ہے۔',
   'report_schedule_result.mail_refused': 'ای میل نہیں بھیجی جا سکی۔',
   'report_schedule_result.no_recipients': 'ای میل پتے والا کوئی فعال وصول کنندہ نہیں۔',
+  'report_schedule_result.owner_changed':
+    'روکا گیا: اس کا مالک بدل گیا۔ نیا مالک دوبارہ چلنے سے پہلے اسے دیکھے گا۔',
   'report_schedule_result.owner_not_allowed': 'اس کا مالک اب رپورٹس شیڈول نہیں کر سکتا۔',
   'report_schedule_result.paused_by_owner': 'اس کے مالک نے روک دیا۔',
   'report_schedule_result.pdf_not_available': 'اس سرور پر PDF دستیاب نہیں۔',

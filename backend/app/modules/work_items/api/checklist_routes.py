@@ -27,6 +27,7 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
+from app.core.body_limit import body_limit
 from app.core.database import TenantSession
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
@@ -315,7 +316,11 @@ def add_checklist_collection_routes(router: APIRouter, wtype: WorkItemType) -> N
         set_etag(response, row.version)
         return LibraryOut.of(row)
 
-    @router.post("/checklist-library/import", summary="Read checklist items from a CSV")
+    @router.post(
+        "/checklist-library/import",
+        summary="Read checklist items from a CSV",
+        dependencies=[Depends(body_limit(MAX_FILE_BYTES + 1))],  # the route checks its own cap
+    )
     async def import_library_items(
         request: Request, session: TenantSession, subject: Admin
     ) -> ChecklistImportOut:

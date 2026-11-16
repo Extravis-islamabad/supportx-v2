@@ -31,6 +31,7 @@ from app.modules.audit.domain.catalogue import AuditActorType, AuditOutcome
 from app.modules.audit.events import AuditAlertRaised
 from app.modules.audit.infra.models import AuditEntry, AuditVerificationRun
 from app.modules.audit.infra.signing import AnchorSigner, LocalSigner, trusted_keys
+from app.modules.audit.service import access_log
 from app.modules.audit.service.exports import build_export, expire_exports
 from app.modules.audit.service.integrity import anchor, seal, unsealed_overdue, verify
 from app.modules.audit.service.recording import WORKER, record
@@ -224,6 +225,8 @@ async def ensure_partitions(database: Database, settings: Settings) -> None:
 async def run_retention(database: Database, settings: Settings) -> None:
     """Archive months past retention (each in its own transaction), then drop expired partitions.
 
+    Also each tenant's personal data access entries past its retention (REQ-AUD-017).
+
     A tenant stops at its first failure (it is recorded and alerted); others carry on.
     """
     storage = storage_or_none(settings)
@@ -237,6 +240,11 @@ async def run_retention(database: Database, settings: Settings) -> None:
                 )
             if row is None or row.status != "ready":
                 break
+        # REQ-AUD-017: access entries past the same retention go (lane B), via audit_purge_access.
+        async with database.tenant_session(TenantContext(tenant)) as session:
+            purged = await access_log.purge(session)
+        if purged:
+            log.info("personal_data_access_purged", tenant_id=str(tenant), entries=purged)
     async with database.platform_session() as session:
         dropped = await drop_expired_partitions(session)
     if dropped:

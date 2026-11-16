@@ -41,6 +41,7 @@ class KeycloakEvent:
     ip: str | None
     identity_provider: str | None
     redirect_uri: str | None
+    credential_type: str | None = None  # a credential event's (REQ-SEC-033 part 2), else None
 
 
 def app_of(event: KeycloakEvent) -> SignInApp | None:

@@ -1,9 +1,9 @@
-import { Button, Drawer, Flex, List, Typography } from 'antd';
+import { Button, Flex, List, Typography } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { useAssetLinkedPage, type AssetLinkedSummary } from '@supportx/api-client';
-import { EmptyText, ToneTag, useDateTime, useLabel } from '@supportx/ui';
+import { Drawer, EmptyText, ToneTag, useDateTime, useLabel } from '@supportx/ui';
 
 /** Where each kind of work item opens in the console. */
 const PATHS: Record<string, string> = {
@@ -29,13 +29,20 @@ export function LinkedRecordsPanel({
 }) {
   const t = useLabel();
   const [kind, setKind] = useState<string>();
-  if (summary.kinds.length === 0) {
-    return <EmptyText>{t('assets.linked.none')}</EmptyText>;
+  // A kind with nothing linked is no news ("0 … of 0", QA 2026-11-12 F-14): only kinds with
+  // records are listed, and none at all says so plainly.
+  const kinds = summary.kinds.filter((k) => k.total > 0);
+  if (kinds.length === 0) {
+    return (
+      <span data-testid="asset-linked-none">
+        <EmptyText>{t('assets.linked.none')}</EmptyText>
+      </span>
+    );
   }
   return (
     <>
       <Flex vertical gap={4} data-testid="asset-linked">
-        {summary.kinds.map((k) => (
+        {kinds.map((k) => (
           <Button
             key={k.kind}
             type="text"

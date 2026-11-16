@@ -49,6 +49,11 @@ sed -e 's|RESTORE_NAME|supportx-pg-restore|' -e 's|SOURCE_NAME|supportx-pg|' \
 kubectl -n supportx wait clusters.postgresql.cnpg.io/supportx-pg-restore --for=condition=Ready --timeout=30m
 ```
 
+Keep the name `<release>-pg-restore` (here `supportx-pg-restore`) when the egress allow-list
+is on (`networkPolicies.egress.enabled`): the rule that opens an external backup target
+(`networkPolicies.egress.database`) selects only the clusters `<release>-pg` and
+`<release>-pg-restore`, so a restore cluster under another name cannot read the backups.
+
 ## 4. Check it
 
 Look at the data as of the chosen moment before switching to it, for example the newest records:

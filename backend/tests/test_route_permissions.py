@@ -29,6 +29,10 @@ def test_the_admin_api_requires_the_right_permissions() -> None:
     assert table["PATCH /api/v1/users/{user_id}"] == "permission:profile.edit"
     assert table["GET /api/v1/entitlements"] == "signed_in"
     assert table["GET /api/v1/health"] == "public"
+    # @public_route with the BFF session dependency (CurrentSession): 401 without a session.
+    assert table["POST /api/v1/auth/logout"] == "session (BFF)"
+    assert table["GET /api/v1/auth/me"] == "session (BFF)"
+    assert table["GET /api/v1/auth/callback"] == "public"
 
 
 def test_the_guard_catches_an_unprotected_route() -> None:

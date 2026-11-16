@@ -1,5 +1,6 @@
 // sla labels (see ../README.md). English is the reference.
 export const en = {
+  'erasure_count.nothing_held': 'Nothing of the person’s own held',
   'sla.calendar.field.holiday_list_ids': 'Holiday lists',
   'sla.calendar.field.labels': 'Name in other languages',
   'sla.calendar.field.name': 'Name',

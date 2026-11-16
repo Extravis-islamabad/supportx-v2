@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 import pytest
 
+from app.modules.identity_access.domain.security_notice_import import NOTICE_TYPES
 from tooling.keycloak_identity import (
     CLIENT_ID,
     EVENT_TYPES,
@@ -444,3 +445,22 @@ async def test_the_events_client_reads_events_only_and_loses_any_extra_role() ->
     again = await _run(keycloak, events_secret="events-s3cret")
     assert sorted(r["name"] for r in keycloak.held_by[f"sa-{events['id']}"]) == ["view-events"]
     assert again.outcome is Outcome.UPDATED  # the extra role was taken away
+
+
+async def test_adds_the_notice_event_types_once_and_keeps_a_longer_expiry() -> None:
+    """REQ-SEC-033 part 2 (lane B): the three user event types are added idempotently; the
+    operator's longer events expiry is kept; supportx-events still holds view-events only."""
+    keycloak = FakeKeycloak()
+    keycloak.events = {
+        "eventsEnabled": True,
+        "enabledEventTypes": [t for t in EVENT_TYPES if t not in NOTICE_TYPES],
+        "eventsExpiration": 30 * 86400,
+    }
+    await _run(keycloak)
+    types = keycloak.events["enabledEventTypes"]
+    assert set(NOTICE_TYPES) <= set(types)
+    assert len(types) == len(set(types))  # none twice
+    assert keycloak.events["eventsExpiration"] == 30 * 86400
+    keycloak.writes.clear()
+    assert (await _run(keycloak)).outcome == Outcome.READY
+    assert keycloak.writes == []

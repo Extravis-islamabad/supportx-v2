@@ -329,6 +329,11 @@ class Settings(BaseSettings):
             "auth_sessions": {"user": 10, "tenant": 1000},
             # Confirming who you are (WP-057 S2a, REQ-SEC-027; lane B A3): per person.
             "auth_confirm": {"user": 10, "tenant": 1000},
+            # Kept drafts (REQ-INC-019, lane B): a save every 3 s from two tabs fits.
+            "work_item_drafts": {"user": 60, "tenant": 6000},
+            "invite_link": {"user": 20, "tenant": 1000},  # copied invite links (REQ-SEC-021)
+            # Their public side, keyed on the client address (no one is signed in): few a minute.
+            "invite_links_public": {"user": 10, "tenant": 300},
         }
     )
     # Prefix for every Valkey key the API writes (tests use a random one).
@@ -369,6 +374,12 @@ class Settings(BaseSettings):
     object_storage_secret_key: SecretStr | None = None
     object_storage_bucket: str = Field(default="supportx", pattern=r"^[a-z0-9][a-z0-9.-]{2,62}$")
     object_storage_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+
+    # The approximate sign-in place (WP-057 S2b, D-170): the DB-IP Lite city database (.mmdb, about
+    # 126 MB) on a mounted volume, never in the image; refreshed monthly through the mirror and
+    # shipped in the offline bundle. Not set or unreadable: no place is shown (never an error);
+    # internal ranges and admin-mapped networks still show "Internal network" or their site.
+    geoip_db: Path | None = None
 
     # Files (WP-022, ADR-028, docs/architecture/files.md). `files_keys` is the installation key
     # ring that wraps each tenant's data keys: "<key id>:<base64 32 bytes>, ..." with the active

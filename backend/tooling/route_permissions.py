@@ -20,6 +20,7 @@ from app.core.authorization import Scope, declared_access
 from app.core.config import Settings
 from app.core.modules import discover_modules
 from app.main import create_app
+from app.modules.identity_access.bff.routes import current_session
 from app.modules.identity_access.domain.permissions import SYSTEM_ROLES, Catalogue
 
 REPO = Path(__file__).resolve().parents[2]
@@ -27,6 +28,10 @@ TARGET = REPO / "docs" / "security" / "route-permissions.md"
 PERMISSION_PREFIX = "permission:"
 # The tenant's first-run answer: technicians see their groups, or everything (D-052, D-073).
 TECHNICIAN_SCOPES: tuple[Scope, ...] = ("group", "all")
+# A `@public_route` that still takes the BFF's own session dependency (`CurrentSession`: /auth/me,
+# /auth/logout, /auth/sessions ...) answers 401 without a valid session cookie. Shown as 'public'
+# a reviewer would read it as open to anyone, so the map names what it really checks.
+BFF_SESSION = "session (BFF)"
 
 
 def route_dependencies(dependant: Any) -> Iterator[Callable[..., Any]]:  # noqa: ANN401 - FastAPI Dependant
@@ -62,10 +67,23 @@ def unprotected_routes(app: FastAPI) -> list[str]:
     ]
 
 
+def route_access(dependant: Any, endpoint: Callable[..., Any]) -> str:  # noqa: ANN401 - FastAPI Dependant
+    """The access a route declares; a public route behind the BFF session shows as BFF_SESSION."""
+    dependencies = list(route_dependencies(dependant))
+    access = declared_access(dependencies, endpoint)
+    # By the dependency callable itself (FastAPI's resolved graph), not by parameter names.
+    if access == "public" and any(call is current_session for call in dependencies):
+        return BFF_SESSION
+    return str(access)
+
+
 def access_table(app: FastAPI) -> dict[str, str]:
-    """`METHOD path` → 'permission:<keys>', 'signed_in', 'public' (or 'None': unprotected)."""
+    """`METHOD path` → 'permission:<keys>', 'signed_in', 'session (BFF)', 'public' or 'None'.
+
+    'None' marks an unprotected route (tests/test_route_permissions.py fails on any).
+    """
     return {
-        f"{method} {path}": str(declared_access(list(route_dependencies(dependant)), endpoint))
+        f"{method} {path}": route_access(dependant, endpoint)
         for method, path, dependant, endpoint in api_routes(app)
     }
 
@@ -135,7 +153,9 @@ def render(table: dict[str, str], catalogue: Catalogue) -> str:
             "## Routes",
             "",
             "Access is what the route declares: one of the listed permissions (any scope),",
-            "`signed_in` (the caller's own data, browser session only) or `public` (no session).",
+            "`signed_in` (the caller's own data, browser session only), `session (BFF)` (the",
+            "sign-in layer's own routes: a valid session cookie, CSRF-checked on changes, or 401)",
+            "or `public` (no session).",
             "Routes carry no machine-readable scope rule of their own: which records a caller",
             "reaches is filtered in the module's service by the scope the caller holds the",
             "permission at. The Scopes column lists the scopes each permission can be granted",

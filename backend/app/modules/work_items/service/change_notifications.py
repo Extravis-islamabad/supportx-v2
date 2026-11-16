@@ -207,7 +207,9 @@ EVENTS: tuple[NotificationEvent, ...] = (
         public=True,
         variables=_APPROVAL,
     ),
-    _event(APPROVAL_FALLBACK, _C.APPROVAL, (ADMINISTRATORS,), public=True),
+    # Required (the coordinator, 2026-11-14): an approval only the administrators hold (an
+    # approver inactive or erased) must never sit unseen; as the service request's fallback.
+    _event(APPROVAL_FALLBACK, _C.APPROVAL, (ADMINISTRATORS,), required=True, public=True),
     _event(APPROVED, _C.STATUS, (REQUESTER, OWNER), public=True),
     _event(REJECTED, _C.STATUS, (REQUESTER, OWNER), public=True),
     _event(CLARIFICATION, _C.STATUS, (OWNER, REQUESTER), public=True),

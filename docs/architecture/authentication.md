@@ -154,7 +154,8 @@ No SupportX code changes are needed; it is Keycloak configuration:
 | Idle or absolute timeout, refused refresh | `401 session_expired` | Redirected to sign in |
 | Missing or wrong CSRF token, foreign Origin | `403 csrf_failed` | Translated error |
 | No organization / tenant not set up / user disabled | `403 no_organization` / `tenant_not_provisioned` / `user_disabled` | App page with translated message and "Sign in again" |
-| Keycloak unreachable at login | `503 identity_provider_unavailable` | Translated error; `/api/v1/ready` reports `keycloak: failed` |
+| Keycloak unreachable at login or callback (ADR-051) | `503 sign_in_unavailable` | Back on the app with `?auth_error=sign_in_unavailable`, translated; `/api/v1/ready` stays 200 and lists `keycloak` under `degraded` |
+| Keycloak unreachable at sign-out (ADR-051) | `204`; SupportX session ended | Keycloak's session ended later by the consumers worker (audited `session.keycloak_ended`); the next sign-in in that browser asks for the password |
 
 Errors are RFC 9457 problem details with a machine `code`; nothing internal (stack traces, token
 contents) is ever returned.

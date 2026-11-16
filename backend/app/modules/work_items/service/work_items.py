@@ -23,7 +23,18 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol, cast
 
-from sqlalchemy import ColumnElement, Select, and_, delete, exists, false, func, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    Select,
+    and_,
+    delete,
+    exists,
+    false,
+    func,
+    or_,
+    select,
+)
+from sqlalchemy import update as sql_update
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,6 +65,7 @@ from app.modules.identity_access import (
     display_names,
     people_matching,
     person_placement,
+    restricted_fields,
     role_names,
     scope_filter,
     user_contacts,
@@ -71,6 +83,8 @@ from app.modules.organization import (
 from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
+from app.modules.work_items.domain import field_access as field_rules
+from app.modules.work_items.domain import kept_informed
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.classification import (
@@ -113,6 +127,7 @@ from app.modules.work_items.domain.templates import PickList, clean_impact_detai
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
     STANDARD_LIFECYCLE,
+    TYPES,
     Channel,
     WorkItemType,
     WorkItemTypeCode,
@@ -300,8 +315,14 @@ class WorkItemView:
     conversation: list[ActionState] = field(default_factory=list)
     following: bool = False
     conversation_count: int = 0
-    # Fields this subject may not read (problems: the root cause without view_root_cause).
+    # Fields this subject may not read: role rules (ADR-047) and the older permission gates (the
+    # root cause without view_root_cause). Both come back null and are listed by name.
     hidden: frozenset[str] = frozenset()
+    # Fields shown as masked (ADR-047): null too, listed apart so the page says "masked".
+    masked: frozenset[str] = frozenset()
+    # Fields this subject may not change (any rule; hidden and masked imply it, ADR-047 §1), so
+    # the page disables them up front rather than meeting a 403 field_read_only.
+    read_only: frozenset[str] = frozenset()
     # Problems: who last changed each analysis field, and when (REQ-PRB-030).
     analysis_changes: tuple["AnalysisChange", ...] = ()
     # Problems: closing needs the review summary (REQ-PRB-053, D-140 Q4).
@@ -356,6 +377,17 @@ async def may_edit(
     if live is None:
         return False
     return await _may(session, subject, wtype, "edit", record_id)
+
+
+async def may_assign(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may assign the record (its type's assign permission, in scope).
+
+    Mail commands ask first, before looking up any group or person a mail names, so the answer
+    never tells someone without the right whether that name exists (lane B's #485 review).
+    """
+    return await _may(session, subject, wtype, "assign", record_id)
 
 
 async def labels_of(
@@ -595,7 +627,12 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             if refused is None and final:
                 refused = RECORD_CLOSED
             operations.append(ActionState(op, allowed=refused is None, reason=refused))
-    hidden = await hidden_fields(session, subject, wtype, record.id)
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record.id),
+    )
+    hidden = unseen.all  # the analysis trail names no withheld field either
     analysis = (
         await _analysis_changes(session, record.id, hidden)
         if wtype.code is WorkItemTypeCode.PROBLEM
@@ -634,9 +671,36 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         conversation=conversation,
         following=await followers.current(session, record.id, subject.user_id) is not None,
         conversation_count=int(entries or 0),
-        hidden=hidden,
+        hidden=unseen.hidden,
+        masked=unseen.masked,
+        read_only=field_rules.read_only(subject.field_access, wtype.code.value),
         analysis_changes=analysis,
         review_required=closing.review_required(cat, record),
+    )
+
+
+async def _handed_away(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
+) -> WorkItemView:
+    """The record its writer just handed out of their own reach (D-053), still redacted.
+
+    The response carries the record as saved, so the writer's field rules apply to it as to any
+    read (ADR-047 §4): a value hidden from them never comes back because they lost access.
+    """
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record.id),
+    )
+    return WorkItemView(
+        record=record,
+        actions=[],
+        operations=[],
+        history_count=0,
+        visible=False,
+        hidden=unseen.hidden,
+        masked=unseen.masked,
+        read_only=field_rules.read_only(subject.field_access, wtype.code.value),
     )
 
 
@@ -1248,10 +1312,25 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     entries, cursor = await history_entries(
         session, RECORD_TYPE, record_id, before=before, limit=limit, actors=actors
     )
-    hidden = await hidden_fields(session, subject, wtype, record_id)
-    if hidden:  # the root cause stays out of the history too (D-140 Q7)
+    # Withheld fields stay out of the history too: hidden ones (role rules, ADR-047, and the root
+    # cause without view_root_cause, D-140 Q7) are left out; masked ones keep the line (that it
+    # changed, when, by whom) but never the values, as money does below.
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record_id),
+    )
+    if unseen.all:
         entries = [
-            replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+            replace(
+                e,
+                changes=[
+                    Change(c.field, MASKED, MASKED) if c.field in unseen.masked else c
+                    for c in e.changes
+                    if c.field not in unseen.hidden
+                ],
+            )
+            for e in entries
         ]
     # A task's extra cost is money (D-164): only with the type's cost right, as the task API
     # shows it (lane B's #442 review). Others keep the line (that it changed, when, by whom) but
@@ -1402,7 +1481,7 @@ async def _check_units(session: AsyncSession, values: Mapping[str, Any]) -> list
     return problems
 
 
-def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
+def _check_fields(  # noqa: C901, PLR0912, PLR0915 - one rule per field, flat
     values: Mapping[str, Any], *, creating: bool
 ) -> tuple[dict[str, Any], list[tuple[str, str]]]:
     """Pure field rules; returns the cleaned values and (field, code) problems."""
@@ -1445,6 +1524,10 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
         details, codes = clean_impact_details(values["impact_details"])
         problems += [("impact_details", c) for c in codes]
         cleaned["impact_details"] = details
+    if "notify_emails" in values:  # WP-046a S6 (REQ-INC-066): people kept informed by e-mail
+        kept, found = kept_informed.problems(list(values["notify_emails"] or []))
+        problems += found
+        cleaned["notify_emails"] = kept
     if "level" in values:
         cleaned["level"] = values["level"] or None
     for name in PROBLEM_FIELDS:
@@ -1635,6 +1718,38 @@ async def _analysis_changes(
     )
 
 
+def _given(values: Mapping[str, Any], defaults: Mapping[str, Any]) -> list[str]:
+    """The fields a create's input fills in (`custom.<key>` for custom ones).
+
+    Not an empty one, and not one holding the chosen template's own default: the form sends the
+    template's values back as it shows them, and that is the template's choice, not the
+    person's (lane B's #503 review; the same rule as a locked field's).
+    """
+
+    def filled(name: str, value: Any) -> bool:  # noqa: ANN401 - any JSON value
+        return value not in (None, "", [], {}) and _json(value) != _json(defaults.get(name))
+
+    return [n for n, v in values.items() if n != "custom" and filled(n, v)] + [
+        f"custom.{k}" for k, v in (values.get("custom") or {}).items() if filled(f"custom.{k}", v)
+    ]
+
+
+def require_writable(subject: Subject, wtype: WorkItemType, changed: Sequence[str]) -> None:
+    """403 `field_read_only` when a person changes a field their roles may only read (ADR-047 §8).
+
+    `changed` names really changed fields (`custom.<key>` for custom ones), so a form sending a
+    read-only value back unchanged passes. A service identity's writes (a workflow's, a
+    connector's) are system writes and pass; what they read is still restricted.
+    """
+    if not subject.person:
+        return
+    locked = field_rules.refused(
+        changed, field_rules.read_only(subject.field_access, wtype.code.value)
+    )
+    if locked:
+        raise PermissionDenied(code="field_read_only", params={"field": locked[0]})
+
+
 async def hidden_fields(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> frozenset[str]:
@@ -1709,6 +1824,7 @@ SNAPSHOT_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "notify_emails",
     "urgency",
     "priority",
     "priority_source",
@@ -1736,8 +1852,14 @@ async def _custom_text(
 ) -> str | None:
     """Free text kept on the record for search (WP-026, WP-027).
 
-    Custom values, and a release's version and build reference (REQ-REL-005 AC1).
+    Custom values, and a release's version and build reference (REQ-REL-005 AC1). Not a custom
+    field any role restricts (ADR-047 §6): nobody finds a record by a value someone may not see.
     """
+    from app.modules.work_items.service.search_rebuild import withheld_keys  # noqa: PLC0415 - a cycle
+
+    if custom:
+        withheld = await withheld_keys(session, wtype.code.value)
+        custom = {k: v for k, v in custom.items() if k not in withheld}
     parts = [await metadata.text_for_search(session, wtype.code.value, custom) if custom else None]
     if record_id is not None and wtype.code is WorkItemTypeCode.RELEASE:
         details = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record_id))
@@ -1749,6 +1871,9 @@ async def _custom_text(
             )
     text = " ".join(p for p in parts if p)
     return text or None
+
+
+custom_text_for = _custom_text  # the search text rebuild (service/search_rebuild.py)
 
 
 def _is_uuid(value: Any) -> bool:  # noqa: ANN401 - a JSON value
@@ -1812,13 +1937,27 @@ def _audience(record: WorkItem) -> Audience:
 
 
 async def _conflict(session: AsyncSession, error: Conflict, record_id: uuid.UUID) -> Conflict:
-    return await explain_conflict(
+    """The 409 with what changed since, restricted fields named only "restricted".
+
+    ADR-047 §7: a field's name alone says a value changed that someone may not see.
+    """
+    explained = await explain_conflict(
         session,
         error,
         record_type=RECORD_TYPE,
         record_id=record_id,
         names=lambda ids: display_names(session, ids),
     )
+    named = str(explained.params.get("changed_fields") or "")
+    record_type = await session.scalar(select(WorkItem.type).where(WorkItem.id == record_id))
+    restricted = (
+        await restricted_fields(session, str(record_type)) if named and record_type else frozenset()
+    )
+    if not restricted:
+        return explained
+    fields = dict.fromkeys("restricted" if f in restricted else f for f in named.split(","))
+    params = {**explained.params, "changed_fields": ",".join(fields)}
+    return Conflict(code=explained.instance_code, params=params, headers=explained.headers)
 
 
 async def _update(
@@ -2425,6 +2564,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     template = await templates.for_create(session, wtype, values.get("template_id"), subject)
     # The template's form rules first (REQ-INC-037): what they set or clear is then checked
     # like any other input, and what they refuse is reported with the other field errors.
+    # What the person filled in themselves (before the form rules): a read-only field they may
+    # not set (ADR-047 §8); values a rule sets are the server's, not theirs.
+    require_writable(subject, wtype, _given(values, template.defaults or {}))
     ruled = await templates.apply_form_rules(session, wtype, template, values, before=None)
     values = ruled.values
     cleaned, problems = _check_fields(values, creating=True)
@@ -2551,6 +2693,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         category_id=cleaned.get("category_id"),
         impact=cleaned.get("impact"),
         impact_details=cleaned.get("impact_details"),
+        notify_emails=cleaned.get("notify_emails") or [],
         urgency=cleaned.get("urgency"),
         priority=priority,
         priority_source=priority_source,
@@ -2687,9 +2830,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             )
     await _follow_after_handover(session, subject, record, reach, source)
     if handed_over:
-        return WorkItemView(
-            record=record, actions=[], operations=[], history_count=0, visible=False
-        )
+        return await _handed_away(session, subject, wtype, record)
     return await _view(session, subject, wtype, record)
 
 
@@ -2746,6 +2887,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         for n, v in values.items()
         if n != "custom" and _json(getattr(record, n, None)) != _json(v)
     ] + [f"custom.{k}" for k, v in (values.get("custom") or {}).items() if custom_now.get(k) != v]
+    require_writable(subject, wtype, sent)
     problems += await _read_only_problems(session, record, sent)
     if problems:
         raise _errors(problems)
@@ -2888,9 +3030,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     )
     await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
-        return WorkItemView(
-            record=updated, actions=[], operations=[], history_count=0, visible=False
-        )
+        return await _handed_away(session, subject, wtype, updated)
     return await _view(session, subject, wtype, updated)
 
 
@@ -4944,6 +5084,65 @@ async def set_fields(  # noqa: PLR0913 - the record, its version, the change and
     return updated
 
 
+async def redact_fields(
+    session: AsyncSession,
+    record: WorkItem,
+    columns: Mapping[str, Any],
+    *,
+    fields: Sequence[str],
+    reason: str,
+) -> WorkItem:
+    """Text a person's erasure redacts (ADR-052 S2): new values, never the old ones in history.
+
+    The history row names the fields only (old and new None): the old text is what is being
+    removed, and the registry blanks the older history itself. Custom values recompute the
+    record's search text (the search vector is generated), and the usual update event follows,
+    so lists, search and the AI re-embedding all see the redacted text.
+    """
+    changes = dict(columns)
+    if "custom" in changes:
+        wtype = TYPES[WorkItemTypeCode(record.type)]
+        changes["custom_text"] = await _custom_text(session, wtype, changes["custom"], record.id)
+    audience_before = _audience(record)
+    # Its own versioned save, not `_update`: a trashed record's text is redacted too (lane B's
+    # #514 review), and text alone moves no SLA clock.
+    version = record.version
+    saved = await session.execute(
+        sql_update(WorkItem)
+        .where(WorkItem.id == record.id, WorkItem.version == version)
+        .values(**changes, version=version + 1, updated_at=_now())
+    )
+    if not getattr(saved, "rowcount", 0):
+        raise await stale_record(session, record, version)
+    await session.refresh(record)
+    updated = record
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=[Change(name, None, None) for name in fields],
+        source="system",
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(fields),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
 async def set_status(  # noqa: PLR0913 - the move, its version and its record, explicit
     session: AsyncSession,
     wtype: WorkItemType,
@@ -5301,9 +5500,7 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
             )
     await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
-        return WorkItemView(
-            record=updated, actions=[], operations=[], history_count=0, visible=False
-        )
+        return await _handed_away(session, subject, wtype, updated)
     return await _view(session, subject, wtype, updated)
 
 

@@ -205,6 +205,11 @@ export const ar: LabelResource = {
   'automation_outcome.own_change': 'لم يُشغّل على تغييره الذاتي',
   'automation_outcome.partial': 'تم جزئيًا',
   'automation_outcome.per_minute': 'أُوقف: تغييرات كثيرة جدًا في الدقيقة',
+  'erasure_count.assignment_turns_deleted': 'حُذفت مواضع التوزيع الدوري',
+  'erasure_count.availability_deleted': 'حُذفت حالة التوفّر',
+  'erasure_count.rules_handed_over': 'سُلّمت قواعد العمل إلى الخلف',
+  'erasure_count.triggers_handed_over': 'سُلّمت المشغّلات إلى الخلف',
+  'erasure_count.workflows_handed_over': 'سُلّمت مسارات العمل إلى الخلف',
   'errors.command_not_pending': 'هذه الخطوة لا تنتظر إجابة.',
   'errors.fast_forward_range': 'قدّم الساعة بين ثانية واحدة و{{max}} ثانية.',
   'errors.live_call_needs_record':

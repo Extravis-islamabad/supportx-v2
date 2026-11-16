@@ -33,8 +33,10 @@ from app.modules.integrations.domain.mailboxes import (
     Outcome,
     UnknownSenders,
     check_security,
+    host_name,
     oauth_problems,
     releasable,
+    trust_problems,
 )
 from app.modules.integrations.events import MailboxChanged
 from app.modules.integrations.infra.imap import MailboxUnavailableError
@@ -95,7 +97,12 @@ FIELDS = (
     "unknown_senders",
     "allowed_domains",
     "enabled",
+    "trusted_servers",
+    "trust_provider_results",
+    "quarantine_days",
 )
+# Security settings: their before and after go in the audit entry (lane B's condition 6).
+TRUST_FIELDS = ("trusted_servers", "trust_provider_results")
 
 
 class KeyRingMissing(ServiceUnavailable):
@@ -124,6 +131,9 @@ FIELD_PROBLEMS = frozenset(
         "mailbox_address_invalid",
         "mailbox_auth_model_unsupported",
         "oauth_certificate_invalid",
+        "trusted_servers_too_many",
+        "host_name_invalid",
+        "mailbox_provider_results_graph_only",
     }
 )
 
@@ -167,6 +177,14 @@ def _problems(values: Mapping[str, Any], *, has_secret: bool) -> list[FieldError
         errors.append(
             FieldError(field="body.move_to", code="required", message_key="errors.field.required")
         )
+    errors += [
+        _field_error(name, code)
+        for name, code in trust_problems(
+            protocol,
+            list(values.get("trusted_servers") or ()),
+            trust_provider=bool(values.get("trust_provider_results")),
+        )
+    ]
     if "@" not in str(values.get("address", "@")):
         errors.append(
             FieldError(
@@ -232,7 +250,26 @@ def _apply(row: Mailbox, values: Mapping[str, Any]) -> None:
     for name in FIELDS:
         if name in values:
             value = values[name]
-            setattr(row, name, value.lower() if name == "address" else value)
+            if name == "address":
+                value = value.lower()
+            elif name == "trusted_servers":
+                value = list(dict.fromkeys(host_name(v) or v for v in value))
+            setattr(row, name, value)
+
+
+def trust_changes(row: Mailbox, values: Mapping[str, Any]) -> dict[str, Any]:
+    """The trust settings a change moves, before and after, for the audit entry."""
+    details: dict[str, Any] = {}
+    for name in TRUST_FIELDS:
+        if name not in values:
+            continue
+        after = values[name]
+        if name == "trusted_servers":
+            after = list(dict.fromkeys(host_name(v) or v for v in after))
+        before = list(getattr(row, name)) if name == "trusted_servers" else getattr(row, name)
+        if before != after:
+            details[f"{name}.before"], details[f"{name}.after"] = before, after
+    return details
 
 
 async def _store_secret(session: AsyncSession, row: Mailbox, ring: KeyRing, secret: str) -> None:
@@ -312,8 +349,12 @@ async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the ch
     *,
     password: str | None,
     expected_version: int,
+    audit_details: dict[str, Any] | None = None,
 ) -> MailboxView:
-    """Change a mailbox (If-Match); a new password replaces the stored one."""
+    """Change a mailbox (If-Match); a new password replaces the stored one.
+
+    `audit_details` receives the trust settings' before and after when they change.
+    """
     row = (await get_mailbox(session, mailbox_id)).row
     if row.version != expected_version:
         raise Conflict(
@@ -325,6 +366,8 @@ async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the ch
         merged, has_secret=bool(password) or row.secret_sealed is not None
     ) or await _host_problems(merged, settings):
         raise ValidationFailed(errors=errors)
+    if audit_details is not None:
+        audit_details.update(trust_changes(row, values))
     signed_in = {"protocol", "auth_model", "client_id", "directory_id", "address"}
     if any(name in values and values[name] != getattr(row, name) for name in signed_in):
         # Another app, model or mailbox: the earlier sign-in no longer applies.

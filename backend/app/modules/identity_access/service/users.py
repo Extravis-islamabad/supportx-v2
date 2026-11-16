@@ -28,6 +28,7 @@ from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain.identity import Identity, UserType
 from app.modules.identity_access.events import (
     ClientApp,
+    KeycloakSessionEndPending,
     SessionTenantSwitched,
     UserLoggedIn,
     UserLoggedOut,
@@ -355,13 +356,31 @@ REQUESTER_ROLE = "requester"
 
 
 async def record_logout(
-    database: Database, tenant_id: uuid.UUID, user_id: uuid.UUID, client: ClientApp
+    database: Database,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    client: ClientApp,
+    *,
+    keycloak_session_to_end: str | None = None,
 ) -> None:
-    """`user.logged_out` (the session itself lives in Valkey; this is its only database trace)."""
+    """`user.logged_out` (the session itself lives in Valkey; this is its only database trace).
+
+    `keycloak_session_to_end`: Keycloak could not be reached to end its own session (ADR-051).
+    `keycloak_session.end_pending` goes into the outbox in the same transaction, so the retry
+    exists exactly when the sign-out is recorded.
+    """
     async with database.tenant_session(TenantContext(tenant_id, user_id)) as session:
         await record_event(
             session, UserLoggedOut(user_id=user_id, client=client), aggregate_id=user_id
         )
+        if keycloak_session_to_end is not None:
+            await record_event(
+                session,
+                KeycloakSessionEndPending(
+                    user_id=user_id, keycloak_session_id=keycloak_session_to_end
+                ),
+                aggregate_id=user_id,
+            )
 
 
 async def known_user_id(database: Database, tenant_id: uuid.UUID, subject: str) -> uuid.UUID | None:

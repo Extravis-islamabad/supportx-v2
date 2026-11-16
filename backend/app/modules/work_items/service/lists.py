@@ -25,6 +25,7 @@ from app.core.errors import NotFound, PermissionDenied, PreconditionRequired
 from app.modules import metadata
 from app.modules.identity_access import Subject
 from app.modules.organization import existing_unit_ids
+from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.lists import (
     CUSTOM_VIEW,
     MAX_COLUMNS,
@@ -150,6 +151,8 @@ async def list_fields(
     """Every field the list filters, sorts or shows, with the tenant's custom fields."""
     _require_view(subject, wtype)
     allowed = await allowed_fields(session, wtype)
+    # Not the fields the caller's roles hide or mask (ADR-047 AC2): the list refuses them too.
+    withheld = field_rules.unseen(subject.field_access, wtype.code.value).all
     cat = await config.load(session, wtype)
     # Retired codes too: old records keep them and a filter must still find those records.
     picked = {
@@ -158,7 +161,7 @@ async def list_fields(
     }
     found: list[ListField] = []
     for name, spec in allowed.fields.items():
-        if not spec.filterable:
+        if not spec.filterable or name in withheld:
             continue
         dimension = DIMENSIONS.get(name) or TYPE_DIMENSIONS.get(wtype.code, {}).get(name)
         if dimension is None and name.startswith("custom.") and spec.type == FieldType.ENUM:

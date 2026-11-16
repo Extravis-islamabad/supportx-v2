@@ -738,7 +738,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Name resolvers for report exports (group, site, department, desk; category path, template,
   incident status and level; custom choices): written by lane C in lane A's modules, reviewed by
   lane A, merged with #84 (2026-10-28).
-- [ ] Kept drafts (REQ-INC-019, REQ-SEC-029 AC2): the new-incident form keeps its input through a
+- [x] Kept drafts (REQ-INC-019, REQ-SEC-029 AC2): the new-incident form keeps its input through a
   timeout (lane B, #87). The record page's in-place edits and the reply/note composer follow in
   WP-020d/e (lane A).
 - [x] QA round on main (2026-10-28, ~/Desktop/qa-wp029/QA-REPORT.md): 14 e2e journeys pass;
@@ -1488,9 +1488,128 @@ it with no reload (rule c). Not built yet.
     and the server applies its rules. A field they need that the dialog lacks is named, with
     "Open the full form" (template and requester carried over; AC2).
   - The list updates live (AC1).
-  - **Next:** copy N times (REQ-INC-033; `copy_limit`, migration number asked). Server drafts
-    (REQ-INC-019) wait for WP-057 S3's field encryption, as approved; today's drafts are kept
-    in the tab (sessionStorage).
+  - **Next:** server drafts (REQ-INC-019) wait for WP-057 S3's field encryption, as approved;
+    today's drafts are kept in the tab (sessionStorage).
+- **S5c part 2 (0156; REQ-INC-033 copy N times):**
+  - Incident › More › Copy: how many (up to the type's limit), and whether its tasks and
+    attachments come. Each copy is a new record through the same create (the template's rules
+    apply), its subject "Copy 2 of: …", its history naming the original. Conversations,
+    worklogs, history, approvals and the assigned person never come (AC2).
+  - Attachments come as new files, each encrypted under its own ID and linked to the copy; the
+    description's images point at the copy's own files. Files that cannot be opened now
+    (scanning, infected, too large, blocked) stay behind, are listed, and their images are
+    removed. One record the actor may not use refuses the whole call (404, nothing written);
+    200 file pairs and 100 MB per call; each copy audited as `file.copied` (lane B's rules).
+    25 MB x 2 copies in about 2 s locally.
+  - Admin › Incidents › Closing › Copies at once: 1 to 100, 20 by default (AC3); a refusal says
+    the limit at the count.
+  - Migration 0156: `work_item_type_settings.copy_limit` and the `copy` file source; the
+    downgrade refuses while a tenant holds a copied file or a changed limit (rule 5h).
+- **S6 channels (0159; REQ-INC-025, -026, -066, -015; lane B blocked the mail parts):**
+  - Commands at the top of a mail (`priority = p1`, REQ-INC-025): off by default per incident
+    type, for the fields it allows; only when the mailbox's trusted server vouched for the
+    sender in its Authentication-Results (lane B's parser: topmost trusted header only, one
+    From, DMARC or SPF with aligned DKIM, any doubt not verified; Microsoft 365's unnamed result
+    only with a Graph switch). Each line goes through the API's own edit or assignment as the
+    sender, with no new right (coordinator); the rights are checked before any name is looked
+    up. Failed lines are skipped and the sender told; an unverified sender's commands are set
+    aside, and the history and the mail ledger say so.
+  - Block rules (REQ-INC-026): sender, domain, or plain text in the subject or body (never a
+    pattern). Blocked mail creates nothing and waits in the review queue, its copy kept for the
+    mailbox's quarantine days (14 by default), then removed; an admin's release lets it through.
+  - People kept informed (REQ-INC-066): up to 20 addresses on an incident get its public
+    replies, never its notes; the first mail's Cc join them (setting, on) only from a sender
+    the mailbox's server vouched for (lane B: a forged From must not copy replies to its Cc; the
+    history says when Cc were set aside), never our own addresses or the requester's. Each mail has a stop link: a page that asks first, a single-use
+    token whose hash alone is kept, expiring at min(closed + 30 d, 180 d, mail retention).
+    Replies from those addresses stay held for review as other non-requester replies
+    (coordinator, 2026-11-13; for Haider if AC needs them recorded). Editing the list from the
+    portal is a follow-up.
+  - REQ-INC-015: the requester's assets were already offered first (AC2); the asset's own
+    history for later links and unlinks is lane B's #487 (AC3). Configuration items wait for
+    CMDB (WP-053).
+  - Migration 0159: `mail_block_rules`, `work_item_notify_links`, the `blocked` outcome,
+    the mailbox's trusted servers and quarantine days, the type's mail settings and
+    `work_items.notify_emails`; the downgrade refuses while any tenant uses them (rule 5h).
+- **S5c part 3, kept drafts on the server (0160; REQ-INC-019; lane B blocked, lane C the UI):**
+  - The new-incident form is kept on the server as well as in the tab: sealed with the tenant's
+    field key (ADR-050, `field.work_items.draft`, bound to its row), one per person and form,
+    saved 3 s after typing pauses (60 saves a minute at most). Only its author ever gets it back
+    (404 for everyone else, admins too); only known forms (`incident-new`), plain values only,
+    64 KB at most; restored values go through the create's own checks.
+  - A quiet note above the first field offers it back (Restore, Discard); restoring over typing
+    asks first; one that cannot be read offers Discard only; no key on the installation shows
+    nothing and is tried again later.
+  - It goes when the incident is saved (the sender's own), when discarded, when its owner is
+    deactivated or erased, and after 30 days. No audit (personal and unsent).
+  - Migration 0160: `work_item_drafts`; the downgrade refuses while any tenant holds a draft.
+- **S7 slice a, field access per role (0162; ADR-047; REQ-WI-016, REQ-ADM-026; lane B blocks):**
+  - Rules: one per role, record type and field (read_only, masked or hidden), versioned, soft
+    removed, at most 2,000 per tenant; `/field-access` (catalogue, rules, effective view) with
+    `roles.view` / `roles.manage`; every change audited with the mode before and after.
+  - Compiled into the cached subject (`Subject.field_access`): the clearest mode of the person's
+    roles wins (own, through active groups, or their type's default); a change reaches the next
+    request (after-commit bump plus the authz consumer); holders' screens refetch (realtime).
+  - Licence: `field_access` (Professional) for adding and changing; viewing, removing and
+    applying never depend on it (lane C owns licensing, lane B reviewed).
+  - Custom fields gain `personal_data` and `sensitive` marks (no rule of their own; erasure,
+    export, view log and encryption use them: D-171, WP-057 S3b); the per-type
+    `custom_text_rebuilding_since` marker for slice b's search.
+  - Not yet enforced on reads or writes: slice b (redaction, write checks, search, live
+    renaming, built-in fields), then slice c (the editor), and lane C's analytics slice.
+- **S7 slice b1, field access enforced on reads and writes (no migration; ADR-047; lane B blocks):**
+  - A record, a list page, search and duplicates: a hidden or masked field comes back null and is
+    named in `hidden_fields` / `masked_fields`; custom values are left out (REQ-WI-016 AC1).
+  - History: hidden changes left out, masked ones keep the line without values.
+  - A withheld field cannot be filtered or sorted on (AC2; the shared list dependency gains an
+    opt-in `exclude_for`) and is not offered in list-fields; reports, dashboards and exports
+    (the work item report source) cannot name one.
+  - A person's change of a read-only field is refused (403 `field_read_only`, AC3) on edit, on
+    create and per item in bulk; a value sent back unchanged passes; a service identity's
+    writes (workflows, connectors) are system writes (`Subject.person`).
+  - Built-in fields an admin may restrict: impact details, and the problem's analysis and review
+    texts; the root cause's own gate (view_root_cause) applies after the role rules.
+  - b2 (#509) and slice c follow below.
+- **S7 slice b2, field access everywhere else (no migration; ADR-047; lane B blocks):**
+  - Search fails closed: a restricted custom field stays out of the search text; when a field's
+    rules change, its type is marked and rebuilt in the background, and meanwhile search
+    ignores custom text for everyone (a match must hold in the subject and description alone).
+  - Live signals and 409s name a restricted field only as "restricted" (shared channels cannot
+    differ per viewer; screens refetch and get what they may see).
+  - Business rules, triggers, workflows (shown on the step, publishing refused) and templates'
+    defaults cannot name a field their author does not see in clear (422 field_not_permitted).
+  - Tests: nothing restricted reaches the AI gateway; no notification or template variable
+    names a restrictable field (guard).
+  - Next: lane C's open_custom and view-log seams when their signatures exist.
+- **Analytics slice, field access in reports (no migration; ADR-047 §5; lane C; lane B blocks):**
+  - The reporting source names the fields it withheld (`ReportingSource.withheld`, filled by the
+    work item source). A report that names one (filter, groupings, columns or sort) is refused
+    as `field_not_permitted` (403), never as an unknown field, never with values. This covers
+    runs, dashboards, exports and scheduled files.
+  - A dashboard widget refused this way (or by `measure_not_permitted`) shows "Not available to
+    you", not "could not be loaded".
+  - A schedule whose owner may no longer see a field it uses pauses as `field_not_permitted`
+    before any file is made. A recipient who may not see one gets no file; the others do
+    (counted in `last_failed`).
+  - [x] Follow-up (coordinator, 2026-11-14): one notice per run to the owner. Recipients left
+    out are skipped, not failed. `analytics.report_schedule.recipients_skipped` v1 carries IDs,
+    the entity, the run time and the field codes. `report_schedule.recipients_skipped` is a
+    STATUS notification, required, owner only, in-app and e-mail, with the fields named in the
+    owner's language. Shape from lane A; no migration.
+- **S7 slice c, the field access editor and what records show (no migration; ADR-047; lane C
+  reviews the UI):**
+  - Admin › Roles: a saved role has a Field access tab beside its permissions. Per record type,
+    each rule-able field has a mode (No rule, Read only, Masked, Hidden) that saves at once (no
+    Save on that tab); a stale row reloads with a notice; a lapsed plan keeps the rules and only
+    allows removing them. "Who sees this" opens a modal with people per mode.
+  - Records and lists say when a field is withheld: "Not shown to you" or "Masked"
+    (`RestrictedValue` in packages/ui; a restricted row is never under Add details and never
+    edits). Read-only fields (`read_only_fields`, #510) have no editor.
+  - Live: an `access.changed` message refetches every active query, so an open record shows a
+    field just hidden with no refresh (e2e `field-access.spec.ts`). The Visual matrix gains the
+    tab and the modal. Admin guide: `docs/guides/field-access.md`.
+  - Also #510: a record handed out of reach (D-053) came back unredacted; fixed, with a guard
+    that a record view is built only where it is redacted.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2227,9 +2346,111 @@ it with no reload (rule c). Not built yet.
     - Vitest: the api-client retry (4), the pop-up, `/confirmed` and the way back (22), the
       sessions card (26 with the sign-in log).
     - e2e: `confirm-identity.spec.ts` (AC1 within 5 s, real Keycloak), run by the PR's e2e job.
-- [ ] Session 2b: notices, expiring certificates, invite links, the GeoIP place and the
-  subnet-to-site map (D-170). Migration 0157.
-- [ ] Session 3: field-level encryption (ADR-050), personal-data access log.
+- [x] Session 2b-1 (2026-11-13): the approximate place, known devices, and the first security
+  notices. Migration 0157. D-170 is recorded in this PR.
+  - **The place (D-170):** sessions and the sign-in log show where a sign-in came from, in a
+    fixed order:
+    - an admin-mapped address range shows its site (Admin › Security, the most specific range
+      wins, saved whole under the settings version, audited);
+    - an internal address shows "Internal network", never a guessed city;
+    - otherwise the DB-IP Lite city and country.
+    The sign-in log stores no place: it is read from the stored address, so erasure takes both.
+    A session keeps the place of its sign-in, worked out again at a tenant switch.
+  - **The GeoIP file:** the `maxminddb` reader on the file at `SUPPORTX_GEOIP_DB`.
+    - It comes from `geoip.existingClaim`, mounted read-only into the API pods only. The ~126 MB
+      file is never in an image.
+    - Any failure means no place, never an error.
+    - Admins see the file's build date. DB-IP is credited on About (CC BY 4.0), and
+      deployment.md says how to provide and refresh it.
+  - **Known devices (REQ-SEC-033, part 1):**
+    - keyed fingerprints only (HMAC under a known-device key from the session ring; device code
+      plus /24 or /48), checked under every ring key, so a rotation never makes devices new;
+    - at most 50 per person, deleted by erasure;
+    - a new device (never on the first sign-in) raises `NewDeviceSignedIn` and a required,
+      urgent, locked security notice to the person: the device and the place, never the
+      address, with a link to their sessions.
+  - **A changed sign-in e-mail** is mailed to the OLD address: who changed it and when, no link,
+    in the person's language and the tenant's brand. The `user.changed` entry records the send.
+  - **Tests:**
+    - place (22), GeoIP (3, plus 1 with a real file when given), known-device fingerprints (4);
+    - RLS for both tables (5), site-map API (5), known devices end to end (2), the old-address
+      mail (1), the GeoIP chart (2);
+    - the sessions and sign-in log suites unchanged;
+    - Vitest: the site-map card (3).
+- [ ] Session 2b-2: certificate and secret expiry (REQ-SEC-011), the invite link (REQ-SEC-021),
+  and REQ-SEC-033 part 2. Migration 0158.
+  - **REQ-SEC-033 part 2:** the lock-out, password-changed and MFA-changed notices, which need
+    the Keycloak events import to read those user events (only the types it needs, no other user
+    data; lane B reviews that part).
+  - **Moved here** from S2b-1 by the coordinator, 2026-11-13.
+  - **Built (2026-11-13, draft PR, lane B blocks):**
+    - Expiry (REQ-SEC-011): `security_expiry_marks`; a daily schedule alerts tenant admins 30, 7
+      and 1 days before, and when it has run out, once each, through a locked notice. It covers
+      SAML signing certificates (from Keycloak) and an OIDC `client_secret_expires_at` that admins
+      enter on the SSO card.
+    - Invite link (REQ-SEC-021), admin side:
+      - with no outgoing mail, an invitation is delivered by link;
+      - `POST /identity/invitations/{id}/link` (recent sign-in, rate-limited, audited, no-store)
+        gives a 32-byte token in the fragment, keeping only its SHA-256;
+      - each copy replaces the last, it lasts at most 7 days, and it is cleared by revoke, resend,
+        acceptance, stopping sign-in and deactivation;
+      - console: "Copy link" and a show-once dialog.
+    - REQ-SEC-033 part 2:
+      - the same import run reads USER_DISABLED_BY_TEMPORARY_LOCKOUT, UPDATE_CREDENTIAL and
+        REMOVE_CREDENTIAL;
+      - `security_notice_marks` (once per event, no address, 30-day purge, erasure);
+      - `AccountSecurityChanged` feeds four locked notices: a lock-out with the earliest time to
+        try again (at most one an hour), password changed (a first password kept quiet), MFA
+        added or removed;
+      - a hint-less event goes to the one tenant the person is in (each tenant asked under RLS), never guessed among
+        several;
+      - realm tooling stores the three types, and the lock-out policy lives once in the domain.
+  - **Still to do in S2b-2:** the public accept side of the invite link and the `/invite` page in
+    both apps. These build on lane A's `app/shared/api/public_links.py` (#485), with lane B's
+    public-side conditions.
+- [x] Session 3a (2026-11-13): field encryption on the tenant's data keys (ADR-050, D-161).
+  No migration.
+  - **`app.shared.fields`:**
+    - `field_cipher(session, keys, cache)` seals and opens values with the tenant's newest data
+      key (files' `tenant_data_keys`, reused), HKDF per declared purpose through the ADR-048
+      codec.
+    - Values are bound to tenant, table, record and field. Purposes are declared once
+      (`purpose(module, what)`).
+    - The key-provider Protocol lives in `app.shared.crypto`, which stays a leaf. Import-linter
+      enforces it, and modules use only `app.shared.fields`.
+  - **What `open` does when it can't open:**
+    - Data that doesn't open gives None: a logged, counted security event, with a bad tag
+      alerted.
+    - An installation key that can't unwrap the data key raises a 503,
+      `field_keys_unavailable`, so good data is never called unreadable.
+  - **The data-key cache:**
+    - A bounded LRU with a 5-minute TTL, in memory only.
+    - Each entry carries the tenant's generation, a random token in Valkey compared on every hit.
+    - Erasure (`destroy_tenant_keys`) moves it before and after the destroying commit, and fails
+      without Valkey. Valkey down while opening means no cache, never a stale hit (lane B's
+      conditions).
+  - **Tests:** field cipher (8, including the erasure-with-cache case and its control), the cache
+    unit tests (7), and two new import contracts.
+  - **First users** (not in this session): webhook header values (#406, D-161 item 5) with their
+    data step, and lane A's server drafts (REQ-INC-019).
+- [ ] Session 3b: masking, the personal-data access log (AUD-017), the ADR-048 users hook (a
+  removed installation key that still wraps data keys refuses start-up), webhook headers sealed.
+  Split by the coordinator (2026-11-14). One mechanism with ADR-047 for masking.
+  - [x] **S3b-1 (migration 0163; draft PR; lane B blocks):**
+    - **REQ-AUD-017 personal data access log** (`personal_data_access`, audit module):
+      - append-only for the app role; erased and purged only through `audit_erase_access` and
+        `audit_purge_access`, with the tenant from `app.tenant_id`;
+      - one view per accessor, record and 15 minutes; no values;
+      - `audit_settings.personal_data_log` (off by default; the Professional `personal_data_log`
+        feature);
+      - writes: the person profile and `record_access()`, shared with ADR-047 §9 and ai's masking
+        counts;
+      - report: `GET /audit/personal-data-access` with `audit.view_personal_data_access`, itself
+        audited, live; the Admin › Audit "Personal data access" tab.
+    - **Removed-key start check** (ADR-050 addendum): `sx_kek_wraps()`, made by the new owned
+      helper `create_definer_function` (D-168), plus `make keys-check`.
+  - [ ] **S3b-2 (after ADR-047 slice b):** `sensitive` custom fields sealed at rest, a blind
+    index for exact match, `open_custom()` at lane A's redact choke point, re-seal job.
 - [ ] Session 4: service accounts, key policy, non-person actors, security overview.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
@@ -2286,6 +2507,96 @@ it with no reload (rule c). Not built yet.
   `work_items/service/cost_rate_port.py`, the adapter calling `identity_access.cost_rate`. Not
   built here, since lane A's port (default None) is not on main yet.
 - [ ] No people admin guide exists yet: the cost rate line goes in when one is written.
+
+### [~] GDPR person erasure and export (lane B; D-171; ADR-052; audit gap #12; S1, S1b built 2026-11-14)
+
+- [x] S1 (migration 0161): `person_erasures` (RLS forced, one open erasure per person, four-eyes
+  check), legal hold and erased columns on `users`, DELETE on `user_cost_rates` and
+  `list_settings` for the erasure; rights `people.erase`, `people.export` (declared; export is
+  S3), `audit.manage_holds` (tenant admins only); legal hold routes; request, approve, reject,
+  list and get; **approval always refused with `erasure_report_unavailable` until S1b**, and the
+  job refuses an erasure without a report too; the job (steps 0-7, one transaction per step and
+  per port batch, resumable, codes only, the schedule `identity_access__person_erasures` with
+  backoff and expiry); the `PersonData` registry (`REQUIRED_PORTS`, bands, `ErasureBatch`) and
+  lane B's ports (identity_access, organization, audit, files, action links, list settings);
+  the shared D2a marker `erased_on_request`; labels en/ar/ur; tests.
+- [x] S1b (migration 0164, 2026-11-14): the mentions report (D-171 a): the `PersonMentions` port
+  and `REQUIRED_MENTION_PORTS`; `person_erasure_mentions` (RLS forced, found/redacted/left) and
+  the report review columns; the report built by the erasure schedule in batches; approval
+  refused while the report is incomplete (`erasure_report_unavailable`) or not reviewed
+  (`erasure_report_not_reviewed`); review, mentions list, passage (own rights, audited) and
+  redaction (marker, version, history without text, audited per mention) routes; lane B's ports
+  (other people's profiles, file names, asset notes); labels en/ar/ur. Approval stays refused in
+  practice until S2: the required list names S2's modules.
+- [x] S1b: the definer functions `history_redact_field` (only a redacted mention's own field;
+  fingerprinted rows kept and counted) and `audit_erase_profile_history` (after `erased_at`,
+  step 6), in 0164 on #500's helper.
+- [x] Signed history redaction (0167, ADR-046 addendum): fingerprinted history rows blanked too,
+  their digests kept in `field_change_redactions`, the verifier's `redacted_on_request` status
+  (never `verified`; needs the logged redaction), `fingerprints_redacted` per run;
+  `SIGNED_HISTORY_REDACTION` on. The refusal stays for any row still kept.
+- [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
+  ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
+  retry action for a failed erasure; the erasure screens (report, passage, redaction).
+  - [x] Lane C's ports (migration 0165, 2026-11-14): `knowledge` (votes deleted; topics and
+    articles to the successor; never-submitted drafts blanked and soft-deleted, and articles
+    left empty with them), `analytics.recipients` (band 100: out of others' schedule recipient
+    lists), `analytics` (favourites, preferences, exports with their files, private dashboards
+    deleted; shared dashboards, reports, folders moved; schedules moved and paused as
+    `owner_changed`), `announcements` (follows, dismissals deleted; owned ones moved), `ai`
+    (band 900: their AI call text cleared, rows kept as the usage and cost record, D-131;
+    then the vectors of the records they requested, via lane A's `records_requested_by`). Every moved object raises its ordinary event (rule c).
+    0165 grants DELETE on four tables; `tests/test_erasure_deletes.py` fails on any other hard
+    delete of them. Labels en/ar/ur.
+  - Summaries: the ai erasure consumer already deletes them (D-131).
+  - [x] Lane C's mentions ports (migration 0168, 2026-11-14), both in `REQUIRED_MENTION_PORTS`:
+    - `knowledge`: every article version (title, body, keywords, change, internal and reject
+      notes), others' feedback comments, withdrawal reasons, topic names and descriptions.
+    - `announcements`: title and body.
+    - Published versions are frozen (0036). 0168's `kb_redact_version` changes their title,
+      body or keywords only for a redacted mention of an open erasure, only into the old text
+      with the marker in place (checked in SQL). The freeze lets it through only as the
+      function's owner with a one-row transaction flag that it clears at once.
+    - History names the field only (`erasure_redaction`); saved events raised; search follows
+      (a computed column); too long refused; passages follow the article screen's rights.
+- [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
+  short one-word names flagged, never stored; task mentions say they reach the record's task
+  history; task-history phone match per digit run.
+- [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
+  deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
+- **S2, lane A's ports (0166; lane B blocked):**
+  - `work_items.references` (150): follows, record roles and board seats removed; chairs to the
+    successor; open tasks unassigned; pending approvals to the approval administrators
+    (`approver_erased`), never granted, with a required notice (the change fallback notice made
+    required too); their address off kept-informed lists and other messages' to/cc.
+  - `work_items.owned` (550): list settings, reminders, timers, drafts, private views and
+    personal reply templates deleted; shared ones to the successor; records they requested
+    lose the requester's text (subject the reserved marker, description, custom free text and
+    answers blanked); open records assigned to them back to the group's queue.
+  - `notifications` (560): deliveries, entries, rule mentions and preferences.
+    `integrations` (570): mail they sent cleared (ledger kept), block rules naming them removed.
+    `automation` (580): availability and round-robin rows; owned rules, triggers and workflows to
+    the successor. `sla` (190): nothing of theirs (IDs point at the anonymised row).
+  - 0166: DELETE on eight private tables, guarded so only the ports delete; `approver_erased`;
+    two requester indexes built concurrently. `work_items.records_requested_by` (#504) for
+    lane C's ai port.
+- **S2, lane A's mentions ports (no migration; lane B blocks; plan and six conditions agreed):**
+  - `work_items`: the record's own text (subject, impact details and free-text custom fields
+    as plain text; description, resolution and a problem's analysis and review texts as rich
+    text), its conversation, tasks and worklogs, in bounded phases (`phase|after`). On a record
+    the person requested, the fields their erasure blanks are skipped; its replies, tasks and
+    worklogs are still searched (D1a). Fields are named as the field catalogue names them.
+  - Redaction: `work_items.redact_fields` (version, history naming the field only, the search
+    text recomputed, the usual update event), and for entries and parts the new
+    `work_items.conversation.redacted` and the usual `part.changed`. The registry blanks the
+    older history itself.
+  - Passage: the record's own read (its scope, field rules and older gates); entries and parts
+    need the parent record's view.
+  - `integrations`: fetched mail's subject only (a row is named by a UUID made from its key),
+    mail they sent skipped (their erasure port clears it); the passage needs the email
+    connector right.
+  - A 100k-record timing test: each find batch p95 under 500 ms with no pre-filter.
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 

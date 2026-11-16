@@ -24,6 +24,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     SmallInteger,
     String,
@@ -91,6 +92,7 @@ class WorkItemTypeSettings(TenantKeyed, Base):
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
         CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
+        CheckConstraint("copy_limit BETWEEN 1 AND 100", name="copy_limit_range"),
         CheckConstraint(
             "task_dependency_mode IN ('block', 'warn')", name="task_dependency_mode_code"
         ),
@@ -190,6 +192,16 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     segregation_strict: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-046a S2 (0144, REQ-INC-077): the most items one checklist may hold (admins set it).
     checklist_item_max: Mapped[int] = mapped_column(Integer, server_default="100")
+    # WP-046a S5c (0156; REQ-INC-033 AC3): how many copies one request may make.
+    copy_limit: Mapped[int] = mapped_column(Integer, server_default="20")
+    # Commands written in a mail (`priority = p1`, REQ-INC-025): off by default; which fields a
+    # mail may set; and whether the first mail's Cc joins the people kept informed (REQ-INC-066).
+    mail_commands: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    mail_command_fields: Mapped[list[str]] = mapped_column(ARRAY(String(30)), server_default="{}")
+    cc_from_first_mail: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # Set while this type's search text is rebuilt after a field gains its first access rule or
+    # loses its last one: search ignores custom text meanwhile (ADR-047 §6; migration 0162).
+    custom_text_rebuilding_since: Mapped[datetime | None]
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
@@ -567,6 +579,7 @@ class WorkItem(TenantEntity):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_work_items_tenant_id_id"),
         UniqueConstraint("tenant_id", "display_id", name="uq_work_items_tenant_id_display_id"),
+        CheckConstraint("cardinality(notify_emails) <= 20", name="notify_emails_max"),
         # The "about to breach" and "breached" views (migration 0054).
         Index(
             "ix_work_items_tenant_first_response_sla_state",
@@ -725,6 +738,15 @@ class WorkItem(TenantEntity):
         Index(
             "ix_wi_tenant_type_requester", "tenant_id", "type", "requester_id", "created_at", "id"
         ),
+        # The erasure's "records this person requested" (ADR-052; 0166, built concurrently).
+        Index("ix_wi_tenant_requester_id", "tenant_id", "requester_id", "id"),
+        Index(
+            "ix_wi_tenant_on_behalf_id",
+            "tenant_id",
+            "on_behalf_of_id",
+            "id",
+            postgresql_where=text("on_behalf_of_id IS NOT NULL"),
+        ),
         Index("ix_wi_tenant_type_site", "tenant_id", "type", "site_id", "status_category", "id"),
         Index("ix_wi_tenant_type_priority", "tenant_id", "type", "priority", "id"),
         Index("ix_wi_tenant_type_display_number", "tenant_id", "type", "display_number"),
@@ -771,6 +793,8 @@ class WorkItem(TenantEntity):
     requester_id: Mapped[uuid.UUID]
     on_behalf_of_id: Mapped[uuid.UUID | None]
     channel: Mapped[str] = mapped_column(String(20))
+    # Addresses that get the record's public replies, never its notes (REQ-INC-066; up to 20).
+    notify_emails: Mapped[list[str]] = mapped_column(ARRAY(String(320)), server_default="{}")
     site_id: Mapped[uuid.UUID | None]
     # From the requester by default, changeable (REQ-INC-016, WP-021).
     department_id: Mapped[uuid.UUID | None]
@@ -2521,3 +2545,65 @@ class ProblemRepeatHitIncident(TenantKeyed, Base):
     hit_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     work_item_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     added_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class WorkItemDraft(UuidPrimaryKey, TenantKeyed, Base):
+    """One person's unsent create form, sealed (REQ-INC-019; migration 0160).
+
+    `body` is the form's values as JSON, sealed with the tenant's field key under
+    `field.work_items.draft` and bound to this row's ID, so it opens nowhere else. Only its
+    owner ever reads it; it goes when the record is saved, the draft discarded, its owner
+    deactivated or erased, or after 30 days.
+    """
+
+    __tablename__ = "work_item_drafts"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"], ["users.tenant_id", "users.id"], name="fk_wid_owner"
+        ),
+        Index(
+            "uq_wid_tenant_owner_type_form",
+            "tenant_id",
+            "owner_id",
+            "type",
+            "form_key",
+            unique=True,
+        ),
+        Index("ix_wid_tenant_updated", "tenant_id", "updated_at"),
+        CheckConstraint("octet_length(body) <= 131072", name="body_size"),
+    )
+
+    owner_id: Mapped[uuid.UUID]
+    type: Mapped[str] = mapped_column(String(20))
+    form_key: Mapped[str] = mapped_column(String(40))
+    body: Mapped[str] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(BigInteger, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+
+
+class WorkItemNotifyLink(UuidPrimaryKey, TenantKeyed, Base):
+    """A stop-these-mails link in one mail to an address kept informed (REQ-INC-066; 0159).
+
+    The address is on no account, so the link stands alone: a random token, only its SHA-256
+    kept, for one record and one address, until it expires. Using it takes the address off.
+    """
+
+    __tablename__ = "work_item_notify_links"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "work_item_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_winl_work_item",
+        ),
+        Index("uq_winl_tenant_digest", "tenant_id", "token_digest", unique=True),
+        Index("ix_winl_tenant_expires", "tenant_id", "expires_at"),
+        CheckConstraint("octet_length(token_digest) = 32", name="digest"),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    address: Mapped[str] = mapped_column(String(320))
+    token_digest: Mapped[bytes] = mapped_column(LargeBinary)
+    expires_at: Mapped[datetime]
+    used_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

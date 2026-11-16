@@ -12,6 +12,8 @@ Public interface for other modules:
   transaction (sign-in); `record(session, action_code=..., facts=WORKER, ...)` inside a worker's
   transaction (the files service's scan and purge jobs);
 * `erase_subject(session, user_id)`: personal-data erasure that keeps the chain verifiable;
+  `erase_saved_searches(session, user_id)`: their saved audit searches go (ADR-052, the audit
+  module's part of a person's erasure);
 * `entries_for_changes(session, change_ids)`: which field-history saves have an audit entry
   (record history shows the link only to holders of `audit.view`, REQ-AUD-006).
 """
@@ -21,7 +23,14 @@ from fastapi import FastAPI
 from app.core.authorization import PermissionSpec
 from app.core.errors import register_error_observer, unregister_error_observer
 from app.core.modules import ModuleSpec
-from app.modules.audit.api.routes import EXPORT, MANAGE, VERIFY, VIEW, router
+from app.modules.audit.api.routes import (
+    EXPORT,
+    MANAGE,
+    VERIFY,
+    VIEW,
+    VIEW_PERSONAL_ACCESS,
+    router,
+)
 from app.modules.audit.domain.catalogue import (
     AuditActorType,
     AuditCategory,
@@ -29,7 +38,9 @@ from app.modules.audit.domain.catalogue import (
     ReadCategory,
 )
 from app.modules.audit.events import EVENTS
-from app.modules.audit.service.erasure import erase_subject
+from app.modules.audit.service.access_log import Accessor as AccessAccessor
+from app.modules.audit.service.access_log import record_access
+from app.modules.audit.service.erasure import erase_saved_searches, erase_subject
 from app.modules.audit.service.jobs import (
     anchor_all,
     ensure_partitions,
@@ -56,11 +67,13 @@ from app.modules.audit.service.recording import (
     record,
     record_alone,
 )
+from app.modules.audit.service.redaction import redact_signed_history
 from app.shared.events import ConsumerSpec
 from app.shared.history import register_audit_sink
 from app.shared.schedules import ScheduleSpec
 
 AUDITOR = "auditor"
+MANAGE_HOLDS = "audit.manage_holds"
 
 # Every save of a lifecycle record type gets its audit entry (WP-064). Set on import, like the
 # identity module's people names, so the API and every worker that loads the modules have it.
@@ -73,6 +86,11 @@ PERMISSIONS = (
     PermissionSpec(EXPORT, defaults=((AUDITOR, "all"),)),
     PermissionSpec(VERIFY, defaults=((AUDITOR, "all"),)),
     PermissionSpec(MANAGE),
+    # REQ-AUD-017 (WP-057 S3b-1): tenant administrators by default; a DPO role may hold only it.
+    PermissionSpec(VIEW_PERSONAL_ACCESS),
+    # Legal hold on a person (H1, D-171): setting and lifting it, each audited with the reason.
+    # Tenant admins only (no defaults): a hold stops a GDPR erasure.
+    PermissionSpec(MANAGE_HOLDS),
 )
 
 
@@ -133,7 +151,9 @@ module = ModuleSpec(
 
 __all__ = [
     "AUDITOR",
+    "MANAGE_HOLDS",
     "WORKER",
+    "AccessAccessor",
     "AuditActorType",
     "AuditCategory",
     "AuditNote",
@@ -143,8 +163,11 @@ __all__ = [
     "audit_read",
     "audited",
     "entries_for_changes",
+    "erase_saved_searches",
     "erase_subject",
     "module",
     "record",
+    "record_access",
     "record_alone",
+    "redact_signed_history",
 ]

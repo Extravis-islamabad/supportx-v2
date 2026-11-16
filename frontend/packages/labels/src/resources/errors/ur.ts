@@ -275,11 +275,48 @@ export const ur: LabelResource = {
     'ڈومین ابھی اس SupportX کی طرف اشارہ نہیں کرتا: اس کا DNS ریکارڈ دیکھیں۔',
   'errors.domains_not_configured': 'اس انسٹالیشن پر کسٹم ڈومین ترتیب نہیں دیے گئے۔',
   'errors.downtime_not_found': 'یہ بندش کا وقفہ موجود نہیں۔',
+  'errors.draft_not_found': 'کوئی محفوظ مسودہ نہیں۔',
   'errors.duplicate_move': 'ایک ہی حالت سے ایک ہی منتقلی دو بار درج ہے۔ صرف ایک رکھیں۔',
   'errors.entitlement_required': 'آپ کے پلان میں یہ خصوصیت شامل نہیں۔',
   'errors.entitlement_required.detail': '{{feature}} آپ کے ادارے کے پلان کا حصہ نہیں۔',
   'errors.entitlements_unavailable':
     'لائسنس کی معلومات عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.erasure_already_open': 'اس فرد کا ڈیٹا مٹانے کی ایک درخواست پہلے سے کھلی ہے۔',
+  'errors.erasure_approval_invalid': 'اس کی منظوری اب درست نہیں رہی۔',
+  'errors.erasure_break_glass_account':
+    'ہنگامی رسائی والا اکاؤنٹ مٹایا نہیں جا سکتا۔ پہلے اسے ہنگامی رسائی سے ہٹائیں۔',
+  'errors.erasure_directory_sync_unsafe':
+    'اس مٹانے کی ابھی منظوری نہیں دی جا سکتی: ڈائریکٹری سنک فرد کی تفصیلات دوبارہ لکھ سکتا ہے۔',
+  'errors.erasure_identity_unavailable':
+    'سائن اِن سروس تک رسائی نہیں ہو سکی۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_mention_not_found':
+    'یہ ذکر اس مٹانے میں نہیں ملا، یا آپ وہ ریکارڈ نہیں دیکھ سکتے جس میں یہ ہے۔',
+  'errors.erasure_mention_port_missing':
+    'یہ ذکر بدلا نہیں جا سکتا: پروڈکٹ کا وہ حصہ دستیاب نہیں جس میں یہ ہے۔',
+  'errors.erasure_needs_another_admin': 'اس کی منظوری کسی دوسرے منتظم کو دینی ہوگی۔',
+  'errors.erasure_not_found': 'یہ درخواست موجود نہیں۔',
+  'errors.erasure_not_pending': 'اس درخواست میں اب تبدیلی نہیں ہو سکتی۔',
+  'errors.erasure_of_self': 'آپ اپنا ڈیٹا خود نہیں مٹا سکتے۔',
+  'errors.erasure_port_kind_undeclared':
+    'پروڈکٹ کے ایک حصے نے ایسی چیز بتائی جس کا اس نے اعلان نہیں کیا تھا۔ سپورٹ سے رابطہ کریں۔',
+  'errors.erasure_port_missing':
+    'پروڈکٹ کا ایک حصہ ابھی ذاتی ڈیٹا نہیں مٹا سکتا۔ سپورٹ سے رابطہ کریں۔',
+  'errors.erasure_records_unavailable':
+    'اس شخص کی درخواست کردہ ریکارڈز ابھی فہرست نہیں ہو سکے۔ مٹانے کا عمل دوبارہ کوشش کرے گا۔',
+  'errors.erasure_redaction_too_long':
+    'اس عبارت کی یہاں ترمیم نہیں ہو سکتی: نشان متن کو فیلڈ کی اجازت سے لمبا کر دے گا۔ پہلے متن مختصر کریں۔',
+  'errors.erasure_report_not_reviewed':
+    'اس مٹانے کی ابھی منظوری نہیں دی جا سکتی: پہلے کسی منتظم کو وہ رپورٹ دیکھنی ہوگی کہ فرد کا ذکر کہاں کہاں ہے۔',
+  'errors.erasure_report_unavailable':
+    'ابھی اس مٹانے کی منظوری نہیں دی جا سکتی: فرد کا ذکر کہاں کہاں ہے، اس کی رپورٹ مکمل نہیں۔',
+  'errors.erasure_request_expired':
+    'اس درخواست کی میعاد ختم ہو گئی ہے۔ اگر اب بھی ضرورت ہو تو دوبارہ درخواست کریں۔',
+  'errors.erasure_sessions_unavailable': 'ابھی سیشن ختم نہیں ہو سکے۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_signed_history_kept':
+    'اس مٹانے کی ابھی منظوری یا عمل نہیں ہو سکتا: ایک ترمیم شدہ عبارت اب بھی دستخط شدہ ریکارڈ کی تاریخ میں محفوظ ہے، جس کی ابھی ترمیم نہیں ہو سکتی۔',
+  'errors.erasure_step_failed': 'مٹانے کا ایک مرحلہ کامیاب نہیں ہوا۔ دوبارہ کوشش کی جائے گی۔',
+  'errors.erasure_storage_unavailable':
+    'رپورٹ ایکسپورٹس حذف کرنے کے لیے فائل اسٹور تک رسائی نہیں ہو سکی۔ مٹانے کا عمل دوبارہ کوشش کرے گا۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
   'errors.field.address_not_allowed':
     'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
@@ -412,6 +449,8 @@ export const ur: LabelResource = {
   'errors.field.disabled_cannot_be_default': 'ڈیفالٹ بنانے سے پہلے یہ سانچہ آن کریں۔',
   'errors.field.domain_invalid': 'help.example.com جیسا ڈومین نام درج کریں۔',
   'errors.field.domain_reserved': 'اس انسٹالیشن کے اپنے ڈومین کے پتے خودکار طور پر دیے جاتے ہیں۔',
+  'errors.field.draft_not_values': 'مسودہ صرف فارم کی قدریں رکھتا ہے۔',
+  'errors.field.draft_too_large': 'یہ مسودہ رکھنے کے لیے بہت بڑا ہے۔',
   'errors.field.due_in_past': 'مستقبل کا کوئی وقت منتخب کریں۔',
   'errors.field.duplicate': 'یہ پہلے سے استعمال میں ہے۔',
   'errors.field.duplicate_column': 'ہر کالم ایک بار درج کیا جا سکتا ہے۔',
@@ -433,6 +472,14 @@ export const ur: LabelResource = {
   'errors.field.english_label_required': 'انگریزی نام ضروری ہے۔',
   'errors.field.english_text_required':
     'انگریزی متن شامل کریں: جہاں ترجمہ نہ ہو وہاں یہی دکھایا جاتا ہے۔',
+  'errors.field.erasure_confirm_name_mismatch':
+    'فرد کا نام بالکل ویسا ہی لکھیں جیسا دکھایا گیا ہے۔',
+  'errors.field.erasure_keep_file_unknown': 'یہ فائل اس فرد نے اپ لوڈ نہیں کی۔',
+  'errors.field.erasure_keep_files_too_many': 'زیادہ سے زیادہ {{max}} فائلیں رکھیں۔',
+  'errors.field.erasure_keep_reason_required': 'یہ فائل رکھنے کی وجہ بتائیں۔',
+  'errors.field.erasure_successor_is_person':
+    'جس فرد کا ڈیٹا مٹایا جا رہا ہے اس کے علاوہ کسی اور کو منتخب کریں۔',
+  'errors.field.erasure_successor_not_active': 'ذمہ داری سنبھالنے کے لیے کوئی فعال فرد منتخب کریں۔',
   'errors.field.exception_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
   'errors.field.exception_range_too_long':
     'مخصوص اوقات زیادہ سے زیادہ ایک سال پر محیط ہو سکتے ہیں۔',
@@ -444,6 +491,9 @@ export const ur: LabelResource = {
     'موضوع اور درخواست گزار ہمیشہ دکھائے جاتے ہیں اور لازمی ہیں۔',
   'errors.field.field_locked':
     'فارم کا ایک اصول اس فیلڈ کو مقفل کرتا ہے، اس لیے اسے یہاں نہیں بدلا جا سکتا۔',
+  'errors.field.field_not_permitted':
+    'آپ یہ فیلڈ استعمال نہیں کر سکتے: آپ کے کردار آپ کو اسے دیکھنے نہیں دیتے۔',
+  'errors.field.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
   'errors.field.field_not_settable': 'قاعدہ یہ فیلڈ مقرر نہیں کر سکتا۔',
   'errors.field.field_retired': 'یہ خانہ ریٹائر ہو چکا ہے اور نئی قدریں نہیں لیتا۔',
   'errors.field.field_set_twice': 'یہ فیلڈ قاعدے کے کسی اور عمل سے پہلے ہی مقرر ہے۔',
@@ -470,6 +520,7 @@ export const ur: LabelResource = {
   'errors.field.holiday_list_not_found': 'فہرست سے تعطیلات کی فہرستیں منتخب کریں۔',
   'errors.field.holiday_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
   'errors.field.holiday_range_too_long': 'ایک تعطیل زیادہ سے زیادہ ایک سال لمبی ہو سکتی ہے۔',
+  'errors.field.host_name_invalid': 'صرف سرور کے نام لکھیں، جیسے mx.google.com۔',
   'errors.field.ical_invalid': 'یہ iCalendar (.ics) فائل نہیں ہے۔',
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
@@ -523,6 +574,8 @@ export const ur: LabelResource = {
   'errors.field.longer_than_a_week': 'ہفتہ وار ونڈو زیادہ سے زیادہ ایک ہفتے کی ہو سکتی ہے۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
   'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
+  'errors.field.mailbox_provider_results_graph_only':
+    'صرف Microsoft 365 میل باکس Microsoft کے اپنے نتیجے پر اعتماد کر سکتا ہے۔',
   'errors.field.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
   'errors.field.manager_loop':
     'یہ فرد پہلے ہی اس مینیجر کا مینیجر ہے (براہِ راست یا دوسروں کے ذریعے)۔',
@@ -570,7 +623,18 @@ export const ur: LabelResource = {
   'errors.field.owner_not_allowed':
     'یہ شخص اعلانات کا انتظام نہیں کر سکتا، اس لیے مالک نہیں بن سکتا۔',
   'errors.field.parent_loop': 'اس سے یہ اپنا ہی والد بن جائے گا۔',
+  'errors.field.password_breached': 'یہ پاس ورڈ ڈیٹا لیکس سے معلوم ہے۔ کوئی اور منتخب کریں۔',
+  'errors.field.password_is_email': 'یہ آپ کا ای میل پتا نہیں ہونا چاہیے۔',
+  'errors.field.password_is_username': 'یہ آپ کا یوزر نیم نہیں ہونا چاہیے۔',
+  'errors.field.password_needs_digit': 'ایک ہندسہ شامل کریں۔',
+  'errors.field.password_needs_lower': 'ایک چھوٹا لاطینی حرف شامل کریں۔',
+  'errors.field.password_needs_special': 'کوئی علامت شامل کریں، جیسے ! یا #۔',
+  'errors.field.password_needs_upper': 'ایک بڑا لاطینی حرف شامل کریں۔',
   'errors.field.password_policy_out_of_range': '{{min}} اور {{max}} کے درمیان رکھیں۔',
+  'errors.field.password_rejected': 'یہ پاس ورڈ قبول نہیں ہوا۔ کوئی اور منتخب کریں۔',
+  'errors.field.password_too_long': 'بہت لمبا: زیادہ سے زیادہ 128 حروف استعمال کریں۔',
+  'errors.field.password_too_short': 'بہت چھوٹا: زیادہ حروف استعمال کریں۔',
+  'errors.field.password_used_before': 'آپ یہ پاس ورڈ پہلے استعمال کر چکے ہیں۔ نیا منتخب کریں۔',
   'errors.field.pattern_mismatch': 'یہ قدر متوقع شکل میں نہیں ہے۔',
   'errors.field.pattern_too_complex':
     'یہ پیٹرن ایسے گروپ کو دہراتا ہے جو خود بھی دہرایا جاتا ہے، جس سے محفوظ کرنا بہت سست ہو سکتا ہے۔ اسے آسان کریں، مثلاً ([A-Z]+)+ کے بجائے [A-Z]+۔',
@@ -626,6 +690,9 @@ export const ur: LabelResource = {
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
   'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
   'errors.field.site_inactive': 'یہ سائٹ غیر فعال ہے۔ فعال سائٹ منتخب کریں۔',
+  'errors.field.site_network_invalid':
+    '10.1.0.0/16 جیسی رینج درج کریں (ہوسٹ والا حصہ صفر ہو)، یا ایک ایڈریس۔',
+  'errors.field.site_network_too_many': 'زیادہ سے زیادہ {{max}} رینجز منسلک کی جا سکتی ہیں۔',
   'errors.field.site_not_found': 'یہ مقام موجود نہیں۔',
   'errors.field.sso_certificate_expired':
     'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے۔ شناخت فراہم کنندہ سے نیا لیں۔',
@@ -679,11 +746,13 @@ export const ur: LabelResource = {
   'errors.field.too_deep': 'زمروں کی زیادہ سے زیادہ تین سطحیں ہیں۔',
   'errors.field.too_many': 'وصول کنندگان بہت زیادہ ہیں۔',
   'errors.field.too_many_actions': 'ایک قاعدے میں زیادہ سے زیادہ {{max}} عمل ہو سکتے ہیں۔',
+  'errors.field.too_many_addresses': 'زیادہ سے زیادہ 20 پتوں کو باخبر رکھیں۔',
   'errors.field.too_many_approvers': 'ایک مرحلے میں زیادہ سے زیادہ 10 منظور کنندگان ہو سکتے ہیں۔',
   'errors.field.too_many_assets': 'ایک ریکارڈ میں زیادہ سے زیادہ {{max}} اثاثے ہو سکتے ہیں۔',
   'errors.field.too_many_categories':
     'کوئی آئٹم زیادہ سے زیادہ پانچ دیگر کیٹیگریز میں بھی دکھایا جا سکتا ہے۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
+  'errors.field.too_many_copies': 'ایک وقت میں 1 سے {{max}} نقول بنائیں۔',
   'errors.field.too_many_decimals': 'زیادہ سے زیادہ {{max}} اعشاری مقامات استعمال کریں۔',
   'errors.field.too_many_items': 'اندراجات بہت زیادہ ہیں۔',
   'errors.field.too_many_keywords': 'ہر زبان میں زیادہ سے زیادہ 20 کلیدی الفاظ استعمال کریں۔',
@@ -696,6 +765,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_values': 'زیادہ سے زیادہ {{max}} منتخب کریں۔',
   'errors.field.topic_too_deep': 'موضوعات زیادہ سے زیادہ {{max}} درجے گہرے ہو سکتے ہیں۔',
   'errors.field.topic_under_itself': 'کوئی موضوع خود اپنے یا اپنے ذیلی موضوع کے نیچے نہیں جا سکتا۔',
+  'errors.field.trusted_servers_too_many': 'زیادہ سے زیادہ 5 سرور لکھیں۔',
   'errors.field.type_cannot_change':
     'خانے کی قسم تبدیل نہیں ہو سکتی۔ نیا خانہ بنائیں اور اسے ریٹائر کریں۔',
   'errors.field.unknown_article_type': 'مضمون کی یہ قسم موجود نہیں یا ختم کر دی گئی ہے۔',
@@ -751,6 +821,16 @@ export const ur: LabelResource = {
   'errors.field.workflow_not_published': 'پہلے یہ ورک فلو شائع کریں۔',
   'errors.field.workflow_wrong_record_type': 'یہ ورک فلو کسی اور قسم کے ریکارڈ کے لیے ہے۔',
   'errors.field.would_loop': 'کوئی ریلیز خود اپنا حصہ نہیں بن سکتی، براہ راست یا دوسروں کے ذریعے۔',
+  'errors.field_access_limit_reached':
+    'آپ کی تنظیم کے پاس پہلے ہی {{limit}} فیلڈ اصول ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے ایک ہٹائیں۔',
+  'errors.field_access_rule_exists':
+    'اس کردار کے لیے اس فیلڈ کا اصول پہلے سے موجود ہے۔ اسی اصول کو بدلیں۔',
+  'errors.field_access_rule_not_found': 'فیلڈ کا یہ اصول اب موجود نہیں۔',
+  'errors.field_keys_unavailable':
+    'محفوظ معلومات ابھی پڑھی یا محفوظ نہیں کی جا سکتیں: انسٹالیشن کی کلید دستیاب نہیں۔ اپنے ایڈمنسٹریٹر سے اسے چیک کرنے کو کہیں۔',
+  'errors.field_not_permitted': 'یہ رپورٹ ایک ایسا فیلڈ استعمال کرتی ہے جو آپ کے لیے دستیاب نہیں۔',
+  'errors.field_not_ruleable': 'اس فیلڈ پر پابندی نہیں لگائی جا سکتی۔',
+  'errors.field_read_only': 'آپ یہ فیلڈ صرف پڑھ سکتے ہیں، اس لیے اسے بدلا نہیں جا سکتا۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',
   'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
@@ -823,6 +903,12 @@ export const ur: LabelResource = {
   'errors.invitation_not_pending': 'یہ دعوت نامہ اب منتظر نہیں: قبول ہو چکا یا واپس لیا جا چکا۔',
   'errors.invitation_pending': 'اس شخص کا ایک دعوت نامہ منتظر ہے۔ اس کے بجائے اسے دوبارہ بھیجیں۔',
   'errors.invitation_person_cannot_sign_in': 'یہ شخص غیر فعال ہے یا اسے سائن اِن کی اجازت نہیں۔',
+  'errors.invite_link_has_account':
+    'اس شخص کا پاس ورڈ پہلے سے ہے: وہ معمول کے مطابق سائن ان کریں، اس لیے نقل کرنے کو کوئی لنک نہیں۔',
+  'errors.invite_link_invalid':
+    'یہ دعوتی لنک کام نہیں کرتا۔ ہو سکتا ہے یہ استعمال ہو چکا ہو، نئے لنک سے بدل گیا ہو یا اس کی مدت ختم ہو گئی ہو۔ جس نے آپ کو مدعو کیا اس سے نیا لنک مانگیں۔',
+  'errors.invite_link_mail_configured':
+    'باہر جانے والی میل ترتیب دی گئی ہے، اس لیے دعوت نامہ ای میل سے جاتا ہے۔ لنک نقل کرنے کے بجائے اسے دوبارہ بھیجیں۔',
   'errors.ip_not_allowed':
     'آپ کی تنظیم اس نیٹ ورک سے سائن اِن کی اجازت نہیں دیتی۔ کسی اجازت یافتہ نیٹ ورک سے جڑیں، یا اپنے منتظم سے کہیں۔',
   'errors.job_kind_not_available': 'اس قسم کی جاب ابھی دستیاب نہیں۔',
@@ -874,6 +960,7 @@ export const ur: LabelResource = {
   'errors.ldap_host_invalid': 'ڈائریکٹری سرور کا نام یا IP پتہ درج کریں، ldap:// یا راستے کے بغیر۔',
   'errors.ldap_single_tenant_only':
     'AD/LDAP ڈائریکٹریز صرف اس تنصیب پر جوڑی جا سکتی ہیں جو ایک ادارے کے لیے ہو۔',
+  'errors.legal_hold_not_set': 'اس فرد پر قانونی روک نہیں ہے۔',
   'errors.lifecycle_draft_exists':
     'اس لائف سائیکل کا مسودہ پہلے سے موجود ہے۔ اسے کھولیں یا پہلے ختم کریں۔',
   'errors.lifecycle_draft_not_found':
@@ -900,6 +987,10 @@ export const ur: LabelResource = {
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
   'errors.mail_attachment_type': 'اس قسم کی فائل ای میل سے نہیں بھیجی جا سکتی۔',
   'errors.mail_attachments_too_large': 'منسلکات مل کر 10 MB سے بڑی ہیں۔',
+  'errors.mail_block_rule_exists': 'اس کے لیے ایک اصول پہلے سے موجود ہے۔',
+  'errors.mail_block_rule_not_found': 'یہ روک کا اصول موجود نہیں۔',
+  'errors.mail_block_rules_full':
+    'زیادہ سے زیادہ {{max}} روک کے اصول ہو سکتے ہیں۔ پہلے ایک ہٹائیں۔',
   'errors.mail_content_gone': 'اس ای میل کا متن اب محفوظ نہیں۔ جواب دوبارہ لکھیں۔',
   'errors.mail_kind_invalid': 'اس قسم کی ای میل معلوم نہیں۔',
   'errors.mail_language_invalid': 'یہ زبان ای میل کے لیے دستیاب نہیں۔',
@@ -957,6 +1048,8 @@ export const ur: LabelResource = {
   'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
   'errors.notification_rule_locked':
     'یہ سکیورٹی اطلاع ہے: کوئی اسے بند نہیں کر سکتا، وصول کنندگان نہیں بدل سکتا اور نہ واپس کر سکتا ہے۔',
+  'errors.notify_link_not_found':
+    'یہ لنک اب کام نہیں کرتا۔ شاید یہ پہلے استعمال ہو چکا ہے یا اس کی مدت ختم ہو گئی ہے۔',
   'errors.on_behalf_out_of_scope': 'آپ اس شخص کے لیے درخواست نہیں دے سکتے۔ سروس ڈیسک سے پوچھیں۔',
   'errors.open_work_blocked': 'یہ کام کھلا ہونے تک یہ نہیں ہو سکتا: {{items}}۔',
   'errors.open_work_unconfirmed':
@@ -970,12 +1063,17 @@ export const ur: LabelResource = {
   'errors.password_policy_platform': 'اس انسٹالیشن پر پاس ورڈ پالیسی پلیٹ فارم طے کرتا ہے۔',
   'errors.password_reset_not_signed_in':
     'اس شخص نے ابھی سائن اِن نہیں کیا۔ اس کے بجائے دعوت نامہ بھیجیں۔',
-  'errors.payload_too_large': 'اپ لوڈ بہت بڑا ہے۔',
+  'errors.payload_too_large':
+    'بھیجا گیا مواد قبول کرنے کے لیے بہت بڑا ہے۔ کم بھیجیں، یا چھوٹی فائل۔',
   'errors.people_import_file_not_readable': 'CSV فائل یا Excel ورک بُک ({{xlsx}}) استعمال کریں۔',
   'errors.people_import_file_too_large': 'فائل 5 MB سے بڑی ہے۔',
   'errors.people_import_file_unsafe':
     'ورک بُک نہیں کھولی گئی: یہ اپنے سائز سے کہیں بڑی ہو جاتی ہے۔',
   'errors.permission_denied': 'آپ کو یہ کرنے کی اجازت نہیں ہے۔',
+  'errors.person_already_erased': 'اس فرد کا ڈیٹا مٹایا جا چکا ہے۔',
+  'errors.person_erasure_in_progress':
+    'اس فرد کو مٹایا جا رہا ہے؛ انہیں دوبارہ فعال یا تبدیل نہیں کیا جا سکتا۔',
+  'errors.person_on_legal_hold': 'اس فرد پر قانونی روک ہے، اس کا ڈیٹا مٹایا نہیں جا سکتا۔',
   'errors.pick_list_not_found': 'یہ فہرست موجود نہیں۔',
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
   'errors.plain_connection_refused':
@@ -1058,7 +1156,7 @@ export const ur: LabelResource = {
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unavailable':
-    'اس وقت سائن اِن دستیاب نہیں۔ براہِ کرم ایک منٹ انتظار کر کے دوبارہ کوشش کریں۔',
+    'سائن اِن عارضی طور پر دستیاب نہیں۔ اگر آپ پہلے سے سائن اِن ہیں تو کام جاری رکھ سکتے ہیں۔',
   'errors.sign_in_unknown_person':
     'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
   'errors.site_not_found': 'سائٹ نہیں ملی۔',

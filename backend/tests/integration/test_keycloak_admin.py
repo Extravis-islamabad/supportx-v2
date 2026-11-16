@@ -187,3 +187,41 @@ async def test_only_the_realm_account_may_set_the_password_policy(
         await realm.close()
     with pytest.raises(IdentityAdminUnavailable):
         await admin.set_password_policy("length(8)")
+
+
+async def test_a_copied_invite_link_sets_the_password_and_takes_only_its_action_off(
+    admin: KeycloakAdmin, private_keycloak: PrivateKeycloak
+) -> None:
+    """REQ-SEC-021 (WP-057 S2b-2, lane B's #490 review), on the stack's Keycloak 26.8.1:
+
+    - a policy refusal reaches SupportX as its message key (Keycloak says `error` here, not
+      `errorMessage`), so the person is told which rule;
+    - taking UPDATE_PASSWORD off with only `requiredActions` in the body keeps every other
+      field and required action (never `emailVerified`).
+    """
+    email = f"it-{secrets.token_hex(4)}@acme.test"
+    account = await admin.create_user(
+        email=email, first_name="Ina", last_name="Vitee", locale="en", email_verified=False
+    )
+    try:
+        await admin.require_actions(account, ["UPDATE_PASSWORD", "CONFIGURE_TOTP"])
+        with pytest.raises(IdentityAdminRefused) as refused:
+            await admin.set_password(account, "short")
+        assert refused.value.message == "invalidPasswordMinLengthMessage"
+        await admin.set_password(account, f"Ok-{secrets.token_hex(8)}-Pw!")
+        await admin.clear_actions(account, ["UPDATE_PASSWORD"])
+        found = await admin.find_user(email)
+        assert found is not None
+        assert found.has_password
+        async with httpx.AsyncClient(base_url=private_keycloak.base_url) as raw:
+            token = await admin._bearer()  # noqa: SLF001 - reading back the whole user
+            user = (
+                await raw.get(
+                    f"/admin/realms/supportx/users/{account}",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+            ).json()
+        assert user["requiredActions"] == ["CONFIGURE_TOTP"]
+        assert (user["email"], user["firstName"], user["emailVerified"]) == (email, "Ina", False)
+    finally:
+        await admin.delete_user(account)

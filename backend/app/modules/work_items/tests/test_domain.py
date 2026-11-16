@@ -20,6 +20,8 @@ from app.modules.work_items.domain.classification import (
     check_matrix,
     compute_priority,
 )
+from app.modules.work_items.domain.drafts import FIELD_PROBLEMS as DRAFT_PROBLEMS
+from app.modules.work_items.domain.kept_informed import FIELD_PROBLEMS as KEPT_PROBLEMS
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
@@ -53,6 +55,7 @@ from app.modules.work_items.domain.types import (
     parse_display_id,
 )
 from app.modules.work_items.service.change_windows import FIELD_PROBLEMS as WINDOW_PROBLEMS
+from app.modules.work_items.service.record_copies import FIELD_PROBLEMS as COPY_PROBLEMS
 from app.modules.work_items.service.text_templates import FIELD_PROBLEMS as TEMPLATE_PROBLEMS
 from app.modules.work_items.service.work_items import RELEASE_DEPLOYED_STAGES
 from app.shared.domain import InvalidTransition
@@ -309,7 +312,15 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     # S5b: a rule's joiners ("and", "or"), a section's flags and a layout's default label place.
     found -= {"or", "collapsed", "top"}
     # The boards', the change windows' and the text templates' codes come from their own sets.
-    known = FIELD_PROBLEMS | BOARD_PROBLEMS | WINDOW_PROBLEMS | TEMPLATE_PROBLEMS
+    known = (
+        FIELD_PROBLEMS
+        | BOARD_PROBLEMS
+        | WINDOW_PROBLEMS
+        | TEMPLATE_PROBLEMS
+        | DRAFT_PROBLEMS
+        | COPY_PROBLEMS
+        | KEPT_PROBLEMS
+    )
     assert found <= known, sorted(found - known)
 
 

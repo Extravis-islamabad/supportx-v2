@@ -56,6 +56,7 @@ export const queryKeys = {
     personInvitations: (userId: string) => ['identity', 'invitations', userId] as const,
     mfa: ['identity', 'mfa'] as const,
     networkRules: ['identity', 'network-rules'] as const,
+    siteNetworks: ['identity', 'site-networks'] as const,
     ssoPolicy: ['identity', 'sso-policy'] as const,
     signIns: (filters: Record<string, unknown>) => ['identity', 'sign-ins', filters] as const,
     signInsAll: ['identity', 'sign-ins'] as const,
@@ -196,6 +197,7 @@ export const queryKeys = {
     tasks: (id: string) => ['incidents', 'tasks', id] as const,
     myTasks: ['incidents', 'my-tasks'] as const,
     worklogs: (id: string) => ['incidents', 'worklogs', id] as const,
+    timeAnalysis: (id: string) => ['incidents', 'time-analysis', id] as const,
     links: (id: string) => ['incidents', 'links', id] as const,
   },
   customFields: {
@@ -213,6 +215,9 @@ export const queryKeys = {
     saved: ['audit', 'saved'] as const,
     archives: ['audit', 'archives'] as const,
     restored: (id: string) => ['audit', 'restored', id] as const,
+    personalDataAccessAll: ['audit', 'personal-data-access'] as const,
+    personalDataAccess: (person: string, since?: string, until?: string) =>
+      ['audit', 'personal-data-access', person, since ?? '', until ?? ''] as const,
   },
   files: {
     all: ['files'] as const,
@@ -272,6 +277,7 @@ export const queryKeys = {
   mailboxes: {
     all: ['mailboxes'] as const,
     waiting: (id: string) => ['mailboxes', 'waiting', id] as const,
+    blockRules: ['mailboxes', 'block-rules'] as const,
   },
   notifications: {
     all: ['notifications'] as const,

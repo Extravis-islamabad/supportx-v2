@@ -23,6 +23,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
+from app.core.body_limit import body_limit
 from app.core.database import Database, TenantSession, get_database
 from app.core.errors import ProblemDetail, RateLimited, ValidationFailed
 from app.core.tenancy import TenantContext
@@ -129,6 +130,8 @@ async def _body(request: Request) -> Any:  # noqa: ANN401 - an async iterator of
     "",
     status_code=status.HTTP_201_CREATED,
     response_model=FileOut,
+    # A tenant's file cap is at most 100 MB (Admin > Files); the upload checks its own exactly.
+    dependencies=[Depends(body_limit(100 * 1024 * 1024 + 64 * 1024))],
     responses={
         413: {"model": ProblemDetail},
         422: {"model": ProblemDetail, "description": "Too large or type blocked."},

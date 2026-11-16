@@ -159,6 +159,8 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
     const fake = viewsApi();
     restore = fake.restore;
     render(<App />);
+    // jsdom has no wide screen: the tree waits behind its button, as on a phone (V-03).
+    fireEvent.click(await screen.findByTestId('asset-tree-toggle'));
     const tree = await screen.findByRole('tree', { name: 'Product types' });
     const all = within(tree).getByTestId('asset-tree-all');
     await waitFor(() => {
@@ -208,6 +210,8 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
       const fake = viewsApi({}, locale);
       restore = fake.restore;
       const { unmount } = render(<App />);
+      // The tree sits behind its toggle on narrow screens (QA 2026-11-12 V-03), as jsdom is.
+      fireEvent.click(await screen.findByTestId('asset-tree-toggle'));
       const tree = await screen.findByRole('tree');
       const computer = await within(tree).findByTestId(`asset-tree-${COMPUTER}`);
       await waitFor(() => {
@@ -226,6 +230,8 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
     const fake = viewsApi();
     restore = fake.restore;
     render(<App />);
+    // jsdom has no wide screen: the tree waits behind its button, as on a phone (V-03).
+    fireEvent.click(await screen.findByTestId('asset-tree-toggle'));
     const tree = await screen.findByRole('tree', { name: 'Product types' });
     const row = (id: string) => within(tree).getByTestId(`asset-tree-${id}`);
     await waitFor(() => {
@@ -376,6 +382,29 @@ describe('console: asset views and tree (WP-049b s4a)', () => {
     restore = fake.restore;
     render(<App />);
     const counter = await screen.findByTestId('asset-linked-incident');
-    expect(counter.textContent).toContain('1 still worked of 4');
+    expect(counter.textContent).toContain('1 of 4 not yet closed');
+  });
+
+  it('kinds with nothing linked are left out; none at all says so plainly (QA 2026-11-12 F-14)', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = viewsApi({
+      [`GET /api/v1/assets/${asset.id}`]: { body: asset, headers: { ETag: '"1"' } },
+      [`GET /api/v1/assets/${asset.id}/history`]: { body: { items: [], next_cursor: null } },
+      [`GET /api/v1/assets/${asset.id}/linked`]: {
+        body: {
+          available: true,
+          kinds: [
+            { kind: 'incident', still_worked: 0, total: 0 },
+            { kind: 'problem', still_worked: 0, total: 0 },
+          ],
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const none = await screen.findByTestId('asset-linked-none');
+    expect(none.textContent).toBe('No records you can see are linked to this asset.');
+    expect(screen.queryByTestId('asset-linked-incident')).toBeNull();
+    expect(document.body.textContent).not.toContain('of 0');
   });
 });

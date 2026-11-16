@@ -53,6 +53,8 @@ async def test_req_sec_030_your_list_shows_where_and_on_what(bff: Bff) -> None:
     assert mine["current"] is True
     assert mine["device"] == "chrome:windows"  # a code the UI labels, never the raw header
     assert mine["ip"]  # the address the BFF saw
+    # The test client signs in from a loopback address: the internal network, never a city (D-170).
+    assert mine["place"] == {"kind": "internal", "site_id": None, "city": None, "country": None}
 
 
 async def test_req_sec_030_ac2_everywhere_else_keeps_this_one_and_its_twin_locally(

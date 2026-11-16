@@ -27,7 +27,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity_access import authorize_stored
+from app.modules.identity_access import authorize_stored, restricted_fields
 from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import DEFAULT_STATUSES, StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
@@ -186,6 +186,16 @@ def _uuid(value: object) -> uuid.UUID | None:
     return uuid.UUID(str(value)) if value else None
 
 
+async def _staff_fields(
+    session: AsyncSession, record_type: str, fields: tuple[str, ...]
+) -> tuple[str, ...]:
+    """The changed fields as staff channels name them: restricted ones as "restricted"."""
+    restricted = await restricted_fields(session, record_type)
+    if not restricted or not set(fields) & restricted:
+        return fields
+    return tuple(dict.fromkeys("restricted" if f in restricted else f for f in fields))
+
+
 async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     tenant = envelope.tenant_id
     payload = envelope.payload
@@ -242,6 +252,10 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
         fields = ("status",)
     elif "technician_id" in payload and "changed_fields" not in payload:
         fields = ("group_id", "technician_id")
+    portal = _portal(envelope, row, fields)  # the requester's own allowlist (templates)
+    # Shared channels cannot differ per viewer: a field any role restricts is named only as
+    # "restricted" (ADR-047 §7); screens refetch the record and get what they may see.
+    fields = await _staff_fields(session, str(payload.get("type") or row.type), fields)
     own = Publication(
         record(tenant, RECORD_KIND, record_id),
         CHANGED,
@@ -250,7 +264,6 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
         version=envelope.aggregate_version,
         actor_id=_actor(envelope),
     )
-    portal = _portal(envelope, row, fields)
     if (envelope.correlation_id or "").startswith(BULK_PREFIX):  # the batch refreshes lists
         return RealtimeEffects(publications=[own, *portal])
     # A sub-release moved: its parent's screens refresh too (REQ-REL-037 AC3).
@@ -675,7 +688,27 @@ async def _approval_changed(envelope: EventEnvelope, session: AsyncSession) -> R
     return RealtimeEffects(publications=publications)
 
 
+DRAFT_CHANGED = "work_items.draft_changed"
+
+
+async def _draft_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A person's kept draft changed: their own other tabs refresh (form key and version only)."""
+    del session
+    payload = envelope.payload
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, uuid.UUID(str(payload["owner_id"]))),
+                DRAFT_CHANGED,
+                ids=(str(payload["form_key"]),),
+                version=int(payload["version"]),
+            )
+        ]
+    )
+
+
 ROUTES = [
+    RealtimeRoute(("work_items.draft.changed",), _draft_changed),
     RealtimeRoute(
         (
             "work_items.work_item.created",
@@ -698,6 +731,7 @@ ROUTES = [
             "work_items.conversation.added",
             "work_items.conversation.visibility_changed",
             "work_items.conversation.delivery_changed",
+            "work_items.conversation.redacted",
         ),
         _conversation_changed,
     ),

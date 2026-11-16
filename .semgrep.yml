@@ -87,6 +87,9 @@ rules:
         - /backend/migrations/versions/0054_sla_escalations.py
         - /backend/migrations/versions/0117_change_boards.py
         - /backend/migrations/versions/0145_asset_bulk_merge_import.py
+        # 0161's partial index uses a fixed list of erasure state codes; a merged migration is
+        # never edited (CLAUDE.md §6), so it is excluded here instead of marked inline.
+        - /backend/migrations/versions/0161_person_erasures.py
     message: >-
       SQL built by string formatting; pass values as bound parameters (:name). Identifiers from a
       fixed list in code are safe: say so with a nosemgrep comment.

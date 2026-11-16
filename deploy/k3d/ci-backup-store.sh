@@ -6,9 +6,10 @@
 # run 43376122580). CI only: one SeaweedFS container (the chart's pinned image) beside the k3d
 # nodes on the cluster's docker network, never stopped by a node-loss test.
 #
-#   ci-backup-store.sh up     start it (kept when it runs), create the bucket and the release
-#                             namespace's credentials Secret (never overwritten), and print the
-#                             path of a values file for `helm upgrade -f` (no secret in it)
+#   ci-backup-store.sh up     start it (kept when it runs, restarted when stopped: re-creating it
+#                             would wipe the archive and its SSE key), create the bucket and the
+#                             release namespace's credentials Secret (never overwritten), and
+#                             print the path of a values file for `helm upgrade -f` (no secret)
 #   ci-backup-store.sh down   remove it and its data (`make cluster-down`, before the cluster)
 #
 # Encrypted at rest: SeaweedFS's SSE-S3 with a key of its own (generated here, inside the
@@ -29,12 +30,13 @@ VALUES="${TMPDIR:-/tmp}/supportx-ci-backup-store.${CLUSTER}.yaml"
 
 log() { echo "$*" >&2; }
 running() { [ "$(docker inspect -f '{{.State.Running}}' "$STORE" 2>/dev/null)" = true ]; }
+exists() { docker inspect "$STORE" >/dev/null 2>&1; }
 store_ip() { docker inspect -f "{{(index .NetworkSettings.Networks \"$NETWORK\").IPAddress}}" "$STORE"; }
 shell() { echo "$1" | docker exec -i "$STORE" weed shell 2>&1; }
 s3_up() { [ "$(docker exec "$STORE" curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/)" != 000 ]; }
 
 down() {
-  if docker inspect "$STORE" >/dev/null 2>&1; then
+  if exists; then
     docker rm -f -v "$STORE" >/dev/null
     log "backup store $STORE removed"
   fi
@@ -77,8 +79,17 @@ start() {
 }
 
 up() {
-  local ip started
-  running || start
+  local ip started previous
+  if running; then
+    :
+  elif exists; then
+    # Stopped (a docker restart, a runner reboot): its volume holds the archive and the SSE key,
+    # so start the same container; `start` would remove it with its data (-v).
+    docker start "$STORE" >/dev/null
+    log "backup store $STORE was stopped: started again (archive and key kept)"
+  else
+    start
+  fi
   started=$SECONDS
   until s3_up && shell "s3.bucket.list" >/dev/null; do
     [ $((SECONDS - started)) -lt 120 ] || { log "backup store not ready within 120s"; docker logs --tail 40 "$STORE" >&2; exit 1; }
@@ -103,6 +114,14 @@ up() {
   fi
   ip="$(store_ip)"
   [ -n "$ip" ] || { log "backup store has no address on $NETWORK"; exit 1; }
+  # A restarted store may come back on another address (lane C, #484). The egress allow-list is
+  # a /32 and the backup endpoint names the address, so an installed release must be upgraded
+  # with the new values file before its next backup or restore: say so loudly.
+  previous="$(sed -n 's|^ *endpointURL: http://\([0-9.]*\):8333$|\1|p' "$VALUES" 2>/dev/null || true)"
+  if [ -n "$previous" ] && [ "$previous" != "$ip" ]; then
+    log "WARNING: backup store moved from $previous to $ip: run 'helm upgrade -f $VALUES' on the" \
+      "release before its next backup (the egress allow-list and endpoint still name $previous)"
+  fi
   # `database`: the database's pods only (CloudNativePG instances, the restore drill's restore
   # cluster's included, which reads through the same ObjectStore), never every pod (least privilege).
   cat >"$VALUES" <<EOF

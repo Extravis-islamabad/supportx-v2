@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { useRequestExport, type FilterExpression } from '@supportx/api-client';
 import { FormProblem, useAccess, useAppearance, useFormProblem, useLabel } from '@supportx/ui';
 
-import { MyExportsButton } from '../reports/exports';
 import { exportColumns } from './batch';
 
 // The asset list exports what it shows (WP-049b S4b; REQ-AST-053, after REQ-INC-116): the
@@ -54,7 +53,6 @@ export function AssetListExport({
           </Button>
         </span>
       </Tooltip>
-      {can('reports.export') && <MyExportsButton />}
       <Modal
         open={open}
         title={t('assets.export.title')}
