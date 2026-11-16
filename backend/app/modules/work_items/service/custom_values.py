@@ -22,6 +22,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.core.database import SESSION_SETTINGS_KEY
 from app.core.errors import FieldError, ValidationFailed
 from app.modules import metadata
 from app.modules.work_items.domain import field_access as field_rules
@@ -43,6 +44,14 @@ class Visible:
 
     values: dict[str, Any]
     unreadable: frozenset[str] = field(default_factory=frozenset)
+
+
+def _settings(session: AsyncSession, settings: Settings | None) -> Settings:
+    """The running process's settings (the app's, a worker's); the global only for a script."""
+    if settings is not None:
+        return settings
+    found = session.info.get(SESSION_SETTINGS_KEY)
+    return found if isinstance(found, Settings) else get_settings()
 
 
 def is_sealed(value: object) -> bool:
@@ -67,7 +76,7 @@ async def visible_custom(
     sealed = {key: value for key, value in shown.items() if is_sealed(value)}
     if not sealed:
         return Visible(shown)
-    cipher = field_cipher_for(session, settings or get_settings())
+    cipher = field_cipher_for(session, _settings(session, settings))
     unreadable: set[str] = set()
     for key, value in sealed.items():
         opened = await cipher.open(CUSTOM, _binding(record_id, key), value)
@@ -180,7 +189,7 @@ async def seal_history(  # noqa: PLR0913 - one save's parts, explicit
 
     if not any(touches(c) for c in changes):
         return changes
-    cipher = field_cipher_for(session, settings or get_settings())
+    cipher = field_cipher_for(session, _settings(session, settings))
     out: list[Change] = []
     for change in changes:
         if not touches(change):
@@ -244,7 +253,7 @@ async def seal_custom(
     stored = dict(custom or {})
     if not sealed_keys:
         return Sealed(stored)
-    cipher = field_cipher_for(session, settings or get_settings())
+    cipher = field_cipher_for(session, _settings(session, settings))
     index: dict[str, tuple[uuid.UUID, str] | None] = {}
     for key in sealed_keys:
         value = stored.get(key)
@@ -350,7 +359,7 @@ class _SealedFilters:
                 .distinct()
             )
         )
-        cipher = field_cipher_for(self.session, get_settings())
+        cipher = field_cipher_for(self.session, _settings(self.session, None))
         pairs = [
             (key_id, digest)
             for value in values
