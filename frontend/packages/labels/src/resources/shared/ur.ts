@@ -341,6 +341,7 @@ export const ur: LabelResource = {
   'nav.admin_requests': 'سروس درخواستیں',
   'nav.admin_roles': 'کردار',
   'nav.admin_security': 'سائن اِن اور سیکیورٹی',
+  'nav.admin_service_accounts': 'سروس اکاؤنٹس',
   'nav.admin_sla': 'ایس ایل اے',
   'nav.admin_users': 'افراد',
   // Announcements, field history, action reasons (WP-012)

@@ -350,6 +350,7 @@ export const ar: LabelResource = {
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'الأدوار',
   'nav.admin_security': 'تسجيل الدخول والأمان',
+  'nav.admin_service_accounts': 'حسابات الخدمة',
   'nav.admin_sla': 'اتفاقيات مستوى الخدمة',
   'nav.admin_users': 'الأشخاص',
   // Announcements, field history, action reasons (WP-012)

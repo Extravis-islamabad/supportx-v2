@@ -343,6 +343,7 @@ export const en = {
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'Roles',
   'nav.admin_security': 'Sign-in and security',
+  'nav.admin_service_accounts': 'Service accounts',
   'nav.admin_sla': 'SLA',
   'nav.admin_users': 'People',
   // Announcements, field history, action reasons (WP-012)
