@@ -274,3 +274,25 @@ export function useIncidentCategoryChange() {
     },
   });
 }
+
+/**
+ * Lock closed incidents fully, or not (WP-046b S1, REQ-INC-101): no one edits a closed
+ * incident's fields while on, holders of incidents.edit_closed included. Its own route, which
+ * asks the signed-in person to confirm it is them (RecentAuth) and is audited.
+ */
+export function useClosedEditLock() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ locked, version }: { locked: boolean; version: number }) =>
+      call(
+        api.PUT('/api/v1/incidents/settings/closed-edit-lock', {
+          params: { header: ifMatch(version) },
+          body: { locked },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.catalogue });
+    },
+  });
+}

@@ -1112,6 +1112,25 @@ function Details({
             filled: true,
           },
         ]),
+    // WP-046b S1 (REQ-INC-102): suggested at resolve; the technician confirms or changes it.
+    ...(item.first_contact_resolution == null
+      ? []
+      : [
+          {
+            key: 'first_contact_resolution',
+            label: t('work_item.field.first_contact_resolution'),
+            view: t(item.first_contact_resolution ? 'filter.yes' : 'filter.no'),
+            edit: {
+              kind: 'choice',
+              value: item.first_contact_resolution ? 'yes' : 'no',
+              options: [
+                { value: 'yes', label: t('filter.yes') },
+                { value: 'no', label: t('filter.no') },
+              ],
+            } satisfies EditorSpec,
+            filled: true,
+          },
+        ]),
     {
       key: 'reopen_count',
       label: t('work_item.field.reopen_count'),
@@ -1281,7 +1300,9 @@ function InlineEdit({
           : { priority: value, priority_reason: reason }
         : spec.kind === 'custom'
           ? { custom: { [spec.field.key]: value } }
-          : { [field]: value };
+          : field === 'first_contact_resolution'
+            ? { first_contact_resolution: value === 'yes' } // a yes/no choice on screen
+            : { [field]: value };
     if (needsWhy) changes.edit_reason = why;
     problem.clear();
     update.mutate(

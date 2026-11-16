@@ -1488,3 +1488,4 @@ export {
   type KeptDraft,
   type KeptDraftForm,
 } from './keptDrafts';
+export { useClosedEditLock } from './incidentSettings';
