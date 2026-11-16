@@ -2275,16 +2275,28 @@ async def _rules_on_edit(
     that group afterwards (REQ-ASG-001 "on move"), never outside it.
     """
     facts = await automation.requester_facts(session, record.requester_id)
-    before = {**_snapshot(record), **automation.flat_custom(record.custom), **facts}
+    # Rules read values, never ciphertext: sealed ones opened for the system (lane A, S3b-2).
+    plain_custom = (
+        await custom_values.visible_custom(
+            session, record.id, record.custom, unseen=field_rules.Unseen()
+        )
+    ).values
+    before = {**_snapshot(record), **automation.flat_custom(plain_custom), **facts}
     edited = {
         name: _json(value)
         for name, value in columns.items()
         if name not in {"custom", "custom_text"}
     }
     if "custom" in columns:
-        current_custom = automation.flat_custom(record.custom)
+        current_custom = automation.flat_custom(plain_custom)
         edited |= dict.fromkeys(current_custom)
-        edited |= automation.flat_custom(columns["custom"])
+        edited |= automation.flat_custom(
+            (
+                await custom_values.visible_custom(
+                    session, record.id, columns["custom"], unseen=field_rules.Unseen()
+                )
+            ).values
+        )
     automated = await automation.automate(
         session,
         wtype,
@@ -2905,6 +2917,13 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     if _closed(record):
         raise Conflict(code="record_closed", params={"status": record.status})
     cat = await config.load(session, wtype)
+    # The record's custom values as they read, sealed ones opened for the system (WP-057 S3b-2):
+    # form rules, validation and change detection compare values, never ciphertext.
+    plain_custom = (
+        await custom_values.visible_custom(
+            session, record.id, record.custom, unseen=field_rules.Unseen()
+        )
+    ).values
     # The record's template's form rules (REQ-INC-037), on the record as this edit leaves it.
     ruled = await templates.apply_form_rules(
         session,
@@ -2912,7 +2931,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         await templates.of_record(session, record.template_id),
         values,
         before={name: getattr(record, name) for name in templates.FORM_FIELDS},
-        before_custom=record.custom or {},
+        before_custom=plain_custom,
     )
     values = ruled.values
     cleaned, problems = _check_fields(values, creating=False)
@@ -2932,7 +2951,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         session, subject, wtype, record, [n for n in ANALYSIS_FIELDS if n in cleaned]
     )
     # Only a changed value counts: a form may send back a read-only field unchanged.
-    custom_now = record.custom or {}
+    custom_now = plain_custom
     sent = [
         n
         for n, v in values.items()
@@ -2955,18 +2974,16 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         problems += _check_level(cat, cleaned["level"], current=record.level)
     problems += _check_problem_fields(wtype, cat, cleaned, record)
     custom, custom_problems = await _custom_in(
-        session, wtype, values, current=record.custom or {}, creating=False
+        session, wtype, values, current=plain_custom, creating=False
     )
     problems += custom_problems
-    emptied = {
-        f"custom.{k}": None for k in (record.custom or {}) if custom is not None and k not in custom
-    }
+    emptied = {f"custom.{k}": None for k in plain_custom if custom is not None and k not in custom}
     problems += await templates.emptied_required(
         session,
         record.template_id,
         {
             **{name: getattr(record, name) for name in cleaned},
-            **_flat(record.custom or {}),
+            **_flat(plain_custom),
         },
         {**cleaned, **(_flat(custom) if custom is not None else {}), **emptied},
     )

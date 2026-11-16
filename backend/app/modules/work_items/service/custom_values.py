@@ -81,6 +81,23 @@ async def visible_custom(
     return Visible(shown, frozenset(unreadable))
 
 
+async def opened(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    custom: Mapping[str, Any] | None,
+    *,
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    """All of a record's custom values, sealed ones opened, for the system.
+
+    Rules, copies and the erasure use it; never handed to a person as is. Unreadable ones are None.
+    """
+    found = await visible_custom(
+        session, record_id, custom, unseen=field_rules.Unseen(), settings=settings
+    )
+    return found.values
+
+
 async def visible_custom_many(
     session: AsyncSession,
     rows: Iterable[tuple[uuid.UUID, Mapping[str, Any] | None]],
