@@ -11,6 +11,7 @@ export const RECORD_TABS = [
   'files',
   'worklogs',
   'links',
+  'approvals', // WP-046b S1
   'time',
   'history',
   'automation',

@@ -907,6 +907,7 @@ export const ar: LabelResource = {
   'impact.organisation': 'المؤسسة بأكملها',
   'impact.team': 'فريق',
   'incident_template.standard': 'حادث عادي',
+  'incidents.approvals.rule': 'كيف يقرّرون',
   'incidents.assign_outside_group': '{{person}} ليس ضمن {{group}}. إسناده ينقل السجل إلى مجموعته.',
   'incidents.assigned': 'تم حفظ الإسناد.',
   'incidents.assigned_to': 'مسندة إلى {{name}}',

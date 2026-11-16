@@ -87,6 +87,7 @@ import { useIncidentFieldName } from './conflict';
 import { IncidentConversation, type Typing } from './IncidentConversation';
 import { IncidentFiles } from './IncidentFiles';
 import { rememberIncident } from './recent';
+import { AskApprovalDialog, IncidentApprovals } from './IncidentApprovals';
 import { DEFAULT_TAB, lastTab, RECORD_TABS, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
@@ -180,6 +181,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [asking, setAsking] = useState(false); // WP-046b S1 (REQ-INC-083)
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
@@ -430,6 +432,19 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           onClick: () => void navigate(`/problems/new?incident=${item.id}`),
         }
       : null,
+    // WP-046b S1 (REQ-INC-083): ask named people to approve, with the rule they decide by.
+    {
+      key: 'ask_approval',
+      label: t('problems.approvals.ask'),
+      allowed:
+        item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+        item.status_category !== 'closed' &&
+        item.approval_status !== 'pending',
+      testId: 'inc-op-ask-approval',
+      onClick: () => {
+        setAsking(true);
+      },
+    },
     // WP-046a S5c (REQ-INC-033): copy it one or more times.
     can('incidents.create')
       ? {
@@ -712,6 +727,13 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         }
       >
         <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
+        <AskApprovalDialog
+          item={item}
+          open={asking}
+          onClose={() => {
+            setAsking(false);
+          }}
+        />
         <CopyDialog
           open={copying}
           recordId={item.id}
@@ -811,6 +833,12 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   },
                 ]
               : []),
+            // WP-046b S1 (REQ-INC-083): its approvers and their decisions, live.
+            {
+              key: 'approvals',
+              label: t('problems.approvals.title'),
+              children: <IncidentApprovals item={item} />,
+            },
             // WP-046a S3 (REQ-INC-071): where the time went.
             {
               key: 'time',

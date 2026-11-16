@@ -829,6 +829,7 @@ export const ur: LabelResource = {
   'impact.organisation': 'پوری تنظیم',
   'impact.team': 'ایک ٹیم',
   'incident_template.standard': 'معیاری واقعہ',
+  'incidents.approvals.rule': 'وہ کیسے فیصلہ کریں',
   'incidents.assign_outside_group':
     '{{person}} {{group}} میں شامل نہیں۔ انہیں تفویض کرنے سے ریکارڈ ان کے گروپ میں منتقل ہو جائے گا۔',
   'incidents.assigned': 'تفویض محفوظ ہو گئی۔',

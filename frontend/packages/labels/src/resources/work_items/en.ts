@@ -828,6 +828,7 @@ export const en = {
   'impact.organisation': 'The whole organisation',
   'impact.team': 'A team',
   'incident_template.standard': 'Standard incident',
+  'incidents.approvals.rule': 'How they decide',
   'incidents.assign_outside_group':
     "{{person}} isn't in {{group}}. Assigning them moves the record to their group.",
   'incidents.assigned': 'Assignment saved.',

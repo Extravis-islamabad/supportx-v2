@@ -141,6 +141,10 @@ export {
 export {
   useAssignIncident,
   useCreateIncident,
+  useDecideIncidentApproval,
+  useIncidentApprovals,
+  useRequestIncidentApproval,
+  type IncidentApprovalRule,
   useDeleteIncident,
   useIncident,
   useIncidentAction,
