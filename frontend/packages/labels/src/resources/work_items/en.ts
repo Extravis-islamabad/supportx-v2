@@ -2390,7 +2390,7 @@ export const en = {
   'work_item.field.first_response_sla_state': 'Response SLA',
   'work_item.field.follow_reason': 'Why they follow',
   'work_item.field.follow_up_not_created': 'Follow-up incident could not be created',
-  'work_item.field.follow_up_of': 'Followed up from problem',
+  'work_item.field.follow_up_of': 'Resolution taken from',
   'work_item.field.followed_by': 'Follow-up incident',
   'work_item.field.follower': 'Follower',
   'work_item.field.follower_access': 'Can see it by following',

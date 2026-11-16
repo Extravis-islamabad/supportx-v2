@@ -9,11 +9,12 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.modules.identity_access import Subject
+from app.modules.work_items.api.list_routes import BulkJobOut
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.service import incident_children as service
 from app.shared.api.concurrency import ExpectedVersion
@@ -40,9 +41,41 @@ class IncidentChildOut(BaseModel):
     version: int
 
 
+class ResolveChildrenIn(BaseModel):
+    """The open children to resolve with the parent's resolution (at most 1,000)."""
+
+    child_ids: list[uuid.UUID] = Field(min_length=1, max_length=1000)
+
+
+class ResolvableChildOut(BaseModel):
+    """An open child you may edit: offered the parent's resolution (REQ-INC-092)."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    version: int
+
+
 def add_children_routes(router: APIRouter, wtype: WorkItemType) -> None:
-    """`POST /{id}/children` and `DELETE /{id}/children/{link_id}` for one type."""
+    """`POST /{id}/children`, `DELETE /{id}/children/{link_id}` and the resolvable children."""
     edit = Annotated[Subject, Depends(require_permission(wtype.permission("edit")))]
+
+    @router.get("/{record_id}/children/resolvable", summary="Children to resolve with this one")
+    async def resolvable_children(
+        record_id: uuid.UUID, session: TenantSession, subject: edit
+    ) -> list[ResolvableChildOut]:
+        """The open children you may edit, to resolve with this record.
+
+        Resolving them is a bulk resolve job (each one checked again as it runs) with this
+        record's resolution and `follow_up_of` set to its number.
+        """
+        rows = await service.open_children(session, subject, wtype, record_id)
+        return [
+            ResolvableChildOut(
+                id=r.id, display_id=r.display_id, subject=r.subject, version=r.version
+            )
+            for r in rows
+        ]
 
     @router.post(
         "/{record_id}/children",
@@ -100,3 +133,21 @@ def add_children_routes(router: APIRouter, wtype: WorkItemType) -> None:
             source=source_of(request),
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.post(
+        "/{record_id}/children/resolve",
+        summary="Resolve chosen children with this one's resolution",
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def resolve_children(
+        record_id: uuid.UUID,
+        body: ResolveChildrenIn,
+        session: TenantSession,
+        subject: edit,
+        request: Request,
+    ) -> BulkJobOut:
+        """A background job: each child through its own rules, with a result per child."""
+        job = await service.resolve_children(
+            session, subject, wtype, record_id, body.child_ids, source=source_of(request)
+        )
+        return BulkJobOut.of(job)

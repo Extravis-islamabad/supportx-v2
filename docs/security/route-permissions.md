@@ -525,6 +525,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/identity/sso/{provider_id}/tests/{test_id}` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/incidents` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents` | `incidents.create` | incidents.create: all |
+| GET | `/api/v1/incidents/alias/{value}` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/incidents/assignees` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/bulk` | `incidents.view` | incidents.view: all/site/group/own |
@@ -606,10 +607,14 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/incidents/{record_id}/checklists/{checklist_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/checklists/{checklist_id}/items` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/children` | `incidents.edit` | incidents.edit: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/children/resolvable` | `incidents.edit` | incidents.edit: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/children/resolve` | `incidents.edit` | incidents.edit: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/children/{link_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/{record_id}/conversation/{entry_id}` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/convert` | `incidents.edit` | incidents.edit: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/convert-preview` | `incidents.edit` | incidents.edit: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/copies` | `incidents.create` | incidents.create: all |
 | PUT | `/api/v1/incidents/{record_id}/due-dates/{kind}` | `incidents.edit_due_dates` | incidents.edit_due_dates: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/followers` | `incidents.view` | incidents.view: all/site/group/own |
@@ -1133,6 +1138,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/roles/{role_id}/groups/{group_id}` | `roles.manage` | roles.manage: all |
 | GET | `/api/v1/service-requests` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests` | `requests.create` | requests.create: all |
+| GET | `/api/v1/service-requests/alias/{value}` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/service-requests/assignees` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/bulk` | `requests.view` | requests.view: all/site/group/own |
@@ -1212,6 +1218,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own |
 | PATCH | `/api/v1/service-requests/{record_id}/conversation/{entry_id}` | `requests.view` | requests.view: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/convert` | `requests.edit` | requests.edit: all/site/group/own |
+| GET | `/api/v1/service-requests/{record_id}/convert-preview` | `requests.edit` | requests.edit: all/site/group/own |
 | PUT | `/api/v1/service-requests/{record_id}/due-dates/{kind}` | `requests.edit_due_dates` | requests.edit_due_dates: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/followers` | `requests.view` | requests.view: all/site/group/own |
 | DELETE | `/api/v1/service-requests/{record_id}/followers/{user_id}` | `requests.view` | requests.view: all/site/group/own |

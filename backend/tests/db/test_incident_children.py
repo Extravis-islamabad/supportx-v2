@@ -122,3 +122,53 @@ async def test_a_closed_incident_takes_no_parent(world: World) -> None:  # noqa:
         422,
         "record_closed",
     )
+
+
+async def test_a_parent_resolves_the_children_it_is_offered(world: World) -> None:  # noqa: F811
+    """REQ-INC-092: the parent's resolution to the chosen open children, as a bulk job."""
+    from app.modules.work_items.service.bulk import run_bulk_jobs  # noqa: PLC0415
+
+    a = world.a
+    parent = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    kids = [await world.create(a, a.admin, group_id=str(a.ga)) for _ in range(3)]
+    for kid in kids:
+        assert (await _child(world, a, a.admin, parent, kid)).status_code == 201
+    offered = await world.call("GET", f"{BASE}/{parent['id']}/children/resolvable", a, a.admin)
+    assert {c["id"] for c in offered.json()} == {k["id"] for k in kids}
+    # No resolution on the parent yet: nothing to copy.
+    early = await world.call(
+        "POST",
+        f"{BASE}/{parent['id']}/children/resolve",
+        a,
+        a.admin,
+        json={"child_ids": [kids[0]["id"]]},
+        headers=CONSOLE,
+    )
+    assert _problem(early) == (422, "required")
+    parent = (await world.call("GET", f"{BASE}/{parent['id']}", a, a.admin)).json()
+    resolved = await world.act(a, a.admin, parent, "resolve", resolution="<p>Router reset.</p>")
+    assert resolved.status_code == 200, resolved.text
+    started = await world.call(
+        "POST",
+        f"{BASE}/{parent['id']}/children/resolve",
+        a,
+        a.admin,
+        json={"child_ids": [kids[0]["id"], kids[1]["id"]]},  # the third stays open
+        headers=CONSOLE,
+    )
+    assert started.status_code == 202, started.text
+    await run_bulk_jobs(world.app.state.db, world.app.state.settings)
+    for kid in kids[:2]:
+        done = (await world.call("GET", f"{BASE}/{kid['id']}", a, a.admin)).json()
+        assert done["status_category"] == "resolved", done["status"]
+        assert "Router reset." in (done["resolution"] or "")
+        history = await world.call("GET", f"{BASE}/{kid['id']}/history", a, a.admin)
+        named = [
+            c["new"]
+            for e in history.json()["items"]
+            for c in e["changes"]
+            if c["field"] == "follow_up_of"
+        ]
+        assert named == [parent["display_id"]]
+    left = (await world.call("GET", f"{BASE}/{kids[2]['id']}", a, a.admin)).json()
+    assert left["status_category"] != "resolved"

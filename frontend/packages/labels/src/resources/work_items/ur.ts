@@ -2394,7 +2394,7 @@ export const ur: LabelResource = {
   'work_item.field.first_response_sla_state': 'جواب کا ایس ایل اے',
   'work_item.field.follow_reason': 'فالو کرنے کی وجہ',
   'work_item.field.follow_up_not_created': 'فالو اپ واقعہ نہیں بن سکا',
-  'work_item.field.follow_up_of': 'مسئلے سے فالو اپ',
+  'work_item.field.follow_up_of': 'حل اس سے لیا گیا',
   'work_item.field.followed_by': 'فالو اپ واقعہ',
   'work_item.field.follower': 'فالوور',
   'work_item.field.follower_access': 'فالو کرنے سے دیکھ سکتا ہے',

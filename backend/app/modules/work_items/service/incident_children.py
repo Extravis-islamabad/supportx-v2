@@ -10,6 +10,7 @@ on both records, as any link does.
 """
 
 import uuid
+from collections.abc import Sequence
 
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,12 +18,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFound
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory
+from app.modules.work_items.domain.lists import BulkAction
 from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.types import WorkItemType
-from app.modules.work_items.infra.models import WorkItem, WorkItemLink
-from app.modules.work_items.service import parts
+from app.modules.work_items.infra.models import WorkItem, WorkItemBulkJob, WorkItemLink
+from app.modules.work_items.service import bulk, parts
 from app.modules.work_items.service import work_items as items
 from app.shared.history import Source
+from app.shared.richtext import is_blank
 
 CHILD_OF = LinkKind.CHILD_OF.value
 # Field problem codes of adding a child (the label check reads them from here).
@@ -131,3 +134,36 @@ async def open_children(
         for row in rows
         if _open(row) and await items.may(session, subject, wtype, "edit", row.id)
     ]
+
+
+async def resolve_children(  # noqa: PLR0913 - the parent, the choice and the source
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    parent_id: uuid.UUID,
+    child_ids: Sequence[uuid.UUID],
+    *,
+    source: Source,
+) -> WorkItemBulkJob:
+    """Resolve the chosen open children with the parent's resolution (REQ-INC-092).
+
+    A bulk resolve job, as a problem's follow-up (REQ-PRB-055): at most 1,000 records, each
+    checked again as it runs (its rules, the person's rights), a result per record, and each
+    child's history naming the parent. Only children offered (open, editable) may be chosen.
+    """
+    parent = await items.record_for_action(session, subject, wtype, "edit", parent_id)
+    allowed = {r.id for r in await open_children(session, subject, wtype, parent_id)}
+    chosen = [i for i in dict.fromkeys(child_ids) if i in allowed]
+    if not chosen:
+        raise items.field_errors([("child_ids", "required")])
+    if is_blank(parent.resolution or ""):
+        raise items.field_errors([("resolution", "required")])
+    return await bulk.start(
+        session,
+        subject,
+        wtype,
+        action=BulkAction.RESOLVE,
+        changes={"resolution": parent.resolution, "follow_up_of": parent.display_id},
+        record_ids=chosen,
+        source=source,
+    )

@@ -351,6 +351,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.closed_edited", AuditCategory.RECORDS, "work_items"),  # WP-046b S1, REQ-INC-101
     ("incident.closed_edit_lock_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S1
     ("incident.merge_undone", AuditCategory.RECORDS, "work_items"),  # WP-046b S2, both IDs
+    ("incident.converted", AuditCategory.RECORDS, "work_items"),  # WP-046b S2, both IDs
+    ("service_request.converted", AuditCategory.RECORDS, "work_items"),
     ("problem.approval_decided", AuditCategory.RECORDS, "work_items"),
     ("problem.investigator_removed", AuditCategory.RECORDS, "work_items"),
     # WP-044c D16 (REQ-PRB-068): repeat incident rules and what was done with their sets.

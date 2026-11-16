@@ -2686,7 +2686,7 @@ export const ar: LabelResource = {
   'work_item.field.first_response_sla_state': 'اتفاقية الاستجابة',
   'work_item.field.follow_reason': 'سبب المتابعة',
   'work_item.field.follow_up_not_created': 'تعذّر إنشاء حادثة متابعة',
-  'work_item.field.follow_up_of': 'متابعة من المشكلة',
+  'work_item.field.follow_up_of': 'الحل مأخوذ من',
   'work_item.field.followed_by': 'حادثة المتابعة',
   'work_item.field.follower': 'متابع',
   'work_item.field.follower_access': 'يمكنه رؤيته عبر المتابعة',

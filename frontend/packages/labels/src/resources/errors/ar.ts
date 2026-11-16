@@ -15,6 +15,7 @@ export const ar: LabelResource = {
   'errors.action_link_sign_in_required': 'سجّل الدخول للموافقة على هذا الطلب أو رفضه.',
   'errors.action_link_stale': 'تغيّر الطلب منذ إرسال هذا الرابط. افتحه في التطبيق.',
   'errors.action_link_used': 'تم استخدام هذا الرابط من قبل.',
+  'errors.alias_not_found': 'لا يوجد سجل يمكنك فتحه بهذا الرقم الآن.',
   'errors.already_known_error': '{{display_id}} خطأ معروف بالفعل.',
   'errors.already_on_version': 'هذا التشغيل على هذا الإصدار بالفعل.',
   'errors.already_taken': 'تولّى {{taken_by}} هذا للتو. أعد التحميل لرؤيته.',
@@ -963,6 +964,7 @@ export const ar: LabelResource = {
   'errors.not_cancelable_from_here': 'لا يمكن إلغاؤه من مكانه الحالي.',
   'errors.not_closable_from_here':
     'لا يمكن إغلاقه من مرحلته الحالية. انقله إلى المرحلة التالية أولًا.',
+  'errors.not_convertible': 'لا يمكن تحويل هذا النوع من السجلات.',
   'errors.not_found': 'العنصر غير موجود.',
   'errors.not_known_error': '{{display_id}} ليس خطأً معروفًا.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',

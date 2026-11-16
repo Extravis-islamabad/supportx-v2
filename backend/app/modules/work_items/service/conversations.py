@@ -43,7 +43,7 @@ from app.modules.work_items.domain.conversation import (
     unmention,
 )
 from app.modules.work_items.domain.parts import LinkKind
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import (
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
@@ -119,20 +119,24 @@ class Timeline:
 async def merged_from(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> dict[uuid.UUID, str]:
-    """The records merged into this one that the reader may view: ID -> display ID."""
+    """The records merged or converted into this one that the reader may view: ID -> display ID.
+
+    A converted record is the other type: each is checked under its own type's permissions.
+    """
+    del wtype  # each source record is checked as its own type
     rows = await session.execute(
-        select(WorkItem.id, WorkItem.display_id)
+        select(WorkItem.id, WorkItem.display_id, WorkItem.type)
         .join(WorkItemLink, WorkItemLink.source_id == WorkItem.id)
         .where(
             WorkItemLink.target_id == record.id,
-            WorkItemLink.kind == LinkKind.MERGED_INTO.value,
+            WorkItemLink.kind.in_([LinkKind.MERGED_INTO.value, LinkKind.CONVERTED_TO.value]),
             WorkItemLink.deleted_at.is_(None),
         )
     )
     return {
         row_id: display
-        for row_id, display in rows.all()
-        if await items.may(session, subject, wtype, "view", row_id)
+        for row_id, display, code in rows.all()
+        if await items.may(session, subject, TYPES[WorkItemTypeCode(code)], "view", row_id)
     }
 
 

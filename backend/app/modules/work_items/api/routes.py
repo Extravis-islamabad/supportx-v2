@@ -33,6 +33,7 @@ from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
 )
+from app.modules.work_items.api.convert_routes import add_convert_routes
 from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.merge_routes import add_incident_merge_routes
@@ -4019,6 +4020,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
     add_checklist_routes(router, wtype)  # WP-046a S2: checklists and personal reminders
+    if wtype.code in {WorkItemTypeCode.INCIDENT, WorkItemTypeCode.SERVICE_REQUEST}:
+        add_convert_routes(router, wtype)  # WP-046b S2: into the other type, and old numbers
     if wtype.code is WorkItemTypeCode.INCIDENT:
         add_children_routes(router, wtype)  # WP-046b S2: parent and child incidents
         add_incident_merge_routes(router, wtype)  # WP-046b S2: merge with preview, and undo
