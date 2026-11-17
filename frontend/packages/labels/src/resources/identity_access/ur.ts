@@ -72,6 +72,8 @@ export const ur: LabelResource = {
   'account.sso_only':
     'آپ اپنی تنظیم کے سنگل سائن آن سے سائن اِن کرتے ہیں، اس لیے یہاں کوئی پاس ورڈ نہیں۔',
   'account.title': 'سائن اِن اور سکیورٹی',
+  'api_key_policy_gap.lifetime_over_policy': 'پالیسی کی اجازت سے زیادہ مدت',
+  'api_key_policy_gap.no_ip_range': 'کوئی IP رینج نہیں',
   'api_key_status.active': 'فعال',
   'api_key_status.expired': 'میعاد ختم',
   'api_key_status.revoked': 'منسوخ',
@@ -109,6 +111,19 @@ export const ur: LabelResource = {
   'api_keys.new': 'نئی کلید',
   'api_keys.no_expiry': 'کوئی میعاد نہیں',
   'api_keys.not_used': 'ابھی استعمال نہیں ہوئی',
+  'api_keys.policy.days_help': '{{min}} سے {{max}} دن تک۔',
+  'api_keys.policy.help':
+    'نئی کلیدوں پر لاگو ہوتی ہے۔ سخت پالیسی سے پہلے بنی کلیدیں نیچے اس کے ساتھ دکھائی جاتی ہیں جس کی وہ خلاف ورزی کرتی ہیں؛ انہیں کبھی خودبخود منسوخ نہیں کیا جاتا۔',
+  'api_keys.policy.impact_none': 'کوئی موجودہ کلید پالیسی سے باہر نہیں ہو گی۔',
+  'api_keys.policy.impact_one':
+    '{{count}} موجودہ کلید پالیسی سے باہر نشان زد ہو گی۔ آپ کے منسوخ کرنے تک یہ کام کرتی رہے گی۔',
+  'api_keys.policy.impact_other':
+    '{{count}} موجودہ کلیدیں پالیسی سے باہر نشان زد ہوں گی۔ آپ کے منسوخ کرنے تک یہ کام کرتی رہیں گی۔',
+  'api_keys.policy.max_lifetime': 'نئی کلید کی زیادہ سے زیادہ مدت (دن)',
+  'api_keys.policy.require_ip':
+    'نئی کلیدوں کو وہ پتے درج کرنے ہوں گے جہاں سے انہیں استعمال کیا جا سکے',
+  'api_keys.policy.title': 'کلیدوں کی پالیسی',
+  'api_keys.policy.unused_after': 'اتنے دن غیر استعمال شدہ کلیدیں دکھائیں',
   'api_keys.revoke': 'منسوخ کریں',
   'api_keys.revoke_confirm':
     'کلید “{{name}}” منسوخ کریں؟ اسے استعمال کرنے والی ہر چیز فوراً کام کرنا بند کر دے گی۔',
@@ -129,6 +144,7 @@ export const ur: LabelResource = {
     'یہ کلید پچھلی کوشش میں بن چکی ہے، اس لیے اس کا متن دوبارہ نہیں دکھایا جا سکتا۔ اسے منسوخ کر کے نئی بنائیں۔',
   'api_keys.shown.title': 'اپنی کلید ابھی کاپی کریں',
   'api_keys.title': 'API کلیدیں',
+  'api_keys.unused': 'غیر استعمال شدہ',
   'api_keys.used_from': '{{when}}، {{address}} سے',
   'auth.checking_session': 'آپ کا سیشن چیک کیا جا رہا ہے…',
   'auth.redirecting_to_login': 'سائن اِن کی طرف بھیجا جا رہا ہے…',
@@ -1369,6 +1385,26 @@ export const ur: LabelResource = {
   'security.sso_policy.required': 'سنگل سائن آن لازمی ہے برائے',
   'security.sso_policy.saved': 'سنگل سائن آن کی ترتیبات محفوظ ہو گئیں۔',
   'security.sso_policy.title': 'سنگل سائن آن لازمی',
+  'service_accounts.active': 'فعال',
+  'service_accounts.active_switch': 'فعال: اس کی کلیدیں کام کرتی ہیں',
+  'service_accounts.col.keys': 'کلیدیں',
+  'service_accounts.col.name': 'نام',
+  'service_accounts.col.owner': 'مالک',
+  'service_accounts.col.roles': 'کردار',
+  'service_accounts.col.state': 'حالت',
+  'service_accounts.description': 'یہ کس لیے ہے',
+  'service_accounts.empty': 'ابھی کوئی سروس اکاؤنٹ نہیں۔',
+  'service_accounts.help':
+    'وہ شناختیں جن کے طور پر API کلائنٹ اور کنیکٹر کام کرتے ہیں۔ یہ کبھی سائن اِن نہیں کرتیں اور کوئی نشست نہیں لیتیں۔ ہر ایک کا ایک مالک ہوتا ہے جو اس کا ذمہ دار ہے۔',
+  'service_accounts.inactive': 'بند',
+  'service_accounts.managed_elsewhere': 'کنیکٹر یا ورک فلو کی شناخت',
+  'service_accounts.managed_elsewhere_help':
+    'یہ شناخت کسی کنیکٹر یا ورک فلو کی ہے؛ اسے اُسی اسکرین پر تبدیل کریں۔',
+  'service_accounts.needs_new_owner': 'نئے مالک کی ضرورت ہے',
+  'service_accounts.new': 'نیا سروس اکاؤنٹ',
+  'service_accounts.owner_help': 'ایک فعال ٹیکنیشن جو اس اکاؤنٹ کا ذمہ دار ہو۔',
+  'service_accounts.saved': 'محفوظ ہو گیا۔',
+  'service_accounts.title': 'سروس اکاؤنٹس',
   'session.idle.body':
     'کچھ دیر سے کوئی سرگرمی نہیں ہوئی، اس لیے آپ {{time}} میں سائن آؤٹ ہو جائیں گے۔ جو کچھ آپ نے لکھا وہ محفوظ رہے گا اور دوبارہ سائن اِن کرنے پر واپس آ جائے گا۔',
   'session.idle.sign_out': 'ابھی سائن آؤٹ کریں',

@@ -33,6 +33,13 @@ SCANNER_REGEX = r"sxk_[0-9a-hjkmnp-tv-z]{26}_[0-9a-hjkmnp-tv-z]{26}_[A-Za-z0-9_-
 
 DEFAULT_LIFETIME = timedelta(days=90)
 MAX_LIFETIME = timedelta(days=366)
+
+
+def default_lifetime(max_lifetime: timedelta) -> timedelta:
+    """A new key's lifetime when none is chosen: the default, never past the tenant's policy."""
+    return min(DEFAULT_LIFETIME, max_lifetime, MAX_LIFETIME)
+
+
 NAME_MAX = 100
 ALLOWLIST_MAX = 20
 LAST_USED_EVERY = timedelta(minutes=1)  # writes of last_used_at, at most this often per key
@@ -122,16 +129,69 @@ def covered(permission: str, scopes: frozenset[str]) -> bool:
 
 
 def expiry_problem(
-    expires_at: datetime | None, now: datetime, *, allow_non_expiring: bool
+    expires_at: datetime | None,
+    now: datetime,
+    *,
+    allow_non_expiring: bool,
+    max_lifetime: timedelta = MAX_LIFETIME,
 ) -> str | None:
-    """Why this expiry is refused (a problem code), or None."""
+    """Why this expiry is refused (a problem code), or None.
+
+    `max_lifetime` is the tenant's policy (REQ-SEC-037), never more than MAX_LIFETIME.
+    """
     if expires_at is None:
         return None if allow_non_expiring else "api_key_expiry_required"
     if expires_at <= now:
         return "api_key_expiry_past"
-    if expires_at - now > MAX_LIFETIME:
+    if expires_at - now > min(max_lifetime, MAX_LIFETIME):
         return "api_key_expiry_too_far"
     return None
+
+
+def ip_range_problem(networks: Sequence[str], *, required: bool) -> str | None:
+    """The tenant asks every new key to name its addresses (REQ-SEC-037)."""
+    return "api_key_ip_range_required" if required and not networks else None
+
+
+@dataclass(frozen=True)
+class KeyPolicy:
+    """The tenant's key policy, as a key made before it is judged against (REQ-SEC-037)."""
+
+    max_lifetime: timedelta
+    allow_non_expiring: bool
+    require_ip_range: bool
+    unused_after: timedelta
+
+
+def out_of_policy(
+    *,
+    created_at: datetime,
+    expires_at: datetime | None,
+    ip_allowlist: Sequence[str],
+    policy: KeyPolicy,
+) -> list[str]:
+    """Why a key made earlier breaks today's policy: flagged and listed, never revoked.
+
+    `lifetime_over_policy`: it lasts longer than new keys may (or never expires when that is
+    no longer allowed); `no_ip_range`: the policy now asks for addresses (the coordinator,
+    2026-11-16).
+    """
+    reasons: list[str] = []
+    if expires_at is None:
+        if not policy.allow_non_expiring:
+            reasons.append("lifetime_over_policy")
+    elif expires_at - created_at > policy.max_lifetime:
+        reasons.append("lifetime_over_policy")
+    if policy.require_ip_range and not ip_allowlist:
+        reasons.append("no_ip_range")
+    return reasons
+
+
+def unused(
+    *, created_at: datetime, last_used_at: datetime | None, now: datetime, after: timedelta
+) -> bool:
+    """Not used for `after` (or never, since it was made that long ago)."""
+    return now - (last_used_at or created_at) >= after
 
 
 def parse_allowlist(entries: Sequence[str]) -> list[str] | None:

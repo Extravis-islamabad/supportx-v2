@@ -4,6 +4,7 @@ import { useIdentitySettings, useSaveIdentitySettings } from '@supportx/api-clie
 import { NoAccess, reportError, useAccess, useLabel, useLicence } from '@supportx/ui';
 
 import { ApiKeysPanel } from '../apiKeys/ApiKeysPanel';
+import { KeyPolicyCard } from './KeyPolicyCard';
 
 // WP-041 (D-128): Admin › API keys. The two tenant rules sit above the list; they are sign-in
 // settings, so only whoever may change those (identity.manage) sees them.
@@ -74,6 +75,7 @@ export function ApiKeysPage() {
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       {can('identity.manage') && <KeyRulesCard />}
+      {can('identity.manage') && <KeyPolicyCard />}
       <ApiKeysPanel mode="admin" />
     </Space>
   );

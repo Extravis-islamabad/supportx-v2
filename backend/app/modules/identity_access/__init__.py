@@ -55,6 +55,7 @@ from app.modules.identity_access.api.invite_links import public_router as invite
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
+from app.modules.identity_access.api.service_accounts import router as service_accounts_router
 from app.modules.identity_access.api.service_roles import (
     ServiceRoleOut,
     ServiceRolesOut,
@@ -104,6 +105,7 @@ from app.modules.identity_access.service import (
     legal_hold,
     mfa,
     security_notices,
+    service_account_handover,
     sign_in_import,
     sign_in_log,
 )
@@ -451,6 +453,7 @@ security_notices.register()  # a person hears of a sign-in from a new device (WP
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
 expiry_notifications.register()  # admins hear before a sign-in certificate or secret runs out
+service_account_handover.register()  # admins hear when a service account needs a new owner
 
 module = ModuleSpec(
     name="identity_access",
@@ -468,6 +471,7 @@ module = ModuleSpec(
         invite_links_router,  # WP-057 S2b-2: a copied invite link's set-password (REQ-SEC-021)
         account_router,
         api_keys_router,
+        service_accounts_router,
         realtime_router,
         privacy_router,  # legal hold and GDPR erasure (D-171, ADR-052)
         erasures_router,
@@ -481,6 +485,7 @@ module = ModuleSpec(
         mfa.MFA_ROLES,
         sign_in_log.PERSON_ERASED,
         KEYCLOAK_SESSION_END,
+        service_account_handover.OWNER_LEFT,
     ],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,

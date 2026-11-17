@@ -38,6 +38,8 @@ const KEY: ApiKey = {
   revoked_at: null,
   created_at: '2026-11-03T08:00:00Z',
   status: 'active',
+  out_of_policy: [],
+  unused: false,
 };
 const SCOPES = ['incidents', 'users'].flatMap((area) =>
   (['read', 'write'] as const).map((access) => ({ code: `${area}:${access}`, area, access })),
