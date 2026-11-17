@@ -93,6 +93,13 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     labelKey: 'nav.admin_api_keys',
     permission: 'api_keys.manage',
   },
+  // ADR-052 (D-171): people's erasures, for those who may erase (people.erase).
+  {
+    key: 'erasures',
+    group: 'people_access',
+    labelKey: 'nav.admin_erasures',
+    permission: 'people.erase',
+  },
   {
     key: 'incidents',
     group: 'service_desk',
