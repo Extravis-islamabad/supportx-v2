@@ -211,3 +211,120 @@ async def test_another_tenant_sees_no_service_account(bff: Bff) -> None:  # noqa
     assert account["id"] not in {a["id"] for a in listed.json()}
     missing = await bff.client.get(f"/api/v1/service-accounts/{account['id']}")
     assert missing.status_code == 404, missing.text
+
+
+# --- lane B's #530 review --------------------------------------------------------------------
+
+
+async def _patch(world: Bff, csrf: str, account_id: str, body: dict[str, Any]) -> Any:  # noqa: ANN401
+    current = (await world.client.get(f"/api/v1/service-accounts/{account_id}")).json()
+    return await world.client.patch(
+        f"/api/v1/service-accounts/{account_id}",
+        json=body,
+        headers={"X-CSRF-Token": csrf, "If-Match": f'"{current["version"]}"'},
+    )
+
+
+async def test_a_connectors_identity_takes_no_role_here(bff: Bff) -> None:  # noqa: F811
+    """Lane B (1): a connector's or workflow's identity is refused on these routes."""
+    csrf = await _signed_in(bff)
+    account = await _account(bff, csrf, await _me(bff))
+    roles = (await bff.client.get(f"/api/v1/service-accounts/{account['id']}/roles")).json()
+    technician = next(r for r in roles["offered"] if r["key"] == "technician")
+    # Made as a connector's identity is: no owner, managed on the connector's own screen.
+    await _sql(
+        bff,
+        "UPDATE users SET service_owner_id = NULL, service_description = NULL WHERE id = $1",
+        uuid.UUID(account["id"]),
+    )
+    path = f"/api/v1/service-accounts/{account['id']}/roles/{technician['id']}"
+    given = await bff.client.put(path, headers={"X-CSRF-Token": csrf})
+    assert (given.status_code, given.json()["code"]) == (403, "service_identity_managed")
+    taken = await bff.client.delete(path, headers={"X-CSRF-Token": csrf})
+    assert (taken.status_code, taken.json()["code"]) == (403, "service_identity_managed")
+    (count,) = await _sql(
+        bff, "SELECT count(*) AS n FROM user_roles WHERE user_id = $1", uuid.UUID(account["id"])
+    )
+    assert count["n"] == 0
+
+
+async def test_a_key_without_an_expiry_fits_a_shorter_policy(bff: Bff) -> None:  # noqa: F811
+    """Lane B (2): the 90-day default is cut to a 30-day policy, never refused."""
+    csrf = await _signed_in(bff)
+    await _settings(bff, csrf, key_max_lifetime_days=30)
+    made = await _make(bff, csrf)
+    assert made.status_code == 201, made.text
+    expires = datetime.fromisoformat(made.json()["expires_at"])
+    assert timedelta(days=29) < expires - datetime.now(UTC) <= timedelta(days=30)
+    offered = (await bff.client.get("/api/v1/api-keys/rules")).json()
+    assert (offered["default_lifetime_days"], offered["max_lifetime_days"]) == (30, 30)
+
+
+async def test_an_owner_change_and_a_switch_off_are_audited_before_and_after(bff: Bff) -> None:  # noqa: F811
+    """Lane B (3): who answered for it and whether it was on, before and after."""
+    owner = await bff.login(bff.user("a", email="next-owner@demo.test", roles=("technician",)))
+    assert owner.status_code == 302, owner.text
+    csrf = await _signed_in(bff)
+    admin = await _me(bff)
+    (next_owner,) = await _sql(bff, "SELECT id FROM users WHERE email = 'next-owner@demo.test'")
+    account = await _account(bff, csrf, admin)
+    moved = await _patch(bff, csrf, account["id"], {"owner_id": str(next_owner["id"])})
+    assert moved.status_code == 200, moved.text
+    off = await _patch(bff, csrf, account["id"], {"active": False})
+    assert off.status_code == 200, off.text
+    rows = await _sql(
+        bff,
+        "SELECT details FROM audit_entries WHERE action = 'identity_access.service_account_changed'"
+        " AND object_id = $1 ORDER BY occurred_at",
+        account["id"],
+    )
+    details = [
+        json.loads(r["details"]) if isinstance(r["details"], str) else r["details"] for r in rows
+    ]
+    assert {k: details[0].get(k) for k in ("owner_before", "owner_after")} == {
+        "owner_before": admin,
+        "owner_after": str(next_owner["id"]),
+    }
+    assert "active_before" not in details[0]
+    assert {k: details[1].get(k) for k in ("active_before", "active_after")} == {
+        "active_before": True,
+        "active_after": False,
+    }
+    assert "owner_before" not in details[1]
+
+
+async def test_a_switched_off_accounts_key_stops_and_works_again_when_on(bff: Bff) -> None:  # noqa: F811
+    """Lane B (4a): off → 401 api_key_owner_inactive; on again → the same key works."""
+    csrf = await _signed_in(bff)
+    account = await _account(bff, csrf, await _me(bff))
+    roles = (await bff.client.get(f"/api/v1/service-accounts/{account['id']}/roles")).json()
+    technician = next(r for r in roles["offered"] if r["key"] == "technician")
+    given = await bff.client.put(
+        f"/api/v1/service-accounts/{account['id']}/roles/{technician['id']}",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert given.status_code == 204, given.text
+    key = (await _make(bff, csrf, owner_id=account["id"], scopes=["incidents:read"])).json()["key"]
+    async with _as_key(bff, key) as api:
+        assert (await api.get("/api/v1/incidents")).status_code == 200
+    assert (await _patch(bff, csrf, account["id"], {"active": False})).status_code == 200
+    async with _as_key(bff, key) as api:
+        stopped = await api.get("/api/v1/incidents")
+    assert (stopped.status_code, stopped.json()["code"]) == (401, "api_key_owner_inactive")
+    assert (await _patch(bff, csrf, account["id"], {"active": True})).status_code == 200
+    async with _as_key(bff, key) as api:
+        assert (await api.get("/api/v1/incidents")).status_code == 200
+
+
+async def test_an_owner_change_needs_a_recent_sign_in(bff: Bff) -> None:  # noqa: F811
+    """Lane B (4b): PATCH owner_id with a stale sign-in is refused; a rename is not."""
+    csrf = await _signed_in(bff)
+    admin = await _me(bff)
+    account = await _account(bff, csrf, admin)
+    bff.clock.advance(timedelta(minutes=20))
+    asked = await _patch(bff, csrf, account["id"], {"owner_id": admin})
+    assert (asked.status_code, asked.json()["code"]) == (403, "reauth_required")
+    off = await _patch(bff, csrf, account["id"], {"active": False})
+    assert (off.status_code, off.json()["code"]) == (403, "reauth_required")
+    renamed = await _patch(bff, csrf, account["id"], {"name": "Nightly sync (EU)"})
+    assert renamed.status_code == 200, renamed.text

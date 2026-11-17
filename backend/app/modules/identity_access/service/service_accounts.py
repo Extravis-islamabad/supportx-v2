@@ -7,8 +7,8 @@ it through its keys, so what it does names it, never the admin who made the key 
 - Connector and workflow identities (WP-040, WP-048b) are listed too, read-only here: their own
   screens manage them, and they have no owner.
 - When an owner is deactivated, their accounts are flagged `needs_new_owner` (REQ-ADM-011 AC3)
-  and the key managers are told; the accounts keep working until someone acts, as their keys
-  belong to the account, not the owner.
+  and the tenant administrators are told; the accounts keep working until someone acts, as their
+  keys belong to the account, not the owner.
 - Roles go through the guarded service-role path (no tenant administration, nothing beyond the
   admin's own rights).
 """
@@ -158,6 +158,19 @@ async def service_account(
     if row.user_type != SERVICE:
         raise PermissionDenied(code="not_a_service_identity")
     return (await _views(session, [row]))[0]
+
+
+async def managed_account(
+    session: AsyncSession, subject: Subject, account_id: uuid.UUID
+) -> ServiceAccountView:
+    """A service account made here; a connector's or workflow's identity is refused (lane B).
+
+    Their roles are set on their own screens, so these routes never reach them.
+    """
+    view = await service_account(session, subject, account_id)
+    if not view.managed_here:
+        raise PermissionDenied(code="service_identity_managed")
+    return view
 
 
 async def create_service_account(  # noqa: PLR0913 - the account's parts, explicit

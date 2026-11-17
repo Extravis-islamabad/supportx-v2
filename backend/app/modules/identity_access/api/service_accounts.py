@@ -7,7 +7,7 @@ workflow's run-as identity does. Connector and workflow identities are listed re
 """
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -154,6 +154,19 @@ async def get_account(
     return ServiceAccountOut.of(view)
 
 
+def _moves(before: service.ServiceAccountView, after: service.ServiceAccountView) -> dict[str, Any]:
+    """Who answered for it and whether it was on, before and after (lane B: audit both)."""
+    moves: dict[str, Any] = {}
+    if before.owner_id != after.owner_id:
+        moves |= {
+            "owner_before": str(before.owner_id) if before.owner_id else None,
+            "owner_after": str(after.owner_id) if after.owner_id else None,
+        }
+    if before.active != after.active:
+        moves |= {"active_before": before.active, "active_after": after.active}
+    return moves
+
+
 @router.patch("/{account_id}", summary="Change a service account")
 async def change_account(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     account_id: uuid.UUID,
@@ -177,7 +190,7 @@ async def change_account(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     if {"owner_id", "active"} & values.keys():
         # Who answers for it and whether its keys work: as sensitive as its roles (lane B).
         await require_recent_auth(request)
-    note.details = {"changed_fields": sorted(values)}
+    before = await service.service_account(session, subject, account_id)
     view = await service.update_service_account(
         session,
         subject,
@@ -186,6 +199,7 @@ async def change_account(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         values=values,
         source=source_of(request),
     )
+    note.details = {"changed_fields": sorted(values), **_moves(before, view)}
     set_etag(response, view.version)
     return ServiceAccountOut.of(view)
 
@@ -221,7 +235,7 @@ async def add_role(
     policy: Policy,
 ) -> Response:
     """Idempotent; never tenant administration or more than your own rights."""
-    await service.service_account(session, subject, account_id)
+    await service.managed_account(session, subject, account_id)
     await assign_service_identity_role(session, policy, subject, account_id, role_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -248,6 +262,6 @@ async def remove_role(
     policy: Policy,
 ) -> Response:
     """Idempotent; through the same guarded path."""
-    await service.service_account(session, subject, account_id)
+    await service.managed_account(session, subject, account_id)
     await remove_service_identity_role(session, policy, subject, account_id, role_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

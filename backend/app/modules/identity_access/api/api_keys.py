@@ -192,13 +192,15 @@ class KeyRulesOut(BaseModel):
 async def key_rules(session: TenantSession, subject: SignedIn) -> KeyRulesOut:
     """The tenant's key settings as they apply to the signed-in person."""
     settings = await api_keys.key_rules(session)
+    policy = api_keys.policy_of(settings)
     manager = subject.holds(api_keys.MANAGE)
     return KeyRulesOut(
         may_create=manager or settings.people_may_create_keys,
         manages_keys=manager,
         never_expires_allowed=settings.allow_non_expiring_keys,
-        default_lifetime_days=rules.DEFAULT_LIFETIME.days,
-        max_lifetime_days=rules.MAX_LIFETIME.days,
+        # The tenant's policy (REQ-SEC-037): the form offers no date the server would refuse.
+        default_lifetime_days=rules.default_lifetime(policy.max_lifetime).days,
+        max_lifetime_days=min(policy.max_lifetime, rules.MAX_LIFETIME).days,
     )
 
 

@@ -33,6 +33,13 @@ SCANNER_REGEX = r"sxk_[0-9a-hjkmnp-tv-z]{26}_[0-9a-hjkmnp-tv-z]{26}_[A-Za-z0-9_-
 
 DEFAULT_LIFETIME = timedelta(days=90)
 MAX_LIFETIME = timedelta(days=366)
+
+
+def default_lifetime(max_lifetime: timedelta) -> timedelta:
+    """A new key's lifetime when none is chosen: the default, never past the tenant's policy."""
+    return min(DEFAULT_LIFETIME, max_lifetime, MAX_LIFETIME)
+
+
 NAME_MAX = 100
 ALLOWLIST_MAX = 20
 LAST_USED_EVERY = timedelta(minutes=1)  # writes of last_used_at, at most this often per key

@@ -553,6 +553,8 @@ export const en = {
     'Could not end a sign-in service session left by a sign-out',
   'audit.detail.entries_checked': 'Entries checked: {{value}}',
   'audit.detail.first_broken_seq': 'First broken position: {{value}}',
+  'audit.detail.owner_after': 'Owner now: {{name}}',
+  'audit.detail.owner_before': 'Owner before: {{name}}',
   'audit.detail.personal_rows_removed': 'Personal records removed: {{value}}',
   'audit.detail.readable_keys': 'Keys still accepted: {{value}}',
   'audit.detail.reassigned_to': 'Moved to role of: {{name}}',
@@ -893,6 +895,8 @@ export const en = {
   'audit.ui.tab.settings': 'Settings',
   'audit.ui.tab.sign_ins': 'Sign-ins',
   'audit.ui.technical': 'Technical details',
+  'audit.ui.turned_off': 'Turned off',
+  'audit.ui.turned_on': 'Turned on',
   'audit.ui.user_agent': 'Browser or app',
   'audit.ui.user_agent_full': 'Browser’s own description',
   'audit.ui.verify_help':

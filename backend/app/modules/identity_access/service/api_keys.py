@@ -187,8 +187,11 @@ async def create_key(  # noqa: PLR0913 - the key's parts, explicit
     chosen = sorted(set(scopes))
     if not chosen or any(s not in known_scopes for s in chosen):
         raise _problem(field="scopes", code="api_key_scope_unknown")
-    expiry = None if never_expires else (expires_at or now + rules.DEFAULT_LIFETIME)
     policy = policy_of(allowed)
+    # No expiry chosen: the default, cut to the policy so the key is never refused (lane B).
+    expiry = (
+        None if never_expires else (expires_at or now + rules.default_lifetime(policy.max_lifetime))
+    )
     wrong = rules.expiry_problem(
         expiry,
         now,
