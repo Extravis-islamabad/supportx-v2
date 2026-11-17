@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type ConsoleMessage, type Page, type Route } from '@playwright/test';
 
 import { PORTAL_URL, passwordOf, SEEDED, USERS } from '../stack';
 import { signIn } from './helpers';
@@ -928,6 +928,11 @@ async function ciConflict(page: Page): Promise<void> {
         })
       : route.continue();
   await page.route(url, answer);
+  const logged: string[] = [];
+  const listen = (message: ConsoleMessage) => {
+    if (message.type() === 'error' || message.type() === 'warning') logged.push(message.text());
+  };
+  page.on('console', listen);
   try {
     await page.getByTestId('ci-edit').first().click({ timeout: STATE_TIMEOUT });
     await page.getByTestId('ci-name').first().fill('Core switch SW-01 (floor 2)');
@@ -957,10 +962,12 @@ async function ciConflict(page: Page): Promise<void> {
       const editing = await page.getByTestId('ci-save').count();
       throw new Error(
         `ci-conflict: no dialog; PATCH ${answered.url()} answered ${String(answered.status())};` +
-          ` toasts: ${toasts.join(' | ')}; save buttons: ${String(editing)}`,
+          ` toasts: ${toasts.join(' | ')}; save buttons: ${String(editing)};` +
+          ` console: ${logged.join(' | ').slice(0, 600)}`,
       );
     }
   } finally {
+    page.off('console', listen);
     await page.unroute(url, answer);
   }
 }
