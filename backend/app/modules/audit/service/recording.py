@@ -125,6 +125,9 @@ class _Acting:
         return self.id
 
 
+_NEEDS_BEHALF = frozenset({AuditActorType.API_KEY, AuditActorType.AI_AGENT})
+
+
 def _acting(context: object) -> _Acting:
     """The real actor of the session's work (REQ-AUD-014).
 
@@ -190,6 +193,10 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
             raise ValueError(msg)
     context: TenantContext = session.info[SESSION_TENANT_KEY]
     # An explicit actor (a worker, a link's recipient) is taken as given; otherwise the session's.
+    if actor is not None and actor[0] in _NEEDS_BEHALF:
+        # A key or an agent always acts for someone: only the session's context can say whom.
+        msg = f"an explicit {actor[0].value} actor would lose whom it acted for"
+        raise ValueError(msg)
     acting = _acting(context) if actor is None else _Acting(*actor)
     actor_type, actor_id = acting.type, acting.id
     subject = acting.subject

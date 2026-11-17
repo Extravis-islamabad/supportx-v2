@@ -76,6 +76,24 @@ function rangeFilter(range: string | undefined): FilterExpression | undefined {
 }
 
 /**
+ * A person's entries: what they did, and what their API keys and AI agents did for them
+ * (`on_behalf_id`, WP-057 S4b).
+ */
+function withPerson(
+  base: FilterExpression | undefined,
+  person: string | undefined,
+): FilterExpression | undefined {
+  if (person === undefined) return base;
+  const either: FilterExpression = {
+    or: [
+      { field: 'actor_id', op: 'eq', value: person },
+      { field: 'on_behalf_id', op: 'eq', value: person },
+    ],
+  };
+  return base === undefined ? either : { and: [base, either] };
+}
+
+/**
  * The audit log (REQ-AUD-003, 007): filters by actor, actor type, action, category, outcome,
  * client and time range; saved searches; paging without a limit. New entries never move the rows
  * under the pointer: they are announced in a pill and shown when the reader asks (REQ-WI-012).
@@ -91,10 +109,10 @@ export function AuditLogTab() {
       return value === null || value === '' ? [] : [[key, value]];
     }),
   ) as Record<string, string>;
-  const { range, ...simple } = filters;
+  const { range, actor_id: person, ...simple } = filters;
   const searchKey = params.toString();
   const query: AuditEntriesQuery = useMemo(
-    () => ({ params: simple, filter: rangeFilter(range ?? '30d') }),
+    () => ({ params: simple, filter: withPerson(rangeFilter(range ?? '30d'), person) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the URL (searchKey) is the source of truth
     [searchKey],
   );

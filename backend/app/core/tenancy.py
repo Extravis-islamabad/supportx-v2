@@ -38,10 +38,10 @@ class AgentActor:
     it acts, never the person alone.
     """
 
+    id: uuid.UUID  # the agent's own ID: the audit's actor (lane B: never a NULL actor)
     key: str
     version: str
     tools: tuple[str, ...] = ()
-    id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True)

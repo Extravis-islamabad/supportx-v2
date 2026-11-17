@@ -64,8 +64,28 @@ def test_an_ai_agent_acts_for_a_person_with_its_version_and_tools() -> None:
 
 def test_an_agent_through_a_key_is_still_the_agent() -> None:
     """The most specific actor wins: the agent, on behalf of the key's owner."""
-    fake = AgentActor(key="triage_helper", version="3")
+    fake = AgentActor(uuid.uuid4(), "triage_helper", "3")
     acting = _acting(
         TenantContext(TENANT, PERSON, api_key_id=KEY, api_scopes=frozenset(), agent=fake)
     )
     assert (acting.type, acting.on_behalf) == (AuditActorType.AI_AGENT, PERSON)
+
+
+async def test_an_explicit_key_or_agent_actor_is_refused() -> None:
+    """Lane B (#531): only the session can say whom a key or an agent acted for."""
+    import pytest  # noqa: PLC0415 - this test only
+
+    from app.core.database import SESSION_TENANT_KEY  # noqa: PLC0415
+    from app.modules.audit import WORKER, record  # noqa: PLC0415
+
+    class _Session:
+        info = {SESSION_TENANT_KEY: TenantContext(TENANT, PERSON)}  # noqa: RUF012 - a stand-in
+
+    for kind in (AuditActorType.API_KEY, AuditActorType.AI_AGENT):
+        with pytest.raises(ValueError, match="lose whom it acted for"):
+            await record(
+                _Session(),  # type: ignore[arg-type] # refused before the session is used
+                action_code="api_key.refused",
+                facts=WORKER,
+                actor=(kind, KEY),
+            )
