@@ -2490,7 +2490,23 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       outage pausing with one notice, the console switch, tag and dialog. ADR-050 addendum 3.
       Notifications, AI sources and mail commands read no stored custom values today (checked
       2026-11-16); the guard test keeps it so.
-- [ ] Session 4: service accounts, key policy, non-person actors, security overview.
+- [ ] Session 4: service accounts, key policy, non-person actors, security overview (plan
+  approved 2026-11-16; S4a, S4b, S4d, then S4c; lane B blocks each PR).
+  - [x] **S4a (migration 0174; draft PR; lane B blocks):**
+    - **Service accounts (REQ-SEC-036):** an owner (an active technician) and a description;
+      Admin > Service accounts (template C plus a drawer form); roles through the guarded path
+      (a recent sign-in to give or take one, or to change the owner or turn it off or on).
+    - **Hand-over (AC3):** a deactivated owner's accounts are flagged `needs_new_owner`, and the
+      admins are told once (`identity_access.service_account.needs_owner`, required).
+    - **Key policy (REQ-SEC-037):** maximum lifetime (the refusal names the limit), an IP range
+      required, unused after N days. Older keys that break it are flagged and listed, never
+      revoked, and the card counts them before saving (the coordinator).
+    - **Fixes:** a service identity named on a record no longer causes a 500 (`people.py`, lane
+      A's OK); `UserCreatedV5` carries the `service_account` source.
+  - [ ] S4b: who acted (API key, service account, AI agent in `record()`).
+  - [ ] S4d: the security overview, with an optional `SUPPORTX_DATA_REGION`.
+  - [ ] S4c: vendor support access (D-173; design note in
+    ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
   tenant) moved to LATER (D-165).

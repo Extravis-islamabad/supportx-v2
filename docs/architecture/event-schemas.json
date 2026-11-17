@@ -3199,6 +3199,29 @@
         "type": "object"
       }
     },
+    "identity_access.service_account.needs_owner": {
+      "1": {
+        "description": "A service account's owner was deactivated: it needs a new one (WP-057 S4a, REQ-ADM-011).\n\nIDs only. The account keeps working (its keys are its own) until an admin acts.",
+        "properties": {
+          "previous_owner_id": {
+            "format": "uuid",
+            "title": "Previous Owner Id",
+            "type": "string"
+          },
+          "service_account_id": {
+            "format": "uuid",
+            "title": "Service Account Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_account_id",
+          "previous_owner_id"
+        ],
+        "title": "ServiceAccountNeedsOwner",
+        "type": "object"
+      }
+    },
     "identity_access.session.tenant_switched": {
       "1": {
         "description": "A signed-in user moved their session into this tenant.\n\nPublished in the tenant switched TO only; the previous tenant is deliberately not named, so\none tenant's subscribers never learn which other tenants a user belongs to.",
@@ -3459,6 +3482,44 @@
           "source"
         ],
         "title": "UserCreatedV4",
+        "type": "object"
+      },
+      "5": {
+        "description": "As UserCreatedV4, with `service_account` as a source: one an admin made (WP-057 S4a).\n\nA new allowed value, so a new schema version; v1 to v4 stay registered.",
+        "properties": {
+          "source": {
+            "enum": [
+              "admin",
+              "import",
+              "email",
+              "integration",
+              "workflow",
+              "service_account"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester",
+              "service"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "source"
+        ],
+        "title": "UserCreatedV5",
         "type": "object"
       }
     },

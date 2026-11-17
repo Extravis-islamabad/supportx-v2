@@ -94,6 +94,12 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'api_keys.manage',
   },
   {
+    key: 'service-accounts',
+    group: 'people_access',
+    labelKey: 'nav.admin_service_accounts',
+    permission: 'api_keys.manage',
+  },
+  {
     key: 'incidents',
     group: 'service_desk',
     labelKey: 'nav.admin_incidents',

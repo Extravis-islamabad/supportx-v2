@@ -302,7 +302,9 @@ export const ar: LabelResource = {
   'errors.field.api_key_allowlist_invalid': 'أدخل حتى 20 عنوانًا أو شبكة صالحة، مثل 10.0.0.0/8.',
   'errors.field.api_key_expiry_past': 'يجب أن يكون تاريخ الانتهاء في المستقبل.',
   'errors.field.api_key_expiry_required': 'اختر تاريخ انتهاء: لا تسمح مؤسستك بمفاتيح لا تنتهي.',
-  'errors.field.api_key_expiry_too_far': 'لا يمكن أن يدوم المفتاح أكثر من سنة.',
+  'errors.field.api_key_expiry_too_far': 'يمكن أن يدوم المفتاح {{max_days}} يومًا على الأكثر هنا.',
+  'errors.field.api_key_ip_range_required':
+    'تطلب هذه المؤسسة أن تحدد كل مفتاح جديد العناوين التي يمكن استخدامه منها.',
   'errors.field.api_key_name_invalid': 'أدخل اسمًا لا يتجاوز 100 حرف.',
   'errors.field.api_key_owner_not_service': 'مفاتيح الآخرين لا تكون إلا لهوية خدمة.',
   'errors.field.api_key_scope_unknown': 'اختر نطاقًا واحدًا على الأقل من النطاقات المعروضة.',
@@ -400,6 +402,7 @@ export const ar: LabelResource = {
   'errors.field.date_format_unknown': 'اختر تنسيق تاريخ من القائمة.',
   'errors.field.date_in_future': 'اختر تاريخ اليوم أو تاريخًا سابقًا.',
   'errors.field.date_in_past': 'اختر وقتًا بعد الآن.',
+  'errors.field.days_out_of_range': 'أدخل عدد أيام من {{min}} إلى {{max}}.',
   'errors.field.default_cannot_be_disabled':
     'لا يمكن إيقاف القالب الافتراضي. عيّن قالبًا آخر كافتراضي أولًا.',
   'errors.field.default_cannot_be_inactive': 'لا يمكن جعل الافتراضي غير نشط.',
@@ -638,6 +641,7 @@ export const ar: LabelResource = {
   'errors.field.same_folder': 'اختر مجلدًا مختلفًا لتقاريره.',
   'errors.field.schedule_never_runs': 'بهذه التواريخ لن تعمل الجدولة أبدًا.',
   'errors.field.scope_not_allowed': 'هذا النطاق غير متاح لهذه الصلاحية.',
+  'errors.field.service_account_owner_invalid': 'اختر فنيًا نشطًا مالكًا.',
   'errors.field.session_absolute_out_of_range':
     'استخدم مدة لا تقل عن مهلة عدم النشاط ولا تزيد على {{max}} ساعة.',
   'errors.field.session_idle_out_of_range': 'استخدم ما بين {{min}} و{{max}} دقيقة.',
@@ -1056,6 +1060,7 @@ export const ar: LabelResource = {
   'errors.saved_view_not_found': 'لم يعد هذا العرض المحفوظ موجودًا، أو أنه ليس لك.',
   'errors.scale_value_not_found': 'هذه القيمة غير موجودة.',
   'errors.server_busy': 'كان خادم البريد مشغولًا.',
+  'errors.service_account_owner_invalid': 'اختر فنيًا نشطًا مالكًا.',
   'errors.service_category_in_use':
     'لا تزال هذه الفئة تحتوي على عناصر أو فئات. انقلها أو احذفها أولاً.',
   'errors.service_category_not_found': 'هذه الفئة غير موجودة.',

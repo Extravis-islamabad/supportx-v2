@@ -71,6 +71,10 @@ class IdentitySettingsView:
     # REQ-INT-019, REQ-SEC-037 (D-128): people make keys for themselves; keys without expiry.
     people_may_create_keys: bool = False
     allow_non_expiring_keys: bool = False
+    # WP-057 S4a (REQ-SEC-037): the key policy for new keys (older ones are flagged, not revoked).
+    key_max_lifetime_days: int = 366
+    keys_require_ip_range: bool = False
+    key_unused_days: int = 90
     # Not edited: whether the worker has written the policy into the realm (models.py).
     password_policy_state: str = "default"  # noqa: S105 - a state code, not a password
     password_policy_error: str | None = None
@@ -154,8 +158,32 @@ def check_session_limits(values: IdentitySettingsView) -> None:
                 params={"min": 0, "max": MAX_MFA_GRACE_DAYS},
             )
         )
+    errors += _key_policy_problems(values)
     if errors:
         raise ValidationFailed(errors=errors)
+
+
+KEY_LIFETIME_DAYS = (1, 366)  # 0174's check
+KEY_UNUSED_DAYS = (7, 365)  # 0174's check
+
+
+def _key_policy_problems(values: IdentitySettingsView) -> list[FieldError]:
+    """The key policy's ranges, each at its field with the range (REQ-SEC-037)."""
+    errors: list[FieldError] = []
+    for name, (low, high) in (
+        ("key_max_lifetime_days", KEY_LIFETIME_DAYS),
+        ("key_unused_days", KEY_UNUSED_DAYS),
+    ):
+        if not low <= getattr(values, name) <= high:
+            errors.append(
+                FieldError(
+                    field=name,
+                    code="days_out_of_range",
+                    message_key="errors.field.days_out_of_range",
+                    params={"min": low, "max": high},
+                )
+            )
+    return errors
 
 
 async def save_identity_settings(
