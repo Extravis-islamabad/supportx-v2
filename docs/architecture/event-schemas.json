@@ -4368,6 +4368,57 @@
         ],
         "title": "CustomFieldChanged",
         "type": "object"
+      },
+      "2": {
+        "description": "As CustomFieldChanged, with the field's type scope (0175): None for the whole entity.\n\nA new field, so a new schema version; v1 stays registered for events already stored.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "custom_field_id": {
+            "format": "uuid",
+            "title": "Custom Field Id",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "scope_type_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Type Id"
+          }
+        },
+        "required": [
+          "custom_field_id",
+          "entity",
+          "key",
+          "change",
+          "changed_fields",
+          "scope_type_id"
+        ],
+        "title": "CustomFieldChangedV2",
+        "type": "object"
       }
     },
     "metadata.custom_field.seal_changed": {

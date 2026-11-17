@@ -220,6 +220,8 @@ export const ar: LabelResource = {
   'errors.custom_field_limit_reached':
     'لهذا النوع من السجلات {{limit}} حقلًا مخصصًا، وهو الحد الأقصى. احذف حقلًا أو أعد استخدامه أولًا.',
   'errors.custom_field_not_found': 'هذا الحقل المخصص غير موجود (لم يعد موجودًا).',
+  'errors.custom_field_scope_in_use':
+    'تحتوي سجلات على قيم في هذا الحقل، لذا يمكن توسيعه ليشمل أنواعًا أكثر فقط، ولا يمكن تضييقه.',
   'errors.custom_field_sensitive_unsupported':
     'لا يمكن وضع علامة "حساس" على حقول هذا النوع من السجلات.',
   'errors.custom_field_used_by_rule':
@@ -398,6 +400,11 @@ export const ar: LabelResource = {
   'errors.field.conflict_not_found': 'لم يعد هذا التعارض موجودًا. تعرض القائمة التعارضات الحالية.',
   'errors.field.country_invalid': 'اختر دولة من القائمة.',
   'errors.field.currency_unknown': 'اختر عملة من القائمة.',
+  'errors.field.custom_field_scope_unknown': 'هذا النوع غير موجود (بعد الآن).',
+  'errors.field.custom_field_scope_unsupported':
+    'لا توجد أنواع لهذا النوع من السجلات لقصر الحقل عليها.',
+  'errors.field.custom_field_sensitive_unsupported':
+    'لا يمكن وسم حقول هذا النوع من السجلات بأنها حساسة.',
   'errors.field.dashboard_not_shared': 'يمكن أن تكون لوحة البداية لدور لوحة مدمجة أو مشتركة فقط.',
   'errors.field.date_format_unknown': 'اختر تنسيق تاريخ من القائمة.',
   'errors.field.date_in_future': 'اختر تاريخ اليوم أو تاريخًا سابقًا.',

@@ -239,6 +239,8 @@ export const en = {
   'errors.custom_field_limit_reached':
     'This kind of record already has {{limit}} custom fields, the most allowed. Remove or reuse one first.',
   'errors.custom_field_not_found': 'This custom field does not exist (any more).',
+  'errors.custom_field_scope_in_use':
+    'Records already hold values in this field, so it can only apply to more types now, never fewer.',
   'errors.custom_field_sensitive_unsupported':
     'Fields of this kind of record cannot be marked sensitive.',
   'errors.custom_field_used_by_rule':
@@ -436,6 +438,11 @@ export const en = {
     'This conflict is no longer there. The list shows the conflicts now.',
   'errors.field.country_invalid': 'Choose a country from the list.',
   'errors.field.currency_unknown': 'Choose a currency from the list.',
+  'errors.field.custom_field_scope_unknown': 'This type does not exist (any more).',
+  'errors.field.custom_field_scope_unsupported':
+    'This kind of record has no types to limit a field to.',
+  'errors.field.custom_field_sensitive_unsupported':
+    'Fields of this kind of record cannot be marked sensitive.',
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",
   'errors.field.date_format_unknown': 'Choose a date format from the list.',
   'errors.field.date_in_future': 'Choose today or an earlier date.',

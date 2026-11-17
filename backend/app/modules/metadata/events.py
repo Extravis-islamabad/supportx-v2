@@ -23,6 +23,24 @@ class CustomFieldChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class CustomFieldChangedV2(DomainEvent):
+    """As CustomFieldChanged, with the field's type scope (0175): None for the whole entity.
+
+    A new field, so a new schema version; v1 stays registered for events already stored.
+    """
+
+    event_type: ClassVar[str] = "metadata.custom_field.changed"
+    schema_version: ClassVar[int] = 2
+    aggregate_type: ClassVar[str] = "custom_field"
+
+    custom_field_id: uuid.UUID
+    entity: str
+    key: str
+    change: str  # created, updated, retired, restored, deleted, reordered, index_requested
+    changed_fields: list[str]
+    scope_type_id: uuid.UUID | None
+
+
 class CustomFieldSealChanged(DomainEvent):
     """A field's values started or finished being sealed or opened (WP-057 S3b-2b).
 
@@ -59,6 +77,7 @@ class CustomFieldSealPaused(DomainEvent):
 
 EVENTS: tuple[type[DomainEvent], ...] = (
     CustomFieldChanged,
+    CustomFieldChangedV2,
     CustomFieldSealChanged,
     CustomFieldSealPaused,
 )

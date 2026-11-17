@@ -45,7 +45,13 @@ from app.modules.assets.api.routes import router
 from app.modules.assets.api.stock import router as stock_router
 from app.modules.assets.domain.scans import ScanFailure, ScanResult, ScanSource, ScanType
 from app.modules.assets.events import EVENTS
-from app.modules.assets.service import erasure_mentions, notifications, person_data, reporting
+from app.modules.assets.service import (
+    erasure_mentions,
+    notifications,
+    person_data,
+    reporting,
+    type_tree,
+)
 from app.modules.assets.service.assets import (
     EDIT_DISPOSED,
     VIEW_FINANCIALS,
@@ -192,6 +198,7 @@ module = ModuleSpec(
 erasure_mentions.register()
 # GDPR erasure (ADR-052 §4): assets' two ports and what a person still holds, at import too.
 person_data.register()
+type_tree.register()  # custom fields scoped to a product type subtree (0175)
 # Disposal certificates (REQ-AST-017): at import, for the workers too; startup registers again
 # after a shutdown (tests start and stop the app), as knowledge does.
 register_owner_access(FILE_ACCESS)

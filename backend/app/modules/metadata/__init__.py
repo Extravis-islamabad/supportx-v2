@@ -26,6 +26,7 @@ from app.modules.metadata.service.custom_fields import (
     clean,
     definitions,
     field_marks,
+    fields_scoped_to,
     filter_fields,
     mark_used,
     problem_params,
@@ -47,6 +48,11 @@ from app.modules.metadata.service.sensitivity import finish as finish_seal
 from app.modules.metadata.service.sensitivity import hold as hold_seal
 from app.modules.metadata.service.sensitivity import moving as fields_being_sealed
 from app.modules.metadata.service.sensitivity import paused as seal_paused
+from app.modules.metadata.service.type_trees import (
+    TypeTree,
+    register_type_tree,
+    unregister_type_tree,
+)
 
 FEATURE = "incident"
 
@@ -73,11 +79,13 @@ __all__ = [
     "FieldType",
     "Moving",
     "SealPort",
+    "TypeTree",
     "advance_seal",
     "clean",
     "definitions",
     "field_marks",
     "fields_being_sealed",
+    "fields_scoped_to",
     "filter_fields",
     "finish_seal",
     "hold_seal",
@@ -86,8 +94,10 @@ __all__ = [
     "problem_params",
     "register_field_usage",
     "register_seal_port",
+    "register_type_tree",
     "seal_paused",
     "text_for_search",
+    "unregister_type_tree",
 ]
 
 seal_notifications.register()
