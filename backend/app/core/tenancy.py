@@ -30,6 +30,21 @@ _REQUEST_CONTEXT_ATTR = "tenant_context"
 
 
 @dataclass(frozen=True)
+class AgentActor:
+    """An AI agent doing work for a person (REQ-AUD-014, WP-057 S4b).
+
+    `key` is the agent's catalogue code, `version` the published version that ran and `tools` the
+    tools it may call in this run. The audit log names the agent, with the person on whose behalf
+    it acts, never the person alone.
+    """
+
+    key: str
+    version: str
+    tools: tuple[str, ...] = ()
+    id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True)
 class TenantContext:
     """Who the current work is for: the tenant and the acting user (None for system work)."""
 
@@ -42,6 +57,10 @@ class TenantContext:
     # acts as its owner (`user_id`) limited to these scopes; the owner's permissions are live.
     api_key_id: uuid.UUID | None = None
     api_scopes: frozenset[str] | None = None
+    # The key's owner is a service account, not a person (WP-057 S4b): the audit names the account.
+    service_identity: bool = False
+    # Work an AI agent does for `user_id` (WP-057 S4b); None for everything else.
+    agent: AgentActor | None = None
 
 
 # Returns the session's context, None when the request has no session, or raises a problem

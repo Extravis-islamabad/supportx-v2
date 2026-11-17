@@ -312,6 +312,7 @@ async def authenticate(
                 .values(last_used_at=now, last_used_ip=facts.ip)
             )
         key_id, owner_id, scopes, name = row.id, row.owner_id, frozenset(row.scopes), row.name
+        service_identity = owner.user_type == "service"
     if not allowed:
         # Refused and written down: which key, from where (REQ-INT-019 AC3).
         await record_alone(
@@ -327,7 +328,13 @@ async def authenticate(
             },
         )
         raise PermissionDenied(code="api_key_ip_refused" if not key_allowed else "ip_not_allowed")
-    return TenantContext(parsed.tenant_id, owner_id, api_key_id=key_id, api_scopes=scopes)
+    return TenantContext(
+        parsed.tenant_id,
+        owner_id,
+        api_key_id=key_id,
+        api_scopes=scopes,
+        service_identity=service_identity,
+    )
 
 
 def bearer(authorization: str | None) -> str | None:
