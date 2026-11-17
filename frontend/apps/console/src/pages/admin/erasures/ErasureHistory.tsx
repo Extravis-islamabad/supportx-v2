@@ -1,4 +1,4 @@
-import { Button, Flex, List, Typography } from 'antd';
+import { Button, Flex, List, Typography, theme } from 'antd';
 import { useMemo } from 'react';
 
 import { useAuditEntries } from '@supportx/api-client';
@@ -14,6 +14,8 @@ const AUDIT_VIEW = 'audit.view';
  */
 export function ErasureHistory({ erasureId }: { erasureId: string }) {
   const t = useLabel();
+  // The secondary text colour the shared layouts use: Typography's is too faint on dark (axe).
+  const { token } = theme.useToken();
   const dates = useDateTime();
   const { can } = useAccess();
   const allowed = can(AUDIT_VIEW);
@@ -41,13 +43,13 @@ export function ErasureHistory({ erasureId }: { erasureId: string }) {
             <List.Item key={entry.id}>
               <Flex vertical>
                 <span>{hasLabel(action) ? t(action) : t('people_erasure.history_other')}</span>
-                <Typography.Text type="secondary">
+                <span style={{ color: token.colorTextSecondary }}>
                   <bdi dir="auto">{entry.actor_name ?? t('people_erasure.unknown_person')}</bdi>
                   {' · '}
                   <span title={dates.format(entry.occurred_at)}>
                     {dates.relative(entry.occurred_at)}
                   </span>
-                </Typography.Text>
+                </span>
               </Flex>
             </List.Item>
           );

@@ -210,10 +210,18 @@ const privacyTab = async (page: Page, held: boolean) => {
   await mockPeopleList(page);
   await page.reload();
   await page.getByText('Noor Hassan').first().click({ timeout: STATE_TIMEOUT });
-  await page
-    .locator('[data-node-key="privacy"] [role="tab"]')
-    .first()
-    .click({ timeout: STATE_TIMEOUT });
+  const tab = page.locator('[data-node-key="privacy"] [role="tab"]').first();
+  await page.locator('[data-node-key="details"]').first().waitFor({ timeout: STATE_TIMEOUT });
+  if (await tab.isVisible()) {
+    await tab.click({ timeout: STATE_TIMEOUT });
+  } else {
+    // Five tabs in a drawer: antd moves the last ones into its "more" menu (run 44102835733).
+    await page.locator('.ant-drawer .ant-tabs-nav-more').first().click({ timeout: STATE_TIMEOUT });
+    await page
+      .locator('.ant-tabs-dropdown-menu-item[data-menu-id$="privacy"]')
+      .first()
+      .click({ timeout: STATE_TIMEOUT });
+  }
   // Later shots of the people list read the real list again.
   await page.unroute(/\/api\/v1\/users(\?.*)?$/u);
 };
