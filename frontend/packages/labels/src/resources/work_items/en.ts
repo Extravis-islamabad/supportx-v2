@@ -1057,6 +1057,8 @@ export const en = {
   'incidents.mail_no_subject': 'E-mail without a subject',
   'incidents.merge.action': 'Merge into another incident',
   'incidents.merge.at_least': 'at least {{count}}',
+  'incidents.merge.audience_changed':
+    'Who would newly see this incident changed since the preview. Check the new counts and confirm again.',
   'incidents.merge.children_move': 'Child incidents that move: {{shown}}',
   'incidents.merge.confirm': 'Merge',
   'incidents.merge.confirm_wider': 'I understand these people would newly see this incident.',
@@ -1078,6 +1080,7 @@ export const en = {
   'incidents.moved.hidden': 'a record you cannot open',
   'incidents.moved.merged': 'This incident was merged into',
   'incidents.moved.undo': 'Undo merge',
+  'incidents.moved.undo_confirm': 'Put {{id}} back as it was before the merge?',
   'incidents.new': 'New incident',
   'incidents.no_category': 'No category',
   'incidents.no_department': 'No department',

@@ -7,6 +7,7 @@ import {
   fakeIncident,
   fakeIncidentCatalogue,
   fakeIncidentTemplate,
+  problem,
 } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
@@ -140,6 +141,12 @@ describe('Merge an incident', () => {
     });
     expect(banner.textContent).toContain('This incident was merged into');
     fireEvent.click(within(banner).getByTestId('inc-undo-merge'));
+    // Asked first: nothing is sent until the undo is confirmed (lane C).
+    expect(
+      await screen.findByText(`Put ${ITEM.display_id} back as it was before the merge?`),
+    ).toBeTruthy();
+    expect(fake.find('POST', `${PATH}/undo-merge`)).toHaveLength(0);
+    fireEvent.click(await screen.findByTestId('inc-undo-merge-ok'));
     await waitFor(() => {
       expect(fake.find('POST', `${PATH}/undo-merge`)).toHaveLength(1);
     });
@@ -149,7 +156,63 @@ describe('Merge an incident', () => {
   });
 });
 
+describe('Merge when the audience grew meanwhile', () => {
+  it('says the counts changed and asks for the tick again', async () => {
+    let previews = 0;
+    let merges = 0;
+    const fake = consoleApi({
+      me: ADMIN,
+      routes: routes({
+        [`GET ${PATH}/merge-preview`]: () => {
+          previews += 1;
+          return { body: { ...PREVIEW, staff_newly_seeing: previews === 1 ? 3 : 4 } };
+        },
+        [`POST ${PATH}/merge`]: () => {
+          merges += 1;
+          return {
+            status: 409,
+            body: problem(409, 'merge_widens_audience', {
+              params: { staff: '4', requesters: '0', followers: '0', complete: 'true' },
+            }),
+          };
+        },
+      }),
+    });
+    restore = fake.restore;
+    render(<App />);
+    await clickAction('inc-op-merge');
+    const dialog = await screen.findByTestId('inc-merge-dialog');
+    fireEvent.mouseDown(within(dialog).getByRole('combobox', { name: 'The incident to keep' }));
+    fireEvent.click(await screen.findByTestId('inc-merge-into-option-INC-8'));
+    fireEvent.click(await screen.findByTestId('inc-merge-wider-ok'));
+    fireEvent.click(screen.getByTestId('inc-merge-confirm'));
+    expect(await screen.findByTestId('inc-merge-changed')).toBeTruthy();
+    expect(await screen.findByText('Staff who would newly see this incident: 4')).toBeTruthy();
+    expect(screen.getByTestId('inc-merge-confirm').hasAttribute('disabled')).toBe(true);
+    expect(merges).toBe(1);
+  });
+});
+
 describe('Convert an incident', () => {
+  it('says why when the server refuses the preview', async () => {
+    const fake = consoleApi({
+      me: ADMIN,
+      routes: routes({
+        [`GET ${PATH}/convert-preview`]: {
+          status: 409,
+          body: problem(409, 'record_closed'),
+        },
+        'GET /api/v1/catalog/items': { body: [] },
+      }),
+    });
+    restore = fake.restore;
+    render(<App />);
+    await clickAction('inc-op-convert');
+    const refused = await screen.findByTestId('inc-convert-refused');
+    expect(refused.textContent).toContain('Closed and cancelled records cannot be changed.');
+    expect(screen.getByTestId('inc-convert-confirm').hasAttribute('disabled')).toBe(true);
+  });
+
   it('lists the fields left behind by name and sends the chosen catalog item', async () => {
     const cost = fakeCustomField({ key: 'cost_code', labels: { en: 'Cost code' } });
     const fake = consoleApi({

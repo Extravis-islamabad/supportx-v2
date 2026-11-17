@@ -1,4 +1,15 @@
-import { Alert, Checkbox, Flex, Form, List, Modal, Select, Skeleton, Typography } from 'antd';
+import {
+  Alert,
+  Checkbox,
+  Flex,
+  Form,
+  List,
+  Modal,
+  Popconfirm,
+  Select,
+  Skeleton,
+  Typography,
+} from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -46,6 +57,22 @@ const RECORD_PATHS: Record<string, string> = {
   incident: 'incidents',
   service_request: 'requests',
 };
+
+/** A preview the server refused, in words (its problem code's label), never empty. */
+function Refused({ error, testId }: { error: unknown; testId: string }) {
+  const t = useLabel();
+  return (
+    <Alert
+      type="error"
+      showIcon
+      data-testid={testId}
+      message={t(
+        error instanceof ApiError ? `errors.${error.code}` : 'errors.unexpected',
+        error instanceof ApiError ? error.params : {},
+      )}
+    />
+  );
+}
 
 /** The preview's audience lines, counts only: who would newly see the duplicate. */
 function Audience({ preview }: { preview: IncidentMergePreview }) {
@@ -106,12 +133,15 @@ export function MergeIncidentDialog({
   const t = useLabel();
   const [into, setInto] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  // The audience grew between the preview and the merge: the new counts are shown, said so.
+  const [changed, setChanged] = useState(false);
   const preview = useMergePreview(item.id, open ? into : null);
   const merge = useMergeIncident(item.id);
   const needs = preview.data?.needs_confirmation === true;
   const close = () => {
     setInto(null);
     setConfirmed(false);
+    setChanged(false);
     onClose();
   };
   return (
@@ -137,6 +167,7 @@ export function MergeIncidentDialog({
               // Someone joined the audience since the preview: show the new counts to confirm.
               if (error instanceof ApiError && error.code === 'merge_widens_audience') {
                 setConfirmed(false);
+                setChanged(true);
                 void preview.refetch();
                 return;
               }
@@ -158,6 +189,7 @@ export function MergeIncidentDialog({
               onChange={(next) => {
                 setInto(next);
                 setConfirmed(false);
+                setChanged(false);
               }}
               from={{
                 id: item.id,
@@ -173,19 +205,18 @@ export function MergeIncidentDialog({
           (preview.isLoading ? (
             <Skeleton active paragraph={{ rows: 2 }} />
           ) : preview.isError ? (
-            <Alert
-              type="error"
-              showIcon
-              data-testid="inc-merge-refused"
-              message={t(
-                preview.error instanceof ApiError
-                  ? `errors.${preview.error.code}`
-                  : 'errors.unexpected',
-                preview.error instanceof ApiError ? preview.error.params : {},
-              )}
-            />
+            <Refused error={preview.error} testId="inc-merge-refused" />
           ) : preview.data !== undefined ? (
             <>
+              {changed && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  role="alert"
+                  data-testid="inc-merge-changed"
+                  message={t('incidents.merge.audience_changed')}
+                />
+              )}
               <Audience preview={preview.data} />
               {needs && (
                 <Checkbox
@@ -249,16 +280,20 @@ export function MovedBanner({
       }
       action={
         merged && kind === 'incidents' ? (
-          <WriteButton
-            size="small"
-            loading={undo.isPending}
-            data-testid="inc-undo-merge"
-            onClick={() => {
+          // Asked first (lane C): undo moves children and followers back.
+          <Popconfirm
+            title={t('incidents.moved.undo_confirm', { id: item.display_id })}
+            okText={t('incidents.moved.undo')}
+            cancelText={t('actions.cancel')}
+            okButtonProps={{ 'data-testid': 'inc-undo-merge-ok' }}
+            onConfirm={() => {
               undo.mutate(item.version, { onError: reportError });
             }}
           >
-            {t('incidents.moved.undo')}
-          </WriteButton>
+            <WriteButton size="small" loading={undo.isPending} data-testid="inc-undo-merge">
+              {t('incidents.moved.undo')}
+            </WriteButton>
+          </Popconfirm>
         ) : undefined
       }
     />
@@ -452,6 +487,8 @@ export function ConvertDialog({
         </Typography.Paragraph>
         {preview.isLoading ? (
           <Skeleton active paragraph={{ rows: 2 }} />
+        ) : preview.isError ? (
+          <Refused error={preview.error} testId="inc-convert-refused" />
         ) : preview.data !== undefined ? (
           <>
             <LeftBehind kind={kind} keys={preview.data.not_carried} />

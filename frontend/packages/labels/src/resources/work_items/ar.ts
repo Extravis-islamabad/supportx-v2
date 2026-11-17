@@ -1207,6 +1207,8 @@ export const ar: LabelResource = {
   'incidents.mail_no_subject': 'بريد إلكتروني بلا موضوع',
   'incidents.merge.action': 'دمج في حادثة أخرى',
   'incidents.merge.at_least': '{{count}} على الأقل',
+  'incidents.merge.audience_changed':
+    'تغيّر من سيرى هذه الحادثة لأول مرة منذ المعاينة. راجع الأعداد الجديدة وأكّد مرة أخرى.',
   'incidents.merge.children_move': 'الحوادث الفرعية التي تنتقل: {{shown}}',
   'incidents.merge.confirm': 'دمج',
   'incidents.merge.confirm_wider': 'أفهم أن هؤلاء الأشخاص سيرون هذه الحادثة لأول مرة.',
@@ -1226,6 +1228,7 @@ export const ar: LabelResource = {
   'incidents.moved.hidden': 'سجل لا يمكنك فتحه',
   'incidents.moved.merged': 'دُمجت هذه الحادثة في',
   'incidents.moved.undo': 'التراجع عن الدمج',
+  'incidents.moved.undo_confirm': 'إعادة {{id}} كما كانت قبل الدمج؟',
   'incidents.new': 'حادثة جديدة',
   'incidents.no_category': 'بلا فئة',
   'incidents.no_department': 'بلا قسم',

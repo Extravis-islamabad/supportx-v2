@@ -1063,6 +1063,8 @@ export const ur: LabelResource = {
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
   'incidents.merge.action': 'دوسرے واقعے میں ضم کریں',
   'incidents.merge.at_least': 'کم از کم {{count}}',
+  'incidents.merge.audience_changed':
+    'پیش نظارہ کے بعد یہ بدل گیا ہے کہ یہ واقعہ پہلی بار کون دیکھے گا۔ نئی گنتی دیکھیں اور دوبارہ تصدیق کریں۔',
   'incidents.merge.children_move': 'منتقل ہونے والے ذیلی واقعات: {{shown}}',
   'incidents.merge.confirm': 'ضم کریں',
   'incidents.merge.confirm_wider': 'میں سمجھتا ہوں کہ یہ لوگ یہ واقعہ پہلی بار دیکھیں گے۔',
@@ -1085,6 +1087,7 @@ export const ur: LabelResource = {
   'incidents.moved.hidden': 'ایسا ریکارڈ جو آپ نہیں کھول سکتے',
   'incidents.moved.merged': 'یہ واقعہ ضم کیا گیا:',
   'incidents.moved.undo': 'ضم واپس لیں',
+  'incidents.moved.undo_confirm': 'کیا {{id}} کو ضم سے پہلے جیسا کر دیں؟',
   'incidents.new': 'نیا واقعہ',
   'incidents.no_category': 'کوئی زمرہ نہیں',
   'incidents.no_department': 'کوئی شعبہ نہیں',
