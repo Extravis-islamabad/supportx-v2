@@ -78,6 +78,8 @@ export interface ErasureMockState {
   exists: boolean;
   /** The made-up person is on legal hold. */
   held: boolean;
+  /** The hold's reason is answered: only holders of audit.manage_holds get it (#532). */
+  reasonShown: boolean;
   state: 'requested' | 'approved';
   reviewed: boolean;
   redacted: boolean;
@@ -153,6 +155,7 @@ export async function mockErasures(
   const s: ErasureMockState = {
     exists: true,
     held: false,
+    reasonShown: true,
     state: 'requested',
     reviewed: false,
     redacted: false,
@@ -220,7 +223,7 @@ export async function mockErasures(
       held: s.held,
       held_at: s.held ? new Date(Date.now() - 2 * 86_400_000).toISOString() : null,
       held_by: s.held ? FAKE.requester : null,
-      reason: s.held ? 'Employment tribunal, case 42' : null,
+      reason: s.held && s.reasonShown ? 'Employment tribunal, case 42' : null,
       version: 3,
     });
   });
@@ -308,4 +311,27 @@ export async function mockPeopleList(page: Page): Promise<void> {
         })
       : route.continue(),
   );
+}
+
+/**
+ * The signed-in persona as a holder of audit.manage_holds, in this browser only: the real
+ * session's answer with that one right added, so a shot can show the hold manager's view (the
+ * reason, the lift dialog). Nothing changes on the server. Undo with `page.unroute(ME)`.
+ */
+export const ME = '**/api/v1/auth/me';
+export async function asHoldManager(page: Page): Promise<void> {
+  await page.route(ME, async (route) => {
+    const real = await route.fetch();
+    const body = (await real.json()) as { permissions?: { key: string }[] | null };
+    const permissions = body.permissions ?? [];
+    if (!permissions.some((p) => p.key === 'audit.manage_holds')) {
+      permissions.push({
+        key: 'audit.manage_holds',
+        scope: 'all',
+        scopes: ['all'],
+        conditional: false,
+      } as { key: string });
+    }
+    await route.fulfill({ response: real, json: { ...body, permissions } });
+  });
 }

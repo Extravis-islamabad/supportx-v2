@@ -4,7 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { PORTAL_URL, passwordOf, SEEDED, USERS } from '../stack';
-import { FAKE, mockErasures, mockPeopleList } from './erasureMocks';
+import { FAKE, ME, asHoldManager, mockErasures, mockPeopleList } from './erasureMocks';
 import { signIn } from './helpers';
 
 // The daily visual review (product owner, 2026-11-04): every console and portal screen in every
@@ -205,8 +205,8 @@ const erasureState = (name: string, testId: string, after?: (page: Page) => Prom
     await page.waitForTimeout(400);
   },
 });
-const privacyTab = async (page: Page, held: boolean) => {
-  await mockErasures(page, { exists: false, held });
+const privacyTab = async (page: Page, held: boolean, reasonShown = true) => {
+  await mockErasures(page, { exists: false, held, reasonShown });
   await mockPeopleList(page);
   await page.reload();
   const crashes: string[] = [];
@@ -626,9 +626,30 @@ export const SCREENS: Screen[] = [
     state: {
       name: 'lift',
       open: async (page: Page) => {
-        await privacyTab(page, true);
-        await click('legal-hold-switch')(page);
-        await page.getByTestId('legal-hold-dialog').first().waitFor({ timeout: STATE_TIMEOUT });
+        // The hold manager's view (lane C): the hold as placed with its reason, then lifting it.
+        await asHoldManager(page);
+        try {
+          await privacyTab(page, true);
+          await page.getByTestId('legal-hold-details').first().waitFor({ timeout: STATE_TIMEOUT });
+          await click('legal-hold-switch')(page);
+          await page.getByTestId('legal-hold-reason').first().waitFor({ timeout: STATE_TIMEOUT });
+        } finally {
+          await page.unroute(ME);
+        }
+      },
+    },
+  },
+  {
+    // Someone who may ask for erasure but not place holds: held, by whom and since, never why.
+    key: 'person-legal-hold',
+    path: '/admin/users',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'held',
+      open: async (page: Page) => {
+        await privacyTab(page, true, false);
+        await page.getByTestId('legal-hold-details').first().waitFor({ timeout: STATE_TIMEOUT });
       },
     },
   },
