@@ -804,6 +804,7 @@ export const ur: LabelResource = {
     '{{ task.title }} {{ task.starts_at }} پر شروع ہوگا',
   'notification_template.task.starts_soon.subject':
     'جلد شروع: {{ task.title }} ({{ record.display_id }})',
+  'notification_value.unnamed_requester': 'درخواست گزار',
   'notification_variable.acknowledgement.comment': 'تصدیق › تبصرہ',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
   'notification_variable.approval.comment': 'منظوری دینے والے کا تبصرہ',

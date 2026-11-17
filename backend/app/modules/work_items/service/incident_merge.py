@@ -316,6 +316,20 @@ async def _child_back(
     await parts.link_recorded(session, child, duplicate, back, "child_added", source)
 
 
+async def _merged_into(session: AsyncSession, duplicate_id: uuid.UUID) -> WorkItemLink | None:
+    """The duplicate's live merged-into link, read fresh."""
+    found: WorkItemLink | None = await session.scalar(
+        select(WorkItemLink)
+        .where(
+            WorkItemLink.source_id == duplicate_id,
+            WorkItemLink.kind == LinkKind.MERGED_INTO.value,
+            WorkItemLink.deleted_at.is_(None),
+        )
+        .execution_options(populate_existing=True)
+    )
+    return found
+
+
 def _not_exact(duplicate: WorkItem, why: str) -> Conflict:
     return Conflict(
         code="merge_undo_not_exact", params={"display_id": duplicate.display_id, "why": why}
@@ -337,7 +351,11 @@ async def undo_merge(
     child that moved has since been linked elsewhere: a partial undo would leave records where
     nobody put them.
     """
-    await lock(session, duplicate_id)
+    # Both rows locked together, in ID order, as merge does: locking the duplicate and then the
+    # survivor could deadlock with a merge of the same pair (lane B). The link is read before
+    # the locks to find the survivor, and again after them in case it changed meanwhile.
+    before = await _merged_into(session, duplicate_id)
+    await lock(session, duplicate_id, *((before.target_id,) if before is not None else ()))
     duplicate = await items.record_for_action(session, subject, INCIDENT, "view", duplicate_id)
     if not await items.may(session, subject, INCIDENT, UNDO_MERGE, duplicate.id):
         raise PermissionDenied(params={"permission": INCIDENT.permission(UNDO_MERGE)})
@@ -346,16 +364,9 @@ async def undo_merge(
     if duplicate.version != expected_version:
         raise await items.stale_record(session, duplicate, expected_version)
     what = await _last_merge(session, duplicate.id)
-    link = await session.scalar(
-        select(WorkItemLink).where(
-            WorkItemLink.source_id == duplicate.id,
-            WorkItemLink.kind == LinkKind.MERGED_INTO.value,
-            WorkItemLink.deleted_at.is_(None),
-        )
-    )
-    if what is None or link is None:  # pragma: no cover - a merge always writes both
+    link = await _merged_into(session, duplicate.id)
+    if what is None or link is None or before is None or link.target_id != before.target_id:
         raise Conflict(code="not_merged", params={"display_id": duplicate.display_id})
-    await lock(session, link.target_id)
     survivor = await items.record_for_action(session, subject, INCIDENT, "edit", link.target_id)
     if not _open(survivor):
         raise _not_exact(duplicate, "survivor_closed")

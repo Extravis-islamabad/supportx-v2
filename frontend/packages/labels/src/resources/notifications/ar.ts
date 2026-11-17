@@ -796,6 +796,7 @@ export const ar: LabelResource = {
   'notification_template.task.starts_soon.in_app': 'تبدأ {{ task.title }} في {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'تبدأ قريبًا: {{ task.title }} ({{ record.display_id }})',
+  'notification_value.unnamed_requester': 'مقدّم الطلب',
   'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
   'notification_variable.approval.comment': 'تعليق الموافِق',

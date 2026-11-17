@@ -274,3 +274,100 @@ async def test_a_follower_brought_by_a_merge_is_counted_and_confirmed(
         a.requester2,
     )
     assert [r["grants_access"] for r in follows] == [False]
+
+
+async def test_an_undo_and_a_merge_of_the_same_pair_never_deadlock(world: World) -> None:  # noqa: F811
+    """Lane B: undo locks both records in ID order, as merge does: one waits, none 500s."""
+    import asyncio  # noqa: PLC0415
+
+    a = world.a
+    survivor = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    duplicate = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    elsewhere = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    done = await _merge(
+        world, a, a.admin, await _fresh(world, a, duplicate), survivor, confirm=True
+    )
+    assert done.status_code == 200, done.text
+    merged = await _fresh(world, a, duplicate)
+    survivor = await _fresh(world, a, survivor)
+    undo = world.call(
+        "POST",
+        f"{BASE}/{duplicate['id']}/undo-merge",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{merged["version"]}"', **CONSOLE},
+    )
+    onward = _merge(world, a, a.admin, survivor, elsewhere, confirm=True)
+    runs = await asyncio.gather(undo, onward)
+    assert {r.status_code for r in runs} <= {200, 409}, [r.text for r in runs]
+    assert any(r.status_code == 200 for r in runs), [r.text for r in runs]
+
+
+async def test_a_merged_in_follower_hears_the_public_side_and_the_name_only_nearby(
+    world: World,  # noqa: F811
+    app_db: Any,  # noqa: ANN401 - the app's Database fixture
+) -> None:
+    """Coordinator's default (until Haider answers): the survivor's requester is named only to
+    followers in the same department; anyone else reads "the requester". Staff unchanged."""
+    import uuid  # noqa: PLC0415
+
+    from app.core.tenancy import TenantContext  # noqa: PLC0415
+    from app.modules.work_items.service.notifications import (  # noqa: PLC0415
+        IncidentNotifications,
+    )
+    from app.modules.work_items.service.requester_names import UNNAMED  # noqa: PLC0415
+    from app.shared.notifications.ports import RecordAccess, RecordContext  # noqa: PLC0415
+
+    a = world.a
+    survivor = await world.create(a, a.admin, group_id=str(a.ga))  # requester: a.requester
+    duplicate = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    department = await world.sql(
+        "INSERT INTO departments (tenant_id, id, name) VALUES ($1, gen_random_uuid(), 'Names')"
+        " RETURNING id",
+        a.tenant,
+    )
+    dep = department[0]["id"]
+    await world.sql(
+        "UPDATE work_items SET department_id = $1 WHERE tenant_id = $2 AND id = ANY($3::uuid[])",
+        dep,
+        a.tenant,
+        [survivor["id"], duplicate["id"]],
+    )
+    duplicate = await _fresh(world, a, duplicate)
+    done = await _merge(world, a, a.admin, duplicate, survivor, confirm=True)
+    assert done.status_code == 200, done.text
+    source = IncidentNotifications()
+    record_id = uuid.UUID(survivor["id"])
+    context = RecordContext(
+        record_id=record_id,
+        display_id=survivor["display_id"],
+        link="/",
+        variables={},
+        public_variables={"requester.name": "Survivor's requester"},
+        relatives={},
+        conditions={},
+    )
+
+    async def heard(user: uuid.UUID) -> tuple[RecordAccess, object]:
+        async with app_db.tenant_session(TenantContext(a.tenant)) as session:
+            access = await source.access(session, user, record_id)
+            own = await source.recipient_variables(session, context, user, access)
+        return access, own.get("requester.name", "named")
+
+    async def place(user: uuid.UUID, department_id: object) -> None:
+        await world.sql(
+            "UPDATE users SET department_id = $1 WHERE tenant_id = $2 AND id = $3",
+            department_id,
+            a.tenant,
+            user,
+        )
+
+    await place(a.requester, dep)
+    await place(a.requester2, None)
+    # The follower may not open the survivor, yet hears its public side, the requester unnamed.
+    assert await heard(a.requester2) == (RecordAccess.PUBLIC, UNNAMED)
+    await place(a.requester2, dep)
+    assert await heard(a.requester2) == (RecordAccess.PUBLIC, "named")
+    # The requester themself, and staff with full access, are unchanged.
+    assert await heard(a.requester) == (RecordAccess.PUBLIC, "named")
+    assert await heard(a.admin) == (RecordAccess.FULL, "named")
