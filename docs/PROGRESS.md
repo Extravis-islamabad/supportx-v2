@@ -2491,6 +2491,11 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       Notifications, AI sources and mail commands read no stored custom values today (checked
       2026-11-16); the guard test keeps it so.
 - [ ] Session 4: service accounts, key policy, non-person actors, security overview.
+  - [x] **S4b (no migration; lane B blocks):** `record()` names the real actor (REQ-AUD-014): a
+    person's API key is the actor with the owner `on_behalf` (the owner keeps the personal data,
+    so erasure still finds it), a service account's key is the account, an AI agent acts for a
+    person with its version and tools in the details (`AgentActor`; a fake agent in tests).
+    Probing counts refusals made on a person's behalf; the audit log names a key by its name.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
   tenant) moved to LATER (D-165).
