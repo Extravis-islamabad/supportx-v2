@@ -932,19 +932,34 @@ async function ciConflict(page: Page): Promise<void> {
     await page.getByTestId('ci-edit').first().click({ timeout: STATE_TIMEOUT });
     await page.getByTestId('ci-name').first().fill('Core switch SW-01 (floor 2)');
     const patched = page
-      .waitForRequest((r) => r.method() === 'PATCH' && r.url().includes('/api/v1/cmdb/cis/'), {
-        timeout: STATE_TIMEOUT,
-      })
+      .waitForResponse(
+        (r) => r.request().method() === 'PATCH' && r.url().includes('/api/v1/cmdb/cis/'),
+        { timeout: STATE_TIMEOUT },
+      )
       .catch(() => null);
     await page.getByTestId('ci-save').first().click({ timeout: STATE_TIMEOUT });
-    if ((await patched) === null) {
+    const answered = await patched;
+    if (answered === null) {
       // Say why in the matrix index rather than a bare timeout (#524 run 44069892680).
       const problems = await page.locator('.ant-form-item-explain-error').allInnerTexts();
       throw new Error(`ci-conflict: no PATCH was sent; form errors: ${problems.join(' | ')}`);
     }
     // The ConflictDialog's own button: a bare `.ant-modal`/dialog `.first()` can be a hidden one
     // already in the page, which never becomes visible (#524 run 44077613745).
-    await page.getByTestId('conflict-keep-mine').waitFor({ timeout: STATE_TIMEOUT });
+    const shown = await page
+      .getByTestId('conflict-keep-mine')
+      .waitFor({ timeout: STATE_TIMEOUT })
+      .then(() => true)
+      .catch(() => false);
+    if (!shown) {
+      // What the page did instead (#524 run 44102520175): the answer, any toast, still editing?
+      const toasts = await page.locator('.ant-message, .ant-notification').allInnerTexts();
+      const editing = await page.getByTestId('ci-save').count();
+      throw new Error(
+        `ci-conflict: no dialog; PATCH ${answered.url()} answered ${String(answered.status())};` +
+          ` toasts: ${toasts.join(' | ')}; save buttons: ${String(editing)}`,
+      );
+    }
   } finally {
     await page.unroute(url, answer);
   }
