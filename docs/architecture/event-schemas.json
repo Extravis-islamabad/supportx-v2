@@ -4309,6 +4309,90 @@
         "type": "object"
       }
     },
+    "metadata.custom_field.seal_changed": {
+      "1": {
+        "description": "A field's values started or finished being sealed or opened (WP-057 S3b-2b).\n\nThe state and counts only, never a value (the coordinator, S3b-2b).",
+        "properties": {
+          "custom_field_id": {
+            "format": "uuid",
+            "title": "Custom Field Id",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "records": {
+            "title": "Records",
+            "type": "integer"
+          },
+          "seal_state": {
+            "enum": [
+              "plain",
+              "sealing",
+              "sealed",
+              "opening"
+            ],
+            "title": "Seal State",
+            "type": "string"
+          },
+          "unreadable": {
+            "default": 0,
+            "title": "Unreadable",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "custom_field_id",
+          "entity",
+          "key",
+          "seal_state",
+          "records"
+        ],
+        "title": "CustomFieldSealChanged",
+        "type": "object"
+      }
+    },
+    "metadata.custom_field.seal_paused": {
+      "1": {
+        "description": "Sealing or opening a field's values paused: the keys are unavailable (WP-057 S3b-2b).\n\nOnce per outage (lane B): the admins are told, and the job tries again by itself.",
+        "properties": {
+          "custom_field_id": {
+            "format": "uuid",
+            "title": "Custom Field Id",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "seal_state": {
+            "enum": [
+              "sealing",
+              "opening"
+            ],
+            "title": "Seal State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "custom_field_id",
+          "entity",
+          "key",
+          "seal_state"
+        ],
+        "title": "CustomFieldSealPaused",
+        "type": "object"
+      }
+    },
     "notifications.delivery.recorded": {
       "1": {
         "description": "A notification was sent, held back or failed for a record (the record's log, REQ-INC-134).",

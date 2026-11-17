@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import PermissionDenied, ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.metadata.domain.fields import (
@@ -23,9 +24,11 @@ from app.modules.metadata.domain.fields import (
     FieldType,
     IndexFailure,
     IndexState,
+    SealState,
 )
 from app.modules.metadata.infra.models import CustomField
 from app.modules.metadata.service import custom_fields as service
+from app.modules.metadata.service import sensitivity
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -100,6 +103,10 @@ class CustomFieldOut(BaseModel):
     in_use: bool = Field(description="A record holds a value: it can be retired, not deleted.")
     index_state: IndexState
     index_error: IndexFailure | None = Field(description="Why the index failed (state failed).")
+    sensitive: bool = Field(description="Values sealed at rest (REQ-SEC-040; WP-057 S3b-2).")
+    seal_state: SealState = Field(
+        description="Where the stored values stand: `sealing`/`opening` while the job runs."
+    )
     changed_by: str | None = Field(
         default=None, description='Who saved it last (an open editor says "changed by").'
     )
@@ -135,6 +142,8 @@ class CustomFieldOut(BaseModel):
             in_use=row.first_used_at is not None,
             index_state=IndexState(row.index_state),
             index_error=None if row.index_error is None else IndexFailure(row.index_error),
+            sensitive=row.sensitive,
+            seal_state=SealState(row.seal_state),
             changed_by=changed_by,
             changed_at=row.updated_at,
             version=row.version,
@@ -335,3 +344,105 @@ async def request_index(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     )
     set_etag(response, row.version)
     return CustomFieldOut.of(row)
+
+
+class SensitivityOut(BaseModel):
+    """A field's sensitive mark, where its values stand, and how many records hold one."""
+
+    sensitive: bool
+    seal_state: SealState
+    records: int = Field(description="Records holding a value of the field (the impact).")
+    version: int
+
+
+class SensitivityIn(BaseModel):
+    """Mark the field sensitive or not. Turning it off needs a reason and its name typed back."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sensitive: bool
+    reason: str | None = Field(
+        default=None,
+        max_length=sensitivity.REASON_MAX,
+        description="Why (required to turn it off; kept in the audit log).",
+    )
+    confirm_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="The field's English name typed back (required to turn it off).",
+    )
+
+
+@router.get(
+    "/{field_id}/sensitivity",
+    summary="A custom field's sensitive mark and its impact",
+    responses=CONFLICT,
+)
+async def get_sensitivity(
+    field_id: uuid.UUID, session: TenantSession, subject: Admin, response: Response
+) -> SensitivityOut:
+    """What turning it on or off would affect (`custom_field_sensitive_unsupported`: 409)."""
+    del subject
+    row, records = await sensitivity.impact(session, field_id)
+    set_etag(response, row.version)
+    return SensitivityOut(
+        sensitive=row.sensitive,
+        seal_state=SealState(row.seal_state),
+        records=records,
+        version=row.version,
+    )
+
+
+@router.put(
+    "/{field_id}/sensitivity",
+    summary="Mark a custom field sensitive, or not",
+    dependencies=[RecentAuth],  # as sensitive as field access rules (REQ-SEC-027)
+    responses=CONFLICT,
+)
+async def put_sensitivity(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    field_id: uuid.UUID,
+    body: SensitivityIn,
+    session: TenantSession,
+    subject: Admin,
+    version: ExpectedVersion,
+    response: Response,
+    request: Request,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "metadata.custom_field_sensitivity_changed",
+            object_type="custom_field",
+            object_param="field_id",
+        ),
+    ],
+) -> SensitivityOut:
+    """On: values sealed by a background job (`field_encryption`). Off: opened back.
+
+    Turning it off makes values readable at rest: a recent sign-in, a reason and the field's
+    name typed back.
+    """
+    del subject
+    switched = await sensitivity.set_sensitive(
+        session,
+        field_id,
+        sensitive=body.sensitive,
+        reason=body.reason,
+        confirm_name=body.confirm_name,
+        expected_version=version,
+        source=source_of(request),
+    )
+    note.skip = not switched.changed
+    note.details = {
+        "direction": "on" if body.sensitive else "off",
+        "before": switched.before,
+        "after": switched.after,
+        "records": switched.records,
+    }
+    note.reason = None if body.sensitive else (body.reason or "").strip()
+    set_etag(response, switched.row.version)
+    return SensitivityOut(
+        sensitive=switched.row.sensitive,
+        seal_state=SealState(switched.row.seal_state),
+        records=switched.records,
+        version=switched.row.version,
+    )

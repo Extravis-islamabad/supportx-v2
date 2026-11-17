@@ -308,6 +308,10 @@ export const en = {
   'audit.action.metadata.custom_field_changed': 'Changed a custom field',
   'audit.action.metadata.custom_field_created': 'Added a custom field',
   'audit.action.metadata.custom_field_deleted': 'Removed a custom field',
+  'audit.action.metadata.custom_field_opened': "Finished opening a field's values to readable text",
+  'audit.action.metadata.custom_field_sealed': "Finished sealing a sensitive field's values",
+  'audit.action.metadata.custom_field_sensitivity_changed':
+    'Changed whether a custom field is sensitive',
   'audit.action.notification.rule_changed': 'Changed a notification rule',
   'audit.action.notification.rule_reset': 'Reset a notification rule to the default',
   'audit.action.notify_link.used': 'Stopped e-mails to someone kept informed',
@@ -1078,6 +1082,8 @@ export const en = {
   'event_type.knowledge.vote.saved': 'Knowledge article vote saved',
   'event_type.licensing.entitlement.changed': 'Plan or licence changed',
   'event_type.metadata.custom_field.changed': 'Custom field changed',
+  'event_type.metadata.custom_field.seal_changed': 'Custom field sealing started or finished',
+  'event_type.metadata.custom_field.seal_paused': 'Custom field sealing paused',
   'event_type.notifications.delivery.recorded': 'Notification delivery recorded',
   'event_type.notifications.mail.not_sent_summary': 'E-mails given up: mail not set up',
   // WP-023 notifications

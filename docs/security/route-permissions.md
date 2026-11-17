@@ -446,6 +446,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/custom-fields/{field_id}/index` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| PUT | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group |
 | POST | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group |
 | DELETE | `/api/v1/dashboards/favourites/{ref}` | `reports.view` | reports.view: all/site/group |

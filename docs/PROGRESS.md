@@ -2482,9 +2482,14 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       only, no sort, withheld fields never rewritten), history sealed per cell (lane B's option
       b), reports withhold non-plain fields, the mentions port opens/redacts/re-seals and logs
       passages (AUD-017 `erasure_passage`). ADR-050 addendum 2.
-    - [ ] **S3b-2b:** the re-seal job and the `sensitive` switch (re-auth, settings right,
-      audit, plain-text wording on turning it off). Notifications, AI sources and mail commands
-      read no stored custom values today (checked 2026-11-16); the guard test keeps it so.
+    - [x] **S3b-2b (no migration; PR after #520; lane B blocks, lane A reviews the
+      CustomFieldsTab call site):** the switch on its own route (on needs `field_encryption`;
+      off needs a recent sign-in, a reason and the name typed back, and says what it affects),
+      search failing closed at the switch's commit, the re-seal job
+      (`work_items__custom_field_seal`: batches, compare-and-set, resumable, no history), a key
+      outage pausing with one notice, the console switch, tag and dialog. ADR-050 addendum 3.
+      Notifications, AI sources and mail commands read no stored custom values today (checked
+      2026-11-16); the guard test keeps it so.
 - [ ] Session 4: service accounts, key policy, non-person actors, security overview.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
