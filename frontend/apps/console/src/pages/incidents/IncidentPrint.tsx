@@ -1,7 +1,7 @@
 import { PrinterOutlined } from '@ant-design/icons';
 import { Button, Checkbox, Flex, Form, Modal, Radio, Skeleton, Typography } from 'antd';
 import { useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { useIncident, usePrintedConversation, type Incident } from '@supportx/api-client';
 import { RichTextView, useDateTime, useLabel } from '@supportx/ui';
@@ -119,11 +119,16 @@ function PrintedConversation({ id, publicOnly }: { id: string; publicOnly: boole
     <Flex vertical gap={12}>
       {found.data.items.map((entry) => (
         <div key={entry.id} data-testid={`inc-print-entry-${entry.visibility}`}>
-          <Typography.Text strong>
-            <bdi>{entry.created_by === null ? '' : personName(people, entry.created_by)}</bdi>
-          </Typography.Text>{' '}
+          {/* No author (the system's own entry): no name, so no leading separator (lane C). */}
+          {entry.created_by !== null && (
+            <>
+              <Typography.Text strong>
+                <bdi>{personName(people, entry.created_by)}</bdi>
+              </Typography.Text>{' '}
+            </>
+          )}
           <Typography.Text type="secondary">
-            ·{' '}
+            {entry.created_by !== null && '· '}
             {t(
               entry.kind === 'reply'
                 ? 'conversation_entry.reply'
@@ -155,7 +160,10 @@ export function IncidentPrintPage() {
   if (item?.id !== id) return <Skeleton active />;
   return (
     <Flex vertical gap={24} data-testid="inc-print-page" style={{ maxWidth: 900 }}>
-      <Flex justify="space-between" align="center" data-sx-no-print>
+      <Flex justify="space-between" align="center" gap={12} wrap data-sx-no-print>
+        <Link to={`/incidents/${item.id}`} data-testid="inc-print-back">
+          {t('incidents.print.back', { id: item.display_id })}
+        </Link>
         <Typography.Text type="secondary">{t('incidents.print.help')}</Typography.Text>
         <Button
           type="primary"
@@ -217,7 +225,7 @@ export function IncidentPrintPage() {
       )}
       {wanted.has('approvals') && (
         <Section name="approvals">
-          <IncidentApprovals item={item} />
+          <IncidentApprovals item={item} readOnly />
         </Section>
       )}
       {wanted.has('time') && (
@@ -227,7 +235,7 @@ export function IncidentPrintPage() {
       )}
       {wanted.has('history') && (
         <Section name="history">
-          <IncidentHistory id={item.id} />
+          <IncidentHistory id={item.id} printing />
         </Section>
       )}
     </Flex>

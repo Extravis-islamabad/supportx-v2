@@ -1,8 +1,9 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { Button, Flex, Form, Select, Typography } from 'antd';
+import { Alert, Button, Flex, Form, Select, Skeleton, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
+  ApiError,
   useIncidentTemplates,
   useMajorSettings,
   useUpdateMajorSettings,
@@ -27,14 +28,15 @@ import { GroupPicker, UserPicker } from '../../incidents/pickers';
 function Person({ id, onRemove }: { id: string; onRemove: () => void }) {
   const t = useLabel();
   const user = useUser(id, { silent: true });
+  const name = user.data?.display_name ?? t('settings.major.someone');
   return (
     <Flex gap={8} align="center" data-testid={`settings-major-person-${id}`}>
-      <bdi>{user.data?.display_name ?? t('settings.major.someone')}</bdi>
+      <bdi>{name}</bdi>
       <Button
         type="text"
         size="small"
         icon={<CloseOutlined aria-hidden />}
-        aria-label={t('settings.major.remove_person')}
+        aria-label={t('settings.major.remove_person', { name })}
         onClick={onRemove}
       />
     </Flex>
@@ -48,13 +50,21 @@ export function MajorSettingsCard() {
   const templates = useIncidentTemplates();
   const update = useUpdateMajorSettings();
   const problem = useFormProblem();
+  const [conflict, setConflict] = useState(false);
   const [draft, setDraft] = useState<{
     group: string | null;
     people: string[];
     template: string | null;
   } | null>(null);
   const data = saved.data;
-  if (data === undefined) return null;
+  if (data === undefined) {
+    // The card keeps its place while it loads, so the page does not jump (lane C).
+    return (
+      <SettingsCard title={t('settings.major.title')} testId="settings-major">
+        <Skeleton active paragraph={{ rows: 3 }} />
+      </SettingsCard>
+    );
+  }
   const shown = draft ?? {
     group: data.group_id ?? null,
     people: data.user_ids,
@@ -75,7 +85,7 @@ export function MajorSettingsCard() {
             ariaLabel={t('settings.major.group')}
           />
         </Form.Item>
-        <Form.Item label={t('settings.major.people')}>
+        <Form.Item label={t('settings.major.people')} htmlFor="settings-major-add">
           <Flex vertical gap={4}>
             {shown.people.map((id) => (
               <Person
@@ -115,6 +125,27 @@ export function MajorSettingsCard() {
           />
         </Form.Item>
         <FormProblem problem={problem} />
+        {conflict && (
+          <Alert
+            type="warning"
+            showIcon
+            role="alert"
+            data-testid="settings-major-conflict"
+            message={t('settings.major.conflict')}
+            action={
+              <Button
+                size="small"
+                data-testid="settings-major-use-theirs"
+                onClick={() => {
+                  setDraft(null);
+                  setConflict(false);
+                }}
+              >
+                {t('settings.major.use_theirs')}
+              </Button>
+            }
+          />
+        )}
         <WriteButton
           type="primary"
           disabled={draft === null}
@@ -134,8 +165,18 @@ export function MajorSettingsCard() {
               {
                 onSuccess: () => {
                   setDraft(null);
+                  setConflict(false);
                 },
-                onError: (error) => problem.show(error),
+                onError: (error) => {
+                  // Someone saved meanwhile (409): said in words, with "Use theirs"; the saved
+                  // values reload under your draft, so saving again replaces theirs (lane C).
+                  if (error instanceof ApiError && error.status === 409) {
+                    setConflict(true);
+                    void saved.refetch();
+                    return;
+                  }
+                  problem.show(error);
+                },
               },
             );
           }}

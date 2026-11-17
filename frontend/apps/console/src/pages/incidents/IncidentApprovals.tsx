@@ -38,7 +38,14 @@ const RULES: readonly IncidentApprovalRule[] = ['any', 'all', 'majority'];
  * Reject for the named approver (the requests' decision dialog: a rejection gives its reason).
  * The incident's rule decides; a decision never moves its status.
  */
-export function IncidentApprovals({ item }: { item: Incident }) {
+/** `readOnly`: no decisions offered (the printable page, WP-046b S4; lane C). */
+export function IncidentApprovals({
+  item,
+  readOnly = false,
+}: {
+  item: Incident;
+  readOnly?: boolean;
+}) {
   const t = useLabel();
   const { format } = useDateTime();
   const approvals = useIncidentApprovals(item.id);
@@ -64,7 +71,7 @@ export function IncidentApprovals({ item }: { item: Incident }) {
             key={a.id}
             data-testid={`inc-approval-${a.id}`}
             actions={
-              a.can_decide
+              a.can_decide && !readOnly
                 ? (['approve', 'reject'] as const).map((d) => (
                     <WriteButton
                       key={d}
