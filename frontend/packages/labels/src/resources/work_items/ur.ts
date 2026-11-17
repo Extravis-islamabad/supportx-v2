@@ -964,7 +964,7 @@ export const ur: LabelResource = {
   'incidents.convert.explain':
     'اس سے نیا ریکارڈ بنتا ہے۔ یہ ریکارڈ تبدیل شدہ کے طور پر بند ہو جاتا ہے، صرف پڑھنے کے لیے رہتا ہے اور نئے سے جڑا رہتا ہے، اور اس کا نمبر وہیں لے جاتا ہے۔',
   'incidents.convert.item': 'کیٹلاگ آئٹم',
-  'incidents.convert.left_behind': 'یہ فیلڈز صرف اسی ریکارڈ پر رہیں گی: {{count}}',
+  'incidents.convert.left_behind': 'یہ فیلڈز صرف اسی ریکارڈ پر رہیں گی: {{n}}',
   'incidents.convert.template': 'واقعے کا سانچہ',
   'incidents.convert.to_incident': '{{id}} کو واقعے میں تبدیل کریں',
   'incidents.convert.to_request': '{{id}} کو سروس کی درخواست میں تبدیل کریں',
@@ -1062,7 +1062,7 @@ export const ur: LabelResource = {
   'incidents.links.other': 'منسلک کرنے کے لیے واقعہ',
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
   'incidents.merge.action': 'دوسرے واقعے میں ضم کریں',
-  'incidents.merge.at_least': 'کم از کم {{count}}',
+  'incidents.merge.at_least': 'کم از کم {{n}}',
   'incidents.merge.audience_changed':
     'پیش نظارہ کے بعد یہ بدل گیا ہے کہ یہ واقعہ پہلی بار کون دیکھے گا۔ نئی گنتی دیکھیں اور دوبارہ تصدیق کریں۔',
   'incidents.merge.children_move': 'منتقل ہونے والے ذیلی واقعات: {{shown}}',

@@ -78,7 +78,7 @@ function Refused({ error, testId }: { error: unknown; testId: string }) {
 function Audience({ preview }: { preview: IncidentMergePreview }) {
   const t = useLabel();
   const at = (count: number) =>
-    preview.audience_complete ? String(count) : t('incidents.merge.at_least', { count });
+    preview.audience_complete ? String(count) : t('incidents.merge.at_least', { n: count });
   const lines = [
     { key: 'children', count: preview.child_ids.length, text: 'incidents.merge.children_move' },
     { key: 'staff', count: preview.staff_newly_seeing, text: 'incidents.merge.staff_seeing' },
@@ -113,7 +113,7 @@ function Audience({ preview }: { preview: IncidentMergePreview }) {
       dataSource={lines}
       renderItem={(line) => (
         <List.Item data-testid={`inc-merge-${line.key}`}>
-          {t(line.text, { count: line.count, shown: at(line.count) })}
+          {t(line.text, { shown: at(line.count) })}
         </List.Item>
       )}
     />
@@ -315,7 +315,7 @@ function LeftBehind({ kind, keys }: { kind: ConvertibleKind; keys: string[] }) {
       type="warning"
       showIcon
       data-testid="inc-convert-left"
-      message={t('incidents.convert.left_behind', { count: keys.length })}
+      message={t('incidents.convert.left_behind', { n: keys.length })}
       description={
         <ul style={{ margin: 0, paddingInlineStart: 20 }}>
           {names.map((name, index) => (

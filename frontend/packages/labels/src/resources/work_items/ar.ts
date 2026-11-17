@@ -1085,7 +1085,7 @@ export const ar: LabelResource = {
   'incidents.convert.explain':
     'يُنشأ سجل جديد من هذا السجل. يُغلق هذا السجل محوَّلًا ويبقى للقراءة فقط ومرتبطًا بالجديد، ويقود رقمه إليه.',
   'incidents.convert.item': 'عنصر الكتالوج',
-  'incidents.convert.left_behind': 'تبقى هذه الحقول في هذا السجل فقط: {{count}}',
+  'incidents.convert.left_behind': 'تبقى هذه الحقول في هذا السجل فقط: {{n}}',
   'incidents.convert.template': 'قالب الحادثة',
   'incidents.convert.to_incident': 'تحويل {{id}} إلى حادثة',
   'incidents.convert.to_request': 'تحويل {{id}} إلى طلب خدمة',
@@ -1206,7 +1206,7 @@ export const ar: LabelResource = {
   'incidents.links.other': 'الحادثة المراد ربطها',
   'incidents.mail_no_subject': 'بريد إلكتروني بلا موضوع',
   'incidents.merge.action': 'دمج في حادثة أخرى',
-  'incidents.merge.at_least': '{{count}} على الأقل',
+  'incidents.merge.at_least': '{{n}} على الأقل',
   'incidents.merge.audience_changed':
     'تغيّر من سيرى هذه الحادثة لأول مرة منذ المعاينة. راجع الأعداد الجديدة وأكّد مرة أخرى.',
   'incidents.merge.children_move': 'الحوادث الفرعية التي تنتقل: {{shown}}',

@@ -961,7 +961,7 @@ export const en = {
   'incidents.convert.explain':
     'A new record is made from this one. This one closes as converted, stays read-only and links to the new one, and its number leads there.',
   'incidents.convert.item': 'Catalog item',
-  'incidents.convert.left_behind': 'These fields stay on this record only: {{count}}',
+  'incidents.convert.left_behind': 'These fields stay on this record only: {{n}}',
   'incidents.convert.template': 'Incident template',
   'incidents.convert.to_incident': 'Convert {{id}} to an incident',
   'incidents.convert.to_request': 'Convert {{id}} to a service request',
@@ -1056,7 +1056,7 @@ export const en = {
   'incidents.links.other': 'Incident to link',
   'incidents.mail_no_subject': 'E-mail without a subject',
   'incidents.merge.action': 'Merge into another incident',
-  'incidents.merge.at_least': 'at least {{count}}',
+  'incidents.merge.at_least': 'at least {{n}}',
   'incidents.merge.audience_changed':
     'Who would newly see this incident changed since the preview. Check the new counts and confirm again.',
   'incidents.merge.children_move': 'Child incidents that move: {{shown}}',
