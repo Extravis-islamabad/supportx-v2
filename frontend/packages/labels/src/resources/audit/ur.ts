@@ -324,6 +324,8 @@ export const ur: LabelResource = {
   'audit.action.person.erasure_requested': 'کسی فرد کا ڈیٹا مٹانے کی درخواست کی',
   'audit.action.person.legal_hold_lifted': 'کسی فرد کی قانونی روک ہٹائی',
   'audit.action.person.legal_hold_set': 'کسی فرد پر قانونی روک لگائی',
+  'audit.action.person.uploads_listed':
+    'کسی شخص کی اپ لوڈ کی گئی فائلوں کی فہرست مٹانے کے لیے دیکھی',
   'audit.action.portal.settings_changed': 'پورٹل کی ترتیبات تبدیل کیں',
   'audit.action.problem.access_changed': 'مسئلے تک رسائی رکھنے والے بدلے',
   'audit.action.problem.approval_decided': 'مسئلہ منظور یا مسترد کیا',

@@ -326,6 +326,7 @@ export const en = {
   'audit.action.person.erasure_requested': "Asked for a person's erasure",
   'audit.action.person.legal_hold_lifted': "Lifted a person's legal hold",
   'audit.action.person.legal_hold_set': 'Put a person on legal hold',
+  'audit.action.person.uploads_listed': "Listed a person's uploads for an erasure",
   'audit.action.portal.settings_changed': 'Changed the portal settings',
   'audit.action.problem.access_changed': 'Changed who can see or work on a problem',
   'audit.action.problem.approval_decided': 'Approved or rejected a problem',

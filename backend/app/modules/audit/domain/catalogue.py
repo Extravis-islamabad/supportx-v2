@@ -191,6 +191,7 @@ ACTIONS: dict[str, Action] = _actions(
     # the mentions report (S1b, D-171 a): reviewed, each passage viewed, each mention redacted
     ("person.erasure_report_reviewed", AuditCategory.DATA, "identity_access"),
     ("person.erasure_mention_viewed", AuditCategory.DATA, "identity_access"),
+    ("person.uploads_listed", AuditCategory.DATA, "identity_access"),
     ("person.erasure_mention_redacted", AuditCategory.DATA, "identity_access"),
     # organisation
     ("site.created", AuditCategory.ORGANISATION, "organization"),
