@@ -130,8 +130,9 @@ export function ErasurePage() {
     mine || !DECIDABLE.has(erasure.state) ? undefined : (
       <Tooltip title={blocked === null ? undefined : t(blocked)}>
         <Button
+          // Primary, not danger: a white label on dark mode's danger red fails contrast (axe); the
+          // typed-name dialog's OK is the danger one (lane C's condition 2).
           type="primary"
-          danger
           disabled={blocked !== null}
           onClick={() => {
             setApproving(true);

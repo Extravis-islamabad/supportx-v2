@@ -211,7 +211,21 @@ const privacyTab = async (page: Page, held: boolean) => {
   await page.reload();
   await page.getByText('Noor Hassan').first().click({ timeout: STATE_TIMEOUT });
   const tab = page.locator('[data-node-key="privacy"] [role="tab"]').first();
-  await page.locator('[data-node-key="details"]').first().waitFor({ timeout: STATE_TIMEOUT });
+  const opened = await page
+    .locator('.ant-drawer [data-node-key="details"]')
+    .first()
+    .waitFor({ timeout: STATE_TIMEOUT })
+    .then(() => true)
+    .catch(() => false);
+  if (!opened) {
+    // Say what is there instead (#532 run 44120567969).
+    const drawers = await page.locator('.ant-drawer-content').allInnerTexts();
+    const rows = await page.getByText('Noor Hassan').count();
+    throw new Error(
+      `person drawer: no tabs; Noor Hassan matches ${String(rows)};` +
+        ` drawer text: ${drawers.join(' | ').slice(0, 400)}`,
+    );
+  }
   if (await tab.isVisible()) {
     await tab.click({ timeout: STATE_TIMEOUT });
   } else {
