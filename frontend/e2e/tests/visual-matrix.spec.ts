@@ -209,6 +209,7 @@ const privacyTab = async (page: Page, held: boolean) => {
   await mockErasures(page, { exists: false, held });
   await mockPeopleList(page);
   await page.reload();
+  const before = page.url();
   await page.getByText('Noor Hassan').first().click({ timeout: STATE_TIMEOUT });
   const tab = page.locator('[data-node-key="privacy"] [role="tab"]').first();
   const opened = await page
@@ -221,9 +222,14 @@ const privacyTab = async (page: Page, held: boolean) => {
     // Say what is there instead (#532 run 44120567969).
     const drawers = await page.locator('.ant-drawer-content').allInnerTexts();
     const rows = await page.getByText('Noor Hassan').count();
+    // A picture of what the click led to, kept with the run's shots (lane C, #532).
+    const picture = `drawer-failure-${String(Date.now())}.jpg`;
+    await page
+      .screenshot({ path: `${OUT}/${picture}`, fullPage: true, type: 'jpeg', quality: 70 })
+      .catch(() => undefined);
     throw new Error(
-      `person drawer: no tabs; Noor Hassan matches ${String(rows)};` +
-        ` drawer text: ${drawers.join(' | ').slice(0, 400)}`,
+      `person drawer: no tabs; url ${before} -> ${page.url()}; Noor Hassan matches ${String(rows)};` +
+        ` drawer text: ${drawers.join(' | ').slice(0, 300)}; picture ${picture}`,
     );
   }
   if (await tab.isVisible()) {
