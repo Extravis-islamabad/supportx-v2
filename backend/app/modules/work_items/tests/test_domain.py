@@ -55,6 +55,7 @@ from app.modules.work_items.domain.types import (
     parse_display_id,
 )
 from app.modules.work_items.service.change_windows import FIELD_PROBLEMS as WINDOW_PROBLEMS
+from app.modules.work_items.service.major_incidents import FIELD_PROBLEMS as MAJOR_PROBLEMS
 from app.modules.work_items.service.record_copies import FIELD_PROBLEMS as COPY_PROBLEMS
 from app.modules.work_items.service.text_templates import FIELD_PROBLEMS as TEMPLATE_PROBLEMS
 from app.modules.work_items.service.work_items import RELEASE_DEPLOYED_STAGES
@@ -316,6 +317,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         FIELD_PROBLEMS
         | BOARD_PROBLEMS
         | WINDOW_PROBLEMS
+        | MAJOR_PROBLEMS
         | TEMPLATE_PROBLEMS
         | DRAFT_PROBLEMS
         | COPY_PROBLEMS

@@ -47,6 +47,7 @@ from app.modules.work_items.events import (
     WorkItemConversationDeliveryChanged,
     WorkItemCreated,
     WorkItemFollowerAdded,
+    WorkItemMajorChanged,
     WorkItemStatusChanged,
     WorkItemWorkflowNotice,
 )
@@ -85,6 +86,10 @@ EXCERPT = 500  # characters of a reply or note shown in a notification
 # link, D-132 as for service requests) and the technician told when the approval is rejected.
 APPROVAL_REQUESTED = "incident.approval_requested"
 APPROVAL_REJECTED = "incident.approval_rejected"
+# WP-046b S4 (REQ-INC-141): the major incident team hears a declaration and its end.
+MAJOR_DECLARED = "incident.major_declared"
+MAJOR_ENDED = "incident.major_ended"
+MAJOR_TEAM = "major_team"
 APPROVER = "approver"
 
 # A workflow's notice (WP-048b S2): its audience is the node's, resolved at send time.
@@ -236,6 +241,16 @@ EVENTS: tuple[NotificationEvent, ...] = (
         variables=(Variable("approval_link", "notification_variable.approval_link"),),
     ),
     NotificationEvent(
+        MAJOR_DECLARED,
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=(MAJOR_TEAM,)),
+    ),
+    NotificationEvent(
+        MAJOR_ENDED,
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=(MAJOR_TEAM,)),
+    ),
+    NotificationEvent(
         APPROVAL_REJECTED,
         NotificationCategory.APPROVAL,
         EventDefault(enabled=True, recipients=("assignee",)),
@@ -255,6 +270,7 @@ RECIPIENT_KINDS = (
     "new_follower",
     ESCALATION_RECIPIENTS,
     APPROVER,
+    MAJOR_TEAM,
 )
 
 VARIABLES = (
@@ -403,7 +419,16 @@ async def _named_people(
     return {}
 
 
-async def _relatives(
+async def _major_team(session: AsyncSession) -> frozenset[uuid.UUID]:
+    """The major incident team as set now; the engine checks each one's access at send time."""
+    major = (await catalogue.load(session, INCIDENT)).major
+    team = set(major.user_ids)
+    if major.group_id is not None:
+        team |= set(await session.scalars(users_in_groups(frozenset({major.group_id}))))
+    return frozenset(team)
+
+
+async def _relatives(  # noqa: C901 - one block per event family, flat
     session: AsyncSession, record: WorkItem, event_code: str, envelope: EventEnvelope
 ) -> dict[str, frozenset[uuid.UUID]] | None:
     """The people relative to the incident for this event (None: the level's run is gone)."""
@@ -441,6 +466,8 @@ async def _relatives(
         # Told once the incident's rule has rejected it, not at every single rejection.
         if event_code == APPROVAL_REJECTED and record.approval_status != "rejected":
             return None
+    if event_code in {MAJOR_DECLARED, MAJOR_ENDED}:
+        relatives[MAJOR_TEAM] = await _major_team(session)
     if event_code == "incident.sla_escalated":
         found = await sla.escalation_run(session, uuid.UUID(str(payload["run_id"])))
         if found is None:
@@ -537,6 +564,7 @@ class IncidentNotifications:
         WorkItemFollowerAdded.event_type,
         WorkItemWorkflowNotice.event_type,
         WorkItemApprovalChanged.event_type,
+        WorkItemMajorChanged.event_type,
         *_SLA_EVENTS,
     )
 
@@ -554,6 +582,8 @@ class IncidentNotifications:
             return ()
         if kind == WorkItemApprovalChanged.event_type:
             return _approval_events(payload)
+        if kind == WorkItemMajorChanged.event_type:  # incidents only (`context` checks the type)
+            return (MAJOR_DECLARED if payload.get("major") else MAJOR_ENDED,)
         if kind in _ONE_NOTICE:  # a workflow's notice, an assignee left out (incidents only)
             return (_ONE_NOTICE[kind],) if payload.get("type") == INCIDENT.code.value else ()
         if kind == WorkItemCreated.event_type:

@@ -118,6 +118,8 @@ export const ar: LabelResource = {
   'notification_event.incident.created': 'حادث جديد: إشعار بالاستلام',
   'notification_event.incident.created_in_group': 'حادث جديد في مجموعة',
   'notification_event.incident.follower_added': 'أُضيف كمتابع',
+  'notification_event.incident.major_declared': 'أُعلنت حادثة كبرى',
+  'notification_event.incident.major_ended': 'انتهت الحادثة الكبرى',
   'notification_event.incident.mentioned': 'إشارة',
   'notification_event.incident.private_note': 'ملاحظة خاصة',
   'notification_event.incident.public_note': 'ملاحظة عامة',
@@ -210,6 +212,7 @@ export const ar: LabelResource = {
   'notification_recipient.linked_incident_technicians': 'فنيو الحوادث المرتبطة',
   'notification_recipient.loan_creator': 'من أنشأ الإعارة',
   'notification_recipient.mail_admins': 'من يديرون صناديق البريد',
+  'notification_recipient.major_team': 'فريق الحوادث الكبرى',
   'notification_recipient.mentioned': 'الأشخاص المُشار إليهم',
   'notification_recipient.new_follower': 'المتابع الجديد',
   'notification_recipient.new_investigator': 'المحقق المضاف',
@@ -498,6 +501,18 @@ export const ar: LabelResource = {
     'أصبحت تتابع {{ record.display_id }}: {{ record.title }}',
   'notification_template.incident.follower_added.subject':
     'أصبحت تتابع {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.major_declared.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُعلنت الحادثة {{ record.display_id }} "{{ record.title }}" حادثة كبرى. أنت في فريق الحوادث الكبرى: {{ record.link }}',
+  'notification_template.incident.major_declared.in_app':
+    'أُعلنت {{ record.display_id }} حادثة كبرى: {{ record.title }}',
+  'notification_template.incident.major_declared.subject':
+    'حادثة كبرى: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.major_ended.body':
+    'مرحبًا {{ recipient.name }}،\n\nلم تعد الحادثة {{ record.display_id }} "{{ record.title }}" حادثة كبرى: {{ record.link }}',
+  'notification_template.incident.major_ended.in_app':
+    'لم تعد {{ record.display_id }} حادثة كبرى: {{ record.title }}',
+  'notification_template.incident.major_ended.subject':
+    'انتهت الحادثة الكبرى: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.mentioned.body':
     'مرحبًا {{ recipient.name }}،\n\nأشار إليك {{ conversation.author }} في {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
   'notification_template.incident.mentioned.in_app':

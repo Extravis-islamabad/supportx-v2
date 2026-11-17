@@ -354,6 +354,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.approval_requested", AuditCategory.RECORDS, "work_items"),  # WP-046b S1
     ("incident.closed_edited", AuditCategory.RECORDS, "work_items"),  # WP-046b S1, REQ-INC-101
     ("incident.closed_edit_lock_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S1
+    ("incident.major_declared", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-141
+    ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4
+    ("incident.major_settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S4
+    ("incident.announced", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-129
+    ("incident.printed", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-126
     ("problem.approval_decided", AuditCategory.RECORDS, "work_items"),
     ("problem.investigator_removed", AuditCategory.RECORDS, "work_items"),
     # WP-044c D16 (REQ-PRB-068): repeat incident rules and what was done with their sets.

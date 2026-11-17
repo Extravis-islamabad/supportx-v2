@@ -257,6 +257,13 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/incidents/IncidentPage')).IncidentPage,
             }),
           },
+          {
+            // WP-046b S4 (REQ-INC-126): the printable incident, sections chosen in the dialog.
+            path: ':id/print',
+            lazy: async () => ({
+              Component: (await import('./pages/incidents/IncidentPrint')).IncidentPrintPage,
+            }),
+          },
         ],
       },
       {

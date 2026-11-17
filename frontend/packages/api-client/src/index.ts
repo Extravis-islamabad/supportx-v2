@@ -260,6 +260,7 @@ export {
   useChangeNoteVisibility,
   useFollowerChange,
   useIncidentConversation,
+  usePrintedConversation,
   useIncidentCounters,
   useIncidentFollowers,
   fillReplyTemplate,
@@ -1509,3 +1510,19 @@ export {
   type KeptDraftForm,
 } from './keptDrafts';
 export { useClosedEditLock } from './incidentSettings';
+export {
+  useMajorChange,
+  useMajorIncidents,
+  useMajorSettings,
+  useAnnounceFromIncident,
+  useEndIncidentAnnouncement,
+  useIncidentAnnouncements,
+  incidentAnnouncementsKey,
+  type IncidentAnnouncement,
+  type IncidentAnnounceInput,
+  useUpdateMajorSettings,
+  type IncidentMajor,
+  type MajorIncident,
+  type MajorSettings,
+  type MajorSettingsInput,
+} from './incidentMajor';

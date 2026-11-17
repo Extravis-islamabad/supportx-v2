@@ -265,6 +265,14 @@ source_modules = ["app.core", "app.shared", "app.main", "workers", "tooling"]
 forbidden_modules = ["app.modules.ai.service.providers"]
 
 [[tool.importlinter.contracts]]
+# WP-046b S4 (lane C, REQ-INC-129): work_items announces through announcements' public package;
+# announcements stays unaware of records and never imports work_items, directly or indirectly.
+name = "announcements never imports work_items"
+type = "forbidden"
+source_modules = ["app.modules.announcements"]
+forbidden_modules = ["app.modules.work_items"]
+
+[[tool.importlinter.contracts]]
 # CLAUDE.md rule b / architecture.md §6.5: request code writes events to the outbox and never
 # publishes to NATS itself. Only workers/ (relay, consumers) may use the NATS client. The single
 # exception is the system module's readiness probes, which open a connection to ping NATS and

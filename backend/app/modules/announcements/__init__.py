@@ -6,7 +6,9 @@ The walking skeleton: the first business entity built end to end through every l
 the template for later modules (docs/architecture/module-template.md). Licensed with the
 `incident` feature (the service desk).
 
-Public interface for other modules: none yet.
+Public interface for other modules (WP-046b S4, REQ-INC-129; lane C's design):
+`announce_for_record`, `end_for_record`, `announcement_states` and `Announced`. A module that
+announces from its records keeps its own link to the IDs; this module never reads it.
 """
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec
@@ -15,6 +17,12 @@ from app.modules.announcements.api.routes import router
 from app.modules.announcements.events import EVENTS
 from app.modules.announcements.service import notifications
 from app.modules.announcements.service.announcements import MANAGE, PUBLISH, VIEW
+from app.modules.announcements.service.for_records import (
+    Announced,
+    announce_for_record,
+    end_for_record,
+)
+from app.modules.announcements.service.for_records import states as announcement_states
 from app.modules.announcements.service.realtime import CHANNELS, ROUTES
 
 FEATURE = "incident"
@@ -51,7 +59,13 @@ module = ModuleSpec(
     realtime=ROUTES,
 )
 
-__all__ = ["module"]
+__all__ = [
+    "Announced",
+    "announce_for_record",
+    "announcement_states",
+    "end_for_record",
+    "module",
+]
 
 # GDPR erasure (ADR-052): this module's port; the job refuses to run without it.
 from app.modules.announcements.service import person_data as _person_data  # noqa: E402

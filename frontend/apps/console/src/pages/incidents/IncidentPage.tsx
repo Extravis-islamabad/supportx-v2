@@ -78,6 +78,13 @@ import {
 } from '@supportx/ui';
 
 import { CopyDialog } from './CopyDialog';
+import { MajorDialog, MajorTag } from './MajorIncident';
+import { PrintDialog } from './IncidentPrint';
+import {
+  AnnounceDialog,
+  EndAnnouncementsPrompt,
+  IncidentAnnouncements,
+} from './IncidentAnnouncements';
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
@@ -182,6 +189,17 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [majorOpen, setMajorOpen] = useState(false); // WP-046b S4 (REQ-INC-141)
+  const [announcing, setAnnouncing] = useState(false); // WP-046b S4 (REQ-INC-129)
+  const [printing, setPrinting] = useState(false); // WP-046b S4 (REQ-INC-126)
+  // Resolving offers to end the announcements made from it; nothing ends by itself (AC2).
+  const [endPrompt, setEndPrompt] = useState(false);
+  const wasResolved = useRef(item.status_category === 'resolved');
+  useEffect(() => {
+    const resolved = item.status_category === 'resolved';
+    if (resolved && !wasResolved.current) setEndPrompt(true);
+    wasResolved.current = resolved;
+  }, [item.status_category]);
   const [asking, setAsking] = useState(false); // WP-046b S1 (REQ-INC-083)
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -467,6 +485,43 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           },
         }
       : null,
+    // WP-046b S4 (REQ-INC-141): declare major on an open incident, or end it; its own right.
+    can('incidents.declare_major') &&
+    item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+    (item.major || item.status_category === 'open' || item.status_category === 'paused')
+      ? {
+          key: 'major',
+          label: t(item.major ? 'incidents.major.end' : 'incidents.major.declare'),
+          allowed: true,
+          testId: item.major ? 'inc-op-end-major' : 'inc-op-declare-major',
+          onClick: () => {
+            setMajorOpen(true);
+          },
+        }
+      : null,
+    // WP-046b S4 (REQ-INC-126): print or save as PDF, sections chosen.
+    {
+      key: 'print',
+      label: t('incidents.print.action'),
+      allowed: true,
+      testId: 'inc-op-print',
+      onClick: () => {
+        setPrinting(true);
+      },
+    },
+    // WP-046b S4 (REQ-INC-129): announce from an incident (announcements' own right).
+    can('announcements.manage') &&
+    item.operations.find((o) => o.action === 'edit')?.allowed === true
+      ? {
+          key: 'announce',
+          label: t('incidents.announce.open'),
+          allowed: true,
+          testId: 'inc-op-announce',
+          onClick: () => {
+            setAnnouncing(true);
+          },
+        }
+      : null,
     deleteOp !== undefined && deleteOp.reason !== 'no_permission'
       ? {
           key: 'delete',
@@ -551,6 +606,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             }
             tags={
               <>
+                <MajorTag major={item.major} />
                 <StatusTag status={item.status} catalogue={catalogue.data} />
                 <PriorityTag priority={item.priority} source={item.priority_source} />
                 <SlaTag
@@ -711,6 +767,12 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                 bare: true,
                 children: <RecordReminders recordId={item.id} />,
               },
+              // WP-046b S4 (REQ-INC-129): announcements made from it, live.
+              {
+                key: 'announcements',
+                title: t('incidents.announce.panel'),
+                children: <IncidentAnnouncements item={item} />,
+              },
               {
                 key: 'followers',
                 title: t('incidents.panel.followers'),
@@ -742,6 +804,34 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           open={asking}
           onClose={() => {
             setAsking(false);
+          }}
+        />
+        <PrintDialog
+          item={item}
+          open={printing}
+          onClose={() => {
+            setPrinting(false);
+          }}
+        />
+        <AnnounceDialog
+          item={item}
+          open={announcing}
+          onClose={() => {
+            setAnnouncing(false);
+          }}
+        />
+        <EndAnnouncementsPrompt
+          item={item}
+          open={endPrompt}
+          onClose={() => {
+            setEndPrompt(false);
+          }}
+        />
+        <MajorDialog
+          item={item}
+          open={majorOpen}
+          onClose={() => {
+            setMajorOpen(false);
           }}
         />
         <CopyDialog

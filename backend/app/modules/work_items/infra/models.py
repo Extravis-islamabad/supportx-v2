@@ -209,6 +209,13 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     closed_edit_locked: Mapped[bool] = mapped_column(Boolean, server_default="false")
     edit_reason_fields: Mapped[list[str]] = mapped_column(ARRAY(String(80)), server_default="{}")
     first_contact_minutes: Mapped[int] = mapped_column(Integer, server_default="30")
+    # WP-046b S4 (0177, REQ-INC-141): who is told when an incident is declared major (a group and
+    # named people), and the template it switches to (none: it keeps its own).
+    major_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    major_user_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
+    major_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
@@ -604,6 +611,13 @@ class WorkItem(TenantEntity):
             "tenant_id", "type", "display_number", name="uq_work_items_tenant_type_number"
         ),
         CheckConstraint(TYPE_CHECK, name="type_code"),
+        # Major incidents (0177): the list and the marker filter.
+        Index(
+            "ix_work_items_tenant_major",
+            "tenant_id",
+            "type",
+            postgresql_where=text("major AND deleted_at IS NULL"),
+        ),
         CheckConstraint(_codes("channel", Channel), name="channel_code"),
         CheckConstraint(
             "outage_ended_at IS NULL OR outage_started_at IS NULL"
@@ -828,6 +842,12 @@ class WorkItem(TenantEntity):
     # REQ-INC-102 (0169): resolved at first contact, as suggested at resolution and confirmed or
     # changed by the technician; null until resolved.
     first_contact_resolution: Mapped[bool | None] = mapped_column(Boolean)
+    # WP-046b S4 (0177, REQ-INC-141): declared major, when, by whom and why. The reason is free
+    # text: kept here and in the audit entry's personal part, never in field history values.
+    major: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    major_declared_at: Mapped[datetime | None]
+    major_declared_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    major_reason: Mapped[str | None] = mapped_column(String(500))
     symptoms: Mapped[str | None] = mapped_column(Text)
     # Known errors (WP-044b s3, REQ-PRB-034..042): the workaround incident technicians see,
     # when it was marked a known error, and when that was retired by a permanent fix.
@@ -996,6 +1016,31 @@ class WorkItemAsset(TenantEntity):
     work_item_id: Mapped[uuid.UUID]
     asset_id: Mapped[uuid.UUID]
     source: Mapped[str] = mapped_column(String(20), server_default="ui")
+
+
+class WorkItemAnnouncement(TenantEntity):
+    """An announcement made from a work item (WP-046b S4, REQ-INC-129).
+
+    Kept by work_items: the announcements module owns the announcement and never reads this. The
+    link grants nobody anything: each side keeps its own access rules (lane B).
+    """
+
+    __tablename__ = "work_item_announcements"
+    __table_args__ = (
+        _work_item_fk("fk_work_item_announcements_work_item"),
+        Index(
+            "uq_work_item_announcements_pair",
+            "tenant_id",
+            "work_item_id",
+            "announcement_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_work_item_announcements_announcement", "tenant_id", "announcement_id"),
+    )
+
+    work_item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    announcement_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
 
 
 class WorkItemFollower(TenantEntity):
