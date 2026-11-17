@@ -931,8 +931,18 @@ async function ciConflict(page: Page): Promise<void> {
   try {
     await page.getByTestId('ci-edit').first().click({ timeout: STATE_TIMEOUT });
     await page.getByTestId('ci-name').first().fill('Core switch SW-01 (floor 2)');
+    const patched = page
+      .waitForRequest((r) => r.method() === 'PATCH' && r.url().includes('/api/v1/cmdb/cis/'), {
+        timeout: STATE_TIMEOUT,
+      })
+      .catch(() => null);
     await page.getByTestId('ci-save').first().click({ timeout: STATE_TIMEOUT });
-    await page.getByRole('dialog').first().waitFor({ timeout: STATE_TIMEOUT });
+    if ((await patched) === null) {
+      // Say why in the matrix index rather than a bare timeout (#524 run 44069892680).
+      const problems = await page.locator('.ant-form-item-explain-error').allInnerTexts();
+      throw new Error(`ci-conflict: no PATCH was sent; form errors: ${problems.join(' | ')}`);
+    }
+    await page.locator('.ant-modal').first().waitFor({ timeout: STATE_TIMEOUT });
   } finally {
     await page.unroute(url, answer);
   }
