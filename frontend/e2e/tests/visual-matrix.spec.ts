@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { PORTAL_URL, passwordOf, SEEDED, USERS } from '../stack';
+import { FAKE, mockErasures, mockPeopleList } from './erasureMocks';
 import { signIn } from './helpers';
 
 // The daily visual review (product owner, 2026-11-04): every console and portal screen in every
@@ -190,6 +191,33 @@ const ADMIN_SECTIONS: Record<string, string[]> = {
 };
 
 const incident = (r: Records) => (r.incident ? `/incidents/${r.incident}` : undefined);
+
+// ADR-052 erasure screens: answered in the browser (erasureMocks.ts), made-up people only.
+// Nothing is requested, redacted or approved on any server (the coordinator's condition 2).
+const ERASURE_PATH = `/admin/erasures/${FAKE.erasure}`;
+const erasureState = (name: string, testId: string, after?: (page: Page) => Promise<void>) => ({
+  name,
+  open: async (page: Page) => {
+    await mockErasures(page, { reviewed: true });
+    await page.reload();
+    await page.getByTestId(testId).first().waitFor({ timeout: STATE_TIMEOUT });
+    if (after) await after(page);
+    await page.waitForTimeout(400);
+  },
+});
+const privacyTab = async (page: Page, held: boolean) => {
+  await mockErasures(page, { exists: false, held });
+  await mockPeopleList(page);
+  await page.reload();
+  await page.getByText('Noor Hassan').first().click({ timeout: STATE_TIMEOUT });
+  await page
+    .locator('[data-node-key="privacy"] [role="tab"]')
+    .first()
+    .click({ timeout: STATE_TIMEOUT });
+  // Later shots of the people list read the real list again.
+  await page.unroute(/\/api\/v1\/users(\?.*)?$/u);
+};
+const requestDrawer = (page: Page) => privacyTab(page, false);
 
 export const SCREENS: Screen[] = [
   { key: 'home', path: '/', app: 'console' },
@@ -506,6 +534,83 @@ export const SCREENS: Screen[] = [
   },
   // A top-layout shot of a setup page (the admin pages are side-only otherwise).
   { key: 'admin-users-all-layouts', path: '/admin/users', app: 'console' },
+  // ADR-052 erasure screens (lane C's condition 8), on the mocked erasure API only.
+  {
+    key: 'erasures',
+    path: '/admin/erasures',
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('mocked', 'erasures-table'),
+  },
+  {
+    key: 'erasure',
+    path: ERASURE_PATH,
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('summary', 'erasure-page'),
+  },
+  {
+    key: 'erasure-mentions',
+    path: ERASURE_PATH,
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('passage', 'erasure-page', async (page) => {
+      await tab('mentions')(page);
+      await click(`erasure-passage-${FAKE.mention}`)(page);
+      await page.getByTestId('erasure-passage-text').waitFor({ timeout: STATE_TIMEOUT });
+    }),
+  },
+  {
+    key: 'erasure-history',
+    path: ERASURE_PATH,
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('history', 'erasure-page', tab('history')),
+  },
+  {
+    key: 'erasure-approve',
+    path: ERASURE_PATH,
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('dialog', 'erasure-page', click('erasure-approve')),
+  },
+  {
+    key: 'person-privacy',
+    path: '/admin/users',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'privacy', open: requestDrawer },
+  },
+  {
+    // Lane C's condition 6: the hold section with a hold placed, then lifting it (the
+    // warning and the reason). The lift is answered by the mock and never sent on.
+    key: 'person-legal-hold',
+    path: '/admin/users',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'lift',
+      open: async (page: Page) => {
+        await privacyTab(page, true);
+        await click('legal-hold-switch')(page);
+        await page.getByTestId('legal-hold-dialog').first().waitFor({ timeout: STATE_TIMEOUT });
+      },
+    },
+  },
+  {
+    key: 'erasure-request',
+    path: '/admin/users',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'drawer',
+      open: async (page: Page) => {
+        await requestDrawer(page);
+        await click('person-erasure-ask')(page);
+        await page.getByTestId('erasure-request').first().waitFor({ timeout: STATE_TIMEOUT });
+      },
+    },
+  },
   { key: 'announcements', path: '/announcements', app: 'console' },
   { key: 'dashboards', path: '/dashboards', app: 'console' },
   {
