@@ -735,7 +735,7 @@ class IncidentNotifications:
         access: RecordAccess,
     ) -> Mapping[str, VariableValue]:
         """The requester's name only to readers near them (requester_names, one rule)."""
-        if access is RecordAccess.FULL:
+        if access is not RecordAccess.PUBLIC:  # FULL reads everything; NONE gets nothing
             return {}
         record = await session.get(WorkItem, context.record_id)
         if record is None:  # pragma: no cover - the context was just read

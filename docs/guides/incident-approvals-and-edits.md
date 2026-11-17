@@ -51,7 +51,8 @@ own rules, and its history names the parent.
 
 ## Merging duplicates
 
-**Merge** an incident into another one. Before you confirm, you see:
+**Merge into another incident** (under **More actions**, on open incidents) picks the incident
+to keep. Before you confirm, you see:
 
 - the children that move to the incident you keep;
 - whether the duplicate's requester is added as a follower (only when both incidents are in the
@@ -59,10 +60,14 @@ own rules, and its history names the parent.
 - how many people would newly see the duplicate: staff who can open the incident you keep but not
   the duplicate, and the requesters of the incident you keep. You confirm this explicitly.
 
-The merged incident stays readable, marked as merged. Its notes and replies show on the incident
+A follower added this way hears the kept incident's public replies and notes by e-mail. It
+does not open that incident in their portal. The kept incident's requester is named in those
+e-mails only to followers in the same department; anyone else reads "the requester".
+
+The merged incident stays readable. A banner says which incident it was merged into. Its notes and replies show on the incident
 you keep, each with its own visibility: private notes never reach the portal.
 
-**Undo merge** (by default the service desk managers; it asks you to confirm your sign-in) puts
+**Undo merge** on that banner (by default the service desk managers; it asks you to confirm your sign-in) puts
 everything back exactly. When that is no longer possible (the incident you kept has since been
 closed, or a moved child was linked elsewhere) it is refused, and nothing changes.
 
@@ -73,4 +78,5 @@ or a service request to an incident. A new record is created; the old one is mar
 and stays readable, its history unchanged. The preview lists the custom fields that do not carry
 over (the other type has no such field, or a field-access rule covers it); they stay on the old
 record. Open approvals on the old record are withdrawn. Its old number still leads to the new
-record, for anyone who may open it.
+record, for anyone who may open it: type it in the search box (**Ctrl+K**) and the first result
+is the record it became. The old record's banner links to the new one.

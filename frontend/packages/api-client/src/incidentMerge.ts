@@ -203,3 +203,43 @@ export async function followAlias(kind: ConvertibleKind, value: string): Promise
     ? call(api.GET('/api/v1/incidents/alias/{value}', { params: { path: { value } } }))
     : call(api.GET('/api/v1/service-requests/alias/{value}', { params: { path: { value } } }));
 }
+
+/** A record's links by its kind: the banner finds where a merged or converted record went. */
+export function useMovedLinks(kind: ConvertibleKind, id: string, enabled: boolean) {
+  return useQuery({
+    queryKey:
+      kind === 'incidents'
+        ? queryKeys.incidents.links(id)
+        : ['service-requests', 'detail', id, 'links'],
+    queryFn: () =>
+      kind === 'incidents'
+        ? call(
+            api.GET('/api/v1/incidents/{record_id}/links', {
+              params: { path: { record_id: id } },
+            }),
+          )
+        : call(
+            api.GET('/api/v1/service-requests/{record_id}/links', {
+              params: { path: { record_id: id } },
+            }),
+          ),
+    enabled: enabled && id !== '',
+  });
+}
+
+/** Where a typed old number leads now; nothing (no error) when it leads nowhere you may read. */
+export function useAliasLookup(value: string, enabled: boolean) {
+  const wanted = value.trim().toUpperCase();
+  return useQuery({
+    queryKey: ['alias', wanted],
+    queryFn: async () => {
+      try {
+        return await followAlias('incidents', wanted);
+      } catch {
+        return null; // 404 for an unknown or unreadable number: offer nothing, say nothing
+      }
+    },
+    enabled: enabled && /^[A-Z]{2,10}-\d{1,12}$/.test(wanted),
+    staleTime: 30_000,
+  });
+}

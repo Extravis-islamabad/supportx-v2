@@ -1509,6 +1509,8 @@ export {
   useConvertRecord,
   useMergeIncident,
   useMergePreview,
+  useMovedLinks,
+  useAliasLookup,
   useResolvableChildren,
   useResolveChildren,
   useUndoMerge,

@@ -78,6 +78,7 @@ import {
 } from '@supportx/ui';
 
 import { CopyDialog } from './CopyDialog';
+import { ConvertDialog, MergeIncidentDialog, MovedBanner } from './MergeConvert';
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
@@ -182,6 +183,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [merging, setMerging] = useState(false); // WP-046b S2 (REQ-INC-088)
+  const [converting, setConverting] = useState(false); // WP-046b S2 (REQ-INC-089)
   const [asking, setAsking] = useState(false); // WP-046b S1 (REQ-INC-083)
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -467,6 +470,33 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           },
         }
       : null,
+    // WP-046b S2: merge into another incident (REQ-INC-088), convert to a request (-089).
+    // Open records only; the server checks edit here and on the other side, and refuses.
+    item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+    item.status_category === 'open'
+      ? {
+          key: 'merge',
+          label: t('incidents.merge.action'),
+          allowed: true,
+          testId: 'inc-op-merge',
+          onClick: () => {
+            setMerging(true);
+          },
+        }
+      : null,
+    item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+    item.status_category === 'open' &&
+    can('requests.create')
+      ? {
+          key: 'convert',
+          label: t('incidents.convert.action_to_request'),
+          allowed: true,
+          testId: 'inc-op-convert',
+          onClick: () => {
+            setConverting(true);
+          },
+        }
+      : null,
     deleteOp !== undefined && deleteOp.reason !== 'no_permission'
       ? {
           key: 'delete',
@@ -622,6 +652,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               }
             />
             <LoopWarning id={item.id} />
+            <MovedBanner item={item} kind="incidents" />
           </>
         }
         panel={
@@ -742,6 +773,21 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           open={asking}
           onClose={() => {
             setAsking(false);
+          }}
+        />
+        <MergeIncidentDialog
+          item={item}
+          open={merging}
+          onClose={() => {
+            setMerging(false);
+          }}
+        />
+        <ConvertDialog
+          kind="incidents"
+          record={item}
+          open={converting}
+          onClose={() => {
+            setConverting(false);
           }}
         />
         <CopyDialog

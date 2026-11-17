@@ -3,17 +3,19 @@
 After a merge, the duplicate's requester follows the survivor and gets its public replies and
 notes by e-mail. Until the product owner decides, the coordinator's default holds: a reader on
 the requester's side sees the survivor's requester by name only when they are in the same
-department; anyone else reads "the requester". Staff with full access are unchanged.
+department; anyone else reads "the requester". Staff with full access, and a named approver
+(who may need the name to decide, as before), are unchanged.
 
 This module is the one place the rule lives, so a different answer changes only `named_to`.
 """
 
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import person_placement
-from app.modules.work_items.infra.models import WorkItem
+from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.shared.notifications.ports import LabelRef, RecordAccess, VariableValue
 
 UNNAMED = LabelRef("notification_value.unnamed_requester")
@@ -25,9 +27,24 @@ async def named_to(
     """Whether this reader may read the record's requester by name."""
     if access is RecordAccess.FULL or reader_id in (record.requester_id, record.on_behalf_of_id):
         return True
+    if await _approver(session, record, reader_id):
+        return True
     theirs = (await person_placement(session, record.requester_id)).department_id
     mine = (await person_placement(session, reader_id)).department_id
     return theirs is not None and theirs == mine
+
+
+async def _approver(session: AsyncSession, record: WorkItem, reader_id: uuid.UUID) -> bool:
+    found = await session.scalar(
+        select(WorkItemApproval.id)
+        .where(
+            WorkItemApproval.work_item_id == record.id,
+            WorkItemApproval.approver_id == reader_id,
+            WorkItemApproval.deleted_at.is_(None),
+        )
+        .limit(1)
+    )
+    return found is not None
 
 
 async def requester_name_for(

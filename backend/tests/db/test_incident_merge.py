@@ -371,3 +371,16 @@ async def test_a_merged_in_follower_hears_the_public_side_and_the_name_only_near
     # The requester themself, and staff with full access, are unchanged.
     assert await heard(a.requester) == (RecordAccess.PUBLIC, "named")
     assert await heard(a.admin) == (RecordAccess.FULL, "named")
+    # A named approver who may not open it (tech_b is in GB only) keeps the name to decide,
+    # as before the rule (lane B's question), even outside the requester's department.
+    assert await heard(a.tech_b) == (RecordAccess.NONE, "named")
+    asked = await world.call(
+        "POST",
+        f"{BASE}/{survivor['id']}/approvals",
+        a,
+        a.admin,
+        json={"approver_ids": [str(a.tech_b)]},
+        headers={"If-Match": f'"{(await _fresh(world, a, survivor))["version"]}"', **CONSOLE},
+    )
+    assert asked.status_code in {200, 201}, asked.text
+    assert await heard(a.tech_b) == (RecordAccess.PUBLIC, "named")
