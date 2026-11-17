@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors route-permissions setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check semgrep labels-json backend-test-timings backend-shard-weights ci-metrics \
+.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors route-permissions setup lint typecheck test format check build precommit audit audit-backend audit-frontend not-shipped-check licence-check semgrep labels-json backend-test-timings backend-shard-weights ci-metrics \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e e2e-smoke \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -241,9 +241,23 @@ licence-check: ## The shipped JS dependencies' licences against the allow-list (
 	@if [ -f mobile/package.json ]; then (cd mobile && pnpm install --frozen-lockfile --prefer-offline >/dev/null); fi
 	$(BACKEND) uv run python -m tooling.licence_check ../frontend ../mobile
 
-audit-frontend:
+audit-frontend: not-shipped-check
+	@# D-174: the one accepted advisory (picomatch, GHSA-fc5q-39xc-vjpf) expires on 2026-12-01.
+	@if grep -q 'GHSA-fc5q-39xc-vjpf' frontend/pnpm-workspace.yaml && \
+		[ "$$(date -u +%Y%m%d)" -ge 20261201 ]; then \
+		echo "D-174 expired: remove GHSA-fc5q-39xc-vjpf from frontend/pnpm-workspace.yaml (bump picomatch, or ask Haider again)"; \
+		exit 1; fi
 	$(FRONTEND) pnpm audit || true
 	$(FRONTEND) pnpm audit --audit-level high
+
+# D-174: picomatch is accepted only while nothing shipped uses it. The production dependency
+# graph (what the frontend bundle is built from) must not contain it; the images' SBOM check is
+# in .github/workflows/cluster.yml.
+not-shipped-check: ## picomatch (D-174) absent from the production dependency graph
+	@if $(FRONTEND) pnpm list -r --prod --depth Infinity --json | grep -q '"picomatch"'; then \
+		echo "D-174: picomatch is in the production dependency graph; its accepted advisory no longer holds"; \
+		exit 1; fi
+	@echo "D-174: picomatch is not in the production dependency graph"
 
 # The repo's own rules only (.semgrep.yml), never the online registry, so it runs air-gapped; no
 # metrics, no version check. Files tracked by git, less .semgrepignore. In a git worktree the
