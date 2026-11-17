@@ -9,8 +9,14 @@ import { useLabel } from '@supportx/ui';
 export function StepProgress({ step, steps }: { step: number; steps: number }) {
   const t = useLabel();
   return (
-    <span aria-label={t('people_erasure.progress_aria', { step, steps })}>
-      <bdi dir="ltr">{t('people_erasure.progress', { step, steps })}</bdi>
+    // A label on a plain span is not read out (lane C, #532): the words go in hidden text.
+    <span>
+      <bdi dir="ltr" aria-hidden="true">
+        {t('people_erasure.progress', { step, steps })}
+      </bdi>
+      <span className="sx-visually-hidden">
+        {t('people_erasure.progress_aria', { step, steps })}
+      </span>
     </span>
   );
 }

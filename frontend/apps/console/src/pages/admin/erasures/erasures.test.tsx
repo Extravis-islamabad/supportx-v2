@@ -164,7 +164,9 @@ describe('Admin › Erasures: the list', () => {
     const table = await screen.findByTestId('erasures-table');
     expect(await within(table).findByText('Noor Hassan')).toBeDefined();
     expect(within(table).getByTestId('erasure-state-e-1').textContent).toBe('In progress');
-    expect(within(table).getByLabelText('Step 3 of 8').textContent).toBe('3/8');
+    // Shown as "3/8", read out as "Step 3 of 8" (hidden text, not a label on a span).
+    expect(within(table).getByText('3/8').getAttribute('aria-hidden')).toBe('true');
+    expect(within(table).getByText('Step 3 of 8').className).toBe('sx-visually-hidden');
     expect(table.textContent).not.toContain('running');
   });
 

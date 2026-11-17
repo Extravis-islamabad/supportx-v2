@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
-from tests.db.test_incidents_api import Org, World
+from tests.db.test_incidents_api import Org, World, role
 
 pytestmark = [pytest.mark.db, MODULE_LOOP]
 
@@ -65,6 +65,18 @@ async def test_a_hold_is_read_by_the_rights_that_need_it(world: World) -> None:
     assert again.json()["held"] is True
     assert again.json()["held_by"] == str(a.admin)
     assert again.json()["reason"] == "Litigation hold, case 2026-31"
+    assert again.headers["Cache-Control"] == "no-store"
+    viewed = await _audit(world, a, "person.legal_hold_viewed")
+    assert viewed
+    assert viewed[-1]["object_id"] == str(a.requester2)
+    # Someone who may only ask for erasure sees that the person is held, never why (lane C).
+    eraser = await role(world, a, "Privacy clerk (reads)", [("people.erase", "all")])
+    given = await world.call("PUT", f"/users/{a.tech_c}/roles/{eraser}", a, a.admin)
+    assert given.status_code == 204, given.text
+    clerk = await world.call("GET", f"/people/{a.requester2}/legal-hold", a, a.tech_c)
+    assert clerk.status_code == 200, clerk.text
+    assert (clerk.json()["held"], clerk.json()["reason"]) == (True, None)
+    assert len(await _audit(world, a, "person.legal_hold_viewed")) == len(viewed)
     # A technician holds neither right.
     refused = await world.call("GET", f"/people/{a.requester2}/legal-hold", a, a.tech_a)
     assert refused.status_code == 403

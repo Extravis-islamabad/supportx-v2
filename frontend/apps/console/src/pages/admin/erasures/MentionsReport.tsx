@@ -45,6 +45,7 @@ export function MentionsReport({
   personEmail?: string;
 }) {
   const t = useLabel();
+  const number = new Intl.NumberFormat(useAppearance().intlLocale);
   const list = useListFormat();
   const dates = useDateTime();
   const { modal, message } = App.useApp();
@@ -241,7 +242,7 @@ export function MentionsReport({
           {
             key: 'occurrences',
             title: t('people_erasure.mention.occurrences'),
-            render: (_, r) => <bdi dir="ltr">{r.occurrences}</bdi>,
+            render: (_, r) => number.format(r.occurrences),
           },
           {
             key: 'state',

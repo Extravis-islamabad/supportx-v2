@@ -168,17 +168,33 @@ async def lift_legal_hold(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 
 @people_router.get("/{user_id}/legal-hold", summary="A person's legal hold")
 async def get_legal_hold(
-    user_id: uuid.UUID, response: Response, session: TenantSession, subject: HoldsOrErase
+    user_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: HoldsOrErase,
 ) -> HoldOut:
-    """Whether the person is held, since when, by whom and why (`held: false` when not).
+    """Whether the person is held, since when and by whom (`held: false` when not).
 
     For those who place holds and those who ask for erasure (a held person cannot be erased);
-    the ETag is the person's version, for the next PUT or lift.
+    the ETag is the person's version, for the next PUT or lift. The reason is shown only to
+    those who place holds, and that read is audited (lane C's #532 review).
     """
-    del subject
     person = await get_person(session, user_id)
+    shown = HoldOut.of(person)
+    if not subject.holds(MANAGE_HOLDS):
+        shown.reason = None
+    elif shown.reason is not None:
+        await record(
+            session,
+            action_code="person.legal_hold_viewed",
+            facts=RequestFacts.of(request),
+            object_type="user",
+            object_id=user_id,
+        )
     set_etag(response, person.version)
-    return HoldOut.of(person)
+    response.headers["Cache-Control"] = "no-store"
+    return shown
 
 
 class UploadOut(BaseModel):

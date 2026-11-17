@@ -66,7 +66,7 @@ async def person_uploads(
                 FileLink.file_id.in_([r.id for r in rows])
             )
         )
-        owners = dict(links.tuples().all())
+        owners = {file_id: owner_type for file_id, owner_type in links.all()}  # noqa: C416 - Row pairs, typed
     items = [
         Upload(
             id=r.id,
