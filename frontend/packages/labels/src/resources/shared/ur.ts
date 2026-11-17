@@ -325,6 +325,7 @@ export const ur: LabelResource = {
   'nav.admin_catalog': 'سروس کیٹلاگ',
   'nav.admin_change_boards': 'تبدیلی مشاورتی بورڈ',
   'nav.admin_change_windows': 'فریز اور مینٹیننس ونڈوز',
+  'nav.admin_erasures': 'مٹانے کی درخواستیں',
   'nav.admin_files': 'فائلیں',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'واقعات',

@@ -326,6 +326,7 @@ export const en = {
   'nav.admin_catalog': 'Service catalog',
   'nav.admin_change_boards': 'Change advisory boards',
   'nav.admin_change_windows': 'Freeze and maintenance windows',
+  'nav.admin_erasures': 'Erasures',
   'nav.admin_files': 'Files',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',

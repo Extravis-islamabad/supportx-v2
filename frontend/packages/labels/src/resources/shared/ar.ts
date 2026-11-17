@@ -333,6 +333,7 @@ export const ar: LabelResource = {
   'nav.admin_catalog': 'كتالوج الخدمات',
   'nav.admin_change_boards': 'مجالس استشارات التغيير',
   'nav.admin_change_windows': 'نوافذ التجميد والصيانة',
+  'nav.admin_erasures': 'عمليات المحو',
   'nav.admin_files': 'الملفات',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'الحوادث',
