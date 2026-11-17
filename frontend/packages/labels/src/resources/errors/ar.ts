@@ -220,6 +220,8 @@ export const ar: LabelResource = {
   'errors.custom_field_limit_reached':
     'لهذا النوع من السجلات {{limit}} حقلًا مخصصًا، وهو الحد الأقصى. احذف حقلًا أو أعد استخدامه أولًا.',
   'errors.custom_field_not_found': 'هذا الحقل المخصص غير موجود (لم يعد موجودًا).',
+  'errors.custom_field_sensitive_unsupported':
+    'لا يمكن وضع علامة "حساس" على حقول هذا النوع من السجلات.',
   'errors.custom_field_used_by_rule':
     'تستخدم قواعد الأتمتة هذا الحقل ({{rules}}). عدّل تلك القواعد أو احذفها أولًا.',
   'errors.dashboard_not_editable':
@@ -388,6 +390,7 @@ export const ar: LabelResource = {
   'errors.field.code_taken': 'هذا الرمز مستخدم بالفعل.',
   'errors.field.comment_required': 'أضف تعليقًا: هذا البند يتطلب تعليقًا.',
   'errors.field.condition_not_supported': 'القواعد غير متاحة لهذه الصلاحية بعد.',
+  'errors.field.confirm_name_mismatch': 'اكتب اسم الحقل تمامًا كما يظهر.',
   'errors.field.conflict_blocks':
     'لا يمكن الإقرار بتعارض مانع. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
   'errors.field.conflict_not_found': 'لم يعد هذا التعارض موجودًا. تعرض القائمة التعارضات الحالية.',
