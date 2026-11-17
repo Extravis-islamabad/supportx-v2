@@ -236,6 +236,10 @@ export const ur: LabelResource = {
   'audit.action.identity.sign_ins_viewed': 'سائن اِن لاگ دیکھا',
   'audit.action.identity.site_networks_changed': 'سائٹس سے منسلک ایڈریس رینجز بدلیں',
   'audit.action.identity.sso_policy_changed': 'سنگل سائن آن پالیسی بدلی',
+  'audit.action.identity_access.service_account_changed': 'سروس اکاؤنٹ تبدیل کیا',
+  'audit.action.identity_access.service_account_created': 'سروس اکاؤنٹ بنایا',
+  'audit.action.identity_access.service_account_role_added': 'سروس اکاؤنٹ کو کردار دیا',
+  'audit.action.identity_access.service_account_role_removed': 'سروس اکاؤنٹ سے کردار واپس لیا',
   'audit.action.incident.access_changed': 'واقعے تک رسائی رکھنے والے بدلے',
   'audit.action.incident.approval_decided': 'واقعے پر منظوری کا فیصلہ درج کیا',
   'audit.action.incident.approval_requested': 'واقعے پر منظوری مانگی',
@@ -307,6 +311,11 @@ export const ur: LabelResource = {
   'audit.action.metadata.custom_field_changed': 'اپنی مرضی کا خانہ تبدیل کیا',
   'audit.action.metadata.custom_field_created': 'اپنی مرضی کا خانہ شامل کیا',
   'audit.action.metadata.custom_field_deleted': 'اپنی مرضی کا خانہ ہٹایا',
+  'audit.action.metadata.custom_field_opened':
+    'فیلڈ کی قدروں کو قابلِ مطالعہ متن میں کھولنا مکمل کیا',
+  'audit.action.metadata.custom_field_sealed': 'حساس فیلڈ کی قدروں کی مہر بندی مکمل کی',
+  'audit.action.metadata.custom_field_sensitivity_changed':
+    'تبدیل کیا کہ آیا اپنی مرضی کا خانہ حساس ہے',
   'audit.action.notification.rule_changed': 'اطلاع کا قاعدہ تبدیل کیا',
   'audit.action.notification.rule_reset': 'اطلاع کا قاعدہ پہلے سے طے شدہ پر واپس کیا',
   'audit.action.notify_link.used': 'باخبر رکھے گئے شخص کی ای میلز روکیں',
@@ -552,6 +561,8 @@ export const ur: LabelResource = {
     'سائن آؤٹ کے بعد باقی رہ جانے والا سائن اِن سروس کا سیشن ختم نہیں ہو سکا',
   'audit.detail.entries_checked': 'جانچے گئے اندراجات: {{value}}',
   'audit.detail.first_broken_seq': 'پہلا ٹوٹا ہوا مقام: {{value}}',
+  'audit.detail.owner_after': 'اب مالک: {{name}}',
+  'audit.detail.owner_before': 'پہلے مالک: {{name}}',
   'audit.detail.personal_rows_removed': 'ہٹائے گئے ذاتی ریکارڈ: {{value}}',
   'audit.detail.readable_keys': 'اب بھی قبول کی جانے والی کلیدیں: {{value}}',
   'audit.detail.reassigned_to': 'کردار میں منتقل: {{name}}',
@@ -892,6 +903,8 @@ export const ur: LabelResource = {
   'audit.ui.tab.settings': 'ترتیبات',
   'audit.ui.tab.sign_ins': 'سائن اِن',
   'audit.ui.technical': 'تکنیکی تفصیلات',
+  'audit.ui.turned_off': 'بند کیا گیا',
+  'audit.ui.turned_on': 'چالو کیا گیا',
   'audit.ui.user_agent': 'براؤزر یا ایپ',
   'audit.ui.user_agent_full': 'براؤزر کی اپنی تفصیل',
   'audit.ui.verify_help': 'پوری زنجیر کی تصدیق کے لیے مدت خالی چھوڑیں۔ یہ پس منظر میں چلتی ہے۔',
@@ -1048,6 +1061,7 @@ export const ur: LabelResource = {
   'event_type.identity_access.person_erasure.changed': 'فرد کا ڈیٹا مٹانا تبدیل ہوا',
   'event_type.identity_access.person_erasure.completed': 'فرد کا ڈیٹا مٹا دیا گیا',
   'event_type.identity_access.role.changed': 'کردار تبدیل ہوا',
+  'event_type.identity_access.service_account.needs_owner': 'سروس اکاؤنٹ کو نئے مالک کی ضرورت ہے',
   'event_type.identity_access.session.tenant_switched': 'ادارہ تبدیل کیا',
   'event_type.identity_access.sign_in.recorded': 'سائن اِن درج ہوا',
   'event_type.identity_access.sign_in_secret.expiring':
@@ -1082,6 +1096,9 @@ export const ur: LabelResource = {
   'event_type.knowledge.vote.saved': 'علمی مضمون کی رائے محفوظ ہوئی',
   'event_type.licensing.entitlement.changed': 'پلان یا لائسنس تبدیل ہوا',
   'event_type.metadata.custom_field.changed': 'اپنی مرضی کا خانہ تبدیل ہوا',
+  'event_type.metadata.custom_field.seal_changed':
+    'اپنی مرضی کے خانے کی مہر بندی شروع یا مکمل ہوئی',
+  'event_type.metadata.custom_field.seal_paused': 'اپنی مرضی کے خانے کی مہر بندی رک گئی',
   'event_type.notifications.delivery.recorded': 'اطلاع کی ترسیل درج ہوئی',
   'event_type.notifications.mail.not_sent_summary': 'ای میلز چھوڑ دی گئیں: میل سیٹ اپ نہیں',
   // WP-023 notifications

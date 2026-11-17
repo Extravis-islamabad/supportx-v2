@@ -26,6 +26,7 @@ SERVICE_READERS: dict[str, str] = {
     # WP-046b S2: which keys carry (presence only), then custom_values.opened and sealed again.
     "record_convert.py": "conversion: custom_values.opened, then sealed for the new record",
     "change_links.py": "copies: custom_values.opened, then sealed again",
+    "sealing_job.py": "the re-seal job: seals or opens stored values in place, never shows them",
 }
 
 

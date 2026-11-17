@@ -520,7 +520,22 @@ export function ApiKeysPanel({ mode }: { mode: Mode }) {
             title: t('api_keys.col.status'),
             key: 'status',
             render: (_, row) => (
-              <ToneTag tone={STATUS_TONE[row.status]}>{t(`api_key_status.${row.status}`)}</ToneTag>
+              // The policy's flags beside the state (WP-057 S4a): listed, never revoked.
+              <Flex gap={4} wrap>
+                <ToneTag tone={STATUS_TONE[row.status]}>
+                  {t(`api_key_status.${row.status}`)}
+                </ToneTag>
+                {(row.out_of_policy ?? []).map((gap) => (
+                  <ToneTag key={gap} tone="warning" testId={`api-key-gap-${row.id}-${gap}`}>
+                    {t(`api_key_policy_gap.${gap}`)}
+                  </ToneTag>
+                ))}
+                {row.unused && (
+                  <ToneTag tone="info" testId={`api-key-unused-${row.id}`}>
+                    {t('api_keys.unused')}
+                  </ToneTag>
+                )}
+              </Flex>
             ),
           },
           {

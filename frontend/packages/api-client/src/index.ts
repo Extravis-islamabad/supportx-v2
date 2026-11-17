@@ -247,6 +247,28 @@ export {
   type CustomFieldValidation,
 } from './customFields';
 export {
+  serviceAccountKeys,
+  useCreateServiceAccount,
+  useKeyPolicyImpact,
+  useServiceAccountRoles,
+  useServiceAccounts,
+  useSetServiceAccountRole,
+  useUpdateServiceAccount,
+  type KeyPolicyDraft,
+  type KeyPolicyImpact,
+  type ServiceAccount,
+  type ServiceAccountInput,
+  type ServiceAccountPatch,
+  type ServiceAccountRoles,
+} from './serviceAccounts';
+export {
+  useFieldSensitivity,
+  useSetFieldSensitivity,
+  type FieldSealState,
+  type FieldSensitivity,
+  type SensitivityChange,
+} from './fieldSensitivity';
+export {
   fetchMentionable,
   sendTyping,
   useAddConversationEntry,
