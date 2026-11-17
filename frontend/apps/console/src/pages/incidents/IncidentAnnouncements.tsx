@@ -1,9 +1,21 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { App, Button, Checkbox, Form, Input, List, Modal, Select, Typography } from 'antd';
-import { useState } from 'react';
+import {
+  App,
+  Button,
+  Checkbox,
+  Form,
+  Input,
+  List,
+  Modal,
+  Popconfirm,
+  Select,
+  Typography,
+} from 'antd';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
 import {
+  ApiError,
   incidentAnnouncementsKey,
   useAnnounceFromIncident,
   useEndIncidentAnnouncement,
@@ -12,7 +24,7 @@ import {
   type Incident,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
-import { EmptyText, lengthLimit, reportError, useLabel, WriteButton } from '@supportx/ui';
+import { lengthLimit, loadedEmpty, reportError, useLabel, WriteButton } from '@supportx/ui';
 
 // WP-046b S4 (REQ-INC-129): announce from an incident through the announcements module, list the
 // ones made from it, and end them. The text is the technician's: it starts from the subject and
@@ -46,6 +58,8 @@ export function AnnounceDialog({
   const [audience, setAudience] = useState<Audience>('everyone');
   const [units, setUnits] = useState<string[]>([]);
   const [banner, setBanner] = useState(true);
+  // The server's word on the chosen sites or groups (outside your scope, unknown), shown there.
+  const [unitProblem, setUnitProblem] = useState<string | null>(null);
   const close = () => {
     setKey(crypto.randomUUID());
     setTitle(item.subject);
@@ -96,7 +110,20 @@ export function AnnounceDialog({
               }
               close();
             },
-            onError: reportError,
+            onError: (error) => {
+              // A real answer (a refusal, a check): the next try is a new request, so a new key;
+              // a network failure keeps it, so a retry cannot announce twice (lane C).
+              if (error instanceof ApiError) setKey(crypto.randomUUID());
+              const unit =
+                error instanceof ApiError
+                  ? error.fieldErrors.find((e) => /(site|group)_ids/.test(e.field))
+                  : undefined;
+              if (unit !== undefined) {
+                setUnitProblem(t(unit.message_key, unit.params ?? {}));
+                return;
+              }
+              reportError(error);
+            },
           },
         );
       }}
@@ -148,12 +175,17 @@ export function AnnounceDialog({
             )}
             htmlFor="inc-announce-units"
             required
+            validateStatus={unitProblem === null ? undefined : 'error'}
+            help={unitProblem ?? undefined}
           >
             <Select
               id="inc-announce-units"
               mode="multiple"
               value={units}
-              onChange={setUnits}
+              onChange={(next: string[]) => {
+                setUnits(next);
+                setUnitProblem(null);
+              }}
               optionFilterProp="label"
               options={choices.map((u) => ({ value: u.id, label: u.name }))}
               data-testid="inc-announce-units"
@@ -186,9 +218,10 @@ export function IncidentAnnouncements({ item }: { item: Pick<Incident, 'id'> }) 
   });
   const items = found.data ?? [];
   if (items.length === 0) {
+    // "None" only once loaded, as the other panels (lane C).
     return (
       <div data-testid="inc-announcements-empty">
-        <EmptyText>{t('incidents.announce.none')}</EmptyText>
+        {loadedEmpty(found.isPending, t('incidents.announce.none'))}
       </div>
     );
   }
@@ -204,17 +237,25 @@ export function IncidentAnnouncements({ item }: { item: Pick<Incident, 'id'> }) 
             a.status === 'archived'
               ? []
               : [
-                  <WriteButton
+                  // Asked first (lane C): ending archives what many people may see.
+                  <Popconfirm
                     key="end"
-                    size="small"
-                    loading={end.isPending && end.variables === a.id}
-                    data-testid={`inc-announcement-end-${a.display_id}`}
-                    onClick={() => {
+                    title={t('incidents.announce.end_confirm', { id: a.display_id })}
+                    okText={t('incidents.announce.end')}
+                    cancelText={t('actions.cancel')}
+                    okButtonProps={{ 'data-testid': `inc-announcement-end-ok-${a.display_id}` }}
+                    onConfirm={() => {
                       end.mutate(a.id, { onError: reportError });
                     }}
                   >
-                    {t('incidents.announce.end')}
-                  </WriteButton>,
+                    <WriteButton
+                      size="small"
+                      loading={end.isPending && end.variables === a.id}
+                      data-testid={`inc-announcement-end-${a.display_id}`}
+                    >
+                      {t('incidents.announce.end')}
+                    </WriteButton>
+                  </Popconfirm>,
                 ]
           }
         >
@@ -245,6 +286,12 @@ export function EndAnnouncementsPrompt({
   const t = useLabel();
   const found = useIncidentAnnouncements(item.id, open);
   const live = (found.data ?? []).filter((a) => a.status !== 'archived');
+  // Once loaded with nothing live (none, or the last one just ended here), the prompt is done:
+  // closing it for real keeps it from coming back on a later announcement (lane C).
+  const done = open && found.data !== undefined && live.length === 0;
+  useEffect(() => {
+    if (done) onClose();
+  }, [done, onClose]);
   return (
     <Modal
       open={open && live.length > 0}

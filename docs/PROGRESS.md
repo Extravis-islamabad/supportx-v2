@@ -1635,6 +1635,19 @@ declare major) default to the tenant admin and service desk manager, grantable, 
     reassigned, within the tenant's minutes), confirmed or changed by the technician.
   - Console: Approvals tab and the ask dialog, the "Why" box on closed or named fields, the
     closure settings (reason fields, first-contact minutes, the lock), the first-contact flag.
+- [~] **S4, major incidents, announcing and printing (0177; lane B blocks; lane C owns the
+  announcements port and reads the UI):**
+  - REQ-INC-141: `incidents.declare_major` (tenant admin, service desk managers): declare and end
+    with a reason (audited, the reason in the entry's personal part, never in history values);
+    the major incident team (a group and named people) is told through the engine; the major
+    template applies when set; the marker in the record and lists, a filter field, the open
+    major incidents list; settings with If-Match and an audit entry. Attaching similar incidents
+    as children (REQ-INC-141 AC2) follows once S2 (#525) is on main.
+  - REQ-INC-129: announce from an incident through announcements' new public port (its own
+    rights, scope and audience); the link kept by work_items; one Idempotency-Key per dialog;
+    a draft when the actor may not publish; resolving offers to end them, nothing ends by itself.
+  - REQ-INC-126: print or save as PDF with chosen sections, read from the reader's own APIs; the
+    conversation's server-side `visibility` filter keeps private notes off a public printout.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
