@@ -74,12 +74,14 @@ class ApiKeyOut(BaseModel):
         policy: rules.KeyPolicy | None = None,
     ) -> "ApiKeyOut":
         """From the row; with the policy, its gaps and whether it is unused (active keys only)."""
-        state: KeyStatus = (
-            "revoked"
-            if row.revoked_at is not None
-            else "expired"
-            if row.expires_at is not None and row.expires_at <= now
-            else "active"
+        state = rules.key_state(
+            created_at=row.created_at,
+            expires_at=row.expires_at,
+            revoked_at=row.revoked_at,
+            last_used_at=row.last_used_at,
+            ip_allowlist=row.ip_allowlist,
+            policy=policy,
+            now=now,
         )
         return cls(
             id=row.id,
@@ -94,26 +96,9 @@ class ApiKeyOut(BaseModel):
             last_used_ip=row.last_used_ip,
             revoked_at=row.revoked_at,
             created_at=row.created_at,
-            status=state,
-            out_of_policy=cast(
-                "list[PolicyGap]",
-                rules.out_of_policy(
-                    created_at=row.created_at,
-                    expires_at=row.expires_at,
-                    ip_allowlist=row.ip_allowlist,
-                    policy=policy,
-                ),
-            )
-            if policy is not None and state == "active"
-            else [],
-            unused=policy is not None
-            and state == "active"
-            and rules.unused(
-                created_at=row.created_at,
-                last_used_at=row.last_used_at,
-                now=now,
-                after=policy.unused_after,
-            ),
+            status=cast("KeyStatus", state.status),
+            out_of_policy=cast("list[PolicyGap]", state.gaps),
+            unused=state.unused,
         )
 
 
