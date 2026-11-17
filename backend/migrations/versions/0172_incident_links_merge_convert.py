@@ -31,7 +31,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0172"
-down_revision: str | None = "0171"  # main's head (0169 → 0171 → 0172)
+down_revision: str | None = "0174"  # main's head (0171 → 0174 → 0172)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
