@@ -2482,10 +2482,35 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       only, no sort, withheld fields never rewritten), history sealed per cell (lane B's option
       b), reports withhold non-plain fields, the mentions port opens/redacts/re-seals and logs
       passages (AUD-017 `erasure_passage`). ADR-050 addendum 2.
-    - [ ] **S3b-2b:** the re-seal job and the `sensitive` switch (re-auth, settings right,
-      audit, plain-text wording on turning it off). Notifications, AI sources and mail commands
-      read no stored custom values today (checked 2026-11-16); the guard test keeps it so.
-- [ ] Session 4: service accounts, key policy, non-person actors, security overview.
+    - [x] **S3b-2b (no migration; PR after #520; lane B blocks, lane A reviews the
+      CustomFieldsTab call site):** the switch on its own route (on needs `field_encryption`;
+      off needs a recent sign-in, a reason and the name typed back, and says what it affects),
+      search failing closed at the switch's commit, the re-seal job
+      (`work_items__custom_field_seal`: batches, compare-and-set, resumable, no history), a key
+      outage pausing with one notice, the console switch, tag and dialog. ADR-050 addendum 3.
+      Notifications, AI sources and mail commands read no stored custom values today (checked
+      2026-11-16); the guard test keeps it so.
+- [ ] Session 4: service accounts, key policy, non-person actors, security overview (plan
+  approved 2026-11-16; S4a, S4b, S4d, then S4c; lane B blocks each PR).
+  - [x] **S4a (migration 0174; #530, merged f5671e4f8):**
+    - **Service accounts (REQ-SEC-036):** an owner (an active technician) and a description;
+      Admin > Service accounts (template C plus a drawer form); roles through the guarded path
+      (a recent sign-in to give or take one, or to change the owner or turn it off or on).
+    - **Hand-over (AC3):** a deactivated owner's accounts are flagged `needs_new_owner`, and the
+      admins are told once (`identity_access.service_account.needs_owner`, required).
+    - **Key policy (REQ-SEC-037):** maximum lifetime (the refusal names the limit), an IP range
+      required, unused after N days. Older keys that break it are flagged and listed, never
+      revoked, and the card counts them before saving (the coordinator).
+    - **Fixes:** a service identity named on a record no longer causes a 500 (`people.py`, lane
+      A's OK); `UserCreatedV5` carries the `service_account` source.
+  - [x] **S4b (no migration; lane B blocks):** `record()` names the real actor (REQ-AUD-014): a
+    person's API key is the actor with the owner `on_behalf` (the owner keeps the personal data,
+    so erasure still finds it), a service account's key is the account, an AI agent acts for a
+    person with its version and tools in the details (`AgentActor`; a fake agent in tests).
+    Probing counts refusals made on a person's behalf; the audit log names a key by its name.
+  - [ ] S4d: the security overview, with an optional `SUPPORTX_DATA_REGION`.
+  - [ ] S4c: vendor support access (D-173; design note in
+    ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
   tenant) moved to LATER (D-165).

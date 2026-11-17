@@ -236,6 +236,8 @@ export const ur: LabelResource = {
   'errors.custom_field_limit_reached':
     'اس قسم کے ریکارڈ میں پہلے ہی {{limit}} اپنی مرضی کے خانے ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے کوئی خانہ ہٹائیں یا دوبارہ استعمال کریں۔',
   'errors.custom_field_not_found': 'یہ اپنی مرضی کا خانہ موجود نہیں (اب نہیں رہا)۔',
+  'errors.custom_field_sensitive_unsupported':
+    'اس قسم کے ریکارڈ کی فیلڈز کو حساس نشان زد نہیں کیا جا سکتا۔',
   'errors.custom_field_used_by_rule':
     'آٹومیشن اصول یہ فیلڈ استعمال کرتے ہیں ({{rules}})۔ پہلے وہ اصول بدلیں یا ہٹائیں۔',
   'errors.dashboard_not_editable':
@@ -327,7 +329,9 @@ export const ur: LabelResource = {
   'errors.field.api_key_expiry_past': 'میعاد ختم ہونے کی تاریخ مستقبل میں ہونی چاہیے۔',
   'errors.field.api_key_expiry_required':
     'میعاد ختم ہونے کی تاریخ منتخب کریں: آپ کا ادارہ کبھی ختم نہ ہونے والی کلیدوں کی اجازت نہیں دیتا۔',
-  'errors.field.api_key_expiry_too_far': 'کلید زیادہ سے زیادہ ایک سال چل سکتی ہے۔',
+  'errors.field.api_key_expiry_too_far': 'یہاں کلید زیادہ سے زیادہ {{max_days}} دن چل سکتی ہے۔',
+  'errors.field.api_key_ip_range_required':
+    'یہ ادارہ ہر نئی کلید سے وہ پتے درج کرنے کو کہتا ہے جہاں سے اسے استعمال کیا جا سکے۔',
   'errors.field.api_key_name_invalid': 'زیادہ سے زیادہ 100 حروف کا نام درج کریں۔',
   'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
@@ -421,6 +425,7 @@ export const ur: LabelResource = {
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
   'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
+  'errors.field.confirm_name_mismatch': 'فیلڈ کا نام بالکل ویسا ہی لکھیں جیسا دکھایا گیا ہے۔',
   'errors.field.conflict_blocks':
     'روکنے والا ٹکراؤ تسلیم نہیں کیا جا سکتا۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
   'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
@@ -431,6 +436,7 @@ export const ur: LabelResource = {
   'errors.field.date_format_unknown': 'فہرست میں سے تاریخ کی شکل چنیں۔',
   'errors.field.date_in_future': 'آج یا اس سے پہلے کی تاریخ چنیں۔',
   'errors.field.date_in_past': 'ابھی کے بعد کا وقت چنیں۔',
+  'errors.field.days_out_of_range': '{{min}} سے {{max}} تک دنوں کی تعداد درج کریں۔',
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',
@@ -688,6 +694,7 @@ export const ur: LabelResource = {
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',
+  'errors.field.service_account_owner_invalid': 'مالک کے طور پر کوئی فعال ٹیکنیشن منتخب کریں۔',
   'errors.field.session_absolute_out_of_range':
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
   'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
@@ -1143,6 +1150,7 @@ export const ur: LabelResource = {
   'errors.saved_view_not_found': 'یہ محفوظ منظر اب موجود نہیں، یا یہ آپ کا نہیں۔',
   'errors.scale_value_not_found': 'یہ قدر موجود نہیں۔',
   'errors.server_busy': 'میل سرور مصروف تھا۔',
+  'errors.service_account_owner_invalid': 'مالک کے طور پر کوئی فعال ٹیکنیشن منتخب کریں۔',
   'errors.service_category_in_use':
     'اس کیٹیگری میں ابھی آئٹمز یا کیٹیگریز موجود ہیں۔ پہلے انہیں منتقل یا حذف کریں۔',
   'errors.service_category_not_found': 'یہ کیٹیگری موجود نہیں۔',

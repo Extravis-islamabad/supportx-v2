@@ -351,6 +351,7 @@ export const ar: LabelResource = {
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'الأدوار',
   'nav.admin_security': 'تسجيل الدخول والأمان',
+  'nav.admin_service_accounts': 'حسابات الخدمة',
   'nav.admin_sla': 'اتفاقيات مستوى الخدمة',
   'nav.admin_users': 'الأشخاص',
   // Announcements, field history, action reasons (WP-012)
@@ -859,6 +860,9 @@ export const ar: LabelResource = {
     'تسجيل الدخول وكلمات المرور والتحقق بخطوتين والدخول الموحد والجلسات ومفاتيح API.',
   'setup.page.security.keywords':
     'أمان، كلمة المرور، تحقق بخطوتين، دخول موحد، جلسات، مهلة، دعوات، مفاتيح',
+  'setup.page.service-accounts.description':
+    'حسابات تستخدمها أنظمة أخرى، لكل منها مالك مسؤول عنها، وأدوارها ومفاتيحها.',
+  'setup.page.service-accounts.keywords': 'حسابات الخدمة، تكاملات، مالك، تسليم، أتمتة، API',
   'setup.page.sla.description': 'أهداف الخدمة وساعات العمل والعطلات والتصعيد.',
   'setup.page.sla.keywords':
     'اتفاقية مستوى الخدمة، أهداف، وقت الاستجابة، الحل، ساعات العمل، تقويم، عطلات، تصعيد',

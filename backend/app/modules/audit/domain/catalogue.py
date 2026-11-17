@@ -257,9 +257,18 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    # Service accounts (WP-057 S4a, REQ-SEC-036).
+    ("identity_access.service_account_created", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.service_account_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.service_account_role_added", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.service_account_role_removed", AuditCategory.SECURITY, "identity_access"),
     ("metadata.custom_field_created", AuditCategory.CONFIGURATION, "metadata"),
     ("metadata.custom_field_changed", AuditCategory.CONFIGURATION, "metadata"),
     ("metadata.custom_field_deleted", AuditCategory.CONFIGURATION, "metadata"),
+    # Sensitive custom fields (WP-057 S3b-2b): the switch, then the job's end.
+    ("metadata.custom_field_sensitivity_changed", AuditCategory.SECURITY, "metadata"),
+    ("metadata.custom_field_sealed", AuditCategory.SECURITY, "metadata"),
+    ("metadata.custom_field_opened", AuditCategory.SECURITY, "metadata"),
     ("incident.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),

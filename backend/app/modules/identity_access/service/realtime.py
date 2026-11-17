@@ -63,7 +63,15 @@ FIELD_ACCESS_LIST = LiveList("field_access", "roles.view")
 SIGN_INS_LIST = LiveList("sign_ins", "identity.view_sign_ins")
 # GDPR erasures (ADR-052): for those who may erase; the message names the erasure only.
 ERASURES_LIST = LiveList("person_erasures", "people.erase")
-KEY_SETTINGS = frozenset({"people_may_create_keys", "allow_non_expiring_keys"})
+KEY_SETTINGS = frozenset(
+    {
+        "people_may_create_keys",
+        "allow_non_expiring_keys",
+        "key_max_lifetime_days",
+        "keys_require_ip_range",
+        "key_unused_days",
+    }
+)
 
 # Changes to these user fields change what the user may do: their connections are cut.
 ACCESS_FIELDS = frozenset({"status", "user_type"})

@@ -545,6 +545,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-057 S4a (REQ-SEC-036): non-person identities with an owner.
+            path: 'service-accounts',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/ServiceAccountsPage')).ServiceAccountsPage,
+            }),
+          },
+          {
             path: 'notifications',
             lazy: async () => ({
               Component: (await import('./pages/admin/notifications/NotificationRulesPage'))

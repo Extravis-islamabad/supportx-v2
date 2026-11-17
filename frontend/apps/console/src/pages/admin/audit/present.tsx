@@ -27,7 +27,8 @@ export function actionLabel(t: T, entry: Pick<AuditEntry, 'action' | 'details'>)
 /** Who acted: a person's name, else the kind of actor (never an ID or a code). */
 export function actorLabel(t: T, entry: AuditEntry): string {
   if (entry.actor_type === 'person') return entry.actor_name ?? t('audit.ui.erased_person');
-  return t(`audit_actor_type.${entry.actor_type}`);
+  // A key, a service account or an agent is shown by its own name when it has one (WP-057 S4b).
+  return entry.actor_name ?? t(`audit_actor_type.${entry.actor_type}`);
 }
 
 /** Where the object lives in the console, if it has a page there. */

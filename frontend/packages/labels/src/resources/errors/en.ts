@@ -239,6 +239,8 @@ export const en = {
   'errors.custom_field_limit_reached':
     'This kind of record already has {{limit}} custom fields, the most allowed. Remove or reuse one first.',
   'errors.custom_field_not_found': 'This custom field does not exist (any more).',
+  'errors.custom_field_sensitive_unsupported':
+    'Fields of this kind of record cannot be marked sensitive.',
   'errors.custom_field_used_by_rule':
     'Automation rules use this field ({{rules}}). Change or remove those rules first.',
   'errors.dashboard_not_editable':
@@ -331,7 +333,9 @@ export const en = {
   'errors.field.api_key_expiry_past': 'The expiry date must be in the future.',
   'errors.field.api_key_expiry_required':
     'Choose an expiry date: your organisation does not allow keys that never expire.',
-  'errors.field.api_key_expiry_too_far': 'A key can last at most one year.',
+  'errors.field.api_key_expiry_too_far': 'A key can last at most {{max_days}} days here.',
+  'errors.field.api_key_ip_range_required':
+    'This organisation asks every new key to name the addresses it may be used from.',
   'errors.field.api_key_name_invalid': 'Enter a name of up to 100 characters.',
   'errors.field.api_key_owner_not_service':
     'Keys for someone else can only belong to a service identity.',
@@ -425,6 +429,7 @@ export const en = {
   'errors.field.code_taken': 'Another one already uses this code.',
   'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.condition_not_supported': 'Rules are not available for this permission yet.',
+  'errors.field.confirm_name_mismatch': "Type the field's name exactly as it is shown.",
   'errors.field.conflict_blocks':
     'A blocking conflict cannot be acknowledged. Choose another time, or someone allowed to may let it go ahead with a reason.',
   'errors.field.conflict_not_found':
@@ -435,6 +440,7 @@ export const en = {
   'errors.field.date_format_unknown': 'Choose a date format from the list.',
   'errors.field.date_in_future': 'Choose today or an earlier date.',
   'errors.field.date_in_past': 'Choose a time later than now.',
+  'errors.field.days_out_of_range': 'Enter a number of days from {{min}} to {{max}}.',
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',
@@ -684,6 +690,7 @@ export const en = {
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
+  'errors.field.service_account_owner_invalid': 'Choose an active technician as the owner.',
   'errors.field.session_absolute_out_of_range':
     'Use at least the idle timeout and at most {{max}} hours.',
   'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
@@ -1135,6 +1142,7 @@ export const en = {
   'errors.saved_view_not_found': 'This saved view no longer exists, or it is not yours.',
   'errors.scale_value_not_found': 'That value does not exist.',
   'errors.server_busy': 'The mail server was busy.',
+  'errors.service_account_owner_invalid': 'Choose an active technician as the owner.',
   'errors.service_category_in_use':
     'This category still holds items or categories. Move or delete them first.',
   'errors.service_category_not_found': 'This category does not exist.',

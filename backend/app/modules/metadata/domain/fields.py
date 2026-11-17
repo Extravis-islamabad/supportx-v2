@@ -115,6 +115,15 @@ class IndexState(StrEnum):
     FAILED = "failed"
 
 
+class SealState(StrEnum):
+    """Where a field's stored values stand while they follow `sensitive` (WP-057 S3b-2)."""
+
+    PLAIN = "plain"
+    SEALING = "sealing"
+    SEALED = "sealed"
+    OPENING = "opening"
+
+
 class IndexFailure(StrEnum):
     """Why an index could not be built, as admins read it; the database's text is only logged."""
 

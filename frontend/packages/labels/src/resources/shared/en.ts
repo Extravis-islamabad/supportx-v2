@@ -344,6 +344,7 @@ export const en = {
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'Roles',
   'nav.admin_security': 'Sign-in and security',
+  'nav.admin_service_accounts': 'Service accounts',
   'nav.admin_sla': 'SLA',
   'nav.admin_users': 'People',
   // Announcements, field history, action reasons (WP-012)
@@ -855,6 +856,10 @@ export const en = {
     'Sign-in, passwords, two-step sign-in, single sign-on, sessions and API keys.',
   'setup.page.security.keywords':
     'security, password, mfa, two-step, 2fa, sso, saml, oidc, sessions, timeout, invitations, api keys',
+  'setup.page.service-accounts.description':
+    'Accounts that other systems sign in as, each with an owner who answers for it, its roles and keys.',
+  'setup.page.service-accounts.keywords':
+    'service accounts, integrations, owner, hand-over, robots, automation, api',
   'setup.page.sla.description': 'Service targets, working hours, holidays and escalations.',
   'setup.page.sla.keywords':
     'sla, targets, response time, resolution, business hours, calendar, holidays, escalation',

@@ -64,6 +64,8 @@ ENTRY_FIELDS = ResourceFields(
             values=frozenset(a.value for a in AuditActorType),
         ),
         "actor_id": FilterField(AuditEntry.actor_id, FieldType.UUID),
+        # Whom a key or an agent acted for (WP-057 S4b): a person's filter matches either column.
+        "on_behalf_id": FilterField(AuditEntry.on_behalf_id, FieldType.UUID),
         "object_type": FilterField(AuditEntry.object_type, FieldType.STRING),
         "object_id": FilterField(AuditEntry.object_id, FieldType.STRING),
         "client": FilterField(

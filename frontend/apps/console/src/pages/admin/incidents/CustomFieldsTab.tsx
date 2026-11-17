@@ -48,6 +48,7 @@ import {
 import { CustomFieldControl } from '../../customFields/fields';
 import { fieldName, filled, localized } from '../../customFields/values';
 import { cleanLabels, refusalMessages } from './helpers';
+import { SealStateTag, SensitiveSetting } from './SensitiveSetting';
 import { LabelsFields, Problems } from './shared';
 
 const TYPES: CustomFieldType[] = [
@@ -224,7 +225,10 @@ export function CustomFieldsTab() {
             key: 'index',
             title: t('custom_fields.index'),
             render: (_: unknown, f: CustomField) => (
-              <IndexTag field={f} testId={`cf-index-${f.key}`} />
+              <Space size={4} wrap>
+                <IndexTag field={f} testId={`cf-index-${f.key}`} />
+                <SealStateTag field={f} testId={`cf-seal-${f.key}`} />
+              </Space>
             ),
           },
           {
@@ -562,6 +566,8 @@ function CustomFieldEditor({
       in_use: false,
       index_state: 'none',
       index_error: null,
+      sensitive: false,
+      seal_state: 'plain',
       version: 0,
     }),
     ...bodyOf(draft),
@@ -916,6 +922,8 @@ function CustomFieldEditor({
                         </Typography.Paragraph>
                       )}
                     </div>
+                    {/* WP-057 S3b-2b: its own route, outside this editor's draft (lane A). */}
+                    <SensitiveSetting field={field} />
                   </Flex>
                 ),
               },

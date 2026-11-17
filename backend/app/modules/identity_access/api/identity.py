@@ -138,6 +138,15 @@ class IdentitySettingsBody(BaseModel):
     allow_non_expiring_keys: bool | None = Field(
         default=None, description="API keys may be made without an expiry date (D-128)."
     )
+    key_max_lifetime_days: int | None = Field(
+        default=None, description="New keys last at most this long (1 to 366 days; REQ-SEC-037)."
+    )
+    keys_require_ip_range: bool | None = Field(
+        default=None, description="New keys must name the addresses they may be used from."
+    )
+    key_unused_days: int | None = Field(
+        default=None, description="Keys unused this long are listed to admins (7 to 365 days)."
+    )
 
 
 class IdentitySettingsOut(BaseModel):
@@ -161,6 +170,9 @@ class IdentitySettingsOut(BaseModel):
     people_edit_contact: bool
     people_may_create_keys: bool = Field(description="People may make API keys for themselves.")
     allow_non_expiring_keys: bool = Field(description="API keys may be made without an expiry.")
+    key_max_lifetime_days: int = Field(description="New keys last at most this long (days).")
+    keys_require_ip_range: bool = Field(description="New keys must have an IP range.")
+    key_unused_days: int = Field(description="Keys unused this long are listed to admins.")
     password_policy_editable: bool = Field(
         description="False on multi-tenant installations: the platform's policy applies."
     )

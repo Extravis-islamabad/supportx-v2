@@ -53,9 +53,14 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/field-access/rules",
     "PATCH /api/v1/field-access/rules/{rule_id}",
     "DELETE /api/v1/field-access/rules/{rule_id}",
+    # A custom field's sensitive mark: on seals values, off makes them readable (WP-057 S3b-2b).
+    "PUT /api/v1/custom-fields/{field_id}/sensitivity",
     # Closed incidents locked fully, administrators included (WP-046b S1; lane B).
     "PUT /api/v1/incidents/settings/closed-edit-lock",
     "PUT /api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}",
+    # A service account's roles, as a run-as identity's (WP-057 S4a, REQ-SEC-036).
+    "PUT /api/v1/service-accounts/{account_id}/roles/{role_id}",
+    "DELETE /api/v1/service-accounts/{account_id}/roles/{role_id}",
     # GDPR (D-171, ADR-052): legal hold, and both people of a person's erasure.
     "PUT /api/v1/people/{user_id}/legal-hold",
     "POST /api/v1/people/{user_id}/legal-hold/lift",
@@ -83,6 +88,8 @@ CONDITIONAL_RECENT_AUTH: dict[str, str] = {
     # A person's sign-in address is also where password resets go: changing it in a hijacked
     # admin session would hand over the account (lane B, #479). Other person fields stay open.
     "PATCH /api/v1/users/{user_id}/person": "a different sign-in e-mail",
+    # Who answers for a service account, and whether its keys work (lane B, WP-057 S4a).
+    "PATCH /api/v1/service-accounts/{account_id}": "a new owner, or turning it on or off",
 }
 
 

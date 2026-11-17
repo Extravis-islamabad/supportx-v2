@@ -33,6 +33,8 @@ export const ur: LabelResource = {
   'event_delivery.stalled.title': 'واقعات کی ترسیل رکی ہوئی ہے',
   'event_delivery_state.ok': 'ترسیل جاری',
   'event_delivery_state.stalled': 'رکی ہوئی',
+  'notice.custom_field.seal_opening': 'قدروں کو کھولنا',
+  'notice.custom_field.seal_sealing': 'قدروں کی مہر بندی',
   'notice.sign_in_secret.days_1': 'ایک دن کے اندر ختم ہو جائے گی',
   'notice.sign_in_secret.days_30': '30 دن میں ختم ہو جائے گی',
   'notice.sign_in_secret.days_7': '7 دن میں ختم ہو جائے گی',
@@ -45,6 +47,7 @@ export const ur: LabelResource = {
   'notification_area.break_glass': 'ہنگامی سائن اِن',
   'notification_area.change': 'تبدیلیاں',
   'notification_area.connector': 'کنیکٹرز',
+  'notification_area.custom_field': 'اپنی مرضی کے خانے',
   'notification_area.incident': 'واقعات',
   'notification_area.kb_article': 'علمی ذخیرہ',
   'notification_area.mailbox': 'میل',
@@ -56,6 +59,7 @@ export const ur: LabelResource = {
   'notification_area.report_schedule': 'شیڈول شدہ رپورٹس',
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.security': 'سیکیورٹی اطلاعات',
+  'notification_area.service_account': 'سروس اکاؤنٹس',
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_area.sign_in_secret': 'سائن اِن کے سرٹیفکیٹ اور خفیہ کلیدیں',
   'notification_area.task': 'کام',
@@ -107,6 +111,7 @@ export const ur: LabelResource = {
   'notification_event.change.window_reminder': 'تبدیلی کا وقت جلد شروع',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
+  'notification_event.custom_field.seal_paused': 'حساس فیلڈ کی قدروں کی مہر بندی رک گئی ہے',
   'notification_event.incident.approval_rejected': 'منظوری مسترد ہوئی',
   'notification_event.incident.approval_requested': 'منظوری مانگی گئی',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
@@ -158,6 +163,7 @@ export const ur: LabelResource = {
   'notification_event.security.mfa_removed': 'آپ کے اکاؤنٹ سے سائن اِن جانچ (MFA) ہٹا دی گئی',
   'notification_event.security.new_device': 'نئے براؤزر یا آلے سے سائن اِن',
   'notification_event.security.password_changed': 'آپ کا پاس ورڈ بدل دیا گیا',
+  'notification_event.service_account.needs_owner': 'سروس اکاؤنٹ کو نئے مالک کی ضرورت ہے',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
@@ -199,6 +205,7 @@ export const ur: LabelResource = {
   'notification_recipient.change_manager': 'تبدیلی مینیجر',
   'notification_recipient.change_owner': 'تبدیلی کا مالک',
   'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
+  'notification_recipient.custom_field_admins': 'جو اپنی مرضی کے خانوں کا انتظام کرتے ہیں',
   'notification_recipient.escalation_recipients': 'ایسکلیشن درجے کے وصول کنندگان',
   'notification_recipient.followers': 'فالوورز',
   'notification_recipient.group': 'گروپ کے اراکین',
@@ -445,6 +452,12 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} دوبارہ کام کر رہا ہے۔ مزید کچھ کرنے کی ضرورت نہیں۔',
   'notification_template.connector.recovered.in_app': '{{ record.title }} دوبارہ کام کر رہا ہے',
   'notification_template.connector.recovered.subject': '{{ record.title }} دوبارہ کام کر رہا ہے',
+  'notification_template.custom_field.seal_paused.body':
+    'سلام {{ recipient.name }}،\nاپنی مرضی کا خانہ {{ record.title }} کے لیے {{ notice.direction }} رک گیا ہے: خفیہ کاری کی کلیدیں دستیاب نہیں ہیں۔ فیلڈ کی قدریں جیسی ہیں ویسی رہیں گی، اور کلیدیں واپس آنے پر کام خود جاری ہو جائے گا۔ براہِ کرم کلیدوں کی ترتیب چیک کریں۔ {{ record.link }}',
+  'notification_template.custom_field.seal_paused.in_app':
+    'کلیدیں نہ ہونے کی وجہ سے رکا ہوا: {{ record.title }} کے لیے {{ notice.direction }}',
+  'notification_template.custom_field.seal_paused.subject':
+    'رکا ہوا: {{ record.title }} کے لیے {{ notice.direction }}',
   'notification_template.incident.approval_rejected.body':
     'السلام علیکم {{ recipient.name }}،\n\nواقعہ {{ record.display_id }} «{{ record.title }}» کے لیے مانگی گئی منظوری مسترد ہو گئی۔ کس نے اور کیوں فیصلہ کیا، دیکھنے کے لیے واقعہ کھولیں: {{ record.link }}',
   'notification_template.incident.approval_rejected.in_app':
@@ -727,6 +740,12 @@ export const ur: LabelResource = {
   'notification_template.security.password_changed.in_app':
     'آپ کا پاس ورڈ بدل دیا گیا ({{ notice.when }})',
   'notification_template.security.password_changed.subject': 'آپ کا پاس ورڈ بدل دیا گیا',
+  'notification_template.service_account.needs_owner.body':
+    'سلام {{ recipient.name }}،\nسروس اکاؤنٹ {{ record.title }} کے ذمہ دار شخص کو غیر فعال کر دیا گیا ہے۔ اکاؤنٹ کام کرتا رہے گا؛ براہِ کرم نیا مالک منتخب کریں۔ {{ record.link }}',
+  'notification_template.service_account.needs_owner.in_app':
+    '{{ record.title }} کو نئے مالک کی ضرورت ہے',
+  'notification_template.service_account.needs_owner.subject':
+    '{{ record.title }} کو نئے مالک کی ضرورت ہے',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
@@ -818,6 +837,8 @@ export const ur: LabelResource = {
   'notification_variable.connector.reason': 'کنیکٹر › وجہ',
   'notification_variable.conversation.author': 'جواب یا نوٹ › مصنف',
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
+  'notification_variable.custom_field.direction': 'اپنی مرضی کا خانہ › کیا چل رہا تھا',
+  'notification_variable.custom_field.name': 'اپنی مرضی کا خانہ › نام',
   'notification_variable.holder.name': 'حامل › نام',
   'notification_variable.holdings.assets': 'ہولڈنگز › اثاثے',
   'notification_variable.holdings.count': 'ہولڈنگز › تعداد',
@@ -846,6 +867,7 @@ export const ur: LabelResource = {
   'notification_variable.security.opens_at': 'قفل › دوبارہ کوشش کا جلد از جلد وقت',
   'notification_variable.security.place': 'سائن اِن › تقریبی مقام',
   'notification_variable.security.when': 'سائن اِن › وقت',
+  'notification_variable.service_account.name': 'سروس اکاؤنٹ › نام',
   'notification_variable.sign_in_secret.expires': 'سنگل سائن آن › ختم ہونے کی تاریخ',
   'notification_variable.sign_in_secret.item': 'سنگل سائن آن › کیا ختم ہو رہا ہے',
   'notification_variable.sign_in_secret.left': 'سنگل سائن آن › باقی وقت',

@@ -122,7 +122,10 @@ class AuditEntryOut(BaseModel):
     reason_code: str | None
     actor_type: AuditActorType
     actor_id: uuid.UUID | None
-    actor_name: str | None = Field(description="Null for system actors and erased people.")
+    actor_name: str | None = Field(
+        description="A person's, service account's or API key's name; null for system actors "
+        "and erased people."
+    )
     on_behalf_id: uuid.UUID | None
     object_type: str | None
     object_id: str | None
@@ -247,10 +250,13 @@ class AuditSettingsIn(BaseModel):
 async def _names(session: TenantSession, ids: list[uuid.UUID | None]) -> dict[str, str]:
     """Names of people, looked up now (entries hold IDs only)."""
     # Imported here: identity_access imports this package at load time.
-    from app.modules.identity_access import user_names  # noqa: PLC0415
+    from app.modules.identity_access import api_key_names, user_names  # noqa: PLC0415
 
     wanted = sorted({str(i) for i in ids if i is not None})
-    return await user_names(session, wanted) if wanted else {}
+    if not wanted:
+        return {}
+    # A key acting for its owner is named by the key's name (WP-057 S4b); IDs never collide.
+    return await api_key_names(session, wanted) | await user_names(session, wanted)
 
 
 class AuditExportIn(BaseModel):
