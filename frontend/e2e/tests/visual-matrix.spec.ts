@@ -209,6 +209,11 @@ const privacyTab = async (page: Page, held: boolean) => {
   await mockErasures(page, { exists: false, held });
   await mockPeopleList(page);
   await page.reload();
+  const crashes: string[] = [];
+  const crashed = (error: Error) => {
+    crashes.push(error.message);
+  };
+  page.on('pageerror', crashed);
   const before = page.url();
   await page.getByText('Noor Hassan').first().click({ timeout: STATE_TIMEOUT });
   const tab = page.locator('[data-node-key="privacy"] [role="tab"]').first();
@@ -229,7 +234,8 @@ const privacyTab = async (page: Page, held: boolean) => {
       .catch(() => undefined);
     throw new Error(
       `person drawer: no tabs; url ${before} -> ${page.url()}; Noor Hassan matches ${String(rows)};` +
-        ` drawer text: ${drawers.join(' | ').slice(0, 300)}; picture ${picture}`,
+        ` drawer text: ${drawers.join(' | ').slice(0, 300)}; picture ${picture};` +
+        ` page errors: ${crashes.join(' | ').slice(0, 400)}`,
     );
   }
   if (await tab.isVisible()) {
@@ -242,6 +248,7 @@ const privacyTab = async (page: Page, held: boolean) => {
       .first()
       .click({ timeout: STATE_TIMEOUT });
   }
+  page.off('pageerror', crashed);
   // Later shots of the people list read the real list again.
   await page.unroute(/\/api\/v1\/users(\?.*)?$/u);
 };

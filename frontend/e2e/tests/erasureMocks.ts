@@ -1,5 +1,11 @@
 import type { Page, Route } from '@playwright/test';
 
+// The generated API types (type-only: nothing of the app is loaded into the e2e run), so a
+// made-up person can never drift from what the API returns (the coordinator, #532).
+import type { components } from '../../packages/api-client/src/schema';
+
+type UserDetail = components['schemas']['UserDetail'];
+
 /**
  * The erasure API answered in the browser (ADR-052): screens and tests only. Every erasure call
  * and every person these screens name is answered here, so nothing is requested, redacted or
@@ -20,13 +26,13 @@ const PEOPLE: Record<string, { display_name: string; email: string }> = {
   [FAKE.successor]: { display_name: 'Samir Khan', email: 'samir.khan@example.test' },
 };
 
-function person(id: string) {
+function person(id: string): UserDetail {
   const known = PEOPLE[id] ?? { display_name: 'Someone', email: 'someone@example.test' };
   const [first, ...rest] = known.display_name.split(' ');
   return {
     id,
     ...known,
-    first_name: first,
+    first_name: first ?? known.display_name,
     last_name: rest.join(' '),
     name_custom: false,
     user_type: 'requester',
@@ -44,9 +50,25 @@ function person(id: string) {
     locale: 'en',
     time_zone: 'UTC',
     request_visibility: null,
-    roles: [],
-    groups: [],
-    sites: [],
+    // Every field of UserDetail: a drawer opened on a partial person crashed (#532 matrix).
+    contact_editable: true,
+    created_at: '2026-01-05T09:00:00Z',
+    updated_at: '2026-11-01T09:00:00Z',
+    invited_at: null,
+    last_login_at: null,
+    signed_in_before: true,
+    signature: null,
+    directory_source: null,
+    form_density: 'comfortable',
+    nav_layout: 'side',
+    theme_mode: null,
+    text_scale: null,
+    ui_locale: null,
+    date_format: null,
+    time_format: null,
+    digits: null,
+    urdu_script: null,
+    week_start: null,
     version: 3,
   };
 }
