@@ -942,7 +942,9 @@ async function ciConflict(page: Page): Promise<void> {
       const problems = await page.locator('.ant-form-item-explain-error').allInnerTexts();
       throw new Error(`ci-conflict: no PATCH was sent; form errors: ${problems.join(' | ')}`);
     }
-    await page.locator('.ant-modal').first().waitFor({ timeout: STATE_TIMEOUT });
+    // The ConflictDialog's own button: a bare `.ant-modal`/dialog `.first()` can be a hidden one
+    // already in the page, which never becomes visible (#524 run 44077613745).
+    await page.getByTestId('conflict-keep-mine').waitFor({ timeout: STATE_TIMEOUT });
   } finally {
     await page.unroute(url, answer);
   }
