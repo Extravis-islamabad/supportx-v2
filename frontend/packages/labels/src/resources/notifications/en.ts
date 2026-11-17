@@ -31,6 +31,8 @@ export const en = {
   'event_delivery.stalled.title': 'Event delivery is stalled',
   'event_delivery_state.ok': 'Delivering',
   'event_delivery_state.stalled': 'Stalled',
+  'notice.custom_field.seal_opening': 'Opening values',
+  'notice.custom_field.seal_sealing': 'Sealing values',
   'notice.sign_in_secret.days_1': 'runs out within a day',
   'notice.sign_in_secret.days_30': 'runs out in 30 days',
   'notice.sign_in_secret.days_7': 'runs out in 7 days',
@@ -43,6 +45,7 @@ export const en = {
   'notification_area.break_glass': 'Emergency sign-ins',
   'notification_area.change': 'Changes',
   'notification_area.connector': 'Connectors',
+  'notification_area.custom_field': 'Custom fields',
   'notification_area.incident': 'Incidents',
   'notification_area.kb_article': 'Knowledge',
   'notification_area.mailbox': 'Mail',
@@ -105,6 +108,7 @@ export const en = {
   'notification_event.change.window_reminder': 'Change window starts soon',
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
+  'notification_event.custom_field.seal_paused': "Sealing a sensitive field's values has paused",
   'notification_event.incident.approval_rejected': 'Approval rejected',
   'notification_event.incident.approval_requested': 'Approval requested',
   'notification_event.incident.assigned': 'Incident assigned',
@@ -195,6 +199,7 @@ export const en = {
   'notification_recipient.change_manager': 'Change manager',
   'notification_recipient.change_owner': 'Change owner',
   'notification_recipient.connector_admins': 'People who set up this connector',
+  'notification_recipient.custom_field_admins': 'Those who manage custom fields',
   'notification_recipient.escalation_recipients': "The escalation level's recipients",
   'notification_recipient.followers': 'Followers',
   'notification_recipient.group': 'Group members',
@@ -442,6 +447,12 @@ export const en = {
     'Hello {{ recipient.name }},\n\n{{ record.title }} works again. Nothing else is needed.',
   'notification_template.connector.recovered.in_app': '{{ record.title }} works again',
   'notification_template.connector.recovered.subject': '{{ record.title }} works again',
+  'notification_template.custom_field.seal_paused.body':
+    "Hello {{ recipient.name }},\n{{ notice.direction }} for the custom field {{ record.title }} has paused: the encryption keys are not available. The field's values stay as they are, and the job carries on by itself once the keys are back. Please check the key configuration. {{ record.link }}",
+  'notification_template.custom_field.seal_paused.in_app':
+    'Paused for want of keys: {{ notice.direction }} for {{ record.title }}',
+  'notification_template.custom_field.seal_paused.subject':
+    'Paused: {{ notice.direction }} for {{ record.title }}',
   'notification_template.incident.approval_rejected.body':
     'Hello {{ recipient.name }},\n\nThe approval asked for incident {{ record.display_id }} "{{ record.title }}" was rejected. Open the incident to see who decided and why: {{ record.link }}',
   'notification_template.incident.approval_rejected.in_app':
@@ -821,6 +832,8 @@ export const en = {
   'notification_variable.connector.reason': 'Connector › Reason',
   'notification_variable.conversation.author': 'Reply or note › Author',
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
+  'notification_variable.custom_field.direction': 'Custom field › What was running',
+  'notification_variable.custom_field.name': 'Custom field › Name',
   'notification_variable.holder.name': 'Holder › Name',
   'notification_variable.holdings.assets': 'Holdings › Assets',
   'notification_variable.holdings.count': 'Holdings › Count',

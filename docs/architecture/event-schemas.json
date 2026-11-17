@@ -3199,6 +3199,29 @@
         "type": "object"
       }
     },
+    "identity_access.service_account.needs_owner": {
+      "1": {
+        "description": "A service account's owner was deactivated: it needs a new one (WP-057 S4a, REQ-ADM-011).\n\nIDs only. The account keeps working (its keys are its own) until an admin acts.",
+        "properties": {
+          "previous_owner_id": {
+            "format": "uuid",
+            "title": "Previous Owner Id",
+            "type": "string"
+          },
+          "service_account_id": {
+            "format": "uuid",
+            "title": "Service Account Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_account_id",
+          "previous_owner_id"
+        ],
+        "title": "ServiceAccountNeedsOwner",
+        "type": "object"
+      }
+    },
     "identity_access.session.tenant_switched": {
       "1": {
         "description": "A signed-in user moved their session into this tenant.\n\nPublished in the tenant switched TO only; the previous tenant is deliberately not named, so\none tenant's subscribers never learn which other tenants a user belongs to.",
@@ -3459,6 +3482,44 @@
           "source"
         ],
         "title": "UserCreatedV4",
+        "type": "object"
+      },
+      "5": {
+        "description": "As UserCreatedV4, with `service_account` as a source: one an admin made (WP-057 S4a).\n\nA new allowed value, so a new schema version; v1 to v4 stay registered.",
+        "properties": {
+          "source": {
+            "enum": [
+              "admin",
+              "import",
+              "email",
+              "integration",
+              "workflow",
+              "service_account"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester",
+              "service"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "source"
+        ],
+        "title": "UserCreatedV5",
         "type": "object"
       }
     },
@@ -4306,6 +4367,90 @@
           "changed_fields"
         ],
         "title": "CustomFieldChanged",
+        "type": "object"
+      }
+    },
+    "metadata.custom_field.seal_changed": {
+      "1": {
+        "description": "A field's values started or finished being sealed or opened (WP-057 S3b-2b).\n\nThe state and counts only, never a value (the coordinator, S3b-2b).",
+        "properties": {
+          "custom_field_id": {
+            "format": "uuid",
+            "title": "Custom Field Id",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "records": {
+            "title": "Records",
+            "type": "integer"
+          },
+          "seal_state": {
+            "enum": [
+              "plain",
+              "sealing",
+              "sealed",
+              "opening"
+            ],
+            "title": "Seal State",
+            "type": "string"
+          },
+          "unreadable": {
+            "default": 0,
+            "title": "Unreadable",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "custom_field_id",
+          "entity",
+          "key",
+          "seal_state",
+          "records"
+        ],
+        "title": "CustomFieldSealChanged",
+        "type": "object"
+      }
+    },
+    "metadata.custom_field.seal_paused": {
+      "1": {
+        "description": "Sealing or opening a field's values paused: the keys are unavailable (WP-057 S3b-2b).\n\nOnce per outage (lane B): the admins are told, and the job tries again by itself.",
+        "properties": {
+          "custom_field_id": {
+            "format": "uuid",
+            "title": "Custom Field Id",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "seal_state": {
+            "enum": [
+              "sealing",
+              "opening"
+            ],
+            "title": "Seal State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "custom_field_id",
+          "entity",
+          "key",
+          "seal_state"
+        ],
+        "title": "CustomFieldSealPaused",
         "type": "object"
       }
     },

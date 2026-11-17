@@ -309,6 +309,11 @@ export const ur: LabelResource = {
   'audit.action.metadata.custom_field_changed': 'اپنی مرضی کا خانہ تبدیل کیا',
   'audit.action.metadata.custom_field_created': 'اپنی مرضی کا خانہ شامل کیا',
   'audit.action.metadata.custom_field_deleted': 'اپنی مرضی کا خانہ ہٹایا',
+  'audit.action.metadata.custom_field_opened':
+    'فیلڈ کی قدروں کو قابلِ مطالعہ متن میں کھولنا مکمل کیا',
+  'audit.action.metadata.custom_field_sealed': 'حساس فیلڈ کی قدروں کی مہر بندی مکمل کی',
+  'audit.action.metadata.custom_field_sensitivity_changed':
+    'تبدیل کیا کہ آیا اپنی مرضی کا خانہ حساس ہے',
   'audit.action.notification.rule_changed': 'اطلاع کا قاعدہ تبدیل کیا',
   'audit.action.notification.rule_reset': 'اطلاع کا قاعدہ پہلے سے طے شدہ پر واپس کیا',
   'audit.action.notify_link.used': 'باخبر رکھے گئے شخص کی ای میلز روکیں',
@@ -1088,6 +1093,9 @@ export const ur: LabelResource = {
   'event_type.knowledge.vote.saved': 'علمی مضمون کی رائے محفوظ ہوئی',
   'event_type.licensing.entitlement.changed': 'پلان یا لائسنس تبدیل ہوا',
   'event_type.metadata.custom_field.changed': 'اپنی مرضی کا خانہ تبدیل ہوا',
+  'event_type.metadata.custom_field.seal_changed':
+    'اپنی مرضی کے خانے کی مہر بندی شروع یا مکمل ہوئی',
+  'event_type.metadata.custom_field.seal_paused': 'اپنی مرضی کے خانے کی مہر بندی رک گئی',
   'event_type.notifications.delivery.recorded': 'اطلاع کی ترسیل درج ہوئی',
   'event_type.notifications.mail.not_sent_summary': 'ای میلز چھوڑ دی گئیں: میل سیٹ اپ نہیں',
   // WP-023 notifications

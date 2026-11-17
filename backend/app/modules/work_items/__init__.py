@@ -96,6 +96,7 @@ from app.modules.work_items.service import (
     request_notifications,
     resolution,
     rule_step_notifications,
+    sealing_job,
     search_rebuild,
     staff_reply_notifications,
     task_notifications,
@@ -174,6 +175,7 @@ async def _startup(app: FastAPI) -> None:
     register_owner_access(FILE_ACCESS)
     field_catalogue.register()
     search_rebuild.register()
+    sealing_job.register()
     person_data.register()
     person_mentions.register()
     register_sources()  # again after a shutdown (tests start and stop the app)
@@ -307,6 +309,8 @@ module = ModuleSpec(
         ScheduleSpec("work_items__drafts_purge", 86400, drafts.purge_schedule),
         # ADR-047 §6: types marked by a custom field's rule change get their search text rebuilt.
         ScheduleSpec("work_items__search_text_rebuild", 60, search_rebuild.rebuild_schedule),
+        # Sensitive custom fields: stored values follow the mark (WP-057 S3b-2b).
+        ScheduleSpec("work_items__custom_field_seal", 30, sealing_job.seal_schedule),
         ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule),
         # REQ-SR-023 AC3: daily, no approval waits on someone no longer active.
         ScheduleSpec("work_items__inactive_approvers", 86400, inactive_approvers_schedule),

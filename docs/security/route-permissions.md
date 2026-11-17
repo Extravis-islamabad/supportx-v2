@@ -52,6 +52,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/api-keys` | signed_in | - |
 | POST | `/api/v1/api-keys` | signed_in | - |
 | GET | `/api/v1/api-keys/owners` | signed_in | - |
+| GET | `/api/v1/api-keys/policy-impact` | signed_in | - |
 | GET | `/api/v1/api-keys/rules` | signed_in | - |
 | GET | `/api/v1/api-keys/scopes` | signed_in | - |
 | POST | `/api/v1/api-keys/{key_id}/revoke` | signed_in | - |
@@ -446,6 +447,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/custom-fields/{field_id}/index` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| PUT | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group |
 | POST | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group |
 | DELETE | `/api/v1/dashboards/favourites/{ref}` | `reports.view` | reports.view: all/site/group |
@@ -1126,6 +1129,13 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/roles/{role_id}/change-preview` | `roles.manage` | roles.manage: all |
 | DELETE | `/api/v1/roles/{role_id}/groups/{group_id}` | `roles.manage` | roles.manage: all |
 | PUT | `/api/v1/roles/{role_id}/groups/{group_id}` | `roles.manage` | roles.manage: all |
+| GET | `/api/v1/service-accounts` | `api_keys.manage` | api_keys.manage: all |
+| POST | `/api/v1/service-accounts` | `api_keys.manage` | api_keys.manage: all |
+| GET | `/api/v1/service-accounts/{account_id}` | `api_keys.manage` | api_keys.manage: all |
+| PATCH | `/api/v1/service-accounts/{account_id}` | `api_keys.manage` | api_keys.manage: all |
+| GET | `/api/v1/service-accounts/{account_id}/roles` | `api_keys.manage` | api_keys.manage: all |
+| DELETE | `/api/v1/service-accounts/{account_id}/roles/{role_id}` | `api_keys.manage` | api_keys.manage: all |
+| PUT | `/api/v1/service-accounts/{account_id}/roles/{role_id}` | `api_keys.manage` | api_keys.manage: all |
 | GET | `/api/v1/service-requests` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests` | `requests.create` | requests.create: all |
 | POST | `/api/v1/service-requests/approvals/decisions` | signed_in | - |

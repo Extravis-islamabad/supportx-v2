@@ -354,6 +354,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "CustomFieldEntity": "custom_field_entity",
     "FieldType": "custom_field_type",
     "IndexState": "custom_field_index_state",
+    "SealState": "custom_field_seal_state",
     # The service catalog (WP-030)
     "ApprovalStatus": "approval_status",
     "OnBehalfScope": "work_item_on_behalf_scope",

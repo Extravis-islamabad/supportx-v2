@@ -64,6 +64,11 @@ def _binding(record_id: uuid.UUID, key: str) -> Binding:
     return Binding(TABLE, record_id, f"custom.{key}")
 
 
+def record_binding(record_id: uuid.UUID, key: str) -> Binding:
+    """Where a record's sealed value of `key` lives (the re-seal job opens it here)."""
+    return _binding(record_id, key)
+
+
 async def visible_custom(
     session: AsyncSession,
     record_id: uuid.UUID,
