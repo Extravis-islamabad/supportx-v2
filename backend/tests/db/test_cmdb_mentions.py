@@ -224,6 +224,22 @@ async def test_the_snapshot_definer_is_bound_and_takes_only_a_pure_redaction(
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         with pytest.raises(DBAPIError, match="marker in place"):
             await session.scalar(call, {"m": uuid.UUID(old["id"]), "v": "Something else"})
+    # A snapshot whose field is missing (old text NULL) is never written either (lane C, #533).
+    await world.sql(
+        "UPDATE cmdb_ci_versions SET snapshot = snapshot - 'name' WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(old["record_id"]),
+    )
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        with pytest.raises(DBAPIError, match="marker in place"):
+            await session.scalar(call, {"m": uuid.UUID(old["id"]), "v": MARKER})
+    await world.sql(
+        "UPDATE cmdb_ci_versions SET snapshot = jsonb_set(snapshot, '{name}', to_jsonb($3::text))"
+        " WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(old["record_id"]),
+        f"Printer of {name}",
+    )
     snap = {s["id"]: s for s in await _snapshots(world, a, ci["id"])}[uuid.UUID(old["record_id"])]
     assert snap["snapshot"]["name"] == f"Printer of {name}"
     # The app role may never change a snapshot directly.

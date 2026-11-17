@@ -74,7 +74,9 @@ BEGIN
     IF p_value IS NOT DISTINCT FROM old_text THEN
         RETURN false;
     END IF;
-    IF NOT kb_redaction_kept(old_text, p_value) THEN
+    -- Never NULL-tolerant: a missing old text, or a check that does not answer true, refuses
+    -- (lane C's #533 review).
+    IF old_text IS NULL OR kb_redaction_kept(old_text, p_value) IS NOT TRUE THEN
         RAISE EXCEPTION 'the value is not the old text with the marker in place';
     END IF;
     UPDATE cmdb_ci_versions
