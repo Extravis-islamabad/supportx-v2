@@ -152,6 +152,9 @@ def _matches(content: Mapping[str, Any], name: str, value: str) -> bool:
     """One export filter. An action also matches a save's entry listing it (WP-064, ADR-045)."""
     if str(content.get(name)) == value:
         return True
+    if name == "actor_id":
+        # A person's export includes what their keys and agents did for them (WP-057 S4b).
+        return str(content.get("on_behalf_id")) == value
     return name == "action" and value in (content.get("events") or ())
 
 
@@ -233,7 +236,9 @@ def _data_file(fmt: str, items: list[dict[str, Any]]) -> tuple[str, bytes]:
             zoned_header("occurred_at", "UTC"),
             "action",
             "outcome",
+            "actor_type",
             "actor_id",
+            "on_behalf_id",
             "object_type",
             "object_id",
             "prev_hash",
@@ -251,7 +256,9 @@ def _data_file(fmt: str, items: list[dict[str, Any]]) -> tuple[str, bytes]:
                 entry.get("occurred_at"),
                 entry.get("action"),
                 entry.get("outcome"),
+                entry.get("actor_type"),
                 entry.get("actor_id"),
+                entry.get("on_behalf_id"),
                 entry.get("object_type"),
                 entry.get("object_id"),
                 item["prev_hash"],
