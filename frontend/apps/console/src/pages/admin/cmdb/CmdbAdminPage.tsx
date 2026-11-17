@@ -11,6 +11,7 @@ import {
   Switch,
   Table,
   TreeSelect,
+  Typography,
 } from 'antd';
 import { useMemo, useState } from 'react';
 
@@ -166,7 +167,12 @@ function TypesBlock() {
               {
                 key: 'code',
                 title: t('cmdb.field.api_name'),
-                render: (_, row) => <bdi>{row.api_name}</bdi>,
+                render: (_, row) => (
+                  // A code, typed by an admin: always left to right (lane C, #524).
+                  <bdi dir="ltr">
+                    <Typography.Text code>{row.api_name}</Typography.Text>
+                  </bdi>
+                ),
               },
               {
                 key: 'parent',
