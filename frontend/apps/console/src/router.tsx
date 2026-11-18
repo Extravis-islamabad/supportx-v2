@@ -40,6 +40,19 @@ export const routes: RouteObject[] = [
             lazy: async () => ({ Component: (await import('./pages/cmdb/NewCiPage')).NewCiPage }),
           },
           {
+            // WP-053 S2: business views (the list, and one view's map).
+            path: 'views',
+            lazy: async () => ({
+              Component: (await import('./pages/cmdb/views/BusinessViewsPage')).BusinessViewsPage,
+            }),
+          },
+          {
+            path: 'views/:viewId',
+            lazy: async () => ({
+              Component: (await import('./pages/cmdb/views/BusinessViewPage')).BusinessViewPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({ Component: (await import('./pages/cmdb/CiPage')).CiPage }),
           },

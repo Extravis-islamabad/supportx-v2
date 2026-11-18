@@ -59,7 +59,8 @@ type Records = Partial<
     | 'workflow'
     | 'workflowRun'
     | 'workflowRunFlow'
-    | 'ci',
+    | 'ci'
+    | 'businessView',
     string
   >
 >;
@@ -455,6 +456,39 @@ export const SCREENS: Screen[] = [
   },
   { key: 'ci-new', path: '/cmdb/new', app: 'console' },
   { key: 'admin-cmdb', path: '/admin/cmdb', app: 'console' },
+  // WP-053 S2 (lane B; lane C's condition 14): the CI's Map tab as it is, the map with a
+  // restricted placeholder and keyboard focus on a node, its node menu, the business views list,
+  // one business view, the Versions tab and a comparison.
+  { key: 'ci-map', path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=map` : undefined), app: 'console' },
+  {
+    key: 'ci-map-focus',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=map` : undefined),
+    app: 'console',
+    state: { name: 'keyboard', open: ciMapFocus(false) },
+  },
+  {
+    key: 'ci-map-menu',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=map` : undefined),
+    app: 'console',
+    state: { name: 'menu', open: ciMapFocus(true) },
+  },
+  { key: 'cmdb-views', path: '/cmdb/views', app: 'console' },
+  {
+    key: 'cmdb-view',
+    path: (r) => (r.businessView ? `/cmdb/views/${r.businessView}` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'ci-versions',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'ci-versions-compare',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
+    app: 'console',
+    state: { name: 'compare', open: ciCompare },
+  },
   // WP-049b s2 (lane B): the asset record's Financials (costs, depreciation, book value), its
   // notes and files, and its history with the filters (REQ-AST-036..038, 048..050).
   {
@@ -963,6 +997,7 @@ async function findRecords(page: Page): Promise<Records> {
   const incident =
     (await first('/api/v1/incidents/lookup/INC-30', (b) => (b as { id?: string }).id)) ??
     (await first('/api/v1/incidents?limit=1', firstItem));
+  const ci = (await first('/api/v1/cmdb/cis?limit=1', firstItem)) ?? (await showcaseCi(page));
   return {
     incident,
     ...(await showcaseRun(page, incident).then((made) =>
@@ -978,7 +1013,11 @@ async function findRecords(page: Page): Promise<Records> {
     release: await first('/api/v1/releases?limit=1', firstItem),
     announcement: await first('/api/v1/announcements?limit=1', firstItem),
     asset: await first('/api/v1/assets?limit=1', firstItem),
-    ci: (await first('/api/v1/cmdb/cis?limit=1', firstItem)) ?? (await showcaseCi(page)),
+    ci,
+    // WP-053 S2: a business view to open (one on the showcase CI when the stack has none).
+    businessView:
+      (await first('/api/v1/cmdb/business-views?limit=1', firstItem)) ??
+      (await showcaseView(page, ci)),
     consumable: await first('/api/v1/assets/consumables', firstOfList),
     // WP-049b s3: the showcase's running audit, and its laptop with scans (SX-LAP-001).
     audit: await first('/api/v1/assets/audits', firstOfList),
@@ -1069,6 +1108,155 @@ async function showcaseCi(page: Page): Promise<string | undefined> {
     headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
   });
   return made.ok() ? ((await made.json()) as { id: string }).id : undefined;
+}
+
+/** A business view on the showcase CI (WP-053 S2): the stack's showcase has none yet. */
+async function showcaseView(page: Page, ci: string | undefined): Promise<string | undefined> {
+  if (ci === undefined) return undefined;
+  const { csrf } = await me(page);
+  const made = await page.request.post('/api/v1/cmdb/business-views', {
+    data: {
+      base_ci_id: ci,
+      name: 'Core switch map',
+      description: 'What the core switch connects.',
+    },
+    headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
+  });
+  return made.ok() ? ((await made.json()) as { id: string }).id : undefined;
+}
+
+/**
+ * The map with neighbours answered in the browser (the showcase CI has no relationships yet): two
+ * CIs, one end of life, and a CI the viewer may not open, so the shot has every node look. Then
+ * keyboard focus on a node (an arrow key moves it, so the focus ring shows), and with `menu`
+ * its menu open (Enter).
+ */
+function ciMapFocus(menu: boolean): (page: Page) => Promise<void> {
+  return async (page) => {
+    const url = '**/api/v1/cmdb/cis/*/neighbours*';
+    const answer = (route: Route) => {
+      const base = /\/cis\/([^/]+)\/neighbours/.exec(route.request().url())?.[1] ?? '';
+      const node = (id: string, name: string, display: string, eol = false) => ({
+        key: id,
+        restricted: false,
+        depth: id === base ? 0 : 1,
+        id,
+        display_id: display,
+        name,
+        type_label_key: 'cmdb_ci_type.server',
+        type_names: {},
+        state_category: eol ? 'end_of_life' : 'active',
+        state_label_key: eol ? 'cmdb_ci_state.retired' : 'cmdb_ci_state.in_use',
+        state_names: {},
+        version: 1,
+        counts: null,
+      });
+      const a = '0190aaaa-0000-7000-8000-000000000001';
+      const b = '0190aaaa-0000-7000-8000-000000000002';
+      return route.fulfill({
+        json: {
+          nodes: [
+            node(base, 'Core switch SW-01', 'CI-1'),
+            node(a, 'Server SRV-01', 'CI-2'),
+            node(b, 'Old server SRV-00', 'CI-3', true),
+            { key: 'r1', restricted: true, depth: 1 },
+          ],
+          edges: [
+            { id: null, type_id: 'x', from_key: base, to_key: a, version: null },
+            { id: null, type_id: 'x', from_key: base, to_key: b, version: null },
+            { id: null, type_id: 'x', from_key: 'r1', to_key: base, version: null },
+          ],
+          truncated: false,
+          node_max: 500,
+          counts_available: false,
+        },
+      });
+    };
+    await page.route(url, answer);
+    try {
+      await page.reload();
+      const node = page.locator('.react-flow__node').first();
+      await node.waitFor({ timeout: STATE_TIMEOUT });
+      await node.focus();
+      await page.keyboard.press('ArrowDown');
+      if (menu) {
+        await page.keyboard.press('Enter');
+        await page.getByTestId('ci-map-menu').waitFor({ timeout: STATE_TIMEOUT });
+      }
+    } finally {
+      await page.unroute(url, answer);
+    }
+  };
+}
+
+/** Two versions compared, answered in the browser (the showcase CI has one version). */
+async function ciCompare(page: Page): Promise<void> {
+  const at = new Date(Date.now() - 3600_000).toISOString();
+  const versions = '**/api/v1/cmdb/cis/*/versions*';
+  const compare = '**/api/v1/cmdb/cis/*/compare*';
+  const listed = (route: Route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            version: 2,
+            saved_at: new Date().toISOString(),
+            saved_by: null,
+            saved_by_name: 'Sara Khan',
+          },
+          { version: 1, saved_at: at, saved_by: null, saved_by_name: 'Sara Khan' },
+        ],
+        next_cursor: null,
+      },
+    });
+  const compared = (route: Route) => {
+    const empty = {
+      saved_at: at,
+      saved_by: null,
+      saved_by_name: null,
+      fields: {},
+      relationships: [],
+    };
+    return route.fulfill({
+      json: {
+        from_version: { ...empty, version: 1 },
+        to_version: { ...empty, version: 2 },
+        attributes: [
+          { field: 'name', kind: 'changed', old: 'Core switch', new: 'Core switch SW-01' },
+          {
+            field: 'description',
+            kind: 'changed',
+            old: 'Floor 2 network core.',
+            new: 'Floor 2 network core. '.repeat(12),
+          },
+          { field: 'criticality', kind: 'added', old: null, new: 'high' },
+        ],
+        relationships_added: [
+          { id: null, type_id: 'x', direction: 'forward', ci: { key: 'r1', restricted: true } },
+        ],
+        relationships_removed: [],
+      },
+    });
+  };
+  await page.route(versions, listed);
+  await page.route(compare, compared);
+  try {
+    await page.reload();
+    const pick = async (testId: string, nth: number) => {
+      await page.getByTestId(testId).first().click({ timeout: STATE_TIMEOUT });
+      await page
+        .locator('.ant-select-dropdown:visible .ant-select-item-option')
+        .nth(nth)
+        .click({ timeout: STATE_TIMEOUT });
+    };
+    await pick('ci-versions-from', 1);
+    await pick('ci-versions-to', 0);
+    await page.getByTestId('ci-versions-compare').first().click({ timeout: STATE_TIMEOUT });
+    await page.getByTestId('ci-versions-comparison').waitFor({ timeout: STATE_TIMEOUT });
+  } finally {
+    await page.unroute(versions, listed);
+    await page.unroute(compare, compared);
+  }
 }
 
 /** The CI record's edit, with its save beaten by someone else's (a 409 answered here). */

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { App, Button, Flex, List, Modal, Result, TreeSelect, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   queryKeys,
@@ -27,6 +27,7 @@ import {
   PropertyList,
   RecordHeader,
   RecordPage,
+  Tabs,
   WriteButton,
   reportError,
   useAccess,
@@ -40,7 +41,13 @@ import {
 import { useCmdbRight } from './rights';
 import { CiFields } from './CiForm';
 import { FIELDS, patchOf, schema, valuesOf, type Values } from './form';
+import { MapTab } from './map/MapTab';
+import { VersionsTab } from './map/VersionsTab';
 import { nameOf, typeTree } from './names';
+
+// The record's tabs (template A): its details and history, its map (WP-053 S2) and its versions.
+const TABS = ['details', 'map', 'versions'] as const;
+type TabKey = (typeof TABS)[number];
 
 /** One configuration item (template A, D-147): live, edited in place, with its history. */
 export function CiPage() {
@@ -53,6 +60,8 @@ export function CiPage() {
   useRecordChannel('ci', id, () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.detail(id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.history(id) });
+    // A relationship added or removed gives the CI a new version (WP-053 S2).
+    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.versions(id) });
   });
   if (!has('cmdb')) return <NotInPlan titleKey="nav.cmdb" isAdmin={isAdmin} />;
   if (!can('cmdb.view')) return <NoAccess titleKey="nav.cmdb" />;
@@ -87,6 +96,9 @@ function CiRecord({ ci }: { ci: Ci }) {
   const typeOf = types.data?.items.find((x) => x.id === ci.type_id);
   const stateOf = states.data?.items.find((x) => x.id === ci.state_id);
   const dateTime = useDateTime();
+  const [params, setParams] = useSearchParams();
+  const asked = params.get('tab');
+  const tab: TabKey = TABS.find((key) => key === asked) ?? 'details';
 
   const save = (version: number) =>
     form.handleSubmit((values) => {
@@ -104,6 +116,41 @@ function CiRecord({ ci }: { ci: Ci }) {
         },
       );
     })();
+
+  const details = editing ? (
+    <Flex vertical gap={16}>
+      <CiFields form={form} typeLocked />
+      <Flex gap={8} justify="end">
+        <Button
+          onClick={() => {
+            setEditing(false);
+            form.reset(valuesOf(ci));
+          }}
+        >
+          {t('actions.cancel')}
+        </Button>
+        <WriteButton
+          type="primary"
+          loading={update.isPending}
+          onClick={() => {
+            void save(opened.version);
+          }}
+          data-testid="ci-save"
+        >
+          {t('actions.save')}
+        </WriteButton>
+      </Flex>
+    </Flex>
+  ) : (
+    <Flex vertical gap={16}>
+      {ci.description !== null && (
+        <Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>
+          <bdi>{ci.description}</bdi>
+        </Typography.Paragraph>
+      )}
+      <CiHistory id={ci.id} />
+    </Flex>
+  );
 
   return (
     <RecordPage
@@ -125,6 +172,8 @@ function CiRecord({ ci }: { ci: Ci }) {
                 onClick={() => {
                   setOpened(ci);
                   setEditing(true);
+                  // The edit is on the details tab.
+                  if (tab !== 'details') setParams({ tab: 'details' }, { replace: true });
                 }}
                 data-testid="ci-edit"
               >
@@ -234,40 +283,27 @@ function CiRecord({ ci }: { ci: Ci }) {
         />
       }
     >
-      {editing ? (
-        <Flex vertical gap={16}>
-          <CiFields form={form} typeLocked />
-          <Flex gap={8} justify="end">
-            <Button
-              onClick={() => {
-                setEditing(false);
-                form.reset(valuesOf(ci));
-              }}
-            >
-              {t('actions.cancel')}
-            </Button>
-            <WriteButton
-              type="primary"
-              loading={update.isPending}
-              onClick={() => {
-                void save(opened.version);
-              }}
-              data-testid="ci-save"
-            >
-              {t('actions.save')}
-            </WriteButton>
-          </Flex>
-        </Flex>
-      ) : (
-        <Flex vertical gap={16}>
-          {ci.description !== null && (
-            <Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>
-              <bdi>{ci.description}</bdi>
-            </Typography.Paragraph>
-          )}
-          <CiHistory id={ci.id} />
-        </Flex>
-      )}
+      <Tabs
+        activeKey={tab}
+        onChange={(key) => {
+          setParams({ tab: key }, { replace: true });
+        }}
+        items={[
+          { key: 'details', label: t('cmdb.tab.details'), children: details },
+          {
+            key: 'map',
+            label: t('cmdb.tab.map'),
+            // Mounted only while open: the map follows its channel only when someone looks.
+            children: tab === 'map' ? <MapTab ci={ci} /> : null,
+          },
+          {
+            key: 'versions',
+            label: t('cmdb.tab.versions'),
+            children: tab === 'versions' ? <VersionsTab ciId={ci.id} /> : null,
+          },
+        ]}
+        data-testid="ci-tabs"
+      />
       <ConflictDialog
         open={conflict.open}
         error={conflict.error}

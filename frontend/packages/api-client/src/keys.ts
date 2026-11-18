@@ -1,5 +1,6 @@
 import type { AnnouncementsQuery } from './announcements';
 import type { CisQuery } from './cmdb';
+import type { NeighboursQuery } from './cmdbGraph';
 import type { BookingsQuery, ConsumablesQuery } from './assetStock';
 import type {
   AssetHistoryFilters,
@@ -146,6 +147,18 @@ export const queryKeys = {
     detail: (id: string) => ['cmdb', 'detail', id] as const,
     history: (id: string) => ['cmdb', 'history', id] as const,
     picker: (search: string, typeId: string | null) => ['cmdb', 'picker', search, typeId] as const,
+    // WP-053 S2: relationship types, maps, business views and versions.
+    relationshipTypes: (forType: string | null) => ['cmdb', 'relationship-types', forType] as const,
+    neighboursOf: (id: string) => ['cmdb', 'neighbours', id] as const,
+    neighbours: (id: string, query: NeighboursQuery) => ['cmdb', 'neighbours', id, query] as const,
+    versions: (id: string) => ['cmdb', 'versions', id] as const,
+    asOf: (id: string, at: string) => ['cmdb', 'versions', id, 'as-of', at] as const,
+    compare: (id: string, from: number, to: number) =>
+      ['cmdb', 'versions', id, 'compare', from, to] as const,
+    views: ['cmdb', 'business-views'] as const,
+    viewList: (baseCiId: string | null, search: string) =>
+      ['cmdb', 'business-views', 'list', baseCiId, search] as const,
+    view: (id: string) => ['cmdb', 'business-views', 'detail', id] as const,
   },
   announcements: {
     all: ['announcements'] as const,
