@@ -1070,6 +1070,7 @@ export const ur: LabelResource = {
   'event_type.identity_access.sign_in_secret.expiring':
     'سائن اِن سرٹیفکیٹ یا خفیہ کلید ختم ہو رہی ہے',
   'event_type.identity_access.sso_provider.changed': 'سنگل سائن آن کا سیٹ اپ بدلا',
+  'event_type.identity_access.support_grant.changed': 'وینڈر سپورٹ رسائی تبدیل ہوئی',
   'event_type.identity_access.user.created': 'فرد شامل کیا گیا',
   'event_type.identity_access.user.logged_in': 'سائن اِن کیا',
   'event_type.identity_access.user.logged_out': 'سائن آؤٹ کیا',
@@ -1078,6 +1079,7 @@ export const ur: LabelResource = {
   'event_type.identity_access.user.updated': 'صارف کی پروفائل اپ ڈیٹ ہوئی',
   'event_type.identity_access.user_cost_rate.changed': 'فی گھنٹہ لاگت بدلی',
   'event_type.identity_access.user_role.changed': 'صارف کے کردار تبدیل ہوئے',
+  'event_type.identity_access.vendor_support_setting.changed': 'وینڈر سپورٹ کی ترتیب تبدیل ہوئی',
   'event_type.integrations.connector.failing': 'کنیکٹر ناکام',
   'event_type.integrations.connector.recovered': 'کنیکٹر بحال',
   'event_type.integrations.connector_settings.changed': 'کنیکٹر کی طے شدہ ترتیبات تبدیل ہوئیں',

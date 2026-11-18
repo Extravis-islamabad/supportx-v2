@@ -1067,6 +1067,7 @@ export const ar: LabelResource = {
   'event_type.identity_access.sign_in_secret.expiring':
     'شهادة أو سر لتسجيل الدخول على وشك الانتهاء',
   'event_type.identity_access.sso_provider.changed': 'تغيّر إعداد تسجيل الدخول الموحّد',
+  'event_type.identity_access.support_grant.changed': 'تغيّر وصول دعم المورّد',
   'event_type.identity_access.user.created': 'أُضيف شخص',
   'event_type.identity_access.user.logged_in': 'تسجيل الدخول',
   'event_type.identity_access.user.logged_out': 'تسجيل الخروج',
@@ -1075,6 +1076,7 @@ export const ar: LabelResource = {
   'event_type.identity_access.user.updated': 'تم تحديث ملف المستخدم',
   'event_type.identity_access.user_cost_rate.changed': 'تغيّرت تكلفة الساعة',
   'event_type.identity_access.user_role.changed': 'تم تغيير أدوار مستخدم',
+  'event_type.identity_access.vendor_support_setting.changed': 'تغيّر إعداد دعم المورّد',
   'event_type.integrations.connector.failing': 'تعطل موصل',
   'event_type.integrations.connector.recovered': 'تعافي موصل',
   'event_type.integrations.connector_settings.changed': 'تغيّرت الإعدادات الافتراضية للموصلات',
