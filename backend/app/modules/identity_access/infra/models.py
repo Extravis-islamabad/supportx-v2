@@ -636,6 +636,7 @@ class SupportGrant(TenantEntity):
     ended_at: Mapped[datetime | None]
     ended_by: Mapped[uuid.UUID | None]
     account_removed_at: Mapped[datetime | None]
+    removal_alerted_at: Mapped[datetime | None]  # a stuck removal told once (lane B)
 
 
 MFA_MODES = ("off", "optional", "required")

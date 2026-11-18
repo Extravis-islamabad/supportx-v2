@@ -119,6 +119,8 @@ def upgrade() -> None:
         # Set only once Keycloak confirms the account is gone (deleted, or 404): until then the
         # grant has ended (the database refuses the account) but its removal is retried (lane B).
         sa.Column("account_removed_at", sa.DateTime(timezone=True), nullable=True),
+        # When the admins were told a removal is stuck (over 24 hours): once per grant (lane B).
+        sa.Column("removal_alerted_at", sa.DateTime(timezone=True), nullable=True),
         *_audit_columns(),
         sa.PrimaryKeyConstraint("id", name=op.f(f"pk_{GRANTS}")),
         sa.ForeignKeyConstraint(

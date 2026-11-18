@@ -377,6 +377,32 @@ async def removal_pending(session: AsyncSession, now: datetime) -> list[Ended]:
     return [Ended(g, t, u, k) for g, t, u, k in rows]
 
 
+STUCK_AFTER = timedelta(hours=24)
+
+
+async def stuck_removals(session: AsyncSession, now: datetime) -> list[uuid.UUID]:
+    """Grants ended over 24 hours ago whose account is still not confirmed gone (S4d's flag)."""
+    rows = await session.scalars(
+        select(SupportGrant.id).where(
+            SupportGrant.state.not_in([s.value for s in rules.OPEN_STATES]),
+            SupportGrant.account_removed_at.is_(None),
+            SupportGrant.ended_at <= now - STUCK_AFTER,
+        )
+    )
+    return list(rows)
+
+
+async def mark_alerted(session: AsyncSession, grant_id: uuid.UUID, now: datetime) -> bool:
+    """Claim the one notice for a stuck removal; False when it was already sent."""
+    claimed = await session.scalar(
+        update(SupportGrant)
+        .where(SupportGrant.id == grant_id, SupportGrant.removal_alerted_at.is_(None))
+        .values(removal_alerted_at=now)
+        .returning(SupportGrant.id)
+    )
+    return claimed is not None
+
+
 async def due(session: AsyncSession, now: datetime) -> list[uuid.UUID]:
     """Open grants whose time is up, for the 30-second schedule."""
     rows = await session.scalars(
