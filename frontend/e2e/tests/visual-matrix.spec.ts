@@ -255,9 +255,105 @@ const privacyTab = async (page: Page, held: boolean, reasonShown = true) => {
 };
 const requestDrawer = (page: Page) => privacyTab(page, false);
 
+// WP-046b S3a (lane C's states, rule 8 OK): a starred view, an unread row and row colours on the
+// incident list; the General tab's row colour and view audit cards. Seeded through the API as
+// the matrix's own admin; the unread row comes from a second person's real public reply, so the
+// live path runs. Each shot re-seeds (idempotent): another screen may have opened INC-30.
+const STARRED_VIEW = 'Matrix: INC-30';
+let replier: Page | undefined;
+
+async function replierPage(page: Page): Promise<Page> {
+  if (replier !== undefined) return replier;
+  const browser = page.context().browser();
+  if (browser === null) throw new Error('no browser for the second person');
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const other = await context.newPage();
+  other.setDefaultTimeout(SHOT_TIMEOUT);
+  await signIn(other, 'tech@showcase.test', SHOWCASE_PASSWORD, '/');
+  replier = other;
+  return other;
+}
+
+async function starredUnreadColoured(page: Page): Promise<void> {
+  const { csrf } = await me(page);
+  const write = { 'X-CSRF-Token': csrf };
+  const incident = (await (await page.request.get('/api/v1/incidents/lookup/INC-30')).json()) as {
+    id: string;
+  };
+  // A view of INC-30 alone, starred.
+  const views = (await (await page.request.get('/api/v1/incidents/saved-views')).json()) as {
+    id: string;
+    name: string;
+  }[];
+  let view = views.find((v) => v.name === STARRED_VIEW);
+  if (view === undefined) {
+    const made = await page.request.post('/api/v1/incidents/saved-views', {
+      data: { name: STARRED_VIEW, filter: { field: 'display_id', op: 'eq', value: 'INC-30' } },
+      headers: { ...write, 'Idempotency-Key': crypto.randomUUID() },
+    });
+    if (!made.ok()) throw new Error(`saved view: ${String(made.status())}`);
+    view = (await made.json()) as { id: string; name: string };
+  }
+  const star = await page.request.put(`/api/v1/incidents/saved-views/${view.id}/favourite`, {
+    headers: write,
+  });
+  if (!star.ok()) throw new Error(`star: ${String(star.status())}`);
+  // Rows coloured by priority (the tenant's default).
+  const display = (await (
+    await page.request.get('/api/v1/incidents/settings/list-display')
+  ).json()) as { row_colour_by: string; settings_version: number };
+  if (display.row_colour_by !== 'priority') {
+    const set = await page.request.put('/api/v1/incidents/settings/list-display', {
+      data: { row_colour_by: 'priority' },
+      headers: { ...write, 'If-Match': `"${String(display.settings_version)}"` },
+    });
+    if (!set.ok()) throw new Error(`row colours: ${String(set.status())}`);
+  }
+  // Read by the admin, then a public reply by someone else: unread again.
+  const read = await page.request.post(`/api/v1/incidents/${incident.id}/read`, { headers: write });
+  if (!read.ok()) throw new Error(`read: ${String(read.status())}`);
+  const other = await replierPage(page);
+  const theirs = await me(other);
+  const replied = await other.request.post(`/api/v1/incidents/${incident.id}/conversation`, {
+    data: { kind: 'note', visibility: 'public', body: '<p>Checked on site: still failing.</p>' },
+    headers: { 'X-CSRF-Token': theirs.csrf, 'Idempotency-Key': crypto.randomUUID() },
+  });
+  if (!replied.ok()) throw new Error(`reply: ${String(replied.status())}`);
+  await page.goto(`/incidents?view=custom:${view.id}`);
+  await page.locator('[data-unread="true"]').first().waitFor({ timeout: STATE_TIMEOUT });
+  await page.locator('[data-row-mark]').first().waitFor({ timeout: STATE_TIMEOUT });
+  await page.getByTestId('inc-view-star').waitFor({ timeout: STATE_TIMEOUT });
+}
+
+const generalCard = (testId: string) => async (page: Page) => {
+  const card = page.getByTestId(testId);
+  await card.scrollIntoViewIfNeeded({ timeout: STATE_TIMEOUT });
+  await card.waitFor({ timeout: STATE_TIMEOUT });
+};
+
 export const SCREENS: Screen[] = [
   { key: 'home', path: '/', app: 'console' },
   { key: 'incidents', path: '/incidents', app: 'console' },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    app: 'console',
+    state: { name: 'starred-unread-coloured', open: starredUnreadColoured },
+  },
+  {
+    key: 'admin-incidents-general',
+    path: '/admin/incidents',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'row-colours', open: generalCard('settings-row-colours') },
+  },
+  {
+    key: 'admin-incidents-general',
+    path: '/admin/incidents',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'view-audit', open: generalCard('settings-view-audit') },
+  },
   { key: 'incident-new', path: '/incidents/new', app: 'console' },
   // WP-046a S5c (REQ-INC-019): a kept draft offered back, and one that could not be read
   // (lane C). The draft is answered in the browser: the matrix keeps none of its own.
