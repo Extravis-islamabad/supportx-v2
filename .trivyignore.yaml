@@ -25,3 +25,14 @@ misconfigurations:
       backend (nft or legacy) on first run and fails on a read-only root ("Unable to redirect
       iptables binaries"; tried on k3s v1.36.5). The working Corefile and /tmp are in-memory
       emptyDirs; nothing else is written.
+vulnerabilities:
+  - id: CVE-2026-112366
+    paths:
+      - mobile/pnpm-lock.yaml
+    expired_at: 2026-12-01
+    statement: >-
+      D-174 (Haider, 2026-11-18): picomatch 2.3.2's ReDoS (GHSA-fc5q-39xc-vjpf), no patched
+      release. In the mobile app it comes with expo/metro build tooling (@expo/cli, jest-worker,
+      metro-file-map). Accepted until 2026-12-01; lane B's next PR adds a check that bundles the
+      app with Metro and fails if picomatch is in the output. If it is, this entry goes and it is
+      fixed before any mobile release.
