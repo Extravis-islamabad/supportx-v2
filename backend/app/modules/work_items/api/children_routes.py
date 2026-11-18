@@ -162,16 +162,29 @@ def add_children_routes(router: APIRouter, wtype: WorkItemType) -> None:
         "/{record_id}/children/attach",
         summary="Attach similar incidents to a major incident as children",
         status_code=status.HTTP_202_ACCEPTED,
+        response_model=BulkJobOut,
     )
-    async def attach_children(
+    async def attach_children(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,
         body: AttachChildrenIn,
         session: TenantSession,
         subject: edit,
+        idempotency: Idempotency,
         request: Request,
-    ) -> BulkJobOut:
-        """A background job as you: each one checked again, with a result (and reason) per one."""
-        job = await service.attach_similar(
-            session, subject, wtype, record_id, body.child_ids, source=source_of(request)
+    ) -> Response:
+        """A background job as you: each one checked again, with a result (and reason) per one.
+
+        Send an Idempotency-Key, as for every bulk start: a retry returns the same job.
+        """
+
+        async def run() -> Created:
+            job = await service.attach_similar(
+                session, subject, wtype, record_id, body.child_ids, source=source_of(request)
+            )
+            return Created(body=BulkJobOut.of(job))
+
+        return await idempotency.run(
+            {"attach_to": str(record_id), **body.model_dump(mode="json")},
+            run,
+            status_code=status.HTTP_202_ACCEPTED,
         )
-        return BulkJobOut.of(job)

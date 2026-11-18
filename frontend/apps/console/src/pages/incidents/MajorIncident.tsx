@@ -132,9 +132,12 @@ export function AttachSimilarDialog({
   );
   const attach = useAttachChildren(item.id);
   const [chosen, setChosen] = useState<string[]>([]);
+  // One Idempotency-Key per opening of the dialog (lane C); a new one after a real refusal.
+  const [key, setKey] = useState(() => crypto.randomUUID());
   const offered = (found.data?.items ?? []).filter((other) => other.id !== item.id);
   const close = () => {
     setChosen([]);
+    setKey(crypto.randomUUID());
     onClose();
   };
   return (
@@ -151,13 +154,19 @@ export function AttachSimilarDialog({
       onCancel={close}
       destroyOnHidden
       onOk={() => {
-        attach.mutate(chosen, {
-          onSuccess: () => {
-            void message.success(t('incidents.major.attach_started'));
-            close();
+        attach.mutate(
+          { childIds: chosen, key },
+          {
+            onSuccess: () => {
+              void message.success(t('incidents.major.attach_started'));
+              close();
+            },
+            onError: (error) => {
+              if (error instanceof ApiError) setKey(crypto.randomUUID());
+              reportError(error);
+            },
           },
-          onError: reportError,
-        });
+        );
       }}
     >
       <Typography.Paragraph type="secondary">

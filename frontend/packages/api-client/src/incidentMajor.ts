@@ -135,14 +135,15 @@ export function useEndIncidentAnnouncement(id: string) {
   });
 }
 
-/** Attach similar incidents to a major incident as its children: a bulk job (202), as you. */
+/** Attach similar incidents to a major incident as its children: a bulk job (202), as you.
+ *  `key`: one Idempotency-Key per dialog opening (lane C). */
 export function useAttachChildren(id: string) {
   return useMutation({
     meta: { silent: true },
-    mutationFn: (childIds: string[]) =>
+    mutationFn: ({ childIds, key }: { childIds: string[]; key: string }) =>
       call(
         api.POST('/api/v1/incidents/{record_id}/children/attach', {
-          params: { path: { record_id: id } },
+          params: { path: { record_id: id }, header: { 'Idempotency-Key': key } },
           body: { child_ids: childIds },
         }),
       ),

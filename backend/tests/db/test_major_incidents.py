@@ -179,18 +179,19 @@ async def test_similar_incidents_are_attached_as_children_with_a_result_each(
         a,
         a.tech_a,
         json={"child_ids": [mine[0]["id"]]},
-        headers=CONSOLE,
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
     )
     assert not_major.status_code == 409, not_major.text
     assert not_major.json()["code"] == "not_major"
     assert (await _declare(world, a, a.admin, parent)).status_code == 200
+    missing = str(uuid.uuid4())  # no such incident
     started = await world.call(
         "POST",
         f"{BASE}/{parent['id']}/children/attach",
         a,
         a.tech_a,
-        json={"child_ids": [m["id"] for m in mine] + [theirs["id"]]},
-        headers=CONSOLE,
+        json={"child_ids": [m["id"] for m in mine] + [theirs["id"], missing]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
     )
     assert started.status_code == 202, started.text
     await run_bulk_jobs(world.app.state.db, world.app.state.settings)
@@ -198,6 +199,30 @@ async def test_similar_incidents_are_attached_as_children_with_a_result_each(
     outcomes = {r["id"]: (r["outcome"], r.get("code")) for r in job.json()["results"]}
     assert all(outcomes[m["id"]] == ("done", None) for m in mine)
     assert outcomes[theirs["id"]][0] == "skipped"  # refused for this person, by code
+    # One the person cannot see is refused exactly like one that does not exist (lane C).
+    assert outcomes[theirs["id"]] == outcomes[missing]
+    named = {r["id"]: r["display_id"] for r in job.json()["results"]}
+    assert named[theirs["id"]] is None  # never named to someone who may not see it
+    # Seen but not changeable (a report viewer sees every incident, edits only its group's):
+    # refused for its right, by name, unlike one it cannot see (lane C).
+    from conftest import assign_system_role  # noqa: PLC0415
+
+    await assign_system_role(world.db.admin_url, a.tenant, a.tech_a, "report_viewer")
+    again = await world.call(
+        "POST",
+        f"{BASE}/{parent['id']}/children/attach",
+        a,
+        a.tech_a,
+        json={"child_ids": [theirs["id"]]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert again.status_code == 202, again.text
+    await run_bulk_jobs(world.app.state.db, world.app.state.settings)
+    seen = await world.call("GET", f"{BASE}/bulk-jobs/{again.json()['id']}", a, a.tech_a)
+    (result,) = seen.json()["results"]
+    assert result["outcome"] == "skipped"
+    assert result["display_id"] == theirs["display_id"]
+    assert result["code"] != outcomes[missing][1]  # its right, not "not found"
     children = await world.sql(
         "SELECT source_id FROM work_item_links WHERE tenant_id = $1 AND target_id = $2"
         " AND kind = 'child_of' AND deleted_at IS NULL",
