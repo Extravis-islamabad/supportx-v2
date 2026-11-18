@@ -39,7 +39,17 @@ const OVERVIEW: SecurityOverview = {
     { code: 'password_short', area: 'passwords', severity: 'medium', count: 8 },
     { code: 'keys_unused', area: 'keys', severity: 'low', count: 1 },
   ],
-  recommendations: { password_min_length: 12 },
+  recommendations: {
+    password_min_length: 12,
+    password_breached_check: true,
+    console_idle_seconds: 3600,
+    console_absolute_seconds: 43200,
+    key_max_lifetime_days: 366,
+    allow_non_expiring_keys: false,
+    sso_expiry_warn_days: 30,
+    sso_expiry_urgent_days: 7,
+  },
+  tiles_hidden: [],
 };
 
 function api(overview: SecurityOverview = OVERVIEW) {
@@ -114,5 +124,24 @@ describe('Admin › Sign-in and security › Security at a glance', () => {
     expect((await screen.findByTestId('security-flags-none')).textContent).toBe(
       'Nothing here is weaker than recommended.',
     );
+  });
+
+  it('leaves out the tiles the viewer may not open (no key or sign-in rights)', async () => {
+    window.history.pushState({}, '', '/admin/security');
+    api({
+      ...OVERVIEW,
+      keys: null,
+      service_accounts: null,
+      service_accounts_without_owner: null,
+      failed_sign_ins: null,
+      locked_sign_ins: null,
+      tiles_hidden: ['keys', 'service_accounts', 'sign_in_events'],
+      flags: [],
+    });
+    render(<App />);
+    await screen.findByTestId('security-tile-mfa');
+    expect(screen.queryByTestId('security-tile-keys')).toBeNull();
+    expect(screen.queryByTestId('security-tile-service_accounts')).toBeNull();
+    expect(screen.queryByTestId('security-tile-sign_in_events')).toBeNull();
   });
 });

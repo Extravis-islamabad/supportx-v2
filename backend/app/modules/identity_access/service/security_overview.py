@@ -38,6 +38,8 @@ from app.modules.identity_access.service.identity_settings import get_identity_s
 from app.modules.identity_access.service.network_rules import get_network_rules
 from app.shared.fields import key_ring_since
 
+VIEW_SIGN_INS = "identity.view_sign_ins"  # the sign-in log's right (GET /identity/sign-ins)
+
 
 @dataclass(frozen=True)
 class MfaTile:
@@ -71,16 +73,19 @@ class Overview:
     console_idle_seconds: int
     console_absolute_seconds: int
     network_rules: Mapping[str, int]  # app → ranges listed (0: open)
-    keys: KeysTile
-    service_accounts: int
-    service_accounts_without_owner: int
+    keys: KeysTile | None  # None: the viewer lacks api_keys.manage (the key list's right)
+    service_accounts: int | None  # None: as keys
+    service_accounts_without_owner: int | None
     seal_states: Mapping[str, int]  # sensitive fields by seal state
     key_since: datetime | None
-    failed_sign_ins: int
-    locked_sign_ins: int
+    failed_sign_ins: int | None  # None: the viewer lacks identity.view_sign_ins
+    locked_sign_ins: int | None
     data_region: str | None  # the instance's setting; None hides the tile
     flags: list[rules.Flag]
     recommendations: Mapping[str, int | bool]
+    # Tiles left out because the viewer lacks their screen's right (lane B, #537): their numbers
+    # are null and no flag from them is shown.
+    tiles_hidden: list[rules.SecurityArea]
 
 
 async def _sso(session: AsyncSession, now: datetime) -> tuple[int, int | None]:
@@ -155,10 +160,24 @@ async def overview(
     sso_setups, expiry_days = await _sso(session, now)
     policies = [p for p in await mfa.list_policies(session) if p.holders > 0]
     network = await get_network_rules(session)
-    keys = await _keys(session, subject, now)
-    accounts = await service_accounts.list_service_accounts(session, subject)
+    # Each tile only with its own screen's right (lane B, #537): tenant-wide key and service
+    # account numbers need api_keys.manage, sign-in numbers identity.view_sign_ins.
+    hidden: list[rules.SecurityArea] = []
+    keys: KeysTile | None = None
+    accounts: list[service_accounts.ServiceAccountView] | None = None
+    if subject.holds(api_keys.MANAGE):
+        keys = await _keys(session, subject, now)
+        accounts = await service_accounts.list_service_accounts(session, subject)
+    else:
+        hidden += [rules.SecurityArea.KEYS, rules.SecurityArea.SERVICE_ACCOUNTS]
     seal_states = await _seal_states(session)
-    failed, locked = await _sign_ins(session, now)
+    failed: int | None = None
+    locked: int | None = None
+    if subject.holds(VIEW_SIGN_INS):
+        failed, locked = await _sign_ins(session, now)
+    else:
+        hidden.append(rules.SecurityArea.SIGN_IN_EVENTS)
+    without_owner = None if accounts is None else sum(1 for a in accounts if a.needs_new_owner)
     choices = rules.Choices(
         roles_without_mfa=sum(1 for p in policies if p.mode == "off"),
         admins_without_mfa=any(p.key == TENANT_ADMIN and p.mode == "off" for p in policies),
@@ -172,13 +191,13 @@ async def overview(
         api_network_rule=bool(network.lists.get(NetworkApp.API)),
         allow_non_expiring_keys=found.allow_non_expiring_keys,
         key_max_lifetime_days=found.key_max_lifetime_days,
-        keys_out_of_policy=keys.out_of_policy,
-        keys_unused=keys.unused,
-        service_accounts_without_owner=sum(1 for a in accounts if a.needs_new_owner),
+        keys_out_of_policy=0 if keys is None else keys.out_of_policy,
+        keys_unused=0 if keys is None else keys.unused,
+        service_accounts_without_owner=without_owner or 0,
         sso_expiry_days_left=expiry_days,
         fields_not_sealed=seal_states.get("sealing", 0) + seal_states.get("opening", 0),
-        failed_sign_ins=failed,
-        locked_sign_ins=locked,
+        failed_sign_ins=failed or 0,
+        locked_sign_ins=locked or 0,
     )
     return Overview(
         sso_required=sso_policy.required,
@@ -196,13 +215,14 @@ async def overview(
         console_absolute_seconds=found.console_absolute_seconds,
         network_rules={app.value: len(network.lists.get(app, ())) for app in NetworkApp},
         keys=keys,
-        service_accounts=len(accounts),
-        service_accounts_without_owner=choices.service_accounts_without_owner,
+        service_accounts=None if accounts is None else len(accounts),
+        service_accounts_without_owner=without_owner,
         seal_states=seal_states,
         key_since=await key_ring_since(session),
         failed_sign_ins=failed,
         locked_sign_ins=locked,
         data_region=(settings.data_region or "").strip() or None,
-        flags=rules.flags(choices),
+        flags=[f for f in rules.flags(choices) if f.area not in hidden],
         recommendations=rules.RECOMMENDATIONS,
+        tiles_hidden=hidden,
     )

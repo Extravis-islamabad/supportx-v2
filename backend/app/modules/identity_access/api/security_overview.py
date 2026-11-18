@@ -54,13 +54,27 @@ class KeysOut(BaseModel):
     unused: int
 
 
+class RecommendationsOut(BaseModel):
+    """What each flag compares to: recommendations, never enforced (lane B: a pinned model)."""
+
+    password_min_length: int
+    password_breached_check: bool
+    console_idle_seconds: int
+    console_absolute_seconds: int
+    key_max_lifetime_days: int
+    allow_non_expiring_keys: bool
+    sso_expiry_warn_days: int
+    sso_expiry_urgent_days: int
+
+
 class SecurityOverviewOut(BaseModel):
     """One tile per area, the flags (most severe first) and the recommendations they compare to."""
 
     sso_required: str = Field(description="off, technicians or everyone.")
     sso_setups: int
     sso_expiry_days_left: int | None = Field(
-        description="Days until the soonest certificate or secret runs out; null: none set."
+        description="Days until the soonest certificate or secret runs out; null: none set. "
+        "A SAML certificate is as of the set-up's last connection check."
     )
     mfa: MfaOut
     password_min_length: int
@@ -70,18 +84,23 @@ class SecurityOverviewOut(BaseModel):
     network_rules: dict[str, int] = Field(
         description="Ranges listed per app (console, portal, api); 0: open to every address."
     )
-    keys: KeysOut
-    service_accounts: int
-    service_accounts_without_owner: int
+    keys: KeysOut | None = Field(description="Null without api_keys.manage (see tiles_hidden).")
+    service_accounts: int | None = Field(description="Null without api_keys.manage.")
+    service_accounts_without_owner: int | None
     seal_states: dict[str, int] = Field(description="Sensitive custom fields by seal state.")
     key_since: datetime | None = Field(description="When the current data key was made.")
-    failed_sign_ins: int = Field(description="Failed sign-ins in the last 7 days.")
-    locked_sign_ins: int = Field(description="Locked-out sign-ins in the last 7 days.")
+    failed_sign_ins: int | None = Field(
+        description="Failed sign-ins in the last 7 days; null without identity.view_sign_ins."
+    )
+    locked_sign_ins: int | None = Field(description="Locked-out sign-ins in the last 7 days.")
     data_region: str | None = Field(
         description="The installation's data region as its operator states it; null: not shown."
     )
     flags: list[FlagOut]
-    recommendations: dict[str, int | bool]
+    recommendations: RecommendationsOut
+    tiles_hidden: list[SecurityArea] = Field(
+        description="Tiles left out: you lack their screen's right; no flag comes from them."
+    )
 
 
 @router.get("/security-overview", summary="The security overview")
@@ -101,7 +120,7 @@ async def security_overview(
         console_idle_seconds=found.console_idle_seconds,
         console_absolute_seconds=found.console_absolute_seconds,
         network_rules=dict(found.network_rules),
-        keys=KeysOut(**found.keys.__dict__),
+        keys=None if found.keys is None else KeysOut(**found.keys.__dict__),
         service_accounts=found.service_accounts,
         service_accounts_without_owner=found.service_accounts_without_owner,
         seal_states=dict(found.seal_states),
@@ -113,5 +132,6 @@ async def security_overview(
             FlagOut(code=f.code, area=f.area, severity=f.severity, count=f.count)
             for f in found.flags
         ],
-        recommendations=dict(found.recommendations),
+        recommendations=RecommendationsOut.model_validate(dict(found.recommendations)),
+        tiles_hidden=found.tiles_hidden,
     )

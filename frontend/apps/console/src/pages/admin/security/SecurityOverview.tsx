@@ -103,23 +103,37 @@ export function SecurityOverview() {
       tone:
         data.sso_expiry_days_left !== null && data.sso_expiry_days_left <= 7 ? 'danger' : 'default',
     },
-    {
-      key: 'keys',
-      label: t('security_area.keys'),
-      value: n(data.keys.active),
-      hint: t('security.overview.keys_hint', {
-        out: n(data.keys.out_of_policy),
-        unused: n(data.keys.unused),
-      }),
-      tone: data.keys.out_of_policy > 0 ? 'warning' : 'default',
-    },
-    {
-      key: 'service_accounts',
-      label: t('security_area.service_accounts'),
-      value: n(data.service_accounts),
-      hint: t('security.overview.owners_hint', { n: n(data.service_accounts_without_owner) }),
-      tone: data.service_accounts_without_owner > 0 ? 'warning' : 'default',
-    },
+    // Tiles the viewer may not open come back null (lane B, #537): they are left out here.
+    ...(data.keys === null
+      ? []
+      : [
+          {
+            key: 'keys' as const,
+            label: t('security_area.keys'),
+            value: n(data.keys.active),
+            hint: t('security.overview.keys_hint', {
+              out: n(data.keys.out_of_policy),
+              unused: n(data.keys.unused),
+            }),
+            tone: data.keys.out_of_policy > 0 ? ('warning' as const) : ('default' as const),
+          },
+        ]),
+    ...(data.service_accounts === null
+      ? []
+      : [
+          {
+            key: 'service_accounts' as const,
+            label: t('security_area.service_accounts'),
+            value: n(data.service_accounts),
+            hint: t('security.overview.owners_hint', {
+              n: n(data.service_accounts_without_owner ?? 0),
+            }),
+            tone:
+              (data.service_accounts_without_owner ?? 0) > 0
+                ? ('warning' as const)
+                : ('default' as const),
+          },
+        ]),
     {
       key: 'encryption',
       label: t('security_area.encryption'),
@@ -131,13 +145,17 @@ export function SecurityOverview() {
             ? t('security.overview.no_key')
             : t('security.overview.key_since', { when: dates.relative(data.key_since) }),
     },
-    {
-      key: 'sign_in_events',
-      label: t('security_area.sign_in_events'),
-      value: n(data.failed_sign_ins),
-      hint: t('security.overview.locked_hint', { n: n(data.locked_sign_ins) }),
-      tone: data.locked_sign_ins > 0 ? 'warning' : 'default',
-    },
+    ...(data.failed_sign_ins === null
+      ? []
+      : [
+          {
+            key: 'sign_in_events' as const,
+            label: t('security_area.sign_in_events'),
+            value: n(data.failed_sign_ins),
+            hint: t('security.overview.locked_hint', { n: n(data.locked_sign_ins ?? 0) }),
+            tone: (data.locked_sign_ins ?? 0) > 0 ? ('warning' as const) : ('default' as const),
+          },
+        ]),
   ];
   if (data.data_region !== null) {
     // The installation's own statement, read only; absent when blank (never "unknown").
