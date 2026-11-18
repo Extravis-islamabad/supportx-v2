@@ -447,3 +447,35 @@ async def test_every_built_in_view_has_an_equivalent_filter_with_the_same_rows(
         query = "" if view["filter"] is None else "?filter=" + json.dumps(view["filter"])
         as_view = await ids(world, a, a.tech_a, f"?view={code}")
         assert await ids(world, a, a.tech_a, query) == as_view, code
+
+
+async def test_history_never_names_a_linked_record_the_reader_cannot_see(world: World) -> None:
+    """A link's other record shows in history only for a reader who may see it: the line stays
+    (linked, which kind), the number and ID do not. The admin, who sees both, gets the number."""
+    a = world.a
+    mine = await world.create(a, a.admin, group_id=str(a.ga))
+    theirs = await world.create(a, a.admin, group_id=str(a.gb))  # outside tech_a's scope
+    linked = await world.call(
+        "POST",
+        f"{BASE}/{mine['id']}/links",
+        a,
+        a.admin,
+        json={"other_id": theirs["id"]},
+    )
+    assert linked.status_code == 201, linked.text
+
+    async def link_values(user: uuid.UUID) -> list[Any]:
+        shown = await world.call("GET", f"{BASE}/{mine['id']}/history", a, user)
+        assert shown.status_code == 200, shown.text
+        return [
+            c["new"] for e in shown.json()["items"] for c in e["changes"] if c["field"] == "link"
+        ]
+
+    (hidden,) = await link_values(a.tech_a)
+    assert hidden["display_id"] is None
+    assert hidden["id"] is None
+    assert hidden["hidden"] is True
+    assert hidden["kind"] == "related"
+    assert theirs["display_id"] not in str(hidden)
+    (named,) = await link_values(a.admin)  # sees both: no over-masking
+    assert named["display_id"] == theirs["display_id"]

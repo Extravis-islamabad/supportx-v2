@@ -120,3 +120,45 @@ async def test_req_rel_030_the_review_records_its_result(world: World) -> None:
         for s in (await world.call("GET", f"{REL}/{item['id']}/plan", a, a.admin)).json()
     ]
     assert {"review_findings", "review_went_well", "review_went_badly"} <= set(sections)
+
+
+async def test_sub_releases_the_mover_cannot_open_are_never_named(
+    world: World,
+    monkeypatch: Any,  # noqa: ANN401 - pytest's fixture
+) -> None:
+    """Lane C: the refusal says hidden sub-releases exist (others_hidden), never their numbers or
+    how many; visible ones are named. (The admin case above, seeing all, keeps the plain code.)"""
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415
+
+    a = world.a
+    emergency = (await templates(world, a))["emergency"]
+    parent = await place(
+        world, a, await release_from(world, a, emergency), "testing", "testing_in_progress"
+    )
+    seen_child, hidden_child = await a_release(world, a), await a_release(world, a)
+    for child in (seen_child, hidden_child):
+        await set_parent(world, a, child, uuid.UUID(parent["id"]))
+    real_may = items.may
+
+    async def may(session: Any, subject: Any, wtype: Any, action: str, record_id: Any) -> bool:  # noqa: ANN401
+        if str(record_id) == hidden_child["id"] and action == "view":
+            return False  # this one release stays out of the mover's sight
+        return await real_may(session, subject, wtype, action, record_id)
+
+    monkeypatch.setattr(items, "may", may)
+    refused = await move(world, a, parent, "testing_passed")
+    assert refused.status_code == 409, refused.text
+    params = refused.json()["params"]
+    assert params["reason"] == "sub_releases_not_tested_others"
+    assert params["releases"] == seen_child["display_id"]
+    assert params["others_hidden"] is True
+    assert hidden_child["display_id"] not in refused.text
+    # None of them visible: only that hidden ones exist.
+    for child in (seen_child,):
+        await set_parent(world, a, child, uuid.UUID((await a_release(world, a))["id"]))
+    alone = await move(
+        world, a, await place(world, a, parent, "testing", "testing_in_progress"), "testing_passed"
+    )
+    assert alone.json()["params"]["reason"] == "sub_releases_not_tested_hidden"
+    assert alone.json()["params"]["releases"] == ""
+    assert hidden_child["display_id"] not in alone.text

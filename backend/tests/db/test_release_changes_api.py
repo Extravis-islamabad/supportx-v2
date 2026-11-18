@@ -199,3 +199,31 @@ async def test_a_release_that_holds_a_change_cannot_become_its_child(world: Worl
     )
     assert loop.status_code == 422, loop.text
     assert "change_would_loop" in loop.text
+
+
+async def test_the_other_release_is_named_only_to_someone_who_may_open_it(
+    world: World,
+    monkeypatch: Any,  # noqa: ANN401 - pytest's fixture
+) -> None:
+    """Lane C: the same refusal either way; the other release's number only if they may open it.
+    (The admin case above, who sees it, keeps the number.)"""
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415
+
+    a = world.a
+    first, second = await a_release(world, a), await a_release(world, a)
+    change = await _change(world, a)
+    assert (await _add(world, a, first, change)).status_code == 204
+    real_may = items.may
+
+    async def may(session: Any, subject: Any, wtype: Any, action: str, record_id: Any) -> bool:  # noqa: ANN401
+        if str(record_id) == first["id"] and action == "view":
+            return False
+        return await real_may(session, subject, wtype, action, record_id)
+
+    monkeypatch.setattr(items, "may", may)
+    refused = await _add(world, a, second, change)
+    assert field_codes(refused) == {("change_id", "change_in_other_release")}
+    (problem,) = refused.json()["errors"]
+    assert problem["message_key"] == "errors.field.change_in_other_release_unseen"
+    assert problem["params"] == {}
+    assert first["display_id"] not in refused.text

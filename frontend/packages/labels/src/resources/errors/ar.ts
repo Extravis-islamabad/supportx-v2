@@ -386,6 +386,8 @@ export const ar: LabelResource = {
   'errors.field.chair_inactive': 'اختر شخصًا نشطًا رئيسًا.',
   'errors.field.change_in_other_release':
     'هذا التغيير موجود بالفعل في الإصدار المفتوح {{release}}.',
+  'errors.field.change_in_other_release_unseen':
+    'هذا التغيير موجود بالفعل في إصدار مفتوح آخر لا يمكنك فتحه.',
   'errors.field.change_would_loop':
     'لا يمكن أن يكون التغيير جزءًا من نفسه، مباشرة أو عبر تغييرات أخرى.',
   'errors.field.channel_reserved':

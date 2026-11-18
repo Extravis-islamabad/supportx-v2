@@ -420,6 +420,8 @@ export const ur: LabelResource = {
   'errors.field.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.field.chair_inactive': 'صدر کے طور پر کوئی فعال شخص چنیں۔',
   'errors.field.change_in_other_release': 'یہ تبدیلی پہلے ہی کھلی ریلیز {{release}} میں ہے۔',
+  'errors.field.change_in_other_release_unseen':
+    'یہ تبدیلی پہلے ہی ایک اور کھلی ریلیز میں ہے جسے آپ نہیں کھول سکتے۔',
   'errors.field.change_would_loop':
     'کوئی تبدیلی براہ راست یا دوسروں کے ذریعے اپنا ہی حصہ نہیں ہو سکتی۔',
   'errors.field.channel_reserved':
