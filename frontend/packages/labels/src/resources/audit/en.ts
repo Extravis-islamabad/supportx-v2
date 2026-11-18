@@ -1176,6 +1176,7 @@ export const en = {
   'event_type.work_items.task.assigned': 'Task given to someone',
   'event_type.work_items.task.reminder_due': 'Task reminder due',
   'event_type.work_items.view.changed': 'Saved view changed',
+  'event_type.work_items.view.unshared': 'Saved view made private',
   'event_type.work_items.work_item.assigned': 'Record assigned',
   'event_type.work_items.work_item.assignee_unavailable': 'Rule could not assign its person',
   'event_type.work_items.work_item.created': 'Record created',

@@ -95,7 +95,8 @@ async def test_req_inc_106_ac4_a_view_cannot_hold_a_filter_the_list_refuses(worl
 async def test_private_and_shared_views_and_only_the_owner_changes_them(world: World) -> None:
     a = world.a
     mine = (await save_view(world, a, a.tech_a, name="Mine")).json()
-    shared = (await save_view(world, a, a.tech_a, name="Team", visibility="everyone")).json()
+    # D-176: sharing with everyone is for SDMs and admins (a technician gets 403, tested below).
+    shared = (await save_view(world, a, a.admin, name="Team", visibility="everyone")).json()
     seen = {
         v["name"]: v for v in (await world.call("GET", f"{BASE}/saved-views", a, a.tech_b)).json()
     }
@@ -138,7 +139,7 @@ async def test_private_and_shared_views_and_only_the_owner_changes_them(world: W
         "DELETE", f"{BASE}/saved-views/{mine['id']}", a, a.tech_a, headers={"If-Match": '"2"'}
     )
     assert removed.status_code == 204, removed.text
-    duplicate = await save_view(world, a, a.tech_a, name="team")
+    duplicate = await save_view(world, a, a.admin, name="team")  # names are unique per owner
     assert field_codes(duplicate) == {"name": "duplicate_name"}
 
 
@@ -380,7 +381,7 @@ async def test_bulk_refuses_more_than_a_thousand_and_empty_selections(world: Wor
 
 async def test_new_tables_are_isolated_by_rls(world: World) -> None:
     a, b = world.a, world.b
-    view = (await save_view(world, a, a.tech_a, name="Mine", visibility="everyone")).json()
+    view = (await save_view(world, a, a.admin, name="Mine", visibility="everyone")).json()
     await world.call("PUT", f"{BASE}/list-settings/open", a, a.tech_a, json={"page_size": 25})
     item = await world.create(a, a.admin, group_id=str(a.ga))
     await bulk(world, a, a.admin, "take", records=[item])
@@ -479,3 +480,411 @@ async def test_history_never_names_a_linked_record_the_reader_cannot_see(world: 
     assert theirs["display_id"] not in str(hidden)
     (named,) = await link_values(a.admin)  # sees both: no over-masking
     assert named["display_id"] == theirs["display_id"]
+
+
+# --- favourites (WP-046b S3a; REQ-INC-107 AC1) ----------------------------------------------------
+
+
+async def test_req_inc_107_ac1_starred_views_come_first_and_are_personal(world: World) -> None:
+    a = world.a
+    shared = (await save_view(world, a, a.admin, name="A team", visibility="everyone")).json()
+    mine = (await save_view(world, a, a.tech_a, name="Z mine")).json()
+    star = f"{BASE}/saved-views/{mine['id']}/favourite"
+    for _ in range(2):  # starring twice is the same as once
+        assert (await world.call("PUT", star, a, a.tech_a)).status_code == 204
+    listed = (await world.call("GET", f"{BASE}/saved-views", a, a.tech_a)).json()
+    assert [(v["name"], v["favourite"]) for v in listed] == [("Z mine", True), ("A team", False)]
+    # Someone else sees the shared view unstarred: a star is the starrer's only.
+    others = (await world.call("GET", f"{BASE}/saved-views", a, a.tech_b)).json()
+    assert [(v["name"], v["favourite"]) for v in others] == [("A team", False)]
+    # A view they may not use cannot be starred (and nothing says it exists).
+    hidden = await world.call("PUT", star, a, a.tech_b)
+    assert hidden.status_code == 404, hidden.text
+    # Un-starring, twice, is fine; the order goes back to by name.
+    for _ in range(2):
+        assert (await world.call("DELETE", star, a, a.tech_a)).status_code == 204
+    listed = (await world.call("GET", f"{BASE}/saved-views", a, a.tech_a)).json()
+    assert [v["name"] for v in listed] == ["A team", "Z mine"]
+    # A starred view later unshared from them drops out of their picker, star and all.
+    assert (
+        await world.call("PUT", f"{BASE}/saved-views/{shared['id']}/favourite", a, a.tech_b)
+    ).status_code == 204
+    gone = await world.call(
+        "PATCH",
+        f"{BASE}/saved-views/{shared['id']}",
+        a,
+        a.admin,
+        json={"visibility": "private"},
+        headers={"If-Match": f'"{shared["version"]}"'},
+    )
+    assert gone.status_code == 200, gone.text
+    assert (await world.call("GET", f"{BASE}/saved-views", a, a.tech_b)).json() == []
+
+
+async def test_favourites_are_isolated_by_rls(world: World) -> None:
+    a, b = world.a, world.b
+    view = (await save_view(world, a, a.tech_a, name="Starred")).json()
+    put = await world.call("PUT", f"{BASE}/saved-views/{view['id']}/favourite", a, a.tech_a)
+    assert put.status_code == 204, put.text
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        rows = (
+            await session.execute(text("SELECT tenant_id FROM work_item_view_favourites"))
+        ).all()
+        assert rows == []
+        gone = await session.execute(text("DELETE FROM work_item_view_favourites"))
+        assert gone.rowcount == 0
+    foreign = await world.call("PUT", f"{BASE}/saved-views/{view['id']}/favourite", b, b.admin)
+    assert foreign.status_code == 404, foreign.text
+
+
+# --- unread markers (WP-046b S3a; REQ-INC-115 AC2) ------------------------------------------------
+
+
+async def _unread(world: World, org: Org, user: uuid.UUID) -> set[str]:
+    page = await world.call("GET", f"{BASE}?limit=100", org, user)
+    assert page.status_code == 200, page.text
+    return set(page.json()["unread"])
+
+
+async def test_req_inc_115_ac2_a_public_reply_marks_it_unread_for_the_assignee(
+    world: World,
+) -> None:
+    from tests.db.test_conversation_api import say  # noqa: PLC0415 - its own test module
+
+    a = world.a
+    assigned = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    other = await world.create(a, a.admin, group_id=str(a.ga))  # not theirs, never opened
+    assert assigned["id"] in await _unread(world, a, a.tech_a)  # assigned by someone else
+    assert other["id"] not in await _unread(world, a, a.tech_a)
+    read = f"{BASE}/{assigned['id']}/read"
+    assert (await world.call("POST", read, a, a.tech_a)).status_code == 204
+    assert assigned["id"] not in await _unread(world, a, a.tech_a)
+    # AC2: someone else's public reply marks it unread again, until they open it.
+    replied = await say(world, a, a.admin, assigned, kind="reply")
+    assert replied.status_code == 201, replied.text
+    assert assigned["id"] in await _unread(world, a, a.tech_a)
+    assert (await world.call("POST", read, a, a.tech_a)).status_code == 204
+    # Their own reply and their own private note leave it read.
+    assert (await say(world, a, a.tech_a, assigned, kind="reply")).status_code == 201
+    assert (await say(world, a, a.tech_a, assigned)).status_code == 201
+    assert assigned["id"] not in await _unread(world, a, a.tech_a)
+    # Someone else's change to the record itself marks it unread too.
+    fresh = await world.fresh(a, assigned)
+    changed = await world.call(
+        "PATCH",
+        f"{BASE}/{assigned['id']}",
+        a,
+        a.admin,
+        json={"subject": "Mail is down again"},
+        headers={"If-Match": f'"{fresh["version"]}"'},
+    )
+    assert changed.status_code == 200, changed.text
+    assert assigned["id"] in await _unread(world, a, a.tech_a)
+    # Personal: the admin's own list is untouched by what tech_a has read.
+    assert assigned["id"] not in await _unread(world, a, a.admin)
+
+
+async def test_marking_read_needs_sight_of_the_record_and_is_isolated_by_rls(
+    world: World,
+) -> None:
+    a, b = world.a, world.b
+    theirs = await world.create(a, a.admin, group_id=str(a.gb))  # outside tech_a's scope
+    hidden = await world.call("POST", f"{BASE}/{theirs['id']}/read", a, a.tech_a)
+    assert hidden.status_code == 404, hidden.text
+    assert (await world.call("POST", f"{BASE}/{theirs['id']}/read", a, a.admin)).status_code == 204
+    foreign = await world.call("POST", f"{BASE}/{theirs['id']}/read", b, b.admin)
+    assert foreign.status_code == 404, foreign.text
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        rows = (await session.execute(text("SELECT tenant_id FROM work_item_reads"))).all()
+        assert rows == []
+        changed = await session.execute(text("UPDATE work_item_reads SET seen_version = 0"))
+        assert changed.rowcount == 0
+
+
+# --- D-176: field access decides on every read (lane C's condition 1) -----------------------------
+
+
+async def test_a_shared_view_on_a_field_later_hidden_from_a_reader_is_gone_for_them_only(
+    world: World,
+) -> None:
+    from tests.db.test_incidents_api import CONSOLE  # noqa: PLC0415 - the console header
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Salary band"}},
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    field = f"custom.{made.json()['key']}"
+    view = (
+        await save_view(
+            world,
+            a,
+            a.admin,
+            name="Band B",
+            visibility="everyone",
+            filter={"field": field, "op": "eq", "value": "B"},
+        )
+    ).json()
+    star = f"{BASE}/saved-views/{view['id']}/favourite"
+    assert (await world.call("PUT", star, a, a.tech_b)).status_code == 204
+
+    async def names(user: uuid.UUID) -> list[str]:
+        shown = await world.call("GET", f"{BASE}/saved-views", a, user)
+        return [v["name"] for v in shown.json()]
+
+    assert await names(a.tech_b) == ["Band B"]
+    # The field is now hidden from the technician role (tech_a's and tech_b's).
+    await world.sql(
+        "INSERT INTO role_field_access (id, tenant_id, role_id, record_type, field, mode)"
+        " SELECT gen_random_uuid(), $1, id, 'incident', $2, 'hidden' FROM roles"
+        " WHERE tenant_id = $1 AND key = 'technician'",
+        a.tenant,
+        field,
+    )
+    client = world.app.state.policy.cache.client
+    prefix = world.app.state.settings.valkey_key_prefix
+    stale = [k async for k in client.scan_iter(match=f"{prefix}*")]
+    if stale:
+        await client.delete(*stale)
+    assert await names(a.tech_b) == []  # not listed for them
+    # By ID (every by-ID read goes through the same view()): the 404 of a missing view.
+    assert (await world.call("PUT", star, a, a.tech_b)).status_code == 404
+    assert await names(a.tech_a) == []
+    # The lead also holds a custom role with no rule (the clearest wins): it is still theirs.
+    assert await names(a.lead) == ["Band B"]
+    assert await names(a.admin) == ["Band B"]  # the owner keeps their own view
+
+
+# --- D-176: who may share with whom ---------------------------------------------------------------
+
+
+def _refused(response: Any, audience: str) -> None:  # noqa: ANN401 - an httpx response
+    assert problem(response) == (403, "view_share_not_allowed"), response.text
+    assert response.json()["params"]["audience"] == audience
+
+
+async def test_d176_a_technician_shares_with_their_own_groups_only(world: World) -> None:
+    a = world.a
+    own = await save_view(
+        world, a, a.tech_a, name="GA queue", visibility="groups", group_ids=[str(a.ga)]
+    )
+    assert own.status_code == 201, own.text
+    _refused(
+        await save_view(world, a, a.tech_a, name="GB", visibility="groups", group_ids=[str(a.gb)]),
+        "groups",
+    )
+    _refused(await save_view(world, a, a.tech_a, name="All", visibility="everyone"), "everyone")
+    # Widening on edit needs the right too; an edit keeping the audience does not.
+    view = own.json()
+    widened = await world.call(
+        "PATCH",
+        f"{BASE}/saved-views/{view['id']}",
+        a,
+        a.tech_a,
+        json={"group_ids": [str(a.ga), str(a.gb)]},
+        headers={"If-Match": f'"{view["version"]}"'},
+    )
+    _refused(widened, "groups")
+    renamed = await world.call(
+        "PATCH",
+        f"{BASE}/saved-views/{view['id']}",
+        a,
+        a.tech_a,
+        json={"name": "GA queue, renamed"},
+        headers={"If-Match": f'"{view["version"]}"'},
+    )
+    assert renamed.status_code == 200, renamed.text
+    # Requesters hold neither right (nor the list): no view of theirs is ever shared.
+    asked = await save_view(world, a, a.requester, name="Mine", visibility="groups")
+    assert asked.status_code == 403, asked.text
+
+
+async def test_d176_a_team_lead_shares_with_the_groups_they_lead_never_everyone(
+    world: World,
+) -> None:
+    from tests.db.test_incidents_api import role, unit  # noqa: PLC0415 - the world's helpers
+
+    a = world.a
+    # tech_a (a member of GA) leads GB through a team-lead-like role: share_views_wide at group.
+    lead_role = await role(world, a, "Desk lead", [("incidents.share_views_wide", "group")])
+    put = await world.call("PUT", f"/users/{a.tech_a}/roles/{lead_role}", a, a.admin)
+    assert put.status_code == 204, put.text
+    await world.sql(
+        "UPDATE support_groups SET lead_id = $1 WHERE tenant_id = $2 AND id = $3",
+        a.tech_a,
+        a.tenant,
+        a.gb,
+    )
+    elsewhere = await unit(world, a, "groups", "Neither", [a.tech_b])
+    led = await save_view(world, a, a.tech_a, name="GB", visibility="groups", group_ids=[str(a.gb)])
+    assert led.status_code == 201, led.text  # a group they lead, though not a member of
+    member = await save_view(
+        world, a, a.tech_a, name="GA", visibility="groups", group_ids=[str(a.ga)]
+    )
+    assert member.status_code == 201, member.text  # a group they're in, though not leading it
+    _refused(
+        await save_view(
+            world, a, a.tech_a, name="Neither", visibility="groups", group_ids=[str(elsewhere)]
+        ),
+        "groups",
+    )
+    _refused(await save_view(world, a, a.tech_a, name="All", visibility="everyone"), "everyone")
+
+
+async def test_d176_a_service_desk_manager_shares_with_everyone(world: World) -> None:
+    from tests.db.test_incidents_api import role  # noqa: PLC0415 - the world's helper
+
+    a = world.a
+    manager = await role(world, a, "Desk manager", [("incidents.share_views_wide", "all")])
+    put = await world.call("PUT", f"/users/{a.tech_b}/roles/{manager}", a, a.admin)
+    assert put.status_code == 204, put.text
+    everyone = await save_view(world, a, a.tech_b, name="All", visibility="everyone")
+    assert everyone.status_code == 201, everyone.text
+    other = await save_view(
+        world, a, a.tech_b, name="GA", visibility="groups", group_ids=[str(a.ga)]
+    )
+    assert other.status_code == 201, other.text
+
+
+async def test_d176_a_filter_on_a_restricted_field_keeps_a_view_private(world: World) -> None:
+    from tests.db.test_incidents_api import CONSOLE  # noqa: PLC0415 - the console header
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Band"}},
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    field = f"custom.{made.json()['key']}"
+    await world.sql(
+        "INSERT INTO role_field_access (id, tenant_id, role_id, record_type, field, mode)"
+        " SELECT gen_random_uuid(), $1, id, 'incident', $2, 'masked' FROM roles"
+        " WHERE tenant_id = $1 AND key = 'technician'",
+        a.tenant,
+        field,
+    )
+    tree = {"field": field, "op": "eq", "value": "B"}
+    refused = await save_view(world, a, a.admin, name="Band", visibility="everyone", filter=tree)
+    assert field_codes(refused) == {"filter": "view_filter_not_shareable"}
+    assert refused.json()["errors"][0]["params"] == {"field": field, "audience": "everyone"}
+    private = await save_view(world, a, a.admin, name="Band", filter=tree)
+    assert private.status_code == 201, private.text  # their own: fine
+    # No over-masking: a plain field's view is shared as before.
+    plain = await save_view(
+        world,
+        a,
+        a.admin,
+        name="Urgent",
+        visibility="everyone",
+        filter={"field": "priority", "op": "eq", "value": "p1"},
+    )
+    assert plain.status_code == 201, plain.text
+
+
+# --- D-176: the shared-view audit -----------------------------------------------------------------
+
+
+async def test_d176_hidden_before_the_audit_then_made_private_once_with_its_effects(
+    world: World,
+) -> None:
+    """The coordinator's condition 3: the read hides it before the job runs; then the job makes
+    it private (history, events, stars gone, report), and a second run changes nothing."""
+    from app.modules.work_items.service import view_audit  # noqa: PLC0415 - the job under test
+    from tests.db.test_conversation_api import events_of  # noqa: PLC0415 - the outbox helper
+    from tests.db.test_incidents_api import CONSOLE  # noqa: PLC0415 - the console header
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Grade"}},
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    field = f"custom.{made.json()['key']}"
+    view = (
+        await save_view(
+            world,
+            a,
+            a.admin,
+            name="Grade C",
+            visibility="everyone",
+            filter={"field": field, "op": "eq", "value": "C"},
+        )
+    ).json()
+    star = f"{BASE}/saved-views/{view['id']}/favourite"
+    assert (await world.call("PUT", star, a, a.tech_b)).status_code == 204
+    await world.sql(
+        "INSERT INTO role_field_access (id, tenant_id, role_id, record_type, field, mode)"
+        " SELECT gen_random_uuid(), $1, id, 'incident', $2, 'hidden' FROM roles"
+        " WHERE tenant_id = $1 AND key = 'technician'",
+        a.tenant,
+        field,
+    )
+    client = world.app.state.policy.cache.client
+    prefix = world.app.state.settings.valkey_key_prefix
+    stale = [k async for k in client.scan_iter(match=f"{prefix}*")]
+    if stale:
+        await client.delete(*stale)
+
+    async def listed(user: uuid.UUID) -> list[dict[str, Any]]:
+        shown = await world.call("GET", f"{BASE}/saved-views", a, user)
+        return [v for v in shown.json() if v["id"] == view["id"]]
+
+    # Before the job: still shared in storage, yet the recipient never gets it.
+    (stored,) = await world.sql(
+        "SELECT visibility FROM work_item_views WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(view["id"]),
+    )
+    assert stored["visibility"] == "everyone"
+    assert await listed(a.tech_b) == []
+    # The job: private to its owner, once.
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        done = await view_audit.audit_all(session)
+    assert [(str(d.view_id), d.field_key, d.reason) for d in done] == [
+        (view["id"], field, "restricted_field")
+    ]
+    (mine,) = await listed(a.admin)
+    assert mine["visibility"] == "private"
+    assert mine["version"] == view["version"] + 1
+    stars = await world.sql(
+        "SELECT 1 FROM work_item_view_favourites WHERE tenant_id = $1 AND view_id = $2",
+        a.tenant,
+        uuid.UUID(view["id"]),
+    )
+    assert stars == []  # tech_b's star went with it
+    unshared = [
+        e
+        for e in await events_of(world, "work_item_view")
+        if e.event_type == "work_items.view.unshared"
+    ]
+    assert [e.payload["field_key"] for e in unshared] == [field]
+    assert "Grade" not in json.dumps([e.payload for e in unshared])  # IDs and codes only
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await view_audit.audit_all(session) == []  # idempotent
+    # The administrators' report, theirs only.
+    report = await world.call("GET", f"{BASE}/saved-views/audit", a, a.admin)
+    assert report.status_code == 200, report.text
+    assert [(i["id"], i["field"]) for i in report.json()["items"]] == [(view["id"], field)]
+    assert (await world.call("GET", f"{BASE}/saved-views/audit", a, a.tech_a)).status_code == 403
+    rerun = await world.call(
+        "POST",
+        f"{BASE}/saved-views/audit",
+        a,
+        a.admin,
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert rerun.status_code == 200, rerun.text
+    assert len(rerun.json()["items"]) == 1  # nothing more changed

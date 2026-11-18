@@ -773,6 +773,8 @@ export const ar: LabelResource = {
   'errors.field.vendor_inactive': 'هذا المورد غير نشط ولا يمكن اختياره.',
   'errors.field.vendor_name_taken': 'يوجد مورد آخر بهذا الاسم.',
   'errors.field.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
+  'errors.field.view_filter_not_shareable':
+    'يُصفّي هذا العرض حسب حقل لا يستطيع بعض الأشخاص رؤيته، لذا يبقى خاصًا فقط. أزِل هذا الشرط لمشاركته.',
   'errors.field.week_empty': 'أضف فترة عمل واحدة على الأقل.',
   'errors.field.week_start_unknown': 'اختر يوم بداية الأسبوع.',
   'errors.field.week_too_many_periods': 'يمكن أن يحتوي الأسبوع على 28 فترة عمل على الأكثر.',
@@ -1170,6 +1172,7 @@ export const ar: LabelResource = {
   'errors.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
   'errors.version_conflict':
     'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
+  'errors.view_share_not_allowed': 'لا يمكنك مشاركة هذا العرض مع هذا الجمهور.',
   'errors.window_not_found': 'هذه النافذة غير موجودة، أو أُزيلت.',
   'errors.withdraw_not_allowed': 'يمكن لمقدم الطلب فقط سحب هذا الطلب.',
   'errors.withdraw_not_pending': 'لا يمكن سحب إلا طلب بانتظار الموافقة.',

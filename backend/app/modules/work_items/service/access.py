@@ -34,6 +34,7 @@ from app.modules.identity_access import (
     REPORT_VIEWER,
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
+    TEAM_LEAD,
     ResourceType,
     Subject,
 )
@@ -550,6 +551,36 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
         + (CHANGE_APPROVE_SPECS if wtype.code is WorkItemTypeCode.CHANGE else ())
         + (INCIDENT_SPECS if wtype.code is WorkItemTypeCode.INCIDENT else ())
         + (_cost_spec(wtype) if wtype.code in COST_TYPES else ())
+        + _share_specs(wtype)
+    )
+
+
+# D-176 (Haider, 2026-11-18; lane C blocks): who may share a saved view beyond themselves.
+# `share_views`: with their own groups and members of those groups (technicians and up).
+# `share_views_wide`: with everyone, other groups and roles. Team leads hold it at `group` scope,
+# meaning only the groups they lead (organization's group-manager answer, D-152), never everyone
+# or roles; service desk managers hold it everywhere; tenant admins hold every right. Requesters
+# hold neither. Views already shared stay as they are; widening an audience later needs the right.
+SHARE_VIEWS = "share_views"
+SHARE_VIEWS_WIDE = "share_views_wide"
+
+
+def _share_specs(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
+    return (
+        PermissionSpec(
+            wtype.permission(SHARE_VIEWS),
+            wtype.feature,
+            # The check is membership (their own groups), so `group` for those who work groups;
+            # a team lead never holds `all` on the desk's records (D-152).
+            ("all", "group"),
+            defaults=(("technician", "group"), (TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all")),
+        ),
+        PermissionSpec(
+            wtype.permission(SHARE_VIEWS_WIDE),
+            wtype.feature,
+            ("all", "group"),
+            defaults=((TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all")),
+        ),
     )
 
 

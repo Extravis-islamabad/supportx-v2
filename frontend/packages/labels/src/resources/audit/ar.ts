@@ -1176,6 +1176,7 @@ export const ar: LabelResource = {
   'event_type.work_items.task.assigned': 'أُسندت مهمة إلى شخص',
   'event_type.work_items.task.reminder_due': 'حان تذكير مهمة',
   'event_type.work_items.view.changed': 'تم تغيير طريقة عرض محفوظة',
+  'event_type.work_items.view.unshared': 'جُعل العرض المحفوظ خاصًا',
   'event_type.work_items.work_item.assigned': 'تم إسناد السجل',
   'event_type.work_items.work_item.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
   'event_type.work_items.work_item.created': 'تم إنشاء السجل',

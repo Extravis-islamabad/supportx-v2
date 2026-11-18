@@ -174,6 +174,7 @@ export const en = {
   'notification_event.task.assigned': 'A task is given to you',
   'notification_event.task.overdue': 'Your task is overdue',
   'notification_event.task.starts_soon': 'Your task starts soon',
+  'notification_event.work_item_view.unshared': 'A view you shared was made private',
   'notification_preferences.col.category': 'Kind',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
@@ -228,6 +229,7 @@ export const en = {
   'notification_recipient.tenant_admins': 'The tenant administrators',
   'notification_recipient.the_person': 'The person it is about',
   'notification_recipient.topic_owner': 'Topic owner',
+  'notification_recipient.view_owner': "The view's owner",
   'notification_recipient.workflow_audience': 'People the workflow names',
   'notification_rules.any_priority': 'Any priority',
   'notification_rules.any_status': 'Any status',
@@ -833,6 +835,12 @@ export const en = {
     '{{ task.title }} starts at {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'Starts soon: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.work_item_view.unshared.body':
+    'Hello {{ recipient.name }},\nYour saved view {{ record.title }} filters on {{ view.field }}, which some of the people you shared it with may not see. It is private to you now; nothing else changed. To share it again, remove that condition and choose who sees it. {{ record.link }}',
+  'notification_template.work_item_view.unshared.in_app':
+    '{{ record.title }} is private now: it filters on {{ view.field }}',
+  'notification_template.work_item_view.unshared.subject':
+    'Your view {{ record.title }} is private now',
   'notification_value.unnamed_requester': 'the requester',
   'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
@@ -874,6 +882,8 @@ export const en = {
   'notification_variable.report_schedule.skipped_count': 'Schedule › People left out',
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
+  'notification_variable.saved_view.field': 'Saved view › Field it filters on',
+  'notification_variable.saved_view.name': 'Saved view › Name',
   'notification_variable.security.device': 'Sign-in › Browser and device',
   'notification_variable.security.opens_at': 'Lock-out › Earliest time to try again',
   'notification_variable.security.place': 'Sign-in › Approximate place',

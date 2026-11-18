@@ -312,6 +312,24 @@ class WorkItemViewChanged(DomainEvent):
     visibility: str
 
 
+class WorkItemViewUnshared(DomainEvent):
+    """A shared view went back to private (D-176).
+
+    Its filter names a field some recipient may not see. IDs and codes only; the owner is told
+    through the notification source of saved views.
+    """
+
+    event_type: ClassVar[str] = "work_items.view.unshared"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_view"
+
+    view_id: uuid.UUID
+    type: str
+    owner_id: uuid.UUID
+    field_key: str
+    reason: str  # "restricted_field" or "sealed_field"
+
+
 class WorkItemListSettingsChanged(DomainEvent):
     """A user's columns, sort or page size of one view changed (their other windows follow)."""
 
@@ -647,6 +665,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemFollowerRemoved,
     WorkItemReplyTemplatesChanged,
     WorkItemViewChanged,
+    WorkItemViewUnshared,
     WorkItemListSettingsChanged,
     WorkItemBulkJobProgressed,
     WorkItemPartChanged,

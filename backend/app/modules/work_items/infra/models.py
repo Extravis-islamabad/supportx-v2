@@ -1185,6 +1185,54 @@ class WorkItemView(TenantEntity):
     # [{"key": "subject", "width": 240}, ...]; empty = the default columns.
     columns: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     sort: Mapped[str | None] = mapped_column(String(200))
+    # D-176: when the view audit last made it private, and the filter field that caused it (the
+    # administrators' report and the owner's notice); kept if it is shared again.
+    unshared_at: Mapped[datetime | None]
+    unshared_field: Mapped[str | None] = mapped_column(String(80))
+
+
+class WorkItemRead(TenantKeyed, Base):
+    """The version of a record someone last opened, for unread markers (REQ-INC-115 AC2).
+
+    Personal: never shown to anyone else, removed with the person (erasure). One row per
+    person and record, moved forward only (an older tab never marks a newer change as seen).
+    """
+
+    __tablename__ = "work_item_reads"
+    __table_args__ = (
+        _work_item_fk("fk_wir_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wir_user"
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    work_item_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    seen_version: Mapped[int] = mapped_column(BigInteger)
+    seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class WorkItemViewFavourite(TenantKeyed, Base):
+    """A saved view someone starred, so it shows first in their picker (REQ-INC-107 AC1).
+
+    Personal and never shown to anyone else; un-starring removes the row (a preference, not a
+    business record, like a task dependency). The view must still be one they may use: the
+    picker reads favourites only through `_seen_by`, so a view unshared from them drops out.
+    """
+
+    __tablename__ = "work_item_view_favourites"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wivf_user"
+        ),
+        Index("ix_work_item_view_favourites_tenant_view", "tenant_id", "view_id"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    view_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("work_item_views.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 class WorkItemListSetting(TenantEntity):

@@ -5,7 +5,7 @@ Mounted before `/{record_id}`, like the other collection routes.
 
 import uuid
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Request, Response, status
@@ -34,7 +34,7 @@ from app.modules.work_items.infra.models import (
     WorkItemView,
 )
 from app.modules.work_items.service import bulk as bulk_service
-from app.modules.work_items.service import custom_values
+from app.modules.work_items.service import custom_values, view_audit
 from app.modules.work_items.service import lists as service
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import FIELDS, type_fields
@@ -42,6 +42,7 @@ from app.shared.api.concurrency import ExpectedVersion, etag_for, parse_etag, se
 from app.shared.api.filters import FilterField
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, list_query, request_zone
+from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
 CONFLICT_409: dict[int | str, dict[str, object]] = {
@@ -111,6 +112,22 @@ class SavedViewPatch(BaseModel):
     sort: str | None = Field(default=None, max_length=200)
 
 
+class UnsharedViewOut(BaseModel):
+    """A view the audit made private (D-176): whose, when, and the filter field that caused it."""
+
+    id: uuid.UUID
+    name: str
+    owner_id: uuid.UUID
+    unshared_at: datetime
+    field: str = Field(description="The filter field's key; the console names it by its label.")
+
+
+class ViewAuditOut(BaseModel):
+    """The report: the views made private, newest first (at most 200)."""
+
+    items: list[UnsharedViewOut]
+
+
 class SavedViewOut(BaseModel):
     """A saved view; `mine` says whether you may change it."""
 
@@ -120,6 +137,8 @@ class SavedViewOut(BaseModel):
     group_ids: list[uuid.UUID]
     owner_id: uuid.UUID
     mine: bool
+    # Starred by you (REQ-INC-107 AC1); favourites come first in the list.
+    favourite: bool = False
     filter: dict[str, Any] | None
     columns: list[ListColumn]
     sort: str | None
@@ -127,9 +146,10 @@ class SavedViewOut(BaseModel):
     updated_at: datetime
 
     @classmethod
-    def of(cls, row: WorkItemView, subject: Subject) -> "SavedViewOut":
+    def of(cls, row: WorkItemView, subject: Subject, *, favourite: bool = False) -> "SavedViewOut":
         """From a row, for the subject."""
         return cls(
+            favourite=favourite,
             id=row.id,
             name=row.name,
             visibility=ViewVisibility(row.visibility),
@@ -277,7 +297,7 @@ def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dep
     )
 
 
-def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C901 - one route per operation
+def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C901, PLR0915 - one route per op
     """`/saved-views`, `/list-settings/{view_key}`, `/bulk` and `/bulk-jobs`."""
     perm = wtype.permission
     View = Annotated[Subject, Depends(require_permission(perm("view")))]  # noqa: N806 - type alias
@@ -323,8 +343,35 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
 
     @router.get("/saved-views", summary="Your saved views and the shared ones")
     async def saved_views(session: TenantSession, subject: View) -> list[SavedViewOut]:
-        """By name. Shared views are listed for everyone; only their owner changes them."""
-        return [SavedViewOut.of(r, subject) for r in await service.views(session, subject, wtype)]
+        """Your starred views first, then by name. Only their owner changes shared views."""
+        rows = await service.views(session, subject, wtype)
+        starred = await service.favourite_ids(session, subject, wtype)
+        shown = [SavedViewOut.of(r, subject, favourite=r.id in starred) for r in rows]
+        return sorted(shown, key=lambda v: not v.favourite)  # stable: names stay in order
+
+    @router.put(
+        "/saved-views/{view_id}/favourite",
+        summary="Star a view",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def star_saved_view(
+        view_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> Response:
+        """Yours only; nobody else sees it. Starring twice is the same as once."""
+        await service.star_view(session, subject, wtype, view_id, starred=True)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.delete(
+        "/saved-views/{view_id}/favourite",
+        summary="Un-star a view",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def unstar_saved_view(
+        view_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> Response:
+        """Removing a star that is not there is fine."""
+        await service.star_view(session, subject, wtype, view_id, starred=False)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.post(
         "/saved-views",
@@ -392,6 +439,53 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
             session, subject, wtype, view_id, expected_version=version, source=source_of(request)
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    # --- the shared-view audit (D-176) ------------------------------------------------------------
+
+    Admin = Annotated[Subject, Depends(require_permission("roles.manage"))]  # noqa: N806 - alias
+
+    def _report(rows: list[WorkItemView]) -> ViewAuditOut:
+        return ViewAuditOut(
+            items=[
+                UnsharedViewOut(
+                    id=r.id,
+                    name=r.name,
+                    owner_id=r.owner_id,
+                    unshared_at=r.unshared_at,
+                    field=r.unshared_field or "",
+                )
+                for r in rows
+                if r.unshared_at is not None
+            ]
+        )
+
+    @router.get(
+        "/saved-views/audit",
+        summary="Views made private because of their filter",
+        dependencies=[Depends(rate_limit("identity"))],
+    )
+    async def view_audit_report(session: TenantSession, subject: Admin) -> ViewAuditOut:
+        """Administrators: shared views the audit made private, with the field that caused it."""
+        del subject
+        return _report(await view_audit.unshared_views(session, wtype))
+
+    @router.post(
+        "/saved-views/audit",
+        summary="Check the shared views again",
+        response_model=ViewAuditOut,
+        dependencies=[Depends(rate_limit("identity"))],
+    )
+    async def rerun_view_audit(
+        session: TenantSession, subject: Admin, idempotency: Idempotency
+    ) -> Response:
+        """Runs the audit now (idempotent: views already private stay as they are)."""
+        del subject
+
+        async def run() -> ViewAuditOut:
+            await view_audit.audit_type(session, wtype, datetime.now(UTC))
+            return _report(await view_audit.unshared_views(session, wtype))
+
+        return await idempotency.run(None, run, status_code=status.HTTP_200_OK)
 
     # --- list settings ----------------------------------------------------------------------------
 

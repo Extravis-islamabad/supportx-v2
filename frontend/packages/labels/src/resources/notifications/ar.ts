@@ -177,6 +177,7 @@ export const ar: LabelResource = {
   'notification_event.task.assigned': 'أُسندت إليك مهمة',
   'notification_event.task.overdue': 'مهمتك متأخرة',
   'notification_event.task.starts_soon': 'مهمتك تبدأ قريبًا',
+  'notification_event.work_item_view.unshared': 'تم جعل عرض شاركته خاصًا',
   'notification_preferences.col.category': 'النوع',
   'notification_preferences.dnd_help':
     'لا نوافذ منبثقة ولا بريد إلا العاجل والإلزامي؛ ويبقى كل شيء في إشعاراتك.',
@@ -230,6 +231,7 @@ export const ar: LabelResource = {
   'notification_recipient.tenant_admins': 'مسؤولو المؤسسة',
   'notification_recipient.the_person': 'الشخص المعني',
   'notification_recipient.topic_owner': 'مالك الموضوع',
+  'notification_recipient.view_owner': 'مالك العرض',
   'notification_recipient.workflow_audience': 'الأشخاص الذين يحدّدهم سير العمل',
   'notification_rules.any_priority': 'أي أولوية',
   'notification_rules.any_status': 'أي حالة',
@@ -830,6 +832,12 @@ export const ar: LabelResource = {
   'notification_template.task.starts_soon.in_app': 'تبدأ {{ task.title }} في {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'تبدأ قريبًا: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.work_item_view.unshared.body':
+    'مرحبًا {{ recipient.name }}،\nيُصفّي عرضك المحفوظ {{ record.title }} حسب {{ view.field }}، وقد لا يستطيع بعض من شاركته معهم رؤيته. أصبح خاصًا بك الآن ولم يتغير شيء آخر. لمشاركته مجددًا، أزِل هذا الشرط واختر من يراه. {{ record.link }}',
+  'notification_template.work_item_view.unshared.in_app':
+    '{{ record.title }} أصبح خاصًا: يُصفّي حسب {{ view.field }}',
+  'notification_template.work_item_view.unshared.subject':
+    'عرضك {{ record.title }} أصبح خاصًا الآن',
   'notification_value.unnamed_requester': 'مقدّم الطلب',
   'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
@@ -871,6 +879,8 @@ export const ar: LabelResource = {
   'notification_variable.report_schedule.skipped_count': 'الجدول › الأشخاص المستبعدون',
   'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
   'notification_variable.rule.name': 'القاعدة',
+  'notification_variable.saved_view.field': 'العرض المحفوظ › الحقل الذي يُصفّي حسبه',
+  'notification_variable.saved_view.name': 'العرض المحفوظ › الاسم',
   'notification_variable.security.device': 'تسجيل الدخول › المتصفح والجهاز',
   'notification_variable.security.opens_at': 'القفل › أقرب وقت لإعادة المحاولة',
   'notification_variable.security.place': 'تسجيل الدخول › المكان التقريبي',

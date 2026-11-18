@@ -1180,6 +1180,7 @@ export const ur: LabelResource = {
   'event_type.work_items.task.assigned': 'کام کسی کو دیا گیا',
   'event_type.work_items.task.reminder_due': 'کام کی یاد دہانی کا وقت',
   'event_type.work_items.view.changed': 'محفوظ ویو تبدیل ہوا',
+  'event_type.work_items.view.unshared': 'محفوظ منظر نجی کیا گیا',
   'event_type.work_items.work_item.assigned': 'ریکارڈ تفویض ہوا',
   'event_type.work_items.work_item.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
   'event_type.work_items.work_item.created': 'ریکارڈ بنایا گیا',
