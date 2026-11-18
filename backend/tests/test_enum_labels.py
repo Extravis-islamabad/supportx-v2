@@ -18,6 +18,8 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles
+    "SecuritySeverity": "security_severity",
     "FieldMode": "field_mode",  # ADR-047: field access per role
     "ErasureState": "people_erasure.state",  # GDPR erasure (D-171, ADR-052)
     "ErasureReason": "people_erasure.reason",
@@ -190,6 +192,8 @@ ENUM_PREFIXES: dict[str, str] = {
     # API keys (WP-041)
     "ApiKeyOut.status": "api_key_status",
     "ApiKeyCreatedOut.status": "api_key_status",
+    "ApiKeyOut.out_of_policy[]": "api_key_policy_gap",  # WP-057 S4a (REQ-SEC-037)
+    "ApiKeyCreatedOut.out_of_policy[]": "api_key_policy_gap",
     "ScopeOut.access": "api_scope_access",
     # Knowledge on incidents (WP-033 session 4)
     "ApplyIn.audience": "kb_apply_audience",
@@ -358,6 +362,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "CustomFieldEntity": "custom_field_entity",
     "FieldType": "custom_field_type",
     "IndexState": "custom_field_index_state",
+    "SealState": "custom_field_seal_state",
     # The service catalog (WP-030)
     "ApprovalStatus": "approval_status",
     "OnBehalfScope": "work_item_on_behalf_scope",

@@ -42,7 +42,8 @@ from app.modules.work_items.domain.conversation import (
     stamps_first_response,
     unmention,
 )
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.parts import LinkKind
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import (
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
@@ -52,6 +53,7 @@ from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemConversation,
     WorkItemFollower,
+    WorkItemLink,
 )
 from app.modules.work_items.service import followers
 from app.modules.work_items.service import work_items as items
@@ -109,6 +111,33 @@ class Timeline:
     entries: list[WorkItemConversation]
     truncated: bool
     names: dict[str, tuple[str, str]] = field(default_factory=dict)
+    # WP-046b S2: entries of incidents merged into this one, by reference: record ID -> display ID
+    # (only those the reader may view; each entry keeps its own visibility).
+    merged_from: dict[uuid.UUID, str] = field(default_factory=dict)
+
+
+async def merged_from(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
+) -> dict[uuid.UUID, str]:
+    """The records merged or converted into this one that the reader may view: ID -> display ID.
+
+    A converted record is the other type: each is checked under its own type's permissions.
+    """
+    del wtype  # each source record is checked as its own type
+    rows = await session.execute(
+        select(WorkItem.id, WorkItem.display_id, WorkItem.type)
+        .join(WorkItemLink, WorkItemLink.source_id == WorkItem.id)
+        .where(
+            WorkItemLink.target_id == record.id,
+            WorkItemLink.kind.in_([LinkKind.MERGED_INTO.value, LinkKind.CONVERTED_TO.value]),
+            WorkItemLink.deleted_at.is_(None),
+        )
+    )
+    return {
+        row_id: display
+        for row_id, display, code in rows.all()
+        if await items.may(session, subject, TYPES[WorkItemTypeCode(code)], "view", row_id)
+    }
 
 
 async def timeline(
@@ -124,8 +153,9 @@ async def timeline(
     At most TIMELINE_MAX entries (the newest ones; `truncated` says so).
     """
     record = await items.visible_record(session, subject, wtype, record_id)
+    sources = await merged_from(session, subject, wtype, record)
     query = select(WorkItemConversation).where(
-        WorkItemConversation.work_item_id == record.id,
+        WorkItemConversation.work_item_id.in_([record.id, *sources]),
         WorkItemConversation.deleted_at.is_(None),
     )
     if kind is not None:
@@ -144,7 +174,8 @@ async def timeline(
     if record.created_by is not None:
         people.add(str(record.created_by))
     people.add(str(record.requester_id))
-    return Timeline(record, entries, truncated, await user_contacts(session, sorted(people)))
+    names = await user_contacts(session, sorted(people))
+    return Timeline(record, entries, truncated, names, sources)
 
 
 # --- adding ---------------------------------------------------------------------------------------

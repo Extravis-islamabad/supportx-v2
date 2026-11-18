@@ -55,6 +55,8 @@ from app.modules.identity_access.api.invite_links import public_router as invite
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
+from app.modules.identity_access.api.security_overview import router as security_overview_router
+from app.modules.identity_access.api.service_accounts import router as service_accounts_router
 from app.modules.identity_access.api.service_roles import (
     ServiceRoleOut,
     ServiceRolesOut,
@@ -104,6 +106,7 @@ from app.modules.identity_access.service import (
     legal_hold,
     mfa,
     security_notices,
+    service_account_handover,
     sign_in_import,
     sign_in_log,
 )
@@ -114,6 +117,7 @@ from app.modules.identity_access.service.directory import (
     MailRecipient,
     NotifiablePerson,
     active_user_ids,
+    api_key_names,
     direct_reports,
     display_names,
     mail_recipients,
@@ -202,6 +206,7 @@ from app.modules.identity_access.service.roles import (
     roles_for_service,
     use_policy,
 )
+from app.modules.identity_access.service.security_overview import register_seal_counter
 from app.modules.identity_access.service.service_identities import (
     ServiceIdentityView,
     assign_service_identity_role,
@@ -450,10 +455,12 @@ security_notices.register()  # a person hears of a sign-in from a new device (WP
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
 expiry_notifications.register()  # admins hear before a sign-in certificate or secret runs out
+service_account_handover.register()  # admins hear when a service account needs a new owner
 
 module = ModuleSpec(
     name="identity_access",
     routers=[
+        security_overview_router,  # WP-057 S4d: the security overview
         field_access_router,  # ADR-047: field access per role (WP-046a S7)
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
@@ -467,6 +474,7 @@ module = ModuleSpec(
         invite_links_router,  # WP-057 S2b-2: a copied invite link's set-password (REQ-SEC-021)
         account_router,
         api_keys_router,
+        service_accounts_router,
         realtime_router,
         privacy_router,  # legal hold and GDPR erasure (D-171, ADR-052)
         erasures_router,
@@ -480,6 +488,7 @@ module = ModuleSpec(
         mfa.MFA_ROLES,
         sign_in_log.PERSON_ERASED,
         KEYCLOAK_SESSION_END,
+        service_account_handover.OWNER_LEFT,
     ],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
@@ -561,6 +570,7 @@ __all__ = [
     "TenantSessionEnder",
     "UserType",
     "active_user_ids",
+    "api_key_names",
     "assign_service_identity_role",
     "authorize",
     "authorize_stored",
@@ -595,6 +605,7 @@ __all__ = [
     "register_mentions",
     "register_person_data",
     "register_rule_listener",
+    "register_seal_counter",
     "release_from_directory",
     "remove_ldap_federation",
     "remove_service_identity_role",

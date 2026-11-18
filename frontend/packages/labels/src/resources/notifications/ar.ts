@@ -33,6 +33,8 @@ export const ar: LabelResource = {
   'event_delivery.stalled.title': 'توقف تسليم الأحداث',
   'event_delivery_state.ok': 'يجري التسليم',
   'event_delivery_state.stalled': 'متوقف',
+  'notice.custom_field.seal_opening': 'فتح القيم',
+  'notice.custom_field.seal_sealing': 'ختم القيم',
   'notice.sign_in_secret.days_1': 'تنتهي خلال يوم',
   'notice.sign_in_secret.days_30': 'تنتهي خلال 30 يومًا',
   'notice.sign_in_secret.days_7': 'تنتهي خلال 7 أيام',
@@ -45,6 +47,7 @@ export const ar: LabelResource = {
   'notification_area.break_glass': 'تسجيلات دخول الطوارئ',
   'notification_area.change': 'التغييرات',
   'notification_area.connector': 'الموصلات',
+  'notification_area.custom_field': 'الحقول المخصصة',
   'notification_area.incident': 'الحوادث',
   'notification_area.kb_article': 'المعرفة',
   'notification_area.mailbox': 'البريد',
@@ -56,6 +59,7 @@ export const ar: LabelResource = {
   'notification_area.report_schedule': 'التقارير المجدولة',
   'notification_area.rule_step': 'القواعد والتصعيدات',
   'notification_area.security': 'الإشعارات الأمنية',
+  'notification_area.service_account': 'حسابات الخدمة',
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_area.sign_in_secret': 'شهادات وأسرار تسجيل الدخول',
   'notification_area.task': 'المهام',
@@ -106,6 +110,7 @@ export const ar: LabelResource = {
   'notification_event.change.window_reminder': 'نافذة التغيير تبدأ قريبًا',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
+  'notification_event.custom_field.seal_paused': 'توقف ختم قيم حقل حساس',
   'notification_event.incident.approval_rejected': 'رُفضت الموافقة',
   'notification_event.incident.approval_requested': 'طُلبت الموافقة',
   'notification_event.incident.assigned': 'أُسند حادث',
@@ -156,6 +161,7 @@ export const ar: LabelResource = {
   'notification_event.security.mfa_removed': 'أُزيل تحقق دخول (MFA) من حسابك',
   'notification_event.security.new_device': 'تسجيل دخول من متصفح أو جهاز جديد',
   'notification_event.security.password_changed': 'تغيّرت كلمة مرورك',
+  'notification_event.service_account.needs_owner': 'حساب خدمة يحتاج إلى مالك جديد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
@@ -195,6 +201,7 @@ export const ar: LabelResource = {
   'notification_recipient.change_manager': 'مدير التغيير',
   'notification_recipient.change_owner': 'مالك التغيير',
   'notification_recipient.connector_admins': 'الأشخاص الذين يُعدّون هذا الموصل',
+  'notification_recipient.custom_field_admins': 'من يديرون الحقول المخصصة',
   'notification_recipient.escalation_recipients': 'مستلمو مستوى التصعيد',
   'notification_recipient.followers': 'المتابعون',
   'notification_recipient.group': 'أعضاء المجموعة',
@@ -441,6 +448,12 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nعاد {{ record.title }} إلى العمل. لا حاجة إلى أي إجراء آخر.',
   'notification_template.connector.recovered.in_app': 'عاد {{ record.title }} إلى العمل',
   'notification_template.connector.recovered.subject': 'عاد {{ record.title }} إلى العمل',
+  'notification_template.custom_field.seal_paused.body':
+    'مرحبًا {{ recipient.name }}،\nتوقف {{ notice.direction }} للحقل المخصص {{ record.title }}: مفاتيح التشفير غير متاحة. تبقى قيم الحقل كما هي، وتستأنف المهمة من تلقاء نفسها عند عودة المفاتيح. يرجى التحقق من إعداد المفاتيح. {{ record.link }}',
+  'notification_template.custom_field.seal_paused.in_app':
+    'متوقف لعدم توفر المفاتيح: {{ notice.direction }} للحقل {{ record.title }}',
+  'notification_template.custom_field.seal_paused.subject':
+    'متوقف: {{ notice.direction }} للحقل {{ record.title }}',
   'notification_template.incident.approval_rejected.body':
     'مرحبًا {{ recipient.name }}،\n\nرُفضت الموافقة المطلوبة على الحادث {{ record.display_id }} «{{ record.title }}». افتح الحادث لترى من قرّر ولماذا: {{ record.link }}',
   'notification_template.incident.approval_rejected.in_app':
@@ -720,6 +733,12 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nتغيّرت كلمة مرور حسابك في {{ notice.when }} ({{ notice.place }}).\n\nإن كان هذا أنت فلا شيء عليك. وإن لم يكن، فأعد تعيين كلمة المرور من صفحة تسجيل الدخول فورًا وأبلغ المسؤول. حسابك: {{ record.link }}',
   'notification_template.security.password_changed.in_app': 'تغيّرت كلمة مرورك ({{ notice.when }})',
   'notification_template.security.password_changed.subject': 'تغيّرت كلمة مرورك',
+  'notification_template.service_account.needs_owner.body':
+    'مرحبًا {{ recipient.name }}،\nتم إلغاء تنشيط الشخص المسؤول عن حساب الخدمة {{ record.title }}. يستمر الحساب في العمل؛ يرجى اختيار مالك جديد. {{ record.link }}',
+  'notification_template.service_account.needs_owner.in_app':
+    '{{ record.title }} يحتاج إلى مالك جديد',
+  'notification_template.service_account.needs_owner.subject':
+    '{{ record.title }} يحتاج إلى مالك جديد',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -796,6 +815,7 @@ export const ar: LabelResource = {
   'notification_template.task.starts_soon.in_app': 'تبدأ {{ task.title }} في {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'تبدأ قريبًا: {{ task.title }} ({{ record.display_id }})',
+  'notification_value.unnamed_requester': 'مقدّم الطلب',
   'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
   'notification_variable.approval.comment': 'تعليق الموافِق',
@@ -810,6 +830,8 @@ export const ar: LabelResource = {
   'notification_variable.connector.reason': 'الموصل › السبب',
   'notification_variable.conversation.author': 'الرد أو الملاحظة › الكاتب',
   'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
+  'notification_variable.custom_field.direction': 'الحقل المخصص › ما كان قيد التشغيل',
+  'notification_variable.custom_field.name': 'الحقل المخصص › الاسم',
   'notification_variable.holder.name': 'الحامل › الاسم',
   'notification_variable.holdings.assets': 'العهدة › الأصول',
   'notification_variable.holdings.count': 'العهدة › العدد',
@@ -838,6 +860,7 @@ export const ar: LabelResource = {
   'notification_variable.security.opens_at': 'القفل › أقرب وقت لإعادة المحاولة',
   'notification_variable.security.place': 'تسجيل الدخول › المكان التقريبي',
   'notification_variable.security.when': 'تسجيل الدخول › الوقت',
+  'notification_variable.service_account.name': 'حساب الخدمة › الاسم',
   'notification_variable.sign_in_secret.expires': 'تسجيل الدخول الموحّد › ينتهي في',
   'notification_variable.sign_in_secret.item': 'تسجيل الدخول الموحّد › ما سينتهي',
   'notification_variable.sign_in_secret.left': 'تسجيل الدخول الموحّد › الوقت المتبقي',

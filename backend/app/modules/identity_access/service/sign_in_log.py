@@ -20,8 +20,9 @@ events name the provider, so imported rows carry the method already.
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import Select, delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -114,9 +115,8 @@ class LogFilter:
     limit: int = 50
 
 
-async def list_events(session: AsyncSession, found: LogFilter) -> list[SignInEvent]:
-    """The tenant's events, newest first (RLS keeps them to the tenant)."""
-    statement = select(SignInEvent)
+def _filtered(statement: Select[Any], found: LogFilter) -> Select[Any]:
+    """The admin list's filters, shared by the list and its counts (WP-057 S4d)."""
     if found.outcomes:
         statement = statement.where(SignInEvent.outcome.in_([o.value for o in found.outcomes]))
     if found.methods:
@@ -127,6 +127,12 @@ async def list_events(session: AsyncSession, found: LogFilter) -> list[SignInEve
         statement = statement.where(SignInEvent.occurred_at >= found.since)
     if found.until is not None:
         statement = statement.where(SignInEvent.occurred_at < found.until)
+    return statement
+
+
+async def list_events(session: AsyncSession, found: LogFilter) -> list[SignInEvent]:
+    """The tenant's events, newest first (RLS keeps them to the tenant)."""
+    statement = _filtered(select(SignInEvent), found)
     if found.before is not None:
         at, last = found.before
         older = SignInEvent.occurred_at < at
@@ -136,6 +142,12 @@ async def list_events(session: AsyncSession, found: LogFilter) -> list[SignInEve
         min(max(found.limit, 1), PAGE_MAX)
     )
     return list(await session.scalars(statement))
+
+
+async def count_events(session: AsyncSession, found: LogFilter) -> int:
+    """How many events the list would show with these filters (paging aside), for the overview."""
+    statement = _filtered(select(func.count()).select_from(SignInEvent), found)
+    return int(await session.scalar(statement) or 0)
 
 
 async def forget_person(session: AsyncSession, user_id: uuid.UUID) -> int:

@@ -20,7 +20,7 @@ from app.modules.metadata.domain.fields import (
     FieldType,
 )
 from app.modules.metadata.events import EVENTS
-from app.modules.metadata.service import report_names
+from app.modules.metadata.service import report_names, seal_notifications
 from app.modules.metadata.service.custom_fields import (
     FieldMarks,
     clean,
@@ -33,6 +33,21 @@ from app.modules.metadata.service.custom_fields import (
     text_for_search,
 )
 from app.modules.metadata.service.realtime import ROUTES
+from app.modules.metadata.service.sensitivity import (
+    OPENING,
+    PLAIN,
+    SEALED,
+    SEALING,
+    Moving,
+    SealPort,
+    register_seal_port,
+    seal_counts,
+)
+from app.modules.metadata.service.sensitivity import advance as advance_seal
+from app.modules.metadata.service.sensitivity import finish as finish_seal
+from app.modules.metadata.service.sensitivity import hold as hold_seal
+from app.modules.metadata.service.sensitivity import moving as fields_being_sealed
+from app.modules.metadata.service.sensitivity import paused as seal_paused
 
 FEATURE = "incident"
 
@@ -49,17 +64,42 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "OPENING",
+    "PLAIN",
+    "SEALED",
+    "SEALING",
     "CustomFieldEntity",
     "Definition",
     "FieldMarks",
     "FieldType",
+    "Moving",
+    "SealPort",
+    "advance_seal",
     "clean",
     "definitions",
     "field_marks",
+    "fields_being_sealed",
     "filter_fields",
+    "finish_seal",
+    "hold_seal",
     "mark_used",
     "module",
     "problem_params",
     "register_field_usage",
+    "register_seal_port",
+    "seal_counts",
+    "seal_paused",
     "text_for_search",
 ]
+
+seal_notifications.register()
+
+
+def _register_seal_counter() -> None:
+    """The security overview's encryption tile (WP-057 S4d): counts only, by seal state."""
+    from app.modules.identity_access import register_seal_counter  # noqa: PLC0415 - at load
+
+    register_seal_counter(seal_counts)
+
+
+_register_seal_counter()

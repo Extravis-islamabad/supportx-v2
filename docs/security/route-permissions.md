@@ -52,6 +52,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/api-keys` | signed_in | - |
 | POST | `/api/v1/api-keys` | signed_in | - |
 | GET | `/api/v1/api-keys/owners` | signed_in | - |
+| GET | `/api/v1/api-keys/policy-impact` | `api_keys.manage` | api_keys.manage: all |
 | GET | `/api/v1/api-keys/rules` | signed_in | - |
 | GET | `/api/v1/api-keys/scopes` | signed_in | - |
 | POST | `/api/v1/api-keys/{key_id}/revoke` | signed_in | - |
@@ -468,6 +469,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/custom-fields/{field_id}/index` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| PUT | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group |
 | POST | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group |
 | DELETE | `/api/v1/dashboards/favourites/{ref}` | `reports.view` | reports.view: all/site/group |
@@ -528,6 +531,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/identity/people/{user_id}/reset-mfa` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/people/{user_id}/sessions` | `users.manage` | users.manage: all |
 | DELETE | `/api/v1/identity/people/{user_id}/sessions/{listed_id}` | `users.manage` | users.manage: all |
+| GET | `/api/v1/identity/security-overview` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all |
 | PUT | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/settings/password-policy/apply` | `identity.manage` | identity.manage: all |
@@ -547,6 +551,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/identity/sso/{provider_id}/tests/{test_id}` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/incidents` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents` | `incidents.create` | incidents.create: all |
+| GET | `/api/v1/incidents/alias/{value}` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/incidents/assignees` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/bulk` | `incidents.view` | incidents.view: all/site/group/own |
@@ -627,9 +632,15 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/incidents/{record_id}/checklists` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/checklists/{checklist_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/checklists/{checklist_id}/items` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/children` | `incidents.edit` | incidents.edit: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/children/resolvable` | `incidents.edit` | incidents.edit: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/children/resolve` | `incidents.edit` | incidents.edit: all/site/group/own |
+| DELETE | `/api/v1/incidents/{record_id}/children/{link_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/{record_id}/conversation/{entry_id}` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/convert` | `incidents.edit` | incidents.edit: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/convert-preview` | `incidents.edit` | incidents.edit: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/copies` | `incidents.create` | incidents.create: all |
 | PUT | `/api/v1/incidents/{record_id}/due-dates/{kind}` | `incidents.edit_due_dates` | incidents.edit_due_dates: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/followers` | `incidents.view` | incidents.view: all/site/group/own |
@@ -640,6 +651,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/incidents/{record_id}/links` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/links/{link_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/mentionable` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/merge` | `incidents.edit` | incidents.edit: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/merge-preview` | `incidents.edit` | incidents.edit: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill` | `incidents.view` | incidents.view: all/site/group/own |
@@ -662,6 +675,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/incidents/{record_id}/timer/auto` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/timer/stop` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/typing` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/undo-merge` | `incidents.edit` | incidents.edit: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/worklogs` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/worklogs` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/worklogs/{worklog_id}` | `incidents.view` | incidents.view: all/site/group/own |
@@ -788,8 +802,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/people-imports` | `users.manage` | users.manage: all |
 | GET | `/api/v1/people-imports/{import_id}` | `users.manage` | users.manage: all |
 | POST | `/api/v1/people/{user_id}/erasure` | `people.erase` | people.erase: all |
+| GET | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` or `people.erase` | audit.manage_holds: all; people.erase: all |
 | PUT | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` | audit.manage_holds: all |
 | POST | `/api/v1/people/{user_id}/legal-hold/lift` | `audit.manage_holds` | audit.manage_holds: all |
+| GET | `/api/v1/people/{user_id}/uploads` | `people.erase` | people.erase: all |
 | GET | `/api/v1/permissions` | `roles.view` | roles.view: all |
 | GET | `/api/v1/portal/changes` | signed_in | - |
 | POST | `/api/v1/portal/changes` | signed_in | - |
@@ -1148,8 +1164,16 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/roles/{role_id}/change-preview` | `roles.manage` | roles.manage: all |
 | DELETE | `/api/v1/roles/{role_id}/groups/{group_id}` | `roles.manage` | roles.manage: all |
 | PUT | `/api/v1/roles/{role_id}/groups/{group_id}` | `roles.manage` | roles.manage: all |
+| GET | `/api/v1/service-accounts` | `api_keys.manage` | api_keys.manage: all |
+| POST | `/api/v1/service-accounts` | `api_keys.manage` | api_keys.manage: all |
+| GET | `/api/v1/service-accounts/{account_id}` | `api_keys.manage` | api_keys.manage: all |
+| PATCH | `/api/v1/service-accounts/{account_id}` | `api_keys.manage` | api_keys.manage: all |
+| GET | `/api/v1/service-accounts/{account_id}/roles` | `api_keys.manage` | api_keys.manage: all |
+| DELETE | `/api/v1/service-accounts/{account_id}/roles/{role_id}` | `api_keys.manage` | api_keys.manage: all |
+| PUT | `/api/v1/service-accounts/{account_id}/roles/{role_id}` | `api_keys.manage` | api_keys.manage: all |
 | GET | `/api/v1/service-requests` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests` | `requests.create` | requests.create: all |
+| GET | `/api/v1/service-requests/alias/{value}` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/service-requests/assignees` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/bulk` | `requests.view` | requests.view: all/site/group/own |
@@ -1229,6 +1253,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own |
 | PATCH | `/api/v1/service-requests/{record_id}/conversation/{entry_id}` | `requests.view` | requests.view: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/convert` | `requests.edit` | requests.edit: all/site/group/own |
+| GET | `/api/v1/service-requests/{record_id}/convert-preview` | `requests.edit` | requests.edit: all/site/group/own |
 | PUT | `/api/v1/service-requests/{record_id}/due-dates/{kind}` | `requests.edit_due_dates` | requests.edit_due_dates: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/followers` | `requests.view` | requests.view: all/site/group/own |
 | DELETE | `/api/v1/service-requests/{record_id}/followers/{user_id}` | `requests.view` | requests.view: all/site/group/own |
@@ -1482,6 +1508,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `incidents.reply` | all | all |
 | service_desk_manager | `incidents.resolve` | all | all |
 | service_desk_manager | `incidents.take` | all | all |
+| service_desk_manager | `incidents.undo_merge` | all | all |
 | service_desk_manager | `incidents.view` | all | all |
 | service_desk_manager | `incidents.view_costs` | all | all |
 | service_desk_manager | `integrations.view` | all | all |
@@ -1862,6 +1889,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `incidents.reply` | all | all |
 | tenant_admin | `incidents.resolve` | all | all |
 | tenant_admin | `incidents.take` | all | all |
+| tenant_admin | `incidents.undo_merge` | all | all |
 | tenant_admin | `incidents.view` | all | all |
 | tenant_admin | `incidents.view_costs` | all | all |
 | tenant_admin | `integrations.manage_email` | all | all |

@@ -8,6 +8,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
+  App,
   Button,
   Card,
   Checkbox,
@@ -18,6 +19,7 @@ import {
   InputNumber,
   List,
   Popconfirm,
+  Segmented,
   Select,
   Space,
   Tag,
@@ -38,6 +40,9 @@ import {
   useTimerChange,
   timerKeys,
   useLinkChange,
+  useChildChange,
+  useResolvableChildren,
+  useResolveChildren,
   useSession,
   useTaskChange,
   useTaskTemplates,
@@ -1114,7 +1119,11 @@ const OWN_ROUTE = new Set([
   'merged_from',
   'caused_by_release',
   'started_release',
+  'converted_to', // WP-046b S2: a conversion's record, never removed
+  'converted_from',
 ]);
+// WP-046b S2: a parent link is removed through its own route (edit on both records).
+const CHILD_LINKS = new Set(['child_of', 'parent_of']);
 
 /** Where the other record of a link opens. */
 const LINK_PATHS: Record<string, string> = {
@@ -1128,6 +1137,9 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
   const t = useLabel();
   const found = useIncidentLinks(item.id);
   const change = useLinkChange(item.id);
+  const children = useChildChange(item.id);
+  // WP-046b S2: link as related, or make the chosen incident a child of this one.
+  const [as, setAs] = useState<'related' | 'child'>('related');
   // The causing problem's own changes (marked a known error, retired) show here at once.
   const queryClient = useQueryClient();
   const cause = (found.data ?? []).find((l) => l.relation === 'caused_by')?.other_id ?? undefined;
@@ -1153,7 +1165,7 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
               actions={
                 // A cause or a merge is undone in its own place (unlink, undo the merge): the
                 // generic delete would be refused (QA10-P1-03), so it is not offered.
-                canEdit && !OWN_ROUTE.has(link.relation)
+                canEdit && !OWN_ROUTE.has(link.relation) && link.other_id !== null
                   ? [
                       <Popconfirm
                         key="delete"
@@ -1161,6 +1173,13 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
                         okText={t('incidents.links.delete')}
                         cancelText={t('incidents.tasks.cancel')}
                         onConfirm={() => {
+                          if (CHILD_LINKS.has(link.relation)) {
+                            children.mutate(
+                              { kind: 'remove', linkId: link.id, version: link.version },
+                              { onError: reportError },
+                            );
+                            return;
+                          }
                           change.mutate(
                             { kind: 'delete', linkId: link.id, version: link.version },
                             { onError: reportError },
@@ -1214,6 +1233,17 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
       )}
       {canEdit && (
         <Flex gap={8} wrap align="start" data-testid="inc-link-form">
+          <Segmented
+            value={as}
+            onChange={(value) => {
+              setAs(value === 'child' ? 'child' : 'related');
+            }}
+            options={[
+              { value: 'related', label: t('incidents.links.as_related') },
+              { value: 'child', label: t('incidents.links.as_child') },
+            ]}
+            data-testid="inc-link-as"
+          />
           <div style={{ flex: '1 1 280px' }}>
             <IncidentPicker
               value={other}
@@ -1230,6 +1260,7 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
             />
           </div>
           <Input
+            disabled={as === 'child'}
             aria-label={t('incidents.links.comment')}
             placeholder={t('incidents.links.comment')}
             value={comment}
@@ -1244,9 +1275,21 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
             type="primary"
             disabled={other === null}
             whyDisabled={t('why.choose_record')}
-            loading={change.isPending}
+            loading={change.isPending || children.isPending}
             onClick={() => {
               if (other === null) return;
+              if (as === 'child') {
+                children.mutate(
+                  { kind: 'add', childId: other },
+                  {
+                    onSuccess: () => {
+                      setOther(null);
+                    },
+                    onError: reportError,
+                  },
+                );
+                return;
+              }
               change.mutate(
                 { kind: 'create', otherId: other, comment: comment.trim() === '' ? null : comment },
                 {
@@ -1264,6 +1307,68 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
           </WriteButton>
         </Flex>
       )}
+      {canEdit &&
+        item.status_category === 'resolved' &&
+        rows.some((l) => l.relation === 'parent_of') && <ResolveChildren item={item} />}
     </Space>
+  );
+}
+
+/**
+ * REQ-INC-092: a resolved parent offers its resolution to its open children the person may
+ * edit. A bulk job resolves the chosen ones, each through its own rules, its history naming the
+ * parent; the jobs drawer shows the progress and a result per child.
+ */
+function ResolveChildren({ item }: { item: Incident }) {
+  const t = useLabel();
+  const { message } = App.useApp();
+  const offered = useResolvableChildren(item.id, true);
+  const start = useResolveChildren(item.id);
+  const [chosen, setChosen] = useState<string[] | null>(null);
+  const rows = offered.data ?? [];
+  if (rows.length === 0) return null;
+  const picked = chosen ?? rows.map((r) => r.id);
+  return (
+    <Card
+      size="small"
+      title={t('incidents.children.resolve_title')}
+      data-testid="inc-resolve-children"
+    >
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <Typography.Text type="secondary">{t('incidents.children.resolve_help')}</Typography.Text>
+        <Checkbox.Group
+          value={picked}
+          onChange={(values) => {
+            setChosen(values.map(String));
+          }}
+          options={rows.map((r) => ({
+            value: r.id,
+            label: (
+              <span>
+                {r.display_id} · <bdi dir="auto">{r.subject}</bdi>
+              </span>
+            ),
+          }))}
+        />
+        <WriteButton
+          type="primary"
+          disabled={picked.length === 0}
+          whyDisabled={t('why.choose_record')}
+          loading={start.isPending}
+          onClick={() => {
+            start.mutate(picked, {
+              onSuccess: () => {
+                setChosen([]);
+                void message.success(t('incidents.children.resolve_started'));
+              },
+              onError: reportError,
+            });
+          }}
+          data-testid="inc-resolve-children-start"
+        >
+          {t('incidents.children.resolve')}
+        </WriteButton>
+      </Space>
+    </Card>
   );
 }
