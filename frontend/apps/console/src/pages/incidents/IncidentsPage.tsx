@@ -2,7 +2,7 @@ import { StarFilled, StarOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, App, Button, Flex, Select, Space, Table, theme, Tooltip } from 'antd';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import { useListFormat } from '@supportx/labels';
 
@@ -259,6 +259,23 @@ export function IncidentsPage() {
     allowed && (builtIn !== null || saved !== undefined || trash),
   );
   const views = useIncidentViews(allowed && !trash);
+  // A link to a view (`?view=open`, `?view=custom:<id>`, the D-176 notice's link): opened once
+  // it is known to be theirs; an unknown or unusable one leaves the default, without an error.
+  const [params] = useSearchParams();
+  const linkedView = params.get('view');
+  const [linkChecked, setLinkChecked] = useState(linkedView === null);
+  if (!linkChecked && linkedView !== null) {
+    const custom = linkedView.startsWith(CUSTOM);
+    const known = custom ? savedViews.data : views.data;
+    if (known !== undefined || savedViews.isError || views.isError) {
+      const usable = custom
+        ? (savedViews.data ?? []).some((v) => `${CUSTOM}${v.id}` === linkedView)
+        : (views.data ?? []).some((v) => v.view === linkedView) ||
+          (COUNTERS as readonly string[]).includes(linkedView);
+      if (usable) setView(linkedView);
+      setLinkChecked(true);
+    }
+  }
   // Counter views say what they leave out like the built-in ones (Area 15; QA BUG-06).
   const counters = useIncidentCounters(allowed && !trash);
   const groups = useUnits('groups', allowed);
