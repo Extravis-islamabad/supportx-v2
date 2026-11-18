@@ -260,3 +260,52 @@ async def test_the_snapshot_definer_is_bound_and_takes_only_a_pure_redaction(
             await session.scalar(call, {"m": uuid.UUID(old["id"]), "v": f"Printer of {MARKER}"})
             is False
         )
+
+
+async def test_a_business_views_text_is_found_and_redacted(world: World) -> None:
+    """S2 (0180): a view's name and description are record type `ci_business_view`."""
+    a = world.a
+    name = await _name(world, a, a.tech_a)
+    base = dict((await _ci(world, a, "Payments service", "business_service")).json())
+    made = await world.call(
+        "POST",
+        "/cmdb/business-views",
+        a,
+        a.admin,
+        json={"base_ci_id": base["id"], "name": f"Map kept by {name}", "description": "Payments"},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert made.status_code == 201, made.text
+    view = dict(made.json())
+    asked = await _request(world, a, a.admin, a.tech_a, successor_id=str(a.lead))
+    assert asked.status_code == 201, asked.text
+    erasure = dict(asked.json())
+    await _build(world, a)
+    page = await _mentions(world, a, erasure)
+    assert name not in json.dumps(page)
+    found = [m for m in _on(page, "ci_business_view", "name") if m["record_id"] == view["id"]]
+    assert len(found) == 1
+    assert not _on(page, "ci_business_view", "description")
+    base_path = f"/erasures/{erasure['id']}/mentions"
+    shown = await world.call("GET", f"{base_path}/{found[0]['id']}/passage", a, a.admin)
+    assert shown.status_code == 200, shown.text
+    assert name in shown.text
+    done = await _redact(world, a, erasure, [found[0]["id"]])
+    assert done.status_code == 200, done.text
+    (row,) = await world.sql(
+        "SELECT name, description, version FROM cmdb_business_views WHERE tenant_id = $1"
+        " AND id = $2",
+        a.tenant,
+        uuid.UUID(view["id"]),
+    )
+    assert row["name"] == f"Map kept by {MARKER}"
+    assert row["description"] == "Payments"
+    assert row["version"] == view["version"] + 1
+    events = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1 AND aggregate_id = $2"
+        " AND event_type = 'cmdb.business_view.changed' ORDER BY id",
+        a.tenant,
+        view["id"],
+    )
+    assert json.loads(events[-1]["envelope"])["payload"]["changed_fields"] == ["name"]
+    assert name not in json.dumps([e["envelope"] for e in events])

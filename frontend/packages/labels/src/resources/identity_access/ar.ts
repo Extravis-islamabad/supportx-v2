@@ -570,6 +570,7 @@ export const ar: LabelResource = {
   'people_erasure.record_type_of.announcement': 'إعلان',
   'people_erasure.record_type_of.asset': 'أصل',
   'people_erasure.record_type_of.ci': 'عنصر تكوين',
+  'people_erasure.record_type_of.ci_business_view': 'عرض أعمال',
   'people_erasure.record_type_of.ci_version': 'عنصر تكوين، نسخة سابقة',
   'people_erasure.record_type_of.file': 'ملف',
   'people_erasure.record_type_of.kb_article': 'مقال',

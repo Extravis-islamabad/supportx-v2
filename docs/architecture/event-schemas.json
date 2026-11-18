@@ -2677,6 +2677,42 @@
         "type": "object"
       }
     },
+    "cmdb.business_view.changed": {
+      "1": {
+        "description": "A business view was created, changed or removed (WP-053 S2; field names only).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "base_ci_id": {
+            "format": "uuid",
+            "title": "Base Ci Id",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "view_id": {
+            "format": "uuid",
+            "title": "View Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view_id",
+          "base_ci_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "BusinessViewChanged",
+        "type": "object"
+      }
+    },
     "cmdb.ci.created": {
       "1": {
         "description": "A CI was saved for the first time (by hand, copied, or from an asset).",
@@ -2826,6 +2862,52 @@
           "action"
         ],
         "title": "CmdbConfigChanged",
+        "type": "object"
+      }
+    },
+    "cmdb.relationship.changed": {
+      "1": {
+        "description": "Relationships of one type were added to or removed from a CI (WP-053 S2).\n\nOne event per add or remove call: the source CI and every other CI it touched, all of which\ngot a new version. IDs only (rule c); open maps patch both ends or refetch (§8.3).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "other_ci_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Other Ci Ids",
+            "type": "array"
+          },
+          "relationship_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Relationship Ids",
+            "type": "array"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "action",
+          "type_id",
+          "relationship_ids",
+          "other_ci_ids"
+        ],
+        "title": "RelationshipsChanged",
         "type": "object"
       }
     },
