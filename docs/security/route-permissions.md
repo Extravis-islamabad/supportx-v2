@@ -1501,6 +1501,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | release_manager | `releases.reopen` | all | all |
 | release_manager | `releases.reply` | all | all |
 | release_manager | `releases.resolve` | all | all |
+| release_manager | `releases.share_views` | all | all |
 | release_manager | `releases.take` | all | all |
 | release_manager | `releases.view` | all | all |
 | release_manager | `releases.view_costs` | all | all |
@@ -1783,8 +1784,6 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | team_lead | `problems.view` | group | group |
 | team_lead | `problems.view_root_cause` | group | group |
 | team_lead | `profile.edit` | own | own |
-| team_lead | `releases.share_views` | group | group |
-| team_lead | `releases.share_views_wide` | group | group |
 | team_lead | `releases.view` | all | all |
 | team_lead | `reports.create` | own | own |
 | team_lead | `reports.export` | all | all |
@@ -1871,7 +1870,6 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | technician | `problems.view` | all | all |
 | technician | `problems.view_root_cause` | group | all |
 | technician | `profile.edit` | own | own |
-| technician | `releases.share_views` | group | all |
 | technician | `releases.view` | all | all |
 | technician | `reports.create` | own | own |
 | technician | `reports.export` | all | all |

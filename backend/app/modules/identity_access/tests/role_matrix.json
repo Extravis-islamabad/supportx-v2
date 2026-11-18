@@ -535,6 +535,9 @@
   "releases.resolve": [
    "all"
   ],
+  "releases.share_views": [
+   "all"
+  ],
   "releases.take": [
    "all"
   ],
@@ -598,6 +601,9 @@
    "all"
   ],
   "releases.resolve": [
+   "all"
+  ],
+  "releases.share_views": [
    "all"
   ],
   "releases.take": [
@@ -2118,12 +2124,6 @@
   "profile.edit": [
    "own"
   ],
-  "releases.share_views": [
-   "group"
-  ],
-  "releases.share_views_wide": [
-   "group"
-  ],
   "releases.view": [
    "all"
   ],
@@ -2414,12 +2414,6 @@
   "profile.edit": [
    "own"
   ],
-  "releases.share_views": [
-   "group"
-  ],
-  "releases.share_views_wide": [
-   "group"
-  ],
   "releases.view": [
    "all"
   ],
@@ -2698,9 +2692,6 @@
   "profile.edit": [
    "own"
   ],
-  "releases.share_views": [
-   "all"
-  ],
   "releases.view": [
    "all"
   ],
@@ -2975,9 +2966,6 @@
   ],
   "profile.edit": [
    "own"
-  ],
-  "releases.share_views": [
-   "group"
   ],
   "releases.view": [
    "all"

@@ -566,20 +566,25 @@ SHARE_VIEWS_WIDE = "share_views_wide"
 
 
 def _share_specs(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
+    # Releases are change control (WP-058): technicians and team leads keep only `view` there, so
+    # sharing release views is the release manager's and the service desk managers' by default.
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        own: tuple[tuple[str, Scope], ...] = (
+            (RELEASE_MANAGER, "all"),
+            (SERVICE_DESK_MANAGER, "all"),
+        )
+        wide: tuple[tuple[str, Scope], ...] = ((SERVICE_DESK_MANAGER, "all"),)
+    else:
+        # The check is membership (their own groups), so `group` for those who work groups; a
+        # team lead never holds `all` on the desk's records (D-152).
+        own = (("technician", "group"), (TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all"))
+        wide = ((TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all"))
     return (
         PermissionSpec(
-            wtype.permission(SHARE_VIEWS),
-            wtype.feature,
-            # The check is membership (their own groups), so `group` for those who work groups;
-            # a team lead never holds `all` on the desk's records (D-152).
-            ("all", "group"),
-            defaults=(("technician", "group"), (TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all")),
+            wtype.permission(SHARE_VIEWS), wtype.feature, ("all", "group"), defaults=own
         ),
         PermissionSpec(
-            wtype.permission(SHARE_VIEWS_WIDE),
-            wtype.feature,
-            ("all", "group"),
-            defaults=((TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all")),
+            wtype.permission(SHARE_VIEWS_WIDE), wtype.feature, ("all", "group"), defaults=wide
         ),
     )
 
