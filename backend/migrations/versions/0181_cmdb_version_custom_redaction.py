@@ -23,7 +23,7 @@ snapshot keeps the old ID and the person's own row is what the erasure anonymise
 drops the function; no data step.
 
 Revision ID: 0181
-Revises: 0180 (main's head when written; re-pointed onto main's head at its queue turn)
+Revises: 0178 (main's head at its queue turn: 0180 → 0178 → 0181)
 Created: 2026-11-18
 """
 
@@ -32,7 +32,7 @@ from collections.abc import Sequence
 from migrations.helpers import create_definer_function, drop_definer_function
 
 revision: str = "0181"
-down_revision: str | None = "0180"  # main's head when written; re-pointed at the queue turn
+down_revision: str | None = "0178"  # main's head at its queue turn (0180 → 0178 → 0181)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0180"  # 0181's down revision for now (re-pointed with it at the lane's queue turn)
+BEFORE = "0178"  # 0181's down revision (main's head at its queue turn)
 SIGNATURE = "cmdb_redact_version_custom(uuid, text)"
 
 
