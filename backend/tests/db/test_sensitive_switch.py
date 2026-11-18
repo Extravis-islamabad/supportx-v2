@@ -220,18 +220,21 @@ async def test_the_switch_needs_a_recent_sign_in(world: World) -> None:  # noqa:
     assert await _state(world, a, key) == ("plain", False)
 
 
-async def test_an_asset_field_cannot_be_sensitive(world: World) -> None:  # noqa: F811
+@pytest.mark.parametrize("entity", ["asset", "ci"])
+async def test_an_asset_or_ci_field_cannot_be_sensitive(world: World, entity: str) -> None:  # noqa: F811
+    """No sealed form exists for asset or CI fields: CI versions rely on it (lane C, #550). A future
+    seal port for either must change this test on purpose."""
     a = world.a
     made = await world.call(
         "POST",
         FIELDS,
         a,
         a.admin,
-        json={"entity": "asset", "field_type": "text", "labels": {"en": "Asset code"}},
+        json={"entity": entity, "field_type": "text", "labels": {"en": "Code"}},
         headers=CONSOLE,
     )
     assert made.status_code == 201, made.text
-    field_id = await _field_id(world, a, made.json()["key"], "asset")
+    field_id = await _field_id(world, a, made.json()["key"], entity)
     refused = await world.call("GET", f"{FIELDS}/{field_id}/sensitivity", a, a.admin)
     assert refused.status_code == 409, refused.text
     assert refused.json()["code"] == "custom_field_sensitive_unsupported"

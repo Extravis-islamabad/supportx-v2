@@ -57,6 +57,10 @@ BEGIN
     IF t IS NULL THEN
         RAISE EXCEPTION 'cmdb_redact_version_custom needs app.tenant_id';
     END IF;
+    -- A redaction always has a value: NULL is refused here, before any lookup (lane C, #550).
+    IF p_value IS NULL THEN
+        RAISE EXCEPTION 'cmdb_redact_version_custom needs a value';
+    END IF;
     SELECT x.record_id, x.field INTO m
       FROM person_erasure_mentions x
       JOIN person_erasures e ON e.tenant_id = x.tenant_id AND e.id = x.erasure_id

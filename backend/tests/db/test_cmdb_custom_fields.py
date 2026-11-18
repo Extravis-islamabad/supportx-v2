@@ -418,6 +418,10 @@ async def test_the_snapshot_custom_definer_is_bound_and_takes_only_a_pure_redact
         mention,
         a.admin,
     )
+    # No value at all: refused before any lookup (lane C, #550).
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        with pytest.raises(DBAPIError, match="needs a value"):
+            await session.scalar(call, {"m": mention, "v": None})
     # Not a pure redaction: refused, nothing written.
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         with pytest.raises(DBAPIError, match="marker in place"):
