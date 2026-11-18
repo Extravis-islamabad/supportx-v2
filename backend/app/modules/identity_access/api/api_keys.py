@@ -8,14 +8,14 @@ allows people to make them (the settings live with the other sign-in settings, A
 
 import json
 import uuid
-from datetime import datetime
-from typing import Annotated, Literal
+from datetime import datetime, timedelta
+from typing import Annotated, Literal, cast
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.authorization import require_signed_in
+from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.recent_auth import RecentAuth
 from app.modules.audit import RequestFacts
@@ -38,6 +38,7 @@ router = APIRouter(
 )
 
 KeyStatus = Literal["active", "expired", "revoked"]
+PolicyGap = Literal["lifetime_over_policy", "no_ip_range"]
 
 
 class ApiKeyOut(BaseModel):
@@ -56,16 +57,31 @@ class ApiKeyOut(BaseModel):
     revoked_at: datetime | None
     created_at: datetime
     status: KeyStatus
+    out_of_policy: list[PolicyGap] = Field(
+        default_factory=list,
+        description="Why this key breaks today's key policy: listed to admins, never revoked.",
+    )
+    unused: bool = Field(
+        default=False, description="Not used for the tenant's set number of days (REQ-SEC-037)."
+    )
 
     @classmethod
-    def of(cls, row: ApiKey, owner_name: str | None, now: datetime) -> "ApiKeyOut":
-        """From the row."""
-        state: KeyStatus = (
-            "revoked"
-            if row.revoked_at is not None
-            else "expired"
-            if row.expires_at is not None and row.expires_at <= now
-            else "active"
+    def of(
+        cls,
+        row: ApiKey,
+        owner_name: str | None,
+        now: datetime,
+        policy: rules.KeyPolicy | None = None,
+    ) -> "ApiKeyOut":
+        """From the row; with the policy, its gaps and whether it is unused (active keys only)."""
+        state = rules.key_state(
+            created_at=row.created_at,
+            expires_at=row.expires_at,
+            revoked_at=row.revoked_at,
+            last_used_at=row.last_used_at,
+            ip_allowlist=row.ip_allowlist,
+            policy=policy,
+            now=now,
         )
         return cls(
             id=row.id,
@@ -80,7 +96,9 @@ class ApiKeyOut(BaseModel):
             last_used_ip=row.last_used_ip,
             revoked_at=row.revoked_at,
             created_at=row.created_at,
-            status=state,
+            status=cast("KeyStatus", state.status),
+            out_of_policy=cast("list[PolicyGap]", state.gaps),
+            unused=state.unused,
         )
 
 
@@ -159,13 +177,15 @@ class KeyRulesOut(BaseModel):
 async def key_rules(session: TenantSession, subject: SignedIn) -> KeyRulesOut:
     """The tenant's key settings as they apply to the signed-in person."""
     settings = await api_keys.key_rules(session)
+    policy = api_keys.policy_of(settings)
     manager = subject.holds(api_keys.MANAGE)
     return KeyRulesOut(
         may_create=manager or settings.people_may_create_keys,
         manages_keys=manager,
         never_expires_allowed=settings.allow_non_expiring_keys,
-        default_lifetime_days=rules.DEFAULT_LIFETIME.days,
-        max_lifetime_days=rules.MAX_LIFETIME.days,
+        # The tenant's policy (REQ-SEC-037): the form offers no date the server would refuse.
+        default_lifetime_days=rules.default_lifetime(policy.max_lifetime).days,
+        max_lifetime_days=min(policy.max_lifetime, rules.MAX_LIFETIME).days,
     )
 
 
@@ -185,7 +205,37 @@ async def key_owners(session: TenantSession, subject: SignedIn) -> list[KeyOwner
 
 async def _out(session: TenantSession, rows: list[ApiKey], now: datetime) -> list[ApiKeyOut]:
     names = await user_names(session, sorted({str(r.owner_id) for r in rows}))
-    return [ApiKeyOut.of(r, names.get(str(r.owner_id)), now) for r in rows]
+    policy = api_keys.policy_of(await api_keys.key_rules(session))
+    return [ApiKeyOut.of(r, names.get(str(r.owner_id)), now, policy) for r in rows]
+
+
+class PolicyImpactOut(BaseModel):
+    """How many active keys the proposed key policy would flag (never revoke)."""
+
+    keys: int = Field(description="Keys with at least one gap.")
+    lifetime_over_policy: int
+    no_ip_range: int
+
+
+@router.get("/policy-impact", summary="Keys a proposed key policy would flag")
+async def policy_impact(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query parameters
+    session: TenantSession,
+    # The right at the route too, so the route map shows it (lane B, #530); the service checks it.
+    subject: Annotated[Subject, Depends(require_permission(api_keys.MANAGE))],
+    key_max_lifetime_days: Annotated[int, Query(ge=1, le=366)],
+    keys_require_ip_range: Annotated[bool, Query()] = False,  # noqa: FBT002 - a query flag (FastAPI)
+    allow_non_expiring_keys: Annotated[bool, Query()] = False,  # noqa: FBT002 - a query flag (FastAPI)
+    key_unused_days: Annotated[int, Query(ge=7, le=365)] = 90,
+) -> PolicyImpactOut:
+    """api_keys.manage: shown on the policy screen before saving (REQ-SEC-037)."""
+    policy = rules.KeyPolicy(
+        max_lifetime=timedelta(days=key_max_lifetime_days),
+        allow_non_expiring=allow_non_expiring_keys,
+        require_ip_range=keys_require_ip_range,
+        unused_after=timedelta(days=key_unused_days),
+    )
+    counts = await api_keys.policy_impact(session, subject, policy, system_clock.now())
+    return PolicyImpactOut(**counts)
 
 
 @router.get("", summary="API keys")

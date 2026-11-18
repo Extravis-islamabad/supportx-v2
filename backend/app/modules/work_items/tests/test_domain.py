@@ -3,6 +3,7 @@
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
@@ -55,6 +56,8 @@ from app.modules.work_items.domain.types import (
     parse_display_id,
 )
 from app.modules.work_items.service.change_windows import FIELD_PROBLEMS as WINDOW_PROBLEMS
+from app.modules.work_items.service.incident_children import CHILD_PROBLEMS
+from app.modules.work_items.service.parts import Relation
 from app.modules.work_items.service.record_copies import FIELD_PROBLEMS as COPY_PROBLEMS
 from app.modules.work_items.service.text_templates import FIELD_PROBLEMS as TEMPLATE_PROBLEMS
 from app.modules.work_items.service.work_items import RELEASE_DEPLOYED_STAGES
@@ -320,7 +323,10 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         | DRAFT_PROBLEMS
         | COPY_PROBLEMS
         | KEPT_PROBLEMS
+        | CHILD_PROBLEMS
     )
+    # WP-046b S2: how a link reads from each side (parts._SIDES), not problems.
+    found -= set(get_args(Relation))
     assert found <= known, sorted(found - known)
 
 

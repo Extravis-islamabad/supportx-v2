@@ -408,6 +408,19 @@ export const routes: RouteObject[] = [
             lazy: async () => ({ Component: (await import('./pages/admin/UsersPage')).UsersPage }),
           },
           {
+            // ADR-052 (D-171): people's erasures, the list and one erasure.
+            path: 'erasures',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/erasures/ErasuresPage')).ErasuresPage,
+            }),
+          },
+          {
+            path: 'erasures/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/erasures/ErasurePage')).ErasurePage,
+            }),
+          },
+          {
             path: 'organization/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/organization/OrganizationPage'))
@@ -555,6 +568,13 @@ export const routes: RouteObject[] = [
             path: 'api-keys',
             lazy: async () => ({
               Component: (await import('./pages/admin/ApiKeysPage')).ApiKeysPage,
+            }),
+          },
+          {
+            // WP-057 S4a (REQ-SEC-036): non-person identities with an owner.
+            path: 'service-accounts',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/ServiceAccountsPage')).ServiceAccountsPage,
             }),
           },
           {

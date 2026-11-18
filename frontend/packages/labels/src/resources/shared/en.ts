@@ -326,6 +326,7 @@ export const en = {
   'nav.admin_catalog': 'Service catalog',
   'nav.admin_change_boards': 'Change advisory boards',
   'nav.admin_change_windows': 'Freeze and maintenance windows',
+  'nav.admin_erasures': 'Erasures',
   'nav.admin_files': 'Files',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',
@@ -343,6 +344,7 @@ export const en = {
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'Roles',
   'nav.admin_security': 'Sign-in and security',
+  'nav.admin_service_accounts': 'Service accounts',
   'nav.admin_sla': 'SLA',
   'nav.admin_users': 'People',
   // Announcements, field history, action reasons (WP-012)
@@ -805,6 +807,10 @@ export const en = {
     'When changes must not happen, and when they should: freezes and maintenance windows, for everyone or for some sites and groups.',
   'setup.page.change-windows.keywords':
     'freeze, change freeze, maintenance window, blackout, change calendar',
+  'setup.page.erasures.description':
+    "Ask for, approve and follow a person's erasure (GDPR), with the report of where they are named.",
+  'setup.page.erasures.keywords':
+    'erasure, GDPR, privacy, right to be forgotten, personal data, legal hold',
   'setup.page.files.description': 'Upload limits, allowed file types and malware scanning.',
   'setup.page.files.keywords':
     'files, attachments, uploads, size, storage, malware, virus, scanning',
@@ -854,6 +860,10 @@ export const en = {
     'Sign-in, passwords, two-step sign-in, single sign-on, sessions and API keys.',
   'setup.page.security.keywords':
     'security, password, mfa, two-step, 2fa, sso, saml, oidc, sessions, timeout, invitations, api keys',
+  'setup.page.service-accounts.description':
+    'Accounts other systems act as through API keys, each with an owner who answers for it, and its roles.',
+  'setup.page.service-accounts.keywords':
+    'service accounts, integrations, owner, hand-over, robots, automation, api',
   'setup.page.sla.description': 'Service targets, working hours, holidays and escalations.',
   'setup.page.sla.keywords':
     'sla, targets, response time, resolution, business hours, calendar, holidays, escalation',

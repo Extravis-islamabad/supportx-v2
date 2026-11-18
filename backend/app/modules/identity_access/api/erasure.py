@@ -36,7 +36,13 @@ from app.modules.identity_access.domain.erasure import ErasureReason, ErasureSta
 from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionState
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import PersonErasure, PersonErasureMention, User
-from app.modules.identity_access.service import erasure, erasure_mentions, legal_hold
+from app.modules.identity_access.service import (
+    erasure,
+    erasure_mentions,
+    legal_hold,
+    person_uploads,
+)
+from app.modules.identity_access.service.people import get_person
 from app.modules.identity_access.service.person_data import person_holdings
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -53,6 +59,8 @@ RESPONSES: dict[int | str, dict[str, Any]] = {
 RATE = [Depends(rate_limit("users"))]
 Erase = Annotated[Subject, Depends(require_permission("people.erase"))]
 Holds = Annotated[Subject, Depends(require_permission(MANAGE_HOLDS))]
+# Reading a hold: those who place holds, and those who ask for erasure (the coordinator).
+HoldsOrErase = Annotated[Subject, Depends(require_permission(MANAGE_HOLDS, "people.erase"))]
 
 people_router = APIRouter(
     prefix="/people", tags=["people-privacy"], dependencies=RATE, responses=RESPONSES
@@ -156,6 +164,95 @@ async def lift_legal_hold(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     note.reason = body.reason
     set_etag(response, person.version)
     return HoldOut.of(person)
+
+
+@people_router.get("/{user_id}/legal-hold", summary="A person's legal hold")
+async def get_legal_hold(
+    user_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: HoldsOrErase,
+) -> HoldOut:
+    """Whether the person is held, since when and by whom (`held: false` when not).
+
+    For those who place holds and those who ask for erasure (a held person cannot be erased);
+    the ETag is the person's version, for the next PUT or lift. The reason is shown only to
+    those who place holds, and that read is audited (lane C's #532 review).
+    """
+    person = await get_person(session, user_id)
+    shown = HoldOut.of(person)
+    if not subject.holds(MANAGE_HOLDS):
+        shown.reason = None
+    elif shown.reason is not None:
+        await record(
+            session,
+            action_code="person.legal_hold_viewed",
+            facts=RequestFacts.of(request),
+            object_type="user",
+            object_id=user_id,
+        )
+    set_etag(response, person.version)
+    response.headers["Cache-Control"] = "no-store"
+    return shown
+
+
+class UploadOut(BaseModel):
+    """One of the person's uploads: what it is, never its content or a link to it."""
+
+    id: uuid.UUID
+    name: str
+    size: int
+    content_type: str
+    created_at: datetime
+    attached_to: str | None = Field(
+        description="What it is attached to, by type (`file_owner_type.*`); null: nothing yet."
+    )
+
+
+class UploadsOut(BaseModel):
+    """One page of the person's uploads, oldest first."""
+
+    items: list[UploadOut]
+    next_cursor: str | None
+
+
+@people_router.get("/{user_id}/uploads", summary="A person's uploads (for files to keep)")
+async def list_person_uploads(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and paging
+    user_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Erase,
+    cursor: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=person_uploads.LIST_LIMIT)] = 50,
+) -> UploadsOut:
+    """The files an erasure would delete unless kept: metadata only. Each page is audited."""
+    del subject
+    page = await person_uploads.person_uploads(session, user_id, cursor=cursor, limit=limit)
+    await record(
+        session,
+        action_code="person.uploads_listed",
+        facts=RequestFacts.of(request),
+        object_type="user",
+        object_id=user_id,
+        details={"files": len(page.items), "more": page.next_cursor is not None},
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return UploadsOut(
+        items=[
+            UploadOut(
+                id=u.id,
+                name=u.name,
+                size=u.size,
+                content_type=u.content_type,
+                created_at=u.created_at,
+                attached_to=u.attached_to,
+            )
+            for u in page.items
+        ],
+        next_cursor=page.next_cursor,
+    )
 
 
 # --- erasure --------------------------------------------------------------------------------------

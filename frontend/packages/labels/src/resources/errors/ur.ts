@@ -16,6 +16,7 @@ export const ur: LabelResource = {
   'errors.action_link_sign_in_required': 'اس درخواست کو منظور یا مسترد کرنے کے لیے سائن ان کریں۔',
   'errors.action_link_stale': 'یہ لنک بھیجے جانے کے بعد درخواست بدل گئی۔ اسے ایپ میں کھولیں۔',
   'errors.action_link_used': 'یہ لنک پہلے ہی استعمال ہو چکا ہے۔',
+  'errors.alias_not_found': 'اس نمبر کا کوئی ریکارڈ نہیں جو آپ کھول سکیں۔',
   'errors.already_known_error': '{{display_id}} پہلے ہی معلوم خرابی ہے۔',
   'errors.already_on_version': 'یہ رن پہلے ہی اسی ورژن پر ہے۔',
   'errors.already_taken': '{{taken_by}} نے ابھی اسے لے لیا ہے۔ دیکھنے کے لیے دوبارہ لوڈ کریں۔',
@@ -236,6 +237,8 @@ export const ur: LabelResource = {
   'errors.custom_field_limit_reached':
     'اس قسم کے ریکارڈ میں پہلے ہی {{limit}} اپنی مرضی کے خانے ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے کوئی خانہ ہٹائیں یا دوبارہ استعمال کریں۔',
   'errors.custom_field_not_found': 'یہ اپنی مرضی کا خانہ موجود نہیں (اب نہیں رہا)۔',
+  'errors.custom_field_sensitive_unsupported':
+    'اس قسم کے ریکارڈ کی فیلڈز کو حساس نشان زد نہیں کیا جا سکتا۔',
   'errors.custom_field_used_by_rule':
     'آٹومیشن اصول یہ فیلڈ استعمال کرتے ہیں ({{rules}})۔ پہلے وہ اصول بدلیں یا ہٹائیں۔',
   'errors.dashboard_not_editable':
@@ -320,6 +323,8 @@ export const ur: LabelResource = {
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
   'errors.field.address_not_allowed':
     'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
+  'errors.field.already_has_parent':
+    'اس واقعے کا پہلے سے ایک مرکزی واقعہ ہے؛ پہلے اسے وہاں سے ہٹائیں۔',
   'errors.field.already_linked': 'یہ ریکارڈ پہلے سے منسلک ہیں۔',
   'errors.field.announcement_message_required': 'وہ پیغام لکھیں جو لوگ دیکھیں گے۔',
   'errors.field.api_key_allowlist_invalid':
@@ -327,7 +332,9 @@ export const ur: LabelResource = {
   'errors.field.api_key_expiry_past': 'میعاد ختم ہونے کی تاریخ مستقبل میں ہونی چاہیے۔',
   'errors.field.api_key_expiry_required':
     'میعاد ختم ہونے کی تاریخ منتخب کریں: آپ کا ادارہ کبھی ختم نہ ہونے والی کلیدوں کی اجازت نہیں دیتا۔',
-  'errors.field.api_key_expiry_too_far': 'کلید زیادہ سے زیادہ ایک سال چل سکتی ہے۔',
+  'errors.field.api_key_expiry_too_far': 'یہاں کلید زیادہ سے زیادہ {{max_days}} دن چل سکتی ہے۔',
+  'errors.field.api_key_ip_range_required':
+    'یہ ادارہ ہر نئی کلید سے وہ پتے درج کرنے کو کہتا ہے جہاں سے اسے استعمال کیا جا سکے۔',
   'errors.field.api_key_name_invalid': 'زیادہ سے زیادہ 100 حروف کا نام درج کریں۔',
   'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
@@ -413,14 +420,19 @@ export const ur: LabelResource = {
   'errors.field.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
   'errors.field.chair_inactive': 'صدر کے طور پر کوئی فعال شخص چنیں۔',
   'errors.field.change_in_other_release': 'یہ تبدیلی پہلے ہی کھلی ریلیز {{release}} میں ہے۔',
+  'errors.field.change_in_other_release_unseen':
+    'یہ تبدیلی پہلے ہی ایک اور کھلی ریلیز میں ہے جسے آپ نہیں کھول سکتے۔',
   'errors.field.change_would_loop':
     'کوئی تبدیلی براہ راست یا دوسروں کے ذریعے اپنا ہی حصہ نہیں ہو سکتی۔',
   'errors.field.channel_reserved':
     'صرف فون یا بالمشافہ چنا جا سکتا ہے؛ دوسرے ذرائع خود بخود طے ہوتے ہیں۔',
+  'errors.field.child_has_children':
+    'اس واقعے کے اپنے ذیلی واقعات ہیں، اس لیے یہ ذیلی نہیں بن سکتا۔',
   'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
   'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
+  'errors.field.confirm_name_mismatch': 'فیلڈ کا نام بالکل ویسا ہی لکھیں جیسا دکھایا گیا ہے۔',
   'errors.field.conflict_blocks':
     'روکنے والا ٹکراؤ تسلیم نہیں کیا جا سکتا۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
   'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
@@ -431,6 +443,7 @@ export const ur: LabelResource = {
   'errors.field.date_format_unknown': 'فہرست میں سے تاریخ کی شکل چنیں۔',
   'errors.field.date_in_future': 'آج یا اس سے پہلے کی تاریخ چنیں۔',
   'errors.field.date_in_past': 'ابھی کے بعد کا وقت چنیں۔',
+  'errors.field.days_out_of_range': '{{min}} سے {{max}} تک دنوں کی تعداد درج کریں۔',
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',
@@ -624,6 +637,7 @@ export const ur: LabelResource = {
   'errors.field.out_of_range': 'یہ عدد اجازت یافتہ حد سے باہر ہے۔',
   'errors.field.owner_not_allowed':
     'یہ شخص اعلانات کا انتظام نہیں کر سکتا، اس لیے مالک نہیں بن سکتا۔',
+  'errors.field.parent_is_a_child': 'یہ واقعہ خود ذیلی ہے، اس لیے اس کے ذیلی واقعات نہیں ہو سکتے۔',
   'errors.field.parent_loop': 'اس سے یہ اپنا ہی والد بن جائے گا۔',
   'errors.field.password_breached': 'یہ پاس ورڈ ڈیٹا لیکس سے معلوم ہے۔ کوئی اور منتخب کریں۔',
   'errors.field.password_is_email': 'یہ آپ کا ای میل پتا نہیں ہونا چاہیے۔',
@@ -662,6 +676,7 @@ export const ur: LabelResource = {
     'یہ فرد کئی گروپوں میں ہیں: وہ گروپ چنیں جس میں ریکارڈ جائے گا۔',
   'errors.field.recipient_shape': 'اس وصول کنندہ کے لیے شخص یا گروپ منتخب کریں۔',
   'errors.field.recipients_required': 'کم از کم ایک شخص یا گروپ منتخب کریں۔',
+  'errors.field.record_closed': 'بند واقعات کو مرکزی یا ذیلی کے طور پر نہیں جوڑا جا سکتا۔',
   'errors.field.record_not_found': 'آپ کے دیکھنے کے قابل کسی ریکارڈ کی یہ شناخت نہیں۔',
   'errors.field.replies_are_public':
     'جوابات ٹیم سے باہر کے لوگوں کو جاتے ہیں، اس لیے وہ ہمیشہ عوامی ہوتے ہیں۔',
@@ -688,6 +703,7 @@ export const ur: LabelResource = {
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',
+  'errors.field.service_account_owner_invalid': 'مالک کے طور پر کوئی فعال ٹیکنیشن منتخب کریں۔',
   'errors.field.session_absolute_out_of_range':
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
   'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
@@ -1014,6 +1030,10 @@ export const ur: LabelResource = {
   'errors.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
   'errors.measure_not_permitted':
     'آپ یہ عدد نہیں دیکھ سکتے: اس کے لیے اس کے ڈیٹا تک رسائی چاہیے (اثاثوں کی رقم کے لیے، مالیات دیکھنے کا حق)۔',
+  'errors.merge_undo_not_exact':
+    'یہ انضمام اب ٹھیک ویسا واپس نہیں ہو سکتا، کیونکہ اس کے بعد واقعات بدل گئے ہیں۔',
+  'errors.merge_widens_audience':
+    'ضم کرنے سے زیادہ لوگ یہ واقعات دیکھ سکیں گے: {{staff}} عملہ، رکھے گئے واقعے کے {{requesters}} درخواست گزار اور دوہرے واقعے کے {{followers}} درخواست گزار۔ جاری رکھنے کے لیے تصدیق کریں۔',
   'errors.message_refused': 'میل سرور نے پیغام رد کر دیا۔',
   'errors.method_not_allowed': 'یہ کارروائی یہاں دستیاب نہیں۔',
   'errors.mfa_enrolment_unavailable':
@@ -1037,6 +1057,7 @@ export const ur: LabelResource = {
   'errors.not_cancelable_from_here': 'اسے اس کی موجودہ جگہ سے منسوخ نہیں کیا جا سکتا۔',
   'errors.not_closable_from_here':
     'اسے موجودہ مرحلے سے بند نہیں کیا جا سکتا۔ پہلے اسے آگے بڑھائیں۔',
+  'errors.not_convertible': 'اس قسم کا ریکارڈ تبدیل نہیں کیا جا سکتا۔',
   'errors.not_found': 'آئٹم نہیں ملا۔',
   'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
@@ -1143,6 +1164,7 @@ export const ur: LabelResource = {
   'errors.saved_view_not_found': 'یہ محفوظ منظر اب موجود نہیں، یا یہ آپ کا نہیں۔',
   'errors.scale_value_not_found': 'یہ قدر موجود نہیں۔',
   'errors.server_busy': 'میل سرور مصروف تھا۔',
+  'errors.service_account_owner_invalid': 'مالک کے طور پر کوئی فعال ٹیکنیشن منتخب کریں۔',
   'errors.service_category_in_use':
     'اس کیٹیگری میں ابھی آئٹمز یا کیٹیگریز موجود ہیں۔ پہلے انہیں منتقل یا حذف کریں۔',
   'errors.service_category_not_found': 'یہ کیٹیگری موجود نہیں۔',
@@ -1201,6 +1223,8 @@ export const ur: LabelResource = {
     'آپ کی تنظیم کا فائل اسٹوریج بھر گیا ہے ({{used_gb}} از {{limit_gb}} GB)۔',
   'errors.storage_unavailable':
     'فائل اسٹوریج تک رسائی نہیں ہو سکی۔ بعد میں کوشش کریں یا منتظم سے رابطہ کریں۔',
+  'errors.survivor_is_a_child':
+    '{{display_id}} کسی اور واقعے کا ذیلی ہے، اس لیے یہ ذیلی واقعات نہیں لے سکتا۔',
   'errors.system_calendar_required':
     'ہر ادارہ یہ کیلنڈر رکھتا ہے، اس لیے اسے حذف نہیں کیا جا سکتا۔',
   'errors.system_role_immutable': 'پہلے سے موجود کردار تبدیل یا حذف نہیں کیے جا سکتے۔',

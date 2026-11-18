@@ -29,12 +29,15 @@ from app.modules.work_items.api.checklist_routes import (
     add_checklist_collection_routes,
     add_checklist_routes,
 )
+from app.modules.work_items.api.children_routes import add_children_routes
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
 )
+from app.modules.work_items.api.convert_routes import add_convert_routes
 from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
+from app.modules.work_items.api.merge_routes import add_incident_merge_routes
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import (
@@ -4050,6 +4053,11 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
     add_checklist_routes(router, wtype)  # WP-046a S2: checklists and personal reminders
+    if wtype.code in {WorkItemTypeCode.INCIDENT, WorkItemTypeCode.SERVICE_REQUEST}:
+        add_convert_routes(router, wtype)  # WP-046b S2: into the other type, and old numbers
+    if wtype.code is WorkItemTypeCode.INCIDENT:
+        add_children_routes(router, wtype)  # WP-046b S2: parent and child incidents
+        add_incident_merge_routes(router, wtype)  # WP-046b S2: merge with preview, and undo
     # REQ-AST-025: assets on incidents and requests (the forms and the e-mail ask for them).
     if wtype.code in _WITH_ASSETS:
         add_asset_routes(router, wtype)

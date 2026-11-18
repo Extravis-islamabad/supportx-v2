@@ -32,6 +32,7 @@ import {
   useAccess,
   useLicence,
   useAppearance,
+  useDateTime,
   useConflict,
   useLabel,
 } from '@supportx/ui';
@@ -66,7 +67,7 @@ function CiRecord({ ci }: { ci: Ci }) {
   const t = useLabel();
   const navigate = useNavigate();
   const { message, modal } = App.useApp();
-  const { locale, intlLocale } = useAppearance();
+  const { locale } = useAppearance();
   const may = useCmdbRight();
   const types = useCiTypes();
   const states = useCiStates();
@@ -85,10 +86,7 @@ function CiRecord({ ci }: { ci: Ci }) {
   }, [ci, editing, form]);
   const typeOf = types.data?.items.find((x) => x.id === ci.type_id);
   const stateOf = states.data?.items.find((x) => x.id === ci.state_id);
-  const dateFormat = new Intl.DateTimeFormat(intlLocale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  const dateTime = useDateTime();
 
   const save = (version: number) =>
     form.handleSubmit((values) => {
@@ -225,7 +223,7 @@ function CiRecord({ ci }: { ci: Ci }) {
                     {
                       key: 'updated',
                       label: t('cmdb.field.updated_at'),
-                      content: dateFormat.format(new Date(ci.updated_at)),
+                      content: <bdi>{dateTime.format(ci.updated_at)}</bdi>,
                       filled: true,
                     },
                   ]}
@@ -352,10 +350,10 @@ function ChangeType({ ci, onClose }: { ci: Ci; onClose: () => void }) {
 function CiHistory({ id }: { id: string }) {
   const t = useLabel();
   const list = useListFormat();
-  const { intlLocale } = useAppearance();
+  // The person's own time zone, as every other history (lane C, #524).
+  const dates = useDateTime();
   const history = useCiHistory(id);
   const entries = history.data?.pages.flatMap((p) => p.items) ?? [];
-  const when = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
   return (
     <List
       data-testid="ci-history"
@@ -364,11 +362,16 @@ function CiHistory({ id }: { id: string }) {
       renderItem={(entry) => (
         <List.Item>
           <Typography.Text>
-            {t(`change_kind.${entry.kind}`)} ·{' '}
-            {entry.actor_name ?? t(`actor_type.${entry.actor_type}`)} ·{' '}
-            {when.format(new Date(entry.occurred_at))}
-            {entry.changes.length > 0 &&
-              ` · ${list(entry.changes.map((c) => t(`cmdb.field.${c.field}`)))}`}
+            {/* Each part isolated, so right to left never splits a date around a name. */}
+            <bdi>{t(`change_kind.${entry.kind}`)}</bdi> ·{' '}
+            <bdi>{entry.actor_name ?? t(`actor_type.${entry.actor_type}`)}</bdi> ·{' '}
+            <bdi>{dates.format(entry.occurred_at)}</bdi>
+            {entry.changes.length > 0 && (
+              <>
+                {' · '}
+                <bdi>{list(entry.changes.map((c) => t(`cmdb.field.${c.field}`)))}</bdi>
+              </>
+            )}
           </Typography.Text>
         </List.Item>
       )}

@@ -211,10 +211,17 @@ function Change({
       text: t('audit.ui.role', { name: roleNames.get(details.role_id) ?? t('audit.ui.deleted') }),
     });
   }
-  for (const key of ['user_id', 'reassigned_to'] as const) {
+  for (const key of ['user_id', 'reassigned_to', 'owner_before', 'owner_after'] as const) {
     if (typeof details[key] === 'string') {
       rows.push({ key, text: t(`audit.detail.${key}`, { name: person(details[key]) ?? '' }) });
     }
+  }
+  if (typeof details.active_after === 'boolean') {
+    // A service account switched on or off (WP-057 S4a).
+    rows.push({
+      key: 'active',
+      text: t(details.active_after ? 'audit.ui.turned_on' : 'audit.ui.turned_off'),
+    });
   }
   const changes = details.changes as Record<string, { old: unknown; new: unknown }> | undefined;
   for (const [field, change] of Object.entries(changes ?? {})) {

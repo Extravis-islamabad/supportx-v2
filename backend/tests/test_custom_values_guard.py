@@ -23,7 +23,10 @@ SERVICE_READERS: dict[str, str] = {
     "person_data.py": "the erasure writer, through redact_fields (_custom_columns)",
     "person_mentions.py": "the erasure mentions port (system cipher, lane B's conditions)",
     "record_copies.py": "copies: custom_values.opened, then sealed again",
+    # WP-046b S2: which keys carry (presence only), then custom_values.opened and sealed again.
+    "record_convert.py": "conversion: custom_values.opened, then sealed for the new record",
     "change_links.py": "copies: custom_values.opened, then sealed again",
+    "sealing_job.py": "the re-seal job: seals or opens stored values in place, never shows them",
 }
 
 

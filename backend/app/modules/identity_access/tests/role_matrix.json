@@ -9,6 +9,15 @@
   "assets.view_financials": [
    "all"
   ],
+  "cmdb.add": [
+   "all"
+  ],
+  "cmdb.delete": [
+   "all"
+  ],
+  "cmdb.edit": [
+   "all"
+  ],
   "cmdb.manage": [
    "all"
   ],
@@ -36,6 +45,15 @@
    "all"
   ],
   "assets.view_financials": [
+   "all"
+  ],
+  "cmdb.add": [
+   "all"
+  ],
+  "cmdb.delete": [
+   "all"
+  ],
+  "cmdb.edit": [
    "all"
   ],
   "cmdb.manage": [
@@ -854,6 +872,9 @@
   "incidents.take": [
    "all"
   ],
+  "incidents.undo_merge": [
+   "all"
+  ],
   "incidents.view": [
    "all"
   ],
@@ -1193,6 +1214,9 @@
    "all"
   ],
   "incidents.take": [
+   "all"
+  ],
+  "incidents.undo_merge": [
    "all"
   ],
   "incidents.view": [
