@@ -365,10 +365,25 @@ async function starredUnreadColoured(page: Page): Promise<void> {
     headers: { 'X-CSRF-Token': theirs.csrf, 'Idempotency-Key': crypto.randomUUID() },
   });
   if (!replied.ok()) throw new Error(`reply: ${String(replied.status())}`);
-  await page.goto(`/incidents?view=custom:${view.id}`);
-  await page.locator('[data-unread="true"]').first().waitFor({ timeout: STATE_TIMEOUT });
-  await page.locator('[data-row-mark]').first().waitFor({ timeout: STATE_TIMEOUT });
-  await page.getByTestId('inc-view-star').waitFor({ timeout: STATE_TIMEOUT });
+  // The list keeps its view on the screen, not in the address: picked as a person does, from
+  // the Starred group (lane C's run 44391110161 timed out on a ?view= address).
+  await page.goto('/incidents');
+  const seen = async (what: string, locator: ReturnType<Page['locator']>) => {
+    try {
+      await locator.first().waitFor({ timeout: STATE_TIMEOUT });
+    } catch {
+      throw new Error(`starred-unread-coloured: no ${what}`);
+    }
+  };
+  await page.getByTestId('inc-view').click({ timeout: STATE_TIMEOUT });
+  await seen(
+    'starred view in the picker',
+    page.locator('.ant-select-item-option', { hasText: STARRED_VIEW }),
+  );
+  await page.locator('.ant-select-item-option', { hasText: STARRED_VIEW }).first().click();
+  await seen('star toggle', page.getByTestId('inc-view-star'));
+  await seen('unread row', page.locator('[data-unread="true"]'));
+  await seen('row colour mark', page.locator('[data-row-mark]'));
 }
 
 /** Put the tenant's colouring back as it was before the shot. */
@@ -382,6 +397,11 @@ const generalCard = (testId: string) => async (page: Page) => {
   const card = page.getByTestId(testId);
   await card.scrollIntoViewIfNeeded({ timeout: STATE_TIMEOUT });
   await card.waitFor({ timeout: STATE_TIMEOUT });
+  // Back to the top: the full-page shot holds the card anyway, and a scrolled page drew the
+  // sticky side nav halfway down (lane C, run 44391110161).
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
 };
 
 export const SCREENS: Screen[] = [
