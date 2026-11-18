@@ -835,6 +835,8 @@ export const ur: LabelResource = {
   'errors.field.vendor_inactive': 'یہ وینڈر غیر فعال ہے اور منتخب نہیں ہو سکتا۔',
   'errors.field.vendor_name_taken': 'کسی اور وینڈر کا یہی نام ہے۔',
   'errors.field.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
+  'errors.field.view_filter_not_shareable':
+    'یہ منظر ایسے فیلڈ پر فلٹر کرتا ہے جو کچھ لوگ نہیں دیکھ سکتے، اس لیے یہ صرف نجی رہ سکتا ہے۔ اسے شیئر کرنے کے لیے وہ شرط ہٹا دیں۔',
   'errors.field.week_empty': 'کم از کم ایک کام کا دورانیہ شامل کریں۔',
   'errors.field.week_start_unknown': 'ہفتہ شروع ہونے کا دن چنیں۔',
   'errors.field.week_too_many_periods':
@@ -1277,6 +1279,7 @@ export const ur: LabelResource = {
   'errors.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
   'errors.version_conflict':
     'آپ کے کھولنے کے بعد کسی اور نے یہ آئٹم محفوظ کر دیا۔ ان کی تبدیلیاں دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.view_share_not_allowed': 'آپ یہ منظر اس سامعین کے ساتھ شیئر نہیں کر سکتے۔',
   'errors.window_not_found': 'یہ ونڈو موجود نہیں، یا ہٹا دی گئی۔',
   'errors.withdraw_not_allowed': 'صرف درخواست گزار یہ درخواست واپس لے سکتا ہے۔',
   'errors.withdraw_not_pending': 'صرف منظوری کی منتظر درخواست واپس لی جا سکتی ہے۔',

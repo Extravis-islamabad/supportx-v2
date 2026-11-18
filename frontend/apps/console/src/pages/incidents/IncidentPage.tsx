@@ -23,6 +23,7 @@ import {
   useCausingProblem,
   useDeleteIncident,
   useIncident,
+  useMarkIncidentRead,
   useIncidentTasks,
   useAutoStartTimer,
   useIncidentCatalogue,
@@ -236,6 +237,11 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   useEffect(() => {
     rememberIncident(me, item.id);
   }, [me, item.id]);
+  // REQ-INC-115 AC2: opening it marks it read; so does a live change seen while it is open.
+  const { mutate: markRead } = useMarkIncidentRead();
+  useEffect(() => {
+    markRead(item.id);
+  }, [markRead, item.id, item.version]);
   // WP-046a S3 (REQ-INC-069): with the type's auto-start on, opening your own record starts
   // your timer, once ever (the server decides and keeps it to once).
   const { mutate: autoStartTimer } = useAutoStartTimer(item.id);

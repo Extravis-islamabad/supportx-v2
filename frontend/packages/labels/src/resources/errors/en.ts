@@ -830,6 +830,8 @@ export const en = {
   'errors.field.vendor_inactive': "This vendor is inactive and can't be picked.",
   'errors.field.vendor_name_taken': 'Another vendor has this name.',
   'errors.field.vendor_not_found': 'This vendor no longer exists.',
+  'errors.field.view_filter_not_shareable':
+    "This view filters on a field some people can't see, so it can only stay private. Remove that condition to share it.",
   'errors.field.week_empty': 'Add at least one working period.',
   'errors.field.week_start_unknown': 'Choose the day the week starts.',
   'errors.field.week_too_many_periods': 'A week can have at most 28 working periods.',
@@ -1267,6 +1269,7 @@ export const en = {
   'errors.vendor_not_found': 'This vendor no longer exists.',
   'errors.version_conflict':
     'Someone else saved this item after you opened it. Reload to see their changes.',
+  'errors.view_share_not_allowed': "You can't share this view with that audience.",
   'errors.window_not_found': 'This window does not exist, or it was removed.',
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',

@@ -17,7 +17,9 @@ export type UserAccess = components['schemas']['UserAccessOut'];
 export type Unit = Pick<
   components['schemas']['SiteOut'],
   'id' | 'name' | 'member_ids' | 'disabled' | 'version'
->;
+> &
+  // Groups only: who leads it (D-152); D-176's share picker offers the groups a lead leads.
+  Partial<Pick<components['schemas']['GroupOut'], 'lead_id'>>;
 export type UnitKind = 'sites' | 'groups';
 
 /** GET /permissions: the catalogue (roles.view). */

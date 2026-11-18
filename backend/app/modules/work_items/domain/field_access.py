@@ -82,3 +82,33 @@ def without(custom: Mapping[str, Any] | None, keys: frozenset[str]) -> dict[str,
 def refused(changed: Iterable[str], locked: frozenset[str]) -> list[str]:
     """The changed fields (`custom.<key>` for custom ones) the person may not change."""
     return sorted(f for f in changed if f in locked)
+
+
+def filter_fields(tree: object) -> list[str]:
+    """Every field a filter tree names, in order, each once (`{field}`, `{and}`, `{or}`)."""
+    found: list[str] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, Mapping):
+            field = node.get("field")
+            if isinstance(field, str) and field not in found:
+                found.append(field)
+            for key in ("and", "or", "root"):
+                children = node.get(key)
+                if isinstance(children, list):
+                    for child in children:
+                        walk(child)
+                elif isinstance(children, Mapping):
+                    walk(children)
+
+    walk(tree)
+    return found
+
+
+def withheld_in_filter(tree: object, withheld: frozenset[str]) -> list[str]:
+    """The fields of a filter a reader may not see (D-176, lane C).
+
+    A shared view naming one is not theirs to use: its conditions (an `eq` value) would tell them
+    about the field.
+    """
+    return [f for f in filter_fields(tree) if f in withheld]

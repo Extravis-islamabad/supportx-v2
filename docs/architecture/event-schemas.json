@@ -7124,6 +7124,44 @@
         "type": "object"
       }
     },
+    "work_items.view.unshared": {
+      "1": {
+        "description": "A shared view went back to private (D-176).\n\nIts filter names a field some recipient may not see. IDs and codes only; the owner is told\nthrough the notification source of saved views.",
+        "properties": {
+          "field_key": {
+            "title": "Field Key",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "view_id": {
+            "format": "uuid",
+            "title": "View Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view_id",
+          "type",
+          "owner_id",
+          "field_key",
+          "reason"
+        ],
+        "title": "WorkItemViewUnshared",
+        "type": "object"
+      }
+    },
     "work_items.work_item.assigned": {
       "1": {
         "$defs": {

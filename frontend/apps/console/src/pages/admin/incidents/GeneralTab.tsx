@@ -25,6 +25,7 @@ import { scaleLabel } from '../../incidents/labels';
 import { useDraft, useSettingsBase, useSettingsSave } from './helpers';
 import { numberProblem } from '../../../numbers';
 import { Problems } from './shared';
+import { RowColourCard, ViewAuditCard } from './ListDisplayCards';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -357,6 +358,9 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
           </Flex>
         </SettingsCard>
       )}
+      {/* WP-046b S3a: saved on their own (each its own route), outside the save bar. */}
+      <RowColourCard />
+      <ViewAuditCard />
       <StickySaveBar
         changes={changedKeys.length}
         saving={pending}

@@ -178,6 +178,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "BulkOutcome": "bulk_outcome",
     "BulkStatus": "bulk_status",
     "ViewVisibility": "view_visibility",
+    "RowColourBy": "row_colour_by",  # WP-046b S3a (REQ-INC-115)
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",

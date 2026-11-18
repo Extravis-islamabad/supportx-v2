@@ -101,6 +101,7 @@ from app.modules.work_items.service import (
     staff_reply_notifications,
     task_notifications,
     task_reminders,
+    view_audit,
 )
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
@@ -218,6 +219,7 @@ problem_notifications.register()  # WP-044c D15
 rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
 change_notifications.register()  # WP-045d S3: replaces the change reply-only source
+view_audit.register()  # D-176: an owner hears their shared view was made private
 task_notifications.register()  # WP-046a S1: a task's owner hears of it (REQ-INC-076)
 reminder_notifications.register()  # WP-046a S2: personal reminders alert their owner
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
@@ -300,6 +302,7 @@ module = ModuleSpec(
         KEPT_INFORMED,
         drafts.OWNER_LEFT,
         search_rebuild.FIELD_ACCESS_CHANGED,  # ADR-047 §6: search text rebuilt, closed meanwhile
+        view_audit.VIEW_AUDIT,  # D-176: shared views naming a restricted field go private
     ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
@@ -307,6 +310,10 @@ module = ModuleSpec(
     schedules=[
         # REQ-INC-019: kept drafts untouched for 30 days go (lane B).
         ScheduleSpec("work_items__drafts_purge", 86400, drafts.purge_schedule),
+        # D-176: shared views whose filter names a restricted or sealed field go private.
+        ScheduleSpec(
+            "work_items__view_audit", view_audit.AUDIT_EVERY_SECONDS, view_audit.audit_schedule
+        ),
         # ADR-047 §6: types marked by a custom field's rule change get their search text rebuilt.
         ScheduleSpec("work_items__search_text_rebuild", 60, search_rebuild.rebuild_schedule),
         # Sensitive custom fields: stored values follow the mark (WP-057 S3b-2b).
