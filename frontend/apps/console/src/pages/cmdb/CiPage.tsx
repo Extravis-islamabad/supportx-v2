@@ -398,6 +398,9 @@ function ChangeType({ ci, onClose }: { ci: Ci; onClose: () => void }) {
       okButtonProps={{
         disabled: typeId === undefined || preview.isPending || blocked,
         danger: dropped.length > 0,
+        // A danger button that drops values is outlined, not filled: the dark theme's red fill
+        // with white text is below 4.5:1 (axe, run 44411932381; as the erasure screens).
+        ...(dropped.length > 0 ? { type: 'default' as const } : {}),
         loading: change.isPending,
         ...({ 'data-testid': 'ci-change-type-ok' } as Record<string, string>),
       }}
