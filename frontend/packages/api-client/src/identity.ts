@@ -12,6 +12,9 @@ export type IdentitySettingsInput = components['schemas']['IdentitySettingsBody'
 export type SsoProvider = components['schemas']['SsoOut'];
 export type SsoInput = components['schemas']['SsoBody'];
 export type SsoTestResult = components['schemas']['SsoTestResultOut'];
+/** The security overview (WP-057 S4d): each area's numbers and the weak choices to look at. */
+export type SecurityOverview = components['schemas']['SecurityOverviewOut'];
+export type SecurityFlag = components['schemas']['FlagOut'];
 export type Invitation = components['schemas']['InvitationOut'];
 export type MfaRole = components['schemas']['MfaRoleOut'];
 export type MfaMode = MfaRole['mode'];
@@ -327,6 +330,14 @@ export function useMfaPolicy() {
   return useQuery({
     queryKey: queryKeys.identity.mfa,
     queryFn: () => call(api.GET('/api/v1/identity/mfa')),
+  });
+}
+
+/** The security overview (WP-057 S4d); refreshed with the rest of the identity screens. */
+export function useSecurityOverview() {
+  return useQuery({
+    queryKey: queryKeys.identity.overview,
+    queryFn: () => call(api.GET('/api/v1/identity/security-overview')),
   });
 }
 

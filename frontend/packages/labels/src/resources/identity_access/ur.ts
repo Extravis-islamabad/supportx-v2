@@ -1371,6 +1371,28 @@ export const ur: LabelResource = {
   'security.network.saved': 'IP اجازت فہرستیں محفوظ ہو گئیں۔',
   'security.network.title': 'IP اجازت فہرستیں',
   'security.network.your_address': 'آپ یہاں سے سائن اِن ہیں',
+  'security.overview.fields_moving': 'انکرپشن یا ڈی کرپشن ابھی جاری: {{n}}',
+  'security.overview.flags': 'دیکھنے کے لائق',
+  'security.overview.help':
+    'نیچے کے کارڈز اور متعلقہ صفحات کے اعداد۔ تفصیل کھولنے کے لیے کوئی خانہ منتخب کریں۔',
+  'security.overview.key_since': 'موجودہ ڈیٹا کلید بنی {{when}}',
+  'security.overview.keys_hint': 'پالیسی سے باہر: {{out}} · غیر استعمال شدہ: {{unused}}',
+  'security.overview.locked_hint': 'پچھلے 7 دنوں میں ناکام۔ لاک: {{n}}',
+  'security.overview.mfa_hint':
+    'کرداروں کے حاملین میں سے اندراج شدہ۔ لازمی کرنے والے کردار: {{required}}',
+  'security.overview.no_flags': 'یہاں کچھ بھی تجویز کردہ سے کمزور نہیں۔',
+  'security.overview.no_key': 'ابھی کوئی ڈیٹا کلید نہیں',
+  'security.overview.open': '{{area}} کھولیں',
+  'security.overview.owners_hint': 'نئے مالک کی ضرورت: {{n}}',
+  'security.overview.recommendations_note':
+    'یہ سفارشات ہیں۔ یہاں کچھ بھی خود سے کوئی ترتیب نہیں بدلتا۔',
+  'security.overview.region': 'ڈیٹا ریجن',
+  'security.overview.sso_expiry': 'قریب ترین سرٹیفکیٹ یا راز دنوں میں ختم: {{days}}',
+  'security.overview.sso_required.everyone': 'سب کے لیے',
+  'security.overview.sso_required.off': 'لازمی نہیں',
+  'security.overview.sso_required.technicians': 'تکنیکی ماہرین کے لیے',
+  'security.overview.sso_setups': 'سیٹ اپ: {{n}}',
+  'security.overview.title': 'سیکیورٹی ایک نظر میں',
   'security.password.apply_again': 'دوبارہ لاگو کریں',
   'security.password.breached': 'عام اور لیک شدہ پاس ورڈ رد کریں',
   'security.password.breached_hint':
@@ -1540,6 +1562,44 @@ export const ur: LabelResource = {
   'security.sso_policy.required': 'سنگل سائن آن لازمی ہے برائے',
   'security.sso_policy.saved': 'سنگل سائن آن کی ترتیبات محفوظ ہو گئیں۔',
   'security.sso_policy.title': 'سنگل سائن آن لازمی',
+  'security_area.encryption': 'فیلڈ انکرپشن',
+  'security_area.keys': 'API کلیدیں',
+  'security_area.mfa': 'کثیر عنصری تصدیق',
+  'security_area.network': 'نیٹ ورک رسائی',
+  'security_area.passwords': 'پاس ورڈ',
+  'security_area.service_accounts': 'سروس اکاؤنٹس',
+  'security_area.sessions': 'سیشن',
+  'security_area.sign_in': 'واحد سائن اِن',
+  'security_area.sign_in_events': 'سائن اِن سرگرمی',
+  'security_flag.admins_without_mfa':
+    'ٹیننٹ منتظمین کثیر عنصری تصدیق کے بغیر سائن اِن کر سکتے ہیں۔',
+  'security_flag.api_open_network': 'API کلیدیں کسی بھی نیٹ ورک پتے سے کام کرتی ہیں۔',
+  'security_flag.console_idle_long':
+    'کنسول سیشن ایک گھنٹے سے زیادہ بغیر سرگرمی کے سائن اِن رہتے ہیں۔',
+  'security_flag.console_open_network': 'کنسول کسی بھی نیٹ ورک پتے سے کھولا جا سکتا ہے۔',
+  'security_flag.console_session_long': 'کنسول سیشن ایک کاروباری دن سے زیادہ چلتے ہیں۔',
+  'security_flag.fields_still_moving':
+    'حساس فیلڈز جن کی انکرپشن یا ڈی کرپشن ابھی جاری ہے: {{count}}',
+  'security_flag.keys_never_expire': 'API کلیدیں میعاد کے بغیر بنائی جا سکتی ہیں۔',
+  'security_flag.keys_out_of_policy': 'کلید پالیسی سے باہر API کلیدیں: {{count}}',
+  'security_flag.keys_unused': 'کچھ عرصے سے غیر استعمال شدہ API کلیدیں: {{count}}',
+  'security_flag.password_breached_off': 'ڈیٹا لیک سے معلوم پاس ورڈ رد نہیں کیے جاتے۔',
+  'security_flag.password_expiry_without_check':
+    'پاس ورڈ ختم ہوتے ہیں مگر لیک شدہ رد نہیں ہوتے: لوگ کمزور پاس ورڈ چنتے ہیں۔',
+  'security_flag.password_short':
+    'پاس ورڈ 12 حروف سے چھوٹے ہو سکتے ہیں۔ موجودہ کم از کم: {{count}}',
+  'security_flag.roles_without_mfa': 'وہ کردار جن میں کثیر عنصری تصدیق بند ہے: {{count}}',
+  'security_flag.service_accounts_without_owner':
+    'سروس اکاؤنٹس جنہیں نئے مالک کی ضرورت ہے: {{count}}',
+  'security_flag.sign_ins_locked': 'پچھلے 7 دنوں میں لاک ہونے والے سائن اِن: {{count}}',
+  'security_flag.sso_credential_expired': 'واحد سائن اِن کا سرٹیفکیٹ یا راز ختم ہو چکا ہے۔',
+  'security_flag.sso_credential_expires':
+    'واحد سائن اِن کا سرٹیفکیٹ یا راز ایک مہینے میں ختم ہوگا۔ باقی دن: {{count}}',
+  'security_flag.sso_credential_expires_soon':
+    'واحد سائن اِن کا سرٹیفکیٹ یا راز جلد ختم ہوگا۔ باقی دن: {{count}}',
+  'security_severity.high': 'ابھی کارروائی کریں',
+  'security_severity.low': 'غور کریں',
+  'security_severity.medium': 'دیکھنے کے لائق',
   'service_accounts.active': 'فعال',
   'service_accounts.active_switch': 'فعال: اس کی کلیدیں کام کرتی ہیں',
   'service_accounts.col.keys': 'کلیدیں',

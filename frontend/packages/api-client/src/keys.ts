@@ -55,6 +55,7 @@ export const queryKeys = {
     invitations: ['identity', 'invitations'] as const,
     personInvitations: (userId: string) => ['identity', 'invitations', userId] as const,
     mfa: ['identity', 'mfa'] as const,
+    overview: ['identity', 'security-overview'] as const,
     networkRules: ['identity', 'network-rules'] as const,
     siteNetworks: ['identity', 'site-networks'] as const,
     ssoPolicy: ['identity', 'sso-policy'] as const,

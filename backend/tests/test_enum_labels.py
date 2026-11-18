@@ -18,6 +18,8 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles
+    "SecuritySeverity": "security_severity",
     "FieldMode": "field_mode",  # ADR-047: field access per role
     "ErasureState": "people_erasure.state",  # GDPR erasure (D-171, ADR-052)
     "ErasureReason": "people_erasure.reason",

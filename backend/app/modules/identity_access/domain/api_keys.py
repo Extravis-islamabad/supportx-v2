@@ -216,3 +216,46 @@ def address_allowed(address: str | None, allowlist: Sequence[str]) -> bool:
     except ValueError:
         return False
     return any(ip in ipaddress.ip_network(network) for network in allowlist)
+
+
+@dataclass(frozen=True)
+class KeyState:
+    """A key as the key list shows it and the security overview counts it (WP-057 S4d).
+
+    One function for both, so the overview's counts always equal what the list flags (lane B).
+    """
+
+    status: str  # active, expired or revoked
+    gaps: list[str]  # out_of_policy reasons (active keys only)
+    unused: bool  # active and unused for the policy's time
+
+
+def key_state(  # noqa: PLR0913 - the key's dates and addresses, and the policy, explicit
+    *,
+    created_at: datetime,
+    expires_at: datetime | None,
+    revoked_at: datetime | None,
+    last_used_at: datetime | None,
+    ip_allowlist: Sequence[str],
+    policy: KeyPolicy | None,
+    now: datetime,
+) -> KeyState:
+    """Its status and, with a policy, its gaps and whether it is unused (active keys only)."""
+    status = (
+        "revoked"
+        if revoked_at is not None
+        else "expired"
+        if expires_at is not None and expires_at <= now
+        else "active"
+    )
+    if policy is None or status != "active":
+        return KeyState(status, gaps=[], unused=False)
+    return KeyState(
+        status,
+        out_of_policy(
+            created_at=created_at, expires_at=expires_at, ip_allowlist=ip_allowlist, policy=policy
+        ),
+        unused(
+            created_at=created_at, last_used_at=last_used_at, now=now, after=policy.unused_after
+        ),
+    )

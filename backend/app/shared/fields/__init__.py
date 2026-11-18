@@ -6,7 +6,9 @@ and open, `FieldKeysUnavailable` for the 503. The key provider and the data keys
 
 import asyncio
 import hashlib
+from datetime import datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -20,6 +22,7 @@ from app.shared.fields.cache import (
 )
 from app.shared.fields.cipher import Binding, FieldCipher, FieldKeysUnavailable, field_cipher
 from app.shared.fields.purposes import PurposeError, purpose
+from app.shared.files.infra.models import TenantDataKey
 from app.shared.files.keyring import KeyRing, KeyRingError
 
 # One cache per event loop and Valkey (lane B, 2026-11-13): a Valkey client belongs to the loop it
@@ -59,6 +62,7 @@ __all__ = [
     "field_cipher",
     "field_cipher_for",
     "field_keys",
+    "key_ring_since",
     "process_cache",
     "purpose",
 ]
@@ -96,3 +100,18 @@ def field_cipher_for(session: AsyncSession, settings: Settings) -> FieldCipher:
     module needs only `purpose`, `Binding`, `seal` and `open`.
     """
     return field_cipher(session, field_keys(settings), process_cache(settings))
+
+
+async def key_ring_since(session: AsyncSession) -> datetime | None:
+    """When the tenant's current data key was made (the security overview's key age, WP-057 S4d).
+
+    The key that seals new field values and files (`tenant_data_keys`, the newest not retired);
+    None before the first one. A date only, never the key.
+    """
+    found: datetime | None = await session.scalar(
+        select(TenantDataKey.created_at)
+        .where(TenantDataKey.retired_at.is_(None))
+        .order_by(TenantDataKey.created_at.desc(), TenantDataKey.id.desc())
+        .limit(1)
+    )
+    return found

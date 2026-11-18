@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.authorization import require_signed_in
+from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.recent_auth import RecentAuth
 from app.modules.audit import RequestFacts
@@ -74,12 +74,14 @@ class ApiKeyOut(BaseModel):
         policy: rules.KeyPolicy | None = None,
     ) -> "ApiKeyOut":
         """From the row; with the policy, its gaps and whether it is unused (active keys only)."""
-        state: KeyStatus = (
-            "revoked"
-            if row.revoked_at is not None
-            else "expired"
-            if row.expires_at is not None and row.expires_at <= now
-            else "active"
+        state = rules.key_state(
+            created_at=row.created_at,
+            expires_at=row.expires_at,
+            revoked_at=row.revoked_at,
+            last_used_at=row.last_used_at,
+            ip_allowlist=row.ip_allowlist,
+            policy=policy,
+            now=now,
         )
         return cls(
             id=row.id,
@@ -94,26 +96,9 @@ class ApiKeyOut(BaseModel):
             last_used_ip=row.last_used_ip,
             revoked_at=row.revoked_at,
             created_at=row.created_at,
-            status=state,
-            out_of_policy=cast(
-                "list[PolicyGap]",
-                rules.out_of_policy(
-                    created_at=row.created_at,
-                    expires_at=row.expires_at,
-                    ip_allowlist=row.ip_allowlist,
-                    policy=policy,
-                ),
-            )
-            if policy is not None and state == "active"
-            else [],
-            unused=policy is not None
-            and state == "active"
-            and rules.unused(
-                created_at=row.created_at,
-                last_used_at=row.last_used_at,
-                now=now,
-                after=policy.unused_after,
-            ),
+            status=cast("KeyStatus", state.status),
+            out_of_policy=cast("list[PolicyGap]", state.gaps),
+            unused=state.unused,
         )
 
 
@@ -235,7 +220,8 @@ class PolicyImpactOut(BaseModel):
 @router.get("/policy-impact", summary="Keys a proposed key policy would flag")
 async def policy_impact(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query parameters
     session: TenantSession,
-    subject: SignedIn,
+    # The right at the route too, so the route map shows it (lane B, #530); the service checks it.
+    subject: Annotated[Subject, Depends(require_permission(api_keys.MANAGE))],
     key_max_lifetime_days: Annotated[int, Query(ge=1, le=366)],
     keys_require_ip_range: Annotated[bool, Query()] = False,  # noqa: FBT002 - a query flag (FastAPI)
     allow_non_expiring_keys: Annotated[bool, Query()] = False,  # noqa: FBT002 - a query flag (FastAPI)
