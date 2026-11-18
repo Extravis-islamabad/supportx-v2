@@ -3079,6 +3079,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   subscriptions and "unpicked for N minutes" (REQ-NTF-026, REQ-INC-130), resend (REQ-NTF-020 AC2),
   retention 90/180 days, the portal bell (WP-028); call WP-020f's `resolution_notified` when
   `incident.resolved` really reaches the requester (e-mail sent; in-app once the portal exists).
+- Session 2 (the template editor, preview, versions, throttling, group subscriptions, the portal bell) moved to lane A with WP-056 (D-175, 2026-11-18).
 
 ### [x] WP-017 — Tenant branding and domains (lane B; D-027, D-090; ADR-031; built 2026-10-27, 1 session)
 - **Goal:** Each tenant gets its own address and look without a redesign.
