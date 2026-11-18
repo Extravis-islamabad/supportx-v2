@@ -58,6 +58,7 @@ import { MemberAvailability } from '../../../MemberAvailability';
 import { PersonSignInActions } from '../security/PersonSignInActions';
 import { UserAccessPanel } from '../UserAccessDrawer';
 import { CostRatesCard, VIEW_COST_RATES } from './CostRatesCard';
+import { PersonPrivacy } from '../erasures/ErasureRequest';
 import { roleName } from '../roleName';
 import { personFieldKey } from './fields';
 
@@ -210,6 +211,16 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
                     key: 'cost',
                     label: t('people.tab.cost'),
                     children: <CostRatesCard userId={user.id} />,
+                  },
+                ]
+              : []),
+            // GDPR (ADR-052, D-171): the person's erasure, for those who may erase.
+            ...((can('people.erase') || can('audit.manage_holds')) && user.user_type !== 'service'
+              ? [
+                  {
+                    key: 'privacy',
+                    label: t('people.tab.privacy'),
+                    children: <PersonPrivacy user={user} />,
                   },
                 ]
               : []),

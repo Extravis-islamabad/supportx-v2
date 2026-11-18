@@ -2621,6 +2621,12 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       function's owner with a one-row transaction flag that it clears at once.
     - History names the field only (`erasure_redaction`); saved events raised; search follows
       (a computed column); too long refused; passages follow the article screen's rights.
+- [x] Erasure screens (lane B, 2026-11-17, no migration):
+  - Admin › Erasures: the list and the record (Summary, Mentions report with the passage on demand, History; Approve, Reject, Withdraw).
+  - PersonDrawer › Privacy: legal hold, and the request drawer with files to keep.
+  - Two reads: `GET /people/{id}/legal-hold` (the hold or erasure right) and `GET /people/{id}/uploads` (`people.erase`; metadata only, cursor paging, each page audited).
+  - The e2e and the Visual matrix run on a mocked API only. No real erasure runs until Haider says go.
+- [ ] Follow-up: "files to keep" shows the owner type only (`file_owner_type.*`), not the record's number (INC-12). It needs a display-ID answer on the files owner port in every owner module (the coordinator, 2026-11-17).
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
 - [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
   short one-word names flagged, never stored; task mentions say they reach the record's task

@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { PORTAL_URL, passwordOf, SEEDED, USERS } from '../stack';
+import { FAKE, ME, asHoldManager, mockErasures, mockPeopleList } from './erasureMocks';
 import { signIn } from './helpers';
 
 // The daily visual review (product owner, 2026-11-04): every console and portal screen in every
@@ -190,6 +191,68 @@ const ADMIN_SECTIONS: Record<string, string[]> = {
 };
 
 const incident = (r: Records) => (r.incident ? `/incidents/${r.incident}` : undefined);
+
+// ADR-052 erasure screens: answered in the browser (erasureMocks.ts), made-up people only.
+// Nothing is requested, redacted or approved on any server (the coordinator's condition 2).
+const ERASURE_PATH = `/admin/erasures/${FAKE.erasure}`;
+const erasureState = (name: string, testId: string, after?: (page: Page) => Promise<void>) => ({
+  name,
+  open: async (page: Page) => {
+    await mockErasures(page, { reviewed: true });
+    await page.reload();
+    await page.getByTestId(testId).first().waitFor({ timeout: STATE_TIMEOUT });
+    if (after) await after(page);
+    await page.waitForTimeout(400);
+  },
+});
+const privacyTab = async (page: Page, held: boolean, reasonShown = true) => {
+  await mockErasures(page, { exists: false, held, reasonShown });
+  await mockPeopleList(page);
+  await page.reload();
+  const crashes: string[] = [];
+  const crashed = (error: Error) => {
+    crashes.push(error.message);
+  };
+  page.on('pageerror', crashed);
+  const before = page.url();
+  await page.getByText('Noor Hassan').first().click({ timeout: STATE_TIMEOUT });
+  const tab = page.locator('[data-node-key="privacy"] [role="tab"]').first();
+  const opened = await page
+    .locator('.ant-drawer [data-node-key="details"]')
+    .first()
+    .waitFor({ timeout: STATE_TIMEOUT })
+    .then(() => true)
+    .catch(() => false);
+  if (!opened) {
+    // Say what is there instead (#532 run 44120567969).
+    const drawers = await page.locator('.ant-drawer-content').allInnerTexts();
+    const rows = await page.getByText('Noor Hassan').count();
+    // A picture of what the click led to, kept with the run's shots (lane C, #532).
+    const picture = `drawer-failure-${String(Date.now())}.jpg`;
+    await page
+      .screenshot({ path: `${OUT}/${picture}`, fullPage: true, type: 'jpeg', quality: 70 })
+      .catch(() => undefined);
+    throw new Error(
+      `person drawer: no tabs; url ${before} -> ${page.url()}; Noor Hassan matches ${String(rows)};` +
+        ` drawer text: ${drawers.join(' | ').slice(0, 300)}; picture ${picture};` +
+        ` page errors: ${crashes.join(' | ').slice(0, 400)}`,
+    );
+  }
+  if (await tab.isVisible()) {
+    await tab.click({ timeout: STATE_TIMEOUT });
+  } else {
+    // Five tabs in a drawer: antd moves the last ones into its "more" menu (run 44102835733).
+    await page.locator('.ant-drawer .ant-tabs-nav-more').first().click({ timeout: STATE_TIMEOUT });
+    await page
+      .locator('.ant-tabs-dropdown-menu-item[data-menu-id$="privacy"]')
+      .first()
+      .click({ timeout: STATE_TIMEOUT });
+  }
+  page.off('pageerror', crashed);
+  // Later shots of the people list read the real list again.
+  await page.unroute(/\/api\/v1\/users(\?.*)?$/u);
+};
+const requestDrawer = (page: Page) => privacyTab(page, false);
 
 export const SCREENS: Screen[] = [
   { key: 'home', path: '/', app: 'console' },
@@ -506,6 +569,104 @@ export const SCREENS: Screen[] = [
   },
   // A top-layout shot of a setup page (the admin pages are side-only otherwise).
   { key: 'admin-users-all-layouts', path: '/admin/users', app: 'console' },
+  // ADR-052 erasure screens (lane C's condition 8), on the mocked erasure API only.
+  {
+    key: 'erasures',
+    path: '/admin/erasures',
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('mocked', 'erasures-table'),
+  },
+  {
+    key: 'erasure',
+    path: ERASURE_PATH,
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('summary', 'erasure-page'),
+  },
+  {
+    key: 'erasure-mentions',
+    path: ERASURE_PATH,
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('passage', 'erasure-page', async (page) => {
+      await tab('mentions')(page);
+      await click(`erasure-passage-${FAKE.mention}`)(page);
+      await page.getByTestId('erasure-passage-text').waitFor({ timeout: STATE_TIMEOUT });
+    }),
+  },
+  {
+    key: 'erasure-history',
+    path: ERASURE_PATH,
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('history', 'erasure-page', tab('history')),
+  },
+  {
+    key: 'erasure-approve',
+    path: ERASURE_PATH,
+    app: 'console',
+    sideOnly: true,
+    state: erasureState('dialog', 'erasure-page', click('erasure-approve')),
+  },
+  {
+    key: 'person-privacy',
+    path: '/admin/users',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'privacy', open: requestDrawer },
+  },
+  {
+    // Lane C's condition 6: the hold section with a hold placed, then lifting it (the
+    // warning and the reason). The lift is answered by the mock and never sent on.
+    key: 'person-legal-hold',
+    path: '/admin/users',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'lift',
+      open: async (page: Page) => {
+        // The hold manager's view (lane C): the hold as placed with its reason, then lifting it.
+        await asHoldManager(page);
+        try {
+          await privacyTab(page, true);
+          await page.getByTestId('legal-hold-details').first().waitFor({ timeout: STATE_TIMEOUT });
+          await click('legal-hold-switch')(page);
+          await page.getByTestId('legal-hold-reason').first().waitFor({ timeout: STATE_TIMEOUT });
+        } finally {
+          await page.unroute(ME);
+        }
+      },
+    },
+  },
+  {
+    // Someone who may ask for erasure but not place holds: held, by whom and since, never why.
+    key: 'person-legal-hold',
+    path: '/admin/users',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'held',
+      open: async (page: Page) => {
+        await privacyTab(page, true, false);
+        await page.getByTestId('legal-hold-details').first().waitFor({ timeout: STATE_TIMEOUT });
+      },
+    },
+  },
+  {
+    key: 'erasure-request',
+    path: '/admin/users',
+    app: 'console',
+    sideOnly: true,
+    state: {
+      name: 'drawer',
+      open: async (page: Page) => {
+        await requestDrawer(page);
+        await click('person-erasure-ask')(page);
+        await page.getByTestId('erasure-request').first().waitFor({ timeout: STATE_TIMEOUT });
+      },
+    },
+  },
   { key: 'announcements', path: '/announcements', app: 'console' },
   { key: 'dashboards', path: '/dashboards', app: 'console' },
   {

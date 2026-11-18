@@ -769,8 +769,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/people-imports` | `users.manage` | users.manage: all |
 | GET | `/api/v1/people-imports/{import_id}` | `users.manage` | users.manage: all |
 | POST | `/api/v1/people/{user_id}/erasure` | `people.erase` | people.erase: all |
+| GET | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` or `people.erase` | audit.manage_holds: all; people.erase: all |
 | PUT | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` | audit.manage_holds: all |
 | POST | `/api/v1/people/{user_id}/legal-hold/lift` | `audit.manage_holds` | audit.manage_holds: all |
+| GET | `/api/v1/people/{user_id}/uploads` | `people.erase` | people.erase: all |
 | GET | `/api/v1/permissions` | `roles.view` | roles.view: all |
 | GET | `/api/v1/portal/changes` | signed_in | - |
 | POST | `/api/v1/portal/changes` | signed_in | - |
