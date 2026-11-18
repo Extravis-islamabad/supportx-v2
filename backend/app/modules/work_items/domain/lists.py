@@ -33,6 +33,8 @@ class BulkAction(StrEnum):
     DELETE = "delete"
     # WP-058b S5a (0149; REQ-REL-057): a release role's holders (manager, engineer ...).
     ASSIGN_ROLE = "assign_role"
+    # WP-046b S4 (REQ-INC-141 AC2): similar incidents attached as children of a major incident.
+    ATTACH_CHILD = "attach_child"
 
 
 class BulkStatus(StrEnum):

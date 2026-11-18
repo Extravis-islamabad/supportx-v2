@@ -392,7 +392,15 @@ RELEASE_FIELDS: Mapping[str, FilterField] = {
     "stage_overdue": FilterField(_OVERDUE_STAGE, FieldType.BOOLEAN),
     "approval_turnaround_seconds": FilterField(_TURNAROUND, FieldType.INTEGER),
 }
+# WP-046b S4 (REQ-INC-141): the major marker filters lists and views; when it was declared.
+INCIDENT_FIELDS: Mapping[str, FilterField] = {
+    "major": FilterField(WorkItem.major, FieldType.BOOLEAN),
+    "major_declared_at": FilterField(
+        WorkItem.major_declared_at, FieldType.DATETIME, sortable=True, simple=False
+    ),
+}
 _TYPE_FIELDS: Mapping[WorkItemTypeCode, Mapping[str, FilterField]] = {
+    WorkItemTypeCode.INCIDENT: INCIDENT_FIELDS,
     WorkItemTypeCode.PROBLEM: PROBLEM_FIELDS,
     WorkItemTypeCode.CHANGE: CHANGE_FIELDS,
     WorkItemTypeCode.RELEASE: RELEASE_FIELDS,
@@ -666,6 +674,7 @@ CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
 # coordinator, 2026-11-14; administrators hold every permission), grantable, each use audited,
 # with a reason; a tenant's full lock on closed incidents outranks it (lane B).
 EDIT_CLOSED = "edit_closed"
+DECLARE_MAJOR = "declare_major"
 UNDO_MERGE = "undo_merge"
 INCIDENT_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec(
@@ -676,6 +685,14 @@ INCIDENT_SPECS: tuple[PermissionSpec, ...] = (
     ),
     PermissionSpec(
         f"incidents.{EDIT_CLOSED}",
+        "incident",
+        ("all", "site", "group"),
+        defaults=((SERVICE_DESK_MANAGER, "all"),),
+    ),
+    # WP-046b S4 (REQ-INC-141, D-043): declaring an incident major and ending it, the same holders
+    # (coordinator, 2026-11-14); a reason each time, audited, no recent sign-in (coordinator).
+    PermissionSpec(
+        f"incidents.{DECLARE_MAJOR}",
         "incident",
         ("all", "site", "group"),
         defaults=((SERVICE_DESK_MANAGER, "all"),),

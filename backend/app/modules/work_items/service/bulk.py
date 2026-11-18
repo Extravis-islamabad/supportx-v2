@@ -67,6 +67,8 @@ _PERMISSION = {
     BulkAction.DELETE: "delete",
     # A release role's holders: the record's edit right, checked again on each one (set_role).
     BulkAction.ASSIGN_ROLE: "edit",
+    # Each child: edit on it and on the parent, checked again by add_child (WP-046b S4).
+    BulkAction.ATTACH_CHILD: "edit",
 }
 _KEYS = {
     BulkAction.EDIT: None,  # any field the edit form has; the update checks each one
@@ -80,6 +82,7 @@ _KEYS = {
     BulkAction.CANCEL: {"reason_text"},
     BulkAction.DELETE: set(),
     BulkAction.ASSIGN_ROLE: {"role", "user_ids", "group_ids"},
+    BulkAction.ATTACH_CHILD: {"parent_id"},
 }
 # The staged lists' own actions (REQ-CHG-101, REQ-REL-057): other types cancel through their
 # life cycle, and only a type with record roles has role holders to set.
@@ -101,6 +104,8 @@ def _check_changes(action: BulkAction, changes: dict[str, Any]) -> dict[str, Any
     if action == BulkAction.EDIT and not changes:
         problems.append(("changes", "required"))  # AC2: only what the user changed, and something
     if action == BulkAction.LINK_PROBLEM and not changes.get("problem_id"):
+        problems.append(("changes", "required"))
+    if action == BulkAction.ATTACH_CHILD and not changes.get("parent_id"):
         problems.append(("changes", "required"))
     if action == BulkAction.CANCEL and not str(changes.get("reason_text") or "").strip():
         problems.append(("changes", "required"))  # a cancel says why, for every change
@@ -396,7 +401,7 @@ def _skipped(record_id: uuid.UUID, display_id: str | None, refused: AppError) ->
     }
 
 
-async def _apply(  # noqa: C901 - one case per bulk action, flat
+async def _apply(  # noqa: C901, PLR0912 - one case per bulk action, flat
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -456,6 +461,21 @@ async def _apply(  # noqa: C901 - one case per bulk action, flat
                 record_id,
                 uuid.UUID(str(changes["problem_id"])),
                 move=bool(changes.get("move")),
+                source=source,
+            )
+        case BulkAction.ATTACH_CHILD:
+            # Here, not at the top: incident_children starts bulk jobs itself (resolve children).
+            from app.modules.work_items.service import incident_children  # noqa: PLC0415
+
+            # The child as the person first: one they cannot see is refused exactly as one that
+            # does not exist (lane C), before add_child's own field-level checks.
+            await items.record_for_action(session, subject, wtype, "edit", record_id)
+            await incident_children.add_child(
+                session,
+                subject,
+                wtype,
+                uuid.UUID(str(changes["parent_id"])),
+                record_id,
                 source=source,
             )
         case BulkAction.UNLINK_PROBLEM:

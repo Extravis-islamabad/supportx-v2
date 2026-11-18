@@ -845,6 +845,9 @@
   "incidents.create": [
    "all"
   ],
+  "incidents.declare_major": [
+   "all"
+  ],
   "incidents.delete": [
    "all"
   ],
@@ -1187,6 +1190,9 @@
    "all"
   ],
   "incidents.create": [
+   "all"
+  ],
+  "incidents.declare_major": [
    "all"
   ],
   "incidents.delete": [

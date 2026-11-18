@@ -117,6 +117,8 @@ export const en = {
   'notification_event.incident.created': 'New incident: acknowledgement',
   'notification_event.incident.created_in_group': 'New incident in a group',
   'notification_event.incident.follower_added': 'Added as a follower',
+  'notification_event.incident.major_declared': 'Major incident declared',
+  'notification_event.incident.major_ended': 'Major incident ended',
   'notification_event.incident.mentioned': 'Mentioned',
   'notification_event.incident.private_note': 'Private note',
   'notification_event.incident.public_note': 'Public note',
@@ -210,6 +212,7 @@ export const en = {
   'notification_recipient.linked_incident_technicians': 'Technicians of the linked incidents',
   'notification_recipient.loan_creator': 'The person who made the loan',
   'notification_recipient.mail_admins': 'People who manage mailboxes',
+  'notification_recipient.major_team': 'Major incident team',
   'notification_recipient.mentioned': 'People mentioned',
   'notification_recipient.new_follower': 'The new follower',
   'notification_recipient.new_investigator': 'The investigator added',
@@ -499,6 +502,18 @@ export const en = {
     'You now follow {{ record.display_id }}: {{ record.title }}',
   'notification_template.incident.follower_added.subject':
     'You now follow {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.major_declared.body':
+    'Hello {{ recipient.name }},\n\nIncident {{ record.display_id }} "{{ record.title }}" was declared a major incident. You are on the major incident team: {{ record.link }}',
+  'notification_template.incident.major_declared.in_app':
+    '{{ record.display_id }} was declared a major incident: {{ record.title }}',
+  'notification_template.incident.major_declared.subject':
+    'Major incident: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.major_ended.body':
+    'Hello {{ recipient.name }},\n\nIncident {{ record.display_id }} "{{ record.title }}" is no longer a major incident: {{ record.link }}',
+  'notification_template.incident.major_ended.in_app':
+    '{{ record.display_id }} is no longer a major incident: {{ record.title }}',
+  'notification_template.incident.major_ended.subject':
+    'Major incident ended: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.mentioned.body':
     'Hello {{ recipient.name }},\n\n{{ conversation.author }} mentioned you on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
   'notification_template.incident.mentioned.in_app':
