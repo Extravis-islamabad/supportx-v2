@@ -22,7 +22,7 @@ blanks it) and these rows are not signed (WP-064 signs work items only). The dow
 function; no data step.
 
 Revision ID: 0176
-Revises: 0173 (its base while building; re-pointed onto main's head at its queue turn)
+Revises: 0173 (main's head at its queue turn, after #524)
 Created: 2026-11-17
 """
 
@@ -31,7 +31,7 @@ from collections.abc import Sequence
 from migrations.helpers import create_definer_function, drop_definer_function
 
 revision: str = "0176"
-down_revision: str | None = "0173"  # its base while building; re-pointed at its queue turn
+down_revision: str | None = "0173"  # main's head at its queue turn (after #524)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
