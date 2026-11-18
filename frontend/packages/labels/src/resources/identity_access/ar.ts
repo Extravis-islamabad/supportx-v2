@@ -824,6 +824,9 @@ export const ar: LabelResource = {
   'permission.incidents.close.description': 'إغلاق الحوادث المحلولة.',
   'permission.incidents.create': 'تسجيل الحوادث',
   'permission.incidents.create.description': 'تسجيل حوادث جديدة لأي مقدم طلب.',
+  'permission.incidents.declare_major': 'إعلان الحوادث الكبرى',
+  'permission.incidents.declare_major.description':
+    'إعلان حادثة كبرى أو إنهاء ذلك مع ذكر السبب. يُبلَّغ فريقها.',
   'permission.incidents.delete': 'حذف الحوادث',
   'permission.incidents.delete.description': 'نقل الحوادث إلى سلة المحذوفات واستعادتها.',
   'permission.incidents.edit': 'العمل على الحوادث',

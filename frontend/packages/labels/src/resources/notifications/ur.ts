@@ -120,6 +120,8 @@ export const ur: LabelResource = {
   'notification_event.incident.created': 'نیا واقعہ: وصولی کی تصدیق',
   'notification_event.incident.created_in_group': 'گروپ میں نیا واقعہ',
   'notification_event.incident.follower_added': 'فالوور کے طور پر شامل',
+  'notification_event.incident.major_declared': 'بڑا واقعہ قرار دیا گیا',
+  'notification_event.incident.major_ended': 'بڑا واقعہ ختم ہوا',
   'notification_event.incident.mentioned': 'ذکر',
   'notification_event.incident.private_note': 'نجی نوٹ',
   'notification_event.incident.public_note': 'عوامی نوٹ',
@@ -216,6 +218,7 @@ export const ur: LabelResource = {
   'notification_recipient.linked_incident_technicians': 'منسلک واقعات کے تکنیکی ماہرین',
   'notification_recipient.loan_creator': 'جس نے ادھار دیا',
   'notification_recipient.mail_admins': 'میل باکس سنبھالنے والے افراد',
+  'notification_recipient.major_team': 'بڑے واقعات کی ٹیم',
   'notification_recipient.mentioned': 'جن کا ذکر ہوا',
   'notification_recipient.new_follower': 'نیا فالوور',
   'notification_recipient.new_investigator': 'شامل کیا گیا تفتیش کار',
@@ -504,6 +507,18 @@ export const ur: LabelResource = {
     'آپ اب {{ record.display_id }} کو فالو کرتے ہیں: {{ record.title }}',
   'notification_template.incident.follower_added.subject':
     'آپ اب {{ record.display_id }} کو فالو کرتے ہیں: {{ record.title }}',
+  'notification_template.incident.major_declared.body':
+    'السلام علیکم {{ recipient.name }}،\n\nواقعہ {{ record.display_id }} "{{ record.title }}" بڑا واقعہ قرار دیا گیا۔ آپ بڑے واقعات کی ٹیم میں ہیں: {{ record.link }}',
+  'notification_template.incident.major_declared.in_app':
+    '{{ record.display_id }} کو بڑا واقعہ قرار دیا گیا: {{ record.title }}',
+  'notification_template.incident.major_declared.subject':
+    'بڑا واقعہ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.major_ended.body':
+    'السلام علیکم {{ recipient.name }}،\n\nواقعہ {{ record.display_id }} "{{ record.title }}" اب بڑا واقعہ نہیں رہا: {{ record.link }}',
+  'notification_template.incident.major_ended.in_app':
+    '{{ record.display_id }} اب بڑا واقعہ نہیں رہا: {{ record.title }}',
+  'notification_template.incident.major_ended.subject':
+    'بڑا واقعہ ختم: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.mentioned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر آپ کا ذکر کیا:\n\n{{ conversation.excerpt }}',
   'notification_template.incident.mentioned.in_app':

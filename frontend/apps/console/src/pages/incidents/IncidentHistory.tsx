@@ -1,9 +1,9 @@
 import { Button, Flex, Segmented, Skeleton, Tag, Timeline, Typography } from 'antd';
 import { SafetyCertificateOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
-import { EmptyText, useDateTime, useLabel } from '@supportx/ui';
+import { EmptyText, useAppearance, useDateTime, useLabel } from '@supportx/ui';
 
 import { useHistoryWords, type HistoryActors } from './historyWords';
 
@@ -12,18 +12,42 @@ import { useHistoryWords, type HistoryActors } from './historyWords';
  * where, what changed from what to what, why, and which automation did it. Values are labels,
  * names and local times, never raw codes or IDs (rule d).
  */
+// Pages of history a printout loads by itself before saying the rest are left out.
+const PRINT_PAGES = 20;
+
 export function IncidentHistory({
   id,
   base = 'incidents',
+  printing = false,
+  onLoadingChange,
 }: {
   id: string;
   /** The record's type prefix: a problem's history uses the same view (WP-044c). */
   base?: 'incidents' | 'problems' | 'changes';
+  /**
+   * The printable page (WP-046b S4; lane C): every page loaded by itself, up to PRINT_PAGES,
+   * no buttons; when more remain the page says so instead of silently leaving them out.
+   */
+  printing?: boolean;
+  /** The printable page hears whether pages are still loading, so Print waits (lane C). */
+  onLoadingChange?: (loading: boolean) => void;
 }) {
   const t = useLabel();
   const dates = useDateTime();
   const [actors, setActors] = useState<HistoryActors>('all');
   const { history, entries, sentences, whyText } = useHistoryWords(id, actors, base);
+  const pages = history.data?.pages.length ?? 0;
+  useEffect(() => {
+    if (printing && history.hasNextPage && !history.isFetchingNextPage && pages < PRINT_PAGES) {
+      void history.fetchNextPage();
+    }
+  }, [printing, history, pages]);
+  const stillLoading =
+    history.isPending || history.isFetchingNextPage || (history.hasNextPage && pages < PRINT_PAGES);
+  useEffect(() => {
+    if (printing) onLoadingChange?.(stillLoading);
+  }, [printing, stillLoading, onLoadingChange]);
+  const { intlLocale } = useAppearance();
   return (
     <Flex vertical gap={8} data-testid="inc-history">
       <Segmented<'all' | 'people' | 'automation'>
@@ -105,7 +129,14 @@ export function IncidentHistory({
           }))}
         />
       )}
-      {history.hasNextPage && (
+      {printing && history.hasNextPage && pages >= PRINT_PAGES && (
+        <Typography.Text type="secondary" data-testid="inc-history-cut">
+          {t('incidents.print.history_cut', {
+            n: new Intl.NumberFormat(intlLocale).format(entries.length),
+          })}
+        </Typography.Text>
+      )}
+      {!printing && history.hasNextPage && (
         <Button
           onClick={() => void history.fetchNextPage()}
           loading={history.isFetchingNextPage}

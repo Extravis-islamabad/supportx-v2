@@ -6643,6 +6643,28 @@
         "type": "object"
       }
     },
+    "work_items.major.changed": {
+      "1": {
+        "description": "An incident was declared major, or its major status ended (WP-046b S4, REQ-INC-141).\n\nIDs and the flag only: never the reason (lane B). The notification engine tells the major\nincident team; lists and the record show the marker live.",
+        "properties": {
+          "major": {
+            "title": "Major",
+            "type": "boolean"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "major"
+        ],
+        "title": "WorkItemMajorChanged",
+        "type": "object"
+      }
+    },
     "work_items.part.changed": {
       "1": {
         "description": "A task, worklog or link of a record was added, changed or removed (WP-020e).\n\nThe record's screens refresh that part; IDs only, never the part's content.",

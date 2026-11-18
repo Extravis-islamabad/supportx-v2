@@ -825,6 +825,9 @@ export const en = {
   'permission.incidents.close.description': 'Close resolved incidents.',
   'permission.incidents.create': 'Log incidents',
   'permission.incidents.create.description': 'Log new incidents for any requester.',
+  'permission.incidents.declare_major': 'Declare major incidents',
+  'permission.incidents.declare_major.description':
+    'Declare an incident major, or end that, with a reason. Its team is told.',
   'permission.incidents.delete': 'Delete incidents',
   'permission.incidents.delete.description': 'Move incidents to the trash and restore them.',
   'permission.incidents.edit': 'Work on incidents',

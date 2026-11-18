@@ -5335,15 +5335,22 @@ async def set_fields(  # noqa: PLR0913 - the record, its version, the change and
     expected_version: int,
     source: Source,
     reason: str | None = None,
+    unrecorded: frozenset[str] = frozenset(),
 ) -> WorkItem:
     """Columns a service sets after its own checks (a known error marked; WP-044b).
 
-    If-Match, field history with the reason, and the usual update event.
+    If-Match, field history with the reason, and the usual update event. `unrecorded` columns
+    are named in history without their values: free text that may be personal data, kept on the
+    record and in the audit entry only (a major incident's reason, lane B).
     """
     audience_before = _audience(record)
     before = {name: getattr(record, name) for name in columns}
     updated = await _update(session, record, expected_version, columns)
-    changes = [Change(n, _json(before[n]), _json(v)) for n, v in columns.items() if before[n] != v]
+    changes = [
+        Change(n, None, None) if n in unrecorded else Change(n, _json(before[n]), _json(v))
+        for n, v in columns.items()
+        if before[n] != v
+    ]
     await record_changes(
         session,
         record_type=RECORD_TYPE,

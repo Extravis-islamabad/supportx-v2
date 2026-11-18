@@ -253,6 +253,21 @@ class WorkItemFollowerRemoved(_FollowerEvent):
     schema_version: ClassVar[int] = 1
 
 
+class WorkItemMajorChanged(DomainEvent):
+    """An incident was declared major, or its major status ended (WP-046b S4, REQ-INC-141).
+
+    IDs and the flag only: never the reason (lane B). The notification engine tells the major
+    incident team; lists and the record show the marker live.
+    """
+
+    event_type: ClassVar[str] = "work_items.major.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    major: bool
+
+
 class WorkItemWorkflowNotice(DomainEvent):
     """A workflow's notify node tells people about the record (WP-048b S2, REQ-WF-022).
 
@@ -613,6 +628,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemWorkflowNotice,
+    WorkItemMajorChanged,
     WorkItemUpdated,
     WorkItemStatusChanged,
     WorkItemStageChanged,

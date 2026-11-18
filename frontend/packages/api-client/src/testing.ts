@@ -75,6 +75,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['config.service_desk', 'all'],
   ['config.organisation', 'all'],
   ['config.assets', 'all'], // WP-049a: the asset catalogue
+  ['incidents.declare_major', 'all'], // WP-046b S4: admins and service desk managers
   ['assets.view_financials', 'all'], // WP-049b s2: costs, depreciation, book value
   ['vendors.create', 'all'],
   ['vendors.manage', 'all'],
@@ -501,6 +502,10 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     closed_at: null,
     last_reopened_at: null,
     reopen_count: 0,
+    major: false,
+    major_declared_at: null,
+    major_declared_by: null,
+    major_reason: null,
     reassignment_count: 0,
     resolution: null,
     closure_code: null,

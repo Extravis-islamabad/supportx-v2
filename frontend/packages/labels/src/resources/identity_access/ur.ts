@@ -824,6 +824,9 @@ export const ur: LabelResource = {
   'permission.incidents.close.description': 'حل شدہ واقعات بند کریں۔',
   'permission.incidents.create': 'واقعات درج کریں',
   'permission.incidents.create.description': 'کسی بھی درخواست گزار کے لیے نئے واقعات درج کریں۔',
+  'permission.incidents.declare_major': 'بڑے واقعات قرار دینا',
+  'permission.incidents.declare_major.description':
+    'کسی واقعے کو وجہ کے ساتھ بڑا قرار دینا یا یہ ختم کرنا۔ اس کی ٹیم کو بتایا جاتا ہے۔',
   'permission.incidents.delete': 'واقعات حذف کریں',
   'permission.incidents.delete.description': 'واقعات کو ردی کی ٹوکری میں ڈالیں اور بحال کریں۔',
   'permission.incidents.edit': 'واقعات پر کام کریں',
