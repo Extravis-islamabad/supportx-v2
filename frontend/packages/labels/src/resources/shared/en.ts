@@ -807,6 +807,10 @@ export const en = {
     'When changes must not happen, and when they should: freezes and maintenance windows, for everyone or for some sites and groups.',
   'setup.page.change-windows.keywords':
     'freeze, change freeze, maintenance window, blackout, change calendar',
+  'setup.page.erasures.description':
+    "Ask for, approve and follow a person's erasure (GDPR), with the report of where they are named.",
+  'setup.page.erasures.keywords':
+    'erasure, GDPR, privacy, right to be forgotten, personal data, legal hold',
   'setup.page.files.description': 'Upload limits, allowed file types and malware scanning.',
   'setup.page.files.keywords':
     'files, attachments, uploads, size, storage, malware, virus, scanning',
