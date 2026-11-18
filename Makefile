@@ -254,10 +254,17 @@ audit-frontend: not-shipped-check
 # graph (what the frontend bundle is built from) must not contain it; the images' SBOM check is
 # in .github/workflows/cluster.yml.
 not-shipped-check: ## picomatch (D-174) absent from the production dependency graph
-	@if $(FRONTEND) pnpm list -r --prod --depth Infinity --json | grep -q '"picomatch"'; then \
+	@# Fails closed (lane C, #536): an error, an empty graph or bad JSON fail, never pass.
+	@graph=$$($(FRONTEND) pnpm list -r --prod --depth Infinity --json) || \
+		{ echo "D-174: pnpm list failed"; exit 1; }; \
+	echo "$$graph" | jq -e 'type == "array" and length > 0' >/dev/null || \
+		{ echo "D-174: the production dependency graph is empty or not JSON"; exit 1; }; \
+	found=$$(echo "$$graph" | jq '[.. | objects | to_entries[] | select(.key == "picomatch")] | length') || \
+		{ echo "D-174: could not read the production dependency graph"; exit 1; }; \
+	if [ "$$found" != "0" ]; then \
 		echo "D-174: picomatch is in the production dependency graph; its accepted advisory no longer holds"; \
-		exit 1; fi
-	@echo "D-174: picomatch is not in the production dependency graph"
+		exit 1; fi; \
+	echo "D-174: picomatch is not in the production dependency graph"
 
 # The repo's own rules only (.semgrep.yml), never the online registry, so it runs air-gapped; no
 # metrics, no version check. Files tracked by git, less .semgrepignore. In a git worktree the

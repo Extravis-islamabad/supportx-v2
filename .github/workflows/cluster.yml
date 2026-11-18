@@ -101,11 +101,23 @@ jobs:
       - name: D-174 - picomatch is in no shipped image
         # Its accepted advisory (GHSA-fc5q-39xc-vjpf) holds only while nothing shipped uses it.
         if: ${{ steps.changes.outputs.run == 'true' }}
+        # Fails closed (lane C, #536): every image's SBOM must exist, parse and list components.
+        shell: bash
         run: |
+          set -euo pipefail
           found=0
-          for sbom in sbom/*.cdx.json; do
-            if jq -e '[.components[]? | select(.name == "picomatch")] | length > 0' "$sbom" >/dev/null; then
-              echo "::error::D-174: picomatch is in $sbom; its accepted advisory no longer holds"
+          for image in supportx-backend supportx-worker supportx-web; do
+            sbom="sbom/$image.cdx.json"
+            if [ ! -s "$sbom" ]; then
+              echo "::error::D-174: no SBOM for $image ($sbom)"
+              exit 1
+            fi
+            count=$(jq '.components | if type == "array" and length > 0 then [.[] | select(.name == "picomatch")] | length else error("no components") end' "$sbom") || {
+              echo "::error::D-174: $sbom has no readable components"
+              exit 1
+            }
+            if [ "$count" != "0" ]; then
+              echo "::error::D-174: picomatch is in $image; its accepted advisory no longer holds"
               found=1
             fi
           done
