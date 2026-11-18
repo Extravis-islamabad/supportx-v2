@@ -91,4 +91,5 @@ async def test_no_query_value_reaches_a_span(
             assert "national_id" not in str(value)
     server = [s for s in spans if (s.attributes or {}).get("url.query")]
     assert server
-    assert server[0].attributes["url.query"] == "filter=REDACTED&limit=REDACTED"  # type: ignore[index]
+    attrs = server[0].attributes or {}
+    assert attrs.get("url.query") == "filter=REDACTED&limit=REDACTED"
