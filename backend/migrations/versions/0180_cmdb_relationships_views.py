@@ -19,7 +19,7 @@ own relationship type or rule (rule 5h), per tenant with app.tenant_id set; buil
 made again on first use.
 
 Revision ID: 0180
-Revises: 0176 (main's head when written; re-pointed onto main's head at its queue turn)
+Revises: 0175 (main's head when written; re-pointed onto main's head at its queue turn)
 Created: 2026-11-18
 """
 
@@ -33,7 +33,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0180"
-down_revision: str | None = "0176"  # main's head when written; re-pointed at the queue turn
+down_revision: str | None = "0175"  # main's head when written; re-pointed at the queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

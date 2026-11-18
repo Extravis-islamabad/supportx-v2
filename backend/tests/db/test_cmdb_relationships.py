@@ -464,10 +464,11 @@ async def test_relationship_events_reach_both_ends(world: World) -> None:
 
 async def test_history_never_names_a_ci_the_reader_cannot_see(world: World) -> None:
     a = world.a
-    mine = await _made(world, a, "Seen app", "application", site_id=str(a.s1))
-    theirs = await _made(world, a, "Unseen db", "database", site_id=str(a.s2))
+    # requester2 is a member of site S2 (the incident world), so S2 is the site they see.
+    mine = await _made(world, a, "Seen app", "application", site_id=str(a.s2))
+    theirs = await _made(world, a, "Unseen db", "database", site_id=str(a.s1))
     assert (await _link(world, a, mine, "depends_on", [theirs])).status_code == 201
-    await _given(world, a, a.requester2, "Site one viewer", [("cmdb.view", "site")])
+    await _given(world, a, a.requester2, "Site two viewer", [("cmdb.view", "site")])
     seen = await world.call("GET", f"{BASE}/cis/{mine['id']}/history", a, a.requester2)
     assert seen.status_code == 200, seen.text
     (change,) = seen.json()["items"][0]["changes"]
@@ -513,12 +514,13 @@ async def test_neighbours_follow_depth_and_type_filters(world: World) -> None:
 async def test_a_restricted_neighbour_is_a_bare_placeholder(world: World) -> None:
     """Lane C's condition 2: an opaque key, no fields; its own neighbours are never shown."""
     a = world.a
-    seen = await _made(world, a, "Front app", "application", site_id=str(a.s1))
-    hidden = await _made(world, a, "Secret db", "database", site_id=str(a.s2))
-    beyond = await _made(world, a, "Beyond host", site_id=str(a.s1))
+    # requester2 is a member of site S2 (the incident world), so S2 is the site they see.
+    seen = await _made(world, a, "Front app", "application", site_id=str(a.s2))
+    hidden = await _made(world, a, "Secret db", "database", site_id=str(a.s1))
+    beyond = await _made(world, a, "Beyond host", site_id=str(a.s2))
     assert (await _link(world, a, seen, "depends_on", [hidden])).status_code == 201
     assert (await _link(world, a, hidden, "runs_on", [beyond])).status_code == 201
-    await _given(world, a, a.requester2, "Site one map viewer", [("cmdb.view", "site")])
+    await _given(world, a, a.requester2, "Site two map viewer", [("cmdb.view", "site")])
     found = await _neighbours(world, a, seen, a.requester2, depth=3)
     assert found.status_code == 200, found.text
     body = found.json()
