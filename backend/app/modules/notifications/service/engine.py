@@ -91,6 +91,7 @@ from app.shared.notifications.ports import (
     NotificationChannel,
     NotificationEvent,
     RecipientLinks,
+    RecipientVariables,
     RecordAccess,
     RecordContext,
     RecordSource,
@@ -228,13 +229,16 @@ def compose(  # noqa: PLR0913 - the event, the record, the person and their read
     origin: Callable[[RecordAccess], str],
     offered: frozenset[str] = frozenset(),
     email_links: Mapping[str, str] | None = None,
+    own: Mapping[str, VariableValue] | None = None,
 ) -> Message:
     """The message in the person's language, from the content they may see (REQ-NTF-010).
 
     `email_links`: where the recipient's own one-time links go in the e-mail (markers: the mail
     sender makes the links at send, D-132), never in the in-app text; elsewhere a placeholder.
+    `own`: this recipient's own values over the context's (the source's RecipientVariables).
     """
     chosen = context.variables if access is RecordAccess.FULL else context.public_variables
+    chosen = {**chosen, **(own or {})}
     # Every offered variable exists, empty when this reader may not see it or it has no value.
     values: dict[str, str | None] = dict.fromkeys(offered)
     values.update({name: localise(value, language, zone) for name, value in chosen.items()})
@@ -599,6 +603,19 @@ async def _emailed_before(session: AsyncSession, target: Target) -> bool:
     return found is not None
 
 
+async def _recipient_variables(
+    session: AsyncSession,
+    source: RecordSource,
+    context: RecordContext,
+    user_id: uuid.UUID,
+    access: RecordAccess,
+) -> Mapping[str, VariableValue]:
+    """The values this person reads differently, if the source has any."""
+    if not isinstance(source, RecipientVariables):
+        return {}
+    return await source.recipient_variables(session, context, user_id, access)
+
+
 async def _recipient_links(
     session: AsyncSession, source: RecordSource, envelope: EventEnvelope, user_id: uuid.UUID
 ) -> Mapping[str, LinkRequest]:
@@ -716,6 +733,7 @@ async def notify(  # noqa: C901, PLR0913, PLR0915 - the pipeline of one event, i
                 zone=_zone(person.time_zone or defaults.time_zone),
                 origin=await origin_for(language),
                 offered=frozenset(v.name for v in (*source.variables, *event.variables)),
+                own=await _recipient_variables(session, source, context, recipient.user_id, access),
             )
             message = message or writer()
             if channel is NotificationChannel.IN_APP:

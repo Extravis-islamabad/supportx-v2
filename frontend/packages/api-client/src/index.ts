@@ -1528,6 +1528,27 @@ export {
 } from './keptDrafts';
 export { useClosedEditLock } from './incidentSettings';
 export {
+  followAlias,
+  useChildChange,
+  useConvertPreview,
+  useConvertRecord,
+  useMergeIncident,
+  useMergePreview,
+  useMovedLinks,
+  useAliasLookup,
+  useResolvableChildren,
+  useResolveChildren,
+  useUndoMerge,
+  type ConvertInput,
+  type ConvertPreview,
+  type ConvertibleKind,
+  type Converted,
+  type IncidentMergePreview,
+  type IncidentMerged,
+  type RecordAlias,
+  type ResolvableChild,
+} from './incidentMerge';
+export {
   ERASURE_REASONS,
   ERASURE_STATES,
   OPEN_ERASURE_STATES,

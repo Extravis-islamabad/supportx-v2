@@ -54,6 +54,7 @@ import { useTakeAction } from '../incidents/take';
 import { IncidentSla } from '../incidents/IncidentSla';
 import { itemName } from './items';
 import { RecordAssets } from '../incidents/RecordAssets';
+import { ConvertDialog, MovedBanner } from '../incidents/MergeConvert';
 
 const NO_TYPING: Typing = {};
 
@@ -148,6 +149,20 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   const take = useTakeAction(r, op('take'), takeRequest);
   const reasonText = useActionReason();
   const [assigning, setAssigning] = useState(false);
+  const [converting, setConverting] = useState(false); // WP-046b S2 (REQ-INC-089)
+  // Convert to an incident: open requests, edit here and create there (the server checks).
+  const convertAction: RecordAction | null =
+    op('edit')?.allowed === true && r.status_category === 'open' && can('incidents.create')
+      ? {
+          key: 'convert',
+          label: t('incidents.convert.action_to_incident'),
+          allowed: true,
+          testId: 'sr-op-convert',
+          onClick: () => {
+            setConverting(true);
+          },
+        }
+      : null;
   const assignState = op('assign');
   const assignAction: RecordAction | null =
     assignState === undefined
@@ -180,15 +195,18 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
       <RecordPage
         testId="sr-record"
         alerts={
-          readyToFulfil ? (
-            <Alert
-              type="warning"
-              showIcon
-              role="status"
-              message={t('requests.ready_to_fulfil')}
-              data-testid="sr-ready-to-fulfil"
-            />
-          ) : undefined
+          <>
+            {readyToFulfil && (
+              <Alert
+                type="warning"
+                showIcon
+                role="status"
+                message={t('requests.ready_to_fulfil')}
+                data-testid="sr-ready-to-fulfil"
+              />
+            )}
+            <MovedBanner item={r} kind="service-requests" />
+          </>
         }
         header={
           <RecordHeader
@@ -270,6 +288,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   ],
               [assignAction, take.action].filter((a): a is RecordAction => a !== null),
               status.actions,
+              convertAction === null ? [] : [convertAction],
             )}
           />
         }
@@ -447,6 +466,14 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
           setAssigning(false);
         }}
         refresh={reload}
+      />
+      <ConvertDialog
+        kind="service-requests"
+        record={r}
+        open={converting}
+        onClose={() => {
+          setConverting(false);
+        }}
       />
     </>
   );

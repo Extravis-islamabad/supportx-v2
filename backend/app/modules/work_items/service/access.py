@@ -666,6 +666,7 @@ CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
 # coordinator, 2026-11-14; administrators hold every permission), grantable, each use audited,
 # with a reason; a tenant's full lock on closed incidents outranks it (lane B).
 EDIT_CLOSED = "edit_closed"
+UNDO_MERGE = "undo_merge"
 INCIDENT_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec(
         "incidents.approve",
@@ -675,6 +676,14 @@ INCIDENT_SPECS: tuple[PermissionSpec, ...] = (
     ),
     PermissionSpec(
         f"incidents.{EDIT_CLOSED}",
+        "incident",
+        ("all", "site", "group"),
+        defaults=((SERVICE_DESK_MANAGER, "all"),),
+    ),
+    # WP-046b S2 (REQ-INC-150): undoing a merge, the same holders (coordinator, 2026-11-14);
+    # the route also asks for a recent sign-in, each use audited (lane B).
+    PermissionSpec(
+        f"incidents.{UNDO_MERGE}",
         "incident",
         ("all", "site", "group"),
         defaults=((SERVICE_DESK_MANAGER, "all"),),

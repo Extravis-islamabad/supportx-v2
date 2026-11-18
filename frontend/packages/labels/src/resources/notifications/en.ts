@@ -818,6 +818,7 @@ export const en = {
     '{{ task.title }} starts at {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'Starts soon: {{ task.title }} ({{ record.display_id }})',
+  'notification_value.unnamed_requester': 'the requester',
   'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
   'notification_variable.approval.comment': 'Approval › Comment',

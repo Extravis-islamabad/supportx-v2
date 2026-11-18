@@ -1620,7 +1620,7 @@ WP-056, -099 and -135 to WP-059b (lane C builds the AI; lane A adds hooks), -103
 -149 to its own mobile WP; projects relations (087) later. New rights (edit closed, undo merge,
 declare major) default to the tenant admin and service desk manager, grantable, each use audited.
 
-- [~] **S1, approvals and edit controls (0169; lane B blocks; lane C reads the UI):**
+- [x] **S1, approvals and edit controls (0169; #523 merged 2026-11-16):**
   - REQ-INC-083: incidents get the approval engine's routes and an ad-hoc "Ask for approval"
     with a rule (any one, all, a majority); one rejection under "all" rejects; the approval
     status records the outcome, the status never moves; segregation of duties is the engine's;
@@ -1637,6 +1637,22 @@ declare major) default to the tenant admin and service desk manager, grantable, 
     reassigned, within the tenant's minutes), confirmed or changed by the technician.
   - Console: Approvals tab and the ask dialog, the "Why" box on closed or named fields, the
     closure settings (reason fields, first-contact minutes, the lock), the first-contact flag.
+- [~] **S2, links, merges and conversions (0172; lane B blocks; lane C reads the UI):**
+  - REQ-INC-086: parent and child incidents, one level, no loops (one parent per child, a parent
+    is no child, a child has no children); edit on both; a link never widens access (an unseen
+    side is a hidden line).
+  - REQ-INC-088, -150: merge with a preview that counts who would newly see the duplicate (staff
+    by their own access, the survivor's requesters) and asks to confirm; children move; the
+    duplicate's requester follows only within the same department; its conversation shows on the
+    survivor by reference, each entry under its own visibility (the portal: public ones, other
+    requesters nameless). Undo needs `incidents.undo_merge` (service desk managers; admins hold
+    all) and a recent sign-in, audited with both IDs; it is exact or refused.
+  - REQ-INC-089: incident to service request and back, never in place: a new record through the
+    create path, the old one `converted` (history still verifies); fields carried only with the
+    same key and type and no field-access rule, sealed ones sealed again for the new record;
+    pending approvals withdrawn; old numbers lead to the new record for readers only (404).
+  - REQ-INC-092: a resolved parent resolves the chosen children with its resolution (a bulk job).
+  - Seed version 6 tops up the `converted` status for older tenants.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

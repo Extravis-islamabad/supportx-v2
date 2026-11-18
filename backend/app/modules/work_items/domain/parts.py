@@ -68,6 +68,10 @@ class LinkKind(StrEnum):
     IN_RELEASE = "in_release"
     # A child change or a release -> the change it is part of (WP-045d, REQ-CHG-096; 0133).
     PART_OF_CHANGE = "part_of_change"
+    # WP-046b S2 (0172): a child incident -> its parent (REQ-INC-086, one level), and a converted
+    # record -> the record of the other type it became (REQ-INC-089).
+    CHILD_OF = "child_of"
+    CONVERTED_TO = "converted_to"
 
 
 class WorklogProblem(StrEnum):

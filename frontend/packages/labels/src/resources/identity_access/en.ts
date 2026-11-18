@@ -847,6 +847,9 @@ export const en = {
   'permission.incidents.resolve.description': 'Mark incidents as resolved.',
   'permission.incidents.take': 'Take incidents',
   'permission.incidents.take.description': 'Take an incident nobody has taken yet.',
+  'permission.incidents.undo_merge': 'Undo incident merges',
+  'permission.incidents.undo_merge.description':
+    'Put a merged incident back as it was. Asks you to confirm your sign-in; each use is audited.',
   'permission.incidents.view': 'View incidents',
   'permission.incidents.view.description':
     'See incidents and their history. Group scope also shows the not-yet-taken incidents of your sites.',
