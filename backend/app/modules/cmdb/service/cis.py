@@ -8,18 +8,18 @@ or managing group). `cmdb.manage`, reserved before S1, covers add, edit and dele
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, func, insert, or_, select
+from sqlalchemy import ColumnElement, Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules import assets
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.events import CiCreated, CiDeleted, CiRestored, CiUpdated
-from app.modules.cmdb.infra.models import Ci, CiState, CiType, CiVersion
+from app.modules.cmdb.infra.models import Ci, CiState, CiType
 from app.modules.cmdb.service.catalogue import (
     ADD,
     DELETE,
@@ -33,6 +33,7 @@ from app.modules.cmdb.service.catalogue import (
     get_type,
     invalid,
 )
+from app.modules.cmdb.service.snapshots import save_version
 from app.modules.identity_access import (
     ResourceType,
     Subject,
@@ -56,7 +57,6 @@ from app.shared.history import (
     history_page,
     record_changes,
 )
-from app.shared.ids import new_id
 
 RECORD_TYPE = "ci"
 DISPLAY_PREFIX = "CI"
@@ -256,7 +256,59 @@ async def history(
         session, RECORD_TYPE, ci_id, before_version=before_version, limit=limit
     )
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
-    return entries, cursor, names
+    return await _mask_links(session, subject, entries), cursor, names
+
+
+LINK_FIELD = "relationship"  # a relationship line's field (service/relationships.py)
+
+
+def _linked(value: object) -> str | None:
+    return str(value["ci_id"]) if isinstance(value, Mapping) and value.get("ci_id") else None
+
+
+async def _mask_links(
+    session: AsyncSession, subject: Subject, entries: list[HistoryEntry]
+) -> list[HistoryEntry]:
+    """Relationship lines name the other CI only when the reader may see it now.
+
+    Otherwise the line says `restricted` with no ID (lane C's condition 2, as the map's
+    placeholders).
+    """
+    linked = {
+        i
+        for e in entries
+        for c in e.changes
+        if c.field == LINK_FIELD
+        for i in (_linked(c.old), _linked(c.new))
+        if i
+    }
+    if not linked:
+        return entries
+    seen = {
+        str(i)
+        for i in await session.scalars(
+            visible_rows(subject)
+            .with_only_columns(Ci.id)
+            .where(Ci.id.in_([uuid.UUID(i) for i in linked]))
+        )
+    }
+
+    def masked(value: Any) -> Any:  # noqa: ANN401 - a history value (JSON)
+        ci = _linked(value)
+        if ci is None or ci in seen:
+            return value
+        return {**value, "ci_id": None, "restricted": True}
+
+    return [
+        replace(
+            e,
+            changes=[
+                replace(c, old=masked(c.old), new=masked(c.new)) if c.field == LINK_FIELD else c
+                for c in e.changes
+            ],
+        )
+        for e in entries
+    ]
 
 
 # --- writing --------------------------------------------------------------------------------------
@@ -272,17 +324,8 @@ def snapshot(record: Ci) -> dict[str, Any]:
 
 
 async def _save_version(session: AsyncSession, record: Ci, subject: Subject) -> None:
-    """Append the CI as it is now (REQ-CMDB-024's write side; the app may only add)."""
-    await session.execute(
-        insert(CiVersion).values(
-            tenant_id=record.tenant_id,
-            id=new_id(),
-            ci_id=record.id,
-            version=record.version,
-            snapshot=snapshot(record),
-            saved_by=subject.user_id,
-        )
-    )
+    """Append the CI as it is now, with its relationships (REQ-CMDB-024; the app may only add)."""
+    await save_version(session, record, snapshot(record), subject.user_id)
 
 
 def _check_codes(values: Mapping[str, Any]) -> list[domain.Problem]:
