@@ -1216,6 +1216,28 @@ export const ur: LabelResource = {
   'security.network.saved': 'IP اجازت فہرستیں محفوظ ہو گئیں۔',
   'security.network.title': 'IP اجازت فہرستیں',
   'security.network.your_address': 'آپ یہاں سے سائن اِن ہیں',
+  'security.overview.fields_moving': 'انکرپشن یا ڈی کرپشن ابھی جاری: {{n}}',
+  'security.overview.flags': 'دیکھنے کے لائق',
+  'security.overview.help':
+    'نیچے کے کارڈز اور متعلقہ صفحات کے اعداد۔ تفصیل کھولنے کے لیے کوئی خانہ منتخب کریں۔',
+  'security.overview.key_since': 'موجودہ ڈیٹا کلید بنی {{when}}',
+  'security.overview.keys_hint': 'پالیسی سے باہر: {{out}} · غیر استعمال شدہ: {{unused}}',
+  'security.overview.locked_hint': 'پچھلے 7 دنوں میں ناکام۔ لاک: {{n}}',
+  'security.overview.mfa_hint':
+    'کرداروں کے حاملین میں سے اندراج شدہ۔ لازمی کرنے والے کردار: {{required}}',
+  'security.overview.no_flags': 'یہاں کچھ بھی تجویز کردہ سے کمزور نہیں۔',
+  'security.overview.no_key': 'ابھی کوئی ڈیٹا کلید نہیں',
+  'security.overview.open': '{{area}} کھولیں',
+  'security.overview.owners_hint': 'نئے مالک کی ضرورت: {{n}}',
+  'security.overview.recommendations_note':
+    'یہ سفارشات ہیں۔ یہاں کچھ بھی خود سے کوئی ترتیب نہیں بدلتا۔',
+  'security.overview.region': 'ڈیٹا ریجن',
+  'security.overview.sso_expiry': 'قریب ترین سرٹیفکیٹ یا راز دنوں میں ختم: {{days}}',
+  'security.overview.sso_required.everyone': 'سب کے لیے',
+  'security.overview.sso_required.off': 'لازمی نہیں',
+  'security.overview.sso_required.technicians': 'تکنیکی ماہرین کے لیے',
+  'security.overview.sso_setups': 'سیٹ اپ: {{n}}',
+  'security.overview.title': 'سیکیورٹی ایک نظر میں',
   'security.password.apply_again': 'دوبارہ لاگو کریں',
   'security.password.breached': 'عام اور لیک شدہ پاس ورڈ رد کریں',
   'security.password.breached_hint':

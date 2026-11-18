@@ -2503,12 +2503,17 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       revoked, and the card counts them before saving (the coordinator).
     - **Fixes:** a service identity named on a record no longer causes a 500 (`people.py`, lane
       A's OK); `UserCreatedV5` carries the `service_account` source.
-  - [x] **S4b (no migration; lane B blocks):** `record()` names the real actor (REQ-AUD-014): a
+  - [x] **S4b (no migration; #531, merged a958e7569):** `record()` names the real actor (REQ-AUD-014): a
     person's API key is the actor with the owner `on_behalf` (the owner keeps the personal data,
     so erasure still finds it), a service account's key is the account, an AI agent acts for a
     person with its version and tools in the details (`AgentActor`; a fake agent in tests).
     Probing counts refusals made on a person's behalf; the audit log names a key by its name.
-  - [ ] S4d: the security overview, with an optional `SUPPORTX_DATA_REGION`.
+  - [x] **S4d (no migration; #537; lane B blocks):** the security overview at the top of Admin ›
+    Sign-in and security. `GET /identity/security-overview` takes each tile from its own screen's
+    service (MFA, SSO policy and expiry, passwords, sessions, network, keys via `key_state`,
+    service accounts, seal states, the data key's date, failed and locked sign-ins), counts and
+    codes only, plus the optional `SUPPORTX_DATA_REGION` (blank hides it). Weak-choice flags are
+    recommendations, never enforced; the PR lists their thresholds.
   - [ ] S4c: vendor support access (D-173; design note in
     ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
