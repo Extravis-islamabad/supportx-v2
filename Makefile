@@ -6,7 +6,7 @@
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-up-scan dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check keys-check labels-sort mobile-install-check mobile-lint mobile-typecheck mobile-test keycloak-realm keycloak-theme keycloak-identity keycloak-dev-sync brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
+	frontend-install-check keys-check labels-sort mobile-install-check mobile-lint mobile-typecheck mobile-test mobile-bundle-check keycloak-realm keycloak-theme keycloak-identity keycloak-dev-sync brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
 	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
@@ -335,6 +335,19 @@ mobile-typecheck: generated-frontend
 
 mobile-test: generated-frontend
 	$(MOBILE) pnpm test
+
+# D-174: picomatch (CVE-2026-112366 / GHSA-fc5q-39xc-vjpf, no fixed release) is accepted for
+# mobile/pnpm-lock.yaml only while it never reaches the app. Exports the production bundles with
+# source maps and fails if any bundled source comes from picomatch. Fails closed: no bundle, no
+# map, an empty source list or an unreadable map all fail.
+mobile-bundle-check: generated-frontend ## D-174: picomatch is in no shipped mobile bundle
+	@# Inside the app: Metro's file map refuses an output path far outside the project root
+	@# ("Failed to collapse", run 44270887838). The folder is git-ignored and removed afterwards.
+	@out=mobile/.d174-export; rm -rf "$$out"; \
+	(cd mobile && EXPO_NO_TELEMETRY=1 pnpm exec expo export --platform android --platform ios \
+		--source-maps --output-dir .d174-export) || { echo "D-174: expo export failed"; rm -rf "$$out"; exit 1; }; \
+	(cd backend && uv run python -m tooling.bundle_sources "../$$out"); rc=$$?; \
+	rm -rf "$$out"; exit $$rc
 
 # --- Local dev stack -----------------------------------------------------------------------------
 

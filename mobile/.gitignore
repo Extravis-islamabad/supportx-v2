@@ -14,3 +14,4 @@ expo-env.d.ts
 
 # Tests
 coverage/
+.d174-export/

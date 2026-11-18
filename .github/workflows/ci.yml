@@ -695,6 +695,11 @@ jobs:
       - name: Test (Jest, jest-expo)
         if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
         run: make mobile-test
+      - name: D-174 - picomatch is in no shipped mobile bundle
+        # The production bundles with source maps; fails if any bundled source is picomatch's,
+        # the condition of the mobile lockfile's Trivy ignore (fails closed).
+        if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
+        run: make mobile-bundle-check
 
   frontend:
     name: frontend
