@@ -31,8 +31,8 @@ from app.modules.identity_access.service.person_data import (
 )
 
 PENDING: tuple[str, ...] = ()  # every required port is real: assets (#519), service_catalog (#518)
-# CMDB descriptions and snapshots (WP-053 S1, #524); its real mentions port removes the key.
-PENDING_MENTIONS: tuple[str, ...] = ("cmdb",)
+# Every mentions port is real: cmdb joined with 0176 (CI names, descriptions and snapshots).
+PENDING_MENTIONS: tuple[str, ...] = ()
 
 
 def _stand_in(key: str) -> PersonData:
