@@ -6,6 +6,7 @@ export const ar: LabelResource = {
   'custom_field_display.radio': 'أزرار',
   'custom_field_entity.asset': 'الأصول',
   'custom_field_entity.change': 'التغييرات',
+  'custom_field_entity.ci': 'عناصر التكوين',
   'custom_field_entity.incident': 'الحوادث',
   'custom_field_entity.problem': 'المشكلات',
   'custom_field_entity.release': 'الإصدارات',

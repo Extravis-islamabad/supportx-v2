@@ -568,6 +568,8 @@ function CustomFieldEditor({
       index_error: null,
       sensitive: false,
       seal_state: 'plain',
+      scope_type_id: null, // 0175: a new field is entity-wide and its own
+      inherited: false,
       version: 0,
     }),
     ...bodyOf(draft),
