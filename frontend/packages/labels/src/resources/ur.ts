@@ -5,6 +5,7 @@ import { ur as announcements } from './announcements/ur.ts';
 import { ur as assets } from './assets/ur.ts';
 import { ur as audit } from './audit/ur.ts';
 import { ur as automation } from './automation/ur.ts';
+import { ur as cmdb } from './cmdb/ur.ts';
 import { ur as errors } from './errors/ur.ts';
 import { ur as files } from './files/ur.ts';
 import { ur as identityAccess } from './identity_access/ur.ts';
@@ -28,6 +29,7 @@ export const ur: LabelResource = {
   ...assets,
   ...audit,
   ...automation,
+  ...cmdb,
   ...errors,
   ...files,
   ...identityAccess,
@@ -49,6 +51,7 @@ export const urByModule = {
   assets,
   audit,
   automation,
+  cmdb,
   errors,
   files,
   identity_access: identityAccess,

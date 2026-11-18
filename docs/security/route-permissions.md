@@ -441,6 +441,28 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/changes/{record_id}/worklogs` | `changes.view` | changes.view: all/site/group/own |
 | DELETE | `/api/v1/changes/{record_id}/worklogs/{worklog_id}` | `changes.view` | changes.view: all/site/group/own |
 | PATCH | `/api/v1/changes/{record_id}/worklogs/{worklog_id}` | `changes.view` | changes.view: all/site/group/own |
+| GET | `/api/v1/cmdb/ci-states` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/ci-states` | `cmdb.configure` | cmdb.configure: all |
+| DELETE | `/api/v1/cmdb/ci-states/{state_id}` | `cmdb.configure` | cmdb.configure: all |
+| PATCH | `/api/v1/cmdb/ci-states/{state_id}` | `cmdb.configure` | cmdb.configure: all |
+| GET | `/api/v1/cmdb/ci-types` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/ci-types` | `cmdb.configure` | cmdb.configure: all |
+| DELETE | `/api/v1/cmdb/ci-types/{type_id}` | `cmdb.configure` | cmdb.configure: all |
+| PATCH | `/api/v1/cmdb/ci-types/{type_id}` | `cmdb.configure` | cmdb.configure: all |
+| GET | `/api/v1/cmdb/cis` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/cis` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
+| POST | `/api/v1/cmdb/cis/from-assets` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
+| GET | `/api/v1/cmdb/cis/picker` | `cmdb.view` | cmdb.view: all/site/group/own |
+| GET | `/api/v1/cmdb/cis/trash` | `cmdb.view` | cmdb.view: all/site/group/own |
+| DELETE | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.delete` or `cmdb.manage` | cmdb.delete: all/site/group/own; cmdb.manage: all |
+| GET | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
+| PATCH | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
+| POST | `/api/v1/cmdb/cis/{ci_id}/change-type` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
+| POST | `/api/v1/cmdb/cis/{ci_id}/copy` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
+| GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` or `cmdb.manage` | cmdb.delete: all/site/group/own; cmdb.manage: all |
+| GET | `/api/v1/cmdb/settings` | `cmdb.view` | cmdb.view: all/site/group/own |
+| PUT | `/api/v1/cmdb/settings` | `cmdb.configure` | cmdb.configure: all |
 | GET | `/api/v1/custom-fields` | signed_in | - |
 | POST | `/api/v1/custom-fields` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/custom-fields/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -1329,6 +1351,9 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | asset_manager | `assets.manage` | all | all |
 | asset_manager | `assets.view` | all | all |
 | asset_manager | `assets.view_financials` | all | all |
+| asset_manager | `cmdb.add` | all | all |
+| asset_manager | `cmdb.delete` | all | all |
+| asset_manager | `cmdb.edit` | all | all |
 | asset_manager | `cmdb.manage` | all | all |
 | asset_manager | `cmdb.view` | all | all |
 | asset_manager | `groups.view` | all | all |
@@ -1826,6 +1851,10 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `changes.take` | all | all |
 | tenant_admin | `changes.view` | all | all |
 | tenant_admin | `changes.view_costs` | all | all |
+| tenant_admin | `cmdb.add` | all | all |
+| tenant_admin | `cmdb.configure` | all | all |
+| tenant_admin | `cmdb.delete` | all | all |
+| tenant_admin | `cmdb.edit` | all | all |
 | tenant_admin | `cmdb.manage` | all | all |
 | tenant_admin | `cmdb.view` | all | all |
 | tenant_admin | `config.announcements` | all | all |

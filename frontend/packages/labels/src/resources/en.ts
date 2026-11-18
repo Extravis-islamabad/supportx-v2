@@ -5,6 +5,7 @@ import { en as announcements } from './announcements/en.ts';
 import { en as assets } from './assets/en.ts';
 import { en as audit } from './audit/en.ts';
 import { en as automation } from './automation/en.ts';
+import { en as cmdb } from './cmdb/en.ts';
 import { en as errors } from './errors/en.ts';
 import { en as files } from './files/en.ts';
 import { en as identityAccess } from './identity_access/en.ts';
@@ -27,6 +28,7 @@ export const en = {
   ...assets,
   ...audit,
   ...automation,
+  ...cmdb,
   ...errors,
   ...files,
   ...identityAccess,
@@ -49,6 +51,7 @@ export const enByModule = {
   assets,
   audit,
   automation,
+  cmdb,
   errors,
   files,
   identity_access: identityAccess,

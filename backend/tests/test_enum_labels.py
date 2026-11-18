@@ -57,6 +57,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "CopyPart": "problem_follow_up_copy",
     "RecordCopyPart": "record_copy_part",  # WP-046a S5c (REQ-INC-033)
     "OutcomeIn.outcome": "ai_outcome",
+    # CMDB (WP-053 S1)
+    "CiImpact": "cmdb_impact",
+    "CiSource": "cmdb_ci_source",
+    "CiStateCategory": "cmdb_state_category",
+    "CiSkippedAsset.reason": "cmdb_skip_reason",
+    "CiHistoryEntryOut.actor_type": "actor_type",
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
     "AssetDepreciationMethod": "asset_depreciation",

@@ -196,6 +196,12 @@ containers = ["app.modules.assets"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]
+name = "cmdb layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.cmdb"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
 name = "procurement layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.procurement"]

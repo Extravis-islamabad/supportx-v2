@@ -1281,3 +1281,25 @@ async def test_approval_refuses_while_a_required_erasure_port_is_missing(world: 
     assert _code(refused) == (409, "erasure_port_missing")
     assert refused.json()["params"]["missing_ports"] == "assets.owned"
     assert (await _get(world, a, erasure))["state"] == "requested"
+
+
+async def test_approval_waits_for_the_cmdb_mentions_port(world: World) -> None:
+    """CI descriptions and snapshots can name people (WP-053 S1, the coordinator 2026-11-16):
+    without cmdb's real mentions port the report never completes, so approval is refused."""
+    with _missing("cmdb"):  # the test stand-in out: as on main until cmdb's port lands
+        a = world.a
+        seeded = await _seed(world, a)
+        approver = await _second_admin(world, a)
+        erasure = await _requested(world, a)
+        await _build(world, a)
+        got = await _get(world, a, erasure)
+        assert got["report_ready"] is False
+        approved = await world.call(
+            "POST",
+            f"/erasures/{erasure['id']}/approve",
+            a,
+            approver,
+            json={"confirm_name": seeded["name"]},
+            headers={"If-Match": f'"{got["version"]}"'},
+        )
+        assert _code(approved) == (409, "erasure_report_unavailable")
