@@ -66,6 +66,7 @@ class FakeAdmin:
     logged_out: list[str] = field(default_factory=list)
 
     accounts: dict[str, KeycloakUser] = field(default_factory=dict)  # by id
+    enabled: dict[str, bool] = field(default_factory=dict)  # by id: the last set_enabled
     members: dict[str, set[str]] = field(default_factory=dict)  # org id -> user ids
     account_attributes: dict[str, dict[str, str]] = field(default_factory=dict)
     passwords_set: list[str] = field(default_factory=list)  # account IDs (never the password)
@@ -102,6 +103,9 @@ class FakeAdmin:
 
     async def delete_user(self, user_id: str) -> None:
         self.accounts.pop(user_id, None)
+
+    async def set_enabled(self, user_id: str, *, enabled: bool) -> None:
+        self.enabled[user_id] = enabled
 
     async def add_member(self, organization_id: str, user_id: str) -> None:
         self.members.setdefault(organization_id, set()).add(user_id)

@@ -130,6 +130,8 @@ class IdentityAdmin(Protocol):
 
     async def delete_user(self, user_id: str) -> None: ...  # noqa: D102
 
+    async def set_enabled(self, user_id: str, *, enabled: bool) -> None: ...  # noqa: D102
+
     async def add_member(self, organization_id: str, user_id: str) -> None: ...  # noqa: D102
 
     async def remove_member(self, organization_id: str, user_id: str) -> None: ...  # noqa: D102
@@ -584,6 +586,14 @@ class KeycloakAdmin:
     async def delete_user(self, user_id: str) -> None:
         """Remove a realm user (an unused invitation's); already gone is fine."""
         await self._call("DELETE", f"/users/{user_id}", missing_ok=True)
+
+    async def set_enabled(self, user_id: str, *, enabled: bool) -> None:
+        """Enable or disable a realm user (a support account before its delete, lane B (5)).
+
+        Disabled first, so a failed delete still leaves an account no one can sign in with;
+        already gone is fine.
+        """
+        await self._call("PUT", f"/users/{user_id}", json={"enabled": enabled}, missing_ok=True)
 
     async def add_member(self, organization_id: str, user_id: str) -> None:
         """Make a user a member of the organization (already one is fine)."""
