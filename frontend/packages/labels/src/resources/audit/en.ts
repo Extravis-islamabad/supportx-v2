@@ -162,6 +162,7 @@ export const en = {
   'audit.action.change.freeze_passed_by_cab':
     'Let an emergency change go ahead in a freeze (emergency CAB)',
   'audit.action.change.linked': 'Linked a change to another record',
+  'audit.action.change.list_display_changed': 'Changed how lists of changes are coloured',
   'audit.action.change.note_visibility_changed': 'Made a change note public or private',
   'audit.action.change.part_added': 'Added an item to a change',
   'audit.action.change.part_changed': 'Changed an item of a change',
@@ -263,6 +264,7 @@ export const en = {
   'audit.action.incident.deleted': 'Moved an incident to the trash',
   'audit.action.incident.due_date_changed': "Changed an incident's due date",
   'audit.action.incident.linked': 'Linked an incident to another record',
+  'audit.action.incident.list_display_changed': 'Changed how lists of incidents are coloured',
   'audit.action.incident.major_declared': 'Declared a major incident',
   'audit.action.incident.major_ended': 'Ended a major incident',
   'audit.action.incident.major_settings_changed': 'Changed the major incident team or template',
@@ -362,6 +364,7 @@ export const en = {
   'audit.action.problem.investigator_added': 'Added an investigator to a problem',
   'audit.action.problem.investigator_removed': 'Removed an investigator from a problem',
   'audit.action.problem.linked': 'Linked a problem to another record',
+  'audit.action.problem.list_display_changed': 'Changed how lists of problems are coloured',
   'audit.action.problem.merged': 'Merged a problem into another record',
   'audit.action.problem.note_visibility_changed': 'Made a problem note public or private',
   'audit.action.problem.part_added': 'Added an item to a problem',
@@ -412,6 +415,7 @@ export const en = {
   'audit.action.release.due_date_changed': 'Changed a release’s due date',
   'audit.action.release.freeze_override': 'Let a release go ahead in a freeze',
   'audit.action.release.linked': 'Linked a release to another record',
+  'audit.action.release.list_display_changed': 'Changed how lists of releases are coloured',
   'audit.action.release.note_visibility_changed': 'Made a release note public or private',
   'audit.action.release.part_added': 'Added an item to a release',
   'audit.action.release.part_changed': 'Changed an item of a release',
@@ -466,6 +470,8 @@ export const en = {
   'audit.action.service_request.fulfiller_repaired':
     'Gave a request fulfilled with nobody on it its fulfiller',
   'audit.action.service_request.linked': 'Linked a service request to another record',
+  'audit.action.service_request.list_display_changed':
+    'Changed how lists of service requests are coloured',
   'audit.action.service_request.merged': 'Merged a service request into another record',
   'audit.action.service_request.note_visibility_changed':
     'Made a service request note public or private',

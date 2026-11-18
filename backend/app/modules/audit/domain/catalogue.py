@@ -374,6 +374,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.major_declared", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-141
     ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4
     ("incident.major_settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S4
+    ("incident.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
+    ("service_request.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # S3a
+    ("problem.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
+    ("change.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
+    ("release.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
     ("incident.announced", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-129
     ("incident.printed", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-126
     ("incident.merge_undone", AuditCategory.RECORDS, "work_items"),  # WP-046b S2, both IDs

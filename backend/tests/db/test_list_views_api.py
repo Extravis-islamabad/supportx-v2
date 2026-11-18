@@ -200,6 +200,7 @@ async def test_req_inc_104_ac1_ac3_columns_per_user_per_view(world: World) -> No
         "columns": [],
         "sort": None,
         "page_size": 50,
+        "row_colour_by": None,  # REQ-INC-115: no choice of theirs, the tenant's default applies
         "version": None,
     }
     columns = [{"key": "display_id", "width": 120}, {"key": "custom.asset_tag", "width": None}]
@@ -888,3 +889,60 @@ async def test_d176_hidden_before_the_audit_then_made_private_once_with_its_effe
     )
     assert rerun.status_code == 200, rerun.text
     assert len(rerun.json()["items"]) == 1  # nothing more changed
+
+
+# --- row colours (REQ-INC-115 AC1) ----------------------------------------------------------------
+
+
+async def test_req_inc_115_ac1_a_tenant_default_and_a_personal_choice_per_view(
+    world: World,
+) -> None:
+    a = world.a
+    path = f"{BASE}/settings/list-display"
+    shown = await world.call("GET", path, a, a.tech_a)
+    assert shown.status_code == 200, shown.text
+    assert shown.json()["row_colour_by"] == "none"
+    version = shown.json()["settings_version"]
+    refused = await world.call(
+        "PUT",
+        path,
+        a,
+        a.tech_a,
+        json={"row_colour_by": "priority"},
+        headers={"If-Match": f'"{version}"'},
+    )
+    assert refused.status_code == 403, refused.text
+    stale = await world.call(
+        "PUT",
+        path,
+        a,
+        a.admin,
+        json={"row_colour_by": "priority"},
+        headers={"If-Match": f'"{version + 7}"'},
+    )
+    assert stale.status_code == 409, stale.text
+    put = await world.call(
+        "PUT",
+        path,
+        a,
+        a.admin,
+        json={"row_colour_by": "priority"},
+        headers={"If-Match": f'"{version}"'},
+    )
+    assert put.status_code == 200, put.text
+    assert (await world.call("GET", path, a, a.tech_a)).json()["row_colour_by"] == "priority"
+    # A person's own choice for one view; a value outside the three is refused.
+    mine = await world.call(
+        "PUT", f"{BASE}/list-settings/open", a, a.tech_a, json={"row_colour_by": "status"}
+    )
+    assert mine.status_code == 200, mine.text
+    assert mine.json()["row_colour_by"] == "status"
+    wrong = await world.call(
+        "PUT",
+        f"{BASE}/list-settings/open",
+        a,
+        a.tech_a,
+        json={"row_colour_by": "rainbow"},
+        headers={"If-Match": f'"{mine.json()["version"]}"'},
+    )
+    assert wrong.status_code == 422, wrong.text

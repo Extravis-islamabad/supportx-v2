@@ -9,14 +9,14 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.tenancy import TenantContext
 from app.modules import metadata
-from app.modules.audit import audited
+from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject, get_policy
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.lists import (
@@ -25,6 +25,7 @@ from app.modules.work_items.domain.lists import (
     BulkAction,
     BulkOutcome,
     BulkStatus,
+    RowColourBy,
     ViewVisibility,
 )
 from app.modules.work_items.domain.types import WorkItemType
@@ -34,7 +35,7 @@ from app.modules.work_items.infra.models import (
     WorkItemView,
 )
 from app.modules.work_items.service import bulk as bulk_service
-from app.modules.work_items.service import custom_values, view_audit
+from app.modules.work_items.service import catalogue, custom_values, view_audit
 from app.modules.work_items.service import lists as service
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import FIELDS, type_fields
@@ -170,6 +171,9 @@ class ListSettingIn(BaseModel):
     columns: list[ListColumn] = Field(default_factory=list, max_length=MAX_COLUMNS)
     sort: str | None = Field(default=None, max_length=200)
     page_size: int = Field(default=50, description="25, 50 or 100.")
+    row_colour_by: RowColourBy | None = Field(
+        default=None, description="Your own row colouring for this view; null: the default."
+    )
 
 
 class ListSettingOut(BaseModel):
@@ -179,6 +183,7 @@ class ListSettingOut(BaseModel):
     columns: list[ListColumn]
     sort: str | None
     page_size: int
+    row_colour_by: RowColourBy | None = None
     version: int | None
 
     @classmethod
@@ -191,8 +196,24 @@ class ListSettingOut(BaseModel):
             columns=[ListColumn(**c) for c in row.columns],
             sort=row.sort,
             page_size=row.page_size,
+            row_colour_by=RowColourBy(row.row_colour_by) if row.row_colour_by else None,
             version=row.version,
         )
+
+
+class ListDisplayIn(BaseModel):
+    """The tenant's default row colouring (REQ-INC-115 AC1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    row_colour_by: RowColourBy
+
+
+class ListDisplayOut(BaseModel):
+    """The default row colouring, with the type settings' version (the ETag)."""
+
+    row_colour_by: RowColourBy
+    settings_version: int
 
 
 class BulkJobIn(BaseModel):
@@ -439,6 +460,52 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
             session, subject, wtype, view_id, expected_version=version, source=source_of(request)
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    # --- row colours (REQ-INC-115 AC1) ------------------------------------------------------------
+
+    SettingsAdmin = Annotated[  # noqa: N806 - type alias
+        Subject, Depends(require_permission("config.service_desk", "settings.manage"))
+    ]
+
+    @router.get("/settings/list-display", summary="How list rows are coloured by default")
+    async def list_display(
+        session: TenantSession, subject: View, response: Response
+    ) -> ListDisplayOut:
+        """Everyone who sees the list reads it (their own choice per view overrides it)."""
+        del subject
+        cat = await catalogue.load(session, wtype)
+        set_etag(response, cat.settings_version)
+        return ListDisplayOut(
+            row_colour_by=RowColourBy(cat.row_colour_by), settings_version=cat.settings_version
+        )
+
+    @router.put("/settings/list-display", summary="Set how list rows are coloured by default")
+    async def put_list_display(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        body: ListDisplayIn,
+        session: TenantSession,
+        subject: SettingsAdmin,
+        version: ExpectedVersion,
+        response: Response,
+        request: Request,
+        note: Annotated[
+            AuditNote,
+            audited(f"{audit}.list_display_changed", object_type=f"{audit}_settings"),
+        ],
+    ) -> ListDisplayOut:
+        """Needs If-Match on the type's settings; the change is audited."""
+        cat, before, after = await service.set_row_colour_default(
+            session,
+            wtype,
+            body.row_colour_by.value,
+            expected_version=version,
+            source=source_of(request),
+            user_id=subject.user_id,
+        )
+        note.details = {"before": before, "after": after}
+        set_etag(response, cat.settings_version)
+        return ListDisplayOut(
+            row_colour_by=RowColourBy(cat.row_colour_by), settings_version=cat.settings_version
+        )
 
     # --- the shared-view audit (D-176) ------------------------------------------------------------
 

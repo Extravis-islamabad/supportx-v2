@@ -53,6 +53,14 @@ class BulkOutcome(StrEnum):
     SKIPPED = "skipped"  # with the reason as an error code and params, shown in words
 
 
+class RowColourBy(StrEnum):
+    """What list rows are coloured by (REQ-INC-115 AC1): the tenant's default, a person's own."""
+
+    NONE = "none"
+    STATUS = "status"
+    PRIORITY = "priority"
+
+
 class ViewVisibility(StrEnum):
     """Who sees a saved view in their list of views (D-111 as approved: like dashboards)."""
 

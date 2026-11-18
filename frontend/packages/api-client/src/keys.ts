@@ -203,6 +203,9 @@ export const queryKeys = {
     listFields: ['incidents', 'list-fields'] as const,
     viewFilters: ['incidents', 'views', 'filters'] as const,
     savedViews: ['incidents', 'saved-views'] as const,
+    // WP-046b S3a: the default row colouring and the shared-view audit (D-176).
+    listDisplay: ['incidents', 'settings', 'list-display'] as const,
+    viewAudit: ['incidents', 'saved-views', 'audit'] as const,
     listSetting: (viewKey: string) => ['incidents', 'list-settings', viewKey] as const,
     bulkJobs: ['incidents', 'bulk-jobs'] as const,
     bulkJob: (id: string) => ['incidents', 'bulk-jobs', id] as const,

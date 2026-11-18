@@ -7,6 +7,8 @@ Expand only, no data step:
 - `work_item_reads`: the version of a record someone last opened, for unread markers. Tenant
   first in the primary key, RLS forced; personal, moved forward only, removed with the person.
 
+- `row_colour_by` (none, status, priority; REQ-INC-115 AC1) on the type settings (the tenant's
+  default, `none`) and on list settings (a person's own for a view; NULL: the default).
 - `work_item_views.unshared_at`, `unshared_field`: when the shared-view audit (D-176) made a
   view private and the filter field that caused it, for the administrators' report.
 
@@ -19,7 +21,7 @@ rebuilt by use. Views the audit made private stay private (nothing says what the
 with before, so nothing is restored).
 
 Revision ID: 0178
-Revises: 0177
+Revises: 0180
 Created: 2026-11-18
 """
 
@@ -31,8 +33,8 @@ from alembic import op
 from migrations.helpers import disable_tenant_rls, enable_tenant_rls, grant_app
 
 revision: str = "0178"
-# Placeholder until its queue turn: main's head then (0176 → 0175 → 0177 → 0178 as agreed).
-down_revision: str | None = "0177"
+# main's head now (… 0177 → 0180); re-pointed again at its queue turn if 0179 lands first.
+down_revision: str | None = "0180"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -103,10 +105,29 @@ def upgrade() -> None:
         "work_item_views", sa.Column("unshared_at", sa.DateTime(timezone=True), nullable=True)
     )
     op.add_column("work_item_views", sa.Column("unshared_field", sa.String(80), nullable=True))
+    op.add_column(
+        "work_item_type_settings",
+        sa.Column("row_colour_by", sa.String(10), server_default="none", nullable=False),
+    )
+    op.create_check_constraint(
+        op.f("ck_work_item_type_settings_row_colour_by_code"),
+        "work_item_type_settings",
+        "row_colour_by IN ('none', 'status', 'priority')",
+    )
+    op.add_column(
+        "work_item_list_settings", sa.Column("row_colour_by", sa.String(10), nullable=True)
+    )
+    op.create_check_constraint(
+        op.f("ck_work_item_list_settings_row_colour_by_code"),
+        "work_item_list_settings",
+        "row_colour_by IS NULL OR row_colour_by IN ('none', 'status', 'priority')",
+    )
 
 
 def downgrade() -> None:
     """Drop both tables and the two columns (views made private stay private)."""
+    op.drop_column("work_item_list_settings", "row_colour_by")  # its check goes with it
+    op.drop_column("work_item_type_settings", "row_colour_by")
     op.drop_column("work_item_views", "unshared_field")
     op.drop_column("work_item_views", "unshared_at")
     disable_tenant_rls(READS)
