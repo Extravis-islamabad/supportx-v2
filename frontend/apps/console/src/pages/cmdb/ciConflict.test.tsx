@@ -44,6 +44,10 @@ const ci = {
   history_count: 0,
   can_edit: true,
   can_delete: true,
+  // 0175 part 2: custom values the person may read, and what their field rules withhold.
+  custom: {},
+  masked_fields: [],
+  read_only_fields: [],
 };
 
 function Shown() {
@@ -59,6 +63,8 @@ describe('CMDB › a CI edit someone else beat', () => {
     setDefaultClientFactory(inertClientFactory);
     const fake = consoleApi({
       routes: {
+        // The CI type's custom fields (0175 part 2): none here.
+        'GET /api/v1/custom-fields': { body: [] },
         'GET /api/v1/cmdb/ci-types': {
           body: {
             items: [

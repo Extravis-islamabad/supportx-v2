@@ -1,7 +1,7 @@
 import { Flex, Form, Input, Select, TreeSelect } from 'antd';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
-import { useCiStates, useCiTypes, useUnits } from '@supportx/api-client';
+import { useCiStates, useCiTypes, useCustomFields, useUnits } from '@supportx/api-client';
 import { FormField, type UseFormReturn } from '@supportx/forms';
 import {
   FieldRow,
@@ -13,16 +13,23 @@ import {
   useLabel,
 } from '@supportx/ui';
 
+import { CustomFormField } from '../customFields/fields';
 import { DESCRIPTION_MAX, IMPACTS, NAME_MAX, type Values } from './form';
 import { nameOf, typeTree } from './names';
 
-/** The CI's fields (template B sections, D-147): what it is and who has it. */
+/**
+ * The CI's fields (template B sections, D-147): what it is and who has it, then the custom fields
+ * of its type (0175: the type's own and those of the types above it). A field the person's roles
+ * may only read (`readOnly`, ADR-047) is not offered here; the record shows it.
+ */
 export function CiFields({
   form,
   typeLocked = false,
+  readOnly = [],
 }: {
   form: UseFormReturn<Values>;
   typeLocked?: boolean;
+  readOnly?: readonly string[];
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -35,6 +42,19 @@ export function CiFields({
     () => typeTree(types.data?.items ?? [], (x) => nameOf(t, locale, x, 'cmdb_ci_type')),
     [types.data, t, locale],
   );
+  const typeId = form.watch('type_id');
+  const custom = useCustomFields('ci', false, typeId !== '', { typeId });
+  const offered = (custom.data ?? []).filter(
+    (f) => !f.retired && !readOnly.includes(`custom.${f.key}`),
+  );
+  // A type chosen anew keeps only the values its fields take (the server refuses the others).
+  useEffect(() => {
+    if (custom.data === undefined) return;
+    const keys = new Set(custom.data.map((f) => f.key));
+    const held = form.getValues('custom');
+    const kept = Object.fromEntries(Object.entries(held).filter(([k]) => keys.has(k)));
+    if (Object.keys(kept).length !== Object.keys(held).length) form.setValue('custom', kept);
+  }, [custom.data, form]);
   const impactOptions = IMPACTS.map((value) => ({ value, label: t(`cmdb_impact.${value}`) }));
   const unitOptions = (units: typeof sites) =>
     (units.data ?? []).map((u) => ({ value: u.id, label: u.name }));
@@ -146,6 +166,18 @@ export function CiFields({
             ))}
           </FieldRow>
         </FormSection>
+        {offered.length > 0 && (
+          <FormSection title={t('cmdb.section.custom_fields')} testId="ci-section-custom">
+            {offered.map((field) => (
+              <CustomFormField
+                key={field.id}
+                control={form.control}
+                field={field}
+                required={field.validation.required}
+              />
+            ))}
+          </FormSection>
+        )}
       </Flex>
     </Form>
   );

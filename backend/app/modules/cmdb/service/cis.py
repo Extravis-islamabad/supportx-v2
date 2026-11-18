@@ -4,6 +4,12 @@ Each write, in one transaction: the right and the record's scope, the domain rul
 optimistic concurrency (If-Match), field history, a snapshot in `cmdb_ci_versions`, and the outbox
 event. Scopes of `cmdb.view` (and the write rights): all, site (the CI's site), group (its owner
 or managing group). `cmdb.manage`, reserved before S1, covers add, edit and delete.
+
+Custom fields (0175 part 2) are metadata's, scoped to a CI type and the types below it: a save
+checks them against the CI's type (`metadata.clean(type_id=…)`), history names them
+`custom.<key>`, and ADR-047 rules hide, mask or lock them per role on every read and write. A
+type change that would drop values outside the new type's fields needs
+`confirm_dropped_fields`; history then names the dropped fields, never their values.
 """
 
 import uuid
@@ -15,8 +21,9 @@ from typing import Any
 from sqlalchemy import ColumnElement, Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Conflict, NotFound, PermissionDenied
-from app.modules import assets
+from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.modules import assets, metadata
+from app.modules.cmdb.domain import field_access as field_rules
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.events import CiCreated, CiDeleted, CiRestored, CiUpdated
 from app.modules.cmdb.infra.models import Ci, CiState, CiType
@@ -62,8 +69,10 @@ RECORD_TYPE = "ci"
 DISPLAY_PREFIX = "CI"
 FROM_ASSETS_MAX = 100
 PICKER_MAX = 50
-# Fields a person edits (the type changes through its own action). Custom fields come through
-# metadata in a follow-up (§6.6): `cmdb_cis.custom` is kept for them, never written here yet.
+ENTITY = metadata.CustomFieldEntity.CI  # metadata's custom fields on CIs (0175)
+DROPPED_FIELD = "fields_dropped"  # a type change's history line: the keys dropped, no values
+# Fields a person edits (the type changes through its own action); custom values come as
+# `custom`, checked by metadata.
 EDITABLE = (
     "name",
     "description",
@@ -156,6 +165,11 @@ class CiView:
     history_count: int
     can_edit: bool
     can_delete: bool
+    # Custom values the person may read (ADR-047): hidden and masked ones are left out; masked
+    # ones are named in `masked_fields`, and every field under a rule in `read_only_fields`.
+    custom: dict[str, Any]
+    masked_fields: tuple[str, ...]
+    read_only_fields: tuple[str, ...]
 
 
 async def _may(session: AsyncSession, subject: Subject, permission: str, ci_id: uuid.UUID) -> bool:
@@ -169,12 +183,23 @@ async def _may(session: AsyncSession, subject: Subject, permission: str, ci_id: 
     return bool(await authorize_stored(session, subject, key, CIS, Ci.id, ci_id))
 
 
+def _unseen(subject: Subject) -> field_rules.Unseen:
+    return field_rules.unseen(subject.field_access, RECORD_TYPE)
+
+
 async def _view(session: AsyncSession, subject: Subject, record: Ci) -> CiView:
+    unseen = _unseen(subject)
+    held = record.custom or {}
     return CiView(
         record=record,
         history_count=await count_saves(session, RECORD_TYPE, record.id),
         can_edit=await _may(session, subject, EDIT, record.id),
         can_delete=await _may(session, subject, DELETE, record.id),
+        custom=field_rules.without(held, unseen.custom_keys()),
+        masked_fields=tuple(
+            sorted(f for f in unseen.masked if f.removeprefix(field_rules.CUSTOM) in held)
+        ),
+        read_only_fields=tuple(sorted(field_rules.read_only(subject.field_access, RECORD_TYPE))),
     )
 
 
@@ -256,7 +281,38 @@ async def history(
         session, RECORD_TYPE, ci_id, before_version=before_version, limit=limit
     )
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
-    return await _mask_links(session, subject, entries), cursor, names
+    shown = _mask_custom(_unseen(subject), entries)
+    return await _mask_links(session, subject, shown), cursor, names
+
+
+def _mask_custom(unseen: field_rules.Unseen, entries: list[HistoryEntry]) -> list[HistoryEntry]:
+    """Withheld custom fields in the history too (ADR-047), as work items do.
+
+    Hidden ones are left out; masked ones keep the line (that it changed, when, by whom) but never
+    the values. A type change's dropped-fields line names keys only, so it stays, without the
+    hidden ones.
+    """
+    if not unseen.all:
+        return entries
+    hidden_keys = {f.removeprefix(field_rules.CUSTOM) for f in unseen.hidden}
+
+    def shown(change: Change) -> Change | None:
+        if change.field in unseen.hidden:
+            return None
+        if change.field in unseen.masked:
+            return replace(change, old=field_rules.MASKED, new=field_rules.MASKED)
+        if change.field == DROPPED_FIELD and isinstance(change.new, list):
+            keys = [
+                k for k in change.new if str(k).removeprefix(field_rules.CUSTOM) not in hidden_keys
+            ]
+            return replace(change, new=keys) if keys else None
+        return change
+
+    out: list[HistoryEntry] = []
+    for entry in entries:
+        changes = [c for c in (shown(c) for c in entry.changes) if c is not None]
+        out.append(replace(entry, changes=changes))
+    return out
 
 
 LINK_FIELD = "relationship"  # a relationship line's field (service/relationships.py)
@@ -319,8 +375,20 @@ def _json(value: object) -> Any:  # noqa: ANN401 - history and snapshots store J
 
 
 def snapshot(record: Ci) -> dict[str, Any]:
-    """The CI's saved fields as JSON (a version's snapshot; history's values)."""
-    return {name: _json(getattr(record, name)) for name in SNAPSHOT}
+    """The CI's saved fields as JSON (a version's snapshot), its custom values under `custom`."""
+    found = {name: _json(getattr(record, name)) for name in SNAPSHOT}
+    found["custom"] = dict(record.custom or {})
+    return found
+
+
+def _history_changes(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[Change]:
+    """One history line per changed field, each custom value as its own `custom.<key>`."""
+    old, new = field_rules.flat(before), field_rules.flat(after)
+    return [
+        Change(k, old.get(k), new.get(k))
+        for k in [*new, *sorted(old.keys() - new.keys())]
+        if old.get(k) != new.get(k)
+    ]
 
 
 async def _save_version(session: AsyncSession, record: Ci, subject: Subject) -> None:
@@ -397,6 +465,68 @@ async def _conflict(session: AsyncSession, error: Conflict, ci_id: uuid.UUID) ->
     )
 
 
+async def _custom(
+    session: AsyncSession,
+    sent: Mapping[str, Any] | None,
+    current: Mapping[str, Any] | None,
+    type_id: uuid.UUID,
+) -> dict[str, Any] | None:
+    """The CI's custom values after this save (None: untouched), checked by metadata.
+
+    `type_id`: the CI's type; a field scoped to another branch of the type tree is unknown to it
+    (`unknown_field`, 0175). A new CI starts from the fields' defaults.
+    """
+    creating = current is None
+    if sent is None and not creating:
+        return None
+    before = dict(current or {})
+    cleaned, found = await metadata.clean(
+        session,
+        ENTITY,
+        sent or {},
+        current=before,
+        creating=creating,
+        defaults=creating,
+        type_id=type_id,
+    )
+    if found:
+        params = await metadata.problem_params(session, ENTITY, found)
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field=f"body.{path}",
+                    code=code,
+                    message_key=f"errors.field.{code}",
+                    params=dict(params.get(path, {})),
+                )
+                for path, code in found
+            ]
+        )
+    merged = {**before, **cleaned}
+    return {k: v for k, v in merged.items() if v is not None}
+
+
+def _require_writable(subject: Subject, changed: Sequence[str]) -> None:
+    """403 `field_read_only` when a person changes a custom field their roles may only read.
+
+    ADR-047 §8, as work items do: a form sending a read-only value back unchanged passes, and a
+    service identity's writes (a connector's) are system writes.
+    """
+    if not subject.person:
+        return
+    locked = field_rules.refused(changed, field_rules.read_only(subject.field_access, RECORD_TYPE))
+    if locked:
+        raise PermissionDenied(code="field_read_only", params={"field": locked[0]})
+
+
+def _changed_custom(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[str]:
+    return [
+        f"{field_rules.CUSTOM}{k}"
+        for k in sorted(set(before) | set(after))
+        if before.get(k) != after.get(k)
+    ]
+
+
 async def _add(  # noqa: PLR0913 - every part of a new CI, explicit
     session: AsyncSession,
     subject: Subject,
@@ -415,6 +545,12 @@ async def _add(  # noqa: PLR0913 - every part of a new CI, explicit
         raise invalid(problems)
     ci_type = await get_type(session, values["type_id"])
     await _check_references(session, values)
+    sent = values.get("custom")
+    _require_writable(
+        subject,
+        [f"{field_rules.CUSTOM}{k}" for k, v in (sent or {}).items() if v is not None],
+    )
+    custom = await _custom(session, sent, None, ci_type.id) or {}
     state_id = values.get("state_id") or (await default_state(session)).id
     record = Ci(
         display_id=await next_display_id(session, DISPLAY_PREFIX),
@@ -430,16 +566,19 @@ async def _add(  # noqa: PLR0913 - every part of a new CI, explicit
         criticality=values.get("criticality"),
         asset_id=asset_id,
         source=origin.value,
+        custom=custom,
     )
     await CiRepository(session).add(record)
     await _within_scope(session, subject, ADD, record.id)
+    if custom:
+        await metadata.mark_used(session, ENTITY, list(custom))
     await record_changes(
         session,
         record_type=RECORD_TYPE,
         record_id=record.id,
         version=record.version,
         kind="created",
-        changes=[Change(k, None, v) for k, v in snapshot(record).items() if v not in (None, {})],
+        changes=_history_changes({}, snapshot(record)),
         source=source,
     )
     await _save_version(session, record, subject)
@@ -479,7 +618,14 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
     expected_version: int,
     columns: Mapping[str, Any],
     source: Source,
+    extra: Sequence[Change] = (),
+    quiet: frozenset[str] = frozenset(),
 ) -> Ci:
+    """One update: version, history, snapshot, event.
+
+    `extra`: history lines of the caller's own; `quiet`: fields whose values never go into the
+    history (a type change's dropped custom values, named by key in `extra` instead).
+    """
     before = snapshot(record)
     if not columns:
         if record.version != expected_version:
@@ -502,8 +648,12 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
     except Conflict as error:
         raise await _conflict(session, error, record.id) from error
     await _within_scope(session, subject, EDIT, updated.id)
-    after = snapshot(updated)
-    changes = [Change(k, before[k], v) for k, v in after.items() if before[k] != v]
+    if "custom" in columns and updated.custom:
+        await metadata.mark_used(session, ENTITY, list(updated.custom))
+    changes = [
+        *(c for c in _history_changes(before, snapshot(updated)) if c.field not in quiet),
+        *extra,
+    ]
     await record_changes(
         session,
         record_type=RECORD_TYPE,
@@ -543,10 +693,74 @@ async def update(  # noqa: PLR0913 - the record, the version and the change, exp
     if "name" in draft:
         draft["name"] = str(draft["name"]).strip()
     columns = {k: v for k, v in draft.items() if getattr(record, k) != v}
+    held = dict(record.custom or {})
+    custom = await _custom(session, values.get("custom"), held, record.type_id)
+    if custom is not None and custom != held:
+        _require_writable(subject, _changed_custom(held, custom))
+        columns["custom"] = custom
     saved = await _save(
         session, subject, record, expected_version=expected_version, columns=columns, source=source
     )
     return await _view(session, subject, saved)
+
+
+@dataclass(frozen=True)
+class DroppedField:
+    """A custom field whose value a type change would drop: its key and the admin's names."""
+
+    key: str
+    labels: dict[str, str]
+
+
+@dataclass(frozen=True)
+class TypeChangePreview:
+    """What moving a CI to a type would drop.
+
+    `dropped`: the fields the person may see (a hidden one is never named). `blocked`: one of the
+    dropped fields is under a field access rule for them, so they may not change the type.
+    """
+
+    dropped: list[DroppedField]
+    blocked: bool
+
+
+async def _dropped_keys(session: AsyncSession, record: Ci, type_id: uuid.UUID) -> list[str]:
+    """Custom keys holding a value that the new type's fields do not include."""
+    if record.type_id == type_id or not record.custom:
+        return []
+    kept = [
+        f.key for f in await metadata.field_marks(session, ENTITY, retired=True, type_id=type_id)
+    ]
+    known = [f.key for f in await metadata.field_marks(session, ENTITY, retired=True)]
+    return field_rules.dropped(record.custom, kept, known)
+
+
+def _locked(subject: Subject, keys: Sequence[str]) -> list[str]:
+    if not subject.person:
+        return []
+    return field_rules.refused(
+        [f"{field_rules.CUSTOM}{k}" for k in keys],
+        field_rules.read_only(subject.field_access, RECORD_TYPE),
+    )
+
+
+async def type_change_preview(
+    session: AsyncSession, subject: Subject, ci_id: uuid.UUID, type_id: uuid.UUID
+) -> TypeChangePreview:
+    """The custom values moving the CI to `type_id` would drop (nothing is changed)."""
+    record = await _writable(session, subject, EDIT, ci_id)
+    await get_type(session, type_id)
+    keys = await _dropped_keys(session, record, type_id)
+    hidden = _unseen(subject).hidden
+    marks = {f.key: f for f in await metadata.field_marks(session, ENTITY, retired=True)}
+    return TypeChangePreview(
+        dropped=[
+            DroppedField(k, dict(marks[k].labels))
+            for k in keys
+            if f"{field_rules.CUSTOM}{k}" not in hidden and k in marks
+        ],
+        blocked=bool(_locked(subject, keys)),
+    )
 
 
 async def change_type(  # noqa: PLR0913 - the record, the version and the change, explicit
@@ -557,13 +771,42 @@ async def change_type(  # noqa: PLR0913 - the record, the version and the change
     type_id: uuid.UUID,
     expected_version: int,
     source: Source,
+    confirm_dropped_fields: bool = False,
 ) -> CiView:
-    """Move the CI to another live type (REQ-CMDB-003)."""
+    """Move the CI to another live type (REQ-CMDB-003).
+
+    Custom values outside the new type's fields (0175) are dropped only with
+    `confirm_dropped_fields` (409 `cmdb_ci_type_change_drops_fields` otherwise, with the count),
+    and only when none of them is under a field access rule for the person (403
+    `field_read_only`). History names the dropped fields by key, never their values (lane A's
+    note 2).
+    """
     record = await _writable(session, subject, EDIT, ci_id)
     await get_type(session, type_id)
     columns: dict[str, Any] = {} if record.type_id == type_id else {"type_id": type_id}
+    keys = await _dropped_keys(session, record, type_id)
+    extra: list[Change] = []
+    quiet: frozenset[str] = frozenset()
+    if keys:
+        if locked := _locked(subject, keys):
+            raise PermissionDenied(code="field_read_only", params={"field": locked[0]})
+        if not confirm_dropped_fields:
+            raise Conflict(
+                code="cmdb_ci_type_change_drops_fields", params={"field_count": len(keys)}
+            )
+        named = [f"{field_rules.CUSTOM}{k}" for k in keys]
+        columns["custom"] = {k: v for k, v in (record.custom or {}).items() if k not in keys}
+        extra = [Change(DROPPED_FIELD, None, named)]
+        quiet = frozenset(named)
     saved = await _save(
-        session, subject, record, expected_version=expected_version, columns=columns, source=source
+        session,
+        subject,
+        record,
+        expected_version=expected_version,
+        columns=columns,
+        source=source,
+        extra=extra,
+        quiet=quiet,
     )
     return await _view(session, subject, saved)
 
@@ -573,7 +816,14 @@ async def copy(session: AsyncSession, subject: Subject, ci_id: uuid.UUID, source
     if writer(subject, ADD) is None:
         raise _denied(ADD)
     original = await _visible(session, subject, ci_id)
-    values = {k: getattr(original, k) for k in ("type_id", *EDITABLE)}
+    values: dict[str, Any] = {k: getattr(original, k) for k in ("type_id", *EDITABLE)}
+    # Only custom values the person could set themselves are copied: a field under any of their
+    # rules (hidden, masked or read-only, ADR-047) never travels, so the copy is never refused.
+    locked = field_rules.read_only(subject.field_access, RECORD_TYPE)
+    values["custom"] = field_rules.without(
+        original.custom,
+        frozenset(f.removeprefix(field_rules.CUSTOM) for f in locked),
+    )
     record = await _add(session, subject, values, source)
     return await _view(session, subject, record)
 

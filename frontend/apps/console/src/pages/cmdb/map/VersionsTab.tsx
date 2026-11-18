@@ -7,6 +7,7 @@ import {
   useCiStates,
   useCiTypes,
   useCiVersions,
+  useCustomFields,
   useRelationshipTypes,
   type CiAttributeChange,
   type CiVersion,
@@ -23,8 +24,26 @@ import {
   type Tone,
 } from '@supportx/ui';
 
+import { fieldName, useCustomValueText } from '../../customFields/values';
 import { nameOf } from '../names';
 import { nodeName, relationshipName } from './words';
+
+const CUSTOM = 'custom.';
+
+/**
+ * A version's field by name: built-ins by their labels, custom fields (`custom.<key>`, 0175) by
+ * the admin's names, removed ones too (old versions still hold them).
+ */
+function useFieldLabel() {
+  const t = useLabel();
+  const { locale } = useAppearance();
+  const custom = useCustomFields('ci', true);
+  return (field: string): string => {
+    if (!field.startsWith(CUSTOM)) return t(`cmdb.field.${field}`);
+    const found = custom.data?.find((f) => `${CUSTOM}${f.key}` === field);
+    return found === undefined ? t('cmdb.field.custom_field') : fieldName(found, locale);
+  };
+}
 
 /** Text longer than this is shortened behind "Show all" (condition 13). */
 export const SHORT_TEXT = 160;
@@ -165,8 +184,16 @@ function useValueText() {
   const { locale } = useAppearance();
   const types = useCiTypes();
   const states = useCiStates();
+  const custom = useCustomFields('ci', true);
+  const customText = useCustomValueText();
   return (field: string, value: unknown): string => {
     if (value === null || value === undefined || value === '') return t('cmdb.versions.empty');
+    if (field.startsWith(CUSTOM)) {
+      const found = custom.data?.find((f) => `${CUSTOM}${f.key}` === field);
+      // A person field names someone: never their ID (rule d), as other references.
+      if (found === undefined || found.field_type === 'person') return t('cmdb.versions.set');
+      return customText(found, value) || t('cmdb.versions.set');
+    }
     // A sealed value (ADR-050) stays sealed in every version, as on the record.
     if (typeof value === 'object' && (value as { sealed?: unknown }).sealed === true) {
       return t('cmdb.versions.sealed');
@@ -235,8 +262,10 @@ function VersionBody({ version }: { version: CiVersion }) {
   const t = useLabel();
   const dates = useDateTime();
   const value = useValueText();
+  const label = useFieldLabel();
   const types = useRelationshipTypes();
   const linkText = useLinkText(types.data?.items ?? []);
+  const masked = version.masked_fields ?? [];
   return (
     <Flex vertical gap={12} data-testid="ci-versions-as-of-result">
       <Typography.Text type="secondary">
@@ -244,12 +273,22 @@ function VersionBody({ version }: { version: CiVersion }) {
         <bdi>{dates.format(version.saved_at)}</bdi>
       </Typography.Text>
       <PropertyList
-        items={Object.entries(version.fields).map(([field, v]) => ({
-          key: field,
-          label: t(`cmdb.field.${field}`),
-          content: <LongText text={value(field, v)} />,
-          filled: true,
-        }))}
+        items={[
+          ...Object.entries(version.fields).map(([field, v]) => ({
+            key: field,
+            label: label(field),
+            content: <LongText text={value(field, v)} />,
+            filled: true,
+          })),
+          // Held but masked for this reader (ADR-047): the shared row says so.
+          ...masked.map((field) => ({
+            key: field,
+            label: label(field),
+            content: null,
+            filled: true,
+            restricted: 'masked' as const,
+          })),
+        ]}
       />
       <Typography.Text strong>{t('cmdb.field.relationships')}</Typography.Text>
       {version.relationships.length === 0 ? (
@@ -279,6 +318,7 @@ function AsOf({ ciId, at }: { ciId: string; at: string }) {
 export function Comparison({ ciId, pair }: { ciId: string; pair: { from: number; to: number } }) {
   const t = useLabel();
   const value = useValueText();
+  const label = useFieldLabel();
   const found = useCiCompare(ciId, pair);
   const types = useRelationshipTypes();
   const linkText = useLinkText(types.data?.items ?? []);
@@ -304,7 +344,7 @@ export function Comparison({ ciId, pair }: { ciId: string; pair: { from: number;
               <List.Item data-testid={`ci-compare-${change.field}`}>
                 <Flex vertical gap={4} style={{ width: '100%' }}>
                   <Space wrap>
-                    <Typography.Text strong>{t(`cmdb.field.${change.field}`)}</Typography.Text>
+                    <Typography.Text strong>{label(change.field)}</Typography.Text>
                     <ToneTag tone={KIND_TONE[change.kind]}>
                       {t(`cmdb_compare_kind.${change.kind}`)}
                     </ToneTag>

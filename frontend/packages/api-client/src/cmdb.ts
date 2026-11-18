@@ -175,15 +175,43 @@ export function useCopyCi(id: string) {
   });
 }
 
+export type CiTypeChangePreview = components['schemas']['CiTypeChangePreviewOut'];
+
+/**
+ * What moving the CI to `typeId` would drop (0175 part 2): the custom fields outside the new
+ * type's, by name, and whether a field access rule blocks it. Nothing changes.
+ */
+export function useCiTypeChangePreview(id: string, typeId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.cmdb.typeChangePreview(id, typeId ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/cmdb/cis/{ci_id}/change-type-preview', {
+          params: { path: { ci_id: id }, query: { type_id: typeId ?? '' } },
+        }),
+      ),
+    enabled: typeId !== undefined,
+  });
+}
+
 export function useChangeCiType(id: string) {
   const saved = useCiSaved();
   return useMutation({
     meta: { silent: true },
-    mutationFn: ({ typeId, version }: { typeId: string; version: number }) =>
+    mutationFn: ({
+      typeId,
+      version,
+      confirmDropped = false,
+    }: {
+      typeId: string;
+      version: number;
+      /** Drop the values the new type's fields do not include (shown by the preview first). */
+      confirmDropped?: boolean;
+    }) =>
       call(
         api.POST('/api/v1/cmdb/cis/{ci_id}/change-type', {
           params: { path: { ci_id: id }, header: ifMatch(version) },
-          body: { type_id: typeId },
+          body: { type_id: typeId, confirm_dropped_fields: confirmDropped },
         }),
       ),
     onSuccess: saved,

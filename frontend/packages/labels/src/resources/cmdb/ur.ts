@@ -17,6 +17,7 @@ export const ur: LabelResource = {
   'audit.object.cmdb_relationship_type': 'تعلق کی قسم',
   'audit.object.cmdb_settings': 'CMDB کی ترتیبات',
   'cmdb.action.change_type': 'قسم تبدیل کریں',
+  'cmdb.action.change_type_drop': 'قسم بدلیں اور قدریں ہٹائیں',
   'cmdb.action.copy': 'نقل کریں',
   'cmdb.action.delete': 'کوڑے دان میں ڈالیں',
   'cmdb.action.from_assets': 'اثاثوں سے شامل کریں',
@@ -28,6 +29,10 @@ export const ur: LabelResource = {
   'cmdb.action.restore': 'بحال کریں',
   'cmdb.added': '{{id}} شامل کر دیا گیا',
   'cmdb.all_types': 'تمام اقسام',
+  'cmdb.change_type_blocked':
+    'آپ کے کردار صرف ایک ایسا خانہ پڑھ سکتے ہیں جس کی قدر یہ تبدیلی ہٹا دے گی، اس لیے آپ قسم نہیں بدل سکتے۔',
+  'cmdb.change_type_drops':
+    'وہ خانے جو نئی قسم میں نہیں اور جن کی قدریں ہٹ جائیں گی: {{count}}۔ تاریخ ان کے نام لکھے گی، قدریں کبھی نہیں۔',
   'cmdb.copied': 'نقل {{id}} کے طور پر محفوظ ہو گئی',
   'cmdb.count': 'CI',
   'cmdb.delete_confirm': '{{name}} کو ردی میں منتقل کریں؟',
@@ -40,8 +45,10 @@ export const ur: LabelResource = {
   'cmdb.field.business_impact': 'کاروبار پر اثر',
   'cmdb.field.category': 'زمرہ',
   'cmdb.field.criticality': 'اہمیت',
+  'cmdb.field.custom_field': 'حسب ضرورت خانہ',
   'cmdb.field.description': 'تفصیل',
   'cmdb.field.display_id': 'شناخت',
+  'cmdb.field.fields_dropped': 'قسم بدلنے سے ہٹائے گئے خانے',
   'cmdb.field.filters': 'نقشے کے فلٹر',
   'cmdb.field.layout': 'ترتیب',
   'cmdb.field.managed_by_group_id': 'منتظم گروپ',
@@ -62,6 +69,19 @@ export const ur: LabelResource = {
   'cmdb.field.state_id': 'حالت',
   'cmdb.field.type_id': 'قسم',
   'cmdb.field.updated_at': 'آخری تبدیلی',
+  'cmdb.fields.description':
+    'وہ خانے جو اس قسم اور اس کے نیچے ہر قسم کے کنفیگریشن آئٹمز میں ہوتے ہیں۔ تمام اقسام اور اوپر کی اقسام کے خانے یہاں صرف پڑھنے کے لیے دکھتے ہیں۔',
+  'cmdb.fields.from_every_type': 'تمام CI اقسام سے',
+  'cmdb.fields.from_type': 'از',
+  'cmdb.fields.help':
+    'وہ خانے جو آپ کا ادارہ اس قسم کے کنفیگریشن آئٹمز میں شامل کرتا ہے۔ تبدیلیاں کھلے فارموں اور ریکارڈز تک فوراً پہنچتی ہیں۔',
+  'cmdb.fields.none': 'اس قسم کے لیے ابھی کوئی حسب ضرورت خانہ نہیں۔',
+  'cmdb.fields.open': '{{type}} کے خانے',
+  'cmdb.fields.read_only': 'یہاں صرف پڑھنے کے لیے',
+  'cmdb.fields.remove_in_use':
+    'کنفیگریشن آئٹمز اس خانے میں قدریں رکھتے ہیں۔ اسے ریٹائر کرنا بہتر ہے: یہ پیش ہونا بند ہو جاتا ہے مگر جن آئٹمز میں ہے ان پر دکھتا رہتا ہے۔ ہٹانے سے یہ ہر جگہ چھپ جاتا ہے؛ پرانی قدریں صرف ہر آئٹم کی تاریخ میں رہتی ہیں۔',
+  'cmdb.fields.tab': 'خانے',
+  'cmdb.fields.title': '{{type}} کے خانے',
   'cmdb.from_assets.result': '{{created}} CI شامل ہوئے، {{skipped}} اثاثے چھوڑے گئے',
   'cmdb.history': 'تاریخچہ',
   'cmdb.map.add': 'شامل کریں',
@@ -127,6 +147,7 @@ export const ur: LabelResource = {
   'cmdb.map.zoom_out': 'چھوٹا کریں',
   'cmdb.more': 'مزید دکھائیں',
   'cmdb.no': 'نہیں',
+  'cmdb.record_type.ci': 'کنفیگریشن آئٹم',
   'cmdb.relationship_type.added': 'تعلق کی قسم شامل ہو گئی',
   'cmdb.relationship_type.any_types': 'کوئی بھی اقسام',
   'cmdb.relationship_type.both_names': '{{forward}} / {{inverse}}',
@@ -155,6 +176,7 @@ export const ur: LabelResource = {
   'cmdb.relationship_type.suggested': 'پہلے پیش کریں',
   'cmdb.restored': '{{id}} بحال ہو گیا',
   'cmdb.saved': 'تبدیلیاں محفوظ ہو گئیں',
+  'cmdb.section.custom_fields': 'مزید تفصیلات',
   'cmdb.section.properties': 'خصوصیات',
   'cmdb.settings.eol_hidden': 'میعاد ختم شدہ CI اب منتخب کرنے کی فہرستوں میں نہیں دکھائے جاتے',
   'cmdb.settings.eol_shown': 'میعاد ختم شدہ CI اب منتخب کرنے کی فہرستوں میں دکھائے جاتے ہیں',
@@ -267,6 +289,8 @@ export const ur: LabelResource = {
   'cmdb_view_layout.hierarchical': 'درجہ وار',
   'cmdb_view_layout.radial': 'شعاعی',
   'cmdb_view_layout.tree': 'درخت',
+  'erasure_count.cmdb_ci_person_fields_moved':
+    'کنفیگریشن آئٹمز پر افراد کے فیلڈز جو جانشین کو سونپے گئے',
   'erasure_count.cmdb_cis_moved': 'کنفیگریشن آئٹم جانشین کے حوالے کیے گئے',
   'erasure_count.cmdb_views_moved': 'کاروباری مناظر جانشین کے حوالے کیے گئے',
   'errors.cmdb_asset_has_ci': 'اس اثاثے کا پہلے سے ایک اور کنفیگریشن آئٹم ہے۔',
@@ -278,8 +302,14 @@ export const ur: LabelResource = {
   'errors.cmdb_ci_not_found': 'یہ کنفیگریشن آئٹم موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.cmdb_ci_state_in_use': 'کنفیگریشن آئٹم ابھی اس حالت میں ہیں ({{ci_count}})۔',
   'errors.cmdb_ci_state_not_found': 'CI کی یہ حالت موجود نہیں۔',
+  'errors.cmdb_ci_type_change_drops_fields':
+    'نئی قسم میں {{field_count}} ایسے خانے نہیں جن میں یہ آئٹم قدریں رکھتا ہے۔ دیکھیں کیا ہٹے گا، پھر تصدیق کریں۔',
+  'errors.cmdb_ci_type_has_fields':
+    'حسب ضرورت خانے اس قسم سے متعلق ہیں ({{field_count}})۔ پہلے انہیں منتقل کریں یا ہٹائیں۔',
   'errors.cmdb_ci_type_in_use':
     'یہ قسم ابھی {{ci_count}} کنفیگریشن آئٹمز اور اس کے نیچے {{type_count}} اقسام میں استعمال ہے۔',
+  'errors.cmdb_ci_type_move_drops_fields':
+    'اس قسم کو منتقل کرنے سے {{ci_count}} کنفیگریشن آئٹمز کی حسب ضرورت قدریں ہٹ جائیں گی۔ پہلے ان خانوں کو منتقل کریں یا ان کا دائرہ بڑھائیں۔',
   'errors.cmdb_ci_type_not_found': 'CI کی یہ قسم موجود نہیں۔',
   'errors.cmdb_ci_version_not_found': 'اس وقت کے لیے اس کنفیگریشن آئٹم کا کوئی ورژن نہیں۔',
   'errors.cmdb_relationship_exists': '{{display_id}} پہلے ہی اس تعلق کی قسم سے جڑا ہے۔',

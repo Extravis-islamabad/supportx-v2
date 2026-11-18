@@ -71,8 +71,17 @@ async def lineage(
     return None if found is None else list(found)
 
 
+def forget(session: AsyncSession, entity: CustomFieldEntity) -> None:
+    """Drop this transaction's lineages of the entity's types (a type moved under a new parent)."""
+    memo = transaction_memo(session, _MEMO)
+    if memo is not None:
+        for key in [k for k in memo if k[0] == entity]:
+            del memo[key]
+
+
 __all__ = [
     "TypeTree",
+    "forget",
     "lineage",
     "register_type_tree",
     "tree_of",

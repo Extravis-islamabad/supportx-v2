@@ -17,6 +17,7 @@ export const ar: LabelResource = {
   'audit.object.cmdb_relationship_type': 'نوع العلاقة',
   'audit.object.cmdb_settings': 'إعدادات قاعدة بيانات التهيئة',
   'cmdb.action.change_type': 'تغيير النوع',
+  'cmdb.action.change_type_drop': 'غيّر النوع واحذف القيم',
   'cmdb.action.copy': 'نسخ',
   'cmdb.action.delete': 'نقل إلى سلة المحذوفات',
   'cmdb.action.from_assets': 'إضافة من الأصول',
@@ -28,6 +29,10 @@ export const ar: LabelResource = {
   'cmdb.action.restore': 'استعادة',
   'cmdb.added': 'تمت إضافة {{id}}',
   'cmdb.all_types': 'كل الأنواع',
+  'cmdb.change_type_blocked':
+    'لا تسمح لك أدوارك إلا بقراءة حقل سيحذف هذا التغيير قيمته، لذا لا يمكنك تغيير النوع.',
+  'cmdb.change_type_drops':
+    'حقول لا يملكها النوع الجديد وستُحذف قيمها: {{count}}. سيذكرها السجل بأسمائها، دون قيمها أبدًا.',
   'cmdb.copied': 'تم حفظ النسخة باسم {{id}}',
   'cmdb.count': 'العناصر',
   'cmdb.delete_confirm': 'نقل {{name}} إلى سلة المحذوفات؟',
@@ -40,8 +45,10 @@ export const ar: LabelResource = {
   'cmdb.field.business_impact': 'الأثر على الأعمال',
   'cmdb.field.category': 'الفئة',
   'cmdb.field.criticality': 'الأهمية',
+  'cmdb.field.custom_field': 'حقل مخصص',
   'cmdb.field.description': 'الوصف',
   'cmdb.field.display_id': 'المعرّف',
+  'cmdb.field.fields_dropped': 'حقول حُذفت بتغيير النوع',
   'cmdb.field.filters': 'عوامل تصفية الخريطة',
   'cmdb.field.layout': 'التخطيط',
   'cmdb.field.managed_by_group_id': 'تديره',
@@ -62,6 +69,19 @@ export const ar: LabelResource = {
   'cmdb.field.state_id': 'الحالة',
   'cmdb.field.type_id': 'النوع',
   'cmdb.field.updated_at': 'آخر تغيير',
+  'cmdb.fields.description':
+    'الحقول التي تملكها عناصر التهيئة من هذا النوع وكل نوع تحته. تظهر هنا حقول جميع الأنواع وحقول الأنواع الأعلى للقراءة فقط.',
+  'cmdb.fields.from_every_type': 'من جميع أنواع عناصر التهيئة',
+  'cmdb.fields.from_type': 'من',
+  'cmdb.fields.help':
+    'حقول تضيفها مؤسستك إلى عناصر التهيئة من هذا النوع. تصل التغييرات إلى النماذج والسجلات المفتوحة فورًا.',
+  'cmdb.fields.none': 'لا توجد حقول مخصصة لهذا النوع بعد.',
+  'cmdb.fields.open': 'حقول {{type}}',
+  'cmdb.fields.read_only': 'للقراءة فقط هنا',
+  'cmdb.fields.remove_in_use':
+    'تحمل عناصر التهيئة قيمًا في هذا الحقل. يُنصح بإيقافه: يتوقف عرضه لكنه يبقى ظاهرًا في العناصر التي تحمله. إزالته تخفيه في كل مكان؛ وتبقى القيم القديمة في سجل كل عنصر فقط.',
+  'cmdb.fields.tab': 'الحقول',
+  'cmdb.fields.title': 'حقول {{type}}',
   'cmdb.from_assets.result': 'أُضيف {{created}} من عناصر التهيئة، وتُخطّي {{skipped}} من الأصول',
   'cmdb.history': 'السجل',
   'cmdb.map.add': 'إضافة',
@@ -147,6 +167,7 @@ export const ar: LabelResource = {
   'cmdb.map.zoom_out': 'تصغير',
   'cmdb.more': 'عرض المزيد',
   'cmdb.no': 'لا',
+  'cmdb.record_type.ci': 'عنصر تهيئة',
   'cmdb.relationship_type.added': 'أُضيف نوع العلاقة',
   'cmdb.relationship_type.any_types': 'أي أنواع',
   'cmdb.relationship_type.both_names': '{{forward}} / {{inverse}}',
@@ -179,6 +200,7 @@ export const ar: LabelResource = {
   'cmdb.relationship_type.suggested': 'يُعرض أولًا',
   'cmdb.restored': 'تمت استعادة {{id}}',
   'cmdb.saved': 'تم حفظ التغييرات',
+  'cmdb.section.custom_fields': 'تفاصيل إضافية',
   'cmdb.section.properties': 'الخصائص',
   'cmdb.settings.eol_hidden': 'لم تعد عناصر التكوين المنتهية الصلاحية تظهر في أدوات الاختيار',
   'cmdb.settings.eol_shown': 'أصبحت عناصر التكوين المنتهية الصلاحية تظهر في أدوات الاختيار',
@@ -291,6 +313,7 @@ export const ar: LabelResource = {
   'cmdb_view_layout.hierarchical': 'هرمي',
   'cmdb_view_layout.radial': 'شعاعي',
   'cmdb_view_layout.tree': 'شجري',
+  'erasure_count.cmdb_ci_person_fields_moved': 'حقول الأشخاص في عناصر التهيئة المُسلَّمة إلى الخلف',
   'erasure_count.cmdb_cis_moved': 'عناصر التهيئة المُسلَّمة إلى الخلف',
   'erasure_count.cmdb_views_moved': 'طرق عرض الأعمال المُسلَّمة إلى الخلف',
   'errors.cmdb_asset_has_ci': 'لهذا الأصل عنصر تهيئة آخر بالفعل.',
@@ -300,8 +323,14 @@ export const ar: LabelResource = {
   'errors.cmdb_ci_not_found': 'عنصر التهيئة هذا غير موجود، أو لا يمكنك رؤيته.',
   'errors.cmdb_ci_state_in_use': 'لا تزال عناصر تهيئة في هذه الحالة ({{ci_count}}).',
   'errors.cmdb_ci_state_not_found': 'حالة عنصر التهيئة هذه غير موجودة.',
+  'errors.cmdb_ci_type_change_drops_fields':
+    'النوع الجديد لا يملك {{field_count}} من الحقول التي يحمل هذا العنصر قيمًا فيها. راجع ما سيُحذف ثم أكّد.',
+  'errors.cmdb_ci_type_has_fields':
+    'حقول مخصصة تتبع هذا النوع ({{field_count}}). انقلها أو أزلها أولًا.',
   'errors.cmdb_ci_type_in_use':
     'لا يزال هذا النوع مستخدمًا في {{ci_count}} من عناصر التهيئة و{{type_count}} من الأنواع تحته.',
+  'errors.cmdb_ci_type_move_drops_fields':
+    'نقل هذا النوع سيحذف قيمًا مخصصة يحملها {{ci_count}} من عناصر التهيئة. انقل تلك الحقول أو وسّع نطاقها أولًا.',
   'errors.cmdb_ci_type_not_found': 'نوع عنصر التهيئة هذا غير موجود.',
   'errors.cmdb_ci_version_not_found': 'لا توجد نسخة من عنصر التهيئة هذا في ذلك الوقت.',
   'errors.cmdb_relationship_exists': '{{display_id}} مرتبط بالفعل بنوع العلاقة هذا.',

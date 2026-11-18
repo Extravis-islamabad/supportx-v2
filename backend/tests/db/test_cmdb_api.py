@@ -519,12 +519,20 @@ async def test_erasure_moves_owned_cis_to_the_successor(world: World) -> None:
         first = await PORT.erase_person(
             session, a.tech_a, successor_id=a.tech_b, keep_files={}, now=_now(), cursor=None
         )
-    assert first.counts == {"cmdb_cis_moved": 1, "cmdb_views_moved": 0}
+    assert first.counts == {
+        "cmdb_cis_moved": 1,
+        "cmdb_views_moved": 0,
+        "cmdb_ci_person_fields_moved": 0,
+    }
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         second = await PORT.erase_person(
             session, a.tech_a, successor_id=a.tech_b, keep_files={}, now=_now(), cursor=None
         )
-    assert second.counts == {"cmdb_cis_moved": 0, "cmdb_views_moved": 0}
+    assert second.counts == {
+        "cmdb_cis_moved": 0,
+        "cmdb_views_moved": 0,
+        "cmdb_ci_person_fields_moved": 0,
+    }
     after = (await world.call("GET", f"{BASE}/cis/{owned['id']}", a, a.admin)).json()
     assert after["owner_user_id"] == str(a.tech_b)
     assert after["version"] == 2

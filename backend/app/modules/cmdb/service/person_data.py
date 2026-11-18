@@ -9,6 +9,10 @@ what the erasure anonymises (identity_access).
 Business views (S2, 0180) the person owns move to the successor too, after the CIs, each with
 its version, history line and `cmdb.business_view.changed` event. A view's `created_by` is an
 audit column only (ADR-052 step 5).
+
+Person-type custom values (0175 part 2) that point at the person move to the successor last, as
+an ordinary save of the CI (version, history line per key, snapshot, `CiUpdated`), counted per
+value moved. Snapshots keep the old ID, as they do for the owner.
 """
 
 import uuid
@@ -16,9 +20,11 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import ClassVar
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules import metadata
+from app.modules.cmdb.domain.field_access import CUSTOM
 from app.modules.cmdb.events import BusinessViewChanged, CiUpdated
 from app.modules.cmdb.infra.models import BusinessView, Ci
 from app.modules.cmdb.service.business_views import RECORD_TYPE as VIEW_RECORD_TYPE
@@ -30,14 +36,15 @@ from app.shared.history import Change, record_changes
 
 MOVED = "cmdb_cis_moved"
 VIEWS_MOVED = "cmdb_views_moved"
+PERSON_FIELDS_MOVED = "cmdb_ci_person_fields_moved"
 
 
 class CmdbData:
-    """cmdb: owned CIs, then owned business views, moved to the successor (band 500)."""
+    """cmdb: owned CIs, owned business views, then person-type custom values, to the successor."""
 
     module: ClassVar[str] = "cmdb"
     order: ClassVar[int] = 575
-    kinds: ClassVar[frozenset[str]] = frozenset({MOVED, VIEWS_MOVED})
+    kinds: ClassVar[frozenset[str]] = frozenset({MOVED, VIEWS_MOVED, PERSON_FIELDS_MOVED})
 
     async def erase_person(  # noqa: PLR0913 - the port contract (ADR-052 §4)
         self,
@@ -80,13 +87,15 @@ class CmdbData:
                 aggregate_id=row.id,
                 aggregate_version=row.version,
             )
+        counts = {MOVED: len(rows), VIEWS_MOVED: 0, PERSON_FIELDS_MOVED: 0}
         if len(rows) >= ERASE_BATCH:
-            return ErasureBatch({MOVED: len(rows), VIEWS_MOVED: 0}, cursor="owned")
-        views = await _move_views(session, person_id, successor_id, now)
-        return ErasureBatch(
-            {MOVED: len(rows), VIEWS_MOVED: views},
-            cursor="views" if views >= ERASE_BATCH else None,
-        )
+            return ErasureBatch(counts, cursor="owned")
+        counts[VIEWS_MOVED] = await _move_views(session, person_id, successor_id, now)
+        if counts[VIEWS_MOVED] >= ERASE_BATCH:
+            return ErasureBatch(counts, cursor="views")
+        moved, full = await _move_person_fields(session, person_id, successor_id, now)
+        counts[PERSON_FIELDS_MOVED] = moved
+        return ErasureBatch(counts, cursor="fields" if full else None)
 
 
 async def _move_views(
@@ -127,6 +136,65 @@ async def _move_views(
             aggregate_version=row.version,
         )
     return len(rows)
+
+
+async def _move_person_fields(
+    session: AsyncSession, person_id: uuid.UUID, successor_id: uuid.UUID, now: datetime
+) -> tuple[int, bool]:
+    """One batch of CIs whose person-type custom values name the person (removed CIs too).
+
+    Returns the values moved and whether the batch was full (more may be left).
+    """
+    keys = sorted(
+        key
+        for key, definition in (
+            await metadata.definitions(session, metadata.CustomFieldEntity.CI)
+        ).items()
+        if definition.type == metadata.FieldType.PERSON
+    )
+    if not keys:
+        return 0, False
+    who, heir = str(person_id), str(successor_id)
+    rows = list(
+        await session.scalars(
+            select(Ci)
+            .where(or_(*(Ci.custom[key].astext == who for key in keys)))
+            .order_by(Ci.id)
+            .limit(ERASE_BATCH)
+            .with_for_update()
+        )
+    )
+    moved = 0
+    changed: dict[uuid.UUID, list[str]] = {}
+    for row in rows:
+        custom = dict(row.custom or {})
+        hits = [key for key in keys if custom.get(key) == who]
+        for key in hits:
+            custom[key] = heir
+        row.custom = custom
+        row.version, row.updated_at = row.version + 1, now
+        changed[row.id] = hits
+        moved += len(hits)
+    await session.flush()
+    for row in rows:
+        fields = [f"{CUSTOM}{key}" for key in changed[row.id]]
+        await record_changes(
+            session,
+            record_type=RECORD_TYPE,
+            record_id=row.id,
+            version=row.version,
+            kind="updated",
+            changes=[Change(field, who, heir) for field in fields],
+            source="system",
+        )
+        await save_version(session, row, snapshot(row), None)
+        await record_event(
+            session,
+            CiUpdated(ci_id=row.id, type_id=row.type_id, changed_fields=fields),
+            aggregate_id=row.id,
+            aggregate_version=row.version,
+        )
+    return moved, len(rows) >= ERASE_BATCH
 
 
 PORT = CmdbData()

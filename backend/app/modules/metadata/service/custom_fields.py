@@ -214,9 +214,10 @@ async def definitions(
 async def fields_scoped_to(
     session: AsyncSession, entity: str, type_ids: Sequence[uuid.UUID]
 ) -> list[CustomField]:
-    """Live fields scoped to any of these types (removed ones too: they still hold values).
+    """Fields scoped to any of these types, retired ones included (they still hold values).
 
-    The owning module asks before deleting a type (`ci_type_has_fields`).
+    Deleted fields are left out: a field is deleted only before it holds a value, so it never
+    stands in a type's way. The owning module asks before deleting a type (`ci_type_has_fields`).
     """
     if not type_ids:
         return []
@@ -224,10 +225,23 @@ async def fields_scoped_to(
     return list(
         await session.scalars(
             select(CustomField).where(
-                CustomField.entity == kind, CustomField.scope_type_id.in_(list(type_ids))
+                CustomField.entity == kind,
+                CustomField.scope_type_id.in_(list(type_ids)),
+                CustomField.deleted_at.is_(None),
             )
         )
     )
+
+
+def forget_lineage(session: AsyncSession, entity: str) -> None:
+    """Forget what this transaction read of the entity's type lineages and scoped definitions.
+
+    The owning module calls it after moving a type under a new parent, so the same transaction's
+    later checks (`clean`, `definitions(type_id=…)`) see the new tree (0175 part 2).
+    """
+    kind = _entity(entity)
+    type_trees.forget(session, kind)
+    _forget(session, kind)
 
 
 async def _scope_in(

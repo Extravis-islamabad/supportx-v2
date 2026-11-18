@@ -60,7 +60,8 @@ type Records = Partial<
     | 'workflowRun'
     | 'workflowRunFlow'
     | 'ci'
-    | 'businessView',
+    | 'businessView'
+    | 'ciType',
     string
   >
 >;
@@ -482,6 +483,13 @@ export const SCREENS: Screen[] = [
     key: 'ci-versions',
     path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
     app: 'console',
+  },
+  // 0175 part 2 (lane B): one CI type's custom fields, its own and those it inherits.
+  {
+    key: 'cmdb-type-fields',
+    path: (r) => (r.ciType ? `/admin/cmdb/types/${r.ciType}/fields` : undefined),
+    app: 'console',
+    state: { name: 'inherited', open: ciTypeFields },
   },
   {
     key: 'ci-versions-compare',
@@ -1014,6 +1022,14 @@ async function findRecords(page: Page): Promise<Records> {
     announcement: await first('/api/v1/announcements?limit=1', firstItem),
     asset: await first('/api/v1/assets?limit=1', firstItem),
     ci,
+    // 0175 part 2: a CI type's Fields page (the built-in server type: every tenant has it).
+    ciType: await first(
+      '/api/v1/cmdb/ci-types',
+      (b) =>
+        ((b as { items?: { id: string; api_name: string }[] }).items ?? []).find(
+          (x) => x.api_name === 'server',
+        )?.id,
+    ),
     // WP-053 S2: a business view to open (one on the showcase CI when the stack has none).
     businessView:
       (await first('/api/v1/cmdb/business-views?limit=1', firstItem)) ??
@@ -1202,6 +1218,74 @@ function ciMapFocus(menu: boolean): (page: Page) => Promise<void> {
       await page.unroute(url, answer);
     }
   };
+}
+
+/**
+ * A CI type's Fields page with every kind of row (0175 part 2), answered in the browser: a field
+ * of every CI type, one from the parent type (read-only, "From Hardware"), and two of its own,
+ * one retired. The stack's real fields come back after the shot.
+ */
+async function ciTypeFields(page: Page): Promise<void> {
+  const url = '**/api/v1/custom-fields*';
+  const types = (await (await page.request.get('/api/v1/cmdb/ci-types')).json()) as {
+    items: { id: string; api_name: string }[];
+  };
+  const hardware = types.items.find((x) => x.api_name === 'hardware')?.id ?? null;
+  const server = types.items.find((x) => x.api_name === 'server')?.id ?? null;
+  const field = (key: string, en: string, ar: string, extra: Record<string, unknown>) => ({
+    id: key, // replaced below by a UUID per row
+    entity: 'ci',
+    key,
+    field_type: 'text',
+    labels: { en, ar },
+    help: null,
+    choices: [],
+    display: 'list',
+    default: null,
+    validation: {
+      required: false,
+      min: null,
+      max: null,
+      min_length: null,
+      max_length: null,
+      pattern: null,
+    },
+    currency: null,
+    sort_order: 0,
+    retired: false,
+    removed: false,
+    in_use: true,
+    index_state: 'none',
+    index_error: null,
+    sensitive: false,
+    seal_state: 'plain',
+    scope_type_id: null,
+    inherited: false,
+    version: 1,
+    ...extra,
+  });
+  const rows = [
+    field('asset_owner_note', 'Owner note', 'ملاحظة المالك', { inherited: true }),
+    field('rack_position', 'Rack position', 'موضع الحامل', {
+      scope_type_id: hardware,
+      inherited: true,
+    }),
+    field('os_version', 'Operating system', 'نظام التشغيل', { scope_type_id: server }),
+    field('cpu_cores', 'CPU cores', 'أنوية المعالج', {
+      scope_type_id: server,
+      field_type: 'integer',
+    }),
+    field('legacy_tag', 'Legacy tag', 'وسم قديم', { scope_type_id: server, retired: true }),
+  ].map((row, index) => ({ ...row, id: `0190cccc-0000-7000-8000-00000000000${String(index)}` }));
+  const answer = (route: Route) =>
+    route.request().method() === 'GET' ? route.fulfill({ json: rows }) : route.continue();
+  await page.route(url, answer);
+  try {
+    await page.reload();
+    await page.getByTestId('cf-inherited-link-rack_position').waitFor({ timeout: STATE_TIMEOUT });
+  } finally {
+    await page.unroute(url, answer);
+  }
 }
 
 /** Two versions compared, answered in the browser (the showcase CI has one version). */

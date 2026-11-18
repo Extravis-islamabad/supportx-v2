@@ -185,6 +185,19 @@ describe('Admin › Roles › Field access', () => {
     );
   });
 
+  it('a CI catalogue shows the record type by its label, never a raw key', async () => {
+    routes({
+      'GET /api/v1/field-access/catalogue': {
+        body: [...CATALOGUE, { record_type: 'ci', fields: CATALOGUE[0]?.fields ?? [] }],
+      },
+    });
+    await openTab();
+    fireEvent.mouseDown(within(screen.getByTestId('field-access-type')).getByRole('combobox'));
+    expect(await screen.findByText('Configuration item')).toBeDefined();
+    expect(screen.queryByText('work_item_type.ci')).toBeNull();
+    expect(screen.queryByText('cmdb.record_type.ci')).toBeNull();
+  });
+
   it('a lapsed plan keeps the rules: only "No rule" can be chosen, and the page says why', async () => {
     routes({}, false);
     await openTab();

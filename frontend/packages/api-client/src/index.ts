@@ -39,6 +39,7 @@ export {
   useCiHistory,
   useCiPicker,
   useCiStates,
+  useCiTypeChangePreview,
   useCiTypes,
   useCis,
   useCmdbSettings,
@@ -64,6 +65,7 @@ export {
   type CiStateInput,
   type CiStatePatch,
   type CiType,
+  type CiTypeChangePreview,
   type CiTypeInput,
   type CiTypePatch,
   type CisQuery,
@@ -318,6 +320,7 @@ export {
   type CustomFieldIndexState,
   type CustomFieldInput,
   type CustomFieldPatch,
+  type CustomFieldsOptions,
   type CustomFieldType,
   type CustomFieldValidation,
 } from './customFields';

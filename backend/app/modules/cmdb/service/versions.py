@@ -4,17 +4,17 @@ Read from the snapshots only (service/snapshots.py), through the reader's CURREN
 C's condition 3):
 
 - the CI itself must be one they may see now (404 otherwise, never 403);
-- attributes are the CI's saved fields (`cis.SNAPSHOT`) and nothing else: a snapshot key outside
-  them (a later custom field, for one) is never shown here until it comes through ADR-047 field
-  access with the record's own hiding and ADR-050's sealed form (0175 part 2), so an old version
-  never shows more than the record does;
+- attributes are the CI's saved fields (`cis.SNAPSHOT`) and its custom values as `custom.<key>`
+  (0175 part 2), through the reader's ADR-047 rules as on the record: hidden and masked values
+  are left out (masked ones named in `masked_fields`), and only fields that still exist show. CI
+  custom fields are never sensitive (lane A's condition a), so no sealed form exists here;
 - a related CI the reader may not see now is a placeholder with a per-response key (`r1`, …),
   and the link's ID is left out.
 """
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -22,9 +22,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
+from app.modules import metadata
+from app.modules.cmdb.domain import field_access as field_rules
 from app.modules.cmdb.domain import relationships as rel
 from app.modules.cmdb.infra.models import Ci, CiVersion
-from app.modules.cmdb.service.cis import SNAPSHOT, visible_rows
+from app.modules.cmdb.service.cis import RECORD_TYPE, SNAPSHOT, visible_rows
 from app.modules.cmdb.service.relationships import NodeInfo, node_infos
 from app.modules.cmdb.service.snapshots import LINKS
 from app.modules.identity_access import Subject, user_names
@@ -61,6 +63,7 @@ class VersionView:
     saved_by_name: str | None
     fields: dict[str, Any]
     relationships: list[LinkView]
+    masked_fields: list[str] = field(default_factory=list)  # `custom.<key>` held but masked
 
 
 @dataclass(frozen=True)
@@ -101,8 +104,43 @@ async def list_versions(
     return items, (page[-1][0] if len(rows) > limit and page else None)
 
 
-def _fields(snapshot: Mapping[str, Any]) -> dict[str, Any]:
-    return {name: snapshot.get(name) for name in SNAPSHOT}
+@dataclass(frozen=True)
+class _Reader:
+    """What one reader gets of custom values: the live fields, less what their rules withhold."""
+
+    live: frozenset[str]
+    unseen: field_rules.Unseen
+
+    def custom(self, snapshot: Mapping[str, Any]) -> tuple[dict[str, Any], list[str]]:
+        held = snapshot.get("custom")
+        if not isinstance(held, Mapping):
+            return {}, []
+        withheld = self.unseen.custom_keys()
+        shown = {
+            f"{field_rules.CUSTOM}{k}": v
+            for k, v in held.items()
+            if k in self.live and k not in withheld
+        }
+        masked = sorted(
+            f"{field_rules.CUSTOM}{k}"
+            for k in held
+            if k in self.live and f"{field_rules.CUSTOM}{k}" in self.unseen.masked
+        )
+        return shown, masked
+
+
+async def _reader(session: AsyncSession, subject: Subject) -> _Reader:
+    live = frozenset(
+        f.key
+        for f in await metadata.field_marks(session, metadata.CustomFieldEntity.CI, retired=True)
+    )
+    return _Reader(live, field_rules.unseen(subject.field_access, RECORD_TYPE))
+
+
+def _fields(snapshot: Mapping[str, Any], reader: _Reader) -> tuple[dict[str, Any], list[str]]:
+    base = {name: snapshot.get(name) for name in SNAPSHOT}
+    custom, masked = reader.custom(snapshot)
+    return {**base, **dict(sorted(custom.items()))}, masked
 
 
 def _links(snapshot: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -168,17 +206,22 @@ async def _views(
     others = [i for row in rows for link in _links(row.snapshot) if (i := _ci_id(link))]
     infos = await node_infos(session, subject, others)
     names = await user_names(session, sorted({str(r.saved_by) for r in rows if r.saved_by}))
-    return [
-        VersionView(
-            version=row.version,
-            saved_at=row.saved_at,
-            saved_by=row.saved_by,
-            saved_by_name=names.get(str(row.saved_by)) if row.saved_by else None,
-            fields=_fields(row.snapshot),
-            relationships=_link_views(_links(row.snapshot), infos, keys),
+    reader = await _reader(session, subject)
+    views: list[VersionView] = []
+    for row in rows:
+        fields, masked = _fields(row.snapshot, reader)
+        views.append(
+            VersionView(
+                version=row.version,
+                saved_at=row.saved_at,
+                saved_by=row.saved_by,
+                saved_by_name=names.get(str(row.saved_by)) if row.saved_by else None,
+                fields=fields,
+                relationships=_link_views(_links(row.snapshot), infos, keys),
+                masked_fields=masked,
+            )
         )
-        for row in rows
-    ]
+    return views
 
 
 async def as_of(
@@ -198,6 +241,14 @@ async def as_of(
     return view
 
 
+def _compared(before: VersionView, after: VersionView) -> list[str]:
+    """The built-in fields in their order, then every custom key either version shows."""
+    custom = sorted(
+        {k for k in (*before.fields, *after.fields) if k.startswith(field_rules.CUSTOM)}
+    )
+    return [*SNAPSHOT, *custom]
+
+
 async def compare(
     session: AsyncSession, subject: Subject, ci_id: uuid.UUID, *, from_version: int, to_version: int
 ) -> Comparison:
@@ -214,7 +265,7 @@ async def compare(
     return Comparison(
         from_version=before,
         to_version=after,
-        attributes=rel.compare_attributes(before.fields, after.fields, SNAPSHOT),
+        attributes=rel.compare_attributes(before.fields, after.fields, _compared(before, after)),
         added=_link_views(added_raw, infos, keys),
         removed=_link_views(removed_raw, infos, keys),
     )

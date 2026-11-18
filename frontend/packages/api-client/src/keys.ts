@@ -159,6 +159,9 @@ export const queryKeys = {
     viewList: (baseCiId: string | null, search: string) =>
       ['cmdb', 'business-views', 'list', baseCiId, search] as const,
     view: (id: string) => ['cmdb', 'business-views', 'detail', id] as const,
+    // 0175 part 2: what moving a CI to a type would drop.
+    typeChangePreview: (id: string, typeId: string) =>
+      ['cmdb', 'type-change-preview', id, typeId] as const,
   },
   announcements: {
     all: ['announcements'] as const,
@@ -228,6 +231,10 @@ export const queryKeys = {
   customFields: {
     all: ['custom-fields'] as const,
     list: (entity: string, removed: boolean) => ['custom-fields', entity, removed] as const,
+    // One type's fields (0175): the entity's key plus the type, so the live message (which
+    // invalidates every `custom-fields` key) reaches it too.
+    forType: (entity: string, removed: boolean, typeId: string) =>
+      ['custom-fields', entity, removed, typeId] as const,
   },
   audit: {
     all: ['audit'] as const,
