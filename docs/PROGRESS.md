@@ -299,7 +299,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Note (D-017):** Temporal is deployed without `auto-setup`; the `admin-tools` schema Job comes
   with the first workflow module (D-038 item 11).
 
-### [ ] WP-014b — Deployment part 2: HA, backups, monitoring (planned, D-038)
+### [~] WP-014b — Deployment part 2: HA, backups, monitoring (D-038; HA, backups, PITR and the restore drill built; monitoring left)
 - **Goal:** Standard HA profile and recoverable data.
 - **Scope:** `values-ha.yaml` (3 nodes; CNPG 3 instances; NATS cluster with stream replicas 3;
   Valkey with Sentinel and app support; Centrifugo on the Valkey engine; Keycloak 2 with Infinispan;
@@ -362,6 +362,8 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
     is a documented rclone copy ([deployment.md](deployment.md), Profiles). Still open: the
     file-store backup (audit gap #1); the single-node pod still sends SeaweedFS's anonymous
     usage statistics (its golden file unchanged here; fix in its own PR).
+- [ ] The monitoring bundle (VictoriaMetrics, VictoriaLogs, Jaeger, Perses on-prem; D-038).
+- [ ] The pre-upgrade licence check in the installer.
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -1889,7 +1891,7 @@ declare major) default to the tenant admin and service desk manager, grantable, 
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
-### [~] WP-049a — Assets: foundations, products, the asset record, life cycle, ownership, components, loans (lane B; D-141; 5 sessions; session 1 built 2026-11-05, draft #216)
+### [x] WP-049a — Assets: foundations, products, the asset record, life cycle, ownership, components, loans (lane B; D-141; 5 sessions; session 1 built 2026-11-05, draft #216)
 
 - **Scope:** parity 07 §1-7, REQ-AST-001..031, plus 058 (permissions by action), 059
   (notifications) and 062 (warranty), folded in by the approved plan. Licence feature `assets`.
@@ -1973,7 +1975,7 @@ declare major) default to the tenant admin and service desk manager, grantable, 
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11; 4c 2026-11-12)
+### [x] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11; 4c 2026-11-12)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -2521,7 +2523,7 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       2026-11-16); the guard test keeps it so.
 - [ ] Session 4: service accounts, key policy, non-person actors, security overview (plan
   approved 2026-11-16; S4a, S4b, S4d, then S4c; lane B blocks each PR).
-  - [x] **S4a (migration 0174; draft PR; lane B blocks):**
+  - [x] **S4a (migration 0174; #530, merged f5671e4f8):**
     - **Service accounts (REQ-SEC-036):** an owner (an active technician) and a description;
       Admin > Service accounts (template C plus a drawer form); roles through the guarded path
       (a recent sign-in to give or take one, or to change the owner or turn it off or on).
@@ -2532,8 +2534,17 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       revoked, and the card counts them before saving (the coordinator).
     - **Fixes:** a service identity named on a record no longer causes a 500 (`people.py`, lane
       A's OK); `UserCreatedV5` carries the `service_account` source.
-  - [ ] S4b: who acted (API key, service account, AI agent in `record()`).
-  - [ ] S4d: the security overview, with an optional `SUPPORTX_DATA_REGION`.
+  - [x] **S4b (no migration; #531, merged a958e7569):** `record()` names the real actor (REQ-AUD-014): a
+    person's API key is the actor with the owner `on_behalf` (the owner keeps the personal data,
+    so erasure still finds it), a service account's key is the account, an AI agent acts for a
+    person with its version and tools in the details (`AgentActor`; a fake agent in tests).
+    Probing counts refusals made on a person's behalf; the audit log names a key by its name.
+  - [x] **S4d (no migration; #537; lane B blocks):** the security overview at the top of Admin ›
+    Sign-in and security. `GET /identity/security-overview` takes each tile from its own screen's
+    service (MFA, SSO policy and expiry, passwords, sessions, network, keys via `key_state`,
+    service accounts, seal states, the data key's date, failed and locked sign-ins), counts and
+    codes only, plus the optional `SUPPORTX_DATA_REGION` (blank hides it). Weak-choice flags are
+    recommendations, never enforced; the PR lists their thresholds.
   - [ ] S4c: vendor support access (D-173; design note in
     ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
@@ -2564,6 +2575,7 @@ declare major) default to the tenant admin and service desk manager, grantable, 
   the save-latency check.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
+- Sessions 3 and 4 moved to lane A (D-175, 2026-11-18); hand-over in lane B's notes.
 
 ### [~] User cost rates — a person's cost per hour for worklog costs (lane B; for lane A's WP-046a S3, REQ-INC-068; migration 0148; built 2026-11-12)
 
@@ -2619,7 +2631,7 @@ declare major) default to the tenant admin and service desk manager, grantable, 
   their digests kept in `field_change_redactions`, the verifier's `redacted_on_request` status
   (never `verified`; needs the logged redaction), `fingerprints_redacted` per run;
   `SIGNED_HISTORY_REDACTION` on. The refusal stays for any row still kept.
-- [ ] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
+- [x] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
   ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
   retry action for a failed erasure; the erasure screens (report, passage, redaction).
   - [x] Lane C's ports (migration 0165, 2026-11-14): `knowledge` (votes deleted; topics and
@@ -2643,6 +2655,12 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       function's owner with a one-row transaction flag that it clears at once.
     - History names the field only (`erasure_redaction`); saved events raised; search follows
       (a computed column); too long refused; passages follow the article screen's rights.
+- [x] Erasure screens (lane B, 2026-11-17, no migration):
+  - Admin › Erasures: the list and the record (Summary, Mentions report with the passage on demand, History; Approve, Reject, Withdraw).
+  - PersonDrawer › Privacy: legal hold, and the request drawer with files to keep.
+  - Two reads: `GET /people/{id}/legal-hold` (the hold or erasure right) and `GET /people/{id}/uploads` (`people.erase`; metadata only, cursor paging, each page audited).
+  - The e2e and the Visual matrix run on a mocked API only. No real erasure runs until Haider says go.
+- [ ] Follow-up: "files to keep" shows the owner type only (`file_owner_type.*`), not the record's number (INC-12). It needs a display-ID answer on the files owner port in every owner module (the coordinator, 2026-11-17).
 - [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
 - [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
   short one-word names flagged, never stored; task mentions say they reach the record's task
@@ -2690,6 +2708,7 @@ declare major) default to the tenant admin and service desk manager, grantable, 
   bounded batch per call, history with reason `erased_on_request` and the usual item event.
 - **D-171 starter item** "Personal data request (export or erasure)": a draft in People and HR,
   handled by an administrator in Admin › People › Personal data (internal tasks); en/ar/ur.
+- The export (S3) and the erasure follow-ups moved to lane A (D-175, 2026-11-18).
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
@@ -3100,6 +3119,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   subscriptions and "unpicked for N minutes" (REQ-NTF-026, REQ-INC-130), resend (REQ-NTF-020 AC2),
   retention 90/180 days, the portal bell (WP-028); call WP-020f's `resolution_notified` when
   `incident.resolved` really reaches the requester (e-mail sent; in-app once the portal exists).
+- Session 2 (the template editor, preview, versions, throttling, group subscriptions, the portal bell) moved to lane A with WP-056 (D-175, 2026-11-18).
 
 ### [x] WP-017 — Tenant branding and domains (lane B; D-027, D-090; ADR-031; built 2026-10-27, 1 session)
 - **Goal:** Each tenant gets its own address and look without a redesign.
@@ -3122,7 +3142,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   AC2) needs WP-039 SSO.
 - **Depends on:** WP-010, WP-014, WP-016
 
-### [ ] WP-039 — Identity: SSO, MFA, invitations, sessions, my account (lane B; D-089, D-094; ADR-036; session 1 of 3 done 2026-10-27)
+### [x] WP-039 — Identity: SSO, MFA, invitations, sessions, my account (lane B; D-089, D-094; ADR-036; sessions 1-3 done 2026-10-27/28)
 Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
 - [x] Session 1 — foundations and SSO:
   - service account `supportx-identity` (least privilege, verified on 26.8.1) and its upgrade
@@ -3151,8 +3171,8 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
     the worker as `supportx-realm` (manage-realm only), breached list shipped (46,941 entries),
     Urdu policy messages and Urdu right to left on Keycloak's pages;
   - [x] audit-integrity banner axe fix (failing test first);
-  - [ ] REQ-SEC-005 AC2's "try again at" lock-out message: session 3.
-- [ ] Session 3 — MFA (SEC-022, 024, 025 with recovery codes), my account (SEC-028), idle
+  - [x] REQ-SEC-005 AC2's "try again at" lock-out message: session 3. (built 2026-10-28)
+- [x] Session 3 — MFA (SEC-022, 024, 025 with recovery codes), my account (SEC-028), idle
   warning and kept drafts (SEC-029 UI), the "everything through SupportX" e2e (SEC-017),
   Security administrator role (D7). Built on `feat/wp-039-session3` (D-104); waiting for: the
   e2e `sign-in-security.spec.ts` on the shared stack (QA lock), PR.
@@ -3173,7 +3193,7 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
   end to end by hand against Keycloak as the customer's provider; CI runs the SAML journey (in
   Compose, Keycloak cannot call itself on the browser's address, which OIDC would need).
 
-### [ ] WP-040 — Connector framework and directory sync (lane B; D-118; session 1 of 2 built 2026-11-02, draft #150)
+### [x] WP-040 — Connector framework and directory sync (lane B; D-118; sessions 1-2 built 2026-11-02; AD/LDAP #175, 2026-11-04)
 - **Plan:** ~/Desktop/wp-040-plan.md (approved 2026-10-29; decision 1 by the product owner, D-118).
 - **Session 1 (built, draft #150, stacked on #134):**
   - [x] Connector registry `app.shared.connectors` and catalogue `GET /integrations/catalogue`
@@ -3226,8 +3246,8 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
     never deleted; their sessions and live screens end from the worker; `UserStatusChanged`
     with `reason="directory"`, `source="entra"`; the last administrator is never deactivated by
     a sync (counted as `last_admin_kept`); enabled again → reactivated with what they held.
-  - [ ] AD/LDAP through Keycloak federation (D-118): next.
-  - [ ] Tenant-editable connector defaults (D-041) screen: with AD/LDAP.
+  - [x] AD/LDAP through Keycloak federation (D-118): merged in #175 (2026-11-04).
+  - [x] Tenant-editable connector defaults (D-041) screen: with AD/LDAP. (#175)
 
 ### [x] WP-017-FIX — WP-017 QA findings (lane B; D-093; done 2026-10-27)
 Every bug of ~/Desktop/qa-wp017/QA-REPORT.md has a test named after its ID that failed first

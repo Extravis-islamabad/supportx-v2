@@ -179,7 +179,13 @@ def test_link_tokens() -> None:
         tokens.verify(token, key, now + timedelta(minutes=5))
     assert expired.value.expired
     payload, signature = token.split(".")
-    for forged in (f"{payload}.{signature[:-2]}AA", "junk", f"{payload[:-4]}AAAA.{signature}"):
+
+    def other(text: str) -> str:
+        """`text` with its first character changed: never equal (a last character's spare
+        base64 bits could decode the same, and "AA" sometimes was the real ending)."""
+        return ("B" if text[0] == "A" else "A") + text[1:]
+
+    for forged in (f"{payload}.{other(signature)}", "junk", f"{other(payload)}.{signature}"):
         with pytest.raises(tokens.TokenError) as error:
             tokens.verify(forged, key, now)
         assert not error.value.expired

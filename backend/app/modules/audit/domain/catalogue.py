@@ -180,6 +180,7 @@ ACTIONS: dict[str, Action] = _actions(
     # GDPR person erasure and legal hold (D-171, ADR-052): every step, with the reason
     ("person.legal_hold_set", AuditCategory.DATA, "identity_access"),
     ("person.legal_hold_lifted", AuditCategory.DATA, "identity_access"),
+    ("person.legal_hold_viewed", AuditCategory.DATA, "identity_access"),
     ("person.erasure_requested", AuditCategory.DATA, "identity_access"),
     ("person.erasure_approved", AuditCategory.DATA, "identity_access"),
     ("person.erasure_rejected", AuditCategory.DATA, "identity_access"),
@@ -191,6 +192,7 @@ ACTIONS: dict[str, Action] = _actions(
     # the mentions report (S1b, D-171 a): reviewed, each passage viewed, each mention redacted
     ("person.erasure_report_reviewed", AuditCategory.DATA, "identity_access"),
     ("person.erasure_mention_viewed", AuditCategory.DATA, "identity_access"),
+    ("person.uploads_listed", AuditCategory.DATA, "identity_access"),
     ("person.erasure_mention_redacted", AuditCategory.DATA, "identity_access"),
     # organisation
     ("site.created", AuditCategory.ORGANISATION, "organization"),

@@ -333,6 +333,7 @@ export const ar: LabelResource = {
   'nav.admin_catalog': 'كتالوج الخدمات',
   'nav.admin_change_boards': 'مجالس استشارات التغيير',
   'nav.admin_change_windows': 'نوافذ التجميد والصيانة',
+  'nav.admin_erasures': 'عمليات المحو',
   'nav.admin_files': 'الملفات',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'الحوادث',
@@ -821,6 +822,10 @@ export const ar: LabelResource = {
   'setup.page.change-windows.description':
     'متى يُمنع التغيير ومتى يُفضَّل: فترات التجميد ونوافذ الصيانة، للجميع أو لبعض المواقع والمجموعات.',
   'setup.page.change-windows.keywords': 'تجميد, تجميد التغييرات, نافذة صيانة, تقويم التغييرات',
+  'setup.page.erasures.description':
+    'اطلب محو بيانات شخص ووافق عليه وتابعه (اللائحة العامة لحماية البيانات)، مع تقرير بالمواضع التي يُذكر فيها.',
+  'setup.page.erasures.keywords':
+    'محو، اللائحة العامة لحماية البيانات، الخصوصية، الحق في النسيان، البيانات الشخصية، الحجز القانوني',
   'setup.page.files.description': 'حدود الرفع وأنواع الملفات المسموح بها وفحص البرامج الضارة.',
   'setup.page.files.keywords': 'ملفات، مرفقات، رفع، حجم، تخزين، برامج ضارة، فيروسات، فحص',
   'setup.page.incidents.description': 'المستويات والفئات والقوالب ورموز الإغلاق والأسباب للحوادث.',
@@ -860,7 +865,7 @@ export const ar: LabelResource = {
   'setup.page.security.keywords':
     'أمان، كلمة المرور، تحقق بخطوتين، دخول موحد، جلسات، مهلة، دعوات، مفاتيح',
   'setup.page.service-accounts.description':
-    'حسابات تستخدمها أنظمة أخرى، لكل منها مالك مسؤول عنها، وأدوارها ومفاتيحها.',
+    'حسابات تعمل بها أنظمة أخرى عبر مفاتيح API، لكل منها مالك مسؤول عنها، وأدوارها.',
   'setup.page.service-accounts.keywords': 'حسابات الخدمة، تكاملات، مالك، تسليم، أتمتة، API',
   'setup.page.sla.description': 'أهداف الخدمة وساعات العمل والعطلات والتصعيد.',
   'setup.page.sla.keywords':

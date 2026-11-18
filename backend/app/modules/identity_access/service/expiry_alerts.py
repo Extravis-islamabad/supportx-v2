@@ -61,7 +61,12 @@ async def _certificate_items(provider: SsoProvider, admin: IdentityAdmin | None)
     return [(LAST_CHECKED, "certificate", datetime.fromisoformat(str(checked)))]
 
 
-async def _items(provider: SsoProvider, admin: IdentityAdmin | None) -> list[Item]:
+async def expiry_items(provider: SsoProvider, admin: IdentityAdmin | None) -> list[Item]:
+    """What runs out on a set-up, with when: the notices' list and the security overview's.
+
+    Without `admin` (Keycloak), a SAML set-up's last connection check stands in for its
+    certificates.
+    """
     items: list[Item] = []
     if provider.protocol == "saml":
         items += await _certificate_items(provider, admin)
@@ -79,7 +84,7 @@ async def check_tenant(
         select(SsoProvider).where(SsoProvider.deleted_at.is_(None), SsoProvider.state != "draft")
     )
     for provider in list(providers):
-        for key, kind, expires_at in await _items(provider, admin):
+        for key, kind, expires_at in await expiry_items(provider, admin):
             marked = set(
                 await session.scalars(
                     select(SecurityExpiryMark.threshold).where(

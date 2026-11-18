@@ -52,7 +52,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/api-keys` | signed_in | - |
 | POST | `/api/v1/api-keys` | signed_in | - |
 | GET | `/api/v1/api-keys/owners` | signed_in | - |
-| GET | `/api/v1/api-keys/policy-impact` | signed_in | - |
+| GET | `/api/v1/api-keys/policy-impact` | `api_keys.manage` | api_keys.manage: all |
 | GET | `/api/v1/api-keys/rules` | signed_in | - |
 | GET | `/api/v1/api-keys/scopes` | signed_in | - |
 | POST | `/api/v1/api-keys/{key_id}/revoke` | signed_in | - |
@@ -509,6 +509,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/identity/people/{user_id}/reset-mfa` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/people/{user_id}/sessions` | `users.manage` | users.manage: all |
 | DELETE | `/api/v1/identity/people/{user_id}/sessions/{listed_id}` | `users.manage` | users.manage: all |
+| GET | `/api/v1/identity/security-overview` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all |
 | PUT | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/settings/password-policy/apply` | `identity.manage` | identity.manage: all |
@@ -788,8 +789,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/people-imports` | `users.manage` | users.manage: all |
 | GET | `/api/v1/people-imports/{import_id}` | `users.manage` | users.manage: all |
 | POST | `/api/v1/people/{user_id}/erasure` | `people.erase` | people.erase: all |
+| GET | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` or `people.erase` | audit.manage_holds: all; people.erase: all |
 | PUT | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` | audit.manage_holds: all |
 | POST | `/api/v1/people/{user_id}/legal-hold/lift` | `audit.manage_holds` | audit.manage_holds: all |
+| GET | `/api/v1/people/{user_id}/uploads` | `people.erase` | people.erase: all |
 | GET | `/api/v1/permissions` | `roles.view` | roles.view: all |
 | GET | `/api/v1/portal/changes` | signed_in | - |
 | POST | `/api/v1/portal/changes` | signed_in | - |

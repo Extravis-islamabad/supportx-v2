@@ -22,7 +22,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -359,3 +359,17 @@ __all__ = [
     "sealable",
     "set_sensitive",
 ]
+
+
+async def seal_counts(session: AsyncSession) -> dict[str, int]:
+    """The tenant's sensitive custom fields by seal state (WP-057 S4d's overview; codes only).
+
+    `sealed` is settled; `sealing` and `opening` are still moving; `plain` with `sensitive` set has
+    not started yet. Counts only, never a field's name or values.
+    """
+    rows = await session.execute(
+        select(CustomField.seal_state, func.count())
+        .where(CustomField.sensitive.is_(True), CustomField.deleted_at.is_(None))
+        .group_by(CustomField.seal_state)
+    )
+    return {state: int(count) for state, count in rows.tuples()}

@@ -41,6 +41,7 @@ from app.modules.metadata.service.sensitivity import (
     Moving,
     SealPort,
     register_seal_port,
+    seal_counts,
 )
 from app.modules.metadata.service.sensitivity import advance as advance_seal
 from app.modules.metadata.service.sensitivity import finish as finish_seal
@@ -86,8 +87,19 @@ __all__ = [
     "problem_params",
     "register_field_usage",
     "register_seal_port",
+    "seal_counts",
     "seal_paused",
     "text_for_search",
 ]
 
 seal_notifications.register()
+
+
+def _register_seal_counter() -> None:
+    """The security overview's encryption tile (WP-057 S4d): counts only, by seal state."""
+    from app.modules.identity_access import register_seal_counter  # noqa: PLC0415 - at load
+
+    register_seal_counter(seal_counts)
+
+
+_register_seal_counter()
