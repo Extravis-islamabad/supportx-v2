@@ -4,17 +4,26 @@ import dataclasses
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
+from app.modules.identity_access.domain import support_grants
 from app.modules.identity_access.domain.support_grants import (
     MAX_TOTAL,
+    WITH_MAIL,
     Access,
+    Delivery,
     GrantRequest,
     Verification,
     account_email,
+    actions_for,
+    admin_could_act_as_engineer,
+    delivery_for,
     domain_allowed,
     due_to_end,
     email_domain,
     extended_end,
     grant_problems,
+    link_lifespan_seconds,
     support_username,
     window,
 )
@@ -127,3 +136,26 @@ def test_a_tagged_or_too_long_address_is_refused() -> None:
     assert "support_email_not_taggable" in _codes(
         dataclasses.replace(GOOD, engineer_email="omar+x@extravis.com")
     )
+
+
+def test_one_place_decides_how_the_engineer_gets_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With mail it waits for Haider (item 14): refused, never the admin path (lane B)."""
+    oob = Verification.OUT_OF_BAND
+    assert delivery_for(oob, mail_available=True) is Delivery.ONE_TIME_PASSWORD
+    assert delivery_for(Verification.EMAIL, mail_available=False) is Delivery.ONE_TIME_PASSWORD
+    assert WITH_MAIL is None
+    assert delivery_for(Verification.EMAIL, mail_available=True) is None
+    assert admin_could_act_as_engineer(Delivery.ONE_TIME_PASSWORD)
+    assert not admin_could_act_as_engineer(Delivery.ACTIONS_EMAIL)
+    # Either answer is one value, and the function follows it.
+    for answer in (Delivery.ACTIONS_EMAIL, Delivery.ONE_TIME_PASSWORD):
+        monkeypatch.setattr(support_grants, "WITH_MAIL", answer)
+        assert support_grants.delivery_for(Verification.EMAIL, mail_available=True) is answer
+
+
+def test_the_required_actions_and_the_link_lifespan() -> None:
+    assert actions_for(Verification.EMAIL) == ("VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP")
+    assert "VERIFY_EMAIL" not in actions_for(Verification.OUT_OF_BAND)
+    assert link_lifespan_seconds(NOW, NOW + timedelta(hours=72)) == 24 * 3600
+    assert link_lifespan_seconds(NOW, NOW + timedelta(hours=2)) == 2 * 3600
+    assert link_lifespan_seconds(NOW, NOW) == 60
