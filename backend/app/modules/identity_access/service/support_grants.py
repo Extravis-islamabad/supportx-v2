@@ -21,7 +21,7 @@ not enough.
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -262,6 +262,8 @@ async def end_grant(  # noqa: PLR0913 - the grant, how it ends and who ends it, 
                 .where(User.id == account.id)
                 .values(status="disabled", can_sign_in=False, version=User.version + 1)
             )
+    if keycloak_id is None:
+        row.account_removed_at = now  # no Keycloak account was ever made: nothing to remove
     await session.flush()
     await record_changes(
         session,
@@ -288,23 +290,25 @@ async def end_grant(  # noqa: PLR0913 - the grant, how it ends and who ends it, 
 
 async def finish_end(
     ended: Ended, *, end_sessions: SessionEnder | None, admin: IdentityAdmin | None
-) -> None:
+) -> str | None:
     """After the commit: end every session, then disable and delete the Keycloak account.
 
-    Best effort in order, each step logged on failure and the next still tried: the database row
-    already refuses every request and sign-in, and the schedule calls this again for a grant whose
-    account still exists (`keycloak_id` kept until the delete succeeds).
+    The error class of the first failed disable or delete, or None once Keycloak confirmed the
+    account gone (deleted, or already 404). A failure never counts as done (lane B): the caller
+    records it (`record_removal`) and the sweep tries again. Each step runs on its own; a failed
+    logout alone stays best effort, as disable and delete end the sessions anyway.
     """
     if end_sessions is not None and ended.support_user_id is not None:
         try:
             await end_sessions(ended.tenant_id, ended.support_user_id)
         except Exception:  # noqa: BLE001 - any failure here is logged; the next step still runs
             log.warning("support_grant_sessions_end_failed", grant_id=str(ended.grant_id))
-    if admin is None or ended.keycloak_id is None:
-        return
+    if ended.keycloak_id is None:
+        return None
+    if admin is None:
+        return "IdentityAdminNotConfigured"
     account = ended.keycloak_id
-    # Each step on its own: a refused or unreachable logout or disable never skips the delete
-    # (lane B on set_enabled: the delete still runs when the disable failed).
+    failed: str | None = None
     steps: tuple[tuple[str, Callable[[], Awaitable[None]]], ...] = (
         ("logout", lambda: admin.logout_user(account)),
         ("disable", lambda: admin.set_enabled(account, enabled=False)),
@@ -313,10 +317,64 @@ async def finish_end(
     for name, step in steps:
         try:
             await step()
-        except (IdentityAdminRefused, IdentityAdminUnavailable):
+        except (IdentityAdminRefused, IdentityAdminUnavailable) as exc:
             log.warning(
                 "support_grant_account_step_failed", step=name, grant_id=str(ended.grant_id)
             )
+            if name != "logout" and failed is None:
+                failed = type(exc).__name__
+    return failed
+
+
+async def record_removal(
+    session: AsyncSession, grant_id: uuid.UUID, *, error: str | None, now: datetime
+) -> None:
+    """Record how the account's removal went: removed once confirmed, or the failure (audited).
+
+    A failure leaves `account_removed_at` empty, so the grant shows "removing the account" and the
+    sweep (`removal_pending`) tries again; it also moves `updated_at`, which spaces the retries.
+    """
+    row = await session.scalar(
+        select(SupportGrant).where(SupportGrant.id == grant_id).with_for_update()
+    )
+    if row is None or row.account_removed_at is not None:
+        return
+    row.updated_at = now
+    if error is None:
+        row.account_removed_at = now
+        row.version += 1
+    await session.flush()
+    await record_event(
+        session,
+        SupportGrantChanged(
+            grant_id=row.id,
+            change="account_removed" if error is None else "account_removal_failed",
+            access=rules.Access(row.access).value,
+            ends_at=row.ends_at,
+            error_class=error,
+        ),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
+
+
+RETRY_AFTER = timedelta(minutes=5)
+
+
+async def removal_pending(session: AsyncSession, now: datetime) -> list[Ended]:
+    """Ended grants whose Keycloak account is not confirmed gone, last tried 5+ minutes ago."""
+    rows = (
+        await session.execute(
+            select(SupportGrant.id, SupportGrant.tenant_id, User.id, User.external_subject)
+            .join(User, User.id == SupportGrant.support_user_id)
+            .where(
+                SupportGrant.state.not_in([s.value for s in rules.OPEN_STATES]),
+                SupportGrant.account_removed_at.is_(None),
+                SupportGrant.updated_at <= now - RETRY_AFTER,
+            )
+        )
+    ).all()
+    return [Ended(g, t, u, k) for g, t, u, k in rows]
 
 
 async def due(session: AsyncSession, now: datetime) -> list[uuid.UUID]:

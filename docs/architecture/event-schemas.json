@@ -3514,7 +3514,9 @@
               "verified",
               "first_used",
               "ended",
-              "revoked"
+              "revoked",
+              "account_removed",
+              "account_removal_failed"
             ],
             "title": "Change",
             "type": "string"
@@ -3523,6 +3525,18 @@
             "format": "date-time",
             "title": "Ends At",
             "type": "string"
+          },
+          "error_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error Class"
           },
           "grant_id": {
             "format": "uuid",

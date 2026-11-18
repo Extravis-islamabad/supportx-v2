@@ -508,9 +508,20 @@ class SupportGrantChanged(DomainEvent):
     aggregate_type: ClassVar[str] = "support_grant"
 
     grant_id: uuid.UUID
-    change: Literal["created", "extended", "verified", "first_used", "ended", "revoked"]
+    change: Literal[
+        "created",
+        "extended",
+        "verified",
+        "first_used",
+        "ended",
+        "revoked",
+        "account_removed",
+        "account_removal_failed",
+    ]
     access: Literal["view", "view_and_change"]
     ends_at: datetime
+    # The failure's class only (`IdentityAdminUnavailable`), never its message (lane B).
+    error_class: str | None = None
 
 
 class VendorSupportSettingChanged(DomainEvent):

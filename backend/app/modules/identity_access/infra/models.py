@@ -635,6 +635,7 @@ class SupportGrant(TenantEntity):
     first_used_at: Mapped[datetime | None]
     ended_at: Mapped[datetime | None]
     ended_by: Mapped[uuid.UUID | None]
+    account_removed_at: Mapped[datetime | None]
 
 
 MFA_MODES = ("off", "optional", "required")
