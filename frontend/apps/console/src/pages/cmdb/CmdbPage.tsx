@@ -99,6 +99,9 @@ export function CmdbPage() {
           title={t('cmdb.title')}
           extra={
             <Flex gap={8} wrap>
+              <Button onClick={() => void navigate('/cmdb/views')} data-testid="cmdb-views-link">
+                {t('cmdb.views.title')}
+              </Button>
               {may('configure') && (
                 <Button onClick={() => void navigate('/admin/cmdb')} data-testid="cmdb-types">
                   {t('cmdb.title.types')}
