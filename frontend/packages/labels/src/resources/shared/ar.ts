@@ -860,7 +860,7 @@ export const ar: LabelResource = {
   'setup.page.security.keywords':
     'أمان، كلمة المرور، تحقق بخطوتين، دخول موحد، جلسات، مهلة، دعوات، مفاتيح',
   'setup.page.service-accounts.description':
-    'حسابات تستخدمها أنظمة أخرى، لكل منها مالك مسؤول عنها، وأدوارها ومفاتيحها.',
+    'حسابات تعمل بها أنظمة أخرى عبر مفاتيح API، لكل منها مالك مسؤول عنها، وأدوارها.',
   'setup.page.service-accounts.keywords': 'حسابات الخدمة، تكاملات، مالك، تسليم، أتمتة، API',
   'setup.page.sla.description': 'أهداف الخدمة وساعات العمل والعطلات والتصعيد.',
   'setup.page.sla.keywords':

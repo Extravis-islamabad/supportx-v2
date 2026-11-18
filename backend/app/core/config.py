@@ -368,6 +368,10 @@ class Settings(BaseSettings):
     # Object storage (S3 API only, D-016; WP-018 adds it, WP-022 reuses it). On-prem: SeaweedFS from
     # the Helm chart; SaaS: the cloud provider's S3; dev: MinIO from Compose. Not configured:
     # features that need it answer 503 `storage_not_configured` (never silently).
+    # WP-057 S4d (Q4): where this installation keeps tenant data, as the operator states it
+    # (e.g. "KSA, Riyadh"). Shown read-only on the security overview; blank hides it. Never
+    # edited by tenants.
+    data_region: str | None = None
     object_storage_endpoint: str | None = None
     object_storage_region: str = "us-east-1"
     object_storage_access_key: SecretStr | None = None

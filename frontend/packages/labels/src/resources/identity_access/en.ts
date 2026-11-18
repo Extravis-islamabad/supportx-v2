@@ -1387,6 +1387,44 @@ export const en = {
   'security.sso_policy.required': 'Single sign-on required for',
   'security.sso_policy.saved': 'Single sign-on settings saved.',
   'security.sso_policy.title': 'Single sign-on required',
+  'security_area.encryption': 'Field encryption',
+  'security_area.keys': 'API keys',
+  'security_area.mfa': 'Multi-factor sign-in',
+  'security_area.network': 'Network access',
+  'security_area.passwords': 'Passwords',
+  'security_area.service_accounts': 'Service accounts',
+  'security_area.sessions': 'Sessions',
+  'security_area.sign_in': 'Single sign-on',
+  'security_area.sign_in_events': 'Sign-in activity',
+  'security_flag.admins_without_mfa':
+    'Tenant administrators can sign in without multi-factor sign-in.',
+  'security_flag.api_open_network': 'API keys work from any network address.',
+  'security_flag.console_idle_long':
+    'Console sessions stay signed in for over an hour without activity.',
+  'security_flag.console_open_network': 'The console can be reached from any network address.',
+  'security_flag.console_session_long': 'Console sessions last longer than a working day.',
+  'security_flag.fields_still_moving':
+    'Sensitive fields still being encrypted or decrypted: {{count}}',
+  'security_flag.keys_never_expire': 'API keys may be made without an expiry date.',
+  'security_flag.keys_out_of_policy': 'API keys outside the key policy: {{count}}',
+  'security_flag.keys_unused': 'API keys not used for a while: {{count}}',
+  'security_flag.password_breached_off': 'Passwords known from data breaches are not refused.',
+  'security_flag.password_expiry_without_check':
+    'Passwords expire, but breached ones are not refused: people tend to pick weaker ones.',
+  'security_flag.password_short':
+    'Passwords may be shorter than 12 characters. Minimum now: {{count}}',
+  'security_flag.roles_without_mfa': 'Roles with multi-factor sign-in off: {{count}}',
+  'security_flag.service_accounts_without_owner':
+    'Service accounts that need a new owner: {{count}}',
+  'security_flag.sign_ins_locked': 'Sign-ins locked out in the last 7 days: {{count}}',
+  'security_flag.sso_credential_expired': 'A single sign-on certificate or secret has run out.',
+  'security_flag.sso_credential_expires':
+    'A single sign-on certificate or secret runs out within a month. Days left: {{count}}',
+  'security_flag.sso_credential_expires_soon':
+    'A single sign-on certificate or secret runs out soon. Days left: {{count}}',
+  'security_severity.high': 'Act now',
+  'security_severity.low': 'Consider',
+  'security_severity.medium': 'Worth a look',
   'service_accounts.active': 'Active',
   'service_accounts.active_switch': 'Active: its keys work',
   'service_accounts.col.keys': 'Keys',

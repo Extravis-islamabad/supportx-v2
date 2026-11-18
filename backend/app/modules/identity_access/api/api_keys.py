@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.authorization import require_signed_in
+from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.recent_auth import RecentAuth
 from app.modules.audit import RequestFacts
@@ -220,7 +220,8 @@ class PolicyImpactOut(BaseModel):
 @router.get("/policy-impact", summary="Keys a proposed key policy would flag")
 async def policy_impact(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query parameters
     session: TenantSession,
-    subject: SignedIn,
+    # The right at the route too, so the route map shows it (lane B, #530); the service checks it.
+    subject: Annotated[Subject, Depends(require_permission(api_keys.MANAGE))],
     key_max_lifetime_days: Annotated[int, Query(ge=1, le=366)],
     keys_require_ip_range: Annotated[bool, Query()] = False,  # noqa: FBT002 - a query flag (FastAPI)
     allow_non_expiring_keys: Annotated[bool, Query()] = False,  # noqa: FBT002 - a query flag (FastAPI)

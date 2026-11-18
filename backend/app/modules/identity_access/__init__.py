@@ -55,6 +55,7 @@ from app.modules.identity_access.api.invite_links import public_router as invite
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
+from app.modules.identity_access.api.security_overview import router as security_overview_router
 from app.modules.identity_access.api.service_accounts import router as service_accounts_router
 from app.modules.identity_access.api.service_roles import (
     ServiceRoleOut,
@@ -204,6 +205,7 @@ from app.modules.identity_access.service.roles import (
     roles_for_service,
     use_policy,
 )
+from app.modules.identity_access.service.security_overview import register_seal_counter
 from app.modules.identity_access.service.service_identities import (
     ServiceIdentityView,
     assign_service_identity_role,
@@ -457,6 +459,7 @@ service_account_handover.register()  # admins hear when a service account needs 
 module = ModuleSpec(
     name="identity_access",
     routers=[
+        security_overview_router,  # WP-057 S4d: the security overview
         field_access_router,  # ADR-047: field access per role (WP-046a S7)
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
@@ -600,6 +603,7 @@ __all__ = [
     "register_mentions",
     "register_person_data",
     "register_rule_listener",
+    "register_seal_counter",
     "release_from_directory",
     "remove_ldap_federation",
     "remove_service_identity_role",

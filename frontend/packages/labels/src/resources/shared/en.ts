@@ -856,7 +856,7 @@ export const en = {
   'setup.page.security.keywords':
     'security, password, mfa, two-step, 2fa, sso, saml, oidc, sessions, timeout, invitations, api keys',
   'setup.page.service-accounts.description':
-    'Accounts that other systems sign in as, each with an owner who answers for it, its roles and keys.',
+    'Accounts other systems act as through API keys, each with an owner who answers for it, and its roles.',
   'setup.page.service-accounts.keywords':
     'service accounts, integrations, owner, hand-over, robots, automation, api',
   'setup.page.sla.description': 'Service targets, working hours, holidays and escalations.',

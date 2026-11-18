@@ -4,10 +4,10 @@ import dataclasses
 from typing import Any
 
 from app.modules.identity_access.domain.security_overview import (
-    Area,
     Choices,
     Flag,
-    Severity,
+    SecurityArea,
+    SecuritySeverity,
     flags,
 )
 
@@ -70,9 +70,13 @@ def test_sso_expiry_is_flagged_at_30_and_7_days() -> None:
 
     assert at(None) == []
     assert at(31) == []
-    assert at(30) == [Flag("sso_credential_expires", Area.SIGN_IN, Severity.MEDIUM, 30)]
-    assert at(7) == [Flag("sso_credential_expires_soon", Area.SIGN_IN, Severity.HIGH, 7)]
-    assert at(-1) == [Flag("sso_credential_expired", Area.SIGN_IN, Severity.HIGH)]
+    assert at(30) == [
+        Flag("sso_credential_expires", SecurityArea.SIGN_IN, SecuritySeverity.MEDIUM, 30)
+    ]
+    assert at(7) == [
+        Flag("sso_credential_expires_soon", SecurityArea.SIGN_IN, SecuritySeverity.HIGH, 7)
+    ]
+    assert at(-1) == [Flag("sso_credential_expired", SecurityArea.SIGN_IN, SecuritySeverity.HIGH)]
 
 
 def test_password_flags_are_moot_when_sso_is_required() -> None:
@@ -95,10 +99,10 @@ def test_most_severe_first_then_the_tiles_order() -> None:
         sso_expiry_days_left=3,
     )
     assert [(f.severity, f.code) for f in flags(many)] == [
-        (Severity.HIGH, "admins_without_mfa"),
-        (Severity.HIGH, "sso_credential_expires_soon"),
-        (Severity.MEDIUM, "keys_out_of_policy"),
-        (Severity.LOW, "keys_unused"),
+        (SecuritySeverity.HIGH, "admins_without_mfa"),
+        (SecuritySeverity.HIGH, "sso_credential_expires_soon"),
+        (SecuritySeverity.MEDIUM, "keys_out_of_policy"),
+        (SecuritySeverity.LOW, "keys_unused"),
     ]
 
 

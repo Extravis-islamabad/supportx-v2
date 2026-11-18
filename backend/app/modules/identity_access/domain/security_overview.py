@@ -23,7 +23,7 @@ EXPIRY_URGENT_DAYS = 7
 FAILED_SIGN_INS_WINDOW_DAYS = 7
 
 
-class Severity(StrEnum):
+class SecuritySeverity(StrEnum):
     """How much a flag matters: `high` first, then `medium`, then `low`."""
 
     HIGH = "high"
@@ -31,10 +31,10 @@ class Severity(StrEnum):
     LOW = "low"
 
 
-_ORDER = {Severity.HIGH: 0, Severity.MEDIUM: 1, Severity.LOW: 2}
+_ORDER = {SecuritySeverity.HIGH: 0, SecuritySeverity.MEDIUM: 1, SecuritySeverity.LOW: 2}
 
 
-class Area(StrEnum):
+class SecurityArea(StrEnum):
     """The overview's tiles; each flag belongs to one and links to its card."""
 
     MFA = "mfa"
@@ -53,8 +53,8 @@ class Flag:
     """One weaker-than-recommended choice: a code (`security_flag.<code>`), its tile and numbers."""
 
     code: str
-    area: Area
-    severity: Severity
+    area: SecurityArea
+    severity: SecuritySeverity
     count: int | None = None  # how many things it is about, when it is about things
 
 
@@ -89,44 +89,62 @@ def _expiry_flags(days_left: int | None) -> Iterable[Flag]:
     if days_left is None:
         return
     if days_left < 0:
-        yield Flag("sso_credential_expired", Area.SIGN_IN, Severity.HIGH)
+        yield Flag("sso_credential_expired", SecurityArea.SIGN_IN, SecuritySeverity.HIGH)
     elif days_left <= EXPIRY_URGENT_DAYS:
-        yield Flag("sso_credential_expires_soon", Area.SIGN_IN, Severity.HIGH, days_left)
+        yield Flag(
+            "sso_credential_expires_soon", SecurityArea.SIGN_IN, SecuritySeverity.HIGH, days_left
+        )
     elif days_left <= EXPIRY_WARN_DAYS:
-        yield Flag("sso_credential_expires", Area.SIGN_IN, Severity.MEDIUM, days_left)
+        yield Flag(
+            "sso_credential_expires", SecurityArea.SIGN_IN, SecuritySeverity.MEDIUM, days_left
+        )
 
 
 def _password_flags(c: Choices) -> Iterable[Flag]:
     if c.sso_required:
         return  # nobody signs in with a SupportX password: the policy is moot
     if c.password_min_length < RECOMMENDED_PASSWORD_MIN:
-        yield Flag("password_short", Area.PASSWORDS, Severity.MEDIUM, c.password_min_length)
+        yield Flag(
+            "password_short", SecurityArea.PASSWORDS, SecuritySeverity.MEDIUM, c.password_min_length
+        )
     if not c.password_breached_check:
-        yield Flag("password_breached_off", Area.PASSWORDS, Severity.MEDIUM)
+        yield Flag("password_breached_off", SecurityArea.PASSWORDS, SecuritySeverity.MEDIUM)
         if c.password_expiry_days > 0:
             # NIST SP 800-63B: forced expiry without a breach check pushes weaker patterns.
-            yield Flag("password_expiry_without_check", Area.PASSWORDS, Severity.LOW)
+            yield Flag(
+                "password_expiry_without_check", SecurityArea.PASSWORDS, SecuritySeverity.LOW
+            )
 
 
 def _switch_flags(c: Choices) -> Iterable[Flag]:
     """Yes-or-no choices: a flag when the weaker one is chosen."""
     weak = (
-        (c.admins_without_mfa, "admins_without_mfa", Area.MFA, Severity.HIGH),
+        (c.admins_without_mfa, "admins_without_mfa", SecurityArea.MFA, SecuritySeverity.HIGH),
         (
             c.console_idle_seconds > RECOMMENDED_CONSOLE_IDLE_SECONDS,
             "console_idle_long",
-            Area.SESSIONS,
-            Severity.LOW,
+            SecurityArea.SESSIONS,
+            SecuritySeverity.LOW,
         ),
         (
             c.console_absolute_seconds > RECOMMENDED_CONSOLE_ABSOLUTE_SECONDS,
             "console_session_long",
-            Area.SESSIONS,
-            Severity.LOW,
+            SecurityArea.SESSIONS,
+            SecuritySeverity.LOW,
         ),
-        (not c.console_network_rule, "console_open_network", Area.NETWORK, Severity.LOW),
-        (not c.api_network_rule, "api_open_network", Area.NETWORK, Severity.LOW),
-        (c.allow_non_expiring_keys, "keys_never_expire", Area.KEYS, Severity.MEDIUM),
+        (
+            not c.console_network_rule,
+            "console_open_network",
+            SecurityArea.NETWORK,
+            SecuritySeverity.LOW,
+        ),
+        (not c.api_network_rule, "api_open_network", SecurityArea.NETWORK, SecuritySeverity.LOW),
+        (
+            c.allow_non_expiring_keys,
+            "keys_never_expire",
+            SecurityArea.KEYS,
+            SecuritySeverity.MEDIUM,
+        ),
     )
     for chosen, code, area, severity in weak:
         if chosen:
@@ -136,17 +154,22 @@ def _switch_flags(c: Choices) -> Iterable[Flag]:
 def _count_flags(c: Choices) -> Iterable[Flag]:
     """Things to look at: a flag with the count when there is at least one."""
     counted = (
-        (c.roles_without_mfa, "roles_without_mfa", Area.MFA, Severity.MEDIUM),
-        (c.keys_out_of_policy, "keys_out_of_policy", Area.KEYS, Severity.MEDIUM),
-        (c.keys_unused, "keys_unused", Area.KEYS, Severity.LOW),
+        (c.roles_without_mfa, "roles_without_mfa", SecurityArea.MFA, SecuritySeverity.MEDIUM),
+        (c.keys_out_of_policy, "keys_out_of_policy", SecurityArea.KEYS, SecuritySeverity.MEDIUM),
+        (c.keys_unused, "keys_unused", SecurityArea.KEYS, SecuritySeverity.LOW),
         (
             c.service_accounts_without_owner,
             "service_accounts_without_owner",
-            Area.SERVICE_ACCOUNTS,
-            Severity.MEDIUM,
+            SecurityArea.SERVICE_ACCOUNTS,
+            SecuritySeverity.MEDIUM,
         ),
-        (c.fields_not_sealed, "fields_still_moving", Area.ENCRYPTION, Severity.LOW),
-        (c.locked_sign_ins, "sign_ins_locked", Area.SIGN_IN_EVENTS, Severity.MEDIUM),
+        (c.fields_not_sealed, "fields_still_moving", SecurityArea.ENCRYPTION, SecuritySeverity.LOW),
+        (
+            c.locked_sign_ins,
+            "sign_ins_locked",
+            SecurityArea.SIGN_IN_EVENTS,
+            SecuritySeverity.MEDIUM,
+        ),
     )
     for count, code, area, severity in counted:
         if count > 0:
@@ -167,7 +190,7 @@ def flags(c: Choices) -> list[Flag]:
 
 def sort_flags(found: Sequence[Flag]) -> list[Flag]:
     """Most severe first; within a severity, in the tiles' order (stable)."""
-    areas = list(Area)
+    areas = list(SecurityArea)
     return sorted(found, key=lambda f: (_ORDER[f.severity], areas.index(f.area)))
 
 

@@ -93,3 +93,13 @@ __all__ = [
 ]
 
 seal_notifications.register()
+
+
+def _register_seal_counter() -> None:
+    """The security overview's encryption tile (WP-057 S4d): counts only, by seal state."""
+    from app.modules.identity_access import register_seal_counter  # noqa: PLC0415 - at load
+
+    register_seal_counter(seal_counts)
+
+
+_register_seal_counter()
