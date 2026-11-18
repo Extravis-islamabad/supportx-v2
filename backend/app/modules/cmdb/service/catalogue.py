@@ -117,6 +117,10 @@ async def _config_event(
     )
 
 
+# Other parts of the module (relationship types, S2) raise the same event.
+config_event = _config_event
+
+
 # --- types ----------------------------------------------------------------------------------------
 
 

@@ -5,17 +5,25 @@ states (active or end of life), CIs, copy, type change, the trash, CIs made from
 that leaves end-of-life CIs out, and a snapshot after every save (`cmdb_ci_versions`). Custom
 fields come through the metadata module in a follow-up (§6.6), never a second system here.
 
+Session 2 (REQ-CMDB-006..009, 024's view side; 0180): relationship types (a name per direction,
+rules, impact), relationships (edit rights on both ends), the neighbour map with restricted
+placeholders, business views, and a CI's versions as of a time and compared.
+
 Licensed with the `cmdb` feature. Public interface for other modules: `can_see`, `ci_refs`
-(`CiRef`) and the picker route. The erasure port moves owned CIs to the successor.
+(`CiRef`), the picker route, and `register_open_counts` (`OpenCounts`, `OpenCountsPort`): the
+port work_items registers in S5 for open ticket counts on map nodes. The erasure port moves
+owned CIs and business views to the successor.
 """
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.core.modules import ModuleSpec
+from app.modules.cmdb.api.graph_routes import router as graph_router
 from app.modules.cmdb.api.routes import router
 from app.modules.cmdb.events import EVENTS
 from app.modules.cmdb.service import person_data as _person_data
 from app.modules.cmdb.service import person_mentions as _person_mentions
 from app.modules.cmdb.service.catalogue import ADD, CONFIGURE, DELETE, EDIT, MANAGE, VIEW
+from app.modules.cmdb.service.open_counts import OpenCounts, OpenCountsPort, register_open_counts
 from app.modules.cmdb.service.realtime import CHANNELS, ROUTES
 from app.modules.cmdb.service.refs import CiRef, can_link, can_see, ci_refs
 
@@ -42,7 +50,7 @@ PERMISSIONS = (
 
 module = ModuleSpec(
     name="cmdb",
-    routers=[router],
+    routers=[router, graph_router],
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,
@@ -54,4 +62,13 @@ module = ModuleSpec(
 _person_data.register()
 _person_mentions.register()  # the mentions report and redaction (ADR-052 S1b; 0176)
 
-__all__ = ["CiRef", "can_link", "can_see", "ci_refs", "module"]
+__all__ = [
+    "CiRef",
+    "OpenCounts",
+    "OpenCountsPort",
+    "can_link",
+    "can_see",
+    "ci_refs",
+    "module",
+    "register_open_counts",
+]

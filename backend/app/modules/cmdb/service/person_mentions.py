@@ -5,7 +5,8 @@ searched, each place with its own mention (lane C's 0176 review):
 
 - `ci`: the CI as it is now, removed ones too (their text is still stored; no passage);
 - `ci_version`: each saved snapshot's name and description (`cmdb_ci_versions`), so an old name
-  that named the person is found even after the CI was renamed.
+  that named the person is found even after the CI was renamed;
+- `ci_business_view` (S2, 0180): a business view's name and description, removed views too.
 
 Redacting a `ci` mention is an ordinary save of the CI (version, history naming the field only
 with reason `erasure_redaction`, a new snapshot, `CiUpdated`); the registry blanks the field's
@@ -15,19 +16,26 @@ accepts only the old text with stretches replaced by the marker (the app role ma
 snapshots). Only places that name the person change: an unrelated older name stays. CI custom
 text values join with 0175.
 
-The cursor is `<phase>|<last id>`: the CIs first, then the snapshots.
+Redacting a `ci_business_view` mention is an ordinary save of the view (version, history naming
+the field only with reason `erasure_redaction`, `cmdb.business_view.changed`): views are editable
+rows, so no definer is needed.
+
+The cursor is `<phase>|<last id>`: the CIs first, then the snapshots, then the business views.
 """
 
 import uuid
 from datetime import datetime
 from typing import Any, ClassVar
 
-from sqlalchemy import insert, select, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.cmdb.events import CiUpdated
-from app.modules.cmdb.infra.models import Ci, CiVersion
+from app.modules.cmdb.events import BusinessViewChanged, CiUpdated
+from app.modules.cmdb.infra.models import BusinessView, Ci, CiVersion
+from app.modules.cmdb.service.business_views import RECORD_TYPE as VIEW_RECORD_TYPE
+from app.modules.cmdb.service.business_views import visible_views
 from app.modules.cmdb.service.cis import RECORD_TYPE, snapshot, visible_rows
+from app.modules.cmdb.service.snapshots import save_version
 from app.modules.identity_access import (
     MENTION_BATCH,
     Mention,
@@ -40,12 +48,11 @@ from app.modules.identity_access import (
 )
 from app.shared.events import record_event
 from app.shared.history import Change, record_changes
-from app.shared.ids import new_id
 
 REDACTION_REASON = "erasure_redaction"  # the history reason code (identity_access's)
 VERSION_RECORD_TYPE = "ci_version"
 FIELDS = ("name", "description")  # as the CMDB's field catalogue names them (ADR-047)
-CIS, VERSIONS = "ci", "ver"  # the cursor's phases
+CIS, VERSIONS, VIEWS = "ci", "ver", "view"  # the cursor's phases
 ERASE = "people.erase"  # identity_access's right to erase people (ADR-052)
 _REDACT_VERSION = text("SELECT cmdb_redact_version(:mention, :value)")
 
@@ -106,15 +113,34 @@ class CiMentions:
             if len(rows) >= MENTION_BATCH:
                 return MentionBatch(tuple(found), _cursor(CIS, rows[-1][0]))
             return MentionBatch(tuple(found), _cursor(VERSIONS, uuid.UUID(int=0)))
-        query_v = select(CiVersion.id, CiVersion.snapshot)
+        if phase == VERSIONS:
+            query_v = select(CiVersion.id, CiVersion.snapshot)
+            if last is not None:
+                query_v = query_v.where(CiVersion.id > last)
+            versions = (
+                await session.execute(query_v.order_by(CiVersion.id).limit(MENTION_BATCH))
+            ).all()
+            found = [
+                m for vid, snap in versions for m in _found(VERSION_RECORD_TYPE, vid, snap, terms)
+            ]
+            if len(versions) >= MENTION_BATCH:
+                return MentionBatch(tuple(found), _cursor(VERSIONS, versions[-1][0]))
+            return MentionBatch(tuple(found), _cursor(VIEWS, uuid.UUID(int=0)))
+        query_w = select(BusinessView.id, BusinessView.name, BusinessView.description)
         if last is not None:
-            query_v = query_v.where(CiVersion.id > last)
-        versions = (
-            await session.execute(query_v.order_by(CiVersion.id).limit(MENTION_BATCH))
+            query_w = query_w.where(BusinessView.id > last)
+        views = (
+            await session.execute(query_w.order_by(BusinessView.id).limit(MENTION_BATCH))
         ).all()
-        found = [m for vid, snap in versions for m in _found(VERSION_RECORD_TYPE, vid, snap, terms)]
-        more = len(versions) >= MENTION_BATCH
-        return MentionBatch(tuple(found), _cursor(VERSIONS, versions[-1][0]) if more else None)
+        found = [
+            m
+            for vid, name, description in views
+            for m in _found(
+                VIEW_RECORD_TYPE, vid, {"name": name, "description": description}, terms
+            )
+        ]
+        more = len(views) >= MENTION_BATCH
+        return MentionBatch(tuple(found), _cursor(VIEWS, views[-1][0]) if more else None)
 
     async def redact_mention(
         self,
@@ -130,21 +156,11 @@ class CiMentions:
             return False
         if mention.record_type == VERSION_RECORD_TYPE:
             return await _redact_version(session, mention, terms, marker)
-        if mention.record_type != RECORD_TYPE:
-            return False
-        # Removed CIs too: the bin keeps their text, so it is redacted like any other.
-        row = await session.scalar(select(Ci).where(Ci.id == mention.record_id).with_for_update())
-        current = _text(getattr(row, mention.field)) if row is not None else None
-        if row is None or not current:
-            return False
-        redacted, count = redact_matches(current, terms, mention.match_kind, marker)
-        if not count:
-            return False
-        setattr(row, mention.field, redacted)
-        row.version, row.updated_at = row.version + 1, now
-        await session.flush()
-        await _saved(session, row, mention.field)
-        return True
+        if mention.record_type == VIEW_RECORD_TYPE:
+            return await _redact_view(session, mention, terms, marker, now)
+        if mention.record_type == RECORD_TYPE:
+            return await _redact_ci(session, mention, terms, marker, now)
+        return False
 
     async def passage(
         self, session: AsyncSession, subject: Subject, mention: Mention
@@ -166,6 +182,9 @@ class CiMentions:
             if version is None or await _seen(session, subject, version.ci_id) is None:
                 return None
             return _text(version.snapshot.get(mention.field)) or None
+        if mention.record_type == VIEW_RECORD_TYPE:
+            view = await _seen_view(session, subject, mention.record_id)
+            return (_text(getattr(view, mention.field)) or None) if view is not None else None
         return None
 
 
@@ -175,6 +194,82 @@ async def _seen(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> Ci
     if row is None and subject.holds(ERASE):
         row = await session.scalar(visible_rows(subject, trash=True).where(Ci.id == ci_id))
     return row
+
+
+async def _redact_ci(
+    session: AsyncSession, mention: Mention, terms: MentionTerms, marker: str, now: datetime
+) -> bool:
+    """One CI field: an ordinary save (removed CIs too: the bin keeps their text)."""
+    row = await session.scalar(select(Ci).where(Ci.id == mention.record_id).with_for_update())
+    current = _text(getattr(row, mention.field)) if row is not None else None
+    if row is None or not current:
+        return False
+    redacted, count = redact_matches(current, terms, mention.match_kind, marker)
+    if not count:
+        return False
+    setattr(row, mention.field, redacted)
+    row.version, row.updated_at = row.version + 1, now
+    await session.flush()
+    await _saved(session, row, mention.field)
+    return True
+
+
+async def _seen_view(
+    session: AsyncSession, subject: Subject, view_id: uuid.UUID
+) -> BusinessView | None:
+    """The view if the subject may see it (its base CI); a removed one only with `people.erase`."""
+    row: BusinessView | None = await session.scalar(
+        visible_views(subject).where(BusinessView.id == view_id)
+    )
+    if row is None and subject.holds(ERASE):
+        removed = await session.scalar(
+            select(BusinessView).where(
+                BusinessView.id == view_id, BusinessView.deleted_at.is_not(None)
+            )
+        )
+        if removed is not None and await _seen(session, subject, removed.base_ci_id) is not None:
+            row = removed
+    return row
+
+
+async def _redact_view(
+    session: AsyncSession, mention: Mention, terms: MentionTerms, marker: str, now: datetime
+) -> bool:
+    """One view field: an ordinary save (removed views too: their text is still stored)."""
+    row = await session.scalar(
+        select(BusinessView).where(BusinessView.id == mention.record_id).with_for_update()
+    )
+    current = _text(getattr(row, mention.field)) if row is not None else None
+    if row is None or not current:
+        return False
+    redacted, count = redact_matches(current, terms, mention.match_kind, marker)
+    if not count:
+        return False
+    setattr(row, mention.field, redacted)
+    row.version, row.updated_at = row.version + 1, now
+    await session.flush()
+    await record_changes(
+        session,
+        record_type=VIEW_RECORD_TYPE,
+        record_id=row.id,
+        version=row.version,
+        kind="updated",
+        changes=[Change(mention.field, None, None)],
+        source="system",
+        reason=REDACTION_REASON,
+    )
+    await record_event(
+        session,
+        BusinessViewChanged(
+            view_id=row.id,
+            base_ci_id=row.base_ci_id,
+            action="updated",
+            changed_fields=[mention.field],
+        ),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
+    return True
 
 
 async def _redact_version(
@@ -208,16 +303,7 @@ async def _saved(session: AsyncSession, row: Ci, field: str) -> None:
         source="system",
         reason=REDACTION_REASON,
     )
-    await session.execute(
-        insert(CiVersion).values(
-            tenant_id=row.tenant_id,
-            id=new_id(),
-            ci_id=row.id,
-            version=row.version,
-            snapshot=snapshot(row),
-            saved_by=None,
-        )
-    )
+    await save_version(session, row, snapshot(row), None)
     await record_event(
         session,
         CiUpdated(ci_id=row.id, type_id=row.type_id, changed_fields=[field]),

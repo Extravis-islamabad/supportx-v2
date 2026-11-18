@@ -9,6 +9,8 @@
 - `cmdb_ci_versions`: an append-only snapshot of a CI after every save (REQ-CMDB-024's write
   side), so later sessions can show a CI "as of" a date and build baselines on it.
 - `cmdb_settings`: one row per tenant (pickers leave end-of-life CIs out by default).
+
+S2 (0180): relationship types and their rules, relationships, business views.
 """
 
 import uuid
@@ -206,3 +208,147 @@ class CmdbSettings(TenantKeyed, Base):
     version: Mapped[int] = mapped_column(default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
+
+
+# --- relationships and business views (WP-053 S2, migration 0180) ---------------------------------
+
+LAYOUTS = ("radial", "hierarchical", "tree")
+
+
+class RelationshipType(TenantEntity):
+    """A named link between CIs, one name per direction (REQ-CMDB-006).
+
+    A built-in type is labelled `cmdb_relationship.<code>.forward|inverse`; a tenant's own type
+    carries both names per language. `carries_impact` says whether impact flows through it.
+    """
+
+    __tablename__ = "cmdb_relationship_types"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_cmdb_relationship_types_tenant_id_id"),
+        CheckConstraint("code ~ '^[a-z][a-z0-9_]{1,62}$'", name="code_format"),
+        Index(
+            "uq_cmdb_relationship_types_code",
+            "tenant_id",
+            "code",
+            unique=True,
+            postgresql_where="deleted_at IS NULL",
+        ),
+    )
+
+    code: Mapped[str] = mapped_column(String(63))
+    built_in: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    names_forward: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    names_inverse: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    carries_impact: Mapped[bool] = mapped_column(Boolean, server_default="true")
+
+
+class RelationshipTypeRule(TenantEntity):
+    """The CI types a relationship type may join (a rule on a type covers the types below it)."""
+
+    __tablename__ = "cmdb_relationship_type_rules"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "type_id"],
+            ["cmdb_relationship_types.tenant_id", "cmdb_relationship_types.id"],
+            name="fk_cmdb_relationship_type_rules_type",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "from_ci_type_id"],
+            ["cmdb_ci_types.tenant_id", "cmdb_ci_types.id"],
+            name="fk_cmdb_relationship_type_rules_from",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "to_ci_type_id"],
+            ["cmdb_ci_types.tenant_id", "cmdb_ci_types.id"],
+            name="fk_cmdb_relationship_type_rules_to",
+        ),
+        Index(
+            "uq_cmdb_relationship_type_rules_pair",
+            "tenant_id",
+            "type_id",
+            "from_ci_type_id",
+            "to_ci_type_id",
+            unique=True,
+            postgresql_where="deleted_at IS NULL",
+        ),
+    )
+
+    type_id: Mapped[uuid.UUID]
+    from_ci_type_id: Mapped[uuid.UUID]
+    to_ci_type_id: Mapped[uuid.UUID]
+    suggested: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class Relationship(TenantEntity):
+    """One link "from runs on to" (REQ-CMDB-007). Never edited; removal is a soft delete."""
+
+    __tablename__ = "cmdb_relationships"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "type_id"],
+            ["cmdb_relationship_types.tenant_id", "cmdb_relationship_types.id"],
+            name="fk_cmdb_relationships_type",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "from_ci_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_relationships_from",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "to_ci_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_relationships_to",
+        ),
+        CheckConstraint("from_ci_id <> to_ci_id", name="not_self"),
+        Index(
+            "uq_cmdb_relationships_live",
+            "tenant_id",
+            "type_id",
+            "from_ci_id",
+            "to_ci_id",
+            unique=True,
+            postgresql_where="deleted_at IS NULL",
+        ),
+        Index("ix_cmdb_relationships_tenant_from", "tenant_id", "from_ci_id"),
+        Index("ix_cmdb_relationships_tenant_to", "tenant_id", "to_ci_id"),
+    )
+
+    type_id: Mapped[uuid.UUID]
+    from_ci_id: Mapped[uuid.UUID]
+    to_ci_id: Mapped[uuid.UUID]
+
+
+class BusinessView(TenantEntity):
+    """A saved map for one base CI (REQ-CMDB-009): layout, filters and pinned positions."""
+
+    __tablename__ = "cmdb_business_views"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "base_ci_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_business_views_base",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_cmdb_business_views_owner",
+        ),
+        CheckConstraint("length(btrim(name)) BETWEEN 1 AND 200", name="name_length"),
+        CheckConstraint(
+            "description IS NULL OR length(description) <= 10000", name="description_length"
+        ),
+        CheckConstraint(_codes("layout", LAYOUTS), name="layout_code"),
+        Index("ix_cmdb_business_views_tenant_updated", "tenant_id", "updated_at", "id"),
+        Index("ix_cmdb_business_views_tenant_base", "tenant_id", "base_ci_id"),
+        Index("ix_cmdb_business_views_tenant_owner", "tenant_id", "owner_id"),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    base_ci_id: Mapped[uuid.UUID]
+    layout: Mapped[str] = mapped_column(String(20), server_default="radial")
+    # The map's filters: relationship type IDs, CI type IDs, show end of life, depth.
+    filters: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    # Pinned nodes by CI ID, each an x and a y (a restricted node is never pinned).
+    positions: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    owner_id: Mapped[uuid.UUID | None]
