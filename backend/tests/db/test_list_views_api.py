@@ -307,6 +307,41 @@ async def test_req_inc_119_ac1_select_all_takes_every_matching_record_frozen(wor
         assert (await world.get(a, a.admin, item)).json()["technician_id"] == str(a.tech_a)
 
 
+async def test_bulk_never_names_a_record_the_person_cannot_see(world: World) -> None:
+    """A record the person cannot see is refused as one that does not exist: same answer, no
+    number, and no action run. One they see but may not change keeps its number and its own
+    reason. Regression for 45a1d36f3 (2026-10-28), where skipped results named any record."""
+    a = world.a
+    mine = await world.create(a, a.admin, group_id=str(a.ga))
+    theirs = await world.create(a, a.admin, group_id=str(a.gb))  # outside tech_a's scope
+    closed = await world.create(a, a.admin, group_id=str(a.ga))
+    resolved = await world.act(a, a.admin, closed, "resolve", resolution="<p>Fixed</p>")
+    assert (await world.act(a, a.admin, resolved.json(), "close")).status_code == 200
+    missing = {"id": str(uuid.uuid4())}  # a crafted ID: no such record
+    job = await bulk(
+        world, a, a.tech_a, "edit", records=[mine, theirs, missing, closed], subject="Changed"
+    )
+    by_id = {r["id"]: r for r in job["results"]}
+    assert by_id[mine["id"]]["outcome"] == "done"
+    unseen, gone = by_id[theirs["id"]], by_id[missing["id"]]
+    assert (
+        (unseen["outcome"], unseen["code"])
+        == (gone["outcome"], gone["code"])
+        == (
+            "skipped",
+            "work_item_not_found",
+        )
+    )
+    assert unseen["display_id"] is None
+    assert gone["display_id"] is None
+    assert (await world.get(a, a.admin, theirs)).json()["subject"] == "Mail is down"
+    # Seen but not changeable (closed): named, with its own reason.
+    seen = by_id[closed["id"]]
+    assert seen["outcome"] == "skipped"
+    assert seen["display_id"] == closed["display_id"]
+    assert seen["code"] != "work_item_not_found"
+
+
 async def test_bulk_runs_as_the_requester_and_skips_what_they_cannot_change(world: World) -> None:
     a = world.a
     theirs = await world.create(a, a.admin, group_id=str(a.gb))  # outside tech_a's scope
@@ -412,3 +447,35 @@ async def test_every_built_in_view_has_an_equivalent_filter_with_the_same_rows(
         query = "" if view["filter"] is None else "?filter=" + json.dumps(view["filter"])
         as_view = await ids(world, a, a.tech_a, f"?view={code}")
         assert await ids(world, a, a.tech_a, query) == as_view, code
+
+
+async def test_history_never_names_a_linked_record_the_reader_cannot_see(world: World) -> None:
+    """A link's other record shows in history only for a reader who may see it: the line stays
+    (linked, which kind), the number and ID do not. The admin, who sees both, gets the number."""
+    a = world.a
+    mine = await world.create(a, a.admin, group_id=str(a.ga))
+    theirs = await world.create(a, a.admin, group_id=str(a.gb))  # outside tech_a's scope
+    linked = await world.call(
+        "POST",
+        f"{BASE}/{mine['id']}/links",
+        a,
+        a.admin,
+        json={"other_id": theirs["id"]},
+    )
+    assert linked.status_code == 201, linked.text
+
+    async def link_values(user: uuid.UUID) -> list[Any]:
+        shown = await world.call("GET", f"{BASE}/{mine['id']}/history", a, user)
+        assert shown.status_code == 200, shown.text
+        return [
+            c["new"] for e in shown.json()["items"] for c in e["changes"] if c["field"] == "link"
+        ]
+
+    (hidden,) = await link_values(a.tech_a)
+    assert hidden["display_id"] is None
+    assert hidden["id"] is None
+    assert hidden["hidden"] is True
+    assert hidden["kind"] == "related"
+    assert theirs["display_id"] not in str(hidden)
+    (named,) = await link_values(a.admin)  # sees both: no over-masking
+    assert named["display_id"] == theirs["display_id"]

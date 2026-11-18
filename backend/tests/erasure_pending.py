@@ -1,8 +1,9 @@
-"""Required erasure ports whose modules have none yet (the readiness check, 2026-11-14).
+"""Required erasure and mention ports whose modules have none yet (the readiness check).
 
-`service_catalog` (lane A) holds person data, so REQUIRED_PORTS lists it and, until it
-registers, approval and the job refuse (`erasure_port_missing`). Tests that run the job or
-approve stand in no-op ports for it; its real port's PR removes its key here (assets' did).
+A module that holds person data is listed in REQUIRED_PORTS (or names people in its text, in
+REQUIRED_MENTION_PORTS) before its port exists, so approval refuses until it registers
+(`erasure_port_missing`, `erasure_report_unavailable`). Tests that build a report, approve or
+run the job stand in no-op ports for those keys; the real port's PR removes its key here.
 """
 
 import uuid
@@ -13,15 +14,25 @@ from typing import ClassVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.identity_access.domain.mentions import MentionTerms
+from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.service.person_data import (
     ErasureBatch,
+    Mention,
+    MentionBatch,
     PersonData,
+    PersonMentions,
+    mention_ports,
+    register_mentions,
     register_person_data,
     registered_ports,
+    unregister_mentions,
     unregister_person_data,
 )
 
 PENDING: tuple[str, ...] = ()  # every required port is real: assets (#519), service_catalog (#518)
+# CMDB descriptions and snapshots (WP-053 S1, #524); its real mentions port removes the key.
+PENDING_MENTIONS: tuple[str, ...] = ("cmdb",)
 
 
 def _stand_in(key: str) -> PersonData:
@@ -46,15 +57,58 @@ def _stand_in(key: str) -> PersonData:
     return StandIn()
 
 
+def _mentions_stand_in(key: str) -> PersonMentions:
+    class StandIn:
+        module: ClassVar[str] = key
+
+        async def find_mentions(
+            self,
+            session: AsyncSession,
+            person_id: uuid.UUID,
+            *,
+            terms: MentionTerms,
+            cursor: str | None,
+        ) -> MentionBatch:
+            del session, person_id, terms, cursor
+            return MentionBatch(())
+
+        async def redact_mention(
+            self,
+            session: AsyncSession,
+            mention: Mention,
+            *,
+            terms: MentionTerms,
+            marker: str,
+            now: datetime,
+        ) -> bool:
+            del session, mention, terms, marker, now
+            return False
+
+        async def passage(
+            self, session: AsyncSession, subject: Subject, mention: Mention
+        ) -> str | None:
+            del session, subject, mention
+            return None
+
+    return StandIn()
+
+
 @contextmanager
 def pending_ports_stood_in() -> Iterator[None]:
-    """No-op ports for PENDING while a test runs, never replacing a real one, then removed."""
+    """No-op ports for PENDING and PENDING_MENTIONS while a test runs, never replacing a real
+    one, then removed."""
     have = {port.module for port in registered_ports()}
     added = [key for key in PENDING if key not in have]
+    have_mentions = {port.module for port in mention_ports()}
+    added_mentions = [key for key in PENDING_MENTIONS if key not in have_mentions]
     for key in added:
         register_person_data(_stand_in(key))
+    for key in added_mentions:
+        register_mentions(_mentions_stand_in(key))
     try:
         yield
     finally:
         for key in added:
             unregister_person_data(key)
+        for key in added_mentions:
+            unregister_mentions(key)

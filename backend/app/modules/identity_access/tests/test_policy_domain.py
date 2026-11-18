@@ -54,6 +54,12 @@ ASSETS = (
     # WP-049b s2: money (costs, depreciation, book value): asset managers and admins only.
     PermissionSpec("assets.view_financials", "assets", defaults=(("asset_manager", "all"),)),
 )
+# cmdb.view and cmdb.manage moved to the cmdb module (WP-053 S1), keys unchanged; view gains
+# `own` (D-172).
+CMDB = (
+    PermissionSpec("cmdb.view", "cmdb", _ALL),
+    PermissionSpec("cmdb.manage", "cmdb"),
+)
 # releases.* moved to work_items too (WP-058a); identity's technician grant still names view.
 RELEASES = (PermissionSpec("releases.view", "release", _ALL),)
 # changes.* likewise (WP-045a): identity's technician grants still name view and create.
@@ -71,7 +77,16 @@ FEATURES = frozenset(
     {"incident", "service_request", "problem", "change", "release", "assets", "cmdb", "knowledge"}
 )
 CATALOGUE = Catalogue.build(
-    [*IDENTITY_PERMISSIONS, *RESERVED_PERMISSIONS, *REQUESTS, *RELEASES, *CHANGES, *ASSETS, *ORG],
+    [
+        *IDENTITY_PERMISSIONS,
+        *RESERVED_PERMISSIONS,
+        *REQUESTS,
+        *RELEASES,
+        *CHANGES,
+        *ASSETS,
+        *CMDB,
+        *ORG,
+    ],
     FEATURES,
 )
 TENANT, ME, OTHER = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()

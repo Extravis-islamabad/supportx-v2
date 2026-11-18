@@ -79,13 +79,8 @@ describe('console shell', () => {
     ).toBeDefined();
   });
 
-  it('shows a translated "coming soon" page per section', async () => {
-    at('/cmdb'); // problems, then changes, have screens now (WP-044a; the change screens)
-    api();
-    render(<App />);
-    expect(await screen.findByRole('heading', { name: 'CMDB' })).toBeDefined();
-    expect(screen.getByText(/being built/)).toBeDefined();
-  });
+  // No section is a placeholder any more (the CMDB has screens since WP-053 S1): the "coming
+  // soon" page stays in @supportx/ui with its own test.
 
   it('opens the command palette with Ctrl+K and navigates', async () => {
     api();

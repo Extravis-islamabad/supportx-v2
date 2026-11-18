@@ -5,6 +5,7 @@ import { ar as announcements } from './announcements/ar.ts';
 import { ar as assets } from './assets/ar.ts';
 import { ar as audit } from './audit/ar.ts';
 import { ar as automation } from './automation/ar.ts';
+import { ar as cmdb } from './cmdb/ar.ts';
 import { ar as errors } from './errors/ar.ts';
 import { ar as files } from './files/ar.ts';
 import { ar as identityAccess } from './identity_access/ar.ts';
@@ -28,6 +29,7 @@ export const ar: LabelResource = {
   ...assets,
   ...audit,
   ...automation,
+  ...cmdb,
   ...errors,
   ...files,
   ...identityAccess,
@@ -49,6 +51,7 @@ export const arByModule = {
   assets,
   audit,
   automation,
+  cmdb,
   errors,
   files,
   identity_access: identityAccess,

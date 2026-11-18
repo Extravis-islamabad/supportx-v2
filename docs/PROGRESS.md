@@ -2857,6 +2857,39 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
 - **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the
   `users.preview` test once that permission lands (lane B).
 
+### [~] WP-053 — CMDB (lane B; plan wp-053-cmdb-plan-lane-b.md; session 1 built 2026-11-16)
+
+- [x] **Session 1, the foundation (migration 0173, down revision 0169; REQ-CMDB-001..005, 031,
+  024's write side; D-172):**
+  - CI types in a tree (built-ins by label, a tenant's own with en/ar/ur names); a type in use
+    is never removed (409 with counts); built-ins keep their code and place.
+  - No CI attributes here (no second custom-field system, §6.6): a follow-up gives the metadata
+    module a type-subtree scope, and CIs use metadata custom fields (`cmdb_cis.custom` is kept).
+  - Erasure waits for the CMDB mentions port: `cmdb` is in `REQUIRED_MENTION_PORTS`.
+  - CI states, active or end of life; pickers leave end-of-life CIs out by default (setting).
+  - CIs (`CI-n`): create (Idempotency-Key), edit (If-Match, the ConflictDialog keeps an open
+    edit), copy, change type, trash and restore (both confirmed), history, a snapshot in
+    `cmdb_ci_versions` after every save (append-only for the app, never pruned: D-172 c).
+  - CIs from up to 100 assets through the assets module's `asset_refs` only.
+  - Rights: `cmdb.view`, `cmdb.edit`, `cmdb.delete` with scopes all, site, group (owning or
+    managing group), own (D-172); `cmdb.add`, `cmdb.configure`; `cmdb.manage` (reserved before
+    S1, keys unchanged) still covers add, edit and delete.
+  - Events `cmdb.ci.created/updated/deleted/restored`, `cmdb.config.changed`; realtime
+    `t:{tenant}:ci:{id}` and the `cmdb` list channels; audit entries for configuration changes.
+  - Public interface `can_see`, `ci_refs` (`CiRef`, hidden or gone marked) and the picker.
+  - Erasure port `cmdb` (band 500): owned CIs move to the successor; in `REQUIRED_PORTS`.
+  - Console: CMDB home (template C, type tree filter), CI record (A), new CI (B), setup page
+    for types, states and settings (E, `/admin/cmdb`).
+- [ ] Open from S1:
+  - the CMDB mentions port (snapshots keep description text: a definer redaction like 0167),
+    the next PR, before the erasure screens; until then erasure approval is refused;
+  - CI custom fields through metadata (a type-subtree scope; lane A reviews metadata);
+  - the ADR-047 field catalogue (once every CI read path withholds fields);
+  - a person picker for the CI owner in the form; list followers are not told when a CI leaves
+    their site or group.
+- [ ] Sessions 2+: relationships, impact maps, baselines, retention setting (D-172 c), MonetX on
+  a fixture (D-172 d), the custom rule builder (`fine_grained_access`, Enterprise).
+
 ### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-6 of 6 built 2026-11-05; #214 merged, #219)
 
 Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed

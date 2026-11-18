@@ -48,7 +48,11 @@ export const ur: LabelResource = {
   'action_reason.stage_tasks_open_named_one': 'پہلے اس مرحلے کا کھلا کام مکمل کریں: {{task}}۔',
   'action_reason.stage_tasks_open_named_other':
     'پہلے اس مرحلے کے کھلے کام مکمل کریں: {{task}} اور {{more}} مزید۔',
-  'action_reason.sub_releases_not_tested': 'پہلے اس کی ذیلی ریلیزز کو جانچ میں کامیاب ہونا ہوگا۔',
+  'action_reason.sub_releases_not_tested': 'ذیلی ریلیزز جو ابھی پیچھے ہیں: {{releases}}۔',
+  'action_reason.sub_releases_not_tested_hidden':
+    'کچھ ذیلی ریلیزز جنہیں آپ نہیں کھول سکتے ابھی پیچھے ہیں۔',
+  'action_reason.sub_releases_not_tested_others':
+    'ذیلی ریلیزز جو ابھی پیچھے ہیں: {{releases}}، اور کچھ دوسری جنہیں آپ نہیں کھول سکتے۔',
   'action_reason.system_calendar': 'ہر ادارہ یہ کیلنڈر رکھتا ہے۔',
   'action_reason.window_already_ended': '«دکھانا ختم» کا وقت گزر چکا ہے۔',
   'action_reason.window_end_before_start': '«دکھانا ختم» کو «دکھانا شروع» کے بعد ہونا چاہیے۔',

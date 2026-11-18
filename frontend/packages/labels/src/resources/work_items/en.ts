@@ -45,7 +45,11 @@ export const en = {
   'action_reason.stage_tasks_open_named_one': "Finish this stage's open task first: {{task}}.",
   'action_reason.stage_tasks_open_named_other':
     "Finish this stage's open tasks first: {{task}} and {{more}} more.",
-  'action_reason.sub_releases_not_tested': 'Its sub-releases must pass testing first.',
+  'action_reason.sub_releases_not_tested': 'Sub-releases still behind: {{releases}}.',
+  'action_reason.sub_releases_not_tested_hidden':
+    "Some sub-releases you can't open are still behind.",
+  'action_reason.sub_releases_not_tested_others':
+    "Sub-releases still behind: {{releases}}, and others you can't open.",
   'action_reason.system_calendar': 'Every organisation keeps this calendar.',
   'action_reason.window_already_ended': 'The "show until" time has already passed.',
   'action_reason.window_end_before_start': '"Show until" must be after "show from".',
