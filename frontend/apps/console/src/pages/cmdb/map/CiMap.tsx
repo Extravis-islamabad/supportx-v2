@@ -46,7 +46,9 @@ import { TAG_TONES, ToneTag, reportError, useAppearance, useLabel } from '@suppo
 import type { MapGraph, ShownEdge, ShownNode } from './useMapGraph';
 import { nodeAriaLabel, nodeLook, nodeName, nodeState, nodeType, relationshipName } from './words';
 
-const FIT = { padding: 0.2, maxZoom: 1 } as const;
+// minZoom keeps node text readable on a phone: a big graph opens on the base CI and pans, with
+// zoom and the list equivalent there (lane C, the 390 px matrix shots).
+const FIT = { padding: 0.2, maxZoom: 1, minZoom: 0.6 } as const;
 
 interface CiNodeData extends Record<string, unknown> {
   shown: ShownNode;

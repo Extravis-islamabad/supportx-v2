@@ -1136,14 +1136,14 @@ function ciMapFocus(menu: boolean): (page: Page) => Promise<void> {
     const url = '**/api/v1/cmdb/cis/*/neighbours*';
     const answer = (route: Route) => {
       const base = /\/cis\/([^/]+)\/neighbours/.exec(route.request().url())?.[1] ?? '';
-      const node = (id: string, name: string, display: string, eol = false) => ({
+      const node = (id: string, name: string, display: string, eol = false, type = 'server') => ({
         key: id,
         restricted: false,
         depth: id === base ? 0 : 1,
         id,
         display_id: display,
         name,
-        type_label_key: 'cmdb_ci_type.server',
+        type_label_key: `cmdb_ci_type.${type}`,
         type_names: {},
         state_category: eol ? 'end_of_life' : 'active',
         state_label_key: eol ? 'cmdb_ci_state.retired' : 'cmdb_ci_state.in_use',
@@ -1156,7 +1156,8 @@ function ciMapFocus(menu: boolean): (page: Page) => Promise<void> {
       return route.fulfill({
         json: {
           nodes: [
-            node(base, 'Core switch SW-01', 'CI-1'),
+            // The showcase CI's own type, so the shot matches its header.
+            node(base, 'Core switch SW-01', 'CI-1', false, 'application'),
             node(a, 'Server SRV-01', 'CI-2'),
             node(b, 'Old server SRV-00', 'CI-3', true),
             { key: 'r1', restricted: true, depth: 1 },
