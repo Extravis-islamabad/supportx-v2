@@ -8,10 +8,13 @@ Expand only, no data step:
   when an incident is declared major, and the template it switches to (none: it keeps its own).
 - `work_item_announcements`: which announcements were made from which record (REQ-INC-129). Kept
   by work_items; no foreign key into the announcements module (rule 5e).
+- The bulk jobs' action check also allows `attach_child` (similar incidents attached as children
+  of a major incident, REQ-INC-141 AC2); widened from its live definition, as 0141 does.
 
 Expand/contract (§14.3): new columns with defaults and a new table, read only by the new code.
 """
 
+import re
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -26,13 +29,14 @@ from migrations.helpers import (
 )
 
 revision: str = "0177"
-down_revision: str | None = "0171"  # main's head now; re-pointed at its turn in the line
+down_revision: str | None = "0172"  # S2 (0172) first; re-pointed at its turn in the line
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 ITEMS = "work_items"
 SETTINGS = "work_item_type_settings"
 LINKS = "work_item_announcements"
+BULK_CHECK, BULK = "ck_work_item_bulk_jobs_action_code", "work_item_bulk_jobs"
 
 # Business tables force RLS: the check runs once per tenant (D-113), then the caller's empty
 # tenant is put back.
@@ -49,6 +53,7 @@ BEGIN
                   OR major_template_id IS NOT NULL
            )
            OR EXISTS (SELECT 1 FROM {LINKS})
+           OR EXISTS (SELECT 1 FROM {BULK} WHERE action = 'attach_child')
         THEN
             RAISE EXCEPTION 'downgrade refused: tenant % uses major incidents or announcements', t;
         END IF;
@@ -56,6 +61,20 @@ BEGIN
     PERFORM set_config('app.tenant_id', '', true);
 END $$;
 """  # noqa: S608 - fixed names, no input
+
+
+def _bulk_codes() -> list[str]:
+    definition = op.get_bind().scalar(
+        sa.text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :n"),
+        {"n": BULK_CHECK},
+    )
+    return re.findall(r"'([a-z_]+)'::", str(definition))
+
+
+def _bulk_recheck(codes: Sequence[str]) -> None:
+    op.drop_constraint(op.f(BULK_CHECK), BULK, type_="check")
+    listed = ", ".join(f"'{c}'" for c in codes)
+    op.create_check_constraint(op.f(BULK_CHECK), BULK, f"action IN ({listed})")
 
 
 def upgrade() -> None:
@@ -121,11 +140,15 @@ def upgrade() -> None:
     enable_tenant_rls(LINKS)
     enable_actor_audit(LINKS)
     grant_app(LINKS, ("SELECT", "INSERT", "UPDATE"))  # soft delete only (rule §6)
+    now = _bulk_codes()
+    if "attach_child" not in now:
+        _bulk_recheck([*now, "attach_child"])
 
 
 def downgrade() -> None:
     """Back to before (stops while any tenant uses them)."""
     op.execute(GUARD)
+    _bulk_recheck([c for c in _bulk_codes() if c != "attach_child"])
     disable_tenant_rls(LINKS)
     op.drop_table(LINKS)
     op.drop_column(SETTINGS, "major_template_id")

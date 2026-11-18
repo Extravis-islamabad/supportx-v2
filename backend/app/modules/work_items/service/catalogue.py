@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -102,7 +102,7 @@ def settings_record_id(code: str) -> uuid.UUID:
 
 # 3: the closure code "confirmed by requester" (D-107); 4: staged roles and stage approvals;
 # 5: a release's own closure codes (WP-058b S4, REQ-REL-050).
-SEED_VERSION = 5
+SEED_VERSION = 6
 STANDARD_TEMPLATE = "standard"
 MAJOR_PROBLEM_TEMPLATE = "major_problem"  # REQ-PRB-017, Appendix A: the guided life cycle
 
@@ -647,6 +647,40 @@ async def _top_up(
     if existing < 5:  # noqa: PLR2004 - the seed version that gives releases their own codes
         await _seed_v5(session, wtype, tenant)
         await session.flush()
+    if existing < 6:  # noqa: PLR2004 - the seed version that adds the `converted` status
+        await _seed_v6(session, wtype, tenant)
+        await session.flush()
+
+
+async def _seed_v6(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:
+    """Incidents and requests seeded before conversion get its system status (WP-046b S2).
+
+    Added last in the type's order, as the code defines it; a tenant that already has the code
+    keeps its row (ON CONFLICT DO NOTHING).
+    """
+    wanted = [s for s in wtype.statuses if s.code == DefaultStatus.CONVERTED]
+    if not wanted:
+        return
+    last = await session.scalar(
+        select(func.max(WorkItemStatus.sort_order)).where(
+            WorkItemStatus.tenant_id == tenant, WorkItemStatus.type == wtype.code
+        )
+    )
+    status = wanted[0]
+    await session.execute(
+        insert(WorkItemStatus)
+        .values(
+            tenant_id=tenant,
+            type=wtype.code,
+            code=status.code,
+            category=status.category,
+            colour=status.colour,
+            sort_order=(last or 0) + 1,
+            system=True,
+            resume_on_requester_reply=False,
+        )
+        .on_conflict_do_nothing()
+    )
 
 
 async def _seed_v5(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:

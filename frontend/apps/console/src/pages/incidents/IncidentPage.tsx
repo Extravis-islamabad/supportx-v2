@@ -78,13 +78,14 @@ import {
 } from '@supportx/ui';
 
 import { CopyDialog } from './CopyDialog';
-import { MajorDialog, MajorTag } from './MajorIncident';
+import { AttachSimilarDialog, MajorDialog, MajorTag } from './MajorIncident';
 import { PrintDialog } from './IncidentPrint';
 import {
   AnnounceDialog,
   EndAnnouncementsPrompt,
   IncidentAnnouncements,
 } from './IncidentAnnouncements';
+import { ConvertDialog, MergeIncidentDialog, MovedBanner } from './MergeConvert';
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
@@ -190,6 +191,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [assigning, setAssigning] = useState(false);
   const [copying, setCopying] = useState(false);
   const [majorOpen, setMajorOpen] = useState(false); // WP-046b S4 (REQ-INC-141)
+  const [attaching, setAttaching] = useState(false); // REQ-INC-141 AC2
   const [announcing, setAnnouncing] = useState(false); // WP-046b S4 (REQ-INC-129)
   const [printing, setPrinting] = useState(false); // WP-046b S4 (REQ-INC-126)
   // Resolving offers to end the announcements made from it; nothing ends by itself (AC2).
@@ -200,6 +202,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     if (resolved && !wasResolved.current) setEndPrompt(true);
     wasResolved.current = resolved;
   }, [item.status_category]);
+  const [merging, setMerging] = useState(false); // WP-046b S2 (REQ-INC-088)
+  const [converting, setConverting] = useState(false); // WP-046b S2 (REQ-INC-089)
   const [asking, setAsking] = useState(false); // WP-046b S1 (REQ-INC-083)
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -499,6 +503,18 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           },
         }
       : null,
+    // REQ-INC-141 AC2: a major incident gathers similar open incidents as its children.
+    item.major && item.operations.find((o) => o.action === 'edit')?.allowed === true
+      ? {
+          key: 'attach_similar',
+          label: t('incidents.major.attach'),
+          allowed: true,
+          testId: 'inc-op-attach-similar',
+          onClick: () => {
+            setAttaching(true);
+          },
+        }
+      : null,
     // WP-046b S4 (REQ-INC-126): print or save as PDF, sections chosen.
     {
       key: 'print',
@@ -519,6 +535,33 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           testId: 'inc-op-announce',
           onClick: () => {
             setAnnouncing(true);
+          },
+        }
+      : null,
+    // WP-046b S2: merge into another incident (REQ-INC-088), convert to a request (-089).
+    // Open records only; the server checks edit here and on the other side, and refuses.
+    item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+    item.status_category === 'open'
+      ? {
+          key: 'merge',
+          label: t('incidents.merge.action'),
+          allowed: true,
+          testId: 'inc-op-merge',
+          onClick: () => {
+            setMerging(true);
+          },
+        }
+      : null,
+    item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+    item.status_category === 'open' &&
+    can('requests.create')
+      ? {
+          key: 'convert',
+          label: t('incidents.convert.action_to_request'),
+          allowed: true,
+          testId: 'inc-op-convert',
+          onClick: () => {
+            setConverting(true);
           },
         }
       : null,
@@ -678,6 +721,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               }
             />
             <LoopWarning id={item.id} />
+            <MovedBanner item={item} kind="incidents" />
           </>
         }
         panel={
@@ -827,11 +871,33 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             setEndPrompt(false);
           }}
         />
+        <AttachSimilarDialog
+          item={item}
+          open={attaching}
+          onClose={() => {
+            setAttaching(false);
+          }}
+        />
         <MajorDialog
           item={item}
           open={majorOpen}
           onClose={() => {
             setMajorOpen(false);
+          }}
+        />
+        <MergeIncidentDialog
+          item={item}
+          open={merging}
+          onClose={() => {
+            setMerging(false);
+          }}
+        />
+        <ConvertDialog
+          kind="incidents"
+          record={item}
+          open={converting}
+          onClose={() => {
+            setConverting(false);
           }}
         />
         <CopyDialog

@@ -156,6 +156,8 @@ export function IncidentPrintPage() {
       .filter((s): s is PrintSection => (PRINT_SECTIONS as readonly string[]).includes(s)),
   );
   const publicOnly = params.get('notes') !== 'all';
+  // A printout of history waits for every page it will load (lane C).
+  const [historyLoading, setHistoryLoading] = useState(wanted.has('history'));
   const item = incident.data;
   if (item?.id !== id) return <Skeleton active />;
   return (
@@ -168,12 +170,13 @@ export function IncidentPrintPage() {
         <Button
           type="primary"
           icon={<PrinterOutlined />}
+          disabled={historyLoading}
           onClick={() => {
             window.print();
           }}
           data-testid="inc-print-now"
         >
-          {t('incidents.print.print')}
+          {t(historyLoading ? 'incidents.print.loading_history' : 'incidents.print.print')}
         </Button>
       </Flex>
       <header>
@@ -235,7 +238,7 @@ export function IncidentPrintPage() {
       )}
       {wanted.has('history') && (
         <Section name="history">
-          <IncidentHistory id={item.id} printing />
+          <IncidentHistory id={item.id} printing onLoadingChange={setHistoryLoading} />
         </Section>
       )}
     </Flex>

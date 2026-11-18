@@ -57,6 +57,7 @@ export const en = {
   'notification_area.report_schedule': 'Scheduled reports',
   'notification_area.rule_step': 'Rules and escalations',
   'notification_area.security': 'Security notices',
+  'notification_area.service_account': 'Service accounts',
   'notification_area.service_request': 'Service requests',
   'notification_area.sign_in_secret': 'Sign-in certificates and secrets',
   'notification_area.task': 'Tasks',
@@ -159,6 +160,7 @@ export const en = {
   'notification_event.security.mfa_removed': 'A sign-in check (MFA) was removed from your account',
   'notification_event.security.new_device': 'A sign-in from a new browser or device',
   'notification_event.security.password_changed': 'Your password was changed',
+  'notification_event.service_account.needs_owner': 'A service account needs a new owner',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
@@ -748,6 +750,12 @@ export const en = {
   'notification_template.security.password_changed.in_app':
     'Your password was changed ({{ notice.when }})',
   'notification_template.security.password_changed.subject': 'Your password was changed',
+  'notification_template.service_account.needs_owner.body':
+    'Hello {{ recipient.name }},\nThe person who answered for the service account {{ record.title }} has been deactivated. The account keeps working; please choose a new owner. {{ record.link }}',
+  'notification_template.service_account.needs_owner.in_app':
+    '{{ record.title }} needs a new owner',
+  'notification_template.service_account.needs_owner.subject':
+    '{{ record.title }} needs a new owner',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -825,6 +833,7 @@ export const en = {
     '{{ task.title }} starts at {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'Starts soon: {{ task.title }} ({{ record.display_id }})',
+  'notification_value.unnamed_requester': 'the requester',
   'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
   'notification_variable.approval.comment': 'Approval › Comment',
@@ -869,6 +878,7 @@ export const en = {
   'notification_variable.security.opens_at': 'Lock-out › Earliest time to try again',
   'notification_variable.security.place': 'Sign-in › Approximate place',
   'notification_variable.security.when': 'Sign-in › Time',
+  'notification_variable.service_account.name': 'Service account › Name',
   'notification_variable.sign_in_secret.expires': 'Single sign-on › Runs out on',
   'notification_variable.sign_in_secret.item': 'Single sign-on › What runs out',
   'notification_variable.sign_in_secret.left': 'Single sign-on › Time left',

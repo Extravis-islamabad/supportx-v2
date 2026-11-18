@@ -36,6 +36,7 @@ def test_every_default_status_has_a_plain_requester_status() -> None:
         "closed": PortalStatus.CLOSED,
         "canceled": PortalStatus.CANCELED,
         "merged": PortalStatus.CLOSED,
+        "converted": PortalStatus.CLOSED,  # WP-046b S2: the requester follows its alias
     }
 
 

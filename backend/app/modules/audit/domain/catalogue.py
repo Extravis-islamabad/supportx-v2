@@ -255,6 +255,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    # Service accounts (WP-057 S4a, REQ-SEC-036).
+    ("identity_access.service_account_created", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.service_account_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.service_account_role_added", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.service_account_role_removed", AuditCategory.SECURITY, "identity_access"),
     ("metadata.custom_field_created", AuditCategory.CONFIGURATION, "metadata"),
     ("metadata.custom_field_changed", AuditCategory.CONFIGURATION, "metadata"),
     ("metadata.custom_field_deleted", AuditCategory.CONFIGURATION, "metadata"),
@@ -359,6 +364,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.major_settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S4
     ("incident.announced", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-129
     ("incident.printed", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-126
+    ("incident.merge_undone", AuditCategory.RECORDS, "work_items"),  # WP-046b S2, both IDs
+    ("incident.converted", AuditCategory.RECORDS, "work_items"),  # WP-046b S2, both IDs
+    ("service_request.converted", AuditCategory.RECORDS, "work_items"),
     ("problem.approval_decided", AuditCategory.RECORDS, "work_items"),
     ("problem.investigator_removed", AuditCategory.RECORDS, "work_items"),
     # WP-044c D16 (REQ-PRB-068): repeat incident rules and what was done with their sets.

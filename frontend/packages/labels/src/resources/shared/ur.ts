@@ -341,6 +341,7 @@ export const ur: LabelResource = {
   'nav.admin_requests': 'سروس درخواستیں',
   'nav.admin_roles': 'کردار',
   'nav.admin_security': 'سائن اِن اور سیکیورٹی',
+  'nav.admin_service_accounts': 'سروس اکاؤنٹس',
   'nav.admin_sla': 'ایس ایل اے',
   'nav.admin_users': 'افراد',
   // Announcements, field history, action reasons (WP-012)
@@ -841,6 +842,9 @@ export const ur: LabelResource = {
     'سائن اِن، پاس ورڈ، دو مرحلہ سائن اِن، سنگل سائن آن، سیشن اور API کلیدیں۔',
   'setup.page.security.keywords':
     'سیکیورٹی، پاس ورڈ، دو مرحلہ، سنگل سائن آن، سیشن، ٹائم آؤٹ، دعوت نامے، کلیدیں',
+  'setup.page.service-accounts.description':
+    'وہ اکاؤنٹ جن سے دوسرے سسٹم کام کرتے ہیں، ہر ایک کا ذمہ دار مالک، اس کے کردار اور کلیدیں۔',
+  'setup.page.service-accounts.keywords': 'سروس اکاؤنٹس، انضمام، مالک، حوالگی، خودکاری، API',
   'setup.page.sla.description': 'سروس اہداف، کام کے اوقات، چھٹیاں اور ایسکلیشن۔',
   'setup.page.sla.keywords': 'SLA، اہداف، جوابی وقت، حل، کاروباری اوقات، کیلنڈر، چھٹیاں، ایسکلیشن',
   'setup.page.users.description': 'لوگ شامل کریں، ان کی قسم اور حالت بدلیں، فائل سے درآمد کریں۔',

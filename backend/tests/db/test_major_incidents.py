@@ -161,3 +161,47 @@ async def test_the_marker_shows_in_lists_and_filters_them(world: World) -> None:
     # Another tenant sees none of it.
     theirs = await world.call("GET", f"{BASE}/majors", world.b, world.b.admin)
     assert theirs.json() == []
+
+
+async def test_similar_incidents_are_attached_as_children_with_a_result_each(
+    world: World,  # noqa: F811
+) -> None:
+    """REQ-INC-141 AC2: one action attaches many; each is checked again as the person (lane B)."""
+    from app.modules.work_items.service.bulk import run_bulk_jobs  # noqa: PLC0415
+
+    a = world.a
+    parent = await world.create(a, a.admin, group_id=str(a.ga))
+    mine = [await world.create(a, a.admin, group_id=str(a.ga)) for _ in range(2)]
+    theirs = await world.create(a, a.admin, group_id=str(a.gb))  # outside tech_a's scope
+    not_major = await world.call(
+        "POST",
+        f"{BASE}/{parent['id']}/children/attach",
+        a,
+        a.tech_a,
+        json={"child_ids": [mine[0]["id"]]},
+        headers=CONSOLE,
+    )
+    assert not_major.status_code == 409, not_major.text
+    assert not_major.json()["code"] == "not_major"
+    assert (await _declare(world, a, a.admin, parent)).status_code == 200
+    started = await world.call(
+        "POST",
+        f"{BASE}/{parent['id']}/children/attach",
+        a,
+        a.tech_a,
+        json={"child_ids": [m["id"] for m in mine] + [theirs["id"]]},
+        headers=CONSOLE,
+    )
+    assert started.status_code == 202, started.text
+    await run_bulk_jobs(world.app.state.db, world.app.state.settings)
+    job = await world.call("GET", f"{BASE}/bulk-jobs/{started.json()['id']}", a, a.tech_a)
+    outcomes = {r["id"]: (r["outcome"], r.get("code")) for r in job.json()["results"]}
+    assert all(outcomes[m["id"]] == ("done", None) for m in mine)
+    assert outcomes[theirs["id"]][0] == "skipped"  # refused for this person, by code
+    children = await world.sql(
+        "SELECT source_id FROM work_item_links WHERE tenant_id = $1 AND target_id = $2"
+        " AND kind = 'child_of' AND deleted_at IS NULL",
+        a.tenant,
+        uuid.UUID(parent["id"]),
+    )
+    assert {r["source_id"] for r in children} == {uuid.UUID(m["id"]) for m in mine}

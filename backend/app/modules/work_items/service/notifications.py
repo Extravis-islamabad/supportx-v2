@@ -61,7 +61,9 @@ from app.modules.work_items.service import approvals, catalogue, escalations
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.closing import resolution_notified
 from app.modules.work_items.service.file_access import sees_private
+from app.modules.work_items.service.followers import current as current_follow
 from app.modules.work_items.service.realtime import RECORD_KIND
+from app.modules.work_items.service.requester_names import requester_name_for
 from app.shared.action_links import LinkRequest
 from app.shared.events import EventEnvelope, record_event
 from app.shared.notifications.ports import (
@@ -737,6 +739,10 @@ class IncidentNotifications:
             own = people is not None and user_id in (people.requester_id, people.on_behalf_of_id)
             if own:
                 return RecordAccess.PUBLIC
+            # A follower who may not open it (the duplicate's requester after a merge, WP-046b
+            # S2) hears its public side by e-mail: following grants no portal or console reach.
+            if await current_follow(session, record_id, user_id) is not None:
+                return RecordAccess.PUBLIC
             # A named approver need not see the incident (the engine's rule, as for service
             # requests): they get its public side, enough to decide (WP-046b S1).
             approver = await session.scalar(
@@ -750,6 +756,23 @@ class IncidentNotifications:
             )
             return RecordAccess.PUBLIC if approver is not None else RecordAccess.NONE
         return RecordAccess.FULL if sees_private(subject, INCIDENT) else RecordAccess.PUBLIC
+
+    async def recipient_variables(
+        self,
+        session: AsyncSession,
+        context: RecordContext,
+        recipient_id: uuid.UUID,
+        access: RecordAccess,
+    ) -> Mapping[str, VariableValue]:
+        """The requester's name only to readers near them (requester_names, one rule)."""
+        if access is not RecordAccess.PUBLIC:  # FULL reads everything; NONE gets nothing
+            return {}
+        record = await session.get(WorkItem, context.record_id)
+        if record is None:  # pragma: no cover - the context was just read
+            return {}
+        name = context.public_variables.get("requester.name")
+        shown = await requester_name_for(session, record, recipient_id, access, name)
+        return {} if shown is name else {"requester.name": shown}
 
     async def delivered(  # noqa: PLR0913 - the delivery's facts, explicit
         self,

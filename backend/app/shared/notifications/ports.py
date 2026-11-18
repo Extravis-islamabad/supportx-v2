@@ -200,6 +200,26 @@ class RecipientLinks(Protocol):
         ...
 
 
+@runtime_checkable
+class RecipientVariables(Protocol):
+    """Optional on a RecordSource: values one recipient reads differently from the rest.
+
+    Called once per recipient after their access is known; the values returned replace the
+    context's for that recipient only (e.g. a person's name shown only to people near them).
+    Never a way to show more than `access` allows: the source decides from the same access.
+    """
+
+    async def recipient_variables(
+        self,
+        session: AsyncSession,
+        context: RecordContext,
+        recipient_id: uuid.UUID,
+        access: RecordAccess,
+    ) -> Mapping[str, VariableValue]:
+        """The recipient's own values, over the context's."""
+        ...
+
+
 class RecordSource(Protocol):
     """Registered by the module that owns a record type."""
 

@@ -1,7 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { queryKeys, useIncidentCatalogue, useIncidentSearch } from '@supportx/api-client';
+import {
+  queryKeys,
+  useAliasLookup,
+  useIncidentCatalogue,
+  useIncidentSearch,
+} from '@supportx/api-client';
 import { refreshList, useListChannel } from '@supportx/realtime';
 import { useAppearance, useLabel, type PaletteRecords } from '@supportx/ui';
 
@@ -33,6 +38,8 @@ export function usePaletteIncidents(
   );
   const found = useIncidentSearch(text === '' ? { ids: recentIds } : { q: text, limit: 8 }, active);
   const catalogue = useIncidentCatalogue(active);
+  // An old number of a converted record leads to the new one (WP-046b S2, REQ-INC-089).
+  const alias = useAliasLookup(text, active).data ?? null;
   // Live while open: a record changed or created elsewhere updates the results (§8).
   const queryClient = useQueryClient();
   useListChannel(active ? 'incidents' : null, () => {
@@ -48,20 +55,36 @@ export function usePaletteIncidents(
     return {
       title: t(text === '' ? 'search.recent' : 'search.incidents'),
       loading: found.isFetching,
-      items: items.map((item) => ({
-        key: `incident-${item.display_id}`,
-        title: `${item.display_id} · ${item.subject}`,
-        subtitle: [
-          personName(people, item.requester_id),
-          statusLabel(t, catalogue.data, item.status, locale),
-        ]
-          .filter((part) => part !== '')
-          .join(' · '),
-        path: `/incidents/${item.id}`,
-      })),
+      items: [
+        // An old number leads to the record it became, first (unless it is listed already).
+        ...(alias === null || items.some((item) => item.id === alias.record_id)
+          ? []
+          : [
+              {
+                key: `alias-${alias.display_id}`,
+                title: t('incidents.alias.moved', {
+                  old: text.toUpperCase(),
+                  id: alias.display_id,
+                }),
+                path: `/${alias.record_type === 'service_request' ? 'requests' : 'incidents'}/${alias.record_id}`,
+              },
+            ]),
+        ...items.map((item) => ({
+          key: `incident-${item.display_id}`,
+          title: `${item.display_id} · ${item.subject}`,
+          subtitle: [
+            personName(people, item.requester_id),
+            statusLabel(t, catalogue.data, item.status, locale),
+          ]
+            .filter((part) => part !== '')
+            .join(' · '),
+          path: `/incidents/${item.id}`,
+        })),
+      ],
     };
   }, [
     allowed,
+    alias,
     found.data,
     found.isFetching,
     found.isPlaceholderData,

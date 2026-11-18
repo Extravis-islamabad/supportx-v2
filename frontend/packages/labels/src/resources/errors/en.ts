@@ -13,6 +13,7 @@ export const en = {
   'errors.action_link_sign_in_required': 'Sign in to approve or reject this request.',
   'errors.action_link_stale': 'The request changed since this link was sent. Open it in the app.',
   'errors.action_link_used': 'This link has already been used.',
+  'errors.alias_not_found': 'No record you can open has this number now.',
   'errors.already_known_error': '{{display_id}} is already a known error.',
   'errors.already_major': '{{display_id}} is already a major incident.',
   'errors.already_on_version': 'This run is already on that version.',
@@ -327,6 +328,7 @@ export const en = {
   'errors.field.above_maximum': 'Maximum is {{max}}.',
   'errors.field.address_not_allowed':
     "This server address can't be used. Use the mail server's public name.",
+  'errors.field.already_has_parent': 'That incident already has a parent; remove it there first.',
   'errors.field.already_linked': 'These records are already linked.',
   'errors.field.announcement_message_required': 'Write the message people will see.',
   'errors.field.api_key_allowlist_invalid':
@@ -334,7 +336,9 @@ export const en = {
   'errors.field.api_key_expiry_past': 'The expiry date must be in the future.',
   'errors.field.api_key_expiry_required':
     'Choose an expiry date: your organisation does not allow keys that never expire.',
-  'errors.field.api_key_expiry_too_far': 'A key can last at most one year.',
+  'errors.field.api_key_expiry_too_far': 'A key can last at most {{max_days}} days here.',
+  'errors.field.api_key_ip_range_required':
+    'This organisation asks every new key to name the addresses it may be used from.',
   'errors.field.api_key_name_invalid': 'Enter a name of up to 100 characters.',
   'errors.field.api_key_owner_not_service':
     'Keys for someone else can only belong to a service identity.',
@@ -424,6 +428,8 @@ export const en = {
     'A change cannot be part of itself, directly or through others.',
   'errors.field.channel_reserved':
     'Only phone or walk-up can be chosen; other channels are set automatically.',
+  'errors.field.child_has_children':
+    'That incident has children of its own, so it cannot become a child.',
   'errors.field.choices_required': 'Add at least one choice.',
   'errors.field.code_taken': 'Another one already uses this code.',
   'errors.field.comment_required': 'Add a comment: this item requires one.',
@@ -439,6 +445,7 @@ export const en = {
   'errors.field.date_format_unknown': 'Choose a date format from the list.',
   'errors.field.date_in_future': 'Choose today or an earlier date.',
   'errors.field.date_in_past': 'Choose a time later than now.',
+  'errors.field.days_out_of_range': 'Enter a number of days from {{min}} to {{max}}.',
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',
@@ -624,6 +631,7 @@ export const en = {
   'errors.field.order_must_list_every_value': 'The list changed meanwhile. Reload and try again.',
   'errors.field.out_of_range': 'This number is outside the allowed range.',
   'errors.field.owner_not_allowed': 'This person may not manage announcements, so cannot own one.',
+  'errors.field.parent_is_a_child': 'This incident is itself a child, so it cannot have children.',
   'errors.field.parent_loop': 'This would make it its own parent.',
   'errors.field.password_breached': 'This password is known from data breaches. Choose another.',
   'errors.field.password_is_email': 'It must not be your e-mail address.',
@@ -662,6 +670,7 @@ export const en = {
     'This person is in several groups: choose the one the record moves to.',
   'errors.field.recipient_shape': 'Choose the person or group for this recipient.',
   'errors.field.recipients_required': 'Choose at least one person or group.',
+  'errors.field.record_closed': 'Closed incidents cannot be linked as parent or child.',
   'errors.field.record_not_found': 'No record you can see has this ID.',
   'errors.field.replies_are_public':
     'Replies go to people outside the team, so they are always public.',
@@ -688,6 +697,7 @@ export const en = {
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
+  'errors.field.service_account_owner_invalid': 'Choose an active technician as the owner.',
   'errors.field.session_absolute_out_of_range':
     'Use at least the idle timeout and at most {{max}} hours.',
   'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
@@ -1013,6 +1023,10 @@ export const en = {
   'errors.managed_by_directory': 'Your directory keeps this field. Change it there.',
   'errors.measure_not_permitted':
     'You may not see this figure: it needs access to its data (for asset money, the right to see financials).',
+  'errors.merge_undo_not_exact':
+    'This merge cannot be undone exactly any more, because the incidents have changed since.',
+  'errors.merge_widens_audience':
+    'Merging lets more people see these incidents: {{staff}} staff, {{requesters}} requesters of the incident you keep and {{followers}} requesters of the duplicate. Confirm to go ahead.',
   'errors.message_refused': 'The mail server refused the message.',
   'errors.method_not_allowed': 'This action is not supported here.',
   'errors.mfa_enrolment_unavailable':
@@ -1033,6 +1047,7 @@ export const en = {
   'errors.not_an_approver': 'You are not an approver of this request.',
   'errors.not_cancelable_from_here': 'It cannot be cancelled from where it is now.',
   'errors.not_closable_from_here': 'It cannot be closed from where it is now. Move it on first.',
+  'errors.not_convertible': 'This kind of record cannot be converted.',
   'errors.not_found': 'The item was not found.',
   'errors.not_known_error': '{{display_id}} is not a known error.',
   'errors.not_major': '{{display_id}} is not a major incident.',
@@ -1140,6 +1155,7 @@ export const en = {
   'errors.saved_view_not_found': 'This saved view no longer exists, or it is not yours.',
   'errors.scale_value_not_found': 'That value does not exist.',
   'errors.server_busy': 'The mail server was busy.',
+  'errors.service_account_owner_invalid': 'Choose an active technician as the owner.',
   'errors.service_category_in_use':
     'This category still holds items or categories. Move or delete them first.',
   'errors.service_category_not_found': 'This category does not exist.',
@@ -1198,6 +1214,8 @@ export const en = {
     "Your organisation's file storage is full ({{used_gb}} of {{limit_gb}} GB).",
   'errors.storage_unavailable':
     'File storage cannot be reached. Try again later or contact your administrator.',
+  'errors.survivor_is_a_child':
+    '{{display_id}} is a child of another incident, so it cannot take children.',
   'errors.system_calendar_required':
     'Every organisation keeps this calendar, so it cannot be deleted.',
   'errors.system_role_immutable': 'Built-in roles cannot be changed or deleted.',

@@ -354,6 +354,20 @@ async def _close_others(
         await action_links.revoke_for(session, LINK_OBJECT, r.id)  # REQ-SR-061 AC2
 
 
+async def withdraw_pending(session: AsyncSession, record: WorkItem) -> int:
+    """Withdraw every pending approval of a record, moving nothing (WP-046b S2, a conversion).
+
+    The record becomes another type's; its open approvals are never carried as approved (lane
+    B), so each pending row is withdrawn, its event sent and its e-mailed link revoked.
+    """
+    stages = sorted(
+        {r.stage for r in await _rows(session, record.id) if r.state == rules.ApprovalState.PENDING}
+    )
+    for stage in stages:
+        await _close_others(session, record, stage, keep=None, state=rules.ApprovalState.WITHDRAWN)
+    return len(stages)
+
+
 async def _finish(
     session: AsyncSession,
     wtype: WorkItemType,

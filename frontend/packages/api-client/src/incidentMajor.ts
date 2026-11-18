@@ -134,3 +134,17 @@ export function useEndIncidentAnnouncement(id: string) {
     },
   });
 }
+
+/** Attach similar incidents to a major incident as its children: a bulk job (202), as you. */
+export function useAttachChildren(id: string) {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (childIds: string[]) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/children/attach', {
+          params: { path: { record_id: id } },
+          body: { child_ids: childIds },
+        }),
+      ),
+  });
+}

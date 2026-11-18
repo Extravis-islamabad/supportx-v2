@@ -1618,7 +1618,7 @@ WP-056, -099 and -135 to WP-059b (lane C builds the AI; lane A adds hooks), -103
 -149 to its own mobile WP; projects relations (087) later. New rights (edit closed, undo merge,
 declare major) default to the tenant admin and service desk manager, grantable, each use audited.
 
-- [~] **S1, approvals and edit controls (0169; lane B blocks; lane C reads the UI):**
+- [x] **S1, approvals and edit controls (0169; #523 merged 2026-11-16):**
   - REQ-INC-083: incidents get the approval engine's routes and an ad-hoc "Ask for approval"
     with a rule (any one, all, a majority); one rejection under "all" rejects; the approval
     status records the outcome, the status never moves; segregation of duties is the engine's;
@@ -1648,6 +1648,22 @@ declare major) default to the tenant admin and service desk manager, grantable, 
     a draft when the actor may not publish; resolving offers to end them, nothing ends by itself.
   - REQ-INC-126: print or save as PDF with chosen sections, read from the reader's own APIs; the
     conversation's server-side `visibility` filter keeps private notes off a public printout.
+- [~] **S2, links, merges and conversions (0172; lane B blocks; lane C reads the UI):**
+  - REQ-INC-086: parent and child incidents, one level, no loops (one parent per child, a parent
+    is no child, a child has no children); edit on both; a link never widens access (an unseen
+    side is a hidden line).
+  - REQ-INC-088, -150: merge with a preview that counts who would newly see the duplicate (staff
+    by their own access, the survivor's requesters) and asks to confirm; children move; the
+    duplicate's requester follows only within the same department; its conversation shows on the
+    survivor by reference, each entry under its own visibility (the portal: public ones, other
+    requesters nameless). Undo needs `incidents.undo_merge` (service desk managers; admins hold
+    all) and a recent sign-in, audited with both IDs; it is exact or refused.
+  - REQ-INC-089: incident to service request and back, never in place: a new record through the
+    create path, the old one `converted` (history still verifies); fields carried only with the
+    same key and type and no field-access rule, sealed ones sealed again for the new record;
+    pending approvals withdrawn; old numbers lead to the new record for readers only (404).
+  - REQ-INC-092: a resolved parent resolves the chosen children with its resolution (a bulk job).
+  - Seed version 6 tops up the `converted` status for older tenants.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2503,7 +2519,23 @@ declare major) default to the tenant admin and service desk manager, grantable, 
       outage pausing with one notice, the console switch, tag and dialog. ADR-050 addendum 3.
       Notifications, AI sources and mail commands read no stored custom values today (checked
       2026-11-16); the guard test keeps it so.
-- [ ] Session 4: service accounts, key policy, non-person actors, security overview.
+- [ ] Session 4: service accounts, key policy, non-person actors, security overview (plan
+  approved 2026-11-16; S4a, S4b, S4d, then S4c; lane B blocks each PR).
+  - [x] **S4a (migration 0174; draft PR; lane B blocks):**
+    - **Service accounts (REQ-SEC-036):** an owner (an active technician) and a description;
+      Admin > Service accounts (template C plus a drawer form); roles through the guarded path
+      (a recent sign-in to give or take one, or to change the owner or turn it off or on).
+    - **Hand-over (AC3):** a deactivated owner's accounts are flagged `needs_new_owner`, and the
+      admins are told once (`identity_access.service_account.needs_owner`, required).
+    - **Key policy (REQ-SEC-037):** maximum lifetime (the refusal names the limit), an IP range
+      required, unused after N days. Older keys that break it are flagged and listed, never
+      revoked, and the card counts them before saving (the coordinator).
+    - **Fixes:** a service identity named on a record no longer causes a 500 (`people.py`, lane
+      A's OK); `UserCreatedV5` carries the `service_account` source.
+  - [ ] S4b: who acted (API key, service account, AI agent in `record()`).
+  - [ ] S4d: the security overview, with an optional `SUPPORTX_DATA_REGION`.
+  - [ ] S4c: vendor support access (D-173; design note in
+    ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
   tenant) moved to LATER (D-165).

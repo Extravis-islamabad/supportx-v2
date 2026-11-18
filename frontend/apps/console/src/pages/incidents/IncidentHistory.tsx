@@ -3,7 +3,7 @@ import { SafetyCertificateOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
-import { EmptyText, useDateTime, useLabel } from '@supportx/ui';
+import { EmptyText, useAppearance, useDateTime, useLabel } from '@supportx/ui';
 
 import { useHistoryWords, type HistoryActors } from './historyWords';
 
@@ -19,6 +19,7 @@ export function IncidentHistory({
   id,
   base = 'incidents',
   printing = false,
+  onLoadingChange,
 }: {
   id: string;
   /** The record's type prefix: a problem's history uses the same view (WP-044c). */
@@ -28,6 +29,8 @@ export function IncidentHistory({
    * no buttons; when more remain the page says so instead of silently leaving them out.
    */
   printing?: boolean;
+  /** The printable page hears whether pages are still loading, so Print waits (lane C). */
+  onLoadingChange?: (loading: boolean) => void;
 }) {
   const t = useLabel();
   const dates = useDateTime();
@@ -39,6 +42,12 @@ export function IncidentHistory({
       void history.fetchNextPage();
     }
   }, [printing, history, pages]);
+  const stillLoading =
+    history.isPending || history.isFetchingNextPage || (history.hasNextPage && pages < PRINT_PAGES);
+  useEffect(() => {
+    if (printing) onLoadingChange?.(stillLoading);
+  }, [printing, stillLoading, onLoadingChange]);
+  const { intlLocale } = useAppearance();
   return (
     <Flex vertical gap={8} data-testid="inc-history">
       <Segmented<'all' | 'people' | 'automation'>
@@ -122,7 +131,9 @@ export function IncidentHistory({
       )}
       {printing && history.hasNextPage && pages >= PRINT_PAGES && (
         <Typography.Text type="secondary" data-testid="inc-history-cut">
-          {t('incidents.print.history_cut', { n: entries.length })}
+          {t('incidents.print.history_cut', {
+            n: new Intl.NumberFormat(intlLocale).format(entries.length),
+          })}
         </Typography.Text>
       )}
       {!printing && history.hasNextPage && (
