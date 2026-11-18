@@ -9,10 +9,8 @@ const sharedPackages = path.resolve(projectRoot, '../frontend/packages') + path.
 
 const config = getDefaultConfig(projectRoot);
 
-// The linked @supportx/* sources live outside the project; Metro must watch them. Without the
-// trailing separator `sharedPackages` keeps for its prefix check: Metro's file map fails on it
-// ("Invariant Violation: Failed to collapse" at `expo export`, #540).
-config.watchFolders = [path.resolve(projectRoot, '../frontend/packages')];
+// The linked @supportx/* sources live outside the project; Metro must watch them.
+config.watchFolders = [sharedPackages];
 
 /**
  * Package imports made by the shared packages resolve as if made from this app: their own
