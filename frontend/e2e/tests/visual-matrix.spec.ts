@@ -1162,8 +1162,22 @@ function ciMapFocus(menu: boolean): (page: Page) => Promise<void> {
             { key: 'r1', restricted: true, depth: 1 },
           ],
           edges: [
-            { id: null, type_id: 'x', from_key: base, to_key: a, version: null },
-            { id: null, type_id: 'x', from_key: base, to_key: b, version: null },
+            // Links between CIs the person sees carry their IDs (the menu offers Remove on them);
+            // only the restricted node's link has none.
+            {
+              id: '01a1f000-0000-7000-8000-0000000000e1',
+              type_id: 'x',
+              from_key: base,
+              to_key: a,
+              version: 1,
+            },
+            {
+              id: '01a1f000-0000-7000-8000-0000000000e2',
+              type_id: 'x',
+              from_key: base,
+              to_key: b,
+              version: 1,
+            },
             { id: null, type_id: 'x', from_key: 'r1', to_key: base, version: null },
           ],
           truncated: false,
