@@ -563,6 +563,7 @@ export const ur: LabelResource = {
   'people_erasure.record_type_of.announcement': 'اعلان',
   'people_erasure.record_type_of.asset': 'اثاثہ',
   'people_erasure.record_type_of.ci': 'کنفیگریشن آئٹم',
+  'people_erasure.record_type_of.ci_business_view': 'بزنس ویو',
   'people_erasure.record_type_of.ci_version': 'کنفیگریشن آئٹم، پچھلا ورژن',
   'people_erasure.record_type_of.file': 'فائل',
   'people_erasure.record_type_of.kb_article': 'مضمون',

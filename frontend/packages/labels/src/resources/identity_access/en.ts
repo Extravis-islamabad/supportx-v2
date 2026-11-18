@@ -560,6 +560,7 @@ export const en = {
   'people_erasure.record_type_of.announcement': 'Announcement',
   'people_erasure.record_type_of.asset': 'Asset',
   'people_erasure.record_type_of.ci': 'Configuration item',
+  'people_erasure.record_type_of.ci_business_view': 'Business view',
   'people_erasure.record_type_of.ci_version': 'Configuration item, earlier version',
   'people_erasure.record_type_of.file': 'File',
   'people_erasure.record_type_of.kb_article': 'Article',

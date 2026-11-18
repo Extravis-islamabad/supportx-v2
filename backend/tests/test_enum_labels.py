@@ -63,6 +63,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "CiStateCategory": "cmdb_state_category",
     "CiSkippedAsset.reason": "cmdb_skip_reason",
     "CiHistoryEntryOut.actor_type": "actor_type",
+    # CMDB relationships, maps, views and versions (WP-053 S2)
+    "RelationshipDirection": "cmdb_relationship_direction",
+    "BusinessViewLayout": "cmdb_view_layout",
+    "CiAttributeChangeOut.kind": "cmdb_compare_kind",
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
     "AssetDepreciationMethod": "asset_depreciation",
