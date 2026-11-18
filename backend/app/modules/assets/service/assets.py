@@ -544,15 +544,28 @@ async def _next_tag(session: AsyncSession, product_type: AssetProductType) -> st
 
 
 async def _custom(
-    session: AsyncSession, sent: Mapping[str, Any] | None, current: Asset | None
+    session: AsyncSession,
+    sent: Mapping[str, Any] | None,
+    current: Asset | None,
+    type_id: uuid.UUID | None,
 ) -> tuple[dict[str, Any] | None, list[Problem]]:
-    """The asset's custom values after this save (None: untouched), checked by metadata."""
+    """The asset's custom values after this save (None: untouched), checked by metadata.
+
+    `type_id`: the asset's product type: fields scoped to another branch of the tree are
+    unknown to it (0175).
+    """
     creating = current is None
     if sent is None and not creating:
         return None, []
     before = {} if current is None else dict(current.custom)
     cleaned, found = await metadata.clean(
-        session, ENTITY, sent or {}, current=before, creating=creating, defaults=creating
+        session,
+        ENTITY,
+        sent or {},
+        current=before,
+        creating=creating,
+        defaults=creating,
+        type_id=type_id,
     )
     params = await metadata.problem_params(session, ENTITY, found) if found else {}
     problems = [Problem(path, code, tuple(params.get(path, {}).items())) for path, code in found]
@@ -704,7 +717,9 @@ async def create_asset(
     elif (product := await _product(session, cleaned["product_id"])) is None:
         problems.append(Problem("product_id", "asset_product_not_found"))
     problems += await _link_problems(session, cleaned, None)
-    custom, custom_problems = await _custom(session, values.get("custom"), None)
+    custom, custom_problems = await _custom(
+        session, values.get("custom"), None, None if product is None else product.product_type_id
+    )
     problems += custom_problems
     problems += await _unique_problems(session, cleaned, None)
     _refuse(problems)
@@ -805,7 +820,9 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
     if "tag" in cleaned and cleaned["tag"] is None:
         problems.append(Problem("tag", "required"))  # a tag, once given, stays (AST-008)
     problems += await _link_problems(session, cleaned, row)
-    custom, custom_problems = await _custom(session, values.get("custom"), row)
+    custom, custom_problems = await _custom(
+        session, values.get("custom"), row, cleaned.get("product_type_id", row.product_type_id)
+    )
     problems += custom_problems
     problems += await _unique_problems(session, cleaned, row.id)
     _refuse(problems)

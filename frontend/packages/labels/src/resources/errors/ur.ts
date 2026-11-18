@@ -237,6 +237,8 @@ export const ur: LabelResource = {
   'errors.custom_field_limit_reached':
     'اس قسم کے ریکارڈ میں پہلے ہی {{limit}} اپنی مرضی کے خانے ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے کوئی خانہ ہٹائیں یا دوبارہ استعمال کریں۔',
   'errors.custom_field_not_found': 'یہ اپنی مرضی کا خانہ موجود نہیں (اب نہیں رہا)۔',
+  'errors.custom_field_scope_in_use':
+    'ریکارڈز میں اس فیلڈ کی قدریں موجود ہیں، اس لیے اب یہ صرف زیادہ اقسام پر لاگو ہو سکتی ہے، کم پر نہیں۔',
   'errors.custom_field_sensitive_unsupported':
     'اس قسم کے ریکارڈ کی فیلڈز کو حساس نشان زد نہیں کیا جا سکتا۔',
   'errors.custom_field_used_by_rule':
@@ -438,6 +440,11 @@ export const ur: LabelResource = {
   'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
   'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
   'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
+  'errors.field.custom_field_scope_unknown': 'یہ قسم موجود نہیں (اب نہیں)۔',
+  'errors.field.custom_field_scope_unsupported':
+    'اس قسم کے ریکارڈ کی کوئی اقسام نہیں جن تک فیلڈ محدود کی جا سکے۔',
+  'errors.field.custom_field_sensitive_unsupported':
+    'اس قسم کے ریکارڈ کی فیلڈز کو حساس نشان زد نہیں کیا جا سکتا۔',
   'errors.field.dashboard_not_shared':
     'کسی کردار کا ہوم صرف بلٹ اِن یا شیئر شدہ ڈیش بورڈ ہو سکتا ہے۔',
   'errors.field.date_format_unknown': 'فہرست میں سے تاریخ کی شکل چنیں۔',
