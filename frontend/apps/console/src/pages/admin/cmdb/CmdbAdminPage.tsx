@@ -42,6 +42,7 @@ import {
 } from '@supportx/ui';
 
 import { nameOf, typeTree } from '../../cmdb/names';
+import { RelationshipTypesBlock } from './RelationshipTypesBlock';
 
 interface TypeDraft {
   api_name: string;
@@ -82,6 +83,7 @@ export function CmdbAdminPage() {
       <SettingsBlock />
       <TypesBlock />
       <StatesBlock />
+      <RelationshipTypesBlock />
     </Flex>
   );
 }
