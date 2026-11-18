@@ -48,12 +48,14 @@ from app.modules.work_items.infra.models import (
     WorkItemConversation,
     WorkItemFollower,
     WorkItemListSetting,
+    WorkItemRead,
     WorkItemReminder,
     WorkItemReplyTemplate,
     WorkItemRoleHolder,
     WorkItemTask,
     WorkItemTimer,
     WorkItemView,
+    WorkItemViewFavourite,
 )
 from app.modules.work_items.service import drafts, work_items
 from app.modules.work_items.service.approvals import reroute_from
@@ -420,6 +422,41 @@ async def _requested(run: Run, after: uuid.UUID | None) -> tuple[dict[str, int],
     return {k: v for k, v in counts.items() if v}, last
 
 
+async def _view_favourites(
+    run: Run, after: uuid.UUID | None
+) -> tuple[dict[str, int], uuid.UUID | None]:
+    """Their starred views: composite key (person, view), so all at once (a person stars few)."""
+    del after
+    result = await run.session.execute(
+        delete(WorkItemViewFavourite).where(WorkItemViewFavourite.user_id == run.person_id)
+    )
+    count = int(getattr(result, "rowcount", 0) or 0)
+    return ({"view_favourites_deleted": count} if count else {}), None
+
+
+async def _reads(run: Run, after: uuid.UUID | None) -> tuple[dict[str, int], uuid.UUID | None]:
+    """What they last opened (unread markers): a batch at a time, by record ID."""
+    del after
+    ids = list(
+        (
+            await run.session.scalars(
+                select(WorkItemRead.work_item_id)
+                .where(WorkItemRead.user_id == run.person_id)
+                .limit(ERASE_BATCH)
+            )
+        ).all()
+    )
+    if ids:
+        await run.session.execute(
+            delete(WorkItemRead).where(
+                WorkItemRead.user_id == run.person_id, WorkItemRead.work_item_id.in_(ids)
+            )
+        )
+    more = len(ids) == ERASE_BATCH
+    # The cursor only says "again": the deleted rows are gone, so the next batch is the next.
+    return ({"read_markers_deleted": len(ids)} if ids else {}), (ids[-1] if more else None)
+
+
 OWNED_PHASES: tuple[tuple[str, Batch], ...] = (
     (
         "list_settings",
@@ -427,6 +464,8 @@ OWNED_PHASES: tuple[tuple[str, Batch], ...] = (
             "work_item_list_settings_deleted", WorkItemListSetting, WorkItemListSetting.user_id
         ),
     ),
+    ("view_favourites", _view_favourites),
+    ("reads", _reads),
     ("reminders", _deleting("reminders_deleted", WorkItemReminder, WorkItemReminder.user_id)),
     ("timers", _deleting("timers_deleted", WorkItemTimer, WorkItemTimer.user_id)),
     ("drafts", _drafts),
@@ -447,6 +486,8 @@ class Owned:
     kinds: ClassVar[frozenset[str]] = frozenset(
         {
             "work_item_list_settings_deleted",
+            "view_favourites_deleted",
+            "read_markers_deleted",
             "reminders_deleted",
             "timers_deleted",
             "drafts_deleted",

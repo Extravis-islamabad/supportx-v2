@@ -218,6 +218,7 @@ class Catalogue:
     closure: ClosureSettings
     last_number: int = 0  # the last display number handed out (0: none yet)
     major: MajorSettings = MajorSettings()  # WP-046b S4 (0177): incidents only
+    row_colour_by: str = "none"  # WP-046b S3a (0178, REQ-INC-115 AC1): the tenant's default
     # ADR-049: every runnable (published or retired) version of every set, by (code, number),
     # and each set's latest published number (what a new record is made on).
     versions: Mapping[tuple[str, int], Lifecycle] = field(default_factory=dict)
@@ -1021,4 +1022,5 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             user_ids=tuple(settings.major_user_ids or ()),
             template_id=settings.major_template_id,
         ),
+        row_colour_by=settings.row_colour_by,
     )

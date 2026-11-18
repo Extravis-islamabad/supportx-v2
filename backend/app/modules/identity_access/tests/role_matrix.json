@@ -535,6 +535,9 @@
   "releases.resolve": [
    "all"
   ],
+  "releases.share_views": [
+   "all"
+  ],
   "releases.take": [
    "all"
   ],
@@ -598,6 +601,9 @@
    "all"
   ],
   "releases.resolve": [
+   "all"
+  ],
+  "releases.share_views": [
    "all"
   ],
   "releases.take": [
@@ -797,6 +803,12 @@
   "changes.resolve": [
    "all"
   ],
+  "changes.share_views": [
+   "all"
+  ],
+  "changes.share_views_wide": [
+   "all"
+  ],
   "changes.take": [
    "all"
   ],
@@ -872,6 +884,12 @@
   "incidents.resolve": [
    "all"
   ],
+  "incidents.share_views": [
+   "all"
+  ],
+  "incidents.share_views_wide": [
+   "all"
+  ],
   "incidents.take": [
    "all"
   ],
@@ -941,6 +959,12 @@
   "problems.resolve": [
    "all"
   ],
+  "problems.share_views": [
+   "all"
+  ],
+  "problems.share_views_wide": [
+   "all"
+  ],
   "problems.take": [
    "all"
   ],
@@ -996,6 +1020,12 @@
    "all"
   ],
   "releases.resolve": [
+   "all"
+  ],
+  "releases.share_views": [
+   "all"
+  ],
+  "releases.share_views_wide": [
    "all"
   ],
   "releases.take": [
@@ -1056,6 +1086,12 @@
    "all"
   ],
   "requests.resolve": [
+   "all"
+  ],
+  "requests.share_views": [
+   "all"
+  ],
+  "requests.share_views_wide": [
    "all"
   ],
   "requests.take": [
@@ -1144,6 +1180,12 @@
   "changes.resolve": [
    "all"
   ],
+  "changes.share_views": [
+   "all"
+  ],
+  "changes.share_views_wide": [
+   "all"
+  ],
   "changes.take": [
    "all"
   ],
@@ -1219,6 +1261,12 @@
   "incidents.resolve": [
    "all"
   ],
+  "incidents.share_views": [
+   "all"
+  ],
+  "incidents.share_views_wide": [
+   "all"
+  ],
   "incidents.take": [
    "all"
   ],
@@ -1288,6 +1336,12 @@
   "problems.resolve": [
    "all"
   ],
+  "problems.share_views": [
+   "all"
+  ],
+  "problems.share_views_wide": [
+   "all"
+  ],
   "problems.take": [
    "all"
   ],
@@ -1343,6 +1397,12 @@
    "all"
   ],
   "releases.resolve": [
+   "all"
+  ],
+  "releases.share_views": [
+   "all"
+  ],
+  "releases.share_views_wide": [
    "all"
   ],
   "releases.take": [
@@ -1403,6 +1463,12 @@
    "all"
   ],
   "requests.resolve": [
+   "all"
+  ],
+  "requests.share_views": [
+   "all"
+  ],
+  "requests.share_views_wide": [
    "all"
   ],
   "requests.take": [
@@ -1894,6 +1960,12 @@
   "changes.resolve": [
    "group"
   ],
+  "changes.share_views": [
+   "group"
+  ],
+  "changes.share_views_wide": [
+   "group"
+  ],
   "changes.take": [
    "group"
   ],
@@ -1960,6 +2032,12 @@
   "incidents.resolve": [
    "group",
    "own"
+  ],
+  "incidents.share_views": [
+   "group"
+  ],
+  "incidents.share_views_wide": [
+   "group"
   ],
   "incidents.take": [
    "group"
@@ -2028,6 +2106,12 @@
   "problems.resolve": [
    "group"
   ],
+  "problems.share_views": [
+   "group"
+  ],
+  "problems.share_views_wide": [
+   "group"
+  ],
   "problems.take": [
    "group"
   ],
@@ -2094,6 +2178,12 @@
   "requests.resolve": [
    "group",
    "own"
+  ],
+  "requests.share_views": [
+   "group"
+  ],
+  "requests.share_views_wide": [
+   "group"
   ],
   "requests.take": [
    "group"
@@ -2160,6 +2250,12 @@
   "changes.resolve": [
    "group"
   ],
+  "changes.share_views": [
+   "group"
+  ],
+  "changes.share_views_wide": [
+   "group"
+  ],
   "changes.take": [
    "group"
   ],
@@ -2227,6 +2323,12 @@
    "group",
    "own"
   ],
+  "incidents.share_views": [
+   "group"
+  ],
+  "incidents.share_views_wide": [
+   "group"
+  ],
   "incidents.take": [
    "group"
   ],
@@ -2292,6 +2394,12 @@
    "group"
   ],
   "problems.resolve": [
+   "group"
+  ],
+  "problems.share_views": [
+   "group"
+  ],
+  "problems.share_views_wide": [
    "group"
   ],
   "problems.take": [
@@ -2360,6 +2468,12 @@
   "requests.resolve": [
    "group",
    "own"
+  ],
+  "requests.share_views": [
+   "group"
+  ],
+  "requests.share_views_wide": [
+   "group"
   ],
   "requests.take": [
    "group"
@@ -2426,6 +2540,9 @@
   "changes.resolve": [
    "all"
   ],
+  "changes.share_views": [
+   "all"
+  ],
   "changes.take": [
    "all"
   ],
@@ -2489,6 +2606,9 @@
   "incidents.resolve": [
    "all",
    "own"
+  ],
+  "incidents.share_views": [
+   "all"
   ],
   "incidents.take": [
    "all"
@@ -2557,6 +2677,9 @@
   "problems.resolve": [
    "all"
   ],
+  "problems.share_views": [
+   "all"
+  ],
   "problems.take": [
    "all"
   ],
@@ -2623,6 +2746,9 @@
   "requests.resolve": [
    "all",
    "own"
+  ],
+  "requests.share_views": [
+   "all"
   ],
   "requests.take": [
    "all"
@@ -2689,6 +2815,9 @@
   "changes.resolve": [
    "group"
   ],
+  "changes.share_views": [
+   "group"
+  ],
   "changes.take": [
    "group"
   ],
@@ -2752,6 +2881,9 @@
   "incidents.resolve": [
    "group",
    "own"
+  ],
+  "incidents.share_views": [
+   "group"
   ],
   "incidents.take": [
    "group"
@@ -2820,6 +2952,9 @@
   "problems.resolve": [
    "group"
   ],
+  "problems.share_views": [
+   "group"
+  ],
   "problems.take": [
    "group"
   ],
@@ -2886,6 +3021,9 @@
   "requests.resolve": [
    "group",
    "own"
+  ],
+  "requests.share_views": [
+   "group"
   ],
   "requests.take": [
    "group"

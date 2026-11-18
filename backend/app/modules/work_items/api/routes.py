@@ -99,6 +99,7 @@ from app.modules.work_items.service import (
     change_links,
     custom_values,
     drafts,
+    reads,
     record_copies,
     release_links,
     resolution,
@@ -1038,6 +1039,10 @@ class WorkItemPage(Page[WorkItemListItem]):
     releases: dict[str, ListReleaseFactsOut] = Field(
         default_factory=dict,
         description="Releases only: each row's own columns, by record ID.",
+    )
+    unread: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="The rows changed by someone else since you last opened them (REQ-INC-115).",
     )
 
 
@@ -2539,6 +2544,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             people=_people(await user_contacts(session, people)),
             changes=await _change_facts(session, wtype, ids),
             releases=releases,
+            unread=await reads.unread_ids(session, subject, page.rows),
         )
 
     @router.get("", summary=f"List {wtype.path}")
@@ -2555,6 +2561,16 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             session, subject, wtype, query, view=view, zone=request_zone(request), tag=tag
         )
         return await _page(session, subject, page)
+
+    @router.post(
+        "/{record_id}/read",
+        summary="Mark as read",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def mark_read(record_id: uuid.UUID, session: TenantSession, subject: View) -> Response:
+        """The record page calls this on opening it (and when a change arrives while open)."""
+        await reads.mark_read(session, subject, wtype, record_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.get("/views", summary=f"Built-in {name} views with counts")
     async def views(

@@ -333,12 +333,18 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/changes/roles/{role}/candidates` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/saved-views` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/saved-views` | `changes.view` | changes.view: all/site/group/own |
+| GET | `/api/v1/changes/saved-views/audit` | `roles.manage` | roles.manage: all |
+| POST | `/api/v1/changes/saved-views/audit` | `roles.manage` | roles.manage: all |
 | DELETE | `/api/v1/changes/saved-views/{view_id}` | `changes.view` | changes.view: all/site/group/own |
 | PATCH | `/api/v1/changes/saved-views/{view_id}` | `changes.view` | changes.view: all/site/group/own |
+| DELETE | `/api/v1/changes/saved-views/{view_id}/favourite` | `changes.view` | changes.view: all/site/group/own |
+| PUT | `/api/v1/changes/saved-views/{view_id}/favourite` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/search` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/settings` | `changes.view` | changes.view: all/site/group/own |
 | PATCH | `/api/v1/changes/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/changes/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/changes/settings/list-display` | `changes.view` | changes.view: all/site/group/own |
+| PUT | `/api/v1/changes/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/changes/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/changes/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/changes/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -408,6 +414,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/changes/{record_id}/moves` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/{record_id}/plan` | `changes.view` | changes.view: all/site/group/own |
 | PUT | `/api/v1/changes/{record_id}/plan/{section}` | `changes.edit` | changes.edit: all/site/group/own |
+| POST | `/api/v1/changes/{record_id}/read` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/{record_id}/reminders` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/reminders` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/reply-templates/{template_id}/fill` | `changes.view` | changes.view: all/site/group/own |
@@ -598,8 +605,12 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/incidents/reply-templates/{template_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/saved-views` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/saved-views` | `incidents.view` | incidents.view: all/site/group/own |
+| GET | `/api/v1/incidents/saved-views/audit` | `roles.manage` | roles.manage: all |
+| POST | `/api/v1/incidents/saved-views/audit` | `roles.manage` | roles.manage: all |
 | DELETE | `/api/v1/incidents/saved-views/{view_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/saved-views/{view_id}` | `incidents.view` | incidents.view: all/site/group/own |
+| DELETE | `/api/v1/incidents/saved-views/{view_id}/favourite` | `incidents.view` | incidents.view: all/site/group/own |
+| PUT | `/api/v1/incidents/saved-views/{view_id}/favourite` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/search` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/settings` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -612,6 +623,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/incidents/settings/list-display` | `incidents.view` | incidents.view: all/site/group/own |
+| PUT | `/api/v1/incidents/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/incidents/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/incidents/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/incidents/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -678,6 +691,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/{record_id}/mentionable` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/merge` | `incidents.edit` | incidents.edit: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/merge-preview` | `incidents.edit` | incidents.edit: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/read` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill` | `incidents.view` | incidents.view: all/site/group/own |
@@ -897,8 +911,12 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/problems/reply-templates/{template_id}` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/saved-views` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/saved-views` | `problems.view` | problems.view: all/site/group/own |
+| GET | `/api/v1/problems/saved-views/audit` | `roles.manage` | roles.manage: all |
+| POST | `/api/v1/problems/saved-views/audit` | `roles.manage` | roles.manage: all |
 | DELETE | `/api/v1/problems/saved-views/{view_id}` | `problems.view` | problems.view: all/site/group/own |
 | PATCH | `/api/v1/problems/saved-views/{view_id}` | `problems.view` | problems.view: all/site/group/own |
+| DELETE | `/api/v1/problems/saved-views/{view_id}/favourite` | `problems.view` | problems.view: all/site/group/own |
+| PUT | `/api/v1/problems/saved-views/{view_id}/favourite` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/search` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/settings` | `problems.view` | problems.view: all/site/group/own |
 | PATCH | `/api/v1/problems/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -910,6 +928,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/problems/settings/list-display` | `problems.view` | problems.view: all/site/group/own |
+| PUT | `/api/v1/problems/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/problems/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/problems/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/problems/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -972,6 +992,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/problems/{record_id}/merge` | `problems.edit` | problems.edit: all/site/group/own |
 | GET | `/api/v1/problems/{record_id}/message-recipients` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/messages/incident-requesters` | `problems.edit` | problems.edit: all/site/group/own |
+| POST | `/api/v1/problems/{record_id}/read` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/{record_id}/reminders` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/reminders` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/reply-templates/{template_id}/fill` | `problems.view` | problems.view: all/site/group/own |
@@ -1050,12 +1071,18 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/releases/roles/{role}/candidates` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/saved-views` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/saved-views` | `releases.view` | releases.view: all/site/group/own |
+| GET | `/api/v1/releases/saved-views/audit` | `roles.manage` | roles.manage: all |
+| POST | `/api/v1/releases/saved-views/audit` | `roles.manage` | roles.manage: all |
 | DELETE | `/api/v1/releases/saved-views/{view_id}` | `releases.view` | releases.view: all/site/group/own |
 | PATCH | `/api/v1/releases/saved-views/{view_id}` | `releases.view` | releases.view: all/site/group/own |
+| DELETE | `/api/v1/releases/saved-views/{view_id}/favourite` | `releases.view` | releases.view: all/site/group/own |
+| PUT | `/api/v1/releases/saved-views/{view_id}/favourite` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/search` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/settings` | `releases.view` | releases.view: all/site/group/own |
 | PATCH | `/api/v1/releases/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/releases/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/releases/settings/list-display` | `releases.view` | releases.view: all/site/group/own |
+| PUT | `/api/v1/releases/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/releases/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/releases/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/releases/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -1126,6 +1153,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/releases/{record_id}/parent` | `releases.edit` | releases.edit: all/site/group/own |
 | GET | `/api/v1/releases/{record_id}/plan` | `releases.view` | releases.view: all/site/group/own |
 | PUT | `/api/v1/releases/{record_id}/plan/{section}` | `releases.edit` | releases.edit: all/site/group/own |
+| POST | `/api/v1/releases/{record_id}/read` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/{record_id}/reminders` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/reminders` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/reply-templates/{template_id}/fill` | `releases.view` | releases.view: all/site/group/own |
@@ -1227,8 +1255,12 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/service-requests/reply-templates/{template_id}` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/saved-views` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/saved-views` | `requests.view` | requests.view: all/site/group/own |
+| GET | `/api/v1/service-requests/saved-views/audit` | `roles.manage` | roles.manage: all |
+| POST | `/api/v1/service-requests/saved-views/audit` | `roles.manage` | roles.manage: all |
 | DELETE | `/api/v1/service-requests/saved-views/{view_id}` | `requests.view` | requests.view: all/site/group/own |
 | PATCH | `/api/v1/service-requests/saved-views/{view_id}` | `requests.view` | requests.view: all/site/group/own |
+| DELETE | `/api/v1/service-requests/saved-views/{view_id}/favourite` | `requests.view` | requests.view: all/site/group/own |
+| PUT | `/api/v1/service-requests/saved-views/{view_id}/favourite` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/search` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/settings` | `requests.view` | requests.view: all/site/group/own |
 | PATCH | `/api/v1/service-requests/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -1240,6 +1272,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/service-requests/settings/list-display` | `requests.view` | requests.view: all/site/group/own |
+| PUT | `/api/v1/service-requests/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/service-requests/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/service-requests/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/service-requests/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -1289,6 +1323,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/service-requests/{record_id}/links` | `requests.view` | requests.view: all/site/group/own |
 | DELETE | `/api/v1/service-requests/{record_id}/links/{link_id}` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/mentionable` | `requests.view` | requests.view: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/read` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/reminders` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/reminders` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/reply-templates/{template_id}/fill` | `requests.view` | requests.view: all/site/group/own |
@@ -1466,6 +1501,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | release_manager | `releases.reopen` | all | all |
 | release_manager | `releases.reply` | all | all |
 | release_manager | `releases.resolve` | all | all |
+| release_manager | `releases.share_views` | all | all |
 | release_manager | `releases.take` | all | all |
 | release_manager | `releases.view` | all | all |
 | release_manager | `releases.view_costs` | all | all |
@@ -1508,6 +1544,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `changes.reopen` | all | all |
 | service_desk_manager | `changes.reply` | all | all |
 | service_desk_manager | `changes.resolve` | all | all |
+| service_desk_manager | `changes.share_views` | all | all |
+| service_desk_manager | `changes.share_views_wide` | all | all |
 | service_desk_manager | `changes.take` | all | all |
 | service_desk_manager | `changes.view` | all | all |
 | service_desk_manager | `changes.view_costs` | all | all |
@@ -1533,6 +1571,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `incidents.reopen` | all | all |
 | service_desk_manager | `incidents.reply` | all | all |
 | service_desk_manager | `incidents.resolve` | all | all |
+| service_desk_manager | `incidents.share_views` | all | all |
+| service_desk_manager | `incidents.share_views_wide` | all | all |
 | service_desk_manager | `incidents.take` | all | all |
 | service_desk_manager | `incidents.undo_merge` | all | all |
 | service_desk_manager | `incidents.view` | all | all |
@@ -1556,6 +1596,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `problems.reopen` | all | all |
 | service_desk_manager | `problems.reply` | all | all |
 | service_desk_manager | `problems.resolve` | all | all |
+| service_desk_manager | `problems.share_views` | all | all |
+| service_desk_manager | `problems.share_views_wide` | all | all |
 | service_desk_manager | `problems.take` | all | all |
 | service_desk_manager | `problems.view` | all | all |
 | service_desk_manager | `problems.view_costs` | all | all |
@@ -1575,6 +1617,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `releases.reopen` | all | all |
 | service_desk_manager | `releases.reply` | all | all |
 | service_desk_manager | `releases.resolve` | all | all |
+| service_desk_manager | `releases.share_views` | all | all |
+| service_desk_manager | `releases.share_views_wide` | all | all |
 | service_desk_manager | `releases.take` | all | all |
 | service_desk_manager | `releases.view` | all | all |
 | service_desk_manager | `releases.view_costs` | all | all |
@@ -1595,6 +1639,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `requests.reopen` | all | all |
 | service_desk_manager | `requests.reply` | all | all |
 | service_desk_manager | `requests.resolve` | all | all |
+| service_desk_manager | `requests.share_views` | all | all |
+| service_desk_manager | `requests.share_views_wide` | all | all |
 | service_desk_manager | `requests.take` | all | all |
 | service_desk_manager | `requests.view` | all | all |
 | service_desk_manager | `requests.view_costs` | all | all |
@@ -1687,6 +1733,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | team_lead | `changes.reopen` | group | group |
 | team_lead | `changes.reply` | group | group |
 | team_lead | `changes.resolve` | group | group |
+| team_lead | `changes.share_views` | group | group |
+| team_lead | `changes.share_views_wide` | group | group |
 | team_lead | `changes.take` | group | group |
 | team_lead | `changes.view` | all | all |
 | team_lead | `cmdb.view` | all | all |
@@ -1706,6 +1754,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | team_lead | `incidents.reopen` | group, own | group, own |
 | team_lead | `incidents.reply` | group, own | group, own |
 | team_lead | `incidents.resolve` | group, own | group, own |
+| team_lead | `incidents.share_views` | group | group |
+| team_lead | `incidents.share_views_wide` | group | group |
 | team_lead | `incidents.take` | group | group |
 | team_lead | `incidents.view` | group, own | group, own |
 | team_lead | `integrations.view` | all | all |
@@ -1728,6 +1778,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | team_lead | `problems.reopen` | group | group |
 | team_lead | `problems.reply` | group | group |
 | team_lead | `problems.resolve` | group | group |
+| team_lead | `problems.share_views` | group | group |
+| team_lead | `problems.share_views_wide` | group | group |
 | team_lead | `problems.take` | group | group |
 | team_lead | `problems.view` | group | group |
 | team_lead | `problems.view_root_cause` | group | group |
@@ -1748,6 +1800,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | team_lead | `requests.reopen` | group, own | group, own |
 | team_lead | `requests.reply` | group, own | group, own |
 | team_lead | `requests.resolve` | group, own | group, own |
+| team_lead | `requests.share_views` | group | group |
+| team_lead | `requests.share_views_wide` | group | group |
 | team_lead | `requests.take` | group | group |
 | team_lead | `requests.view` | group | group |
 | team_lead | `sites.view` | all | all |
@@ -1769,6 +1823,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | technician | `changes.reopen` | group | all |
 | technician | `changes.reply` | group | all |
 | technician | `changes.resolve` | group | all |
+| technician | `changes.share_views` | group | all |
 | technician | `changes.take` | group | all |
 | technician | `changes.view` | all | all |
 | technician | `cmdb.view` | all | all |
@@ -1787,6 +1842,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | technician | `incidents.reopen` | group, own | all, own |
 | technician | `incidents.reply` | group, own | all, own |
 | technician | `incidents.resolve` | group, own | all, own |
+| technician | `incidents.share_views` | group | all |
 | technician | `incidents.take` | group | all |
 | technician | `incidents.view` | group, own | all, own |
 | technician | `integrations.view` | all | all |
@@ -1809,6 +1865,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | technician | `problems.reopen` | group | all |
 | technician | `problems.reply` | group | all |
 | technician | `problems.resolve` | group | all |
+| technician | `problems.share_views` | group | all |
 | technician | `problems.take` | group | all |
 | technician | `problems.view` | all | all |
 | technician | `problems.view_root_cause` | group | all |
@@ -1829,6 +1886,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | technician | `requests.reopen` | group, own | all, own |
 | technician | `requests.reply` | group, own | all, own |
 | technician | `requests.resolve` | group, own | all, own |
+| technician | `requests.share_views` | group | all |
 | technician | `requests.take` | group | all |
 | technician | `requests.view` | all | all |
 | technician | `sites.view` | all | all |
@@ -1874,6 +1932,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `changes.reopen` | all | all |
 | tenant_admin | `changes.reply` | all | all |
 | tenant_admin | `changes.resolve` | all | all |
+| tenant_admin | `changes.share_views` | all | all |
+| tenant_admin | `changes.share_views_wide` | all | all |
 | tenant_admin | `changes.take` | all | all |
 | tenant_admin | `changes.view` | all | all |
 | tenant_admin | `changes.view_costs` | all | all |
@@ -1915,6 +1975,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `incidents.reopen` | all | all |
 | tenant_admin | `incidents.reply` | all | all |
 | tenant_admin | `incidents.resolve` | all | all |
+| tenant_admin | `incidents.share_views` | all | all |
+| tenant_admin | `incidents.share_views_wide` | all | all |
 | tenant_admin | `incidents.take` | all | all |
 | tenant_admin | `incidents.undo_merge` | all | all |
 | tenant_admin | `incidents.view` | all | all |
@@ -1955,6 +2017,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `problems.reopen` | all | all |
 | tenant_admin | `problems.reply` | all | all |
 | tenant_admin | `problems.resolve` | all | all |
+| tenant_admin | `problems.share_views` | all | all |
+| tenant_admin | `problems.share_views_wide` | all | all |
 | tenant_admin | `problems.take` | all | all |
 | tenant_admin | `problems.view` | all | all |
 | tenant_admin | `problems.view_costs` | all | all |
@@ -1975,6 +2039,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `releases.reopen` | all | all |
 | tenant_admin | `releases.reply` | all | all |
 | tenant_admin | `releases.resolve` | all | all |
+| tenant_admin | `releases.share_views` | all | all |
+| tenant_admin | `releases.share_views_wide` | all | all |
 | tenant_admin | `releases.take` | all | all |
 | tenant_admin | `releases.view` | all | all |
 | tenant_admin | `releases.view_costs` | all | all |
@@ -1997,6 +2063,8 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `requests.reopen` | all | all |
 | tenant_admin | `requests.reply` | all | all |
 | tenant_admin | `requests.resolve` | all | all |
+| tenant_admin | `requests.share_views` | all | all |
+| tenant_admin | `requests.share_views_wide` | all | all |
 | tenant_admin | `requests.take` | all | all |
 | tenant_admin | `requests.view` | all | all |
 | tenant_admin | `requests.view_costs` | all | all |

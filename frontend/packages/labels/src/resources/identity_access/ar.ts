@@ -753,6 +753,13 @@ export const ar: LabelResource = {
   'permission.changes.reply.description': 'كتابة ملاحظات يراها متابعو التغيير ومستلمو إشعاراتها.',
   'permission.changes.resolve': 'حل التغييرات',
   'permission.changes.resolve.description': 'تعليم التغييرات كمحلولة مع حلّها.',
+  'permission.changes.share_views': 'مشاركة العروض المحفوظة لـالتغييرات مع مجموعاته',
+  'permission.changes.share_views.description':
+    'مشاركة عرض محفوظ لـالتغييرات مع مجموعات الدعم التي ينتمي إليها الشخص أو مع أعضائها.',
+  'permission.changes.share_views_wide':
+    'مشاركة العروض المحفوظة لـالتغييرات مع الجميع أو مجموعات أخرى',
+  'permission.changes.share_views_wide.description':
+    'مشاركة عرض محفوظ لـالتغييرات مع الجميع أو مع مجموعات أخرى. على نطاق المجموعة، فقط مع المجموعات التي يقودها الشخص.',
   'permission.changes.take': 'تولي التغييرات',
   'permission.changes.take.description': 'تولي تغيير ليس لها مالك بعد.',
   'permission.changes.view': 'عرض التغييرات',
@@ -848,6 +855,13 @@ export const ar: LabelResource = {
     'الرد على مقدمي الطلبات، وإضافة ملاحظات يمكنهم رؤيتها، وجعل الملاحظات الخاصة عامة.',
   'permission.incidents.resolve': 'حل الحوادث',
   'permission.incidents.resolve.description': 'تعليم الحوادث كمحلولة.',
+  'permission.incidents.share_views': 'مشاركة العروض المحفوظة لـالحوادث مع مجموعاته',
+  'permission.incidents.share_views.description':
+    'مشاركة عرض محفوظ لـالحوادث مع مجموعات الدعم التي ينتمي إليها الشخص أو مع أعضائها.',
+  'permission.incidents.share_views_wide':
+    'مشاركة العروض المحفوظة لـالحوادث مع الجميع أو مجموعات أخرى',
+  'permission.incidents.share_views_wide.description':
+    'مشاركة عرض محفوظ لـالحوادث مع الجميع أو مع مجموعات أخرى. على نطاق المجموعة، فقط مع المجموعات التي يقودها الشخص.',
   'permission.incidents.take': 'تولي الحوادث',
   'permission.incidents.take.description': 'تولي حادثة لم يتولّها أحد بعد.',
   'permission.incidents.undo_merge': 'التراجع عن دمج الحوادث',
@@ -943,6 +957,13 @@ export const ar: LabelResource = {
   'permission.problems.reply.description': 'كتابة ملاحظات يراها متابعو المشكلة ومستلمو إشعاراتها.',
   'permission.problems.resolve': 'حل المشكلات',
   'permission.problems.resolve.description': 'تعليم المشكلات كمحلولة مع حلّها.',
+  'permission.problems.share_views': 'مشاركة العروض المحفوظة لـالمشكلات مع مجموعاته',
+  'permission.problems.share_views.description':
+    'مشاركة عرض محفوظ لـالمشكلات مع مجموعات الدعم التي ينتمي إليها الشخص أو مع أعضائها.',
+  'permission.problems.share_views_wide':
+    'مشاركة العروض المحفوظة لـالمشكلات مع الجميع أو مجموعات أخرى',
+  'permission.problems.share_views_wide.description':
+    'مشاركة عرض محفوظ لـالمشكلات مع الجميع أو مع مجموعات أخرى. على نطاق المجموعة، فقط مع المجموعات التي يقودها الشخص.',
   'permission.problems.take': 'تولي المشكلات',
   'permission.problems.take.description': 'تولي مشكلة ليس لها مالك بعد.',
   'permission.problems.view': 'عرض المشكلات',
@@ -993,6 +1014,13 @@ export const ar: LabelResource = {
   'permission.releases.resolve': 'وضع علامة الإنجاز على الإصدارات',
   'permission.releases.resolve.description':
     'وضع علامة الإنجاز على الإصدارات حيث تتطلب الحالة ذلك.',
+  'permission.releases.share_views': 'مشاركة العروض المحفوظة لـالإصدارات مع مجموعاته',
+  'permission.releases.share_views.description':
+    'مشاركة عرض محفوظ لـالإصدارات مع مجموعات الدعم التي ينتمي إليها الشخص أو مع أعضائها.',
+  'permission.releases.share_views_wide':
+    'مشاركة العروض المحفوظة لـالإصدارات مع الجميع أو مجموعات أخرى',
+  'permission.releases.share_views_wide.description':
+    'مشاركة عرض محفوظ لـالإصدارات مع الجميع أو مع مجموعات أخرى. على نطاق المجموعة، فقط مع المجموعات التي يقودها الشخص.',
   'permission.releases.take': 'أخذ الإصدارات',
   'permission.releases.take.description': 'أخذ إصدار لم يأخذه أحد بعد.',
   'permission.releases.view': 'عرض الإصدارات',
@@ -1046,6 +1074,13 @@ export const ar: LabelResource = {
     'الرد على مقدمي طلبات الخدمة، وإضافة ملاحظات يمكنهم رؤيتها، وجعل الملاحظات الخاصة عامة.',
   'permission.requests.resolve': 'تنفيذ طلبات الخدمة',
   'permission.requests.resolve.description': 'تعليم طلبات الخدمة كمنفذة.',
+  'permission.requests.share_views': 'مشاركة العروض المحفوظة لـطلبات الخدمة مع مجموعاته',
+  'permission.requests.share_views.description':
+    'مشاركة عرض محفوظ لـطلبات الخدمة مع مجموعات الدعم التي ينتمي إليها الشخص أو مع أعضائها.',
+  'permission.requests.share_views_wide':
+    'مشاركة العروض المحفوظة لـطلبات الخدمة مع الجميع أو مجموعات أخرى',
+  'permission.requests.share_views_wide.description':
+    'مشاركة عرض محفوظ لـطلبات الخدمة مع الجميع أو مع مجموعات أخرى. على نطاق المجموعة، فقط مع المجموعات التي يقودها الشخص.',
   'permission.requests.take': 'تولي طلبات الخدمة',
   'permission.requests.take.description': 'تولي طلب خدمة لم يتولّه أحد بعد.',
   'permission.requests.view': 'عرض طلبات الخدمة',

@@ -6318,7 +6318,7 @@ is_closed = _closed
 audience_of = _audience
 now = _now
 field_errors = _errors
-now = _now
+not_found = _not_found
 
 
 async def update_columns(

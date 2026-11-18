@@ -63,6 +63,7 @@ export const ur: LabelResource = {
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_area.sign_in_secret': 'سائن اِن کے سرٹیفکیٹ اور خفیہ کلیدیں',
   'notification_area.task': 'کام',
+  'notification_area.work_item_view': 'محفوظ منظر',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
   'notification_category.conversation': 'جوابات اور نوٹس',
@@ -180,6 +181,7 @@ export const ur: LabelResource = {
   'notification_event.task.assigned': 'آپ کو ایک کام دیا گیا',
   'notification_event.task.overdue': 'آپ کا کام تاخیر کا شکار ہے',
   'notification_event.task.starts_soon': 'آپ کا کام جلد شروع ہو رہا ہے',
+  'notification_event.work_item_view.unshared': 'آپ کا شیئر کیا ہوا منظر نجی کر دیا گیا',
   'notification_preferences.col.category': 'قسم',
   'notification_preferences.dnd_help':
     'کوئی پاپ اپ نہیں اور فوری و لازمی کے سوا کوئی ای میل نہیں؛ سب کچھ آپ کی اطلاعات میں پھر بھی آتا ہے۔',
@@ -234,6 +236,7 @@ export const ur: LabelResource = {
   'notification_recipient.tenant_admins': 'ادارے کے ایڈمنسٹریٹرز',
   'notification_recipient.the_person': 'متعلقہ شخص',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
+  'notification_recipient.view_owner': 'منظر کا مالک',
   'notification_recipient.workflow_audience': 'ورک فلو میں نامزد افراد',
   'notification_rules.any_priority': 'کوئی بھی ترجیح',
   'notification_rules.any_status': 'کوئی بھی حالت',
@@ -838,6 +841,12 @@ export const ur: LabelResource = {
     '{{ task.title }} {{ task.starts_at }} پر شروع ہوگا',
   'notification_template.task.starts_soon.subject':
     'جلد شروع: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.work_item_view.unshared.body':
+    'السلام علیکم {{ recipient.name }}،\nآپ کا محفوظ منظر {{ record.title }} {{ view.field }} پر فلٹر کرتا ہے، جسے وہ کچھ لوگ نہیں دیکھ سکتے جن کے ساتھ آپ نے اسے شیئر کیا۔ اب یہ صرف آپ کے لیے ہے؛ اور کچھ نہیں بدلا۔ اسے دوبارہ شیئر کرنے کے لیے وہ شرط ہٹائیں اور چنیں کہ کون دیکھے۔ {{ record.link }}',
+  'notification_template.work_item_view.unshared.in_app':
+    '{{ record.title }} اب نجی ہے: یہ {{ view.field }} پر فلٹر کرتا ہے',
+  'notification_template.work_item_view.unshared.subject':
+    'آپ کا منظر {{ record.title }} اب نجی ہے',
   'notification_value.unnamed_requester': 'درخواست گزار',
   'notification_variable.acknowledgement.comment': 'تصدیق › تبصرہ',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
@@ -879,6 +888,8 @@ export const ur: LabelResource = {
   'notification_variable.report_schedule.skipped_count': 'شیڈول › چھوڑے گئے لوگ',
   'notification_variable.requester.name': 'درخواست گزار › نام',
   'notification_variable.rule.name': 'اصول',
+  'notification_variable.saved_view.field': 'محفوظ منظر › وہ فیلڈ جس پر فلٹر ہے',
+  'notification_variable.saved_view.name': 'محفوظ منظر › نام',
   'notification_variable.security.device': 'سائن اِن › براؤزر اور آلہ',
   'notification_variable.security.opens_at': 'قفل › دوبارہ کوشش کا جلد از جلد وقت',
   'notification_variable.security.place': 'سائن اِن › تقریبی مقام',

@@ -1,7 +1,8 @@
+import { StarFilled, StarOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Select, Space, Table, Tooltip } from 'antd';
+import { Alert, App, Button, Flex, Select, Space, Table, theme, Tooltip } from 'antd';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import { useListFormat } from '@supportx/labels';
 
@@ -19,6 +20,8 @@ import {
   useRestoreIncident,
   useSavedViews,
   useSaveListSetting,
+  useStarView,
+  useIncidentListDisplay,
   useUnits,
   type BulkAction,
   type BulkJob,
@@ -42,6 +45,7 @@ import {
   reportError,
   useAccess,
   useLicence,
+  contrastRatio,
   useAppearance,
   useDateTime,
   useLabel,
@@ -79,6 +83,7 @@ import {
   draftOf,
   exportFilter,
   rangeFilter,
+  readableMark,
   useBulkRefresh,
   type SearchChip,
   type Selection,
@@ -86,6 +91,7 @@ import {
   type ViewDraft,
 } from './list/model';
 import { SearchChips } from './list/SearchChips';
+import { PRIORITY_COLOURS } from './priorityColours';
 import { ActiveRange, TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
@@ -157,6 +163,7 @@ export function IncidentsPage() {
   const trash = mode === 'trash';
   const customFields = useCustomFields('incident', false, allowed);
   const savedViews = useSavedViews(allowed && !trash);
+  const star = useStarView();
   const saved: SavedView | undefined = view.startsWith(CUSTOM)
     ? savedViews.data?.find((v) => v.id === view.slice(CUSTOM.length))
     : undefined;
@@ -167,7 +174,8 @@ export function IncidentsPage() {
   const listFields = useIncidentListFields(allowed);
   const viewFilters = useIncidentViewFilters(allowed && !trash);
   const words = useReportWords();
-  const { locale } = useAppearance();
+  const { locale, mode: themeMode } = useAppearance();
+  const { token } = theme.useToken();
   const listFormat = useListFormat();
   const zone = dates.zone;
   const filterable = (customFields.data ?? []).filter(
@@ -201,6 +209,8 @@ export function IncidentsPage() {
 
   // Columns, sort and page size: yours for this view, else the saved view's, else the defaults.
   const catalogue = useIncidentCatalogue(allowed);
+  // REQ-INC-115: their own colouring for this view, else the tenant's default.
+  const listDisplay = useIncidentListDisplay(allowed);
   const fields = useMemo(() => listFields.data ?? [], [listFields.data]);
   const columnSpecs = useMemo(() => columnCatalogue(fields), [fields]);
   const stored = setting.data;
@@ -249,6 +259,23 @@ export function IncidentsPage() {
     allowed && (builtIn !== null || saved !== undefined || trash),
   );
   const views = useIncidentViews(allowed && !trash);
+  // A link to a view (`?view=open`, `?view=custom:<id>`, the D-176 notice's link): opened once
+  // it is known to be theirs; an unknown or unusable one leaves the default, without an error.
+  const [params] = useSearchParams();
+  const linkedView = params.get('view');
+  const [linkChecked, setLinkChecked] = useState(linkedView === null);
+  if (!linkChecked && linkedView !== null) {
+    const custom = linkedView.startsWith(CUSTOM);
+    const known = custom ? savedViews.data : views.data;
+    if (known !== undefined || savedViews.isError || views.isError) {
+      const usable = custom
+        ? (savedViews.data ?? []).some((v) => `${CUSTOM}${v.id}` === linkedView)
+        : (views.data ?? []).some((v) => v.view === linkedView) ||
+          (COUNTERS as readonly string[]).includes(linkedView);
+      if (usable) setView(linkedView);
+      setLinkChecked(true);
+    }
+  }
   // Counter views say what they leave out like the built-in ones (Area 15; QA BUG-06).
   const counters = useIncidentCounters(allowed && !trash);
   const groups = useUnits('groups', allowed);
@@ -285,6 +312,26 @@ export function IncidentsPage() {
   };
 
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
+  // REQ-INC-115 AC2: rows changed by someone else since you opened them (the list refetches live).
+  const unread = useMemo(
+    () => new Set(list.data?.pages.flatMap((page) => page.unread ?? []) ?? []),
+    [list.data],
+  );
+  const colourBy = setting.data?.row_colour_by ?? listDisplay.data?.row_colour_by ?? 'none';
+  // AC1: the status's or priority's own colour as a mark at the row's start, darkened (lightened
+  // in dark mode) until it reads against the row (3:1).
+  const markOf = (row: IncidentListItem): string | undefined => {
+    const stored =
+      colourBy === 'status'
+        ? catalogue.data?.statuses.find((s) => s.code === row.status)?.colour
+        : colourBy === 'priority'
+          ? (catalogue.data?.scales.find((v) => v.scale === 'priority' && v.code === row.priority)
+              ?.colour ?? PRIORITY_COLOURS[row.priority])
+          : undefined;
+    return stored === undefined
+      ? undefined
+      : readableMark(stored, token.colorBgContainer, contrastRatio, themeMode !== 'light');
+  };
   const people = useMemo(
     () =>
       Object.assign({}, ...(list.data?.pages.map((p) => p.people) ?? [])) as Record<
@@ -311,8 +358,10 @@ export function IncidentsPage() {
     list: listFormat,
   };
   const current = sortOf(sort);
-  const mine = (savedViews.data ?? []).filter((v) => v.mine);
-  const shared = (savedViews.data ?? []).filter((v) => !v.mine);
+  // REQ-INC-107 AC1: starred views first (yours only), then yours and those shared with you.
+  const starred = (savedViews.data ?? []).filter((v) => v.favourite);
+  const mine = (savedViews.data ?? []).filter((v) => v.mine && !v.favourite);
+  const shared = (savedViews.data ?? []).filter((v) => !v.mine && !v.favourite);
   const viewName = saved?.name ?? t(`work_item_view.${view}`);
   const exported = exportFilter(builtIn, viewFilters.data, filter);
   const bulkAllowed = (action: BulkAction) =>
@@ -538,6 +587,18 @@ export function IncidentsPage() {
                     setView(next);
                   }}
                   options={[
+                    ...(starred.length > 0
+                      ? [
+                          {
+                            label: t('incidents.views.starred'),
+                            title: t('incidents.views.starred'),
+                            options: starred.map((v) => ({
+                              value: `${CUSTOM}${v.id}`,
+                              label: v.name,
+                            })),
+                          },
+                        ]
+                      : []),
                     {
                       label: t('incidents.views.built_in'),
                       title: t('incidents.views.built_in'),
@@ -582,6 +643,27 @@ export function IncidentsPage() {
                   style={{ width: 'min(240px, 100%)' }}
                   data-testid="inc-view"
                 />
+                {saved !== undefined && (
+                  <Tooltip
+                    title={t(saved.favourite ? 'incidents.views.unstar' : 'incidents.views.star')}
+                  >
+                    <Button
+                      icon={saved.favourite ? <StarFilled /> : <StarOutlined />}
+                      aria-label={t(
+                        saved.favourite ? 'incidents.views.unstar' : 'incidents.views.star',
+                      )}
+                      aria-pressed={saved.favourite}
+                      loading={star.isPending}
+                      onClick={() => {
+                        star.mutate(
+                          { id: saved.id, starred: !saved.favourite },
+                          { onError: reportError },
+                        );
+                      }}
+                      data-testid="inc-view-star"
+                    />
+                  </Tooltip>
+                )}
                 {saved?.mine === true && (
                   <Button
                     onClick={() => {
@@ -861,12 +943,13 @@ export function IncidentsPage() {
             ? { 'data-testid': `inc-row-${row.display_id}` }
             : {
                 onClick: () => void navigate(`/incidents/${row.id}`),
-                style: { cursor: 'pointer' },
+                style: { cursor: 'pointer', fontWeight: unread.has(row.id) ? 600 : undefined },
                 'data-testid': `inc-row-${row.display_id}`,
+                'data-unread': unread.has(row.id) ? 'true' : undefined,
               }
         }
         columns={[
-          ...columns.flatMap((column) => {
+          ...columns.flatMap((column, index) => {
             const spec = columnSpecs.get(column.key);
             if (spec === undefined) return [];
             const own = column.width ?? spec.width;
@@ -888,7 +971,43 @@ export function IncidentsPage() {
                       ? ('descend' as const)
                       : ('ascend' as const)
                     : null,
-                render: (_: unknown, row: IncidentListItem) => spec.render(row, context),
+                render: (_: unknown, row: IncidentListItem) =>
+                  // Unread is said in words too, not by bold alone (lane C): a dot for the eye,
+                  // "Unread" for a screen reader, in the row's first cell.
+                  index === 0 && unread.has(row.id) ? (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        data-testid="inc-unread-dot"
+                        style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: token.colorPrimary,
+                          marginInlineEnd: 6,
+                        }}
+                      />
+                      <span className="sx-visually-hidden">{t('incidents.unread')}</span>
+                      {spec.render(row, context)}
+                    </>
+                  ) : (
+                    spec.render(row, context)
+                  ),
+                // The row's colour mark sits at the start of its first column (RTL follows).
+                ...(index === 0 && colourBy !== 'none'
+                  ? {
+                      onCell: (row: IncidentListItem) => {
+                        const mark = markOf(row);
+                        return mark === undefined
+                          ? {}
+                          : {
+                              style: { borderInlineStart: `4px solid ${mark}` },
+                              'data-row-mark': mark,
+                            };
+                      },
+                    }
+                  : {}),
                 onHeaderCell: () =>
                   ({
                     width: own,
