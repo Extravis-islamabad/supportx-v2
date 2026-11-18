@@ -34,7 +34,11 @@ from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.domain.permissions import TENANT_ADMIN
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.events import SupportGrantChanged, VendorSupportSettingChanged
-from app.modules.identity_access.infra.keycloak_admin import IdentityAdmin, IdentityAdminRefused
+from app.modules.identity_access.infra.keycloak_admin import (
+    IdentityAdmin,
+    IdentityAdminRefused,
+    IdentityAdminUnavailable,
+)
 from app.modules.identity_access.infra.models import (
     IdentitySettings,
     Role,
@@ -298,12 +302,21 @@ async def finish_end(
             log.warning("support_grant_sessions_end_failed", grant_id=str(ended.grant_id))
     if admin is None or ended.keycloak_id is None:
         return
-    try:
-        await admin.logout_user(ended.keycloak_id)
-        await admin.set_enabled(ended.keycloak_id, enabled=False)
-        await admin.delete_user(ended.keycloak_id)
-    except IdentityAdminRefused:
-        log.warning("support_grant_account_end_failed", grant_id=str(ended.grant_id))
+    account = ended.keycloak_id
+    # Each step on its own: a refused or unreachable logout or disable never skips the delete
+    # (lane B on set_enabled: the delete still runs when the disable failed).
+    steps: tuple[tuple[str, Callable[[], Awaitable[None]]], ...] = (
+        ("logout", lambda: admin.logout_user(account)),
+        ("disable", lambda: admin.set_enabled(account, enabled=False)),
+        ("delete", lambda: admin.delete_user(account)),
+    )
+    for name, step in steps:
+        try:
+            await step()
+        except (IdentityAdminRefused, IdentityAdminUnavailable):
+            log.warning(
+                "support_grant_account_step_failed", step=name, grant_id=str(ended.grant_id)
+            )
 
 
 async def due(session: AsyncSession, now: datetime) -> list[uuid.UUID]:
