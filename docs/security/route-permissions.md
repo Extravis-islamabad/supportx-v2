@@ -343,6 +343,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/changes/settings` | `changes.view` | changes.view: all/site/group/own |
 | PATCH | `/api/v1/changes/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/changes/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/changes/settings/list-display` | `changes.view` | changes.view: all/site/group/own |
+| PUT | `/api/v1/changes/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/changes/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/changes/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/changes/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -621,6 +623,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/incidents/settings/list-display` | `incidents.view` | incidents.view: all/site/group/own |
+| PUT | `/api/v1/incidents/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/incidents/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/incidents/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/incidents/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -924,6 +928,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/problems/settings/list-display` | `problems.view` | problems.view: all/site/group/own |
+| PUT | `/api/v1/problems/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/problems/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/problems/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/problems/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -1075,6 +1081,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/releases/settings` | `releases.view` | releases.view: all/site/group/own |
 | PATCH | `/api/v1/releases/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/releases/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/releases/settings/list-display` | `releases.view` | releases.view: all/site/group/own |
+| PUT | `/api/v1/releases/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/releases/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/releases/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/releases/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
@@ -1264,6 +1272,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
+| GET | `/api/v1/service-requests/settings/list-display` | `requests.view` | requests.view: all/site/group/own |
+| PUT | `/api/v1/service-requests/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/service-requests/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | POST | `/api/v1/service-requests/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/service-requests/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |

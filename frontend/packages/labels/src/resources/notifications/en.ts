@@ -61,6 +61,7 @@ export const en = {
   'notification_area.service_request': 'Service requests',
   'notification_area.sign_in_secret': 'Sign-in certificates and secrets',
   'notification_area.task': 'Tasks',
+  'notification_area.work_item_view': 'Saved views',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
   'notification_category.conversation': 'Replies and notes',

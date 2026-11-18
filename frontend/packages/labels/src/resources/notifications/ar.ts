@@ -63,6 +63,7 @@ export const ar: LabelResource = {
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_area.sign_in_secret': 'شهادات وأسرار تسجيل الدخول',
   'notification_area.task': 'المهام',
+  'notification_area.work_item_view': 'العروض المحفوظة',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
   'notification_category.conversation': 'الردود والملاحظات',

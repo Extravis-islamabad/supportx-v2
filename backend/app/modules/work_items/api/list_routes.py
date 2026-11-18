@@ -543,10 +543,16 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
         dependencies=[Depends(rate_limit("identity"))],
     )
     async def rerun_view_audit(
-        session: TenantSession, subject: Admin, idempotency: Idempotency
+        session: TenantSession,
+        subject: Admin,
+        idempotency: Idempotency,
+        note: Annotated[
+            AuditNote,
+            audited(f"{audit}.view_audit_run", object_type=f"{audit}_settings"),
+        ],
     ) -> Response:
-        """Runs the audit now (idempotent: views already private stay as they are)."""
-        del subject
+        """Runs the audit now (idempotent: views already private stay as they are); audited."""
+        del subject, note  # the entry names who ran it; the views it changed carry their own
 
         async def run() -> ViewAuditOut:
             await view_audit.audit_type(session, wtype, datetime.now(UTC))

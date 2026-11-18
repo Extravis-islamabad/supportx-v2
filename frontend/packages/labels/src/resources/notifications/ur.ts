@@ -63,6 +63,7 @@ export const ur: LabelResource = {
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_area.sign_in_secret': 'سائن اِن کے سرٹیفکیٹ اور خفیہ کلیدیں',
   'notification_area.task': 'کام',
+  'notification_area.work_item_view': 'محفوظ منظر',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
   'notification_category.conversation': 'جوابات اور نوٹس',
@@ -841,7 +842,7 @@ export const ur: LabelResource = {
   'notification_template.task.starts_soon.subject':
     'جلد شروع: {{ task.title }} ({{ record.display_id }})',
   'notification_template.work_item_view.unshared.body':
-    'السلام علیکم {{ recipient.name }}،\nآپ کا محفوظ منظر {{ record.title }} \u200f{{ view.field }} پر فلٹر کرتا ہے، جسے وہ کچھ لوگ نہیں دیکھ سکتے جن کے ساتھ آپ نے اسے شیئر کیا۔ اب یہ صرف آپ کے لیے ہے؛ اور کچھ نہیں بدلا۔ اسے دوبارہ شیئر کرنے کے لیے وہ شرط ہٹائیں اور چنیں کہ کون دیکھے۔ {{ record.link }}',
+    'السلام علیکم {{ recipient.name }}،\nآپ کا محفوظ منظر {{ record.title }} {{ view.field }} پر فلٹر کرتا ہے، جسے وہ کچھ لوگ نہیں دیکھ سکتے جن کے ساتھ آپ نے اسے شیئر کیا۔ اب یہ صرف آپ کے لیے ہے؛ اور کچھ نہیں بدلا۔ اسے دوبارہ شیئر کرنے کے لیے وہ شرط ہٹائیں اور چنیں کہ کون دیکھے۔ {{ record.link }}',
   'notification_template.work_item_view.unshared.in_app':
     '{{ record.title }} اب نجی ہے: یہ {{ view.field }} پر فلٹر کرتا ہے',
   'notification_template.work_item_view.unshared.subject':

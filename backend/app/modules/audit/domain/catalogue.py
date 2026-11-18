@@ -375,6 +375,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4
     ("incident.major_settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S4
     ("incident.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
+    ("incident.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
+    ("service_request.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
+    ("problem.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
+    ("change.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
+    ("release.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
     ("service_request.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # S3a
     ("problem.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
     ("change.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
