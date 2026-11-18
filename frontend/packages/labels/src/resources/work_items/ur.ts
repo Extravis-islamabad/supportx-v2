@@ -1322,6 +1322,7 @@ export const ur: LabelResource = {
   'incidents.type_two_letters': 'کم از کم 2 حروف لکھیں',
   'incidents.unassigned': 'ابھی کسی نے نہیں لیا',
   'incidents.unknown_value': 'نامعلوم قدر',
+  'incidents.unread': 'نہیں پڑھا گیا',
   'incidents.view': 'منظر',
   'incidents.view_notice_one': 'منظر «{{view}}»: {{count}} دکھایا گیا۔',
   'incidents.view_notice_other': 'منظر «{{view}}»: {{count}} دکھائے گئے۔',

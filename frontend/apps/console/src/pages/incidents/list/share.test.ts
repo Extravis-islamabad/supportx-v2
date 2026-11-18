@@ -69,11 +69,18 @@ describe('REQ-INC-115 AC1: a row colour reads against the row', () => {
     expect(readableMark('#cf1322', '#ffffff', contrastRatio)).toBe('#cf1322'); // P1 red
     const gold = readableMark('#fadb14', '#ffffff', contrastRatio);
     expect(gold).not.toBe('#fadb14');
-    expect(contrastRatio(gold, '#ffffff')).toBeGreaterThanOrEqual(MARK_CONTRAST);
+    expect(gold).toBeDefined();
+    expect(contrastRatio(gold ?? '', '#ffffff')).toBeGreaterThanOrEqual(MARK_CONTRAST);
+  });
+
+  it('gives no mark for a colour that is not #rrggbb', () => {
+    expect(readableMark('gold', '#ffffff', contrastRatio)).toBeUndefined();
+    expect(readableMark('#fff', '#ffffff', contrastRatio)).toBeUndefined();
   });
 
   it('lightens instead in dark mode', () => {
     const navy = readableMark('#10239e', '#141414', contrastRatio, true);
-    expect(contrastRatio(navy, '#141414')).toBeGreaterThanOrEqual(MARK_CONTRAST);
+    expect(navy).toBeDefined();
+    expect(contrastRatio(navy ?? '', '#141414')).toBeGreaterThanOrEqual(MARK_CONTRAST);
   });
 });

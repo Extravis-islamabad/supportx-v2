@@ -1469,6 +1469,7 @@ export const ar: LabelResource = {
   'incidents.type_two_letters': 'اكتب حرفين على الأقل',
   'incidents.unassigned': 'لم يتولّها أحد بعد',
   'incidents.unknown_value': 'قيمة غير معروفة',
+  'incidents.unread': 'غير مقروء',
   'incidents.view': 'العرض',
   'incidents.view_notice_few': 'العرض «{{view}}»: تظهر {{count}} حوادث.',
   'incidents.view_notice_many': 'العرض «{{view}}»: تظهر {{count}} حادثةً.',

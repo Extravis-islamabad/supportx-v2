@@ -954,7 +954,29 @@ export function IncidentsPage() {
                       ? ('descend' as const)
                       : ('ascend' as const)
                     : null,
-                render: (_: unknown, row: IncidentListItem) => spec.render(row, context),
+                render: (_: unknown, row: IncidentListItem) =>
+                  // Unread is said in words too, not by bold alone (lane C): a dot for the eye,
+                  // "Unread" for a screen reader, in the row's first cell.
+                  index === 0 && unread.has(row.id) ? (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        data-testid="inc-unread-dot"
+                        style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: token.colorPrimary,
+                          marginInlineEnd: 6,
+                        }}
+                      />
+                      <span className="sx-visually-hidden">{t('incidents.unread')}</span>
+                      {spec.render(row, context)}
+                    </>
+                  ) : (
+                    spec.render(row, context)
+                  ),
                 // The row's colour mark sits at the start of its first column (RTL follows).
                 ...(index === 0 && colourBy !== 'none'
                   ? {

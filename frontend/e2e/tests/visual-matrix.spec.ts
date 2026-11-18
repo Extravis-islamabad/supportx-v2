@@ -129,7 +129,12 @@ interface Screen {
   /** Admin sub-sections: the side layout only (layouts do not change their bodies). */
   sideOnly?: boolean;
   /** An open state shot after the page settles (a menu, a drawer, a dialog ...). */
-  state?: { name: string; open: (page: Page) => Promise<void> };
+  state?: {
+    name: string;
+    open: (page: Page) => Promise<void>;
+    /** Undo what `open` changed for the whole tenant, so later shots see the stack as it was. */
+    close?: (page: Page) => Promise<void>;
+  };
   /** Shot without waiting for the network: the loading state. */
   loading?: boolean;
 }
@@ -259,8 +264,12 @@ const requestDrawer = (page: Page) => privacyTab(page, false);
 // incident list; the General tab's row colour and view audit cards. Seeded through the API as
 // the matrix's own admin; the unread row comes from a second person's real public reply, so the
 // live path runs. Each shot re-seeds (idempotent): another screen may have opened INC-30.
-const STARRED_VIEW = 'Matrix: INC-30';
+const STARRED_VIEW = 'Matrix: an unread row';
+const UNREAD_SUBJECT = 'Matrix: an unread row';
 let replier: Page | undefined;
+let unreadIncident: { id: string; display_id: string } | undefined;
+// The tenant's colouring before the shot, put back by `close` (lane C: it is tenant-wide).
+let colouringBefore: string | undefined;
 
 async function replierPage(page: Page): Promise<Page> {
   if (replier !== undefined) return replier;
@@ -269,18 +278,63 @@ async function replierPage(page: Page): Promise<Page> {
   const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
   const other = await context.newPage();
   other.setDefaultTimeout(SHOT_TIMEOUT);
+  // As the matrix signs in its own admin: the showcase password comes from the environment.
   await signIn(other, 'tech@showcase.test', SHOWCASE_PASSWORD, '/');
   replier = other;
   return other;
 }
 
+/** The matrix's own incident for this state (never INC-30: other screens shoot that one). */
+async function unreadRecord(page: Page, other: Page): Promise<{ id: string; display_id: string }> {
+  if (unreadIncident !== undefined) return unreadIncident;
+  const filter = JSON.stringify({ field: 'subject', op: 'eq', value: UNREAD_SUBJECT });
+  const found = (await (
+    await page.request.get(`/api/v1/incidents?limit=1&filter=${encodeURIComponent(filter)}`)
+  ).json()) as { items?: { id: string; display_id: string }[] };
+  const existing = found.items?.[0];
+  if (existing !== undefined) return (unreadIncident = existing);
+  const admin = await me(page);
+  const theirs = await me(other);
+  // In a group the second person works, so their reply is theirs to make.
+  const groups = (await (await page.request.get('/api/v1/organization/groups')).json()) as {
+    id: string;
+    member_ids: string[];
+  }[];
+  const group = groups.find((g) => g.member_ids.includes(theirs.id));
+  if (group === undefined) throw new Error('no group of the second person');
+  const made = await page.request.post('/api/v1/incidents', {
+    data: { subject: UNREAD_SUBJECT, requester_id: admin.id, group_id: group.id },
+    headers: {
+      'X-CSRF-Token': admin.csrf,
+      'X-SupportX-Client': 'console',
+      'Idempotency-Key': crypto.randomUUID(),
+    },
+  });
+  if (!made.ok()) throw new Error(`incident: ${String(made.status())}`);
+  return (unreadIncident = (await made.json()) as { id: string; display_id: string });
+}
+
+async function setColouring(page: Page, value: string): Promise<string> {
+  const { csrf } = await me(page);
+  const display = (await (
+    await page.request.get('/api/v1/incidents/settings/list-display')
+  ).json()) as { row_colour_by: string; settings_version: number };
+  if (display.row_colour_by !== value) {
+    const set = await page.request.put('/api/v1/incidents/settings/list-display', {
+      data: { row_colour_by: value },
+      headers: { 'X-CSRF-Token': csrf, 'If-Match': `"${String(display.settings_version)}"` },
+    });
+    if (!set.ok()) throw new Error(`row colours: ${String(set.status())}`);
+  }
+  return display.row_colour_by;
+}
+
 async function starredUnreadColoured(page: Page): Promise<void> {
   const { csrf } = await me(page);
   const write = { 'X-CSRF-Token': csrf };
-  const incident = (await (await page.request.get('/api/v1/incidents/lookup/INC-30')).json()) as {
-    id: string;
-  };
-  // A view of INC-30 alone, starred.
+  const other = await replierPage(page);
+  const incident = await unreadRecord(page, other);
+  // A view of that incident alone, starred.
   const views = (await (await page.request.get('/api/v1/incidents/saved-views')).json()) as {
     id: string;
     name: string;
@@ -288,7 +342,10 @@ async function starredUnreadColoured(page: Page): Promise<void> {
   let view = views.find((v) => v.name === STARRED_VIEW);
   if (view === undefined) {
     const made = await page.request.post('/api/v1/incidents/saved-views', {
-      data: { name: STARRED_VIEW, filter: { field: 'display_id', op: 'eq', value: 'INC-30' } },
+      data: {
+        name: STARRED_VIEW,
+        filter: { field: 'display_id', op: 'eq', value: incident.display_id },
+      },
       headers: { ...write, 'Idempotency-Key': crypto.randomUUID() },
     });
     if (!made.ok()) throw new Error(`saved view: ${String(made.status())}`);
@@ -298,21 +355,10 @@ async function starredUnreadColoured(page: Page): Promise<void> {
     headers: write,
   });
   if (!star.ok()) throw new Error(`star: ${String(star.status())}`);
-  // Rows coloured by priority (the tenant's default).
-  const display = (await (
-    await page.request.get('/api/v1/incidents/settings/list-display')
-  ).json()) as { row_colour_by: string; settings_version: number };
-  if (display.row_colour_by !== 'priority') {
-    const set = await page.request.put('/api/v1/incidents/settings/list-display', {
-      data: { row_colour_by: 'priority' },
-      headers: { ...write, 'If-Match': `"${String(display.settings_version)}"` },
-    });
-    if (!set.ok()) throw new Error(`row colours: ${String(set.status())}`);
-  }
+  colouringBefore = await setColouring(page, 'priority');
   // Read by the admin, then a public reply by someone else: unread again.
   const read = await page.request.post(`/api/v1/incidents/${incident.id}/read`, { headers: write });
   if (!read.ok()) throw new Error(`read: ${String(read.status())}`);
-  const other = await replierPage(page);
   const theirs = await me(other);
   const replied = await other.request.post(`/api/v1/incidents/${incident.id}/conversation`, {
     data: { kind: 'note', visibility: 'public', body: '<p>Checked on site: still failing.</p>' },
@@ -323,6 +369,13 @@ async function starredUnreadColoured(page: Page): Promise<void> {
   await page.locator('[data-unread="true"]').first().waitFor({ timeout: STATE_TIMEOUT });
   await page.locator('[data-row-mark]').first().waitFor({ timeout: STATE_TIMEOUT });
   await page.getByTestId('inc-view-star').waitFor({ timeout: STATE_TIMEOUT });
+}
+
+/** Put the tenant's colouring back as it was before the shot. */
+async function restoreColouring(page: Page): Promise<void> {
+  if (colouringBefore === undefined) return;
+  await setColouring(page, colouringBefore);
+  colouringBefore = undefined;
 }
 
 const generalCard = (testId: string) => async (page: Page) => {
@@ -338,7 +391,11 @@ export const SCREENS: Screen[] = [
     key: 'incidents',
     path: '/incidents',
     app: 'console',
-    state: { name: 'starred-unread-coloured', open: starredUnreadColoured },
+    state: {
+      name: 'starred-unread-coloured',
+      open: starredUnreadColoured,
+      close: restoreColouring,
+    },
   },
   {
     key: 'admin-incidents-general',
@@ -1337,11 +1394,18 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
     // A screen that breaks is a finding, not a crash of the run.
     shot.error = error instanceof Error ? error.message.split('\n')[0] : String(error);
   } finally {
+    if (screen.state?.close) await screen.state.close(page).catch(() => undefined);
     if (screen.loading) await page.close().catch(() => undefined);
   }
 }
 
 test.skip(!RUN, 'the visual matrix runs in its own workflow (VISUAL_MATRIX=1)');
+
+// The second person's context (S3a's unread row), closed once the shard is done (lane C).
+test.afterAll(async () => {
+  await replier?.context().close();
+  replier = undefined;
+});
 
 test(`visual matrix, shard ${String(SHARD)}/${String(SHARDS)}`, async ({ browser }) => {
   test.setTimeout(3 * 60 * 60_000);

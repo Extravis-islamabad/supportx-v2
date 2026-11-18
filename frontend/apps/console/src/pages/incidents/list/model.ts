@@ -378,15 +378,15 @@ function mix(hex: string, toward: [number, number, number], amount: number): str
 
 /**
  * The stored colour if it reads against the row; otherwise the nearest darker shade (lighter in
- * dark mode) that does. `contrast` is the shared WCAG ratio (`@supportx/ui`).
+ * dark mode) that does; none for a colour that is not `#rrggbb` (lane C). `contrast` is the shared WCAG ratio (`@supportx/ui`).
  */
 export function readableMark(
   colour: string,
   background: string,
   contrast: (a: string, b: string) => number,
   dark = false,
-): string {
-  if (channels(colour) === null) return colour;
+): string | undefined {
+  if (channels(colour) === null) return undefined; // not #rrggbb: no mark rather than a guess
   const toward: [number, number, number] = dark ? [255, 255, 255] : [0, 0, 0];
   for (let step = 0; step <= 10; step += 1) {
     const shade = mix(colour, toward, step / 10);

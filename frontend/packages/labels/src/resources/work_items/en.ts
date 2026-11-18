@@ -1315,6 +1315,7 @@ export const en = {
   'incidents.type_two_letters': 'Type at least 2 letters',
   'incidents.unassigned': 'Not taken yet',
   'incidents.unknown_value': 'Unknown value',
+  'incidents.unread': 'Unread',
   'incidents.view': 'View',
   'incidents.view_notice_one': 'View “{{view}}”: {{count}} shown.',
   'incidents.view_notice_other': 'View “{{view}}”: {{count}} shown.',
