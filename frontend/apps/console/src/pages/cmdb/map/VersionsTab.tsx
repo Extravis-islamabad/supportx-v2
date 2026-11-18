@@ -136,8 +136,8 @@ export function VersionsTab({ ciId }: { ciId: string }) {
               style={{ minWidth: 240 }}
               data-testid="ci-versions-to"
             />
+            {/* Not primary: the record's header already has one (template A). */}
             <Button
-              type="primary"
               disabled={pair.from === undefined || pair.to === undefined || pair.from === pair.to}
               onClick={() => {
                 if (pair.from !== undefined && pair.to !== undefined) {

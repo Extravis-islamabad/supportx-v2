@@ -1244,10 +1244,11 @@ async function ciCompare(page: Page): Promise<void> {
     await page.reload();
     const pick = async (testId: string, nth: number) => {
       await page.getByTestId(testId).first().click({ timeout: STATE_TIMEOUT });
-      await page
-        .locator('.ant-select-dropdown:visible .ant-select-item-option')
-        .nth(nth)
-        .click({ timeout: STATE_TIMEOUT });
+      const dropdown = page.locator('.ant-select-dropdown:visible');
+      await dropdown.locator('.ant-select-item-option').nth(nth).click({ timeout: STATE_TIMEOUT });
+      // Wait until it has closed: a second pick during the first one's fade-out lands in the old
+      // dropdown, leaving Compare disabled (run 44377613773 timed out on that click).
+      await dropdown.waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
     };
     await pick('ci-versions-from', 1);
     await pick('ci-versions-to', 0);
