@@ -57,6 +57,8 @@ RECORD_TYPE = "work_item_view"
 UNSHARED = "work_item_view.unshared"
 OWNER = "view_owner"
 FIELD_ACCESS_CHANGED = "identity_access.field_access.changed"
+# Lane C (#549): a field turning sensitive starts the check at once, not at the next tick.
+SEAL_CHANGED = "metadata.custom_field.seal_changed"
 
 
 @dataclass(frozen=True)
@@ -175,7 +177,7 @@ async def unshared_views(
 
 
 async def on_field_access_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
-    """Consumer: a field access rule changed, so shared views are checked again (idempotent)."""
+    """Consumer: a field rule or seal changed, so shared views are checked again (idempotent)."""
     del envelope
     if session is None:
         return
@@ -184,7 +186,7 @@ async def on_field_access_changed(envelope: EventEnvelope, session: AsyncSession
 
 VIEW_AUDIT = ConsumerSpec(
     name="work_items__view_audit",
-    event_types=(FIELD_ACCESS_CHANGED,),
+    event_types=(FIELD_ACCESS_CHANGED, SEAL_CHANGED),
     handler=on_field_access_changed,
 )
 

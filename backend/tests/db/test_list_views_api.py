@@ -946,3 +946,60 @@ async def test_req_inc_115_ac1_a_tenant_default_and_a_personal_choice_per_view(
         headers={"If-Match": f'"{mine.json()["version"]}"'},
     )
     assert wrong.status_code == 422, wrong.text
+
+
+async def test_d176_a_sealed_field_keeps_views_private_hidden_and_audited_as_sealed(
+    world: World,
+) -> None:
+    """Lane C's #549 review: the sealed path (ADR-050), not only role rules."""
+    from app.modules.work_items.service import view_audit  # noqa: PLC0415 - the job under test
+    from tests.db.test_incidents_api import CONSOLE  # noqa: PLC0415 - the console header
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Passport"}},
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    key = made.json()["key"]
+    field = f"custom.{key}"
+    tree = {"field": field, "op": "eq", "value": "X1"}
+    # Shared while the field was plain.
+    before = await save_view(
+        world, a, a.admin, name="Passports", visibility="everyone", filter=tree
+    )
+    assert before.status_code == 201, before.text
+    view = before.json()
+    await world.sql(
+        "UPDATE custom_fields SET sensitive = true, seal_state = 'sealed'"
+        " WHERE tenant_id = $1 AND entity = 'incident' AND key = $2",
+        a.tenant,
+        key,
+    )
+    client = world.app.state.policy.cache.client
+    prefix = world.app.state.settings.valkey_key_prefix
+    stale = [k async for k in client.scan_iter(match=f"{prefix}*")]
+    if stale:
+        await client.delete(*stale)
+    # Sharing a new one on it is refused, naming the field.
+    refused = await save_view(world, a, a.admin, name="More", visibility="everyone", filter=tree)
+    assert field_codes(refused) == {"filter": "view_filter_not_shareable"}
+    assert refused.json()["errors"][0]["params"] == {"field": field, "audience": "everyone"}
+
+    async def names(user: uuid.UUID) -> list[str]:
+        shown = await world.call("GET", f"{BASE}/saved-views", a, user)
+        return [v["name"] for v in shown.json()]
+
+    # The one shared before: gone for everyone else, still the owner's.
+    assert "Passports" not in await names(a.tech_b)
+    assert "Passports" not in await names(a.lead)
+    assert "Passports" in await names(a.admin)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        done = await view_audit.audit_all(session)
+    assert [(str(d.view_id), d.field_key, d.reason) for d in done] == [
+        (view["id"], field, "sealed_field")
+    ]
