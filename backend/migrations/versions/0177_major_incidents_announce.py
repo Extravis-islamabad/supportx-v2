@@ -29,7 +29,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0177"
-down_revision: str | None = "0172"  # main's head now; re-pointed at its turn in the line
+down_revision: str | None = "0173"  # main's head at its queue turn (0172 → 0173 → 0177)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
