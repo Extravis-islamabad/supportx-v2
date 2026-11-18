@@ -341,10 +341,12 @@ mobile-test: generated-frontend
 # source maps and fails if any bundled source comes from picomatch. Fails closed: no bundle, no
 # map, an empty source list or an unreadable map all fail.
 mobile-bundle-check: generated-frontend ## D-174: picomatch is in no shipped mobile bundle
-	@out=$$(mktemp -d); \
+	@# Inside the app: Metro's file map refuses an output path far outside the project root
+	@# ("Failed to collapse", run 44270887838). The folder is git-ignored and removed afterwards.
+	@out=mobile/.d174-export; rm -rf "$$out"; \
 	(cd mobile && EXPO_NO_TELEMETRY=1 pnpm exec expo export --platform android --platform ios \
-		--source-maps --output-dir "$$out" >/dev/null) || { echo "D-174: expo export failed"; rm -rf "$$out"; exit 1; }; \
-	(cd backend && uv run python -m tooling.bundle_sources "$$out"); rc=$$?; \
+		--source-maps --output-dir .d174-export) || { echo "D-174: expo export failed"; rm -rf "$$out"; exit 1; }; \
+	(cd backend && uv run python -m tooling.bundle_sources "../$$out"); rc=$$?; \
 	rm -rf "$$out"; exit $$rc
 
 # --- Local dev stack -----------------------------------------------------------------------------
