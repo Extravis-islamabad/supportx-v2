@@ -331,6 +331,8 @@ export const ar: LabelResource = {
   'audit.action.person.erasure_requested': 'طلب محو بيانات شخص',
   'audit.action.person.legal_hold_lifted': 'رفع الحجز القانوني عن شخص',
   'audit.action.person.legal_hold_set': 'وضع شخصًا تحت الحجز القانوني',
+  'audit.action.person.legal_hold_viewed': 'عرض سبب الحجز القانوني على شخص',
+  'audit.action.person.uploads_listed': 'عرض قائمة الملفات التي رفعها شخص لطلب محو بياناته',
   'audit.action.portal.settings_changed': 'غيّر إعدادات البوابة',
   'audit.action.problem.access_changed': 'غيّر صلاحيات الوصول إلى مشكلة',
   'audit.action.problem.approval_decided': 'وافق على مشكلة أو رفضها',
