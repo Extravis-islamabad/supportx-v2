@@ -1413,6 +1413,10 @@ function ciChangeType(blocked: boolean): (page: Page) => Promise<void> {
       await page.reload();
       await page.getByTestId('ci-actions-more').click({ timeout: STATE_TIMEOUT });
       await page.getByTestId('ci-change-type').click({ timeout: STATE_TIMEOUT });
+      // The dialog has finished zooming in before the tree opens.
+      await page
+        .locator('.ant-modal-wrap .ant-zoom-enter, .ant-modal-wrap .ant-zoom-appear')
+        .waitFor({ state: 'detached', timeout: STATE_TIMEOUT });
       await page.getByTestId('ci-new-type').click({ timeout: STATE_TIMEOUT });
       const tree = page.locator('.ant-select-dropdown:visible');
       await tree

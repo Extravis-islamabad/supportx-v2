@@ -431,6 +431,9 @@ function ChangeType({ ci, onClose }: { ci: Ci; onClose: () => void }) {
             setTypeId(next);
           }}
           treeData={tree}
+          // Inside the dialog, so the list moves with it: opened during the dialog's zoom, a list
+          // on the page body was placed against the half-scaled field (lane C, #550).
+          getPopupContainer={(node: HTMLElement) => node.parentElement ?? document.body}
           style={{ width: '100%' }}
           data-testid="ci-new-type"
         />
