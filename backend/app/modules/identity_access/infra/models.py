@@ -69,7 +69,8 @@ class User(TenantEntity):
             name="break_glass_ip_exempt_needs_break_glass",
         ),
         CheckConstraint(
-            "user_type IN ('technician', 'requester', 'service')", name="user_type_code"
+            "user_type IN ('technician', 'requester', 'service', 'vendor_support')",
+            name="user_type_code",
         ),
         # A service identity (WP-040) has no account to sign in with, and no address to link one.
         CheckConstraint(
@@ -562,6 +563,78 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     # and SupportX's own MFA after a single sign-on too (off: the provider's MFA is trusted).
     sso_required: Mapped[str] = mapped_column(String(12), server_default="off")
     sso_also_require_mfa: Mapped[bool] = mapped_column(server_default="false")
+    # D-173 (9), WP-057 S4c: while on, no vendor support grant can be made (changing it is audited).
+    never_allow_vendor_support: Mapped[bool] = mapped_column(server_default="false")
+
+
+SUPPORT_ACCESS = ("view", "view_and_change")
+SUPPORT_STATES = ("pending_verification", "active", "ended", "revoked")
+SUPPORT_OPEN_STATES = ("pending_verification", "active")
+SUPPORT_VERIFICATION = ("email", "out_of_band")
+SUPPORT_MAX_HOURS = 72
+
+
+def _support_codes(column: str, codes: tuple[str, ...]) -> str:
+    return f"{column} IN (" + ", ".join(f"'{c}'" for c in codes) + ")"
+
+
+class SupportGrant(TenantEntity):
+    """A tenant admin's grant of temporary access to one named Extravis engineer (WP-057 S4c-1).
+
+    REQ-SEC-045, D-173. The grant makes a temporary `vendor_support` account in the tenant's realm,
+    deleted when the grant ends; this record and its audit stay. 72 hours at most in total, "view
+    and change" only with its own reason, and an out-of-band confirmation names the admin who
+    confirmed the engineer (no e-mail link when air-gapped).
+    """
+
+    __tablename__ = "support_grants"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "support_user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_support_grants_support_user",
+        ),
+        CheckConstraint(_support_codes("access", SUPPORT_ACCESS), name="access_code"),
+        CheckConstraint(_support_codes("state", SUPPORT_STATES), name="state_code"),
+        CheckConstraint(
+            _support_codes("verification", SUPPORT_VERIFICATION), name="verification_code"
+        ),
+        CheckConstraint(
+            f"ends_at > starts_at AND ends_at <= starts_at + interval '{SUPPORT_MAX_HOURS} hours'",
+            name="window",
+        ),
+        CheckConstraint("access = 'view' OR change_reason IS NOT NULL", name="change_reason"),
+        CheckConstraint("verification = 'email' OR confirmed_by IS NOT NULL", name="confirmed_by"),
+        Index(
+            "ix_support_grants_tenant_engineer_open",
+            "tenant_id",
+            text("lower(engineer_email)"),
+            unique=True,
+            postgresql_where=text(_support_codes("state", SUPPORT_OPEN_STATES)),
+        ),
+        Index("ix_support_grants_tenant_state_ends", "tenant_id", "state", "ends_at"),
+    )
+
+    engineer_name: Mapped[str] = mapped_column(String(200))
+    engineer_email: Mapped[str] = mapped_column(String(320))
+    reason: Mapped[str] = mapped_column(String(500))
+    ticket_ref: Mapped[str | None] = mapped_column(String(100))
+    access: Mapped[str] = mapped_column(String(20), server_default="view")
+    change_reason: Mapped[str | None] = mapped_column(String(500))
+    unmask_personal: Mapped[bool] = mapped_column(server_default="false")
+    ip_allowlist: Mapped[list[str]] = mapped_column(
+        ARRAY(CIDR), server_default=text("'{}'::cidr[]")
+    )
+    starts_at: Mapped[datetime]
+    ends_at: Mapped[datetime]
+    state: Mapped[str] = mapped_column(String(30), server_default="pending_verification")
+    verification: Mapped[str] = mapped_column(String(20))
+    confirmed_by: Mapped[uuid.UUID | None]
+    confirmation_note: Mapped[str | None] = mapped_column(String(500))
+    support_user_id: Mapped[uuid.UUID | None]
+    first_used_at: Mapped[datetime | None]
+    ended_at: Mapped[datetime | None]
+    ended_by: Mapped[uuid.UUID | None]
 
 
 MFA_MODES = ("off", "optional", "required")
