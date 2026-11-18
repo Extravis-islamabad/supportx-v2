@@ -1414,10 +1414,14 @@ function ciChangeType(blocked: boolean): (page: Page) => Promise<void> {
       await page.getByTestId('ci-actions-more').click({ timeout: STATE_TIMEOUT });
       await page.getByTestId('ci-change-type').click({ timeout: STATE_TIMEOUT });
       await page.getByTestId('ci-new-type').click({ timeout: STATE_TIMEOUT });
-      await page
-        .locator('.ant-select-dropdown:visible .ant-select-tree-node-content-wrapper')
+      const tree = page.locator('.ant-select-dropdown:visible');
+      await tree
+        .locator('.ant-select-tree-node-content-wrapper')
         .nth(1)
         .click({ timeout: STATE_TIMEOUT });
+      // The shot and axe wait for the tree to close: a fading dropdown fails contrast (run
+      // 44407478834) and hides the dialog.
+      await tree.waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
       await page
         .getByTestId(blocked ? 'ci-change-type-blocked' : 'ci-change-type-drops')
         .waitFor({ timeout: STATE_TIMEOUT });
