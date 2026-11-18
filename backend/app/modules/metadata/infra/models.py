@@ -53,9 +53,21 @@ class CustomField(TenantEntity):
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index("ix_custom_fields_tenant_entity_order", "tenant_id", "entity", "sort_order"),
+        # Fields scoped to a type and its subtypes (0175; plans/metadata-type-subtree-design).
+        Index(
+            "ix_custom_fields_tenant_entity_scope",
+            "tenant_id",
+            "entity",
+            "scope_type_id",
+            postgresql_where=text("scope_type_id IS NOT NULL"),
+        ),
     )
 
     entity: Mapped[str] = mapped_column(String(30))
+    # A type of the owning module (and every type below it), or None for the whole entity
+    # (0175). No foreign key: the type tables are another module's; checked through its
+    # type-tree port (metadata.register_type_tree).
+    scope_type_id: Mapped[uuid.UUID | None]
     key: Mapped[str] = mapped_column(String(40))
     field_type: Mapped[str] = mapped_column(String(20))
     labels: Mapped[dict[str, str]] = mapped_column(JSONB)

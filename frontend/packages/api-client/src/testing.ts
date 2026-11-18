@@ -778,6 +778,9 @@ export function fakeCustomField(overrides: Partial<CustomField> = {}): CustomFie
     index_error: null,
     sensitive: false,
     seal_state: 'plain',
+    // 0175: entity-wide and the entity's own unless a test scopes it to a type.
+    scope_type_id: null,
+    inherited: false,
     version: 1,
     ...overrides,
   };

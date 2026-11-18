@@ -6,6 +6,7 @@ export const ur: LabelResource = {
   'custom_field_display.radio': 'بٹن',
   'custom_field_entity.asset': 'اثاثے',
   'custom_field_entity.change': 'تبدیلیاں',
+  'custom_field_entity.ci': 'کنفیگریشن آئٹمز',
   'custom_field_entity.incident': 'واقعات',
   'custom_field_entity.problem': 'مسائل',
   'custom_field_entity.release': 'ریلیزز',

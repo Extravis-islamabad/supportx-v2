@@ -1,5 +1,6 @@
 """Custom field rules, pure domain (WP-026; REQ-INC-014, D-087). No I/O."""
 
+import uuid
 from decimal import Decimal
 
 import pytest
@@ -205,3 +206,35 @@ def test_expressions_are_guarded_and_index_matches_filter() -> None:
     for unsafe in ("x'; DROP TABLE users; --", "Cost", "a"):
         with pytest.raises(ValueError, match="unsafe"):
             value_sql("work_items", unsafe, FieldType.TEXT)
+
+
+# --- type-subtree scope (0175) ---
+
+_ROOT, _MID, _LEAF, _SIBLING = (uuid.uuid4() for _ in range(4))
+
+
+def test_a_scoped_field_applies_to_its_type_and_every_type_below() -> None:
+    from app.modules.metadata.domain.fields import in_scope  # noqa: PLC0415
+
+    leaf_lineage = [_LEAF, _MID, _ROOT]
+    assert in_scope(None, leaf_lineage)  # the whole entity
+    assert in_scope(_ROOT, leaf_lineage)  # a grandparent's field
+    assert in_scope(_LEAF, leaf_lineage)  # the type's own
+    assert not in_scope(_SIBLING, leaf_lineage)  # another branch
+    assert not in_scope(_LEAF, [_MID, _ROOT])  # a parent never sees its child's field
+
+
+def test_a_scope_widens_any_time_and_narrows_only_while_unused() -> None:
+    from app.modules.metadata.domain.fields import scope_change_allowed  # noqa: PLC0415
+
+    mid_lineage = [_MID, _ROOT]
+    # Widening: to an ancestor or to the whole entity, even once used.
+    assert scope_change_allowed(_MID, _ROOT, mid_lineage, in_use=True)
+    assert scope_change_allowed(_MID, None, mid_lineage, in_use=True)
+    assert scope_change_allowed(None, None, [], in_use=True)
+    # Narrowing or sideways: only while no record holds a value.
+    assert not scope_change_allowed(_MID, _LEAF, mid_lineage, in_use=True)
+    assert not scope_change_allowed(_MID, _SIBLING, mid_lineage, in_use=True)
+    assert not scope_change_allowed(None, _MID, [], in_use=True)
+    assert scope_change_allowed(None, _MID, [], in_use=False)
+    assert scope_change_allowed(_MID, _SIBLING, mid_lineage, in_use=False)

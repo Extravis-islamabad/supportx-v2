@@ -111,11 +111,26 @@ class CustomFieldOut(BaseModel):
         default=None, description='Who saved it last (an open editor says "changed by").'
     )
     changed_at: datetime | None = None
+    scope_type_id: uuid.UUID | None = Field(
+        default=None,
+        description="The type (and every type below it) the field applies to; null: all (0175).",
+    )
+    inherited: bool = Field(
+        default=False,
+        description="Asked for one type (`type_id`): the field is the whole entity's or a type"
+        " above's, so it is changed there, not here.",
+    )
     version: int
 
     @classmethod
-    def of(cls, row: CustomField, changed_by: str | None = None) -> "CustomFieldOut":
-        """From a row, with the name of who saved it last."""
+    def of(
+        cls,
+        row: CustomField,
+        changed_by: str | None = None,
+        *,
+        for_type: uuid.UUID | None = None,
+    ) -> "CustomFieldOut":
+        """From a row, with the name of who saved it last; `for_type`: the type asked for."""
         rules = row.validation or {}
         return cls(
             id=row.id,
@@ -146,6 +161,8 @@ class CustomFieldOut(BaseModel):
             seal_state=SealState(row.seal_state),
             changed_by=changed_by,
             changed_at=row.updated_at,
+            scope_type_id=row.scope_type_id,
+            inherited=for_type is not None and row.scope_type_id != for_type,
             version=row.version,
         )
 
@@ -164,6 +181,11 @@ class CustomFieldIn(BaseModel):
     default: Any = None
     validation: CustomFieldValidationIO = Field(default_factory=CustomFieldValidationIO)
     currency: str | None = Field(default=None, max_length=3, description="ISO 4217, currency type.")
+    scope_type_id: uuid.UUID | None = Field(
+        default=None,
+        description="Only records of this type and its subtypes (CI types, asset product types;"
+        " 0175). Null: the whole entity.",
+    )
 
 
 class CustomFieldPatch(BaseModel):
@@ -179,6 +201,11 @@ class CustomFieldPatch(BaseModel):
     validation: CustomFieldValidationIO | None = None
     currency: str | None = Field(default=None, max_length=3)
     retired: bool | None = None
+    scope_type_id: uuid.UUID | None = Field(
+        default=None,
+        description="Widen any time (an ancestor type, or null); narrower or sideways only while"
+        " unused (409 `custom_field_scope_in_use`).",
+    )
 
 
 class CustomFieldOrderIn(BaseModel):
@@ -203,12 +230,17 @@ async def list_fields(
     subject: SignedIn,
     entity: Annotated[CustomFieldEntity, Query()],
     include_removed: IncludeRemoved = False,  # noqa: FBT002 - a query parameter
+    type_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> list[CustomFieldOut]:
-    """Every field in display order; retired ones are marked, not hidden (old values)."""
+    """Every field in display order; retired ones are marked, not hidden (old values).
+
+    `type_id` (0175): only the fields records of that type have, each marked `inherited` when
+    it belongs to the whole entity or to a type above.
+    """
     _may_read(subject, entity)
-    rows = await service.list_fields(session, entity, removed=include_removed)
+    rows = await service.list_fields(session, entity, removed=include_removed, type_id=type_id)
     names = await service.editors(session, rows)
-    return [CustomFieldOut.of(r, names.get(r.id)) for r in rows]
+    return [CustomFieldOut.of(r, names.get(r.id), for_type=type_id) for r in rows]
 
 
 @router.post(
