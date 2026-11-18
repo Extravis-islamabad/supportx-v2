@@ -54,7 +54,11 @@ export const ar: LabelResource = {
   'action_reason.stage_tasks_open_named_two':
     'أنهِ مهمتَي هذه المرحلة المفتوحتين أولًا: {{task}} ومهمة أخرى.',
   'action_reason.stage_tasks_open_named_zero': 'أنهِ مهام هذه المرحلة أولًا.',
-  'action_reason.sub_releases_not_tested': 'يجب أن تجتاز إصداراته الفرعية الاختبار أولًا.',
+  'action_reason.sub_releases_not_tested': 'إصدارات فرعية لم تجتز الاختبار بعد: {{releases}}.',
+  'action_reason.sub_releases_not_tested_hidden':
+    'بعض الإصدارات الفرعية التي لا يمكنك فتحها لم تجتز الاختبار بعد.',
+  'action_reason.sub_releases_not_tested_others':
+    'إصدارات فرعية لم تجتز الاختبار بعد: {{releases}}، وأخرى لا يمكنك فتحها.',
   'action_reason.system_calendar': 'تحتفظ كل مؤسسة بهذا التقويم.',
   'action_reason.window_already_ended': 'لقد مضى وقت «يظهر حتى» بالفعل.',
   'action_reason.window_end_before_start': 'يجب أن يكون «يظهر حتى» بعد «يظهر من».',
