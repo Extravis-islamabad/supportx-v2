@@ -491,6 +491,20 @@ export const SCREENS: Screen[] = [
     app: 'console',
     state: { name: 'inherited', open: ciTypeFields },
   },
+  // 0175 part 2: changing a CI's type drops a field's value (danger, the field named), or is
+  // blocked by a field access rule.
+  {
+    key: 'ci-change-type',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}` : undefined),
+    app: 'console',
+    state: { name: 'drops', open: ciChangeType(false) },
+  },
+  {
+    key: 'ci-change-type-blocked',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}` : undefined),
+    app: 'console',
+    state: { name: 'blocked', open: ciChangeType(true) },
+  },
   {
     key: 'ci-versions-compare',
     path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
@@ -1220,6 +1234,40 @@ function ciMapFocus(menu: boolean): (page: Page) => Promise<void> {
   };
 }
 
+/** A CI custom-field definition as the API answers it, for mocked matrix states (0175 part 2). */
+const ciField = (key: string, en: string, ar: string, extra: Record<string, unknown> = {}) => ({
+  id: key, // callers set a UUID per row
+  entity: 'ci',
+  key,
+  field_type: 'text',
+  labels: { en, ar },
+  help: null,
+  choices: [],
+  display: 'list',
+  default: null,
+  validation: {
+    required: false,
+    min: null,
+    max: null,
+    min_length: null,
+    max_length: null,
+    pattern: null,
+  },
+  currency: null,
+  sort_order: 0,
+  retired: false,
+  removed: false,
+  in_use: true,
+  index_state: 'none',
+  index_error: null,
+  sensitive: false,
+  seal_state: 'plain',
+  scope_type_id: null,
+  inherited: false,
+  version: 1,
+  ...extra,
+});
+
 /**
  * A CI type's Fields page with every kind of row (0175 part 2), answered in the browser: a field
  * of every CI type, one from the parent type (read-only, "From Hardware"), and two of its own,
@@ -1232,38 +1280,7 @@ async function ciTypeFields(page: Page): Promise<void> {
   };
   const hardware = types.items.find((x) => x.api_name === 'hardware')?.id ?? null;
   const server = types.items.find((x) => x.api_name === 'server')?.id ?? null;
-  const field = (key: string, en: string, ar: string, extra: Record<string, unknown>) => ({
-    id: key, // replaced below by a UUID per row
-    entity: 'ci',
-    key,
-    field_type: 'text',
-    labels: { en, ar },
-    help: null,
-    choices: [],
-    display: 'list',
-    default: null,
-    validation: {
-      required: false,
-      min: null,
-      max: null,
-      min_length: null,
-      max_length: null,
-      pattern: null,
-    },
-    currency: null,
-    sort_order: 0,
-    retired: false,
-    removed: false,
-    in_use: true,
-    index_state: 'none',
-    index_error: null,
-    sensitive: false,
-    seal_state: 'plain',
-    scope_type_id: null,
-    inherited: false,
-    version: 1,
-    ...extra,
-  });
+  const field = ciField;
   const rows = [
     field('asset_owner_note', 'Owner note', 'ملاحظة المالك', { inherited: true }),
     field('rack_position', 'Rack position', 'موضع الحامل', {
@@ -1318,8 +1335,8 @@ async function ciCompare(page: Page): Promise<void> {
     };
     return route.fulfill({
       json: {
-        from_version: { ...empty, version: 1 },
-        to_version: { ...empty, version: 2 },
+        from_version: { ...empty, version: 1, masked_fields: ['custom.licence_key'] },
+        to_version: { ...empty, version: 2, masked_fields: ['custom.licence_key'] },
         attributes: [
           { field: 'name', kind: 'changed', old: 'Core switch', new: 'Core switch SW-01' },
           {
@@ -1329,6 +1346,8 @@ async function ciCompare(page: Page): Promise<void> {
             new: 'Floor 2 network core. '.repeat(12),
           },
           { field: 'criticality', kind: 'added', old: null, new: 'high' },
+          // A custom field by its label (0175 part 2).
+          { field: 'custom.os_version', kind: 'changed', old: 'Ubuntu 22.04', new: 'Ubuntu 24.04' },
         ],
         relationships_added: [
           { id: null, type_id: 'x', direction: 'forward', ci: { key: 'r1', restricted: true } },
@@ -1337,8 +1356,23 @@ async function ciCompare(page: Page): Promise<void> {
       },
     });
   };
+  const fields = '**/api/v1/custom-fields*';
+  const defined = (route: Route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({
+          json: [
+            ciField('os_version', 'Operating system', 'نظام التشغيل', {
+              id: '0190cccc-0000-7000-8000-0000000000a1',
+            }),
+            ciField('licence_key', 'Licence key', 'مفتاح الترخيص', {
+              id: '0190cccc-0000-7000-8000-0000000000a2',
+            }),
+          ],
+        })
+      : route.continue();
   await page.route(versions, listed);
   await page.route(compare, compared);
+  await page.route(fields, defined);
   try {
     await page.reload();
     const pick = async (testId: string, nth: number) => {
@@ -1356,7 +1390,41 @@ async function ciCompare(page: Page): Promise<void> {
   } finally {
     await page.unroute(versions, listed);
     await page.unroute(compare, compared);
+    await page.unroute(fields, defined);
   }
+}
+
+/**
+ * The CI's change-type dialog with a mocked preview (0175 part 2): `drops` names the field whose
+ * value would go and the button turns danger; `blocked` says the person may not change the type.
+ */
+function ciChangeType(blocked: boolean): (page: Page) => Promise<void> {
+  return async (page) => {
+    const url = '**/api/v1/cmdb/cis/*/change-type-preview*';
+    const answer = (route: Route) =>
+      route.fulfill({
+        json: {
+          dropped: [{ key: 'os_version', labels: { en: 'Operating system', ar: 'نظام التشغيل' } }],
+          blocked,
+        },
+      });
+    await page.route(url, answer);
+    try {
+      await page.reload();
+      await page.getByTestId('ci-actions-more').click({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-change-type').click({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-new-type').click({ timeout: STATE_TIMEOUT });
+      await page
+        .locator('.ant-select-dropdown:visible .ant-select-tree-node-content-wrapper')
+        .nth(1)
+        .click({ timeout: STATE_TIMEOUT });
+      await page
+        .getByTestId(blocked ? 'ci-change-type-blocked' : 'ci-change-type-drops')
+        .waitFor({ timeout: STATE_TIMEOUT });
+    } finally {
+      await page.unroute(url, answer);
+    }
+  };
 }
 
 /** The CI record's edit, with its save beaten by someone else's (a 409 answered here). */

@@ -172,6 +172,7 @@ function CiRecord({ ci }: { ci: Ci }) {
       }
       actions={
         <HeaderActions
+          testId="ci-actions"
           primary={
             ci.can_edit && !editing ? (
               <WriteButton

@@ -17,6 +17,7 @@ import {
 import {
   DateTimeField,
   PropertyList,
+  RestrictedValue,
   ToneTag,
   useAppearance,
   useDateTime,
@@ -326,6 +327,14 @@ export function Comparison({ ciId, pair }: { ciId: string; pair: { from: number;
   if (found.isError)
     return <Alert type="info" showIcon message={t('errors.cmdb_ci_version_not_found')} />;
   const result = found.data;
+  // Fields either version holds but this reader sees masked (ADR-047): named, never shown or
+  // compared, as on the record (lane C, #550).
+  const masked = [
+    ...new Set([
+      ...(result.from_version.masked_fields ?? []),
+      ...(result.to_version.masked_fields ?? []),
+    ]),
+  ].sort();
   const links = [
     ...result.relationships_added.map((link) => ({ kind: 'added' as const, link })),
     ...result.relationships_removed.map((link) => ({ kind: 'removed' as const, link })),
@@ -361,6 +370,20 @@ export function Comparison({ ciId, pair }: { ciId: string; pair: { from: number;
                     </Typography.Text>
                   )}
                 </Flex>
+              </List.Item>
+            )}
+          />
+        )}
+        {masked.length > 0 && (
+          <List
+            size="small"
+            dataSource={masked}
+            renderItem={(field) => (
+              <List.Item data-testid={`ci-compare-masked-${field}`}>
+                <Space wrap>
+                  <Typography.Text strong>{label(field)}</Typography.Text>
+                  <RestrictedValue kind="masked" />
+                </Space>
               </List.Item>
             )}
           />
