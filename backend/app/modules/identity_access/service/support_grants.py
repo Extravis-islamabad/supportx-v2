@@ -18,17 +18,21 @@ Only tenant admins: grants are a tenant-admin decision (D-173 (1)), so `identity
 not enough.
 """
 
+import ipaddress
+import secrets
+import string
 import uuid
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import Conflict, NotFound, PermissionDenied
+from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.domain.permissions import TENANT_ADMIN
@@ -36,6 +40,7 @@ from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.events import SupportGrantChanged, VendorSupportSettingChanged
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
+    IdentityAdminNotConfigured,
     IdentityAdminRefused,
     IdentityAdminUnavailable,
 )
@@ -46,8 +51,12 @@ from app.modules.identity_access.infra.models import (
     User,
     UserRole,
 )
+from app.modules.identity_access.service.directory import UserRepository
+from app.modules.identity_access.service.sso import organization_of
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
+from app.shared.ids import new_id
+from app.shared.mail.service.outgoing import mail_configured
 
 log = get_logger(__name__)
 
@@ -412,3 +421,196 @@ async def due(session: AsyncSession, now: datetime) -> list[uuid.UUID]:
         )
     )
     return list(rows)
+
+
+# --- making a grant ------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Made:
+    """A new grant, how the engineer gets in, and the one-time password when the admin passes it.
+
+    The password is shown once in the console (D-173) and is never logged, stored or e-mailed;
+    it exists only on the out-of-band path (lane B (11)). `admin_could_act` is shown on the grant
+    and recorded in the audit, so a review can tell which grants an admin could have used.
+    """
+
+    grant: GrantView
+    delivery: rules.Delivery
+    admin_could_act: bool
+    one_time_password: str | None = field(default=None, repr=False)
+
+
+def _one_time_password() -> str:
+    """A password that meets any realm policy we set: 24 characters, every class, random."""
+    alphabet = string.ascii_letters + string.digits
+    body = "".join(secrets.choice(alphabet) for _ in range(20))
+    return (
+        body
+        + secrets.choice(string.ascii_uppercase)
+        + secrets.choice(string.ascii_lowercase)
+        + secrets.choice(string.digits)
+        + secrets.choice("!#%+-=?@^_")
+    )
+
+
+def _networks(given: Sequence[str]) -> list[str]:
+    """The IP list as normalised CIDRs; a bad entry is a 422 naming it."""
+    out: list[str] = []
+    for entry in given:
+        try:
+            out.append(str(ipaddress.ip_network(entry.strip(), strict=False)))
+        except ValueError as exc:
+            raise ValidationFailed(
+                errors=[
+                    FieldError(
+                        field="body.ip_allowlist",
+                        code="invalid_network",
+                        message_key="errors.field.invalid_network",
+                        params={"value": entry[:64]},
+                    )
+                ]
+            ) from exc
+    return out
+
+
+def _refuse(problems: list[tuple[str, str]]) -> ValidationFailed:
+    return ValidationFailed(
+        errors=[
+            FieldError(field=f"body.{f}", code=c, message_key=f"errors.field.{c}")
+            for f, c in problems
+        ]
+    )
+
+
+async def create_grant(  # noqa: PLR0913 - the request, its context and the account port
+    session: AsyncSession,
+    subject: Subject,
+    request: rules.GrantRequest,
+    *,
+    settings: Settings,
+    admin: IdentityAdmin | None,
+    now: datetime,
+    source: Source,
+) -> Made:
+    """Make a grant and its temporary account; refused unless every D-173 rule holds.
+
+    Order: every check, then the grant row (its UUIDv7 names the account), then the Keycloak
+    account; if Keycloak fails after the account exists, the account is deleted again and the
+    transaction rolls back, so no half-made grant remains.
+    """
+    await require_tenant_admin(session, subject)
+    problems = rules.grant_problems(
+        request,
+        allowed_domains=settings.vendor_support_email_domains,
+        open_grants=await open_grants(session),
+        opted_out=await never_allowed(session),
+    )
+    if problems:
+        raise _refuse(problems)
+    delivery = rules.delivery_for(request.verification, mail_available=mail_configured(settings))
+    if delivery is None:
+        raise Conflict(code=rules.PENDING_DECISION)
+    if admin is None:
+        raise IdentityAdminNotConfigured
+    networks = _networks(request.ip_allowlist)
+    starts_at, ends_at = rules.window(now, request.hours)
+    grant_id = new_id()
+    address = rules.account_email(request.engineer_email, grant_id)
+    if address is None:  # grant_problems refused it already; kept for the type checker
+        raise _refuse([("engineer_email", "support_email_not_taggable")])
+    out_of_band = request.verification is rules.Verification.OUT_OF_BAND
+    row = SupportGrant(
+        id=grant_id,
+        engineer_name=request.engineer_name.strip(),
+        engineer_email=request.engineer_email.strip().lower(),
+        reason=request.reason.strip(),
+        ticket_ref=(request.ticket_ref or "").strip() or None,
+        access=request.access.value,
+        change_reason=(request.change_reason or "").strip() or None
+        if request.access is rules.Access.VIEW_AND_CHANGE
+        else None,
+        unmask_personal=request.unmask_personal,
+        ip_allowlist=networks,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        state=rules.GrantState.PENDING_VERIFICATION.value,
+        verification=request.verification.value,
+        confirmed_by=subject.user_id if out_of_band else None,
+        confirmation_note=(request.confirmation_note or "").strip() or None
+        if out_of_band
+        else None,
+        created_by=subject.user_id,
+        updated_by=subject.user_id,
+    )
+    session.add(row)
+    await session.flush()
+    organization = await organization_of(session, admin)
+    account = await admin.create_user(
+        email=address,
+        first_name=row.engineer_name[:100],
+        last_name="",
+        locale="en",
+        email_verified=out_of_band,  # never proven by mail on that path; the warning says so
+    )
+    password: str | None = None
+    try:
+        await admin.add_member(organization.id, account)
+        actions = list(rules.actions_for(request.verification))
+        if delivery is rules.Delivery.ACTIONS_EMAIL:
+            await admin.send_actions_email(
+                account, actions, rules.link_lifespan_seconds(now, ends_at)
+            )
+        else:
+            password = _one_time_password()
+            await admin.set_password(account, password)
+            await admin.require_actions(account, actions)
+        person = await UserRepository(session).add(
+            User(
+                external_subject=account,
+                email=address,
+                display_name=row.engineer_name[:100],
+                first_name=row.engineer_name[:100],
+                user_type=rules.SUPPORT_USER_TYPE,
+                can_sign_in=True,
+                roles_mapped_at=now,  # SupportX's roles only, never Keycloak's (as S4a)
+            )
+        )
+        row.support_user_id = person.id
+        await session.flush()
+    except Exception:
+        try:
+            await admin.delete_user(account)
+        except (IdentityAdminRefused, IdentityAdminUnavailable):
+            log.warning("support_grant_account_cleanup_failed", grant_id=str(grant_id))
+        raise
+    await record_changes(
+        session,
+        record_type=GRANT_RECORD_TYPE,
+        record_id=row.id,
+        version=row.version,
+        kind="created",
+        changes=[
+            Change("state", None, row.state),
+            Change("access", None, row.access),
+            Change("verification", None, row.verification),
+        ],
+        source=source,
+    )
+    await record_event(
+        session,
+        SupportGrantChanged(
+            grant_id=row.id,
+            change="created",
+            access=rules.Access(row.access).value,
+            ends_at=row.ends_at,
+        ),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
+    return Made(
+        grant=_view(row),
+        delivery=delivery,
+        admin_could_act=rules.admin_could_act_as_engineer(delivery),
+        one_time_password=password,
+    )
