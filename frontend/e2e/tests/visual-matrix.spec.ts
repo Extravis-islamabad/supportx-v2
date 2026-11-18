@@ -381,6 +381,15 @@ async function starredUnreadColoured(page: Page): Promise<void> {
     page.locator('.ant-select-item-option', { hasText: STARRED_VIEW }),
   );
   await page.locator('.ant-select-item-option', { hasText: STARRED_VIEW }).first().click();
+  // The picker's list fades out: shot only once it is gone (lane C; #548's compare state too).
+  try {
+    await page
+      .locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')
+      .first()
+      .waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
+  } catch {
+    throw new Error('starred-unread-coloured: the view picker did not close');
+  }
   await seen('star toggle', page.getByTestId('inc-view-star'));
   await seen('unread row', page.locator('[data-unread="true"]'));
   await seen('row colour mark', page.locator('[data-row-mark]'));
