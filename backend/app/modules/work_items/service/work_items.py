@@ -1375,6 +1375,7 @@ async def history(  # noqa: PLR0913 - paging options, explicit
             )
             for e in entries
         ]
+    entries = await _unseen_links_hidden(session, subject, entries)
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
         value
@@ -1394,6 +1395,62 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         if isinstance(value, dict) and value.get("owner_id")
     }
     return entries, cursor, names, await user_contacts(session, sorted(named))
+
+
+def _link_target(value: object) -> uuid.UUID | None:
+    if isinstance(value, dict) and value.get("id"):
+        try:
+            return uuid.UUID(str(value["id"]))
+        except ValueError:
+            return None
+    return None
+
+
+async def _unseen_links_hidden(
+    session: AsyncSession, subject: Subject, entries: list[HistoryEntry]
+) -> list[HistoryEntry]:
+    """A link's other record shows in history only if the reader may see it.
+
+    A link change holds the other record's ID and number; the links list already hides a side
+    the reader may not see, and history must too: the line stays (a link was added or removed,
+    of which kind), the other record becomes "a record you can't open" (`hidden`), never its
+    number or ID. Each other record is checked by its own type's view right (lane C).
+    """
+    targets = {
+        target
+        for e in entries
+        for c in e.changes
+        if c.field == "link"
+        for target in (_link_target(c.old), _link_target(c.new))
+        if target is not None
+    }
+    if not targets:
+        return entries
+    seen: set[uuid.UUID] = set()
+    for target in targets:
+        kind = await session.scalar(select(WorkItem.type).where(WorkItem.id == target))
+        other = TYPES.get(WorkItemTypeCode(kind)) if kind is not None else None
+        if other is not None and await _may(session, subject, other, "view", target):
+            seen.add(target)
+    if targets <= seen:
+        return entries
+
+    def shown(value: Any) -> Any:  # noqa: ANN401 - a stored history value
+        target = _link_target(value)
+        if target is None or target in seen:
+            return value
+        return {"kind": value.get("kind"), "id": None, "display_id": None, "hidden": True}
+
+    return [
+        replace(
+            e,
+            changes=[
+                Change(c.field, shown(c.old), shown(c.new)) if c.field == "link" else c
+                for c in e.changes
+            ],
+        )
+        for e in entries
+    ]
 
 
 async def assignees(  # noqa: PLR0913 - search options, explicit
@@ -3608,7 +3665,13 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
         raise _errors(missing)
     guard = stage_service.guard_of(record.type)
     refusals = [] if guard is None else await guard.check(session, record, move)
-    if refusals:  # the full list (lane A), the first one also on its own for simple screens
+    if refusals:
+        # A guard knows no person: each refusal is worded for this one, so it never names a
+        # record they may not see (the sub-releases behind, lane C).
+        from app.modules.work_items.service import release_links  # noqa: PLC0415 - cycle
+
+        refusals = [await release_links.named_for(session, subject, r) for r in refusals]
+        # The full list (lane A), the first one also on its own for simple screens.
         raise Conflict(
             code="stage_move_refused",
             params={

@@ -16,7 +16,7 @@ Expand only, no data step. The downgrade refuses per tenant (with `app.tenant_id
 forces RLS) while a field is scoped or a `ci` field exists, keeping the data (rule 5h).
 
 Revision ID: 0175
-Revises: 0174 (main's head while building; re-pointed at its queue turn)
+Revises: 0176 (main's head at its queue turn, after #533)
 Created: 2026-11-17
 """
 
@@ -27,7 +27,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0175"
-down_revision: str | None = "0174"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0176"  # main's head at its queue turn (after #533)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -325,6 +325,7 @@ export const ur: LabelResource = {
   'nav.admin_catalog': 'سروس کیٹلاگ',
   'nav.admin_change_boards': 'تبدیلی مشاورتی بورڈ',
   'nav.admin_change_windows': 'فریز اور مینٹیننس ونڈوز',
+  'nav.admin_erasures': 'مٹانے کی درخواستیں',
   'nav.admin_files': 'فائلیں',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'واقعات',
@@ -804,6 +805,9 @@ export const ur: LabelResource = {
   'setup.page.change-windows.description':
     'کب تبدیلیاں نہیں ہونی چاہئیں اور کب ہونی چاہئیں: فریز اور مینٹیننس ونڈوز، سب کے لیے یا کچھ سائٹس اور گروپس کے لیے۔',
   'setup.page.change-windows.keywords': 'فریز, تبدیلی فریز, مینٹیننس ونڈو, تبدیلیوں کا کیلنڈر',
+  'setup.page.erasures.description':
+    'کسی شخص کے ڈیٹا کو مٹانے کی درخواست، منظوری اور پیروی (GDPR)، ان جگہوں کی رپورٹ کے ساتھ جہاں ان کا ذکر ہے۔',
+  'setup.page.erasures.keywords': 'مٹانا، GDPR، رازداری، بھول جانے کا حق، ذاتی ڈیٹا، قانونی روک',
   'setup.page.files.description': 'اپ لوڈ کی حدیں، اجازت یافتہ فائل اقسام اور میلویئر اسکیننگ۔',
   'setup.page.files.keywords': 'فائلیں، منسلکات، اپ لوڈ، سائز، اسٹوریج، میلویئر، وائرس، اسکیننگ',
   'setup.page.incidents.description': 'واقعات کے لیول، زمرے، سانچے، بندش کوڈ اور وجوہات۔',
@@ -843,7 +847,7 @@ export const ur: LabelResource = {
   'setup.page.security.keywords':
     'سیکیورٹی، پاس ورڈ، دو مرحلہ، سنگل سائن آن، سیشن، ٹائم آؤٹ، دعوت نامے، کلیدیں',
   'setup.page.service-accounts.description':
-    'وہ اکاؤنٹ جن سے دوسرے سسٹم کام کرتے ہیں، ہر ایک کا ذمہ دار مالک، اس کے کردار اور کلیدیں۔',
+    'وہ اکاؤنٹ جن کے ذریعے دوسرے سسٹم API کلیدوں سے کام کرتے ہیں، ہر ایک کا ذمہ دار مالک اور اس کے کردار۔',
   'setup.page.service-accounts.keywords': 'سروس اکاؤنٹس، انضمام، مالک، حوالگی، خودکاری، API',
   'setup.page.sla.description': 'سروس اہداف، کام کے اوقات، چھٹیاں اور ایسکلیشن۔',
   'setup.page.sla.keywords': 'SLA، اہداف، جوابی وقت، حل، کاروباری اوقات، کیلنڈر، چھٹیاں، ایسکلیشن',

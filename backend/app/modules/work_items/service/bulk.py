@@ -346,15 +346,19 @@ async def _batch(
     structlog.contextvars.bind_contextvars(request_id=f"{BATCH_PREFIX}{found.id}")
     try:
         for record_id in record_ids:
-            display_id = await session.scalar(
-                select(WorkItem.display_id).where(WorkItem.id == record_id)
-            )
+            # A record the person cannot see is refused here, as one that does not exist, before
+            # any action runs and without its number, whichever check an action makes first
+            # (lane C, WP-046b S4): only a record they see but may not change says why, by name.
+            display_id = await _seen_display_id(session, subject, wtype, record_id)
             try:
+                if display_id is None:
+                    raise NotFound(code="work_item_not_found")
                 async with session.begin_nested():
                     await _apply(session, subject, wtype, found, record_id)
             except AppError as refused:
                 found.skipped_count += 1
-                results.append(_skipped(record_id, display_id, refused))
+                shown = None if isinstance(refused, NotFound) else display_id
+                results.append(_skipped(record_id, shown, refused))
             else:
                 found.done_count += 1
                 results.append(
@@ -366,6 +370,17 @@ async def _batch(
         structlog.contextvars.unbind_contextvars("request_id")
     found.results = results
     await _progress(session, found)
+
+
+async def _seen_display_id(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> str | None:
+    """The record's number when the person may see it; None when they may not, or it is gone."""
+    try:
+        record = await items.visible_record(session, subject, wtype, record_id)
+    except NotFound:
+        return None
+    return record.display_id
 
 
 def _skipped(record_id: uuid.UUID, display_id: str | None, refused: AppError) -> dict[str, Any]:

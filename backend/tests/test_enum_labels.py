@@ -18,6 +18,8 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles
+    "SecuritySeverity": "security_severity",
     "FieldMode": "field_mode",  # ADR-047: field access per role
     "ErasureState": "people_erasure.state",  # GDPR erasure (D-171, ADR-052)
     "ErasureReason": "people_erasure.reason",
@@ -55,6 +57,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "CopyPart": "problem_follow_up_copy",
     "RecordCopyPart": "record_copy_part",  # WP-046a S5c (REQ-INC-033)
     "OutcomeIn.outcome": "ai_outcome",
+    # CMDB (WP-053 S1)
+    "CiImpact": "cmdb_impact",
+    "CiSource": "cmdb_ci_source",
+    "CiStateCategory": "cmdb_state_category",
+    "CiSkippedAsset.reason": "cmdb_skip_reason",
+    "CiHistoryEntryOut.actor_type": "actor_type",
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
     "AssetDepreciationMethod": "asset_depreciation",

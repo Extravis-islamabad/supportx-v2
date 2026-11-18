@@ -1,4 +1,5 @@
 import type { AnnouncementsQuery } from './announcements';
+import type { CisQuery } from './cmdb';
 import type { BookingsQuery, ConsumablesQuery } from './assetStock';
 import type {
   AssetHistoryFilters,
@@ -55,6 +56,7 @@ export const queryKeys = {
     invitations: ['identity', 'invitations'] as const,
     personInvitations: (userId: string) => ['identity', 'invitations', userId] as const,
     mfa: ['identity', 'mfa'] as const,
+    overview: ['identity', 'security-overview'] as const,
     networkRules: ['identity', 'network-rules'] as const,
     siteNetworks: ['identity', 'site-networks'] as const,
     ssoPolicy: ['identity', 'sso-policy'] as const,
@@ -134,6 +136,16 @@ export const queryKeys = {
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here
     list: (activeOnly: boolean) => ['vendors', 'list', activeOnly] as const,
+  },
+  cmdb: {
+    all: ['cmdb'] as const,
+    types: ['cmdb', 'types'] as const,
+    states: ['cmdb', 'states'] as const,
+    settings: ['cmdb', 'settings'] as const,
+    list: (query: CisQuery) => ['cmdb', 'list', query] as const,
+    detail: (id: string) => ['cmdb', 'detail', id] as const,
+    history: (id: string) => ['cmdb', 'history', id] as const,
+    picker: (search: string, typeId: string | null) => ['cmdb', 'picker', search, typeId] as const,
   },
   announcements: {
     all: ['announcements'] as const,

@@ -30,6 +30,7 @@ from app.modules.identity_access.service.person_data import (
 )
 from app.modules.identity_access.service.person_mention_ports import LANE_B_MENTION_PORTS
 from app.shared.erasure import ERASED_ON_REQUEST
+from tests.erasure_pending import PENDING_MENTIONS
 from tests.test_error_labels import label_keys
 
 if TYPE_CHECKING:
@@ -101,6 +102,7 @@ def test_every_required_mentions_port_is_registered() -> None:
     """Every module the report needs has its port since #516: an erasure can be approved."""
     import app.modules.announcements  # noqa: PLC0415 - registers lane C's port
     import app.modules.assets  # noqa: PLC0415 - registers the assets port
+    import app.modules.cmdb  # noqa: PLC0415 - registers the CMDB port (0176)
     import app.modules.identity_access  # noqa: PLC0415 - registers lane B's ports
     import app.modules.integrations  # noqa: PLC0415 - registers lane A's port
     import app.modules.knowledge  # noqa: PLC0415 - registers lane C's port
@@ -112,8 +114,10 @@ def test_every_required_mentions_port_is_registered() -> None:
         "integrations",
         "knowledge",
         "announcements",
+        "cmdb",
     } <= REQUIRED_MENTION_PORTS
-    assert missing_mention_ports(registered) == []
+    # Only the keys whose real ports are still to come (tests/erasure_pending.py) are missing.
+    assert missing_mention_ports(registered) == sorted(PENDING_MENTIONS)
     for port in LANE_B_MENTION_PORTS:
         assert isinstance(port, PersonMentions)
 

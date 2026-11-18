@@ -15,6 +15,7 @@ export const ar: LabelResource = {
   'errors.action_link_sign_in_required': 'سجّل الدخول للموافقة على هذا الطلب أو رفضه.',
   'errors.action_link_stale': 'تغيّر الطلب منذ إرسال هذا الرابط. افتحه في التطبيق.',
   'errors.action_link_used': 'تم استخدام هذا الرابط من قبل.',
+  'errors.alias_not_found': 'لا يوجد سجل يمكنك فتحه بهذا الرقم الآن.',
   'errors.already_known_error': '{{display_id}} خطأ معروف بالفعل.',
   'errors.already_on_version': 'هذا التشغيل على هذا الإصدار بالفعل.',
   'errors.already_taken': 'تولّى {{taken_by}} هذا للتو. أعد التحميل لرؤيته.',
@@ -299,6 +300,7 @@ export const ar: LabelResource = {
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
   'errors.field.address_not_allowed':
     'لا يمكن استخدام عنوان الخادم هذا. استخدم الاسم العام لخادم البريد.',
+  'errors.field.already_has_parent': 'لهذا الحادث حادث رئيسي بالفعل؛ أزله من هناك أولًا.',
   'errors.field.already_linked': 'هذان السجلان مرتبطان بالفعل.',
   'errors.field.announcement_message_required': 'اكتب الرسالة التي سيراها الناس.',
   'errors.field.api_key_allowlist_invalid': 'أدخل حتى 20 عنوانًا أو شبكة صالحة، مثل 10.0.0.0/8.',
@@ -386,10 +388,13 @@ export const ar: LabelResource = {
   'errors.field.chair_inactive': 'اختر شخصًا نشطًا رئيسًا.',
   'errors.field.change_in_other_release':
     'هذا التغيير موجود بالفعل في الإصدار المفتوح {{release}}.',
+  'errors.field.change_in_other_release_unseen':
+    'هذا التغيير موجود بالفعل في إصدار مفتوح آخر لا يمكنك فتحه.',
   'errors.field.change_would_loop':
     'لا يمكن أن يكون التغيير جزءًا من نفسه، مباشرة أو عبر تغييرات أخرى.',
   'errors.field.channel_reserved':
     'يمكن اختيار الهاتف أو الحضور الشخصي فقط؛ تُحدَّد القنوات الأخرى تلقائيًا.',
+  'errors.field.child_has_children': 'لهذا الحادث حوادث فرعية، فلا يمكن أن يصبح فرعيًا.',
   'errors.field.choices_required': 'أضف خيارًا واحدًا على الأقل.',
   'errors.field.code_taken': 'هذا الرمز مستخدم بالفعل.',
   'errors.field.comment_required': 'أضف تعليقًا: هذا البند يتطلب تعليقًا.',
@@ -590,6 +595,7 @@ export const ar: LabelResource = {
   'errors.field.out_of_range': 'هذا الرقم خارج النطاق المسموح به.',
   'errors.field.owner_not_allowed':
     'لا يملك هذا الشخص صلاحية إدارة الإعلانات، لذا لا يمكن أن يكون مالكًا.',
+  'errors.field.parent_is_a_child': 'هذا الحادث فرعي بنفسه، فلا يمكن أن تكون له حوادث فرعية.',
   'errors.field.parent_loop': 'سيجعله هذا أصلًا لنفسه.',
   'errors.field.password_breached': 'كلمة المرور هذه معروفة من تسريبات بيانات. اختر غيرها.',
   'errors.field.password_is_email': 'يجب ألا تكون عنوان بريدك الإلكتروني.',
@@ -625,6 +631,7 @@ export const ar: LabelResource = {
     'هذا الشخص في عدة مجموعات: اختر المجموعة التي ينتقل إليها السجل.',
   'errors.field.recipient_shape': 'اختر الشخص أو المجموعة لهذا المستلم.',
   'errors.field.recipients_required': 'اختر شخصًا أو مجموعة واحدة على الأقل.',
+  'errors.field.record_closed': 'لا يمكن ربط الحوادث المغلقة كحادث رئيسي أو فرعي.',
   'errors.field.record_not_found': 'لا يوجد سجل يمكنك رؤيته بهذا المعرّف.',
   'errors.field.replies_are_public': 'تذهب الردود إلى أشخاص خارج الفريق، لذا فهي عامة دائمًا.',
   'errors.field.report_not_found': 'هذا التقرير غير موجود أو غير مشارك معك.',
@@ -951,6 +958,10 @@ export const ar: LabelResource = {
   'errors.managed_by_directory': 'يحتفظ الدليل بهذا الحقل. غيّره من هناك.',
   'errors.measure_not_permitted':
     'لا يمكنك رؤية هذا الرقم: يحتاج إلى صلاحية الوصول إلى بياناته (لأموال الأصول، صلاحية رؤية البيانات المالية).',
+  'errors.merge_undo_not_exact':
+    'لم يعد ممكنًا التراجع عن هذا الدمج بدقة، لأن الحوادث تغيّرت منذ ذلك الحين.',
+  'errors.merge_widens_audience':
+    'الدمج يسمح لعدد أكبر برؤية هذه الحوادث: {{staff}} من الموظفين و{{requesters}} من مقدمي طلب الحادث المُبقى و{{followers}} من مقدمي طلب الحادث المكرر. أكّد للمتابعة.',
   'errors.message_refused': 'رفض خادم البريد الرسالة.',
   'errors.method_not_allowed': 'هذا الإجراء غير مدعوم هنا.',
   'errors.mfa_enrolment_unavailable':
@@ -971,6 +982,7 @@ export const ar: LabelResource = {
   'errors.not_cancelable_from_here': 'لا يمكن إلغاؤه من مكانه الحالي.',
   'errors.not_closable_from_here':
     'لا يمكن إغلاقه من مرحلته الحالية. انقله إلى المرحلة التالية أولًا.',
+  'errors.not_convertible': 'لا يمكن تحويل هذا النوع من السجلات.',
   'errors.not_found': 'العنصر غير موجود.',
   'errors.not_known_error': '{{display_id}} ليس خطأً معروفًا.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
@@ -1120,6 +1132,7 @@ export const ar: LabelResource = {
   'errors.storage_quota_exceeded':
     'مساحة تخزين الملفات لمؤسستك ممتلئة ({{used_gb}} من {{limit_gb}} غيغابايت).',
   'errors.storage_unavailable': 'تعذّر الوصول إلى تخزين الملفات. حاول لاحقًا أو تواصل مع المسؤول.',
+  'errors.survivor_is_a_child': '{{display_id}} حادث فرعي لحادث آخر، فلا يمكن أن يأخذ حوادث فرعية.',
   'errors.system_calendar_required': 'تحتفظ كل مؤسسة بهذا التقويم، لذا لا يمكن حذفه.',
   'errors.system_role_immutable': 'لا يمكن تغيير الأدوار المضمّنة أو حذفها.',
   'errors.system_role_not_deletable':

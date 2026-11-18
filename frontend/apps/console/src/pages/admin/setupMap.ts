@@ -93,6 +93,13 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     labelKey: 'nav.admin_api_keys',
     permission: 'api_keys.manage',
   },
+  // ADR-052 (D-171): people's erasures, for those who may erase (people.erase).
+  {
+    key: 'erasures',
+    group: 'people_access',
+    labelKey: 'nav.admin_erasures',
+    permission: 'people.erase',
+  },
   {
     key: 'service-accounts',
     group: 'people_access',
@@ -168,6 +175,13 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     labelKey: 'nav.admin_assets',
     permission: 'config.assets',
     also: 'settings.manage',
+  },
+  // The CMDB's types, states and settings (WP-053 S1).
+  {
+    key: 'cmdb',
+    group: 'assets',
+    labelKey: 'nav.admin_cmdb',
+    permission: 'cmdb.configure',
   },
   {
     key: 'automation',

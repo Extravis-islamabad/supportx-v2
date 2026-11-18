@@ -180,6 +180,7 @@ ACTIONS: dict[str, Action] = _actions(
     # GDPR person erasure and legal hold (D-171, ADR-052): every step, with the reason
     ("person.legal_hold_set", AuditCategory.DATA, "identity_access"),
     ("person.legal_hold_lifted", AuditCategory.DATA, "identity_access"),
+    ("person.legal_hold_viewed", AuditCategory.DATA, "identity_access"),
     ("person.erasure_requested", AuditCategory.DATA, "identity_access"),
     ("person.erasure_approved", AuditCategory.DATA, "identity_access"),
     ("person.erasure_rejected", AuditCategory.DATA, "identity_access"),
@@ -191,6 +192,7 @@ ACTIONS: dict[str, Action] = _actions(
     # the mentions report (S1b, D-171 a): reviewed, each passage viewed, each mention redacted
     ("person.erasure_report_reviewed", AuditCategory.DATA, "identity_access"),
     ("person.erasure_mention_viewed", AuditCategory.DATA, "identity_access"),
+    ("person.uploads_listed", AuditCategory.DATA, "identity_access"),
     ("person.erasure_mention_redacted", AuditCategory.DATA, "identity_access"),
     # organisation
     ("site.created", AuditCategory.ORGANISATION, "organization"),
@@ -275,6 +277,13 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.checklist_library_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.checklist_library_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("announcement.settings_changed", AuditCategory.CONFIGURATION, "announcements"),
+    ("cmdb.ci_type_created", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.ci_type_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.ci_type_deleted", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.ci_state_created", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.ci_state_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.ci_state_deleted", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.settings_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("notification.rule_changed", AuditCategory.CONFIGURATION, "notifications"),
     ("notification.rule_reset", AuditCategory.CONFIGURATION, "notifications"),
     ("mailbox.created", AuditCategory.CONFIGURATION, "integrations"),
@@ -359,6 +368,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.approval_requested", AuditCategory.RECORDS, "work_items"),  # WP-046b S1
     ("incident.closed_edited", AuditCategory.RECORDS, "work_items"),  # WP-046b S1, REQ-INC-101
     ("incident.closed_edit_lock_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S1
+    ("incident.merge_undone", AuditCategory.RECORDS, "work_items"),  # WP-046b S2, both IDs
+    ("incident.converted", AuditCategory.RECORDS, "work_items"),  # WP-046b S2, both IDs
+    ("service_request.converted", AuditCategory.RECORDS, "work_items"),
     ("problem.approval_decided", AuditCategory.RECORDS, "work_items"),
     ("problem.investigator_removed", AuditCategory.RECORDS, "work_items"),
     # WP-044c D16 (REQ-PRB-068): repeat incident rules and what was done with their sets.

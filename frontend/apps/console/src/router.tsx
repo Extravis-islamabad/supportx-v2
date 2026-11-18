@@ -27,6 +27,25 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/SectionPage')).SectionPage }),
       })),
       {
+        // WP-053 S1: the CMDB home, a new CI and one CI.
+        path: 'cmdb',
+        handle: { section: 'cmdb' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({ Component: (await import('./pages/cmdb/CmdbPage')).CmdbPage }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({ Component: (await import('./pages/cmdb/NewCiPage')).NewCiPage }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({ Component: (await import('./pages/cmdb/CiPage')).CiPage }),
+          },
+        ],
+      },
+      {
         // WP-049a s2: the asset list, vendors and one asset.
         path: 'assets',
         handle: { section: 'assets' },
@@ -389,6 +408,19 @@ export const routes: RouteObject[] = [
             lazy: async () => ({ Component: (await import('./pages/admin/UsersPage')).UsersPage }),
           },
           {
+            // ADR-052 (D-171): people's erasures, the list and one erasure.
+            path: 'erasures',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/erasures/ErasuresPage')).ErasuresPage,
+            }),
+          },
+          {
+            path: 'erasures/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/erasures/ErasurePage')).ErasurePage,
+            }),
+          },
+          {
             path: 'organization/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/organization/OrganizationPage'))
@@ -452,6 +484,13 @@ export const routes: RouteObject[] = [
             path: 'assets',
             lazy: async () => ({
               Component: (await import('./pages/admin/assets/AssetCatalogPage')).AssetCatalogPage,
+            }),
+          },
+          {
+            // WP-053 S1: CI types, states and the CMDB settings (template E).
+            path: 'cmdb',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/cmdb/CmdbAdminPage')).CmdbAdminPage,
             }),
           },
           {

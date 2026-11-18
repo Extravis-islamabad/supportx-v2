@@ -17,7 +17,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Conflict, NotFound, PermissionDenied
+from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
@@ -29,6 +29,10 @@ from app.shared.history import Change, Source
 
 SUB = LinkKind.SUB_RELEASE_OF.value
 SUB_RELEASES_NOT_TESTED = "sub_releases_not_tested"  # a guard refusal code
+# The same refusal when some, or all, of the sub-releases behind are ones the person cannot open:
+# they learn that hidden ones exist (why the move is blocked), never their numbers or how many.
+SUB_RELEASES_SOME_HIDDEN = "sub_releases_not_tested_others"
+SUB_RELEASES_ALL_HIDDEN = "sub_releases_not_tested_hidden"
 # The stage a parent may not enter before its sub-releases have passed testing, and the stage
 # they must be past.
 GUARDED_STAGE, PASSED_STAGE = "deployment", "testing"
@@ -239,10 +243,47 @@ async def sub_release_refusals(
     for child in await children_of(session, record.id):
         order = list(model.path(str(child.stage_path)).stages) if child.stage_path else []
         if not _passed(child, order):
-            behind.append(child.display_id)
+            behind.append(str(child.id))
     if not behind:
         return []
-    return [stage_service.Refusal(SUB_RELEASES_NOT_TESTED, {"releases": ", ".join(behind)})]
+    # IDs only here: the guard has no person; `named_for` words it for whoever is moving.
+    return [stage_service.Refusal(SUB_RELEASES_NOT_TESTED, {"release_ids": behind})]
+
+
+async def named_for(
+    session: AsyncSession, subject: Subject | None, refusal: stage_service.Refusal
+) -> stage_service.Refusal:
+    """The sub-release refusal as this person may read it (lane C, the number-leak follow-up).
+
+    The ones they may open are named; any they may not set `others_hidden` and change the code
+    (some hidden, or all hidden), never with their numbers or a count. Other refusals pass.
+    """
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - cycle
+
+    ids = refusal.params.get("release_ids")
+    if refusal.code != SUB_RELEASES_NOT_TESTED or not isinstance(ids, list):
+        return refusal
+    named: list[str] = []
+    hidden = False
+    for raw in ids:
+        found = await session.get(WorkItem, uuid.UUID(str(raw)))
+        # No person (a system move): nothing is named, as for one who sees none of them.
+        if (
+            subject is not None
+            and found is not None
+            and await items.may(session, subject, RELEASE, "view", found.id)
+        ):
+            named.append(found.display_id)
+        else:
+            hidden = True
+    code = (
+        SUB_RELEASES_NOT_TESTED
+        if not hidden
+        else SUB_RELEASES_SOME_HIDDEN
+        if named
+        else SUB_RELEASES_ALL_HIDDEN
+    )
+    return stage_service.Refusal(code, {"releases": ", ".join(named), "others_hidden": hidden})
 
 
 # --- changes in a release (WP-058b S1; REQ-REL-033) ---------------------------------------------
@@ -361,9 +402,22 @@ async def add_change(  # noqa: PLR0913 - the change and its context, explicit
     if held is not None:
         if held[1].id == release.id:
             return held[0]  # already in this release: nothing to do
-        raise items.field_errors(
-            [("change_id", CHANGE_IN_OTHER_RELEASE)],
-            change_id={"release": held[1].display_id},
+        # The other release by number only if the person may open it (lane C); the refusal
+        # itself stands either way, since the change cannot be in two releases.
+        if await items.may(session, subject, RELEASE, "view", held[1].id):
+            raise items.field_errors(
+                [("change_id", CHANGE_IN_OTHER_RELEASE)],
+                change_id={"release": held[1].display_id},
+            )
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.change_id",
+                    code=CHANGE_IN_OTHER_RELEASE,
+                    message_key=f"errors.field.{CHANGE_IN_OTHER_RELEASE}_unseen",
+                    params={},
+                )
+            ]
         )
     link = await parts.LinkRepository(session).add(
         WorkItemLink(source_id=change.id, target_id=release.id, kind=IN_RELEASE)
