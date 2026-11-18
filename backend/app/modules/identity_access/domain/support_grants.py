@@ -5,6 +5,7 @@ the service applies before it touches the database or Keycloak; the database hol
 limits as checks (migration 0179), so a bug in one is caught by the other.
 """
 
+import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -21,6 +22,8 @@ NAME_MAX = 200
 TICKET_MAX = 100
 IP_LIST_MAX = 20
 DEFAULT_EMAIL_DOMAINS = ("extravis.com",)  # lane B (1): an instance setting may widen it
+# Any UUID gives a tag of the same length, so one probe tells whether an address can be tagged.
+_PROBE_ID = uuid.UUID(int=0)
 
 
 class Access(StrEnum):
@@ -102,6 +105,8 @@ def grant_problems(  # noqa: C901, PLR0912 - one check per field, flat, each its
         problems.append(("engineer_email", "invalid_email"))
     elif not domain_allowed(request.engineer_email, allowed_domains):
         problems.append(("engineer_email", "support_email_domain_not_allowed"))
+    elif account_email(request.engineer_email, _PROBE_ID) is None:
+        problems.append(("engineer_email", "support_email_not_taggable"))
     reason = request.reason.strip()
     if not reason or len(reason) > REASON_MAX:
         problems.append(("reason", "required" if not reason else "too_long"))
@@ -146,6 +151,34 @@ def is_open(state: str) -> bool:
 def due_to_end(state: str, ends_at: datetime, now: datetime) -> bool:
     """An open grant whose time is up (the 30-second schedule ends it)."""
     return is_open(state) and ends_at <= now
+
+
+LOCAL_PART_MAX = 64  # RFC 5321: the part before the @
+
+
+def account_email(engineer_email: str, grant_id: uuid.UUID) -> str | None:
+    """The support account's own address, or None when one can't be made (lane B (1)).
+
+    The shared realm allows one account per address (ADR-006, `duplicateEmailsAllowed` false),
+    so the engineer's own address would collide with their account or another tenant's grant. A
+    plus-address (`omar+sx-<grant hex>@extravis.com`) reaches the same mailbox, so Keycloak's
+    verify-e-mail step still proves the engineer (lane B's condition 2). The coordinator chose
+    it (2026-11-19); this one function is what changes if SupportX's own link replaces it.
+
+    Refused: an address that already has a `+` tag, and one whose local part would pass 64
+    characters. The grant ID is a UUIDv7 as lowercase hex (never guessable from a sequence); the
+    domain is the real address's, so the domain check on the real address covers it.
+    """
+    domain = email_domain(engineer_email)
+    if domain is None:
+        return None
+    local = engineer_email.strip().split("@")[0].lower()
+    if "+" in local:
+        return None
+    tagged = f"{local}+sx-{grant_id.hex}"
+    if len(tagged) > LOCAL_PART_MAX:
+        return None
+    return f"{tagged}@{domain}"
 
 
 def support_username(grant_id: str) -> str:

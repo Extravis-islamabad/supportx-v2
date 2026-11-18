@@ -1,6 +1,7 @@
 """Vendor support grants (WP-057 S4c-1, D-173): the pure rules."""
 
 import dataclasses
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from app.modules.identity_access.domain.support_grants import (
@@ -8,6 +9,7 @@ from app.modules.identity_access.domain.support_grants import (
     Access,
     GrantRequest,
     Verification,
+    account_email,
     domain_allowed,
     due_to_end,
     email_domain,
@@ -103,3 +105,25 @@ def test_a_grant_is_due_to_end_once_its_time_is_up() -> None:
 
 def test_the_account_name_is_per_grant() -> None:
     assert support_username("0193") == "extravis-support-0193"
+
+
+def test_the_account_address_is_per_grant_and_reaches_the_same_mailbox() -> None:
+    """Lane B (1): one function, lowercase, the grant's UUID as hex, the real address's domain."""
+    grant = uuid.UUID("0193f0aa-0000-7000-8000-00000000abcd")
+    made = account_email("Omar@Extravis.com", grant)
+    assert made == f"omar+sx-{grant.hex}@extravis.com"
+    assert made is not None
+    assert made.split("@")[1] == "extravis.com"  # same domain as the real address
+    other = account_email("omar@extravis.com", uuid.UUID(int=1))
+    assert other != made  # a second grant, a new address
+
+
+def test_a_tagged_or_too_long_address_is_refused() -> None:
+    """Lane B (1): never a second tag, never past 64 characters before the @."""
+    grant = uuid.UUID(int=7)
+    assert account_email("omar+old@extravis.com", grant) is None
+    assert account_email(("o" * 30) + "@extravis.com", grant) is None  # 30 + 36 > 64
+    assert account_email(("o" * 28) + "@extravis.com", grant) is not None  # 28 + 36 = 64
+    assert "support_email_not_taggable" in _codes(
+        dataclasses.replace(GOOD, engineer_email="omar+x@extravis.com")
+    )
